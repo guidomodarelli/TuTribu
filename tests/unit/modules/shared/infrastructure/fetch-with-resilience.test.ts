@@ -21,73 +21,25 @@ describe("fetchWithResilience", () => {
     expect(response.ok).toBe(true);
   });
 
-  it("does not retry for non-retryable 400 response", async () => {
-    const fetcher: HttpFetcher = jest
-      .fn()
-      .mockResolvedValue({ ok: false, status: 400, json: async () => ({}) });
+  it.each([400, 401, 403, 404])(
+    "does not retry for non-retryable %i response",
+    async (statusCode) => {
+      const fetcher: HttpFetcher = jest
+        .fn()
+        .mockResolvedValue({ ok: false, status: statusCode, json: async () => ({}) });
 
-    const response = await fetchWithResilience(
-      fetcher,
-      "https://api.academia.test/v1/courses",
-      { method: "GET" },
-      { maxRetries: 3, retryDelayMs: 0, timeoutMs: 50 }
-    );
+      const response = await fetchWithResilience(
+        fetcher,
+        "https://api.academia.test/v1/courses",
+        { method: "GET" },
+        { maxRetries: 3, retryDelayMs: 0, timeoutMs: 50 }
+      );
 
-    expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(response.ok).toBe(false);
-    expect(response.status).toBe(400);
-  });
-
-  it("does not retry for non-retryable 404 response", async () => {
-    const fetcher: HttpFetcher = jest
-      .fn()
-      .mockResolvedValue({ ok: false, status: 404, json: async () => ({}) });
-
-    const response = await fetchWithResilience(
-      fetcher,
-      "https://api.academia.test/v1/courses",
-      { method: "GET" },
-      { maxRetries: 3, retryDelayMs: 0, timeoutMs: 50 }
-    );
-
-    expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(response.ok).toBe(false);
-    expect(response.status).toBe(404);
-  });
-
-  it("does not retry for non-retryable 401 response", async () => {
-    const fetcher: HttpFetcher = jest
-      .fn()
-      .mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
-
-    const response = await fetchWithResilience(
-      fetcher,
-      "https://api.academia.test/v1/courses",
-      { method: "GET" },
-      { maxRetries: 3, retryDelayMs: 0, timeoutMs: 50 }
-    );
-
-    expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(response.ok).toBe(false);
-    expect(response.status).toBe(401);
-  });
-
-  it("does not retry for non-retryable 403 response", async () => {
-    const fetcher: HttpFetcher = jest
-      .fn()
-      .mockResolvedValue({ ok: false, status: 403, json: async () => ({}) });
-
-    const response = await fetchWithResilience(
-      fetcher,
-      "https://api.academia.test/v1/courses",
-      { method: "GET" },
-      { maxRetries: 3, retryDelayMs: 0, timeoutMs: 50 }
-    );
-
-    expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(response.ok).toBe(false);
-    expect(response.status).toBe(403);
-  });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(response.ok).toBe(false);
+      expect(response.status).toBe(statusCode);
+    }
+  );
 
   it("throws timeout error when request exceeds timeout", async () => {
     const fetcher: HttpFetcher = jest.fn((_, init) => {
