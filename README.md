@@ -20,6 +20,37 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment Variables
+
+Create a local environment file (`.env.local`) based on `.env.example` and set these values:
+
+- `NEXTAUTH_URL`: Base URL of the app. NextAuth uses it for callbacks and authentication redirects.
+	- Local development example: `http://localhost:3000`
+- `NEXTAUTH_SECRET`: Private secret used by NextAuth to sign and encrypt session tokens/cookies.
+	- Required for secure session handling.
+	- If this value changes, current sessions become invalid and users must sign in again.
+- `GOOGLE_CLIENT_ID`: OAuth client ID from Google Cloud Console.
+- `GOOGLE_CLIENT_SECRET`: OAuth client secret from Google Cloud Console.
+
+### How to generate `NEXTAUTH_SECRET`
+
+Use a strong random value (at least 32 bytes). For example:
+
+```bash
+openssl rand -base64 32
+```
+
+Then set it in your local env file:
+
+```dotenv
+NEXTAUTH_SECRET=your_generated_secret
+```
+
+Security notes:
+
+- Never commit real secrets to the repository.
+- In production, configure these values in your deployment provider's environment settings.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
