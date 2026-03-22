@@ -1,8 +1,10 @@
-import { listCourses } from "@/src/features/courses/repository";
+import { createListCoursesUseCase } from "@/src/modules/courses/infrastructure/composition/create-list-courses-use-case";
 
-describe("listCourses", () => {
+describe("createListCoursesUseCase", () => {
   it("returns the course summaries expected by the UI", async () => {
-    await expect(listCourses()).resolves.toEqual(
+    const useCase = createListCoursesUseCase();
+
+    await expect(useCase.execute()).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: expect.any(String),

@@ -26,6 +26,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Do not create or reintroduce a generic `src/server` layer. Server-only code must belong to a feature module or to a dedicated shared module under `src/modules`.
 - Keep all technical identifiers in English: folders, files, modules, symbols, DTOs, ports, adapters, tests, and comments.
 
+### Migration mandate (Immediate cutover)
+
+- `src/features` is deprecated and forbidden for new code.
+- New and modified business code must live under `src/modules/<feature>/{domain,application,infrastructure}`.
+- Any change that touches a route entrypoint importing from `src/features` must migrate that entrypoint to `src/modules` in the same work item.
+- `src/features` cannot be used as an integration layer for new adapters; adapter composition must happen in module-scoped `infrastructure/composition/*`.
+- Route entrypoints must consume use cases from `application` and must not import repository implementations directly.
+- Add and keep a CI/static check that fails on imports matching `@/src/features/`.
+
 ### Dependency rule
 
 - Dependencies must always point inward.
@@ -280,6 +289,10 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 - Never place test files inside `app`, because App Router can treat colocated special files as route artifacts and it keeps entrypoints harder to scan.
 - When functionality changes, add or update the corresponding tests in the same work item.
 - Prefer mocks at the port boundary, not at low-level vendor internals, unless the test is explicitly for an adapter.
+- During migration, each moved feature must include at least:
+  - application use-case tests using domain ports doubles
+  - infrastructure adapter or mapper tests for DTO to entity mapping
+  - route-level tests to verify entrypoint wiring still renders expected UI output
 
 ## 7. Implementation Checklist
 
@@ -290,6 +303,8 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 - Are external DTOs isolated in infrastructure?
 - Are UI-facing models isolated from vendor payloads?
 - Are domain input shapes modeled as value objects and application outputs modeled as `results/` contracts?
+- Do all route entrypoints avoid imports from `src/features` and direct repository implementations?
+- Is dependency composition centralized in module `infrastructure/composition` and consumed from route entrypoints only?
 - Was `shadcn/ui` added through the CLI only?
 - Are product styles implemented with `SCSS`?
 - Are Google tokens and secrets kept server-side only?

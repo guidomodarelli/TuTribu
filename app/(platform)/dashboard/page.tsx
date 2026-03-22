@@ -8,9 +8,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { listCalendarEvents } from "@/src/features/calendar/repository";
-import { listCommunityPosts } from "@/src/features/community/repository";
-import { listCourses } from "@/src/features/courses/repository";
+import { createListCalendarEventsUseCase } from "@/src/modules/calendar/infrastructure/composition/create-list-calendar-events-use-case";
+import { createListCommunityPostsUseCase } from "@/src/modules/community/infrastructure/composition/create-list-community-posts-use-case";
+import { createListCoursesUseCase } from "@/src/modules/courses/infrastructure/composition/create-list-courses-use-case";
 
 const dashboardSections = [
   {
@@ -31,10 +31,14 @@ const dashboardSections = [
 ] as const;
 
 export default async function DashboardPage() {
+  const listCoursesUseCase = createListCoursesUseCase();
+  const listCommunityPostsUseCase = createListCommunityPostsUseCase();
+  const listCalendarEventsUseCase = createListCalendarEventsUseCase();
+
   const [courses, posts, events] = await Promise.all([
-    listCourses(),
-    listCommunityPosts(),
-    listCalendarEvents(),
+    listCoursesUseCase.execute(),
+    listCommunityPostsUseCase.execute(),
+    listCalendarEventsUseCase.execute(),
   ]);
 
   const stats = [

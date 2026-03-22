@@ -1,8 +1,10 @@
-import { listCommunityPosts } from "@/src/features/community/repository";
+import { createListCommunityPostsUseCase } from "@/src/modules/community/infrastructure/composition/create-list-community-posts-use-case";
 
-describe("listCommunityPosts", () => {
+describe("createListCommunityPostsUseCase", () => {
   it("returns community posts with nested author information", async () => {
-    await expect(listCommunityPosts()).resolves.toEqual(
+    const useCase = createListCommunityPostsUseCase();
+
+    await expect(useCase.execute()).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: expect.any(String),

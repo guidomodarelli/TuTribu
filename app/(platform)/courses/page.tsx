@@ -5,10 +5,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { listCourses } from "@/src/features/courses/repository";
+import { createListCoursesUseCase } from "@/src/modules/courses/infrastructure/composition/create-list-courses-use-case";
 
 export default async function CoursesPage() {
-  const courses = await listCourses();
+  const listCoursesUseCase = createListCoursesUseCase();
+  const courses = await listCoursesUseCase.execute();
 
   return (
     <section className="space-y-6">

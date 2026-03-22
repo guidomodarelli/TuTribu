@@ -5,10 +5,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { listCalendarEvents } from "@/src/features/calendar/repository";
+import { createListCalendarEventsUseCase } from "@/src/modules/calendar/infrastructure/composition/create-list-calendar-events-use-case";
 
 export default async function CalendarPage() {
-  const events = await listCalendarEvents();
+  const listCalendarEventsUseCase = createListCalendarEventsUseCase();
+  const events = await listCalendarEventsUseCase.execute();
 
   return (
     <section className="space-y-6">

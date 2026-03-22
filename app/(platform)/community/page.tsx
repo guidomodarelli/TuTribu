@@ -9,10 +9,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { listCommunityPosts } from "@/src/features/community/repository";
+import { createListCommunityPostsUseCase } from "@/src/modules/community/infrastructure/composition/create-list-community-posts-use-case";
 
 export default async function CommunityPage() {
-  const posts = await listCommunityPosts();
+  const listCommunityPostsUseCase = createListCommunityPostsUseCase();
+  const posts = await listCommunityPostsUseCase.execute();
 
   return (
     <section className="space-y-6">
