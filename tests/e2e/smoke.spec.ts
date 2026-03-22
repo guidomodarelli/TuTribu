@@ -10,12 +10,13 @@ test("loads the home scaffold", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("loads the dashboard placeholder", async ({ page }) => {
+test("redirects anonymous users to Google sign-in before dashboard", async ({ page }) => {
   await page.goto("/dashboard");
 
+  await expect(page).toHaveURL(/\/auth\/signin\?callbackUrl=%2Fdashboard/i);
   await expect(
     page.getByRole("heading", {
-      name: /a stable control room for the next product phase/i,
+      name: /continue with google/i,
     })
   ).toBeVisible();
 });
