@@ -14,18 +14,18 @@ import { createListCoursesUseCase } from "@/src/modules/courses/infrastructure/c
 
 const dashboardSections = [
   {
-    title: "Curriculum momentum",
-    description: "Courses are modeled as reusable summaries to support catalog and cohort views.",
+    title: "Impulso del plan de estudios",
+    description: "Los cursos se modelan como resumenes reutilizables para vistas de catalogo y cohorte.",
     icon: NotebookTabs,
   },
   {
-    title: "Conversation pulse",
-    description: "Community discussions already have author identity and engagement counts.",
+    title: "Pulso de conversaciones",
+    description: "Las conversaciones de comunidad ya incluyen identidad de autor y metricas de interaccion.",
     icon: MessageSquareText,
   },
   {
-    title: "Events rhythm",
-    description: "Calendar entries are shaped for upcoming sessions and operational planning.",
+    title: "Ritmo de eventos",
+    description: "Las entradas de calendario ya estan preparadas para sesiones proximas y planificacion operativa.",
     icon: CalendarClock,
   },
 ] as const;
@@ -42,24 +42,25 @@ export default async function DashboardPage() {
   ]);
 
   const stats = [
-    { label: "Courses", value: courses.length.toString().padStart(2, "0") },
-    { label: "Posts", value: posts.length.toString().padStart(2, "0") },
-    { label: "Events", value: events.length.toString().padStart(2, "0") },
+    { label: "Cursos", value: courses.length.toString().padStart(2, "0") },
+    { label: "Publicaciones", value: posts.length.toString().padStart(2, "0") },
+    { label: "Eventos", value: events.length.toString().padStart(2, "0") },
   ];
 
   return (
     <section className="space-y-6">
       <header className="space-y-3">
         <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted-foreground">
-          Dashboard placeholder
+          Placeholder del panel
         </p>
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">
-            A stable control room for the next product phase.
+            Una sala de control estable para la siguiente fase del producto.
           </h1>
           <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-            This dashboard is intentionally lightweight. Its job is to prove the
-            route structure, domain contracts, and reusable UI foundations.
+            Este panel es intencionalmente liviano. Su objetivo es validar la
+            estructura de rutas, los contratos de dominio y los fundamentos de
+            interfaz reutilizable.
           </p>
         </div>
       </header>
@@ -78,9 +79,9 @@ export default async function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <Card className="border-border/80 bg-card/88">
           <CardHeader>
-            <CardTitle>Feature readiness</CardTitle>
+            <CardTitle>Estado de funcionalidades</CardTitle>
             <CardDescription>
-              Each area already exposes a read contract that can swap mocks for a real service later.
+              Cada area ya expone un contrato de lectura que luego puede reemplazar mocks por un servicio real.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -107,24 +108,26 @@ export default async function DashboardPage() {
 
         <Card className="border-border/80 bg-secondary/75">
           <CardHeader>
-            <CardTitle>Next likely step</CardTitle>
+            <CardTitle>Siguiente paso probable</CardTitle>
             <CardDescription>
-              Connect the existing contracts to authentication and persistence.
+              Conectar los contratos existentes con autenticacion y persistencia.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm leading-6 text-muted-foreground">
             <p>
-              The codebase is already arranged so the UI does not need a major rewrite
-              when replacing mock repositories with Supabase or another backend.
+              El codebase ya esta ordenado para que la interfaz no requiera una
+              reescritura grande cuando se reemplacen repositorios mock por
+              Supabase u otro backend.
             </p>
             <div className="rounded-2xl bg-background/80 p-4 text-foreground">
               <p className="flex items-center gap-2 font-medium">
-                Suggested direction
+                Direccion sugerida
                 <ArrowUpRight className="size-4" />
               </p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Add auth and persistence behind the current repository signatures,
-                then evolve the placeholder pages into member-ready flows.
+                Agrega autenticacion y persistencia detras de las firmas actuales
+                de repositorio y luego evoluciona las paginas placeholder hacia
+                flujos listos para miembros.
               </p>
             </div>
           </CardContent>

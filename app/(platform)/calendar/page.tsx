@@ -5,7 +5,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { CalendarEventKind } from "@/src/modules/calendar/domain/entities/calendar-event";
 import { createListCalendarEventsUseCase } from "@/src/modules/calendar/infrastructure/composition/create-list-calendar-events-use-case";
+
+const calendarEventKindLabelByKind: Record<CalendarEventKind, string> = {
+  "Office Hours": "Horas de consulta",
+  Workshop: "Taller",
+  "Sprint Review": "Revision de sprint",
+};
 
 export default async function CalendarPage() {
   const listCalendarEventsUseCase = createListCalendarEventsUseCase();
@@ -15,10 +22,10 @@ export default async function CalendarPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted-foreground">
-          Calendar
+          Calendario
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">
-          Upcoming events already flow through a dedicated contract.
+          Los proximos eventos ya fluyen por un contrato dedicado.
         </h1>
       </header>
 
@@ -26,13 +33,13 @@ export default async function CalendarPage() {
         {events.map((event) => (
           <Card key={event.id} className="border-border/80 bg-card/88">
             <CardHeader>
-              <CardDescription>{event.kind}</CardDescription>
+              <CardDescription>{calendarEventKindLabelByKind[event.kind]}</CardDescription>
               <CardTitle>{event.title}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
               <p>{event.description}</p>
-              <p>Starts at: {event.startAt}</p>
-              <p>Location: {event.location}</p>
+              <p>Comienza: {event.startAt}</p>
+              <p>Ubicacion: {event.location}</p>
             </CardContent>
           </Card>
         ))}

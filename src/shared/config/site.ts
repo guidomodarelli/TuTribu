@@ -1,11 +1,11 @@
 export const siteConfig = {
   name: "AcademiaOnline",
   description:
-    "Technical scaffold for a Skool-inspired community platform built with Next.js.",
+    "Base tecnica para una plataforma de comunidad inspirada en Skool y construida con Next.js.",
   platformNavigation: [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/courses", label: "Courses" },
-    { href: "/community", label: "Community" },
-    { href: "/calendar", label: "Calendar" },
+    { href: "/dashboard", label: "Panel" },
+    { href: "/courses", label: "Cursos" },
+    { href: "/community", label: "Comunidad" },
+    { href: "/calendar", label: "Calendario" },
   ],
 } as const;

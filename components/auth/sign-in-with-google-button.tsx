@@ -19,7 +19,7 @@ export function SignInWithGoogleButton({
       onClick={handleGoogleSignIn}
       className="mt-6 inline-flex w-full items-center justify-center rounded-full border border-border/80 bg-secondary/80 px-5 py-3 text-sm font-medium text-secondary-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
     >
-      Sign in with Google
+      Iniciar sesion con Google
     </button>
   );
 }

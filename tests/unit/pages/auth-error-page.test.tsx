@@ -48,13 +48,13 @@ describe("AuthErrorPage", () => {
 
     render(await AuthErrorPage());
 
-    expect(screen.getByText(/authentication error/i)).toBeInTheDocument();
+    expect(screen.getByText(/error de autenticacion/i)).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: /we could not complete google sign-in/i,
+        name: /no pudimos completar el acceso con google/i,
       })
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /back to sign-in/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /volver a iniciar sesion/i })).toHaveAttribute(
       "href",
       "/auth/signin"
     );

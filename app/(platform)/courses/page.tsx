@@ -5,7 +5,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { CourseStatus } from "@/src/modules/courses/domain/entities/course";
 import { createListCoursesUseCase } from "@/src/modules/courses/infrastructure/composition/create-list-courses-use-case";
+
+const courseStatusLabelByStatus: Record<CourseStatus, string> = {
+  Draft: "Borrador",
+  Open: "Abierto",
+  Scheduled: "Programado",
+};
 
 export default async function CoursesPage() {
   const listCoursesUseCase = createListCoursesUseCase();
@@ -15,10 +22,10 @@ export default async function CoursesPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted-foreground">
-          Courses
+          Cursos
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">
-          Typed course summaries are already available to the UI.
+          Los resumenes tipados de cursos ya estan disponibles para la interfaz.
         </h1>
       </header>
 
@@ -32,8 +39,8 @@ export default async function CoursesPage() {
             <CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
               <p>{course.description}</p>
               <p>Instructor: {course.instructorName}</p>
-              <p>Lessons: {course.lessonCount}</p>
-              <p>Status: {course.status}</p>
+              <p>Lecciones: {course.lessonCount}</p>
+              <p>Estado: {courseStatusLabelByStatus[course.status]}</p>
             </CardContent>
           </Card>
         ))}

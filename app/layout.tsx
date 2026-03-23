@@ -16,7 +16,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "AcademiaOnline",
   description:
-    "Technical scaffold for AcademiaOnline, a Skool-inspired learning community.",
+    "Base tecnica para AcademiaOnline, una comunidad de aprendizaje inspirada en Skool.",
 };
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="es"
       data-scroll-behavior="smooth"
       className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >

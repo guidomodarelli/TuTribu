@@ -3,43 +3,43 @@ import type { CommunityPostDto } from "./community-post-dto";
 export const communityPostMockDtos: CommunityPostDto[] = [
   {
     id: "post-weekly-wins",
-    title: "Weekly wins and shipping notes",
+    title: "Avances semanales y notas de entrega",
     excerpt:
-      "Members use this space to share what moved forward during the week and what still needs sharper execution.",
+      "Los miembros usan este espacio para compartir que avanzo durante la semana y que aun necesita mejor ejecucion.",
     replyCount: 18,
-    publishedAt: "Monday, March 17",
+    publishedAt: "Lunes, 17 de marzo",
     author: {
       id: "member-sofia",
       name: "Sofia Calderon",
-      role: "Community Host",
+      role: "Anfitrion de comunidad",
       avatarFallback: "SC",
     },
   },
   {
     id: "post-course-feedback",
-    title: "Feedback thread for the new launch module",
+    title: "Hilo de feedback para el nuevo modulo de lanzamiento",
     excerpt:
-      "A focused thread for improving pacing, examples, and implementation notes before the next cohort opens.",
+      "Un hilo enfocado en mejorar ritmo, ejemplos y notas de implementacion antes de abrir la siguiente cohorte.",
     replyCount: 9,
-    publishedAt: "Wednesday, March 19",
+    publishedAt: "Miercoles, 19 de marzo",
     author: {
       id: "member-ramiro",
       name: "Ramiro Velez",
-      role: "Growth Mentor",
+      role: "Mentor de crecimiento",
       avatarFallback: "RV",
     },
   },
   {
     id: "post-accountability",
-    title: "Accountability checkpoints for builders",
+    title: "Checkpoints de responsabilidad para builders",
     excerpt:
-      "Members document the one commitment they will finish before the next office hours and why it matters now.",
+      "Los miembros documentan el compromiso que cerraran antes de la siguiente hora de consulta y por que importa ahora.",
     replyCount: 13,
-    publishedAt: "Friday, March 21",
+    publishedAt: "Viernes, 21 de marzo",
     author: {
       id: "member-valentina",
       name: "Valentina Arias",
-      role: "Member",
+      role: "Miembro",
       avatarFallback: "VA",
     },
   },

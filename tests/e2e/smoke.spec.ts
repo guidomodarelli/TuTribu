@@ -5,7 +5,7 @@ test("loads the home scaffold", async ({ page }) => {
 
   await expect(
     page.getByRole("heading", {
-      name: /academiaonline is ready to evolve into a focused online community platform/i,
+      name: /academiaonline esta lista para evolucionar hacia una plataforma online de comunidad enfocada/i,
     })
   ).toBeVisible();
 });
@@ -16,7 +16,7 @@ test("redirects anonymous users to Google sign-in before dashboard", async ({ pa
   await expect(page).toHaveURL(/\/auth\/signin\?callbackUrl=%2Fdashboard/i);
   await expect(
     page.getByRole("heading", {
-      name: /continue with google/i,
+      name: /continuar con google/i,
     })
   ).toBeVisible();
 });

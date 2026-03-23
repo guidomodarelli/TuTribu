@@ -126,7 +126,7 @@ describe("SignInPage", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /sign in with google/i,
+        name: /iniciar sesion con google/i,
       })
     );
 
@@ -146,7 +146,7 @@ describe("SignInPage", () => {
       })
     );
 
-    await user.click(screen.getByRole("button", { name: /sign in with google/i }));
+    await user.click(screen.getByRole("button", { name: /iniciar sesion con google/i }));
 
     expect(signInMock).toHaveBeenCalledWith("google", {
       callbackUrl: "/calendar",
@@ -164,7 +164,7 @@ describe("SignInPage", () => {
       })
     );
 
-    await user.click(screen.getByRole("button", { name: /sign in with google/i }));
+    await user.click(screen.getByRole("button", { name: /iniciar sesion con google/i }));
 
     expect(signInMock).toHaveBeenCalledWith("google", {
       callbackUrl: "/dashboard",

@@ -3,29 +3,29 @@ import type { CalendarEventDto } from "./calendar-event-dto";
 export const calendarEventMockDtos: CalendarEventDto[] = [
   {
     id: "event-office-hours",
-    title: "Operator Office Hours",
+    title: "Horas de consulta para operadores",
     description:
-      "A live Q&A to unblock members on systems, offers, and execution bottlenecks.",
+      "Una sesion en vivo de preguntas y respuestas para destrabar a miembros en sistemas, ofertas y cuellos de botella de ejecucion.",
     startAt: "2026-03-24 18:00 UTC",
-    location: "Live room",
+    location: "Sala en vivo",
     kind: "Office Hours",
   },
   {
     id: "event-workshop",
-    title: "Cohort Launch Workshop",
+    title: "Taller de lanzamiento de cohorte",
     description:
-      "A guided session to align positioning, pricing, and onboarding before launch week.",
+      "Una sesion guiada para alinear posicionamiento, precio y onboarding antes de la semana de lanzamiento.",
     startAt: "2026-03-27 16:00 UTC",
-    location: "Main workshop space",
+    location: "Espacio principal de talleres",
     kind: "Workshop",
   },
   {
     id: "event-sprint-review",
-    title: "Builder Sprint Review",
+    title: "Revision de sprint para builders",
     description:
-      "A short review cycle to share progress and clarify the next high-leverage task.",
+      "Un ciclo corto de revision para compartir avances y clarificar la siguiente tarea de mayor impacto.",
     startAt: "2026-03-29 14:00 UTC",
-    location: "Community hub",
+    location: "Hub de comunidad",
     kind: "Sprint Review",
   },
 ];

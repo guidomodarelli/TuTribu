@@ -152,6 +152,14 @@ npx shadcn@latest add button
 - Never hand-copy `shadcn/ui` components from documentation or other repositories.
 - Keep generated `shadcn/ui` components close to their defaults and customize behavior through composition first.
 
+### Product language policy
+
+- All user-facing product text must be in Spanish.
+- This requirement applies to: headings, paragraphs, labels, placeholders, button text, navigation labels, toast messages, empty states, and error messages shown in UI.
+- Any external/provider message must be mapped to a safe Spanish message before rendering in UI.
+- Internal identifiers, symbols, module names, DTO names, and code-level technical terms must remain in English.
+- Tests covering UI text must be updated in the same work item to keep Spanish copy as the default behavior.
+
 ### Toast notifications baseline
 
 - Use `Sonner` integrated with `shadcn/ui` as the standard notification system for user-facing events.

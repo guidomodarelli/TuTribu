@@ -11,6 +11,13 @@ import {
 } from "@/components/ui/card";
 import { createListCommunityPostsUseCase } from "@/src/modules/community/infrastructure/composition/create-list-community-posts-use-case";
 
+const roleLabelByRole: Record<string, string> = {
+  "Community Host": "Anfitrion de comunidad",
+  "Growth Mentor": "Mentor de crecimiento",
+  Host: "Anfitrion",
+  Member: "Miembro",
+};
+
 export default async function CommunityPage() {
   const listCommunityPostsUseCase = createListCommunityPostsUseCase();
   const posts = await listCommunityPostsUseCase.execute();
@@ -19,10 +26,10 @@ export default async function CommunityPage() {
     <section className="space-y-6">
       <header className="space-y-2">
         <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted-foreground">
-          Community
+          Comunidad
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">
-          Discussions are already modeled with member identity and engagement.
+          Las discusiones ya estan modeladas con identidad de miembro e interaccion.
         </h1>
       </header>
 
@@ -37,7 +44,7 @@ export default async function CommunityPage() {
                 <div className="space-y-1">
                   <p className="font-medium">{post.author.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {post.author.role}
+                    {roleLabelByRole[post.author.role] ?? post.author.role}
                   </p>
                 </div>
               </div>
@@ -48,7 +55,7 @@ export default async function CommunityPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
               <p>{post.excerpt}</p>
-              <p>Replies: {post.replyCount}</p>
+              <p>Respuestas: {post.replyCount}</p>
             </CardContent>
           </Card>
         ))}

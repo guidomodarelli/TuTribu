@@ -8,11 +8,11 @@ describe("DashboardPage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /a stable control room for the next product phase/i,
+        name: /una sala de control estable para la siguiente fase del producto/i,
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("Courses")).toBeInTheDocument();
-    expect(screen.getByText("Posts")).toBeInTheDocument();
-    expect(screen.getByText("Events")).toBeInTheDocument();
+    expect(screen.getByText("Cursos")).toBeInTheDocument();
+    expect(screen.getByText("Publicaciones")).toBeInTheDocument();
+    expect(screen.getByText("Eventos")).toBeInTheDocument();
   });
 });

@@ -13,21 +13,21 @@ import { siteConfig } from "@/src/shared/config/site";
 
 const featureCards = [
   {
-    title: "Structured learning paths",
+    title: "Rutas de aprendizaje estructuradas",
     description:
-      "Build a modular curriculum with course overviews, progress entry points, and dedicated spaces for each cohort.",
+      "Construye un plan modular con vistas de cursos, puntos de avance y espacios dedicados para cada cohorte.",
     icon: GraduationCap,
   },
   {
-    title: "Focused member conversations",
+    title: "Conversaciones de miembros enfocadas",
     description:
-      "Keep discussions threaded around wins, blockers, and weekly goals without coupling the UI to a backend yet.",
+      "Mantiene discusiones sobre avances, bloqueos y objetivos semanales sin acoplar aun la interfaz a un backend.",
     icon: MessagesSquare,
   },
   {
-    title: "Events with clear cadence",
+    title: "Eventos con cadencia clara",
     description:
-      "Reserve room for live sessions, office hours, and asynchronous follow-ups through a single calendar surface.",
+      "Reserva espacio para sesiones en vivo, horas de consulta y seguimientos asincronos en una sola vista de calendario.",
     icon: CalendarDays,
   },
 ] as const;
@@ -46,40 +46,40 @@ export default function HomePage() {
           <header className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
             <div className="max-w-2xl space-y-5">
               <p className="font-mono text-sm uppercase tracking-[0.22em] text-muted-foreground">
-                Technical scaffold
+                Base tecnica
               </p>
               <div className="space-y-4">
                 <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance md:text-6xl">
-                  {siteConfig.name} is ready to evolve into a focused online
-                  community platform.
+                  {siteConfig.name} esta lista para evolucionar hacia una
+                  plataforma online de comunidad enfocada.
                 </h1>
                 <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-                  This first iteration prioritizes architecture, typed feature
-                  modules, and a reliable testing baseline instead of shipping a
-                  full product flow.
+                  Esta primera iteracion prioriza arquitectura, modulos tipados
+                  por funcionalidad y una base de pruebas confiable antes de
+                  lanzar un flujo completo de producto.
                 </p>
               </div>
             </div>
             <div className="rounded-3xl border border-border/80 bg-secondary/70 p-5 md:max-w-xs">
               <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                Included from day one
+                Incluido desde el primer dia
               </p>
               <ul className="mt-4 space-y-3 text-sm leading-6 text-secondary-foreground">
-                <li>Next.js 16.2.0 with App Router and TypeScript</li>
-                <li>Jest + Testing Library for unit coverage</li>
-                <li>Playwright smoke tests for browser validation</li>
-                <li>Mock-first domain contracts for future backend work</li>
+                <li>Next.js 16.2.0 con App Router y TypeScript</li>
+                <li>Jest + Testing Library para cobertura unitaria</li>
+                <li>Pruebas smoke con Playwright para validar navegador</li>
+                <li>Contratos de dominio mock-first para backend futuro</li>
               </ul>
             </div>
           </header>
 
           <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <Link href="/dashboard" className={primaryLinkClassName}>
-              Open dashboard scaffold
+              Abrir base del panel
               <ArrowRight className="size-4" />
             </Link>
             <Link href="/courses" className={secondaryLinkClassName}>
-              Review feature placeholders
+              Revisar placeholders de funcionalidades
             </Link>
           </div>
         </div>
@@ -90,7 +90,7 @@ export default function HomePage() {
         className="mt-10 grid gap-4 md:grid-cols-3"
       >
         <h2 id="feature-foundation" className="sr-only">
-          Foundation modules
+          Modulos base
         </h2>
         {featureCards.map(({ title, description, icon: Icon }) => (
           <Card key={title} className="border-border/80 bg-card/85 backdrop-blur">
@@ -110,46 +110,47 @@ export default function HomePage() {
       <section className="mt-10 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <Card className="border-border/80 bg-card/88 backdrop-blur">
           <CardHeader>
-            <CardTitle>What this scaffold already models</CardTitle>
+            <CardTitle>Lo que esta base ya modela</CardTitle>
             <CardDescription>
-              The app surface is intentionally thin, but the domain layer is not.
+              La superficie de la app es intencionalmente liviana, pero la capa de dominio no.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 text-sm text-muted-foreground md:grid-cols-2">
             <div className="rounded-2xl bg-secondary/80 p-4">
               <p className="font-medium text-secondary-foreground">
-                Courses module
+                Modulo de cursos
               </p>
               <p className="mt-2 leading-6">
-                Typed summaries and a repository contract to support catalogs,
-                cohorts, and lesson metadata.
+                Resumenes tipados y un contrato de repositorio para soportar
+                catalogos, cohortes y metadatos de lecciones.
               </p>
             </div>
             <div className="rounded-2xl bg-secondary/80 p-4">
               <p className="font-medium text-secondary-foreground">
-                Community module
+                Modulo de comunidad
               </p>
               <p className="mt-2 leading-6">
-                Member-facing posts are represented independently from the UI,
-                ready for a future API or realtime layer.
+                Las publicaciones para miembros se representan de forma
+                independiente de la interfaz, listas para una futura API o
+                capa en tiempo real.
               </p>
             </div>
             <div className="rounded-2xl bg-secondary/80 p-4">
               <p className="font-medium text-secondary-foreground">
-                Calendar module
+                Modulo de calendario
               </p>
               <p className="mt-2 leading-6">
-                Event summaries are already shaped for upcoming sessions, office
-                hours, and launches.
+                Los resumenes de eventos ya estan preparados para sesiones
+                proximas, horas de consulta y lanzamientos.
               </p>
             </div>
             <div className="rounded-2xl bg-secondary/80 p-4">
               <p className="font-medium text-secondary-foreground">
-                Shared foundations
+                Fundamentos compartidos
               </p>
               <p className="mt-2 leading-6">
-                Reusable UI, consistent paths, and test coverage around
-                contracts and smoke navigation.
+                Interfaz reutilizable, rutas consistentes y cobertura de pruebas
+                sobre contratos y navegacion smoke.
               </p>
             </div>
           </CardContent>
@@ -157,16 +158,16 @@ export default function HomePage() {
 
         <Card className="border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(234,245,246,0.75))]">
           <CardHeader>
-            <CardTitle>Waitlist placeholder</CardTitle>
+            <CardTitle>Placeholder de lista de espera</CardTitle>
             <CardDescription>
-              A non-functional form to reserve the marketing space that will come
-              later in the product roadmap.
+              Un formulario no funcional para reservar el espacio de marketing
+              que llegara mas adelante en la hoja de ruta del producto.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4" aria-label="Waitlist placeholder">
+            <form className="space-y-4" aria-label="Placeholder de lista de espera">
               <label className="block space-y-2 text-sm font-medium">
-                Email address
+                Correo electronico
                 <Input
                   type="email"
                   placeholder="community@academiaonline.dev"
@@ -174,8 +175,9 @@ export default function HomePage() {
                 />
               </label>
               <p id="waitlist-help" className="text-sm leading-6 text-muted-foreground">
-                This form stays intentionally disconnected. The first release is
-                about structure and confidence, not lead capture yet.
+                Este formulario se mantiene intencionalmente desconectado. La
+                primera entrega trata sobre estructura y confianza, no sobre
+                captacion de leads todavia.
               </p>
             </form>
           </CardContent>
