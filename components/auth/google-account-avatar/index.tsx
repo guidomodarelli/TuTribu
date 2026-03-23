@@ -21,7 +21,7 @@ export function GoogleAccountAvatar({
 }: GoogleAccountAvatarProps) {
   return (
     <div className={styles.GoogleAccountAvatar}>
-      <Avatar size="sm">
+      <Avatar size="lg">
         {image ? <AvatarImage alt={name} src={image} /> : null}
         <AvatarFallback>{fallback}</AvatarFallback>
       </Avatar>
@@ -29,7 +29,9 @@ export function GoogleAccountAvatar({
         <span className={styles.GoogleAccountAvatar__name}>{name}</span>
         <span className={styles.GoogleAccountAvatar__email}>{email}</span>
       </span>
-      <ChevronsUpDownIcon aria-hidden className={styles.GoogleAccountAvatar__chevron} />
+      <span className={styles.GoogleAccountAvatar__chevronSlot}>
+        <ChevronsUpDownIcon aria-hidden className={styles.GoogleAccountAvatar__chevron} />
+      </span>
     </div>
   );
 }
