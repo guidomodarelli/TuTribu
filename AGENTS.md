@@ -186,7 +186,46 @@ npx shadcn@latest add button
   - `*.module.scss` for component-scoped styles
   - `src/styles/*` for global styles, tokens, mixins, and layout primitives
 - Avoid inline styles except for rare runtime-only values.
-- Tailwind remains available only because it is part of the official `shadcn/ui` setup. Product styling should default to `SCSS`.
+- Tailwind utility classes are forbidden in product code (`app`, `components`, and `src` feature modules) and must be replaced with `SCSS` classes.
+- Tailwind is allowed only for the base setup required by official `shadcn/ui` generated components and the related official configuration in `components.json`.
+
+### CSS architecture baseline (BEM mandatory)
+
+- BEM is mandatory for all product classes defined in `*.module.scss` files.
+- Use this naming structure:
+  - `Block`: standalone component root (example: `.CourseCard`)
+  - `Block__Element`: internal part of the block (example: `.CourseCard__title`)
+  - `Block--Modifier` or `Block__Element--Modifier`: visual/state variant (example: `.CourseCard--featured`, `.CourseCard__title--muted`)
+- Each component must expose one clear root block class and keep all child styles scoped to that block.
+- Use SCSS nesting only when anchored to the current selector with `&` so BEM names stay explicit and predictable.
+- Do not create styles from HTML tags (`div`, `button`, `h1`) as primary selectors inside module files; use BEM classes instead.
+- Do not encode business logic in class names; class names must describe structure and visual state only.
+- Suggested SCSS pattern:
+
+```scss
+.CourseCard {
+  &__title {
+    font-weight: 600;
+  }
+
+  &__meta {
+    color: var(--muted-foreground);
+  }
+
+  &--featured {
+    border: 2px solid var(--primary);
+  }
+}
+```
+
+- Suggested JSX usage:
+
+```tsx
+<article className={styles.CourseCard}>
+  <h2 className={styles.CourseCard__title}>Introduccion a Algebra</h2>
+  <p className={styles.CourseCard__meta}>Actualizado hoy</p>
+</article>
+```
 
 ## 4. Server-First Data Flow
 
@@ -318,5 +357,7 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 - Is dependency composition centralized in module `infrastructure/composition` and consumed from route entrypoints only?
 - Was `shadcn/ui` added through the CLI only?
 - Are product styles implemented with `SCSS`?
+- Are all product styles using mandatory BEM naming in `*.module.scss` files?
+- Are Tailwind utility classes absent from product code outside official `shadcn/ui` base components and `components.json` setup?
 - Are Google tokens and secrets kept server-side only?
 - Were tests written first and left green at the end?

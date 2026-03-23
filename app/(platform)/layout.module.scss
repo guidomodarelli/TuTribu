@@ -1,0 +1,43 @@
+.PlatformLayout {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+
+  &__header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    height: 3.5rem;
+    align-items: center;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    background-color: color-mix(in oklch, var(--background) 80%, transparent);
+    padding-inline: 1rem;
+    backdrop-filter: blur(8px);
+  }
+
+  &__trigger {
+    margin-left: -0.25rem;
+  }
+
+  &__title {
+    margin-left: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+
+  &__content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+}
+
+@media (min-width: 1024px) {
+  .PlatformLayout {
+    &__header {
+      padding-inline: 1.5rem;
+    }
+  }
+}

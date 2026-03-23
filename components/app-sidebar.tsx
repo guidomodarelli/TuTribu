@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import { siteConfig } from "@/src/shared/config/site";
 import { AvatarSessionMenu } from "@/components/auth/avatar-session-menu";
+import styles from "./app-sidebar.module.scss";
 import {
   Sidebar,
   SidebarContent,
@@ -38,7 +39,7 @@ export function AppSidebar({ authenticatedMember }: AppSidebarProps) {
   const router = useRouter();
 
   return (
-    <Sidebar collapsible="icon" variant="inset">
+    <Sidebar collapsible="icon" variant="inset" className={styles.AppSidebar}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -48,10 +49,8 @@ export function AppSidebar({ authenticatedMember }: AppSidebarProps) {
               isActive={pathname === "/"}
               onClick={() => router.push("/")}
             >
-                <span className="inline-flex size-8 items-center justify-center rounded-md bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
-                  AO
-                </span>
-                <span className="group-data-[collapsible=icon]:hidden">{siteConfig.name}</span>
+              <span className={styles.AppSidebar__brandMark}>AO</span>
+              <span className={styles.AppSidebar__brandName}>{siteConfig.name}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -70,7 +69,7 @@ export function AppSidebar({ authenticatedMember }: AppSidebarProps) {
                     onClick={() => router.push(item.href)}
                   >
                     <item.icon />
-                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                    <span className={styles.AppSidebar__itemLabel}>{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

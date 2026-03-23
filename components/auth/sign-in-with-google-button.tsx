@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
+import styles from "./sign-in-with-google-button.module.scss";
 
 type SignInWithGoogleButtonProps = {
   callbackUrl: string;
@@ -20,7 +21,7 @@ export function SignInWithGoogleButton({
       type="button"
       onClick={handleGoogleSignIn}
       size="lg"
-      className="mt-6 w-full rounded-xl"
+      className={styles.SignInWithGoogleButton}
     >
       Iniciar sesion con Google
     </Button>

@@ -1,0 +1,20 @@
+.AvatarSessionMenu {
+  width: 100%;
+  border-radius: 999px;
+  text-align: left;
+  transition: color 160ms ease;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--sidebar-ring);
+  }
+
+  &__content {
+    min-width: 15rem;
+  }
+
+  &__icon {
+    height: 1rem;
+    width: 1rem;
+  }
+}

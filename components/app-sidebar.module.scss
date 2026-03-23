@@ -1,0 +1,26 @@
+.AppSidebar {
+  &__brandMark {
+    display: inline-flex;
+    height: 2rem;
+    width: 2rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    background-color: var(--sidebar-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--sidebar-primary-foreground);
+  }
+
+  &__brandName,
+  &__itemLabel {
+    display: inline;
+  }
+}
+
+:global(.group[data-collapsible="icon"]) .AppSidebar {
+  &__brandName,
+  &__itemLabel {
+    display: none;
+  }
+}

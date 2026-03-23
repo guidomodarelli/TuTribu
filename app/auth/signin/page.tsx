@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { SignInWithGoogleButton } from "../../../components/auth/sign-in-with-google-button";
 import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import styles from "./page.module.scss";
 
 type SignInSearchParams = {
   [key: string]: string | string[] | undefined;
@@ -55,19 +56,19 @@ export default async function SignInPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-lg items-center px-6 py-12">
-      <section className="relative w-full overflow-hidden rounded-3xl border border-border/80 bg-card/95 p-8 shadow-[0_24px_64px_-40px_oklch(0.2_0_0_/_0.55)] backdrop-blur">
+    <main className={styles.SignInPage}>
+      <section className={styles.SignInPage__card}>
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full bg-primary/10 blur-3xl"
+          className={styles.SignInPage__highlight}
         />
-        <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted-foreground">
+        <p className={styles.SignInPage__eyebrow}>
           Acceso a AcademiaOnline
         </p>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+        <h1 className={styles.SignInPage__title}>
           Continuar con Google
         </h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        <p className={styles.SignInPage__description}>
           Inicia sesion con tu cuenta de Google para acceder a tu plataforma privada.
         </p>
         <SignInWithGoogleButton callbackUrl={callbackUrlForSignIn} />

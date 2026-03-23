@@ -1,0 +1,9 @@
+.RootLayout {
+  min-height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  &__body {
+    min-height: 100%;
+  }
+}

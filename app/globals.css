@@ -119,15 +119,19 @@
 
 @layer base {
   html {
-    @apply font-sans scroll-smooth;
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
   }
 
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border);
+    outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
   }
 
   body {
-    @apply min-h-screen bg-background text-foreground;
+    min-height: 100vh;
+    background-color: var(--background);
+    color: var(--foreground);
     background-image:
       radial-gradient(circle at top left, oklch(0.89 0.08 303.9 / 20%), transparent 30%),
       radial-gradient(circle at top right, oklch(0.9 0.07 264.3 / 20%), transparent 28%),
@@ -139,6 +143,12 @@
   }
 
   a {
-    @apply transition-colors;
+    transition:
+      color 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease,
+      text-decoration-color 160ms ease,
+      fill 160ms ease,
+      stroke 160ms ease;
   }
 }
