@@ -56,7 +56,11 @@ export default async function SignInPage({
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-lg items-center px-6 py-12">
-      <section className="w-full rounded-3xl border border-border/80 bg-card/90 p-8 shadow-[0_20px_60px_-44px_rgba(15,23,42,0.45)] backdrop-blur">
+      <section className="relative w-full overflow-hidden rounded-3xl border border-border/80 bg-card/95 p-8 shadow-[0_24px_64px_-40px_oklch(0.2_0_0_/_0.55)] backdrop-blur">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full bg-primary/10 blur-3xl"
+        />
         <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted-foreground">
           Acceso a AcademiaOnline
         </p>

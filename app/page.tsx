@@ -3,15 +3,23 @@ import Link from "next/link";
 import { siteConfig } from "@/src/shared/config/site";
 
 const primaryLinkClassName =
-  "inline-flex w-fit items-center rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90";
+  "inline-flex h-9 w-fit items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium whitespace-nowrap text-primary-foreground transition-all hover:bg-primary/80";
 
 const secondaryLinkClassName =
-  "inline-flex w-fit items-center rounded-lg border border-border/80 bg-background/80 px-4 py-3 text-sm font-medium text-foreground transition-all hover:bg-secondary";
+  "inline-flex h-9 w-fit items-center justify-center rounded-xl border border-border bg-background/70 px-5 text-sm font-medium whitespace-nowrap transition-all hover:bg-muted hover:text-foreground";
 
 export default function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 lg:px-10">
-      <section className="rounded-[2rem] border border-border/80 bg-card/90 px-6 py-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] backdrop-blur md:px-8">
+      <section className="relative overflow-hidden rounded-[2rem] border border-border/80 bg-card/90 px-6 py-8 shadow-[0_24px_80px_-48px_oklch(0.18_0_0_/_0.55)] backdrop-blur md:px-8">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-primary/10 blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-20 right-0 h-64 w-64 rounded-full bg-chart-1/15 blur-3xl"
+        />
         <div className="max-w-3xl space-y-6">
           <p className="font-mono text-sm uppercase tracking-[0.22em] text-muted-foreground">
             Acceso principal
