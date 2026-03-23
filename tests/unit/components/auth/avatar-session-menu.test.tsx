@@ -4,9 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { AvatarSessionMenu } from "@/components/auth/avatar-session-menu";
 
 const signOutMock = jest.fn();
+const useSessionMock = jest.fn();
 
 jest.mock("next-auth/react", () => ({
   signOut: (...args: unknown[]) => signOutMock(...args),
+  useSession: () => useSessionMock(),
 }));
 
 describe("AvatarSessionMenu", () => {
@@ -16,11 +18,11 @@ describe("AvatarSessionMenu", () => {
   });
 
   it("shows sign-in action when there is no authenticated member", async () => {
+    useSessionMock.mockReturnValue({ data: null, status: "unauthenticated" });
     const user = userEvent.setup();
 
     render(
       <AvatarSessionMenu
-        authenticatedMember={null}
         signInPath="/auth/signin"
         signOutCallbackUrl="/auth/signin"
       />
@@ -36,18 +38,20 @@ describe("AvatarSessionMenu", () => {
   });
 
   it("shows sign-out action when member is authenticated", async () => {
+    useSessionMock.mockReturnValue({
+      data: {
+        user: {
+          email: "grace.hopper@example.com",
+          name: "Grace Hopper",
+          image: null,
+        },
+      },
+      status: "authenticated",
+    });
     const user = userEvent.setup();
 
     render(
       <AvatarSessionMenu
-        authenticatedMember={{
-          id: "member-1",
-          email: "grace.hopper@example.com",
-          name: "Grace Hopper",
-          role: "member",
-          avatarFallback: "GH",
-          image: null,
-        }}
         signInPath="/auth/signin"
         signOutCallbackUrl="/auth/signin"
       />

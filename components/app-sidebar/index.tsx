@@ -3,7 +3,6 @@
 import { HomeIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
-import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import { siteConfig } from "@/src/shared/config/site";
 import { AvatarSessionMenu } from "@/components/auth/avatar-session-menu";
 import styles from "./styles.module.scss";
@@ -22,10 +21,6 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 
-type AppSidebarProps = {
-  authenticatedMember: AuthenticatedMemberResult | null;
-};
-
 const primaryNavigation = [
   {
     href: "/",
@@ -34,7 +29,7 @@ const primaryNavigation = [
   },
 ];
 
-export function AppSidebar({ authenticatedMember }: AppSidebarProps) {
+export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -79,7 +74,6 @@ export function AppSidebar({ authenticatedMember }: AppSidebarProps) {
       </SidebarContent>
       <SidebarFooter>
         <AvatarSessionMenu
-          authenticatedMember={authenticatedMember}
           signInPath="/auth/signin"
           signOutCallbackUrl="/auth/signin"
         />
