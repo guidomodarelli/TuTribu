@@ -1,0 +1,9 @@
+.AutoSignInWithGoogle {
+  margin-top: 1.5rem;
+
+  &__description {
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+    color: var(--muted-foreground);
+  }
+}

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { SignInWithGoogleButton } from "../../../components/auth/sign-in-with-google-button";
+import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google";
 import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
 import styles from "./page.module.scss";
 
@@ -71,7 +71,7 @@ export default async function SignInPage({
         <p className={styles.SignInPage__description}>
           Inicia sesion con tu cuenta de Google para acceder a tu plataforma privada.
         </p>
-        <SignInWithGoogleButton callbackUrl={callbackUrlForSignIn} />
+        <AutoSignInWithGoogle callbackUrl={callbackUrlForSignIn} />
       </section>
     </main>
   );

@@ -1,5 +1,4 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen, waitFor } from "@testing-library/react";
 import { redirect } from "next/navigation";
 
 import SignInPage from "@/app/auth/signin/page";
@@ -116,10 +115,8 @@ describe("SignInPage", () => {
     expect(redirect).toHaveBeenCalledWith("/");
   });
 
-  it("starts Google sign-in with the default callback path", async () => {
+  it("starts Google sign-in automatically with the default callback path", async () => {
     execute.mockResolvedValue(null);
-
-    const user = userEvent.setup();
 
     render(
       await SignInPage({
@@ -127,21 +124,24 @@ describe("SignInPage", () => {
       })
     );
 
-    await user.click(
+    await waitFor(() => {
+      expect(signInMock).toHaveBeenCalledWith("google", {
+        callbackUrl: "/",
+      });
+    });
+
+    expect(
+      screen.getByText(/te estamos redirigiendo a google/i)
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("button", {
         name: /iniciar sesion con google/i,
       })
-    );
-
-    expect(signInMock).toHaveBeenCalledWith("google", {
-      callbackUrl: "/",
-    });
+    ).toBeInTheDocument();
   });
 
-  it("uses a safe callback path from search params", async () => {
+  it("uses a safe callback path from search params in automatic sign-in", async () => {
     execute.mockResolvedValue(null);
-
-    const user = userEvent.setup();
 
     render(
       await SignInPage({
@@ -149,17 +149,15 @@ describe("SignInPage", () => {
       })
     );
 
-    await user.click(screen.getByRole("button", { name: /iniciar sesion con google/i }));
-
-    expect(signInMock).toHaveBeenCalledWith("google", {
-      callbackUrl: "/auth/error",
+    await waitFor(() => {
+      expect(signInMock).toHaveBeenCalledWith("google", {
+        callbackUrl: "/auth/error",
+      });
     });
   });
 
-  it("falls back to root when callback param is unsafe", async () => {
+  it("falls back to root when callback param is unsafe in automatic sign-in", async () => {
     execute.mockResolvedValue(null);
-
-    const user = userEvent.setup();
 
     render(
       await SignInPage({
@@ -167,10 +165,10 @@ describe("SignInPage", () => {
       })
     );
 
-    await user.click(screen.getByRole("button", { name: /iniciar sesion con google/i }));
-
-    expect(signInMock).toHaveBeenCalledWith("google", {
-      callbackUrl: "/",
+    await waitFor(() => {
+      expect(signInMock).toHaveBeenCalledWith("google", {
+        callbackUrl: "/",
+      });
     });
   });
 });
