@@ -46,4 +46,19 @@ describe("getGoogleOAuthServerConfig", () => {
       "https://www.googleapis.com/auth/drive.file"
     );
   });
+
+  it("ignores NEXT_AUTH_SECRET when NEXTAUTH_SECRET is missing", async () => {
+    process.env.GOOGLE_CLIENT_ID = "google-client-id";
+    process.env.GOOGLE_CLIENT_SECRET = "google-client-secret";
+    delete process.env.NEXTAUTH_SECRET;
+    process.env.NEXT_AUTH_SECRET = "legacy-next-auth-secret";
+
+    const { getGoogleOAuthServerConfig } = await import(
+      "@/src/modules/auth/infrastructure/oauth/google-oauth-config"
+    );
+
+    const result = getGoogleOAuthServerConfig();
+
+    expect(result?.nextAuthSecret).toBeUndefined();
+  });
 });

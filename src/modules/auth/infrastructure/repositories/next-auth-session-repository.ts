@@ -8,6 +8,19 @@ import { authOptions } from "../next-auth/auth-options";
 
 type SessionResolver = () => Promise<Session | null>;
 
+function isRecoverableNextAuthSessionError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const normalizedMessage = error.message.toLowerCase();
+
+  return (
+    normalizedMessage.includes("jwt_session_error") ||
+    normalizedMessage.includes("decryption operation failed")
+  );
+}
+
 function buildAvatarFallback(name?: string | null, email?: string | null): string {
   const source = name?.trim() || email?.trim() || "Member";
   const initials = source
@@ -39,7 +52,17 @@ export class NextAuthSessionRepository implements AuthSessionRepository {
   ) {}
 
   async getAuthenticatedMember(): Promise<AuthenticatedMember | null> {
-    const session = await this.resolveSession();
+    let session: Session | null;
+
+    try {
+      session = await this.resolveSession();
+    } catch (error) {
+      if (isRecoverableNextAuthSessionError(error)) {
+        return null;
+      }
+
+      throw error;
+    }
 
     if (!session?.user) {
       return null;

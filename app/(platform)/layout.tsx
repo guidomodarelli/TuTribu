@@ -6,6 +6,8 @@ import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastr
 
 import { siteConfig } from "@/src/shared/config/site";
 
+export const dynamic = "force-dynamic";
+
 export default async function PlatformLayout({
   children,
 }: Readonly<{
