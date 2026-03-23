@@ -1,6 +1,6 @@
 "use client";
 
-import { HomeIcon, ShieldAlertIcon } from "lucide-react";
+import { HomeIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
@@ -30,11 +30,6 @@ const primaryNavigation = [
     href: "/",
     icon: HomeIcon,
     label: "Inicio",
-  },
-  {
-    href: "/auth/error",
-    icon: ShieldAlertIcon,
-    label: "Pantalla de error",
   },
 ];
 
