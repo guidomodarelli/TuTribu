@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import { siteConfig } from "@/src/shared/config/site";
 import { AvatarSessionMenu } from "@/components/auth/avatar-session-menu";
-import styles from "./app-sidebar.module.scss";
+import styles from "./styles.module.scss";
 import {
   Sidebar,
   SidebarContent,

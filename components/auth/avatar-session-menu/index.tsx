@@ -6,7 +6,7 @@ import { LogInIcon, LogOutIcon } from "lucide-react";
 
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import { GoogleAccountAvatar } from "@/components/auth/google-account-avatar";
-import styles from "./avatar-session-menu.module.scss";
+import styles from "./styles.module.scss";
 import {
   DropdownMenu,
   DropdownMenuContent,

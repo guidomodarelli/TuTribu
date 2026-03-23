@@ -3,7 +3,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar";
-import styles from "./google-account-avatar.module.scss";
+import styles from "./styles.module.scss";
 
 type GoogleAccountAvatarProps = {
   fallback: string;
