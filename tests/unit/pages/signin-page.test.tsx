@@ -53,6 +53,7 @@ describe("SignInPage", () => {
   it("redirects authenticated users to a safe callback path", async () => {
     execute.mockResolvedValue({
       id: "member-1",
+      email: "grace.hopper@example.com",
       name: "Grace Hopper",
       role: "admin",
       avatarFallback: "GH",
@@ -74,6 +75,7 @@ describe("SignInPage", () => {
   it("redirects authenticated users to root when callback is missing", async () => {
     execute.mockResolvedValue({
       id: "member-1",
+      email: "grace.hopper@example.com",
       name: "Grace Hopper",
       role: "admin",
       avatarFallback: "GH",
@@ -95,6 +97,7 @@ describe("SignInPage", () => {
   it("redirects authenticated users to root when callback param is unsafe", async () => {
     execute.mockResolvedValue({
       id: "member-1",
+      email: "grace.hopper@example.com",
       name: "Grace Hopper",
       role: "admin",
       avatarFallback: "GH",

@@ -29,6 +29,7 @@ export function AvatarSessionMenu({
 }: AvatarSessionMenuProps) {
   const hasAuthenticatedMember = Boolean(authenticatedMember);
   const avatarName = authenticatedMember?.name ?? "Invitado";
+  const avatarEmail = authenticatedMember?.email ?? "Sin correo";
   const avatarFallback = authenticatedMember?.avatarFallback ?? "IN";
   const avatarImage = authenticatedMember?.image ?? null;
 
@@ -44,7 +45,12 @@ export function AvatarSessionMenu({
           aria-label="Menu de cuenta"
           className={styles.AvatarSessionMenu}
         >
-          <GoogleAccountAvatar fallback={avatarFallback} image={avatarImage} name={avatarName} />
+          <GoogleAccountAvatar
+            fallback={avatarFallback}
+            image={avatarImage}
+            name={avatarName}
+            email={avatarEmail}
+          />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className={styles.AvatarSessionMenu__content}>

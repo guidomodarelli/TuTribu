@@ -34,10 +34,12 @@ function buildAvatarFallback(name?: string | null, email?: string | null): strin
 }
 
 function mapSessionToMember(session: Session): AuthenticatedMember {
-  const resolvedName = session.user?.name?.trim() || session.user?.email || "Member";
+  const resolvedEmail = session.user?.email?.trim() || "";
+  const resolvedName = session.user?.name?.trim() || resolvedEmail || "Member";
 
   return {
-    id: session.user?.email || resolvedName,
+    id: resolvedEmail || resolvedName,
+    email: resolvedEmail,
     name: resolvedName,
     role: "member",
     avatarFallback: buildAvatarFallback(session.user?.name, session.user?.email),

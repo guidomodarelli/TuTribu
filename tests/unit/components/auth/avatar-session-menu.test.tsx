@@ -42,6 +42,7 @@ describe("AvatarSessionMenu", () => {
       <AvatarSessionMenu
         authenticatedMember={{
           id: "member-1",
+          email: "grace.hopper@example.com",
           name: "Grace Hopper",
           role: "member",
           avatarFallback: "GH",
@@ -51,6 +52,9 @@ describe("AvatarSessionMenu", () => {
         signOutCallbackUrl="/auth/signin"
       />
     );
+
+    expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
+    expect(screen.getByText("grace.hopper@example.com")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
     await user.click(screen.getByRole("menuitem", { name: /cerrar sesion/i }));

@@ -29,6 +29,7 @@ describe("AuthErrorPage", () => {
   it("redirects authenticated users to root", async () => {
     execute.mockResolvedValue({
       id: "member-1",
+      email: "grace.hopper@example.com",
       name: "Grace Hopper",
       role: "admin",
       avatarFallback: "GH",

@@ -27,6 +27,7 @@ describe("NextAuthSessionRepository", () => {
 
     expect(result).toEqual({
       id: "member@example.com",
+      email: "member@example.com",
       name: "Academia Member",
       role: "member",
       avatarFallback: "AM",
