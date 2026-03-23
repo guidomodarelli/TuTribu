@@ -8,6 +8,9 @@ test("loads the home scaffold", async ({ page }) => {
       name: /academiaonline centraliza el inicio de sesion y la base tecnica de la app/i,
     })
   ).toBeVisible();
+  await expect(
+    page.locator("header").getByRole("button", { name: /toggle sidebar/i })
+  ).toBeVisible();
 });
 
 test("loads Google sign-in page", async ({ page }) => {
@@ -19,4 +22,7 @@ test("loads Google sign-in page", async ({ page }) => {
       name: /continuar con google/i,
     })
   ).toBeVisible();
+  await expect(
+    page.locator("header").getByRole("button", { name: /toggle sidebar/i })
+  ).toHaveCount(0);
 });

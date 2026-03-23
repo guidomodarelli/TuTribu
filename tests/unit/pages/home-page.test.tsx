@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 
-import HomePage from "@/app/page";
+import HomePage from "@/app/(platform)/page";
 
 describe("HomePage", () => {
   it("renders the scaffold hero content", () => {
