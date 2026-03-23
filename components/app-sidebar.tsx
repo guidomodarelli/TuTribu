@@ -1,5 +1,7 @@
-import Link from "next/link";
+"use client";
+
 import { HomeIcon, ShieldAlertIcon } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import { siteConfig } from "@/src/shared/config/site";
@@ -37,18 +39,24 @@ const primaryNavigation = [
 ];
 
 export function AppSidebar({ authenticatedMember }: AppSidebarProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg" tooltip={siteConfig.name}>
-              <Link href="/">
+            <SidebarMenuButton
+              size="lg"
+              tooltip={siteConfig.name}
+              isActive={pathname === "/"}
+              onClick={() => router.push("/")}
+            >
                 <span className="inline-flex size-8 items-center justify-center rounded-md bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground">
                   AO
                 </span>
-                <span>{siteConfig.name}</span>
-              </Link>
+                <span className="group-data-[collapsible=icon]:hidden">{siteConfig.name}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -61,11 +69,13 @@ export function AppSidebar({ authenticatedMember }: AppSidebarProps) {
             <SidebarMenu>
               {primaryNavigation.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild tooltip={item.label}>
-                    <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
+                  <SidebarMenuButton
+                    tooltip={item.label}
+                    isActive={pathname === item.href}
+                    onClick={() => router.push(item.href)}
+                  >
+                    <item.icon />
+                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

@@ -502,6 +502,11 @@ function SidebarMenuButton({
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot.Root : "button"
   const { isMobile, state } = useSidebar()
+  const [hasMounted, setHasMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setHasMounted(true)
+  }, [])
 
   const button = (
     <Comp
@@ -514,7 +519,8 @@ function SidebarMenuButton({
     />
   )
 
-  if (!tooltip) {
+  // Avoid SSR/client markup drift caused by tooltip trigger wrappers during hydration.
+  if (!tooltip || !hasMounted) {
     return button
   }
 
