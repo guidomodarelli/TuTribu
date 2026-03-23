@@ -1,29 +1,58 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { SignInWithGoogleButton } from "../../../components/auth/sign-in-with-google-button";
+import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
 
-function resolveSafeCallbackUrl(rawCallbackUrl: string | null): string {
+type SignInSearchParams = {
+  [key: string]: string | string[] | undefined;
+};
+
+function resolveSafeCallbackUrl(rawCallbackUrl: string | null, fallbackPath: string): string {
   if (!rawCallbackUrl) {
-    return "/dashboard";
+    return fallbackPath;
   }
 
   const trimmedCallbackUrl = rawCallbackUrl.trim();
 
   if (!trimmedCallbackUrl.startsWith("/") || trimmedCallbackUrl.startsWith("//")) {
-    return "/dashboard";
+    return fallbackPath;
   }
 
   return trimmedCallbackUrl;
 }
 
-export default function SignInPage() {
-  const searchParams = useSearchParams();
-  const callbackUrl = resolveSafeCallbackUrl(searchParams.get("callbackUrl"));
+function readFirstSearchParamValue(
+  searchParamValue: string | string[] | undefined
+): string | null {
+  if (typeof searchParamValue === "string") {
+    return searchParamValue;
+  }
 
-  const handleGoogleSignIn = async () => {
-    await signIn("google", { callbackUrl });
-  };
+  if (Array.isArray(searchParamValue)) {
+    const firstStringValue = searchParamValue.find((value) => value.trim().length > 0);
+
+    return firstStringValue ?? null;
+  }
+
+  return null;
+}
+
+export default async function SignInPage({
+  searchParams = Promise.resolve({}),
+}: {
+  searchParams?: Promise<SignInSearchParams>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  const rawCallbackUrl = readFirstSearchParamValue(resolvedSearchParams.callbackUrl);
+  const callbackUrlForAuthenticatedMember = resolveSafeCallbackUrl(rawCallbackUrl, "/");
+  const callbackUrlForSignIn = resolveSafeCallbackUrl(rawCallbackUrl, "/dashboard");
+
+  const useCase = createGetAuthenticatedMemberUseCase();
+  const authenticatedMember = await useCase.execute();
+
+  if (authenticatedMember) {
+    redirect(callbackUrlForAuthenticatedMember);
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-lg items-center px-6 py-12">
@@ -37,13 +66,7 @@ export default function SignInPage() {
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           Sign in with your Google account to access your private platform.
         </p>
-        <button
-          type="button"
-          onClick={handleGoogleSignIn}
-          className="mt-6 inline-flex w-full items-center justify-center rounded-full border border-border/80 bg-secondary/80 px-5 py-3 text-sm font-medium text-secondary-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          Sign in with Google
-        </button>
+        <SignInWithGoogleButton callbackUrl={callbackUrlForSignIn} />
       </section>
     </main>
   );
