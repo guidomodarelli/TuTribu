@@ -64,11 +64,11 @@ describe("SignInPage", () => {
 
     await expect(
       SignInPage({
-        searchParams: createSearchParams("/calendar"),
+        searchParams: createSearchParams("/auth/error"),
       })
     ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(redirect).toHaveBeenCalledWith("/calendar");
+    expect(redirect).toHaveBeenCalledWith("/auth/error");
   });
 
   it("redirects authenticated users to root when callback is missing", async () => {
@@ -131,7 +131,7 @@ describe("SignInPage", () => {
     );
 
     expect(signInMock).toHaveBeenCalledWith("google", {
-      callbackUrl: "/dashboard",
+      callbackUrl: "/",
     });
   });
 
@@ -142,18 +142,18 @@ describe("SignInPage", () => {
 
     render(
       await SignInPage({
-        searchParams: createSearchParams("/calendar"),
+        searchParams: createSearchParams("/auth/error"),
       })
     );
 
     await user.click(screen.getByRole("button", { name: /iniciar sesion con google/i }));
 
     expect(signInMock).toHaveBeenCalledWith("google", {
-      callbackUrl: "/calendar",
+      callbackUrl: "/auth/error",
     });
   });
 
-  it("falls back to dashboard when callback param is unsafe", async () => {
+  it("falls back to root when callback param is unsafe", async () => {
     execute.mockResolvedValue(null);
 
     const user = userEvent.setup();
@@ -167,7 +167,7 @@ describe("SignInPage", () => {
     await user.click(screen.getByRole("button", { name: /iniciar sesion con google/i }));
 
     expect(signInMock).toHaveBeenCalledWith("google", {
-      callbackUrl: "/dashboard",
+      callbackUrl: "/",
     });
   });
 });

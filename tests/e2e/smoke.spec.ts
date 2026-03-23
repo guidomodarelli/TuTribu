@@ -5,15 +5,15 @@ test("loads the home scaffold", async ({ page }) => {
 
   await expect(
     page.getByRole("heading", {
-      name: /academiaonline esta lista para evolucionar hacia una plataforma online de comunidad enfocada/i,
+      name: /academiaonline centraliza el inicio de sesion y la base tecnica de la app/i,
     })
   ).toBeVisible();
 });
 
-test("redirects anonymous users to Google sign-in before dashboard", async ({ page }) => {
-  await page.goto("/dashboard");
+test("loads Google sign-in page", async ({ page }) => {
+  await page.goto("/auth/signin");
 
-  await expect(page).toHaveURL(/\/auth\/signin\?callbackUrl=%2Fdashboard/i);
+  await expect(page).toHaveURL(/\/auth\/signin/i);
   await expect(
     page.getByRole("heading", {
       name: /continuar con google/i,

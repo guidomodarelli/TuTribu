@@ -45,7 +45,7 @@ export default async function SignInPage({
   const resolvedSearchParams = await searchParams;
   const rawCallbackUrl = readFirstSearchParamValue(resolvedSearchParams.callbackUrl);
   const callbackUrlForAuthenticatedMember = resolveSafeCallbackUrl(rawCallbackUrl, "/");
-  const callbackUrlForSignIn = resolveSafeCallbackUrl(rawCallbackUrl, "/dashboard");
+  const callbackUrlForSignIn = resolveSafeCallbackUrl(rawCallbackUrl, "/");
 
   const useCase = createGetAuthenticatedMemberUseCase();
   const authenticatedMember = await useCase.execute();

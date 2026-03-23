@@ -8,11 +8,11 @@ describe("HomePage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /academiaonline esta lista para evolucionar hacia una plataforma online de comunidad enfocada/i,
+        name: /academiaonline centraliza el inicio de sesion y la base tecnica de la app/i,
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /abrir base del panel/i })
-    ).toHaveAttribute("href", "/dashboard");
+      screen.getByRole("link", { name: /iniciar sesion/i })
+    ).toHaveAttribute("href", "/auth/signin");
   });
 });
