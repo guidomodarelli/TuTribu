@@ -6,12 +6,16 @@ import { LogInIcon, LogOutIcon } from "lucide-react";
 
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import { GoogleAccountAvatar } from "@/components/auth/google-account-avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
 import styles from "./styles.module.scss";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -53,20 +57,31 @@ export function AvatarSessionMenu({
           />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className={styles.AvatarSessionMenu__content}>
-        <DropdownMenuLabel>
-          {hasAuthenticatedMember ? `Conectado como ${avatarName}` : "Acceso de invitado"}
-        </DropdownMenuLabel>
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        className={styles.AvatarSessionMenu__content}
+      >
+        <div className={styles.AvatarSessionMenu__header}>
+          <Avatar>
+            {avatarImage ? <AvatarImage alt={avatarName} src={avatarImage} /> : null}
+            <AvatarFallback>{avatarFallback}</AvatarFallback>
+          </Avatar>
+          <div className={styles.AvatarSessionMenu__headerIdentity}>
+            <span className={styles.AvatarSessionMenu__headerName}>{avatarName}</span>
+            <span className={styles.AvatarSessionMenu__headerEmail}>{avatarEmail}</span>
+          </div>
+        </div>
         <DropdownMenuSeparator />
         {hasAuthenticatedMember ? (
           <DropdownMenuItem onClick={handleSignOut}>
-            <LogOutIcon className={styles.AvatarSessionMenu__icon} />
+            <LogOutIcon />
             Cerrar sesion
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem asChild>
             <Link href={signInPath}>
-              <LogInIcon className={styles.AvatarSessionMenu__icon} />
+              <LogInIcon />
               Iniciar sesion
             </Link>
           </DropdownMenuItem>
