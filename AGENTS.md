@@ -136,7 +136,10 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 - Prefer `shadcn/ui` components whenever a user request can be satisfied with an existing component or variant from the library.
 - When touching existing UI, replace custom components with the closest `shadcn/ui` component or composition if the current behavior can be preserved.
 - When adding new UI or features that need interface building blocks, use `shadcn/ui` components by default.
-- If no existing `shadcn/ui` component or variant can satisfy the requested UX without forcing a poor implementation, stop and ask the user how they want to proceed before building a custom alternative.
+- Follow this mandatory UI fallback order:
+  1. `shadcn/ui`: Always verify first whether the requested UI can be implemented with an existing `shadcn/ui` component or variant.
+  2. `Radix UI`: If `shadcn/ui` has no viable option, ask the user whether they want a `Radix UI` primitive as the fallback.
+  3. Standalone custom component: Only if neither option is viable, create a separate custom component as the last resort.
 - Initialize it with the official CLI:
 
 ```bash
