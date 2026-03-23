@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
 import styles from "./page.module.scss";
 
@@ -57,22 +58,26 @@ export default async function SignInPage({
 
   return (
     <main className={styles.SignInPage}>
-      <section className={styles.SignInPage__card}>
+      <Card className={styles.SignInPage__card}>
         <div
           aria-hidden="true"
           className={styles.SignInPage__highlight}
         />
-        <p className={styles.SignInPage__eyebrow}>
-          Acceso a AcademiaOnline
-        </p>
-        <h1 className={styles.SignInPage__title}>
-          Continuar con Google
-        </h1>
-        <p className={styles.SignInPage__description}>
-          Inicia sesion con tu cuenta de Google para acceder a tu plataforma privada.
-        </p>
-        <AutoSignInWithGoogle callbackUrl={callbackUrlForSignIn} />
-      </section>
+        <CardHeader className={styles.SignInPage__cardHeader}>
+          <p className={styles.SignInPage__eyebrow}>
+            Acceso a AcademiaOnline
+          </p>
+          <h1 className={styles.SignInPage__title}>
+            Continuar con Google
+          </h1>
+          <p className={styles.SignInPage__description}>
+            Inicia sesion con tu cuenta de Google para acceder a tu plataforma privada.
+          </p>
+        </CardHeader>
+        <CardContent className={styles.SignInPage__cardContent}>
+          <AutoSignInWithGoogle callbackUrl={callbackUrlForSignIn} />
+        </CardContent>
+      </Card>
     </main>
   );
 }

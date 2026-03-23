@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { signIn } from "next-auth/react";
 
+import { CardDescription } from "@/components/ui/card";
 import { SignInWithGoogleButton } from "../sign-in-with-google-button";
 import styles from "./styles.module.scss";
 
@@ -24,9 +25,9 @@ export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps)
 
   return (
     <div className={styles.AutoSignInWithGoogle}>
-      <p className={styles.AutoSignInWithGoogle__description}>
+      <CardDescription className={styles.AutoSignInWithGoogle__description}>
         Te estamos redirigiendo a Google. Si no sucede automaticamente, usa el boton.
-      </p>
+      </CardDescription>
       <SignInWithGoogleButton callbackUrl={callbackUrl} />
     </div>
   );

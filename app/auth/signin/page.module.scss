@@ -9,14 +9,24 @@
 
   &__card {
     position: relative;
+    display: block;
+    gap: 0;
     width: 100%;
     overflow: hidden;
-    border-radius: var(--radius-3xl);
     border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
     background-color: color-mix(in oklch, var(--card) 95%, transparent);
     padding: 2rem;
     box-shadow: 0 24px 64px -40px oklch(0.2 0 0 / 55%);
     backdrop-filter: blur(12px);
+  }
+
+  &__cardHeader,
+  &__cardContent {
+    padding-inline: 0;
+  }
+
+  &__cardContent {
+    padding-block: 0;
   }
 
   &__highlight {
