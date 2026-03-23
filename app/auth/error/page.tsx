@@ -1,6 +1,16 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
-export default function AuthErrorPage() {
+import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+
+export default async function AuthErrorPage() {
+  const useCase = createGetAuthenticatedMemberUseCase();
+  const authenticatedMember = await useCase.execute();
+
+  if (authenticatedMember) {
+    redirect("/");
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-lg items-center px-6 py-12">
       <section className="w-full rounded-3xl border border-destructive/30 bg-card/90 p-8 shadow-[0_20px_60px_-44px_rgba(15,23,42,0.45)] backdrop-blur">
