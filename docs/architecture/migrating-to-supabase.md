@@ -5,10 +5,12 @@
 * **Next.js** con App Router
 * **Supabase Auth** para login, sesion y Google OAuth
 * **Supabase Postgres** para datos principales
-* **RLS basica** para ownership y acceso por usuario
-* **Arquitectura hexagonal liviana**, no extrema
+* **Drizzle ORM** como capa principal de persistencia SQL
+* **`supabase-js`** para Auth, Storage, Realtime y Edge Functions
+* **RLS simple** para ownership y acceso por usuario
+* **Arquitectura hexagonal pragmatica**
 
-Supabase hoy documenta bien el flujo con Next.js App Router y SSR con sesion en cookies, ademas de Google OAuth y Auth como producto principal. ([Supabase][1], [Supabase][7])
+Supabase hoy documenta bien el flujo con Next.js App Router y SSR con sesion en cookies, ademas de Google OAuth y Auth como producto principal. Tambien documenta el uso de Drizzle para conectarte directo a Postgres, y Drizzle documenta sus drivers oficiales para PostgreSQL. ([Supabase][1], [Supabase][7], [Supabase][11], [Drizzle][12])
 
 ---
 
@@ -20,14 +22,56 @@ Para este proyecto, la recomendacion final es:
 * **Supabase Auth** como solucion de autenticacion
 * **Google OAuth** a traves de Supabase
 * **Supabase Postgres** como base principal
+* **Drizzle ORM** como adaptador principal de persistencia SQL
+* **`supabase-js`** solo para capacidades de plataforma
 * **RLS simple** para permisos basicos
 * **Hexagonal pragmatica** con adapters
 * **Nada de NextAuth/Auth.js**
 * **Nada de sobreingenieria**
 
-La idea es ganar velocidad al principio sin meter toda la app directo sobre el SDK ni llevar toda la logica de negocio a SQL o a policies. ([Supabase][3], [Next.js][8])
+La regla operativa es usar ambos, pero con responsabilidades distintas: `Drizzle` para la persistencia del dominio y `supabase-js` para Auth, Storage, Realtime, Edge Functions y algun uso puntual del Data API/PostgREST cuando realmente convenga. No usaria `supabase-js` como ORM principal ni mezclaria Drizzle con `supabase.from(...)` para las mismas responsabilidades de negocio. ([Supabase][3], [Supabase][11], [Supabase][13], [Next.js][8])
 
 En esta etapa, Next.js no queda como frontend puro: App Router, `Route Handlers` y mutaciones server-side cubren bien una capa BFF liviana dentro del mismo proyecto. ([Next.js][9], [Next.js][10])
+
+---
+
+# Drizzle + `supabase-js`: como repartir roles
+
+## `drizzle-orm`
+
+Lo usaria para:
+
+* tablas de negocio
+* queries SQL tipadas
+* repositorios de dominio
+* schema
+* migraciones
+
+Supabase documenta explicitamente el quickstart de Drizzle para conectarte a su Postgres y aclara que, si vas a usar solo Drizzle en lugar del Data API, incluso puedes apagar PostgREST en la configuracion de la API. ([Supabase][11])
+
+## `@supabase/supabase-js`
+
+Lo usaria para:
+
+* autenticacion
+* OAuth
+* manejo de sesion
+* Storage
+* Realtime
+* Edge Functions
+* llamadas puntuales al Data API/PostgREST
+
+La propia referencia de `supabase-js` la presenta como la libreria isomorfica para interactuar con Postgres, escuchar cambios, invocar Edge Functions, construir login y manejar archivos. ([Supabase][13])
+
+## Regla simple
+
+* **Drizzle** para persistencia del dominio
+* **`supabase-js`** para servicios de plataforma
+
+Eso mantiene mejor la separacion hexagonal:
+
+* puertos del dominio y aplicacion para repositorios y servicios
+* adapters de infraestructura distintos para persistencia y para capacidades gestionadas de Supabase
 
 ---
 
@@ -38,7 +82,10 @@ En esta etapa, Next.js no queda como frontend puro: App Router, `Route Handlers`
 * **Autenticacion**
 * **Login con Google**
 * **Manejo de sesion**
-* **Base de datos**
+* **Base de datos** como plataforma Postgres
+* **Storage**
+* **Realtime**
+* **Edge Functions**
 * **RLS** para reglas simples por usuario
 
 ## Entidades iniciales
@@ -111,7 +158,21 @@ src/
         middleware.ts
 ```
 
-La guia oficial de Supabase para Next.js y SSR separa explicitamente clientes para browser y server, junto con middleware para refrescar sesion por cookies. Esa division encaja bien con una arquitectura modular en Next.js. ([Supabase][1], [Supabase][7])
+La guia oficial de Supabase para Next.js y SSR separa explicitamente clientes para browser y server, junto con middleware para refrescar sesion por cookies. Esa division encaja bien con una arquitectura modular en Next.js. Si ademas dejas la persistencia SQL detras de Drizzle, los adapters quedan todavia mas nitidos. ([Supabase][1], [Supabase][7], [Supabase][11], [Drizzle][12])
+
+## Ejemplos concretos de adapters
+
+* `DrizzleCommunityRepository`
+* `DrizzleMembershipRepository`
+* `SupabaseAuthProvider`
+* `SupabaseStorageAdapter`
+* `SupabaseRealtimeAdapter`
+
+La separacion queda natural:
+
+* `DrizzleCommunityRepository` y `DrizzleMembershipRepository` resuelven tablas, joins y queries tipadas de negocio
+* `SupabaseAuthProvider` encapsula login, sesion y OAuth
+* `SupabaseStorageAdapter` y `SupabaseRealtimeAdapter` encapsulan capacidades gestionadas de la plataforma
 
 ---
 
@@ -146,14 +207,43 @@ interface CommentRepository {
 }
 ```
 
-La razon arquitectonica es simple: Supabase expone Auth, APIs y RLS alrededor de Postgres. Encapsularlo como adapters reduce el acople de la app al SDK y deja las reglas importantes en `application` y `domain`. ([Supabase][3])
+## 4. `CommunityRepository`
+
+```ts
+interface CommunityRepository {
+  create(input: CreateCommunityInput): Promise<Community>
+  findById(id: string): Promise<Community | null>
+  listByMember(memberId: string): Promise<Community[]>
+}
+```
+
+## 5. `MembershipRepository`
+
+```ts
+interface MembershipRepository {
+  add(input: AddMembershipInput): Promise<Membership>
+  listByCommunity(communityId: string): Promise<Membership[]>
+  changeRole(input: ChangeMembershipRoleInput): Promise<void>
+}
+```
+
+## 6. `FileStorage`
+
+```ts
+interface FileStorage {
+  upload(input: UploadFileInput): Promise<StoredFile>
+  remove(fileId: string): Promise<void>
+}
+```
+
+La razon arquitectonica es simple: Drizzle te deja encapsular la persistencia SQL detras de repositorios propios, mientras Supabase sigue resolviendo Auth, APIs gestionadas y RLS alrededor de Postgres. Encapsular ambos como adapters reduce el acople al SDK y deja las reglas importantes en `application` y `domain`. ([Supabase][3], [Supabase][11], [Supabase][13], [Drizzle][12])
 
 ## Que no abstraeria de mas
 
 No perderia tiempo en abstraer:
 
 * cada query de lectura menor
-* cada helper chico del SDK
+* cada helper chico de Drizzle o del SDK
 * cada detalle de paginacion simple
 * cada suscripcion realtime decorativa
 
@@ -241,10 +331,13 @@ La guia oficial de SSR de Supabase explica justamente ese patron para frameworks
 * policies gigantes
 * Edge Functions para toda la logica
 * mezclar dominio con SQL, RLS o SDK
+* repartir consultas de negocio entre Drizzle y `supabase.from(...)`
+* mezclar escrituras SQL tipadas con PostgREST sin una frontera clara
 
 ## Hace esto
 
 * Supabase detras de adapters
+* Drizzle como repositorio principal de negocio
 * dominio limpio
 * reglas de negocio en casos de uso
 * RLS simple
@@ -260,10 +353,11 @@ Supabase sigue siendo open source y basado en Postgres, asi que esta estrategia 
 
 1. **Supabase Auth + Google**
 2. `profiles`, `courses`, `posts`, `comments`, `events`
-3. RLS solo para ownership y acceso simple
-4. adapters para `Auth`, `Posts` y `Comments`
-5. `browser client`, `server client` y `middleware` para la sesion SSR
-6. nada de NextAuth/Auth.js
+3. schema y migraciones con Drizzle
+4. RLS solo para ownership y acceso simple
+5. adapters para `Auth`, `Posts`, `Comments`, `Communities`, `Memberships` y archivos
+6. `browser client`, `server client` y `middleware` para la sesion SSR
+7. nada de NextAuth/Auth.js
 
 ## Resultado
 
@@ -272,6 +366,7 @@ Eso te da:
 * salida rapida
 * baja friccion en auth
 * buena integracion con Next.js
+* persistencia mas limpia y tipada
 * costo mental razonable
 * lock-in moderado, no extremo
 * margen para migrar mas adelante si hiciera falta
@@ -285,6 +380,9 @@ Si mas adelante queres separar backend propio, el detalle de cuando y como hacer
 [5]: https://supabase.com/docs/guides/getting-started/quickstarts/nextjs?utm_source=chatgpt.com "Use Supabase with Next.js"
 [6]: https://supabase.com/docs/guides/auth/architecture?utm_source=chatgpt.com "Auth architecture | Supabase Docs"
 [7]: https://supabase.com/docs/guides/auth/server-side?utm_source=chatgpt.com "Server-Side Rendering"
+[11]: https://supabase.com/docs/guides/database/drizzle "Drizzle | Supabase Docs"
+[12]: https://orm.drizzle.team/docs/get-started-postgresql "Drizzle ORM - PostgreSQL"
+[13]: https://supabase.com/docs/reference/javascript/introduction "JavaScript: Introduction | Supabase Docs"
 [8]: https://nextjs.org/docs/app/guides/data-security "Guides: Data Security | Next.js"
 [9]: https://nextjs.org/docs/app/getting-started/route-handlers "Getting Started: Route Handlers | Next.js"
 [10]: https://nextjs.org/docs/app/getting-started/updating-data "Getting Started: Updating Data | Next.js"
