@@ -179,22 +179,25 @@ Supabase documenta el flujo de Google OAuth y el quickstart especifico para Next
 
 # RLS: como usarla sin pasarte
 
+## Regla practica
+
+Usaria **RLS simple** para seguridad de acceso a datos, no para meter toda la logica de negocio dentro de SQL.
+
 ## Si usaria RLS para
 
-* un usuario ve su perfil
-* un alumno ve sus inscripciones
-* un autor edita su propio post
-* un comentario pertenece a cierto usuario
-* acceso por membresia o curso cuando la regla es simple
+* ownership
+* membership
+* roles simples
+* acceso por usuario o comunidad cuando la regla es clara
 
 ## No la usaria para
 
 * workflows complejos
 * reglas de negocio cambiantes
-* logica de visibilidad muy dinamica
-* permisos compuestos dificiles de testear
+* permisos compuestos con muchas excepciones
+* logica de producto muy dinamica
 
-RLS es una herramienta fuerte en Postgres, pero cuanto mas metas logica de producto dentro de policies, mas dificil se vuelve mantenerla y migrarla. ([Supabase][3], [Supabase][4])
+RLS es una herramienta fuerte en Postgres, pero cuanto mas metas logica de producto dentro de policies, mas dificil se vuelve mantenerla y migrarla. El detalle de que significa "RLS simple" y donde poner el limite esta en `docs/architecture/rls-simple.md`. ([Supabase][3], [Supabase][4])
 
 ---
 
