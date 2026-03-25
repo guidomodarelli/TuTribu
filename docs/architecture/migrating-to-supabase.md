@@ -7,7 +7,8 @@
 * **Supabase Postgres** para datos principales
 * **Drizzle ORM** como capa principal de persistencia SQL
 * **`supabase-js`** para Auth, Storage, Realtime y Edge Functions
-* **RLS simple** para ownership y acceso por usuario
+* **multi-tenancy simple** con `community_id` y roles por comunidad
+* **RLS simple** para ownership, membership y tenant scope
 * **Arquitectura hexagonal pragmatica**
 
 Supabase hoy documenta bien el flujo con Next.js App Router y SSR con sesion en cookies, ademas de Google OAuth y Auth como producto principal. Tambien documenta el uso de Drizzle para conectarte directo a Postgres, y Drizzle documenta sus drivers oficiales para PostgreSQL. ([Supabase][1], [Supabase][7], [Supabase][11], [Drizzle][12])
@@ -24,7 +25,8 @@ Para este proyecto, la recomendacion final es:
 * **Supabase Postgres** como base principal
 * **Drizzle ORM** como adaptador principal de persistencia SQL
 * **`supabase-js`** solo para capacidades de plataforma
-* **RLS simple** para permisos basicos
+* **multi-tenancy simple** con `community_id`
+* **RLS simple** para ownership, membership y tenant scope
 * **Hexagonal pragmatica** con adapters
 * **Nada de NextAuth/Auth.js**
 * **Nada de sobreingenieria**
@@ -34,6 +36,8 @@ La regla operativa es usar ambos, pero con responsabilidades distintas: `Drizzle
 En esta etapa, Next.js no queda como frontend puro: App Router, `Route Handlers` y mutaciones server-side cubren bien una capa BFF liviana dentro del mismo proyecto. ([Next.js][9], [Next.js][10])
 
 Tambien dejaria una regla operativa adicional: cuando implementes un cambio que altere la estructura de la base, ese cambio debe salir con una migration SQL versionada en el mismo work item. El dashboard SQL editor puede servir para probar o depurar, pero no reemplaza una migration reproducible.
+
+La decision de tenancy para este producto esta documentada en `docs/architecture/multi-tenancy.md`. El tenant canonico es `community`, no `course`.
 
 ---
 
@@ -93,12 +97,13 @@ Ejemplo de migration SQL de estructura:
 -- supabase/migrations/20260325090000_create_posts.sql
 CREATE TABLE posts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  community_id uuid NOT NULL REFERENCES communities(id),
   content text NOT NULL,
-  user_id uuid NOT NULL REFERENCES auth.users(id),
+  created_by uuid NOT NULL REFERENCES auth.users(id),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_posts_user_id ON posts(user_id);
+CREATE INDEX idx_posts_community_id ON posts(community_id);
 ```
 
 La idea es simple:
@@ -120,18 +125,21 @@ La idea es simple:
 * **Storage**
 * **Realtime**
 * **Edge Functions**
-* **RLS** para reglas simples por usuario
+* **RLS** para reglas simples por tenant, membership y ownership
 
 ## Entidades iniciales
 
 * `profiles`
+* `communities`
+* `community_members`
 * `courses`
-* `course_members`
 * `posts`
 * `comments`
 * `events`
 
 Supabase Auth soporta social login, incluido Google, y la integracion oficial con Next.js App Router y SSR ya esta documentada. Ademas, Auth usa el esquema `auth` dentro de Postgres y se integra naturalmente con el resto de la base. ([Supabase][1], [Supabase][2], [Supabase][6])
+
+En esta arquitectura, `community` es el tenant canonico. `course` puede existir como entidad de negocio dentro de una comunidad, pero no define el limite principal de aislamiento. El detalle esta en `docs/architecture/multi-tenancy.md`.
 
 ## No
 
@@ -171,12 +179,17 @@ src/
       application/
       infrastructure/
 
-    courses/
+    communities/
       domain/
       application/
       infrastructure/
 
     events/
+      domain/
+      application/
+      infrastructure/
+
+    courses/
       domain/
       application/
       infrastructure/
@@ -228,7 +241,7 @@ interface AuthPort {
 interface PostRepository {
   create(input: CreatePostInput): Promise<Post>
   findById(id: string): Promise<Post | null>
-  listByCourse(courseId: string): Promise<Post[]>
+  listByCommunity(communityId: string): Promise<Post[]>
 }
 ```
 
@@ -295,7 +308,7 @@ La documentacion de Supabase esta optimizada para productividad rapida en CRUD y
 4. Supabase emite la sesion
 5. Next.js consume la sesion en server y browser
 6. Los casos de uso consultan al `AuthPort`
-7. RLS protege acceso a filas segun el usuario
+7. RLS protege acceso a filas segun membership, tenant y ownership
 
 Supabase documenta el flujo de Google OAuth y el quickstart especifico para Next.js App Router. Tambien documenta SSR con cookies para que el servidor pueda leer la sesion. ([Supabase][1], [Supabase][2], [Supabase][7])
 
@@ -318,7 +331,7 @@ La regla operativa es esta:
 * ownership
 * membership
 * roles simples
-* acceso por usuario o comunidad cuando la regla es clara
+* acceso por usuario o tenant cuando la regla es clara
 
 ## No la usaria para
 
@@ -327,7 +340,7 @@ La regla operativa es esta:
 * permisos compuestos con muchas excepciones
 * logica de producto muy dinamica
 
-RLS es una herramienta fuerte en Postgres, pero cuanto mas metas logica de producto dentro de policies, mas dificil se vuelve mantenerla y migrarla. El detalle de que significa "RLS simple" y donde poner el limite esta en `docs/architecture/rls-simple.md`. ([Supabase][3], [Supabase][4])
+RLS es una herramienta fuerte en Postgres, pero cuanto mas metas logica de producto dentro de policies, mas dificil se vuelve mantenerla y migrarla. El detalle de que significa "RLS simple", como aplicarla al tenant `community` y donde poner el limite esta en `docs/architecture/rls-simple.md` y `docs/architecture/multi-tenancy.md`. ([Supabase][3], [Supabase][4])
 
 Ejemplo de migration SQL para RLS:
 
@@ -335,17 +348,31 @@ Ejemplo de migration SQL para RLS:
 -- supabase/migrations/20260325091000_posts_rls.sql
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can read own posts"
+CREATE POLICY "Members can read community posts"
 ON posts
 FOR SELECT
-USING (auth.uid() = user_id);
+USING (
+  EXISTS (
+    SELECT 1
+    FROM community_members
+    WHERE community_members.community_id = posts.community_id
+      AND community_members.user_id = auth.uid()
+  )
+);
 
-CREATE POLICY "Users can insert own posts"
+CREATE POLICY "Members can insert community posts"
 ON posts
 FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM community_members
+    WHERE community_members.community_id = posts.community_id
+      AND community_members.user_id = auth.uid()
+  )
+);
 
-CREATE INDEX idx_posts_user_id ON posts(user_id);
+CREATE INDEX idx_posts_community_id ON posts(community_id);
 ```
 
 Ese ejemplo deja claro el reparto de responsabilidades:
@@ -361,11 +388,14 @@ Ese ejemplo deja claro el reparto de responsabilidades:
 ## Tablas
 
 * `profiles`
+* `communities`
+* `community_members`
 * `courses`
-* `course_members`
 * `posts`
 * `comments`
 * `events`
+
+`courses` sigue siendo una entidad valida del dominio, pero queda subordinada a `communities`. La tabla de membresia del tenant es `community_members`, no `course_members`.
 
 ## Relacion con auth
 
@@ -405,7 +435,7 @@ La guia oficial de SSR de Supabase explica justamente ese patron para frameworks
 * Drizzle como repositorio principal de negocio
 * dominio limpio
 * reglas de negocio en casos de uso
-* RLS simple
+* RLS simple por tenant, membership y ownership
 * Next.js como capa server liviana con App Router
 
 Supabase sigue siendo open source y basado en Postgres, asi que esta estrategia conserva bastante salida futura si un dia queres mover la infraestructura. ([Supabase][3])
@@ -417,10 +447,10 @@ Supabase sigue siendo open source y basado en Postgres, asi que esta estrategia 
 ## Si estuvieras arrancando esta semana
 
 1. **Supabase Auth + Google**
-2. `profiles`, `courses`, `posts`, `comments`, `events`
+2. `profiles`, `communities`, `community_members`, `courses`, `posts`, `comments`, `events`
 3. schema tipado y repositorios con Drizzle
 4. migrations SQL versionadas para cambios de estructura
-5. RLS solo para ownership y acceso simple, versionada en SQL
+5. RLS solo para ownership, membership y tenant scope, versionada en SQL
 6. adapters para `Auth`, `Posts`, `Comments`, `Communities`, `Memberships` y archivos
 7. `browser client`, `server client` y `middleware` para la sesion SSR
 8. nada de NextAuth/Auth.js

@@ -11,6 +11,8 @@ La idea practica es esta:
 
 Ese suele ser el punto de equilibrio correcto en Supabase, sobre todo para un MVP. ([Supabase][1], [Supabase][3])
 
+Para la decision de tenancy de este producto, mira tambien `docs/architecture/multi-tenancy.md`.
+
 ---
 
 # Por que da valor real desde el MVP
@@ -62,6 +64,7 @@ Supabase Auth esta pensado para integrarse con RLS, y los tokens de acceso del u
 
 * ownership por `user_id = auth.uid()`
 * acceso por pertenencia a `community_id`
+* acceso via `community_members`
 * acceso por rol simple como `member`, `admin`, `owner`
 * lectura y escritura sobre filas del propio usuario
 * acceso por tenant o comunidad cuando la regla es clara
@@ -72,6 +75,7 @@ Supabase Auth esta pensado para integrarse con RLS, y los tokens de acceso del u
 * un autor solo puede editar sus posts
 * un usuario solo borra sus propios comentarios
 * un miembro solo ve comunidades a las que pertenece
+* un miembro solo ve posts y eventos de comunidades donde tiene membresia
 * un `admin` o `owner` puede moderar dentro de su comunidad
 * un alumno ve sus inscripciones
 * un usuario solo ve sus datos privados
@@ -140,7 +144,7 @@ Pero asi:
 
 * **RLS fuerte para acceso a datos**
 * **simple y entendible**
-* **basada en ownership, membership y rol**
+* **basada en ownership, membership, tenant scope y rol**
 * **sin convertirla en motor completo de negocio**
 
 Eso te da:
@@ -155,7 +159,7 @@ Eso te da:
 
 **Si, acoplarte un poco a RLS vale la pena; acoplarte mucho, no.**
 
-Para complementar esta definicion dentro de la arquitectura general, mira `docs/architecture/migrating-to-supabase.md`.
+Para complementar esta definicion dentro de la arquitectura general, mira `docs/architecture/migrating-to-supabase.md` y `docs/architecture/multi-tenancy.md`.
 
 [1]: https://supabase.com/docs/guides/database/postgres/row-level-security?utm_source=chatgpt.com "Row Level Security | Supabase Docs"
 [2]: https://supabase.com/docs/guides/deployment/going-into-prod?utm_source=chatgpt.com "Production Checklist | Supabase Docs"
