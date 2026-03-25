@@ -1,185 +1,287 @@
-Para permisos, logica de cursos, progreso del alumno y comunidad:
+# Arquitectura final recomendada
 
-# Recomendacion principal
+## Stack
 
-## **Supabase + Postgres + RLS**
+* **Next.js** con App Router
+* **Supabase Auth** para login, sesion y Google OAuth
+* **Supabase Postgres** para datos principales
+* **RLS basica** para ownership y acceso por usuario
+* **Arquitectura hexagonal liviana**, no extrema
 
-Y **Next.js como app full-stack liviana al principio**, no como frontend puro.
-
-### Reparto de responsabilidades
-
-* **Supabase Auth** -> login, sesiones, JWT. Supabase indica que Auth usa JWT e integra bien con la base para autorizacion. ([Supabase][1])
-* **Postgres (en Supabase)** -> cursos, lecciones, inscripciones, progreso, posts, comentarios y relaciones entre entidades.
-* **RLS (Row Level Security)** -> permisos finos por fila. Supabase documenta que RLS permite reglas complejas y que se combina con Auth para seguridad de extremo a extremo. ([Supabase][2])
-* **Next.js** -> UI, carga inicial del App Router y una capa server minima con **Route Handlers** y **Server Actions** para mutaciones y endpoints puntuales. ([Next.js][3], [Next.js][4])
+Supabase hoy documenta bien el flujo con Next.js App Router y SSR con sesion en cookies, ademas de Google OAuth y Auth como producto principal. ([Supabase][1], [Supabase][7])
 
 ---
 
-# Por que te recomiendo eso
+# Decision final
 
-## 1. Permisos
-
-Con **Postgres + RLS** podes modelar cosas como:
-
-* alumno solo ve cursos donde esta inscripto
-* profesor ve solo sus cursos
-* un post privado solo lo ve la comunidad correcta
-* un comentario solo existe dentro de un curso o comunidad validos
-
-Eso encaja mucho mejor en base de datos. RLS esta justamente hecho para este tipo de autorizacion granular. ([Supabase][2])
-
-## 2. Progreso del alumno
-
-El progreso es **dato relacional**, no archivo:
-
-* `course_enrollments`
-* `lesson_completions`
-* `quiz_attempts`
-* `course_progress`
-
-Eso va naturalmente en Postgres.
-
-## 3. Comunidad
-
-Posts, comentarios, likes, membresias, roles y moderacion tambien son **relacionales**. Otra vez: Postgres.
-
-## 4. No haria "Next.js solo frontend"
-
-Next.js hoy no es solo UI. La documentacion oficial lo presenta como un framework para construir aplicaciones con rendering, routing y logica server-side en el mismo proyecto. Para un MVP, la jugada mas eficiente suele ser:
-
-* **Next.js** para interfaz y logica server minima
-* **Supabase** para auth y base de datos
-* **Sin backend separado** al principio
-
-Eso reduce complejidad inicial sin caer en un modelo de frontend puro. ([Next.js][3], [Next.js][4])
-
-## 5. Lo que no postergaria
-
-No postergaria la **logica server-side** por completo.
-
-Aunque uses Next.js, ciertas cosas deben vivir del lado servidor:
-
-* uso de secretos y credenciales
-* validacion de permisos
-* operaciones sensibles
-* escrituras con reglas de negocio
-* coordinacion con servicios externos
-
-La guia de **Data Security** de Next.js insiste en mantener la logica sensible del lado server, revalidar autorizacion y filtrar al cliente solo los datos necesarios. ([Next.js][5])
-
-# Arquitectura que usaria al principio
-
-## Stack recomendado
-
-* **App:** Next.js con **App Router**
-* **Mutaciones simples:** **Server Actions**
-* **Endpoints puntuales:** **Route Handlers**
-* **Auth + DB + permisos:** Supabase
-* **Backend propio:** no al principio
-
----
-
-# Modelo mental simple
-
-## Supabase maneja:
-
-* usuarios
-* sesiones
-* tablas
-* permisos
-* progreso
-* comunidad
-
-## Next.js maneja:
-
-* paginas y layouts
-* dashboard
-* cursos
-* lecciones
-* comunidad
-* formularios
-* carga de datos en el App Router
-* mutaciones simples con **Server Actions**
-* endpoints puntuales con **Route Handlers**
-
-## Mas adelante, si hace falta:
-
-* **backend propio** para billing, webhooks, colas, moderacion compleja o integraciones con mas logica de negocio
-
----
-
-# Cuando agregaria otra pieza
-
-## Sumaria backend propio si:
-
-* aparece logica de negocio compleja que no queres resolver en clientes o funciones aisladas
-* tenes billing, webhooks, procesos asincronos o integraciones externas relevantes
-* necesitas una capa de orquestacion mas controlada entre el frontend y tus servicios
-
----
-
-# Mi recomendacion exacta para vos
-
-## Si queres lanzar algo serio sin complicarte de mas:
-
-### **Next.js + Supabase**
-
-Porque te da:
-
-* desarrollo rapido
-* una app full-stack liviana en un solo proyecto
-* permisos fuertes con RLS
-* Auth integrado
-* Postgres real
-* menos piezas para operar al comienzo
-
-Y deja abierta una evolucion clara:
-
-* primero validas producto con la menor complejidad posible
-* despues sumas **backend propio** si la logica del negocio lo pide
-
-Supabase, ademas, mantiene una guia oficial para Next.js y recomienda `@supabase/ssr` para integrar sesiones server-side. ([Supabase][6])
-
----
-
-# Diseno minimo de tablas
-
-Yo arrancaria con algo asi:
-
-* `profiles`
-* `communities`
-* `community_members`
-* `courses`
-* `course_modules`
-* `lessons`
-* `enrollments`
-* `lesson_progress`
-* `posts`
-* `comments`
-* `roles`
-
----
-
-# Conclusion
-
-## Mi respuesta corta:
-
-**No arrancaria con backend propio.**
-
-Arrancaria con:
+Para este proyecto, la recomendacion final es:
 
 * **Next.js** como app full-stack liviana
-* **Supabase/Auth/Postgres/RLS** para permisos, cursos, progreso y comunidad
+* **Supabase Auth** como solucion de autenticacion
+* **Google OAuth** a traves de Supabase
+* **Supabase Postgres** como base principal
+* **RLS simple** para permisos basicos
+* **Hexagonal pragmatica** con adapters
+* **Nada de NextAuth/Auth.js**
+* **Nada de sobreingenieria**
 
-Y dejaria:
+La idea es ganar velocidad al principio sin meter toda la app directo sobre el SDK ni llevar toda la logica de negocio a SQL o a policies. ([Supabase][3], [Next.js][8])
 
-* **backend propio** como siguiente paso si la logica se vuelve mas compleja
+En esta etapa, Next.js no queda como frontend puro: App Router, `Route Handlers` y mutaciones server-side cubren bien una capa BFF liviana dentro del mismo proyecto. ([Next.js][9], [Next.js][10])
 
-Si queres el detalle de cuando y como hacer esa separacion, lo deje aparte en `docs/architecture/backend-separation.md`.
+---
 
-[1]: https://supabase.com/docs/guides/auth?utm_source=chatgpt.com "Auth | Supabase Docs"
-[2]: https://supabase.com/docs/guides/database/postgres/row-level-security?utm_source=chatgpt.com "Row Level Security | Supabase Docs"
-[3]: https://nextjs.org/docs/app/getting-started/route-handlers "Getting Started: Route Handlers | Next.js"
-[4]: https://nextjs.org/docs/app/getting-started/updating-data "Getting Started: Updating Data | Next.js"
-[5]: https://nextjs.org/docs/app/guides/data-security "Guides: Data Security | Next.js"
-[6]: https://supabase.com/docs/guides/getting-started/tutorials/with-nextjs "Build a User Management App with Next.js | Supabase Docs"
+# Que dejaria en Supabase
+
+## Si
+
+* **Autenticacion**
+* **Login con Google**
+* **Manejo de sesion**
+* **Base de datos**
+* **RLS** para reglas simples por usuario
+
+## Entidades iniciales
+
+* `profiles`
+* `courses`
+* `course_members`
+* `posts`
+* `comments`
+* `events`
+
+Supabase Auth soporta social login, incluido Google, y la integracion oficial con Next.js App Router y SSR ya esta documentada. Ademas, Auth usa el esquema `auth` dentro de Postgres y se integra naturalmente con el resto de la base. ([Supabase][1], [Supabase][2], [Supabase][6])
+
+## No
+
+* **Logica de negocio compleja**
+* **Toda la autorizacion de negocio dentro de SQL**
+* **Toda la app llamando directo al SDK de Supabase**
+* **Toda la logica sensible dentro de componentes o del browser**
+
+Supabase es Postgres mas servicios alrededor. Cuanto mas metas logica critica en detalles especificos de plataforma, mayor va a ser el acople operativo. ([Supabase][3])
+
+---
+
+# Nivel de hexagonalidad recomendado
+
+## Mi sugerencia: **hexagonal pragmatica**
+
+No haria una hexagonal academica total. Haria una arquitectura modular, con limites claros, pero sin volver ceremonial cada CRUD chico.
+
+```text
+app/
+  (routes, pages, server actions, route handlers)
+
+src/
+  modules/
+    auth/
+      domain/
+      application/
+      infrastructure/
+
+    posts/
+      domain/
+      application/
+      infrastructure/
+
+    comments/
+      domain/
+      application/
+      infrastructure/
+
+    courses/
+      domain/
+      application/
+      infrastructure/
+
+    events/
+      domain/
+      application/
+      infrastructure/
+
+    shared/
+      domain/
+      application/
+      infrastructure/
+
+      supabase/
+        browser-client.ts
+        server-client.ts
+        middleware.ts
+```
+
+La guia oficial de Supabase para Next.js y SSR separa explicitamente clientes para browser y server, junto con middleware para refrescar sesion por cookies. Esa division encaja bien con una arquitectura modular en Next.js. ([Supabase][1], [Supabase][7])
+
+---
+
+# Que abstraeria
+
+## 1. `AuthPort`
+
+```ts
+interface AuthPort {
+  getCurrentUser(): Promise<User | null>
+  signInWithGoogle(): Promise<void>
+  signOut(): Promise<void>
+}
+```
+
+## 2. `PostRepository`
+
+```ts
+interface PostRepository {
+  create(input: CreatePostInput): Promise<Post>
+  findById(id: string): Promise<Post | null>
+  listByCourse(courseId: string): Promise<Post[]>
+}
+```
+
+## 3. `CommentRepository`
+
+```ts
+interface CommentRepository {
+  add(input: AddCommentInput): Promise<Comment>
+  listByPost(postId: string): Promise<Comment[]>
+}
+```
+
+La razon arquitectonica es simple: Supabase expone Auth, APIs y RLS alrededor de Postgres. Encapsularlo como adapters reduce el acople de la app al SDK y deja las reglas importantes en `application` y `domain`. ([Supabase][3])
+
+## Que no abstraeria de mas
+
+No perderia tiempo en abstraer:
+
+* cada query de lectura menor
+* cada helper chico del SDK
+* cada detalle de paginacion simple
+* cada suscripcion realtime decorativa
+
+La documentacion de Supabase esta optimizada para productividad rapida en CRUD y SSR. Conviene aprovechar eso sin convertir todo en una capa ceremonial. ([Supabase][5])
+
+---
+
+# Como quedaria la auth final
+
+## Flujo
+
+1. Usuario toca **Continuar con Google**
+2. Se ejecuta `supabase.auth.signInWithOAuth({ provider: "google" })`
+3. Google autentica
+4. Supabase emite la sesion
+5. Next.js consume la sesion en server y browser
+6. Los casos de uso consultan al `AuthPort`
+7. RLS protege acceso a filas segun el usuario
+
+Supabase documenta el flujo de Google OAuth y el quickstart especifico para Next.js App Router. Tambien documenta SSR con cookies para que el servidor pueda leer la sesion. ([Supabase][1], [Supabase][2], [Supabase][7])
+
+---
+
+# RLS: como usarla sin pasarte
+
+## Si usaria RLS para
+
+* un usuario ve su perfil
+* un alumno ve sus inscripciones
+* un autor edita su propio post
+* un comentario pertenece a cierto usuario
+* acceso por membresia o curso cuando la regla es simple
+
+## No la usaria para
+
+* workflows complejos
+* reglas de negocio cambiantes
+* logica de visibilidad muy dinamica
+* permisos compuestos dificiles de testear
+
+RLS es una herramienta fuerte en Postgres, pero cuanto mas metas logica de producto dentro de policies, mas dificil se vuelve mantenerla y migrarla. ([Supabase][3], [Supabase][4])
+
+---
+
+# Modelo de datos inicial
+
+## Tablas
+
+* `profiles`
+* `courses`
+* `course_members`
+* `posts`
+* `comments`
+* `events`
+
+## Relacion con auth
+
+* `auth.users` queda manejada por Supabase Auth
+* `profiles.id = auth.users.id`
+
+Supabase documenta que Auth almacena usuarios en el esquema `auth` y que la identidad de la aplicacion se conecta con tus propias entidades mediante claves foraneas o procesos equivalentes, cuidando seguridad y RLS. ([Supabase][6])
+
+---
+
+# Middleware y clientes
+
+## Tendrias 3 piezas
+
+* **browser client**
+* **server client**
+* **middleware** para refrescar sesion cuando haga falta
+
+La guia oficial de SSR de Supabase explica justamente ese patron para frameworks SSR, incluyendo Next.js: mover la sesion a cookies y ajustar el cliente segun el entorno. ([Supabase][7])
+
+---
+
+# Que evitaria para no quedar muy atado
+
+## Evita esto
+
+* usar Supabase directo desde todos los componentes
+* policies gigantes
+* Edge Functions para toda la logica
+* mezclar dominio con SQL, RLS o SDK
+
+## Hace esto
+
+* Supabase detras de adapters
+* dominio limpio
+* reglas de negocio en casos de uso
+* RLS simple
+* Next.js como capa server liviana con App Router
+
+Supabase sigue siendo open source y basado en Postgres, asi que esta estrategia conserva bastante salida futura si un dia queres mover la infraestructura. ([Supabase][3])
+
+---
+
+# Recomendacion operativa final
+
+## Si estuvieras arrancando esta semana
+
+1. **Supabase Auth + Google**
+2. `profiles`, `courses`, `posts`, `comments`, `events`
+3. RLS solo para ownership y acceso simple
+4. adapters para `Auth`, `Posts` y `Comments`
+5. `browser client`, `server client` y `middleware` para la sesion SSR
+6. nada de NextAuth/Auth.js
+
+## Resultado
+
+Eso te da:
+
+* salida rapida
+* baja friccion en auth
+* buena integracion con Next.js
+* costo mental razonable
+* lock-in moderado, no extremo
+* margen para migrar mas adelante si hiciera falta
+
+Si mas adelante queres separar backend propio, el detalle de cuando y como hacerlo esta en `docs/architecture/backend-separation.md`.
+
+[1]: https://supabase.com/docs/guides/auth/quickstarts/nextjs?utm_source=chatgpt.com "Use Supabase Auth with Next.js"
+[2]: https://supabase.com/docs/guides/auth/social-login/auth-google?utm_source=chatgpt.com "Login with Google | Supabase Docs"
+[3]: https://supabase.com/docs/guides/getting-started/architecture?utm_source=chatgpt.com "Architecture | Supabase Docs"
+[4]: https://supabase.com/docs?utm_source=chatgpt.com "Supabase Docs"
+[5]: https://supabase.com/docs/guides/getting-started/quickstarts/nextjs?utm_source=chatgpt.com "Use Supabase with Next.js"
+[6]: https://supabase.com/docs/guides/auth/architecture?utm_source=chatgpt.com "Auth architecture | Supabase Docs"
+[7]: https://supabase.com/docs/guides/auth/server-side?utm_source=chatgpt.com "Server-Side Rendering"
+[8]: https://nextjs.org/docs/app/guides/data-security "Guides: Data Security | Next.js"
+[9]: https://nextjs.org/docs/app/getting-started/route-handlers "Getting Started: Route Handlers | Next.js"
+[10]: https://nextjs.org/docs/app/getting-started/updating-data "Getting Started: Updating Data | Next.js"
