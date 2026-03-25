@@ -33,6 +33,8 @@ La regla operativa es usar ambos, pero con responsabilidades distintas: `Drizzle
 
 En esta etapa, Next.js no queda como frontend puro: App Router, `Route Handlers` y mutaciones server-side cubren bien una capa BFF liviana dentro del mismo proyecto. ([Next.js][9], [Next.js][10])
 
+Tambien dejaria una regla operativa adicional: cuando implementes un cambio que altere la estructura de la base, ese cambio debe salir con una migration SQL versionada en el mismo work item. El dashboard SQL editor puede servir para probar o depurar, pero no reemplaza una migration reproducible.
+
 ---
 
 # Drizzle + `supabase-js`: como repartir roles
@@ -44,8 +46,8 @@ Lo usaria para:
 * tablas de negocio
 * queries SQL tipadas
 * repositorios de dominio
-* schema
-* migraciones
+* schema tipado
+* relacion entre entidades de negocio
 
 Supabase documenta explicitamente el quickstart de Drizzle para conectarte a su Postgres y aclara que, si vas a usar solo Drizzle en lugar del Data API, incluso puedes apagar PostgREST en la configuracion de la API. ([Supabase][11])
 
@@ -67,11 +69,43 @@ La propia referencia de `supabase-js` la presenta como la libreria isomorfica pa
 
 * **Drizzle** para persistencia del dominio
 * **`supabase-js`** para servicios de plataforma
+* **SQL migrations versionadas** para cambios reales de base y para RLS
 
 Eso mantiene mejor la separacion hexagonal:
 
 * puertos del dominio y aplicacion para repositorios y servicios
 * adapters de infraestructura distintos para persistencia y para capacidades gestionadas de Supabase
+
+## Migrations SQL: regla operativa
+
+Cuando cambie la estructura real de Postgres, haria una migration SQL versionada. Eso incluye:
+
+* tablas nuevas
+* columnas nuevas o renombradas
+* constraints
+* indices
+* relaciones
+* activacion o cambio de RLS
+
+Ejemplo de migration SQL de estructura:
+
+```sql
+-- supabase/migrations/20260325090000_create_posts.sql
+CREATE TABLE posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  content text NOT NULL,
+  user_id uuid NOT NULL REFERENCES auth.users(id),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_posts_user_id ON posts(user_id);
+```
+
+La idea es simple:
+
+* `Drizzle` sigue modelando el schema y los repositorios
+* la base queda versionada con SQL reproducible
+* el dashboard queda solo para pruebas puntuales o debugging
 
 ---
 
@@ -273,6 +307,12 @@ Supabase documenta el flujo de Google OAuth y el quickstart especifico para Next
 
 Usaria **RLS simple** para seguridad de acceso a datos, no para meter toda la logica de negocio dentro de SQL.
 
+La regla operativa es esta:
+
+* **RLS va en SQL migrations**
+* **no en helpers del ORM**
+* **no solo en cambios manuales desde el dashboard**
+
 ## Si usaria RLS para
 
 * ownership
@@ -288,6 +328,31 @@ Usaria **RLS simple** para seguridad de acceso a datos, no para meter toda la lo
 * logica de producto muy dinamica
 
 RLS es una herramienta fuerte en Postgres, pero cuanto mas metas logica de producto dentro de policies, mas dificil se vuelve mantenerla y migrarla. El detalle de que significa "RLS simple" y donde poner el limite esta en `docs/architecture/rls-simple.md`. ([Supabase][3], [Supabase][4])
+
+Ejemplo de migration SQL para RLS:
+
+```sql
+-- supabase/migrations/20260325091000_posts_rls.sql
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own posts"
+ON posts
+FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own posts"
+ON posts
+FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+CREATE INDEX idx_posts_user_id ON posts(user_id);
+```
+
+Ese ejemplo deja claro el reparto de responsabilidades:
+
+* `Drizzle` puede seguir definiendo la tabla `posts`
+* la policy y la activacion de RLS viven en SQL
+* el indice acompana la policy para no castigar performance
 
 ---
 
@@ -353,11 +418,12 @@ Supabase sigue siendo open source y basado en Postgres, asi que esta estrategia 
 
 1. **Supabase Auth + Google**
 2. `profiles`, `courses`, `posts`, `comments`, `events`
-3. schema y migraciones con Drizzle
-4. RLS solo para ownership y acceso simple
-5. adapters para `Auth`, `Posts`, `Comments`, `Communities`, `Memberships` y archivos
-6. `browser client`, `server client` y `middleware` para la sesion SSR
-7. nada de NextAuth/Auth.js
+3. schema tipado y repositorios con Drizzle
+4. migrations SQL versionadas para cambios de estructura
+5. RLS solo para ownership y acceso simple, versionada en SQL
+6. adapters para `Auth`, `Posts`, `Comments`, `Communities`, `Memberships` y archivos
+7. `browser client`, `server client` y `middleware` para la sesion SSR
+8. nada de NextAuth/Auth.js
 
 ## Resultado
 

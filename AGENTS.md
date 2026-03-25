@@ -301,16 +301,50 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 
 - Use `Supabase Postgres` as the primary application database.
 - Use App Router with server-side session access via Supabase SSR patterns (`browser client`, `server client`, `middleware`) as the default integration model.
+- When an implemented change affects database structure (`schema`, tables, columns, constraints, indexes, relationships, or RLS-relevant storage layout), include a versioned SQL migration in the same work item.
+- Use the dashboard SQL editor only for quick experiments or debugging. It does not replace a versioned migration committed with the change.
 - Keep provider tokens, session secrets, and sensitive auth data server-side only.
 - Use custom sign-in and error pages when product UX requires it, but keep sensitive failure details out of the UI.
+
+Example SQL migration for a structural change:
+
+```sql
+-- supabase/migrations/20260325090000_create_posts.sql
+CREATE TABLE posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  content text NOT NULL,
+  user_id uuid NOT NULL REFERENCES auth.users(id),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_posts_user_id ON posts(user_id);
+```
 
 ### Authorization rules
 
 - Use **RLS simple** as the authorization baseline for data access.
 - Keep RLS focused on ownership, membership, simple roles, and clear tenant or community scope.
+- Create and maintain RLS policies through versioned SQL migrations. `Drizzle` may model tables and persistence, but it is not the source of truth for policies.
 - Do not move complex business rules, dynamic workflows, or highly contextual product decisions into SQL policies.
 - Keep complex authorization and product behavior in application use cases and domain services.
 - When in doubt about the RLS boundary, follow `docs/architecture/rls-simple.md`.
+
+Example SQL migration for RLS:
+
+```sql
+-- supabase/migrations/20260325091000_posts_rls.sql
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own posts"
+ON posts
+FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own posts"
+ON posts
+FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+```
 
 ## 6. Development Workflow
 
@@ -387,6 +421,8 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 - Are all product styles using mandatory BEM naming in `*.module.scss` files?
 - Are Tailwind utility classes absent from product code outside official `shadcn/ui` base components and `components.json` setup?
 - Are Supabase session tokens and provider secrets kept server-side only?
+- If the change touched database structure, was the matching versioned SQL migration added in the same work item?
+- If the change affected data access rules, was the RLS policy versioned in SQL instead of left only in the dashboard or ORM layer?
 - Does the change contradict or modify something documented in `docs/architecture`?
 - If yes, was `docs/architecture` updated in the same work item?
 - Were tests written first and left green at the end?
