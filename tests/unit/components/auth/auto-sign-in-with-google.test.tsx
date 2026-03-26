@@ -3,25 +3,24 @@ import userEvent from "@testing-library/user-event";
 
 import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google";
 
-const signInMock = jest.fn();
+const navigateToGoogleAuthStartMock = jest.fn();
 
-jest.mock("next-auth/react", () => ({
-  signIn: (...args: unknown[]) => signInMock(...args),
+jest.mock("@/src/modules/auth/infrastructure/oauth/start-google-auth-navigation", () => ({
+  navigateToGoogleAuthStart: (...args: unknown[]) =>
+    navigateToGoogleAuthStartMock(...args),
 }));
 
 describe("AutoSignInWithGoogle", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    signInMock.mockReset();
+    navigateToGoogleAuthStartMock.mockReset();
   });
 
   it("starts Google sign-in when the component mounts", async () => {
     render(<AutoSignInWithGoogle callbackUrl="/" />);
 
     await waitFor(() => {
-      expect(signInMock).toHaveBeenCalledWith("google", {
-        callbackUrl: "/",
-      });
+      expect(navigateToGoogleAuthStartMock).toHaveBeenCalledWith("/");
     });
 
     expect(screen.getByText(/te estamos redirigiendo a google/i)).toBeInTheDocument();
@@ -38,9 +37,7 @@ describe("AutoSignInWithGoogle", () => {
     render(<AutoSignInWithGoogle callbackUrl="/auth/error" />);
 
     await waitFor(() => {
-      expect(signInMock).toHaveBeenCalledWith("google", {
-        callbackUrl: "/auth/error",
-      });
+      expect(navigateToGoogleAuthStartMock).toHaveBeenCalledWith("/auth/error");
     });
 
     await user.click(
@@ -49,9 +46,7 @@ describe("AutoSignInWithGoogle", () => {
       })
     );
 
-    expect(signInMock).toHaveBeenCalledTimes(2);
-    expect(signInMock).toHaveBeenLastCalledWith("google", {
-      callbackUrl: "/auth/error",
-    });
+    expect(navigateToGoogleAuthStartMock).toHaveBeenCalledTimes(2);
+    expect(navigateToGoogleAuthStartMock).toHaveBeenLastCalledWith("/auth/error");
   });
 });

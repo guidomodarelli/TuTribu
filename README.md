@@ -24,32 +24,31 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 Create a local environment file (`.env.local`) based on `.env.example` and set these values:
 
-- `NEXTAUTH_URL`: Base URL of the app. NextAuth uses it for callbacks and authentication redirects.
-	- Local development example: `http://localhost:3000`
-- `NEXTAUTH_SECRET`: Private secret used by NextAuth to sign and encrypt session tokens/cookies.
-	- Required for secure session handling.
-	- If this value changes, current sessions become invalid and users must sign in again.
-- `GOOGLE_CLIENT_ID`: OAuth client ID from Google Cloud Console.
-- `GOOGLE_CLIENT_SECRET`: OAuth client secret from Google Cloud Console.
+- `SUPABASE_URL`: Supabase project URL.
+- `SUPABASE_PUBLISHABLE_KEY`: Supabase publishable key used by the server-side auth integration.
 
-### How to generate `NEXTAUTH_SECRET`
-
-Use a strong random value (at least 32 bytes). For example:
-
-```bash
-openssl rand -base64 32
-```
-
-Then set it in your local env file:
+Local example:
 
 ```dotenv
-NEXTAUTH_SECRET=your_generated_secret
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxxx
 ```
+
+## Supabase Auth Setup
+
+This project uses Supabase Auth with Google OAuth through SSR cookies.
+
+Before testing sign-in locally:
+
+1. Enable Google as an auth provider in the Supabase project.
+2. Add `http://localhost:3000` to the allowed site URLs/origins.
+3. Add `http://localhost:3000/auth/callback` to the redirect allow list.
 
 Security notes:
 
 - Never commit real secrets to the repository.
-- In production, configure these values in your deployment provider's environment settings.
+- Keep service-role keys and provider secrets out of the browser.
+- Configure Google provider credentials in Supabase, not in the app runtime.
 
 ## Learn More
 

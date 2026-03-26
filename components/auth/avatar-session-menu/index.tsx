@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { signOut, useSession } from "next-auth/react";
 import { LogInIcon, LogOutIcon } from "lucide-react";
 
 import { GoogleAccountAvatar } from "@/components/auth/google-account-avatar";
@@ -18,10 +17,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 
 type AvatarSessionMenuProps = {
+  authenticatedMember: AuthenticatedMemberResult | null;
+  onSignOut: () => Promise<void>;
   signInPath: string;
-  signOutCallbackUrl: string;
 };
 
 function getInitials(name: string): string {
@@ -34,18 +35,19 @@ function getInitials(name: string): string {
 }
 
 export function AvatarSessionMenu({
+  authenticatedMember,
+  onSignOut,
   signInPath,
-  signOutCallbackUrl,
 }: AvatarSessionMenuProps) {
-  const { data: session, status } = useSession();
-  const hasAuthenticatedMember = status === "authenticated" && Boolean(session?.user);
-  const avatarName = session?.user?.name ?? "Invitado";
-  const avatarEmail = session?.user?.email ?? "Sin correo";
-  const avatarFallback = hasAuthenticatedMember ? getInitials(avatarName) : "IN";
-  const avatarImage = session?.user?.image ?? null;
+  const hasAuthenticatedMember = Boolean(authenticatedMember);
+  const avatarName = authenticatedMember?.name ?? "Invitado";
+  const avatarEmail = authenticatedMember?.email ?? "Sin correo";
+  const avatarFallback =
+    authenticatedMember?.avatarFallback ?? (getInitials(avatarName) || "IN");
+  const avatarImage = authenticatedMember?.image ?? null;
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: signOutCallbackUrl });
+    await onSignOut();
   };
 
   return (

@@ -10,13 +10,21 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - Never hardcode secrets, OAuth credentials, refresh tokens, API keys, or user tokens in source code, tests, fixtures, screenshots, or documentation.
 - Keep sensitive credentials only in environment variables and server-side secret storage.
-- Treat Google access tokens and refresh tokens as server-only data. They must never be exposed to the browser, serialized in page props, or logged.
+- Treat Supabase session tokens and any provider access or refresh tokens as server-only sensitive data. They must never be exposed to the browser, serialized in page props, or logged.
 - Validate and sanitize all external input before it crosses into `application` or `domain`.
 - Avoid leaking internal errors, stack traces, provider payloads, file identifiers, or token data in UI messages.
 
 **rule file**: `.agentic-rules/nodejs/nodejs-security-patterns-rules_v1.md`
 
 ## 2. Core Architecture
+
+### Architecture documentation governance
+
+- Always review `docs/architecture/*.md` before proposing or implementing changes that affect architecture, authentication, authorization, provider integrations, data flow, modular structure, or backend boundaries.
+- Treat `docs/architecture` as the source of truth for architectural decisions in this repository.
+- If `AGENTS.md` and `docs/architecture` conflict, `docs/architecture` takes precedence and `AGENTS.md` must be updated to match it.
+- If a work item changes an architectural decision, update the relevant file under `docs/architecture` in the same work item.
+- Do not close a task that changes architecture or architectural constraints while leaving `docs/architecture` outdated.
 
 ### Mandatory architecture
 
@@ -73,14 +81,16 @@ src/
         api/
           dto/
           mapper.ts
-        google-drive/
         auth/
-        oauth/
         repositories/
+        composition/
     shared/
       domain/
       application/
       infrastructure/
+        supabase/
+          server-client.ts
+          proxy.ts
 components/
 lib/
 styles/
@@ -101,13 +111,13 @@ styles/
   - Do not import client adapters from `lib` either. Files named like `*api*`, `*client*`, or `*adapter*` under `lib` must be treated as adapter code and kept out of presentational components.
 - `domain`
   - Pure business rules, entities, value objects, and ports.
-  - No framework, HTTP, Google SDK, or persistence details.
+  - No framework, HTTP, provider SDK, or persistence details.
 - `application`
   - Use cases and internal contracts (`commands`, `queries`, `results`).
   - Orchestrates domain behavior through ports.
   - Validate and normalize inputs through domain value objects or application contracts, not through generic helpers in `lib`.
 - `infrastructure`
-  - Adapters for Google APIs, authentication, HTTP clients, storage, and third-party SDKs.
+  - Adapters for authentication, Supabase integration, HTTP clients, storage, and third-party SDKs.
   - Owns external DTOs and their mappers.
   - Shared server-only helpers must still live under a module infrastructure folder, never under `src/server`.
 - `lib`
@@ -265,8 +275,8 @@ components/<scope>/<component>/
 External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity/value object -> use case -> application result -> route view model/component props
 ```
 
-- Never pass Google API DTOs directly to route components.
-- Never import bootstrap builders, OAuth config, Drive clients, or API error mappers from a generic `src/server` path.
+- Never pass provider DTOs directly to route components.
+- Never import Supabase client builders, OAuth config, or provider error mappers from a generic `src/server` path.
 
 ### Client-side fetching
 
@@ -276,27 +286,64 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
   - route-level client container owns session, fetch, mutation state, and validation flow
   - presentational component renders props and emits callbacks only
 
-## 5. Google OAuth and Drive Integration
+## 5. Supabase Auth and Authorization
 
 ### Authentication setup
 
-- Prepare Google OAuth for user account connection through App Router.
-- If `next-auth` or `auth.js` is used, keep the auth route handler under `app/api/auth/[...nextauth]/route.ts` and keep the auth configuration in module infrastructure code.
-- Keep `authOptions`, OAuth config, token refresh logic, and Google client factories inside `src/modules/auth/infrastructure/*`.
+- Use `Supabase Auth` as the authentication baseline.
+- Use Google OAuth through Supabase when Google sign-in is required.
+- Do not add or reintroduce `auth.js` as the default auth architecture unless `docs/architecture` is updated in the same work item.
+- Keep auth adapters, session access, OAuth wiring, and auth-related mapping inside module infrastructure or shared Supabase infrastructure under `src/modules/shared/infrastructure/supabase/*`.
 - Wrap session-aware client providers from `app/layout.tsx` through a dedicated providers component when the UI needs client session context.
 
-### OAuth behavior
+### Supabase data and session behavior
 
-- The authorization flow must support offline access when long-lived Drive access is needed.
-- Prefer server-managed OAuth code exchange and secure token persistence.
+- Use `Supabase Postgres` as the primary application database.
+- Use App Router with server-side session access via Supabase SSR patterns (`server-client.ts`, `proxy.ts`, and internal auth route handlers) as the default integration model.
+- When an implemented change affects database structure (`schema`, tables, columns, constraints, indexes, relationships, or RLS-relevant storage layout), include a versioned SQL migration in the same work item.
+- Use the dashboard SQL editor only for quick experiments or debugging. It does not replace a versioned migration committed with the change.
+- Keep provider tokens, session secrets, and sensitive auth data server-side only.
 - Use custom sign-in and error pages when product UX requires it, but keep sensitive failure details out of the UI.
 
-### Google Drive rules
+Example SQL migration for a structural change:
 
-- Store internal application data in the database (Turso), not in Drive app data storage.
-- Use `drive.file` for user-visible files in My Drive.
-- Keep Google SDK calls isolated in infrastructure adapters.
-- Keep Google Drive error mapping and Drive client factories inside module infrastructure folders such as `src/modules/storage/infrastructure/*` and `src/modules/auth/infrastructure/*`.
+```sql
+-- supabase/migrations/20260325090000_create_posts.sql
+CREATE TABLE posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  content text NOT NULL,
+  user_id uuid NOT NULL REFERENCES auth.users(id),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_posts_user_id ON posts(user_id);
+```
+
+### Authorization rules
+
+- Use **RLS simple** as the authorization baseline for data access.
+- Keep RLS focused on ownership, membership, simple roles, and clear tenant or community scope.
+- Create and maintain RLS policies through versioned SQL migrations. `Drizzle` may model tables and persistence, but it is not the source of truth for policies.
+- Do not move complex business rules, dynamic workflows, or highly contextual product decisions into SQL policies.
+- Keep complex authorization and product behavior in application use cases and domain services.
+- When in doubt about the RLS boundary, follow `docs/architecture/rls-simple.md`.
+
+Example SQL migration for RLS:
+
+```sql
+-- supabase/migrations/20260325091000_posts_rls.sql
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own posts"
+ON posts
+FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own posts"
+ON posts
+FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+```
 
 ## 6. Development Workflow
 
@@ -341,11 +388,11 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 - `application`
   - Unit tests for use cases using doubles for domain ports.
 - `infrastructure`
-  - Integration tests for adapters, DTO mappers, auth wiring, and Google API boundaries.
+  - Integration tests for adapters, DTO mappers, Supabase auth wiring, and RLS or provider boundaries.
 - `app` and UI
   - React Testing Library tests for server/client component boundaries, rendering, and critical user flows.
 - End-to-end
-  - Add smoke coverage for critical authentication and Drive workflows.
+  - Add smoke coverage for critical authentication and authorization workflows.
 
 ### Testing rules
 
@@ -372,5 +419,9 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 - Are product styles implemented with `SCSS`?
 - Are all product styles using mandatory BEM naming in `*.module.scss` files?
 - Are Tailwind utility classes absent from product code outside official `shadcn/ui` base components and `components.json` setup?
-- Are Google tokens and secrets kept server-side only?
+- Are Supabase session tokens and provider secrets kept server-side only?
+- If the change touched database structure, was the matching versioned SQL migration added in the same work item?
+- If the change affected data access rules, was the RLS policy versioned in SQL instead of left only in the dashboard or ORM layer?
+- Does the change contradict or modify something documented in `docs/architecture`?
+- If yes, was `docs/architecture` updated in the same work item?
 - Were tests written first and left green at the end?

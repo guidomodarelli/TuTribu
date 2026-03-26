@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 import SignInPage from "@/app/auth/signin/page";
 import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
 
-const signInMock = jest.fn();
 const execute = jest.fn();
+const navigateToGoogleAuthStartMock = jest.fn();
 
-jest.mock("next-auth/react", () => ({
-  signIn: (...args: unknown[]) => signInMock(...args),
+jest.mock("@/src/modules/auth/infrastructure/oauth/start-google-auth-navigation", () => ({
+  navigateToGoogleAuthStart: (...args: unknown[]) =>
+    navigateToGoogleAuthStartMock(...args),
 }));
 
 jest.mock("next/navigation", () => ({
@@ -42,7 +43,7 @@ describe("SignInPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     execute.mockReset();
-    signInMock.mockReset();
+    navigateToGoogleAuthStartMock.mockReset();
 
     (createGetAuthenticatedMemberUseCase as jest.Mock).mockReturnValue({
       execute,
@@ -125,9 +126,7 @@ describe("SignInPage", () => {
     );
 
     await waitFor(() => {
-      expect(signInMock).toHaveBeenCalledWith("google", {
-        callbackUrl: "/",
-      });
+      expect(navigateToGoogleAuthStartMock).toHaveBeenCalledWith("/");
     });
 
     expect(
@@ -150,9 +149,7 @@ describe("SignInPage", () => {
     );
 
     await waitFor(() => {
-      expect(signInMock).toHaveBeenCalledWith("google", {
-        callbackUrl: "/auth/error",
-      });
+      expect(navigateToGoogleAuthStartMock).toHaveBeenCalledWith("/auth/error");
     });
   });
 
@@ -166,9 +163,7 @@ describe("SignInPage", () => {
     );
 
     await waitFor(() => {
-      expect(signInMock).toHaveBeenCalledWith("google", {
-        callbackUrl: "/",
-      });
+      expect(navigateToGoogleAuthStartMock).toHaveBeenCalledWith("/");
     });
   });
 });

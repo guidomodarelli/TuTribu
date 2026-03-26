@@ -1,28 +1,35 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useRouter } from "next/navigation";
 
-import { AvatarSessionMenu } from "@/components/auth/avatar-session-menu";
+import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 
-const signOutMock = jest.fn();
-const useSessionMock = jest.fn();
+const pushMock = jest.fn();
 
-jest.mock("next-auth/react", () => ({
-  signOut: (...args: unknown[]) => signOutMock(...args),
-  useSession: () => useSessionMock(),
+jest.mock("next/navigation", () => ({
+  useRouter: jest.fn(),
 }));
 
 describe("AvatarSessionMenu", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    signOutMock.mockReset();
+    pushMock.mockReset();
+    (fetch as jest.Mock).mockReset();
+    (fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+    });
+
+    (useRouter as jest.Mock).mockReturnValue({
+      push: pushMock,
+    });
   });
 
   it("shows sign-in action when there is no authenticated member", async () => {
-    useSessionMock.mockReturnValue({ data: null, status: "unauthenticated" });
     const user = userEvent.setup();
 
     render(
-      <AvatarSessionMenu
+      <AvatarSessionMenuClient
+        authenticatedMember={null}
         signInPath="/auth/signin"
         signOutCallbackUrl="/auth/signin"
       />
@@ -38,20 +45,18 @@ describe("AvatarSessionMenu", () => {
   });
 
   it("shows sign-out action when member is authenticated", async () => {
-    useSessionMock.mockReturnValue({
-      data: {
-        user: {
-          email: "grace.hopper@example.com",
-          name: "Grace Hopper",
-          image: null,
-        },
-      },
-      status: "authenticated",
-    });
     const user = userEvent.setup();
 
     render(
-      <AvatarSessionMenu
+      <AvatarSessionMenuClient
+        authenticatedMember={{
+          id: "dc2b4b91-7e42-41be-bcb5-a48b61a27740",
+          email: "grace.hopper@example.com",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        }}
         signInPath="/auth/signin"
         signOutCallbackUrl="/auth/signin"
       />
@@ -63,8 +68,9 @@ describe("AvatarSessionMenu", () => {
     await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
     await user.click(screen.getByRole("menuitem", { name: /cerrar sesion/i }));
 
-    expect(signOutMock).toHaveBeenCalledWith({
-      callbackUrl: "/auth/signin",
+    expect(fetch).toHaveBeenCalledWith("/auth/signout", {
+      method: "POST",
     });
+    expect(pushMock).toHaveBeenCalledWith("/auth/signin");
   });
 });

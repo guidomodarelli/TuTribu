@@ -1,8 +1,7 @@
 "use client";
 
-import { signIn } from "next-auth/react";
-
 import { Button } from "@/components/ui/button";
+import { navigateToGoogleAuthStart } from "@/src/modules/auth/infrastructure/oauth/start-google-auth-navigation";
 import styles from "./styles.module.scss";
 
 type SignInWithGoogleButtonProps = {
@@ -12,8 +11,8 @@ type SignInWithGoogleButtonProps = {
 export function SignInWithGoogleButton({
   callbackUrl,
 }: SignInWithGoogleButtonProps) {
-  const handleGoogleSignIn = async () => {
-    await signIn("google", { callbackUrl });
+  const handleGoogleSignIn = () => {
+    navigateToGoogleAuthStart(callbackUrl);
   };
 
   return (
