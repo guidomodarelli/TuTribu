@@ -212,12 +212,11 @@ src/
       infrastructure/
 
       supabase/
-        browser-client.ts
         server-client.ts
-        middleware.ts
+        proxy.ts
 ```
 
-La guia oficial de Supabase para Next.js y SSR separa explicitamente clientes para browser y server, junto con middleware para refrescar sesion por cookies. Esa division encaja bien con una arquitectura modular en Next.js. Si ademas dejas la persistencia SQL detras de Drizzle, los adapters quedan todavia mas nitidos. ([Supabase][1], [Supabase][7], [Supabase][11], [Drizzle][12])
+La guia oficial de Supabase para Next.js y SSR separa explicitamente el cliente server y el refresco de sesion por cookies. En este proyecto conviene dejar toda la integracion de Auth del lado server, usando `server-client.ts`, `proxy.ts` y rutas internas para iniciar y cerrar sesion. Si ademas dejas la persistencia SQL detras de Drizzle, los adapters quedan todavia mas nitidos. ([Supabase][1], [Supabase][7], [Supabase][11], [Drizzle][12])
 
 ## Ejemplos concretos de adapters
 
@@ -422,15 +421,17 @@ Supabase documenta que Auth almacena usuarios en el esquema `auth` y que la iden
 
 ---
 
-# Middleware y clientes
+# Proxy y clientes
 
 ## Tendrias 3 piezas
 
-* **browser client**
-* **server client**
-* **middleware** para refrescar sesion cuando haga falta
+* **`server-client.ts`**
+* **`proxy.ts`** para refrescar sesion cuando haga falta
+* **rutas internas de auth** para iniciar y cerrar sesion sin exponer config al browser
 
 La guia oficial de SSR de Supabase explica justamente ese patron para frameworks SSR, incluyendo Next.js: mover la sesion a cookies y ajustar el cliente segun el entorno. ([Supabase][7])
+
+Para decisiones sensibles de autorizacion en server, conviene usar `getUser()` o `getClaims()` y no basarse en `getSession()`, porque la sesion leida desde storage/cookies no es la fuente mas fuerte de verdad para autenticar al usuario.
 
 ---
 
@@ -470,7 +471,7 @@ Supabase sigue siendo open source y basado en Postgres, asi que esta estrategia 
 4. migrations SQL versionadas para cambios de estructura
 5. RLS solo para ownership, membership y tenant scope, versionada en SQL
 6. adapters para `Auth`, `Posts`, `Comments`, `Communities`, `Memberships` y archivos
-7. `browser client`, `server client` y `middleware` para la sesion SSR
+7. `server-client.ts`, `proxy.ts` y rutas internas de auth para la sesion SSR
 8. nada de NextAuth/Auth.js
 
 ## Resultado

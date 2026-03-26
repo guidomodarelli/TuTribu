@@ -89,9 +89,8 @@ src/
       application/
       infrastructure/
         supabase/
-          browser-client.ts
           server-client.ts
-          middleware.ts
+          proxy.ts
 components/
 lib/
 styles/
@@ -293,14 +292,14 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 
 - Use `Supabase Auth` as the authentication baseline.
 - Use Google OAuth through Supabase when Google sign-in is required.
-- Do not add or reintroduce `next-auth` / `auth.js` as the default auth architecture unless `docs/architecture` is updated in the same work item.
+- Do not add or reintroduce `auth.js` as the default auth architecture unless `docs/architecture` is updated in the same work item.
 - Keep auth adapters, session access, OAuth wiring, and auth-related mapping inside module infrastructure or shared Supabase infrastructure under `src/modules/shared/infrastructure/supabase/*`.
 - Wrap session-aware client providers from `app/layout.tsx` through a dedicated providers component when the UI needs client session context.
 
 ### Supabase data and session behavior
 
 - Use `Supabase Postgres` as the primary application database.
-- Use App Router with server-side session access via Supabase SSR patterns (`browser client`, `server client`, `middleware`) as the default integration model.
+- Use App Router with server-side session access via Supabase SSR patterns (`server-client.ts`, `proxy.ts`, and internal auth route handlers) as the default integration model.
 - When an implemented change affects database structure (`schema`, tables, columns, constraints, indexes, relationships, or RLS-relevant storage layout), include a versioned SQL migration in the same work item.
 - Use the dashboard SQL editor only for quick experiments or debugging. It does not replace a versioned migration committed with the change.
 - Keep provider tokens, session secrets, and sensitive auth data server-side only.

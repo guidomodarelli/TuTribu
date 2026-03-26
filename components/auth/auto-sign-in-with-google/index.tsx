@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { signIn } from "next-auth/react";
 
 import { CardDescription } from "@/components/ui/card";
+import { navigateToGoogleAuthStart } from "@/src/modules/auth/infrastructure/oauth/start-google-auth-navigation";
 import { SignInWithGoogleButton } from "../sign-in-with-google-button";
 import styles from "./styles.module.scss";
 
@@ -20,7 +20,7 @@ export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps)
     }
 
     hasTriggeredSignInRef.current = true;
-    void signIn("google", { callbackUrl });
+    navigateToGoogleAuthStart(callbackUrl);
   }, [callbackUrl]);
 
   return (

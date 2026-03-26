@@ -4,7 +4,8 @@ import { HomeIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { siteConfig } from "@/src/shared/config/site";
-import { AvatarSessionMenu } from "@/components/auth/avatar-session-menu";
+import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
+import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 import styles from "./styles.module.scss";
 import {
   Sidebar,
@@ -29,7 +30,11 @@ const primaryNavigation = [
   },
 ];
 
-export function AppSidebar() {
+type AppSidebarProps = {
+  authenticatedMember: AuthenticatedMemberResult | null;
+};
+
+export function AppSidebar({ authenticatedMember }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -73,7 +78,8 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <AvatarSessionMenu
+        <AvatarSessionMenuClient
+          authenticatedMember={authenticatedMember}
           signInPath="/auth/signin"
           signOutCallbackUrl="/auth/signin"
         />
