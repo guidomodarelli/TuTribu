@@ -12,6 +12,7 @@ La idea practica es esta:
 Ese suele ser el punto de equilibrio correcto en Supabase, sobre todo para un MVP. ([Supabase][1], [Supabase][3])
 
 Para la decision de tenancy de este producto, mira tambien `docs/architecture/multi-tenancy.md`.
+Para el sistema de roles y permisos por comunidad, mira `docs/architecture/roles-and-permissions.md`.
 
 ---
 
@@ -67,7 +68,7 @@ En este proyecto eso significa que RLS consume identidad desde Auth, pero no del
 * ownership por `user_id = auth.uid()`
 * acceso por pertenencia a `community_id`
 * acceso via `community_members`
-* acceso por rol simple como `member`, `admin`, `owner`
+* acceso por rol simple definido en `docs/architecture/roles-and-permissions.md`
 * lectura y escritura sobre filas del propio usuario
 * acceso por tenant o comunidad cuando la regla es clara
 
@@ -77,6 +78,8 @@ La regla importante es esta:
 * `community_members` resuelve su pertenencia y rol
 * JWT y custom claims no reemplazan esa relacion como fuente de verdad
 
+La matriz exacta de capacidades por `role` y el efecto de `status` no viven en este documento. Ese detalle esta separado en `docs/architecture/roles-and-permissions.md`.
+
 ## Ejemplos de academia online
 
 * un usuario solo ve su `profile`
@@ -84,7 +87,7 @@ La regla importante es esta:
 * un usuario solo borra sus propios comentarios
 * un miembro solo ve comunidades a las que pertenece
 * un miembro solo ve posts y eventos de comunidades donde tiene membresia
-* un `admin` o `owner` puede moderar dentro de su comunidad
+* un rol de moderacion puede operar dentro de su comunidad cuando la policy lo permite
 * un alumno ve sus inscripciones
 * un usuario solo ve sus datos privados
 
@@ -175,7 +178,7 @@ Y ademas deja clara la frontera:
 
 **Si, acoplarte un poco a RLS vale la pena; acoplarte mucho, no.**
 
-Para complementar esta definicion dentro de la arquitectura general, mira `docs/architecture/migrating-to-supabase.md` y `docs/architecture/multi-tenancy.md`.
+Para complementar esta definicion dentro de la arquitectura general, mira `docs/architecture/migrating-to-supabase.md`, `docs/architecture/multi-tenancy.md` y `docs/architecture/roles-and-permissions.md`.
 
 [1]: https://supabase.com/docs/guides/database/postgres/row-level-security?utm_source=chatgpt.com "Row Level Security | Supabase Docs"
 [2]: https://supabase.com/docs/guides/deployment/going-into-prod?utm_source=chatgpt.com "Production Checklist | Supabase Docs"

@@ -39,7 +39,7 @@ Tambien dejaria una regla operativa adicional: cuando implementes un cambio que 
 
 La decision de tenancy para este producto esta documentada en `docs/architecture/multi-tenancy.md`. El tenant canonico es `community`, no `course`.
 
-Tambien queda explicitado ahi que **Supabase Auth resuelve identidad, no roles por comunidad**. La fuente de verdad de autorizacion es `community_members`, no el JWT.
+Tambien queda explicitado ahi que **Supabase Auth resuelve identidad, no roles por comunidad**. La fuente de verdad de autorizacion es `community_members`, no el JWT. La definicion canonica del sistema de roles y permisos vive en `docs/architecture/roles-and-permissions.md`.
 
 ---
 
@@ -76,6 +76,8 @@ En este proyecto eso no cambia la regla de tenancy:
 * `auth.users.id` y `auth.uid()` identifican al usuario autenticado
 * `community_members` define pertenencia y rol por comunidad
 * JWT y custom claims no son la fuente primaria de roles por comunidad
+
+La matriz de permisos y el efecto de `status` no se definen en este documento. Se documentan por separado en `docs/architecture/roles-and-permissions.md`.
 
 ## Regla simple
 

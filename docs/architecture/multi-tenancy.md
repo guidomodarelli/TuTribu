@@ -51,16 +51,17 @@ La tabla `community_members` debe modelar la pertenencia por comunidad:
 * `user_id`
 * `community_id`
 * `role`
+* `status`
 
 ## Roles
 
-Los roles soportados a nivel arquitectura son:
+Los detalles del sistema de roles, estados y permisos por comunidad viven en `docs/architecture/roles-and-permissions.md`.
 
-* `owner`
-* `admin`
-* `member`
+En este documento solo fijamos la decision de tenancy:
 
-Un mismo usuario puede tener roles distintos en comunidades distintas. El rol no debe vivir como atributo global en `users` o `profiles`.
+* un usuario puede pertenecer a multiples comunidades
+* esa pertenencia se modela con `community_members`
+* el rol no vive como atributo global en `users` o `profiles`
 
 ---
 
@@ -97,10 +98,10 @@ Supabase Auth ayuda mucho porque entrega una identidad confiable, pero no resuel
 
 * roles por comunidad
 * aislamiento multi-tenant
-* permisos `owner | admin | member`
+* permisos por comunidad
 * alcance por `community_id`
 
-La fuente de verdad para eso sigue siendo `community_members` y las policies apoyadas en esa tabla.
+La fuente de verdad para eso sigue siendo `community_members` y las policies apoyadas en esa tabla. La definicion canonica del sistema de roles y permisos esta en `docs/architecture/roles-and-permissions.md`.
 
 ## JWT y custom claims
 
@@ -112,7 +113,7 @@ La regla base es esta:
 
 Si en el futuro se usan custom claims, deben tratarse solo como una optimizacion derivada. La fuente de verdad de autorizacion sigue viviendo en la base y en la relacion `community_members(user_id, community_id, role)`.
 
-Para el limite exacto de RLS, mira `docs/architecture/rls-simple.md`.
+Para el limite exacto de RLS, mira `docs/architecture/rls-simple.md`. Para la matriz de permisos y los estados de membresia, mira `docs/architecture/roles-and-permissions.md`.
 
 ---
 
