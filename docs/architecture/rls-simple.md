@@ -56,6 +56,8 @@ Porque te da:
 
 Supabase Auth esta pensado para integrarse con RLS, y los tokens de acceso del usuario se usan justamente para restringir acceso a datos y endpoints. ([Supabase][3])
 
+En este proyecto eso significa que RLS consume identidad desde Auth, pero no delega en Auth la modelacion de membership o roles por comunidad.
+
 ---
 
 # Que meteria en RLS
@@ -68,6 +70,12 @@ Supabase Auth esta pensado para integrarse con RLS, y los tokens de acceso del u
 * acceso por rol simple como `member`, `admin`, `owner`
 * lectura y escritura sobre filas del propio usuario
 * acceso por tenant o comunidad cuando la regla es clara
+
+La regla importante es esta:
+
+* `auth.uid()` identifica al usuario actual
+* `community_members` resuelve su pertenencia y rol
+* JWT y custom claims no reemplazan esa relacion como fuente de verdad
 
 ## Ejemplos de academia online
 
@@ -117,6 +125,8 @@ La app responde:
 
 Si mezclas ambas preguntas dentro de RLS, la cosa se vuelve mucho mas dificil de mantener.
 
+Tambien se vuelve mas fragil si intentas meter en el token toda la matriz de roles por comunidad. Para este producto, ese modelo no es la base recomendada.
+
 ---
 
 # Mantenibilidad y performance
@@ -154,6 +164,12 @@ Eso te da:
 * buen encaje con Supabase Auth
 * acoplamiento aceptable
 * portabilidad razonable, porque sigues en Postgres
+
+Y ademas deja clara la frontera:
+
+* Auth para identidad
+* `community_members` para membresia y roles
+* RLS para aislamiento estructural
 
 ## En una frase
 

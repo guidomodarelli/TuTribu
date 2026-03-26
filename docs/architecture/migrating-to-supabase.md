@@ -39,6 +39,8 @@ Tambien dejaria una regla operativa adicional: cuando implementes un cambio que 
 
 La decision de tenancy para este producto esta documentada en `docs/architecture/multi-tenancy.md`. El tenant canonico es `community`, no `course`.
 
+Tambien queda explicitado ahi que **Supabase Auth resuelve identidad, no roles por comunidad**. La fuente de verdad de autorizacion es `community_members`, no el JWT.
+
 ---
 
 # Drizzle + `supabase-js`: como repartir roles
@@ -68,6 +70,12 @@ Lo usaria para:
 * llamadas puntuales al Data API/PostgREST
 
 La propia referencia de `supabase-js` la presenta como la libreria isomorfica para interactuar con Postgres, escuchar cambios, invocar Edge Functions, construir login y manejar archivos. ([Supabase][13])
+
+En este proyecto eso no cambia la regla de tenancy:
+
+* `auth.users.id` y `auth.uid()` identifican al usuario autenticado
+* `community_members` define pertenencia y rol por comunidad
+* JWT y custom claims no son la fuente primaria de roles por comunidad
 
 ## Regla simple
 
@@ -140,6 +148,8 @@ La idea es simple:
 Supabase Auth soporta social login, incluido Google, y la integracion oficial con Next.js App Router y SSR ya esta documentada. Ademas, Auth usa el esquema `auth` dentro de Postgres y se integra naturalmente con el resto de la base. ([Supabase][1], [Supabase][2], [Supabase][6])
 
 En esta arquitectura, `community` es el tenant canonico. `course` puede existir como entidad de negocio dentro de una comunidad, pero no define el limite principal de aislamiento. El detalle esta en `docs/architecture/multi-tenancy.md`.
+
+La identidad estable del usuario sale de `auth.users.id`. La pertenencia, el rol y el alcance multi-tenant no salen de Auth por si solos: se resuelven con `community_members`, `community_id` y RLS.
 
 ## No
 
@@ -312,6 +322,8 @@ La documentacion de Supabase esta optimizada para productividad rapida en CRUD y
 
 Supabase documenta el flujo de Google OAuth y el quickstart especifico para Next.js App Router. Tambien documenta SSR con cookies para que el servidor pueda leer la sesion. ([Supabase][1], [Supabase][2], [Supabase][7])
 
+La implicacion practica es simple: Auth te da identidad y sesion; la autorizacion por comunidad sigue consultando `community_members` y no una matriz de roles embebida en el JWT.
+
 ---
 
 # RLS: como usarla sin pasarte
@@ -332,6 +344,8 @@ La regla operativa es esta:
 * membership
 * roles simples
 * acceso por usuario o tenant cuando la regla es clara
+
+La identidad entra a la policy via `auth.uid()`, pero la decision de acceso debe apoyarse en tablas del dominio como `community_members`, no en claims complejas por comunidad.
 
 ## No la usaria para
 
@@ -428,6 +442,7 @@ La guia oficial de SSR de Supabase explica justamente ese patron para frameworks
 * mezclar dominio con SQL, RLS o SDK
 * repartir consultas de negocio entre Drizzle y `supabase.from(...)`
 * mezclar escrituras SQL tipadas con PostgREST sin una frontera clara
+* usar JWT o custom claims como fuente principal de roles por comunidad
 
 ## Hace esto
 
@@ -437,6 +452,7 @@ La guia oficial de SSR de Supabase explica justamente ese patron para frameworks
 * reglas de negocio en casos de uso
 * RLS simple por tenant, membership y ownership
 * Next.js como capa server liviana con App Router
+* `community_members` como fuente de verdad de membresia y roles
 
 Supabase sigue siendo open source y basado en Postgres, asi que esta estrategia conserva bastante salida futura si un dia queres mover la infraestructura. ([Supabase][3])
 

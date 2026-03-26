@@ -70,6 +70,13 @@ Un mismo usuario puede tener roles distintos en comunidades distintas. El rol no
 
 La identidad del usuario la resuelve **Supabase Auth**.
 
+Eso incluye:
+
+* login y sesion
+* JWT y cookies de sesion
+* `auth.users.id` como identificador estable del usuario
+* `auth.uid()` como referencia de identidad dentro de RLS
+
 ## Autorizacion y tenancy
 
 La pertenencia y el rol se resuelven en la aplicacion y en la base a traves de:
@@ -85,6 +92,25 @@ La regla practica es esta:
 > **multi-tenancy + RLS + app layer responden que puede hacer en cada comunidad**
 
 RLS debe proteger acceso estructural a datos por tenant, membership y ownership. La app debe seguir resolviendo workflows, excepciones, reglas compuestas y decisiones de producto mas dinamicas.
+
+Supabase Auth ayuda mucho porque entrega una identidad confiable, pero no resuelve por si solo:
+
+* roles por comunidad
+* aislamiento multi-tenant
+* permisos `owner | admin | member`
+* alcance por `community_id`
+
+La fuente de verdad para eso sigue siendo `community_members` y las policies apoyadas en esa tabla.
+
+## JWT y custom claims
+
+La regla base es esta:
+
+* no usar JWT ni custom claims como fuente primaria de roles por comunidad
+* no serializar la matriz completa de membresias y roles por comunidad en el token
+* no usar el token como sustituto de `community_members`
+
+Si en el futuro se usan custom claims, deben tratarse solo como una optimizacion derivada. La fuente de verdad de autorizacion sigue viviendo en la base y en la relacion `community_members(user_id, community_id, role)`.
 
 Para el limite exacto de RLS, mira `docs/architecture/rls-simple.md`.
 
