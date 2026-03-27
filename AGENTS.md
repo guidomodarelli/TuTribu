@@ -355,6 +355,7 @@ WITH CHECK (auth.uid() = user_id);
   - global constants reused across multiple modules or across the application belong in `src/constants/`
   - module-scoped constants belong in `src/modules/<module>/constants/`
   - file-local constants that are not reused outside a single component, page, route, or module file must stay in that file
+- For examples and a quick decision guide, see `docs/conventions/constants.md`.
 - Keep each constant close to its functional owner. Do not create global constants by default, and do not move unrelated values into a generic catch-all constants file.
 - If a constant is repeated in multiple components within the same module, promote it to that module's `constants/` folder. If it is not reused outside its file, do not abstract it into a separate file.
 - Group constants by domain ownership, not by generic technical category, and use consistent naming such as `UPPER_CASE` for constants.
