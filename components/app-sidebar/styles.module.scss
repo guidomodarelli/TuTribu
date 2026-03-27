@@ -16,11 +16,20 @@
   &__itemLabel {
     display: inline;
   }
+
+  &__emptyState {
+    margin: 0.5rem 0 0;
+    padding-inline: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: color-mix(in oklch, var(--sidebar-foreground) 72%, transparent);
+  }
 }
 
 :global(.group[data-collapsible="icon"]) .AppSidebar {
   &__brandName,
-  &__itemLabel {
+  &__itemLabel,
+  &__emptyState {
     display: none;
   }
 }

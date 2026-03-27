@@ -1,0 +1,42 @@
+.CreateCommunityPage {
+  display: flex;
+  justify-content: center;
+  padding: clamp(1rem, 3vw, 2rem);
+
+  &__card {
+    width: min(100%, 44rem);
+    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    background:
+      linear-gradient(140deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 38%),
+      var(--card);
+  }
+
+  &__header {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  &__content {
+    display: grid;
+    gap: 1rem;
+  }
+
+  &__eyebrow {
+    margin: 0;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--foreground) 56%, transparent);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: clamp(1.8rem, 3vw, 2.5rem);
+    line-height: 1;
+  }
+
+  &__description {
+    margin: 0;
+    color: color-mix(in srgb, var(--foreground) 76%, transparent);
+  }
+}

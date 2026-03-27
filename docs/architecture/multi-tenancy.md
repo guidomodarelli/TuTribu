@@ -103,6 +103,16 @@ Supabase Auth ayuda mucho porque entrega una identidad confiable, pero no resuel
 
 La fuente de verdad para eso sigue siendo `community_members` y las policies apoyadas en esa tabla. La definicion canonica del sistema de roles y permisos esta en `docs/architecture/roles-and-permissions.md`.
 
+Antes de que exista la primera membership de una comunidad nueva, la plataforma puede aplicar un permiso global de creacion. En este MVP ese permiso vive en `community_creator_whitelist` y solo habilita el alta inicial.
+
+Las filas de esa whitelist son datos operativos del entorno. No deben viajar como seeds personales dentro de migraciones compartidas del repositorio.
+
+Despues de crear la comunidad:
+
+* el usuario creador pasa a estar modelado dentro del tenant por `community_members`
+* su rol inicial queda como `owner`
+* desde ese momento la autorizacion tenant-scoped vuelve a depender de `community_members`, `community_id` y RLS
+
 ## JWT y custom claims
 
 La regla base es esta:

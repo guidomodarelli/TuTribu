@@ -103,6 +103,23 @@ type PlatformRole = 'platform_admin' | 'support_agent' | 'internal_staff'
 
 Esos roles quedan **reservados** como extension futura y no forman parte del mecanismo principal del MVP.
 
+## Permiso global para crear comunidades
+
+En este MVP, **crear comunidad** no sale de `community_members` porque todavia no existe una comunidad previa donde anclar ese permiso.
+
+La regla es:
+
+* la capacidad de crear comunidad se resuelve como permiso global de plataforma
+* ese permiso se implementa con una whitelist por email en `community_creator_whitelist`
+* la whitelist no reemplaza `owner/admin/member`
+* las entradas iniciales de la whitelist se gestionan por entorno y no como seeds personales versionados
+* una vez creada la comunidad, la autorizacion vuelve al modelo normal por `community_members`
+
+Entonces, el flujo queda asi:
+
+* la whitelist responde si un usuario autenticado puede crear una comunidad nueva
+* `community_members` sigue respondiendo que rol y estado tiene dentro de cada comunidad ya creada
+
 ---
 
 # Matriz base de permisos
@@ -238,9 +255,10 @@ Regla importante:
 ## Crear comunidad
 
 1. el usuario autenticado crea la comunidad
-2. se inserta la fila en `communities`
-3. se crea la membership inicial en `community_members`
-4. esa membership inicial queda como `owner` + `active`
+2. la app verifica primero que su email este habilitado en `community_creator_whitelist`
+3. se inserta la fila en `communities`
+4. se crea la membership inicial en `community_members`
+5. esa membership inicial queda como `owner` + `active`
 
 ## Promover a admin
 

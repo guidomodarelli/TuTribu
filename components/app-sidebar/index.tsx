@@ -1,10 +1,11 @@
 "use client";
 
-import { HomeIcon } from "lucide-react";
+import { HomeIcon, PlusCircleIcon, UsersIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { siteConfig } from "@/src/shared/config/site";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
+import type { MemberCommunityListItemResult } from "@/src/modules/communities/application/results/member-community-list-item-result";
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 import styles from "./styles.module.scss";
 import {
@@ -32,11 +33,16 @@ const primaryNavigation = [
 
 type AppSidebarProps = {
   authenticatedMember: AuthenticatedMemberResult | null;
+  memberCommunities: MemberCommunityListItemResult[];
 };
 
-export function AppSidebar({ authenticatedMember }: AppSidebarProps) {
+export function AppSidebar({
+  authenticatedMember,
+  memberCommunities,
+}: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const isCreateCommunityActive = pathname === "/comunidad/crear";
 
   return (
     <Sidebar collapsible="icon" variant="inset" className={styles.AppSidebar}>
@@ -74,6 +80,46 @@ export function AppSidebar({ authenticatedMember }: AppSidebarProps) {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Comunidades</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Nueva comunidad"
+                  isActive={isCreateCommunityActive}
+                  onClick={() => router.push("/comunidad/crear")}
+                >
+                  <PlusCircleIcon />
+                  <span className={styles.AppSidebar__itemLabel}>Nueva comunidad</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {memberCommunities.map((community) => {
+                const communityPath = `/comunidad/${community.slug}`;
+                const isCommunityActive =
+                  pathname === communityPath || pathname.startsWith(`${communityPath}/`);
+
+                return (
+                  <SidebarMenuItem key={community.communityId}>
+                    <SidebarMenuButton
+                      tooltip={community.name}
+                      isActive={isCommunityActive}
+                      onClick={() => router.push(communityPath)}
+                    >
+                      <UsersIcon />
+                      <span className={styles.AppSidebar__itemLabel}>{community.name}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+            {authenticatedMember && memberCommunities.length === 0 ? (
+              <p className={styles.AppSidebar__emptyState}>
+                Todavia no formas parte de ninguna comunidad
+              </p>
+            ) : null}
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
