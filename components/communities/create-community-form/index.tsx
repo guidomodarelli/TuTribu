@@ -8,6 +8,27 @@ import { Input } from "@/components/ui/input";
 import { normalizeCommunitySlug } from "@/src/modules/communities/domain/value-objects/community-slug";
 import styles from "./styles.module.scss";
 
+const COMMUNITY_SLUG_NORMALIZATION_FORM = "NFD";
+const COMMUNITY_SLUG_PREVIEW_FALLBACK = "tu-comunidad";
+const COMMUNITY_SLUG_TRAILING_SEPARATOR = "-";
+const CREATE_COMMUNITY_FORM_ARIA = {
+  livePolite: "polite",
+} as const;
+const CREATE_COMMUNITY_FORM_BUTTON = {
+  outlineVariant: "outline",
+  smallSize: "sm",
+  submitType: "submit",
+} as const;
+const CREATE_COMMUNITY_FORM_FIELD = {
+  hiddenType: "hidden",
+  method: "post",
+  name: "name",
+  slug: "slug",
+} as const;
+const CREATE_COMMUNITY_FORM_INTERACTION = {
+  buttonType: "button",
+} as const;
+
 type CreateCommunityFormProps = {
   errorMessage?: string | null;
   initialName?: string;
@@ -19,11 +40,11 @@ type CreateCommunityFormProps = {
 function normalizeCommunitySlugDraft(input: string): string {
   const normalizedSlug = normalizeCommunitySlug(input);
   const hasTrailingSeparator = /[^a-z0-9]+$/i.test(
-    input.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    input.normalize(COMMUNITY_SLUG_NORMALIZATION_FORM).replace(/[\u0300-\u036f]/g, "")
   );
 
   if (hasTrailingSeparator && normalizedSlug.length > 0) {
-    return `${normalizedSlug}-`;
+    return normalizedSlug + COMMUNITY_SLUG_TRAILING_SEPARATOR;
   }
 
   return normalizedSlug;
@@ -48,15 +69,20 @@ export function CreateCommunityForm({
   const isSlugSynced =
     Boolean(normalizedNameSlug) && canonicalSlug === normalizedNameSlug;
 
-  const slugPreview = canonicalSlug || normalizedNameSlug || "tu-comunidad";
+  const slugPreview =
+    canonicalSlug || normalizedNameSlug || COMMUNITY_SLUG_PREVIEW_FALLBACK;
 
   return (
     <form
       action={submitPath}
       className={styles.CreateCommunityForm}
-      method="post"
+      method={CREATE_COMMUNITY_FORM_FIELD.method}
     >
-      <input name="slug" type="hidden" value={canonicalSlug} />
+      <input
+        name={CREATE_COMMUNITY_FORM_FIELD.slug}
+        type={CREATE_COMMUNITY_FORM_FIELD.hiddenType}
+        value={canonicalSlug}
+      />
       <div className={styles.CreateCommunityForm__field}>
         <label
           className={styles.CreateCommunityForm__label}
@@ -66,7 +92,7 @@ export function CreateCommunityForm({
         </label>
         <Input
           id={nameInputId}
-          name="name"
+          name={CREATE_COMMUNITY_FORM_FIELD.name}
           onChange={(event) => {
             const nextName = event.currentTarget.value;
             setName(nextName);
@@ -96,9 +122,9 @@ export function CreateCommunityForm({
               setHasManualSlugChanges(false);
               setSlug(normalizedNameSlug);
             }}
-            size="sm"
-            type="button"
-            variant="outline"
+            size={CREATE_COMMUNITY_FORM_BUTTON.smallSize}
+            type={CREATE_COMMUNITY_FORM_INTERACTION.buttonType}
+            variant={CREATE_COMMUNITY_FORM_BUTTON.outlineVariant}
           >
             Sincronizar con el nombre
           </Button>
@@ -124,7 +150,7 @@ export function CreateCommunityForm({
           />
           {normalizedNameSlug ? (
             <span
-              aria-live="polite"
+              aria-live={CREATE_COMMUNITY_FORM_ARIA.livePolite}
               className={`${styles.CreateCommunityForm__statusInline} ${
                 isSlugSynced
                   ? styles["CreateCommunityForm__statusInline--synced"]
@@ -143,7 +169,7 @@ export function CreateCommunityForm({
 
       {errorMessage ? (
         <div
-          aria-live="polite"
+          aria-live={CREATE_COMMUNITY_FORM_ARIA.livePolite}
           className={styles.CreateCommunityForm__feedback}
         >
           <p className={styles.CreateCommunityForm__error}>{errorMessage}</p>
@@ -154,8 +180,8 @@ export function CreateCommunityForm({
                 setHasManualSlugChanges(true);
                 setSlug(suggestedSlug);
               }}
-              type="button"
-              variant="outline"
+              type={CREATE_COMMUNITY_FORM_INTERACTION.buttonType}
+              variant={CREATE_COMMUNITY_FORM_BUTTON.outlineVariant}
             >
               Usar sugerencia
             </Button>
@@ -164,7 +190,9 @@ export function CreateCommunityForm({
       ) : null}
 
       <div className={styles.CreateCommunityForm__actions}>
-        <Button type="submit">Crear comunidad</Button>
+        <Button type={CREATE_COMMUNITY_FORM_BUTTON.submitType}>
+          Crear comunidad
+        </Button>
       </div>
     </form>
   );

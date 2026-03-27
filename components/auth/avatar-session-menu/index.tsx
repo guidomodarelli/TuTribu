@@ -25,13 +25,27 @@ type AvatarSessionMenuProps = {
   signInPath: string;
 };
 
+const AVATAR_INITIALS_SEPARATOR = " ";
+const AVATAR_INITIALS_MAX_PARTS = 2;
+const AVATAR_SESSION_FALLBACK = {
+  authenticatedFallback: "IN",
+  guestEmail: "Sin correo",
+  guestName: "Invitado",
+} as const;
+const AVATAR_SESSION_MENU_UI = {
+  accountMenuLabel: "Menu de cuenta",
+  buttonType: "button",
+  dropdownAlign: "start",
+  dropdownSide: "top",
+} as const;
+
 function getInitials(name: string): string {
   return name
-    .split(" ")
+    .split(AVATAR_INITIALS_SEPARATOR)
     .map((part) => part[0])
     .join("")
     .toUpperCase()
-    .slice(0, 2);
+    .slice(0, AVATAR_INITIALS_MAX_PARTS);
 }
 
 export function AvatarSessionMenu({
@@ -40,10 +54,11 @@ export function AvatarSessionMenu({
   signInPath,
 }: AvatarSessionMenuProps) {
   const hasAuthenticatedMember = Boolean(authenticatedMember);
-  const avatarName = authenticatedMember?.name ?? "Invitado";
-  const avatarEmail = authenticatedMember?.email ?? "Sin correo";
+  const avatarName = authenticatedMember?.name ?? AVATAR_SESSION_FALLBACK.guestName;
+  const avatarEmail = authenticatedMember?.email ?? AVATAR_SESSION_FALLBACK.guestEmail;
   const avatarFallback =
-    authenticatedMember?.avatarFallback ?? (getInitials(avatarName) || "IN");
+    authenticatedMember?.avatarFallback ??
+    (getInitials(avatarName) || AVATAR_SESSION_FALLBACK.authenticatedFallback);
   const avatarImage = authenticatedMember?.image ?? null;
 
   const handleSignOut = async () => {
@@ -54,8 +69,8 @@ export function AvatarSessionMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          type="button"
-          aria-label="Menu de cuenta"
+          type={AVATAR_SESSION_MENU_UI.buttonType}
+          aria-label={AVATAR_SESSION_MENU_UI.accountMenuLabel}
           className={styles.AvatarSessionMenu}
         >
           <GoogleAccountAvatar
@@ -67,8 +82,8 @@ export function AvatarSessionMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        side="top"
-        align="start"
+        side={AVATAR_SESSION_MENU_UI.dropdownSide}
+        align={AVATAR_SESSION_MENU_UI.dropdownAlign}
         className={styles.AvatarSessionMenu__content}
       >
         <div className={styles.AvatarSessionMenu__header}>

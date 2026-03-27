@@ -12,6 +12,7 @@ type GoogleAccountAvatarProps = {
   image: string | null;
   name: string;
 };
+const GOOGLE_ACCOUNT_AVATAR_SIZE = "lg";
 
 export function GoogleAccountAvatar({
   email,
@@ -21,7 +22,7 @@ export function GoogleAccountAvatar({
 }: GoogleAccountAvatarProps) {
   return (
     <div className={styles.GoogleAccountAvatar}>
-      <Avatar size="lg">
+      <Avatar size={GOOGLE_ACCOUNT_AVATAR_SIZE}>
         {image ? <AvatarImage alt={name} src={image} /> : null}
         <AvatarFallback>{fallback}</AvatarFallback>
       </Avatar>

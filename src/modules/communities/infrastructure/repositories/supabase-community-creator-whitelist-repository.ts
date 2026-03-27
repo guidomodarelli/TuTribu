@@ -12,6 +12,13 @@ type SupabaseDatabaseClient = {
 
 type SupabaseDatabaseClientFactory = () => Promise<SupabaseDatabaseClient>;
 
+const COMMUNITY_CREATOR_WHITELIST = {
+  emailColumn: "email",
+  missingTableCode: "PGRST205",
+  schemaCacheMessage: "schema cache",
+  tableName: "community_creator_whitelist",
+} as const;
+
 function isMissingWhitelistTableError(error: RecoverableSupabaseError | null): boolean {
   if (!error) {
     return false;
@@ -20,9 +27,9 @@ function isMissingWhitelistTableError(error: RecoverableSupabaseError | null): b
   const normalizedMessage = error.message.toLowerCase();
 
   return (
-    error.code === "PGRST205" ||
-    normalizedMessage.includes("community_creator_whitelist") &&
-      normalizedMessage.includes("schema cache")
+    error.code === COMMUNITY_CREATOR_WHITELIST.missingTableCode ||
+    normalizedMessage.includes(COMMUNITY_CREATOR_WHITELIST.tableName) &&
+      normalizedMessage.includes(COMMUNITY_CREATOR_WHITELIST.schemaCacheMessage)
   );
 }
 
@@ -37,7 +44,7 @@ export class SupabaseCommunityCreatorWhitelistRepository
   async isEmailAllowed(email: string): Promise<boolean> {
     const normalizedEmail = email.trim().toLowerCase();
     const supabase = await this.createClient();
-    const whitelistTable = supabase.from("community_creator_whitelist") as {
+    const whitelistTable = supabase.from(COMMUNITY_CREATOR_WHITELIST.tableName) as {
       select: (columns: string) => {
         eq: (column: string, value: string) => {
           maybeSingle: () => Promise<{
@@ -48,8 +55,8 @@ export class SupabaseCommunityCreatorWhitelistRepository
       };
     };
     const { data, error } = await whitelistTable
-      .select("email")
-      .eq("email", normalizedEmail)
+      .select(COMMUNITY_CREATOR_WHITELIST.emailColumn)
+      .eq(COMMUNITY_CREATOR_WHITELIST.emailColumn, normalizedEmail)
       .maybeSingle();
 
     if (isMissingWhitelistTableError(error)) {

@@ -3,6 +3,7 @@
 import { HomeIcon, PlusCircleIcon, UsersIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { ROUTES } from "@/src/constants/routes";
 import { siteConfig } from "@/src/shared/config/site";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type { MemberCommunityListItemResult } from "@/src/modules/communities/application/results/member-community-list-item-result";
@@ -25,11 +26,17 @@ import {
 
 const primaryNavigation = [
   {
-    href: "/",
+    href: ROUTES.home,
     icon: HomeIcon,
     label: "Inicio",
   },
 ];
+const APP_SIDEBAR_UI = {
+  brandButtonSize: "lg",
+  collapsible: "icon",
+  createCommunityTooltip: "Nueva comunidad",
+  variant: "inset",
+} as const;
 
 type AppSidebarProps = {
   authenticatedMember: AuthenticatedMemberResult | null;
@@ -42,18 +49,22 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const isCreateCommunityActive = pathname === "/comunidad/crear";
+  const isCreateCommunityActive = pathname === ROUTES.communities.create;
 
   return (
-    <Sidebar collapsible="icon" variant="inset" className={styles.AppSidebar}>
+    <Sidebar
+      collapsible={APP_SIDEBAR_UI.collapsible}
+      variant={APP_SIDEBAR_UI.variant}
+      className={styles.AppSidebar}
+    >
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              size="lg"
+              size={APP_SIDEBAR_UI.brandButtonSize}
               tooltip={siteConfig.name}
-              isActive={pathname === "/"}
-              onClick={() => router.push("/")}
+              isActive={pathname === ROUTES.home}
+              onClick={() => router.push(ROUTES.home)}
             >
               <span className={styles.AppSidebar__brandMark}>AO</span>
               <span className={styles.AppSidebar__brandName}>{siteConfig.name}</span>
@@ -88,16 +99,16 @@ export function AppSidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  tooltip="Nueva comunidad"
+                  tooltip={APP_SIDEBAR_UI.createCommunityTooltip}
                   isActive={isCreateCommunityActive}
-                  onClick={() => router.push("/comunidad/crear")}
+                  onClick={() => router.push(ROUTES.communities.create)}
                 >
                   <PlusCircleIcon />
                   <span className={styles.AppSidebar__itemLabel}>Nueva comunidad</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {memberCommunities.map((community) => {
-                const communityPath = `/comunidad/${community.slug}`;
+                const communityPath = ROUTES.communities.bySlug(community.slug);
                 const isCommunityActive =
                   pathname === communityPath || pathname.startsWith(`${communityPath}/`);
 
@@ -126,8 +137,8 @@ export function AppSidebar({
       <SidebarFooter>
         <AvatarSessionMenuClient
           authenticatedMember={authenticatedMember}
-          signInPath="/auth/signin"
-          signOutCallbackUrl="/auth/signin"
+          signInPath={ROUTES.auth.signIn}
+          signOutCallbackUrl={ROUTES.auth.signIn}
         />
       </SidebarFooter>
       <SidebarRail />

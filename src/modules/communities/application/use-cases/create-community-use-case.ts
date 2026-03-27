@@ -1,5 +1,10 @@
 import type { CreateCommunityCommand } from "@/src/modules/communities/application/commands/create-community-command";
-import type { CreateCommunityResult } from "@/src/modules/communities/application/results/create-community-result";
+import {
+  CREATE_COMMUNITY_ERROR_MESSAGE,
+  CREATE_COMMUNITY_MEMBER_ROLE,
+  CREATE_COMMUNITY_STATUS,
+  type CreateCommunityResult,
+} from "@/src/modules/communities/application/results/create-community-result";
 import { CommunitySlugConflictError } from "@/src/modules/communities/domain/errors/community-slug-conflict-error";
 import type { CommunityCreationRepository } from "@/src/modules/communities/domain/repositories/community-creation-repository";
 import type { CommunityCreatorWhitelistRepository } from "@/src/modules/communities/domain/repositories/community-creator-whitelist-repository";
@@ -8,6 +13,9 @@ import {
   isReservedCommunitySlug,
   normalizeCommunitySlug,
 } from "@/src/modules/communities/domain/value-objects/community-slug";
+
+const DEFAULT_COMMUNITY_VISIBILITY = "private" as const;
+const INITIAL_SLUG_SUGGESTION_INDEX = 2;
 
 function normalizeEmail(email: string | null): string | null {
   const normalizedEmail = email?.trim().toLowerCase() ?? "";
@@ -19,7 +27,7 @@ async function findAvailableSuggestedSlug(
   baseSlug: string,
   communityCreationRepository: CommunityCreationRepository
 ): Promise<string> {
-  let suggestionIndex = 2;
+  let suggestionIndex = INITIAL_SLUG_SUGGESTION_INDEX;
 
   while (true) {
     const suggestedSlug = buildCommunitySlugSuggestion(baseSlug, suggestionIndex);
@@ -46,7 +54,7 @@ export class CreateCommunityUseCase {
 
     if (!normalizedEmail) {
       return {
-        status: "not-allowed",
+        status: CREATE_COMMUNITY_STATUS.notAllowed,
       };
     }
 
@@ -54,8 +62,8 @@ export class CreateCommunityUseCase {
 
     if (!normalizedName) {
       return {
-        status: "invalid-name",
-        message: "Define un nombre para tu comunidad.",
+        status: CREATE_COMMUNITY_STATUS.invalidName,
+        message: CREATE_COMMUNITY_ERROR_MESSAGE[CREATE_COMMUNITY_STATUS.invalidName],
       };
     }
 
@@ -64,7 +72,7 @@ export class CreateCommunityUseCase {
 
     if (!isCreatorAllowed) {
       return {
-        status: "not-allowed",
+        status: CREATE_COMMUNITY_STATUS.notAllowed,
       };
     }
 
@@ -72,8 +80,8 @@ export class CreateCommunityUseCase {
 
     if (!normalizedSlug) {
       return {
-        status: "invalid-slug",
-        message: "Define un slug valido para tu comunidad.",
+        status: CREATE_COMMUNITY_STATUS.invalidSlug,
+        message: CREATE_COMMUNITY_ERROR_MESSAGE[CREATE_COMMUNITY_STATUS.invalidSlug],
       };
     }
 
@@ -83,8 +91,8 @@ export class CreateCommunityUseCase {
 
     if (slugIsUnavailable) {
       return {
-        status: "slug-conflict",
-        message: "Ese slug ya esta en uso. Puedes probar con la sugerencia.",
+        status: CREATE_COMMUNITY_STATUS.slugConflict,
+        message: CREATE_COMMUNITY_ERROR_MESSAGE[CREATE_COMMUNITY_STATUS.slugConflict],
         suggestedSlug: await findAvailableSuggestedSlug(
           normalizedSlug,
           this.communityCreationRepository
@@ -100,13 +108,13 @@ export class CreateCommunityUseCase {
           name: normalizedName,
           ownerId: command.creatorId,
           slug: normalizedSlug,
-          visibility: "private",
+          visibility: DEFAULT_COMMUNITY_VISIBILITY,
         });
     } catch (error) {
       if (error instanceof CommunitySlugConflictError) {
         return {
-          status: "slug-conflict",
-          message: "Ese slug ya esta en uso. Puedes probar con la sugerencia.",
+          status: CREATE_COMMUNITY_STATUS.slugConflict,
+          message: CREATE_COMMUNITY_ERROR_MESSAGE[CREATE_COMMUNITY_STATUS.slugConflict],
           suggestedSlug: await findAvailableSuggestedSlug(
             normalizedSlug,
             this.communityCreationRepository
@@ -118,10 +126,10 @@ export class CreateCommunityUseCase {
     }
 
     return {
-      status: "created",
+      status: CREATE_COMMUNITY_STATUS.created,
       communityId: createdCommunity.id,
       name: createdCommunity.name,
-      ownerMemberRole: "owner",
+      ownerMemberRole: CREATE_COMMUNITY_MEMBER_ROLE.owner,
       slug: createdCommunity.slug,
     };
   }

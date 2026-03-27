@@ -3,10 +3,22 @@ import { redirect } from "next/navigation";
 import { CommunityCreationBlocked } from "@/components/communities/community-creation-blocked";
 import { CreateCommunityForm } from "@/components/communities/create-community-form";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { QUERY_PARAMS } from "@/src/constants/query-params";
+import { ROUTES } from "@/src/constants/routes";
 import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import {
+  CREATE_COMMUNITY_ERROR_CODE,
+  CREATE_COMMUNITY_ERROR_MESSAGE,
+  CREATE_COMMUNITY_STATUS,
+} from "@/src/modules/communities/application/results/create-community-result";
 import { createGetCommunityCreationEligibilityUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-community-creation-eligibility-use-case";
 import { getContactEmail } from "@/src/modules/communities/infrastructure/config/community-creation-contact-email";
 import styles from "./page.module.scss";
+
+const AUTH_CALLBACK_URL_SEARCH_PARAM = new URLSearchParams({
+  [QUERY_PARAMS.auth.callbackUrl]: ROUTES.communities.create,
+});
+const URL_QUERY_SEPARATOR = "?";
 
 type CreateCommunitySearchParams = {
   [key: string]: string | string[] | undefined;
@@ -30,16 +42,16 @@ function readFirstSearchParamValue(
 
 function resolveErrorMessage(errorCode: string | null): string | null {
   switch (errorCode) {
-    case "invalid-name":
-      return "Define un nombre para tu comunidad.";
-    case "invalid-slug":
-      return "Define un slug valido para tu comunidad.";
-    case "slug-conflict":
-      return "Ese slug ya esta en uso. Puedes probar con la sugerencia.";
-    case "not-allowed":
-      return "Tu cuenta no esta habilitada para crear comunidades.";
-    case "unexpected":
-      return "No pudimos crear tu comunidad. Intentalo otra vez.";
+    case CREATE_COMMUNITY_STATUS.invalidName:
+      return CREATE_COMMUNITY_ERROR_MESSAGE[CREATE_COMMUNITY_STATUS.invalidName];
+    case CREATE_COMMUNITY_STATUS.invalidSlug:
+      return CREATE_COMMUNITY_ERROR_MESSAGE[CREATE_COMMUNITY_STATUS.invalidSlug];
+    case CREATE_COMMUNITY_STATUS.slugConflict:
+      return CREATE_COMMUNITY_ERROR_MESSAGE[CREATE_COMMUNITY_STATUS.slugConflict];
+    case CREATE_COMMUNITY_STATUS.notAllowed:
+      return CREATE_COMMUNITY_ERROR_MESSAGE[CREATE_COMMUNITY_STATUS.notAllowed];
+    case CREATE_COMMUNITY_ERROR_CODE.unexpected:
+      return CREATE_COMMUNITY_ERROR_MESSAGE[CREATE_COMMUNITY_ERROR_CODE.unexpected];
     default:
       return null;
   }
@@ -54,7 +66,11 @@ export default async function CreateCommunityPage({
     await createGetAuthenticatedMemberUseCase().execute();
 
   if (!authenticatedMember) {
-    redirect("/auth/signin?callbackUrl=%2Fcomunidad%2Fcrear");
+    redirect(
+      ROUTES.auth.signIn +
+        URL_QUERY_SEPARATOR +
+        AUTH_CALLBACK_URL_SEARCH_PARAM.toString()
+    );
   }
 
   const eligibility = await createGetCommunityCreationEligibilityUseCase().execute({
@@ -85,13 +101,21 @@ export default async function CreateCommunityPage({
         <CardContent className={styles.CreateCommunityPage__content}>
           <CreateCommunityForm
             errorMessage={resolveErrorMessage(
-              readFirstSearchParamValue(resolvedSearchParams.error)
+              readFirstSearchParamValue(
+                resolvedSearchParams[QUERY_PARAMS.communities.error]
+              )
             )}
-            initialName={readFirstSearchParamValue(resolvedSearchParams.name) ?? ""}
-            initialSlug={readFirstSearchParamValue(resolvedSearchParams.slug) ?? ""}
-            submitPath="/api/communities"
+            initialName={
+              readFirstSearchParamValue(resolvedSearchParams[QUERY_PARAMS.communities.name]) ??
+              ""
+            }
+            initialSlug={
+              readFirstSearchParamValue(resolvedSearchParams[QUERY_PARAMS.communities.slug]) ??
+              ""
+            }
+            submitPath={ROUTES.api.communities}
             suggestedSlug={readFirstSearchParamValue(
-              resolvedSearchParams.suggestedSlug
+              resolvedSearchParams[QUERY_PARAMS.communities.suggestedSlug]
             )}
           />
         </CardContent>

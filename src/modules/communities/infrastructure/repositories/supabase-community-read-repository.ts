@@ -1,6 +1,7 @@
 import type { MemberCommunityListItemResult } from "@/src/modules/communities/application/results/member-community-list-item-result";
 import type { Community } from "@/src/modules/communities/domain/entities/community";
 import type { CommunityReadRepository } from "@/src/modules/communities/domain/repositories/community-read-repository";
+import { COMMUNITY_MEMBERSHIP_STATUS } from "@/src/modules/communities/constants/community-page-access";
 import { createServerSupabaseClient } from "@/src/modules/shared/infrastructure/supabase/server-client";
 
 type RecoverableSupabaseError = {
@@ -28,13 +29,31 @@ type SupabaseDatabaseClient = {
   rpc: (
     fn: string,
     args: Record<string, unknown>
-  ) => Promise<{
+  ) => PromiseLike<{
     data: string | null;
     error: RecoverableSupabaseError | null;
   }>;
 };
 
 type SupabaseDatabaseClientFactory = () => Promise<SupabaseDatabaseClient>;
+
+const COMMUNITY_READ_RPC = {
+  currentMembershipStatusBySlug: "get_current_community_membership_status_by_slug",
+} as const;
+
+const COMMUNITY_READ_TABLE = {
+  communities: "communities",
+  communityMembers: "community_members",
+} as const;
+
+const COMMUNITY_READ_TABLE_COLUMN = {
+  communitiesJoinSelect: "community_id, communities!inner(id, name, slug)",
+  communitiesName: "name",
+  communitiesReference: "communities",
+  idNameSlugVisibility: "id, name, slug, visibility",
+  slug: "slug",
+  status: "status",
+} as const;
 
 export class SupabaseCommunityReadRepository implements CommunityReadRepository {
   constructor(
@@ -44,7 +63,7 @@ export class SupabaseCommunityReadRepository implements CommunityReadRepository 
 
   async findBySlug(slug: string): Promise<Community | null> {
     const supabase = await this.createClient();
-    const communitiesTable = supabase.from("communities") as {
+    const communitiesTable = supabase.from(COMMUNITY_READ_TABLE.communities) as {
       select: (columns: string) => {
         eq: (column: string, value: string) => {
           maybeSingle: () => Promise<{
@@ -55,8 +74,8 @@ export class SupabaseCommunityReadRepository implements CommunityReadRepository 
       };
     };
     const { data, error } = await communitiesTable
-      .select("id, name, slug, visibility")
-      .eq("slug", slug)
+      .select(COMMUNITY_READ_TABLE_COLUMN.idNameSlugVisibility)
+      .eq(COMMUNITY_READ_TABLE_COLUMN.slug, slug)
       .maybeSingle();
 
     if (error) {
@@ -80,7 +99,7 @@ export class SupabaseCommunityReadRepository implements CommunityReadRepository 
   ): Promise<"active" | "muted" | "blocked" | null> {
     const supabase = await this.createClient();
     const { data, error } = await supabase.rpc(
-      "get_current_community_membership_status_by_slug",
+      COMMUNITY_READ_RPC.currentMembershipStatusBySlug,
       {
         target_slug: slug,
       }
@@ -90,12 +109,18 @@ export class SupabaseCommunityReadRepository implements CommunityReadRepository 
       throw new Error(error.message);
     }
 
-    return data === "active" || data === "muted" || data === "blocked" ? data : null;
+    return data === COMMUNITY_MEMBERSHIP_STATUS.active ||
+      data === COMMUNITY_MEMBERSHIP_STATUS.muted ||
+      data === COMMUNITY_MEMBERSHIP_STATUS.blocked
+      ? data
+      : null;
   }
 
   async listVisibleMembershipCommunities(): Promise<MemberCommunityListItemResult[]> {
     const supabase = await this.createClient();
-    const communityMembersTable = supabase.from("community_members") as {
+    const communityMembersTable = supabase.from(
+      COMMUNITY_READ_TABLE.communityMembers
+    ) as {
       select: (columns: string) => {
         in: (column: string, values: string[]) => {
           order: (
@@ -112,11 +137,14 @@ export class SupabaseCommunityReadRepository implements CommunityReadRepository 
       };
     };
     const { data, error } = await communityMembersTable
-      .select("community_id, communities!inner(id, name, slug)")
-      .in("status", ["active", "muted"])
-      .order("name", {
+      .select(COMMUNITY_READ_TABLE_COLUMN.communitiesJoinSelect)
+      .in(COMMUNITY_READ_TABLE_COLUMN.status, [
+        COMMUNITY_MEMBERSHIP_STATUS.active,
+        COMMUNITY_MEMBERSHIP_STATUS.muted,
+      ])
+      .order(COMMUNITY_READ_TABLE_COLUMN.communitiesName, {
         ascending: true,
-        referencedTable: "communities",
+        referencedTable: COMMUNITY_READ_TABLE_COLUMN.communitiesReference,
       });
 
     if (error) {

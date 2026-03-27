@@ -17,13 +17,25 @@ type SupabaseCommunityRow = {
 
 type SupabaseDatabaseClient = {
   from: (table: string) => unknown;
-  rpc: <T>(fn: string, args: Record<string, unknown>) => Promise<{
+  rpc: <T>(fn: string, args: Record<string, unknown>) => PromiseLike<{
     data: T | null;
     error: RecoverableSupabaseError | null;
   }>;
 };
 
 type SupabaseDatabaseClientFactory = () => Promise<SupabaseDatabaseClient>;
+
+const COMMUNITY_CREATION_ERROR = {
+  slugConflictCode: "23505",
+  slugConstraintName: "communities_slug_key",
+  unavailableCreateMessage: "Unable to create community.",
+} as const;
+
+const COMMUNITY_CREATION_RPC = {
+  createPrivateCommunityWithOwnerMembership:
+    "create_private_community_with_owner_membership",
+  isCommunitySlugTaken: "is_community_slug_taken",
+} as const;
 
 function mapCommunityRowToEntity(row: SupabaseCommunityRow): Community {
   return {
@@ -42,8 +54,8 @@ function isSlugConflictError(error: RecoverableSupabaseError | null): boolean {
   const normalizedMessage = error.message.toLowerCase();
 
   return (
-    error.code === "23505" &&
-    normalizedMessage.includes("communities_slug_key")
+    error.code === COMMUNITY_CREATION_ERROR.slugConflictCode &&
+    normalizedMessage.includes(COMMUNITY_CREATION_ERROR.slugConstraintName)
   );
 }
 
@@ -63,7 +75,7 @@ export class SupabaseCommunityCreationRepository
   }): Promise<Community> {
     const supabase = await this.createClient();
     const { data, error } = await supabase.rpc<SupabaseCommunityRow>(
-      "create_private_community_with_owner_membership",
+      COMMUNITY_CREATION_RPC.createPrivateCommunityWithOwnerMembership,
       {
         target_name: input.name,
         target_owner_id: input.ownerId,
@@ -76,7 +88,9 @@ export class SupabaseCommunityCreationRepository
     }
 
     if (error || !data) {
-      throw new Error(error?.message ?? "Unable to create community.");
+      throw new Error(
+        error?.message ?? COMMUNITY_CREATION_ERROR.unavailableCreateMessage
+      );
     }
 
     return mapCommunityRowToEntity(data);
@@ -84,9 +98,12 @@ export class SupabaseCommunityCreationRepository
 
   async isSlugTaken(slug: string): Promise<boolean> {
     const supabase = await this.createClient();
-    const { data, error } = await supabase.rpc<boolean>("is_community_slug_taken", {
-      target_slug: slug,
-    });
+    const { data, error } = await supabase.rpc<boolean>(
+      COMMUNITY_CREATION_RPC.isCommunitySlugTaken,
+      {
+        target_slug: slug,
+      }
+    );
 
     if (error) {
       throw new Error(error.message);

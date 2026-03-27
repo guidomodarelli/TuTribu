@@ -18,6 +18,17 @@ const defaultOptions: FetchResilienceOptions = {
   timeoutMs: 3000,
 };
 
+const FETCH_RESILIENCE_ABORT_ERROR_NAME = "AbortError";
+const FETCH_RESILIENCE_ABORT_EVENT_NAME = "abort";
+const FETCH_RESILIENCE_ERROR_MESSAGE = {
+  requestFailed: "Request failed",
+  requestTimedOut: "Request timed out",
+} as const;
+const HTTP_STATUS_BAD_GATEWAY = 502;
+const HTTP_STATUS_GATEWAY_TIMEOUT = 504;
+const HTTP_STATUS_INTERNAL_SERVER_ERROR = 500;
+const HTTP_STATUS_SERVICE_UNAVAILABLE = 503;
+
 /**
  * La allowlist 500/502/503/504 se usa porque esos códigos suelen representar
  * fallas transitorias, no definitivas.
@@ -38,7 +49,12 @@ const defaultOptions: FetchResilienceOptions = {
  * latencia puntual o cola alta; un retry con backoff puede entrar en una
  * ventana más estable.
  */
-const retryableStatusCodes = new Set([500, 502, 503, 504]);
+const retryableStatusCodes = new Set([
+  HTTP_STATUS_INTERNAL_SERVER_ERROR,
+  HTTP_STATUS_BAD_GATEWAY,
+  HTTP_STATUS_SERVICE_UNAVAILABLE,
+  HTTP_STATUS_GATEWAY_TIMEOUT,
+]);
 
 function delay(ms: number): Promise<void> {
   if (ms <= 0) {
@@ -51,7 +67,7 @@ function delay(ms: number): Promise<void> {
 }
 
 function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
+  return error instanceof DOMException && error.name === FETCH_RESILIENCE_ABORT_ERROR_NAME;
 }
 
 function shouldRetryResponse(response: HttpResponse, attempt: number, maxRetries: number): boolean {
@@ -81,7 +97,7 @@ function buildRequestInit(init: RequestInit, timeoutMs: number): {
     if (sourceSignal.aborted) {
       timeoutController.abort();
     } else {
-      sourceSignal.addEventListener("abort", forwardAbort);
+      sourceSignal.addEventListener(FETCH_RESILIENCE_ABORT_EVENT_NAME, forwardAbort);
     }
   }
 
@@ -93,7 +109,7 @@ function buildRequestInit(init: RequestInit, timeoutMs: number): {
     cleanup: () => {
       clearTimeout(timeoutId);
       if (sourceSignal) {
-        sourceSignal.removeEventListener("abort", forwardAbort);
+        sourceSignal.removeEventListener(FETCH_RESILIENCE_ABORT_EVENT_NAME, forwardAbort);
       }
     },
   };
@@ -127,7 +143,7 @@ export async function fetchWithResilience(
       cleanup();
 
       if (isAbortError(error) && attempt >= config.maxRetries) {
-        throw new Error("Request timed out");
+        throw new Error(FETCH_RESILIENCE_ERROR_MESSAGE.requestTimedOut);
       }
 
       if (attempt >= config.maxRetries) {
@@ -138,5 +154,5 @@ export async function fetchWithResilience(
     }
   }
 
-  throw new Error("Request failed");
+  throw new Error(FETCH_RESILIENCE_ERROR_MESSAGE.requestFailed);
 }

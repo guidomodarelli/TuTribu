@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { ROUTES } from "@/src/constants/routes";
 import styles from "./page.module.scss";
 
 export default function HomePage() {
@@ -16,7 +17,7 @@ export default function HomePage() {
       </p>
       <div className={styles.HomePage__actions}>
         <Button asChild>
-          <Link href="/auth/signin">Iniciar sesion</Link>
+          <Link href={ROUTES.auth.signIn}>Iniciar sesion</Link>
         </Button>
       </div>
     </main>

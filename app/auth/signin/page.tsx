@@ -2,12 +2,22 @@ import { redirect } from "next/navigation";
 
 import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { QUERY_PARAMS } from "@/src/constants/query-params";
+import { ROUTES } from "@/src/constants/routes";
 import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
 import styles from "./page.module.scss";
 
 type SignInSearchParams = {
   [key: string]: string | string[] | undefined;
 };
+
+const AUTH_SIGN_IN_PREFIX = {
+  doubleSlash: "//",
+  slash: "/",
+} as const;
+const AUTH_SIGN_IN_UI = {
+  ariaHidden: "true",
+} as const;
 
 function resolveSafeCallbackUrl(rawCallbackUrl: string | null, fallbackPath: string): string {
   if (!rawCallbackUrl) {
@@ -16,7 +26,10 @@ function resolveSafeCallbackUrl(rawCallbackUrl: string | null, fallbackPath: str
 
   const trimmedCallbackUrl = rawCallbackUrl.trim();
 
-  if (!trimmedCallbackUrl.startsWith("/") || trimmedCallbackUrl.startsWith("//")) {
+  if (
+    !trimmedCallbackUrl.startsWith(AUTH_SIGN_IN_PREFIX.slash) ||
+    trimmedCallbackUrl.startsWith(AUTH_SIGN_IN_PREFIX.doubleSlash)
+  ) {
     return fallbackPath;
   }
 
@@ -45,9 +58,17 @@ export default async function SignInPage({
   searchParams?: Promise<SignInSearchParams>;
 }) {
   const resolvedSearchParams = await searchParams;
-  const rawCallbackUrl = readFirstSearchParamValue(resolvedSearchParams.callbackUrl);
-  const callbackUrlForAuthenticatedMember = resolveSafeCallbackUrl(rawCallbackUrl, "/");
-  const callbackUrlForSignIn = resolveSafeCallbackUrl(rawCallbackUrl, "/");
+  const rawCallbackUrl = readFirstSearchParamValue(
+    resolvedSearchParams[QUERY_PARAMS.auth.callbackUrl]
+  );
+  const callbackUrlForAuthenticatedMember = resolveSafeCallbackUrl(
+    rawCallbackUrl,
+    ROUTES.home
+  );
+  const callbackUrlForSignIn = resolveSafeCallbackUrl(
+    rawCallbackUrl,
+    ROUTES.home
+  );
 
   const useCase = createGetAuthenticatedMemberUseCase();
   const authenticatedMember = await useCase.execute();
@@ -60,7 +81,7 @@ export default async function SignInPage({
     <main className={styles.SignInPage}>
       <Card className={styles.SignInPage__card}>
         <div
-          aria-hidden="true"
+          aria-hidden={AUTH_SIGN_IN_UI.ariaHidden}
           className={styles.SignInPage__highlight}
         />
         <CardHeader className={styles.SignInPage__cardHeader}>

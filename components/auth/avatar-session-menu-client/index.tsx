@@ -3,8 +3,15 @@
 import { useRouter } from "next/navigation";
 
 import { AvatarSessionMenu } from "@/components/auth/avatar-session-menu";
+import { ROUTES } from "@/src/constants/routes";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import styles from "./styles.module.scss";
+
+const AUTH_SIGN_OUT_REQUEST = {
+  errorPath: ROUTES.auth.error,
+  method: "POST",
+  path: ROUTES.auth.signOut,
+} as const;
 
 type AvatarSessionMenuClientProps = {
   authenticatedMember: AuthenticatedMemberResult | null;
@@ -20,12 +27,12 @@ export function AvatarSessionMenuClient({
   const router = useRouter();
 
   const handleSignOut = async () => {
-    const response = await fetch("/auth/signout", {
-      method: "POST",
+    const response = await fetch(AUTH_SIGN_OUT_REQUEST.path, {
+      method: AUTH_SIGN_OUT_REQUEST.method,
     });
 
     if (!response.ok) {
-      router.push("/auth/error");
+      router.push(AUTH_SIGN_OUT_REQUEST.errorPath);
       return;
     }
 

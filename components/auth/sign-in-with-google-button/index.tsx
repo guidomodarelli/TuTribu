@@ -7,6 +7,10 @@ import styles from "./styles.module.scss";
 type SignInWithGoogleButtonProps = {
   callbackUrl: string;
 };
+const SIGN_IN_WITH_GOOGLE_BUTTON = {
+  size: "lg",
+  type: "button",
+} as const;
 
 export function SignInWithGoogleButton({
   callbackUrl,
@@ -17,9 +21,9 @@ export function SignInWithGoogleButton({
 
   return (
     <Button
-      type="button"
+      type={SIGN_IN_WITH_GOOGLE_BUTTON.type}
       onClick={handleGoogleSignIn}
-      size="lg"
+      size={SIGN_IN_WITH_GOOGLE_BUTTON.size}
       className={styles.SignInWithGoogleButton}
     >
       Iniciar sesion con Google

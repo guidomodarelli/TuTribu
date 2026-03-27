@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import styles from "./styles.module.scss";
 
+const MAILTO_PROTOCOL = "mailto:";
+
 type CommunityCreationBlockedProps = {
   contactEmail: string | null;
 };
@@ -27,7 +29,7 @@ export function CommunityCreationBlocked({
 
         {contactEmail ? (
           <Button asChild>
-            <Link href={`mailto:${contactEmail}`}>Escribir a {contactEmail}</Link>
+            <Link href={MAILTO_PROTOCOL + contactEmail}>Escribir a {contactEmail}</Link>
           </Button>
         ) : (
           <p className={styles.CommunityCreationBlocked__note}>

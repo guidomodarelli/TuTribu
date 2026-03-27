@@ -1,12 +1,16 @@
+const SAFE_REACT_PERFORMANCE_MEASURE_INSTALLED_KEY =
+  "academia-online.safe-react-performance-measure.installed";
 const SAFE_REACT_PERFORMANCE_MEASURE_INSTALLED = Symbol.for(
-  "academia-online.safe-react-performance-measure.installed"
+  SAFE_REACT_PERFORMANCE_MEASURE_INSTALLED_KEY
 );
 
 const REACT_DEVTOOLS_COMPONENT_MARK_PREFIX = "\u200b";
 const NEGATIVE_TIME_STAMP_MESSAGE = "cannot have a negative time stamp";
 
 type PerformanceLike = {
-  measure: (...args: unknown[]) => unknown;
+  measure: (
+    ...args: Parameters<Performance["measure"]>
+  ) => ReturnType<Performance["measure"]> | undefined;
   [SAFE_REACT_PERFORMANCE_MEASURE_INSTALLED]?: boolean;
 };
 
@@ -31,7 +35,9 @@ export function installSafeReactPerformanceMeasure(
 
   const originalMeasure = targetPerformance.measure.bind(targetPerformance);
 
-  targetPerformance.measure = (...args: unknown[]) => {
+  targetPerformance.measure = (
+    ...args: Parameters<Performance["measure"]>
+  ): ReturnType<Performance["measure"]> | undefined => {
     try {
       return originalMeasure(...args);
     } catch (error) {

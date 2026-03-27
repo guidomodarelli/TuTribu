@@ -347,6 +347,23 @@ WITH CHECK (auth.uid() = user_id);
 
 ## 6. Development Workflow
 
+### Maintainability baseline
+
+- Do not use magic strings or magic numbers in domain, application, infrastructure, route handlers, or behavior-bearing components.
+- Replace hardcoded behavior values with named constants or configuration variables to improve maintainability and readability.
+- Organize constants by scope:
+  - global constants reused across multiple modules or across the application belong in `src/constants/`
+  - module-scoped constants belong in `src/modules/<module>/constants/`
+  - file-local constants that are not reused outside a single component, page, route, or module file must stay in that file
+- Keep each constant close to its functional owner. Do not create global constants by default, and do not move unrelated values into a generic catch-all constants file.
+- If a constant is repeated in multiple components within the same module, promote it to that module's `constants/` folder. If it is not reused outside its file, do not abstract it into a separate file.
+- Group constants by domain ownership, not by generic technical category, and use consistent naming such as `UPPER_CASE` for constants.
+- Use configuration only for environment, integration, or deployment values. Use module-scoped constants for statuses, rules, route paths, timeouts, limits, defaults, provider names, control messages, and similar behavior values.
+- Allowed exceptions:
+  - trivial numeric literals `-1`, `0`, and `1`
+  - visible UI copy rendered from JSX
+  - import/export sources and obvious structural property names or keys
+
 ### TDD is mandatory
 
 - Work in strict TDD for every feature, bug fix, and architectural change.

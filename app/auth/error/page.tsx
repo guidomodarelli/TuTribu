@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ROUTES } from "@/src/constants/routes";
 import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
 import styles from "./page.module.scss";
 
@@ -9,7 +10,7 @@ export default async function AuthErrorPage() {
   const authenticatedMember = await useCase.execute();
 
   if (authenticatedMember) {
-    redirect("/");
+    redirect(ROUTES.home);
   }
 
   return (
@@ -25,7 +26,7 @@ export default async function AuthErrorPage() {
           Intenta de nuevo. Si el problema continua, contacta soporte.
         </p>
         <Link
-          href="/auth/signin"
+          href={ROUTES.auth.signIn}
           className={styles.AuthErrorPage__link}
         >
           Volver a iniciar sesion

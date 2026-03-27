@@ -1,6 +1,11 @@
 import type { CommunityReadRepository } from "@/src/modules/communities/domain/repositories/community-read-repository";
 
-import type { CommunityPageAccessResult } from "../results/community-page-access-result";
+import {
+  COMMUNITY_MEMBERSHIP_STATUS,
+  COMMUNITY_PAGE_ACCESS_REASON,
+  COMMUNITY_PAGE_ACCESS_STATUS,
+  type CommunityPageAccessResult,
+} from "../results/community-page-access-result";
 
 export class GetCommunityPageAccessUseCase {
   constructor(private readonly communityReadRepository: CommunityReadRepository) {}
@@ -16,15 +21,15 @@ export class GetCommunityPageAccessUseCase {
 
     if (normalizedSlug.length === 0) {
       return {
-        status: "hidden",
-        reason: "not_found_or_not_visible",
+        status: COMMUNITY_PAGE_ACCESS_STATUS.hidden,
+        reason: COMMUNITY_PAGE_ACCESS_REASON.notFoundOrNotVisible,
       };
     }
 
     if (!isAuthenticated) {
       return {
-        status: "hidden",
-        reason: "unauthenticated_hidden",
+        status: COMMUNITY_PAGE_ACCESS_STATUS.hidden,
+        reason: COMMUNITY_PAGE_ACCESS_REASON.unauthenticatedHidden,
       };
     }
 
@@ -32,7 +37,7 @@ export class GetCommunityPageAccessUseCase {
 
     if (community) {
       return {
-        status: "visible",
+        status: COMMUNITY_PAGE_ACCESS_STATUS.visible,
         community,
       };
     }
@@ -42,16 +47,16 @@ export class GetCommunityPageAccessUseCase {
         normalizedSlug
       );
 
-    if (membershipStatus === "blocked") {
+    if (membershipStatus === COMMUNITY_MEMBERSHIP_STATUS.blocked) {
       return {
-        status: "hidden",
-        reason: "blocked_hidden",
+        status: COMMUNITY_PAGE_ACCESS_STATUS.hidden,
+        reason: COMMUNITY_PAGE_ACCESS_REASON.blockedHidden,
       };
     }
 
     return {
-      status: "hidden",
-      reason: "not_found_or_not_visible",
+      status: COMMUNITY_PAGE_ACCESS_STATUS.hidden,
+      reason: COMMUNITY_PAGE_ACCESS_REASON.notFoundOrNotVisible,
     };
   }
 }

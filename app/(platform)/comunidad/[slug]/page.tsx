@@ -2,8 +2,15 @@ import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import { COMMUNITY_PAGE_ACCESS_STATUS } from "@/src/modules/communities/application/results/community-page-access-result";
 import { createGetCommunityPageAccessUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-community-page-access-use-case";
 import styles from "./page.module.scss";
+
+const COMMUNITY_PAGE_LOG = {
+  hiddenAccess: "[communities] hidden community access",
+  unexpectedRepositoryError: "unexpected_repository_error",
+  resolveAccessFailure: "[communities] failed to resolve community access",
+} as const;
 
 export default async function CommunityPage({
   params,
@@ -22,17 +29,17 @@ export default async function CommunityPage({
       slug,
     })
     .catch((error) => {
-      console.error("[communities] failed to resolve community access", {
+      console.error(COMMUNITY_PAGE_LOG.resolveAccessFailure, {
         error,
-        reason: "unexpected_repository_error",
+        reason: COMMUNITY_PAGE_LOG.unexpectedRepositoryError,
         slug,
         viewerId: authenticatedMember?.id ?? null,
       });
       notFound();
     });
 
-  if (accessResult.status === "hidden") {
-    console.info("[communities] hidden community access", {
+  if (accessResult.status === COMMUNITY_PAGE_ACCESS_STATUS.hidden) {
+    console.info(COMMUNITY_PAGE_LOG.hiddenAccess, {
       reason: accessResult.reason,
       slug,
       viewerId: authenticatedMember?.id ?? null,
