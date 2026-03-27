@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { CommunityCreationBlocked } from "@/components/communities/community-creation-blocked";
@@ -13,11 +14,19 @@ import {
 } from "@/src/modules/communities/application/results/create-community-result";
 import { createGetCommunityCreationEligibilityUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-community-creation-eligibility-use-case";
 import { getContactEmail } from "@/src/modules/communities/infrastructure/config/community-creation-contact-email";
+import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import styles from "./page.module.scss";
 
 const AUTH_CALLBACK_URL_SEARCH_PARAM = new URLSearchParams({
   [QUERY_PARAMS.auth.callbackUrl]: ROUTES.communities.create,
 });
+const CREATE_COMMUNITY_PAGE_LOG = {
+  feature: "communities",
+  operation: "create-community-page",
+  resolveEligibilityFailureMessage: "Failed to resolve community creation eligibility",
+  resolveSessionFailureMessage: "Failed to resolve session for community creation page",
+} as const;
 const URL_QUERY_SEPARATOR = "?";
 
 type CreateCommunitySearchParams = {
@@ -62,8 +71,23 @@ export default async function CreateCommunityPage({
 }: {
   searchParams?: Promise<CreateCommunitySearchParams>;
 }) {
-  const authenticatedMember =
-    await createGetAuthenticatedMemberUseCase().execute();
+  const requestHeaders = await headers();
+  const { requestId } = resolveRequestContext(requestHeaders);
+  const logger = createServerLogger({
+    feature: CREATE_COMMUNITY_PAGE_LOG.feature,
+    operation: CREATE_COMMUNITY_PAGE_LOG.operation,
+    requestId,
+  });
+  const authenticatedMember = await createGetAuthenticatedMemberUseCase()
+    .execute()
+    .catch((error) => {
+      logger.error({
+        message: CREATE_COMMUNITY_PAGE_LOG.resolveSessionFailureMessage,
+        error,
+      });
+
+      throw error;
+    });
 
   if (!authenticatedMember) {
     redirect(
@@ -73,9 +97,21 @@ export default async function CreateCommunityPage({
     );
   }
 
-  const eligibility = await createGetCommunityCreationEligibilityUseCase().execute({
-    creatorEmail: authenticatedMember.email,
-  });
+  const eligibility = await createGetCommunityCreationEligibilityUseCase()
+    .execute({
+      creatorEmail: authenticatedMember.email,
+    })
+    .catch((error) => {
+      logger.error({
+        message: CREATE_COMMUNITY_PAGE_LOG.resolveEligibilityFailureMessage,
+        error,
+        metadata: {
+          creatorId: authenticatedMember.id,
+        },
+      });
+
+      throw error;
+    });
   const resolvedSearchParams = await searchParams;
   const contactEmail = getContactEmail();
 

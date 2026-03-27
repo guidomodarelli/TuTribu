@@ -1,9 +1,14 @@
 import { render, screen } from "@testing-library/react";
+import { headers } from "next/headers";
 
 import NotFoundPage from "@/app/not-found";
 import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
 
 const getAuthenticatedMember = jest.fn();
+
+jest.mock("next/headers", () => ({
+  headers: jest.fn(),
+}));
 
 jest.mock(
   "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case",
@@ -16,6 +21,7 @@ describe("NotFoundPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
+    (headers as jest.Mock).mockResolvedValue(new Headers());
 
     (createGetAuthenticatedMemberUseCase as jest.Mock).mockReturnValue({
       execute: getAuthenticatedMember,
@@ -58,5 +64,20 @@ describe("NotFoundPage", () => {
     expect(
       screen.queryByRole("link", { name: /iniciar sesion/i })
     ).not.toBeInTheDocument();
+  });
+
+  it("falls back safely when the session lookup fails", async () => {
+    getAuthenticatedMember.mockRejectedValue(new Error("session_lookup_failed"));
+
+    render(await NotFoundPage());
+
+    expect(
+      screen.getByRole("heading", {
+        name: /esta pagina no existe o ya no esta disponible/i,
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /iniciar sesion/i })
+    ).toHaveAttribute("href", "/auth/signin");
   });
 });

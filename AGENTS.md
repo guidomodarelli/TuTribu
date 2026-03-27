@@ -277,6 +277,8 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 
 - Never pass provider DTOs directly to route components.
 - Never import Supabase client builders, OAuth config, or provider error mappers from a generic `src/server` path.
+- Any route entrypoint, server component, or action that calls external infrastructure must translate failures into a safe UX in Spanish and must not expose raw provider messages, stack traces, or internal diagnostics to the UI.
+- When those flows fail unexpectedly, log them with structured context at the boundary that owns the user-facing response, including correlation identifiers and safe business metadata when available.
 
 ### Client-side fetching
 
@@ -442,6 +444,7 @@ WITH CHECK (auth.uid() = user_id);
 
 - Use structured, contextual logs for relevant server-side flows and include correlation identifiers such as `requestId` or `traceId` when available.
 - Keep logs and error reporting safe: never expose secrets, tokens, raw provider payloads, or internal diagnostics in user-facing messages.
+- Do not add `catch` blocks that only swallow errors or redirect control flow without classification, logging, or user feedback. Every `catch` must do at least one intentional responsibility: map an expected failure to a stable result, log an unexpected failure with context, trigger safe user feedback, or rethrow to the appropriate error boundary.
 
 ### Reliability and performance baseline
 

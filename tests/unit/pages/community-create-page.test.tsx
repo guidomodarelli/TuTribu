@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import CreateCommunityPage from "@/app/(platform)/comunidad/crear/page";
@@ -8,6 +9,10 @@ import { getContactEmail } from "@/src/modules/communities/infrastructure/config
 
 const getAuthenticatedMember = jest.fn();
 const getCommunityCreationEligibility = jest.fn();
+
+jest.mock("next/headers", () => ({
+  headers: jest.fn(),
+}));
 
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
@@ -39,6 +44,7 @@ describe("CreateCommunityPage", () => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
     getCommunityCreationEligibility.mockReset();
+    (headers as jest.Mock).mockResolvedValue(new Headers());
 
     (createGetAuthenticatedMemberUseCase as jest.Mock).mockReturnValue({
       execute: getAuthenticatedMember,

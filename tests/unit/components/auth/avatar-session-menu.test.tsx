@@ -1,13 +1,21 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 
 const pushMock = jest.fn();
+const toastErrorMock = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
+}));
+
+jest.mock("sonner", () => ({
+  toast: {
+    error: jest.fn(),
+  },
 }));
 
 describe("AvatarSessionMenu", () => {
@@ -22,6 +30,7 @@ describe("AvatarSessionMenu", () => {
     (useRouter as jest.Mock).mockReturnValue({
       push: pushMock,
     });
+    (toast.error as jest.Mock).mockImplementation(toastErrorMock);
   });
 
   it("shows sign-in action when there is no authenticated member", async () => {
@@ -116,5 +125,35 @@ describe("AvatarSessionMenu", () => {
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/auth/signin");
     });
+  });
+
+  it("shows feedback and redirects safely when sign-out fails", async () => {
+    const user = userEvent.setup();
+    (fetch as jest.Mock).mockRejectedValue(new Error("network_failure"));
+
+    render(
+      <AvatarSessionMenuClient
+        authenticatedMember={{
+          id: "dc2b4b91-7e42-41be-bcb5-a48b61a27740",
+          email: "grace.hopper@example.com",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        signInPath="/auth/signin"
+        signOutCallbackUrl="/auth/signin"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
+    await user.click(screen.getByRole("menuitem", { name: /cerrar sesion/i }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        "No pudimos cerrar la sesion. Intenta de nuevo."
+      );
+    });
+    expect(pushMock).toHaveBeenCalledWith("/auth/error");
   });
 });

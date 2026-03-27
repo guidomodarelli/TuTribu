@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+
+import { AppProviders } from "@/components/providers/app-providers";
 import "./globals.css";
 import styles from "./layout.module.scss";
 
@@ -36,7 +38,9 @@ export default function RootLayout({
       data-scroll-behavior={ROOT_LAYOUT_DOCUMENT.scrollBehavior}
       className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} ${styles.RootLayout}`}
     >
-      <body className={styles.RootLayout__body}>{children}</body>
+      <body className={styles.RootLayout__body}>
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }

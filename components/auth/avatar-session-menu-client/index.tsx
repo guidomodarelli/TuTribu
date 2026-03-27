@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { AvatarSessionMenu } from "@/components/auth/avatar-session-menu";
 import { ROUTES } from "@/src/constants/routes";
@@ -9,6 +10,7 @@ import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/r
 import styles from "./styles.module.scss";
 
 const AUTH_SIGN_OUT_REQUEST = {
+  errorMessage: "No pudimos cerrar la sesion. Intenta de nuevo.",
   errorPath: ROUTES.auth.error,
   method: "POST",
   path: ROUTES.auth.signOut,
@@ -53,6 +55,7 @@ export function AvatarSessionMenuClient({
       });
 
       if (!response.ok) {
+        toast.error(AUTH_SIGN_OUT_REQUEST.errorMessage);
         router.push(AUTH_SIGN_OUT_REQUEST.errorPath);
         return;
       }
@@ -63,6 +66,7 @@ export function AvatarSessionMenuClient({
         return;
       }
 
+      toast.error(AUTH_SIGN_OUT_REQUEST.errorMessage);
       router.push(AUTH_SIGN_OUT_REQUEST.errorPath);
     } finally {
       if (isMountedRef.current) {
