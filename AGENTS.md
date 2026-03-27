@@ -399,6 +399,14 @@ WITH CHECK (auth.uid() = user_id);
 - Run the relevant test suite until it is green.
 - A task is not complete until the relevant tests and lint checks pass.
 
+### TypeScript verification baseline
+
+- Every work item must finish with `typecheck` and `lint` in green.
+- `typecheck` must run through `npm run typecheck`.
+- The mandatory TypeScript verification scope is production code only.
+- Exclude tests and files matching `*.test.*` or `*.spec.*` from the required `typecheck` scope.
+- If a TypeScript error appears in the production scope, it must be fixed in the same work item before closing the task.
+
 ### Testing responsibilities by layer
 
 - `domain`
