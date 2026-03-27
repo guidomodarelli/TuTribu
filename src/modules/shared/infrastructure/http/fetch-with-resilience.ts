@@ -7,12 +7,47 @@ export type HttpResponse = {
 export type HttpFetcher = (input: string, init?: RequestInit) => Promise<HttpResponse>;
 
 export type FetchResilienceOptions = {
+  lifecycleLogger?: FetchLifecycleLogger;
   maxRetries: number;
   retryDelayMs: number;
   timeoutMs: number;
 };
 
+export type FetchLifecycleEvent = {
+  attempt: number;
+  event:
+    | "request-attempted"
+    | "retry-scheduled"
+    | "timeout-abort"
+    | "request-failed";
+  input: string;
+  method: string;
+  status?: number;
+  reason?: "timeout" | "caller-abort" | "request-error";
+};
+
+export type FetchLifecycleLogger = (event: FetchLifecycleEvent) => void;
+
+const FETCH_DEFAULT_METHOD = "GET";
+const FETCH_LIFECYCLE_EVENT = {
+  requestAttempted: "request-attempted",
+  requestFailed: "request-failed",
+  retryScheduled: "retry-scheduled",
+  timeoutAbort: "timeout-abort",
+} as const;
+
+const FETCH_FAILURE_REASON = {
+  callerAbort: "caller-abort",
+  requestError: "request-error",
+  timeout: "timeout",
+} as const;
+
+type FetchAbortReason =
+  | (typeof FETCH_FAILURE_REASON)[keyof typeof FETCH_FAILURE_REASON]
+  | null;
+
 const defaultOptions: FetchResilienceOptions = {
+  lifecycleLogger: undefined,
   maxRetries: 1,
   retryDelayMs: 100,
   timeoutMs: 3000,
@@ -21,6 +56,7 @@ const defaultOptions: FetchResilienceOptions = {
 const FETCH_RESILIENCE_ABORT_ERROR_NAME = "AbortError";
 const FETCH_RESILIENCE_ABORT_EVENT_NAME = "abort";
 const FETCH_RESILIENCE_ERROR_MESSAGE = {
+  requestAborted: "Request aborted",
   requestFailed: "Request failed",
   requestTimedOut: "Request timed out",
 } as const;
@@ -82,19 +118,27 @@ function shouldRetryResponse(response: HttpResponse, attempt: number, maxRetries
 function buildRequestInit(init: RequestInit, timeoutMs: number): {
   requestInit: RequestInit;
   cleanup: () => void;
+  getAbortReason: () => FetchAbortReason;
 } {
   const timeoutController = new AbortController();
+  let abortReason: FetchAbortReason = null;
   const timeoutId = setTimeout(() => {
+    abortReason = FETCH_FAILURE_REASON.timeout;
     timeoutController.abort();
   }, timeoutMs);
 
   const sourceSignal = init.signal;
   const forwardAbort = () => {
+    if (!abortReason) {
+      abortReason = FETCH_FAILURE_REASON.callerAbort;
+    }
+
     timeoutController.abort();
   };
 
   if (sourceSignal) {
     if (sourceSignal.aborted) {
+      abortReason = FETCH_FAILURE_REASON.callerAbort;
       timeoutController.abort();
     } else {
       sourceSignal.addEventListener(FETCH_RESILIENCE_ABORT_EVENT_NAME, forwardAbort);
@@ -112,6 +156,7 @@ function buildRequestInit(init: RequestInit, timeoutMs: number): {
         sourceSignal.removeEventListener(FETCH_RESILIENCE_ABORT_EVENT_NAME, forwardAbort);
       }
     },
+    getAbortReason: () => abortReason,
   };
 }
 
@@ -125,15 +170,31 @@ export async function fetchWithResilience(
     ...defaultOptions,
     ...options,
   };
+  const method = init.method ?? FETCH_DEFAULT_METHOD;
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt += 1) {
-    const { requestInit, cleanup } = buildRequestInit(init, config.timeoutMs);
+    const attemptNumber = attempt + 1;
+    const { requestInit, cleanup, getAbortReason } = buildRequestInit(init, config.timeoutMs);
+
+    config.lifecycleLogger?.({
+      attempt: attemptNumber,
+      event: FETCH_LIFECYCLE_EVENT.requestAttempted,
+      input,
+      method,
+    });
 
     try {
       const response = await fetcher(input, requestInit);
       cleanup();
 
       if (shouldRetryResponse(response, attempt, config.maxRetries)) {
+        config.lifecycleLogger?.({
+          attempt: attemptNumber,
+          event: FETCH_LIFECYCLE_EVENT.retryScheduled,
+          input,
+          method,
+          status: response.status,
+        });
         await delay(config.retryDelayMs);
         continue;
       }
@@ -141,13 +202,63 @@ export async function fetchWithResilience(
       return response;
     } catch (error) {
       cleanup();
+      const abortReason = getAbortReason();
 
-      if (isAbortError(error) && attempt >= config.maxRetries) {
+      if (abortReason === FETCH_FAILURE_REASON.timeout) {
+        config.lifecycleLogger?.({
+          attempt: attemptNumber,
+          event: FETCH_LIFECYCLE_EVENT.timeoutAbort,
+          input,
+          method,
+        });
+      }
+
+      if (abortReason === FETCH_FAILURE_REASON.callerAbort) {
+        config.lifecycleLogger?.({
+          attempt: attemptNumber,
+          event: FETCH_LIFECYCLE_EVENT.requestFailed,
+          input,
+          method,
+          reason: FETCH_FAILURE_REASON.callerAbort,
+        });
+
+        throw new Error(FETCH_RESILIENCE_ERROR_MESSAGE.requestAborted);
+      }
+
+      if (
+        isAbortError(error) &&
+        abortReason === FETCH_FAILURE_REASON.timeout &&
+        attempt >= config.maxRetries
+      ) {
+        config.lifecycleLogger?.({
+          attempt: attemptNumber,
+          event: FETCH_LIFECYCLE_EVENT.requestFailed,
+          input,
+          method,
+          reason: FETCH_FAILURE_REASON.timeout,
+        });
         throw new Error(FETCH_RESILIENCE_ERROR_MESSAGE.requestTimedOut);
       }
 
       if (attempt >= config.maxRetries) {
+        config.lifecycleLogger?.({
+          attempt: attemptNumber,
+          event: FETCH_LIFECYCLE_EVENT.requestFailed,
+          input,
+          method,
+          reason: abortReason ?? FETCH_FAILURE_REASON.requestError,
+        });
         throw error;
+      }
+
+      if (isAbortError(error) && abortReason === FETCH_FAILURE_REASON.timeout) {
+        config.lifecycleLogger?.({
+          attempt: attemptNumber,
+          event: FETCH_LIFECYCLE_EVENT.retryScheduled,
+          input,
+          method,
+          reason: FETCH_FAILURE_REASON.timeout,
+        });
       }
 
       await delay(config.retryDelayMs);

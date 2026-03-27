@@ -1,6 +1,9 @@
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { buildGoogleAuthRedirectUrl } from "@/src/modules/auth/infrastructure/oauth/build-google-auth-redirect-url";
+import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { createRedirectResponse } from "@/src/modules/shared/infrastructure/observability/route-response";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { createServerSupabaseClient } from "@/src/modules/shared/infrastructure/supabase/server-client";
 
 const AUTH_GOOGLE_START_PREFIX = {
@@ -24,6 +27,12 @@ const GOOGLE_PROFILE_SCOPES = GOOGLE_PROFILE_SCOPE_VALUES.join(
   AUTH_GOOGLE_START_PREFIX.scopeJoinSeparator
 );
 
+const AUTH_GOOGLE_START_LOG = {
+  feature: "auth",
+  oauthFailureMessage: "Google auth start failed",
+  operation: "google-auth-start",
+} as const;
+
 function resolveSafeNextPath(rawNext: string | null): string {
   if (!rawNext) {
     return ROUTES.home;
@@ -43,6 +52,12 @@ function resolveSafeNextPath(rawNext: string | null): string {
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
+  const { requestId } = resolveRequestContext(request.headers);
+  const logger = createServerLogger({
+    feature: AUTH_GOOGLE_START_LOG.feature,
+    operation: AUTH_GOOGLE_START_LOG.operation,
+    requestId,
+  });
   const nextPath = resolveSafeNextPath(
     requestUrl.searchParams.get(QUERY_PARAMS.auth.next)
   );
@@ -60,8 +75,16 @@ export async function GET(request: Request) {
   });
 
   if (error || !data.url) {
-    return Response.redirect(new URL(ROUTES.auth.error, requestUrl.origin));
+    logger.error({
+      message: AUTH_GOOGLE_START_LOG.oauthFailureMessage,
+      error,
+      metadata: {
+        nextPath,
+      },
+    });
+
+    return createRedirectResponse(new URL(ROUTES.auth.error, requestUrl.origin), requestId);
   }
 
-  return Response.redirect(data.url);
+  return createRedirectResponse(data.url, requestId);
 }

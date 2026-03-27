@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { AvatarSessionMenu } from "@/components/auth/avatar-session-menu";
@@ -25,18 +26,51 @@ export function AvatarSessionMenuClient({
   signOutCallbackUrl,
 }: AvatarSessionMenuClientProps) {
   const router = useRouter();
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const handleSignOut = async () => {
-    const response = await fetch(AUTH_SIGN_OUT_REQUEST.path, {
-      method: AUTH_SIGN_OUT_REQUEST.method,
-    });
-
-    if (!response.ok) {
-      router.push(AUTH_SIGN_OUT_REQUEST.errorPath);
+    if (isSigningOut) {
       return;
     }
 
-    router.push(signOutCallbackUrl);
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    setIsSigningOut(true);
+
+    try {
+      const response = await fetch(AUTH_SIGN_OUT_REQUEST.path, {
+        method: AUTH_SIGN_OUT_REQUEST.method,
+        signal: abortController.signal,
+      });
+
+      if (!response.ok) {
+        router.push(AUTH_SIGN_OUT_REQUEST.errorPath);
+        return;
+      }
+
+      router.push(signOutCallbackUrl);
+    } catch {
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      router.push(AUTH_SIGN_OUT_REQUEST.errorPath);
+    } finally {
+      if (isMountedRef.current) {
+        setIsSigningOut(false);
+      }
+
+      abortControllerRef.current = null;
+    }
   };
 
   return (
@@ -45,6 +79,7 @@ export function AvatarSessionMenuClient({
         authenticatedMember={authenticatedMember}
         signInPath={signInPath}
         onSignOut={handleSignOut}
+        signOutDisabled={isSigningOut}
       />
     </div>
   );

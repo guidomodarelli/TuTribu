@@ -1,15 +1,23 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
 import { COMMUNITY_PAGE_ACCESS_STATUS } from "@/src/modules/communities/application/results/community-page-access-result";
 import { createGetCommunityPageAccessUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-community-page-access-use-case";
+import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import styles from "./page.module.scss";
 
-const COMMUNITY_PAGE_LOG = {
-  hiddenAccess: "[communities] hidden community access",
+const COMMUNITY_PAGE_LOG_REASON = {
   unexpectedRepositoryError: "unexpected_repository_error",
-  resolveAccessFailure: "[communities] failed to resolve community access",
+} as const;
+
+const COMMUNITY_PAGE_LOG = {
+  feature: "communities",
+  hiddenAccessMessage: "Community access hidden",
+  operation: "community-page",
+  resolveAccessFailureMessage: "Failed to resolve community access",
 } as const;
 
 export default async function CommunityPage({
@@ -20,6 +28,13 @@ export default async function CommunityPage({
   }>;
 }) {
   const { slug } = await params;
+  const requestHeaders = await headers();
+  const { requestId } = resolveRequestContext(requestHeaders);
+  const logger = createServerLogger({
+    feature: COMMUNITY_PAGE_LOG.feature,
+    operation: COMMUNITY_PAGE_LOG.operation,
+    requestId,
+  });
   const authenticatedMember =
     await createGetAuthenticatedMemberUseCase().execute();
 
@@ -29,20 +44,26 @@ export default async function CommunityPage({
       slug,
     })
     .catch((error) => {
-      console.error(COMMUNITY_PAGE_LOG.resolveAccessFailure, {
+      logger.error({
+        message: COMMUNITY_PAGE_LOG.resolveAccessFailureMessage,
         error,
-        reason: COMMUNITY_PAGE_LOG.unexpectedRepositoryError,
-        slug,
-        viewerId: authenticatedMember?.id ?? null,
+        metadata: {
+          reason: COMMUNITY_PAGE_LOG_REASON.unexpectedRepositoryError,
+          slug,
+          viewerId: authenticatedMember?.id ?? null,
+        },
       });
       notFound();
     });
 
   if (accessResult.status === COMMUNITY_PAGE_ACCESS_STATUS.hidden) {
-    console.info(COMMUNITY_PAGE_LOG.hiddenAccess, {
-      reason: accessResult.reason,
-      slug,
-      viewerId: authenticatedMember?.id ?? null,
+    logger.info({
+      message: COMMUNITY_PAGE_LOG.hiddenAccessMessage,
+      metadata: {
+        reason: accessResult.reason,
+        slug,
+        viewerId: authenticatedMember?.id ?? null,
+      },
     });
 
     notFound();

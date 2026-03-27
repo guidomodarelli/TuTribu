@@ -1,9 +1,18 @@
 import { GET } from "@/app/auth/google/start/route";
+import { REQUEST_ID_HEADER } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { createServerSupabaseClient } from "@/src/modules/shared/infrastructure/supabase/server-client";
 
 jest.mock("@/src/modules/shared/infrastructure/supabase/server-client", () => ({
   createServerSupabaseClient: jest.fn(),
 }));
+
+jest.mock(
+  "@/src/modules/shared/infrastructure/observability/server-logger",
+  () => ({
+    createServerLogger: jest.fn(),
+  })
+);
 
 class MockResponse {
   headers: Headers;
@@ -23,6 +32,7 @@ class MockResponse {
 
 describe("Auth Google start route", () => {
   const signInWithOAuth = jest.fn();
+  const errorMock = jest.fn();
   const expectedScopes = [
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
@@ -32,12 +42,17 @@ describe("Auth Google start route", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     signInWithOAuth.mockReset();
+    errorMock.mockReset();
     global.Response = MockResponse as unknown as typeof Response;
 
     (createServerSupabaseClient as jest.Mock).mockResolvedValue({
       auth: {
         signInWithOAuth,
       },
+    });
+    (createServerLogger as jest.Mock).mockReturnValue({
+      error: errorMock,
+      info: jest.fn(),
     });
   });
 
@@ -66,6 +81,7 @@ describe("Auth Google start route", () => {
     expect(response.headers.get("location")).toBe(
       "https://supabase.example.com/oauth/google"
     );
+    expect(response.headers.get(REQUEST_ID_HEADER)).toEqual(expect.any(String));
   });
 
   it("falls back to root when next is invalid", async () => {
@@ -107,5 +123,12 @@ describe("Auth Google start route", () => {
     expect(response.headers.get("location")).toBe(
       "https://academia.example.com/auth/error"
     );
+    expect(errorMock).toHaveBeenCalledWith({
+      message: "Google auth start failed",
+      error: { message: "oauth failed" },
+      metadata: expect.objectContaining({
+        nextPath: "/panel",
+      }),
+    });
   });
 });

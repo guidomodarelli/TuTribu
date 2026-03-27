@@ -22,6 +22,7 @@ import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/r
 type AvatarSessionMenuProps = {
   authenticatedMember: AuthenticatedMemberResult | null;
   onSignOut: () => Promise<void>;
+  signOutDisabled?: boolean;
   signInPath: string;
 };
 
@@ -51,6 +52,7 @@ function getInitials(name: string): string {
 export function AvatarSessionMenu({
   authenticatedMember,
   onSignOut,
+  signOutDisabled = false,
   signInPath,
 }: AvatarSessionMenuProps) {
   const hasAuthenticatedMember = Boolean(authenticatedMember);
@@ -98,7 +100,7 @@ export function AvatarSessionMenu({
         </div>
         <DropdownMenuSeparator />
         {hasAuthenticatedMember ? (
-          <DropdownMenuItem onClick={handleSignOut}>
+          <DropdownMenuItem onClick={handleSignOut} disabled={signOutDisabled}>
             <LogOutIcon />
             Cerrar sesion
           </DropdownMenuItem>

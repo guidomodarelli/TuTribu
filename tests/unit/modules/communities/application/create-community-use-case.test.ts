@@ -180,4 +180,44 @@ describe("CreateCommunityUseCase", () => {
       suggestedSlug: "matematica-pro-2",
     });
   });
+
+  it("keeps duplicate submissions deterministic when persistence raises the same slug conflict twice", async () => {
+    const isSlugTaken = jest
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const createCommunityWithOwnerMembership = jest
+      .fn()
+      .mockRejectedValueOnce(new CommunitySlugConflictError())
+      .mockRejectedValueOnce(new CommunitySlugConflictError());
+    const useCase = new CreateCommunityUseCase(
+      {
+        isEmailAllowed: jest.fn(async () => true),
+      },
+      {
+        isSlugTaken,
+        createCommunityWithOwnerMembership,
+      }
+    );
+
+    const command = {
+      creatorEmail: "owner@example.com",
+      creatorId: "member-1",
+      name: "Matematica Pro",
+      slug: "matematica-pro",
+    };
+
+    await expect(useCase.execute(command)).resolves.toEqual({
+      status: "slug-conflict",
+      message: "Ese slug ya esta en uso. Puedes probar con la sugerencia.",
+      suggestedSlug: "matematica-pro-2",
+    });
+
+    await expect(useCase.execute(command)).resolves.toEqual({
+      status: "slug-conflict",
+      message: "Ese slug ya esta en uso. Puedes probar con la sugerencia.",
+      suggestedSlug: "matematica-pro-2",
+    });
+  });
 });

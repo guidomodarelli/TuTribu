@@ -1,5 +1,6 @@
 import {
   fetchWithResilience,
+  type FetchLifecycleLogger,
   type HttpFetcher,
 } from "@/src/modules/shared/infrastructure/http/fetch-with-resilience";
 
@@ -118,5 +119,92 @@ describe("fetchWithResilience", () => {
         { maxRetries: 0, retryDelayMs: 0, timeoutMs: 5 }
       )
     ).rejects.toThrow("Request timed out");
+  });
+
+  it("reports retry, timeout, and failure lifecycle events", async () => {
+    const lifecycleLogger: FetchLifecycleLogger = jest.fn();
+    const fetcher: HttpFetcher = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({}) })
+      .mockImplementationOnce((_, init) => {
+        return new Promise((_, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+      });
+
+    await expect(
+      fetchWithResilience(
+        fetcher,
+        "https://api.academia.test/v1/resources",
+        { method: "GET" },
+        {
+          lifecycleLogger,
+          maxRetries: 1,
+          retryDelayMs: 0,
+          timeoutMs: 5,
+        }
+      )
+    ).rejects.toThrow("Request timed out");
+
+    expect(lifecycleLogger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attempt: 1,
+        event: "retry-scheduled",
+        status: 503,
+      })
+    );
+    expect(lifecycleLogger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attempt: 2,
+        event: "timeout-abort",
+      })
+    );
+    expect(lifecycleLogger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attempt: 2,
+        event: "request-failed",
+        reason: "timeout",
+      })
+    );
+  });
+
+  it("distinguishes caller aborts from timeout aborts", async () => {
+    const lifecycleLogger: FetchLifecycleLogger = jest.fn();
+    const controller = new AbortController();
+    const fetcher: HttpFetcher = jest.fn((_, init) => {
+      return new Promise((_, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("Aborted", "AbortError"));
+        });
+      });
+    });
+
+    const requestPromise = fetchWithResilience(
+      fetcher,
+      "https://api.academia.test/v1/resources",
+      {
+        method: "GET",
+        signal: controller.signal,
+      },
+      {
+        lifecycleLogger,
+        maxRetries: 0,
+        retryDelayMs: 0,
+        timeoutMs: 100,
+      }
+    );
+
+    controller.abort();
+
+    await expect(requestPromise).rejects.toThrow("Request aborted");
+    expect(lifecycleLogger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attempt: 1,
+        event: "request-failed",
+        reason: "caller-abort",
+      })
+    );
   });
 });

@@ -1,15 +1,23 @@
 import { render, screen } from "@testing-library/react";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import CommunityPage from "@/app/(platform)/comunidad/[slug]/page";
 import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
 import { createGetCommunityPageAccessUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-community-page-access-use-case";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const getAuthenticatedMember = jest.fn();
 const getCommunityPageAccess = jest.fn();
+const infoMock = jest.fn();
+const errorMock = jest.fn();
 
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(),
+}));
+
+jest.mock("next/headers", () => ({
+  headers: jest.fn(),
 }));
 
 jest.mock(
@@ -26,13 +34,20 @@ jest.mock(
   })
 );
 
+jest.mock(
+  "@/src/modules/shared/infrastructure/observability/server-logger",
+  () => ({
+    createServerLogger: jest.fn(),
+  })
+);
+
 describe("CommunityPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
     getCommunityPageAccess.mockReset();
-    jest.spyOn(console, "info").mockImplementation(() => {});
-    jest.spyOn(console, "error").mockImplementation(() => {});
+    infoMock.mockReset();
+    errorMock.mockReset();
 
     (createGetAuthenticatedMemberUseCase as jest.Mock).mockReturnValue({
       execute: getAuthenticatedMember,
@@ -40,10 +55,11 @@ describe("CommunityPage", () => {
     (createGetCommunityPageAccessUseCase as jest.Mock).mockReturnValue({
       execute: getCommunityPageAccess,
     });
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
+    (headers as jest.Mock).mockResolvedValue(new Headers());
+    (createServerLogger as jest.Mock).mockReturnValue({
+      info: infoMock,
+      error: errorMock,
+    });
   });
 
   it("renders the private community view", async () => {
@@ -102,14 +118,14 @@ describe("CommunityPage", () => {
     ).rejects.toThrow("NEXT_NOT_FOUND");
 
     expect(notFound).toHaveBeenCalled();
-    expect(console.info).toHaveBeenCalledWith(
-      "[communities] hidden community access",
-      expect.objectContaining({
+    expect(infoMock).toHaveBeenCalledWith({
+      message: "Community access hidden",
+      metadata: expect.objectContaining({
         reason: "unauthenticated_hidden",
         slug: "matematica-pro",
         viewerId: null,
-      })
-    );
+      }),
+    });
   });
 
   it("returns 404 and logs blocked hidden access", async () => {
@@ -137,14 +153,14 @@ describe("CommunityPage", () => {
       })
     ).rejects.toThrow("NEXT_NOT_FOUND");
 
-    expect(console.info).toHaveBeenCalledWith(
-      "[communities] hidden community access",
-      expect.objectContaining({
+    expect(infoMock).toHaveBeenCalledWith({
+      message: "Community access hidden",
+      metadata: expect.objectContaining({
         reason: "blocked_hidden",
         slug: "matematica-pro",
         viewerId: "member-1",
-      })
-    );
+      }),
+    });
   });
 
   it("returns 404 and logs generic hidden access when the slug is not visible", async () => {
@@ -172,14 +188,14 @@ describe("CommunityPage", () => {
       })
     ).rejects.toThrow("NEXT_NOT_FOUND");
 
-    expect(console.info).toHaveBeenCalledWith(
-      "[communities] hidden community access",
-      expect.objectContaining({
+    expect(infoMock).toHaveBeenCalledWith({
+      message: "Community access hidden",
+      metadata: expect.objectContaining({
         reason: "not_found_or_not_visible",
         slug: "missing-community",
         viewerId: "member-1",
-      })
-    );
+      }),
+    });
   });
 
   it("returns 404 and logs unexpected repository failures", async () => {
@@ -204,13 +220,14 @@ describe("CommunityPage", () => {
       })
     ).rejects.toThrow("NEXT_NOT_FOUND");
 
-    expect(console.error).toHaveBeenCalledWith(
-      "[communities] failed to resolve community access",
-      expect.objectContaining({
+    expect(errorMock).toHaveBeenCalledWith({
+      message: "Failed to resolve community access",
+      error: expect.any(Error),
+      metadata: expect.objectContaining({
         reason: "unexpected_repository_error",
         slug: "matematica-pro",
         viewerId: "member-1",
-      })
-    );
+      }),
+    });
   });
 });

@@ -429,3 +429,22 @@ WITH CHECK (auth.uid() = user_id);
   - application use-case tests using domain ports doubles
   - infrastructure adapter or mapper tests for DTO to entity mapping
   - route-level tests to verify entrypoint wiring still renders expected UI output
+
+## 7. Concurrency, Observability, and Performance
+
+### Concurrency baseline
+
+- Design all client and server flows assuming concurrent execution, retries, and out-of-order completion.
+- Never rely on the client to guarantee consistency for shared or persisted state.
+- Clean up async effects and guard against stale or outdated responses before updating UI state.
+
+### Observability baseline
+
+- Use structured, contextual logs for relevant server-side flows and include correlation identifiers such as `requestId` or `traceId` when available.
+- Keep logs and error reporting safe: never expose secrets, tokens, raw provider payloads, or internal diagnostics in user-facing messages.
+
+### Reliability and performance baseline
+
+- Make critical mutations safe under retries and duplicate submissions through idempotency, transactional protection, optimistic locking, or equivalent server-side controls.
+- Avoid blocking the event loop, overfetching, and repeated expensive work in latency-sensitive paths.
+- For examples and decision guidance, see `docs/conventions/concurrency-observability-performance.md`.

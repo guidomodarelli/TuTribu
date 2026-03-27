@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
 
@@ -68,9 +68,53 @@ describe("AvatarSessionMenu", () => {
     await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
     await user.click(screen.getByRole("menuitem", { name: /cerrar sesion/i }));
 
-    expect(fetch).toHaveBeenCalledWith("/auth/signout", {
-      method: "POST",
-    });
+    expect(fetch).toHaveBeenCalledWith(
+      "/auth/signout",
+      expect.objectContaining({
+        method: "POST",
+        signal: expect.any(AbortSignal),
+      })
+    );
     expect(pushMock).toHaveBeenCalledWith("/auth/signin");
+  });
+
+  it("prevents duplicate sign-out requests while one is already in flight", async () => {
+    const user = userEvent.setup();
+    let resolveFetch: ((value: { ok: boolean }) => void) | null = null;
+    (fetch as jest.Mock).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        })
+    );
+
+    render(
+      <AvatarSessionMenuClient
+        authenticatedMember={{
+          id: "dc2b4b91-7e42-41be-bcb5-a48b61a27740",
+          email: "grace.hopper@example.com",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        signInPath="/auth/signin"
+        signOutCallbackUrl="/auth/signin"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
+    const signOutItem = screen.getByRole("menuitem", { name: /cerrar sesion/i });
+
+    await user.click(signOutItem);
+    await user.click(signOutItem);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    resolveFetch?.({ ok: true });
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/auth/signin");
+    });
   });
 });

@@ -1,9 +1,18 @@
 import { GET } from "@/app/auth/callback/route";
+import { REQUEST_ID_HEADER } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { createServerSupabaseClient } from "@/src/modules/shared/infrastructure/supabase/server-client";
 
 jest.mock("@/src/modules/shared/infrastructure/supabase/server-client", () => ({
   createServerSupabaseClient: jest.fn(),
 }));
+
+jest.mock(
+  "@/src/modules/shared/infrastructure/observability/server-logger",
+  () => ({
+    createServerLogger: jest.fn(),
+  })
+);
 
 class MockResponse {
   headers: Headers;
@@ -23,16 +32,22 @@ class MockResponse {
 
 describe("Auth callback route", () => {
   const exchangeCodeForSession = jest.fn();
+  const errorMock = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     exchangeCodeForSession.mockReset();
+    errorMock.mockReset();
     global.Response = MockResponse as unknown as typeof Response;
 
     (createServerSupabaseClient as jest.Mock).mockResolvedValue({
       auth: {
         exchangeCodeForSession,
       },
+    });
+    (createServerLogger as jest.Mock).mockReturnValue({
+      error: errorMock,
+      info: jest.fn(),
     });
   });
 
@@ -47,6 +62,7 @@ describe("Auth callback route", () => {
 
     expect(exchangeCodeForSession).toHaveBeenCalledWith("oauth-code");
     expect(response.headers.get("location")).toBe("https://academia.example.com/panel");
+    expect(response.headers.get(REQUEST_ID_HEADER)).toEqual(expect.any(String));
   });
 
   it("falls back to root when next is not a relative path", async () => {
@@ -75,6 +91,14 @@ describe("Auth callback route", () => {
     expect(response.headers.get("location")).toBe(
       "https://academia.example.com/auth/error"
     );
+    expect(errorMock).toHaveBeenCalledWith({
+      message: "Auth callback code exchange failed",
+      error: { message: "exchange failed" },
+      metadata: expect.objectContaining({
+        hasCode: true,
+        nextPath: "/",
+      }),
+    });
   });
 
   it("redirects to the auth error page when the callback does not contain a code", async () => {
@@ -88,5 +112,26 @@ describe("Auth callback route", () => {
     expect(response.headers.get("location")).toBe(
       "https://academia.example.com/auth/error"
     );
+    expect(errorMock).toHaveBeenCalledWith({
+      message: "Auth callback request missing code",
+      metadata: expect.objectContaining({
+        nextPath: "/panel",
+      }),
+    });
+  });
+
+  it("reuses the incoming request id header", async () => {
+    exchangeCodeForSession.mockResolvedValue({ error: null });
+
+    const response = await GET(
+      {
+        headers: new Headers({
+          [REQUEST_ID_HEADER]: "req-existing",
+        }),
+        url: "https://academia.example.com/auth/callback?code=oauth-code",
+      } as Request
+    );
+
+    expect(response.headers.get(REQUEST_ID_HEADER)).toBe("req-existing");
   });
 });
