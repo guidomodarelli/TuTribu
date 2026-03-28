@@ -3,8 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import CommunityPage from "@/app/(platform)/comunidad/[slug]/page";
-import { createAuthModule } from "@/src/modules/auth/setup";
-import { createCommunitiesModule } from "@/src/modules/communities/setup";
+import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const getAuthenticatedMember = jest.fn();
@@ -20,12 +19,8 @@ jest.mock("next/headers", () => ({
   headers: jest.fn(),
 }));
 
-jest.mock("@/src/modules/auth/setup", () => ({
-  createAuthModule: jest.fn(),
-}));
-
-jest.mock("@/src/modules/communities/setup", () => ({
-  createCommunitiesModule: jest.fn(),
+jest.mock("@/src/modules/setup", () => ({
+  createRequestModules: jest.fn(),
 }));
 
 jest.mock(
@@ -43,14 +38,16 @@ describe("CommunityPage", () => {
     infoMock.mockReset();
     errorMock.mockReset();
 
-    (createAuthModule as jest.Mock).mockReturnValue({
-      useCases: {
-        getAuthenticatedMember,
+    (createRequestModules as jest.Mock).mockResolvedValue({
+      auth: {
+        useCases: {
+          getAuthenticatedMember,
+        },
       },
-    });
-    (createCommunitiesModule as jest.Mock).mockReturnValue({
-      useCases: {
-        getCommunityPageAccess,
+      communities: {
+        useCases: {
+          getCommunityPageAccess,
+        },
       },
     });
     (headers as jest.Mock).mockResolvedValue(new Headers());

@@ -3,16 +3,21 @@ import { getCommunityBySlug } from "@/src/modules/communities/application/use-ca
 import { getCommunityCreationEligibility } from "@/src/modules/communities/application/use-cases/get-community-creation-eligibility-use-case";
 import { getCommunityPageAccess } from "@/src/modules/communities/application/use-cases/get-community-page-access-use-case";
 import { getMemberCommunities } from "@/src/modules/communities/application/use-cases/get-member-communities-use-case";
-import { SupabaseCommunityCreationRepository } from "@/src/modules/communities/infrastructure/repositories/supabase-community-creation-repository";
-import { SupabaseCommunityCreatorWhitelistRepository } from "@/src/modules/communities/infrastructure/repositories/supabase-community-creator-whitelist-repository";
-import { SupabaseCommunityReadRepository } from "@/src/modules/communities/infrastructure/repositories/supabase-community-read-repository";
+import type { CommunityCreationRepository } from "@/src/modules/communities/domain/repositories/community-creation-repository";
+import type { CommunityCreatorWhitelistRepository } from "@/src/modules/communities/domain/repositories/community-creator-whitelist-repository";
+import type { CommunityReadRepository } from "@/src/modules/communities/domain/repositories/community-read-repository";
 
-export function createCommunitiesModule() {
-  const communityReadRepository = new SupabaseCommunityReadRepository();
-  const communityCreationRepository = new SupabaseCommunityCreationRepository();
-  const communityCreatorWhitelistRepository =
-    new SupabaseCommunityCreatorWhitelistRepository();
+type CommunitiesModuleDependencies = {
+  communityReadRepository: CommunityReadRepository;
+  communityCreationRepository: CommunityCreationRepository;
+  communityCreatorWhitelistRepository: CommunityCreatorWhitelistRepository;
+};
 
+export function buildCommunitiesModule({
+  communityReadRepository,
+  communityCreationRepository,
+  communityCreatorWhitelistRepository,
+}: CommunitiesModuleDependencies) {
   return {
     useCases: {
       createCommunity: createCommunity({

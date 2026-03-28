@@ -3,12 +3,13 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import CreateCommunityPage from "@/app/(platform)/comunidad/crear/page";
-import { createAuthModule } from "@/src/modules/auth/setup";
-import { createCommunitiesModule } from "@/src/modules/communities/setup";
+import { createRequestModules } from "@/src/modules/setup";
 import { getContactEmail } from "@/src/modules/communities/infrastructure/config/community-creation-contact-email";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const getAuthenticatedMember = jest.fn();
 const getCommunityCreationEligibility = jest.fn();
+const errorMock = jest.fn();
 
 jest.mock("next/headers", () => ({
   headers: jest.fn(),
@@ -18,12 +19,8 @@ jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
 }));
 
-jest.mock("@/src/modules/auth/setup", () => ({
-  createAuthModule: jest.fn(),
-}));
-
-jest.mock("@/src/modules/communities/setup", () => ({
-  createCommunitiesModule: jest.fn(),
+jest.mock("@/src/modules/setup", () => ({
+  createRequestModules: jest.fn(),
 }));
 
 jest.mock(
@@ -33,26 +30,40 @@ jest.mock(
   })
 );
 
+jest.mock(
+  "@/src/modules/shared/infrastructure/observability/server-logger",
+  () => ({
+    createServerLogger: jest.fn(),
+  })
+);
+
 describe("CreateCommunityPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
     getCommunityCreationEligibility.mockReset();
+    errorMock.mockReset();
     (headers as jest.Mock).mockResolvedValue(new Headers());
 
-    (createAuthModule as jest.Mock).mockReturnValue({
-      useCases: {
-        getAuthenticatedMember,
+    (createRequestModules as jest.Mock).mockResolvedValue({
+      auth: {
+        useCases: {
+          getAuthenticatedMember,
+        },
       },
-    });
-    (createCommunitiesModule as jest.Mock).mockReturnValue({
-      useCases: {
-        getCommunityCreationEligibility,
+      communities: {
+        useCases: {
+          getCommunityCreationEligibility,
+        },
       },
     });
     (getContactEmail as jest.Mock).mockReturnValue(
       "comunidades@example.com"
     );
+    (createServerLogger as jest.Mock).mockReturnValue({
+      error: errorMock,
+      info: jest.fn(),
+    });
   });
 
   it("redirects unauthenticated users to sign in with a callback", async () => {
@@ -123,5 +134,22 @@ describe("CreateCommunityPage", () => {
       "mailto:comunidades@example.com"
     );
     expect(screen.queryByLabelText(/nombre de la comunidad/i)).not.toBeInTheDocument();
+  });
+
+  it("logs session resolution failures when request modules cannot be created", async () => {
+    (createRequestModules as jest.Mock).mockRejectedValue(
+      new Error("module_setup_failed")
+    );
+
+    await expect(
+      CreateCommunityPage({
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow("module_setup_failed");
+
+    expect(errorMock).toHaveBeenCalledWith({
+      message: "Failed to resolve session for community creation page",
+      error: expect.any(Error),
+    });
   });
 });

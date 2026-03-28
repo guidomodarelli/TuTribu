@@ -1,6 +1,5 @@
 import { POST } from "@/app/api/communities/route";
-import { createAuthModule } from "@/src/modules/auth/setup";
-import { createCommunitiesModule } from "@/src/modules/communities/setup";
+import { createRequestModules } from "@/src/modules/setup";
 import { REQUEST_ID_HEADER } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -8,12 +7,8 @@ const getAuthenticatedMember = jest.fn();
 const createCommunity = jest.fn();
 const errorMock = jest.fn();
 
-jest.mock("@/src/modules/auth/setup", () => ({
-  createAuthModule: jest.fn(),
-}));
-
-jest.mock("@/src/modules/communities/setup", () => ({
-  createCommunitiesModule: jest.fn(),
+jest.mock("@/src/modules/setup", () => ({
+  createRequestModules: jest.fn(),
 }));
 
 jest.mock(
@@ -61,14 +56,16 @@ describe("Create community route", () => {
     errorMock.mockReset();
     global.Response = MockResponse as unknown as typeof Response;
 
-    (createAuthModule as jest.Mock).mockReturnValue({
-      useCases: {
-        getAuthenticatedMember,
+    (createRequestModules as jest.Mock).mockResolvedValue({
+      auth: {
+        useCases: {
+          getAuthenticatedMember,
+        },
       },
-    });
-    (createCommunitiesModule as jest.Mock).mockReturnValue({
-      useCases: {
-        createCommunity,
+      communities: {
+        useCases: {
+          createCommunity,
+        },
       },
     });
     (createServerLogger as jest.Mock).mockReturnValue({

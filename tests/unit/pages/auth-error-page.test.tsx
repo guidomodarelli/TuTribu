@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 
 import AuthErrorPage from "@/app/auth/error/page";
-import { createAuthModule } from "@/src/modules/auth/setup";
+import { createRequestModules } from "@/src/modules/setup";
 
 const getAuthenticatedMember = jest.fn();
 
@@ -11,9 +11,9 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock(
-  "@/src/modules/auth/setup",
+  "@/src/modules/setup",
   () => ({
-    createAuthModule: jest.fn(),
+    createRequestModules: jest.fn(),
   })
 );
 
@@ -22,9 +22,14 @@ describe("AuthErrorPage", () => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
 
-    (createAuthModule as jest.Mock).mockReturnValue({
-      useCases: {
-        getAuthenticatedMember,
+    (createRequestModules as jest.Mock).mockResolvedValue({
+      auth: {
+        useCases: {
+          getAuthenticatedMember,
+        },
+      },
+      communities: {
+        useCases: {},
       },
     });
   });

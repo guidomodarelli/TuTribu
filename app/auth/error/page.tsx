@@ -2,11 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ROUTES } from "@/src/constants/routes";
-import { createAuthModule } from "@/src/modules/auth/setup";
+import { createRequestModules } from "@/src/modules/setup";
 import styles from "./page.module.scss";
 
 export default async function AuthErrorPage() {
-  const authenticatedMember = await createAuthModule().useCases.getAuthenticatedMember();
+  const modules = await createRequestModules();
+  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (authenticatedMember) {
     redirect(ROUTES.home);

@@ -4,7 +4,7 @@ import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
-import { createAuthModule } from "@/src/modules/auth/setup";
+import { createRequestModules } from "@/src/modules/setup";
 import styles from "./page.module.scss";
 
 type SignInSearchParams = {
@@ -69,7 +69,8 @@ export default async function SignInPage({
     rawCallbackUrl,
     ROUTES.home
   );
-  const authenticatedMember = await createAuthModule().useCases.getAuthenticatedMember();
+  const modules = await createRequestModules();
+  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (authenticatedMember) {
     redirect(callbackUrlForAuthenticatedMember);

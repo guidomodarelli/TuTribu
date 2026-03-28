@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { redirect } from "next/navigation";
 
 import SignInPage from "@/app/auth/signin/page";
-import { createAuthModule } from "@/src/modules/auth/setup";
+import { createRequestModules } from "@/src/modules/setup";
 
 const getAuthenticatedMember = jest.fn();
 const navigateToGoogleAuthStartMock = jest.fn();
@@ -17,9 +17,9 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock(
-  "@/src/modules/auth/setup",
+  "@/src/modules/setup",
   () => ({
-    createAuthModule: jest.fn(),
+    createRequestModules: jest.fn(),
   })
 );
 
@@ -45,9 +45,14 @@ describe("SignInPage", () => {
     getAuthenticatedMember.mockReset();
     navigateToGoogleAuthStartMock.mockReset();
 
-    (createAuthModule as jest.Mock).mockReturnValue({
-      useCases: {
-        getAuthenticatedMember,
+    (createRequestModules as jest.Mock).mockResolvedValue({
+      auth: {
+        useCases: {
+          getAuthenticatedMember,
+        },
+      },
+      communities: {
+        useCases: {},
       },
     });
   });

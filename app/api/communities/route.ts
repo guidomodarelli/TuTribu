@@ -1,11 +1,10 @@
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
-import { createAuthModule } from "@/src/modules/auth/setup";
-import { createCommunitiesModule } from "@/src/modules/communities/setup";
 import {
   CREATE_COMMUNITY_ERROR_CODE,
   CREATE_COMMUNITY_STATUS,
 } from "@/src/modules/communities/application/results/create-community-result";
+import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createRedirectResponse } from "@/src/modules/shared/infrastructure/observability/route-response";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -55,7 +54,8 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const name = readStringFormValue(formData.get(COMMUNITY_FORM_FIELD.name));
   const slug = readStringFormValue(formData.get(COMMUNITY_FORM_FIELD.slug));
-  const authenticatedMember = await createAuthModule().useCases.getAuthenticatedMember();
+  const modules = await createRequestModules();
+  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
     return createRedirectResponse(
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await createCommunitiesModule().useCases.createCommunity({
+    const result = await modules.communities.useCases.createCommunity({
       creatorEmail: authenticatedMember.email,
       creatorId: authenticatedMember.id,
       name,

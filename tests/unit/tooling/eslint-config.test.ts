@@ -52,7 +52,7 @@ describe("eslint module boundaries", () => {
   it("rejects setup imports inside module layers", async () => {
     expect(
       lintImport(
-        'import { createAuthModule } from "@/src/modules/auth/setup";',
+        'import { buildAuthModule } from "@/src/modules/auth/setup";',
         "src/modules/auth/application/foo.ts"
       )
     ).toContain("no-restricted-imports");
@@ -61,7 +61,7 @@ describe("eslint module boundaries", () => {
   it("rejects barrel setup imports inside module layers", async () => {
     expect(
       lintImport(
-        'import { createAuthModule } from "@/src/modules/setup";',
+        'import { createRequestModules } from "@/src/modules/setup";',
         "src/modules/auth/application/foo.ts"
       )
     ).toContain("no-restricted-imports");
@@ -70,7 +70,7 @@ describe("eslint module boundaries", () => {
   it("rejects relative setup imports inside module layers", async () => {
     expect(
       lintImport(
-        'import { createAuthModule } from "../../setup";',
+        'import { buildAuthModule } from "../../setup";',
         "src/modules/auth/application/use-cases/foo.ts"
       )
     ).toContain("no-restricted-imports");
@@ -79,7 +79,7 @@ describe("eslint module boundaries", () => {
   it("rejects relative setup imports from another module", async () => {
     expect(
       lintImport(
-        'import { createAuthModule } from "../../auth/setup";',
+        'import { buildAuthModule } from "../../auth/setup";',
         "src/modules/storage/application/foo.ts"
       )
     ).toContain("no-restricted-imports");

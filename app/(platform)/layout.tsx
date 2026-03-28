@@ -1,8 +1,7 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { createAuthModule } from "@/src/modules/auth/setup";
-import { createCommunitiesModule } from "@/src/modules/communities/setup";
+import { createRequestModules } from "@/src/modules/setup";
 import styles from "./layout.module.scss";
 
 export default async function PlatformLayout({
@@ -10,9 +9,10 @@ export default async function PlatformLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const authenticatedMember = await createAuthModule().useCases.getAuthenticatedMember();
+  const modules = await createRequestModules();
+  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
   const memberCommunities = authenticatedMember
-    ? await createCommunitiesModule().useCases.getMemberCommunities()
+    ? await modules.communities.useCases.getMemberCommunities()
     : [];
 
   return (

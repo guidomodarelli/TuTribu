@@ -1,9 +1,13 @@
 import { getAuthenticatedMember } from "@/src/modules/auth/application/use-cases/get-authenticated-member-use-case";
-import { SupabaseAuthSessionRepository } from "@/src/modules/auth/infrastructure/repositories/supabase-auth-session-repository";
+import type { AuthSessionRepository } from "@/src/modules/auth/domain/repositories/auth-session-repository";
 
-export function createAuthModule() {
-  const authSessionRepository = new SupabaseAuthSessionRepository();
+type AuthModuleDependencies = {
+  authSessionRepository: AuthSessionRepository;
+};
 
+export function buildAuthModule({
+  authSessionRepository,
+}: AuthModuleDependencies) {
   return {
     useCases: {
       getAuthenticatedMember: getAuthenticatedMember({

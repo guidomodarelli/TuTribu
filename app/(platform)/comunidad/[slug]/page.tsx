@@ -2,9 +2,8 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { createAuthModule } from "@/src/modules/auth/setup";
-import { createCommunitiesModule } from "@/src/modules/communities/setup";
 import { COMMUNITY_PAGE_ACCESS_STATUS } from "@/src/modules/communities/application/results/community-page-access-result";
+import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import styles from "./page.module.scss";
@@ -35,9 +34,10 @@ export default async function CommunityPage({
     operation: COMMUNITY_PAGE_LOG.operation,
     requestId,
   });
-  const authenticatedMember = await createAuthModule().useCases.getAuthenticatedMember();
+  const modules = await createRequestModules();
+  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
-  const accessResult = await createCommunitiesModule().useCases.getCommunityPageAccess({
+  const accessResult = await modules.communities.useCases.getCommunityPageAccess({
       isAuthenticated: Boolean(authenticatedMember),
       slug,
     })

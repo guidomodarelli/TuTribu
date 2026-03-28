@@ -6,14 +6,13 @@ import { CreateCommunityForm } from "@/components/communities/create-community-f
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
-import { createAuthModule } from "@/src/modules/auth/setup";
-import { createCommunitiesModule } from "@/src/modules/communities/setup";
 import {
   CREATE_COMMUNITY_ERROR_CODE,
   CREATE_COMMUNITY_ERROR_MESSAGE,
   CREATE_COMMUNITY_STATUS,
 } from "@/src/modules/communities/application/results/create-community-result";
 import { getContactEmail } from "@/src/modules/communities/infrastructure/config/community-creation-contact-email";
+import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import styles from "./page.module.scss";
@@ -78,16 +77,18 @@ export default async function CreateCommunityPage({
     operation: CREATE_COMMUNITY_PAGE_LOG.operation,
     requestId,
   });
-  const authenticatedMember = await createAuthModule()
-    .useCases.getAuthenticatedMember()
-    .catch((error: unknown) => {
-      logger.error({
-        message: CREATE_COMMUNITY_PAGE_LOG.resolveSessionFailureMessage,
-        error,
-      });
-
-      throw error;
+  const logSessionResolutionFailure = (error: unknown) => {
+    logger.error({
+      message: CREATE_COMMUNITY_PAGE_LOG.resolveSessionFailureMessage,
+      error,
     });
+
+    throw error;
+  };
+  const modules = await createRequestModules().catch(logSessionResolutionFailure);
+  const authenticatedMember = await modules.auth.useCases
+    .getAuthenticatedMember()
+    .catch(logSessionResolutionFailure);
 
   if (!authenticatedMember) {
     redirect(
@@ -97,7 +98,7 @@ export default async function CreateCommunityPage({
     );
   }
 
-  const eligibility = await createCommunitiesModule().useCases
+  const eligibility = await modules.communities.useCases
     .getCommunityCreationEligibility({
       creatorEmail: authenticatedMember.email,
     })
