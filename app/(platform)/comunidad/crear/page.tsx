@@ -6,7 +6,7 @@ import { CreateCommunityForm } from "@/components/communities/create-community-f
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
-import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import { createAuthModule } from "@/src/modules/auth/setup";
 import {
   CREATE_COMMUNITY_ERROR_CODE,
   CREATE_COMMUNITY_ERROR_MESSAGE,
@@ -78,9 +78,9 @@ export default async function CreateCommunityPage({
     operation: CREATE_COMMUNITY_PAGE_LOG.operation,
     requestId,
   });
-  const authenticatedMember = await createGetAuthenticatedMemberUseCase()
-    .execute()
-    .catch((error) => {
+  const authenticatedMember = await createAuthModule()
+    .useCases.getAuthenticatedMember()
+    .catch((error: unknown) => {
       logger.error({
         message: CREATE_COMMUNITY_PAGE_LOG.resolveSessionFailureMessage,
         error,
@@ -101,7 +101,7 @@ export default async function CreateCommunityPage({
     .execute({
       creatorEmail: authenticatedMember.email,
     })
-    .catch((error) => {
+    .catch((error: unknown) => {
       logger.error({
         message: CREATE_COMMUNITY_PAGE_LOG.resolveEligibilityFailureMessage,
         error,

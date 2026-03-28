@@ -3,8 +3,8 @@
 import { HomeIcon, PlusCircleIcon, UsersIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
-import { siteConfig } from "@/src/shared/config/site";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type { MemberCommunityListItemResult } from "@/src/modules/communities/application/results/member-community-list-item-result";
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";

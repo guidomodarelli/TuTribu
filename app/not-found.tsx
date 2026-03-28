@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/src/constants/routes";
-import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import { createAuthModule } from "@/src/modules/auth/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import styles from "./not-found.module.scss";
@@ -27,9 +27,9 @@ export default async function NotFoundPage() {
     operation: NOT_FOUND_PAGE_LOG.operation,
     requestId,
   });
-  const authenticatedMember = await createGetAuthenticatedMemberUseCase()
-    .execute()
-    .catch((error) => {
+  const authenticatedMember = await createAuthModule()
+    .useCases.getAuthenticatedMember()
+    .catch((error: unknown) => {
       logger.error({
         message: NOT_FOUND_PAGE_LOG.resolveSessionFailureMessage,
         error,

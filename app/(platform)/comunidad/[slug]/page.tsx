@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import { createAuthModule } from "@/src/modules/auth/setup";
 import { COMMUNITY_PAGE_ACCESS_STATUS } from "@/src/modules/communities/application/results/community-page-access-result";
 import { createGetCommunityPageAccessUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-community-page-access-use-case";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -35,15 +35,14 @@ export default async function CommunityPage({
     operation: COMMUNITY_PAGE_LOG.operation,
     requestId,
   });
-  const authenticatedMember =
-    await createGetAuthenticatedMemberUseCase().execute();
+  const authenticatedMember = await createAuthModule().useCases.getAuthenticatedMember();
 
   const accessResult = await createGetCommunityPageAccessUseCase()
     .execute({
       isAuthenticated: Boolean(authenticatedMember),
       slug,
     })
-    .catch((error) => {
+    .catch((error: unknown) => {
       logger.error({
         message: COMMUNITY_PAGE_LOG.resolveAccessFailureMessage,
         error,

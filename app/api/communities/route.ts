@@ -1,6 +1,6 @@
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
-import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import { createAuthModule } from "@/src/modules/auth/setup";
 import {
   CREATE_COMMUNITY_ERROR_CODE,
   CREATE_COMMUNITY_STATUS,
@@ -55,8 +55,7 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const name = readStringFormValue(formData.get(COMMUNITY_FORM_FIELD.name));
   const slug = readStringFormValue(formData.get(COMMUNITY_FORM_FIELD.slug));
-  const authenticatedMember =
-    await createGetAuthenticatedMemberUseCase().execute();
+  const authenticatedMember = await createAuthModule().useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
     return createRedirectResponse(

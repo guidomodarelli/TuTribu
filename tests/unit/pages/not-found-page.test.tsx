@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 
 import NotFoundPage from "@/app/not-found";
-import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import { createAuthModule } from "@/src/modules/auth/setup";
 
 const getAuthenticatedMember = jest.fn();
 
@@ -10,12 +10,9 @@ jest.mock("next/headers", () => ({
   headers: jest.fn(),
 }));
 
-jest.mock(
-  "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case",
-  () => ({
-    createGetAuthenticatedMemberUseCase: jest.fn(),
-  })
-);
+jest.mock("@/src/modules/auth/setup", () => ({
+  createAuthModule: jest.fn(),
+}));
 
 describe("NotFoundPage", () => {
   beforeEach(() => {
@@ -23,8 +20,10 @@ describe("NotFoundPage", () => {
     getAuthenticatedMember.mockReset();
     (headers as jest.Mock).mockResolvedValue(new Headers());
 
-    (createGetAuthenticatedMemberUseCase as jest.Mock).mockReturnValue({
-      execute: getAuthenticatedMember,
+    (createAuthModule as jest.Mock).mockReturnValue({
+      useCases: {
+        getAuthenticatedMember,
+      },
     });
   });
 

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 
 import PlatformLayout from "@/app/(platform)/layout";
-import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import { createAuthModule } from "@/src/modules/auth/setup";
 import { createGetMemberCommunitiesUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-member-communities-use-case";
 
 const getAuthenticatedMember = jest.fn();
@@ -43,8 +43,8 @@ jest.mock("@/components/ui/tooltip", () => ({
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-jest.mock("@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case", () => ({
-  createGetAuthenticatedMemberUseCase: jest.fn(),
+jest.mock("@/src/modules/auth/setup", () => ({
+  createAuthModule: jest.fn(),
 }));
 
 jest.mock(
@@ -60,8 +60,10 @@ describe("PlatformLayout", () => {
     getAuthenticatedMember.mockReset();
     getMemberCommunities.mockReset();
 
-    (createGetAuthenticatedMemberUseCase as jest.Mock).mockReturnValue({
-      execute: getAuthenticatedMember,
+    (createAuthModule as jest.Mock).mockReturnValue({
+      useCases: {
+        getAuthenticatedMember,
+      },
     });
     (createGetMemberCommunitiesUseCase as jest.Mock).mockReturnValue({
       execute: getMemberCommunities,
