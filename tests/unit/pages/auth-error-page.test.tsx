@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 
 import AuthErrorPage from "@/app/auth/error/page";
-import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/setup";
 
 const execute = jest.fn();
 
@@ -11,7 +11,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock(
-  "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case",
+  "@/src/modules/auth/setup",
   () => ({
     createGetAuthenticatedMemberUseCase: jest.fn(),
   })

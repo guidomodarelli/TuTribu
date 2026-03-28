@@ -45,7 +45,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/features` is deprecated and forbidden for new code.
 - New and modified business code must live under `src/modules/<feature>/{domain,application,infrastructure}`.
 - Any change that touches a route entrypoint importing from `src/features` must migrate that entrypoint to `src/modules` in the same work item.
-- `src/features` cannot be used as an integration layer for new adapters; adapter composition must happen in module-scoped `infrastructure/composition/*`.
+- `src/features` cannot be used as an integration layer for new adapters; dependency composition must happen in `src/modules/<feature>/setup.ts`.
 - Route entrypoints must consume use cases from `application` and must not import repository implementations directly.
 - Add and keep a CI/static check that fails on imports matching `@/src/features/`.
 

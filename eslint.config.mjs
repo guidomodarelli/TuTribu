@@ -15,7 +15,12 @@ const eslintConfig = defineConfig([
       "no-restricted-imports": [
         "error",
         {
-          patterns: ["@/src/features/*", "src/features/*"],
+          patterns: [
+            "@/src/features/*",
+            "src/features/*",
+            "@/src/modules/*/infrastructure/composition/*",
+            "src/modules/*/infrastructure/composition/*",
+          ],
         },
       ],
     },

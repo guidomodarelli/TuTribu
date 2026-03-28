@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { redirect } from "next/navigation";
 
 import SignInPage from "@/app/auth/signin/page";
-import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/setup";
 
 const execute = jest.fn();
 const navigateToGoogleAuthStartMock = jest.fn();
@@ -17,7 +17,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock(
-  "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case",
+  "@/src/modules/auth/setup",
   () => ({
     createGetAuthenticatedMemberUseCase: jest.fn(),
   })
