@@ -6,6 +6,23 @@ import tseslint from "typescript-eslint";
 import noMagicNumbers from "./eslint/rules/no-magic-numbers.mjs";
 import noMagicStrings from "./eslint/rules/no-magic-strings.mjs";
 
+const deprecatedFeatureImportPatterns = ["@/src/features/*", "src/features/*"];
+const moduleSetupImportPatterns = [
+  "@/src/modules/setup",
+  "@/src/modules/setup.*",
+  "@/src/modules/*/setup",
+  "@/src/modules/*/setup.*",
+  "src/modules/setup",
+  "src/modules/setup.*",
+  "src/modules/*/setup",
+  "src/modules/*/setup.*",
+];
+const relativeModuleSetupImportPatterns = [
+  {
+    regex: String.raw`^(?:\.\./)+(?:[^/]+/)?setup(?:\.[^/]+)?$`,
+  },
+];
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -15,11 +32,25 @@ const eslintConfig = defineConfig([
       "no-restricted-imports": [
         "error",
         {
+          patterns: deprecatedFeatureImportPatterns,
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/modules/*/{application,domain,infrastructure,presentation}/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
           patterns: [
-            "@/src/features/*",
-            "src/features/*",
-            "@/src/modules/*/infrastructure/composition/*",
-            "src/modules/*/infrastructure/composition/*",
+            {
+              group: [
+                ...deprecatedFeatureImportPatterns,
+                ...moduleSetupImportPatterns,
+              ],
+            },
+            ...relativeModuleSetupImportPatterns,
           ],
         },
       ],

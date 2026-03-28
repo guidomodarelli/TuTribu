@@ -2,12 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ROUTES } from "@/src/constants/routes";
-import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/infrastructure/composition/create-get-authenticated-member-use-case";
+import { createAuthModule } from "@/src/modules/auth/setup";
 import styles from "./page.module.scss";
 
 export default async function AuthErrorPage() {
-  const useCase = createGetAuthenticatedMemberUseCase();
-  const authenticatedMember = await useCase.execute();
+  const authenticatedMember = await createAuthModule().useCases.getAuthenticatedMember();
 
   if (authenticatedMember) {
     redirect(ROUTES.home);

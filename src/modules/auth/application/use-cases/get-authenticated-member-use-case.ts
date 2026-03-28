@@ -2,10 +2,14 @@ import type { AuthSessionRepository } from "@/src/modules/auth/domain/repositori
 
 import type { AuthenticatedMemberResult } from "../results/authenticated-member-result";
 
-export class GetAuthenticatedMemberUseCase {
-  constructor(private readonly authSessionRepository: AuthSessionRepository) {}
+type GetAuthenticatedMemberDependencies = {
+  authSessionRepository: AuthSessionRepository;
+};
 
-  async execute(): Promise<AuthenticatedMemberResult | null> {
-    return this.authSessionRepository.getAuthenticatedMember();
-  }
+export function getAuthenticatedMember({
+  authSessionRepository,
+}: GetAuthenticatedMemberDependencies) {
+  return async (): Promise<AuthenticatedMemberResult | null> => {
+    return authSessionRepository.getAuthenticatedMember();
+  };
 }

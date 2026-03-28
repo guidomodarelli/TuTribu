@@ -2,9 +2,9 @@ import { render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 
 import AuthErrorPage from "@/app/auth/error/page";
-import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/setup";
+import { createAuthModule } from "@/src/modules/auth/setup";
 
-const execute = jest.fn();
+const getAuthenticatedMember = jest.fn();
 
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
@@ -13,21 +13,24 @@ jest.mock("next/navigation", () => ({
 jest.mock(
   "@/src/modules/auth/setup",
   () => ({
-    createGetAuthenticatedMemberUseCase: jest.fn(),
+    createAuthModule: jest.fn(),
   })
 );
 
 describe("AuthErrorPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getAuthenticatedMember.mockReset();
 
-    (createGetAuthenticatedMemberUseCase as jest.Mock).mockReturnValue({
-      execute,
+    (createAuthModule as jest.Mock).mockReturnValue({
+      useCases: {
+        getAuthenticatedMember,
+      },
     });
   });
 
   it("redirects authenticated users to root", async () => {
-    execute.mockResolvedValue({
+    getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
       email: "grace.hopper@example.com",
       name: "Grace Hopper",
@@ -45,7 +48,7 @@ describe("AuthErrorPage", () => {
   });
 
   it("renders authentication error content for unauthenticated users", async () => {
-    execute.mockResolvedValue(null);
+    getAuthenticatedMember.mockResolvedValue(null);
 
     render(await AuthErrorPage());
 

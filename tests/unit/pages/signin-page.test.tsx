@@ -2,9 +2,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { redirect } from "next/navigation";
 
 import SignInPage from "@/app/auth/signin/page";
-import { createGetAuthenticatedMemberUseCase } from "@/src/modules/auth/setup";
+import { createAuthModule } from "@/src/modules/auth/setup";
 
-const execute = jest.fn();
+const getAuthenticatedMember = jest.fn();
 const navigateToGoogleAuthStartMock = jest.fn();
 
 jest.mock("@/src/modules/auth/infrastructure/oauth/start-google-auth-navigation", () => ({
@@ -19,7 +19,7 @@ jest.mock("next/navigation", () => ({
 jest.mock(
   "@/src/modules/auth/setup",
   () => ({
-    createGetAuthenticatedMemberUseCase: jest.fn(),
+    createAuthModule: jest.fn(),
   })
 );
 
@@ -42,16 +42,18 @@ function createSearchParams(
 describe("SignInPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    execute.mockReset();
+    getAuthenticatedMember.mockReset();
     navigateToGoogleAuthStartMock.mockReset();
 
-    (createGetAuthenticatedMemberUseCase as jest.Mock).mockReturnValue({
-      execute,
+    (createAuthModule as jest.Mock).mockReturnValue({
+      useCases: {
+        getAuthenticatedMember,
+      },
     });
   });
 
   it("redirects authenticated users to a safe callback path", async () => {
-    execute.mockResolvedValue({
+    getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
       email: "grace.hopper@example.com",
       name: "Grace Hopper",
@@ -73,7 +75,7 @@ describe("SignInPage", () => {
   });
 
   it("redirects authenticated users to root when callback is missing", async () => {
-    execute.mockResolvedValue({
+    getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
       email: "grace.hopper@example.com",
       name: "Grace Hopper",
@@ -95,7 +97,7 @@ describe("SignInPage", () => {
   });
 
   it("redirects authenticated users to root when callback param is unsafe", async () => {
-    execute.mockResolvedValue({
+    getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
       email: "grace.hopper@example.com",
       name: "Grace Hopper",
@@ -117,7 +119,7 @@ describe("SignInPage", () => {
   });
 
   it("starts Google sign-in automatically with the default callback path", async () => {
-    execute.mockResolvedValue(null);
+    getAuthenticatedMember.mockResolvedValue(null);
 
     render(
       await SignInPage({
@@ -140,7 +142,7 @@ describe("SignInPage", () => {
   });
 
   it("uses a safe callback path from search params in automatic sign-in", async () => {
-    execute.mockResolvedValue(null);
+    getAuthenticatedMember.mockResolvedValue(null);
 
     render(
       await SignInPage({
@@ -154,7 +156,7 @@ describe("SignInPage", () => {
   });
 
   it("falls back to root when callback param is unsafe in automatic sign-in", async () => {
-    execute.mockResolvedValue(null);
+    getAuthenticatedMember.mockResolvedValue(null);
 
     render(
       await SignInPage({
