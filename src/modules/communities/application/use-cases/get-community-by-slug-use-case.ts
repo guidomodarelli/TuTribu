@@ -2,10 +2,14 @@ import type { CommunityReadRepository } from "@/src/modules/communities/domain/r
 
 import type { CommunityResult } from "../results/community-result";
 
-export class GetCommunityBySlugUseCase {
-  constructor(private readonly communityReadRepository: CommunityReadRepository) {}
+type GetCommunityBySlugDependencies = {
+  communityReadRepository: CommunityReadRepository;
+};
 
-  async execute({ slug }: { slug: string }): Promise<CommunityResult | null> {
-    return this.communityReadRepository.findBySlug(slug.trim().toLowerCase());
-  }
+export function getCommunityBySlug({
+  communityReadRepository,
+}: GetCommunityBySlugDependencies) {
+  return async ({ slug }: { slug: string }): Promise<CommunityResult | null> => {
+    return communityReadRepository.findBySlug(slug.trim().toLowerCase());
+  };
 }

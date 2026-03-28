@@ -2,7 +2,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { createAuthModule } from "@/src/modules/auth/setup";
-import { createGetMemberCommunitiesUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-member-communities-use-case";
+import { createCommunitiesModule } from "@/src/modules/communities/setup";
 import styles from "./layout.module.scss";
 
 export default async function PlatformLayout({
@@ -12,7 +12,7 @@ export default async function PlatformLayout({
 }>) {
   const authenticatedMember = await createAuthModule().useCases.getAuthenticatedMember();
   const memberCommunities = authenticatedMember
-    ? await createGetMemberCommunitiesUseCase().execute()
+    ? await createCommunitiesModule().useCases.getMemberCommunities()
     : [];
 
   return (

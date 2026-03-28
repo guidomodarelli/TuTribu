@@ -1,14 +1,16 @@
-import { GetCommunityCreationEligibilityUseCase } from "@/src/modules/communities/application/use-cases/get-community-creation-eligibility-use-case";
+import { getCommunityCreationEligibility } from "@/src/modules/communities/application/use-cases/get-community-creation-eligibility-use-case";
 
-describe("GetCommunityCreationEligibilityUseCase", () => {
+describe("getCommunityCreationEligibility", () => {
   it("allows creation when the normalized email is present in the whitelist", async () => {
     const isEmailAllowed = jest.fn(async () => true);
-    const useCase = new GetCommunityCreationEligibilityUseCase({
-      isEmailAllowed,
+    const execute = getCommunityCreationEligibility({
+      communityCreatorWhitelistRepository: {
+        isEmailAllowed,
+      },
     });
 
     await expect(
-      useCase.execute({
+      execute({
         creatorEmail: "  PROMETIDO@Example.com ",
       })
     ).resolves.toEqual({
@@ -20,12 +22,14 @@ describe("GetCommunityCreationEligibilityUseCase", () => {
 
   it("returns false when the authenticated user has no email", async () => {
     const isEmailAllowed = jest.fn();
-    const useCase = new GetCommunityCreationEligibilityUseCase({
-      isEmailAllowed,
+    const execute = getCommunityCreationEligibility({
+      communityCreatorWhitelistRepository: {
+        isEmailAllowed,
+      },
     });
 
     await expect(
-      useCase.execute({
+      execute({
         creatorEmail: null,
       })
     ).resolves.toEqual({

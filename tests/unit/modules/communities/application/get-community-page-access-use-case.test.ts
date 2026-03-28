@@ -1,15 +1,17 @@
-import { GetCommunityPageAccessUseCase } from "@/src/modules/communities/application/use-cases/get-community-page-access-use-case";
+import { getCommunityPageAccess } from "@/src/modules/communities/application/use-cases/get-community-page-access-use-case";
 
-describe("GetCommunityPageAccessUseCase", () => {
+describe("getCommunityPageAccess", () => {
   it("returns unauthenticated hidden when the viewer is not authenticated", async () => {
-    const useCase = new GetCommunityPageAccessUseCase({
-      findBySlug: jest.fn(),
-      findCurrentMembershipStatusBySlug: jest.fn(),
-      listVisibleMembershipCommunities: jest.fn(),
+    const execute = getCommunityPageAccess({
+      communityReadRepository: {
+        findBySlug: jest.fn(),
+        findCurrentMembershipStatusBySlug: jest.fn(),
+        listVisibleMembershipCommunities: jest.fn(),
+      },
     });
 
     await expect(
-      useCase.execute({
+      execute({
         isAuthenticated: false,
         slug: "matematica-pro",
       })
@@ -20,14 +22,16 @@ describe("GetCommunityPageAccessUseCase", () => {
   });
 
   it("collapses an empty slug into a generic hidden result", async () => {
-    const useCase = new GetCommunityPageAccessUseCase({
-      findBySlug: jest.fn(),
-      findCurrentMembershipStatusBySlug: jest.fn(),
-      listVisibleMembershipCommunities: jest.fn(),
+    const execute = getCommunityPageAccess({
+      communityReadRepository: {
+        findBySlug: jest.fn(),
+        findCurrentMembershipStatusBySlug: jest.fn(),
+        listVisibleMembershipCommunities: jest.fn(),
+      },
     });
 
     await expect(
-      useCase.execute({
+      execute({
         isAuthenticated: true,
         slug: "   ",
       })
@@ -38,19 +42,21 @@ describe("GetCommunityPageAccessUseCase", () => {
   });
 
   it("returns the visible community for active or muted readers", async () => {
-    const useCase = new GetCommunityPageAccessUseCase({
-      findBySlug: jest.fn(async () => ({
-        id: "community-1",
-        name: "Matematica Pro",
-        slug: "matematica-pro",
-        visibility: "private" as const,
-      })),
-      findCurrentMembershipStatusBySlug: jest.fn(),
-      listVisibleMembershipCommunities: jest.fn(),
+    const execute = getCommunityPageAccess({
+      communityReadRepository: {
+        findBySlug: jest.fn(async () => ({
+          id: "community-1",
+          name: "Matematica Pro",
+          slug: "matematica-pro",
+          visibility: "private" as const,
+        })),
+        findCurrentMembershipStatusBySlug: jest.fn(),
+        listVisibleMembershipCommunities: jest.fn(),
+      },
     });
 
     await expect(
-      useCase.execute({
+      execute({
         isAuthenticated: true,
         slug: "matematica-pro",
       })
@@ -69,14 +75,16 @@ describe("GetCommunityPageAccessUseCase", () => {
     const findCurrentMembershipStatusBySlug = jest.fn(
       async (): Promise<"blocked"> => "blocked"
     );
-    const useCase = new GetCommunityPageAccessUseCase({
-      findBySlug: jest.fn(async () => null),
-      findCurrentMembershipStatusBySlug,
-      listVisibleMembershipCommunities: jest.fn(),
+    const execute = getCommunityPageAccess({
+      communityReadRepository: {
+        findBySlug: jest.fn(async () => null),
+        findCurrentMembershipStatusBySlug,
+        listVisibleMembershipCommunities: jest.fn(),
+      },
     });
 
     await expect(
-      useCase.execute({
+      execute({
         isAuthenticated: true,
         slug: "matematica-pro",
       })
@@ -89,14 +97,16 @@ describe("GetCommunityPageAccessUseCase", () => {
   });
 
   it("collapses missing or non-visible communities into a generic hidden result", async () => {
-    const useCase = new GetCommunityPageAccessUseCase({
-      findBySlug: jest.fn(async () => null),
-      findCurrentMembershipStatusBySlug: jest.fn(async () => null),
-      listVisibleMembershipCommunities: jest.fn(),
+    const execute = getCommunityPageAccess({
+      communityReadRepository: {
+        findBySlug: jest.fn(async () => null),
+        findCurrentMembershipStatusBySlug: jest.fn(async () => null),
+        listVisibleMembershipCommunities: jest.fn(),
+      },
     });
 
     await expect(
-      useCase.execute({
+      execute({
         isAuthenticated: true,
         slug: "missing-community",
       })

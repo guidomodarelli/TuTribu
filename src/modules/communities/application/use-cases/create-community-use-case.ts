@@ -17,6 +17,11 @@ import {
 const DEFAULT_COMMUNITY_VISIBILITY = "private" as const;
 const INITIAL_SLUG_SUGGESTION_INDEX = 2;
 
+type CreateCommunityDependencies = {
+  communityCreatorWhitelistRepository: CommunityCreatorWhitelistRepository;
+  communityCreationRepository: CommunityCreationRepository;
+};
+
 function normalizeEmail(email: string | null): string | null {
   const normalizedEmail = email?.trim().toLowerCase() ?? "";
 
@@ -43,13 +48,13 @@ async function findAvailableSuggestedSlug(
   }
 }
 
-export class CreateCommunityUseCase {
-  constructor(
-    private readonly communityCreatorWhitelistRepository: CommunityCreatorWhitelistRepository,
-    private readonly communityCreationRepository: CommunityCreationRepository
-  ) {}
-
-  async execute(command: CreateCommunityCommand): Promise<CreateCommunityResult> {
+export function createCommunity({
+  communityCreatorWhitelistRepository,
+  communityCreationRepository,
+}: CreateCommunityDependencies) {
+  return async (
+    command: CreateCommunityCommand
+  ): Promise<CreateCommunityResult> => {
     const normalizedEmail = normalizeEmail(command.creatorEmail);
 
     if (!normalizedEmail) {
@@ -68,7 +73,7 @@ export class CreateCommunityUseCase {
     }
 
     const isCreatorAllowed =
-      await this.communityCreatorWhitelistRepository.isEmailAllowed(normalizedEmail);
+      await communityCreatorWhitelistRepository.isEmailAllowed(normalizedEmail);
 
     if (!isCreatorAllowed) {
       return {
@@ -87,7 +92,7 @@ export class CreateCommunityUseCase {
 
     const slugIsUnavailable =
       isReservedCommunitySlug(normalizedSlug) ||
-      (await this.communityCreationRepository.isSlugTaken(normalizedSlug));
+      (await communityCreationRepository.isSlugTaken(normalizedSlug));
 
     if (slugIsUnavailable) {
       return {
@@ -95,7 +100,7 @@ export class CreateCommunityUseCase {
         message: CREATE_COMMUNITY_ERROR_MESSAGE[CREATE_COMMUNITY_STATUS.slugConflict],
         suggestedSlug: await findAvailableSuggestedSlug(
           normalizedSlug,
-          this.communityCreationRepository
+          communityCreationRepository
         ),
       };
     }
@@ -104,7 +109,7 @@ export class CreateCommunityUseCase {
 
     try {
       createdCommunity =
-        await this.communityCreationRepository.createCommunityWithOwnerMembership({
+        await communityCreationRepository.createCommunityWithOwnerMembership({
           name: normalizedName,
           ownerId: command.creatorId,
           slug: normalizedSlug,
@@ -117,7 +122,7 @@ export class CreateCommunityUseCase {
           message: CREATE_COMMUNITY_ERROR_MESSAGE[CREATE_COMMUNITY_STATUS.slugConflict],
           suggestedSlug: await findAvailableSuggestedSlug(
             normalizedSlug,
-            this.communityCreationRepository
+            communityCreationRepository
           ),
         };
       }
@@ -132,5 +137,5 @@ export class CreateCommunityUseCase {
       ownerMemberRole: CREATE_COMMUNITY_MEMBER_ROLE.owner,
       slug: createdCommunity.slug,
     };
-  }
+  };
 }

@@ -2,22 +2,24 @@ import type { CommunityCreatorWhitelistRepository } from "@/src/modules/communit
 
 import type { CommunityCreationEligibilityResult } from "../results/community-creation-eligibility-result";
 
+type GetCommunityCreationEligibilityDependencies = {
+  communityCreatorWhitelistRepository: CommunityCreatorWhitelistRepository;
+};
+
 function normalizeEmail(email: string | null): string | null {
   const normalizedEmail = email?.trim().toLowerCase() ?? "";
 
   return normalizedEmail.length > 0 ? normalizedEmail : null;
 }
 
-export class GetCommunityCreationEligibilityUseCase {
-  constructor(
-    private readonly communityCreatorWhitelistRepository: CommunityCreatorWhitelistRepository
-  ) {}
-
-  async execute({
+export function getCommunityCreationEligibility({
+  communityCreatorWhitelistRepository,
+}: GetCommunityCreationEligibilityDependencies) {
+  return async ({
     creatorEmail,
   }: {
     creatorEmail: string | null;
-  }): Promise<CommunityCreationEligibilityResult> {
+  }): Promise<CommunityCreationEligibilityResult> => {
     const normalizedEmail = normalizeEmail(creatorEmail);
 
     if (!normalizedEmail) {
@@ -27,9 +29,9 @@ export class GetCommunityCreationEligibilityUseCase {
     }
 
     return {
-      canCreate: await this.communityCreatorWhitelistRepository.isEmailAllowed(
+      canCreate: await communityCreatorWhitelistRepository.isEmailAllowed(
         normalizedEmail
       ),
     };
-  }
+  };
 }

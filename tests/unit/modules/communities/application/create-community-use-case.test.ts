@@ -1,7 +1,7 @@
-import { CreateCommunityUseCase } from "@/src/modules/communities/application/use-cases/create-community-use-case";
+import { createCommunity } from "@/src/modules/communities/application/use-cases/create-community-use-case";
 import { CommunitySlugConflictError } from "@/src/modules/communities/domain/errors/community-slug-conflict-error";
 
-describe("CreateCommunityUseCase", () => {
+describe("createCommunity", () => {
   it("creates a private community and its owner membership when the creator is whitelisted", async () => {
     const isEmailAllowed = jest.fn(async () => true);
     const isSlugTaken = jest.fn(async () => false);
@@ -12,18 +12,18 @@ describe("CreateCommunityUseCase", () => {
       visibility: "private" as const,
     }));
 
-    const useCase = new CreateCommunityUseCase(
-      {
+    const execute = createCommunity({
+      communityCreatorWhitelistRepository: {
         isEmailAllowed,
       },
-      {
+      communityCreationRepository: {
         isSlugTaken,
         createCommunityWithOwnerMembership,
-      }
-    );
+      },
+    });
 
     await expect(
-      useCase.execute({
+      execute({
         creatorEmail: "  OWNER@Example.com ",
         creatorId: "member-1",
         name: "  Matematica Pro  ",
@@ -49,18 +49,18 @@ describe("CreateCommunityUseCase", () => {
 
   it("rejects community creation when the creator email is not whitelisted", async () => {
     const isEmailAllowed = jest.fn(async () => false);
-    const useCase = new CreateCommunityUseCase(
-      {
+    const execute = createCommunity({
+      communityCreatorWhitelistRepository: {
         isEmailAllowed,
       },
-      {
+      communityCreationRepository: {
         isSlugTaken: jest.fn(),
         createCommunityWithOwnerMembership: jest.fn(),
-      }
-    );
+      },
+    });
 
     await expect(
-      useCase.execute({
+      execute({
         creatorEmail: "outsider@example.com",
         creatorId: "member-2",
         name: "Comunidad cerrada",
@@ -72,18 +72,18 @@ describe("CreateCommunityUseCase", () => {
   });
 
   it("returns an invalid-slug result when the slug is empty after normalization", async () => {
-    const useCase = new CreateCommunityUseCase(
-      {
+    const execute = createCommunity({
+      communityCreatorWhitelistRepository: {
         isEmailAllowed: jest.fn(async () => true),
       },
-      {
+      communityCreationRepository: {
         isSlugTaken: jest.fn(),
         createCommunityWithOwnerMembership: jest.fn(),
-      }
-    );
+      },
+    });
 
     await expect(
-      useCase.execute({
+      execute({
         creatorEmail: "owner@example.com",
         creatorId: "member-1",
         name: "Comunidad valida",
@@ -99,18 +99,18 @@ describe("CreateCommunityUseCase", () => {
     const isSlugTaken = jest
       .fn(async (slug: string) => ["matematica-pro", "matematica-pro-2"].includes(slug));
     const createCommunityWithOwnerMembership = jest.fn();
-    const useCase = new CreateCommunityUseCase(
-      {
+    const execute = createCommunity({
+      communityCreatorWhitelistRepository: {
         isEmailAllowed: jest.fn(async () => true),
       },
-      {
+      communityCreationRepository: {
         isSlugTaken,
         createCommunityWithOwnerMembership,
-      }
-    );
+      },
+    });
 
     await expect(
-      useCase.execute({
+      execute({
         creatorEmail: "owner@example.com",
         creatorId: "member-1",
         name: "Matematica Pro",
@@ -126,18 +126,18 @@ describe("CreateCommunityUseCase", () => {
   });
 
   it("treats reserved slugs as unavailable and suggests an alternative", async () => {
-    const useCase = new CreateCommunityUseCase(
-      {
+    const execute = createCommunity({
+      communityCreatorWhitelistRepository: {
         isEmailAllowed: jest.fn(async () => true),
       },
-      {
+      communityCreationRepository: {
         isSlugTaken: jest.fn(async () => false),
         createCommunityWithOwnerMembership: jest.fn(),
-      }
-    );
+      },
+    });
 
     await expect(
-      useCase.execute({
+      execute({
         creatorEmail: "owner@example.com",
         creatorId: "member-1",
         name: "Crear",
@@ -155,20 +155,20 @@ describe("CreateCommunityUseCase", () => {
       .fn()
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(false);
-    const useCase = new CreateCommunityUseCase(
-      {
+    const execute = createCommunity({
+      communityCreatorWhitelistRepository: {
         isEmailAllowed: jest.fn(async () => true),
       },
-      {
+      communityCreationRepository: {
         isSlugTaken,
         createCommunityWithOwnerMembership: jest.fn(async () => {
           throw new CommunitySlugConflictError();
         }),
-      }
-    );
+      },
+    });
 
     await expect(
-      useCase.execute({
+      execute({
         creatorEmail: "owner@example.com",
         creatorId: "member-1",
         name: "Matematica Pro",
@@ -191,15 +191,15 @@ describe("CreateCommunityUseCase", () => {
       .fn()
       .mockRejectedValueOnce(new CommunitySlugConflictError())
       .mockRejectedValueOnce(new CommunitySlugConflictError());
-    const useCase = new CreateCommunityUseCase(
-      {
+    const execute = createCommunity({
+      communityCreatorWhitelistRepository: {
         isEmailAllowed: jest.fn(async () => true),
       },
-      {
+      communityCreationRepository: {
         isSlugTaken,
         createCommunityWithOwnerMembership,
-      }
-    );
+      },
+    });
 
     const command = {
       creatorEmail: "owner@example.com",
@@ -208,13 +208,13 @@ describe("CreateCommunityUseCase", () => {
       slug: "matematica-pro",
     };
 
-    await expect(useCase.execute(command)).resolves.toEqual({
+    await expect(execute(command)).resolves.toEqual({
       status: "slug-conflict",
       message: "Ese slug ya esta en uso. Puedes probar con la sugerencia.",
       suggestedSlug: "matematica-pro-2",
     });
 
-    await expect(useCase.execute(command)).resolves.toEqual({
+    await expect(execute(command)).resolves.toEqual({
       status: "slug-conflict",
       message: "Ese slug ya esta en uso. Puedes probar con la sugerencia.",
       suggestedSlug: "matematica-pro-2",

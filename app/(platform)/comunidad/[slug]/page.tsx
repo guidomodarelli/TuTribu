@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { createAuthModule } from "@/src/modules/auth/setup";
+import { createCommunitiesModule } from "@/src/modules/communities/setup";
 import { COMMUNITY_PAGE_ACCESS_STATUS } from "@/src/modules/communities/application/results/community-page-access-result";
-import { createGetCommunityPageAccessUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-community-page-access-use-case";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import styles from "./page.module.scss";
@@ -37,8 +37,7 @@ export default async function CommunityPage({
   });
   const authenticatedMember = await createAuthModule().useCases.getAuthenticatedMember();
 
-  const accessResult = await createGetCommunityPageAccessUseCase()
-    .execute({
+  const accessResult = await createCommunitiesModule().useCases.getCommunityPageAccess({
       isAuthenticated: Boolean(authenticatedMember),
       slug,
     })

@@ -1,6 +1,6 @@
-import { GetMemberCommunitiesUseCase } from "@/src/modules/communities/application/use-cases/get-member-communities-use-case";
+import { getMemberCommunities } from "@/src/modules/communities/application/use-cases/get-member-communities-use-case";
 
-describe("GetMemberCommunitiesUseCase", () => {
+describe("getMemberCommunities", () => {
   it("returns active and muted communities sorted alphabetically by name", async () => {
     const listVisibleMembershipCommunities = jest.fn(async () => [
       {
@@ -19,13 +19,15 @@ describe("GetMemberCommunitiesUseCase", () => {
         slug: "beta-club",
       },
     ]);
-    const useCase = new GetMemberCommunitiesUseCase({
-      findBySlug: jest.fn(),
-      findCurrentMembershipStatusBySlug: jest.fn(),
-      listVisibleMembershipCommunities,
+    const execute = getMemberCommunities({
+      communityReadRepository: {
+        findBySlug: jest.fn(),
+        findCurrentMembershipStatusBySlug: jest.fn(),
+        listVisibleMembershipCommunities,
+      },
     });
 
-    await expect(useCase.execute()).resolves.toEqual([
+    await expect(execute()).resolves.toEqual([
       {
         communityId: "community-1",
         name: "Alpha Club",
@@ -62,12 +64,14 @@ describe("GetMemberCommunitiesUseCase", () => {
         slug: "members",
       },
     ]);
-    const useCase = new GetMemberCommunitiesUseCase({
-      findBySlug: jest.fn(),
-      findCurrentMembershipStatusBySlug: jest.fn(),
-      listVisibleMembershipCommunities,
+    const execute = getMemberCommunities({
+      communityReadRepository: {
+        findBySlug: jest.fn(),
+        findCurrentMembershipStatusBySlug: jest.fn(),
+        listVisibleMembershipCommunities,
+      },
     });
 
-    await expect(useCase.execute()).resolves.toHaveLength(3);
+    await expect(execute()).resolves.toHaveLength(3);
   });
 });

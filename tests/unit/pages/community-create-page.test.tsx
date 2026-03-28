@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import CreateCommunityPage from "@/app/(platform)/comunidad/crear/page";
 import { createAuthModule } from "@/src/modules/auth/setup";
-import { createGetCommunityCreationEligibilityUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-community-creation-eligibility-use-case";
+import { createCommunitiesModule } from "@/src/modules/communities/setup";
 import { getContactEmail } from "@/src/modules/communities/infrastructure/config/community-creation-contact-email";
 
 const getAuthenticatedMember = jest.fn();
@@ -22,12 +22,9 @@ jest.mock("@/src/modules/auth/setup", () => ({
   createAuthModule: jest.fn(),
 }));
 
-jest.mock(
-  "@/src/modules/communities/infrastructure/composition/create-get-community-creation-eligibility-use-case",
-  () => ({
-    createGetCommunityCreationEligibilityUseCase: jest.fn(),
-  })
-);
+jest.mock("@/src/modules/communities/setup", () => ({
+  createCommunitiesModule: jest.fn(),
+}));
 
 jest.mock(
   "@/src/modules/communities/infrastructure/config/community-creation-contact-email",
@@ -48,8 +45,10 @@ describe("CreateCommunityPage", () => {
         getAuthenticatedMember,
       },
     });
-    (createGetCommunityCreationEligibilityUseCase as jest.Mock).mockReturnValue({
-      execute: getCommunityCreationEligibility,
+    (createCommunitiesModule as jest.Mock).mockReturnValue({
+      useCases: {
+        getCommunityCreationEligibility,
+      },
     });
     (getContactEmail as jest.Mock).mockReturnValue(
       "comunidades@example.com"

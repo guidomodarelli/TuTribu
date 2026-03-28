@@ -7,12 +7,16 @@ const MEMBER_COMMUNITIES_SORT_OPTIONS = {
   sensitivity: "base",
 } as const;
 
-export class GetMemberCommunitiesUseCase {
-  constructor(private readonly communityReadRepository: CommunityReadRepository) {}
+type GetMemberCommunitiesDependencies = {
+  communityReadRepository: CommunityReadRepository;
+};
 
-  async execute(): Promise<MemberCommunityListItemResult[]> {
+export function getMemberCommunities({
+  communityReadRepository,
+}: GetMemberCommunitiesDependencies) {
+  return async (): Promise<MemberCommunityListItemResult[]> => {
     const communities =
-      await this.communityReadRepository.listVisibleMembershipCommunities();
+      await communityReadRepository.listVisibleMembershipCommunities();
 
     return [...communities].sort((left, right) =>
       left.name.localeCompare(
@@ -21,5 +25,5 @@ export class GetMemberCommunitiesUseCase {
         MEMBER_COMMUNITIES_SORT_OPTIONS
       )
     );
-  }
+  };
 }

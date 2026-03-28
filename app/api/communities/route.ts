@@ -1,11 +1,11 @@
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { createAuthModule } from "@/src/modules/auth/setup";
+import { createCommunitiesModule } from "@/src/modules/communities/setup";
 import {
   CREATE_COMMUNITY_ERROR_CODE,
   CREATE_COMMUNITY_STATUS,
 } from "@/src/modules/communities/application/results/create-community-result";
-import { createCreateCommunityUseCase } from "@/src/modules/communities/infrastructure/composition/create-create-community-use-case";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createRedirectResponse } from "@/src/modules/shared/infrastructure/observability/route-response";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await createCreateCommunityUseCase().execute({
+    const result = await createCommunitiesModule().useCases.createCommunity({
       creatorEmail: authenticatedMember.email,
       creatorId: authenticatedMember.id,
       name,

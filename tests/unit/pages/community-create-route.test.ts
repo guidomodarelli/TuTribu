@@ -1,6 +1,6 @@
 import { POST } from "@/app/api/communities/route";
 import { createAuthModule } from "@/src/modules/auth/setup";
-import { createCreateCommunityUseCase } from "@/src/modules/communities/infrastructure/composition/create-create-community-use-case";
+import { createCommunitiesModule } from "@/src/modules/communities/setup";
 import { REQUEST_ID_HEADER } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -12,12 +12,9 @@ jest.mock("@/src/modules/auth/setup", () => ({
   createAuthModule: jest.fn(),
 }));
 
-jest.mock(
-  "@/src/modules/communities/infrastructure/composition/create-create-community-use-case",
-  () => ({
-    createCreateCommunityUseCase: jest.fn(),
-  })
-);
+jest.mock("@/src/modules/communities/setup", () => ({
+  createCommunitiesModule: jest.fn(),
+}));
 
 jest.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
@@ -69,8 +66,10 @@ describe("Create community route", () => {
         getAuthenticatedMember,
       },
     });
-    (createCreateCommunityUseCase as jest.Mock).mockReturnValue({
-      execute: createCommunity,
+    (createCommunitiesModule as jest.Mock).mockReturnValue({
+      useCases: {
+        createCommunity,
+      },
     });
     (createServerLogger as jest.Mock).mockReturnValue({
       error: errorMock,

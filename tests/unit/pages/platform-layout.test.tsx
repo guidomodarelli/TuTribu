@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 
 import PlatformLayout from "@/app/(platform)/layout";
 import { createAuthModule } from "@/src/modules/auth/setup";
-import { createGetMemberCommunitiesUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-member-communities-use-case";
+import { createCommunitiesModule } from "@/src/modules/communities/setup";
 
 const getAuthenticatedMember = jest.fn();
 const getMemberCommunities = jest.fn();
@@ -47,12 +47,9 @@ jest.mock("@/src/modules/auth/setup", () => ({
   createAuthModule: jest.fn(),
 }));
 
-jest.mock(
-  "@/src/modules/communities/infrastructure/composition/create-get-member-communities-use-case",
-  () => ({
-    createGetMemberCommunitiesUseCase: jest.fn(),
-  })
-);
+jest.mock("@/src/modules/communities/setup", () => ({
+  createCommunitiesModule: jest.fn(),
+}));
 
 describe("PlatformLayout", () => {
   beforeEach(() => {
@@ -65,8 +62,10 @@ describe("PlatformLayout", () => {
         getAuthenticatedMember,
       },
     });
-    (createGetMemberCommunitiesUseCase as jest.Mock).mockReturnValue({
-      execute: getMemberCommunities,
+    (createCommunitiesModule as jest.Mock).mockReturnValue({
+      useCases: {
+        getMemberCommunities,
+      },
     });
   });
 

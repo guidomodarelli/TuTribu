@@ -7,16 +7,20 @@ import {
   type CommunityPageAccessResult,
 } from "../results/community-page-access-result";
 
-export class GetCommunityPageAccessUseCase {
-  constructor(private readonly communityReadRepository: CommunityReadRepository) {}
+type GetCommunityPageAccessDependencies = {
+  communityReadRepository: CommunityReadRepository;
+};
 
-  async execute({
+export function getCommunityPageAccess({
+  communityReadRepository,
+}: GetCommunityPageAccessDependencies) {
+  return async ({
     isAuthenticated,
     slug,
   }: {
     isAuthenticated: boolean;
     slug: string;
-  }): Promise<CommunityPageAccessResult> {
+  }): Promise<CommunityPageAccessResult> => {
     const normalizedSlug = slug.trim().toLowerCase();
 
     if (normalizedSlug.length === 0) {
@@ -33,7 +37,7 @@ export class GetCommunityPageAccessUseCase {
       };
     }
 
-    const community = await this.communityReadRepository.findBySlug(normalizedSlug);
+    const community = await communityReadRepository.findBySlug(normalizedSlug);
 
     if (community) {
       return {
@@ -43,7 +47,7 @@ export class GetCommunityPageAccessUseCase {
     }
 
     const membershipStatus =
-      await this.communityReadRepository.findCurrentMembershipStatusBySlug(
+      await communityReadRepository.findCurrentMembershipStatusBySlug(
         normalizedSlug
       );
 
@@ -58,5 +62,5 @@ export class GetCommunityPageAccessUseCase {
       status: COMMUNITY_PAGE_ACCESS_STATUS.hidden,
       reason: COMMUNITY_PAGE_ACCESS_REASON.notFoundOrNotVisible,
     };
-  }
+  };
 }

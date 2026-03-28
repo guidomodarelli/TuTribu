@@ -7,12 +7,12 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { createAuthModule } from "@/src/modules/auth/setup";
+import { createCommunitiesModule } from "@/src/modules/communities/setup";
 import {
   CREATE_COMMUNITY_ERROR_CODE,
   CREATE_COMMUNITY_ERROR_MESSAGE,
   CREATE_COMMUNITY_STATUS,
 } from "@/src/modules/communities/application/results/create-community-result";
-import { createGetCommunityCreationEligibilityUseCase } from "@/src/modules/communities/infrastructure/composition/create-get-community-creation-eligibility-use-case";
 import { getContactEmail } from "@/src/modules/communities/infrastructure/config/community-creation-contact-email";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -97,8 +97,8 @@ export default async function CreateCommunityPage({
     );
   }
 
-  const eligibility = await createGetCommunityCreationEligibilityUseCase()
-    .execute({
+  const eligibility = await createCommunitiesModule().useCases
+    .getCommunityCreationEligibility({
       creatorEmail: authenticatedMember.email,
     })
     .catch((error: unknown) => {
