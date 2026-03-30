@@ -1,26 +1,36 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useRouter } from "next/navigation";
 
 import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google";
 
-const navigateToGoogleAuthStartMock = jest.fn();
+const startGoogleSignInMock = jest.fn();
+const pushMock = jest.fn();
 
-jest.mock("@/src/modules/auth/infrastructure/oauth/start-google-auth-navigation", () => ({
-  navigateToGoogleAuthStart: (...args: unknown[]) =>
-    navigateToGoogleAuthStartMock(...args),
+jest.mock("next/navigation", () => ({
+  useRouter: jest.fn(),
+}));
+
+jest.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
+  startGoogleSignIn: (...args: unknown[]) => startGoogleSignInMock(...args),
 }));
 
 describe("AutoSignInWithGoogle", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    navigateToGoogleAuthStartMock.mockReset();
+    startGoogleSignInMock.mockReset();
+    pushMock.mockReset();
+    startGoogleSignInMock.mockResolvedValue(undefined);
+    (useRouter as jest.Mock).mockReturnValue({
+      push: pushMock,
+    });
   });
 
   it("starts Google sign-in when the component mounts", async () => {
     render(<AutoSignInWithGoogle callbackUrl="/" />);
 
     await waitFor(() => {
-      expect(navigateToGoogleAuthStartMock).toHaveBeenCalledWith("/");
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
     });
 
     expect(screen.getByText(/te estamos redirigiendo a google/i)).toBeInTheDocument();
@@ -37,7 +47,7 @@ describe("AutoSignInWithGoogle", () => {
     render(<AutoSignInWithGoogle callbackUrl="/auth/error" />);
 
     await waitFor(() => {
-      expect(navigateToGoogleAuthStartMock).toHaveBeenCalledWith("/auth/error");
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/auth/error");
     });
 
     await user.click(
@@ -46,7 +56,17 @@ describe("AutoSignInWithGoogle", () => {
       })
     );
 
-    expect(navigateToGoogleAuthStartMock).toHaveBeenCalledTimes(2);
-    expect(navigateToGoogleAuthStartMock).toHaveBeenLastCalledWith("/auth/error");
+    expect(startGoogleSignInMock).toHaveBeenCalledTimes(2);
+    expect(startGoogleSignInMock).toHaveBeenLastCalledWith("/auth/error");
+  });
+
+  it("redirects to the auth error page when Better Auth rejects the OAuth start", async () => {
+    startGoogleSignInMock.mockRejectedValue(new Error("origin_mismatch"));
+
+    render(<AutoSignInWithGoogle callbackUrl="/" />);
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/auth/error");
+    });
   });
 });

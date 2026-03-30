@@ -1,32 +1,34 @@
 import { buildAuthModule } from "./auth/setup";
+import { getRequestAuthContext } from "./auth/infrastructure/better-auth/server-auth-context";
+import { BetterAuthSessionRepository } from "./auth/infrastructure/repositories/better-auth-session-repository";
 import { buildCommunitiesModule } from "./communities/setup";
-import { SupabaseAuthSessionRepository } from "./auth/infrastructure/repositories/supabase-auth-session-repository";
-import { SupabaseCommunityCreationRepository } from "./communities/infrastructure/repositories/supabase-community-creation-repository";
-import { SupabaseCommunityCreatorWhitelistRepository } from "./communities/infrastructure/repositories/supabase-community-creator-whitelist-repository";
-import { SupabaseCommunityReadRepository } from "./communities/infrastructure/repositories/supabase-community-read-repository";
-import { createServerSupabaseClient } from "./shared/infrastructure/supabase/server-client";
+import { PostgresCommunityCreationRepository } from "./communities/infrastructure/repositories/postgres-community-creation-repository";
+import { PostgresCommunityCreatorWhitelistRepository } from "./communities/infrastructure/repositories/postgres-community-creator-whitelist-repository";
+import { PostgresCommunityReadRepository } from "./communities/infrastructure/repositories/postgres-community-read-repository";
+import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
 
-type RequestScopedSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
-
-function createRequestScopedClientFactory(supabaseClient: RequestScopedSupabaseClient) {
-  return async () => supabaseClient;
-}
+type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
 
 export async function createRequestModules() {
-  const supabaseClient = await createServerSupabaseClient();
-  const createClient = createRequestScopedClientFactory(supabaseClient);
+  const databaseClient = await createServerDatabaseClient();
+  const authContext = await getRequestAuthContext();
+  const executeWithRequestContext = <T>(
+    callback: Parameters<RequestScopedDatabaseClient["withRequestContext"]>[1]
+  ) => databaseClient.withRequestContext(authContext, callback) as Promise<T>;
 
   return {
     auth: buildAuthModule({
-      authSessionRepository: new SupabaseAuthSessionRepository(createClient),
+      authSessionRepository: new BetterAuthSessionRepository(),
     }),
     communities: buildCommunitiesModule({
-      communityReadRepository: new SupabaseCommunityReadRepository(createClient),
-      communityCreationRepository: new SupabaseCommunityCreationRepository(
-        createClient
+      communityReadRepository: new PostgresCommunityReadRepository(
+        executeWithRequestContext
+      ),
+      communityCreationRepository: new PostgresCommunityCreationRepository(
+        executeWithRequestContext
       ),
       communityCreatorWhitelistRepository:
-        new SupabaseCommunityCreatorWhitelistRepository(createClient),
+        new PostgresCommunityCreatorWhitelistRepository(executeWithRequestContext),
     }),
   };
 }

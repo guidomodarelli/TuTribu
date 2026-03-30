@@ -1,8 +1,6 @@
 export const QUERY_PARAMS = {
   auth: {
     callbackUrl: "callbackUrl",
-    code: "code",
-    next: "next",
   },
   communities: {
     error: "error",

@@ -16,7 +16,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - Never hardcode secrets, OAuth credentials, refresh tokens, API keys, or user tokens in source code, tests, fixtures, screenshots, or documentation.
 - Keep sensitive credentials only in environment variables and server-side secret storage.
-- Treat Supabase session tokens and any provider access or refresh tokens as server-only sensitive data. They must never be exposed to the browser, serialized in page props, or logged.
+- Treat Better Auth session cookies and any provider access or refresh tokens as server-only sensitive data. They must never be exposed to the browser, serialized in page props, or logged.
 - Validate and sanitize all external input before it crosses into `application` or `domain`.
 - Avoid leaking internal errors, stack traces, provider payloads, file identifiers, or token data in UI messages.
 
@@ -94,9 +94,9 @@ src/
       domain/
       application/
       infrastructure/
-        supabase/
-          server-client.ts
-          proxy.ts
+        database/
+          server-database-client.ts
+          schema.ts
 components/
 lib/
 styles/
@@ -123,7 +123,7 @@ styles/
   - Orchestrates domain behavior through ports.
   - Validate and normalize inputs through domain value objects or application contracts, not through generic helpers in `lib`.
 - `infrastructure`
-  - Adapters for authentication, Supabase integration, HTTP clients, storage, and third-party SDKs.
+  - Adapters for authentication, Better Auth integration, database access, HTTP clients, storage, and third-party SDKs.
   - Owns external DTOs and their mappers.
   - Shared server-only helpers must still live under a module infrastructure folder, never under `src/server`.
 - `lib`
@@ -282,7 +282,7 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 ```
 
 - Never pass provider DTOs directly to route components.
-- Never import Supabase client builders, OAuth config, or provider error mappers from a generic `src/server` path.
+- Never import Better Auth, database context helpers, or provider error mappers from a generic `src/server` path.
 - Any route entrypoint, server component, or action that calls external infrastructure must translate failures into a safe UX in Spanish and must not expose raw provider messages, stack traces, or internal diagnostics to the UI.
 - When those flows fail unexpectedly, log them with structured context at the boundary that owns the user-facing response, including correlation identifiers and safe business metadata when available.
 
@@ -294,20 +294,19 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
   - route-level client container owns session, fetch, mutation state, and validation flow
   - presentational component renders props and emits callbacks only
 
-## 5. Supabase Auth and Authorization
+## 5. Better Auth and Authorization
 
 ### Authentication setup
 
-- Use `Supabase Auth` as the authentication baseline.
-- Use Google OAuth through Supabase when Google sign-in is required.
-- Do not add or reintroduce `auth.js` as the default auth architecture unless `docs/architecture` is updated in the same work item.
-- Keep auth adapters, session access, OAuth wiring, and auth-related mapping inside module infrastructure or shared Supabase infrastructure under `src/modules/shared/infrastructure/supabase/*`.
+- Use `Better Auth` as the authentication baseline.
+- Use Google OAuth through Better Auth when Google sign-in is required.
+- Keep auth adapters, session access, OAuth wiring, and auth-related mapping inside module infrastructure.
 - Wrap session-aware client providers from `app/layout.tsx` through a dedicated providers component when the UI needs client session context.
 
-### Supabase data and session behavior
+### Data and session behavior
 
 - Use `Supabase Postgres` as the primary application database.
-- Use App Router with server-side session access via Supabase SSR patterns (`server-client.ts`, `proxy.ts`, and internal auth route handlers) as the default integration model.
+- Use App Router with server-side session access via Better Auth route handlers and request-scoped database context as the default integration model.
 - When an implemented change affects database structure (`schema`, tables, columns, constraints, indexes, relationships, or RLS-relevant storage layout), include a versioned SQL migration in the same work item.
 - Use the dashboard SQL editor only for quick experiments or debugging. It does not replace a versioned migration committed with the change.
 - Keep provider tokens, session secrets, and sensitive auth data server-side only.
@@ -320,7 +319,7 @@ Example SQL migration for a structural change:
 CREATE TABLE posts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   content text NOT NULL,
-  user_id uuid NOT NULL REFERENCES auth.users(id),
+  user_id text NOT NULL REFERENCES public."user"(id),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -345,12 +344,12 @@ ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can read own posts"
 ON posts
 FOR SELECT
-USING (auth.uid() = user_id);
+USING (nullif(current_setting('app.current_user_id', true), '') = user_id);
 
 CREATE POLICY "Users can insert own posts"
 ON posts
 FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 ```
 
 ## 6. Development Workflow

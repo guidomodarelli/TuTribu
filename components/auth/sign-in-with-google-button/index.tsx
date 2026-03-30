@@ -1,7 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import { Button } from "@/components/ui/button";
-import { navigateToGoogleAuthStart } from "@/src/modules/auth/infrastructure/oauth/start-google-auth-navigation";
+import { ROUTES } from "@/src/constants/routes";
+import { startGoogleSignIn } from "@/src/modules/auth/infrastructure/better-auth/client";
 import styles from "./styles.module.scss";
 
 type SignInWithGoogleButtonProps = {
@@ -15,8 +18,12 @@ const SIGN_IN_WITH_GOOGLE_BUTTON = {
 export function SignInWithGoogleButton({
   callbackUrl,
 }: SignInWithGoogleButtonProps) {
+  const router = useRouter();
+
   const handleGoogleSignIn = () => {
-    navigateToGoogleAuthStart(callbackUrl);
+    void startGoogleSignIn(callbackUrl).catch(() => {
+      router.push(ROUTES.auth.error);
+    });
   };
 
   return (

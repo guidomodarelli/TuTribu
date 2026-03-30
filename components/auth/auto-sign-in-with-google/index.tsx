@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 import { CardDescription } from "@/components/ui/card";
-import { navigateToGoogleAuthStart } from "@/src/modules/auth/infrastructure/oauth/start-google-auth-navigation";
+import { ROUTES } from "@/src/constants/routes";
+import { startGoogleSignIn } from "@/src/modules/auth/infrastructure/better-auth/client";
 import { SignInWithGoogleButton } from "../sign-in-with-google-button";
 import styles from "./styles.module.scss";
 
@@ -13,6 +15,7 @@ type AutoSignInWithGoogleProps = {
 
 export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps) {
   const hasTriggeredSignInRef = useRef(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (hasTriggeredSignInRef.current) {
@@ -20,8 +23,10 @@ export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps)
     }
 
     hasTriggeredSignInRef.current = true;
-    navigateToGoogleAuthStart(callbackUrl);
-  }, [callbackUrl]);
+    void startGoogleSignIn(callbackUrl).catch(() => {
+      router.push(ROUTES.auth.error);
+    });
+  }, [callbackUrl, router]);
 
   return (
     <div className={styles.AutoSignInWithGoogle}>

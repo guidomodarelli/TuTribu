@@ -2,9 +2,9 @@
 
 ## Decision
 
-Esta aplicacion debe considerarse **multi-tenant**.
+Esta aplicacion es **multi-tenant**.
 
-El tenant canonico del producto es **`community`**. La plataforma sirve a multiples comunidades independientes dentro de una misma aplicacion, y cada comunidad debe aislar:
+El tenant canonico del producto es **`community`**. Cada comunidad debe aislar:
 
 * owner
 * admins
@@ -14,54 +14,45 @@ El tenant canonico del producto es **`community`**. La plataforma sirve a multip
 * events
 * configuracion y permisos
 
-La estrategia elegida para esta etapa es:
+La estrategia vigente es:
 
 * **single app**
 * **single database**
 * **shared schema**
-* tablas multi-tenant con **`community_id`**
-* tabla de membresia **`community_members`**
-* **RLS simple** para aislamiento por tenant y ownership
+* tablas multi-tenant con `community_id`
+* tabla de membresia `community_members`
+* **RLS simple**
 * reglas de negocio complejas en `application` y `domain`
 
-Ese es el modelo por defecto para el producto. No se considera `course` como tenant arquitectonico.
+No se considera `course` como tenant arquitectonico.
 
 ---
 
-# Modelo base recomendado
+# Modelo base
 
 ## Tablas nucleares
 
+* `user`
 * `communities`
 * `community_members`
+* `community_creator_whitelist`
 * `posts`
 * `comments`
 * `events`
-* `profiles`
 
 ## Claves de aislamiento
 
-Las tablas de negocio multi-tenant deberian usar:
+Las tablas multi-tenant deben usar:
 
 * `community_id` para alcance por tenant
-* `user_id` o `created_by` para ownership cuando corresponda
+* `user_id` o `created_by` para ownership
 
-La tabla `community_members` debe modelar la pertenencia por comunidad:
+La tabla `community_members` modela:
 
 * `user_id`
 * `community_id`
 * `role`
 * `status`
-
-## Roles
-
-Los detalles del sistema de roles, estados y permisos por comunidad viven en `docs/architecture/roles-and-permissions.md`.
-
-En este documento solo fijamos la decision de tenancy:
-
-* un usuario puede pertenecer a multiples comunidades
-* esa pertenencia se modela con `community_members`
-* el rol no vive como atributo global en `users` o `profiles`
 
 ---
 
@@ -69,61 +60,45 @@ En este documento solo fijamos la decision de tenancy:
 
 ## Autenticacion
 
-La identidad del usuario la resuelve **Supabase Auth**.
+La identidad del usuario la resuelve **Better Auth**.
 
 Eso incluye:
 
 * login y sesion
-* JWT y cookies de sesion
-* `auth.users.id` como identificador estable del usuario
-* `auth.uid()` como referencia de identidad dentro de RLS
+* cookies de sesion
+* `public."user".id` como identificador estable
 
 ## Autorizacion y tenancy
 
-La pertenencia y el rol se resuelven en la aplicacion y en la base a traves de:
+La pertenencia y el rol se resuelven con:
 
 * `community_members`
 * `community_id`
 * policies de RLS
 * casos de uso y servicios de aplicacion
 
-La regla practica es esta:
+La regla practica es:
 
-> **Supabase Auth responde quien es el usuario**
+> **Better Auth responde quien es el usuario**
 > **multi-tenancy + RLS + app layer responden que puede hacer en cada comunidad**
 
-RLS debe proteger acceso estructural a datos por tenant, membership y ownership. La app debe seguir resolviendo workflows, excepciones, reglas compuestas y decisiones de producto mas dinamicas.
+RLS usa contexto de request seteado por la app:
 
-Supabase Auth ayuda mucho porque entrega una identidad confiable, pero no resuelve por si solo:
+* `app.current_user_id`
+* `app.current_user_email`
+* `FORCE ROW LEVEL SECURITY` en tablas protegidas cuando la app entra por una conexion compartida a Postgres
 
-* roles por comunidad
-* aislamiento multi-tenant
-* permisos por comunidad
-* alcance por `community_id`
+La fuente de verdad sigue siendo `community_members`, no la sesion.
 
-La fuente de verdad para eso sigue siendo `community_members` y las policies apoyadas en esa tabla. La definicion canonica del sistema de roles y permisos esta en `docs/architecture/roles-and-permissions.md`.
+Antes de que exista la primera membership, la plataforma puede aplicar un permiso global de creacion:
 
-Antes de que exista la primera membership de una comunidad nueva, la plataforma puede aplicar un permiso global de creacion. En este MVP ese permiso vive en `community_creator_whitelist` y solo habilita el alta inicial.
-
-Las filas de esa whitelist son datos operativos del entorno. No deben viajar como seeds personales dentro de migraciones compartidas del repositorio.
+* ese permiso vive en `community_creator_whitelist`
+* las filas de esa whitelist son datos operativos del entorno
 
 Despues de crear la comunidad:
 
-* el usuario creador pasa a estar modelado dentro del tenant por `community_members`
+* el usuario creador pasa a estar modelado por `community_members`
 * su rol inicial queda como `owner`
-* desde ese momento la autorizacion tenant-scoped vuelve a depender de `community_members`, `community_id` y RLS
-
-## JWT y custom claims
-
-La regla base es esta:
-
-* no usar JWT ni custom claims como fuente primaria de roles por comunidad
-* no serializar la matriz completa de membresias y roles por comunidad en el token
-* no usar el token como sustituto de `community_members`
-
-Si en el futuro se usan custom claims, deben tratarse solo como una optimizacion derivada. La fuente de verdad de autorizacion sigue viviendo en la base y en la relacion `community_members(user_id, community_id, role)`.
-
-Para el limite exacto de RLS, mira `docs/architecture/rls-simple.md`. Para la matriz de permisos y los estados de membresia, mira `docs/architecture/roles-and-permissions.md`.
 
 ---
 
@@ -133,20 +108,17 @@ En esta etapa no se adopta:
 
 * `database-per-tenant`
 * `schema-per-tenant`
-* una instancia de Supabase por comunidad
+* una instancia separada de Postgres por comunidad
 
-Eso agrega costo operativo y complejidad innecesaria para el problema actual. La estrategia elegida es **multi-tenancy simple con shared schema**.
+La estrategia elegida sigue siendo **multi-tenancy simple con shared schema**.
 
 ---
 
 # Relacion con cursos
 
-`course` puede existir como entidad de negocio dentro de una comunidad, pero **no** reemplaza al tenant arquitectonico.
+`course` puede existir dentro de una comunidad, pero no reemplaza al tenant arquitectonico.
 
 La regla es:
 
 * `community` define el limite de aislamiento
 * `course` cuelga de una comunidad cuando el dominio lo necesite
-* ninguna policy o decision arquitectonica debe tratar a `course` como tenant principal
-
-Para la arquitectura general de Supabase y App Router, mira `docs/architecture/migrating-to-supabase.md`.

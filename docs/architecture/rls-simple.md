@@ -2,185 +2,101 @@
 
 ## Que significa
 
-RLS simple no significa una policy trivial. Significa usar **Row Level Security** para resolver **seguridad estructural de acceso a datos**, sin convertirla en el motor completo de reglas de negocio del producto.
+RLS simple significa usar **Row Level Security** para seguridad estructural de acceso a datos, sin convertir SQL en el motor completo de reglas de negocio.
 
-La idea practica es esta:
+La idea practica es:
 
-> **RLS para seguridad de acceso a datos**
-> **App layer para logica de negocio compleja**
-
-Ese suele ser el punto de equilibrio correcto en Supabase, sobre todo para un MVP. ([Supabase][1], [Supabase][3])
-
-Para la decision de tenancy de este producto, mira tambien `docs/architecture/multi-tenancy.md`.
-Para el sistema de roles y permisos por comunidad, mira `docs/architecture/roles-and-permissions.md`.
+> **RLS para acceso a filas**
+> **App layer para reglas de negocio complejas**
 
 ---
 
-# Por que da valor real desde el MVP
+# Que valor da
 
-Supabase recomienda RLS como mecanismo principal de autorizacion a nivel aplicacion y la presenta como **defense in depth**. Eso significa que, aunque alguien llegue a la API o a una integracion fuera de la UI, la base sigue aplicando restricciones de acceso. ([Supabase][1], [Supabase][2])
+RLS sigue siendo parte de la linea base de seguridad porque:
 
-O sea:
-
-* no es un lujo
-* no es una optimizacion para despues
-* es parte de la linea base de seguridad
-
-En un MVP eso ya te resuelve algo importante:
-
-* menos checks duplicados en server actions y route handlers
-* menos riesgo de olvidarte permisos en algun endpoint
-* menos bugs donde el frontend oculta algo, pero la API igual lo permite
+* reduce checks duplicados en handlers
+* evita huecos entre UI y backend
+* protege aunque alguien llegue directo a la base o a un endpoint interno
 
 ---
 
-# Que tipo de acoplamiento introduce
+# Que acoplamiento introduce
 
-Si dejas RLS simple, te acoplas a:
+Si usamos RLS simple, nos acoplamos a:
 
 * Postgres
-* el modelo de auth y JWT
 * policies de acceso a datos
+* contexto de request seteado por la app
 
-Pero no te acoplas tanto a una maraña de reglas de producto metidas en SQL.
+En este repo, la identidad para RLS entra desde:
 
-Ese matiz importa porque RLS es una primitive de **Postgres**, no algo exclusivo de Supabase. El acople fuerte no es tanto "a Supabase" como al enfoque de **authorization in the database**. ([Supabase][1], [Supabase][3])
+* `current_setting('app.current_user_id', true)`
+* `current_setting('app.current_user_email', true)`
+* tablas protegidas con `FORCE ROW LEVEL SECURITY` cuando la app usa una conexion compartida por `DATABASE_URL`
 
-## Por que ese acoplamiento suele convenir
+Ese acople es aceptable porque:
 
-Porque te da:
-
-* seguridad por defecto mas robusta
-* integracion natural con Supabase Auth
-* proteccion incluso si alguien pega directo a la API
-* menos dependencia de checks dispersos por la app
-
-Supabase Auth esta pensado para integrarse con RLS, y los tokens de acceso del usuario se usan justamente para restringir acceso a datos y endpoints. ([Supabase][3])
-
-En este proyecto eso significa que RLS consume identidad desde Auth, pero no delega en Auth la modelacion de membership o roles por comunidad.
+* la app mantiene control de la identidad
+* RLS sigue siendo Postgres puro
+* las reglas de negocio importantes no quedan enterradas en SQL
 
 ---
 
-# Que meteria en RLS
+# Que va en RLS
 
 ## Casos adecuados
 
-* ownership por `user_id = auth.uid()`
+* ownership por `user_id = current_app_user_id`
 * acceso por pertenencia a `community_id`
 * acceso via `community_members`
-* acceso por rol simple definido en `docs/architecture/roles-and-permissions.md`
+* acceso por rol simple
 * lectura y escritura sobre filas del propio usuario
-* acceso por tenant o comunidad cuando la regla es clara
 
-La regla importante es esta:
+La regla importante es:
 
-* `auth.uid()` identifica al usuario actual
-* `community_members` resuelve su pertenencia y rol
-* JWT y custom claims no reemplazan esa relacion como fuente de verdad
+* la sesion identifica al usuario
+* `community_members` resuelve pertenencia y rol
+* RLS usa el contexto `app.current_user_*`
 
-La matriz exacta de capacidades por `role` y el efecto de `status` no viven en este documento. Ese detalle esta separado en `docs/architecture/roles-and-permissions.md`.
+## Ejemplos
 
-## Ejemplos de academia online
-
-* un usuario solo ve su `profile`
-* un autor solo puede editar sus posts
-* un usuario solo borra sus propios comentarios
-* un miembro solo ve comunidades a las que pertenece
-* un miembro solo ve posts y eventos de comunidades donde tiene membresia
-* un rol de moderacion puede operar dentro de su comunidad cuando la policy lo permite
-* un alumno ve sus inscripciones
-* un usuario solo ve sus datos privados
-
-Eso sigue siendo RLS simple porque responde preguntas claras de:
-
-* ownership
-* membership
-* rol simple
-* alcance por tenant o comunidad
+* un usuario solo ve comunidades a las que pertenece
+* un miembro solo ve datos de comunidades donde tiene membresia
+* un usuario solo puede insertar la membership inicial de owner de la comunidad que acaba de crear
 
 ---
 
-# Que dejaria fuera de RLS
+# Que queda fuera
 
-No meteria en RLS:
+No meter en RLS:
 
 * workflows complejos
-* reglas de negocio cambiantes
-* flujos de aprobacion
-* reglas temporales enmarañadas
 * visibilidad muy dinamica
-* permisos compuestos con muchas excepciones
-* validaciones de UX o de producto
-* limites comerciales o de plan
-* automatizaciones y procesos de negocio
+* reglas temporales complejas
+* validaciones de UX
+* limites comerciales
+* automatizaciones de negocio
 
-Eso conviene resolverlo en casos de uso o servicios de aplicacion.
+Modelo mental:
 
-## Modelo mental util
-
-RLS responde:
-
-**"este usuario puede tocar esta fila?"**
-
-La app responde:
-
-**"tiene sentido de negocio permitir esta accion ahora?"**
-
-Si mezclas ambas preguntas dentro de RLS, la cosa se vuelve mucho mas dificil de mantener.
-
-Tambien se vuelve mas fragil si intentas meter en el token toda la matriz de roles por comunidad. Para este producto, ese modelo no es la base recomendada.
+* RLS responde: **"puede tocar esta fila?"**
+* la app responde: **"tiene sentido permitir esta accion ahora?"**
 
 ---
 
-# Mantenibilidad y performance
-
-Dejar RLS basica mejora mucho la mantenibilidad:
-
-* es mas facil auditar policies
-* es mas facil testearlas
-* es mas facil entender por que algo falla
-* es menos probable que una regla de negocio rompa media app
-
-Cuando las policies empiezan a decidir estados editoriales raros, aprobaciones o permisos con muchas excepciones, la maintainability cae rapido.
-
-Tambien hay un costo de performance si las policies estan mal diseñadas. Supabase tiene una guia especifica para eso y recomienda, por ejemplo, indexar columnas usadas en policies porque el impacto puede ser grande en tablas voluminosas. ([Supabase][4])
-
----
-
-# Recomendacion final
+# Recomendacion
 
 Para este proyecto:
 
-## Si conviene usar RLS desde el principio
-
-Pero asi:
-
 * **RLS fuerte para acceso a datos**
 * **simple y entendible**
-* **basada en ownership, membership, tenant scope y rol**
-* **sin convertirla en motor completo de negocio**
+* **basada en ownership, membership y tenant scope**
+* **sin mover toda la logica de producto a SQL**
 
-Eso te da:
+Eso mantiene:
 
-* seguridad real desde el MVP
+* seguridad real
 * menos bugs de permisos
-* buen encaje con Supabase Auth
-* acoplamiento aceptable
-* portabilidad razonable, porque sigues en Postgres
-
-Y ademas deja clara la frontera:
-
-* Auth para identidad
-* `community_members` para membresia y roles
-* RLS para aislamiento estructural
-
-## En una frase
-
-**Si, acoplarte un poco a RLS vale la pena; acoplarte mucho, no.**
-
-Para complementar esta definicion dentro de la arquitectura general, mira `docs/architecture/migrating-to-supabase.md`, `docs/architecture/multi-tenancy.md` y `docs/architecture/roles-and-permissions.md`.
-
-[1]: https://supabase.com/docs/guides/database/postgres/row-level-security?utm_source=chatgpt.com "Row Level Security | Supabase Docs"
-[2]: https://supabase.com/docs/guides/deployment/going-into-prod?utm_source=chatgpt.com "Production Checklist | Supabase Docs"
-[3]: https://supabase.com/docs/guides/auth?utm_source=chatgpt.com "Auth | Supabase Docs"
-[4]: https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv?utm_source=chatgpt.com "RLS Performance and Best Practices"
+* buen desacople respecto de la capa de auth
+* proteccion efectiva aunque la app consulte Postgres con un rol owner-like compartido

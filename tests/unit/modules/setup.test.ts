@@ -1,44 +1,38 @@
 import { createRequestModules } from "@/src/modules/setup";
-import { createServerSupabaseClient } from "@/src/modules/shared/infrastructure/supabase/server-client";
+import { getRequestAuthContext } from "@/src/modules/auth/infrastructure/better-auth/server-auth-context";
+import { createServerDatabaseClient } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
-jest.mock("@/src/modules/shared/infrastructure/supabase/server-client", () => ({
-  createServerSupabaseClient: jest.fn(),
+jest.mock("@/src/modules/shared/infrastructure/database/server-database-client", () => ({
+  createServerDatabaseClient: jest.fn(),
+}));
+
+jest.mock("@/src/modules/auth/infrastructure/better-auth/server-auth-context", () => ({
+  getRequestAuthContext: jest.fn(),
+  getServerBetterAuthSession: jest.fn(async () => null),
 }));
 
 describe("createRequestModules", () => {
-  it("creates a single Supabase client per request and shares it across modules", async () => {
-    const supabaseClient = {
-      auth: {
-        getUser: jest.fn().mockResolvedValue({
-          data: {
-            user: null,
-          },
-          error: null,
-        }),
-      },
-      from: jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
-              data: [],
-              error: null,
-            }),
-          }),
-          eq: jest.fn().mockReturnValue({
-            maybeSingle: jest.fn().mockResolvedValue({
-              data: null,
-              error: null,
-            }),
-          }),
-        }),
-      }),
-      rpc: jest.fn().mockResolvedValue({
-        data: false,
-        error: null,
-      }),
+  it("creates a single request-scoped database client and shares it across modules", async () => {
+    const databaseClient = {
+      withRequestContext: jest.fn(async (_context, callback) =>
+        callback({
+          execute: jest.fn(async () => ({
+            rows: [],
+          })),
+          one: jest.fn(),
+          query: jest.fn(),
+          transaction: jest.fn(),
+        })
+      ),
+      select: jest.fn(),
+      transaction: jest.fn(),
     };
 
-    (createServerSupabaseClient as jest.Mock).mockResolvedValue(supabaseClient);
+    (getRequestAuthContext as jest.Mock).mockResolvedValue({
+      email: "owner@example.com",
+      userId: "member-1",
+    });
+    (createServerDatabaseClient as jest.Mock).mockResolvedValue(databaseClient);
 
     const modules = await createRequestModules();
 
@@ -47,8 +41,8 @@ describe("createRequestModules", () => {
       creatorEmail: "owner@example.com",
     });
 
-    expect(createServerSupabaseClient).toHaveBeenCalledTimes(1);
-    expect(supabaseClient.auth.getUser).toHaveBeenCalledTimes(1);
-    expect(supabaseClient.from).toHaveBeenCalledWith("community_creator_whitelist");
+    expect(createServerDatabaseClient).toHaveBeenCalledTimes(1);
+    expect(getRequestAuthContext).toHaveBeenCalledTimes(1);
+    expect(databaseClient.withRequestContext).toHaveBeenCalled();
   });
 });

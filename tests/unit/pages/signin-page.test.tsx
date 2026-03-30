@@ -1,19 +1,20 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { redirect } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
 
 import SignInPage from "@/app/auth/signin/page";
 import { createRequestModules } from "@/src/modules/setup";
 
 const getAuthenticatedMember = jest.fn();
-const navigateToGoogleAuthStartMock = jest.fn();
+const startGoogleSignInMock = jest.fn();
+const pushMock = jest.fn();
 
-jest.mock("@/src/modules/auth/infrastructure/oauth/start-google-auth-navigation", () => ({
-  navigateToGoogleAuthStart: (...args: unknown[]) =>
-    navigateToGoogleAuthStartMock(...args),
+jest.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
+  startGoogleSignIn: (...args: unknown[]) => startGoogleSignInMock(...args),
 }));
 
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
+  useRouter: jest.fn(),
 }));
 
 jest.mock(
@@ -43,7 +44,9 @@ describe("SignInPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
-    navigateToGoogleAuthStartMock.mockReset();
+    startGoogleSignInMock.mockReset();
+    pushMock.mockReset();
+    startGoogleSignInMock.mockResolvedValue(undefined);
 
     (createRequestModules as jest.Mock).mockResolvedValue({
       auth: {
@@ -54,6 +57,9 @@ describe("SignInPage", () => {
       communities: {
         useCases: {},
       },
+    });
+    (useRouter as jest.Mock).mockReturnValue({
+      push: pushMock,
     });
   });
 
@@ -133,7 +139,7 @@ describe("SignInPage", () => {
     );
 
     await waitFor(() => {
-      expect(navigateToGoogleAuthStartMock).toHaveBeenCalledWith("/");
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
     });
 
     expect(
@@ -156,7 +162,7 @@ describe("SignInPage", () => {
     );
 
     await waitFor(() => {
-      expect(navigateToGoogleAuthStartMock).toHaveBeenCalledWith("/auth/error");
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/auth/error");
     });
   });
 
@@ -170,7 +176,7 @@ describe("SignInPage", () => {
     );
 
     await waitFor(() => {
-      expect(navigateToGoogleAuthStartMock).toHaveBeenCalledWith("/");
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
     });
   });
 });

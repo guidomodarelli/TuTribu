@@ -7,6 +7,7 @@ import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-c
 
 const pushMock = jest.fn();
 const toastErrorMock = jest.fn();
+const signOutMock = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
@@ -18,14 +19,16 @@ jest.mock("sonner", () => ({
   },
 }));
 
+jest.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
+  signOutMember: (...args: unknown[]) => signOutMock(...args),
+}));
+
 describe("AvatarSessionMenu", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     pushMock.mockReset();
-    (fetch as jest.Mock).mockReset();
-    (fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-    });
+    signOutMock.mockReset();
+    signOutMock.mockResolvedValue(undefined);
 
     (useRouter as jest.Mock).mockReturnValue({
       push: pushMock,
@@ -77,23 +80,17 @@ describe("AvatarSessionMenu", () => {
     await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
     await user.click(screen.getByRole("menuitem", { name: /cerrar sesion/i }));
 
-    expect(fetch).toHaveBeenCalledWith(
-      "/auth/signout",
-      expect.objectContaining({
-        method: "POST",
-        signal: expect.any(AbortSignal),
-      })
-    );
+    expect(signOutMock).toHaveBeenCalledWith();
     expect(pushMock).toHaveBeenCalledWith("/auth/signin");
   });
 
   it("prevents duplicate sign-out requests while one is already in flight", async () => {
     const user = userEvent.setup();
-    let resolveFetch: ((value: { ok: boolean }) => void) | null = null;
-    (fetch as jest.Mock).mockImplementation(
+    let resolveSignOut: (() => void) | null = null;
+    signOutMock.mockImplementation(
       () =>
         new Promise((resolve) => {
-          resolveFetch = resolve;
+          resolveSignOut = () => resolve(undefined);
         })
     );
 
@@ -118,9 +115,9 @@ describe("AvatarSessionMenu", () => {
     await user.click(signOutItem);
     await user.click(signOutItem);
 
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(signOutMock).toHaveBeenCalledTimes(1);
 
-    resolveFetch?.({ ok: true });
+    resolveSignOut?.();
 
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/auth/signin");
@@ -129,7 +126,7 @@ describe("AvatarSessionMenu", () => {
 
   it("shows feedback and redirects safely when sign-out fails", async () => {
     const user = userEvent.setup();
-    (fetch as jest.Mock).mockRejectedValue(new Error("network_failure"));
+    signOutMock.mockRejectedValue(new Error("sign_out_failure"));
 
     render(
       <AvatarSessionMenuClient

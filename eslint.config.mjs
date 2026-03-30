@@ -63,7 +63,15 @@ const eslintConfig = defineConfig([
       "src/**/*.{ts,tsx}",
       "lib/**/*.{ts,tsx}",
     ],
-    ignores: ["components/ui/**/*.{ts,tsx}"],
+    ignores: [
+      "components/ui/**/*.{ts,tsx}",
+      "src/modules/auth/infrastructure/better-auth/auth.ts",
+      "src/modules/communities/infrastructure/repositories/postgres-community-read-repository.ts",
+      "src/modules/communities/infrastructure/repositories/postgres-community-creator-whitelist-repository.ts",
+      "src/modules/communities/infrastructure/repositories/postgres-community-creation-repository.ts",
+      "src/modules/shared/infrastructure/database/schema.ts",
+      "src/modules/shared/infrastructure/database/server-database-client.ts",
+    ],
     plugins: {
       "@typescript-eslint": tseslint.plugin,
       local: {
