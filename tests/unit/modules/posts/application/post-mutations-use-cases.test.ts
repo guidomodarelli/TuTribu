@@ -4,7 +4,26 @@ import { togglePostLike } from "@/src/modules/posts/application/use-cases/toggle
 
 describe("post mutation use cases", () => {
   it("creates a community post when content is valid", async () => {
-    const create = jest.fn(async () => ({ status: "created" as const }));
+    const createdPost = {
+      id: "post-1",
+      author: {
+        id: "member-1",
+        name: "Grace Hopper",
+        role: "member" as const,
+        avatarFallback: "GH",
+        image: null,
+      },
+      comments: [],
+      content: "Primera publicación",
+      createdAt: "2026-04-26T12:00:00.000Z",
+      likedByViewer: false,
+      likeCount: 0,
+      title: "Bienvenida",
+    };
+    const create = jest.fn(async () => ({
+      post: createdPost,
+      status: "created" as const,
+    }));
     const execute = createCommunityPost({
       postCreationRepository: { create },
     });
@@ -16,7 +35,7 @@ describe("post mutation use cases", () => {
         content: "Primera publicación",
         title: "Bienvenida",
       })
-    ).resolves.toEqual({ status: "created" });
+    ).resolves.toEqual({ post: createdPost, status: "created" });
     expect(create).toHaveBeenCalledWith({
       authorId: "member-1",
       communitySlug: "matematica-pro",
@@ -60,7 +79,22 @@ describe("post mutation use cases", () => {
   });
 
   it("creates a flat post comment when content is valid", async () => {
-    const create = jest.fn(async () => ({ status: "created" as const }));
+    const createdComment = {
+      id: "comment-1",
+      author: {
+        id: "member-1",
+        name: "Grace Hopper",
+        role: "member" as const,
+        avatarFallback: "GH",
+        image: null,
+      },
+      content: "Excelente clase",
+      createdAt: "2026-04-26T12:05:00.000Z",
+    };
+    const create = jest.fn(async () => ({
+      comment: createdComment,
+      status: "created" as const,
+    }));
     const execute = createPostComment({
       postCommentRepository: { create },
     });
@@ -72,11 +106,15 @@ describe("post mutation use cases", () => {
         content: "Excelente clase",
         postId: "post-1",
       })
-    ).resolves.toEqual({ status: "created" });
+    ).resolves.toEqual({ comment: createdComment, status: "created" });
   });
 
   it("toggles a like reaction idempotently", async () => {
-    const toggle = jest.fn(async () => ({ likedByViewer: true, status: "liked" as const }));
+    const toggle = jest.fn(async () => ({
+      likedByViewer: true,
+      likeCount: 3,
+      status: "liked" as const,
+    }));
     const execute = togglePostLike({
       postReactionRepository: { toggle },
     });
@@ -89,6 +127,7 @@ describe("post mutation use cases", () => {
       })
     ).resolves.toEqual({
       likedByViewer: true,
+      likeCount: 3,
       status: "liked",
     });
   });

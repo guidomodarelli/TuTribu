@@ -1,8 +1,7 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { HeartIcon, MessageCircleIcon, SendIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
-import type { CommunityFeedResult } from "@/src/modules/posts/application/results/community-feed-result";
+import type {
+  CommunityFeedCommentResult,
+  CommunityFeedPostResult,
+  CommunityFeedResult,
+} from "@/src/modules/posts/application/results/community-feed-result";
 import styles from "./styles.module.scss";
 
 const COMMUNITY_FEED_ROUTE = {
@@ -128,13 +131,32 @@ type ApiErrorResponse = {
   message?: string;
 };
 
+type CreatePostResponse = {
+  message?: string;
+  post?: CommunityFeedPostResult;
+};
+
+type CreateCommentResponse = {
+  comment?: CommunityFeedCommentResult;
+  message?: string;
+};
+
+type ToggleLikeResponse = {
+  likedByViewer?: boolean;
+  likeCount?: number;
+  message?: string;
+};
+
 async function readApiErrorMessage(response: Response): Promise<string | null> {
   const body = (await response.json().catch(() => null)) as ApiErrorResponse | null;
 
   return typeof body?.message === "string" ? body.message : null;
 }
 
-async function submitJsonRequest(url: string, body?: Record<string, string>) {
+async function submitJsonRequest<ResponseBody>(
+  url: string,
+  body?: Record<string, string>
+): Promise<ResponseBody> {
   const response = await fetch(url, {
     body: body ? JSON.stringify(body) : undefined,
     headers: {
@@ -147,6 +169,8 @@ async function submitJsonRequest(url: string, body?: Record<string, string>) {
   if (!response.ok) {
     throw new Error((await readApiErrorMessage(response)) ?? response.statusText);
   }
+
+  return (await response.json().catch(() => ({}))) as ResponseBody;
 }
 
 function formatPostDateTime(dateTime: string): string {
@@ -166,22 +190,30 @@ export function CommunityFeed({
   communitySlug,
   feed,
 }: CommunityFeedProps) {
-  const router = useRouter();
+  const currentCommunitySlugRef = useRef(communitySlug);
+  const currentActionTokenRef = useRef(0);
+  const [posts, setPosts] = useState<CommunityFeedPostResult[]>(feed.posts);
   const [isPostComposerOpen, setIsPostComposerOpen] = useState(false);
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
   const [postComposerError, setPostComposerError] = useState<string | null>(null);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
-  const [isRefreshing, startRefresh] = useTransition();
-  const isBusy = Boolean(pendingActionId) || isRefreshing;
+  const isBusy = Boolean(pendingActionId);
   const isPostSubmitDisabled = isBusy || !postTitle.trim() || !postContent.trim();
 
-  const refreshFeed = () => {
-    startRefresh(() => {
-      router.refresh();
-    });
-  };
+  currentCommunitySlugRef.current = communitySlug;
+
+  useEffect(() => {
+    currentActionTokenRef.current += 1;
+    setPosts(feed.posts);
+    setCommentDrafts({});
+    setPendingActionId(null);
+  }, [communitySlug, feed.posts]);
+
+  const isCurrentAction = (actionToken: number, actionCommunitySlug: string) =>
+    currentActionTokenRef.current === actionToken &&
+    currentCommunitySlugRef.current === actionCommunitySlug;
 
   const handleCreatePost = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -194,25 +226,47 @@ export function CommunityFeed({
       return;
     }
 
+    const actionCommunitySlug = communitySlug;
+    const actionToken = currentActionTokenRef.current + 1;
+
+    currentActionTokenRef.current = actionToken;
     setPendingActionId(COMMUNITY_FEED_COPY.postButton);
 
     try {
-      await submitJsonRequest(COMMUNITY_FEED_ENDPOINT.post(communitySlug), {
-        content,
-        title,
-      });
+      const response = await submitJsonRequest<CreatePostResponse>(
+        COMMUNITY_FEED_ENDPOINT.post(actionCommunitySlug),
+        {
+          content,
+          title,
+        }
+      );
+
+      if (!isCurrentAction(actionToken, actionCommunitySlug)) {
+        return;
+      }
+
+      if (!response.post) {
+        throw new Error(COMMUNITY_FEED_COPY.submitPostError);
+      }
+
+      setPosts((currentPosts) => [response.post as CommunityFeedPostResult, ...currentPosts]);
       setPostTitle("");
       setPostContent("");
       setPostComposerError(null);
       setIsPostComposerOpen(false);
       toast.success(COMMUNITY_FEED_COPY.submitPostSuccess);
-      refreshFeed();
     } catch (error) {
+      if (!isCurrentAction(actionToken, actionCommunitySlug)) {
+        return;
+      }
+
       toast.error(
         error instanceof Error ? error.message : COMMUNITY_FEED_COPY.submitPostError
       );
     } finally {
-      setPendingActionId(null);
+      if (isCurrentAction(actionToken, actionCommunitySlug)) {
+        setPendingActionId(null);
+      }
     }
   };
 
@@ -228,41 +282,141 @@ export function CommunityFeed({
       return;
     }
 
+    const actionCommunitySlug = communitySlug;
+    const actionToken = currentActionTokenRef.current + 1;
+
+    currentActionTokenRef.current = actionToken;
     setPendingActionId(postId);
 
     try {
-      await submitJsonRequest(COMMUNITY_FEED_ENDPOINT.comment(communitySlug, postId), {
-        content,
-      });
+      const response = await submitJsonRequest<CreateCommentResponse>(
+        COMMUNITY_FEED_ENDPOINT.comment(actionCommunitySlug, postId),
+        {
+          content,
+        }
+      );
+
+      if (!isCurrentAction(actionToken, actionCommunitySlug)) {
+        return;
+      }
+
+      if (!response.comment) {
+        throw new Error(COMMUNITY_FEED_COPY.submitCommentError);
+      }
+
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                comments: [...post.comments, response.comment as CommunityFeedCommentResult],
+              }
+            : post
+        )
+      );
       setCommentDrafts((currentDrafts) => ({
         ...currentDrafts,
         [postId]: "",
       }));
       toast.success(COMMUNITY_FEED_COPY.submitCommentSuccess);
-      refreshFeed();
     } catch (error) {
+      if (!isCurrentAction(actionToken, actionCommunitySlug)) {
+        return;
+      }
+
       toast.error(
         error instanceof Error
           ? error.message
           : COMMUNITY_FEED_COPY.submitCommentError
       );
     } finally {
-      setPendingActionId(null);
+      if (isCurrentAction(actionToken, actionCommunitySlug)) {
+        setPendingActionId(null);
+      }
     }
   };
 
   const handleToggleLike = async (postId: string) => {
+    const actionCommunitySlug = communitySlug;
+    const actionToken = currentActionTokenRef.current + 1;
+
+    currentActionTokenRef.current = actionToken;
     setPendingActionId(postId);
+    const currentPost = posts.find((post) => post.id === postId);
+
+    if (!currentPost) {
+      setPendingActionId(null);
+      return;
+    }
+
+    const optimisticLikedByViewer = !currentPost.likedByViewer;
+    const optimisticLikeCount = Math.max(
+      0,
+      currentPost.likeCount + (optimisticLikedByViewer ? 1 : -1)
+    );
+
+    setPosts((currentPosts) =>
+      currentPosts.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              likedByViewer: optimisticLikedByViewer,
+              likeCount: optimisticLikeCount,
+            }
+          : post
+      )
+    );
 
     try {
-      await submitJsonRequest(COMMUNITY_FEED_ENDPOINT.like(communitySlug, postId));
-      refreshFeed();
+      const response = await submitJsonRequest<ToggleLikeResponse>(
+        COMMUNITY_FEED_ENDPOINT.like(actionCommunitySlug, postId)
+      );
+
+      if (!isCurrentAction(actionToken, actionCommunitySlug)) {
+        return;
+      }
+
+      if (
+        typeof response.likedByViewer !== "boolean" ||
+        typeof response.likeCount !== "number"
+      ) {
+        throw new Error(COMMUNITY_FEED_COPY.toggleLikeError);
+      }
+
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                likedByViewer: response.likedByViewer as boolean,
+                likeCount: response.likeCount as number,
+              }
+            : post
+        )
+      );
     } catch (error) {
+      if (!isCurrentAction(actionToken, actionCommunitySlug)) {
+        return;
+      }
+
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                likedByViewer: currentPost.likedByViewer,
+                likeCount: currentPost.likeCount,
+              }
+            : post
+        )
+      );
       toast.error(
         error instanceof Error ? error.message : COMMUNITY_FEED_COPY.toggleLikeError
       );
     } finally {
-      setPendingActionId(null);
+      if (isCurrentAction(actionToken, actionCommunitySlug)) {
+        setPendingActionId(null);
+      }
     }
   };
 
@@ -398,7 +552,7 @@ export function CommunityFeed({
         </Dialog>
       ) : null}
 
-      {feed.posts.length === 0 ? (
+      {posts.length === 0 ? (
         <div className={styles.CommunityFeed__empty}>
           <h3 className={styles.CommunityFeed__emptyTitle}>
             {COMMUNITY_FEED_COPY.emptyTitle}
@@ -409,7 +563,7 @@ export function CommunityFeed({
         </div>
       ) : (
         <ol className={styles.CommunityFeed__postList}>
-          {feed.posts.map((post) => (
+          {posts.map((post) => (
             <li className={styles.CommunityFeed__post} key={post.id}>
               <Card className={styles.CommunityFeed__postCard}>
                 <article className={styles.CommunityFeed__postArticle}>

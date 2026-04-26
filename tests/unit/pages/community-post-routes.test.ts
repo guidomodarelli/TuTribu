@@ -24,13 +24,13 @@ class MockJsonResponse {
   status: number;
 
   constructor(
-    private readonly body: Record<string, boolean | string>,
+    private readonly body: Record<string, unknown>,
     init?: ResponseInit
   ) {
     this.status = init?.status ?? 200;
   }
 
-  static json(body: Record<string, boolean | string>, init?: ResponseInit) {
+  static json(body: Record<string, unknown>, init?: ResponseInit) {
     return new MockJsonResponse(body, init);
   }
 
@@ -106,6 +106,22 @@ describe("Community post routes", () => {
 
   it("passes title and content to the community post use case", async () => {
     createCommunityPost.mockResolvedValue({
+      post: {
+        id: "post-1",
+        author: {
+          id: "member-1",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        },
+        comments: [],
+        content: "Primera publicación",
+        createdAt: "2026-04-26T12:00:00.000Z",
+        likedByViewer: false,
+        likeCount: 0,
+        title: "Anuncio inicial",
+      },
       status: "created",
     });
 
@@ -121,6 +137,22 @@ describe("Community post routes", () => {
     expect(response.status).toBe(201);
     expect(body).toEqual({
       message: "Publicacion creada.",
+      post: {
+        id: "post-1",
+        author: {
+          id: "member-1",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        },
+        comments: [],
+        content: "Primera publicación",
+        createdAt: "2026-04-26T12:00:00.000Z",
+        likedByViewer: false,
+        likeCount: 0,
+        title: "Anuncio inicial",
+      },
     });
     expect(createCommunityPost).toHaveBeenCalledWith({
       authorId: "member-1",
@@ -164,6 +196,47 @@ describe("Community post routes", () => {
     expect(createPostComment).not.toHaveBeenCalled();
   });
 
+  it("returns the created comment payload", async () => {
+    createPostComment.mockResolvedValue({
+      comment: {
+        id: "comment-1",
+        author: {
+          id: "member-1",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        },
+        content: "Gracias",
+        createdAt: "2026-04-26T12:05:00.000Z",
+      },
+      status: "created",
+    });
+
+    const response = await POST_COMMENT(
+      buildJsonRequest({ content: "Gracias" }),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body).toEqual({
+      comment: {
+        id: "comment-1",
+        author: {
+          id: "member-1",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        },
+        content: "Gracias",
+        createdAt: "2026-04-26T12:05:00.000Z",
+      },
+      message: "Comentario creado.",
+    });
+  });
+
   it("returns not found when like postId is not a UUID", async () => {
     const response = await POST_LIKE(
       buildJsonRequest(),
@@ -176,5 +249,26 @@ describe("Community post routes", () => {
       message: "No pudimos encontrar la publicacion.",
     });
     expect(togglePostLike).not.toHaveBeenCalled();
+  });
+
+  it("returns the like status and count payload", async () => {
+    togglePostLike.mockResolvedValue({
+      likedByViewer: true,
+      likeCount: 3,
+      status: "liked",
+    });
+
+    const response = await POST_LIKE(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      likedByViewer: true,
+      likeCount: 3,
+      message: "Reaccion actualizada.",
+    });
   });
 });

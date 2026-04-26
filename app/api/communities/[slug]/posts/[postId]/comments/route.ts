@@ -32,7 +32,7 @@ const HTTP_STATUS = {
   unauthorized: 401,
 } as const;
 
-function createJsonResponse(body: Record<string, string>, status: number): Response {
+function createJsonResponse(body: Record<string, unknown>, status: number): Response {
   return Response.json(body, { status });
 }
 
@@ -91,7 +91,10 @@ export async function POST(
     switch (result.status) {
       case POST_MUTATION_STATUS.created:
         return createJsonResponse(
-          { message: CREATE_COMMENT_ROUTE_RESPONSE.successMessage },
+          {
+            comment: result.comment,
+            message: CREATE_COMMENT_ROUTE_RESPONSE.successMessage,
+          },
           HTTP_STATUS.created
         );
       case POST_MUTATION_STATUS.invalidContent:

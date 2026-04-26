@@ -1,18 +1,20 @@
 import { sql } from "drizzle-orm";
 
 import type {
-  CommunityFeedAuthorResult,
   CommunityFeedCommentResult,
   CommunityFeedPostResult,
   CommunityFeedResult,
-  PostAuthorRole,
   PostMembershipStatus,
 } from "@/src/modules/posts/application/results/community-feed-result";
-import { POST_AUTHOR_ROLE, POST_MEMBERSHIP_STATUS } from "@/src/modules/posts/constants/post-feed";
+import { POST_MEMBERSHIP_STATUS } from "@/src/modules/posts/constants/post-feed";
 import type {
   ListCommunityFeedQuery,
   PostFeedReadRepository,
 } from "@/src/modules/posts/domain/repositories/post-feed-read-repository";
+import {
+  createCommunityFeedAuthor,
+  formatPostDateTimeValue,
+} from "@/src/modules/posts/infrastructure/mappers/community-feed-view-model-mapper";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
@@ -40,39 +42,6 @@ type PostFeedRow = {
   viewer_membership_status: string | null;
 };
 
-const POST_FEED_DEFAULTS = {
-  authorFallbackPartCount: 2,
-  unknownAuthorFallback: "??",
-  unknownAuthorName: "Miembro",
-} as const;
-
-function formatDateTime(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : value;
-}
-
-function createAvatarFallback(name: string): string {
-  const fallback = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, POST_FEED_DEFAULTS.authorFallbackPartCount)
-    .map((namePart) => namePart.charAt(0).toUpperCase())
-    .join("");
-
-  return fallback || POST_FEED_DEFAULTS.unknownAuthorFallback;
-}
-
-function normalizeAuthorRole(role: string | null): PostAuthorRole {
-  if (
-    role === POST_AUTHOR_ROLE.owner ||
-    role === POST_AUTHOR_ROLE.admin ||
-    role === POST_AUTHOR_ROLE.member
-  ) {
-    return role;
-  }
-
-  return POST_AUTHOR_ROLE.member;
-}
-
 function normalizeMembershipStatus(status: string | null): PostMembershipStatus | null {
   if (
     status === POST_MEMBERSHIP_STATUS.active ||
@@ -83,28 +52,6 @@ function normalizeMembershipStatus(status: string | null): PostMembershipStatus 
   }
 
   return null;
-}
-
-function createAuthor({
-  id,
-  image,
-  name,
-  role,
-}: {
-  id: string;
-  image: string | null;
-  name: string | null;
-  role: string | null;
-}): CommunityFeedAuthorResult {
-  const safeName = name || POST_FEED_DEFAULTS.unknownAuthorName;
-
-  return {
-    avatarFallback: createAvatarFallback(safeName),
-    id,
-    image,
-    name: safeName,
-    role: normalizeAuthorRole(role),
-  };
 }
 
 function createComment(row: PostFeedRow): CommunityFeedCommentResult | null {
@@ -118,14 +65,14 @@ function createComment(row: PostFeedRow): CommunityFeedCommentResult | null {
   }
 
   return {
-    author: createAuthor({
+    author: createCommunityFeedAuthor({
       id: row.comment_author_id,
       image: row.comment_author_image,
       name: row.comment_author_name,
       role: row.comment_author_role,
     }),
     content: row.comment_content,
-    createdAt: formatDateTime(row.comment_created_at),
+    createdAt: formatPostDateTimeValue(row.comment_created_at),
     id: row.comment_id,
   };
 }
@@ -153,7 +100,7 @@ function mapRowsToFeed(rows: PostFeedRow[]): CommunityFeedResult {
 
     if (!existingPost) {
       postsById.set(row.post_id, {
-        author: createAuthor({
+        author: createCommunityFeedAuthor({
           id: row.author_id,
           image: row.author_image,
           name: row.author_name,
@@ -161,7 +108,7 @@ function mapRowsToFeed(rows: PostFeedRow[]): CommunityFeedResult {
         }),
         comments: [],
         content: row.post_content,
-        createdAt: formatDateTime(row.post_created_at),
+        createdAt: formatPostDateTimeValue(row.post_created_at),
         id: row.post_id,
         likedByViewer: row.liked_by_viewer,
         likeCount: Number(row.like_count),
@@ -194,6 +141,24 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
   }: ListCommunityFeedQuery): Promise<CommunityFeedResult> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
+        with target_community as (
+          select communities.id
+          from public.communities
+          where communities.slug = ${communitySlug}
+          limit 1
+        ),
+        post_like_counts as (
+          select
+            post_reactions.post_id,
+            count(*) as like_count
+          from public.post_reactions
+          inner join public.posts liked_posts
+            on liked_posts.id = post_reactions.post_id
+          inner join target_community
+            on target_community.id = liked_posts.community_id
+          where post_reactions.type = 'like'
+          group by post_reactions.post_id
+        )
         select
           posts.id as post_id,
           posts.title as post_title,
@@ -203,7 +168,7 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
           post_authors.name as author_name,
           post_authors.image as author_image,
           post_members.role as author_role,
-          count(post_reactions.id) filter (where post_reactions.type = 'like') as like_count,
+          coalesce(post_like_counts.like_count, 0) as like_count,
           exists (
             select 1
             from public.post_reactions viewer_reactions
@@ -219,20 +184,19 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
           comment_authors.image as comment_author_image,
           comment_members.role as comment_author_role,
           viewer_members.status as viewer_membership_status
-        from public.communities
+        from target_community
         inner join public.community_members viewer_members
-          on viewer_members.community_id = communities.id
+          on viewer_members.community_id = target_community.id
           and viewer_members.user_id = ${viewerId}
         left join public.posts
-          on posts.community_id = communities.id
+          on posts.community_id = target_community.id
         left join public."user" post_authors
           on post_authors.id = posts.author_id
         left join public.community_members post_members
           on post_members.community_id = posts.community_id
           and post_members.user_id = posts.author_id
-        left join public.post_reactions
-          on post_reactions.post_id = posts.id
-          and post_reactions.type = 'like'
+        left join post_like_counts
+          on post_like_counts.post_id = posts.id
         left join public.post_comments
           on post_comments.post_id = posts.id
         left join public."user" comment_authors
@@ -240,10 +204,10 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
         left join public.community_members comment_members
           on comment_members.community_id = posts.community_id
           and comment_members.user_id = post_comments.author_id
-        where communities.slug = ${communitySlug}
-          and viewer_members.status in ('active', 'muted')
+        where viewer_members.status in ('active', 'muted')
         group by
           posts.id,
+          post_like_counts.like_count,
           post_authors.id,
           post_members.role,
           post_comments.id,

@@ -27,7 +27,7 @@ const HTTP_STATUS = {
 } as const;
 
 function createJsonResponse(
-  body: Record<string, boolean | string>,
+  body: Record<string, boolean | number | string>,
   status: number
 ): Response {
   return Response.json(body, { status });
@@ -79,6 +79,7 @@ export async function POST(
         return createJsonResponse(
           {
             likedByViewer: result.likedByViewer,
+            likeCount: result.likeCount,
             message: TOGGLE_POST_LIKE_ROUTE_RESPONSE.successMessage,
           },
           HTTP_STATUS.ok

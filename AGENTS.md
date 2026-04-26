@@ -294,6 +294,10 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 - When a route needs client-side fetching plus auth/session state, prefer a container/presenter split:
   - route-level client container owns session, fetch, mutation state, and validation flow
   - presentational component renders props and emits callbacks only
+- Interactive mutations must prefer incremental responses over full route refreshes when the mutated UI can be updated from a safe application result.
+- Route handlers or Server Actions that serve user-triggered mutations should return the minimum view model needed to update the affected UI state, instead of forcing the client to reload the whole route.
+- A full refresh after a mutation is allowed only when it is explicitly justified by broad cache invalidation, data that cannot be reconstructed safely from the mutation result, security or authorization state changes, or critical cross-view synchronization.
+- Tests for user-triggered mutations must assert that the interaction does not trigger a full route refresh unless the refresh exception is documented in the test or adjacent implementation.
 
 ## 5. Better Auth and Authorization
 

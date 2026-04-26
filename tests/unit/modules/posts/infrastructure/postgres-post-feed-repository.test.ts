@@ -143,4 +143,81 @@ describe("PostgresPostFeedRepository", () => {
       posts: [],
     });
   });
+
+  it("uses preaggregated like counts so comments do not multiply reactions", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          post_id: "post-1",
+          post_content: "Bienvenida",
+          post_created_at: "2026-04-26T12:00:00.000Z",
+          post_title: "Anuncio inicial",
+          author_id: "owner-1",
+          author_name: "Ada Lovelace",
+          author_image: null,
+          author_role: "owner",
+          like_count: "1",
+          liked_by_viewer: true,
+          comment_id: "comment-1",
+          comment_content: "Gracias",
+          comment_created_at: "2026-04-26T12:05:00.000Z",
+          comment_author_id: "member-1",
+          comment_author_name: "Grace Hopper",
+          comment_author_image: null,
+          comment_author_role: "member",
+          viewer_membership_status: "active",
+        },
+        {
+          post_id: "post-1",
+          post_content: "Bienvenida",
+          post_created_at: "2026-04-26T12:00:00.000Z",
+          post_title: "Anuncio inicial",
+          author_id: "owner-1",
+          author_name: "Ada Lovelace",
+          author_image: null,
+          author_role: "owner",
+          like_count: "1",
+          liked_by_viewer: true,
+          comment_id: "comment-2",
+          comment_content: "Vamos",
+          comment_created_at: "2026-04-26T12:06:00.000Z",
+          comment_author_id: "member-2",
+          comment_author_name: "Katherine Johnson",
+          comment_author_image: null,
+          comment_author_role: "member",
+          viewer_membership_status: "active",
+        },
+      ],
+    }));
+    const repository = new PostgresPostFeedRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listByCommunitySlug({
+        communitySlug: "matematica-pro",
+        viewerId: "member-1",
+      })
+    ).resolves.toMatchObject({
+      posts: [
+        {
+          id: "post-1",
+          likeCount: 1,
+          comments: [
+            { id: "comment-1" },
+            { id: "comment-2" },
+          ],
+        },
+      ],
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain("post_like_counts");
+    expect(sqlText).toContain("with target_community as");
+    expect(sqlText).toContain("where communities.slug =");
+    expect(sqlText).toContain("inner join public.posts liked_posts");
+    expect(sqlText).toContain("on target_community.id = liked_posts.community_id");
+    expect(sqlText).not.toContain("count(post_reactions.id) filter");
+  });
 });
