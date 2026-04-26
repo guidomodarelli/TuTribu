@@ -43,15 +43,17 @@ describe("CommunitySwitcher", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the current community name in the trigger on a community route", () => {
+  it("keeps the community dropdown trigger unnamed on a community route", () => {
     (usePathname as jest.Mock).mockReturnValue("/comunidad/beta-club");
 
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
-    expect(screen.getByRole("button", { name: /beta club/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /abrir comunidades/i })
+    ).toBeInTheDocument();
     expect(screen.getByText("privada")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /^comunidades$/i })
+      screen.queryByRole("button", { name: /beta club/i })
     ).not.toBeInTheDocument();
   });
 
@@ -102,7 +104,7 @@ describe("CommunitySwitcher", () => {
 
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
-    await user.click(screen.getByRole("button", { name: /beta club/i }));
+    await user.click(screen.getByRole("button", { name: /abrir comunidades/i }));
 
     expect(screen.getByRole("menuitem", { name: /beta club/i })).toHaveAttribute(
       "data-active",

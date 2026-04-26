@@ -95,6 +95,52 @@ describe("AppSidebar", () => {
     expect(screen.getByText("AO")).toHaveClass("AppSidebar__brandMark");
   });
 
+  it("replaces the product brand with the active community identity inside a community", () => {
+    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+
+    render(
+      <AppSidebar
+        authenticatedMember={null}
+        memberCommunities={[
+          {
+            communityId: "community-1",
+            name: "Matematica Pro",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText("MA")).toHaveClass("AppSidebar__brandMark");
+    expect(screen.getAllByText("Matematica Pro")[0]).toHaveClass(
+      "AppSidebar__brandName"
+    );
+    expect(screen.queryByText("AO")).not.toBeInTheDocument();
+    expect(screen.queryByText("AcademiaOnline")).not.toBeInTheDocument();
+  });
+
+  it("navigates to the active community home when the community brand is clicked", async () => {
+    const user = userEvent.setup();
+    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro/eventos");
+
+    render(
+      <AppSidebar
+        authenticatedMember={null}
+        memberCommunities={[
+          {
+            communityId: "community-1",
+            name: "Matematica Pro",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /matematica pro/i }));
+
+    expect(pushMock).toHaveBeenCalledWith("/comunidad/matematica-pro");
+  });
+
   it("renders discovery below the create action and before member communities", () => {
     render(
       <AppSidebar
@@ -168,9 +214,8 @@ describe("AppSidebar", () => {
     expect(screen.queryByText("Cuenta")).not.toBeInTheDocument();
   });
 
-  it("marks the current community as active and navigates when another community is clicked", async () => {
+  it("navigates to a member community from the global communities section", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/beta-club");
 
     render(
       <AppSidebar
@@ -199,9 +244,8 @@ describe("AppSidebar", () => {
 
     expect(screen.getByRole("button", { name: /beta club/i })).toHaveAttribute(
       "data-active",
-      "true"
+      "false"
     );
-    expect(screen.getByRole("button", { name: /beta club/i }).querySelector(".lucide-check")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /alpha club/i }).querySelector(".lucide-check")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /alpha club/i }));
@@ -241,6 +285,41 @@ describe("AppSidebar", () => {
     expect(screen.getByRole("button", { name: /miembros/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /ranking/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /acerca de/i })).toBeInTheDocument();
+  });
+
+  it("hides the global communities section inside an active community", () => {
+    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+
+    render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "owner@example.com",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        memberCommunities={[
+          {
+            communityId: "community-1",
+            name: "Matematica Pro",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.queryByText(/^Comunidades$/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /nueva comunidad/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /descubrir comunidades/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^matematica pro$/i })
+    ).not.toBeInTheDocument();
   });
 
   it("marks the active community section and navigates to real section routes", async () => {

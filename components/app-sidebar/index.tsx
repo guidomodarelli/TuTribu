@@ -75,6 +75,8 @@ const communitySectionNavigation = [
 ] as const;
 const APP_SIDEBAR_UI = {
   brandButtonSize: "lg",
+  defaultBrandMark: "AO",
+  brandMarkLength: 2,
   collapsible: "icon",
   createCommunityTooltip: "Nueva comunidad",
   nestedRouteSeparator: "/",
@@ -93,6 +95,13 @@ function isSameOrNestedPath(pathname: string, routePath: string): boolean {
   );
 }
 
+function getCommunityBrandMark(communityName: string): string {
+  return communityName
+    .trim()
+    .slice(0, APP_SIDEBAR_UI.brandMarkLength)
+    .toUpperCase();
+}
+
 export function AppSidebar({
   authenticatedMember,
   memberCommunities,
@@ -103,6 +112,13 @@ export function AppSidebar({
   const activeCommunity = memberCommunities.find((community) =>
     isSameOrNestedPath(pathname, ROUTES.communities.bySlug(community.slug))
   );
+  const brandName = activeCommunity?.name ?? siteConfig.name;
+  const brandMark = activeCommunity
+    ? getCommunityBrandMark(activeCommunity.name)
+    : APP_SIDEBAR_UI.defaultBrandMark;
+  const brandPath = activeCommunity
+    ? ROUTES.communities.bySlug(activeCommunity.slug)
+    : ROUTES.home;
 
   return (
     <Sidebar
@@ -115,12 +131,12 @@ export function AppSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton
               size={APP_SIDEBAR_UI.brandButtonSize}
-              tooltip={siteConfig.name}
-              isActive={pathname === ROUTES.home}
-              onClick={() => router.push(ROUTES.home)}
+              tooltip={brandName}
+              isActive={pathname === brandPath}
+              onClick={() => router.push(brandPath)}
             >
-              <span className={styles.AppSidebar__brandMark}>AO</span>
-              <span className={styles.AppSidebar__brandName}>{siteConfig.name}</span>
+              <span className={styles.AppSidebar__brandMark}>{brandMark}</span>
+              <span className={styles.AppSidebar__brandName}>{brandName}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -158,61 +174,66 @@ export function AppSidebar({
             </SidebarGroupContent>
           </SidebarGroup>
         ) : null}
-        <SidebarGroup>
-          <SidebarGroupLabel>Comunidades</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip={APP_SIDEBAR_UI.createCommunityTooltip}
-                  isActive={isCreateCommunityActive}
-                  onClick={() => router.push(ROUTES.communities.create)}
-                >
-                  <PlusCircleIcon />
-                  <span className={styles.AppSidebar__itemLabel}>Nueva comunidad</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip={discoverCommunitiesNavigationItem.label}
-                  isActive={pathname === discoverCommunitiesNavigationItem.href}
-                  onClick={() => router.push(discoverCommunitiesNavigationItem.href)}
-                >
-                  <discoverCommunitiesNavigationItem.icon />
-                  <span className={styles.AppSidebar__itemLabel}>
-                    {discoverCommunitiesNavigationItem.label}
-                  </span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {memberCommunities.map((community) => {
-                const communityPath = ROUTES.communities.bySlug(community.slug);
-                const isCommunityActive =
-                  pathname === communityPath || pathname.startsWith(`${communityPath}/`);
+        {activeCommunity ? null : (
+          <SidebarGroup>
+            <SidebarGroupLabel>Comunidades</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    tooltip={APP_SIDEBAR_UI.createCommunityTooltip}
+                    isActive={isCreateCommunityActive}
+                    onClick={() => router.push(ROUTES.communities.create)}
+                  >
+                    <PlusCircleIcon />
+                    <span className={styles.AppSidebar__itemLabel}>Nueva comunidad</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    tooltip={discoverCommunitiesNavigationItem.label}
+                    isActive={pathname === discoverCommunitiesNavigationItem.href}
+                    onClick={() => router.push(discoverCommunitiesNavigationItem.href)}
+                  >
+                    <discoverCommunitiesNavigationItem.icon />
+                    <span className={styles.AppSidebar__itemLabel}>
+                      {discoverCommunitiesNavigationItem.label}
+                    </span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {memberCommunities.map((community) => {
+                  const communityPath = ROUTES.communities.bySlug(community.slug);
+                  const isCommunityActive =
+                    pathname === communityPath ||
+                    pathname.startsWith(`${communityPath}/`);
 
-                return (
-                  <SidebarMenuItem key={community.communityId}>
-                    <SidebarMenuButton
-                      tooltip={community.name}
-                      isActive={isCommunityActive}
-                      onClick={() => router.push(communityPath)}
-                    >
-                      <UsersIcon />
-                      <span className={styles.AppSidebar__itemLabel}>{community.name}</span>
-                      {isCommunityActive ? (
-                        <CheckIcon className={styles.AppSidebar__activeIcon} />
-                      ) : null}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-            {authenticatedMember && memberCommunities.length === 0 ? (
-              <p className={styles.AppSidebar__emptyState}>
-                Todavia no formas parte de ninguna comunidad
-              </p>
-            ) : null}
-          </SidebarGroupContent>
-        </SidebarGroup>
+                  return (
+                    <SidebarMenuItem key={community.communityId}>
+                      <SidebarMenuButton
+                        tooltip={community.name}
+                        isActive={isCommunityActive}
+                        onClick={() => router.push(communityPath)}
+                      >
+                        <UsersIcon />
+                        <span className={styles.AppSidebar__itemLabel}>
+                          {community.name}
+                        </span>
+                        {isCommunityActive ? (
+                          <CheckIcon className={styles.AppSidebar__activeIcon} />
+                        ) : null}
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+              {authenticatedMember && memberCommunities.length === 0 ? (
+                <p className={styles.AppSidebar__emptyState}>
+                  Todavia no formas parte de ninguna comunidad
+                </p>
+              ) : null}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarRail />
     </Sidebar>

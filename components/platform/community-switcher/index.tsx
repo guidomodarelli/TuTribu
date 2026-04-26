@@ -29,6 +29,7 @@ const COMMUNITY_SWITCHER_UI = {
   privateBadgeAriaLabel: "Comunidad privada",
   privateBadgeLabel: "privada",
   privateBadgeVariant: "outline",
+  triggerAriaLabel: "Abrir comunidades",
   triggerLabel: "Comunidades",
 } as const;
 
@@ -47,7 +48,6 @@ export function CommunitySwitcher({ memberCommunities }: CommunitySwitcherProps)
       pathname.startsWith(`${communityPath}${COMMUNITY_SWITCHER_UI.nestedRouteSeparator}`)
     );
   });
-  const triggerLabel = activeCommunity?.name ?? COMMUNITY_SWITCHER_UI.triggerLabel;
 
   const navigateToCreateCommunity = () => {
     router.push(ROUTES.communities.create);
@@ -64,10 +64,15 @@ export function CommunitySwitcher({ memberCommunities }: CommunitySwitcherProps)
           <button
             type={COMMUNITY_SWITCHER_UI.buttonType}
             className={styles.CommunitySwitcher__trigger}
+            aria-label={
+              activeCommunity ? COMMUNITY_SWITCHER_UI.triggerAriaLabel : undefined
+            }
           >
-            <span className={styles.CommunitySwitcher__label}>
-              {triggerLabel}
-            </span>
+            {activeCommunity ? null : (
+              <span className={styles.CommunitySwitcher__label}>
+                {COMMUNITY_SWITCHER_UI.triggerLabel}
+              </span>
+            )}
             <ChevronDownIcon className={styles.CommunitySwitcher__triggerIcon} />
           </button>
         </DropdownMenuTrigger>
