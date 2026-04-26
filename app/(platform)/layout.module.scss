@@ -28,6 +28,13 @@
     color: var(--muted-foreground);
   }
 
+  &__accountMenu {
+    display: flex;
+    margin-left: auto;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
   &__content {
     display: flex;
     flex: 1;

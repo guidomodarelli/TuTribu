@@ -102,6 +102,24 @@ describe("AppSidebar", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not render the account menu in the sidebar", () => {
+    render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "owner@example.com",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        memberCommunities={[]}
+      />
+    );
+
+    expect(screen.queryByText("Cuenta")).not.toBeInTheDocument();
+  });
+
   it("marks the current community as active and navigates when another community is clicked", async () => {
     const user = userEvent.setup();
     (usePathname as jest.Mock).mockReturnValue("/comunidad/beta-club");

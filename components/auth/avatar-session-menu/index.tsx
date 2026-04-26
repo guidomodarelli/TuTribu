@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { LogInIcon, LogOutIcon } from "lucide-react";
 
-import { GoogleAccountAvatar } from "@/components/auth/google-account-avatar";
 import {
   Avatar,
   AvatarFallback,
@@ -36,8 +35,8 @@ const AVATAR_SESSION_FALLBACK = {
 const AVATAR_SESSION_MENU_UI = {
   accountMenuLabel: "Menu de cuenta",
   buttonType: "button",
-  dropdownAlign: "start",
-  dropdownSide: "top",
+  dropdownAlign: "end",
+  dropdownSide: "bottom",
 } as const;
 
 function getInitials(name: string): string {
@@ -75,12 +74,10 @@ export function AvatarSessionMenu({
           aria-label={AVATAR_SESSION_MENU_UI.accountMenuLabel}
           className={styles.AvatarSessionMenu}
         >
-          <GoogleAccountAvatar
-            fallback={avatarFallback}
-            image={avatarImage}
-            name={avatarName}
-            email={avatarEmail}
-          />
+          <Avatar>
+            {avatarImage ? <AvatarImage alt={avatarName} src={avatarImage} /> : null}
+            <AvatarFallback>{avatarFallback}</AvatarFallback>
+          </Avatar>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -89,10 +86,6 @@ export function AvatarSessionMenu({
         className={styles.AvatarSessionMenu__content}
       >
         <div className={styles.AvatarSessionMenu__header}>
-          <Avatar>
-            {avatarImage ? <AvatarImage alt={avatarName} src={avatarImage} /> : null}
-            <AvatarFallback>{avatarFallback}</AvatarFallback>
-          </Avatar>
           <div className={styles.AvatarSessionMenu__headerIdentity}>
             <span className={styles.AvatarSessionMenu__headerName}>{avatarName}</span>
             <span className={styles.AvatarSessionMenu__headerEmail}>{avatarEmail}</span>

@@ -74,14 +74,40 @@ describe("AvatarSessionMenu", () => {
       />
     );
 
-    expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
-    expect(screen.getByText("grace.hopper@example.com")).toBeInTheDocument();
+    expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument();
+    expect(screen.queryByText("grace.hopper@example.com")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
+
+    expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
+    expect(screen.getByText("grace.hopper@example.com")).toBeInTheDocument();
     await user.click(screen.getByRole("menuitem", { name: /cerrar sesion/i }));
 
     expect(signOutMock).toHaveBeenCalledWith();
     expect(pushMock).toHaveBeenCalledWith("/auth/signin");
+  });
+
+  it("keeps the avatar image only in the menu trigger after opening the dropdown", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <AvatarSessionMenuClient
+        authenticatedMember={{
+          id: "dc2b4b91-7e42-41be-bcb5-a48b61a27740",
+          email: "grace.hopper@example.com",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: "https://example.com/grace-hopper.jpg",
+        }}
+        signInPath="/auth/signin"
+        signOutCallbackUrl="/auth/signin"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
+
+    expect(document.body.querySelectorAll('[data-slot="avatar"]')).toHaveLength(1);
   });
 
   it("prevents duplicate sign-out requests while one is already in flight", async () => {

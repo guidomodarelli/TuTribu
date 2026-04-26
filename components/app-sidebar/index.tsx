@@ -7,12 +7,10 @@ import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type { MemberCommunityListItemResult } from "@/src/modules/communities/application/results/member-community-list-item-result";
-import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 import styles from "./styles.module.scss";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -134,13 +132,6 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <AvatarSessionMenuClient
-          authenticatedMember={authenticatedMember}
-          signInPath={ROUTES.auth.signIn}
-          signOutCallbackUrl={ROUTES.auth.signIn}
-        />
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

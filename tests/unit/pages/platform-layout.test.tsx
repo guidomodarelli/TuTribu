@@ -22,6 +22,12 @@ jest.mock("@/components/app-sidebar", () => ({
   ),
 }));
 
+jest.mock("@/components/auth/avatar-session-menu-client", () => ({
+  AvatarSessionMenuClient: ({ authenticatedMember }: { authenticatedMember: { name: string } | null }) => (
+    <span>Menu de cuenta: {authenticatedMember?.name ?? "Sin sesion"}</span>
+  ),
+}));
+
 jest.mock("@/components/ui/sidebar", () => ({
   SidebarInset: ({
     children,
@@ -91,6 +97,7 @@ describe("PlatformLayout", () => {
 
     expect(screen.getByText("Sidebar")).toBeInTheDocument();
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
+    expect(screen.getByText("Menu de cuenta: Grace Hopper")).toBeInTheDocument();
     expect(screen.getByText("Alpha Club")).toBeInTheDocument();
   });
 

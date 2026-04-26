@@ -1,12 +1,20 @@
 .AvatarSessionMenu {
-  width: 100%;
+  display: inline-flex;
+  width: auto;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
-  text-align: left;
-  transition: color 160ms ease;
+  transition:
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+
+  &:hover {
+    opacity: 0.88;
+  }
 
   &:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--sidebar-ring);
+    box-shadow: 0 0 0 2px var(--ring);
   }
 
   &__content {
@@ -14,10 +22,7 @@
   }
 
   &__header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.375rem 0.25rem;
+    padding: 0.375rem 0.5rem;
   }
 
   &__headerIdentity {
