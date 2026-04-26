@@ -5,12 +5,6 @@
   max-width: 40rem;
   width: 100%;
 
-  &__header {
-    display: grid;
-    gap: 0.5rem;
-  }
-
-  &__title,
   &__emptyTitle,
   &__authorName,
   &__content,
@@ -19,11 +13,6 @@
   &__notice,
   &__emptyDescription {
     margin: 0;
-  }
-
-  &__title {
-    font-size: clamp(1.35rem, 3vw, 2rem);
-    line-height: 1.15;
   }
 
   &__notice,

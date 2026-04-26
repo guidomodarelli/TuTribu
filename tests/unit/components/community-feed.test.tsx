@@ -71,7 +71,7 @@ describe("CommunityFeed", () => {
   it("opens a centered composer modal from the collapsed composer", async () => {
     const user = userEvent.setup();
 
-    render(
+    const { container } = render(
       <CommunityFeed
         authenticatedMember={authenticatedMember}
         communitySlug="matematica-pro"
@@ -79,6 +79,11 @@ describe("CommunityFeed", () => {
       />
     );
 
+    const feedSection = container.querySelector("section");
+
+    expect(feedSection?.firstElementChild).toBe(
+      screen.getByRole("button", { name: "Escribí algo" })
+    );
     expect(screen.getByRole("button", { name: "Escribí algo" })).toBeInTheDocument();
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
 

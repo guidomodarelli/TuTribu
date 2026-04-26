@@ -148,20 +148,14 @@ describe("CommunityPage", () => {
       })
     );
 
+    expect(screen.queryByText("Inicio de comunidad")).not.toBeInTheDocument();
+    expect(screen.queryByText("Matematica Pro")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", {
-        name: "Matematica Pro",
-        level: 1,
-      })
-    ).toBeInTheDocument();
+      screen.queryByText("Compartí novedades, preguntas y recursos con los miembros.")
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Comunidad privada")).not.toBeInTheDocument();
     expect(screen.queryByText("/comunidad/matematica-pro")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", {
-        name: "Publicaciones",
-        level: 2,
-      })
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Publicaciones")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: "Escribí algo",

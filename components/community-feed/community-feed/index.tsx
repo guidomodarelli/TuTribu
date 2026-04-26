@@ -85,7 +85,7 @@ const COMMUNITY_FEED_COPY = {
     member: "Miembro",
     owner: "Propietario",
   },
-  sectionTitle: "Publicaciones",
+  sectionLabel: "Feed de publicaciones",
   submitCommentError: "No pudimos publicar el comentario.",
   submitCommentSuccess: "Comentario publicado.",
   submitPostError: "No pudimos crear la publicacion.",
@@ -106,7 +106,6 @@ const COMMUNITY_FEED_FORM = {
 const COMMUNITY_FEED_ATTRIBUTES = {
   composerAvatarSize: "lg",
   postComposerErrorId: "community-post-composer-error",
-  titleId: "community-feed-title",
 } as const;
 
 const COMMUNITY_FEED_FORMAT = {
@@ -270,21 +269,13 @@ export function CommunityFeed({
   return (
     <section
       className={styles.CommunityFeed}
-      aria-labelledby={COMMUNITY_FEED_ATTRIBUTES.titleId}
+      aria-label={COMMUNITY_FEED_COPY.sectionLabel}
     >
-      <div className={styles.CommunityFeed__header}>
-        <h2
-          className={styles.CommunityFeed__title}
-          id={COMMUNITY_FEED_ATTRIBUTES.titleId}
-        >
-          {COMMUNITY_FEED_COPY.sectionTitle}
-        </h2>
-        {!feed.viewerPermissions.canCreatePost ? (
-          <p className={styles.CommunityFeed__notice}>
-            {COMMUNITY_FEED_COPY.mutedNotice}
-          </p>
-        ) : null}
-      </div>
+      {!feed.viewerPermissions.canCreatePost ? (
+        <p className={styles.CommunityFeed__notice}>
+          {COMMUNITY_FEED_COPY.mutedNotice}
+        </p>
+      ) : null}
 
       {feed.viewerPermissions.canCreatePost ? (
         <Dialog open={isPostComposerOpen} onOpenChange={setIsPostComposerOpen}>
