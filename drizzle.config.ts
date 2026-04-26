@@ -1,10 +1,19 @@
 import type { Config } from "drizzle-kit";
 
 const DATABASE_URL_ENV = "DATABASE_URL";
+const DATABASE_MIGRATION_URL_ENV = "DATABASE_MIGRATION_URL";
 const DATABASE_URL_ERROR_MESSAGE =
-  "Drizzle config requires DATABASE_URL to generate migrations.";
+  "Drizzle config requires DATABASE_MIGRATION_URL or DATABASE_URL to generate migrations.";
 
-const connectionString = process.env[DATABASE_URL_ENV];
+function getOptionalEnvironmentValue(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+
+  return value ? value : undefined;
+}
+
+const connectionString =
+  getOptionalEnvironmentValue(DATABASE_MIGRATION_URL_ENV) ??
+  getOptionalEnvironmentValue(DATABASE_URL_ENV);
 
 if (!connectionString) {
   throw new Error(DATABASE_URL_ERROR_MESSAGE);
@@ -15,6 +24,6 @@ export default {
     url: connectionString,
   },
   dialect: "postgresql",
-  out: "./supabase/migrations",
+  out: "./database/migrations",
   schema: "./src/modules/shared/infrastructure/database/schema.ts",
 } satisfies Config;

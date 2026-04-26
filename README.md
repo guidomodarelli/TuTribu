@@ -23,42 +23,45 @@ npm run test:e2e
 
 Create `.env.local` from `.env.example` and provide:
 
-- `NEXTAUTH_URL`
-- `NEXTAUTH_SECRET`
+- `DATABASE_URL`: runtime Postgres connection string. Use the pooled Neon URL for deployed runtime environments.
+- `DATABASE_MIGRATION_URL`: optional direct Postgres connection string for migrations and tooling.
+- `BETTER_AUTH_URL`
+- `BETTER_AUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 
-Use a strong random value for `NEXTAUTH_SECRET`:
+Use a strong random value for `BETTER_AUTH_SECRET`:
 
 ```bash
 openssl rand -base64 32
 ```
 
-- `SUPABASE_URL`: Supabase project URL.
-- `SUPABASE_PUBLISHABLE_KEY`: Supabase publishable key used by the server-side auth integration.
-
 Local example:
 
 ```dotenv
-SUPABASE_URL=https://your-project-ref.supabase.co
-SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxxx
+DATABASE_URL=postgresql://user:password@host-pooler.region.aws.neon.tech/database?sslmode=require&channel_binding=require
+DATABASE_MIGRATION_URL=postgresql://user:password@host.region.aws.neon.tech/database?sslmode=require&channel_binding=require
+BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_SECRET=replace-with-a-strong-random-secret
+GOOGLE_CLIENT_ID=replace-with-google-client-id
+GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
 ```
 
-## Supabase Auth Setup
+## Better Auth Setup
 
-This project uses Supabase Auth with Google OAuth through SSR cookies.
+This project uses Better Auth with Google OAuth and Neon Postgres through Drizzle and `pg`.
 
 Before testing sign-in locally:
 
-1. Enable Google as an auth provider in the Supabase project.
-2. Add `http://localhost:3000` to the allowed site URLs/origins.
-3. Add `http://localhost:3000/auth/callback` to the redirect allow list.
+1. Configure Google OAuth credentials in Google Cloud Console.
+2. Add the credentials to `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+3. Add `http://localhost:3000` to the allowed app origin for local testing.
 
 Security notes:
 
 - Never commit real secrets to the repository.
-- Keep service-role keys and provider secrets out of the browser.
-- Configure Google provider credentials in Supabase, not in the app runtime.
+- Rotate any database password that was pasted into chat, logs, or issue trackers before using it.
+- Keep database URLs, OAuth secrets, and Better Auth secrets out of the browser.
 
 ## Structure
 

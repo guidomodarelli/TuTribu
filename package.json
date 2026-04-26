@@ -47,7 +47,6 @@
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "sass": "^1.98.0",
-    "supabase": "^2.84.4",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -1,6 +1,6 @@
 # Backend propio separado
 
-Este archivo cubre **unicamente** cuando y como pasaria de `Next.js + Supabase` a un **backend propio separado**.
+Este archivo cubre **unicamente** cuando y como pasaria de `Next.js + Neon` a un **backend propio separado**.
 
 ---
 
@@ -92,16 +92,16 @@ Si ya mantuviste la separacion `domain -> application -> infrastructure`, el cor
 
 ## Fase 1
 
-**Next.js + Supabase**
+**Next.js + Neon**
 
 * UI en App Router
 * mutaciones simples con `Server Actions`
 * endpoints puntuales con `Route Handlers`
-* auth y base relacional en Supabase
+* auth en Better Auth y base relacional en Neon
 
 ## Fase 2
 
-**Next.js + Supabase + workers o jobs**
+**Next.js + Neon + workers o jobs**
 
 * sacas tareas largas del request/response
 * mantenes Next.js como entrada principal
@@ -109,7 +109,7 @@ Si ya mantuviste la separacion `domain -> application -> infrastructure`, el cor
 
 ## Fase 3
 
-**Next.js + backend dedicado + Supabase**
+**Next.js + backend dedicado + Neon**
 
 * Next.js queda como frontend y BFF liviano
 * el backend dedicado absorbe casos complejos

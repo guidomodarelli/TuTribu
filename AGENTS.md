@@ -305,7 +305,7 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 
 ### Data and session behavior
 
-- Use `Supabase Postgres` as the primary application database.
+- Use `Neon Postgres` as the primary application database.
 - Use App Router with server-side session access via Better Auth route handlers and request-scoped database context as the default integration model.
 - When an implemented change affects database structure (`schema`, tables, columns, constraints, indexes, relationships, or RLS-relevant storage layout), include a versioned SQL migration in the same work item.
 - Use the dashboard SQL editor only for quick experiments or debugging. It does not replace a versioned migration committed with the change.
@@ -315,7 +315,7 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 Example SQL migration for a structural change:
 
 ```sql
--- supabase/migrations/20260325090000_create_posts.sql
+-- database/migrations/20260325090000_create_posts.sql
 CREATE TABLE posts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   content text NOT NULL,
@@ -338,7 +338,7 @@ CREATE INDEX idx_posts_user_id ON posts(user_id);
 Example SQL migration for RLS:
 
 ```sql
--- supabase/migrations/20260325091000_posts_rls.sql
+-- database/migrations/20260325091000_posts_rls.sql
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can read own posts"
@@ -421,7 +421,7 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 - `application`
   - Unit tests for use cases using doubles for domain ports.
 - `infrastructure`
-  - Integration tests for adapters, DTO mappers, Supabase auth wiring, and RLS or provider boundaries.
+  - Integration tests for adapters, DTO mappers, Better Auth wiring, and RLS or provider boundaries.
 - `app` and UI
   - React Testing Library tests for server/client component boundaries, rendering, and critical user flows.
 - End-to-end

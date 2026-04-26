@@ -202,7 +202,7 @@ describe("CommunityPage", () => {
       avatarFallback: "GH",
       image: null,
     });
-    getCommunityPageAccess.mockRejectedValue(new Error("Supabase exploded"));
+    getCommunityPageAccess.mockRejectedValue(new Error("Database exploded"));
     (notFound as unknown as jest.Mock).mockImplementation(() => {
       throw new Error("NEXT_NOT_FOUND");
     });

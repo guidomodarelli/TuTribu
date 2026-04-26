@@ -1,10 +1,10 @@
-# Better Auth + Supabase Postgres
+# Better Auth + Neon Postgres
 
 ## Stack vigente
 
 * **Next.js** con App Router
 * **Better Auth** para login, sesion y Google OAuth
-* **Supabase Postgres** como base de datos hospedada
+* **Neon Postgres** como base de datos hospedada
 * **Drizzle ORM** + `pg` para acceso desde la app
 * **RLS simple** con contexto `app.current_user_*`
 * **Arquitectura hexagonal pragmatica**
@@ -13,7 +13,7 @@ Reglas operativas:
 
 * no usar proveedores de autenticacion legacy
 * no usar SDKs de auth ajenos al stack vigente
-* no usar el SDK de Supabase en runtime de auth o data access
+* no usar SDKs propietarios de base de datos en runtime de auth o data access
 
 ---
 
@@ -23,7 +23,7 @@ Para este proyecto:
 
 * **Better Auth** resuelve autenticacion
 * **Google OAuth** es el provider inicial
-* **Supabase** queda solo como Postgres hospedado
+* **Neon** queda como Postgres hospedado
 * **Drizzle** es la capa tipada de persistencia
 * **RLS** protege ownership, membership y tenant scope
 * **`community`** sigue siendo el tenant canonico
@@ -55,11 +55,12 @@ Lo usaria para:
 * transacciones
 * contexto request-scoped para RLS
 
-## Supabase
+## Neon
 
 Lo dejo solo como:
 
 * Postgres hospedado
+* connection pooling para runtime cuando aplique
 * SQL migrations versionadas
 * operacion de base y entorno
 
@@ -88,6 +89,8 @@ app/
   api/
     auth/
       [...all]/
+database/
+  migrations/
 src/
   modules/
     auth/
@@ -112,7 +115,8 @@ src/
 
 # Reglas de migracion
 
-* cualquier cambio estructural sale con migration SQL
-* el corte a Better Auth puede ser destructivo para datos auth-coupled si el work item lo declara
+* cualquier cambio estructural sale con migration SQL en `database/migrations`
+* `DATABASE_URL` es el contrato de runtime; en Neon puede usar host pooled
+* `DATABASE_MIGRATION_URL` es opcional y debe apuntar a una conexion directa cuando el tooling lo requiera
 * `community_members` sigue siendo la fuente de verdad de permisos por comunidad
 * ninguna ruta nueva debe depender de rutas OAuth custom fuera de `/api/auth/[...all]`

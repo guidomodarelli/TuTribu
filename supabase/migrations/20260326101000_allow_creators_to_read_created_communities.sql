@@ -1,3 +1,0 @@
--- No additional SELECT policy is needed here.
--- Community visibility must continue to depend on community_members status,
--- so blocked creators do not regain access through created_by.
