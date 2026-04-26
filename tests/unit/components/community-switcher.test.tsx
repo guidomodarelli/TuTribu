@@ -49,9 +49,16 @@ describe("CommunitySwitcher", () => {
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
     expect(screen.getByRole("button", { name: /beta club/i })).toBeInTheDocument();
+    expect(screen.getByText("privada")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^comunidades$/i })
     ).not.toBeInTheDocument();
+  });
+
+  it("does not render the private badge when no community is active", () => {
+    render(<CommunitySwitcher memberCommunities={memberCommunities} />);
+
+    expect(screen.queryByText("privada")).not.toBeInTheDocument();
   });
 
   it("shows actions and member communities without search when opened", async () => {

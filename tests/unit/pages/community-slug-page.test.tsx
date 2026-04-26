@@ -152,7 +152,7 @@ describe("CommunityPage", () => {
         level: 1,
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("Comunidad privada")).toBeInTheDocument();
+    expect(screen.queryByText("Comunidad privada")).not.toBeInTheDocument();
     expect(screen.queryByText("/comunidad/matematica-pro")).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", {

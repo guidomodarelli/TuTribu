@@ -22,8 +22,6 @@ const COMMUNITY_PAGE_LOG = {
 } as const;
 
 const COMMUNITY_HOME_COPY = {
-  accessLabel: "Acceso",
-  privateVisibilityLabel: "Comunidad privada",
   subtitle: "Compartí novedades, preguntas y recursos con los miembros.",
   welcomeEyebrow: "Inicio de comunidad",
 } as const;
@@ -122,17 +120,6 @@ export default async function CommunityPage({
             {COMMUNITY_HOME_COPY.subtitle}
           </p>
         </div>
-
-        <dl className={styles.CommunityPage__metadata}>
-          <div className={styles.CommunityPage__metadataItem}>
-            <dt className={styles.CommunityPage__metadataLabel}>
-              {COMMUNITY_HOME_COPY.accessLabel}
-            </dt>
-            <dd className={styles.CommunityPage__metadataValue}>
-              {COMMUNITY_HOME_COPY.privateVisibilityLabel}
-            </dd>
-          </div>
-        </dl>
       </section>
 
       <CommunityFeed communitySlug={community.slug} feed={feed} />

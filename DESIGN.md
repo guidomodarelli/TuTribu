@@ -34,6 +34,25 @@ existing card requested by the user. If a grouped area is needed, prefer plain
 semantic structure such as `section`, `header`, `div`, `dl`, `ul`, or `form`
 with restrained spacing and typography.
 
+## Component Library
+
+Always prioritize `shadcn/ui` components for interface building blocks before
+creating product-specific custom UI. If a needed `shadcn/ui` component does not
+exist in `components/ui`, install it with the official CLI before using it:
+
+```bash
+npx shadcn@latest add <component>
+```
+
+Do not hand-copy `shadcn/ui` component source from documentation or external
+repositories. Keep generated `shadcn/ui` files in `components/ui` close to their
+defaults, and customize screens through composition plus product SCSS Modules.
+
+Only create a product-specific custom component when no suitable `shadcn/ui`
+component exists after checking the library and CLI options. Custom components
+must respect the visual language, spacing, tokens, interaction patterns, and
+SCSS Module conventions already present in the platform.
+
 ## Layout
 
 - Use the page itself as the main surface.

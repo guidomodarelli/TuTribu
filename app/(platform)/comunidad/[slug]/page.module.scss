@@ -40,38 +40,4 @@
     font-size: clamp(1rem, 2vw, 1.15rem);
     line-height: 1.6;
   }
-
-  &__metadata {
-    display: grid;
-    gap: 0.75rem;
-    margin: 0;
-  }
-
-  &__metadataItem {
-    display: grid;
-    gap: 0.2rem;
-  }
-
-  &__metadataLabel {
-    color: var(--muted-foreground);
-    font-size: 0.78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-
-  &__metadataValue {
-    margin: 0;
-    color: var(--foreground);
-    font-size: 0.95rem;
-    font-weight: 600;
-    overflow-wrap: anywhere;
-  }
-}
-
-@media (min-width: 768px) {
-  .CommunityPage {
-    &__header {
-      grid-template-columns: minmax(0, 1fr) minmax(12rem, 18rem);
-    }
-  }
 }
