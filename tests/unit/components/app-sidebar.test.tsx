@@ -200,4 +200,99 @@ describe("AppSidebar", () => {
 
     expect(pushMock).toHaveBeenCalledWith("/comunidad/alpha-club");
   });
+
+  it("renders community sections when the member is inside one of their communities", () => {
+    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+
+    render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "owner@example.com",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        memberCommunities={[
+          {
+            communityId: "community-1",
+            name: "Matematica Pro",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText("Comunidad")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /inicio/i })).toHaveAttribute(
+      "data-active",
+      "true"
+    );
+    expect(screen.getByRole("button", { name: /eventos/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /miembros/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /ranking/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /acerca de/i })).toBeInTheDocument();
+  });
+
+  it("marks the active community section and navigates to real section routes", async () => {
+    const user = userEvent.setup();
+    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro/eventos");
+
+    render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "owner@example.com",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        memberCommunities={[
+          {
+            communityId: "community-1",
+            name: "Matematica Pro",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /eventos/i })).toHaveAttribute(
+      "data-active",
+      "true"
+    );
+
+    await user.click(screen.getByRole("button", { name: /miembros/i }));
+
+    expect(pushMock).toHaveBeenCalledWith("/comunidad/matematica-pro/miembros");
+  });
+
+  it("does not render community sections outside an active member community", () => {
+    (usePathname as jest.Mock).mockReturnValue("/");
+
+    render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "owner@example.com",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        memberCommunities={[
+          {
+            communityId: "community-1",
+            name: "Matematica Pro",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.queryByText("Comunidad")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /inicio/i })).not.toBeInTheDocument();
+  });
 });

@@ -1,6 +1,15 @@
 "use client";
 
-import { CheckIcon, CompassIcon, PlusCircleIcon, UsersIcon } from "lucide-react";
+import {
+  CalendarDaysIcon,
+  CheckIcon,
+  CompassIcon,
+  HomeIcon,
+  InfoIcon,
+  PlusCircleIcon,
+  TrophyIcon,
+  UsersIcon,
+} from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { siteConfig } from "@/lib/site-config";
@@ -29,10 +38,48 @@ const primaryNavigation = [
     label: "Descubrir comunidades",
   },
 ];
+const communitySectionNavigation = [
+  {
+    hrefBuilder: ROUTES.communities.bySlug,
+    icon: HomeIcon,
+    label: "Inicio",
+    matchPath: (pathname: string, communitySlug: string) =>
+      pathname === ROUTES.communities.bySlug(communitySlug),
+  },
+  {
+    hrefBuilder: ROUTES.communities.events,
+    icon: CalendarDaysIcon,
+    label: "Eventos",
+    matchPath: (pathname: string, communitySlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.communities.events(communitySlug)),
+  },
+  {
+    hrefBuilder: ROUTES.communities.members,
+    icon: UsersIcon,
+    label: "Miembros",
+    matchPath: (pathname: string, communitySlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.communities.members(communitySlug)),
+  },
+  {
+    hrefBuilder: ROUTES.communities.ranking,
+    icon: TrophyIcon,
+    label: "Ranking",
+    matchPath: (pathname: string, communitySlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.communities.ranking(communitySlug)),
+  },
+  {
+    hrefBuilder: ROUTES.communities.about,
+    icon: InfoIcon,
+    label: "Acerca de",
+    matchPath: (pathname: string, communitySlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.communities.about(communitySlug)),
+  },
+] as const;
 const APP_SIDEBAR_UI = {
   brandButtonSize: "lg",
   collapsible: "icon",
   createCommunityTooltip: "Nueva comunidad",
+  nestedRouteSeparator: "/",
   variant: "sidebar",
 } as const;
 
@@ -41,6 +88,13 @@ type AppSidebarProps = {
   memberCommunities: MemberCommunityListItemResult[];
 };
 
+function isSameOrNestedPath(pathname: string, routePath: string): boolean {
+  return (
+    pathname === routePath ||
+    pathname.startsWith(`${routePath}${APP_SIDEBAR_UI.nestedRouteSeparator}`)
+  );
+}
+
 export function AppSidebar({
   authenticatedMember,
   memberCommunities,
@@ -48,6 +102,9 @@ export function AppSidebar({
   const pathname = usePathname();
   const router = useRouter();
   const isCreateCommunityActive = pathname === ROUTES.communities.create;
+  const activeCommunity = memberCommunities.find((community) =>
+    isSameOrNestedPath(pathname, ROUTES.communities.bySlug(community.slug))
+  );
 
   return (
     <Sidebar
@@ -91,6 +148,37 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {activeCommunity ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Comunidad</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {communitySectionNavigation.map((item) => {
+                  const sectionPath = item.hrefBuilder(activeCommunity.slug);
+                  const isSectionActive = item.matchPath(
+                    pathname,
+                    activeCommunity.slug
+                  );
+
+                  return (
+                    <SidebarMenuItem key={item.label}>
+                      <SidebarMenuButton
+                        tooltip={item.label}
+                        isActive={isSectionActive}
+                        onClick={() => router.push(sectionPath)}
+                      >
+                        <item.icon />
+                        <span className={styles.AppSidebar__itemLabel}>
+                          {item.label}
+                        </span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
         <SidebarGroup>
           <SidebarGroupLabel>Comunidades</SidebarGroupLabel>
           <SidebarGroupContent>
