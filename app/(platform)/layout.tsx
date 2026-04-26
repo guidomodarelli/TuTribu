@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
+import { CommunitySwitcher } from "@/components/platform/community-switcher";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ROUTES } from "@/src/constants/routes";
@@ -27,7 +28,7 @@ export default async function PlatformLayout({
         <SidebarInset className={styles.PlatformLayout}>
           <header className={styles.PlatformLayout__header}>
             <SidebarTrigger className={styles.PlatformLayout__trigger} />
-            <p className={styles.PlatformLayout__title}>Panel principal</p>
+            <CommunitySwitcher memberCommunities={memberCommunities} />
             <div className={styles.PlatformLayout__accountMenu}>
               <AvatarSessionMenuClient
                 authenticatedMember={authenticatedMember}

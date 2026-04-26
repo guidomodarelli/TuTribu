@@ -17,6 +17,10 @@
     display: inline;
   }
 
+  &__activeIcon {
+    margin-left: auto;
+  }
+
   &__emptyState {
     margin: 0.5rem 0 0;
     padding-inline: 0.5rem;
@@ -29,6 +33,7 @@
 :global(.group[data-collapsible="icon"]) .AppSidebar {
   &__brandName,
   &__itemLabel,
+  &__activeIcon,
   &__emptyState {
     display: none;
   }

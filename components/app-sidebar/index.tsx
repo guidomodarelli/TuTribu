@@ -1,6 +1,6 @@
 "use client";
 
-import { CompassIcon, PlusCircleIcon, UsersIcon } from "lucide-react";
+import { CheckIcon, CompassIcon, PlusCircleIcon, UsersIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { siteConfig } from "@/lib/site-config";
@@ -119,6 +119,9 @@ export function AppSidebar({
                     >
                       <UsersIcon />
                       <span className={styles.AppSidebar__itemLabel}>{community.name}</span>
+                      {isCommunityActive ? (
+                        <CheckIcon className={styles.AppSidebar__activeIcon} />
+                      ) : null}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );

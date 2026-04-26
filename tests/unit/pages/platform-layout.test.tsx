@@ -28,6 +28,18 @@ jest.mock("@/components/auth/avatar-session-menu-client", () => ({
   ),
 }));
 
+jest.mock("@/components/platform/community-switcher", () => ({
+  CommunitySwitcher: ({
+    memberCommunities,
+  }: {
+    memberCommunities: Array<{ name: string }>;
+  }) => (
+    <span>
+      Selector de comunidades: {memberCommunities.map((community) => community.name).join(",")}
+    </span>
+  ),
+}));
+
 jest.mock("@/components/ui/sidebar", () => ({
   SidebarInset: ({
     children,
@@ -98,6 +110,7 @@ describe("PlatformLayout", () => {
     expect(screen.getByText("Sidebar")).toBeInTheDocument();
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
     expect(screen.getByText("Menu de cuenta: Grace Hopper")).toBeInTheDocument();
+    expect(screen.getByText("Selector de comunidades: Alpha Club")).toBeInTheDocument();
     expect(screen.getByText("Alpha Club")).toBeInTheDocument();
   });
 

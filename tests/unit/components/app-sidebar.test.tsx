@@ -167,6 +167,8 @@ describe("AppSidebar", () => {
       "data-active",
       "true"
     );
+    expect(screen.getByRole("button", { name: /beta club/i }).querySelector(".lucide-check")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /alpha club/i }).querySelector(".lucide-check")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /alpha club/i }));
 
