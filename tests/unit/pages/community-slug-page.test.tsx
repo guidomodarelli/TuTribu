@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
@@ -57,7 +57,7 @@ describe("CommunityPage", () => {
     });
   });
 
-  it("renders an empty community workspace when access is visible", async () => {
+  it("renders the community operational home when access is visible", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
       email: "owner@example.com",
@@ -76,7 +76,7 @@ describe("CommunityPage", () => {
       },
     });
 
-    const { container } = render(
+    render(
       await CommunityPage({
         params: Promise.resolve({
           slug: "matematica-pro",
@@ -84,8 +84,32 @@ describe("CommunityPage", () => {
       })
     );
 
-    expect(container.querySelector("main")).toBeInTheDocument();
-    expect(container.textContent).toBe("");
+    expect(
+      screen.getByRole("heading", {
+        name: "Matematica Pro",
+        level: 1,
+      })
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Comunidad privada")).toHaveLength(2);
+    expect(screen.getByText("/comunidad/matematica-pro")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "Próximos espacios",
+        level: 2,
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "Estado de la comunidad",
+        level: 2,
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "Atajos",
+        level: 2,
+      })
+    ).toBeInTheDocument();
   });
 
   it("returns 404 and logs unauthenticated hidden access", async () => {

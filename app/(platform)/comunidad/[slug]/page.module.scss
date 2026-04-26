@@ -1,3 +1,182 @@
 .CommunityPage {
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 2.5rem);
   min-height: 100%;
+  padding: clamp(1rem, 3vw, 2rem);
+
+  &__header {
+    display: grid;
+    gap: 1.25rem;
+    align-items: end;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+    padding-bottom: clamp(1.5rem, 4vw, 2.25rem);
+  }
+
+  &__identity {
+    display: grid;
+    gap: 0.65rem;
+    max-width: 46rem;
+  }
+
+  &__eyebrow {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in oklch, var(--primary) 76%, var(--foreground));
+  }
+
+  &__title {
+    margin: 0;
+    font-size: clamp(2rem, 6vw, 4rem);
+    line-height: 0.95;
+  }
+
+  &__subtitle {
+    margin: 0;
+    max-width: 40rem;
+    color: color-mix(in oklch, var(--foreground) 70%, transparent);
+    font-size: clamp(1rem, 2vw, 1.15rem);
+    line-height: 1.6;
+  }
+
+  &__metadata {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+  }
+
+  &__metadataItem,
+  &__statusItem {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  &__metadataLabel {
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  &__metadataValue {
+    margin: 0;
+    color: var(--foreground);
+    font-size: 0.95rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  &__welcome {
+    display: grid;
+    gap: clamp(1.5rem, 4vw, 2.25rem);
+    align-items: start;
+    padding-block: clamp(0.5rem, 2vw, 1rem);
+  }
+
+  &__welcomeContent {
+    display: grid;
+    gap: 0.75rem;
+    max-width: 43rem;
+  }
+
+  &__sectionTitle {
+    margin: 0;
+    font-size: clamp(1.25rem, 3vw, 1.8rem);
+    line-height: 1.15;
+  }
+
+  &__bodyText {
+    margin: 0;
+    color: color-mix(in oklch, var(--foreground) 72%, transparent);
+    line-height: 1.65;
+  }
+
+  &__actionList {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__actionItem {
+    display: grid;
+    gap: 0.25rem;
+    border-left: 0.2rem solid color-mix(in oklch, var(--primary) 72%, transparent);
+    padding: 0.25rem 0 0.25rem 0.85rem;
+  }
+
+  &__actionLabel {
+    font-weight: 700;
+  }
+
+  &__actionDescription {
+    color: var(--muted-foreground);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  &__details {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  &__detailSection {
+    display: grid;
+    gap: 1rem;
+    align-content: start;
+    border-top: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+    padding-top: 1.25rem;
+  }
+
+  &__list {
+    display: grid;
+    gap: 0.65rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__listItem {
+    position: relative;
+    padding-left: 1rem;
+    color: color-mix(in oklch, var(--foreground) 78%, transparent);
+    line-height: 1.5;
+
+    &::before {
+      position: absolute;
+      top: 0.72em;
+      left: 0;
+      width: 0.35rem;
+      height: 0.35rem;
+      border-radius: 999rem;
+      background-color: var(--primary);
+      content: "";
+    }
+  }
+
+  &__statusList {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .CommunityPage {
+    &__header {
+      grid-template-columns: minmax(0, 1fr) minmax(12rem, 18rem);
+    }
+
+    &__welcome {
+      grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
+    }
+
+    &__details {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
 }
