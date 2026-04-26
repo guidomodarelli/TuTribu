@@ -1,7 +1,14 @@
 import { render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import PlatformLayout from "@/app/(platform)/layout";
 import { createRequestModules } from "@/src/modules/setup";
+
+const platformLayoutStyles = readFileSync(
+  join(process.cwd(), "app", "(platform)", "layout.module.scss"),
+  "utf8"
+);
 
 const getAuthenticatedMember = jest.fn();
 const getMemberCommunities = jest.fn();
@@ -126,5 +133,11 @@ describe("PlatformLayout", () => {
 
     expect(getMemberCommunities).not.toHaveBeenCalled();
     expect(screen.getByText("Sin sesion")).toBeInTheDocument();
+  });
+
+  it("keeps the platform header sticky without clipping it from the layout container", () => {
+    expect(platformLayoutStyles).toMatch(/&__header\s*{[^}]*position:\s*sticky;/s);
+    expect(platformLayoutStyles).toMatch(/&__header\s*{[^}]*top:\s*0;/s);
+    expect(platformLayoutStyles).not.toMatch(/\.PlatformLayout\s*{[^}]*overflow:\s*hidden;/s);
   });
 });

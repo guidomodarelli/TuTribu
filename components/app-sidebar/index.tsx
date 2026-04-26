@@ -33,7 +33,7 @@ const APP_SIDEBAR_UI = {
   brandButtonSize: "lg",
   collapsible: "icon",
   createCommunityTooltip: "Nueva comunidad",
-  variant: "inset",
+  variant: "sidebar",
 } as const;
 
 type AppSidebarProps = {
@@ -70,7 +70,7 @@ export function AppSidebar({
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarSeparator />
+      <SidebarSeparator className={styles.AppSidebar__separator} />
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Navegacion</SidebarGroupLabel>

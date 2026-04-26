@@ -3,6 +3,7 @@
     display: inline-flex;
     height: 2rem;
     width: 2rem;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-md);
@@ -15,6 +16,11 @@
   &__brandName,
   &__itemLabel {
     display: inline;
+  }
+
+  &__separator {
+    width: calc(100% - 1rem);
+    margin-inline: 0.5rem;
   }
 
   &__activeIcon {

@@ -16,7 +16,13 @@ jest.mock("@/components/auth/avatar-session-menu-client", () => ({
 }));
 
 jest.mock("@/components/ui/sidebar", () => ({
-  Sidebar: ({ children }: { children: React.ReactNode }) => <aside>{children}</aside>,
+  Sidebar: ({
+    children,
+    variant,
+  }: {
+    children: React.ReactNode;
+    variant?: string;
+  }) => <aside data-variant={variant}>{children}</aside>,
   SidebarContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   SidebarFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   SidebarGroup: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
@@ -41,7 +47,9 @@ jest.mock("@/components/ui/sidebar", () => ({
   ),
   SidebarMenuItem: ({ children }: { children: React.ReactNode }) => <li>{children}</li>,
   SidebarRail: () => null,
-  SidebarSeparator: () => <hr />,
+  SidebarSeparator: ({ className }: { className?: string }) => (
+    <hr className={className} />
+  ),
 }));
 
 describe("AppSidebar", () => {
@@ -67,6 +75,24 @@ describe("AppSidebar", () => {
       "Descubrir comunidades"
     );
     expect(discoveryButton.querySelector(".lucide-compass")).toBeInTheDocument();
+  });
+
+  it("uses the default sidebar variant", () => {
+    render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
+
+    expect(screen.getByRole("complementary")).toHaveAttribute("data-variant", "sidebar");
+  });
+
+  it("keeps the header separator constrained to the sidebar width", () => {
+    render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
+
+    expect(screen.getByRole("separator")).toHaveClass("AppSidebar__separator");
+  });
+
+  it("keeps the brand mark at a stable size during sidebar transitions", () => {
+    render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
+
+    expect(screen.getByText("AO")).toHaveClass("AppSidebar__brandMark");
   });
 
   it("renders the create action before member communities", () => {
