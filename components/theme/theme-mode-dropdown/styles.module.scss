@@ -1,0 +1,12 @@
+.ThemeModeDropdown {
+  border-radius: 999px;
+
+  &__triggerIcon {
+    color: var(--foreground);
+  }
+
+  &__content {
+    min-width: 9rem;
+  }
+}
+

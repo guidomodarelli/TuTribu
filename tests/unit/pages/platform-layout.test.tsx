@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { cookies } from "next/headers";
 
 import PlatformLayout from "@/app/(platform)/layout";
 import { createRequestModules } from "@/src/modules/setup";
@@ -12,6 +13,10 @@ const platformLayoutStyles = readFileSync(
 
 const getAuthenticatedMember = jest.fn();
 const getMemberCommunities = jest.fn();
+
+jest.mock("next/headers", () => ({
+  cookies: jest.fn(),
+}));
 
 jest.mock("@/components/app-sidebar", () => ({
   AppSidebar: ({
@@ -33,6 +38,10 @@ jest.mock("@/components/auth/avatar-session-menu-client", () => ({
   AvatarSessionMenuClient: ({ authenticatedMember }: { authenticatedMember: { name: string } | null }) => (
     <span>Menu de cuenta: {authenticatedMember?.name ?? "Sin sesion"}</span>
   ),
+}));
+
+jest.mock("@/components/theme/theme-mode-dropdown", () => ({
+  ThemeModeDropdown: () => <span>Selector de tema</span>,
 }));
 
 jest.mock("@/components/platform/community-switcher", () => ({
@@ -58,7 +67,13 @@ jest.mock("@/components/ui/sidebar", () => ({
     children: React.ReactNode;
     className?: string;
   }) => <main className={className}>{children}</main>,
-  SidebarProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SidebarProvider: ({
+    children,
+    defaultOpen,
+  }: {
+    children: React.ReactNode;
+    defaultOpen?: boolean;
+  }) => <div data-sidebar-default-open={String(defaultOpen)}>{children}</div>,
   SidebarTrigger: ({ className }: { className?: string }) => (
     <button type="button" className={className}>
       Abrir sidebar
@@ -79,6 +94,9 @@ describe("PlatformLayout", () => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
     getMemberCommunities.mockReset();
+    (cookies as jest.Mock).mockResolvedValue({
+      get: jest.fn(() => undefined),
+    });
 
     (createRequestModules as jest.Mock).mockResolvedValue({
       auth: {
@@ -149,6 +167,53 @@ describe("PlatformLayout", () => {
     expect(
       screen.getByText("Selector de comunidades: trigger false, privada true")
     ).toBeInTheDocument();
+  });
+
+  it("renders the theme selector next to the account menu", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "owner@example.com",
+      name: "Grace Hopper",
+      role: "member",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getMemberCommunities.mockResolvedValue([]);
+
+    render(
+      await PlatformLayout({
+        children: <div>Contenido</div>,
+      })
+    );
+
+    expect(screen.getByText("Selector de tema")).toBeInTheDocument();
+    expect(screen.getByText("Menu de cuenta: Grace Hopper")).toBeInTheDocument();
+  });
+
+  it("restores the collapsed sidebar state from the sidebar cookie", async () => {
+    (cookies as jest.Mock).mockResolvedValue({
+      get: jest.fn(() => ({ value: "false" })),
+    });
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "owner@example.com",
+      name: "Grace Hopper",
+      role: "member",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getMemberCommunities.mockResolvedValue([]);
+
+    const { container } = render(
+      await PlatformLayout({
+        children: <div>Contenido</div>,
+      })
+    );
+
+    expect(container.firstElementChild).toHaveAttribute(
+      "data-sidebar-default-open",
+      "false"
+    );
   });
 
   it("skips member communities when there is no authenticated member", async () => {
