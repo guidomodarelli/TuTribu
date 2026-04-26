@@ -1,10 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { usePathname, useRouter } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
 
 const pushMock = jest.fn();
+const appSidebarStyles = readFileSync(
+  join(process.cwd(), "components", "app-sidebar", "styles.module.scss"),
+  "utf8"
+);
 
 jest.mock("next/navigation", () => ({
   usePathname: jest.fn(),
@@ -35,13 +41,20 @@ jest.mock("@/components/ui/sidebar", () => ({
     onClick,
     tooltip,
     isActive,
+    ...props
   }: {
     children: React.ReactNode;
     onClick?: () => void;
     tooltip?: string;
     isActive?: boolean;
-  }) => (
-    <button type="button" onClick={onClick} data-tooltip={tooltip} data-active={isActive}>
+  } & React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button
+      type="button"
+      onClick={onClick}
+      data-tooltip={tooltip}
+      data-active={isActive}
+      {...props}
+    >
       {children}
     </button>
   ),
@@ -119,7 +132,53 @@ describe("AppSidebar", () => {
     expect(screen.queryByText("AcademiaOnline")).not.toBeInTheDocument();
   });
 
-  it("navigates to the active community home when the community brand is clicked", async () => {
+  it("uses the active community brand button as the community switcher trigger", () => {
+    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+
+    render(
+      <AppSidebar
+        authenticatedMember={null}
+        memberCommunities={[
+          {
+            communityId: "community-1",
+            name: "Matematica Pro",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /matematica pro/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /matematica pro/i }).querySelector(".lucide-chevron-down")
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /matematica pro/i })).not.toHaveAttribute(
+      "data-tooltip"
+    );
+    expect(screen.queryByText("privada")).not.toBeInTheDocument();
+  });
+
+  it("lets the sidebar community switcher occupy the available menu width", () => {
+    expect(appSidebarStyles).toMatch(/&__communitySwitcher\s*{[^}]*display:\s*flex;/s);
+    expect(appSidebarStyles).toMatch(/&__communitySwitcher\s*{[^}]*width:\s*100%;/s);
+  });
+
+  it("keeps long active community names truncated before the chevron", () => {
+    expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*min-width:\s*0;/s);
+    expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*overflow:\s*hidden;/s);
+    expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*text-overflow:\s*ellipsis;/s);
+    expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*white-space:\s*nowrap;/s);
+  });
+
+  it("does not render the community switcher sidebar action outside a community", () => {
+    render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
+
+    expect(
+      screen.queryByRole("button", { name: /abrir comunidades/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens community switcher actions when the active community brand is clicked", async () => {
     const user = userEvent.setup();
     (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro/eventos");
 
@@ -138,7 +197,8 @@ describe("AppSidebar", () => {
 
     await user.click(screen.getByRole("button", { name: /matematica pro/i }));
 
-    expect(pushMock).toHaveBeenCalledWith("/comunidad/matematica-pro");
+    expect(screen.getByRole("menuitem", { name: /nueva comunidad/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /descubrir comunidades/i })).toBeInTheDocument();
   });
 
   it("renders discovery below the create action and before member communities", () => {

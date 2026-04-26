@@ -35,12 +35,12 @@ describe("CommunitySwitcher", () => {
     (usePathname as jest.Mock).mockReturnValue("/");
   });
 
-  it("renders the communities trigger on the home route", () => {
+  it("does not render the communities trigger on the home route", () => {
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
     expect(
-      screen.getByRole("button", { name: /comunidades/i })
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /comunidades/i })
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the community dropdown trigger unnamed on a community route", () => {
@@ -65,10 +65,11 @@ describe("CommunitySwitcher", () => {
 
   it("shows actions and member communities without search when opened", async () => {
     const user = userEvent.setup();
+    (usePathname as jest.Mock).mockReturnValue("/comunidad/beta-club");
 
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
-    await user.click(screen.getByRole("button", { name: /comunidades/i }));
+    await user.click(screen.getByRole("button", { name: /abrir comunidades/i }));
 
     expect(screen.getByRole("menuitem", { name: /nueva comunidad/i })).toBeInTheDocument();
     expect(
@@ -82,18 +83,19 @@ describe("CommunitySwitcher", () => {
 
   it("navigates to create, discovery, and selected community routes", async () => {
     const user = userEvent.setup();
+    (usePathname as jest.Mock).mockReturnValue("/comunidad/beta-club");
 
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
-    await user.click(screen.getByRole("button", { name: /comunidades/i }));
+    await user.click(screen.getByRole("button", { name: /abrir comunidades/i }));
     await user.click(screen.getByRole("menuitem", { name: /nueva comunidad/i }));
     expect(pushMock).toHaveBeenLastCalledWith("/comunidad/crear");
 
-    await user.click(screen.getByRole("button", { name: /comunidades/i }));
+    await user.click(screen.getByRole("button", { name: /abrir comunidades/i }));
     await user.click(screen.getByRole("menuitem", { name: /descubrir comunidades/i }));
     expect(pushMock).toHaveBeenLastCalledWith("/");
 
-    await user.click(screen.getByRole("button", { name: /comunidades/i }));
+    await user.click(screen.getByRole("button", { name: /abrir comunidades/i }));
     await user.click(screen.getByRole("menuitem", { name: /alpha club/i }));
     expect(pushMock).toHaveBeenLastCalledWith("/comunidad/alpha-club");
   });
@@ -119,33 +121,18 @@ describe("CommunitySwitcher", () => {
     ).toHaveAttribute("data-active", "false");
   });
 
-  it("does not mark a community as active on the home route", async () => {
-    const user = userEvent.setup();
-
+  it("does not render community items on the home route", () => {
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
-    await user.click(screen.getByRole("button", { name: /comunidades/i }));
-
-    expect(screen.getByRole("menuitem", { name: /alpha club/i })).toHaveAttribute(
-      "data-active",
-      "false"
-    );
-    expect(screen.getByRole("menuitem", { name: /beta club/i })).toHaveAttribute(
-      "data-active",
-      "false"
-    );
+    expect(screen.queryByText("Alpha Club")).not.toBeInTheDocument();
+    expect(screen.queryByText("Beta Club")).not.toBeInTheDocument();
   });
 
-  it("keeps the base actions available when there are no member communities", async () => {
-    const user = userEvent.setup();
-
+  it("does not render the switcher when there are no member communities", () => {
     render(<CommunitySwitcher memberCommunities={[]} />);
 
-    await user.click(screen.getByRole("button", { name: /comunidades/i }));
-
-    expect(screen.getByRole("menuitem", { name: /nueva comunidad/i })).toBeInTheDocument();
     expect(
-      screen.getByRole("menuitem", { name: /descubrir comunidades/i })
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /comunidades/i })
+    ).not.toBeInTheDocument();
   });
 });

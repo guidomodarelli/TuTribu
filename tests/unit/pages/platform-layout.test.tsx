@@ -37,12 +37,15 @@ jest.mock("@/components/auth/avatar-session-menu-client", () => ({
 
 jest.mock("@/components/platform/community-switcher", () => ({
   CommunitySwitcher: ({
-    memberCommunities,
+    showDropdownTrigger,
+    showPrivateBadge,
   }: {
-    memberCommunities: Array<{ name: string }>;
+    showDropdownTrigger?: boolean;
+    showPrivateBadge?: boolean;
   }) => (
     <span>
-      Selector de comunidades: {memberCommunities.map((community) => community.name).join(",")}
+      Selector de comunidades: trigger {String(showDropdownTrigger)}, privada{" "}
+      {String(showPrivateBadge)}
     </span>
   ),
 }));
@@ -117,8 +120,35 @@ describe("PlatformLayout", () => {
     expect(screen.getByText("Sidebar")).toBeInTheDocument();
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
     expect(screen.getByText("Menu de cuenta: Grace Hopper")).toBeInTheDocument();
-    expect(screen.getByText("Selector de comunidades: Alpha Club")).toBeInTheDocument();
     expect(screen.getByText("Alpha Club")).toBeInTheDocument();
+  });
+
+  it("renders only the private community badge in the platform header", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "owner@example.com",
+      name: "Grace Hopper",
+      role: "member",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getMemberCommunities.mockResolvedValue([
+      {
+        communityId: "community-1",
+        name: "Alpha Club",
+        slug: "alpha-club",
+      },
+    ]);
+
+    render(
+      await PlatformLayout({
+        children: <div>Contenido</div>,
+      })
+    );
+
+    expect(
+      screen.getByText("Selector de comunidades: trigger false, privada true")
+    ).toBeInTheDocument();
   });
 
   it("skips member communities when there is no authenticated member", async () => {

@@ -13,14 +13,34 @@
     color: var(--sidebar-primary-foreground);
   }
 
-  &__brandName,
+  &__brandName {
+    display: inline;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   &__itemLabel {
     display: inline;
+  }
+
+  &__brandChevron {
+    width: 1rem;
+    height: 1rem;
+    margin-left: auto;
+    color: var(--sidebar-foreground);
+    opacity: 0.72;
   }
 
   &__separator {
     width: calc(100% - 1rem);
     margin-inline: 0.5rem;
+  }
+
+  &__communitySwitcher {
+    display: flex;
+    width: 100%;
   }
 
   &__activeIcon {
@@ -38,6 +58,7 @@
 
 :global(.group[data-collapsible="icon"]) .AppSidebar {
   &__brandName,
+  &__brandChevron,
   &__itemLabel,
   &__activeIcon,
   &__emptyState {

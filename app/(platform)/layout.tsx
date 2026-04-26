@@ -28,7 +28,11 @@ export default async function PlatformLayout({
         <SidebarInset className={styles.PlatformLayout}>
           <header className={styles.PlatformLayout__header}>
             <SidebarTrigger className={styles.PlatformLayout__trigger} />
-            <CommunitySwitcher memberCommunities={memberCommunities} />
+            <CommunitySwitcher
+              memberCommunities={memberCommunities}
+              showDropdownTrigger={false}
+              showPrivateBadge
+            />
             <div className={styles.PlatformLayout__accountMenu}>
               <AvatarSessionMenuClient
                 authenticatedMember={authenticatedMember}

@@ -3,6 +3,7 @@
 import {
   CalendarDaysIcon,
   CheckIcon,
+  ChevronDownIcon,
   CompassIcon,
   HomeIcon,
   InfoIcon,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { CommunitySwitcher } from "@/components/platform/community-switcher";
 import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
@@ -129,15 +131,33 @@ export function AppSidebar({
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              size={APP_SIDEBAR_UI.brandButtonSize}
-              tooltip={brandName}
-              isActive={pathname === brandPath}
-              onClick={() => router.push(brandPath)}
-            >
-              <span className={styles.AppSidebar__brandMark}>{brandMark}</span>
-              <span className={styles.AppSidebar__brandName}>{brandName}</span>
-            </SidebarMenuButton>
+            {activeCommunity ? (
+              <CommunitySwitcher
+                className={styles.AppSidebar__communitySwitcher}
+                dropdownTrigger={
+                  <SidebarMenuButton
+                    size={APP_SIDEBAR_UI.brandButtonSize}
+                    isActive={pathname === brandPath}
+                  >
+                    <span className={styles.AppSidebar__brandMark}>{brandMark}</span>
+                    <span className={styles.AppSidebar__brandName}>{brandName}</span>
+                    <ChevronDownIcon className={styles.AppSidebar__brandChevron} />
+                  </SidebarMenuButton>
+                }
+                memberCommunities={memberCommunities}
+                showPrivateBadge={false}
+              />
+            ) : (
+              <SidebarMenuButton
+                size={APP_SIDEBAR_UI.brandButtonSize}
+                tooltip={brandName}
+                isActive={pathname === brandPath}
+                onClick={() => router.push(brandPath)}
+              >
+                <span className={styles.AppSidebar__brandMark}>{brandMark}</span>
+                <span className={styles.AppSidebar__brandName}>{brandName}</span>
+              </SidebarMenuButton>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
