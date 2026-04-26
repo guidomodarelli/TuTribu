@@ -7,11 +7,27 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
+import {
   Card,
   CardContent,
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type { CommunityFeedResult } from "@/src/modules/posts/application/results/community-feed-result";
 import styles from "./styles.module.scss";
 
@@ -53,7 +69,16 @@ const COMMUNITY_FEED_COPY = {
   likeButton: "Me gusta",
   mutedNotice: "Podes leer el feed, pero tu estado actual no permite participar.",
   postButton: "Publicar",
-  postComposerLabel: "Escribir una publicacion",
+  postCancelButton: "Cancelar",
+  postComposerCollapsed: "Escribí algo",
+  postComposerContext: "publicando en la comunidad",
+  postComposerDescription:
+    "Completá el título y el contenido para compartir una publicación en la comunidad.",
+  postComposerDialogTitle: "Crear publicación",
+  postComposerError: "Completá el título y el contenido antes de publicar.",
+  postComposerLabel: "Contenido de la publicación",
+  postComposerTitleLabel: "Título de la publicación",
+  postComposerTitlePlaceholder: "Título",
   postPlaceholder: "Compartí una novedad, pregunta o recurso para la comunidad",
   roleLabel: {
     admin: "Admin",
@@ -79,6 +104,8 @@ const COMMUNITY_FEED_FORM = {
 } as const;
 
 const COMMUNITY_FEED_ATTRIBUTES = {
+  composerAvatarSize: "lg",
+  postComposerErrorId: "community-post-composer-error",
   titleId: "community-feed-title",
 } as const;
 
@@ -93,6 +120,7 @@ const COMMUNITY_FEED_FORMAT = {
 } as const;
 
 type CommunityFeedProps = {
+  authenticatedMember: AuthenticatedMemberResult;
   communitySlug: string;
   feed: CommunityFeedResult;
 };
@@ -134,13 +162,21 @@ function formatPostDateTime(dateTime: string): string {
     );
 }
 
-export function CommunityFeed({ communitySlug, feed }: CommunityFeedProps) {
+export function CommunityFeed({
+  authenticatedMember,
+  communitySlug,
+  feed,
+}: CommunityFeedProps) {
   const router = useRouter();
+  const [isPostComposerOpen, setIsPostComposerOpen] = useState(false);
+  const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
+  const [postComposerError, setPostComposerError] = useState<string | null>(null);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [isRefreshing, startRefresh] = useTransition();
   const isBusy = Boolean(pendingActionId) || isRefreshing;
+  const isPostSubmitDisabled = isBusy || !postTitle.trim() || !postContent.trim();
 
   const refreshFeed = () => {
     startRefresh(() => {
@@ -150,10 +186,12 @@ export function CommunityFeed({ communitySlug, feed }: CommunityFeedProps) {
 
   const handleCreatePost = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const title = postTitle.trim();
     const content = postContent.trim();
 
-    if (!content) {
-      toast.warning(COMMUNITY_FEED_COPY.postPlaceholder);
+    if (!title || !content) {
+      setPostComposerError(COMMUNITY_FEED_COPY.postComposerError);
+      toast.warning(COMMUNITY_FEED_COPY.postComposerError);
       return;
     }
 
@@ -162,8 +200,12 @@ export function CommunityFeed({ communitySlug, feed }: CommunityFeedProps) {
     try {
       await submitJsonRequest(COMMUNITY_FEED_ENDPOINT.post(communitySlug), {
         content,
+        title,
       });
+      setPostTitle("");
       setPostContent("");
+      setPostComposerError(null);
+      setIsPostComposerOpen(false);
       toast.success(COMMUNITY_FEED_COPY.submitPostSuccess);
       refreshFeed();
     } catch (error) {
@@ -245,34 +287,124 @@ export function CommunityFeed({ communitySlug, feed }: CommunityFeedProps) {
       </div>
 
       {feed.viewerPermissions.canCreatePost ? (
-        <Card className={styles.CommunityFeed__composerCard}>
-          <form
-            className={styles.CommunityFeed__composer}
-            onSubmit={handleCreatePost}
+        <Dialog open={isPostComposerOpen} onOpenChange={setIsPostComposerOpen}>
+          <DialogTrigger asChild>
+            <button
+              aria-label={COMMUNITY_FEED_COPY.postComposerCollapsed}
+              className={styles.CommunityFeed__composerTrigger}
+              type={COMMUNITY_FEED_FORM.buttonType}
+            >
+              <Avatar
+                className={styles.CommunityFeed__composerAvatar}
+                size={COMMUNITY_FEED_ATTRIBUTES.composerAvatarSize}
+              >
+                {authenticatedMember.image ? (
+                  <AvatarImage
+                    alt={authenticatedMember.name}
+                    src={authenticatedMember.image}
+                  />
+                ) : null}
+                <AvatarFallback>{authenticatedMember.avatarFallback}</AvatarFallback>
+              </Avatar>
+              <span className={styles.CommunityFeed__composerTriggerText}>
+                {COMMUNITY_FEED_COPY.postComposerCollapsed}
+              </span>
+            </button>
+          </DialogTrigger>
+          <DialogContent
+            className={styles.CommunityFeed__composerDialog}
+            showCloseButton={false}
           >
-            <CardContent className={styles.CommunityFeed__composerContent}>
+            <DialogHeader className={styles.CommunityFeed__composerDialogHeader}>
+              <DialogTitle className={styles.CommunityFeed__composerDialogTitle}>
+                {COMMUNITY_FEED_COPY.postComposerDialogTitle}
+              </DialogTitle>
+              <DialogDescription
+                className={styles.CommunityFeed__composerDialogDescription}
+              >
+                {COMMUNITY_FEED_COPY.postComposerDescription}
+              </DialogDescription>
+              <div className={styles.CommunityFeed__composerIdentity}>
+                <Avatar className={styles.CommunityFeed__composerDialogAvatar}>
+                  {authenticatedMember.image ? (
+                    <AvatarImage
+                      alt={authenticatedMember.name}
+                      src={authenticatedMember.image}
+                    />
+                  ) : null}
+                  <AvatarFallback>{authenticatedMember.avatarFallback}</AvatarFallback>
+                </Avatar>
+                <p className={styles.CommunityFeed__composerIdentityText}>
+                  <strong>{authenticatedMember.name}</strong>{" "}
+                  {COMMUNITY_FEED_COPY.postComposerContext}
+                </p>
+              </div>
+            </DialogHeader>
+            <form
+              className={styles.CommunityFeed__composer}
+              onSubmit={handleCreatePost}
+            >
+              <input
+                aria-describedby={
+                  postComposerError
+                    ? COMMUNITY_FEED_ATTRIBUTES.postComposerErrorId
+                    : undefined
+                }
+                aria-label={COMMUNITY_FEED_COPY.postComposerTitleLabel}
+                className={styles.CommunityFeed__titleInput}
+                disabled={isBusy}
+                onChange={(event) => {
+                  setPostTitle(event.currentTarget.value);
+                  setPostComposerError(null);
+                }}
+                placeholder={COMMUNITY_FEED_COPY.postComposerTitlePlaceholder}
+                value={postTitle}
+              />
               <textarea
+                aria-describedby={
+                  postComposerError
+                    ? COMMUNITY_FEED_ATTRIBUTES.postComposerErrorId
+                    : undefined
+                }
                 aria-label={COMMUNITY_FEED_COPY.postComposerLabel}
                 className={styles.CommunityFeed__textarea}
                 disabled={isBusy}
                 onChange={(event) => {
                   setPostContent(event.currentTarget.value);
+                  setPostComposerError(null);
                 }}
                 placeholder={COMMUNITY_FEED_COPY.postPlaceholder}
                 value={postContent}
               />
-            </CardContent>
-            <CardFooter className={styles.CommunityFeed__composerFooter}>
-              <Button
-                disabled={isBusy || !postContent.trim()}
-                type={COMMUNITY_FEED_FORM.submitType}
-              >
-                <SendIcon />
-                {COMMUNITY_FEED_COPY.postButton}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+              {postComposerError ? (
+                <p
+                  className={styles.CommunityFeed__composerError}
+                  id={COMMUNITY_FEED_ATTRIBUTES.postComposerErrorId}
+                >
+                  {postComposerError}
+                </p>
+              ) : null}
+              <DialogFooter className={styles.CommunityFeed__composerFooter}>
+                <DialogClose asChild>
+                  <Button
+                    disabled={isBusy}
+                    type={COMMUNITY_FEED_FORM.buttonType}
+                    variant={COMMUNITY_FEED_FORM.outlineVariant}
+                  >
+                    {COMMUNITY_FEED_COPY.postCancelButton}
+                  </Button>
+                </DialogClose>
+                <Button
+                  disabled={isPostSubmitDisabled}
+                  type={COMMUNITY_FEED_FORM.submitType}
+                >
+                  <SendIcon />
+                  {COMMUNITY_FEED_COPY.postButton}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       ) : null}
 
       {feed.posts.length === 0 ? (
@@ -318,6 +450,11 @@ export function CommunityFeed({ communitySlug, feed }: CommunityFeedProps) {
                 </CardHeader>
 
                 <CardContent className={styles.CommunityFeed__postContent}>
+                  {post.title ? (
+                    <h3 className={styles.CommunityFeed__postTitle}>
+                      {post.title}
+                    </h3>
+                  ) : null}
                   <p className={styles.CommunityFeed__content}>{post.content}</p>
 
                   <div className={styles.CommunityFeed__postActions}>

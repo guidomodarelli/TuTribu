@@ -24,6 +24,7 @@ describe("listCommunityFeed", () => {
             createdAt: "2026-04-26T12:00:00.000Z",
             likedByViewer: true,
             likeCount: 1,
+            title: "Bienvenida",
           },
         ],
       })),

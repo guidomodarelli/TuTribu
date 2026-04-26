@@ -1,4 +1,8 @@
-import { COMMUNITY_POST_CONTENT, POST_MUTATION_STATUS } from "@/src/modules/posts/constants/post-feed";
+import {
+  COMMUNITY_POST_CONTENT,
+  COMMUNITY_POST_TITLE,
+  POST_MUTATION_STATUS,
+} from "@/src/modules/posts/constants/post-feed";
 import type { CreateCommunityPostCommand } from "@/src/modules/posts/application/commands/community-post-command";
 import type { PostCreationResult } from "@/src/modules/posts/application/results/post-mutation-result";
 import type { PostCreationRepository } from "@/src/modules/posts/domain/repositories/post-creation-repository";
@@ -11,10 +15,14 @@ function normalizePostContent(content: string): string {
   return content.trim();
 }
 
-function isInvalidPostContent(content: string): boolean {
+function normalizePostTitle(title: string): string {
+  return title.trim();
+}
+
+function isInvalidText(value: string, limits: { maxLength: number; minLength: number }): boolean {
   return (
-    content.length < COMMUNITY_POST_CONTENT.minLength ||
-    content.length > COMMUNITY_POST_CONTENT.maxLength
+    value.length < limits.minLength ||
+    value.length > limits.maxLength
   );
 }
 
@@ -25,8 +33,12 @@ export function createCommunityPost({
     command: CreateCommunityPostCommand
   ): Promise<PostCreationResult> => {
     const content = normalizePostContent(command.content);
+    const title = normalizePostTitle(command.title);
 
-    if (isInvalidPostContent(content)) {
+    if (
+      isInvalidText(content, COMMUNITY_POST_CONTENT) ||
+      isInvalidText(title, COMMUNITY_POST_TITLE)
+    ) {
       return {
         status: POST_MUTATION_STATUS.invalidContent,
       };
@@ -36,6 +48,7 @@ export function createCommunityPost({
       ...command,
       communitySlug: command.communitySlug.trim(),
       content,
+      title,
     });
   };
 }

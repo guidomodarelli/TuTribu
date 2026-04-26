@@ -5,6 +5,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 
 const CREATE_POST_ROUTE_FIELD = {
   content: "content",
+  title: "title",
 } as const;
 
 const CREATE_POST_ROUTE_LOG = {
@@ -15,7 +16,7 @@ const CREATE_POST_ROUTE_LOG = {
 
 const CREATE_POST_ROUTE_RESPONSE = {
   forbiddenMessage: "No tenes permisos para publicar en esta comunidad.",
-  invalidContentMessage: "Escribi una publicacion antes de enviarla.",
+  invalidContentMessage: "Completá el título y el contenido antes de publicar.",
   notFoundMessage: "No pudimos encontrar la comunidad.",
   successMessage: "Publicacion creada.",
   unexpectedMessage: "No pudimos crear la publicacion. Intentalo de nuevo.",
@@ -43,6 +44,16 @@ function readContentFromBody(body: unknown): string {
   const content = (body as Record<string, unknown>)[CREATE_POST_ROUTE_FIELD.content];
 
   return typeof content === "string" ? content : "";
+}
+
+function readTitleFromBody(body: unknown): string {
+  if (!body || typeof body !== "object" || !(CREATE_POST_ROUTE_FIELD.title in body)) {
+    return "";
+  }
+
+  const title = (body as Record<string, unknown>)[CREATE_POST_ROUTE_FIELD.title];
+
+  return typeof title === "string" ? title : "";
 }
 
 export async function POST(
@@ -76,6 +87,7 @@ export async function POST(
       authorId: authenticatedMember.id,
       communitySlug: slug,
       content: readContentFromBody(body),
+      title: readTitleFromBody(body),
     });
 
     switch (result.status) {

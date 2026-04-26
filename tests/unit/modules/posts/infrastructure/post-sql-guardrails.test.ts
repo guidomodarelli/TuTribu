@@ -20,6 +20,15 @@ describe("Post SQL guardrails", () => {
     expect(migration).toContain("CHECK (type IN ('like'))");
   });
 
+  it("adds a nullable post title for existing feed data", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260426020000_add_post_titles.sql"
+    );
+
+    expect(migration).toContain("ALTER TABLE public.posts");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS title text");
+  });
+
   it("forces RLS and limits write participation to active members", () => {
     const migration = readWorkspaceFile(postsMigrationPath);
 

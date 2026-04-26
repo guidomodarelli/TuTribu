@@ -32,6 +32,7 @@ export type CommunityFeedPostResult = {
   id: string;
   likedByViewer: boolean;
   likeCount: number;
+  title: string | null;
 };
 
 export type CommunityFeedPermissionsResult = {

@@ -36,6 +36,7 @@ type PostFeedRow = {
   post_content: string | null;
   post_created_at: Date | string | null;
   post_id: string | null;
+  post_title: string | null;
   viewer_membership_status: string | null;
 };
 
@@ -164,6 +165,7 @@ function mapRowsToFeed(rows: PostFeedRow[]): CommunityFeedResult {
         id: row.post_id,
         likedByViewer: row.liked_by_viewer,
         likeCount: Number(row.like_count),
+        title: row.post_title,
       });
     }
 
@@ -194,6 +196,7 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
       const result = await database.execute(sql`
         select
           posts.id as post_id,
+          posts.title as post_title,
           posts.content as post_content,
           posts.created_at as post_created_at,
           post_authors.id as author_id,

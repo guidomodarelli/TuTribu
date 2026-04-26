@@ -22,6 +22,38 @@ function getSqlText(statement: unknown): string {
 }
 
 describe("PostgresPostMutationRepository", () => {
+  it("creates posts with a title and an active-member write guard", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          status: "created",
+        },
+      ],
+    }));
+    const repository = new PostgresPostMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.create({
+        authorId: "member-1",
+        communitySlug: "matematica-pro",
+        content: "Primera publicación",
+        title: "Anuncio inicial",
+      })
+    ).resolves.toEqual({
+      status: "created",
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain("insert into public.posts");
+    expect(sqlText).toContain("(community_id, author_id, title, content, updated_at)");
+    expect(sqlText).toContain(
+      "where public.is_active_community_member(target_community.id)"
+    );
+  });
+
   it("toggles likes with an active-member write guard and idempotent upsert", async () => {
     const execute = jest.fn(async () => ({
       rows: [

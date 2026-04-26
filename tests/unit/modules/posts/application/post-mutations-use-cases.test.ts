@@ -14,13 +14,32 @@ describe("post mutation use cases", () => {
         authorId: "member-1",
         communitySlug: "matematica-pro",
         content: "Primera publicación",
+        title: "Bienvenida",
       })
     ).resolves.toEqual({ status: "created" });
     expect(create).toHaveBeenCalledWith({
       authorId: "member-1",
       communitySlug: "matematica-pro",
       content: "Primera publicación",
+      title: "Bienvenida",
     });
+  });
+
+  it("rejects a blank community post title before calling the repository", async () => {
+    const create = jest.fn();
+    const execute = createCommunityPost({
+      postCreationRepository: { create },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        communitySlug: "matematica-pro",
+        content: "Primera publicación",
+        title: "   ",
+      })
+    ).resolves.toEqual({ status: "invalid_content" });
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects a blank community post before calling the repository", async () => {
@@ -34,6 +53,7 @@ describe("post mutation use cases", () => {
         authorId: "member-1",
         communitySlug: "matematica-pro",
         content: "   ",
+        title: "Bienvenida",
       })
     ).resolves.toEqual({ status: "invalid_content" });
     expect(create).not.toHaveBeenCalled();

@@ -74,7 +74,11 @@ export default async function CommunityPage({
         </div>
       </section>
 
-      <CommunityFeed communitySlug={community.slug} feed={feed} />
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug={community.slug}
+        feed={feed}
+      />
     </main>
   );
 }

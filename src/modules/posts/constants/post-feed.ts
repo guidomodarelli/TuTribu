@@ -3,6 +3,11 @@ export const COMMUNITY_POST_CONTENT = {
   minLength: 1,
 } as const;
 
+export const COMMUNITY_POST_TITLE = {
+  maxLength: 120,
+  minLength: 1,
+} as const;
+
 export const POST_COMMENT_CONTENT = {
   maxLength: 1000,
   minLength: 1,

@@ -29,6 +29,7 @@ describe("PostgresPostFeedRepository", () => {
           post_id: "post-1",
           post_content: "Bienvenida",
           post_created_at: "2026-04-26T12:00:00.000Z",
+          post_title: "Anuncio inicial",
           author_id: "owner-1",
           author_name: "Ada Lovelace",
           author_image: null,
@@ -89,6 +90,7 @@ describe("PostgresPostFeedRepository", () => {
           createdAt: "2026-04-26T12:00:00.000Z",
           likedByViewer: true,
           likeCount: 2,
+          title: "Anuncio inicial",
         },
       ],
     });
@@ -105,6 +107,7 @@ describe("PostgresPostFeedRepository", () => {
           post_id: null,
           post_content: null,
           post_created_at: null,
+          post_title: null,
           author_id: null,
           author_name: null,
           author_image: null,

@@ -131,8 +131,8 @@ export class PostgresPostMutationRepository
           limit 1
         ),
         inserted_post as (
-          insert into public.posts (community_id, author_id, content, updated_at)
-          select target_community.id, ${command.authorId}, ${command.content}, timezone('utc', now())
+          insert into public.posts (community_id, author_id, title, content, updated_at)
+          select target_community.id, ${command.authorId}, ${command.title}, ${command.content}, timezone('utc', now())
           from target_community
           where public.is_active_community_member(target_community.id)
           returning id

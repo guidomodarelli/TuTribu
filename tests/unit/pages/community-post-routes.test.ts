@@ -1,9 +1,11 @@
+import { POST as POST_CREATE } from "@/app/api/communities/[slug]/posts/route";
 import { POST as POST_COMMENT } from "@/app/api/communities/[slug]/posts/[postId]/comments/route";
 import { POST as POST_LIKE } from "@/app/api/communities/[slug]/posts/[postId]/like/route";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const getAuthenticatedMember = jest.fn();
+const createCommunityPost = jest.fn();
 const createPostComment = jest.fn();
 const togglePostLike = jest.fn();
 
@@ -57,10 +59,19 @@ function buildRouteContext(postId: string) {
   };
 }
 
+function buildCreateRouteContext() {
+  return {
+    params: Promise.resolve({
+      slug: "matematica-pro",
+    }),
+  };
+}
+
 describe("Community post routes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
+    createCommunityPost.mockReset();
     createPostComment.mockReset();
     togglePostLike.mockReset();
     global.Response = MockJsonResponse as unknown as typeof Response;
@@ -81,6 +92,7 @@ describe("Community post routes", () => {
       },
       posts: {
         useCases: {
+          createCommunityPost,
           createPostComment,
           togglePostLike,
         },
@@ -89,6 +101,52 @@ describe("Community post routes", () => {
     (createServerLogger as jest.Mock).mockReturnValue({
       error: jest.fn(),
       info: jest.fn(),
+    });
+  });
+
+  it("passes title and content to the community post use case", async () => {
+    createCommunityPost.mockResolvedValue({
+      status: "created",
+    });
+
+    const response = await POST_CREATE(
+      buildJsonRequest({
+        content: "Primera publicación",
+        title: "Anuncio inicial",
+      }),
+      buildCreateRouteContext()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body).toEqual({
+      message: "Publicacion creada.",
+    });
+    expect(createCommunityPost).toHaveBeenCalledWith({
+      authorId: "member-1",
+      communitySlug: "matematica-pro",
+      content: "Primera publicación",
+      title: "Anuncio inicial",
+    });
+  });
+
+  it("returns a safe validation message when the community post is invalid", async () => {
+    createCommunityPost.mockResolvedValue({
+      status: "invalid_content",
+    });
+
+    const response = await POST_CREATE(
+      buildJsonRequest({
+        content: "Primera publicación",
+        title: "",
+      }),
+      buildCreateRouteContext()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      message: "Completá el título y el contenido antes de publicar.",
     });
   });
 

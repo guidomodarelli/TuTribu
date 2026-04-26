@@ -119,6 +119,7 @@ describe("CommunityPage", () => {
           createdAt: "2026-04-26T12:00:00.000Z",
           likedByViewer: false,
           likeCount: 2,
+          title: "Anuncio inicial",
         },
         {
           id: "post-2",
@@ -134,6 +135,7 @@ describe("CommunityPage", () => {
           createdAt: "2026-04-26T11:00:00.000Z",
           likedByViewer: true,
           likeCount: 1,
+          title: "Nuevo recurso",
         },
       ],
     });
@@ -161,8 +163,8 @@ describe("CommunityPage", () => {
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("textbox", {
-        name: "Escribir una publicacion",
+      screen.getByRole("button", {
+        name: "Escribí algo",
       })
     ).toBeInTheDocument();
     expect(
@@ -171,6 +173,7 @@ describe("CommunityPage", () => {
       })
     ).toHaveLength(2);
     expect(screen.getByText("Bienvenida a la comunidad")).toBeInTheDocument();
+    expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
     expect(screen.getByText("Gracias por la bienvenida")).toBeInTheDocument();
     expect(screen.getByText("Propietario")).toBeInTheDocument();
     expect(screen.getByText("Admin")).toBeInTheDocument();
@@ -214,8 +217,8 @@ describe("CommunityPage", () => {
     );
 
     expect(
-      screen.queryByRole("textbox", {
-        name: "Escribir una publicacion",
+      screen.queryByRole("button", {
+        name: "Escribí algo",
       })
     ).not.toBeInTheDocument();
     expect(

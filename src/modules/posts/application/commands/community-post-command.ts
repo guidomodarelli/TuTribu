@@ -2,9 +2,13 @@ export type CreateCommunityPostCommand = {
   authorId: string;
   communitySlug: string;
   content: string;
+  title: string;
 };
 
-export type CreatePostCommentCommand = CreateCommunityPostCommand & {
+export type CreatePostCommentCommand = {
+  authorId: string;
+  communitySlug: string;
+  content: string;
   postId: string;
 };
 
