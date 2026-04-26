@@ -31,13 +31,11 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 
-const primaryNavigation = [
-  {
-    href: ROUTES.home,
-    icon: CompassIcon,
-    label: "Descubrir comunidades",
-  },
-];
+const discoverCommunitiesNavigationItem = {
+  href: ROUTES.home,
+  icon: CompassIcon,
+  label: "Descubrir comunidades",
+} as const;
 const communitySectionNavigation = [
   {
     hrefBuilder: ROUTES.communities.bySlug,
@@ -129,25 +127,6 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarSeparator className={styles.AppSidebar__separator} />
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navegacion</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {primaryNavigation.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    tooltip={item.label}
-                    isActive={pathname === item.href}
-                    onClick={() => router.push(item.href)}
-                  >
-                    <item.icon />
-                    <span className={styles.AppSidebar__itemLabel}>{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
         {activeCommunity ? (
           <SidebarGroup>
             <SidebarGroupLabel>Comunidad</SidebarGroupLabel>
@@ -191,6 +170,18 @@ export function AppSidebar({
                 >
                   <PlusCircleIcon />
                   <span className={styles.AppSidebar__itemLabel}>Nueva comunidad</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip={discoverCommunitiesNavigationItem.label}
+                  isActive={pathname === discoverCommunitiesNavigationItem.href}
+                  onClick={() => router.push(discoverCommunitiesNavigationItem.href)}
+                >
+                  <discoverCommunitiesNavigationItem.icon />
+                  <span className={styles.AppSidebar__itemLabel}>
+                    {discoverCommunitiesNavigationItem.label}
+                  </span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {memberCommunities.map((community) => {

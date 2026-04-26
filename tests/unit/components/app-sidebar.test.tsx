@@ -95,7 +95,7 @@ describe("AppSidebar", () => {
     expect(screen.getByText("AO")).toHaveClass("AppSidebar__brandMark");
   });
 
-  it("renders the create action before member communities", () => {
+  it("renders discovery below the create action and before member communities", () => {
     render(
       <AppSidebar
         authenticatedMember={null}
@@ -115,11 +115,19 @@ describe("AppSidebar", () => {
     );
 
     const communityButtons = screen.getAllByRole("button");
+    const createCommunityIndex = communityButtons.findIndex((button) =>
+      button.textContent?.includes("Nueva comunidad")
+    );
+    const discoverCommunitiesIndex = communityButtons.findIndex((button) =>
+      button.textContent?.includes("Descubrir comunidades")
+    );
+    const firstMemberCommunityIndex = communityButtons.findIndex((button) =>
+      button.textContent?.includes("Alpha Club")
+    );
 
     expect(screen.getByText(/^Comunidades$/i)).toBeInTheDocument();
-    expect(communityButtons.findIndex((button) => button.textContent?.includes("Nueva comunidad"))).toBeLessThan(
-      communityButtons.findIndex((button) => button.textContent?.includes("Alpha Club"))
-    );
+    expect(createCommunityIndex).toBeLessThan(discoverCommunitiesIndex);
+    expect(discoverCommunitiesIndex).toBeLessThan(firstMemberCommunityIndex);
   });
 
   it("shows an empty state when the authenticated member has no communities", () => {
