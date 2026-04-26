@@ -41,8 +41,8 @@ openssl rand -base64 32
 Local example:
 
 ```dotenv
-DATABASE_URL=postgresql://user:password@host-pooler.region.aws.neon.tech/database?sslmode=require&channel_binding=require
-DATABASE_MIGRATION_URL=postgresql://user:password@host.region.aws.neon.tech/database?sslmode=require&channel_binding=require
+DATABASE_URL=postgresql://user:password@host-pooler.region.aws.neon.tech/database?sslmode=verify-full&channel_binding=require
+DATABASE_MIGRATION_URL=postgresql://user:password@host.region.aws.neon.tech/database?sslmode=verify-full&channel_binding=require
 BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_SECRET=replace-with-a-strong-random-secret
 GOOGLE_CLIENT_ID=replace-with-google-client-id
@@ -50,6 +50,13 @@ GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
 ACADEMIA_BACKEND_BASE_URL=
 CONTACT_EMAIL=soporte@example.com
 ```
+
+Neon role and schema guidance:
+
+- Using Neon's default database owner and the `public` schema is acceptable for local development and early project setup.
+- Keep `public` unless the application needs stronger separation between apps, modules, tenants, or permission scopes within the same database.
+- For production-like environments, prefer separate credentials by responsibility: `DATABASE_URL` should use a runtime role with limited permissions, while `DATABASE_MIGRATION_URL` can use the owner or migration role needed for schema changes.
+- Do not run the application runtime with an owner/admin role once least-privilege credentials are available.
 
 ## Better Auth Setup
 
