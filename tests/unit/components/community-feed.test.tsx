@@ -1,10 +1,36 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
+import {
+  act,
+  render as renderComponent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
 
 import { CommunityFeed } from "@/components/community-feed/community-feed";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const refreshMock = jest.fn();
+
+class ResizeObserverMock {
+  observe() {}
+
+  unobserve() {}
+
+  disconnect() {}
+}
+
+globalThis.ResizeObserver = ResizeObserverMock;
+
+function render(ui: ReactElement) {
+  return renderComponent(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <TooltipProvider>{children}</TooltipProvider>
+    ),
+  });
+}
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -29,6 +55,25 @@ const authenticatedMember = {
   image: null,
 };
 
+const postCategories = [
+  {
+    accessScope: "members" as const,
+    emoji: "⭐",
+    id: "category-intro",
+    name: "Intro and Goals",
+    slug: "intro-and-goals",
+    sortOrder: 10,
+  },
+  {
+    accessScope: "members" as const,
+    emoji: "💬",
+    id: "category-general",
+    name: "General",
+    slug: "general",
+    sortOrder: 20,
+  },
+];
+
 const createdPost = {
   id: "post-2",
   author: {
@@ -38,6 +83,7 @@ const createdPost = {
     avatarFallback: "GH",
     image: null,
   },
+  category: postCategories[0],
   comments: [],
   content: "Nos vemos el viernes.",
   createdAt: "2026-04-26T13:00:00.000Z",
@@ -60,6 +106,8 @@ const createdComment = {
 };
 
 const feed = {
+  activeCategoryId: null,
+  categories: postCategories,
   viewerPermissions: {
     canComment: true,
     canCreatePost: true,
@@ -75,6 +123,7 @@ const feed = {
         avatarFallback: "AL",
         image: null,
       },
+      category: postCategories[1],
       comments: [],
       content: "Bienvenida a la comunidad",
       createdAt: "2026-04-26T12:00:00.000Z",
@@ -86,6 +135,8 @@ const feed = {
 };
 
 const algebraFeed = {
+  activeCategoryId: null,
+  categories: postCategories,
   viewerPermissions: {
     canComment: true,
     canCreatePost: true,
@@ -101,6 +152,7 @@ const algebraFeed = {
         avatarFallback: "EN",
         image: null,
       },
+      category: postCategories[0],
       comments: [],
       content: "Ya esta disponible la guia de ejercicios.",
       createdAt: "2026-04-26T14:00:00.000Z",
@@ -169,11 +221,71 @@ describe("CommunityFeed", () => {
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Título de la publicación" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Contenido de la publicación" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Publicar" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Publicar" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Categoría de la publicación" }));
+    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
 
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
 
     expect(screen.queryByRole("dialog", { name: "Crear publicación" })).not.toBeInTheDocument();
+  });
+
+  it("renders the post category with the timestamp metadata", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    const postArticle = screen.getByText("Anuncio inicial").closest("article");
+
+    expect(postArticle).not.toBeNull();
+
+    const categoryBadge = within(postArticle as HTMLElement).getByText(
+      (_, element) => element?.textContent === "💬 General"
+    );
+    const postDate = within(postArticle as HTMLElement).getByText("26 abr");
+
+    expect(categoryBadge.parentElement).not.toHaveTextContent("2026");
+    expect(categoryBadge.parentElement).toHaveTextContent("·");
+
+    await user.hover(postDate);
+
+    expect(
+      await screen.findAllByText((_, element) =>
+        Boolean(
+          element?.textContent?.startsWith("Publicacion creada: 26 abr 2026")
+        )
+      )
+    ).not.toHaveLength(0);
+  });
+
+  it("renders the post category with the previous year timestamp metadata", () => {
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={{
+          ...feed,
+          posts: [
+            {
+              ...feed.posts[0],
+              createdAt: "2025-04-26T12:00:00.000Z",
+            },
+          ],
+        }}
+      />
+    );
+
+    const postArticle = screen.getByText("Anuncio inicial").closest("article");
+
+    expect(postArticle).not.toBeNull();
+    expect(within(postArticle as HTMLElement).getByText("abr 2025")).toBeInTheDocument();
   });
 
   it("submits title and content from the expanded composer", async () => {
@@ -196,6 +308,8 @@ describe("CommunityFeed", () => {
       screen.getByRole("textbox", { name: "Contenido de la publicación" }),
       "Nos vemos el viernes."
     );
+    await user.click(screen.getByRole("button", { name: "Categoría de la publicación" }));
+    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Publicar" }));
 
     await waitFor(() => {
@@ -203,6 +317,7 @@ describe("CommunityFeed", () => {
         "/api/communities/matematica-pro/posts",
         expect.objectContaining({
           body: JSON.stringify({
+            categoryId: "category-intro",
             content: "Nos vemos el viernes.",
             title: "Nuevo encuentro",
           }),
@@ -215,6 +330,150 @@ describe("CommunityFeed", () => {
     expect(screen.queryByRole("dialog", { name: "Crear publicación" })).not.toBeInTheDocument();
     expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
     expect(screen.getByText("Nos vemos el viernes.")).toBeInTheDocument();
+  });
+
+  it("selects a post category using keyboard interactions", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Escribí algo" }));
+    await user.click(screen.getByRole("button", { name: "Categoría de la publicación" }));
+    await user.keyboard("{ArrowDown}{Enter}");
+
+    expect(
+      screen.getByRole("button", { name: "Categoría de la publicación" })
+    ).toHaveTextContent("⭐ Intro and Goals");
+  });
+
+  it("shows visible missing item validation when submitting an incomplete post", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Escribí algo" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título de la publicación" }),
+      "Nuevo encuentro"
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Contenido de la publicación" }),
+      "Nos vemos el viernes."
+    );
+
+    expect(screen.getByRole("button", { name: "Publicar" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Publicar" }));
+
+    expect(screen.getByText("Falta completar:")).toBeInTheDocument();
+    const missingRequirements = screen.getByRole("list", {
+      name: "Requisitos pendientes",
+    });
+
+    expect(within(missingRequirements).getByText("Seleccionar categoría")).toBeInTheDocument();
+    expect(within(missingRequirements).getByRole("listitem")).toHaveTextContent(
+      "-Seleccionar categoría"
+    );
+    expect(within(missingRequirements).queryByText("Completar título")).not.toBeInTheDocument();
+    expect(within(missingRequirements).queryByText("Publicar el contenido")).not.toBeInTheDocument();
+    expect(toast.warning).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("lists every missing composer requirement before submitting", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Escribí algo" }));
+    await user.click(screen.getByRole("button", { name: "Publicar" }));
+
+    const missingRequirements = screen.getByRole("list", {
+      name: "Requisitos pendientes",
+    });
+
+    expect(within(missingRequirements).getByText("Completar título")).toBeInTheDocument();
+    expect(within(missingRequirements).getByText("Publicar el contenido")).toBeInTheDocument();
+    expect(within(missingRequirements).getByText("Seleccionar categoría")).toBeInTheDocument();
+    expect(within(missingRequirements).getAllByRole("listitem")).toEqual([
+      expect.objectContaining({ textContent: "-Completar título" }),
+      expect.objectContaining({ textContent: "-Publicar el contenido" }),
+      expect.objectContaining({ textContent: "-Seleccionar categoría" }),
+    ]);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("starts with a blank composer every time the modal opens", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Escribí algo" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título de la publicación" }),
+      "Borrador temporal"
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Contenido de la publicación" }),
+      "Contenido temporal"
+    );
+    await user.click(screen.getByRole("button", { name: "Categoría de la publicación" }));
+    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    await user.click(screen.getByRole("button", { name: "Escribí algo" }));
+
+    expect(screen.getByRole("textbox", { name: "Título de la publicación" })).toHaveValue("");
+    expect(
+      screen.getByRole("textbox", { name: "Contenido de la publicación" })
+    ).toHaveValue("");
+    expect(
+      screen.getByRole("button", { name: "Categoría de la publicación" })
+    ).toHaveTextContent("Seleccionar categoría");
+  });
+
+  it("filters posts by category chips", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Todas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "General" })).toBeInTheDocument();
+    expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Intro and Goals" }));
+
+    expect(screen.queryByText("Anuncio inicial")).not.toBeInTheDocument();
   });
 
   it("syncs local posts when the server feed changes", async () => {
@@ -265,6 +524,8 @@ describe("CommunityFeed", () => {
       screen.getByRole("textbox", { name: "Contenido de la publicación" }),
       "Nos vemos el viernes."
     );
+    await user.click(screen.getByRole("button", { name: "Categoría de la publicación" }));
+    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Publicar" }));
 
     await waitFor(() => {

@@ -1,9 +1,20 @@
 import { listCommunityFeed } from "@/src/modules/posts/application/use-cases/list-community-feed-use-case";
 
 describe("listCommunityFeed", () => {
+  const category = {
+    accessScope: "members" as const,
+    emoji: "💬",
+    id: "category-general",
+    name: "General",
+    slug: "general",
+    sortOrder: 20,
+  };
+
   it("returns posts and enables participation for active members", async () => {
     const postFeedReadRepository = {
       listByCommunitySlug: jest.fn(async () => ({
+        activeCategoryId: null,
+        categories: [category],
         viewerPermissions: {
           canComment: true,
           canCreatePost: true,
@@ -19,6 +30,7 @@ describe("listCommunityFeed", () => {
               avatarFallback: "AL",
               image: null,
             },
+            category,
             comments: [],
             content: "Bienvenida al grupo",
             createdAt: "2026-04-26T12:00:00.000Z",
@@ -37,6 +49,8 @@ describe("listCommunityFeed", () => {
         viewerId: "member-1",
       })
     ).resolves.toEqual({
+      activeCategoryId: null,
+      categories: [category],
       viewerPermissions: {
         canComment: true,
         canCreatePost: true,
@@ -60,6 +74,8 @@ describe("listCommunityFeed", () => {
     const execute = listCommunityFeed({
       postFeedReadRepository: {
         listByCommunitySlug: jest.fn(async () => ({
+          activeCategoryId: null,
+          categories: [category],
           viewerPermissions: {
             canComment: false,
             canCreatePost: false,
@@ -76,6 +92,8 @@ describe("listCommunityFeed", () => {
         viewerId: "member-1",
       })
     ).resolves.toEqual({
+      activeCategoryId: null,
+      categories: [category],
       viewerPermissions: {
         canComment: false,
         canCreatePost: false,

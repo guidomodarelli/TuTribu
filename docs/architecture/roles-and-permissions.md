@@ -110,6 +110,7 @@ Puede:
 
 * editar comunidad
 * borrar comunidad
+* crear, editar y eliminar categorias de posts
 * transferir ownership
 * nombrar admins
 * moderar miembros
@@ -120,6 +121,7 @@ Puede:
 Puede:
 
 * moderar contenido dentro de su comunidad
+* gestionar categorias de posts
 * silenciar miembros
 * bloquear miembros si la regla de negocio lo permite
 * invitar o gestionar miembros si el caso de uso lo habilita
@@ -142,6 +144,7 @@ No puede:
 
 * moderar miembros
 * cambiar configuracion de comunidad
+* gestionar categorias de posts
 * reasignar roles
 
 ---

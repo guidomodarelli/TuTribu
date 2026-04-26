@@ -1,4 +1,5 @@
 import { createCommunity } from "@/src/modules/communities/application/use-cases/create-community-use-case";
+import { getCurrentCommunityMembershipStatus } from "@/src/modules/communities/application/use-cases/get-current-community-membership-status-use-case";
 import { getCommunityBySlug } from "@/src/modules/communities/application/use-cases/get-community-by-slug-use-case";
 import { getCommunityCreationEligibility } from "@/src/modules/communities/application/use-cases/get-community-creation-eligibility-use-case";
 import { getCommunityPageAccess } from "@/src/modules/communities/application/use-cases/get-community-page-access-use-case";
@@ -29,6 +30,9 @@ export function buildCommunitiesModule({
       }),
       getCommunityCreationEligibility: getCommunityCreationEligibility({
         communityCreatorWhitelistRepository,
+      }),
+      getCurrentCommunityMembershipStatus: getCurrentCommunityMembershipStatus({
+        communityReadRepository,
       }),
       getCommunityPageAccess: getCommunityPageAccess({
         communityReadRepository,

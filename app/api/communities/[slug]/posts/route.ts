@@ -4,6 +4,7 @@ import { resolveRequestContext } from "@/src/modules/shared/infrastructure/obser
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const CREATE_POST_ROUTE_FIELD = {
+  categoryId: "categoryId",
   content: "content",
   title: "title",
 } as const;
@@ -17,6 +18,7 @@ const CREATE_POST_ROUTE_LOG = {
 const CREATE_POST_ROUTE_RESPONSE = {
   forbiddenMessage: "No tenes permisos para publicar en esta comunidad.",
   invalidContentMessage: "Completá el título y el contenido antes de publicar.",
+  invalidCategoryMessage: "Seleccioná una categoría antes de publicar.",
   notFoundMessage: "No pudimos encontrar la comunidad.",
   successMessage: "Publicacion creada.",
   unexpectedMessage: "No pudimos crear la publicacion. Intentalo de nuevo.",
@@ -44,6 +46,16 @@ function readContentFromBody(body: unknown): string {
   const content = (body as Record<string, unknown>)[CREATE_POST_ROUTE_FIELD.content];
 
   return typeof content === "string" ? content : "";
+}
+
+function readCategoryIdFromBody(body: unknown): string {
+  if (!body || typeof body !== "object" || !(CREATE_POST_ROUTE_FIELD.categoryId in body)) {
+    return "";
+  }
+
+  const categoryId = (body as Record<string, unknown>)[CREATE_POST_ROUTE_FIELD.categoryId];
+
+  return typeof categoryId === "string" ? categoryId : "";
 }
 
 function readTitleFromBody(body: unknown): string {
@@ -85,6 +97,7 @@ export async function POST(
     const body = await request.json().catch(() => null);
     const result = await modules.posts.useCases.createCommunityPost({
       authorId: authenticatedMember.id,
+      categoryId: readCategoryIdFromBody(body),
       communitySlug: slug,
       content: readContentFromBody(body),
       title: readTitleFromBody(body),
@@ -102,6 +115,11 @@ export async function POST(
       case POST_MUTATION_STATUS.invalidContent:
         return createJsonResponse(
           { message: CREATE_POST_ROUTE_RESPONSE.invalidContentMessage },
+          HTTP_STATUS.badRequest
+        );
+      case POST_MUTATION_STATUS.invalidCategory:
+        return createJsonResponse(
+          { message: CREATE_POST_ROUTE_RESPONSE.invalidCategoryMessage },
           HTTP_STATUS.badRequest
         );
       case POST_MUTATION_STATUS.notFound:

@@ -1,6 +1,7 @@
 import {
   boolean,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -108,11 +109,37 @@ export const communityMembers = pgTable("community_members", {
   ),
 }));
 
+export const communityPostCategories = pgTable("community_post_categories", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  communityId: uuid("community_id")
+    .notNull()
+    .references(() => communities.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  emoji: text("emoji").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+  accessScope: text("access_scope").notNull().default("members"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+}, (table) => ({
+  communitySlugKey: uniqueIndex("community_post_categories_community_id_slug_key").on(
+    table.communityId,
+    table.slug
+  ),
+  communitySortOrderIndex: index("idx_community_post_categories_sort_order").on(
+    table.communityId,
+    table.sortOrder
+  ),
+}));
+
 export const posts = pgTable("posts", {
   id: uuid("id").defaultRandom().primaryKey(),
   communityId: uuid("community_id")
     .notNull()
     .references(() => communities.id, { onDelete: "cascade" }),
+  categoryId: uuid("category_id")
+    .notNull()
+    .references(() => communityPostCategories.id),
   authorId: text("author_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),

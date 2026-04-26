@@ -30,6 +30,12 @@ describe("PostgresPostMutationRepository", () => {
           author_image: null,
           author_name: "Grace Hopper",
           author_role: "member",
+          category_access_scope: "members",
+          category_emoji: "💬",
+          category_id: "category-general",
+          category_name: "General",
+          category_slug: "general",
+          category_sort_order: 20,
           post_content: "Primera publicación",
           post_created_at: "2026-04-26T12:00:00.000Z",
           post_id: "post-1",
@@ -45,6 +51,7 @@ describe("PostgresPostMutationRepository", () => {
     await expect(
       repository.create({
         authorId: "member-1",
+        categoryId: "category-general",
         communitySlug: "matematica-pro",
         content: "Primera publicación",
         title: "Anuncio inicial",
@@ -52,6 +59,14 @@ describe("PostgresPostMutationRepository", () => {
     ).resolves.toEqual({
       post: {
         id: "post-1",
+        category: {
+          accessScope: "members",
+          emoji: "💬",
+          id: "category-general",
+          name: "General",
+          slug: "general",
+          sortOrder: 20,
+        },
         author: {
           id: "member-1",
           name: "Grace Hopper",
@@ -73,8 +88,9 @@ describe("PostgresPostMutationRepository", () => {
 
     expect(sqlText).toContain("insert into public.posts");
     expect(sqlText).toContain(
-      "(community_id, author_id, title, content, created_at, updated_at)"
+      "(community_id, category_id, author_id, title, content, created_at, updated_at)"
     );
+    expect(sqlText).toContain("target_category");
     expect(sqlText).toContain(
       "where public.is_active_community_member(target_community.id)"
     );

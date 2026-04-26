@@ -34,6 +34,7 @@ export function createCommunityPost({
   ): Promise<PostCreationResult> => {
     const content = normalizePostContent(command.content);
     const title = normalizePostTitle(command.title);
+    const categoryId = command.categoryId.trim();
 
     if (
       isInvalidText(content, COMMUNITY_POST_CONTENT) ||
@@ -44,8 +45,15 @@ export function createCommunityPost({
       };
     }
 
+    if (!categoryId) {
+      return {
+        status: POST_MUTATION_STATUS.invalidCategory,
+      };
+    }
+
     return postCreationRepository.create({
       ...command,
+      categoryId,
       communitySlug: command.communitySlug.trim(),
       content,
       title,

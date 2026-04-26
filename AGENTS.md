@@ -312,6 +312,9 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 
 - Use `Neon Postgres` as the primary application database.
 - Use App Router with server-side session access via Better Auth route handlers and request-scoped database context as the default integration model.
+- When the user provides an error related to the database, reproduce and inspect the failure directly against the database using the `pg` library before proposing a fix. Use the application's configured database connection, run the smallest safe query or transaction needed to trigger or diagnose the issue, and report the exact database cause found from PostgreSQL metadata, constraints, RLS policies, schema state, or query results.
+- Database debugging with `pg` must never print or persist secrets, tokens, raw connection strings, or sensitive row data. Redact sensitive values in any shared output and prefer metadata-focused queries when possible.
+- If direct `pg` validation cannot be executed because credentials, network access, or the database are unavailable, state the concrete blocker and the closest validation performed instead.
 - When an implemented change affects database structure (`schema`, tables, columns, constraints, indexes, relationships, or RLS-relevant storage layout), include a versioned SQL migration in the same work item.
 - Use the dashboard SQL editor only for quick experiments or debugging. It does not replace a versioned migration committed with the change.
 - Keep provider tokens, session secrets, and sensitive auth data server-side only.

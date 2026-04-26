@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 
 import type { Community } from "@/src/modules/communities/domain/entities/community";
 import { CommunitySlugConflictError } from "@/src/modules/communities/domain/errors/community-slug-conflict-error";
+import { DEFAULT_COMMUNITY_POST_CATEGORIES } from "@/src/modules/posts/constants/post-feed";
 import type { CommunityCreationRepository } from "@/src/modules/communities/domain/repositories/community-creation-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
@@ -90,6 +91,31 @@ export class PostgresCommunityCreationRepository
               'owner',
               'active'
             from inserted_community
+          ), inserted_categories as (
+            insert into public.community_post_categories (
+              community_id,
+              name,
+              slug,
+              emoji,
+              sort_order,
+              access_scope,
+              created_at,
+              updated_at
+            )
+            select
+              inserted_community.id,
+              category_seed.name,
+              category_seed.slug,
+              category_seed.emoji,
+              category_seed.sort_order,
+              'members',
+              timezone('utc', now()),
+              timezone('utc', now())
+            from inserted_community
+            cross join (
+              values
+                (${DEFAULT_COMMUNITY_POST_CATEGORIES[0].name}, ${DEFAULT_COMMUNITY_POST_CATEGORIES[0].slug}, ${DEFAULT_COMMUNITY_POST_CATEGORIES[0].emoji}, ${DEFAULT_COMMUNITY_POST_CATEGORIES[0].sortOrder})
+            ) as category_seed(name, slug, emoji, sort_order)
           )
           select id, name, slug, visibility
           from inserted_community

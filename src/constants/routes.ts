@@ -2,6 +2,7 @@ const COMMUNITY_ROUTE_PREFIX = "/comunidad/";
 const ROUTE_SEGMENT_SEPARATOR = "/";
 const COMMUNITY_ROUTE_SEGMENTS = {
   about: "acerca-de",
+  categories: "categorias",
   events: "eventos",
   members: "miembros",
   ranking: "ranking",
@@ -23,6 +24,8 @@ export const ROUTES = {
     about: (slug: string) =>
       buildCommunitySectionRoute(slug, COMMUNITY_ROUTE_SEGMENTS.about),
     bySlug: (slug: string) => COMMUNITY_ROUTE_PREFIX + slug,
+    categories: (slug: string) =>
+      buildCommunitySectionRoute(slug, COMMUNITY_ROUTE_SEGMENTS.categories),
     create: "/comunidad/crear",
     events: (slug: string) =>
       buildCommunitySectionRoute(slug, COMMUNITY_ROUTE_SEGMENTS.events),

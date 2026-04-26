@@ -76,12 +76,14 @@ describe("PostgresCommunityReadRepository", () => {
           community_id: "community-1",
           community_row_id: "community-1",
           name: "Alpha Club",
+          role: "owner",
           slug: "alpha-club",
         },
         {
           community_id: "community-2",
           community_row_id: "community-2",
           name: "Beta Club",
+          role: "member",
           slug: "beta-club",
         },
       ],
@@ -97,15 +99,18 @@ describe("PostgresCommunityReadRepository", () => {
       {
         communityId: "community-1",
         name: "Alpha Club",
+        role: "owner",
         slug: "alpha-club",
       },
       {
         communityId: "community-2",
         name: "Beta Club",
+        role: "member",
         slug: "beta-club",
       },
     ]);
 
     expect(execute).toHaveBeenCalledTimes(1);
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("community_members.role");
   });
 });

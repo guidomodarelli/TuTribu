@@ -5,6 +5,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   CompassIcon,
+  FolderIcon,
   HomeIcon,
   InfoIcon,
   PlusCircleIcon,
@@ -47,6 +48,13 @@ const communitySectionNavigation = [
       pathname === ROUTES.communities.bySlug(communitySlug),
   },
   {
+    hrefBuilder: ROUTES.communities.categories,
+    icon: FolderIcon,
+    label: "Categorías",
+    matchPath: (pathname: string, communitySlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.communities.categories(communitySlug)),
+  },
+  {
     hrefBuilder: ROUTES.communities.events,
     icon: CalendarDaysIcon,
     label: "Eventos",
@@ -83,6 +91,11 @@ const APP_SIDEBAR_UI = {
   createCommunityTooltip: "Nueva comunidad",
   nestedRouteSeparator: "/",
   variant: "sidebar",
+} as const;
+
+const COMMUNITY_CATEGORY_MANAGER_ROLE = {
+  admin: "admin",
+  owner: "owner",
 } as const;
 
 type AppSidebarProps = {
@@ -169,6 +182,14 @@ export function AppSidebar({
             <SidebarGroupContent>
               <SidebarMenu>
                 {communitySectionNavigation.map((item) => {
+                  if (
+                    item.label === "Categorías" &&
+                    activeCommunity.role !== COMMUNITY_CATEGORY_MANAGER_ROLE.owner &&
+                    activeCommunity.role !== COMMUNITY_CATEGORY_MANAGER_ROLE.admin
+                  ) {
+                    return null;
+                  }
+
                   const sectionPath = item.hrefBuilder(activeCommunity.slug);
                   const isSectionActive = item.matchPath(
                     pathname,

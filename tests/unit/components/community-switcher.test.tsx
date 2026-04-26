@@ -10,11 +10,13 @@ const memberCommunities = [
   {
     communityId: "community-1",
     name: "Alpha Club",
+    role: "member" as const,
     slug: "alpha-club",
   },
   {
     communityId: "community-2",
     name: "Beta Club",
+    role: "owner" as const,
     slug: "beta-club",
   },
 ];

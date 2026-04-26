@@ -7,7 +7,7 @@ import styles from "./styles.module.scss";
 
 const APP_PROVIDERS_TOASTER = {
   closeButton: true,
-  position: "top-right",
+  position: "top-center",
   richColors: true,
 } as const;
 

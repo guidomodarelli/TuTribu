@@ -1,7 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { HeartIcon, MessageCircleIcon, SendIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  HeartIcon,
+  MessageCircleIcon,
+  SendIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -26,6 +31,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type {
   CommunityFeedCommentResult,
@@ -73,12 +90,19 @@ const COMMUNITY_FEED_COPY = {
   mutedNotice: "Podes leer el feed, pero tu estado actual no permite participar.",
   postButton: "Publicar",
   postCancelButton: "Cancelar",
+  postCategoryFilterAll: "Todas",
+  postCategoryLabel: "Categoría de la publicación",
+  postCategorySelect: "Seleccionar categoría",
   postComposerCollapsed: "Escribí algo",
   postComposerContext: "publicando en la comunidad",
   postComposerDescription:
     "Completá el título y el contenido para compartir una publicación en la comunidad.",
   postComposerDialogTitle: "Crear publicación",
-  postComposerError: "Completá el título y el contenido antes de publicar.",
+  postComposerMissingCategory: "Seleccionar categoría",
+  postComposerMissingContent: "Publicar el contenido",
+  postComposerMissingTitle: "Completar título",
+  postComposerRequirementsTitle: "Falta completar:",
+  postCreatedTooltipPrefix: "Publicacion creada:",
   postComposerLabel: "Contenido de la publicación",
   postComposerTitleLabel: "Título de la publicación",
   postComposerTitlePlaceholder: "Título",
@@ -107,18 +131,33 @@ const COMMUNITY_FEED_FORM = {
 } as const;
 
 const COMMUNITY_FEED_ATTRIBUTES = {
+  categoryFilterEmojiHidden: true,
   composerAvatarSize: "lg",
+  dropdownAlign: "center",
+  postMetaSeparatorHidden: true,
+  tooltipCollisionPadding: 16,
+  tooltipSideOffset: 8,
+  missingRequirementBulletHidden: true,
   postComposerErrorId: "community-post-composer-error",
+  postComposerRequirementsLabel: "Requisitos pendientes",
+} as const;
+
+const COMMUNITY_FEED_SYMBOLS = {
+  missingRequirementBullet: "-",
+  postMetaSeparator: "·",
 } as const;
 
 const COMMUNITY_FEED_FORMAT = {
   dateStyle: "medium",
+  day: "numeric",
   likeCountSeparator: " · ",
   locale: "es-AR",
+  month: "short",
   nonBreakingSpacePattern: /[\u00a0\u202f]/g,
   roleBadgeModifierPrefix: "CommunityFeed__roleBadge--",
   standardSpace: " ",
   timeStyle: "short",
+  year: "numeric",
 } as const;
 
 type CommunityFeedProps = {
@@ -173,16 +212,71 @@ async function submitJsonRequest<ResponseBody>(
   return (await response.json().catch(() => ({}))) as ResponseBody;
 }
 
-function formatPostDateTime(dateTime: string): string {
-  return new Intl.DateTimeFormat(COMMUNITY_FEED_FORMAT.locale, {
-    dateStyle: COMMUNITY_FEED_FORMAT.dateStyle,
-    timeStyle: COMMUNITY_FEED_FORMAT.timeStyle,
-  })
-    .format(new Date(dateTime))
+function normalizeFormattedDateTime(formattedDateTime: string): string {
+  return formattedDateTime
     .replace(
       COMMUNITY_FEED_FORMAT.nonBreakingSpacePattern,
       COMMUNITY_FEED_FORMAT.standardSpace
     );
+}
+
+function formatPostFullDateTime(dateTime: string): string {
+  return normalizeFormattedDateTime(
+    new Intl.DateTimeFormat(COMMUNITY_FEED_FORMAT.locale, {
+      dateStyle: COMMUNITY_FEED_FORMAT.dateStyle,
+      timeStyle: COMMUNITY_FEED_FORMAT.timeStyle,
+    }).format(new Date(dateTime))
+  );
+}
+
+function formatPostSummaryDate(dateTime: string): string {
+  const postDate = new Date(dateTime);
+  const currentDate = new Date();
+  const dateOptions: Intl.DateTimeFormatOptions =
+    postDate.getFullYear() === currentDate.getFullYear()
+      ? {
+          day: COMMUNITY_FEED_FORMAT.day,
+          month: COMMUNITY_FEED_FORMAT.month,
+        }
+      : {
+          month: COMMUNITY_FEED_FORMAT.month,
+          year: COMMUNITY_FEED_FORMAT.year,
+        };
+
+  return normalizeFormattedDateTime(
+    new Intl.DateTimeFormat(COMMUNITY_FEED_FORMAT.locale, dateOptions).format(
+      postDate
+    )
+  );
+}
+
+function formatPostCreatedTooltip(dateTime: string): string {
+  return [
+    COMMUNITY_FEED_COPY.postCreatedTooltipPrefix,
+    formatPostFullDateTime(dateTime),
+  ].join(COMMUNITY_FEED_FORMAT.standardSpace);
+}
+
+function getMissingPostRequirements(input: {
+  categoryId: string;
+  content: string;
+  title: string;
+}): string[] {
+  const missingRequirements: string[] = [];
+
+  if (!input.title.trim()) {
+    missingRequirements.push(COMMUNITY_FEED_COPY.postComposerMissingTitle);
+  }
+
+  if (!input.content.trim()) {
+    missingRequirements.push(COMMUNITY_FEED_COPY.postComposerMissingContent);
+  }
+
+  if (!input.categoryId) {
+    missingRequirements.push(COMMUNITY_FEED_COPY.postComposerMissingCategory);
+  }
+
+  return missingRequirements;
 }
 
 export function CommunityFeed({
@@ -196,33 +290,63 @@ export function CommunityFeed({
   const [isPostComposerOpen, setIsPostComposerOpen] = useState(false);
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
-  const [postComposerError, setPostComposerError] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
+    feed.activeCategoryId
+  );
+  const [postComposerErrors, setPostComposerErrors] = useState<string[]>([]);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const isBusy = Boolean(pendingActionId);
-  const isPostSubmitDisabled = isBusy || !postTitle.trim() || !postContent.trim();
+  const selectedCategory =
+    feed.categories.find((category) => category.id === selectedCategoryId) ?? null;
+  const filteredPosts = activeCategoryId
+    ? posts.filter((post) => post.category.id === activeCategoryId)
+    : posts;
+  const hasPostComposerErrors = postComposerErrors.length > 0;
 
   currentCommunitySlugRef.current = communitySlug;
 
   useEffect(() => {
     currentActionTokenRef.current += 1;
     setPosts(feed.posts);
+    setActiveCategoryId(feed.activeCategoryId);
+    setSelectedCategoryId("");
     setCommentDrafts({});
     setPendingActionId(null);
-  }, [communitySlug, feed.posts]);
+  }, [communitySlug, feed.activeCategoryId, feed.posts]);
 
   const isCurrentAction = (actionToken: number, actionCommunitySlug: string) =>
     currentActionTokenRef.current === actionToken &&
     currentCommunitySlugRef.current === actionCommunitySlug;
 
+  const resetPostComposer = () => {
+    setPostTitle("");
+    setPostContent("");
+    setSelectedCategoryId("");
+    setPostComposerErrors([]);
+  };
+
+  const handlePostComposerOpenChange = (isOpen: boolean) => {
+    if (isOpen) {
+      resetPostComposer();
+    }
+
+    setIsPostComposerOpen(isOpen);
+  };
+
   const handleCreatePost = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const title = postTitle.trim();
     const content = postContent.trim();
+    const missingRequirements = getMissingPostRequirements({
+      categoryId: selectedCategoryId,
+      content,
+      title,
+    });
 
-    if (!title || !content) {
-      setPostComposerError(COMMUNITY_FEED_COPY.postComposerError);
-      toast.warning(COMMUNITY_FEED_COPY.postComposerError);
+    if (missingRequirements.length > 0) {
+      setPostComposerErrors(missingRequirements);
       return;
     }
 
@@ -236,6 +360,7 @@ export function CommunityFeed({
       const response = await submitJsonRequest<CreatePostResponse>(
         COMMUNITY_FEED_ENDPOINT.post(actionCommunitySlug),
         {
+          categoryId: selectedCategoryId,
           content,
           title,
         }
@@ -250,9 +375,7 @@ export function CommunityFeed({
       }
 
       setPosts((currentPosts) => [response.post as CommunityFeedPostResult, ...currentPosts]);
-      setPostTitle("");
-      setPostContent("");
-      setPostComposerError(null);
+      resetPostComposer();
       setIsPostComposerOpen(false);
       toast.success(COMMUNITY_FEED_COPY.submitPostSuccess);
     } catch (error) {
@@ -421,10 +544,11 @@ export function CommunityFeed({
   };
 
   return (
-    <section
-      className={styles.CommunityFeed}
-      aria-label={COMMUNITY_FEED_COPY.sectionLabel}
-    >
+    <TooltipProvider>
+      <section
+        className={styles.CommunityFeed}
+        aria-label={COMMUNITY_FEED_COPY.sectionLabel}
+      >
       {!feed.viewerPermissions.canCreatePost ? (
         <p className={styles.CommunityFeed__notice}>
           {COMMUNITY_FEED_COPY.mutedNotice}
@@ -432,7 +556,10 @@ export function CommunityFeed({
       ) : null}
 
       {feed.viewerPermissions.canCreatePost ? (
-        <Dialog open={isPostComposerOpen} onOpenChange={setIsPostComposerOpen}>
+        <Dialog
+          open={isPostComposerOpen}
+          onOpenChange={handlePostComposerOpenChange}
+        >
           <DialogTrigger asChild>
             <button
               aria-label={COMMUNITY_FEED_COPY.postComposerCollapsed}
@@ -491,7 +618,7 @@ export function CommunityFeed({
             >
               <input
                 aria-describedby={
-                  postComposerError
+                  hasPostComposerErrors
                     ? COMMUNITY_FEED_ATTRIBUTES.postComposerErrorId
                     : undefined
                 }
@@ -500,14 +627,14 @@ export function CommunityFeed({
                 disabled={isBusy}
                 onChange={(event) => {
                   setPostTitle(event.currentTarget.value);
-                  setPostComposerError(null);
+                  setPostComposerErrors([]);
                 }}
                 placeholder={COMMUNITY_FEED_COPY.postComposerTitlePlaceholder}
                 value={postTitle}
               />
               <textarea
                 aria-describedby={
-                  postComposerError
+                  hasPostComposerErrors
                     ? COMMUNITY_FEED_ATTRIBUTES.postComposerErrorId
                     : undefined
                 }
@@ -516,18 +643,75 @@ export function CommunityFeed({
                 disabled={isBusy}
                 onChange={(event) => {
                   setPostContent(event.currentTarget.value);
-                  setPostComposerError(null);
+                  setPostComposerErrors([]);
                 }}
                 placeholder={COMMUNITY_FEED_COPY.postPlaceholder}
                 value={postContent}
               />
-              {postComposerError ? (
-                <p
+              <div className={styles.CommunityFeed__categoryPicker}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      aria-label={COMMUNITY_FEED_COPY.postCategoryLabel}
+                      className={styles.CommunityFeed__categoryTrigger}
+                      disabled={isBusy}
+                      type={COMMUNITY_FEED_FORM.buttonType}
+                    >
+                      <span>
+                        {selectedCategory
+                          ? `${selectedCategory.emoji} ${selectedCategory.name}`
+                          : COMMUNITY_FEED_COPY.postCategorySelect}
+                      </span>
+                      <ChevronDownIcon />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align={COMMUNITY_FEED_ATTRIBUTES.dropdownAlign}>
+                    {feed.categories.map((category) => (
+                      <DropdownMenuItem
+                        key={category.id}
+                        onSelect={() => {
+                          setSelectedCategoryId(category.id);
+                          setPostComposerErrors([]);
+                        }}
+                      >
+                        {category.emoji} {category.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              {hasPostComposerErrors ? (
+                <div
                   className={styles.CommunityFeed__composerError}
                   id={COMMUNITY_FEED_ATTRIBUTES.postComposerErrorId}
                 >
-                  {postComposerError}
-                </p>
+                  <p className={styles.CommunityFeed__composerErrorTitle}>
+                    {COMMUNITY_FEED_COPY.postComposerRequirementsTitle}
+                  </p>
+                  <ul
+                    aria-label={
+                      COMMUNITY_FEED_ATTRIBUTES.postComposerRequirementsLabel
+                    }
+                    className={styles.CommunityFeed__composerErrorList}
+                  >
+                    {postComposerErrors.map((postComposerError) => (
+                      <li
+                        className={styles.CommunityFeed__composerErrorItem}
+                        key={postComposerError}
+                      >
+                        <span
+                          aria-hidden={
+                            COMMUNITY_FEED_ATTRIBUTES.missingRequirementBulletHidden
+                          }
+                          className={styles.CommunityFeed__composerErrorBullet}
+                        >
+                          {COMMUNITY_FEED_SYMBOLS.missingRequirementBullet}
+                        </span>
+                        {postComposerError}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : null}
               <DialogFooter className={styles.CommunityFeed__composerFooter}>
                 <DialogClose asChild>
@@ -540,7 +724,7 @@ export function CommunityFeed({
                   </Button>
                 </DialogClose>
                 <Button
-                  disabled={isPostSubmitDisabled}
+                  disabled={isBusy}
                   type={COMMUNITY_FEED_FORM.submitType}
                 >
                   <SendIcon />
@@ -552,7 +736,52 @@ export function CommunityFeed({
         </Dialog>
       ) : null}
 
-      {posts.length === 0 ? (
+      {feed.categories.length > 0 ? (
+        <nav
+          aria-label={COMMUNITY_FEED_COPY.postCategoryLabel}
+          className={styles.CommunityFeed__categoryFilters}
+        >
+          <button
+            className={`${styles.CommunityFeed__categoryFilter} ${
+              !activeCategoryId ? styles["CommunityFeed__categoryFilter--active"] : ""
+            }`}
+            onClick={() => {
+              setActiveCategoryId(null);
+            }}
+            type={COMMUNITY_FEED_FORM.buttonType}
+          >
+            <span className={styles.CommunityFeed__categoryFilterText}>
+              {COMMUNITY_FEED_COPY.postCategoryFilterAll}
+            </span>
+          </button>
+          {feed.categories.map((category) => (
+            <button
+              className={`${styles.CommunityFeed__categoryFilter} ${
+                activeCategoryId === category.id
+                  ? styles["CommunityFeed__categoryFilter--active"]
+                  : ""
+              }`}
+              key={category.id}
+              onClick={() => {
+                setActiveCategoryId(category.id);
+              }}
+              type={COMMUNITY_FEED_FORM.buttonType}
+            >
+              <span
+                aria-hidden={COMMUNITY_FEED_ATTRIBUTES.categoryFilterEmojiHidden}
+                className={styles.CommunityFeed__categoryFilterEmoji}
+              >
+                {category.emoji}
+              </span>
+              <span className={styles.CommunityFeed__categoryFilterText}>
+                {category.name}
+              </span>
+            </button>
+          ))}
+        </nav>
+      ) : null}
+
+      {filteredPosts.length === 0 ? (
         <div className={styles.CommunityFeed__empty}>
           <h3 className={styles.CommunityFeed__emptyTitle}>
             {COMMUNITY_FEED_COPY.emptyTitle}
@@ -563,7 +792,7 @@ export function CommunityFeed({
         </div>
       ) : (
         <ol className={styles.CommunityFeed__postList}>
-          {posts.map((post) => (
+          {filteredPosts.map((post) => (
             <li className={styles.CommunityFeed__post} key={post.id}>
               <Card className={styles.CommunityFeed__postCard}>
                 <article className={styles.CommunityFeed__postArticle}>
@@ -586,12 +815,37 @@ export function CommunityFeed({
                       {COMMUNITY_FEED_COPY.roleLabel[post.author.role]}
                     </span>
                   </div>
-                  <time
-                    className={styles.CommunityFeed__time}
-                    dateTime={post.createdAt}
-                  >
-                    {formatPostDateTime(post.createdAt)}
-                  </time>
+                  <div className={styles.CommunityFeed__postMeta}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <time
+                          className={styles.CommunityFeed__time}
+                          dateTime={post.createdAt}
+                          tabIndex={0}
+                        >
+                          {formatPostSummaryDate(post.createdAt)}
+                        </time>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        className={styles.CommunityFeed__postCreatedTooltip}
+                        collisionPadding={
+                          COMMUNITY_FEED_ATTRIBUTES.tooltipCollisionPadding
+                        }
+                        sideOffset={COMMUNITY_FEED_ATTRIBUTES.tooltipSideOffset}
+                      >
+                        {formatPostCreatedTooltip(post.createdAt)}
+                      </TooltipContent>
+                    </Tooltip>
+                    <span
+                      aria-hidden={COMMUNITY_FEED_ATTRIBUTES.postMetaSeparatorHidden}
+                      className={styles.CommunityFeed__postMetaSeparator}
+                    >
+                      {COMMUNITY_FEED_SYMBOLS.postMetaSeparator}
+                    </span>
+                    <span className={styles.CommunityFeed__categoryBadge}>
+                      {post.category.emoji} {post.category.name}
+                    </span>
+                  </div>
                 </CardHeader>
 
                 <CardContent className={styles.CommunityFeed__postContent}>
@@ -705,6 +959,7 @@ export function CommunityFeed({
           ))}
         </ol>
       )}
-    </section>
+      </section>
+    </TooltipProvider>
   );
 }

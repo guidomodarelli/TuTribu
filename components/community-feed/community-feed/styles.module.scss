@@ -1,9 +1,11 @@
 .CommunityFeed {
-  display: grid;
-  gap: clamp(1rem, 3vw, 1.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin: 0 auto;
-  max-width: 40rem;
+  max-width: min(100%, 720px);
   width: 100%;
+  justify-self: center;
 
   &__emptyTitle,
   &__authorName,
@@ -29,22 +31,25 @@
 
   &__composer {
     display: grid;
-    gap: 0.85rem;
+    gap: 12px;
   }
 
   &__composerTrigger {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 12px;
     width: 100%;
-    min-height: 4.25rem;
+    height: 64px;
+    max-height: 64px;
+    min-height: 64px;
+    box-sizing: border-box;
     border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
-    border-radius: 0.5rem;
+    border-radius: 10px;
     background: color-mix(in oklch, var(--muted) 42%, transparent);
     color: var(--muted-foreground);
     cursor: pointer;
     font: inherit;
-    padding: 0.85rem 1rem;
+    padding: 10px 14px;
     text-align: left;
     transition:
       background-color 160ms ease,
@@ -64,13 +69,16 @@
   }
 
   &__composerAvatar {
-    width: 2.75rem;
-    height: 2.75rem;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
   }
 
   &__composerTriggerText {
-    font-size: 1rem;
+    min-width: 0;
+    font-size: 16px;
     font-weight: 600;
+    overflow-wrap: anywhere;
   }
 
   &__composerDialog {
@@ -117,7 +125,9 @@
   }
 
   &__composerIdentityText,
-  &__composerError {
+  &__composerError,
+  &__composerErrorTitle,
+  &__composerErrorList {
     margin: 0;
   }
 
@@ -141,9 +151,153 @@
   }
 
   &__composerError {
+    display: grid;
+    gap: 0.45rem;
     color: var(--destructive);
     font-size: 0.9rem;
     line-height: 1.45;
+    text-align: left;
+  }
+
+  &__composerErrorTitle {
+    font-weight: 700;
+  }
+
+  &__composerErrorList {
+    display: grid;
+    gap: 0.25rem;
+    padding-left: 0;
+    list-style: none;
+  }
+
+  &__composerErrorItem {
+    display: flex;
+    gap: 0.35rem;
+    align-items: flex-start;
+  }
+
+  &__composerErrorBullet {
+    flex: 0 0 auto;
+  }
+
+  &__categoryPicker {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  &__categoryTrigger,
+  &__categoryFilter,
+  &__categoryBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: fit-content;
+    border: 1px solid var(--border);
+    border-radius: 999rem;
+    background: var(--background);
+    color: var(--foreground);
+    font: inherit;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  &__categoryTrigger {
+    min-height: 2.9rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.58;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 3px;
+    }
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+    }
+  }
+
+  &__categoryFilters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    min-height: 38px;
+    max-height: 42px;
+    overflow-x: auto;
+    padding: 0 0 2px;
+    scrollbar-width: thin;
+  }
+
+  &__categoryFilter {
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    justify-content: center;
+    min-width: 0;
+    max-width: min(220px, 56vw);
+    height: 36px;
+    max-height: 36px;
+    min-height: 36px;
+    padding: 0 12px;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    appearance: none;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      color 160ms ease;
+
+    &:hover {
+      border-color: color-mix(in oklch, var(--primary) 48%, var(--border));
+      background: color-mix(in oklch, var(--primary) 7%, var(--background));
+      color: var(--foreground);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 3px;
+    }
+
+    &--active {
+      border-color: color-mix(in oklch, var(--primary) 62%, var(--border));
+      background: color-mix(in oklch, var(--primary) 12%, var(--background));
+      box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 18%, transparent);
+      color: var(--foreground);
+
+      &:hover {
+        border-color: color-mix(in oklch, var(--primary) 76%, var(--border));
+        background: color-mix(in oklch, var(--primary) 18%, var(--background));
+      }
+    }
+  }
+
+  &__categoryFilterEmoji {
+    flex: 0 0 auto;
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  &__categoryFilterText {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__categoryBadge {
+    padding: 0.35rem 0.6rem;
+    color: var(--muted-foreground);
+    font-size: 0.82rem;
   }
 
   &__titleInput,
@@ -186,13 +340,15 @@
 
   &__empty {
     display: grid;
-    gap: 0.4rem;
+    gap: 6px;
     border-top: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
-    padding-top: 1rem;
+    margin-top: 4px;
+    padding-top: 16px;
   }
 
   &__emptyTitle {
-    font-size: 1rem;
+    font-size: 18px;
+    line-height: 1.25;
   }
 
   &__postList,
@@ -213,7 +369,7 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     gap: 0.75rem;
-    align-items: center;
+    align-items: start;
   }
 
   &__postContent {
@@ -276,9 +432,31 @@
   }
 
   &__time {
-    grid-column: 2;
     color: var(--muted-foreground);
     font-size: 0.85rem;
+  }
+
+  &__postMeta {
+    display: inline-flex;
+    align-items: center;
+    grid-column: 2;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  &__postMetaSeparator {
+    color: var(--muted-foreground);
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  &__postCreatedTooltip {
+    max-width: min(22rem, calc(100vw - 2rem));
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+    line-height: 1.35;
   }
 
   &__content {
@@ -357,8 +535,10 @@
       grid-template-columns: auto minmax(0, 1fr) auto;
     }
 
-    &__time {
+    &__postMeta {
       grid-column: auto;
+      justify-content: flex-end;
+      text-align: right;
     }
 
     &__commentForm {

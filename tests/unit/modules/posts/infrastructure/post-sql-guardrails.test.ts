@@ -29,6 +29,61 @@ describe("Post SQL guardrails", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS title text");
   });
 
+  it("adds mandatory community post categories and preserves existing posts", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260426040000_add_community_post_categories.sql"
+    );
+
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.community_post_categories");
+    expect(migration).toContain("UNIQUE (community_id, slug)");
+    expect(migration).toContain("('General', 'general', '💬', 20)");
+    expect(migration).not.toContain("('Anuncios', 'anuncios'");
+    expect(migration).not.toContain("('Preguntas', 'preguntas'");
+    expect(migration).not.toContain("('Eventos', 'eventos'");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS category_id uuid");
+    expect(migration).toContain("WITH community_general_categories AS");
+    expect(migration).toContain("UPDATE public.posts");
+    expect(migration).toContain("SET");
+    expect(migration).toContain("category_id = community_general_categories.id");
+    expect(migration).toContain("posts.community_id = community_general_categories.community_id");
+    expect(migration).toContain("ALTER COLUMN category_id SET NOT NULL");
+    expect(migration).toContain("REFERENCES public.community_post_categories(id)");
+    expect(migration).not.toContain("DELETE FROM public.posts");
+  });
+
+  it("moves obsolete initial category posts into General before deleting those categories", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260426050000_keep_only_general_initial_category.sql"
+    );
+
+    expect(migration).toContain("WITH general_categories AS");
+    expect(migration).toContain("UPDATE public.posts");
+    expect(migration).toContain("category_id = general_categories.id");
+    expect(migration).toContain("source_categories.slug IN ('anuncios', 'preguntas', 'eventos')");
+    expect(migration).toContain("DELETE FROM public.community_post_categories obsolete_categories");
+    expect(migration).toContain("obsolete_categories.slug IN ('anuncios', 'preguntas', 'eventos')");
+  });
+
+  it("limits category management to owners and admins", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260426040000_add_community_post_categories.sql"
+    );
+    const incrementalMigration = readWorkspaceFile(
+      "database/migrations/20260426060000_limit_post_category_management_to_owners.sql"
+    );
+
+    expect(migration).toContain("public.can_manage_community_categories");
+    expect(migration).toContain("community_members.role IN ('owner', 'admin')");
+    expect(migration).toContain("ALTER TABLE public.community_post_categories FORCE ROW LEVEL SECURITY");
+    expect(migration).toContain("Owners and admins can manage community post categories");
+    expect(incrementalMigration).toContain("CREATE OR REPLACE FUNCTION public.can_manage_community_categories");
+    expect(incrementalMigration).toContain("community_members.role IN ('owner', 'admin')");
+    expect(incrementalMigration).toContain("Owners and admins can manage community post categories");
+    expect(incrementalMigration).toContain("Owners and admins can move posts between categories");
+    expect(incrementalMigration).toContain("ON public.posts");
+    expect(incrementalMigration).toContain("FOR UPDATE");
+  });
+
   it("forces RLS and limits write participation to active members", () => {
     const migration = readWorkspaceFile(postsMigrationPath);
 

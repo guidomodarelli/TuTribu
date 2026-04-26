@@ -19,6 +19,7 @@ type PostgresCommunityRow = {
 
 type PostgresMembershipCommunityRow = {
   community_id: string;
+  role: "admin" | "member" | "owner";
   communities: {
     id: string;
     name: string;
@@ -74,6 +75,7 @@ export class PostgresCommunityReadRepository implements CommunityReadRepository 
       const result = await database.execute(sql`
         select
           community_members.community_id,
+          community_members.role,
           communities.id as community_row_id,
           communities.name,
           communities.slug
@@ -98,6 +100,7 @@ export class PostgresCommunityReadRepository implements CommunityReadRepository 
         .map((row) => ({
           communityId: row.community_row_id ?? row.community_id,
           name: row.name!,
+          role: row.role,
           slug: row.slug!,
         }));
     });

@@ -347,6 +347,79 @@ describe("AppSidebar", () => {
     expect(screen.getByRole("button", { name: /acerca de/i })).toBeInTheDocument();
   });
 
+  it("shows the category section to community owners and admins", () => {
+    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+
+    const { rerender } = render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "owner@example.com",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        memberCommunities={[
+          {
+            communityId: "community-1",
+            name: "Matematica Pro",
+            role: "owner",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /categorías/i })).toBeInTheDocument();
+
+    rerender(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "admin@example.com",
+          name: "Ada Lovelace",
+          role: "member",
+          avatarFallback: "AL",
+          image: null,
+        }}
+        memberCommunities={[
+          {
+            communityId: "community-1",
+            name: "Matematica Pro",
+            role: "admin",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /categorías/i })).toBeInTheDocument();
+
+    rerender(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "member@example.com",
+          name: "Katherine Johnson",
+          role: "member",
+          avatarFallback: "KJ",
+          image: null,
+        }}
+        memberCommunities={[
+          {
+            communityId: "community-1",
+            name: "Matematica Pro",
+            role: "member",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: /categorías/i })).not.toBeInTheDocument();
+  });
+
   it("hides the global communities section inside an active community", () => {
     (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
 

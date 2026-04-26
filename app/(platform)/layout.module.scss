@@ -34,6 +34,14 @@
     flex: 1;
     min-height: 0;
     flex-direction: column;
+
+    > :where(main, section) {
+      box-sizing: border-box;
+      width: 100%;
+      max-width: 720px;
+      margin-inline: auto;
+      padding: clamp(1rem, 3vw, 2rem);
+    }
   }
 }
 

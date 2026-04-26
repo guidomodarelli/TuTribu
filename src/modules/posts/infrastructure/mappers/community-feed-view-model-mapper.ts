@@ -2,9 +2,13 @@ import type {
   CommunityFeedAuthorResult,
   CommunityFeedCommentResult,
   CommunityFeedPostResult,
+  CommunityPostCategoryResult,
   PostAuthorRole,
 } from "@/src/modules/posts/application/results/community-feed-result";
-import { POST_AUTHOR_ROLE } from "@/src/modules/posts/constants/post-feed";
+import {
+  POST_AUTHOR_ROLE,
+  POST_CATEGORY_ACCESS_SCOPE,
+} from "@/src/modules/posts/constants/post-feed";
 
 const POST_FEED_DEFAULTS = {
   authorFallbackPartCount: 2,
@@ -28,12 +32,22 @@ export type CommunityFeedCommentProjection = {
 
 export type CommunityFeedPostProjection = {
   author: CommunityFeedAuthorProjection;
+  category: CommunityPostCategoryProjection;
   content: string;
   createdAt: Date | string;
   id: string;
   likedByViewer: boolean;
   likeCount: number;
   title: string | null;
+};
+
+export type CommunityPostCategoryProjection = {
+  accessScope: string | null;
+  emoji: string | null;
+  id: string;
+  name: string | null;
+  slug: string | null;
+  sortOrder: number | string | null;
 };
 
 export function formatPostDateTimeValue(value: Date | string): string {
@@ -94,8 +108,30 @@ export function createCommunityFeedComment({
   };
 }
 
+export function createCommunityPostCategory({
+  accessScope,
+  emoji,
+  id,
+  name,
+  slug,
+  sortOrder,
+}: CommunityPostCategoryProjection): CommunityPostCategoryResult {
+  return {
+    accessScope:
+      accessScope === POST_CATEGORY_ACCESS_SCOPE.members
+        ? accessScope
+        : POST_CATEGORY_ACCESS_SCOPE.members,
+    emoji: emoji || "",
+    id,
+    name: name || "",
+    slug: slug || "",
+    sortOrder: Number(sortOrder ?? 0),
+  };
+}
+
 export function createCommunityFeedPost({
   author,
+  category,
   content,
   createdAt,
   id,
@@ -105,6 +141,7 @@ export function createCommunityFeedPost({
 }: CommunityFeedPostProjection): CommunityFeedPostResult {
   return {
     author: createCommunityFeedAuthor(author),
+    category: createCommunityPostCategory(category),
     comments: [],
     content,
     createdAt: formatPostDateTimeValue(createdAt),

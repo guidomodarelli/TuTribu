@@ -235,4 +235,22 @@ describe("PlatformLayout", () => {
     expect(platformLayoutStyles).toMatch(/&__header\s*{[^}]*top:\s*0;/s);
     expect(platformLayoutStyles).not.toMatch(/\.PlatformLayout\s*{[^}]*overflow:\s*hidden;/s);
   });
+
+  it("constrains platform page sections to the readable content width", () => {
+    expect(platformLayoutStyles).toMatch(
+      /&__content\s*{[^}]*>\s*:where\(main,\s*section\)\s*{[^}]*box-sizing:\s*border-box;/s
+    );
+    expect(platformLayoutStyles).toMatch(
+      /&__content\s*{[^}]*>\s*:where\(main,\s*section\)\s*{[^}]*width:\s*100%;/s
+    );
+    expect(platformLayoutStyles).toMatch(
+      /&__content\s*{[^}]*>\s*:where\(main,\s*section\)\s*{[^}]*max-width:\s*720px;/s
+    );
+    expect(platformLayoutStyles).toMatch(
+      /&__content\s*{[^}]*>\s*:where\(main,\s*section\)\s*{[^}]*margin-inline:\s*auto;/s
+    );
+    expect(platformLayoutStyles).toMatch(
+      /&__content\s*{[^}]*>\s*:where\(main,\s*section\)\s*{[^}]*padding:\s*clamp\(1rem,\s*3vw,\s*2rem\);/s
+    );
+  });
 });

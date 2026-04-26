@@ -22,10 +22,30 @@ function getSqlText(statement: unknown): string {
 }
 
 describe("PostgresPostFeedRepository", () => {
+  const categoryRows = [
+    {
+      access_scope: "members",
+      emoji: "💬",
+      id: "category-general",
+      name: "General",
+      slug: "general",
+      sort_order: 20,
+    },
+  ];
+
   it("maps feed rows into posts with comments and reactions", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: categoryRows })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+          category_access_scope: "members",
+          category_emoji: "💬",
+          category_id: "category-general",
+          category_name: "General",
+          category_slug: "general",
+          category_sort_order: 20,
           post_id: "post-1",
           post_content: "Bienvenida",
           post_created_at: "2026-04-26T12:00:00.000Z",
@@ -44,9 +64,9 @@ describe("PostgresPostFeedRepository", () => {
           comment_author_image: null,
           comment_author_role: "member",
           viewer_membership_status: "active",
-        },
-      ],
-    }));
+          },
+        ],
+      });
     const repository = new PostgresPostFeedRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -57,6 +77,17 @@ describe("PostgresPostFeedRepository", () => {
         viewerId: "member-1",
       })
     ).resolves.toEqual({
+      activeCategoryId: null,
+      categories: [
+        {
+          accessScope: "members",
+          emoji: "💬",
+          id: "category-general",
+          name: "General",
+          slug: "general",
+          sortOrder: 20,
+        },
+      ],
       viewerPermissions: {
         canComment: true,
         canCreatePost: true,
@@ -65,6 +96,14 @@ describe("PostgresPostFeedRepository", () => {
       posts: [
         {
           id: "post-1",
+          category: {
+            accessScope: "members",
+            emoji: "💬",
+            id: "category-general",
+            name: "General",
+            slug: "general",
+            sortOrder: 20,
+          },
           author: {
             id: "owner-1",
             name: "Ada Lovelace",
@@ -95,15 +134,24 @@ describe("PostgresPostFeedRepository", () => {
       ],
     });
 
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
       "order by posts.created_at desc, post_comments.created_at asc"
     );
   });
 
   it("returns viewer permissions when the community has no posts yet", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: categoryRows })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+          category_access_scope: null,
+          category_emoji: null,
+          category_id: null,
+          category_name: null,
+          category_slug: null,
+          category_sort_order: null,
           post_id: null,
           post_content: null,
           post_created_at: null,
@@ -122,9 +170,9 @@ describe("PostgresPostFeedRepository", () => {
           comment_author_image: null,
           comment_author_role: null,
           viewer_membership_status: "active",
-        },
-      ],
-    }));
+          },
+        ],
+      });
     const repository = new PostgresPostFeedRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -135,6 +183,17 @@ describe("PostgresPostFeedRepository", () => {
         viewerId: "member-1",
       })
     ).resolves.toEqual({
+      activeCategoryId: null,
+      categories: [
+        {
+          accessScope: "members",
+          emoji: "💬",
+          id: "category-general",
+          name: "General",
+          slug: "general",
+          sortOrder: 20,
+        },
+      ],
       viewerPermissions: {
         canComment: true,
         canCreatePost: true,
@@ -145,9 +204,18 @@ describe("PostgresPostFeedRepository", () => {
   });
 
   it("uses preaggregated like counts so comments do not multiply reactions", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: categoryRows })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+          category_access_scope: "members",
+          category_emoji: "💬",
+          category_id: "category-general",
+          category_name: "General",
+          category_slug: "general",
+          category_sort_order: 20,
           post_id: "post-1",
           post_content: "Bienvenida",
           post_created_at: "2026-04-26T12:00:00.000Z",
@@ -166,8 +234,14 @@ describe("PostgresPostFeedRepository", () => {
           comment_author_image: null,
           comment_author_role: "member",
           viewer_membership_status: "active",
-        },
-        {
+          },
+          {
+          category_access_scope: "members",
+          category_emoji: "💬",
+          category_id: "category-general",
+          category_name: "General",
+          category_slug: "general",
+          category_sort_order: 20,
           post_id: "post-1",
           post_content: "Bienvenida",
           post_created_at: "2026-04-26T12:00:00.000Z",
@@ -186,9 +260,9 @@ describe("PostgresPostFeedRepository", () => {
           comment_author_image: null,
           comment_author_role: "member",
           viewer_membership_status: "active",
-        },
-      ],
-    }));
+          },
+        ],
+      });
     const repository = new PostgresPostFeedRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -211,13 +285,15 @@ describe("PostgresPostFeedRepository", () => {
       ],
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const sqlText = getSqlText(execute.mock.calls[1]?.[0]);
 
     expect(sqlText).toContain("post_like_counts");
     expect(sqlText).toContain("with target_community as");
     expect(sqlText).toContain("where communities.slug =");
     expect(sqlText).toContain("inner join public.posts liked_posts");
     expect(sqlText).toContain("on target_community.id = liked_posts.community_id");
+    expect(sqlText).toContain("and posts.category_id is not null");
+    expect(sqlText).toContain("and category_matches.community_id = target_community.id");
     expect(sqlText).not.toContain("count(post_reactions.id) filter");
   });
 });

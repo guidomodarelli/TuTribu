@@ -9,6 +9,7 @@ El tenant canonico del producto es **`community`**. Cada comunidad debe aislar:
 * owner
 * admins
 * members
+* categorias de posts
 * posts
 * comments
 * events
@@ -36,6 +37,7 @@ No se considera `course` como tenant arquitectonico.
 * `communities`
 * `community_members`
 * `community_creator_whitelist`
+* `community_post_categories`
 * `posts`
 * `comments`
 * `events`
@@ -46,6 +48,11 @@ Las tablas multi-tenant deben usar:
 
 * `community_id` para alcance por tenant
 * `user_id` o `created_by` para ownership
+
+Las publicaciones siempre pertenecen a una categoria de la misma comunidad mediante
+`posts.category_id`. Una comunidad debe conservar al menos una categoria; si se
+elimina una categoria con publicaciones, la app debe mover esas publicaciones a
+otra categoria del mismo tenant antes de borrar la categoria origen.
 
 La tabla `community_members` modela:
 

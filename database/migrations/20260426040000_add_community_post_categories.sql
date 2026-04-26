@@ -34,10 +34,7 @@ $$;
 
 WITH category_seed(name, slug, emoji, sort_order) AS (
   VALUES
-    ('Anuncios', 'anuncios', '📢', 10),
-    ('General', 'general', '💬', 20),
-    ('Preguntas', 'preguntas', '❓', 30),
-    ('Eventos', 'eventos', '📅', 40)
+    ('General', 'general', '💬', 20)
 )
 INSERT INTO public.community_post_categories (
   community_id,
@@ -65,11 +62,19 @@ ON CONFLICT (community_id, slug) DO NOTHING;
 ALTER TABLE public.posts
 ADD COLUMN IF NOT EXISTS category_id uuid;
 
+WITH community_general_categories AS (
+  SELECT
+    community_post_categories.community_id,
+    community_post_categories.id
+  FROM public.community_post_categories
+  WHERE community_post_categories.slug = 'general'
+)
 UPDATE public.posts
-SET category_id = community_general_categories.id
-FROM public.community_post_categories community_general_categories
-WHERE community_general_categories.community_id = posts.community_id
-  AND community_general_categories.slug = 'general'
+SET
+  category_id = community_general_categories.id,
+  updated_at = timezone('utc', now())
+FROM community_general_categories
+WHERE posts.community_id = community_general_categories.community_id
   AND posts.category_id IS NULL;
 
 ALTER TABLE public.posts
@@ -100,6 +105,9 @@ DROP POLICY IF EXISTS "Members can read community post categories"
 ON public.community_post_categories;
 
 DROP POLICY IF EXISTS "Owners and admins can manage community post categories"
+ON public.community_post_categories;
+
+DROP POLICY IF EXISTS "Owners can manage community post categories"
 ON public.community_post_categories;
 
 CREATE POLICY "Members can read community post categories"

@@ -8,6 +8,10 @@ const getAuthenticatedMember = jest.fn();
 const createCommunityPost = jest.fn();
 const createPostComment = jest.fn();
 const togglePostLike = jest.fn();
+const listCommunityPostCategories = jest.fn();
+const createCommunityPostCategory = jest.fn();
+const updateCommunityPostCategory = jest.fn();
+const deleteCommunityPostCategory = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -74,6 +78,10 @@ describe("Community post routes", () => {
     createCommunityPost.mockReset();
     createPostComment.mockReset();
     togglePostLike.mockReset();
+    listCommunityPostCategories.mockReset();
+    createCommunityPostCategory.mockReset();
+    updateCommunityPostCategory.mockReset();
+    deleteCommunityPostCategory.mockReset();
     global.Response = MockJsonResponse as unknown as typeof Response;
 
     getAuthenticatedMember.mockResolvedValue({
@@ -93,8 +101,12 @@ describe("Community post routes", () => {
       posts: {
         useCases: {
           createCommunityPost,
+          createCommunityPostCategory,
           createPostComment,
+          deleteCommunityPostCategory,
+          listCommunityPostCategories,
           togglePostLike,
+          updateCommunityPostCategory,
         },
       },
     });
@@ -115,6 +127,14 @@ describe("Community post routes", () => {
           avatarFallback: "GH",
           image: null,
         },
+        category: {
+          accessScope: "members",
+          emoji: "💬",
+          id: "category-general",
+          name: "General",
+          slug: "general",
+          sortOrder: 20,
+        },
         comments: [],
         content: "Primera publicación",
         createdAt: "2026-04-26T12:00:00.000Z",
@@ -128,6 +148,7 @@ describe("Community post routes", () => {
     const response = await POST_CREATE(
       buildJsonRequest({
         content: "Primera publicación",
+        categoryId: "category-general",
         title: "Anuncio inicial",
       }),
       buildCreateRouteContext()
@@ -146,6 +167,14 @@ describe("Community post routes", () => {
           avatarFallback: "GH",
           image: null,
         },
+        category: {
+          accessScope: "members",
+          emoji: "💬",
+          id: "category-general",
+          name: "General",
+          slug: "general",
+          sortOrder: 20,
+        },
         comments: [],
         content: "Primera publicación",
         createdAt: "2026-04-26T12:00:00.000Z",
@@ -156,9 +185,30 @@ describe("Community post routes", () => {
     });
     expect(createCommunityPost).toHaveBeenCalledWith({
       authorId: "member-1",
+      categoryId: "category-general",
       communitySlug: "matematica-pro",
       content: "Primera publicación",
       title: "Anuncio inicial",
+    });
+  });
+
+  it("returns a safe validation message when category is missing", async () => {
+    createCommunityPost.mockResolvedValue({
+      status: "invalid_category",
+    });
+
+    const response = await POST_CREATE(
+      buildJsonRequest({
+        content: "Primera publicación",
+        title: "Anuncio inicial",
+      }),
+      buildCreateRouteContext()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      message: "Seleccioná una categoría antes de publicar.",
     });
   });
 

@@ -6,6 +6,7 @@ import { PostgresCommunityCreationRepository } from "./communities/infrastructur
 import { PostgresCommunityCreatorWhitelistRepository } from "./communities/infrastructure/repositories/postgres-community-creator-whitelist-repository";
 import { PostgresCommunityReadRepository } from "./communities/infrastructure/repositories/postgres-community-read-repository";
 import { PostgresPostFeedRepository } from "./posts/infrastructure/repositories/postgres-post-feed-repository";
+import { PostgresPostCategoryRepository } from "./posts/infrastructure/repositories/postgres-post-category-repository";
 import { PostgresPostMutationRepository } from "./posts/infrastructure/repositories/postgres-post-mutation-repository";
 import { buildPostsModule } from "./posts/setup";
 import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
@@ -34,6 +35,9 @@ export async function createRequestModules() {
         new PostgresCommunityCreatorWhitelistRepository(executeWithRequestContext),
     }),
     posts: buildPostsModule({
+      postCategoryRepository: new PostgresPostCategoryRepository(
+        executeWithRequestContext
+      ),
       postCommentRepository: new PostgresPostMutationRepository(
         executeWithRequestContext
       ),

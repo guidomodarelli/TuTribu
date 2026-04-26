@@ -12,6 +12,15 @@ const listCommunityFeed = jest.fn();
 const infoMock = jest.fn();
 const errorMock = jest.fn();
 
+const postCategory = {
+  accessScope: "members" as const,
+  emoji: "💬",
+  id: "category-general",
+  name: "General",
+  slug: "general",
+  sortOrder: 20,
+};
+
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(),
   useRouter: () => ({
@@ -86,6 +95,8 @@ describe("CommunityPage", () => {
       },
     });
     listCommunityFeed.mockResolvedValue({
+      activeCategoryId: null,
+      categories: [postCategory],
       viewerPermissions: {
         canComment: true,
         canCreatePost: true,
@@ -101,6 +112,7 @@ describe("CommunityPage", () => {
             avatarFallback: "AL",
             image: null,
           },
+          category: postCategory,
           comments: [
             {
               id: "comment-1",
@@ -130,6 +142,7 @@ describe("CommunityPage", () => {
             avatarFallback: "KJ",
             image: null,
           },
+          category: postCategory,
           comments: [],
           content: "Comparto un recurso nuevo",
           createdAt: "2026-04-26T11:00:00.000Z",
@@ -194,6 +207,8 @@ describe("CommunityPage", () => {
       },
     });
     listCommunityFeed.mockResolvedValue({
+      activeCategoryId: null,
+      categories: [postCategory],
       viewerPermissions: {
         canComment: false,
         canCreatePost: false,

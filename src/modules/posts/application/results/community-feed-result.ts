@@ -1,5 +1,6 @@
 import type {
   POST_AUTHOR_ROLE,
+  POST_CATEGORY_ACCESS_SCOPE,
   POST_MEMBERSHIP_STATUS,
 } from "@/src/modules/posts/constants/post-feed";
 
@@ -8,6 +9,18 @@ export type PostAuthorRole =
 
 export type PostMembershipStatus =
   (typeof POST_MEMBERSHIP_STATUS)[keyof typeof POST_MEMBERSHIP_STATUS];
+
+export type PostCategoryAccessScope =
+  (typeof POST_CATEGORY_ACCESS_SCOPE)[keyof typeof POST_CATEGORY_ACCESS_SCOPE];
+
+export type CommunityPostCategoryResult = {
+  accessScope: PostCategoryAccessScope;
+  emoji: string;
+  id: string;
+  name: string;
+  slug: string;
+  sortOrder: number;
+};
 
 export type CommunityFeedAuthorResult = {
   avatarFallback: string;
@@ -26,6 +39,7 @@ export type CommunityFeedCommentResult = {
 
 export type CommunityFeedPostResult = {
   author: CommunityFeedAuthorResult;
+  category: CommunityPostCategoryResult;
   comments: CommunityFeedCommentResult[];
   content: string;
   createdAt: string;
@@ -42,6 +56,8 @@ export type CommunityFeedPermissionsResult = {
 };
 
 export type CommunityFeedResult = {
+  activeCategoryId: string | null;
+  categories: CommunityPostCategoryResult[];
   posts: CommunityFeedPostResult[];
   viewerPermissions: CommunityFeedPermissionsResult;
 };

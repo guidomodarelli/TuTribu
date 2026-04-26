@@ -10,7 +10,10 @@ import type {
   PostCreationResult,
   PostLikeToggleResult,
 } from "@/src/modules/posts/application/results/post-mutation-result";
-import { POST_MUTATION_STATUS, POST_REACTION_TYPE } from "@/src/modules/posts/constants/post-feed";
+import {
+  POST_MUTATION_STATUS,
+  POST_REACTION_TYPE,
+} from "@/src/modules/posts/constants/post-feed";
 import type { PostCommentRepository } from "@/src/modules/posts/domain/repositories/post-comment-repository";
 import type { PostCreationRepository } from "@/src/modules/posts/domain/repositories/post-creation-repository";
 import type { PostReactionRepository } from "@/src/modules/posts/domain/repositories/post-reaction-repository";
@@ -33,6 +36,12 @@ type CreatedPostRow = MutationStatusRow & {
   author_image: string | null;
   author_name: string | null;
   author_role: string | null;
+  category_access_scope: string | null;
+  category_emoji: string | null;
+  category_id: string | null;
+  category_name: string | null;
+  category_slug: string | null;
+  category_sort_order: number | string | null;
   post_content: string | null;
   post_created_at: Date | string | null;
   post_id: string | null;
@@ -64,6 +73,12 @@ type DeletedReactionRow = {
 };
 
 function mapFallbackCreationStatus(status: string | null): PostCreationResult {
+  if (status === POST_MUTATION_STATUS.invalidCategory) {
+    return {
+      status,
+    };
+  }
+
   return {
     status:
       status === POST_MUTATION_STATUS.notFound
@@ -88,6 +103,7 @@ function mapCreatedPost(row: CreatedPostRow | null): PostCreationResult {
     row?.status === POST_MUTATION_STATUS.created &&
     row.post_id &&
     row.author_id &&
+    row.category_id &&
     row.post_content &&
     row.post_created_at
   ) {
@@ -99,6 +115,14 @@ function mapCreatedPost(row: CreatedPostRow | null): PostCreationResult {
           image: row.author_image,
           name: row.author_name,
           role: row.author_role,
+        },
+        category: {
+          accessScope: row.category_access_scope,
+          emoji: row.category_emoji,
+          id: row.category_id,
+          name: row.category_name,
+          slug: row.category_slug,
+          sortOrder: row.category_sort_order,
         },
         content: row.post_content,
         createdAt: row.post_created_at,
@@ -264,16 +288,38 @@ export class PostgresPostMutationRepository
           where communities.slug = ${command.communitySlug}
           limit 1
         ),
+        target_category as (
+          select
+            community_post_categories.id,
+            community_post_categories.name,
+            community_post_categories.slug,
+            community_post_categories.emoji,
+            community_post_categories.sort_order,
+            community_post_categories.access_scope
+          from public.community_post_categories
+          inner join target_community
+            on target_community.id = community_post_categories.community_id
+          where community_post_categories.id = ${command.categoryId}
+          limit 1
+        ),
         inserted_post as (
-          insert into public.posts (community_id, author_id, title, content, created_at, updated_at)
-          select target_community.id, ${command.authorId}, ${command.title}, ${command.content}, timezone('utc', now()), timezone('utc', now())
+          insert into public.posts (community_id, category_id, author_id, title, content, created_at, updated_at)
+          select target_community.id, target_category.id, ${command.authorId}, ${command.title}, ${command.content}, timezone('utc', now()), timezone('utc', now())
           from target_community
+          inner join target_category
+            on true
           where public.is_active_community_member(target_community.id)
-          returning id, community_id, author_id, title, content, created_at
+          returning id, community_id, category_id, author_id, title, content, created_at
         ),
         created_post as (
           select
             inserted_post.id as post_id,
+            target_category.id as category_id,
+            target_category.name as category_name,
+            target_category.slug as category_slug,
+            target_category.emoji as category_emoji,
+            target_category.sort_order as category_sort_order,
+            target_category.access_scope as category_access_scope,
             inserted_post.title as post_title,
             inserted_post.content as post_content,
             inserted_post.created_at as post_created_at,
@@ -282,6 +328,8 @@ export class PostgresPostMutationRepository
             post_authors.image as author_image,
             post_members.role as author_role
           from inserted_post
+          inner join target_category
+            on target_category.id = inserted_post.category_id
           inner join public."user" post_authors
             on post_authors.id = inserted_post.author_id
           left join public.community_members post_members
@@ -292,9 +340,16 @@ export class PostgresPostMutationRepository
           case
             when exists (select 1 from inserted_post) then ${POST_MUTATION_STATUS.created}
             when not exists (select 1 from target_community) then ${POST_MUTATION_STATUS.notFound}
+            when not exists (select 1 from target_category) then ${POST_MUTATION_STATUS.invalidCategory}
             else ${POST_MUTATION_STATUS.forbidden}
           end as status,
           created_post.post_id,
+          created_post.category_id,
+          created_post.category_name,
+          created_post.category_slug,
+          created_post.category_emoji,
+          created_post.category_sort_order,
+          created_post.category_access_scope,
           created_post.post_title,
           created_post.post_content,
           created_post.post_created_at,

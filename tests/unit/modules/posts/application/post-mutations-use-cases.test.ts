@@ -3,6 +3,15 @@ import { createPostComment } from "@/src/modules/posts/application/use-cases/cre
 import { togglePostLike } from "@/src/modules/posts/application/use-cases/toggle-post-like-use-case";
 
 describe("post mutation use cases", () => {
+  const postCategory = {
+    accessScope: "members" as const,
+    emoji: "💬",
+    id: "category-general",
+    name: "General",
+    slug: "general",
+    sortOrder: 20,
+  };
+
   it("creates a community post when content is valid", async () => {
     const createdPost = {
       id: "post-1",
@@ -13,6 +22,7 @@ describe("post mutation use cases", () => {
         avatarFallback: "GH",
         image: null,
       },
+      category: postCategory,
       comments: [],
       content: "Primera publicación",
       createdAt: "2026-04-26T12:00:00.000Z",
@@ -31,6 +41,7 @@ describe("post mutation use cases", () => {
     await expect(
       execute({
         authorId: "member-1",
+        categoryId: "category-general",
         communitySlug: "matematica-pro",
         content: "Primera publicación",
         title: "Bienvenida",
@@ -38,6 +49,7 @@ describe("post mutation use cases", () => {
     ).resolves.toEqual({ post: createdPost, status: "created" });
     expect(create).toHaveBeenCalledWith({
       authorId: "member-1",
+      categoryId: "category-general",
       communitySlug: "matematica-pro",
       content: "Primera publicación",
       title: "Bienvenida",
@@ -53,6 +65,7 @@ describe("post mutation use cases", () => {
     await expect(
       execute({
         authorId: "member-1",
+        categoryId: "category-general",
         communitySlug: "matematica-pro",
         content: "Primera publicación",
         title: "   ",
@@ -70,11 +83,30 @@ describe("post mutation use cases", () => {
     await expect(
       execute({
         authorId: "member-1",
+        categoryId: "category-general",
         communitySlug: "matematica-pro",
         content: "   ",
         title: "Bienvenida",
       })
     ).resolves.toEqual({ status: "invalid_content" });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a post without category before calling the repository", async () => {
+    const create = jest.fn();
+    const execute = createCommunityPost({
+      postCreationRepository: { create },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        categoryId: "   ",
+        communitySlug: "matematica-pro",
+        content: "Primera publicación",
+        title: "Bienvenida",
+      })
+    ).resolves.toEqual({ status: "invalid_category" });
     expect(create).not.toHaveBeenCalled();
   });
 

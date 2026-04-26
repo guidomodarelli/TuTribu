@@ -55,6 +55,15 @@ describe("PostgresCommunityCreationRepository", () => {
     });
 
     expect(execute).toHaveBeenCalledTimes(1);
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
+      "insert into public.community_post_categories"
+    );
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain("General");
+    expect(sqlText).not.toContain("Anuncios");
+    expect(sqlText).not.toContain("Preguntas");
+    expect(sqlText).not.toContain("Eventos");
   });
 
   it("surfaces SQL errors without splitting the create flow across statements", async () => {
