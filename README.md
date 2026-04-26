@@ -29,6 +29,8 @@ Create `.env.local` from `.env.example` and provide:
 - `BETTER_AUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
+- `ACADEMIA_BACKEND_BASE_URL`: optional absolute URL for a separated AcademiaOnline backend. Leave it empty when Next.js resolves backend routes internally. It must use HTTPS, except for local `http://localhost` or `http://127.0.0.1` development URLs.
+- `CONTACT_EMAIL`: optional contact email shown when community creation is not available. Leave it empty to hide the contact action.
 
 Use a strong random value for `BETTER_AUTH_SECRET`:
 
@@ -45,6 +47,8 @@ BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_SECRET=replace-with-a-strong-random-secret
 GOOGLE_CLIENT_ID=replace-with-google-client-id
 GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
+ACADEMIA_BACKEND_BASE_URL=
+CONTACT_EMAIL=soporte@example.com
 ```
 
 ## Better Auth Setup

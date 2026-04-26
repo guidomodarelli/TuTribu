@@ -99,6 +99,10 @@ describe("Auth migration guardrails", () => {
 
     expect(environmentExample).toContain("DATABASE_URL=");
     expect(environmentExample).toContain("DATABASE_MIGRATION_URL=");
+    expect(environmentExample).toContain("ACADEMIA_BACKEND_BASE_URL=");
+    expect(environmentExample).toContain("CONTACT_EMAIL=");
+    expect(readme).toContain("ACADEMIA_BACKEND_BASE_URL");
+    expect(readme).toContain("CONTACT_EMAIL");
     expect(readme).toContain("Neon Postgres");
     expect(environmentExample).not.toContain("SUPABASE_URL");
     expect(environmentExample).not.toContain("SUPABASE_PUBLISHABLE_KEY");
