@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { CommunityCreationBlocked } from "@/components/communities/community-creation-blocked";
 import { CreateCommunityForm } from "@/components/communities/create-community-form";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import {
@@ -126,16 +125,16 @@ export default async function CreateCommunityPage({
 
   return (
     <main className={styles.CreateCommunityPage}>
-      <Card className={styles.CreateCommunityPage__card}>
-        <CardHeader className={styles.CreateCommunityPage__header}>
+      <section className={styles.CreateCommunityPage__panel}>
+        <header className={styles.CreateCommunityPage__header}>
           <p className={styles.CreateCommunityPage__eyebrow}>Nueva comunidad</p>
           <h1 className={styles.CreateCommunityPage__title}>Crear una comunidad</h1>
           <p className={styles.CreateCommunityPage__description}>
             Define el nombre y el slug inicial. La comunidad se creara como privada
             y tu cuenta quedara como owner desde el primer momento.
           </p>
-        </CardHeader>
-        <CardContent className={styles.CreateCommunityPage__content}>
+        </header>
+        <div className={styles.CreateCommunityPage__content}>
           <CreateCommunityForm
             errorMessage={resolveErrorMessage(
               readFirstSearchParamValue(
@@ -155,8 +154,8 @@ export default async function CreateCommunityPage({
               resolvedSearchParams[QUERY_PARAMS.communities.suggestedSlug]
             )}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </main>
   );
 }

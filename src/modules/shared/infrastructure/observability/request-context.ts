@@ -39,6 +39,19 @@ export function attachRequestIdToResponse(
   response: Response,
   requestId: string
 ): Response {
-  response.headers.set(REQUEST_ID_HEADER, requestId);
-  return response;
+  try {
+    response.headers.set(REQUEST_ID_HEADER, requestId);
+
+    return response;
+  } catch {
+    const headers = new Headers(response.headers);
+
+    headers.set(REQUEST_ID_HEADER, requestId);
+
+    return new Response(response.body, {
+      headers,
+      status: response.status,
+      statusText: response.statusText,
+    });
+  }
 }

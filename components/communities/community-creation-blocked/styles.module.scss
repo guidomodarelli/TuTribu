@@ -1,9 +1,7 @@
 .CommunityCreationBlocked {
+  display: grid;
+  gap: 1.25rem;
   width: min(100%, 42rem);
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 10%, transparent), transparent 45%),
-    var(--card);
 
   &__header {
     display: grid;

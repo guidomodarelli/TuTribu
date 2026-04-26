@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
@@ -57,7 +57,7 @@ describe("CommunityPage", () => {
     });
   });
 
-  it("renders the private community view", async () => {
+  it("renders an empty community workspace when access is visible", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
       email: "owner@example.com",
@@ -76,7 +76,7 @@ describe("CommunityPage", () => {
       },
     });
 
-    render(
+    const { container } = render(
       await CommunityPage({
         params: Promise.resolve({
           slug: "matematica-pro",
@@ -84,14 +84,8 @@ describe("CommunityPage", () => {
       })
     );
 
-    expect(screen.getByRole("heading", { name: /matematica pro/i })).toBeInTheDocument();
-    expect(screen.getByText(/comunidad privada/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /la comunidad ya existe y este espacio sera la base para sumar configuracion, miembros y contenido/i
-      )
-    ).toBeInTheDocument();
-    expect(screen.getByText(/\/comunidad\/matematica-pro/i)).toBeInTheDocument();
+    expect(container.querySelector("main")).toBeInTheDocument();
+    expect(container.textContent).toBe("");
   });
 
   it("returns 404 and logs unauthenticated hidden access", async () => {

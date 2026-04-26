@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import {
   REQUEST_ID_HEADER,
   attachRequestIdToResponse,
@@ -30,13 +33,33 @@ describe("server observability", () => {
 
   describe("attachRequestIdToResponse", () => {
     it("adds the request id header to the response", () => {
-      const response = {
-        headers: new Headers(),
-      } as Response;
+      const response = new Response("ok", {
+        headers: {
+          "Content-Type": "text/plain",
+        },
+        status: 201,
+      });
 
-      attachRequestIdToResponse(response, "req-123");
+      const responseWithRequestId = attachRequestIdToResponse(response, "req-123");
 
-      expect(response.headers.get(REQUEST_ID_HEADER)).toBe("req-123");
+      expect(responseWithRequestId.headers.get(REQUEST_ID_HEADER)).toBe("req-123");
+      expect(responseWithRequestId.headers.get("Content-Type")).toBe("text/plain");
+      expect(responseWithRequestId.status).toBe(201);
+    });
+
+    it("adds the request id header to immutable redirect responses", () => {
+      const redirectResponse = Response.redirect("https://academia.example.com", 303);
+
+      const responseWithRequestId = attachRequestIdToResponse(
+        redirectResponse,
+        "req-redirect"
+      );
+
+      expect(responseWithRequestId.headers.get(REQUEST_ID_HEADER)).toBe("req-redirect");
+      expect(responseWithRequestId.headers.get("Location")).toBe(
+        "https://academia.example.com/"
+      );
+      expect(responseWithRequestId.status).toBe(303);
     });
   });
 

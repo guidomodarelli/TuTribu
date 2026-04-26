@@ -9,6 +9,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Keep every technical name - variables, functions, methods, classes, files, paths, constants, layers, modules, and folders - in English, even if the surrounding explanation is in Spanish.
 - This applies to technical names inside backticks as well.
 - Keep user-facing product text in Spanish.
+- Before creating or changing UI, read `DESIGN.md` and follow it as the product design system for this repository.
 
 ## 1. Security & Environment
 

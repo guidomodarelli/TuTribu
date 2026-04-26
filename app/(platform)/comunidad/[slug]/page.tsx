@@ -1,7 +1,6 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { COMMUNITY_PAGE_ACCESS_STATUS } from "@/src/modules/communities/application/results/community-page-access-result";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -67,26 +66,5 @@ export default async function CommunityPage({
     notFound();
   }
 
-  const { community } = accessResult;
-
-  return (
-    <main className={styles.CommunityPage}>
-      <Card className={styles.CommunityPage__card}>
-        <CardHeader className={styles.CommunityPage__header}>
-          <p className={styles.CommunityPage__eyebrow}>Tu comunidad</p>
-          <h1 className={styles.CommunityPage__title}>{community.name}</h1>
-        </CardHeader>
-        <CardContent className={styles.CommunityPage__content}>
-          <p className={styles.CommunityPage__badge}>Comunidad privada</p>
-          <p className={styles.CommunityPage__description}>
-            La comunidad ya existe y este espacio sera la base para sumar
-            configuracion, miembros y contenido.
-          </p>
-          <p className={styles.CommunityPage__path}>
-            /comunidad/{community.slug}
-          </p>
-        </CardContent>
-      </Card>
-    </main>
-  );
+  return <main className={styles.CommunityPage} />;
 }

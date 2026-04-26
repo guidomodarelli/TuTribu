@@ -3,12 +3,10 @@
   justify-content: center;
   padding: clamp(1rem, 3vw, 2rem);
 
-  &__card {
+  &__panel {
+    display: grid;
+    gap: 1.5rem;
     width: min(100%, 44rem);
-    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-    background:
-      linear-gradient(140deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 38%),
-      var(--card);
   }
 
   &__header {
