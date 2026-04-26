@@ -55,6 +55,20 @@ describe("AppSidebar", () => {
     (usePathname as jest.Mock).mockReturnValue("/");
   });
 
+  it("renders the discovery navigation item with a compass icon", () => {
+    render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
+
+    const discoveryButton = screen.getByRole("button", {
+      name: /descubrir comunidades/i,
+    });
+
+    expect(discoveryButton).toHaveAttribute(
+      "data-tooltip",
+      "Descubrir comunidades"
+    );
+    expect(discoveryButton.querySelector(".lucide-compass")).toBeInTheDocument();
+  });
+
   it("renders the create action before member communities", () => {
     render(
       <AppSidebar
@@ -76,7 +90,7 @@ describe("AppSidebar", () => {
 
     const communityButtons = screen.getAllByRole("button");
 
-    expect(screen.getByText(/comunidades/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Comunidades$/i)).toBeInTheDocument();
     expect(communityButtons.findIndex((button) => button.textContent?.includes("Nueva comunidad"))).toBeLessThan(
       communityButtons.findIndex((button) => button.textContent?.includes("Alpha Club"))
     );

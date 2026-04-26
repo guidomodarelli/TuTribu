@@ -1,6 +1,6 @@
 "use client";
 
-import { HomeIcon, PlusCircleIcon, UsersIcon } from "lucide-react";
+import { CompassIcon, PlusCircleIcon, UsersIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { siteConfig } from "@/lib/site-config";
@@ -25,8 +25,8 @@ import {
 const primaryNavigation = [
   {
     href: ROUTES.home,
-    icon: HomeIcon,
-    label: "Inicio",
+    icon: CompassIcon,
+    label: "Descubrir comunidades",
   },
 ];
 const APP_SIDEBAR_UI = {
