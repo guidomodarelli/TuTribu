@@ -8,11 +8,15 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 
 const getAuthenticatedMember = jest.fn();
 const getCommunityPageAccess = jest.fn();
+const listCommunityFeed = jest.fn();
 const infoMock = jest.fn();
 const errorMock = jest.fn();
 
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(),
+  useRouter: () => ({
+    refresh: jest.fn(),
+  }),
 }));
 
 jest.mock("next/headers", () => ({
@@ -35,6 +39,7 @@ describe("CommunityPage", () => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
     getCommunityPageAccess.mockReset();
+    listCommunityFeed.mockReset();
     infoMock.mockReset();
     errorMock.mockReset();
 
@@ -47,6 +52,11 @@ describe("CommunityPage", () => {
       communities: {
         useCases: {
           getCommunityPageAccess,
+        },
+      },
+      posts: {
+        useCases: {
+          listCommunityFeed,
         },
       },
     });
@@ -75,6 +85,58 @@ describe("CommunityPage", () => {
         visibility: "private",
       },
     });
+    listCommunityFeed.mockResolvedValue({
+      viewerPermissions: {
+        canComment: true,
+        canCreatePost: true,
+        canReact: true,
+      },
+      posts: [
+        {
+          id: "post-1",
+          author: {
+            id: "owner-1",
+            name: "Ada Lovelace",
+            role: "owner",
+            avatarFallback: "AL",
+            image: null,
+          },
+          comments: [
+            {
+              id: "comment-1",
+              author: {
+                id: "admin-1",
+                name: "Grace Hopper",
+                role: "admin",
+                avatarFallback: "GH",
+                image: null,
+              },
+              content: "Gracias por la bienvenida",
+              createdAt: "2026-04-26T12:05:00.000Z",
+            },
+          ],
+          content: "Bienvenida a la comunidad",
+          createdAt: "2026-04-26T12:00:00.000Z",
+          likedByViewer: false,
+          likeCount: 2,
+        },
+        {
+          id: "post-2",
+          author: {
+            id: "member-2",
+            name: "Katherine Johnson",
+            role: "member",
+            avatarFallback: "KJ",
+            image: null,
+          },
+          comments: [],
+          content: "Comparto un recurso nuevo",
+          createdAt: "2026-04-26T11:00:00.000Z",
+          likedByViewer: true,
+          likeCount: 1,
+        },
+      ],
+    });
 
     render(
       await CommunityPage({
@@ -90,25 +152,77 @@ describe("CommunityPage", () => {
         level: 1,
       })
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Comunidad privada")).toHaveLength(2);
-    expect(screen.getByText("/comunidad/matematica-pro")).toBeInTheDocument();
+    expect(screen.getByText("Comunidad privada")).toBeInTheDocument();
+    expect(screen.queryByText("/comunidad/matematica-pro")).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: "Próximos espacios",
+        name: "Publicaciones",
         level: 2,
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", {
-        name: "Estado de la comunidad",
-        level: 2,
+      screen.getByRole("textbox", {
+        name: "Escribir una publicacion",
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", {
-        name: "Atajos",
-        level: 2,
+      screen.getAllByRole("textbox", {
+        name: "Escribir un comentario",
       })
+    ).toHaveLength(2);
+    expect(screen.getByText("Bienvenida a la comunidad")).toBeInTheDocument();
+    expect(screen.getByText("Gracias por la bienvenida")).toBeInTheDocument();
+    expect(screen.getByText("Propietario")).toBeInTheDocument();
+    expect(screen.getByText("Admin")).toBeInTheDocument();
+    expect(screen.getByText("Miembro")).toBeInTheDocument();
+    expect(screen.queryByText("Estado de la comunidad")).not.toBeInTheDocument();
+  });
+
+  it("renders a read-only empty feed for muted members", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "muted@example.com",
+      name: "Muted User",
+      role: "member",
+      avatarFallback: "MU",
+      image: null,
+    });
+    getCommunityPageAccess.mockResolvedValue({
+      status: "visible",
+      community: {
+        id: "community-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+    listCommunityFeed.mockResolvedValue({
+      viewerPermissions: {
+        canComment: false,
+        canCreatePost: false,
+        canReact: false,
+      },
+      posts: [],
+    });
+
+    render(
+      await CommunityPage({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      })
+    );
+
+    expect(
+      screen.queryByRole("textbox", {
+        name: "Escribir una publicacion",
+      })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Podes leer el feed, pero tu estado actual no permite participar.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("El feed esta listo para la primera publicacion")
     ).toBeInTheDocument();
   });
 

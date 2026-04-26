@@ -5,6 +5,9 @@ import { buildCommunitiesModule } from "./communities/setup";
 import { PostgresCommunityCreationRepository } from "./communities/infrastructure/repositories/postgres-community-creation-repository";
 import { PostgresCommunityCreatorWhitelistRepository } from "./communities/infrastructure/repositories/postgres-community-creator-whitelist-repository";
 import { PostgresCommunityReadRepository } from "./communities/infrastructure/repositories/postgres-community-read-repository";
+import { PostgresPostFeedRepository } from "./posts/infrastructure/repositories/postgres-post-feed-repository";
+import { PostgresPostMutationRepository } from "./posts/infrastructure/repositories/postgres-post-mutation-repository";
+import { buildPostsModule } from "./posts/setup";
 import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
 
 type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
@@ -29,6 +32,18 @@ export async function createRequestModules() {
       ),
       communityCreatorWhitelistRepository:
         new PostgresCommunityCreatorWhitelistRepository(executeWithRequestContext),
+    }),
+    posts: buildPostsModule({
+      postCommentRepository: new PostgresPostMutationRepository(
+        executeWithRequestContext
+      ),
+      postCreationRepository: new PostgresPostMutationRepository(
+        executeWithRequestContext
+      ),
+      postFeedReadRepository: new PostgresPostFeedRepository(executeWithRequestContext),
+      postReactionRepository: new PostgresPostMutationRepository(
+        executeWithRequestContext
+      ),
     }),
   };
 }

@@ -107,3 +107,62 @@ export const communityMembers = pgTable("community_members", {
     table.userId
   ),
 }));
+
+export const posts = pgTable("posts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  communityId: uuid("community_id")
+    .notNull()
+    .references(() => communities.id, { onDelete: "cascade" }),
+  authorId: text("author_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+}, (table) => ({
+  communityCreatedAtIndex: index("idx_posts_community_created_at").on(
+    table.communityId,
+    table.createdAt
+  ),
+}));
+
+export const postComments = pgTable("post_comments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  postId: uuid("post_id")
+    .notNull()
+    .references(() => posts.id, { onDelete: "cascade" }),
+  communityId: uuid("community_id")
+    .notNull()
+    .references(() => communities.id, { onDelete: "cascade" }),
+  authorId: text("author_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+}, (table) => ({
+  postCreatedAtIndex: index("idx_post_comments_post_created_at").on(
+    table.postId,
+    table.createdAt
+  ),
+}));
+
+export const postReactions = pgTable("post_reactions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  postId: uuid("post_id")
+    .notNull()
+    .references(() => posts.id, { onDelete: "cascade" }),
+  communityId: uuid("community_id")
+    .notNull()
+    .references(() => communities.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+}, (table) => ({
+  postTypeIndex: index("idx_post_reactions_post_type").on(table.postId, table.type),
+  reactionKey: uniqueIndex("post_reactions_post_id_user_id_key").on(
+    table.postId,
+    table.userId
+  ),
+}));

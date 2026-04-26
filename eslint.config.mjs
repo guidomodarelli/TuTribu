@@ -69,6 +69,8 @@ const eslintConfig = defineConfig([
       "src/modules/communities/infrastructure/repositories/postgres-community-read-repository.ts",
       "src/modules/communities/infrastructure/repositories/postgres-community-creator-whitelist-repository.ts",
       "src/modules/communities/infrastructure/repositories/postgres-community-creation-repository.ts",
+      "src/modules/posts/infrastructure/repositories/postgres-post-feed-repository.ts",
+      "src/modules/posts/infrastructure/repositories/postgres-post-mutation-repository.ts",
       "src/modules/shared/infrastructure/database/schema.ts",
       "src/modules/shared/infrastructure/database/server-database-client.ts",
     ],
