@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import Script from "next/script";
 
 import { AppProviders } from "@/components/providers/app-providers";
 import {
@@ -18,6 +19,8 @@ const ROOT_LAYOUT_DOCUMENT = {
   language: "es",
   scrollBehavior: "smooth",
 } as const;
+const THEME_MODE_BOOTSTRAP_SCRIPT_ID = "theme-mode-bootstrap-script";
+const THEME_MODE_BOOTSTRAP_SCRIPT_STRATEGY = "beforeInteractive" as const;
 const THEME_MODE_BOOTSTRAP_SCRIPT = `
 (function () {
   try {
@@ -72,7 +75,9 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_MODE_BOOTSTRAP_SCRIPT }} />
+        <Script id={THEME_MODE_BOOTSTRAP_SCRIPT_ID} strategy={THEME_MODE_BOOTSTRAP_SCRIPT_STRATEGY}>
+          {THEME_MODE_BOOTSTRAP_SCRIPT}
+        </Script>
       </head>
       <body className={styles.RootLayout__body}>
         <AppProviders>{children}</AppProviders>
