@@ -83,7 +83,7 @@ describe("PostCategoryManagement", () => {
 
   it("keeps the category form fluid across mobile and desktop widths", () => {
     expect(postCategoryManagementStyles).toMatch(
-      /\.PostCategoryManagement\s*{[^}]*max-width:\s*min\(100%,\s*720px\);/s
+      /\.PostCategoryManagement\s*{[^}]*max-width:\s*min\(100%,\s*980px\);/s
     );
     expect(postCategoryManagementStyles).toMatch(
       /\.PostCategoryManagement\s*{[^}]*width:\s*100%;/s
@@ -101,10 +101,10 @@ describe("PostCategoryManagement", () => {
       /@media\s*\(min-width:\s*56rem\)\s*{[^}]*\.PostCategoryManagement/s
     );
     expect(postCategoryManagementStyles).toMatch(
-      /&__createForm\s*{[^}]*grid-template-columns:\s*minmax\(4\.5rem,\s*0\.2fr\)\s*minmax\(12rem,\s*1fr\)\s*max-content;/s
+      /&__createForm\s*{[^}]*grid-template-columns:\s*minmax\(4\.5rem,\s*0\.18fr\)\s*minmax\(12rem,\s*1fr\)\s*max-content;/s
     );
     expect(postCategoryManagementStyles).toMatch(
-      /&__item\s*{[^}]*grid-template-columns:\s*minmax\(4\.5rem,\s*0\.18fr\)\s*minmax\(10rem,\s*0\.65fr\)\s*minmax\(12rem,\s*1fr\)\s*max-content;/s
+      /&__item\s*{[^}]*grid-template-columns:\s*minmax\(4\.5rem,\s*0\.16fr\)\s*minmax\(10rem,\s*0\.58fr\)\s*minmax\(12rem,\s*1fr\)\s*max-content;/s
     );
   });
 

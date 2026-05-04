@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   ChevronDownIcon,
   HeartIcon,
-  MessageCircleIcon,
   SendIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,7 +17,6 @@ import {
 import {
   Card,
   CardContent,
-  CardFooter,
   CardHeader,
 } from "@/components/ui/card";
 import {
@@ -79,14 +77,17 @@ const COMMUNITY_FEED_ENDPOINT = {
 } as const;
 
 const COMMUNITY_FEED_COPY = {
-  commentButton: "Comentar",
+  openPostDetailsAriaLabelPrefix: "Abrir publicación",
   commentInputLabel: "Escribir un comentario",
+  commentSendButtonAriaLabel: "Enviar comentario",
   commentPlaceholder: "Escribi un comentario",
   commentsTitle: "Comentarios",
+  postDetailsDialogTitle: "Publicación",
   emptyDescription:
     "Todavia no hay publicaciones. Cuando alguien comparta una novedad, va a aparecer aca.",
   emptyTitle: "El feed esta listo para la primera publicacion",
   likeButton: "Me gusta",
+  likeButtonAriaLabel: "Me gusta",
   mutedNotice: "Podes leer el feed, pero tu estado actual no permite participar.",
   postButton: "Publicar",
   postCancelButton: "Cancelar",
@@ -140,6 +141,7 @@ const COMMUNITY_FEED_ATTRIBUTES = {
   missingRequirementBulletHidden: true,
   postComposerErrorId: "community-post-composer-error",
   postComposerRequirementsLabel: "Requisitos pendientes",
+  postDetailsTitleHidden: true,
 } as const;
 
 const COMMUNITY_FEED_SYMBOLS = {
@@ -150,7 +152,6 @@ const COMMUNITY_FEED_SYMBOLS = {
 const COMMUNITY_FEED_FORMAT = {
   dateStyle: "medium",
   day: "numeric",
-  likeCountSeparator: " · ",
   locale: "es-AR",
   month: "short",
   nonBreakingSpacePattern: /[\u00a0\u202f]/g,
@@ -296,6 +297,8 @@ export function CommunityFeed({
   );
   const [postComposerErrors, setPostComposerErrors] = useState<string[]>([]);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [isPostDetailsOpen, setIsPostDetailsOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const isBusy = Boolean(pendingActionId);
   const selectedCategory =
@@ -304,6 +307,8 @@ export function CommunityFeed({
     ? posts.filter((post) => post.category.id === activeCategoryId)
     : posts;
   const hasPostComposerErrors = postComposerErrors.length > 0;
+  const selectedPost =
+    posts.find((post) => post.id === selectedPostId) ?? null;
 
   currentCommunitySlugRef.current = communitySlug;
 
@@ -313,6 +318,8 @@ export function CommunityFeed({
     setActiveCategoryId(feed.activeCategoryId);
     setSelectedCategoryId("");
     setCommentDrafts({});
+    setSelectedPostId(null);
+    setIsPostDetailsOpen(false);
     setPendingActionId(null);
   }, [communitySlug, feed.activeCategoryId, feed.posts]);
 
@@ -541,6 +548,11 @@ export function CommunityFeed({
         setPendingActionId(null);
       }
     }
+  };
+
+  const openPostDetails = (postId: string) => {
+    setSelectedPostId(postId);
+    setIsPostDetailsOpen(true);
   };
 
   return (
@@ -796,99 +808,184 @@ export function CommunityFeed({
             <li className={styles.CommunityFeed__post} key={post.id}>
               <Card className={styles.CommunityFeed__postCard}>
                 <article className={styles.CommunityFeed__postArticle}>
-                <CardHeader className={styles.CommunityFeed__postHeader}>
-                  <div className={styles.CommunityFeed__avatar}>
-                    {post.author.avatarFallback}
-                  </div>
-                  <div className={styles.CommunityFeed__author}>
-                    <p className={styles.CommunityFeed__authorName}>
-                      {post.author.name}
-                    </p>
-                    <span
-                      className={`${styles.CommunityFeed__roleBadge} ${
-                        styles[
-                          COMMUNITY_FEED_FORMAT.roleBadgeModifierPrefix +
-                            post.author.role
-                        ]
-                      }`}
-                    >
-                      {COMMUNITY_FEED_COPY.roleLabel[post.author.role]}
-                    </span>
-                  </div>
-                  <div className={styles.CommunityFeed__postMeta}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <time
-                          className={styles.CommunityFeed__time}
-                          dateTime={post.createdAt}
-                          tabIndex={0}
+                  <button
+                    aria-label={`${COMMUNITY_FEED_COPY.openPostDetailsAriaLabelPrefix}: ${post.title || post.content}`}
+                    className={styles.CommunityFeed__postDetailsTrigger}
+                    onClick={() => {
+                      openPostDetails(post.id);
+                    }}
+                    type={COMMUNITY_FEED_FORM.buttonType}
+                  >
+                    <CardHeader className={styles.CommunityFeed__postHeader}>
+                      <div className={styles.CommunityFeed__avatar}>
+                        {post.author.avatarFallback}
+                      </div>
+                      <div className={styles.CommunityFeed__author}>
+                        <p className={styles.CommunityFeed__authorName}>
+                          {post.author.name}
+                        </p>
+                        <span
+                          className={`${styles.CommunityFeed__roleBadge} ${
+                            styles[
+                              COMMUNITY_FEED_FORMAT.roleBadgeModifierPrefix +
+                                post.author.role
+                            ]
+                          }`}
                         >
-                          {formatPostSummaryDate(post.createdAt)}
-                        </time>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        className={styles.CommunityFeed__postCreatedTooltip}
-                        collisionPadding={
-                          COMMUNITY_FEED_ATTRIBUTES.tooltipCollisionPadding
-                        }
-                        sideOffset={COMMUNITY_FEED_ATTRIBUTES.tooltipSideOffset}
-                      >
-                        {formatPostCreatedTooltip(post.createdAt)}
-                      </TooltipContent>
-                    </Tooltip>
-                    <span
-                      aria-hidden={COMMUNITY_FEED_ATTRIBUTES.postMetaSeparatorHidden}
-                      className={styles.CommunityFeed__postMetaSeparator}
-                    >
-                      {COMMUNITY_FEED_SYMBOLS.postMetaSeparator}
-                    </span>
-                    <span className={styles.CommunityFeed__categoryBadge}>
-                      {post.category.emoji} {post.category.name}
-                    </span>
-                  </div>
-                </CardHeader>
+                          {COMMUNITY_FEED_COPY.roleLabel[post.author.role]}
+                        </span>
+                      </div>
+                      <div className={styles.CommunityFeed__postMeta}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <time
+                              className={styles.CommunityFeed__time}
+                              dateTime={post.createdAt}
+                            >
+                              {formatPostSummaryDate(post.createdAt)}
+                            </time>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            className={styles.CommunityFeed__postCreatedTooltip}
+                            collisionPadding={
+                              COMMUNITY_FEED_ATTRIBUTES.tooltipCollisionPadding
+                            }
+                            sideOffset={COMMUNITY_FEED_ATTRIBUTES.tooltipSideOffset}
+                          >
+                            {formatPostCreatedTooltip(post.createdAt)}
+                          </TooltipContent>
+                        </Tooltip>
+                        <span
+                          aria-hidden={COMMUNITY_FEED_ATTRIBUTES.postMetaSeparatorHidden}
+                          className={styles.CommunityFeed__postMetaSeparator}
+                        >
+                          {COMMUNITY_FEED_SYMBOLS.postMetaSeparator}
+                        </span>
+                        <span className={styles.CommunityFeed__categoryBadge}>
+                          {post.category.emoji} {post.category.name}
+                        </span>
+                      </div>
+                    </CardHeader>
 
-                <CardContent className={styles.CommunityFeed__postContent}>
-                  {post.title ? (
-                    <h3 className={styles.CommunityFeed__postTitle}>
-                      {post.title}
-                    </h3>
-                  ) : null}
-                  <p className={styles.CommunityFeed__content}>{post.content}</p>
+                    <CardContent className={styles.CommunityFeed__postContent}>
+                      {post.title ? (
+                        <h3 className={styles.CommunityFeed__postTitle}>
+                          {post.title}
+                        </h3>
+                      ) : null}
+                      <p className={styles.CommunityFeed__content}>{post.content}</p>
+                    </CardContent>
+                  </button>
 
                   <div className={styles.CommunityFeed__postActions}>
                     <Button
+                      aria-label={`${COMMUNITY_FEED_COPY.likeButtonAriaLabel} ${post.likeCount}`}
+                      className={styles.CommunityFeed__likeButton}
                       disabled={!feed.viewerPermissions.canReact || isBusy}
                       onClick={() => {
                         void handleToggleLike(post.id);
                       }}
                       type={COMMUNITY_FEED_FORM.buttonType}
-                      variant={
-                        post.likedByViewer
-                          ? COMMUNITY_FEED_FORM.defaultVariant
-                          : COMMUNITY_FEED_FORM.outlineVariant
-                      }
+                      variant={COMMUNITY_FEED_FORM.outlineVariant}
                     >
                       <HeartIcon />
-                      {COMMUNITY_FEED_COPY.likeButton}
-                      {COMMUNITY_FEED_FORMAT.likeCountSeparator}
                       {post.likeCount}
                     </Button>
                   </div>
-                </CardContent>
-
-                <CardFooter className={styles.CommunityFeed__postFooter}>
-                <section
-                  className={styles.CommunityFeed__comments}
-                  aria-label={COMMUNITY_FEED_COPY.commentsTitle}
+              </article>
+              </Card>
+            </li>
+          ))}
+        </ol>
+      )}
+      <Dialog open={isPostDetailsOpen} onOpenChange={setIsPostDetailsOpen}>
+        <DialogContent className={styles.CommunityFeed__composerDialog}>
+          <DialogHeader className={styles.CommunityFeed__composerDialogHeader}>
+            <DialogTitle
+              className={
+                COMMUNITY_FEED_ATTRIBUTES.postDetailsTitleHidden
+                  ? styles.CommunityFeed__composerDialogTitle
+                  : undefined
+              }
+            >
+              {COMMUNITY_FEED_COPY.postDetailsDialogTitle}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedPost ? (
+            <article className={styles.CommunityFeed__postArticle}>
+              <CardHeader className={styles.CommunityFeed__postHeader}>
+                <div className={styles.CommunityFeed__avatar}>
+                  {selectedPost.author.avatarFallback}
+                </div>
+                <div className={styles.CommunityFeed__author}>
+                  <p className={styles.CommunityFeed__authorName}>
+                    {selectedPost.author.name}
+                  </p>
+                  <span
+                    className={`${styles.CommunityFeed__roleBadge} ${
+                      styles[
+                        COMMUNITY_FEED_FORMAT.roleBadgeModifierPrefix +
+                          selectedPost.author.role
+                      ]
+                    }`}
+                  >
+                    {COMMUNITY_FEED_COPY.roleLabel[selectedPost.author.role]}
+                  </span>
+                </div>
+                <div className={styles.CommunityFeed__postMeta}>
+                  <time
+                    className={styles.CommunityFeed__time}
+                    dateTime={selectedPost.createdAt}
+                  >
+                    {formatPostSummaryDate(selectedPost.createdAt)}
+                  </time>
+                  <span
+                    aria-hidden={COMMUNITY_FEED_ATTRIBUTES.postMetaSeparatorHidden}
+                    className={styles.CommunityFeed__postMetaSeparator}
+                  >
+                    {COMMUNITY_FEED_SYMBOLS.postMetaSeparator}
+                  </span>
+                  <span className={styles.CommunityFeed__categoryBadge}>
+                    {selectedPost.category.emoji} {selectedPost.category.name}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className={styles.CommunityFeed__postContent}>
+                {selectedPost.title ? (
+                  <h3 className={styles.CommunityFeed__postTitle}>
+                    {selectedPost.title}
+                  </h3>
+                ) : null}
+                <p className={styles.CommunityFeed__content}>
+                  {selectedPost.content}
+                </p>
+                <div
+                  className={`${styles.CommunityFeed__postActions} ${styles["CommunityFeed__postActions--dialog"]}`}
                 >
-                  {post.comments.length > 0 ? (
+                  <Button
+                    aria-label={`${COMMUNITY_FEED_COPY.likeButtonAriaLabel} ${selectedPost.likeCount}`}
+                    className={styles.CommunityFeed__likeButton}
+                    disabled={!feed.viewerPermissions.canReact || isBusy}
+                    onClick={() => {
+                      void handleToggleLike(selectedPost.id);
+                    }}
+                    type={COMMUNITY_FEED_FORM.buttonType}
+                    variant={COMMUNITY_FEED_FORM.outlineVariant}
+                  >
+                    <HeartIcon />
+                    {selectedPost.likeCount}
+                  </Button>
+                </div>
+              </CardContent>
+              <div className={styles.CommunityFeed__modalCommentsSection}>
+                <section
+                  aria-label={COMMUNITY_FEED_COPY.commentsTitle}
+                  className={styles.CommunityFeed__comments}
+                >
+                  {selectedPost.comments.length > 0 ? (
                     <ol className={styles.CommunityFeed__commentList}>
-                      {post.comments.map((comment) => (
-                        <li
-                          className={styles.CommunityFeed__comment}
-                          key={comment.id}
-                        >
+                      {selectedPost.comments.map((comment) => (
+                        <li className={styles.CommunityFeed__comment} key={comment.id}>
                           <div className={styles.CommunityFeed__commentAvatar}>
                             {comment.author.avatarFallback}
                           </div>
@@ -918,47 +1015,59 @@ export function CommunityFeed({
                       ))}
                     </ol>
                   ) : null}
-
                   {feed.viewerPermissions.canComment ? (
                     <form
                       className={styles.CommunityFeed__commentForm}
                       onSubmit={(event) => {
-                        void handleCreateComment(event, post.id);
+                        void handleCreateComment(event, selectedPost.id);
                       }}
                     >
-                      <input
-                        aria-label={COMMUNITY_FEED_COPY.commentInputLabel}
-                        className={styles.CommunityFeed__commentInput}
-                        disabled={isBusy}
-                        onChange={(event) => {
-                          const nextCommentDraft = event.currentTarget.value;
+                      <Avatar className={styles.CommunityFeed__commentComposerAvatar}>
+                        {authenticatedMember.image ? (
+                          <AvatarImage
+                            alt={authenticatedMember.name}
+                            src={authenticatedMember.image}
+                          />
+                        ) : null}
+                        <AvatarFallback>
+                          {authenticatedMember.avatarFallback}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className={styles.CommunityFeed__commentInputWrapper}>
+                        <input
+                          aria-label={COMMUNITY_FEED_COPY.commentInputLabel}
+                          className={styles.CommunityFeed__commentInput}
+                          disabled={isBusy}
+                          onChange={(event) => {
+                            const nextCommentDraft = event.currentTarget.value;
 
-                          setCommentDrafts((currentDrafts) => ({
-                            ...currentDrafts,
-                            [post.id]: nextCommentDraft,
-                          }));
-                        }}
-                        placeholder={COMMUNITY_FEED_COPY.commentPlaceholder}
-                        value={commentDrafts[post.id] ?? ""}
-                      />
-                      <Button
-                        disabled={isBusy || !(commentDrafts[post.id] ?? "").trim()}
-                        type={COMMUNITY_FEED_FORM.submitType}
-                        variant={COMMUNITY_FEED_FORM.outlineVariant}
-                      >
-                        <MessageCircleIcon />
-                        {COMMUNITY_FEED_COPY.commentButton}
-                      </Button>
+                            setCommentDrafts((currentDrafts) => ({
+                              ...currentDrafts,
+                              [selectedPost.id]: nextCommentDraft,
+                            }));
+                          }}
+                          placeholder={COMMUNITY_FEED_COPY.commentPlaceholder}
+                          value={commentDrafts[selectedPost.id] ?? ""}
+                        />
+                        <button
+                          aria-label={COMMUNITY_FEED_COPY.commentSendButtonAriaLabel}
+                          className={styles.CommunityFeed__commentSendButton}
+                          disabled={
+                            isBusy || !(commentDrafts[selectedPost.id] ?? "").trim()
+                          }
+                          type={COMMUNITY_FEED_FORM.submitType}
+                        >
+                          <SendIcon />
+                        </button>
+                      </div>
                     </form>
                   ) : null}
                 </section>
-                </CardFooter>
-              </article>
-              </Card>
-            </li>
-          ))}
-        </ol>
-      )}
+              </div>
+            </article>
+          ) : null}
+        </DialogContent>
+      </Dialog>
       </section>
     </TooltipProvider>
   );

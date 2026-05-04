@@ -581,9 +581,15 @@ describe("CommunityFeed", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Me gusta · 2" }));
+    expect(
+      screen.queryByRole("dialog", { name: "Publicación" })
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Me gusta 2" }));
 
-    expect(screen.getByRole("button", { name: "Me gusta · 3" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Me gusta 3" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Publicación" })
+    ).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
@@ -615,12 +621,12 @@ describe("CommunityFeed", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Me gusta · 2" }));
+    await user.click(screen.getByRole("button", { name: "Me gusta 2" }));
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("No pudimos actualizar la reaccion.");
     });
-    expect(screen.getByRole("button", { name: "Me gusta · 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Me gusta 2" })).toBeInTheDocument();
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
@@ -644,11 +650,28 @@ describe("CommunityFeed", () => {
       />
     );
 
+    expect(
+      screen.queryByRole("textbox", {
+        name: "Escribir un comentario",
+      })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Comentarios" })).not.toBeInTheDocument();
+
+    const postDetailsButton = screen.getByRole("button", {
+      name: /Abrir publicación: Anuncio inicial/i,
+    });
+
+    await user.click(postDetailsButton);
+
+    expect(
+      screen.getByRole("dialog", { name: "Publicación" })
+    ).toBeInTheDocument();
+
     const commentInput = screen.getByRole("textbox", {
       name: "Escribir un comentario",
     });
     await user.type(commentInput, "Excelente clase");
-    await user.click(screen.getByRole("button", { name: "Comentar" }));
+    await user.keyboard("{Enter}");
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
@@ -665,5 +688,29 @@ describe("CommunityFeed", () => {
     const commentsSection = screen.getByRole("region", { name: "Comentarios" });
     expect(within(commentsSection).getByText("Excelente clase")).toBeInTheDocument();
     expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("opens the post details dialog with keyboard interactions", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    const postDetailsButton = screen.getByRole("button", {
+      name: /Abrir publicación: Anuncio inicial/i,
+    });
+
+    postDetailsButton.focus();
+    await user.keyboard("{Enter}");
+
+    expect(
+      screen.getByRole("dialog", { name: "Publicación" })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Comentarios" })).toBeInTheDocument();
   });
 });

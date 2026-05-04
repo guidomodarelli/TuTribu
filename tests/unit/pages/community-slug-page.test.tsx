@@ -175,15 +175,15 @@ describe("CommunityPage", () => {
       })
     ).toBeInTheDocument();
     expect(
-      screen.getAllByRole("textbox", {
+      screen.queryByRole("textbox", {
         name: "Escribir un comentario",
       })
-    ).toHaveLength(2);
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Bienvenida a la comunidad")).toBeInTheDocument();
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
-    expect(screen.getByText("Gracias por la bienvenida")).toBeInTheDocument();
+    expect(screen.queryByText("Gracias por la bienvenida")).not.toBeInTheDocument();
     expect(screen.getByText("Propietario")).toBeInTheDocument();
-    expect(screen.getByText("Admin")).toBeInTheDocument();
+    expect(screen.queryByText("Admin")).not.toBeInTheDocument();
     expect(screen.getByText("Miembro")).toBeInTheDocument();
     expect(screen.queryByText("Estado de la comunidad")).not.toBeInTheDocument();
   });

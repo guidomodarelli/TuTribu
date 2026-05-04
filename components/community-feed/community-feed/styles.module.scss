@@ -29,6 +29,34 @@
     background: var(--card);
   }
 
+  &__postCard {
+    cursor: pointer;
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  &__postArticle {
+    cursor: pointer;
+  }
+
+  &__postDetailsTrigger {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 3px;
+      border-radius: 0.5rem;
+    }
+  }
+
   &__composer {
     display: grid;
     gap: 12px;
@@ -334,8 +362,36 @@
   &__actions,
   &__postActions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
     margin-bottom: 0.75rem;
+    padding-inline: 0.5rem;
+  }
+
+  &__postActions {
+    &--dialog {
+      padding-inline: 0;
+    }
+  }
+
+  &__likeButton {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    padding-inline: 0.5rem;
+    color: var(--muted-foreground);
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+
+    &:hover {
+      background: color-mix(in oklch, var(--muted) 56%, transparent);
+      color: var(--foreground);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
   }
 
   &__empty {
@@ -375,12 +431,20 @@
   &__postContent {
     display: grid;
     gap: 0.75rem;
+    padding-top: 0.5rem;
   }
 
   &__postFooter {
     display: grid;
     border-top: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
     background: color-mix(in oklch, var(--muted) 42%, transparent);
+  }
+
+  &__modalCommentsSection {
+    display: grid;
+    border-top: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+    background: transparent;
+    padding-top: 1rem;
   }
 
   &__avatar,
@@ -505,23 +569,80 @@
 
   &__commentForm {
     display: grid;
-    gap: 0.5rem;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.65rem;
+    margin-top: 0.75rem;
+  }
+
+  &__commentComposerAvatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 auto;
+  }
+
+  &__commentInputWrapper {
+    position: relative;
+    min-width: 0;
   }
 
   &__commentInput {
     min-width: 0;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
+    width: 100%;
+    min-height: 3rem;
+    border: 1px solid color-mix(in oklch, var(--foreground) 40%, var(--border));
+    border-radius: 999rem;
     background: var(--background);
     color: var(--foreground);
     font: inherit;
-    padding: 0.65rem 0.75rem;
+    padding: 0.65rem 3rem 0.65rem 1rem;
 
     &:focus {
       outline: 2px solid var(--ring);
       outline-offset: 2px;
     }
   }
+
+  &__commentSendButton {
+    position: absolute;
+    top: 50%;
+    right: 0.45rem;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.15rem;
+    height: 2.15rem;
+    border: 0;
+    border-radius: 999rem;
+    background: transparent;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+
+    &:hover {
+      background: color-mix(in oklch, var(--muted) 64%, transparent);
+      color: var(--foreground);
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 1px;
+    }
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+    }
+  }
+
 }
 
 :global([data-slot="dialog-overlay"]) {
@@ -542,7 +663,7 @@
     }
 
     &__commentForm {
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: auto minmax(0, 1fr);
       align-items: center;
     }
   }
