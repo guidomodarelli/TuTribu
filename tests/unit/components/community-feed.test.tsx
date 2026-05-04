@@ -602,6 +602,60 @@ describe("CommunityFeed", () => {
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
+  it("opens the post details dialog from the post content without nesting action buttons", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    const postDetailsButton = screen.getByRole("button", {
+      name: /Abrir publicación: Anuncio inicial/i,
+    });
+
+    await user.click(postDetailsButton);
+
+    expect(
+      screen.getByRole("dialog", { name: "Publicación" })
+    ).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Publicación" })
+      ).not.toBeInTheDocument();
+    });
+
+    postDetailsButton.focus();
+
+    expect(postDetailsButton).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+
+    expect(
+      screen.getByRole("dialog", { name: "Publicación" })
+    ).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Publicación" })
+      ).not.toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Me gusta 2" }));
+
+    expect(
+      screen.queryByRole("dialog", { name: "Publicación" })
+    ).not.toBeInTheDocument();
+  });
+
   it("reverts an optimistic like when the request fails", async () => {
     const user = userEvent.setup();
 
