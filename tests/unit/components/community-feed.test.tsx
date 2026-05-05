@@ -213,6 +213,26 @@ const algebraFeed = {
   ],
 };
 
+const longPostContent = [
+  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi ac iaculis ex.",
+  "Morbi at commodo nulla. Ut finibus vel odio at efficitur.",
+  "Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.",
+  "Maecenas in ultricies odio, eget interdum nunc. Cras facilisis est et arcu finibus.",
+  "Nulla dignissim enim sit amet elit vestibulum, eu mattis dui commodo.",
+  "Praesent congue, metus vel tempus facilisis, orci ante mattis nunc.",
+].join(" ");
+
+const feedWithLongPost = {
+  ...feed,
+  posts: [
+    {
+      ...feed.posts[0],
+      content: longPostContent,
+      title: "Lectura larga",
+    },
+  ],
+};
+
 type DeferredResponse = {
   promise: Promise<Response>;
   resolve: (response: Response) => void;
@@ -730,6 +750,108 @@ describe("CommunityFeed", () => {
     expect(
       screen.queryByRole("dialog", { name: "Publicación" })
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps long post content collapsed in the feed without an inline toggle", () => {
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feedWithLongPost}
+      />
+    );
+
+    const content = screen.getByText(longPostContent);
+
+    expect(content).toHaveAttribute("data-expanded", "false");
+    expect(content).toHaveClass("CommunityFeed__content--collapsed");
+    expect(content).toHaveClass("CommunityFeed__content--feedPreview");
+    expect(screen.queryByRole("button", { name: "Ver más" })).not.toBeInTheDocument();
+  });
+
+  it("renders long post details in a scrollable dialog body with an expansion toggle", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feedWithLongPost}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir publicación: Lectura larga/i })
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Publicación" });
+    const dialogBody = within(dialog).getByRole("region", {
+      name: "Contenido de la publicación",
+    });
+    const stickyHeader = within(dialogBody).getByText("Ada Lovelace")
+      .closest('[data-slot="card-header"]');
+
+    expect(dialogBody).toHaveClass("CommunityFeed__postDetailsBody");
+    expect(stickyHeader).toHaveClass("CommunityFeed__postDetailsHeader");
+
+    const dialogContent = within(dialog).getByText(longPostContent);
+
+    expect(dialogContent).toHaveAttribute("data-expanded", "false");
+    expect(dialogContent).toHaveClass("CommunityFeed__content--collapsed");
+    expect(dialogContent).toHaveClass("CommunityFeed__content--detailsPreview");
+
+    await user.click(within(dialog).getByRole("button", { name: "Ver más" }));
+
+    expect(dialogContent).toHaveAttribute("data-expanded", "true");
+    expect(dialogContent).not.toHaveClass("CommunityFeed__content--collapsed");
+    expect(dialogContent).not.toHaveClass("CommunityFeed__content--detailsPreview");
+    expect(within(dialog).getByRole("button", { name: "Ver menos" })).toBeInTheDocument();
+  });
+
+  it("reopens long post details collapsed after reading the full content", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feedWithLongPost}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir publicación: Lectura larga/i })
+    );
+    await user.click(
+      within(screen.getByRole("dialog", { name: "Publicación" })).getByRole(
+        "button",
+        { name: "Ver más" }
+      )
+    );
+
+    expect(
+      within(screen.getByRole("dialog", { name: "Publicación" })).getByText(
+        longPostContent
+      )
+    ).toHaveAttribute("data-expanded", "true");
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Publicación" })
+      ).not.toBeInTheDocument();
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir publicación: Lectura larga/i })
+    );
+
+    expect(
+      within(screen.getByRole("dialog", { name: "Publicación" })).getByText(
+        longPostContent
+      )
+    ).toHaveAttribute("data-expanded", "false");
   });
 
   it("reverts an optimistic like when the request fails", async () => {

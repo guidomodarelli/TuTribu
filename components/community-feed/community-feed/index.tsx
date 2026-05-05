@@ -89,6 +89,9 @@ const COMMUNITY_FEED_COPY = {
   commentsTitle: "Comentarios",
   postDetailsDialogDescription: "Detalle de la publicación y sus comentarios.",
   postDetailsDialogTitle: "Publicación",
+  postDetailsContentLabel: "Contenido de la publicación",
+  postContentShowLess: "Ver menos",
+  postContentShowMore: "Ver más",
   emptyDescription:
     "Todavia no hay publicaciones. Cuando alguien comparta una novedad, va a aparecer aca.",
   emptyTitle: "El feed esta listo para la primera publicacion",
@@ -140,6 +143,7 @@ const COMMUNITY_FEED_FORM = {
 const COMMUNITY_FEED_ATTRIBUTES = {
   categoryFilterEmojiHidden: true,
   composerAvatarSize: "lg",
+  contentExpandedDataAttribute: "data-expanded",
   dropdownAlign: "center",
   postMetaSeparatorHidden: true,
   tooltipCollisionPadding: 16,
@@ -148,7 +152,20 @@ const COMMUNITY_FEED_ATTRIBUTES = {
   postComposerErrorId: "community-post-composer-error",
   postComposerRequirementsLabel: "Requisitos pendientes",
   postDetailsTitleHidden: true,
+  regionRole: "region",
 } as const;
+
+const COMMUNITY_FEED_LIMITS = {
+  collapsedContentCharacters: 320,
+} as const;
+
+const COMMUNITY_FEED_CONTENT_PREVIEW_CLASS = {
+  details: "CommunityFeed__content--detailsPreview",
+  feed: "CommunityFeed__content--feedPreview",
+} as const;
+
+type CommunityFeedContentPreviewClass =
+  (typeof COMMUNITY_FEED_CONTENT_PREVIEW_CLASS)[keyof typeof COMMUNITY_FEED_CONTENT_PREVIEW_CLASS];
 
 const COMMUNITY_FEED_SYMBOLS = {
   missingRequirementBullet: "-",
@@ -298,6 +315,10 @@ function getMissingPostRequirements(input: {
   return missingRequirements;
 }
 
+function isLongPostContent(content: string): boolean {
+  return content.length > COMMUNITY_FEED_LIMITS.collapsedContentCharacters;
+}
+
 export function CommunityFeed({
   authenticatedMember,
   communitySlug,
@@ -315,6 +336,9 @@ export function CommunityFeed({
   );
   const [postComposerErrors, setPostComposerErrors] = useState<string[]>([]);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [expandedPostIds, setExpandedPostIds] = useState<Record<string, boolean>>(
+    {}
+  );
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [isPostDetailsOpen, setIsPostDetailsOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
@@ -345,6 +369,7 @@ export function CommunityFeed({
       setActiveCategoryId(feed.activeCategoryId);
       setSelectedCategoryId("");
       setCommentDrafts({});
+      setExpandedPostIds({});
       setSelectedPostId(null);
       setIsPostDetailsOpen(false);
       setPendingActionId(null);
@@ -583,8 +608,75 @@ export function CommunityFeed({
   };
 
   const openPostDetails = (postId: string) => {
+    setExpandedPostIds((currentExpandedPostIds) => ({
+      ...currentExpandedPostIds,
+      [postId]: false,
+    }));
     setSelectedPostId(postId);
     setIsPostDetailsOpen(true);
+  };
+
+  const togglePostContentExpansion = (postId: string) => {
+    setExpandedPostIds((currentExpandedPostIds) => ({
+      ...currentExpandedPostIds,
+      [postId]: !currentExpandedPostIds[postId],
+    }));
+  };
+
+  const renderPostContentToggle = (post: CommunityFeedPostResult) => {
+    const isExpanded = Boolean(expandedPostIds[post.id]);
+    const isExpandable = isLongPostContent(post.content);
+
+    return isExpandable ? (
+      <button
+        aria-expanded={isExpanded}
+        className={styles.CommunityFeed__contentToggle}
+        onClick={() => {
+          togglePostContentExpansion(post.id);
+        }}
+        type={COMMUNITY_FEED_FORM.buttonType}
+      >
+        {isExpanded
+          ? COMMUNITY_FEED_COPY.postContentShowLess
+          : COMMUNITY_FEED_COPY.postContentShowMore}
+      </button>
+    ) : null;
+  };
+
+  const renderPostContent = (
+    post: CommunityFeedPostResult,
+    contentClassName = "",
+    isContentAlwaysCollapsed = false,
+    previewClassName: CommunityFeedContentPreviewClass =
+      COMMUNITY_FEED_CONTENT_PREVIEW_CLASS.details
+  ) => {
+    const isExpanded =
+      !isContentAlwaysCollapsed && Boolean(expandedPostIds[post.id]);
+    const isExpandable = isLongPostContent(post.content);
+    const contentClassNames = [
+      styles.CommunityFeed__content,
+      ...(isExpandable && !isExpanded
+        ? [
+            styles["CommunityFeed__content--collapsed"],
+            styles[previewClassName],
+          ]
+        : []),
+      contentClassName,
+    ]
+      .filter(Boolean)
+      .join(COMMUNITY_FEED_FORMAT.standardSpace);
+
+    return (
+      <p
+        className={contentClassNames}
+        {...{
+          [COMMUNITY_FEED_ATTRIBUTES.contentExpandedDataAttribute]:
+            String(isExpanded),
+        }}
+      >
+        {post.content}
+      </p>
+    );
   };
 
   return (
@@ -906,7 +998,12 @@ export function CommunityFeed({
                           {post.title}
                         </h3>
                       ) : null}
-                      <p className={styles.CommunityFeed__content}>{post.content}</p>
+                      {renderPostContent(
+                        post,
+                        "",
+                        true,
+                        COMMUNITY_FEED_CONTENT_PREVIEW_CLASS.feed
+                      )}
                     </CardContent>
                   </button>
 
@@ -950,8 +1047,14 @@ export function CommunityFeed({
             </DialogDescription>
           </DialogHeader>
           {selectedPost ? (
-            <article className={styles.CommunityFeed__postArticle}>
-              <CardHeader className={styles.CommunityFeed__postHeader}>
+            <article
+              aria-label={COMMUNITY_FEED_COPY.postDetailsContentLabel}
+              className={styles.CommunityFeed__postDetailsBody}
+              role={COMMUNITY_FEED_ATTRIBUTES.regionRole}
+            >
+              <CardHeader
+                className={`${styles.CommunityFeed__postHeader} ${styles.CommunityFeed__postDetailsHeader}`}
+              >
                 {renderFeedAuthorAvatar(
                   selectedPost.author,
                   styles.CommunityFeed__avatar
@@ -995,9 +1098,8 @@ export function CommunityFeed({
                     {selectedPost.title}
                   </h3>
                 ) : null}
-                <p className={styles.CommunityFeed__content}>
-                  {selectedPost.content}
-                </p>
+                {renderPostContent(selectedPost)}
+                {renderPostContentToggle(selectedPost)}
                 <div
                   className={`${styles.CommunityFeed__postActions} ${styles["CommunityFeed__postActions--dialog"]}`}
                 >
