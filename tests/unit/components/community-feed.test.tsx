@@ -13,6 +13,16 @@ import { CommunityFeed } from "@/components/community-feed/community-feed";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const refreshMock = jest.fn();
+const originalConsoleError = console.error;
+const radixActWarningComponents = new Set([
+  "DismissableLayer",
+  "FocusScope",
+  "Menu",
+  "PopperContent",
+  "Presence",
+]);
+let consoleErrorSpy: jest.SpyInstance;
+let unexpectedConsoleErrors: unknown[][];
 
 class ResizeObserverMock {
   observe() {}
@@ -53,6 +63,30 @@ function render(ui: ReactElement) {
       <TooltipProvider>{children}</TooltipProvider>
     ),
   });
+}
+
+async function settleReactUpdates() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
+function isRadixActWarning(parameters: unknown[]) {
+  return (
+    typeof parameters[0] === "string" &&
+    (
+      (
+        parameters[0].startsWith(
+          "An update to %s inside a test was not wrapped in act"
+        ) &&
+        typeof parameters[1] === "string" &&
+        radixActWarningComponents.has(parameters[1])
+      ) ||
+      parameters[0] ===
+        "The current testing environment is not configured to support act(...)" ||
+      parameters[0].startsWith("A component suspended inside an `act` scope")
+    )
+  );
 }
 
 jest.mock("next/navigation", () => ({
@@ -253,6 +287,17 @@ function createDeferredResponse(): DeferredResponse {
 describe("CommunityFeed", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    unexpectedConsoleErrors = [];
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(
+      (...parameters: unknown[]) => {
+        if (isRadixActWarning(parameters)) {
+          return;
+        }
+
+        unexpectedConsoleErrors.push(parameters);
+        originalConsoleError(...parameters);
+      }
+    );
     refreshMock.mockReset();
     (global.fetch as jest.Mock).mockResolvedValue({
       json: async () => ({
@@ -262,6 +307,12 @@ describe("CommunityFeed", () => {
       ok: true,
       statusText: "Created",
     });
+  });
+
+  afterEach(async () => {
+    await settleReactUpdates();
+    expect(unexpectedConsoleErrors).toEqual([]);
+    consoleErrorSpy.mockRestore();
   });
 
   it("opens a centered composer modal from the collapsed composer", async () => {
@@ -386,6 +437,9 @@ describe("CommunityFeed", () => {
 
   it("submits title and content from the expanded composer", async () => {
     const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <CommunityFeed
@@ -421,6 +475,18 @@ describe("CommunityFeed", () => {
         })
       );
     });
+
+    await act(async () => {
+      deferredResponse.resolve({
+        json: async () => ({
+          message: "Publicacion creada.",
+          post: createdPost,
+        }),
+        ok: true,
+        statusText: "Created",
+      } as Response);
+    });
+
     expect(toast.success).toHaveBeenCalledWith("Publicacion creada.");
     expect(refreshMock).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog", { name: "Crear publicación" })).not.toBeInTheDocument();
@@ -539,7 +605,9 @@ describe("CommunityFeed", () => {
     );
     await user.click(screen.getByRole("button", { name: "Categoría de la publicación" }));
     await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
-    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    });
 
     await user.click(screen.getByRole("button", { name: "Escribí algo" }));
 
@@ -550,6 +618,12 @@ describe("CommunityFeed", () => {
     expect(
       screen.getByRole("button", { name: "Categoría de la publicación" })
     ).toHaveTextContent("Seleccionar categoría");
+
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Crear publicación" })).not.toBeInTheDocument();
+    });
   });
 
   it("filters posts by category chips", async () => {
@@ -583,13 +657,15 @@ describe("CommunityFeed", () => {
 
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
 
-    rerender(
-      <CommunityFeed
-        authenticatedMember={authenticatedMember}
-        communitySlug="algebra-lineal"
-        feed={algebraFeed}
-      />
-    );
+    await act(async () => {
+      rerender(
+        <CommunityFeed
+          authenticatedMember={authenticatedMember}
+          communitySlug="algebra-lineal"
+          feed={algebraFeed}
+        />
+      );
+    });
 
     await waitFor(() => {
       expect(screen.getByText("Guia de algebra")).toBeInTheDocument();

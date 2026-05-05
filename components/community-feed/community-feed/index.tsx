@@ -210,6 +210,40 @@ type ToggleLikeResponse = {
   message?: string;
 };
 
+const COMMUNITY_FEED_RESET_KEY = {
+  empty: "",
+  false: "0",
+  fieldSeparator: ":",
+  keySeparator: "::",
+  postSeparator: "|",
+  true: "1",
+} as const;
+
+function buildFeedStateResetKey(
+  communitySlug: string,
+  feed: CommunityFeedResult
+): string {
+  const postFingerprint = feed.posts
+    .map((post) =>
+      [
+        post.id,
+        post.createdAt,
+        String(post.comments.length),
+        String(post.likeCount),
+        post.likedByViewer
+          ? COMMUNITY_FEED_RESET_KEY.true
+          : COMMUNITY_FEED_RESET_KEY.false,
+      ].join(COMMUNITY_FEED_RESET_KEY.fieldSeparator)
+    )
+    .join(COMMUNITY_FEED_RESET_KEY.postSeparator);
+
+  return [
+    communitySlug,
+    feed.activeCategoryId ?? COMMUNITY_FEED_RESET_KEY.empty,
+    postFingerprint,
+  ].join(COMMUNITY_FEED_RESET_KEY.keySeparator);
+}
+
 function renderFeedAuthorAvatar(
   author: CommunityFeedPostResult["author"],
   className: string
@@ -319,7 +353,7 @@ function isLongPostContent(content: string): boolean {
   return content.length > COMMUNITY_FEED_LIMITS.collapsedContentCharacters;
 }
 
-export function CommunityFeed({
+function CommunityFeedContent({
   authenticatedMember,
   communitySlug,
   feed,
@@ -357,28 +391,11 @@ export function CommunityFeed({
   }, [communitySlug]);
 
   useEffect(() => {
-    let isEffectActive = true;
-
-    currentActionTokenRef.current += 1;
-    queueMicrotask(() => {
-      if (!isEffectActive) {
-        return;
-      }
-
-      setPosts(feed.posts);
-      setActiveCategoryId(feed.activeCategoryId);
-      setSelectedCategoryId("");
-      setCommentDrafts({});
-      setExpandedPostIds({});
-      setSelectedPostId(null);
-      setIsPostDetailsOpen(false);
-      setPendingActionId(null);
-    });
-
     return () => {
-      isEffectActive = false;
+      currentActionTokenRef.current += 1;
+      currentCommunitySlugRef.current = COMMUNITY_FEED_RESET_KEY.empty;
     };
-  }, [communitySlug, feed.activeCategoryId, feed.posts]);
+  }, []);
 
   const isCurrentAction = (actionToken: number, actionCommunitySlug: string) =>
     currentActionTokenRef.current === actionToken &&
@@ -1213,4 +1230,10 @@ export function CommunityFeed({
       </section>
     </TooltipProvider>
   );
+}
+
+export function CommunityFeed(props: CommunityFeedProps) {
+  const resetKey = buildFeedStateResetKey(props.communitySlug, props.feed);
+
+  return <CommunityFeedContent key={resetKey} {...props} />;
 }
