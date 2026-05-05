@@ -1,8 +1,7 @@
+import { fixupConfigRules } from "@eslint/compat";
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
-import tseslint from "typescript-eslint";
-
 import noMagicNumbers from "./eslint/rules/no-magic-numbers.mjs";
 import noMagicStrings from "./eslint/rules/no-magic-strings.mjs";
 
@@ -24,8 +23,8 @@ const relativeModuleSetupImportPatterns = [
 ];
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
+  ...fixupConfigRules(nextVitals),
+  ...fixupConfigRules(nextTs),
   {
     files: ["**/*.{ts,tsx}"],
     rules: {
@@ -75,7 +74,6 @@ const eslintConfig = defineConfig([
       "src/modules/shared/infrastructure/database/server-database-client.ts",
     ],
     plugins: {
-      "@typescript-eslint": tseslint.plugin,
       local: {
         rules: {
           "no-magic-numbers": noMagicNumbers,
