@@ -328,17 +328,31 @@ export function CommunityFeed({
   const selectedPost =
     posts.find((post) => post.id === selectedPostId) ?? null;
 
-  currentCommunitySlugRef.current = communitySlug;
+  useEffect(() => {
+    currentCommunitySlugRef.current = communitySlug;
+  }, [communitySlug]);
 
   useEffect(() => {
+    let isEffectActive = true;
+
     currentActionTokenRef.current += 1;
-    setPosts(feed.posts);
-    setActiveCategoryId(feed.activeCategoryId);
-    setSelectedCategoryId("");
-    setCommentDrafts({});
-    setSelectedPostId(null);
-    setIsPostDetailsOpen(false);
-    setPendingActionId(null);
+    queueMicrotask(() => {
+      if (!isEffectActive) {
+        return;
+      }
+
+      setPosts(feed.posts);
+      setActiveCategoryId(feed.activeCategoryId);
+      setSelectedCategoryId("");
+      setCommentDrafts({});
+      setSelectedPostId(null);
+      setIsPostDetailsOpen(false);
+      setPendingActionId(null);
+    });
+
+    return () => {
+      isEffectActive = false;
+    };
   }, [communitySlug, feed.activeCategoryId, feed.posts]);
 
   const isCurrentAction = (actionToken: number, actionCommunitySlug: string) =>

@@ -33,6 +33,18 @@ const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
+function subscribeToClientMount() {
+  return () => {}
+}
+
+function getClientMountSnapshot() {
+  return true
+}
+
+function getServerMountSnapshot() {
+  return false
+}
+
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
   open: boolean
@@ -504,11 +516,11 @@ function SidebarMenuButton({
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot.Root : "button"
   const { isMobile, state } = useSidebar()
-  const [hasMounted, setHasMounted] = React.useState(false)
-
-  React.useEffect(() => {
-    setHasMounted(true)
-  }, [])
+  const hasMounted = React.useSyncExternalStore(
+    subscribeToClientMount,
+    getClientMountSnapshot,
+    getServerMountSnapshot
+  )
 
   const button = (
     <Comp
