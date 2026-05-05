@@ -115,6 +115,10 @@
     border-radius: 0.5rem;
     background: var(--background);
     padding: 1.2rem;
+
+    :global([data-slot="dialog-close"]) {
+      z-index: 2;
+    }
   }
 
   &__composerDialogHeader {
