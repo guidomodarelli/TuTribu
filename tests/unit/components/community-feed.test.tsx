@@ -843,4 +843,22 @@ describe("CommunityFeed", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Comentarios" })).toBeInTheDocument();
   });
+
+  it("describes the post details dialog for assistive technologies", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir publicación: Anuncio inicial/i })
+    );
+
+    expect(screen.getByText("Detalle de la publicación y sus comentarios.")).toBeInTheDocument();
+  });
 });

@@ -87,6 +87,7 @@ const COMMUNITY_FEED_COPY = {
   commentSendButtonAriaLabel: "Enviar comentario",
   commentPlaceholder: "Escribi un comentario",
   commentsTitle: "Comentarios",
+  postDetailsDialogDescription: "Detalle de la publicación y sus comentarios.",
   postDetailsDialogTitle: "Publicación",
   emptyDescription:
     "Todavia no hay publicaciones. Cuando alguien comparta una novedad, va a aparecer aca.",
@@ -928,6 +929,11 @@ export function CommunityFeed({
             >
               {COMMUNITY_FEED_COPY.postDetailsDialogTitle}
             </DialogTitle>
+            <DialogDescription
+              className={styles.CommunityFeed__composerDialogDescription}
+            >
+              {COMMUNITY_FEED_COPY.postDetailsDialogDescription}
+            </DialogDescription>
           </DialogHeader>
           {selectedPost ? (
             <article className={styles.CommunityFeed__postArticle}>
