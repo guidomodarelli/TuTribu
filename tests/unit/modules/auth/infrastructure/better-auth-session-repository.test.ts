@@ -11,16 +11,16 @@ describe("BetterAuthSessionRepository", () => {
         id: "member-1",
         email: "member@example.com",
         image: "https://example.com/avatar.png",
-        name: "Academia Member",
+        name: "LaTribu Member",
       },
     }));
 
     await expect(repository.getAuthenticatedMember()).resolves.toEqual({
       id: "member-1",
       email: "member@example.com",
-      name: "Academia Member",
+      name: "LaTribu Member",
       role: "member",
-      avatarFallback: "AM",
+      avatarFallback: "LM",
       image: "https://example.com/avatar.png",
     });
   });

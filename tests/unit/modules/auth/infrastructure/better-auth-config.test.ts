@@ -6,7 +6,7 @@ describe("Better Auth configuration", () => {
   beforeEach(() => {
     jest.resetModules();
     process.env.BETTER_AUTH_SECRET = "test-secret";
-    process.env.BETTER_AUTH_URL = "https://academia.example.com";
+    process.env.BETTER_AUTH_URL = "https://latribu.example.com";
     process.env.GOOGLE_CLIENT_ID = "google-client-id";
     process.env.GOOGLE_CLIENT_SECRET = "google-client-secret";
   });
@@ -44,7 +44,7 @@ describe("Better Auth configuration", () => {
     }));
     jest.doMock("@/src/modules/shared/infrastructure/database/server-environment", () => ({
       getServerDatabaseEnvironment: () => ({
-        connectionString: "postgres://academia.example.com/db",
+        connectionString: "postgres://latribu.example.com/db",
       }),
     }));
     jest.doMock("@/src/modules/shared/infrastructure/database/schema", () => ({

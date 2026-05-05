@@ -44,7 +44,7 @@ function buildMockRequest(formValues: Record<string, string>): Request {
   return {
     formData: async () => formData,
     headers: new Headers(),
-    url: "https://academia.example.com/api/communities",
+    url: "https://latribu.example.com/api/communities",
   } as unknown as Request;
 }
 
@@ -85,7 +85,7 @@ describe("Create community route", () => {
     const response = await POST(request);
 
     expect(response.headers.get("location")).toBe(
-      "https://academia.example.com/auth/signin?callbackUrl=%2Fcomunidad%2Fcrear"
+      "https://latribu.example.com/auth/signin?callbackUrl=%2Fcomunidad%2Fcrear"
     );
     expect(response.headers.get(REQUEST_ID_HEADER)).toEqual(expect.any(String));
   });
@@ -121,7 +121,7 @@ describe("Create community route", () => {
       slug: "matematica-pro",
     });
     expect(response.headers.get("location")).toBe(
-      "https://academia.example.com/comunidad/matematica-pro"
+      "https://latribu.example.com/comunidad/matematica-pro"
     );
   });
 
@@ -148,7 +148,7 @@ describe("Create community route", () => {
     const response = await POST(request);
 
     expect(response.headers.get("location")).toBe(
-      "https://academia.example.com/comunidad/crear?name=Matematica+Pro&slug=matematica-pro&error=slug-conflict&suggestedSlug=matematica-pro-2"
+      "https://latribu.example.com/comunidad/crear?name=Matematica+Pro&slug=matematica-pro&error=slug-conflict&suggestedSlug=matematica-pro-2"
     );
   });
 
@@ -171,7 +171,7 @@ describe("Create community route", () => {
     const response = await POST(request);
 
     expect(response.headers.get("location")).toBe(
-      "https://academia.example.com/comunidad/crear?name=Matematica+Pro&slug=matematica-pro&error=unexpected"
+      "https://latribu.example.com/comunidad/crear?name=Matematica+Pro&slug=matematica-pro&error=unexpected"
     );
     expect(errorMock).toHaveBeenCalledWith({
       message: "Community creation failed",

@@ -48,7 +48,7 @@ describe("server observability", () => {
     });
 
     it("adds the request id header to immutable redirect responses", () => {
-      const redirectResponse = Response.redirect("https://academia.example.com", 303);
+      const redirectResponse = Response.redirect("https://latribu.example.com", 303);
 
       const responseWithRequestId = attachRequestIdToResponse(
         redirectResponse,
@@ -57,7 +57,7 @@ describe("server observability", () => {
 
       expect(responseWithRequestId.headers.get(REQUEST_ID_HEADER)).toBe("req-redirect");
       expect(responseWithRequestId.headers.get("Location")).toBe(
-        "https://academia.example.com/"
+        "https://latribu.example.com/"
       );
       expect(responseWithRequestId.status).toBe(303);
     });

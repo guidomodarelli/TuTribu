@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -50,7 +51,7 @@ export default async function NotFoundPage() {
       </h1>
       <p className={styles.NotFoundPage__description}>
         Revisa la URL o vuelve a un punto conocido para seguir navegando dentro
-        de AcademiaOnline.
+        de {siteConfig.name}.
       </p>
       <div className={styles.NotFoundPage__actions}>
         <Button asChild size={NOT_FOUND_UI.buttonSize}>

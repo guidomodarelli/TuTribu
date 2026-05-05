@@ -27,7 +27,7 @@ describe("Better Auth API route", () => {
 
     const { GET, POST } = await import("@/app/api/auth/[...all]/route");
     const request = {
-      url: "https://academia.example.com/api/auth/get-session",
+      url: "https://latribu.example.com/api/auth/get-session",
     } as Request;
     const getResponse = await GET(request);
     const postResponse = await POST(request);

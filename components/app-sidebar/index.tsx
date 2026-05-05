@@ -85,7 +85,6 @@ const communitySectionNavigation = [
 ] as const;
 const APP_SIDEBAR_UI = {
   brandButtonSize: "lg",
-  defaultBrandMark: "AO",
   brandMarkLength: 2,
   collapsible: "icon",
   createCommunityTooltip: "Nueva comunidad",
@@ -130,7 +129,7 @@ export function AppSidebar({
   const brandName = activeCommunity?.name ?? siteConfig.name;
   const brandMark = activeCommunity
     ? getCommunityBrandMark(activeCommunity.name)
-    : APP_SIDEBAR_UI.defaultBrandMark;
+    : siteConfig.brandMark;
   const brandPath = activeCommunity
     ? ROUTES.communities.bySlug(activeCommunity.slug)
     : ROUTES.home;

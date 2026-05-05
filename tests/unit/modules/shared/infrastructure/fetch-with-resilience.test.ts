@@ -72,7 +72,7 @@ describe("fetchWithResilience", () => {
 
       const response = await fetchWithResilience(
         fetcher,
-        "https://api.academia.test/v1/resources",
+        "https://api.latribu.test/v1/resources",
         { method: "GET" },
         { maxRetries: 1, retryDelayMs: 0, timeoutMs: 50 }
       );
@@ -91,7 +91,7 @@ describe("fetchWithResilience", () => {
 
       const response = await fetchWithResilience(
         fetcher,
-        "https://api.academia.test/v1/resources",
+        "https://api.latribu.test/v1/resources",
         { method: "GET" },
         { maxRetries: 3, retryDelayMs: 0, timeoutMs: 50 }
       );
@@ -114,7 +114,7 @@ describe("fetchWithResilience", () => {
     await expect(
       fetchWithResilience(
         fetcher,
-        "https://api.academia.test/v1/resources",
+        "https://api.latribu.test/v1/resources",
         { method: "GET" },
         { maxRetries: 0, retryDelayMs: 0, timeoutMs: 5 }
       )
@@ -137,7 +137,7 @@ describe("fetchWithResilience", () => {
     await expect(
       fetchWithResilience(
         fetcher,
-        "https://api.academia.test/v1/resources",
+        "https://api.latribu.test/v1/resources",
         { method: "GET" },
         {
           lifecycleLogger,
@@ -183,7 +183,7 @@ describe("fetchWithResilience", () => {
 
     const requestPromise = fetchWithResilience(
       fetcher,
-      "https://api.academia.test/v1/resources",
+      "https://api.latribu.test/v1/resources",
       {
         method: "GET",
         signal: controller.signal,

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { siteConfig } from "@/lib/site-config";
 import styles from "./styles.module.scss";
 
 const MAILTO_PROTOCOL = "mailto:";
@@ -32,7 +33,7 @@ export function CommunityCreationBlocked({
           </Button>
         ) : (
           <p className={styles.CommunityCreationBlocked__note}>
-            Contacta al equipo de AcademiaOnline para pedir habilitacion.
+            Contacta al equipo de {siteConfig.name} para pedir habilitacion.
           </p>
         )}
       </div>

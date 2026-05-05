@@ -6,7 +6,7 @@ states, or user-facing interaction patterns.
 
 ## Product Feel
 
-AcademiaOnline should feel calm, focused, and useful. The interface should help
+LaTribu should feel calm, focused, and useful. The interface should help
 people understand where they are, what they can do next, and what changed after
 an action.
 

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 
 import { ErrorState } from "@/components/feedback/error-state";
+import { siteConfig } from "@/lib/site-config";
 import "./globals.css";
 
 const GLOBAL_ERROR_PAGE_COPY = {
@@ -13,7 +14,7 @@ const GLOBAL_ERROR_PAGE_COPY = {
   homeLabel: "Volver al inicio",
   htmlLanguage: "es",
   retryLabel: "Reintentar",
-  title: "Algo salio mal al cargar AcademiaOnline",
+  title: `Algo salio mal al cargar ${siteConfig.name}`,
 } as const;
 
 const spaceGrotesk = Space_Grotesk({
@@ -46,7 +47,7 @@ export default function GlobalErrorPage({
       className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
     >
       <body>
-        <title>Error inesperado | AcademiaOnline</title>
+        <title>{`Error inesperado | ${siteConfig.name}`}</title>
         <main>
           <ErrorState
             description={GLOBAL_ERROR_PAGE_COPY.description}

@@ -1,5 +1,5 @@
 const SAFE_REACT_PERFORMANCE_MEASURE_INSTALLED_KEY =
-  "academia-online.safe-react-performance-measure.installed";
+  "latribu.safe-react-performance-measure.installed";
 const SAFE_REACT_PERFORMANCE_MEASURE_INSTALLED = Symbol.for(
   SAFE_REACT_PERFORMANCE_MEASURE_INSTALLED_KEY
 );

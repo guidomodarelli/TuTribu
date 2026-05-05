@@ -54,7 +54,7 @@ function buildJsonRequest(body: Record<string, string | number> = {}): Request {
     }),
     json: async () => body,
     method: "POST",
-    url: "https://academia.example.com/api/communities/matematica-pro/post-categories",
+    url: "https://latribu.example.com/api/communities/matematica-pro/post-categories",
   } as unknown as Request;
 }
 

@@ -105,7 +105,7 @@ describe("AppSidebar", () => {
   it("keeps the brand mark at a stable size during sidebar transitions", () => {
     render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
 
-    expect(screen.getByText("AO")).toHaveClass("AppSidebar__brandMark");
+    expect(screen.getByText("LT")).toHaveClass("AppSidebar__brandMark");
   });
 
   it("replaces the product brand with the active community identity inside a community", () => {
@@ -128,8 +128,8 @@ describe("AppSidebar", () => {
     expect(screen.getAllByText("Matematica Pro")[0]).toHaveClass(
       "AppSidebar__brandName"
     );
-    expect(screen.queryByText("AO")).not.toBeInTheDocument();
-    expect(screen.queryByText("AcademiaOnline")).not.toBeInTheDocument();
+    expect(screen.queryByText("LT")).not.toBeInTheDocument();
+    expect(screen.queryByText("LaTribu")).not.toBeInTheDocument();
   });
 
   it("uses the active community brand button as the community switcher trigger", () => {

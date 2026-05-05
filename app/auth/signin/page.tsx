@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { siteConfig } from "@/lib/site-config";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
@@ -85,7 +86,7 @@ export default async function SignInPage({
         />
         <CardHeader className={styles.SignInPage__cardHeader}>
           <p className={styles.SignInPage__eyebrow}>
-            Acceso a AcademiaOnline
+            Acceso a {siteConfig.name}
           </p>
           <h1 className={styles.SignInPage__title}>
             Continuar con Google

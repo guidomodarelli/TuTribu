@@ -18,7 +18,7 @@ const DATABASE_TRANSACTION = {
 } as const;
 
 type GlobalDatabase = typeof globalThis & {
-  __academiaOnlineDatabasePool?: Pool;
+  __laTribuDatabasePool?: Pool;
 };
 
 export type RequestDatabaseContext = {
@@ -35,14 +35,14 @@ export type RequestDatabase = ReturnType<typeof createRequestDatabase>;
 function getDatabasePool() {
   const globalDatabase = globalThis as GlobalDatabase;
 
-  if (!globalDatabase.__academiaOnlineDatabasePool) {
+  if (!globalDatabase.__laTribuDatabasePool) {
     const { connectionString } = getServerDatabaseEnvironment();
-    globalDatabase.__academiaOnlineDatabasePool = new Pool({
+    globalDatabase.__laTribuDatabasePool = new Pool({
       connectionString,
     });
   }
 
-  return globalDatabase.__academiaOnlineDatabasePool;
+  return globalDatabase.__laTribuDatabasePool;
 }
 
 export async function createServerDatabaseClient() {

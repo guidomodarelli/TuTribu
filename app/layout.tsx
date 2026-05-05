@@ -3,6 +3,7 @@ import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import Script from "next/script";
 
 import { AppProviders } from "@/components/providers/app-providers";
+import { siteConfig } from "@/lib/site-config";
 import {
   DARK_THEME_CLASS_NAME,
   DARK_THEME_MODE,
@@ -57,9 +58,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AcademiaOnline",
+  title: siteConfig.name,
   description:
-    "AcademiaOnline: la plataforma donde los usuarios pueden aprender, compartir conocimientos y conectar con una comunidad enfocada en el crecimiento personal y profesional.",
+    `${siteConfig.name}: la plataforma donde los usuarios pueden aprender, compartir conocimientos y conectar con una comunidad enfocada en el crecimiento personal y profesional.`,
 };
 
 export default function RootLayout({

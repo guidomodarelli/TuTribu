@@ -5,7 +5,7 @@ test("loads the home scaffold", async ({ page }) => {
 
   await expect(
     page.getByRole("heading", {
-      name: /academiaonline centraliza el inicio de sesion y la base tecnica de la app/i,
+      name: /un espacio para aprender, compartir y crecer en comunidad/i,
     })
   ).toBeVisible();
   await expect(

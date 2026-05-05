@@ -1,3 +1,4 @@
 export const siteConfig = {
-  name: "AcademiaOnline",
+  brandMark: "LT",
+  name: "LaTribu",
 } as const;
