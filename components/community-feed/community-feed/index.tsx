@@ -192,6 +192,18 @@ type ToggleLikeResponse = {
   message?: string;
 };
 
+function renderFeedAuthorAvatar(
+  author: CommunityFeedPostResult["author"],
+  className: string
+) {
+  return (
+    <Avatar className={className}>
+      {author.image ? <AvatarImage alt={author.name} src={author.image} /> : null}
+      <AvatarFallback>{author.avatarFallback}</AvatarFallback>
+    </Avatar>
+  );
+}
+
 async function readApiErrorMessage(response: Response): Promise<string | null> {
   const body = (await response.json().catch(() => null)) as ApiErrorResponse | null;
 
@@ -822,9 +834,10 @@ export function CommunityFeed({
                     type={COMMUNITY_FEED_FORM.buttonType}
                   >
                     <CardHeader className={styles.CommunityFeed__postHeader}>
-                      <div className={styles.CommunityFeed__avatar}>
-                        {post.author.avatarFallback}
-                      </div>
+                      {renderFeedAuthorAvatar(
+                        post.author,
+                        styles.CommunityFeed__avatar
+                      )}
                       <div className={styles.CommunityFeed__author}>
                         <p className={styles.CommunityFeed__authorName}>
                           {post.author.name}
@@ -919,9 +932,10 @@ export function CommunityFeed({
           {selectedPost ? (
             <article className={styles.CommunityFeed__postArticle}>
               <CardHeader className={styles.CommunityFeed__postHeader}>
-                <div className={styles.CommunityFeed__avatar}>
-                  {selectedPost.author.avatarFallback}
-                </div>
+                {renderFeedAuthorAvatar(
+                  selectedPost.author,
+                  styles.CommunityFeed__avatar
+                )}
                 <div className={styles.CommunityFeed__author}>
                   <p className={styles.CommunityFeed__authorName}>
                     {selectedPost.author.name}
@@ -991,9 +1005,10 @@ export function CommunityFeed({
                     <ol className={styles.CommunityFeed__commentList}>
                       {selectedPost.comments.map((comment) => (
                         <li className={styles.CommunityFeed__comment} key={comment.id}>
-                          <div className={styles.CommunityFeed__commentAvatar}>
-                            {comment.author.avatarFallback}
-                          </div>
+                          {renderFeedAuthorAvatar(
+                            comment.author,
+                            styles.CommunityFeed__commentAvatar
+                          )}
                           <div className={styles.CommunityFeed__commentBody}>
                             <p className={styles.CommunityFeed__commentMeta}>
                               <span>{comment.author.name}</span>

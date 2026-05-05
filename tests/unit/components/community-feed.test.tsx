@@ -24,6 +24,29 @@ class ResizeObserverMock {
 
 globalThis.ResizeObserver = ResizeObserverMock;
 
+class ImageMock {
+  complete = true;
+
+  naturalWidth = 1;
+
+  onerror: (() => void) | null = null;
+
+  onload: (() => void) | null = null;
+
+  private source = "";
+
+  get src() {
+    return this.source;
+  }
+
+  set src(nextSource: string) {
+    this.source = nextSource;
+    this.onload?.();
+  }
+}
+
+globalThis.Image = ImageMock as unknown as typeof Image;
+
 function render(ui: ReactElement) {
   return renderComponent(ui, {
     wrapper: ({ children }: { children: ReactNode }) => (
@@ -130,6 +153,33 @@ const feed = {
       likedByViewer: false,
       likeCount: 2,
       title: "Anuncio inicial",
+    },
+  ],
+};
+
+const feedWithAuthorImages = {
+  ...feed,
+  posts: [
+    {
+      ...feed.posts[0],
+      author: {
+        ...feed.posts[0].author,
+        image: "https://example.com/ada-lovelace.jpg",
+      },
+      comments: [
+        {
+          id: "comment-with-image",
+          author: {
+            id: "member-1",
+            name: "Grace Hopper",
+            role: "member" as const,
+            avatarFallback: "GH",
+            image: "https://example.com/grace-hopper.jpg",
+          },
+          content: "Gracias por compartirlo.",
+          createdAt: "2026-04-26T12:05:00.000Z",
+        },
+      ],
     },
   ],
 };
@@ -263,6 +313,32 @@ describe("CommunityFeed", () => {
         )
       )
     ).not.toHaveLength(0);
+  });
+
+  it("uses author images for posts and comments when available", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feedWithAuthorImages}
+      />
+    );
+
+    expect(screen.getByRole("img", { name: "Ada Lovelace" })).toHaveAttribute(
+      "src",
+      "https://example.com/ada-lovelace.jpg"
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir publicación: Anuncio inicial/i })
+    );
+
+    expect(screen.getByRole("img", { name: "Grace Hopper" })).toHaveAttribute(
+      "src",
+      "https://example.com/grace-hopper.jpg"
+    );
   });
 
   it("renders the post category with the previous year timestamp metadata", () => {
