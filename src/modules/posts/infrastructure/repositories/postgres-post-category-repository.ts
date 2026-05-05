@@ -1,4 +1,3 @@
-/* eslint-disable local/no-magic-strings -- SQL repositories keep query text inline for reviewable data access. */
 import { sql } from "drizzle-orm";
 
 import type {

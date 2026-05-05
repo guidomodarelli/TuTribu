@@ -2,6 +2,7 @@ import { fixupConfigRules } from "@eslint/compat";
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import * as noEslintDisablePlugin from "eslint-plugin-no-eslint-disable";
 import noMagicNumbers from "./eslint/rules/no-magic-numbers.mjs";
 import noMagicStrings from "./eslint/rules/no-magic-strings.mjs";
 
@@ -64,16 +65,10 @@ const eslintConfig = defineConfig([
     ],
     ignores: [
       "components/ui/**/*.{ts,tsx}",
-      "src/modules/auth/infrastructure/better-auth/auth.ts",
-      "src/modules/communities/infrastructure/repositories/postgres-community-read-repository.ts",
-      "src/modules/communities/infrastructure/repositories/postgres-community-creator-whitelist-repository.ts",
-      "src/modules/communities/infrastructure/repositories/postgres-community-creation-repository.ts",
-      "src/modules/posts/infrastructure/repositories/postgres-post-feed-repository.ts",
-      "src/modules/posts/infrastructure/repositories/postgres-post-mutation-repository.ts",
-      "src/modules/shared/infrastructure/database/schema.ts",
-      "src/modules/shared/infrastructure/database/server-database-client.ts",
+      "src/modules/**/infrastructure/**/*.{ts,tsx}"
     ],
     plugins: {
+      "no-eslint-disable": noEslintDisablePlugin,
       local: {
         rules: {
           "no-magic-numbers": noMagicNumbers,
@@ -83,6 +78,7 @@ const eslintConfig = defineConfig([
     },
     rules: {
       "@typescript-eslint/no-magic-numbers": "off",
+      "no-eslint-disable/no-eslint-disable": "error",
       "local/no-magic-numbers": "error",
       "local/no-magic-strings": "error",
     },
