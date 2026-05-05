@@ -2,7 +2,7 @@ import { fixupConfigRules } from "@eslint/compat";
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
-import * as noEslintDisablePlugin from "eslint-plugin-no-eslint-disable";
+import noEslintDisable from "./eslint/rules/no-eslint-disable.mjs";
 import noMagicNumbers from "./eslint/rules/no-magic-numbers.mjs";
 import noMagicStrings from "./eslint/rules/no-magic-strings.mjs";
 
@@ -68,9 +68,9 @@ const eslintConfig = defineConfig([
       "src/modules/**/infrastructure/**/*.{ts,tsx}"
     ],
     plugins: {
-      "no-eslint-disable": noEslintDisablePlugin,
       local: {
         rules: {
+          "no-eslint-disable": noEslintDisable,
           "no-magic-numbers": noMagicNumbers,
           "no-magic-strings": noMagicStrings,
         },
@@ -78,7 +78,7 @@ const eslintConfig = defineConfig([
     },
     rules: {
       "@typescript-eslint/no-magic-numbers": "off",
-      "no-eslint-disable/no-eslint-disable": "error",
+      "local/no-eslint-disable": "error",
       "local/no-magic-numbers": "error",
       "local/no-magic-strings": "error",
     },

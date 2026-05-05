@@ -96,6 +96,26 @@ async function createMagicNumbersEslintWithOptions(ruleOptions: Record<string, u
 }
 
 describe("magic values lint rules", () => {
+  it("rejects eslint-disable directives in product code through the repository eslint config", async () => {
+    const eslint = await createRepositoryEslint();
+
+    const [result] = await eslint.lintText(
+      `
+        export function waitForRetry(run: () => void) {
+          // eslint-disable-next-line local/no-magic-numbers
+          setTimeout(run, 3000);
+        }
+      `,
+      {
+        filePath: "src/modules/example.ts",
+      }
+    );
+
+    expect(result.messages.map((message) => message.ruleId)).toContain(
+      "local/no-eslint-disable"
+    );
+  });
+
   it("allows visible JSX copy, imports, exports and directives for magic strings", async () => {
     const eslint = await createMagicStringsEslint();
 

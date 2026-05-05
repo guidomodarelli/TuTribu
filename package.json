@@ -46,7 +46,6 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.3.0",
     "eslint-config-next": "^16.2.4",
-    "eslint-plugin-no-eslint-disable": "^3.0.2",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "sass": "^1.99.0",
