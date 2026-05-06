@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
+import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { TRIBE_INVITATION_STATUS } from "@/src/modules/tribes/constants/tribe-invitations";
 import styles from "./page.module.scss";
 
@@ -19,6 +20,13 @@ const INVITATION_PAGE_COPY = {
   invalidDescription:
     "El link no existe o ya no está disponible. Pedí una invitación nueva para continuar.",
   invalidTitle: "Esta invitación no está disponible",
+  paymentButton: "Continuar con el pago",
+  paymentDescription:
+    "Esta tribu tiene una suscripción activa. Para entrar, continuá con el precio actual.",
+  paymentUnavailableDescription:
+    "No pudimos iniciar el pago en este momento. Intentá de nuevo más tarde o pedí ayuda a quien administra la tribu.",
+  paymentUnavailableTitle: "No pudimos iniciar el pago",
+  paymentTitle: "Completá tu suscripción",
 } as const;
 
 const INVITATION_PAGE_ROUTE = {
@@ -29,6 +37,11 @@ const INVITATION_PAGE_ROUTE = {
 
 const INVITATION_PAGE_FORM = {
   submitButtonType: "submit",
+} as const;
+
+const INVITATION_SUBSCRIPTION = {
+  checkoutUrlProperty: "checkoutUrl",
+  idempotencySeparator: ":",
 } as const;
 
 type TribeInvitationPageSearchParams = {
@@ -96,6 +109,34 @@ function buildInvitationStatusPath(
   );
 }
 
+function renderSubscriptionStartStatus(status: string) {
+  if (status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked) {
+    return renderInvitationStatus(
+      INVITATION_PAGE_COPY.blockedTitle,
+      INVITATION_PAGE_COPY.blockedDescription
+    );
+  }
+
+  if (status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.invalidInvitation) {
+    return renderInvitationStatus(
+      INVITATION_PAGE_COPY.invalidTitle,
+      INVITATION_PAGE_COPY.invalidDescription
+    );
+  }
+
+  if (
+    status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice ||
+    status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked
+  ) {
+    return renderInvitationStatus(
+      INVITATION_PAGE_COPY.paymentUnavailableTitle,
+      INVITATION_PAGE_COPY.paymentUnavailableDescription
+    );
+  }
+
+  return null;
+}
+
 export async function acceptInvitationAction({
   slug,
   token,
@@ -116,6 +157,35 @@ export async function acceptInvitationAction({
 
   if (result.status === TRIBE_INVITATION_STATUS.accepted) {
     redirect(ROUTES.tribes.bySlug(slug));
+  }
+
+  redirect(buildInvitationStatusPath(slug, token, result.status));
+}
+
+export async function startInvitationSubscriptionAction({
+  slug,
+  token,
+}: AcceptInvitationActionInput) {
+  "use server";
+
+  const modules = await createRequestModules();
+  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
+
+  if (!authenticatedMember) {
+    redirect(ROUTES.auth.signIn);
+  }
+
+  const result = await modules.subscriptions.useCases.startTribeMemberSubscription({
+    idempotencyKey: [
+      authenticatedMember.id,
+      slug,
+    ].join(INVITATION_SUBSCRIPTION.idempotencySeparator),
+    invitationToken: token,
+    tribeSlug: slug,
+  });
+
+  if (INVITATION_SUBSCRIPTION.checkoutUrlProperty in result) {
+    redirect(result.checkoutUrl);
   }
 
   redirect(buildInvitationStatusPath(slug, token, result.status));
@@ -157,6 +227,45 @@ export default async function TribeInvitationPage({
     return renderInvitationStatus(
       INVITATION_PAGE_COPY.invalidTitle,
       INVITATION_PAGE_COPY.invalidDescription
+    );
+  }
+
+  const subscriptionStartStatus = status
+    ? renderSubscriptionStartStatus(status)
+    : null;
+
+  if (subscriptionStartStatus) {
+    return subscriptionStartStatus;
+  }
+
+  if (status === TRIBE_INVITATION_STATUS.subscriptionRequired) {
+    const startSubscription = startInvitationSubscriptionAction.bind(null, {
+      slug,
+      token,
+    });
+
+    return (
+      <main className={styles.TribeInvitationPage}>
+        <section className={styles.TribeInvitationPage__content}>
+          <p className={styles.TribeInvitationPage__eyebrow}>
+            {INVITATION_PAGE_COPY.eyebrow}
+          </p>
+          <h1 className={styles.TribeInvitationPage__title}>
+            {INVITATION_PAGE_COPY.paymentTitle}
+          </h1>
+          <p className={styles.TribeInvitationPage__description}>
+            {INVITATION_PAGE_COPY.paymentDescription}
+          </p>
+          <form
+            action={startSubscription}
+            className={styles.TribeInvitationPage__form}
+          >
+            <Button type={INVITATION_PAGE_FORM.submitButtonType}>
+              {INVITATION_PAGE_COPY.paymentButton}
+            </Button>
+          </form>
+        </section>
+      </main>
     );
   }
 

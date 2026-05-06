@@ -32,5 +32,6 @@ export type TribeInvitationAcceptanceResult = {
     | typeof TRIBE_INVITATION_STATUS.accepted
     | typeof TRIBE_INVITATION_STATUS.blocked
     | typeof TRIBE_INVITATION_STATUS.invalid
-    | typeof TRIBE_INVITATION_STATUS.revoked;
+    | typeof TRIBE_INVITATION_STATUS.revoked
+    | typeof TRIBE_INVITATION_STATUS.subscriptionRequired;
 };

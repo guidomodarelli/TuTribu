@@ -262,6 +262,28 @@ describe("PostgresTribeInvitationRepository", () => {
     ).resolves.toEqual({ status: "revoked" });
   });
 
+  it("does not require subscription checkout for revoked invitations", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [{ status: "revoked" }],
+    }));
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.accept({
+        token: "revoked-token",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "revoked" });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toMatch(
+      /when exists \(\s*select 1 from current_subscription_price\s*\)[\s\S]{0,250}target_invitation where status =[\s\S]{0,250}then/
+    );
+  });
+
   it("resolves revoked invitations before requiring visible tribe access", async () => {
     const execute = jest.fn(async () => ({
       rows: [{ status: "revoked" }],

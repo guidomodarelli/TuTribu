@@ -127,7 +127,7 @@ describe("CreateTribePage", () => {
     );
 
     expect(
-      screen.getByText(/todavia no tienes permiso para crear una tribu/i)
+      screen.getByRole("heading", { name: /permiso para crear una tribu/i })
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /escribir a tribus@example.com/i })).toHaveAttribute(
       "href",

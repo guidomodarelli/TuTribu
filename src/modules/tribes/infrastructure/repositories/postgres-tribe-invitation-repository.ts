@@ -120,7 +120,8 @@ function mapAcceptanceResult(row: InvitationStatusRow | null): TribeInvitationAc
     row?.status === TRIBE_INVITATION_STATUS.accepted ||
     row?.status === TRIBE_INVITATION_STATUS.blocked ||
     row?.status === TRIBE_INVITATION_STATUS.invalid ||
-    row?.status === TRIBE_INVITATION_STATUS.revoked
+    row?.status === TRIBE_INVITATION_STATUS.revoked ||
+    row?.status === TRIBE_INVITATION_STATUS.subscriptionRequired
   ) {
     return { status: row.status };
   }
@@ -349,6 +350,24 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           where tribe_members.user_id = public.current_app_user_id()
           limit 1
         ),
+        existing_subscription as (
+          select tribe_member_subscriptions.status_reason
+          from public.tribe_member_subscriptions
+          inner join target_tribe
+            on target_tribe.id = tribe_member_subscriptions.tribe_id
+          where tribe_member_subscriptions.user_id = public.current_app_user_id()
+          order by tribe_member_subscriptions.created_at desc
+          limit 1
+        ),
+        current_subscription_price as (
+          select tribe_subscription_prices.id
+          from public.tribe_subscription_prices
+          inner join target_tribe
+            on target_tribe.id = tribe_subscription_prices.tribe_id
+          where tribe_subscription_prices.is_current = true
+            and tribe_subscription_prices.status = 'active'
+          limit 1
+        ),
         inserted_membership as (
           insert into public.tribe_members (
             tribe_id,
@@ -368,6 +387,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           cross join invitation_acceptance_context
           where target_invitation.status = ${TRIBE_INVITATION_STATUS.active}
             and public.current_app_user_id() <> ''
+            and not exists (select 1 from current_subscription_price)
             and not exists (select 1 from existing_membership)
           on conflict (tribe_id, user_id) do nothing
           returning id
@@ -383,8 +403,21 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         select
           case
             when exists (
-              select 1 from existing_membership where status = 'blocked'
+              select 1 from existing_membership
+              where status = 'blocked'
+                and not exists (
+                  select 1
+                  from existing_subscription
+                  where status_reason = 'payment_blocked'
+                )
             ) then ${TRIBE_INVITATION_STATUS.blocked}
+            when exists (
+              select 1 from current_subscription_price
+            ) and exists (
+              select 1 from target_invitation where status = ${TRIBE_INVITATION_STATUS.active}
+            ) and not exists (
+              select 1 from existing_membership where status in ('active', 'muted')
+            ) then ${TRIBE_INVITATION_STATUS.subscriptionRequired}
             when exists (
               select 1 from existing_membership where status in ('active', 'muted')
             ) then ${TRIBE_INVITATION_STATUS.accepted}

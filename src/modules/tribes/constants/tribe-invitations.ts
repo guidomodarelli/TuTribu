@@ -8,6 +8,7 @@ export const TRIBE_INVITATION_STATUS = {
   notFound: "not_found",
   revoked: "revoked",
   setupRequired: "setup_required",
+  subscriptionRequired: "subscription_required",
 } as const;
 
 export const TRIBE_INVITATION_ROLE = {

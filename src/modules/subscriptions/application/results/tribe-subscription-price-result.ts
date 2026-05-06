@@ -1,0 +1,50 @@
+/**
+ * Provides application result contracts for tribe subscription prices.
+ *
+ * @module tribe-subscription-price-result
+ */
+
+import type {
+  TRIBE_SUBSCRIPTION_CURRENCY,
+  TRIBE_SUBSCRIPTION_FREQUENCY,
+  TRIBE_SUBSCRIPTION_PRICE_STATUS,
+} from "@/src/modules/subscriptions/constants/subscriptions";
+
+export type TribeSubscriptionPriceResult = {
+  activeSubscribersCount: number;
+  amountCents: number;
+  createdAt: string;
+  currency: typeof TRIBE_SUBSCRIPTION_CURRENCY.ars;
+  frequency: typeof TRIBE_SUBSCRIPTION_FREQUENCY.monthly;
+  id: string;
+  isCurrent: boolean;
+  name: string;
+  status: "active" | "deleted";
+};
+
+export type TribeSubscriptionPriceListResult = {
+  prices: TribeSubscriptionPriceResult[];
+  viewerPermissions: {
+    canManagePrices: boolean;
+    canViewPrices: boolean;
+  };
+};
+
+export type TribeSubscriptionPriceMutationResult =
+  | {
+      price: TribeSubscriptionPriceResult;
+      status:
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.created
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.current;
+    }
+  | {
+      status:
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;
+    };

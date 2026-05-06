@@ -3,6 +3,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -249,5 +250,99 @@ export const events = pgTable("events", {
   tribeStartsAtIndex: index("idx_events_tribe_starts_at").on(
     table.tribeId,
     table.startsAt
+  ),
+}));
+
+export const tribePaymentIntegrations = pgTable("tribe_payment_integrations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull(),
+  providerAccountId: text("provider_account_id"),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+  connectedBy: text("connected_by")
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  tribeProviderKey: uniqueIndex("tribe_payment_integrations_tribe_provider_key").on(
+    table.tribeId,
+    table.provider
+  ),
+}));
+
+export const tribeSubscriptionPrices = pgTable("tribe_subscription_prices", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  currency: text("currency").notNull(),
+  frequency: text("frequency").notNull(),
+  status: text("status").notNull(),
+  isCurrent: boolean("is_current").notNull().default(false),
+  mercadoPagoPreapprovalPlanId: text("mercado_pago_preapproval_plan_id"),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+}, (table) => ({
+  tribeCreatedAtIndex: index("idx_tribe_subscription_prices_tribe_created_at").on(
+    table.tribeId,
+    table.createdAt
+  ),
+}));
+
+export const tribeMemberSubscriptions = pgTable("tribe_member_subscriptions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  priceId: uuid("price_id")
+    .notNull()
+    .references(() => tribeSubscriptionPrices.id),
+  mercadoPagoPreapprovalId: text("mercado_pago_preapproval_id"),
+  status: text("status").notNull(),
+  statusReason: text("status_reason").notNull().default("none"),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  priceIndex: index("idx_tribe_member_subscriptions_price").on(table.priceId),
+}));
+
+export const subscriptionIdempotencyOperations = pgTable("subscription_idempotency_operations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  operationKey: text("operation_key").notNull(),
+  operationType: text("operation_type").notNull(),
+  tribeId: uuid("tribe_id").references(() => tribes.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+  payloadHash: text("payload_hash").notNull(),
+  responseBody: jsonb("response_body").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  operationKey: uniqueIndex("subscription_idempotency_operations_key").on(
+    table.operationKey
   ),
 }));

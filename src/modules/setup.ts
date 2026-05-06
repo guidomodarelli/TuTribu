@@ -11,11 +11,26 @@ import { PostgresMessageMutationRepository } from "./messages/infrastructure/rep
 import { buildMessagesModule } from "./messages/setup";
 import { buildEventsModule } from "./events/setup";
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
+import { buildSubscriptionsModule } from "./subscriptions/setup";
+import { PostgresTribeMemberSubscriptionRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
+import { PostgresTribePaymentIntegrationRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-payment-integration-repository";
+import { PostgresTribeSubscriptionPriceRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-subscription-price-repository";
+import {
+  createMercadoPagoPreapprovalPlan,
+  createMercadoPagoPreapprovalSubscription,
+  getMercadoPagoPreapprovalStatus,
+} from "./subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
+import { resolvePublicAppBaseUrl } from "./shared/infrastructure/backend/public-app-base-url";
 
 type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
+type RequestModuleContextOverrides = {
+  mercadoPagoWebhookVerified?: boolean;
+};
 
-export async function createRequestModules() {
+export async function createRequestModules(
+  contextOverrides: RequestModuleContextOverrides = {}
+) {
   const databaseClient = await createServerDatabaseClient();
   const { getRequestAuthContext } = await import(
     "./auth/infrastructure/better-auth/server-auth-context"
@@ -23,7 +38,14 @@ export async function createRequestModules() {
   const authContext = await getRequestAuthContext();
   const executeWithRequestContext = <T>(
     callback: Parameters<RequestScopedDatabaseClient["withRequestContext"]>[1]
-  ) => databaseClient.withRequestContext(authContext, callback) as Promise<T>;
+  ) =>
+    databaseClient.withRequestContext(
+      {
+        ...authContext,
+        ...contextOverrides,
+      },
+      callback
+    ) as Promise<T>;
 
   return {
     auth: buildAuthModule({
@@ -61,6 +83,22 @@ export async function createRequestModules() {
       tribeEventRepository: new PostgresTribeEventRepository(
         executeWithRequestContext
       ),
+    }),
+    subscriptions: buildSubscriptionsModule({
+      tribeMemberSubscriptionRepository:
+        new PostgresTribeMemberSubscriptionRepository(
+          executeWithRequestContext,
+          createMercadoPagoPreapprovalSubscription,
+          getMercadoPagoPreapprovalStatus,
+          resolvePublicAppBaseUrl
+        ),
+      tribePaymentIntegrationRepository:
+        new PostgresTribePaymentIntegrationRepository(executeWithRequestContext),
+      tribeSubscriptionPriceRepository:
+        new PostgresTribeSubscriptionPriceRepository(
+          executeWithRequestContext,
+          createMercadoPagoPreapprovalPlan
+        ),
     }),
   };
 }

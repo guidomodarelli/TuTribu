@@ -9,6 +9,7 @@ import {
   FlameKindlingIcon,
   MailPlusIcon,
   MedalIcon,
+  ReceiptTextIcon,
   PlusCircleIcon,
   ScrollTextIcon,
   SignpostBigIcon,
@@ -57,6 +58,13 @@ const tribeSectionNavigation = [
       isSameOrNestedPath(pathname, ROUTES.tribes.invitations(tribeSlug)),
   },
   {
+    hrefBuilder: ROUTES.tribes.prices,
+    icon: ReceiptTextIcon,
+    label: "Precios",
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.prices(tribeSlug)),
+  },
+  {
     hrefBuilder: ROUTES.tribes.channels,
     icon: SignpostBigIcon,
     label: "Canales",
@@ -97,6 +105,7 @@ const APP_SIDEBAR_UI = {
   brandMarkLength: 2,
   channelsSectionLabel: "Canales",
   invitationsSectionLabel: "Invitaciones",
+  pricesSectionLabel: "Precios",
   collapsible: "icon",
   createTribeTooltip: "Nueva tribu",
   nestedRouteSeparator: "/",
@@ -111,6 +120,7 @@ const TRIBE_CHANNEL_MANAGER_ROLE = {
 const TRIBE_ADMIN_SECTION_LABELS = new Set<string>([
   APP_SIDEBAR_UI.channelsSectionLabel,
   APP_SIDEBAR_UI.invitationsSectionLabel,
+  APP_SIDEBAR_UI.pricesSectionLabel,
 ]);
 
 type AppSidebarProps = {

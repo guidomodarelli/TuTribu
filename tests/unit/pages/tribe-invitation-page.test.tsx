@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 
 import TribeInvitationPage, {
   acceptInvitationAction,
+  startInvitationSubscriptionAction,
 } from "@/app/(platform)/tribu/[slug]/invitar/[token]/page";
 import { createRequestModules } from "@/src/modules/setup";
 
 const getAuthenticatedMember = jest.fn();
 const acceptTribeInvitation = jest.fn();
+const startTribeMemberSubscription = jest.fn();
 
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
@@ -58,6 +60,11 @@ describe("TribeInvitationPage", () => {
       tribes: {
         useCases: {
           acceptTribeInvitation,
+        },
+      },
+      subscriptions: {
+        useCases: {
+          startTribeMemberSubscription,
         },
       },
     });
@@ -141,5 +148,38 @@ describe("TribeInvitationPage", () => {
     expect(redirect).toHaveBeenCalledWith(
       "/tribu/matematica-pro/invitar/invitation-token?status=invalid"
     );
+  });
+
+  it("redirects payment start failures back to the tokenized invitation status page", async () => {
+    startTribeMemberSubscription.mockResolvedValue({
+      status: "payment_blocked",
+    });
+    (redirect as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(
+      startInvitationSubscriptionAction({
+        slug: "matematica-pro",
+        token: "invitation-token",
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(startTribeMemberSubscription).toHaveBeenCalledWith({
+      idempotencyKey: "member-1:matematica-pro",
+      invitationToken: "invitation-token",
+      tribeSlug: "matematica-pro",
+    });
+    expect(redirect).toHaveBeenCalledWith(
+      "/tribu/matematica-pro/invitar/invitation-token?status=payment_blocked"
+    );
+  });
+
+  it("renders a safe Spanish message when payment cannot start", async () => {
+    render(await TribeInvitationPage(buildPagePropsWithStatus("missing_current_price")));
+
+    expect(
+      screen.getByRole("heading", { name: "No pudimos iniciar el pago" })
+    ).toBeInTheDocument();
   });
 });

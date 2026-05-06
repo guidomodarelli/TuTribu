@@ -1,0 +1,547 @@
+/**
+ * Persists and maps tribe subscription price versions in Postgres.
+ *
+ * @module postgres-tribe-subscription-price-repository
+ */
+
+import { sql } from "drizzle-orm";
+
+import type {
+  TribeSubscriptionPriceListResult,
+  TribeSubscriptionPriceMutationResult,
+  TribeSubscriptionPriceResult,
+} from "@/src/modules/subscriptions/application/results/tribe-subscription-price-result";
+import {
+  TRIBE_SUBSCRIPTION_PRICE_LIMIT,
+  TRIBE_SUBSCRIPTION_PRICE_STATUS,
+} from "@/src/modules/subscriptions/constants/subscriptions";
+import type {
+  CreateTribeSubscriptionPriceCommand,
+  TribeSubscriptionPriceIdentity,
+  TribeSubscriptionPriceListQuery,
+  TribeSubscriptionPriceRepository,
+} from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
+import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import type { MercadoPagoPlanInput } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
+
+type DatabaseExecutor = <T>(
+  callback: (database: RequestDatabase) => Promise<T>
+) => Promise<T>;
+
+type MercadoPagoPlanCreator = (input: MercadoPagoPlanInput) => Promise<string>;
+
+type SubscriptionPriceRow = {
+  active_subscribers_count: number | string | null;
+  amount_cents: number;
+  created_at: Date | string;
+  currency: "ARS";
+  frequency: "monthly";
+  id: string;
+  is_current: boolean;
+  name: string;
+  status: "active" | "deleted";
+};
+
+type SubscriptionPriceListRow = SubscriptionPriceRow & {
+  can_manage_prices: boolean | null;
+  can_view_prices: boolean | null;
+};
+
+type SubscriptionPriceMutationRow = SubscriptionPriceRow & {
+  status_result: string | null;
+};
+
+type PriceCreationContextRow = {
+  access_token: string | null;
+  can_manage_prices: boolean | null;
+  existing_price_count: number | string | null;
+  tribe_id: string | null;
+};
+
+/**
+ * Converts database dates and counts into application price results.
+ *
+ * @param row - Database subscription price row.
+ * @returns Subscription price application result.
+ */
+function mapSubscriptionPrice(row: SubscriptionPriceRow): TribeSubscriptionPriceResult {
+  return {
+    activeSubscribersCount: Number(row.active_subscribers_count ?? 0),
+    amountCents: row.amount_cents,
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : new Date(row.created_at).toISOString(),
+    currency: row.currency,
+    frequency: row.frequency,
+    id: row.id,
+    isCurrent: row.is_current,
+    name: row.name,
+    status: row.status,
+  };
+}
+
+/**
+ * Maps a price mutation SQL result into the application contract.
+ *
+ * @param row - Database mutation row.
+ * @param successStatus - Expected success status for the mutation.
+ * @returns Price mutation result.
+ */
+function mapPriceMutationResult(
+  row: SubscriptionPriceMutationRow | null,
+  successStatus:
+    | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.created
+    | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.current
+): TribeSubscriptionPriceMutationResult {
+  if (row?.status_result === successStatus) {
+    return {
+      price: mapSubscriptionPrice(row),
+      status: successStatus,
+    };
+  }
+
+  return {
+    status:
+      row?.status_result === TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound ||
+      row?.status_result === TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers ||
+      row?.status_result === TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached ||
+      row?.status_result === TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration
+        ? row.status_result
+        : TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden,
+  };
+}
+
+/**
+ * Builds a stable idempotency key for Mercado Pago plan creation.
+ *
+ * @param command - Price creation command.
+ * @returns Stable key scoped to the tribe and price content.
+ */
+function buildPlanIdempotencyKey(command: CreateTribeSubscriptionPriceCommand): string {
+  return [
+    "tribe-price",
+    command.tribeSlug,
+    command.name,
+    String(command.amountCents),
+    command.currency,
+    command.frequency,
+  ].join(":");
+}
+
+export class PostgresTribeSubscriptionPriceRepository
+  implements TribeSubscriptionPriceRepository
+{
+  constructor(
+    private readonly executeWithDatabase: DatabaseExecutor,
+    private readonly createMercadoPagoPlan: MercadoPagoPlanCreator
+  ) {}
+
+  /**
+   * Lists subscription price versions visible to subscription admins.
+   *
+   * @param query - Tribe slug query.
+   * @returns Prices and viewer permissions.
+   */
+  async listByTribeSlug(
+    query: TribeSubscriptionPriceListQuery
+  ): Promise<TribeSubscriptionPriceListResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${query.tribeSlug}
+          limit 1
+        ),
+        viewer_permissions as (
+          select
+            coalesce(public.can_view_tribe_subscription_prices((select id from target_tribe)), false) as can_view_prices,
+            coalesce(public.can_manage_tribe_subscription_prices((select id from target_tribe)), false) as can_manage_prices
+        ),
+        price_rows as (
+          select
+            tribe_subscription_prices.id,
+            tribe_subscription_prices.name,
+            tribe_subscription_prices.amount_cents,
+            tribe_subscription_prices.currency,
+            tribe_subscription_prices.frequency,
+            tribe_subscription_prices.status,
+            tribe_subscription_prices.is_current,
+            tribe_subscription_prices.created_at,
+            count(tribe_member_subscriptions.id) filter (
+              where tribe_member_subscriptions.status in ('active', 'pending', 'grace_period', 'past_due', 'payment_blocked')
+            ) as active_subscribers_count
+          from public.tribe_subscription_prices
+          inner join target_tribe
+            on target_tribe.id = tribe_subscription_prices.tribe_id
+          left join public.tribe_member_subscriptions
+            on tribe_member_subscriptions.price_id = tribe_subscription_prices.id
+          where tribe_subscription_prices.status = 'active'
+            and public.can_view_tribe_subscription_prices(target_tribe.id)
+          group by tribe_subscription_prices.id
+        )
+        select
+          price_rows.id,
+          price_rows.name,
+          price_rows.amount_cents,
+          price_rows.currency,
+          price_rows.frequency,
+          price_rows.status,
+          price_rows.is_current,
+          price_rows.created_at,
+          price_rows.active_subscribers_count,
+          viewer_permissions.can_view_prices,
+          viewer_permissions.can_manage_prices
+        from viewer_permissions
+        left join price_rows
+          on true
+        order by price_rows.created_at desc
+      `);
+      const rows = (result.rows ?? []) as SubscriptionPriceListRow[];
+
+      return {
+        prices: rows
+          .filter((row) => row.id)
+          .map((row) => mapSubscriptionPrice(row)),
+        viewerPermissions: {
+          canManagePrices: Boolean(rows[0]?.can_manage_prices),
+          canViewPrices: Boolean(rows[0]?.can_view_prices),
+        },
+      };
+    });
+  }
+
+  /**
+   * Creates a new immutable price version and matching Mercado Pago plan.
+   *
+   * @param command - Normalized price creation command.
+   * @returns Price creation result.
+   */
+  async create(
+    command: CreateTribeSubscriptionPriceCommand
+  ): Promise<TribeSubscriptionPriceMutationResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+          for update
+        ),
+        active_prices as (
+          select count(*) as existing_price_count
+          from public.tribe_subscription_prices
+          inner join target_tribe
+            on target_tribe.id = tribe_subscription_prices.tribe_id
+          where tribe_subscription_prices.status = 'active'
+        )
+        select
+          (select id from target_tribe) as tribe_id,
+          coalesce(public.can_manage_tribe_subscription_prices((select id from target_tribe)), false) as can_manage_prices,
+          (select existing_price_count from active_prices) as existing_price_count,
+          tribe_payment_integrations.access_token
+        from (select 1) result
+        left join public.tribe_payment_integrations
+          on tribe_payment_integrations.tribe_id = (select id from target_tribe)
+          and tribe_payment_integrations.provider = 'mercado_pago'
+      `);
+
+      const creationContext = (result.rows?.[0] ?? null) as
+        | PriceCreationContextRow
+        | null;
+
+      if (!creationContext?.tribe_id) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
+      }
+
+      if (!creationContext.can_manage_prices) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
+      }
+
+      if (
+        Number(creationContext.existing_price_count ?? 0) >=
+        TRIBE_SUBSCRIPTION_PRICE_LIMIT
+      ) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached };
+      }
+
+      if (!creationContext.access_token) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
+      }
+
+      const mercadoPagoPlanId = await this.createMercadoPagoPlan({
+        accessToken: creationContext.access_token,
+        amountCents: command.amountCents,
+        currency: command.currency,
+        idempotencyKey: buildPlanIdempotencyKey(command),
+        name: command.name,
+        reason: command.name,
+      });
+
+      const insertResult = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+          for update
+        ),
+        active_prices_before_insert as (
+          select count(*) as existing_price_count
+          from public.tribe_subscription_prices
+          inner join target_tribe
+            on target_tribe.id = tribe_subscription_prices.tribe_id
+          where tribe_subscription_prices.status = 'active'
+        ),
+        inserted_price as (
+          insert into public.tribe_subscription_prices (
+            tribe_id,
+            name,
+            amount_cents,
+            currency,
+            frequency,
+            status,
+            is_current,
+            mercado_pago_preapproval_plan_id,
+            created_by,
+            created_at
+          )
+          select
+            target_tribe.id,
+            ${command.name},
+            ${command.amountCents},
+            ${command.currency},
+            ${command.frequency},
+            'active',
+            false,
+            ${mercadoPagoPlanId},
+            public.current_app_user_id(),
+            timezone('utc', now())
+          from target_tribe
+          where public.can_manage_tribe_subscription_prices(target_tribe.id)
+            and (
+              select existing_price_count
+              from active_prices_before_insert
+            ) < ${TRIBE_SUBSCRIPTION_PRICE_LIMIT}
+          returning id, name, amount_cents, currency, frequency, status, is_current, created_at
+        )
+        select
+          case
+            when exists (select 1 from inserted_price) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.created}
+            when not exists (select 1 from target_tribe) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound}
+            when (
+              select existing_price_count
+              from active_prices_before_insert
+            ) >= ${TRIBE_SUBSCRIPTION_PRICE_LIMIT} then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached}
+            else ${TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden}
+          end as status_result,
+          inserted_price.id,
+          inserted_price.name,
+          inserted_price.amount_cents,
+          inserted_price.currency,
+          inserted_price.frequency,
+          inserted_price.status,
+          inserted_price.is_current,
+          inserted_price.created_at,
+          0 as active_subscribers_count
+        from (select 1) result
+        left join inserted_price
+          on true
+      `);
+
+      return mapPriceMutationResult(
+        (insertResult.rows?.[0] ?? null) as SubscriptionPriceMutationRow | null,
+        TRIBE_SUBSCRIPTION_PRICE_STATUS.created
+      );
+    });
+  }
+
+  /**
+   * Marks a price as current for new members without touching existing subscribers.
+   *
+   * @param command - Price identity command.
+   * @returns Current price mutation result.
+   */
+  async makeCurrent(
+    command: TribeSubscriptionPriceIdentity
+  ): Promise<TribeSubscriptionPriceMutationResult> {
+    return this.executeWithDatabase(async (database) => {
+      const targetResult = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+        ),
+        target_price as (
+          select
+            tribe_subscription_prices.id,
+            tribe_subscription_prices.name,
+            tribe_subscription_prices.amount_cents,
+            tribe_subscription_prices.currency,
+            tribe_subscription_prices.frequency,
+            tribe_subscription_prices.status,
+            tribe_subscription_prices.is_current,
+            tribe_subscription_prices.created_at
+          from public.tribe_subscription_prices
+          inner join target_tribe
+            on target_tribe.id = tribe_subscription_prices.tribe_id
+          where tribe_subscription_prices.id = ${command.priceId}
+            and tribe_subscription_prices.status = 'active'
+          limit 1
+        )
+        select
+          case
+            when not exists (select 1 from target_tribe) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound}
+            when not exists (select 1 from target_price) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound}
+            when not public.can_manage_tribe_subscription_prices((select id from target_tribe)) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden}
+            else ${TRIBE_SUBSCRIPTION_PRICE_STATUS.current}
+          end as status_result,
+          target_price.id,
+          target_price.name,
+          target_price.amount_cents,
+          target_price.currency,
+          target_price.frequency,
+          target_price.status,
+          target_price.is_current,
+          target_price.created_at,
+          0 as active_subscribers_count
+        from (select 1) result
+        left join target_price
+          on true
+      `);
+      const targetRow = (targetResult.rows?.[0] ?? null) as
+        | SubscriptionPriceMutationRow
+        | null;
+
+      if (targetRow?.status_result !== TRIBE_SUBSCRIPTION_PRICE_STATUS.current) {
+        return mapPriceMutationResult(
+          targetRow,
+          TRIBE_SUBSCRIPTION_PRICE_STATUS.current
+        );
+      }
+
+      await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+        )
+        update public.tribe_subscription_prices
+        set is_current = false
+        where tribe_subscription_prices.tribe_id = (select id from target_tribe)
+          and tribe_subscription_prices.id <> ${command.priceId}
+          and tribe_subscription_prices.is_current = true
+          and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
+      `);
+
+      const currentResult = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+        ),
+        updated_current_price as (
+          update public.tribe_subscription_prices
+          set is_current = true
+          where tribe_subscription_prices.tribe_id = (select id from target_tribe)
+            and tribe_subscription_prices.id = ${command.priceId}
+            and tribe_subscription_prices.status = 'active'
+            and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
+          returning id, name, amount_cents, currency, frequency, status, is_current, created_at
+        )
+        select
+          case
+            when exists (select 1 from updated_current_price) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.current}
+            else ${TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden}
+          end as status_result,
+          updated_current_price.id,
+          updated_current_price.name,
+          updated_current_price.amount_cents,
+          updated_current_price.currency,
+          updated_current_price.frequency,
+          updated_current_price.status,
+          updated_current_price.is_current,
+          updated_current_price.created_at,
+          0 as active_subscribers_count
+        from (select 1) result
+        left join updated_current_price
+          on true
+      `);
+
+      return mapPriceMutationResult(
+        (currentResult.rows?.[0] ?? null) as SubscriptionPriceMutationRow | null,
+        TRIBE_SUBSCRIPTION_PRICE_STATUS.current
+      );
+    });
+  }
+
+  /**
+   * Soft-deletes a price when no member subscription references it.
+   *
+   * @param command - Price identity command.
+   * @returns Deletion result.
+   */
+  async delete(
+    command: TribeSubscriptionPriceIdentity
+  ): Promise<TribeSubscriptionPriceMutationResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+        ),
+        target_price as (
+          select tribe_subscription_prices.id
+          from public.tribe_subscription_prices
+          inner join target_tribe
+            on target_tribe.id = tribe_subscription_prices.tribe_id
+          where tribe_subscription_prices.id = ${command.priceId}
+            and tribe_subscription_prices.status = 'active'
+          limit 1
+        ),
+        associated_members as (
+          select tribe_member_subscriptions.id
+          from public.tribe_member_subscriptions
+          where tribe_member_subscriptions.price_id = (select id from target_price)
+          limit 1
+        ),
+        deleted_price as (
+          update public.tribe_subscription_prices
+          set
+            status = 'deleted',
+            is_current = false,
+            deleted_at = timezone('utc', now())
+          where tribe_subscription_prices.id = (select id from target_price)
+            and not exists (select 1 from associated_members)
+            and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
+          returning id
+        )
+        select
+          case
+            when exists (select 1 from deleted_price) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted}
+            when not exists (select 1 from target_tribe) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound}
+            when not exists (select 1 from target_price) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound}
+            when exists (select 1 from associated_members) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers}
+            else ${TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden}
+          end as status
+      `);
+      const status = (result.rows?.[0] as { status?: string } | undefined)?.status;
+
+      return {
+        status:
+          status === TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted ||
+          status === TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound ||
+          status === TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers
+            ? status
+            : TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden,
+      };
+    });
+  }
+}

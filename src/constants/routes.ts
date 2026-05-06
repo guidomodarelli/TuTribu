@@ -6,6 +6,7 @@ const TRIBE_ROUTE_SEGMENTS = {
   events: "eventos",
   invitations: "invitaciones",
   invitation: "invitar",
+  prices: "precios",
   tribe: "tribu",
   merits: "meritos",
 } as const;
@@ -33,6 +34,8 @@ export const ROUTES = {
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.events),
     invitations: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.invitations),
+    prices: (slug: string) =>
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.prices),
     tribe: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.tribe),
     merits: (slug: string) =>

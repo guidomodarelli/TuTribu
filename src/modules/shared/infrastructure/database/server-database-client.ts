@@ -9,12 +9,14 @@ import { getServerDatabaseEnvironment } from "./server-environment";
 const DATABASE_CONTEXT_SETTING = {
   currentUserEmail: "app.current_user_email",
   currentUserId: "app.current_user_id",
+  mercadoPagoWebhookVerified: "app.mercado_pago_webhook_verified",
 } as const;
 const DATABASE_TRANSACTION = {
   begin: "BEGIN",
   commit: "COMMIT",
   emptySettingValue: "",
   rollback: "ROLLBACK",
+  verifiedSettingValue: "true",
 } as const;
 
 type GlobalDatabase = typeof globalThis & {
@@ -23,6 +25,7 @@ type GlobalDatabase = typeof globalThis & {
 
 export type RequestDatabaseContext = {
   email: string | null;
+  mercadoPagoWebhookVerified?: boolean;
   userId: string | null;
 };
 
@@ -64,6 +67,9 @@ export async function createServerDatabaseClient() {
         );
         await database.execute(
           sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserEmail}, ${context.email ?? DATABASE_TRANSACTION.emptySettingValue}, true)`
+        );
+        await database.execute(
+          sql`select set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : DATABASE_TRANSACTION.emptySettingValue}, true)`
         );
 
         const result = await callback(database);
