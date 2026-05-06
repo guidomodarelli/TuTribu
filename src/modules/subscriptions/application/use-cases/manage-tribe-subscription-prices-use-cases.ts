@@ -31,6 +31,7 @@ const AMOUNT_DECIMAL_SEPARATOR = {
   dot: ".",
 } as const;
 const AMOUNT_CENTS_MULTIPLIER = 100;
+const POSTGRES_INTEGER_MAX_VALUE = 2147483647;
 const VALID_AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
 
 /**
@@ -62,7 +63,9 @@ function parseAmountCents(amount: string): number | null {
     Number(normalizedAmount) * AMOUNT_CENTS_MULTIPLIER
   );
 
-  return Number.isSafeInteger(amountCents) && amountCents > 0
+  return Number.isSafeInteger(amountCents) &&
+    amountCents > 0 &&
+    amountCents <= POSTGRES_INTEGER_MAX_VALUE
     ? amountCents
     : null;
 }

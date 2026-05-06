@@ -1,8 +1,13 @@
 import { POST } from "@/app/api/tribes/[slug]/subscriptions/start/route";
 import { createRequestModules } from "@/src/modules/setup";
+import { createHash } from "crypto";
 
 const getAuthenticatedMember = jest.fn();
 const startTribeMemberSubscription = jest.fn();
+
+function hashInvitationToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -32,6 +37,13 @@ function buildRequest(body: Record<string, unknown> = {}) {
     headers: new Headers({
       "x-idempotency-key": "request-1",
     }),
+    json: async () => body,
+  } as unknown as Request;
+}
+
+function buildRequestWithoutIdempotencyHeader(body: Record<string, unknown> = {}) {
+  return {
+    headers: new Headers(),
     json: async () => body,
   } as unknown as Request;
 }
@@ -85,6 +97,26 @@ describe("tribe subscription start route", () => {
     expect(response.status).toBe(200);
     expect(startTribeMemberSubscription).toHaveBeenCalledWith({
       idempotencyKey: "request-1",
+      invitationToken: "invitation-token-1",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("builds a stable idempotency key from the invitation when the header is missing", async () => {
+    const response = await POST(
+      buildRequestWithoutIdempotencyHeader({
+        invitationToken: "invitation-token-1",
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(200);
+    expect(startTribeMemberSubscription).toHaveBeenCalledWith({
+      idempotencyKey: [
+        "member-1",
+        "matematica-pro",
+        hashInvitationToken("invitation-token-1"),
+      ].join(":"),
       invitationToken: "invitation-token-1",
       tribeSlug: "matematica-pro",
     });

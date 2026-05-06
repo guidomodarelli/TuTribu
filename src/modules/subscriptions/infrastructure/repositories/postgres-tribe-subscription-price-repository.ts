@@ -221,7 +221,7 @@ export class PostgresTribeSubscriptionPriceRepository
   async create(
     command: CreateTribeSubscriptionPriceCommand
   ): Promise<TribeSubscriptionPriceMutationResult> {
-    return this.executeWithDatabase(async (database) => {
+    const creationContext = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         with target_tribe as (
           select tribes.id
@@ -248,38 +248,40 @@ export class PostgresTribeSubscriptionPriceRepository
           and tribe_payment_integrations.provider = 'mercado_pago'
       `);
 
-      const creationContext = (result.rows?.[0] ?? null) as
+      return (result.rows?.[0] ?? null) as
         | PriceCreationContextRow
         | null;
+    });
 
-      if (!creationContext?.tribe_id) {
-        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
-      }
+    if (!creationContext?.tribe_id) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
+    }
 
-      if (!creationContext.can_manage_prices) {
-        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
-      }
+    if (!creationContext.can_manage_prices) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
+    }
 
-      if (
-        Number(creationContext.existing_price_count ?? 0) >=
+    if (
+      Number(creationContext.existing_price_count ?? 0) >=
         TRIBE_SUBSCRIPTION_PRICE_LIMIT
-      ) {
-        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached };
-      }
+    ) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached };
+    }
 
-      if (!creationContext.access_token) {
-        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
-      }
+    if (!creationContext.access_token) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
+    }
 
-      const mercadoPagoPlanId = await this.createMercadoPagoPlan({
-        accessToken: creationContext.access_token,
-        amountCents: command.amountCents,
-        currency: command.currency,
-        idempotencyKey: buildPlanIdempotencyKey(command),
-        name: command.name,
-        reason: command.name,
-      });
+    const mercadoPagoPlanId = await this.createMercadoPagoPlan({
+      accessToken: creationContext.access_token,
+      amountCents: command.amountCents,
+      currency: command.currency,
+      idempotencyKey: buildPlanIdempotencyKey(command),
+      name: command.name,
+      reason: command.name,
+    });
 
+    return this.executeWithDatabase(async (database) => {
       const insertResult = await database.execute(sql`
         with target_tribe as (
           select tribes.id

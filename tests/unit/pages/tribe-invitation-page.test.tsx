@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { createHash } from "crypto";
 import { redirect } from "next/navigation";
 
 import TribeInvitationPage, {
@@ -10,6 +11,10 @@ import { createRequestModules } from "@/src/modules/setup";
 const getAuthenticatedMember = jest.fn();
 const acceptTribeInvitation = jest.fn();
 const startTribeMemberSubscription = jest.fn();
+
+function hashInvitationToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
@@ -166,10 +171,32 @@ describe("TribeInvitationPage", () => {
     ).rejects.toThrow("NEXT_REDIRECT");
 
     expect(startTribeMemberSubscription).toHaveBeenCalledWith({
-      idempotencyKey: "member-1:matematica-pro",
+      idempotencyKey: [
+        "member-1",
+        "matematica-pro",
+        hashInvitationToken("invitation-token"),
+      ].join(":"),
       invitationToken: "invitation-token",
       tribeSlug: "matematica-pro",
     });
+    expect(redirect).toHaveBeenCalledWith(
+      "/tribu/matematica-pro/invitar/invitation-token?status=payment_blocked"
+    );
+  });
+
+  it("redirects unexpected payment start errors to a safe status page", async () => {
+    startTribeMemberSubscription.mockRejectedValue(new Error("provider timeout"));
+    (redirect as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(
+      startInvitationSubscriptionAction({
+        slug: "matematica-pro",
+        token: "invitation-token",
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
     expect(redirect).toHaveBeenCalledWith(
       "/tribu/matematica-pro/invitar/invitation-token?status=payment_blocked"
     );

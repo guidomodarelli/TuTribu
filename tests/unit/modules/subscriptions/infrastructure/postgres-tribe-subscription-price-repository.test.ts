@@ -133,4 +133,51 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
     expect(createMercadoPagoPlan).toHaveBeenCalledTimes(1);
   });
+
+  it("creates the Mercado Pago plan after the validation transaction finishes", async () => {
+    const transactionEvents: string[] = [];
+    const executeWithDatabase = jest.fn(async (callback) => {
+      transactionEvents.push("transaction:start");
+
+      const result = await callback({
+        execute: jest.fn().mockResolvedValue({
+          rows: [
+            {
+              access_token: "access-token",
+              can_manage_prices: true,
+              existing_price_count: 0,
+              tribe_id: "tribe-1",
+            },
+          ],
+        }),
+      } as never);
+
+      transactionEvents.push("transaction:end");
+
+      return result;
+    });
+    const createMercadoPagoPlan = jest.fn(async () => {
+      transactionEvents.push("provider:create-plan");
+
+      return "plan-1";
+    });
+    const repository = new PostgresTribeSubscriptionPriceRepository(
+      executeWithDatabase,
+      createMercadoPagoPlan
+    );
+
+    await repository.create({
+      amountCents: 500000,
+      currency: "ARS",
+      frequency: "monthly",
+      name: "Plan mensual",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(transactionEvents.slice(0, 3)).toEqual([
+      "transaction:start",
+      "transaction:end",
+      "provider:create-plan",
+    ]);
+  });
 });

@@ -55,8 +55,9 @@ type SubscriptionStartContextRow = {
   tribe_id: string | null;
 };
 
-type ExistingOperationRow = {
+type SubscriptionReservationRow = {
   checkout_url: string | null;
+  reserved_subscription_id: string | null;
 };
 
 type WebhookSubscriptionContextRow = {
@@ -290,8 +291,30 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
     }
 
-    const providerSubscription =
-      await this.createMercadoPagoSubscription({
+    const reservation = await this.reservePendingSubscription({
+      currentPriceId: context.current_price_id,
+      invitationTokenHash,
+      tribeId: context.tribe_id,
+    });
+
+    if (reservation.checkout_url) {
+      return {
+        checkoutUrl: reservation.checkout_url,
+        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+      };
+    }
+
+    if (!reservation.reserved_subscription_id) {
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+    }
+
+    let providerSubscription: {
+      checkoutUrl: string;
+      providerSubscriptionId: string;
+    };
+
+    try {
+      providerSubscription = await this.createMercadoPagoSubscription({
         accessToken: context.access_token,
         backUrl: buildSubscriptionBackUrl(
           this.resolvePublicAppBaseUrl(),
@@ -302,8 +325,157 @@ export class PostgresTribeMemberSubscriptionRepository
         preapprovalPlanId: context.mercado_pago_preapproval_plan_id,
         reason: context.current_price_name ?? "Tribe subscription",
       });
+    } catch {
+      await this.releasePendingSubscriptionReservation(
+        reservation.reserved_subscription_id
+      );
+
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+    }
+
+    return this.persistReservedCheckout({
+      checkoutUrl: providerSubscription.checkoutUrl,
+      operationKey,
+      providerSubscriptionId: providerSubscription.providerSubscriptionId,
+      subscriptionId: reservation.reserved_subscription_id,
+      tribeId: context.tribe_id,
+      tribeSlug: command.tribeSlug,
+    });
+  }
+
+  private async releasePendingSubscriptionReservation(
+    subscriptionId: string
+  ): Promise<void> {
+    await this.executeWithDatabase(async (database) => {
+      await database.execute(sql`
+        update public.tribe_member_subscriptions
+        set
+          status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled},
+          status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+          updated_at = timezone('utc', now())
+        where tribe_member_subscriptions.id = ${subscriptionId}
+          and tribe_member_subscriptions.user_id = public.current_app_user_id()
+          and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+          and tribe_member_subscriptions.mercado_pago_preapproval_id is null
+      `);
+    });
+  }
+
+  private async reservePendingSubscription(input: {
+    currentPriceId: string;
+    invitationTokenHash: string;
+    tribeId: string | null;
+  }): Promise<SubscriptionReservationRow> {
+    if (!input.tribeId) {
+      return {
+        checkout_url: null,
+        reserved_subscription_id: null,
+      };
+    }
 
     return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with checkout_context as (
+          select set_config(
+            ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+            ${input.invitationTokenHash},
+            true
+          )
+        ),
+        inserted_membership as (
+          insert into public.tribe_members (
+            tribe_id,
+            user_id,
+            role,
+            status,
+            created_at
+          )
+          select
+            ${input.tribeId},
+            public.current_app_user_id(),
+            'tribemate',
+            'blocked',
+            timezone('utc', now())
+          from checkout_context
+          on conflict (tribe_id, user_id) do nothing
+          returning id
+        ),
+        reserved_subscription as (
+          insert into public.tribe_member_subscriptions (
+            tribe_id,
+            user_id,
+            price_id,
+            status,
+            status_reason,
+            created_at,
+            updated_at
+          )
+          select
+            ${input.tribeId},
+            public.current_app_user_id(),
+            ${input.currentPriceId},
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+            timezone('utc', now()),
+            timezone('utc', now())
+          from checkout_context
+          on conflict do nothing
+          returning id
+        ),
+        existing_pending_checkout as (
+          select subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url
+          from public.subscription_idempotency_operations
+          where subscription_idempotency_operations.tribe_id = ${input.tribeId}
+            and subscription_idempotency_operations.user_id = public.current_app_user_id()
+            and subscription_idempotency_operations.operation_type = 'start_member_subscription'
+            and subscription_idempotency_operations.response_body ? 'checkoutUrl'
+            and exists (
+              select 1
+              from public.tribe_member_subscriptions
+              where tribe_member_subscriptions.tribe_id = ${input.tribeId}
+                and tribe_member_subscriptions.user_id = public.current_app_user_id()
+                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+            )
+          order by subscription_idempotency_operations.created_at desc
+          limit 1
+        )
+        select
+          (select id from reserved_subscription) as reserved_subscription_id,
+          (select checkout_url from existing_pending_checkout) as checkout_url
+      `);
+
+      return (result.rows?.[0] ?? {
+        checkout_url: null,
+        reserved_subscription_id: null,
+      }) as SubscriptionReservationRow;
+    });
+  }
+
+  private async persistReservedCheckout(input: {
+    checkoutUrl: string;
+    operationKey: string;
+    providerSubscriptionId: string;
+    subscriptionId: string;
+    tribeId: string | null;
+    tribeSlug: string;
+  }): Promise<TribeMemberSubscriptionStartResult> {
+    return this.executeWithDatabase(async (database) => {
+      const updatedSubscriptionResult = await database.execute(sql`
+        update public.tribe_member_subscriptions
+        set
+          mercado_pago_preapproval_id = ${input.providerSubscriptionId},
+          updated_at = timezone('utc', now())
+        where tribe_member_subscriptions.id = ${input.subscriptionId}
+          and tribe_member_subscriptions.user_id = public.current_app_user_id()
+          and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+          and tribe_member_subscriptions.mercado_pago_preapproval_id is null
+        returning id
+      `);
+
+      if ((updatedSubscriptionResult.rows ?? []).length === 0) {
+        return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+      }
+
       await database.execute(sql`
         insert into public.tribe_members (
           tribe_id,
@@ -313,7 +485,7 @@ export class PostgresTribeMemberSubscriptionRepository
           created_at
         )
         values (
-          ${context.tribe_id},
+          ${input.tribeId},
           public.current_app_user_id(),
           'tribemate',
           'blocked',
@@ -321,60 +493,6 @@ export class PostgresTribeMemberSubscriptionRepository
         )
         on conflict (tribe_id, user_id) do nothing
       `);
-      const insertedSubscriptionResult = await database.execute(sql`
-        insert into public.tribe_member_subscriptions (
-          tribe_id,
-          user_id,
-          price_id,
-          mercado_pago_preapproval_id,
-          status,
-          status_reason,
-          created_at,
-          updated_at
-        )
-        values (
-          ${context.tribe_id},
-          public.current_app_user_id(),
-          ${context.current_price_id},
-          ${providerSubscription.providerSubscriptionId},
-          ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
-          ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
-          timezone('utc', now()),
-          timezone('utc', now())
-        )
-        on conflict do nothing
-        returning id
-      `);
-
-      if ((insertedSubscriptionResult.rows ?? []).length === 0) {
-        const existingCheckoutResult = await database.execute(sql`
-          select response_body->>'checkoutUrl' as checkout_url
-          from public.subscription_idempotency_operations
-          where tribe_id = ${context.tribe_id}
-            and user_id = public.current_app_user_id()
-            and operation_type = 'start_member_subscription'
-            and response_body ? 'checkoutUrl'
-            and exists (
-              select 1
-              from public.tribe_member_subscriptions
-              where tribe_member_subscriptions.tribe_id = ${context.tribe_id}
-                and tribe_member_subscriptions.user_id = public.current_app_user_id()
-                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-            )
-          order by created_at desc
-          limit 1
-        `);
-        const existingCheckoutRow = (existingCheckoutResult.rows?.[0] ?? null) as
-          | ExistingOperationRow
-          | null;
-
-        return existingCheckoutRow?.checkout_url
-          ? {
-              checkoutUrl: existingCheckoutRow.checkout_url,
-              status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
-            }
-          : { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
-      }
 
       await database.execute(sql`
         insert into public.subscription_idempotency_operations (
@@ -387,19 +505,19 @@ export class PostgresTribeMemberSubscriptionRepository
           created_at
         )
         values (
-          ${operationKey},
+          ${input.operationKey},
           'start_member_subscription',
-          ${context.tribe_id},
+          ${input.tribeId},
           public.current_app_user_id(),
-          ${hashPayload({ tribeSlug: command.tribeSlug })},
-          ${JSON.stringify({ checkoutUrl: providerSubscription.checkoutUrl })}::jsonb,
+          ${hashPayload({ tribeSlug: input.tribeSlug })},
+          ${JSON.stringify({ checkoutUrl: input.checkoutUrl })}::jsonb,
           timezone('utc', now())
         )
         on conflict (operation_key) do nothing
       `);
 
       return {
-        checkoutUrl: providerSubscription.checkoutUrl,
+        checkoutUrl: input.checkoutUrl,
         status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
       };
     });
@@ -494,7 +612,6 @@ export class PostgresTribeMemberSubscriptionRepository
             from public.tribe_member_subscriptions
             where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
               and tribe_member_subscriptions.user_id = tribe_members.user_id
-              and tribe_member_subscriptions.mercado_pago_preapproval_id = ${command.resourceId}
               and tribe_member_subscriptions.status in (
                 ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
                 ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod}

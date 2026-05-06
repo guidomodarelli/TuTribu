@@ -4,7 +4,7 @@
  * @module tribe-subscription-start-route
  */
 
-import { randomUUID } from "crypto";
+import { createHash } from "crypto";
 
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
@@ -31,6 +31,8 @@ const HTTP_STATUS = {
 
 const SUBSCRIPTION_IDEMPOTENCY = {
   header: "x-idempotency-key",
+  hashAlgorithm: "sha256",
+  hashEncoding: "hex",
   separator: ":",
 } as const;
 
@@ -49,6 +51,22 @@ function readStringField(body: unknown, field: string): string {
   const value = (body as Record<string, unknown>)[field];
 
   return typeof value === "string" ? value : "";
+}
+
+function buildSubscriptionIdempotencyKey(input: {
+  invitationToken: string;
+  memberId: string;
+  tribeSlug: string;
+}): string {
+  const invitationTokenHash = createHash(SUBSCRIPTION_IDEMPOTENCY.hashAlgorithm)
+    .update(input.invitationToken)
+    .digest(SUBSCRIPTION_IDEMPOTENCY.hashEncoding);
+
+  return [
+    input.memberId,
+    input.tribeSlug,
+    invitationTokenHash,
+  ].join(SUBSCRIPTION_IDEMPOTENCY.separator);
 }
 
 export async function POST(
@@ -70,21 +88,22 @@ export async function POST(
     );
   }
 
+  const body = await request.json().catch(() => null);
+  const invitationToken = readStringField(
+    body,
+    SUBSCRIPTION_START_FIELD.invitationToken
+  );
   const idempotencyKey =
     request.headers.get(SUBSCRIPTION_IDEMPOTENCY.header) ??
-    [
-      authenticatedMember.id,
-      slug,
-      randomUUID(),
-    ].join(SUBSCRIPTION_IDEMPOTENCY.separator);
-  const body = await request.json().catch(() => null);
+    buildSubscriptionIdempotencyKey({
+      invitationToken,
+      memberId: authenticatedMember.id,
+      tribeSlug: slug,
+    });
   const result =
     await modules.subscriptions.useCases.startTribeMemberSubscription({
       idempotencyKey,
-      invitationToken: readStringField(
-        body,
-        SUBSCRIPTION_START_FIELD.invitationToken
-      ),
+      invitationToken,
       tribeSlug: slug,
     });
 

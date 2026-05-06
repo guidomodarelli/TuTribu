@@ -1,3 +1,5 @@
+import { createHash } from "crypto";
+
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,8 @@ const INVITATION_PAGE_FORM = {
 
 const INVITATION_SUBSCRIPTION = {
   checkoutUrlProperty: "checkoutUrl",
+  hashAlgorithm: "sha256",
+  hashEncoding: "hex",
   idempotencySeparator: ":",
 } as const;
 
@@ -109,6 +113,22 @@ function buildInvitationStatusPath(
   );
 }
 
+function buildInvitationSubscriptionIdempotencyKey(input: {
+  memberId: string;
+  slug: string;
+  token: string;
+}): string {
+  const tokenHash = createHash(INVITATION_SUBSCRIPTION.hashAlgorithm)
+    .update(input.token)
+    .digest(INVITATION_SUBSCRIPTION.hashEncoding);
+
+  return [
+    input.memberId,
+    input.slug,
+    tokenHash,
+  ].join(INVITATION_SUBSCRIPTION.idempotencySeparator);
+}
+
 function renderSubscriptionStartStatus(status: string) {
   if (status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked) {
     return renderInvitationStatus(
@@ -175,14 +195,20 @@ export async function startInvitationSubscriptionAction({
     redirect(ROUTES.auth.signIn);
   }
 
-  const result = await modules.subscriptions.useCases.startTribeMemberSubscription({
-    idempotencyKey: [
-      authenticatedMember.id,
-      slug,
-    ].join(INVITATION_SUBSCRIPTION.idempotencySeparator),
-    invitationToken: token,
-    tribeSlug: slug,
+  const idempotencyKey = buildInvitationSubscriptionIdempotencyKey({
+    memberId: authenticatedMember.id,
+    slug,
+    token,
   });
+  const result = await modules.subscriptions.useCases
+    .startTribeMemberSubscription({
+      idempotencyKey,
+      invitationToken: token,
+      tribeSlug: slug,
+    })
+    .catch(() => ({
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
+    }));
 
   if (INVITATION_SUBSCRIPTION.checkoutUrlProperty in result) {
     redirect(result.checkoutUrl);

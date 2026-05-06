@@ -197,19 +197,55 @@ FOR INSERT
 WITH CHECK (
   user_id = public.current_app_user_id()
   AND status = 'pending'
+  AND EXISTS (
+    SELECT 1
+    FROM public.tribe_subscription_prices
+    INNER JOIN public.tribe_invitations
+      ON tribe_invitations.tribe_id = tribe_subscription_prices.tribe_id
+    WHERE tribe_subscription_prices.id = tribe_member_subscriptions.price_id
+      AND tribe_subscription_prices.tribe_id = tribe_member_subscriptions.tribe_id
+      AND tribe_subscription_prices.status = 'active'
+      AND tribe_subscription_prices.is_current = true
+      AND tribe_invitations.token_hash = nullif(
+        current_setting('app.current_invitation_hash', true),
+        ''
+      )
+      AND tribe_invitations.status = 'active'
+  )
 );
 
-CREATE POLICY "Members can update own payment subscription rows"
+CREATE POLICY "Members can attach own pending checkout identifiers"
 ON public.tribe_member_subscriptions
 FOR UPDATE
 USING (
   user_id = public.current_app_user_id()
-  OR public.is_mercado_pago_webhook_verified()
+  AND status = 'pending'
+  AND mercado_pago_preapproval_id IS NULL
 )
 WITH CHECK (
   user_id = public.current_app_user_id()
-  OR public.is_mercado_pago_webhook_verified()
+  AND status = 'pending'
 );
+
+CREATE POLICY "Members can cancel own pending checkout reservations"
+ON public.tribe_member_subscriptions
+FOR UPDATE
+USING (
+  user_id = public.current_app_user_id()
+  AND status = 'pending'
+  AND mercado_pago_preapproval_id IS NULL
+)
+WITH CHECK (
+  user_id = public.current_app_user_id()
+  AND status = 'canceled'
+  AND status_reason = 'payment_blocked'
+);
+
+CREATE POLICY "Verified Mercado Pago webhooks can update subscription rows"
+ON public.tribe_member_subscriptions
+FOR UPDATE
+USING (public.is_mercado_pago_webhook_verified())
+WITH CHECK (public.is_mercado_pago_webhook_verified());
 
 CREATE POLICY "Verified Mercado Pago webhooks can update paid memberships"
 ON public.tribe_members
