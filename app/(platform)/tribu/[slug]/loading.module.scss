@@ -1,7 +1,12 @@
 .TribeLoadingPage {
   display: grid;
-  gap: clamp(1rem, 3vw, 1.5rem);
+  align-content: start;
+  justify-self: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: min(100%, 45rem);
   min-height: 100%;
+  margin: 0 auto;
 
   &__srOnly {
     position: absolute;
@@ -18,22 +23,33 @@
   &__composer,
   &__message {
     display: grid;
-    gap: 1rem;
-    padding: clamp(1rem, 3vw, 1.25rem);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: 0.5rem;
     background-color: var(--card);
   }
 
   &__composer {
-    grid-template-columns: auto 1fr;
+    display: flex;
     align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    height: 4rem;
+    min-height: 4rem;
+    max-height: 4rem;
+    box-sizing: border-box;
+    border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+    border-radius: 0.625rem;
+    background: color-mix(in oklch, var(--muted) 42%, transparent);
+    padding: 0.625rem 0.875rem;
   }
 
   &__filters {
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.5rem;
+    max-width: 100%;
+    min-height: 2.375rem;
+    padding: 0 0 0.125rem;
   }
 
   &__round {
@@ -41,16 +57,22 @@
     gap: 1rem;
   }
 
+  &__message {
+    gap: 0;
+  }
+
   &__messageHeader {
-    display: flex;
-    gap: 0.875rem;
-    align-items: center;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    padding: 1rem 1rem 0;
   }
 
   &__messageMeta {
     display: grid;
     flex: 1;
-    gap: 0.5rem;
+    gap: 0.35rem;
   }
 
   &__avatar,
@@ -66,18 +88,19 @@
   }
 
   &__avatar {
-    width: 2.75rem;
+    flex: 0 0 auto;
+    width: 2.5rem;
     aspect-ratio: 1;
     border-radius: 999rem;
   }
 
   &__composerLine {
-    width: 100%;
-    height: 2.5rem;
+    width: min(15rem, 70%);
+    height: 1rem;
   }
 
   &__filter {
-    width: clamp(5rem, 18vw, 7.5rem);
+    width: clamp(4.5rem, 24vw, 7rem);
     height: 2.25rem;
     border-radius: 999rem;
   }
@@ -94,15 +117,29 @@
 
   &__bodyLine,
   &__shortBodyLine {
-    height: 1rem;
+    height: 0.95rem;
   }
 
   &__bodyLine {
-    width: 100%;
+    width: calc(100% - 2rem);
+    margin: 1rem 1rem 0;
   }
 
   &__shortBodyLine {
-    width: min(22rem, 72%);
+    width: min(21rem, calc(72% - 2rem));
+    margin: 0.65rem 1rem 1rem;
+  }
+
+  &__filter:nth-child(1) {
+    width: 4.25rem;
+  }
+
+  &__filter:nth-child(2) {
+    width: 6.5rem;
+  }
+
+  &__filter:nth-child(3) {
+    width: 7.25rem;
   }
 }
 
