@@ -7,11 +7,11 @@ import styles from "./page.module.scss";
 
 const HOME_PAGE_COPY = {
   eyebrow: "Bienvenido",
-  title: "Un espacio para aprender, compartir y crecer en comunidad",
+  title: "Un espacio para aprender, compartir y crecer en tribu",
   authenticatedDescription:
-    "Explora comunidades, conecta con otras personas y sigue construyendo tu espacio dentro de la plataforma.",
+    "Explora tribus, conecta con otras personas y sigue construyendo tu espacio dentro de la plataforma.",
   unauthenticatedDescription:
-    "Entra a tu cuenta para descubrir comunidades, conectar con otras personas y empezar a construir tu propio espacio.",
+    "Entra a tu cuenta para descubrir tribus, conectar con otras personas y empezar a construir tu propio espacio.",
   signInAction: "Iniciar sesion",
 } as const;
 

@@ -2,10 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import CommunityAboutPage from "@/app/(platform)/comunidad/[slug]/acerca-de/page";
-import CommunityEventsPage from "@/app/(platform)/comunidad/[slug]/eventos/page";
-import CommunityMembersPage from "@/app/(platform)/comunidad/[slug]/miembros/page";
-import CommunityRankingPage from "@/app/(platform)/comunidad/[slug]/ranking/page";
+import CommunityAboutPage from "@/app/(platform)/tribu/[slug]/acerca-de/page";
+import CommunityEventsPage from "@/app/(platform)/tribu/[slug]/eventos/page";
+import CommunityMembersPage from "@/app/(platform)/tribu/[slug]/miembros/page";
+import CommunityRankingPage from "@/app/(platform)/tribu/[slug]/ranking/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 

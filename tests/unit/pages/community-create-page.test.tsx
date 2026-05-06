@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import CreateCommunityPage from "@/app/(platform)/comunidad/crear/page";
+import CreateCommunityPage from "@/app/(platform)/tribu/crear/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { getContactEmail } from "@/src/modules/communities/infrastructure/config/community-creation-contact-email";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -58,7 +58,7 @@ describe("CreateCommunityPage", () => {
       },
     });
     (getContactEmail as jest.Mock).mockReturnValue(
-      "comunidades@example.com"
+      "tribus@example.com"
     );
     (createServerLogger as jest.Mock).mockReturnValue({
       error: errorMock,
@@ -78,7 +78,7 @@ describe("CreateCommunityPage", () => {
       })
     ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(redirect).toHaveBeenCalledWith("/auth/signin?callbackUrl=%2Fcomunidad%2Fcrear");
+    expect(redirect).toHaveBeenCalledWith("/auth/signin?callbackUrl=%2Ftribu%2Fcrear");
   });
 
   it("renders the creation form for whitelisted users", async () => {
@@ -101,9 +101,9 @@ describe("CreateCommunityPage", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: /crear una comunidad/i })
+      screen.getByRole("heading", { name: /crear una tribu/i })
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(/nombre de la comunidad/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/nombre de la tribu/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/slug/i)).toBeInTheDocument();
   });
 
@@ -127,13 +127,13 @@ describe("CreateCommunityPage", () => {
     );
 
     expect(
-      screen.getByText(/todavia no tienes permiso para crear una comunidad/i)
+      screen.getByText(/todavia no tienes permiso para crear una tribu/i)
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /escribir a comunidades@example.com/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /escribir a tribus@example.com/i })).toHaveAttribute(
       "href",
-      "mailto:comunidades@example.com"
+      "mailto:tribus@example.com"
     );
-    expect(screen.queryByLabelText(/nombre de la comunidad/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/nombre de la tribu/i)).not.toBeInTheDocument();
   });
 
   it("logs session resolution failures when request modules cannot be created", async () => {

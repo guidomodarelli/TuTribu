@@ -15,12 +15,12 @@ export const CREATE_COMMUNITY_ERROR_CODE = {
 } as const;
 
 export const CREATE_COMMUNITY_ERROR_MESSAGE = {
-  [CREATE_COMMUNITY_STATUS.invalidName]: "Define un nombre para tu comunidad.",
-  [CREATE_COMMUNITY_STATUS.invalidSlug]: "Define un slug valido para tu comunidad.",
+  [CREATE_COMMUNITY_STATUS.invalidName]: "Define un nombre para tu tribu.",
+  [CREATE_COMMUNITY_STATUS.invalidSlug]: "Define un slug valido para tu tribu.",
   [CREATE_COMMUNITY_STATUS.slugConflict]:
     "Ese slug ya esta en uso. Puedes probar con la sugerencia.",
   [CREATE_COMMUNITY_STATUS.notAllowed]:
-    "Tu cuenta no esta habilitada para crear comunidades.",
+    "Tu cuenta no esta habilitada para crear tribus.",
   [CREATE_COMMUNITY_ERROR_CODE.unexpected]:
-    "No pudimos crear tu comunidad. Intentalo otra vez.",
+    "No pudimos crear tu tribu. Intentalo otra vez.",
 } as const;

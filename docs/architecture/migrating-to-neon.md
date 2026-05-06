@@ -118,5 +118,5 @@ src/
 * cualquier cambio estructural sale con migration SQL en `database/migrations`
 * `DATABASE_URL` es el contrato de runtime; en Neon debe usar conexion directa para mantener el runtime warm y evitar PgBouncer/serverless pooling por defecto
 * `DATABASE_MIGRATION_URL` es opcional y debe apuntar a una conexion directa cuando el tooling lo requiera
-* `community_members` sigue siendo la fuente de verdad de permisos por comunidad
+* `community_members` sigue siendo la fuente de verdad de permisos por tribu
 * ninguna ruta nueva debe depender de rutas OAuth custom fuera de `/api/auth/[...all]`

@@ -18,13 +18,13 @@ export function CommunityCreationBlocked({
       <header className={styles.CommunityCreationBlocked__header}>
         <p className={styles.CommunityCreationBlocked__eyebrow}>Acceso restringido</p>
         <h2 className={styles.CommunityCreationBlocked__title}>
-          Todavia no tienes permiso para crear una comunidad
+          Todavia no tienes permiso para crear una tribu
         </h2>
       </header>
       <div className={styles.CommunityCreationBlocked__content}>
         <p className={styles.CommunityCreationBlocked__description}>
           Estamos habilitando a los primeros creadores mediante una whitelist.
-          Si quieres abrir tu comunidad, escribenos y revisamos tu acceso.
+          Si quieres abrir tu tribu, escribenos y revisamos tu acceso.
         </p>
 
         {contactEmail ? (

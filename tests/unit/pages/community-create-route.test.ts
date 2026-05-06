@@ -85,7 +85,7 @@ describe("Create community route", () => {
     const response = await POST(request);
 
     expect(response.headers.get("location")).toBe(
-      "https://tutribu.example.com/auth/signin?callbackUrl=%2Fcomunidad%2Fcrear"
+      "https://tutribu.example.com/auth/signin?callbackUrl=%2Ftribu%2Fcrear"
     );
     expect(response.headers.get(REQUEST_ID_HEADER)).toEqual(expect.any(String));
   });
@@ -121,7 +121,7 @@ describe("Create community route", () => {
       slug: "matematica-pro",
     });
     expect(response.headers.get("location")).toBe(
-      "https://tutribu.example.com/comunidad/matematica-pro"
+      "https://tutribu.example.com/tribu/matematica-pro"
     );
   });
 
@@ -148,7 +148,7 @@ describe("Create community route", () => {
     const response = await POST(request);
 
     expect(response.headers.get("location")).toBe(
-      "https://tutribu.example.com/comunidad/crear?name=Matematica+Pro&slug=matematica-pro&error=slug-conflict&suggestedSlug=matematica-pro-2"
+      "https://tutribu.example.com/tribu/crear?name=Matematica+Pro&slug=matematica-pro&error=slug-conflict&suggestedSlug=matematica-pro-2"
     );
   });
 
@@ -171,7 +171,7 @@ describe("Create community route", () => {
     const response = await POST(request);
 
     expect(response.headers.get("location")).toBe(
-      "https://tutribu.example.com/comunidad/crear?name=Matematica+Pro&slug=matematica-pro&error=unexpected"
+      "https://tutribu.example.com/tribu/crear?name=Matematica+Pro&slug=matematica-pro&error=unexpected"
     );
     expect(errorMock).toHaveBeenCalledWith({
       message: "Community creation failed",

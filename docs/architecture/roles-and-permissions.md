@@ -1,11 +1,11 @@
-# Roles y permisos por comunidad
+# Roles y permisos por tribu
 
 ## Proposito y limites
 
 Este documento define:
 
 * la separacion entre autenticacion, autorizacion y permisos
-* la fuente de verdad de roles por comunidad
+* la fuente de verdad de roles por tribu
 * los roles y estados canonicos del MVP
 * el reparto de responsabilidades entre Better Auth, Postgres/RLS y Next.js
 
@@ -45,12 +45,12 @@ La autorizacion real se resuelve con:
 
 Responde:
 
-**que capacidades tiene un usuario dentro de una comunidad**
+**que capacidades tiene un usuario dentro de una tribu**
 
 La regla practica es esta:
 
 > **Better Auth responde quien es el usuario**
-> **`community_members` responde que rol y estado tiene en cada comunidad**
+> **`community_members` responde que rol y estado tiene en cada tribu**
 > **RLS decide si puede tocar los datos**
 > **Next.js refleja esos permisos y orquesta acciones**
 
@@ -58,17 +58,17 @@ La regla practica es esta:
 
 # Fuente de verdad
 
-La fuente de verdad del sistema de roles por comunidad es:
+La fuente de verdad del sistema de roles por tribu es:
 
 * `community_members(community_id, user_id, role, status)`
 
 Reglas fijas:
 
 * el rol siempre esta acotado por `community_id`
-* un mismo usuario puede tener roles distintos en comunidades distintas
-* `profiles` no debe guardar el rol de comunidad como atributo global
+* un mismo usuario puede tener roles distintos en tribus distintas
+* `profiles` no debe guardar el rol de tribu como atributo global
 * la sesion o las cookies no reemplazan la relacion `community_members`
-* los roles globales no reemplazan permisos por comunidad
+* los roles globales no reemplazan permisos por tribu
 
 ---
 
@@ -79,26 +79,26 @@ type CommunityRole = "owner" | "admin" | "member";
 type CommunityStatus = "active" | "muted" | "blocked";
 ```
 
-## Roles por comunidad
+## Roles por tribu
 
 * `owner`
 * `admin`
 * `member`
 
-## Estados por comunidad
+## Estados por tribu
 
 * `active`
 * `muted`
 * `blocked`
 
-## Permiso global para crear comunidades
+## Permiso global para crear tribus
 
-En este MVP, crear comunidad se resuelve con una whitelist global:
+En este MVP, crear tribu se resuelve con una whitelist global:
 
-* la capacidad de crear comunidad vive en `community_creator_whitelist`
+* la capacidad de crear tribu vive en `community_creator_whitelist`
 * la whitelist se consulta por email normalizado
 * la whitelist no reemplaza `owner/admin/member`
-* una vez creada la comunidad, la autorizacion vuelve al modelo por `community_members`
+* una vez creada la tribu, la autorizacion vuelve al modelo por `community_members`
 
 ---
 
@@ -108,19 +108,19 @@ En este MVP, crear comunidad se resuelve con una whitelist global:
 
 Puede:
 
-* editar comunidad
-* borrar comunidad
+* editar tribu
+* borrar tribu
 * crear, editar y eliminar categorias de posts
 * transferir ownership
 * nombrar admins
 * moderar miembros
-* moderar contenido dentro de su comunidad
+* moderar contenido dentro de su tribu
 
 ## `admin`
 
 Puede:
 
-* moderar contenido dentro de su comunidad
+* moderar contenido dentro de su tribu
 * gestionar categorias de posts
 * silenciar miembros
 * bloquear miembros si la regla de negocio lo permite
@@ -128,7 +128,7 @@ Puede:
 
 No puede:
 
-* borrar comunidad
+* borrar tribu
 * cambiar owner
 * transferir ownership
 
@@ -136,14 +136,14 @@ No puede:
 
 Puede:
 
-* ver comunidad
+* ver tribu
 * participar segun las capacidades habilitadas
 * crear o editar solo su propio contenido permitido
 
 No puede:
 
 * moderar miembros
-* cambiar configuracion de comunidad
+* cambiar configuracion de tribu
 * gestionar categorias de posts
 * reasignar roles
 
@@ -161,7 +161,7 @@ Mantiene lectura, pero pierde participacion activa.
 
 ## `blocked`
 
-Pierde acceso tenant-scoped de lectura y escritura para esa comunidad.
+Pierde acceso tenant-scoped de lectura y escritura para esa tribu.
 
 ---
 
@@ -178,8 +178,8 @@ Responsable de:
 
 No es responsable de:
 
-* roles por comunidad
-* permisos por comunidad
+* roles por tribu
+* permisos por tribu
 
 ## Postgres + RLS
 
@@ -199,7 +199,7 @@ No es responsable de:
 
 Responsable de:
 
-* leer el rol y estado del usuario en la comunidad actual
+* leer el rol y estado del usuario en la tribu actual
 * ocultar o mostrar acciones en la UI
 * redirigir o devolver errores de aplicacion cuando corresponde
 * orquestar mutaciones con casos de uso, server actions y route handlers

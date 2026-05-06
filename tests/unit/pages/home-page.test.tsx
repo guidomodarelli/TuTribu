@@ -30,12 +30,12 @@ describe("HomePage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /un espacio para aprender, compartir y crecer en comunidad/i,
+        name: /un espacio para aprender, compartir y crecer en tribu/i,
       })
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /entra a tu cuenta para descubrir comunidades, conectar con otras personas y empezar a construir tu propio espacio/i
+        /entra a tu cuenta para descubrir tribus, conectar con otras personas y empezar a construir tu propio espacio/i
       )
     ).toBeInTheDocument();
     expect(

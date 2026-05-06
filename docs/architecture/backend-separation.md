@@ -69,7 +69,7 @@ Cuando exista el backend separado:
 
 El orden mas sano suele ser:
 
-1. comunidad
+1. tribu
 2. progreso
 3. billing o integraciones
 4. procesos asincronos

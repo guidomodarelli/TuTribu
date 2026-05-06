@@ -60,7 +60,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: siteConfig.name,
   description:
-    `${siteConfig.name}: la plataforma donde los usuarios pueden aprender, compartir conocimientos y conectar con una comunidad enfocada en el crecimiento personal y profesional.`,
+    `${siteConfig.name}: la plataforma donde los usuarios pueden aprender, compartir conocimientos y conectar con una tribu enfocada en el crecimiento personal y profesional.`,
 };
 
 export default function RootLayout({

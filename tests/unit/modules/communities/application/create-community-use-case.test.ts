@@ -63,8 +63,8 @@ describe("createCommunity", () => {
       execute({
         creatorEmail: "outsider@example.com",
         creatorId: "member-2",
-        name: "Comunidad cerrada",
-        slug: "comunidad-cerrada",
+        name: "Tribu cerrada",
+        slug: "tribu-cerrada",
       })
     ).resolves.toEqual({
       status: "not-allowed",
@@ -86,12 +86,12 @@ describe("createCommunity", () => {
       execute({
         creatorEmail: "owner@example.com",
         creatorId: "member-1",
-        name: "Comunidad valida",
+        name: "Tribu valida",
         slug: "   ---   ",
       })
     ).resolves.toEqual({
       status: "invalid-slug",
-      message: "Define un slug valido para tu comunidad.",
+      message: "Define un slug valido para tu tribu.",
     });
   });
 

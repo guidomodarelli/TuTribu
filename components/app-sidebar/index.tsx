@@ -38,7 +38,7 @@ import {
 const discoverCommunitiesNavigationItem = {
   href: ROUTES.home,
   icon: CompassIcon,
-  label: "Descubrir comunidades",
+  label: "Descubrir tribus",
 } as const;
 const communitySectionNavigation = [
   {
@@ -89,7 +89,7 @@ const APP_SIDEBAR_UI = {
   brandMarkLength: 2,
   categoriesSectionLabel: "Categorías",
   collapsible: "icon",
-  createCommunityTooltip: "Nueva comunidad",
+  createCommunityTooltip: "Nueva tribu",
   nestedRouteSeparator: "/",
   variant: "sidebar",
 } as const;
@@ -215,7 +215,7 @@ export function AppSidebar({
       <SidebarContent>
         {activeCommunity ? (
           <SidebarGroup>
-            <SidebarGroupLabel>Comunidad</SidebarGroupLabel>
+            <SidebarGroupLabel>Tribu</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {visibleCommunitySectionNavigation.map((item) => {
@@ -246,7 +246,7 @@ export function AppSidebar({
         ) : null}
         {activeCommunity ? null : (
           <SidebarGroup>
-            <SidebarGroupLabel>Comunidades</SidebarGroupLabel>
+            <SidebarGroupLabel>Tribus</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
@@ -256,7 +256,7 @@ export function AppSidebar({
                     onClick={() => router.push(ROUTES.communities.create)}
                   >
                     <PlusCircleIcon />
-                    <span className={styles.AppSidebar__itemLabel}>Nueva comunidad</span>
+                    <span className={styles.AppSidebar__itemLabel}>Nueva tribu</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
@@ -298,7 +298,7 @@ export function AppSidebar({
               </SidebarMenu>
               {authenticatedMember && memberCommunities.length === 0 ? (
                 <p className={styles.AppSidebar__emptyState}>
-                  Todavia no formas parte de ninguna comunidad
+                  Todavia no formas parte de ninguna tribu
                 </p>
               ) : null}
             </SidebarGroupContent>

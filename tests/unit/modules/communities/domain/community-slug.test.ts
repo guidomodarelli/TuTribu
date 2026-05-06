@@ -6,8 +6,8 @@ import {
 
 describe("community slug helpers", () => {
   it("normalizes accented names into a kebab-case slug", () => {
-    expect(normalizeCommunitySlug("  Comunidad de Álgebra Avanzada!  ")).toBe(
-      "comunidad-de-algebra-avanzada"
+    expect(normalizeCommunitySlug("  Tribu de Álgebra Avanzada!  ")).toBe(
+      "tribu-de-algebra-avanzada"
     );
   });
 
@@ -17,10 +17,10 @@ describe("community slug helpers", () => {
 
   it("marks reserved slugs as unavailable", () => {
     expect(isReservedCommunitySlug("crear")).toBe(true);
-    expect(isReservedCommunitySlug("mi-comunidad")).toBe(false);
+    expect(isReservedCommunitySlug("mi-tribu")).toBe(false);
   });
 
   it("builds incremental suffix suggestions for conflicting slugs", () => {
-    expect(buildCommunitySlugSuggestion("mi-comunidad", 3)).toBe("mi-comunidad-3");
+    expect(buildCommunitySlugSuggestion("mi-tribu", 3)).toBe("mi-tribu-3");
   });
 });

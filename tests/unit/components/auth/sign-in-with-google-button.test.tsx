@@ -29,7 +29,7 @@ describe("SignInWithGoogleButton", () => {
   it("starts Google sign-in with the provided callback URL", async () => {
     const user = userEvent.setup();
 
-    render(<SignInWithGoogleButton callbackUrl="/comunidad/crear" />);
+    render(<SignInWithGoogleButton callbackUrl="/tribu/crear" />);
 
     await user.click(
       screen.getByRole("button", {
@@ -37,14 +37,14 @@ describe("SignInWithGoogleButton", () => {
       })
     );
 
-    expect(startGoogleSignInMock).toHaveBeenCalledWith("/comunidad/crear");
+    expect(startGoogleSignInMock).toHaveBeenCalledWith("/tribu/crear");
   });
 
   it("redirects to the auth error page when Better Auth rejects the OAuth start", async () => {
     const user = userEvent.setup();
     startGoogleSignInMock.mockRejectedValue(new Error("origin_mismatch"));
 
-    render(<SignInWithGoogleButton callbackUrl="/comunidad/crear" />);
+    render(<SignInWithGoogleButton callbackUrl="/tribu/crear" />);
 
     await user.click(
       screen.getByRole("button", {

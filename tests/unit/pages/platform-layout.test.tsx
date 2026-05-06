@@ -53,7 +53,7 @@ jest.mock("@/components/platform/community-switcher", () => ({
     showPrivateBadge?: boolean;
   }) => (
     <span>
-      Selector de comunidades: trigger {String(showDropdownTrigger)}, privada{" "}
+      Selector de tribus: trigger {String(showDropdownTrigger)}, privada{" "}
       {String(showPrivateBadge)}
     </span>
   ),
@@ -165,7 +165,7 @@ describe("PlatformLayout", () => {
     );
 
     expect(
-      screen.getByText("Selector de comunidades: trigger false, privada true")
+      screen.getByText("Selector de tribus: trigger false, privada true")
     ).toBeInTheDocument();
   });
 

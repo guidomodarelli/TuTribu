@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 
-import CommunityLoadingPage from "@/app/(platform)/comunidad/[slug]/loading";
+import CommunityLoadingPage from "@/app/(platform)/tribu/[slug]/loading";
 
 describe("CommunityLoadingPage", () => {
   it("renders an accessible community route loading state", () => {
@@ -8,9 +8,9 @@ describe("CommunityLoadingPage", () => {
 
     expect(
       screen.getByRole("status", {
-        name: "Cargando seccion de comunidad",
+        name: "Cargando seccion de tribu",
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("Cargando seccion de comunidad")).toBeInTheDocument();
+    expect(screen.getByText("Cargando seccion de tribu")).toBeInTheDocument();
   });
 });

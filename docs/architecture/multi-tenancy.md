@@ -1,10 +1,10 @@
-# Multi-tenancy por comunidades
+# Multi-tenancy por tribus
 
 ## Decision
 
 Esta aplicacion es **multi-tenant**.
 
-El tenant canonico del producto es **`community`**. Cada comunidad debe aislar:
+El tenant canonico del producto es **`community`**. Cada tribu debe aislar:
 
 * owner
 * admins
@@ -49,8 +49,8 @@ Las tablas multi-tenant deben usar:
 * `community_id` para alcance por tenant
 * `user_id` o `created_by` para ownership
 
-Las publicaciones siempre pertenecen a una categoria de la misma comunidad mediante
-`posts.category_id`. Una comunidad debe conservar al menos una categoria; si se
+Las publicaciones siempre pertenecen a una categoria de la misma tribu mediante
+`posts.category_id`. Una tribu debe conservar al menos una categoria; si se
 elimina una categoria con publicaciones, la app debe mover esas publicaciones a
 otra categoria del mismo tenant antes de borrar la categoria origen.
 
@@ -87,7 +87,7 @@ La pertenencia y el rol se resuelven con:
 La regla practica es:
 
 > **Better Auth responde quien es el usuario**
-> **multi-tenancy + RLS + app layer responden que puede hacer en cada comunidad**
+> **multi-tenancy + RLS + app layer responden que puede hacer en cada tribu**
 
 RLS usa contexto de request seteado por la app:
 
@@ -102,7 +102,7 @@ Antes de que exista la primera membership, la plataforma puede aplicar un permis
 * ese permiso vive en `community_creator_whitelist`
 * las filas de esa whitelist son datos operativos del entorno
 
-Despues de crear la comunidad:
+Despues de crear la tribu:
 
 * el usuario creador pasa a estar modelado por `community_members`
 * su rol inicial queda como `owner`
@@ -115,7 +115,7 @@ En esta etapa no se adopta:
 
 * `database-per-tenant`
 * `schema-per-tenant`
-* una instancia separada de Postgres por comunidad
+* una instancia separada de Postgres por tribu
 
 La estrategia elegida sigue siendo **multi-tenancy simple con shared schema**.
 
@@ -123,9 +123,9 @@ La estrategia elegida sigue siendo **multi-tenancy simple con shared schema**.
 
 # Relacion con cursos
 
-`course` puede existir dentro de una comunidad, pero no reemplaza al tenant arquitectonico.
+`course` puede existir dentro de una tribu, pero no reemplaza al tenant arquitectonico.
 
 La regla es:
 
 * `community` define el limite de aislamiento
-* `course` cuelga de una comunidad cuando el dominio lo necesite
+* `course` cuelga de una tribu cuando el dominio lo necesite

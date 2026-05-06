@@ -127,10 +127,10 @@ export default async function CreateCommunityPage({
     <main className={styles.CreateCommunityPage}>
       <section className={styles.CreateCommunityPage__panel}>
         <header className={styles.CreateCommunityPage__header}>
-          <p className={styles.CreateCommunityPage__eyebrow}>Nueva comunidad</p>
-          <h1 className={styles.CreateCommunityPage__title}>Crear una comunidad</h1>
+          <p className={styles.CreateCommunityPage__eyebrow}>Nueva tribu</p>
+          <h1 className={styles.CreateCommunityPage__title}>Crear una tribu</h1>
           <p className={styles.CreateCommunityPage__description}>
-            Define el nombre y el slug inicial. La comunidad se creara como privada
+            Define el nombre y el slug inicial. La tribu se creara como privada
             y tu cuenta quedara como owner desde el primer momento.
           </p>
         </header>

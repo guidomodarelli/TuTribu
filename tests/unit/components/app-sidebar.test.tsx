@@ -82,12 +82,12 @@ describe("AppSidebar", () => {
     render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
 
     const discoveryButton = screen.getByRole("button", {
-      name: /descubrir comunidades/i,
+      name: /descubrir tribus/i,
     });
 
     expect(discoveryButton).toHaveAttribute(
       "data-tooltip",
-      "Descubrir comunidades"
+      "Descubrir tribus"
     );
     expect(discoveryButton.querySelector(".lucide-compass")).toBeInTheDocument();
   });
@@ -111,7 +111,7 @@ describe("AppSidebar", () => {
   });
 
   it("replaces the product brand with the active community identity inside a community", () => {
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     render(
       <AppSidebar
@@ -135,7 +135,7 @@ describe("AppSidebar", () => {
   });
 
   it("uses the active community brand button as the community switcher trigger", () => {
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     render(
       <AppSidebar
@@ -176,13 +176,13 @@ describe("AppSidebar", () => {
     render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
 
     expect(
-      screen.queryByRole("button", { name: /abrir comunidades/i })
+      screen.queryByRole("button", { name: /abrir tribus/i })
     ).not.toBeInTheDocument();
   });
 
   it("opens community switcher actions when the active community brand is clicked", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro/eventos");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro/eventos");
 
     render(
       <AppSidebar
@@ -199,8 +199,8 @@ describe("AppSidebar", () => {
 
     await user.click(screen.getByRole("button", { name: /matematica pro/i }));
 
-    expect(screen.getByRole("menuitem", { name: /nueva comunidad/i })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /descubrir comunidades/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /nueva tribu/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /descubrir tribus/i })).toBeInTheDocument();
   });
 
   it("renders discovery below the create action and before member communities", () => {
@@ -224,16 +224,16 @@ describe("AppSidebar", () => {
 
     const communityButtons = screen.getAllByRole("button");
     const createCommunityIndex = communityButtons.findIndex((button) =>
-      button.textContent?.includes("Nueva comunidad")
+      button.textContent?.includes("Nueva tribu")
     );
     const discoverCommunitiesIndex = communityButtons.findIndex((button) =>
-      button.textContent?.includes("Descubrir comunidades")
+      button.textContent?.includes("Descubrir tribus")
     );
     const firstMemberCommunityIndex = communityButtons.findIndex((button) =>
       button.textContent?.includes("Alpha Club")
     );
 
-    expect(screen.getByText(/^Comunidades$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Tribus$/i)).toBeInTheDocument();
     expect(createCommunityIndex).toBeLessThan(discoverCommunitiesIndex);
     expect(discoverCommunitiesIndex).toBeLessThan(firstMemberCommunityIndex);
   });
@@ -254,7 +254,7 @@ describe("AppSidebar", () => {
     );
 
     expect(
-      screen.getByText(/todavia no formas parte de ninguna comunidad/i)
+      screen.getByText(/todavia no formas parte de ninguna tribu/i)
     ).toBeInTheDocument();
   });
 
@@ -312,11 +312,11 @@ describe("AppSidebar", () => {
 
     await user.click(screen.getByRole("button", { name: /alpha club/i }));
 
-    expect(pushMock).toHaveBeenCalledWith("/comunidad/alpha-club");
+    expect(pushMock).toHaveBeenCalledWith("/tribu/alpha-club");
   });
 
   it("renders community sections when the member is inside one of their communities", () => {
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     render(
       <AppSidebar
@@ -338,7 +338,7 @@ describe("AppSidebar", () => {
       />
     );
 
-    expect(screen.getByText("Comunidad")).toBeInTheDocument();
+    expect(screen.getByText("Tribu")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /inicio/i })).toHaveAttribute(
       "data-active",
       "true"
@@ -350,7 +350,7 @@ describe("AppSidebar", () => {
   });
 
   it("prefetches visible community section routes inside an active community", () => {
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     render(
       <AppSidebar
@@ -373,16 +373,16 @@ describe("AppSidebar", () => {
       />
     );
 
-    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro");
-    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro/categorias");
-    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro/eventos");
-    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro/miembros");
-    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro/ranking");
-    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro/acerca-de");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/categorias");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/eventos");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/miembros");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/ranking");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/acerca-de");
   });
 
   it("shows the category section to community owners and admins", () => {
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     const { rerender } = render(
       <AppSidebar
@@ -455,7 +455,7 @@ describe("AppSidebar", () => {
   });
 
   it("hides the global communities section inside an active community", () => {
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     render(
       <AppSidebar
@@ -477,12 +477,12 @@ describe("AppSidebar", () => {
       />
     );
 
-    expect(screen.queryByText(/^Comunidades$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Tribus$/i)).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /nueva comunidad/i })
+      screen.queryByRole("button", { name: /nueva tribu/i })
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /descubrir comunidades/i })
+      screen.queryByRole("button", { name: /descubrir tribus/i })
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^matematica pro$/i })
@@ -491,7 +491,7 @@ describe("AppSidebar", () => {
 
   it("marks the active community section and navigates to real section routes", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro/eventos");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro/eventos");
 
     render(
       <AppSidebar
@@ -520,7 +520,7 @@ describe("AppSidebar", () => {
 
     await user.click(screen.getByRole("button", { name: /miembros/i }));
 
-    expect(pushMock).toHaveBeenCalledWith("/comunidad/matematica-pro/miembros");
+    expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/miembros");
   });
 
   it("does not render community sections outside an active member community", () => {
@@ -546,7 +546,7 @@ describe("AppSidebar", () => {
       />
     );
 
-    expect(screen.queryByText("Comunidad")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tribu")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /inicio/i })).not.toBeInTheDocument();
   });
 });

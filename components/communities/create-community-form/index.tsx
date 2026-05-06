@@ -9,7 +9,7 @@ import { normalizeCommunitySlug } from "@/src/modules/communities/domain/value-o
 import styles from "./styles.module.scss";
 
 const COMMUNITY_SLUG_NORMALIZATION_FORM = "NFD";
-const COMMUNITY_SLUG_PREVIEW_FALLBACK = "tu-comunidad";
+const COMMUNITY_SLUG_PREVIEW_FALLBACK = "tu-tribu";
 const COMMUNITY_SLUG_TRAILING_SEPARATOR = "-";
 const CREATE_COMMUNITY_FORM_ARIA = {
   livePolite: "polite",
@@ -88,7 +88,7 @@ export function CreateCommunityForm({
           className={styles.CreateCommunityForm__label}
           htmlFor={nameInputId}
         >
-          Nombre de la comunidad
+          Nombre de la tribu
         </label>
         <Input
           id={nameInputId}
@@ -163,7 +163,7 @@ export function CreateCommunityForm({
           ) : null}
         </div>
         <p className={styles.CreateCommunityForm__hint}>
-          Tu comunidad quedara en <strong>/comunidad/{slugPreview}</strong>
+          Tu tribu quedara en <strong>/tribu/{slugPreview}</strong>
         </p>
       </div>
 
@@ -191,7 +191,7 @@ export function CreateCommunityForm({
 
       <div className={styles.CreateCommunityForm__actions}>
         <Button type={CREATE_COMMUNITY_FORM_BUTTON.submitType}>
-          Crear comunidad
+          Crear tribu
         </Button>
       </div>
     </form>

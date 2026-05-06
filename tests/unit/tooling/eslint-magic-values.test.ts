@@ -127,14 +127,14 @@ describe("magic values lint rules", () => {
         export { Button };
 
         export const COMMUNITY_ROUTES = {
-          create: "/comunidad/crear",
+          create: "/tribu/crear",
         } as const;
 
         export function CreateCommunityPage() {
           return (
             <main>
-              <h1>Crear una comunidad</h1>
-              <Button aria-label="Crear comunidad">Guardar</Button>
+              <h1>Crear una tribu</h1>
+              <Button aria-label="Crear tribu">Guardar</Button>
               <p>{"Texto visible"}</p>
             </main>
           );
@@ -156,7 +156,7 @@ describe("magic values lint rules", () => {
         export function CommunityMenu() {
           return (
             <DropdownMenuContent side="top" align="start">
-              <button onClick={() => router.push("/comunidad/crear")}>
+              <button onClick={() => router.push("/tribu/crear")}>
                 Abrir
               </button>
             </DropdownMenuContent>
@@ -188,7 +188,7 @@ describe("magic values lint rules", () => {
 
           switch (status) {
             case "created":
-              return "/comunidad/crear";
+              return "/tribu/crear";
             default:
               return null;
           }
@@ -232,7 +232,7 @@ describe("magic values lint rules", () => {
     const [result] = await eslint.lintText(
       `
         export function openCommunity(slug: string) {
-          router.push(\`/comunidad/\${slug}\`);
+          router.push(\`/tribu/\${slug}\`);
         }
       `,
       {

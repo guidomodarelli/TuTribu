@@ -19,7 +19,7 @@ const CATEGORY_ROUTE_RESPONSE = {
   duplicateSlugMessage: "Ya existe una categoría con ese nombre.",
   forbiddenMessage: "No tenés permisos para gestionar categorías.",
   invalidNameMessage: "Definí un nombre y un ícono para la categoría.",
-  notFoundMessage: "No pudimos encontrar la comunidad.",
+  notFoundMessage: "No pudimos encontrar la tribu.",
   successMessage: "Categoría creada.",
   unauthorizedMessage: "Iniciá sesión para gestionar categorías.",
   unexpectedListMessage: "No pudimos cargar las categorías. Intentá de nuevo.",

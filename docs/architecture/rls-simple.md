@@ -61,9 +61,9 @@ La regla importante es:
 
 ## Ejemplos
 
-* un usuario solo ve comunidades a las que pertenece
-* un miembro solo ve datos de comunidades donde tiene membresia
-* un usuario solo puede insertar la membership inicial de owner de la comunidad que acaba de crear
+* un usuario solo ve tribus a las que pertenece
+* un miembro solo ve datos de tribus donde tiene membresia
+* un usuario solo puede insertar la membership inicial de owner de la tribu que acaba de crear
 
 ---
 

@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import CommunityCategoriesPage from "@/app/(platform)/comunidad/[slug]/categorias/page";
+import CommunityCategoriesPage from "@/app/(platform)/tribu/[slug]/categorias/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 

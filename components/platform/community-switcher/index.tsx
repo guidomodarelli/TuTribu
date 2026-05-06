@@ -27,10 +27,10 @@ const COMMUNITY_SWITCHER_UI = {
   contentAlign: "start",
   contentSide: "bottom",
   nestedRouteSeparator: "/",
-  privateBadgeAriaLabel: "Comunidad privada",
+  privateBadgeAriaLabel: "Tribu privada",
   privateBadgeLabel: "privada",
   privateBadgeVariant: "outline",
-  triggerAriaLabel: "Abrir comunidades",
+  triggerAriaLabel: "Abrir tribus",
 } as const;
 
 type CommunitySwitcherProps = {
@@ -97,7 +97,7 @@ export function CommunitySwitcher({
               onClick={navigateToCreateCommunity}
             >
               <PlusCircleIcon />
-              Nueva comunidad
+              Nueva tribu
             </DropdownMenuItem>
             <DropdownMenuItem
               className={styles.CommunitySwitcher__item}
@@ -105,7 +105,7 @@ export function CommunitySwitcher({
               onClick={navigateToDiscovery}
             >
               <CompassIcon />
-              Descubrir comunidades
+              Descubrir tribus
             </DropdownMenuItem>
             {memberCommunities.length > 0 ? <DropdownMenuSeparator /> : null}
             {memberCommunities.map((community) => {

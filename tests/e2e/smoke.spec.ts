@@ -5,7 +5,7 @@ test("loads the home scaffold", async ({ page }) => {
 
   await expect(
     page.getByRole("heading", {
-      name: /un espacio para aprender, compartir y crecer en comunidad/i,
+      name: /un espacio para aprender, compartir y crecer en tribu/i,
     })
   ).toBeVisible();
   await expect(

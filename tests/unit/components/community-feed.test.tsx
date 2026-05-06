@@ -182,7 +182,7 @@ const feed = {
       },
       category: postCategories[1],
       comments: [],
-      content: "Bienvenida a la comunidad",
+      content: "Bienvenida a la tribu",
       createdAt: "2026-04-26T12:00:00.000Z",
       likedByViewer: false,
       likeCount: 2,

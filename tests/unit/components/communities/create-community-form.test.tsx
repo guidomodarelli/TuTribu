@@ -7,25 +7,25 @@ describe("CreateCommunityForm", () => {
   it("suggests a slug from the community name", async () => {
     const user = userEvent.setup();
 
-    render(<CreateCommunityForm submitPath="/comunidad/crear" />);
+    render(<CreateCommunityForm submitPath="/tribu/crear" />);
 
-    await user.type(screen.getByLabelText(/nombre de la comunidad/i), "Comunidad de Algebra");
+    await user.type(screen.getByLabelText(/nombre de la tribu/i), "Tribu de Algebra");
 
-    expect(screen.getByLabelText(/slug/i)).toHaveValue("comunidad-de-algebra");
-    expect(screen.getByText(/\/comunidad\/comunidad-de-algebra/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/slug/i)).toHaveValue("tribu-de-algebra");
+    expect(screen.getByText(/\/tribu\/tribu-de-algebra/i)).toBeInTheDocument();
     expect(screen.getByText(/^sincronizado$/i)).toBeInTheDocument();
   });
 
   it("stops syncing the slug once the user edits it manually", async () => {
     const user = userEvent.setup();
 
-    render(<CreateCommunityForm submitPath="/comunidad/crear" />);
+    render(<CreateCommunityForm submitPath="/tribu/crear" />);
 
-    await user.type(screen.getByLabelText(/nombre de la comunidad/i), "Comunidad de Algebra");
+    await user.type(screen.getByLabelText(/nombre de la tribu/i), "Tribu de Algebra");
     await user.clear(screen.getByLabelText(/slug/i));
     await user.type(screen.getByLabelText(/slug/i), "algebra-pro");
-    await user.clear(screen.getByLabelText(/nombre de la comunidad/i));
-    await user.type(screen.getByLabelText(/nombre de la comunidad/i), "Comunidad de Historia");
+    await user.clear(screen.getByLabelText(/nombre de la tribu/i));
+    await user.type(screen.getByLabelText(/nombre de la tribu/i), "Tribu de Historia");
 
     expect(screen.getByLabelText(/slug/i)).toHaveValue("algebra-pro");
     expect(screen.getByText(/^editado$/i)).toBeInTheDocument();
@@ -34,15 +34,15 @@ describe("CreateCommunityForm", () => {
   it("lets the user resync the slug from the community name", async () => {
     const user = userEvent.setup();
 
-    render(<CreateCommunityForm submitPath="/comunidad/crear" />);
+    render(<CreateCommunityForm submitPath="/tribu/crear" />);
 
-    await user.type(screen.getByLabelText(/nombre de la comunidad/i), "Comunidad de Algebra");
+    await user.type(screen.getByLabelText(/nombre de la tribu/i), "Tribu de Algebra");
     await user.clear(screen.getByLabelText(/slug/i));
     await user.type(screen.getByLabelText(/slug/i), "algebra-pro");
     await user.click(screen.getByRole("button", { name: /sincronizar con el nombre/i }));
 
-    expect(screen.getByLabelText(/slug/i)).toHaveValue("comunidad-de-algebra");
-    expect(screen.getByText(/\/comunidad\/comunidad-de-algebra/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/slug/i)).toHaveValue("tribu-de-algebra");
+    expect(screen.getByText(/\/tribu\/tribu-de-algebra/i)).toBeInTheDocument();
     expect(screen.getByText(/^sincronizado$/i)).toBeInTheDocument();
   });
 
@@ -54,7 +54,7 @@ describe("CreateCommunityForm", () => {
         errorMessage="Ese slug ya esta en uso. Puedes probar con la sugerencia."
         initialName="Matematica Pro"
         initialSlug="matematica-pro"
-        submitPath="/comunidad/crear"
+        submitPath="/tribu/crear"
         suggestedSlug="matematica-pro-2"
       />
     );
@@ -71,7 +71,7 @@ describe("CreateCommunityForm", () => {
   it("keeps the slug canonical when the user types a trailing separator", async () => {
     const user = userEvent.setup();
 
-    render(<CreateCommunityForm submitPath="/comunidad/crear" />);
+    render(<CreateCommunityForm submitPath="/tribu/crear" />);
 
     await user.type(screen.getByLabelText(/slug/i), "matematica-pro-");
     expect(screen.getByDisplayValue("matematica-pro-")).toBeInTheDocument();
@@ -80,7 +80,7 @@ describe("CreateCommunityForm", () => {
         selector: 'input[type="hidden"][name="slug"]',
       })
     ).toBeInTheDocument();
-    expect(screen.getByText(/\/comunidad\/matematica-pro/i)).toBeInTheDocument();
+    expect(screen.getByText(/\/tribu\/matematica-pro/i)).toBeInTheDocument();
 
     await user.tab();
 

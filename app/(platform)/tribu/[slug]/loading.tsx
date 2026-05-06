@@ -7,7 +7,7 @@ const COMMUNITY_LOADING_SKELETON = {
   filterCount: 4,
   keySeparator: "-",
   statusAriaRole: "status",
-  statusLabel: "Cargando seccion de comunidad",
+  statusLabel: "Cargando seccion de tribu",
 } as const;
 
 export default function CommunityLoadingPage() {

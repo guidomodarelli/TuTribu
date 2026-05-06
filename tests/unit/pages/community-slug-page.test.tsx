@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import CommunityPage from "@/app/(platform)/comunidad/[slug]/page";
+import CommunityPage from "@/app/(platform)/tribu/[slug]/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -127,7 +127,7 @@ describe("CommunityPage", () => {
               createdAt: "2026-04-26T12:05:00.000Z",
             },
           ],
-          content: "Bienvenida a la comunidad",
+          content: "Bienvenida a la tribu",
           createdAt: "2026-04-26T12:00:00.000Z",
           likedByViewer: false,
           likeCount: 2,
@@ -161,13 +161,13 @@ describe("CommunityPage", () => {
       })
     );
 
-    expect(screen.queryByText("Inicio de comunidad")).not.toBeInTheDocument();
+    expect(screen.queryByText("Inicio de tribu")).not.toBeInTheDocument();
     expect(screen.queryByText("Matematica Pro")).not.toBeInTheDocument();
     expect(
       screen.queryByText("Compartí novedades, preguntas y recursos con los miembros.")
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("Comunidad privada")).not.toBeInTheDocument();
-    expect(screen.queryByText("/comunidad/matematica-pro")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tribu privada")).not.toBeInTheDocument();
+    expect(screen.queryByText("/tribu/matematica-pro")).not.toBeInTheDocument();
     expect(screen.queryByText("Publicaciones")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", {
@@ -179,13 +179,13 @@ describe("CommunityPage", () => {
         name: "Escribir un comentario",
       })
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Bienvenida a la comunidad")).toBeInTheDocument();
+    expect(screen.getByText("Bienvenida a la tribu")).toBeInTheDocument();
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
     expect(screen.queryByText("Gracias por la bienvenida")).not.toBeInTheDocument();
     expect(screen.getByText("Propietario")).toBeInTheDocument();
     expect(screen.queryByText("Admin")).not.toBeInTheDocument();
-    expect(screen.getByText("Miembro")).toBeInTheDocument();
-    expect(screen.queryByText("Estado de la comunidad")).not.toBeInTheDocument();
+    expect(screen.queryByText("Miembro")).not.toBeInTheDocument();
+    expect(screen.queryByText("Estado de la tribu")).not.toBeInTheDocument();
   });
 
   it("renders a read-only empty feed for muted members", async () => {

@@ -41,17 +41,17 @@ describe("CommunitySwitcher", () => {
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
     expect(
-      screen.queryByRole("button", { name: /comunidades/i })
+      screen.queryByRole("button", { name: /tribus/i })
     ).not.toBeInTheDocument();
   });
 
   it("keeps the community dropdown trigger unnamed on a community route", () => {
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/beta-club");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/beta-club");
 
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
     expect(
-      screen.getByRole("button", { name: /abrir comunidades/i })
+      screen.getByRole("button", { name: /abrir tribus/i })
     ).toBeInTheDocument();
     expect(screen.getByText("privada")).toBeInTheDocument();
     expect(
@@ -67,15 +67,15 @@ describe("CommunitySwitcher", () => {
 
   it("shows actions and member communities without search when opened", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/beta-club");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/beta-club");
 
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
-    await user.click(screen.getByRole("button", { name: /abrir comunidades/i }));
+    await user.click(screen.getByRole("button", { name: /abrir tribus/i }));
 
-    expect(screen.getByRole("menuitem", { name: /nueva comunidad/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /nueva tribu/i })).toBeInTheDocument();
     expect(
-      screen.getByRole("menuitem", { name: /descubrir comunidades/i })
+      screen.getByRole("menuitem", { name: /descubrir tribus/i })
     ).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /alpha club/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /beta club/i })).toBeInTheDocument();
@@ -85,30 +85,30 @@ describe("CommunitySwitcher", () => {
 
   it("navigates to create, discovery, and selected community routes", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/beta-club");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/beta-club");
 
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
-    await user.click(screen.getByRole("button", { name: /abrir comunidades/i }));
-    await user.click(screen.getByRole("menuitem", { name: /nueva comunidad/i }));
-    expect(pushMock).toHaveBeenLastCalledWith("/comunidad/crear");
+    await user.click(screen.getByRole("button", { name: /abrir tribus/i }));
+    await user.click(screen.getByRole("menuitem", { name: /nueva tribu/i }));
+    expect(pushMock).toHaveBeenLastCalledWith("/tribu/crear");
 
-    await user.click(screen.getByRole("button", { name: /abrir comunidades/i }));
-    await user.click(screen.getByRole("menuitem", { name: /descubrir comunidades/i }));
+    await user.click(screen.getByRole("button", { name: /abrir tribus/i }));
+    await user.click(screen.getByRole("menuitem", { name: /descubrir tribus/i }));
     expect(pushMock).toHaveBeenLastCalledWith("/");
 
-    await user.click(screen.getByRole("button", { name: /abrir comunidades/i }));
+    await user.click(screen.getByRole("button", { name: /abrir tribus/i }));
     await user.click(screen.getByRole("menuitem", { name: /alpha club/i }));
-    expect(pushMock).toHaveBeenLastCalledWith("/comunidad/alpha-club");
+    expect(pushMock).toHaveBeenLastCalledWith("/tribu/alpha-club");
   });
 
   it("marks only the current community as active when the route matches", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/comunidad/beta-club");
+    (usePathname as jest.Mock).mockReturnValue("/tribu/beta-club");
 
     render(<CommunitySwitcher memberCommunities={memberCommunities} />);
 
-    await user.click(screen.getByRole("button", { name: /abrir comunidades/i }));
+    await user.click(screen.getByRole("button", { name: /abrir tribus/i }));
 
     expect(screen.getByRole("menuitem", { name: /beta club/i })).toHaveAttribute(
       "data-active",
@@ -119,7 +119,7 @@ describe("CommunitySwitcher", () => {
       "false"
     );
     expect(
-      screen.getByRole("menuitem", { name: /descubrir comunidades/i })
+      screen.getByRole("menuitem", { name: /descubrir tribus/i })
     ).toHaveAttribute("data-active", "false");
   });
 
@@ -134,7 +134,7 @@ describe("CommunitySwitcher", () => {
     render(<CommunitySwitcher memberCommunities={[]} />);
 
     expect(
-      screen.queryByRole("button", { name: /comunidades/i })
+      screen.queryByRole("button", { name: /tribus/i })
     ).not.toBeInTheDocument();
   });
 });

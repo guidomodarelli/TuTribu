@@ -16,10 +16,10 @@ const CREATE_POST_ROUTE_LOG = {
 } as const;
 
 const CREATE_POST_ROUTE_RESPONSE = {
-  forbiddenMessage: "No tenes permisos para publicar en esta comunidad.",
+  forbiddenMessage: "No tenes permisos para publicar en esta tribu.",
   invalidContentMessage: "Completá el título y el contenido antes de publicar.",
   invalidCategoryMessage: "Seleccioná una categoría antes de publicar.",
-  notFoundMessage: "No pudimos encontrar la comunidad.",
+  notFoundMessage: "No pudimos encontrar la tribu.",
   successMessage: "Publicacion creada.",
   unexpectedMessage: "No pudimos crear la publicacion. Intentalo de nuevo.",
   unauthorizedMessage: "Inicia sesion para publicar.",

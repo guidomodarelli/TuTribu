@@ -108,9 +108,9 @@ const COMMUNITY_FEED_COPY = {
   postCategoryLabel: "Categoría de la publicación",
   postCategorySelect: "Seleccionar categoría",
   postComposerCollapsed: "Escribí algo",
-  postComposerContext: "publicando en la comunidad",
+  postComposerContext: "publicando en la tribu",
   postComposerDescription:
-    "Completá el título y el contenido para compartir una publicación en la comunidad.",
+    "Completá el título y el contenido para compartir una publicación en la tribu.",
   postComposerDialogTitle: "Crear publicación",
   postComposerMissingCategory: "Seleccionar categoría",
   postComposerMissingContent: "Publicar el contenido",
@@ -120,7 +120,7 @@ const COMMUNITY_FEED_COPY = {
   postComposerLabel: "Contenido de la publicación",
   postComposerTitleLabel: "Título de la publicación",
   postComposerTitlePlaceholder: "Título",
-  postPlaceholder: "Compartí una novedad, pregunta o recurso para la comunidad",
+  postPlaceholder: "Compartí una novedad, pregunta o recurso para la tribu",
   roleLabel: {
     admin: "Admin",
     member: "Miembro",
