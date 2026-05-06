@@ -104,7 +104,7 @@ const TRIBE_ROUND_COPY = {
   mutedNotice: "Podes leer la ronda, pero tu estado actual no permite participar.",
   messageButton: "Publicar",
   messageCancelButton: "Cancelar",
-  tribeChannelFilterAll: "Toda la ronda",
+  tribeChannelFilterAll: "Todo",
   tribeChannelLabel: "Canal del mensaje",
   tribeChannelSelect: "Seleccionar canal",
   messageComposerCollapsed: "Compartí algo en la ronda",

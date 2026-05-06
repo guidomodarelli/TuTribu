@@ -658,13 +658,29 @@ describe("TribeRound", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Toda la ronda" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Todo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ronda" })).toBeInTheDocument();
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Intro and Goals" }));
 
     expect(screen.queryByText("Anuncio inicial")).not.toBeInTheDocument();
+  });
+
+  it("keeps channel filters visible when the round has only one channel", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          channels: [tribeChannels[1]],
+        }}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Todo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ronda" })).toBeInTheDocument();
   });
 
   it("syncs local messages when the server round changes", async () => {
