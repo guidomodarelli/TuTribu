@@ -1,29 +1,29 @@
-import { POST_CATEGORY_MUTATION_STATUS } from "@/src/modules/posts/constants/post-feed";
+import { TRIBE_CHANNEL_MUTATION_STATUS } from "@/src/modules/posts/constants/post-feed";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const CATEGORY_ROUTE_FIELD = {
+const CHANNEL_ROUTE_FIELD = {
   emoji: "emoji",
   name: "name",
 } as const;
 
-const CATEGORY_ROUTE_LOG = {
-  createFailureMessage: "Tribe post category creation failed",
+const CHANNEL_ROUTE_LOG = {
+  createFailureMessage: "Tribe channel creation failed",
   feature: "posts",
-  listFailureMessage: "Tribe post category listing failed",
-  operation: "manage-tribe-post-categories",
+  listFailureMessage: "Tribe channel listing failed",
+  operation: "manage-tribe-channels",
 } as const;
 
-const CATEGORY_ROUTE_RESPONSE = {
-  duplicateSlugMessage: "Ya existe una categoría con ese nombre.",
-  forbiddenMessage: "No tenés permisos para gestionar categorías.",
-  invalidNameMessage: "Definí un nombre y un ícono para la categoría.",
+const CHANNEL_ROUTE_RESPONSE = {
+  duplicateSlugMessage: "Ya existe un canal con ese nombre.",
+  forbiddenMessage: "No tenés permisos para gestionar canales.",
+  invalidNameMessage: "Definí un nombre y un ícono para el canal.",
   notFoundMessage: "No pudimos encontrar la tribu.",
-  successMessage: "Categoría creada.",
-  unauthorizedMessage: "Iniciá sesión para gestionar categorías.",
-  unexpectedListMessage: "No pudimos cargar las categorías. Intentá de nuevo.",
-  unexpectedMessage: "No pudimos guardar la categoría. Intentá de nuevo.",
+  successMessage: "Canal creado.",
+  unauthorizedMessage: "Iniciá sesión para gestionar canales.",
+  unexpectedListMessage: "No pudimos cargar los canales. Intentá de nuevo.",
+  unexpectedMessage: "No pudimos guardar el canal. Intentá de nuevo.",
 } as const;
 
 const HTTP_STATUS = {
@@ -61,8 +61,8 @@ export async function GET(
   const { slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
-    feature: CATEGORY_ROUTE_LOG.feature,
-    operation: CATEGORY_ROUTE_LOG.operation,
+    feature: CHANNEL_ROUTE_LOG.feature,
+    operation: CHANNEL_ROUTE_LOG.operation,
     requestId,
   });
   const modules = await createRequestModules();
@@ -70,13 +70,13 @@ export async function GET(
 
   if (!authenticatedMember) {
     return createJsonResponse(
-      { message: CATEGORY_ROUTE_RESPONSE.unauthorizedMessage },
+      { message: CHANNEL_ROUTE_RESPONSE.unauthorizedMessage },
       HTTP_STATUS.unauthorized
     );
   }
 
   try {
-    const result = await modules.posts.useCases.listTribePostCategories({
+    const result = await modules.posts.useCases.listTribeChannels({
       tribeSlug: slug,
       viewerId: authenticatedMember.id,
     });
@@ -84,7 +84,7 @@ export async function GET(
     return createJsonResponse(result, HTTP_STATUS.ok);
   } catch (error) {
     logger.error({
-      message: CATEGORY_ROUTE_LOG.listFailureMessage,
+      message: CHANNEL_ROUTE_LOG.listFailureMessage,
       error,
       metadata: {
         slug,
@@ -93,7 +93,7 @@ export async function GET(
     });
 
     return createJsonResponse(
-      { message: CATEGORY_ROUTE_RESPONSE.unexpectedListMessage },
+      { message: CHANNEL_ROUTE_RESPONSE.unexpectedListMessage },
       HTTP_STATUS.serverError
     );
   }
@@ -110,8 +110,8 @@ export async function POST(
   const { slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
-    feature: CATEGORY_ROUTE_LOG.feature,
-    operation: CATEGORY_ROUTE_LOG.operation,
+    feature: CHANNEL_ROUTE_LOG.feature,
+    operation: CHANNEL_ROUTE_LOG.operation,
     requestId,
   });
   const modules = await createRequestModules();
@@ -119,53 +119,53 @@ export async function POST(
 
   if (!authenticatedMember) {
     return createJsonResponse(
-      { message: CATEGORY_ROUTE_RESPONSE.unauthorizedMessage },
+      { message: CHANNEL_ROUTE_RESPONSE.unauthorizedMessage },
       HTTP_STATUS.unauthorized
     );
   }
 
   try {
     const body = await request.json().catch(() => null);
-    const result = await modules.posts.useCases.createTribePostCategory({
+    const result = await modules.posts.useCases.createTribeChannel({
       tribeSlug: slug,
-      emoji: readStringField(body, CATEGORY_ROUTE_FIELD.emoji),
-      name: readStringField(body, CATEGORY_ROUTE_FIELD.name),
+      emoji: readStringField(body, CHANNEL_ROUTE_FIELD.emoji),
+      name: readStringField(body, CHANNEL_ROUTE_FIELD.name),
     });
 
     switch (result.status) {
-      case POST_CATEGORY_MUTATION_STATUS.created:
+      case TRIBE_CHANNEL_MUTATION_STATUS.created:
         return createJsonResponse(
           {
-            category: result.category,
-            message: CATEGORY_ROUTE_RESPONSE.successMessage,
+            channel: result.channel,
+            message: CHANNEL_ROUTE_RESPONSE.successMessage,
           },
           HTTP_STATUS.created
         );
-      case POST_CATEGORY_MUTATION_STATUS.invalidName:
+      case TRIBE_CHANNEL_MUTATION_STATUS.invalidName:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.invalidNameMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.invalidNameMessage },
           HTTP_STATUS.badRequest
         );
-      case POST_CATEGORY_MUTATION_STATUS.duplicateSlug:
+      case TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.duplicateSlugMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.duplicateSlugMessage },
           HTTP_STATUS.badRequest
         );
-      case POST_CATEGORY_MUTATION_STATUS.notFound:
+      case TRIBE_CHANNEL_MUTATION_STATUS.notFound:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.notFoundMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.notFoundMessage },
           HTTP_STATUS.notFound
         );
-      case POST_CATEGORY_MUTATION_STATUS.forbidden:
+      case TRIBE_CHANNEL_MUTATION_STATUS.forbidden:
       default:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.forbiddenMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.forbiddenMessage },
           HTTP_STATUS.forbidden
         );
     }
   } catch (error) {
     logger.error({
-      message: CATEGORY_ROUTE_LOG.createFailureMessage,
+      message: CHANNEL_ROUTE_LOG.createFailureMessage,
       error,
       metadata: {
         slug,
@@ -174,7 +174,7 @@ export async function POST(
     });
 
     return createJsonResponse(
-      { message: CATEGORY_ROUTE_RESPONSE.unexpectedMessage },
+      { message: CHANNEL_ROUTE_RESPONSE.unexpectedMessage },
       HTTP_STATUS.serverError
     );
   }

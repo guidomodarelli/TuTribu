@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import TribeCategoriesPage from "@/app/(platform)/tribu/[slug]/categorias/page";
+import TribeChannelsPage from "@/app/(platform)/tribu/[slug]/canales/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -10,7 +10,7 @@ const getAuthenticatedMember = jest.fn();
 const getTribePageAccess = jest.fn();
 const getCurrentTribeMembershipStatus = jest.fn();
 const getMemberTribes = jest.fn();
-const listTribePostCategories = jest.fn();
+const listTribeChannels = jest.fn();
 const infoMock = jest.fn();
 const errorMock = jest.fn();
 
@@ -22,18 +22,18 @@ jest.mock("next/headers", () => ({
   headers: jest.fn(),
 }));
 
-jest.mock("@/components/tribe-feed/post-category-management", () => ({
-  PostCategoryManagement: ({
-    categories,
+jest.mock("@/components/tribe-feed/tribe-channel-management", () => ({
+  TribeChannelManagement: ({
+    channels,
     tribeSlug,
   }: {
-    categories: unknown[];
+    channels: unknown[];
     tribeSlug: string;
   }) => (
     <section>
-      <h1>Gestión de categorías</h1>
+      <h1>Gestión de canales</h1>
       <p>{tribeSlug}</p>
-      <p>{categories.length}</p>
+      <p>{channels.length}</p>
     </section>
   ),
 }));
@@ -51,11 +51,11 @@ jest.mock(
 
 const authenticatedMember = {
   avatarFallback: "GH",
-  email: "owner@example.com",
+  email: "leader@example.com",
   id: "member-1",
   image: null,
   name: "Grace Hopper",
-  role: "member",
+  role: "tribemate",
 };
 
 const visibleTribeAccess = {
@@ -68,10 +68,10 @@ const visibleTribeAccess = {
   },
 };
 
-const category = {
-  accessScope: "members" as const,
+const channel = {
+  accessScope: "tribemates" as const,
   emoji: "💬",
-  id: "category-general",
+  id: "channel-general",
   name: "General",
   slug: "general",
   sortOrder: 20,
@@ -85,7 +85,7 @@ function buildPageProps() {
   };
 }
 
-describe("TribeCategoriesPage", () => {
+describe("TribeChannelsPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
@@ -95,12 +95,12 @@ describe("TribeCategoriesPage", () => {
       {
         tribeId: "tribe-1",
         name: "Matematica Pro",
-        role: "owner",
+        role: "leader",
         slug: "matematica-pro",
       },
     ]);
-    listTribePostCategories.mockResolvedValue({
-      categories: [category],
+    listTribeChannels.mockResolvedValue({
+      channels: [channel],
     });
     (headers as jest.Mock).mockResolvedValue(new Headers());
     (createServerLogger as jest.Mock).mockReturnValue({
@@ -122,47 +122,47 @@ describe("TribeCategoriesPage", () => {
       },
       posts: {
         useCases: {
-          listTribePostCategories,
+          listTribeChannels,
         },
       },
     });
   });
 
-  it("renders category management for tribe owners", async () => {
-    render(await TribeCategoriesPage(buildPageProps()));
+  it("renders channel management for tribe leaders", async () => {
+    render(await TribeChannelsPage(buildPageProps()));
 
-    expect(screen.getByRole("heading", { name: "Gestión de categorías" })).toBeInTheDocument();
-    expect(listTribePostCategories).toHaveBeenCalledWith({
+    expect(screen.getByRole("heading", { name: "Gestión de canales" })).toBeInTheDocument();
+    expect(listTribeChannels).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
   });
 
-  it("renders category management for tribe admins", async () => {
+  it("renders channel management for tribe guardians", async () => {
     getMemberTribes.mockResolvedValue([
       {
         tribeId: "tribe-1",
         name: "Matematica Pro",
-        role: "admin",
+        role: "guardian",
         slug: "matematica-pro",
       },
     ]);
 
-    render(await TribeCategoriesPage(buildPageProps()));
+    render(await TribeChannelsPage(buildPageProps()));
 
-    expect(screen.getByRole("heading", { name: "Gestión de categorías" })).toBeInTheDocument();
-    expect(listTribePostCategories).toHaveBeenCalledWith({
+    expect(screen.getByRole("heading", { name: "Gestión de canales" })).toBeInTheDocument();
+    expect(listTribeChannels).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
   });
 
-  it("returns 404 when a regular member opens the category management URL", async () => {
+  it("returns 404 when a regular member opens the channel management URL", async () => {
     getMemberTribes.mockResolvedValue([
       {
         tribeId: "tribe-1",
         name: "Matematica Pro",
-        role: "member",
+        role: "tribemate",
         slug: "matematica-pro",
       },
     ]);
@@ -170,19 +170,19 @@ describe("TribeCategoriesPage", () => {
       throw new Error("NEXT_NOT_FOUND");
     });
 
-    await expect(TribeCategoriesPage(buildPageProps())).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(TribeChannelsPage(buildPageProps())).rejects.toThrow("NEXT_NOT_FOUND");
 
     expect(notFound).toHaveBeenCalled();
-    expect(listTribePostCategories).not.toHaveBeenCalled();
+    expect(listTribeChannels).not.toHaveBeenCalled();
   });
 
-  it("returns 404 when an owner is muted", async () => {
+  it("returns 404 when an leader is muted", async () => {
     getCurrentTribeMembershipStatus.mockResolvedValue("muted");
     getMemberTribes.mockResolvedValue([
       {
         tribeId: "tribe-1",
         name: "Matematica Pro",
-        role: "owner",
+        role: "leader",
         slug: "matematica-pro",
       },
     ]);
@@ -190,9 +190,9 @@ describe("TribeCategoriesPage", () => {
       throw new Error("NEXT_NOT_FOUND");
     });
 
-    await expect(TribeCategoriesPage(buildPageProps())).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(TribeChannelsPage(buildPageProps())).rejects.toThrow("NEXT_NOT_FOUND");
 
     expect(notFound).toHaveBeenCalled();
-    expect(listTribePostCategories).not.toHaveBeenCalled();
+    expect(listTribeChannels).not.toHaveBeenCalled();
   });
 });

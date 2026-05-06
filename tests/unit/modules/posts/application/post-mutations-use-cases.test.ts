@@ -3,10 +3,10 @@ import { createPostComment } from "@/src/modules/posts/application/use-cases/cre
 import { togglePostLike } from "@/src/modules/posts/application/use-cases/toggle-post-like-use-case";
 
 describe("post mutation use cases", () => {
-  const postCategory = {
-    accessScope: "members" as const,
+  const tribeChannel = {
+    accessScope: "tribemates" as const,
     emoji: "💬",
-    id: "category-general",
+    id: "channel-general",
     name: "General",
     slug: "general",
     sortOrder: 20,
@@ -18,11 +18,11 @@ describe("post mutation use cases", () => {
       author: {
         id: "member-1",
         name: "Grace Hopper",
-        role: "member" as const,
+        role: "tribemate" as const,
         avatarFallback: "GH",
         image: null,
       },
-      category: postCategory,
+      channel: tribeChannel,
       comments: [],
       content: "Primera publicación",
       createdAt: "2026-04-26T12:00:00.000Z",
@@ -41,7 +41,7 @@ describe("post mutation use cases", () => {
     await expect(
       execute({
         authorId: "member-1",
-        categoryId: "category-general",
+        channelId: "channel-general",
         tribeSlug: "matematica-pro",
         content: "Primera publicación",
         title: "Bienvenida",
@@ -49,7 +49,7 @@ describe("post mutation use cases", () => {
     ).resolves.toEqual({ post: createdPost, status: "created" });
     expect(create).toHaveBeenCalledWith({
       authorId: "member-1",
-      categoryId: "category-general",
+      channelId: "channel-general",
       tribeSlug: "matematica-pro",
       content: "Primera publicación",
       title: "Bienvenida",
@@ -65,7 +65,7 @@ describe("post mutation use cases", () => {
     await expect(
       execute({
         authorId: "member-1",
-        categoryId: "category-general",
+        channelId: "channel-general",
         tribeSlug: "matematica-pro",
         content: "Primera publicación",
         title: "   ",
@@ -83,7 +83,7 @@ describe("post mutation use cases", () => {
     await expect(
       execute({
         authorId: "member-1",
-        categoryId: "category-general",
+        channelId: "channel-general",
         tribeSlug: "matematica-pro",
         content: "   ",
         title: "Bienvenida",
@@ -92,7 +92,7 @@ describe("post mutation use cases", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("rejects a post without category before calling the repository", async () => {
+  it("rejects a post without channel before calling the repository", async () => {
     const create = jest.fn();
     const execute = createTribePost({
       postCreationRepository: { create },
@@ -101,12 +101,12 @@ describe("post mutation use cases", () => {
     await expect(
       execute({
         authorId: "member-1",
-        categoryId: "   ",
+        channelId: "   ",
         tribeSlug: "matematica-pro",
         content: "Primera publicación",
         title: "Bienvenida",
       })
-    ).resolves.toEqual({ status: "invalid_category" });
+    ).resolves.toEqual({ status: "invalid_channel" });
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -116,7 +116,7 @@ describe("post mutation use cases", () => {
       author: {
         id: "member-1",
         name: "Grace Hopper",
-        role: "member" as const,
+        role: "tribemate" as const,
         avatarFallback: "GH",
         image: null,
       },

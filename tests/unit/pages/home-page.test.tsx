@@ -48,7 +48,7 @@ describe("HomePage", () => {
       id: "member-1",
       email: "grace.hopper@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });

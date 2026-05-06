@@ -84,9 +84,9 @@ describe("CreateTribePage", () => {
   it("renders the creation form for whitelisted users", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });
@@ -110,9 +110,9 @@ describe("CreateTribePage", () => {
   it("renders a blocked state with a contact email for users outside the whitelist", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });

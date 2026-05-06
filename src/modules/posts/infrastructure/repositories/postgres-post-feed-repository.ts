@@ -4,7 +4,7 @@ import type {
   TribeFeedCommentResult,
   TribeFeedPostResult,
   TribeFeedResult,
-  TribePostCategoryResult,
+  TribeChannelResult,
   PostMembershipStatus,
 } from "@/src/modules/posts/application/results/tribe-feed-result";
 import { POST_MEMBERSHIP_STATUS } from "@/src/modules/posts/constants/post-feed";
@@ -14,7 +14,7 @@ import type {
 } from "@/src/modules/posts/domain/repositories/post-feed-read-repository";
 import {
   createTribeFeedAuthor,
-  createTribePostCategory,
+  createTribeChannel,
   formatPostDateTimeValue,
 } from "@/src/modules/posts/infrastructure/mappers/tribe-feed-view-model-mapper";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
@@ -28,12 +28,12 @@ type PostFeedRow = {
   author_image: string | null;
   author_name: string | null;
   author_role: string | null;
-  category_access_scope: string | null;
-  category_emoji: string | null;
-  category_id: string | null;
-  category_name: string | null;
-  category_slug: string | null;
-  category_sort_order: number | string | null;
+  channel_access_scope: string | null;
+  channel_emoji: string | null;
+  channel_id: string | null;
+  channel_name: string | null;
+  channel_slug: string | null;
+  channel_sort_order: number | string | null;
   comment_author_id: string | null;
   comment_author_image: string | null;
   comment_author_name: string | null;
@@ -50,7 +50,7 @@ type PostFeedRow = {
   viewer_membership_status: string | null;
 };
 
-type PostCategoryRow = {
+type TribeChannelRow = {
   access_scope: string | null;
   emoji: string | null;
   id: string;
@@ -104,9 +104,9 @@ function createPermissions(status: PostMembershipStatus | null) {
   };
 }
 
-function mapRowsToCategories(rows: PostCategoryRow[]): TribePostCategoryResult[] {
+function mapRowsToChannels(rows: TribeChannelRow[]): TribeChannelResult[] {
   return rows.map((row) =>
-    createTribePostCategory({
+    createTribeChannel({
       accessScope: row.access_scope,
       emoji: row.emoji,
       id: row.id,
@@ -119,7 +119,7 @@ function mapRowsToCategories(rows: PostCategoryRow[]): TribePostCategoryResult[]
 
 function mapRowsToFeed(
   rows: PostFeedRow[],
-  categories: TribePostCategoryResult[]
+  channels: TribeChannelResult[]
 ): TribeFeedResult {
   const firstRow = rows[0];
   const postsById = new Map<string, TribeFeedPostResult>();
@@ -131,7 +131,7 @@ function mapRowsToFeed(
 
     const existingPost = postsById.get(row.post_id);
 
-    if (!existingPost && row.category_id) {
+    if (!existingPost && row.channel_id) {
       postsById.set(row.post_id, {
         author: createTribeFeedAuthor({
           id: row.author_id,
@@ -139,13 +139,13 @@ function mapRowsToFeed(
           name: row.author_name,
           role: row.author_role,
         }),
-        category: createTribePostCategory({
-          accessScope: row.category_access_scope,
-          emoji: row.category_emoji,
-          id: row.category_id,
-          name: row.category_name,
-          slug: row.category_slug,
-          sortOrder: row.category_sort_order,
+        channel: createTribeChannel({
+          accessScope: row.channel_access_scope,
+          emoji: row.channel_emoji,
+          id: row.channel_id,
+          name: row.channel_name,
+          slug: row.channel_slug,
+          sortOrder: row.channel_sort_order,
         }),
         comments: [],
         content: row.post_content,
@@ -166,8 +166,8 @@ function mapRowsToFeed(
   });
 
   return {
-    activeCategoryId: null,
-    categories,
+    activeChannelId: null,
+    channels,
     posts: [...postsById.values()],
     viewerPermissions: createPermissions(
       normalizeMembershipStatus(firstRow?.viewer_membership_status ?? null)
@@ -183,7 +183,7 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
     viewerId,
   }: ListTribeFeedQuery): Promise<TribeFeedResult> {
     return this.executeWithDatabase(async (database) => {
-      const categoriesResult = await database.execute(sql`
+      const channelsResult = await database.execute(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -191,16 +191,16 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
           limit 1
         )
         select
-          tribe_post_categories.id,
-          tribe_post_categories.name,
-          tribe_post_categories.slug,
-          tribe_post_categories.emoji,
-          tribe_post_categories.sort_order,
-          tribe_post_categories.access_scope
-        from public.tribe_post_categories
+          tribe_channels.id,
+          tribe_channels.name,
+          tribe_channels.slug,
+          tribe_channels.emoji,
+          tribe_channels.sort_order,
+          tribe_channels.access_scope
+        from public.tribe_channels
         inner join target_tribe
-          on target_tribe.id = tribe_post_categories.tribe_id
-        order by tribe_post_categories.sort_order asc, tribe_post_categories.name asc
+          on target_tribe.id = tribe_channels.tribe_id
+        order by tribe_channels.sort_order asc, tribe_channels.name asc
       `);
       const result = await database.execute(sql`
         with target_tribe as (
@@ -226,12 +226,12 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
           posts.title as post_title,
           posts.content as post_content,
           posts.created_at as post_created_at,
-          tribe_post_categories.id as category_id,
-          tribe_post_categories.name as category_name,
-          tribe_post_categories.slug as category_slug,
-          tribe_post_categories.emoji as category_emoji,
-          tribe_post_categories.sort_order as category_sort_order,
-          tribe_post_categories.access_scope as category_access_scope,
+          tribe_channels.id as channel_id,
+          tribe_channels.name as channel_name,
+          tribe_channels.slug as channel_slug,
+          tribe_channels.emoji as channel_emoji,
+          tribe_channels.sort_order as channel_sort_order,
+          tribe_channels.access_scope as channel_access_scope,
           post_authors.id as author_id,
           post_authors.name as author_name,
           post_authors.image as author_image,
@@ -258,15 +258,15 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
           and viewer_members.user_id = ${viewerId}
         left join public.posts
           on posts.tribe_id = target_tribe.id
-          and posts.category_id is not null
+          and posts.channel_id is not null
           and exists (
             select 1
-            from public.tribe_post_categories category_matches
-            where category_matches.id = posts.category_id
-              and category_matches.tribe_id = target_tribe.id
+            from public.tribe_channels channel_matches
+            where channel_matches.id = posts.channel_id
+              and channel_matches.tribe_id = target_tribe.id
           )
-        left join public.tribe_post_categories
-          on tribe_post_categories.id = posts.category_id
+        left join public.tribe_channels
+          on tribe_channels.id = posts.channel_id
         left join public."user" post_authors
           on post_authors.id = posts.author_id
         left join public.tribe_members post_members
@@ -284,12 +284,12 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
         where viewer_members.status in ('active', 'muted')
         group by
           posts.id,
-          tribe_post_categories.id,
-          tribe_post_categories.name,
-          tribe_post_categories.slug,
-          tribe_post_categories.emoji,
-          tribe_post_categories.sort_order,
-          tribe_post_categories.access_scope,
+          tribe_channels.id,
+          tribe_channels.name,
+          tribe_channels.slug,
+          tribe_channels.emoji,
+          tribe_channels.sort_order,
+          tribe_channels.access_scope,
           post_like_counts.like_count,
           post_authors.id,
           post_members.role,
@@ -302,7 +302,7 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
 
       return mapRowsToFeed(
         (result.rows ?? []) as PostFeedRow[],
-        mapRowsToCategories((categoriesResult.rows ?? []) as PostCategoryRow[])
+        mapRowsToChannels((channelsResult.rows ?? []) as TribeChannelRow[])
       );
     });
   }

@@ -1,6 +1,6 @@
 export type MemberTribeListItemResult = {
   tribeId: string;
   name: string;
-  role: "admin" | "member" | "owner";
+  role: "guardian" | "leader" | "tribemate";
   slug: string;
 };

@@ -29,7 +29,7 @@ describe("createRequestModules", () => {
     };
 
     (getRequestAuthContext as jest.Mock).mockResolvedValue({
-      email: "owner@example.com",
+      email: "leader@example.com",
       userId: "member-1",
     });
     (createServerDatabaseClient as jest.Mock).mockResolvedValue(databaseClient);
@@ -38,7 +38,7 @@ describe("createRequestModules", () => {
 
     await modules.auth.useCases.getAuthenticatedMember();
     await modules.tribes.useCases.getTribeCreationEligibility({
-      creatorEmail: "owner@example.com",
+      creatorEmail: "leader@example.com",
     });
 
     expect(createServerDatabaseClient).toHaveBeenCalledTimes(1);

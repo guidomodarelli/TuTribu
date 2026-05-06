@@ -109,7 +109,7 @@ export const tribeMembers = pgTable("tribe_members", {
   ),
 }));
 
-export const tribePostCategories = pgTable("tribe_post_categories", {
+export const tribeChannels = pgTable("tribe_channels", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")
     .notNull()
@@ -118,15 +118,15 @@ export const tribePostCategories = pgTable("tribe_post_categories", {
   slug: text("slug").notNull(),
   emoji: text("emoji").notNull(),
   sortOrder: integer("sort_order").notNull(),
-  accessScope: text("access_scope").notNull().default("members"),
+  accessScope: text("access_scope").notNull().default("tribemates"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 }, (table) => ({
-  tribeSlugKey: uniqueIndex("tribe_post_categories_tribe_id_slug_key").on(
+  tribeSlugKey: uniqueIndex("tribe_channels_tribe_id_slug_key").on(
     table.tribeId,
     table.slug
   ),
-  tribeSortOrderIndex: index("idx_tribe_post_categories_sort_order").on(
+  tribeSortOrderIndex: index("idx_tribe_channels_sort_order").on(
     table.tribeId,
     table.sortOrder
   ),
@@ -137,9 +137,9 @@ export const posts = pgTable("posts", {
   tribeId: uuid("tribe_id")
     .notNull()
     .references(() => tribes.id, { onDelete: "cascade" }),
-  categoryId: uuid("category_id")
+  channelId: uuid("channel_id")
     .notNull()
-    .references(() => tribePostCategories.id),
+    .references(() => tribeChannels.id),
   authorId: text("author_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),

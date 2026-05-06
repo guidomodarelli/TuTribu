@@ -29,57 +29,57 @@ describe("Post SQL guardrails", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS title text");
   });
 
-  it("adds mandatory tribe post categories and preserves existing posts", () => {
+  it("adds mandatory tribe channels and preserves existing posts", () => {
     const migration = readWorkspaceFile(
-      "database/migrations/20260426040000_add_tribe_post_categories.sql"
+      "database/migrations/20260426040000_add_tribe_channels.sql"
     );
 
-    expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.tribe_post_categories");
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.tribe_channels");
     expect(migration).toContain("UNIQUE (tribe_id, slug)");
     expect(migration).toContain("('General', 'general', '💬', 20)");
     expect(migration).not.toContain("('Anuncios', 'anuncios'");
     expect(migration).not.toContain("('Preguntas', 'preguntas'");
     expect(migration).not.toContain("('Eventos', 'eventos'");
-    expect(migration).toContain("ADD COLUMN IF NOT EXISTS category_id uuid");
-    expect(migration).toContain("WITH tribe_general_categories AS");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS channel_id uuid");
+    expect(migration).toContain("WITH tribe_general_channels AS");
     expect(migration).toContain("UPDATE public.posts");
     expect(migration).toContain("SET");
-    expect(migration).toContain("category_id = tribe_general_categories.id");
-    expect(migration).toContain("posts.tribe_id = tribe_general_categories.tribe_id");
-    expect(migration).toContain("ALTER COLUMN category_id SET NOT NULL");
-    expect(migration).toContain("REFERENCES public.tribe_post_categories(id)");
+    expect(migration).toContain("channel_id = tribe_general_channels.id");
+    expect(migration).toContain("posts.tribe_id = tribe_general_channels.tribe_id");
+    expect(migration).toContain("ALTER COLUMN channel_id SET NOT NULL");
+    expect(migration).toContain("REFERENCES public.tribe_channels(id)");
     expect(migration).not.toContain("DELETE FROM public.posts");
   });
 
-  it("moves obsolete initial category posts into General before deleting those categories", () => {
+  it("moves obsolete initial channel posts into General before deleting those channels", () => {
     const migration = readWorkspaceFile(
-      "database/migrations/20260426050000_keep_only_general_initial_category.sql"
+      "database/migrations/20260426050000_keep_only_general_initial_channel.sql"
     );
 
-    expect(migration).toContain("WITH general_categories AS");
+    expect(migration).toContain("WITH general_channels AS");
     expect(migration).toContain("UPDATE public.posts");
-    expect(migration).toContain("category_id = general_categories.id");
-    expect(migration).toContain("source_categories.slug IN ('anuncios', 'preguntas', 'eventos')");
-    expect(migration).toContain("DELETE FROM public.tribe_post_categories obsolete_categories");
-    expect(migration).toContain("obsolete_categories.slug IN ('anuncios', 'preguntas', 'eventos')");
+    expect(migration).toContain("channel_id = general_channels.id");
+    expect(migration).toContain("source_channels.slug IN ('anuncios', 'preguntas', 'eventos')");
+    expect(migration).toContain("DELETE FROM public.tribe_channels obsolete_channels");
+    expect(migration).toContain("obsolete_channels.slug IN ('anuncios', 'preguntas', 'eventos')");
   });
 
-  it("limits category management to owners and admins", () => {
+  it("limits channel management to leaders and guardians", () => {
     const migration = readWorkspaceFile(
-      "database/migrations/20260426040000_add_tribe_post_categories.sql"
+      "database/migrations/20260426040000_add_tribe_channels.sql"
     );
     const incrementalMigration = readWorkspaceFile(
-      "database/migrations/20260426060000_limit_post_category_management_to_owners.sql"
+      "database/migrations/20260426060000_limit_channel_management_to_leaders_and_guardians.sql"
     );
 
-    expect(migration).toContain("public.can_manage_tribe_categories");
-    expect(migration).toContain("tribe_members.role IN ('owner', 'admin')");
-    expect(migration).toContain("ALTER TABLE public.tribe_post_categories FORCE ROW LEVEL SECURITY");
-    expect(migration).toContain("Owners and admins can manage tribe post categories");
-    expect(incrementalMigration).toContain("CREATE OR REPLACE FUNCTION public.can_manage_tribe_categories");
-    expect(incrementalMigration).toContain("tribe_members.role IN ('owner', 'admin')");
-    expect(incrementalMigration).toContain("Owners and admins can manage tribe post categories");
-    expect(incrementalMigration).toContain("Owners and admins can move posts between categories");
+    expect(migration).toContain("public.can_manage_tribe_channels");
+    expect(migration).toContain("tribe_members.role IN ('leader', 'guardian')");
+    expect(migration).toContain("ALTER TABLE public.tribe_channels FORCE ROW LEVEL SECURITY");
+    expect(migration).toContain("Leaders and guardians can manage tribe channels");
+    expect(incrementalMigration).toContain("CREATE OR REPLACE FUNCTION public.can_manage_tribe_channels");
+    expect(incrementalMigration).toContain("tribe_members.role IN ('leader', 'guardian')");
+    expect(incrementalMigration).toContain("Leaders and guardians can manage tribe channels");
+    expect(incrementalMigration).toContain("Leaders and guardians can move posts between channels");
     expect(incrementalMigration).toContain("ON public.posts");
     expect(incrementalMigration).toContain("FOR UPDATE");
   });

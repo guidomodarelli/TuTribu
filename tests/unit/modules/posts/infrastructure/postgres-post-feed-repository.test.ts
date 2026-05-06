@@ -22,11 +22,11 @@ function getSqlText(statement: unknown): string {
 }
 
 describe("PostgresPostFeedRepository", () => {
-  const categoryRows = [
+  const channelRows = [
     {
-      access_scope: "members",
+      access_scope: "tribemates",
       emoji: "💬",
-      id: "category-general",
+      id: "channel-general",
       name: "General",
       slug: "general",
       sort_order: 20,
@@ -36,24 +36,24 @@ describe("PostgresPostFeedRepository", () => {
   it("maps feed rows into posts with comments and reactions", async () => {
     const execute = jest
       .fn()
-      .mockResolvedValueOnce({ rows: categoryRows })
+      .mockResolvedValueOnce({ rows: channelRows })
       .mockResolvedValueOnce({
         rows: [
           {
-          category_access_scope: "members",
-          category_emoji: "💬",
-          category_id: "category-general",
-          category_name: "General",
-          category_slug: "general",
-          category_sort_order: 20,
+          channel_access_scope: "tribemates",
+          channel_emoji: "💬",
+          channel_id: "channel-general",
+          channel_name: "General",
+          channel_slug: "general",
+          channel_sort_order: 20,
           post_id: "post-1",
           post_content: "Bienvenida",
           post_created_at: "2026-04-26T12:00:00.000Z",
           post_title: "Anuncio inicial",
-          author_id: "owner-1",
+          author_id: "leader-1",
           author_name: "Ada Lovelace",
           author_image: null,
-          author_role: "owner",
+          author_role: "leader",
           like_count: "2",
           liked_by_viewer: true,
           comment_id: "comment-1",
@@ -62,7 +62,7 @@ describe("PostgresPostFeedRepository", () => {
           comment_author_id: "member-1",
           comment_author_name: "Grace Hopper",
           comment_author_image: null,
-          comment_author_role: "member",
+          comment_author_role: "tribemate",
           viewer_membership_status: "active",
           },
         ],
@@ -77,12 +77,12 @@ describe("PostgresPostFeedRepository", () => {
         viewerId: "member-1",
       })
     ).resolves.toEqual({
-      activeCategoryId: null,
-      categories: [
+      activeChannelId: null,
+      channels: [
         {
-          accessScope: "members",
+          accessScope: "tribemates",
           emoji: "💬",
-          id: "category-general",
+          id: "channel-general",
           name: "General",
           slug: "general",
           sortOrder: 20,
@@ -96,18 +96,18 @@ describe("PostgresPostFeedRepository", () => {
       posts: [
         {
           id: "post-1",
-          category: {
-            accessScope: "members",
+          channel: {
+            accessScope: "tribemates",
             emoji: "💬",
-            id: "category-general",
+            id: "channel-general",
             name: "General",
             slug: "general",
             sortOrder: 20,
           },
           author: {
-            id: "owner-1",
+            id: "leader-1",
             name: "Ada Lovelace",
-            role: "owner",
+            role: "leader",
             avatarFallback: "AL",
             image: null,
           },
@@ -117,7 +117,7 @@ describe("PostgresPostFeedRepository", () => {
               author: {
                 id: "member-1",
                 name: "Grace Hopper",
-                role: "member",
+                role: "tribemate",
                 avatarFallback: "GH",
                 image: null,
               },
@@ -142,16 +142,16 @@ describe("PostgresPostFeedRepository", () => {
   it("returns viewer permissions when the tribe has no posts yet", async () => {
     const execute = jest
       .fn()
-      .mockResolvedValueOnce({ rows: categoryRows })
+      .mockResolvedValueOnce({ rows: channelRows })
       .mockResolvedValueOnce({
         rows: [
           {
-          category_access_scope: null,
-          category_emoji: null,
-          category_id: null,
-          category_name: null,
-          category_slug: null,
-          category_sort_order: null,
+          channel_access_scope: null,
+          channel_emoji: null,
+          channel_id: null,
+          channel_name: null,
+          channel_slug: null,
+          channel_sort_order: null,
           post_id: null,
           post_content: null,
           post_created_at: null,
@@ -183,12 +183,12 @@ describe("PostgresPostFeedRepository", () => {
         viewerId: "member-1",
       })
     ).resolves.toEqual({
-      activeCategoryId: null,
-      categories: [
+      activeChannelId: null,
+      channels: [
         {
-          accessScope: "members",
+          accessScope: "tribemates",
           emoji: "💬",
-          id: "category-general",
+          id: "channel-general",
           name: "General",
           slug: "general",
           sortOrder: 20,
@@ -206,24 +206,24 @@ describe("PostgresPostFeedRepository", () => {
   it("uses preaggregated like counts so comments do not multiply reactions", async () => {
     const execute = jest
       .fn()
-      .mockResolvedValueOnce({ rows: categoryRows })
+      .mockResolvedValueOnce({ rows: channelRows })
       .mockResolvedValueOnce({
         rows: [
           {
-          category_access_scope: "members",
-          category_emoji: "💬",
-          category_id: "category-general",
-          category_name: "General",
-          category_slug: "general",
-          category_sort_order: 20,
+          channel_access_scope: "tribemates",
+          channel_emoji: "💬",
+          channel_id: "channel-general",
+          channel_name: "General",
+          channel_slug: "general",
+          channel_sort_order: 20,
           post_id: "post-1",
           post_content: "Bienvenida",
           post_created_at: "2026-04-26T12:00:00.000Z",
           post_title: "Anuncio inicial",
-          author_id: "owner-1",
+          author_id: "leader-1",
           author_name: "Ada Lovelace",
           author_image: null,
-          author_role: "owner",
+          author_role: "leader",
           like_count: "1",
           liked_by_viewer: true,
           comment_id: "comment-1",
@@ -232,24 +232,24 @@ describe("PostgresPostFeedRepository", () => {
           comment_author_id: "member-1",
           comment_author_name: "Grace Hopper",
           comment_author_image: null,
-          comment_author_role: "member",
+          comment_author_role: "tribemate",
           viewer_membership_status: "active",
           },
           {
-          category_access_scope: "members",
-          category_emoji: "💬",
-          category_id: "category-general",
-          category_name: "General",
-          category_slug: "general",
-          category_sort_order: 20,
+          channel_access_scope: "tribemates",
+          channel_emoji: "💬",
+          channel_id: "channel-general",
+          channel_name: "General",
+          channel_slug: "general",
+          channel_sort_order: 20,
           post_id: "post-1",
           post_content: "Bienvenida",
           post_created_at: "2026-04-26T12:00:00.000Z",
           post_title: "Anuncio inicial",
-          author_id: "owner-1",
+          author_id: "leader-1",
           author_name: "Ada Lovelace",
           author_image: null,
-          author_role: "owner",
+          author_role: "leader",
           like_count: "1",
           liked_by_viewer: true,
           comment_id: "comment-2",
@@ -258,7 +258,7 @@ describe("PostgresPostFeedRepository", () => {
           comment_author_id: "member-2",
           comment_author_name: "Katherine Johnson",
           comment_author_image: null,
-          comment_author_role: "member",
+          comment_author_role: "tribemate",
           viewer_membership_status: "active",
           },
         ],
@@ -292,8 +292,8 @@ describe("PostgresPostFeedRepository", () => {
     expect(sqlText).toContain("where tribes.slug =");
     expect(sqlText).toContain("inner join public.posts liked_posts");
     expect(sqlText).toContain("on target_tribe.id = liked_posts.tribe_id");
-    expect(sqlText).toContain("and posts.category_id is not null");
-    expect(sqlText).toContain("and category_matches.tribe_id = target_tribe.id");
+    expect(sqlText).toContain("and posts.channel_id is not null");
+    expect(sqlText).toContain("and channel_matches.tribe_id = target_tribe.id");
     expect(sqlText).not.toContain("count(post_reactions.id) filter");
   });
 });

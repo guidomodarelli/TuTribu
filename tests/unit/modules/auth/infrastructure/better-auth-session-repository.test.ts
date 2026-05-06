@@ -19,7 +19,7 @@ describe("BetterAuthSessionRepository", () => {
       id: "member-1",
       email: "member@example.com",
       name: "TuTribu Member",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "TM",
       image: "https://example.com/avatar.png",
     });
@@ -43,7 +43,7 @@ describe("BetterAuthSessionRepository", () => {
       id: "member-1",
       email: "member@example.com",
       name: "member@example.com",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "M",
       image: null,
     });

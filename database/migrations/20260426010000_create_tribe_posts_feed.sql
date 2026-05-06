@@ -75,32 +75,32 @@ ALTER TABLE public.post_comments FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.post_reactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.post_reactions FORCE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Members can read tribe posts"
+DROP POLICY IF EXISTS "Tribemates can read tribe posts"
 ON public.posts;
 
-DROP POLICY IF EXISTS "Active members can create tribe posts"
+DROP POLICY IF EXISTS "Active tribemates can create tribe posts"
 ON public.posts;
 
-DROP POLICY IF EXISTS "Members can read tribe post comments"
+DROP POLICY IF EXISTS "Tribemates can read tribe post comments"
 ON public.post_comments;
 
-DROP POLICY IF EXISTS "Active members can create tribe post comments"
+DROP POLICY IF EXISTS "Active tribemates can create tribe post comments"
 ON public.post_comments;
 
-DROP POLICY IF EXISTS "Members can read tribe post reactions"
+DROP POLICY IF EXISTS "Tribemates can read tribe post reactions"
 ON public.post_reactions;
 
-DROP POLICY IF EXISTS "Active members can manage own post reactions"
+DROP POLICY IF EXISTS "Active tribemates can manage own post reactions"
 ON public.post_reactions;
 
-CREATE POLICY "Members can read tribe posts"
+CREATE POLICY "Tribemates can read tribe posts"
 ON public.posts
 FOR SELECT
 USING (
   public.can_read_tribe_content(tribe_id)
 );
 
-CREATE POLICY "Active members can create tribe posts"
+CREATE POLICY "Active tribemates can create tribe posts"
 ON public.posts
 FOR INSERT
 WITH CHECK (
@@ -108,14 +108,14 @@ WITH CHECK (
   AND public.is_active_tribe_member(tribe_id)
 );
 
-CREATE POLICY "Members can read tribe post comments"
+CREATE POLICY "Tribemates can read tribe post comments"
 ON public.post_comments
 FOR SELECT
 USING (
   public.can_read_tribe_content(tribe_id)
 );
 
-CREATE POLICY "Active members can create tribe post comments"
+CREATE POLICY "Active tribemates can create tribe post comments"
 ON public.post_comments
 FOR INSERT
 WITH CHECK (
@@ -123,14 +123,14 @@ WITH CHECK (
   AND public.is_active_tribe_member(tribe_id)
 );
 
-CREATE POLICY "Members can read tribe post reactions"
+CREATE POLICY "Tribemates can read tribe post reactions"
 ON public.post_reactions
 FOR SELECT
 USING (
   public.can_read_tribe_content(tribe_id)
 );
 
-CREATE POLICY "Active members can manage own post reactions"
+CREATE POLICY "Active tribemates can manage own post reactions"
 ON public.post_reactions
 FOR ALL
 USING (

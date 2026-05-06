@@ -80,7 +80,7 @@ describe("Tribe SQL guardrails", () => {
     const neonBaselineMigration = readWorkspaceFile(neonBaselineMigrationPath);
 
     expect(neonBaselineMigration).toContain(
-      "DROP FUNCTION IF EXISTS public.create_private_tribe_with_owner_membership"
+      "DROP FUNCTION IF EXISTS public.create_private_tribe_with_leader_membership"
     );
   });
 

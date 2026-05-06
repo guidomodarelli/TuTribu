@@ -131,7 +131,7 @@ export default async function CreateTribePage({
           <h1 className={styles.CreateTribePage__title}>Crear una tribu</h1>
           <p className={styles.CreateTribePage__description}>
             Define el nombre y el slug inicial. La tribu se creara como privada
-            y tu cuenta quedara como owner desde el primer momento.
+            y tu cuenta quedara como líder desde el primer momento.
           </p>
         </header>
         <div className={styles.CreateTribePage__content}>

@@ -12,10 +12,10 @@ const listTribeFeed = jest.fn();
 const infoMock = jest.fn();
 const errorMock = jest.fn();
 
-const postCategory = {
-  accessScope: "members" as const,
+const tribeChannel = {
+  accessScope: "tribemates" as const,
   emoji: "💬",
-  id: "category-general",
+  id: "channel-general",
   name: "General",
   slug: "general",
   sortOrder: 20,
@@ -79,9 +79,9 @@ describe("TribePage", () => {
   it("renders the tribe operational home when access is visible", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });
@@ -95,8 +95,8 @@ describe("TribePage", () => {
       },
     });
     listTribeFeed.mockResolvedValue({
-      activeCategoryId: null,
-      categories: [postCategory],
+      activeChannelId: null,
+      channels: [tribeChannel],
       viewerPermissions: {
         canComment: true,
         canCreatePost: true,
@@ -106,20 +106,20 @@ describe("TribePage", () => {
         {
           id: "post-1",
           author: {
-            id: "owner-1",
+            id: "leader-1",
             name: "Ada Lovelace",
-            role: "owner",
+            role: "leader",
             avatarFallback: "AL",
             image: null,
           },
-          category: postCategory,
+          channel: tribeChannel,
           comments: [
             {
               id: "comment-1",
               author: {
-                id: "admin-1",
+                id: "guardian-1",
                 name: "Grace Hopper",
-                role: "admin",
+                role: "guardian",
                 avatarFallback: "GH",
                 image: null,
               },
@@ -138,11 +138,11 @@ describe("TribePage", () => {
           author: {
             id: "member-2",
             name: "Katherine Johnson",
-            role: "member",
+            role: "tribemate",
             avatarFallback: "KJ",
             image: null,
           },
-          category: postCategory,
+          channel: tribeChannel,
           comments: [],
           content: "Comparto un recurso nuevo",
           createdAt: "2026-04-26T11:00:00.000Z",
@@ -182,9 +182,9 @@ describe("TribePage", () => {
     expect(screen.getByText("Bienvenida a la tribu")).toBeInTheDocument();
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
     expect(screen.queryByText("Gracias por la bienvenida")).not.toBeInTheDocument();
-    expect(screen.getByText("Propietario")).toBeInTheDocument();
-    expect(screen.queryByText("Admin")).not.toBeInTheDocument();
-    expect(screen.queryByText("Miembro")).not.toBeInTheDocument();
+    expect(screen.getByText("Líder")).toBeInTheDocument();
+    expect(screen.queryByText("Guardián")).not.toBeInTheDocument();
+    expect(screen.queryByText("Integrante")).not.toBeInTheDocument();
     expect(screen.queryByText("Estado de la tribu")).not.toBeInTheDocument();
   });
 
@@ -193,7 +193,7 @@ describe("TribePage", () => {
       id: "member-1",
       email: "muted@example.com",
       name: "Muted User",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "MU",
       image: null,
     });
@@ -207,8 +207,8 @@ describe("TribePage", () => {
       },
     });
     listTribeFeed.mockResolvedValue({
-      activeCategoryId: null,
-      categories: [postCategory],
+      activeChannelId: null,
+      channels: [tribeChannel],
       viewerPermissions: {
         canComment: false,
         canCreatePost: false,
@@ -272,7 +272,7 @@ describe("TribePage", () => {
       id: "member-1",
       email: "blocked@example.com",
       name: "Blocked User",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "BU",
       image: null,
     });
@@ -305,9 +305,9 @@ describe("TribePage", () => {
   it("returns 404 and logs generic hidden access when the slug is not visible", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });
@@ -340,9 +340,9 @@ describe("TribePage", () => {
   it("returns 404 and logs unexpected repository failures", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });

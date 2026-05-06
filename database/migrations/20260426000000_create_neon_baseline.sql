@@ -186,7 +186,7 @@ BEGIN
   ) THEN
     ALTER TABLE public.tribe_members
     ADD CONSTRAINT tribe_members_role_check
-    CHECK (role IN ('owner', 'admin', 'member'));
+    CHECK (role IN ('leader', 'guardian', 'tribemate'));
   END IF;
 
   IF NOT EXISTS (
@@ -207,9 +207,9 @@ ON public.tribes(slug);
 CREATE UNIQUE INDEX IF NOT EXISTS tribe_members_tribe_id_user_id_key
 ON public.tribe_members(tribe_id, user_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_tribe_members_owner_per_tribe
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tribe_members_leader_per_tribe
 ON public.tribe_members(tribe_id)
-WHERE role = 'owner';
+WHERE role = 'leader';
 
 CREATE OR REPLACE FUNCTION public.current_app_user_id()
 RETURNS text
@@ -253,16 +253,16 @@ $$;
 DROP POLICY IF EXISTS "Users can read own creator whitelist entry"
 ON public.tribe_creator_whitelist;
 
-DROP POLICY IF EXISTS "Members can read own tribes"
+DROP POLICY IF EXISTS "Tribemates can read own tribes"
 ON public.tribes;
 
 DROP POLICY IF EXISTS "Whitelisted users can create private tribes"
 ON public.tribes;
 
-DROP POLICY IF EXISTS "Members can read own membership rows"
+DROP POLICY IF EXISTS "Tribemates can read own membership rows"
 ON public.tribe_members;
 
-DROP POLICY IF EXISTS "Creators can create their initial owner membership"
+DROP POLICY IF EXISTS "Creators can create their initial leader membership"
 ON public.tribe_members;
 
 CREATE POLICY "Users can read own creator whitelist entry"
@@ -272,7 +272,7 @@ USING (
   email = public.current_app_user_email()
 );
 
-CREATE POLICY "Members can read own tribes"
+CREATE POLICY "Tribemates can read own tribes"
 ON public.tribes
 FOR SELECT
 USING (
@@ -298,17 +298,17 @@ WITH CHECK (
   )
 );
 
-CREATE POLICY "Members can read own membership rows"
+CREATE POLICY "Tribemates can read own membership rows"
 ON public.tribe_members
 FOR SELECT
 USING (user_id = public.current_app_user_id());
 
-CREATE POLICY "Creators can create their initial owner membership"
+CREATE POLICY "Creators can create their initial leader membership"
 ON public.tribe_members
 FOR INSERT
 WITH CHECK (
   user_id = public.current_app_user_id()
-  AND role = 'owner'
+  AND role = 'leader'
   AND status = 'active'
   AND public.is_tribe_creator(tribe_id)
 );
@@ -355,7 +355,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.is_tribe_slug_taken(text)
 TO public;
 
-DROP FUNCTION IF EXISTS public.create_private_tribe_with_owner_membership(
+DROP FUNCTION IF EXISTS public.create_private_tribe_with_leader_membership(
   text,
   text,
   uuid

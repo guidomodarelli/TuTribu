@@ -1,18 +1,18 @@
 import {
   GET,
   POST,
-} from "@/app/api/tribes/[slug]/post-categories/route";
+} from "@/app/api/tribes/[slug]/channels/route";
 import {
   DELETE,
   PATCH,
-} from "@/app/api/tribes/[slug]/post-categories/[categoryId]/route";
+} from "@/app/api/tribes/[slug]/channels/[channelId]/route";
 import { createRequestModules } from "@/src/modules/setup";
 
 const getAuthenticatedMember = jest.fn();
-const listTribePostCategories = jest.fn();
-const createTribePostCategory = jest.fn();
-const updateTribePostCategory = jest.fn();
-const deleteTribePostCategory = jest.fn();
+const listTribeChannels = jest.fn();
+const createTribeChannel = jest.fn();
+const updateTribeChannel = jest.fn();
+const deleteTribeChannel = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -54,7 +54,7 @@ function buildJsonRequest(body: Record<string, string | number> = {}): Request {
     }),
     json: async () => body,
     method: "POST",
-    url: "https://tutribu.example.com/api/tribes/matematica-pro/post-categories",
+    url: "https://tutribu.example.com/api/tribes/matematica-pro/channels",
   } as unknown as Request;
 }
 
@@ -66,20 +66,20 @@ function buildTribeContext() {
   };
 }
 
-function buildCategoryContext() {
+function buildChannelContext() {
   return {
     params: Promise.resolve({
-      categoryId: "category-general",
+      channelId: "channel-general",
       slug: "matematica-pro",
     }),
   };
 }
 
-describe("Tribe post category routes", () => {
-  const category = {
-    accessScope: "members" as const,
+describe("Tribe channel routes", () => {
+  const channel = {
+    accessScope: "tribemates" as const,
     emoji: "💬",
-    id: "category-general",
+    id: "channel-general",
     name: "General",
     slug: "general",
     sortOrder: 20,
@@ -94,7 +94,7 @@ describe("Tribe post category routes", () => {
       id: "member-1",
       image: null,
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
     });
     (createRequestModules as jest.Mock).mockResolvedValue({
       auth: {
@@ -104,46 +104,46 @@ describe("Tribe post category routes", () => {
       },
       posts: {
         useCases: {
-          createTribePostCategory,
-          deleteTribePostCategory,
-          listTribePostCategories,
-          updateTribePostCategory,
+          createTribeChannel,
+          deleteTribeChannel,
+          listTribeChannels,
+          updateTribeChannel,
         },
       },
     });
   });
 
-  it("lists categories for the tribe", async () => {
-    listTribePostCategories.mockResolvedValue({
-      categories: [category],
+  it("lists channels for the tribe", async () => {
+    listTribeChannels.mockResolvedValue({
+      channels: [channel],
     });
 
     const response = await GET(buildJsonRequest(), buildTribeContext());
 
     await expect(response.json()).resolves.toEqual({
-      categories: [category],
+      channels: [channel],
     });
     expect(response.status).toBe(200);
-    expect(listTribePostCategories).toHaveBeenCalledWith({
+    expect(listTribeChannels).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
   });
 
-  it("returns a safe message when listing categories fails unexpectedly", async () => {
-    listTribePostCategories.mockRejectedValueOnce(new Error("database_down"));
+  it("returns a safe message when listing channels fails unexpectedly", async () => {
+    listTribeChannels.mockRejectedValueOnce(new Error("database_down"));
 
     const response = await GET(buildJsonRequest(), buildTribeContext());
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      message: "No pudimos cargar las categorías. Intentá de nuevo.",
+      message: "No pudimos cargar los canales. Intentá de nuevo.",
     });
   });
 
-  it("creates a category from request body fields", async () => {
-    createTribePostCategory.mockResolvedValue({
-      category,
+  it("creates a channel from request body fields", async () => {
+    createTribeChannel.mockResolvedValue({
+      channel,
       status: "created",
     });
 
@@ -157,13 +157,13 @@ describe("Tribe post category routes", () => {
 
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({
-      category,
-      message: "Categoría creada.",
+      channel,
+      message: "Canal creado.",
     });
   });
 
-  it("returns a safe duplicate message when creating an existing category slug", async () => {
-    createTribePostCategory.mockResolvedValue({
+  it("returns a safe duplicate message when creating an existing channel slug", async () => {
+    createTribeChannel.mockResolvedValue({
       status: "duplicate_slug",
     });
 
@@ -177,13 +177,13 @@ describe("Tribe post category routes", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      message: "Ya existe una categoría con ese nombre.",
+      message: "Ya existe un canal con ese nombre.",
     });
   });
 
-  it("updates a category from request body fields", async () => {
-    updateTribePostCategory.mockResolvedValue({
-      category,
+  it("updates a channel from request body fields", async () => {
+    updateTribeChannel.mockResolvedValue({
+      channel,
       status: "updated",
     });
 
@@ -193,12 +193,12 @@ describe("Tribe post category routes", () => {
         name: "General",
         sortOrder: 20,
       }),
-      buildCategoryContext()
+      buildChannelContext()
     );
 
     expect(response.status).toBe(200);
-    expect(updateTribePostCategory).toHaveBeenCalledWith({
-      categoryId: "category-general",
+    expect(updateTribeChannel).toHaveBeenCalledWith({
+      channelId: "channel-general",
       tribeSlug: "matematica-pro",
       emoji: "💬",
       name: "General",
@@ -206,8 +206,8 @@ describe("Tribe post category routes", () => {
     });
   });
 
-  it("returns a safe duplicate message when renaming to an existing category slug", async () => {
-    updateTribePostCategory.mockResolvedValue({
+  it("returns a safe duplicate message when renaming to an existing channel slug", async () => {
+    updateTribeChannel.mockResolvedValue({
       status: "duplicate_slug",
     });
 
@@ -217,12 +217,12 @@ describe("Tribe post category routes", () => {
         name: "General",
         sortOrder: 20,
       }),
-      buildCategoryContext()
+      buildChannelContext()
     );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      message: "Ya existe una categoría con ese nombre.",
+      message: "Ya existe un canal con ese nombre.",
     });
   });
 
@@ -233,14 +233,14 @@ describe("Tribe post category routes", () => {
         name: "General",
         sortOrder: Number.NaN,
       }),
-      buildCategoryContext()
+      buildChannelContext()
     );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      message: "El orden de la categoría es inválido.",
+      message: "El orden del canal es inválido.",
     });
-    expect(updateTribePostCategory).not.toHaveBeenCalled();
+    expect(updateTribeChannel).not.toHaveBeenCalled();
   });
 
   it("rejects updates when sort order is not an integer", async () => {
@@ -250,14 +250,14 @@ describe("Tribe post category routes", () => {
         name: "General",
         sortOrder: 20.5,
       }),
-      buildCategoryContext()
+      buildChannelContext()
     );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      message: "El orden de la categoría es inválido.",
+      message: "El orden del canal es inválido.",
     });
-    expect(updateTribePostCategory).not.toHaveBeenCalled();
+    expect(updateTribeChannel).not.toHaveBeenCalled();
   });
 
   it("rejects updates when sort order is missing", async () => {
@@ -266,14 +266,14 @@ describe("Tribe post category routes", () => {
         emoji: "💬",
         name: "General",
       }),
-      buildCategoryContext()
+      buildChannelContext()
     );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      message: "El orden de la categoría es inválido.",
+      message: "El orden del canal es inválido.",
     });
-    expect(updateTribePostCategory).not.toHaveBeenCalled();
+    expect(updateTribeChannel).not.toHaveBeenCalled();
   });
 
   it("rejects updates when sort order is an empty string", async () => {
@@ -283,26 +283,26 @@ describe("Tribe post category routes", () => {
         name: "General",
         sortOrder: "",
       }),
-      buildCategoryContext()
+      buildChannelContext()
     );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      message: "El orden de la categoría es inválido.",
+      message: "El orden del canal es inválido.",
     });
-    expect(updateTribePostCategory).not.toHaveBeenCalled();
+    expect(updateTribeChannel).not.toHaveBeenCalled();
   });
 
-  it("requires a target category when deleting a category with posts", async () => {
-    deleteTribePostCategory.mockResolvedValue({
-      status: "category_has_posts",
+  it("requires a target channel when deleting a channel with posts", async () => {
+    deleteTribeChannel.mockResolvedValue({
+      status: "channel_has_posts",
     });
 
-    const response = await DELETE(buildJsonRequest(), buildCategoryContext());
+    const response = await DELETE(buildJsonRequest(), buildChannelContext());
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      message: "Elegí otra categoría para mover las publicaciones.",
+      message: "Elegí otro canal para mover las publicaciones.",
     });
   });
 });

@@ -34,7 +34,7 @@ export function createTribePost({
   ): Promise<PostCreationResult> => {
     const content = normalizePostContent(command.content);
     const title = normalizePostTitle(command.title);
-    const categoryId = command.categoryId.trim();
+    const channelId = command.channelId.trim();
 
     if (
       isInvalidText(content, TRIBE_POST_CONTENT) ||
@@ -45,15 +45,15 @@ export function createTribePost({
       };
     }
 
-    if (!categoryId) {
+    if (!channelId) {
       return {
-        status: POST_MUTATION_STATUS.invalidCategory,
+        status: POST_MUTATION_STATUS.invalidChannel,
       };
     }
 
     return postCreationRepository.create({
       ...command,
-      categoryId,
+      channelId,
       tribeSlug: command.tribeSlug.trim(),
       content,
       title,

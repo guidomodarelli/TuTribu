@@ -115,9 +115,9 @@ describe("PlatformLayout", () => {
   it("resolves member tribes server-side and passes them to the sidebar", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });
@@ -144,9 +144,9 @@ describe("PlatformLayout", () => {
   it("renders only the private tribe badge in the platform header", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });
@@ -172,9 +172,9 @@ describe("PlatformLayout", () => {
   it("renders the theme selector next to the account menu", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });
@@ -196,9 +196,9 @@ describe("PlatformLayout", () => {
     });
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });

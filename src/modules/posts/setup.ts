@@ -2,34 +2,34 @@ import { createTribePost } from "@/src/modules/posts/application/use-cases/creat
 import { createPostComment } from "@/src/modules/posts/application/use-cases/create-post-comment-use-case";
 import { listTribeFeed } from "@/src/modules/posts/application/use-cases/list-tribe-feed-use-case";
 import {
-  createTribePostCategory,
-  deleteTribePostCategory,
-  listTribePostCategories,
-  updateTribePostCategory,
-} from "@/src/modules/posts/application/use-cases/manage-post-categories-use-cases";
+  createTribeChannel,
+  deleteTribeChannel,
+  listTribeChannels,
+  updateTribeChannel,
+} from "@/src/modules/posts/application/use-cases/manage-tribe-channels-use-cases";
 import { togglePostLike } from "@/src/modules/posts/application/use-cases/toggle-post-like-use-case";
 import type {
   CreateTribePostCommand,
-  CreateTribePostCategoryCommand,
+  CreateTribeChannelCommand,
   CreatePostCommentCommand,
-  DeleteTribePostCategoryCommand,
+  DeleteTribeChannelCommand,
   TogglePostLikeCommand,
-  UpdateTribePostCategoryCommand,
+  UpdateTribeChannelCommand,
 } from "@/src/modules/posts/application/commands/tribe-post-command";
 import type { TribeFeedResult } from "@/src/modules/posts/application/results/tribe-feed-result";
 import type {
-  PostCategoryCreationResult,
-  PostCategoryDeletionResult,
-  PostCategoryListResult,
-  PostCategoryUpdateResult,
-} from "@/src/modules/posts/application/results/post-category-result";
+  TribeChannelCreationResult,
+  TribeChannelDeletionResult,
+  TribeChannelListResult,
+  TribeChannelUpdateResult,
+} from "@/src/modules/posts/application/results/tribe-channel-result";
 import type {
   PostCommentCreationResult,
   PostCreationResult,
   PostLikeToggleResult,
 } from "@/src/modules/posts/application/results/post-mutation-result";
 import type { PostCommentRepository } from "@/src/modules/posts/domain/repositories/post-comment-repository";
-import type { PostCategoryRepository } from "@/src/modules/posts/domain/repositories/post-category-repository";
+import type { TribeChannelRepository } from "@/src/modules/posts/domain/repositories/tribe-channel-repository";
 import type { PostCreationRepository } from "@/src/modules/posts/domain/repositories/post-creation-repository";
 import type {
   ListTribeFeedQuery,
@@ -38,7 +38,7 @@ import type {
 import type { PostReactionRepository } from "@/src/modules/posts/domain/repositories/post-reaction-repository";
 
 type PostsModuleDependencies = {
-  postCategoryRepository: PostCategoryRepository;
+  tribeChannelRepository: TribeChannelRepository;
   postCommentRepository: PostCommentRepository;
   postCreationRepository: PostCreationRepository;
   postFeedReadRepository: PostFeedReadRepository;
@@ -50,28 +50,28 @@ type PostsModule = {
     createTribePost: (
       command: CreateTribePostCommand
     ) => Promise<PostCreationResult>;
-    createTribePostCategory: (
-      command: CreateTribePostCategoryCommand
-    ) => Promise<PostCategoryCreationResult>;
-    deleteTribePostCategory: (
-      command: DeleteTribePostCategoryCommand
-    ) => Promise<PostCategoryDeletionResult>;
+    createTribeChannel: (
+      command: CreateTribeChannelCommand
+    ) => Promise<TribeChannelCreationResult>;
+    deleteTribeChannel: (
+      command: DeleteTribeChannelCommand
+    ) => Promise<TribeChannelDeletionResult>;
     createPostComment: (
       command: CreatePostCommentCommand
     ) => Promise<PostCommentCreationResult>;
     listTribeFeed: (query: ListTribeFeedQuery) => Promise<TribeFeedResult>;
-    listTribePostCategories: (
+    listTribeChannels: (
       query: ListTribeFeedQuery
-    ) => Promise<PostCategoryListResult>;
+    ) => Promise<TribeChannelListResult>;
     togglePostLike: (command: TogglePostLikeCommand) => Promise<PostLikeToggleResult>;
-    updateTribePostCategory: (
-      command: UpdateTribePostCategoryCommand
-    ) => Promise<PostCategoryUpdateResult>;
+    updateTribeChannel: (
+      command: UpdateTribeChannelCommand
+    ) => Promise<TribeChannelUpdateResult>;
   };
 };
 
 export function buildPostsModule({
-  postCategoryRepository,
+  tribeChannelRepository,
   postCommentRepository,
   postCreationRepository,
   postFeedReadRepository,
@@ -80,20 +80,20 @@ export function buildPostsModule({
   return {
     useCases: {
       createTribePost: createTribePost({ postCreationRepository }),
-      createTribePostCategory: createTribePostCategory({
-        postCategoryRepository,
+      createTribeChannel: createTribeChannel({
+        tribeChannelRepository,
       }),
-      deleteTribePostCategory: deleteTribePostCategory({
-        postCategoryRepository,
+      deleteTribeChannel: deleteTribeChannel({
+        tribeChannelRepository,
       }),
       createPostComment: createPostComment({ postCommentRepository }),
       listTribeFeed: listTribeFeed({ postFeedReadRepository }),
-      listTribePostCategories: listTribePostCategories({
-        postCategoryRepository,
+      listTribeChannels: listTribeChannels({
+        tribeChannelRepository,
       }),
       togglePostLike: togglePostLike({ postReactionRepository }),
-      updateTribePostCategory: updateTribePostCategory({
-        postCategoryRepository,
+      updateTribeChannel: updateTribeChannel({
+        tribeChannelRepository,
       }),
     },
   };

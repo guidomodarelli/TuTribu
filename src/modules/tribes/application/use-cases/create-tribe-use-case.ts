@@ -109,9 +109,9 @@ export function createTribe({
 
     try {
       createdTribe =
-        await tribeCreationRepository.createTribeWithOwnerMembership({
+        await tribeCreationRepository.createTribeWithLeaderMembership({
           name: normalizedName,
-          ownerId: command.creatorId,
+          leaderId: command.creatorId,
           slug: normalizedSlug,
           visibility: DEFAULT_TRIBE_VISIBILITY,
         });
@@ -134,7 +134,7 @@ export function createTribe({
       status: CREATE_TRIBE_STATUS.created,
       tribeId: createdTribe.id,
       name: createdTribe.name,
-      ownerMemberRole: CREATE_TRIBE_MEMBER_ROLE.owner,
+      leaderMemberRole: CREATE_TRIBE_MEMBER_ROLE.leader,
       slug: createdTribe.slug,
     };
   };

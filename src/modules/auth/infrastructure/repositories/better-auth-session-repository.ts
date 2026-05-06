@@ -14,8 +14,8 @@ async function getDefaultBetterAuthSession() {
 
 const AUTHENTICATED_MEMBER_DEFAULT = {
   avatarFallback: "AO",
-  displayName: "Miembro",
-  role: "member",
+  displayName: "Integrante",
+  role: "tribemate",
 } as const;
 
 const MAX_AVATAR_INITIALS = 2;

@@ -1,37 +1,37 @@
-import { POST_CATEGORY_MUTATION_STATUS } from "@/src/modules/posts/constants/post-feed";
+import { TRIBE_CHANNEL_MUTATION_STATUS } from "@/src/modules/posts/constants/post-feed";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const CATEGORY_ROUTE_FIELD = {
+const CHANNEL_ROUTE_FIELD = {
   emoji: "emoji",
   name: "name",
   sortOrder: "sortOrder",
-  targetCategoryId: "targetCategoryId",
+  targetChannelId: "targetChannelId",
 } as const;
 
-const CATEGORY_ROUTE_LOG = {
-  deleteFailureMessage: "Tribe post category deletion failed",
+const CHANNEL_ROUTE_LOG = {
+  deleteFailureMessage: "Tribe channel deletion failed",
   feature: "posts",
-  operation: "manage-tribe-post-category",
-  updateFailureMessage: "Tribe post category update failed",
+  operation: "manage-tribe-post-channel",
+  updateFailureMessage: "Tribe channel update failed",
 } as const;
 
-const CATEGORY_ROUTE_RESPONSE = {
-  categoryHasPostsMessage: "Elegí otra categoría para mover las publicaciones.",
-  deleteSuccessMessage: "Categoría eliminada.",
-  duplicateSlugMessage: "Ya existe una categoría con ese nombre.",
-  forbiddenMessage: "No tenés permisos para gestionar categorías.",
-  invalidCategoryMessage: "La categoría destino no pertenece a esta tribu.",
-  invalidNameMessage: "Definí un nombre y un ícono para la categoría.",
-  invalidSortOrderMessage: "El orden de la categoría es inválido.",
-  lastCategoryMessage: "La tribu necesita al menos una categoría.",
-  movedAndDeletedMessage: "Categoría eliminada y publicaciones movidas.",
-  notFoundMessage: "No pudimos encontrar la categoría.",
-  unauthorizedMessage: "Iniciá sesión para gestionar categorías.",
-  unexpectedDeleteMessage: "No pudimos eliminar la categoría. Intentá de nuevo.",
-  unexpectedUpdateMessage: "No pudimos actualizar la categoría. Intentá de nuevo.",
-  updateSuccessMessage: "Categoría actualizada.",
+const CHANNEL_ROUTE_RESPONSE = {
+  channelHasPostsMessage: "Elegí otro canal para mover las publicaciones.",
+  deleteSuccessMessage: "Canal eliminado.",
+  duplicateSlugMessage: "Ya existe un canal con ese nombre.",
+  forbiddenMessage: "No tenés permisos para gestionar canales.",
+  invalidChannelMessage: "El canal destino no pertenece a esta tribu.",
+  invalidNameMessage: "Definí un nombre y un ícono para el canal.",
+  invalidSortOrderMessage: "El orden del canal es inválido.",
+  lastChannelMessage: "La tribu necesita al menos un canal.",
+  movedAndDeletedMessage: "Canal eliminado y publicaciones movidas.",
+  notFoundMessage: "No pudimos encontrar el canal.",
+  unauthorizedMessage: "Iniciá sesión para gestionar canales.",
+  unexpectedDeleteMessage: "No pudimos eliminar el canal. Intentá de nuevo.",
+  unexpectedUpdateMessage: "No pudimos actualizar el canal. Intentá de nuevo.",
+  updateSuccessMessage: "Canal actualizado.",
 } as const;
 
 const HTTP_STATUS = {
@@ -88,16 +88,16 @@ export async function PATCH(
   request: Request,
   context: {
     params: Promise<{
-      categoryId: string;
+      channelId: string;
       slug: string;
     }>;
   }
 ) {
-  const { categoryId, slug } = await context.params;
+  const { channelId, slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
-    feature: CATEGORY_ROUTE_LOG.feature,
-    operation: CATEGORY_ROUTE_LOG.operation,
+    feature: CHANNEL_ROUTE_LOG.feature,
+    operation: CHANNEL_ROUTE_LOG.operation,
     requestId,
   });
   const modules = await createRequestModules();
@@ -105,74 +105,74 @@ export async function PATCH(
 
   if (!authenticatedMember) {
     return createJsonResponse(
-      { message: CATEGORY_ROUTE_RESPONSE.unauthorizedMessage },
+      { message: CHANNEL_ROUTE_RESPONSE.unauthorizedMessage },
       HTTP_STATUS.unauthorized
     );
   }
 
   try {
     const body = await request.json().catch(() => null);
-    const sortOrder = readNumberField(body, CATEGORY_ROUTE_FIELD.sortOrder);
+    const sortOrder = readNumberField(body, CHANNEL_ROUTE_FIELD.sortOrder);
 
     if (sortOrder === null) {
       return createJsonResponse(
-        { message: CATEGORY_ROUTE_RESPONSE.invalidSortOrderMessage },
+        { message: CHANNEL_ROUTE_RESPONSE.invalidSortOrderMessage },
         HTTP_STATUS.badRequest
       );
     }
 
-    const result = await modules.posts.useCases.updateTribePostCategory({
-      categoryId,
+    const result = await modules.posts.useCases.updateTribeChannel({
+      channelId,
       tribeSlug: slug,
-      emoji: readStringField(body, CATEGORY_ROUTE_FIELD.emoji),
-      name: readStringField(body, CATEGORY_ROUTE_FIELD.name),
+      emoji: readStringField(body, CHANNEL_ROUTE_FIELD.emoji),
+      name: readStringField(body, CHANNEL_ROUTE_FIELD.name),
       sortOrder,
     });
 
     switch (result.status) {
-      case POST_CATEGORY_MUTATION_STATUS.updated:
+      case TRIBE_CHANNEL_MUTATION_STATUS.updated:
         return createJsonResponse(
           {
-            category: result.category,
-            message: CATEGORY_ROUTE_RESPONSE.updateSuccessMessage,
+            channel: result.channel,
+            message: CHANNEL_ROUTE_RESPONSE.updateSuccessMessage,
           },
           HTTP_STATUS.ok
         );
-      case POST_CATEGORY_MUTATION_STATUS.invalidName:
+      case TRIBE_CHANNEL_MUTATION_STATUS.invalidName:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.invalidNameMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.invalidNameMessage },
           HTTP_STATUS.badRequest
         );
-      case POST_CATEGORY_MUTATION_STATUS.duplicateSlug:
+      case TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.duplicateSlugMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.duplicateSlugMessage },
           HTTP_STATUS.badRequest
         );
-      case POST_CATEGORY_MUTATION_STATUS.notFound:
+      case TRIBE_CHANNEL_MUTATION_STATUS.notFound:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.notFoundMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.notFoundMessage },
           HTTP_STATUS.notFound
         );
-      case POST_CATEGORY_MUTATION_STATUS.forbidden:
+      case TRIBE_CHANNEL_MUTATION_STATUS.forbidden:
       default:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.forbiddenMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.forbiddenMessage },
           HTTP_STATUS.forbidden
         );
     }
   } catch (error) {
     logger.error({
-      message: CATEGORY_ROUTE_LOG.updateFailureMessage,
+      message: CHANNEL_ROUTE_LOG.updateFailureMessage,
       error,
       metadata: {
-        categoryId,
+        channelId,
         slug,
         viewerId: authenticatedMember.id,
       },
     });
 
     return createJsonResponse(
-      { message: CATEGORY_ROUTE_RESPONSE.unexpectedUpdateMessage },
+      { message: CHANNEL_ROUTE_RESPONSE.unexpectedUpdateMessage },
       HTTP_STATUS.serverError
     );
   }
@@ -182,16 +182,16 @@ export async function DELETE(
   request: Request,
   context: {
     params: Promise<{
-      categoryId: string;
+      channelId: string;
       slug: string;
     }>;
   }
 ) {
-  const { categoryId, slug } = await context.params;
+  const { channelId, slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
-    feature: CATEGORY_ROUTE_LOG.feature,
-    operation: CATEGORY_ROUTE_LOG.operation,
+    feature: CHANNEL_ROUTE_LOG.feature,
+    operation: CHANNEL_ROUTE_LOG.operation,
     requestId,
   });
   const modules = await createRequestModules();
@@ -199,70 +199,70 @@ export async function DELETE(
 
   if (!authenticatedMember) {
     return createJsonResponse(
-      { message: CATEGORY_ROUTE_RESPONSE.unauthorizedMessage },
+      { message: CHANNEL_ROUTE_RESPONSE.unauthorizedMessage },
       HTTP_STATUS.unauthorized
     );
   }
 
   try {
     const body = await request.json().catch(() => null);
-    const result = await modules.posts.useCases.deleteTribePostCategory({
-      categoryId,
+    const result = await modules.posts.useCases.deleteTribeChannel({
+      channelId,
       tribeSlug: slug,
-      targetCategoryId: readStringField(body, CATEGORY_ROUTE_FIELD.targetCategoryId),
+      targetChannelId: readStringField(body, CHANNEL_ROUTE_FIELD.targetChannelId),
     });
 
     switch (result.status) {
-      case POST_CATEGORY_MUTATION_STATUS.deleted:
+      case TRIBE_CHANNEL_MUTATION_STATUS.deleted:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.deleteSuccessMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.deleteSuccessMessage },
           HTTP_STATUS.ok
         );
-      case POST_CATEGORY_MUTATION_STATUS.movedAndDeleted:
+      case TRIBE_CHANNEL_MUTATION_STATUS.movedAndDeleted:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.movedAndDeletedMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.movedAndDeletedMessage },
           HTTP_STATUS.ok
         );
-      case POST_CATEGORY_MUTATION_STATUS.categoryHasPosts:
+      case TRIBE_CHANNEL_MUTATION_STATUS.channelHasPosts:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.categoryHasPostsMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.channelHasPostsMessage },
           HTTP_STATUS.badRequest
         );
-      case POST_CATEGORY_MUTATION_STATUS.invalidCategory:
+      case TRIBE_CHANNEL_MUTATION_STATUS.invalidChannel:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.invalidCategoryMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.invalidChannelMessage },
           HTTP_STATUS.badRequest
         );
-      case POST_CATEGORY_MUTATION_STATUS.lastCategory:
+      case TRIBE_CHANNEL_MUTATION_STATUS.lastChannel:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.lastCategoryMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.lastChannelMessage },
           HTTP_STATUS.badRequest
         );
-      case POST_CATEGORY_MUTATION_STATUS.notFound:
+      case TRIBE_CHANNEL_MUTATION_STATUS.notFound:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.notFoundMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.notFoundMessage },
           HTTP_STATUS.notFound
         );
-      case POST_CATEGORY_MUTATION_STATUS.forbidden:
+      case TRIBE_CHANNEL_MUTATION_STATUS.forbidden:
       default:
         return createJsonResponse(
-          { message: CATEGORY_ROUTE_RESPONSE.forbiddenMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.forbiddenMessage },
           HTTP_STATUS.forbidden
         );
     }
   } catch (error) {
     logger.error({
-      message: CATEGORY_ROUTE_LOG.deleteFailureMessage,
+      message: CHANNEL_ROUTE_LOG.deleteFailureMessage,
       error,
       metadata: {
-        categoryId,
+        channelId,
         slug,
         viewerId: authenticatedMember.id,
       },
     });
 
     return createJsonResponse(
-      { message: CATEGORY_ROUTE_RESPONSE.unexpectedDeleteMessage },
+      { message: CHANNEL_ROUTE_RESPONSE.unexpectedDeleteMessage },
       HTTP_STATUS.serverError
     );
   }

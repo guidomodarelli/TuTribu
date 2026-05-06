@@ -4,7 +4,7 @@ import { resolveRequestContext } from "@/src/modules/shared/infrastructure/obser
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const CREATE_POST_ROUTE_FIELD = {
-  categoryId: "categoryId",
+  channelId: "channelId",
   content: "content",
   title: "title",
 } as const;
@@ -18,7 +18,7 @@ const CREATE_POST_ROUTE_LOG = {
 const CREATE_POST_ROUTE_RESPONSE = {
   forbiddenMessage: "No tenes permisos para publicar en esta tribu.",
   invalidContentMessage: "Completá el título y el contenido antes de publicar.",
-  invalidCategoryMessage: "Seleccioná una categoría antes de publicar.",
+  invalidChannelMessage: "Seleccioná un canal antes de publicar.",
   notFoundMessage: "No pudimos encontrar la tribu.",
   successMessage: "Publicacion creada.",
   unexpectedMessage: "No pudimos crear la publicacion. Intentalo de nuevo.",
@@ -48,14 +48,14 @@ function readContentFromBody(body: unknown): string {
   return typeof content === "string" ? content : "";
 }
 
-function readCategoryIdFromBody(body: unknown): string {
-  if (!body || typeof body !== "object" || !(CREATE_POST_ROUTE_FIELD.categoryId in body)) {
+function readChannelIdFromBody(body: unknown): string {
+  if (!body || typeof body !== "object" || !(CREATE_POST_ROUTE_FIELD.channelId in body)) {
     return "";
   }
 
-  const categoryId = (body as Record<string, unknown>)[CREATE_POST_ROUTE_FIELD.categoryId];
+  const channelId = (body as Record<string, unknown>)[CREATE_POST_ROUTE_FIELD.channelId];
 
-  return typeof categoryId === "string" ? categoryId : "";
+  return typeof channelId === "string" ? channelId : "";
 }
 
 function readTitleFromBody(body: unknown): string {
@@ -97,7 +97,7 @@ export async function POST(
     const body = await request.json().catch(() => null);
     const result = await modules.posts.useCases.createTribePost({
       authorId: authenticatedMember.id,
-      categoryId: readCategoryIdFromBody(body),
+      channelId: readChannelIdFromBody(body),
       tribeSlug: slug,
       content: readContentFromBody(body),
       title: readTitleFromBody(body),
@@ -117,9 +117,9 @@ export async function POST(
           { message: CREATE_POST_ROUTE_RESPONSE.invalidContentMessage },
           HTTP_STATUS.badRequest
         );
-      case POST_MUTATION_STATUS.invalidCategory:
+      case POST_MUTATION_STATUS.invalidChannel:
         return createJsonResponse(
-          { message: CREATE_POST_ROUTE_RESPONSE.invalidCategoryMessage },
+          { message: CREATE_POST_ROUTE_RESPONSE.invalidChannelMessage },
           HTTP_STATUS.badRequest
         );
       case POST_MUTATION_STATUS.notFound:

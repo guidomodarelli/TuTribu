@@ -19,7 +19,7 @@ type PostgresTribeRow = {
 
 type PostgresMembershipTribeRow = {
   tribe_id: string;
-  role: "admin" | "member" | "owner";
+  role: "guardian" | "tribemate" | "leader";
   tribes: {
     id: string;
     name: string;

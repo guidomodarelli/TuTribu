@@ -29,13 +29,13 @@ describe("PostgresPostMutationRepository", () => {
           author_id: "member-1",
           author_image: null,
           author_name: "Grace Hopper",
-          author_role: "member",
-          category_access_scope: "members",
-          category_emoji: "💬",
-          category_id: "category-general",
-          category_name: "General",
-          category_slug: "general",
-          category_sort_order: 20,
+          author_role: "tribemate",
+          channel_access_scope: "tribemates",
+          channel_emoji: "💬",
+          channel_id: "channel-general",
+          channel_name: "General",
+          channel_slug: "general",
+          channel_sort_order: 20,
           post_content: "Primera publicación",
           post_created_at: "2026-04-26T12:00:00.000Z",
           post_id: "post-1",
@@ -51,7 +51,7 @@ describe("PostgresPostMutationRepository", () => {
     await expect(
       repository.create({
         authorId: "member-1",
-        categoryId: "category-general",
+        channelId: "channel-general",
         tribeSlug: "matematica-pro",
         content: "Primera publicación",
         title: "Anuncio inicial",
@@ -59,10 +59,10 @@ describe("PostgresPostMutationRepository", () => {
     ).resolves.toEqual({
       post: {
         id: "post-1",
-        category: {
-          accessScope: "members",
+        channel: {
+          accessScope: "tribemates",
           emoji: "💬",
-          id: "category-general",
+          id: "channel-general",
           name: "General",
           slug: "general",
           sortOrder: 20,
@@ -70,7 +70,7 @@ describe("PostgresPostMutationRepository", () => {
         author: {
           id: "member-1",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         },
@@ -88,9 +88,9 @@ describe("PostgresPostMutationRepository", () => {
 
     expect(sqlText).toContain("insert into public.posts");
     expect(sqlText).toContain(
-      "(tribe_id, category_id, author_id, title, content, created_at, updated_at)"
+      "(tribe_id, channel_id, author_id, title, content, created_at, updated_at)"
     );
-    expect(sqlText).toContain("target_category");
+    expect(sqlText).toContain("target_channel");
     expect(sqlText).toContain(
       "where public.is_active_tribe_member(target_tribe.id)"
     );
@@ -166,7 +166,7 @@ describe("PostgresPostMutationRepository", () => {
           comment_author_id: "member-1",
           comment_author_image: null,
           comment_author_name: "Grace Hopper",
-          comment_author_role: "member",
+          comment_author_role: "tribemate",
           comment_content: "Excelente clase",
           comment_created_at: "2026-04-26T12:05:00.000Z",
           comment_id: "comment-1",
@@ -191,7 +191,7 @@ describe("PostgresPostMutationRepository", () => {
         author: {
           id: "member-1",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         },

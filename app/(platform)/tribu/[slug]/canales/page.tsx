@@ -1,20 +1,20 @@
 import { notFound } from "next/navigation";
 
-import { PostCategoryManagement } from "@/components/tribe-feed/post-category-management";
+import { TribeChannelManagement } from "@/components/tribe-feed/tribe-channel-management";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
-const CATEGORY_MANAGEMENT_PAGE_LOG = {
-  operation: "tribe-category-management-page",
-  resolveCategoriesFailureMessage: "Failed to resolve tribe post categories",
+const CHANNEL_MANAGEMENT_PAGE_LOG = {
+  operation: "tribe-channel-management-page",
+  resolveChannelsFailureMessage: "Failed to resolve tribe channels",
 } as const;
 
-const CATEGORY_MANAGER_ROLE = {
-  admin: "admin",
-  owner: "owner",
+const CHANNEL_MANAGER_ROLE = {
+  guardian: "guardian",
+  leader: "leader",
 } as const;
 
-export default async function TribeCategoriesPage({
+export default async function TribeChannelsPage({
   params,
 }: {
   params: Promise<{
@@ -24,7 +24,7 @@ export default async function TribeCategoriesPage({
   const { slug } = await params;
   const { authenticatedMember, tribe, logger, modules } =
     await resolveVisibleTribePageAccess({
-      operation: CATEGORY_MANAGEMENT_PAGE_LOG.operation,
+      operation: CHANNEL_MANAGEMENT_PAGE_LOG.operation,
       slug,
     });
 
@@ -33,8 +33,8 @@ export default async function TribeCategoriesPage({
   ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
 
   if (
-    currentMembership?.role !== CATEGORY_MANAGER_ROLE.owner &&
-    currentMembership?.role !== CATEGORY_MANAGER_ROLE.admin
+    currentMembership?.role !== CHANNEL_MANAGER_ROLE.leader &&
+    currentMembership?.role !== CHANNEL_MANAGER_ROLE.guardian
   ) {
     notFound();
   }
@@ -48,14 +48,14 @@ export default async function TribeCategoriesPage({
     notFound();
   }
 
-  const categoryResult = await modules.posts.useCases
-    .listTribePostCategories({
+  const channelResult = await modules.posts.useCases
+    .listTribeChannels({
       tribeSlug: tribe.slug,
       viewerId: authenticatedMember.id,
     })
     .catch((error: unknown) => {
       logger.error({
-        message: CATEGORY_MANAGEMENT_PAGE_LOG.resolveCategoriesFailureMessage,
+        message: CHANNEL_MANAGEMENT_PAGE_LOG.resolveChannelsFailureMessage,
         error,
         metadata: {
           slug,
@@ -67,8 +67,8 @@ export default async function TribeCategoriesPage({
 
   return (
     <main>
-      <PostCategoryManagement
-        categories={categoryResult.categories}
+      <TribeChannelManagement
+        channels={channelResult.channels}
         tribeSlug={tribe.slug}
       />
     </main>

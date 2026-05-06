@@ -14,9 +14,9 @@ export const POST_COMMENT_CONTENT = {
 } as const;
 
 export const POST_AUTHOR_ROLE = {
-  admin: "admin",
-  member: "member",
-  owner: "owner",
+  guardian: "guardian",
+  leader: "leader",
+  tribemate: "tribemate",
 } as const;
 
 export const POST_MEMBERSHIP_STATUS = {
@@ -32,42 +32,42 @@ export const POST_REACTION_TYPE = {
 export const POST_MUTATION_STATUS = {
   created: "created",
   forbidden: "forbidden",
-  invalidCategory: "invalid_category",
+  invalidChannel: "invalid_channel",
   invalidContent: "invalid_content",
   liked: "liked",
   notFound: "not_found",
   unliked: "unliked",
 } as const;
 
-export const POST_CATEGORY_ACCESS_SCOPE = {
-  members: "members",
+export const TRIBE_CHANNEL_ACCESS_SCOPE = {
+  tribemates: "tribemates",
 } as const;
 
-export const POST_CATEGORY_MUTATION_STATUS = {
-  categoryHasPosts: "category_has_posts",
+export const TRIBE_CHANNEL_MUTATION_STATUS = {
+  channelHasPosts: "channel_has_posts",
   created: "created",
   deleted: "deleted",
   duplicateSlug: "duplicate_slug",
   forbidden: "forbidden",
-  invalidCategory: "invalid_category",
+  invalidChannel: "invalid_channel",
   invalidName: "invalid_name",
-  lastCategory: "last_category",
+  lastChannel: "last_channel",
   movedAndDeleted: "moved_and_deleted",
   notFound: "not_found",
   updated: "updated",
 } as const;
 
-export const TRIBE_POST_CATEGORY_NAME = {
+export const TRIBE_CHANNEL_NAME = {
   maxLength: 80,
   minLength: 1,
 } as const;
 
-export const TRIBE_POST_CATEGORY_EMOJI = {
+export const TRIBE_CHANNEL_EMOJI = {
   maxLength: 8,
   minLength: 1,
 } as const;
 
-export const DEFAULT_TRIBE_POST_CATEGORIES = [
+export const DEFAULT_TRIBE_CHANNELS = [
   {
     emoji: "💬",
     name: "General",

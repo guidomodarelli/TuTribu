@@ -7,7 +7,7 @@ export const CREATE_TRIBE_STATUS = {
 } as const;
 
 export const CREATE_TRIBE_MEMBER_ROLE = {
-  owner: "owner",
+  leader: "leader",
 } as const;
 
 export const CREATE_TRIBE_ERROR_CODE = {

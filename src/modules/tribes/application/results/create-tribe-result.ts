@@ -15,7 +15,7 @@ export type CreateTribeCreatedResult = {
   tribeId: string;
   name: string;
   slug: string;
-  ownerMemberRole: typeof CREATE_TRIBE_MEMBER_ROLE.owner;
+  leaderMemberRole: typeof CREATE_TRIBE_MEMBER_ROLE.leader;
 };
 
 export type CreateTribeConflictResult = {

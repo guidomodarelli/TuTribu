@@ -1,7 +1,7 @@
-.PostCategoryManagement {
-  --category-surface: color-mix(in srgb, var(--background) 94%, var(--foreground) 6%);
-  --category-surface-strong: color-mix(in srgb, var(--background) 88%, var(--foreground) 12%);
-  --category-danger: hsl(0 72% 46%);
+.TribeChannelManagement {
+  --channel-surface: color-mix(in srgb, var(--background) 94%, var(--foreground) 6%);
+  --channel-surface-strong: color-mix(in srgb, var(--background) 88%, var(--foreground) 12%);
+  --channel-danger: hsl(0 72% 46%);
 
   display: grid;
   gap: 1.5rem;
@@ -73,7 +73,7 @@
     align-items: end;
     border: 1px solid var(--border);
     border-radius: 0.9rem;
-    background: var(--category-surface);
+    background: var(--channel-surface);
     padding: 0.9rem;
   }
 
@@ -106,7 +106,7 @@
       background-color 160ms ease;
 
     &:hover {
-      border-color: var(--category-surface-strong);
+      border-color: var(--channel-surface-strong);
     }
 
     &:focus-visible {
@@ -160,7 +160,7 @@
       background-color 160ms ease;
 
     &:hover:not(:disabled) {
-      background: var(--category-surface-strong);
+      background: var(--channel-surface-strong);
     }
 
     &:focus-visible {
@@ -170,11 +170,11 @@
   }
 
   &__actions > :last-child {
-    color: var(--category-danger);
-    border-color: color-mix(in srgb, var(--category-danger) 28%, var(--border));
+    color: var(--channel-danger);
+    border-color: color-mix(in srgb, var(--channel-danger) 28%, var(--border));
 
     &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--category-danger) 8%, var(--background));
+      background: color-mix(in srgb, var(--channel-danger) 8%, var(--background));
     }
   }
 
@@ -186,7 +186,7 @@
 }
 
 @media (min-width: 40rem) {
-  .PostCategoryManagement {
+  .TribeChannelManagement {
     &__createForm {
       grid-template-columns: minmax(5rem, 0.22fr) minmax(12rem, 1fr);
     }
@@ -214,7 +214,7 @@
 }
 
 @media (min-width: 56rem) {
-  .PostCategoryManagement {
+  .TribeChannelManagement {
     &__createForm {
       grid-template-columns: minmax(4.5rem, 0.18fr) minmax(12rem, 1fr) max-content;
     }

@@ -1,26 +1,26 @@
 import {
-  createTribePostCategory,
-  deleteTribePostCategory,
-  updateTribePostCategory,
-} from "@/src/modules/posts/application/use-cases/manage-post-categories-use-cases";
+  createTribeChannel,
+  deleteTribeChannel,
+  updateTribeChannel,
+} from "@/src/modules/posts/application/use-cases/manage-tribe-channels-use-cases";
 
-describe("post category use cases", () => {
-  const category = {
-    accessScope: "members" as const,
+describe("channel use cases", () => {
+  const channel = {
+    accessScope: "tribemates" as const,
     emoji: "💬",
-    id: "category-general",
+    id: "channel-general",
     name: "General",
     slug: "general",
     sortOrder: 20,
   };
 
-  it("creates a category when the name and emoji are valid", async () => {
+  it("creates a channel when the name and emoji are valid", async () => {
     const create = jest.fn(async () => ({
-      category,
+      channel,
       status: "created" as const,
     }));
-    const execute = createTribePostCategory({
-      postCategoryRepository: {
+    const execute = createTribeChannel({
+      tribeChannelRepository: {
         create,
         delete: jest.fn(),
         listByTribeSlug: jest.fn(),
@@ -34,7 +34,7 @@ describe("post category use cases", () => {
         emoji: " 💬 ",
         name: " General ",
       })
-    ).resolves.toEqual({ category, status: "created" });
+    ).resolves.toEqual({ channel, status: "created" });
     expect(create).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
       emoji: "💬",
@@ -42,10 +42,10 @@ describe("post category use cases", () => {
     });
   });
 
-  it("rejects a category without name before calling the repository", async () => {
+  it("rejects a channel without name before calling the repository", async () => {
     const create = jest.fn();
-    const execute = createTribePostCategory({
-      postCategoryRepository: {
+    const execute = createTribeChannel({
+      tribeChannelRepository: {
         create,
         delete: jest.fn(),
         listByTribeSlug: jest.fn(),
@@ -63,13 +63,13 @@ describe("post category use cases", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("updates a category with normalized text", async () => {
+  it("updates a channel with normalized text", async () => {
     const update = jest.fn(async () => ({
-      category,
+      channel,
       status: "updated" as const,
     }));
-    const execute = updateTribePostCategory({
-      postCategoryRepository: {
+    const execute = updateTribeChannel({
+      tribeChannelRepository: {
         create: jest.fn(),
         delete: jest.fn(),
         listByTribeSlug: jest.fn(),
@@ -79,15 +79,15 @@ describe("post category use cases", () => {
 
     await expect(
       execute({
-        categoryId: " category-general ",
+        channelId: " channel-general ",
         tribeSlug: " matematica-pro ",
         emoji: " 💬 ",
         name: " General ",
         sortOrder: 20,
       })
-    ).resolves.toEqual({ category, status: "updated" });
+    ).resolves.toEqual({ channel, status: "updated" });
     expect(update).toHaveBeenCalledWith({
-      categoryId: "category-general",
+      channelId: "channel-general",
       tribeSlug: "matematica-pro",
       emoji: "💬",
       name: "General",
@@ -95,14 +95,14 @@ describe("post category use cases", () => {
     });
   });
 
-  it("passes the target category when deleting a category with posts", async () => {
-    const deleteCategory = jest.fn(async () => ({
+  it("passes the target channel when deleting a channel with posts", async () => {
+    const deleteChannel = jest.fn(async () => ({
       status: "moved_and_deleted" as const,
     }));
-    const execute = deleteTribePostCategory({
-      postCategoryRepository: {
+    const execute = deleteTribeChannel({
+      tribeChannelRepository: {
         create: jest.fn(),
-        delete: deleteCategory,
+        delete: deleteChannel,
         listByTribeSlug: jest.fn(),
         update: jest.fn(),
       },
@@ -110,26 +110,26 @@ describe("post category use cases", () => {
 
     await expect(
       execute({
-        categoryId: " category-questions ",
+        channelId: " channel-questions ",
         tribeSlug: " matematica-pro ",
-        targetCategoryId: " category-general ",
+        targetChannelId: " channel-general ",
       })
     ).resolves.toEqual({ status: "moved_and_deleted" });
-    expect(deleteCategory).toHaveBeenCalledWith({
-      categoryId: "category-questions",
+    expect(deleteChannel).toHaveBeenCalledWith({
+      channelId: "channel-questions",
       tribeSlug: "matematica-pro",
-      targetCategoryId: "category-general",
+      targetChannelId: "channel-general",
     });
   });
 
-  it("omits targetCategoryId when delete request sends an empty value", async () => {
-    const deleteCategory = jest.fn(async () => ({
+  it("omits targetChannelId when delete request sends an empty value", async () => {
+    const deleteChannel = jest.fn(async () => ({
       status: "deleted" as const,
     }));
-    const execute = deleteTribePostCategory({
-      postCategoryRepository: {
+    const execute = deleteTribeChannel({
+      tribeChannelRepository: {
         create: jest.fn(),
-        delete: deleteCategory,
+        delete: deleteChannel,
         listByTribeSlug: jest.fn(),
         update: jest.fn(),
       },
@@ -137,15 +137,15 @@ describe("post category use cases", () => {
 
     await expect(
       execute({
-        categoryId: " category-questions ",
+        channelId: " channel-questions ",
         tribeSlug: " matematica-pro ",
-        targetCategoryId: "   ",
+        targetChannelId: "   ",
       })
     ).resolves.toEqual({ status: "deleted" });
-    expect(deleteCategory).toHaveBeenCalledWith({
-      categoryId: "category-questions",
+    expect(deleteChannel).toHaveBeenCalledWith({
+      channelId: "channel-questions",
       tribeSlug: "matematica-pro",
-      targetCategoryId: undefined,
+      targetChannelId: undefined,
     });
   });
 });

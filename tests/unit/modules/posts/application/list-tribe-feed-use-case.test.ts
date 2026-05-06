@@ -1,10 +1,10 @@
 import { listTribeFeed } from "@/src/modules/posts/application/use-cases/list-tribe-feed-use-case";
 
 describe("listTribeFeed", () => {
-  const category = {
-    accessScope: "members" as const,
+  const channel = {
+    accessScope: "tribemates" as const,
     emoji: "💬",
-    id: "category-general",
+    id: "channel-general",
     name: "General",
     slug: "general",
     sortOrder: 20,
@@ -13,8 +13,8 @@ describe("listTribeFeed", () => {
   it("returns posts and enables participation for active members", async () => {
     const postFeedReadRepository = {
       listByTribeSlug: jest.fn(async () => ({
-        activeCategoryId: null,
-        categories: [category],
+        activeChannelId: null,
+        channels: [channel],
         viewerPermissions: {
           canComment: true,
           canCreatePost: true,
@@ -24,13 +24,13 @@ describe("listTribeFeed", () => {
           {
             id: "post-1",
             author: {
-              id: "owner-1",
+              id: "leader-1",
               name: "Ada Lovelace",
-              role: "owner" as const,
+              role: "leader" as const,
               avatarFallback: "AL",
               image: null,
             },
-            category,
+            channel,
             comments: [],
             content: "Bienvenida al grupo",
             createdAt: "2026-04-26T12:00:00.000Z",
@@ -49,8 +49,8 @@ describe("listTribeFeed", () => {
         viewerId: "member-1",
       })
     ).resolves.toEqual({
-      activeCategoryId: null,
-      categories: [category],
+      activeChannelId: null,
+      channels: [channel],
       viewerPermissions: {
         canComment: true,
         canCreatePost: true,
@@ -74,8 +74,8 @@ describe("listTribeFeed", () => {
     const execute = listTribeFeed({
       postFeedReadRepository: {
         listByTribeSlug: jest.fn(async () => ({
-          activeCategoryId: null,
-          categories: [category],
+          activeChannelId: null,
+          channels: [channel],
           viewerPermissions: {
             canComment: false,
             canCreatePost: false,
@@ -92,8 +92,8 @@ describe("listTribeFeed", () => {
         viewerId: "member-1",
       })
     ).resolves.toEqual({
-      activeCategoryId: null,
-      categories: [category],
+      activeChannelId: null,
+      channels: [channel],
       viewerPermissions: {
         canComment: false,
         canCreatePost: false,

@@ -6,19 +6,19 @@ describe("getMemberTribes", () => {
       {
         tribeId: "tribe-2",
         name: "Zeta Club",
-        role: "member" as const,
+        role: "tribemate" as const,
         slug: "zeta-club",
       },
       {
         tribeId: "tribe-1",
         name: "Alpha Club",
-        role: "owner" as const,
+        role: "leader" as const,
         slug: "alpha-club",
       },
       {
         tribeId: "tribe-3",
         name: "Beta Club",
-        role: "admin" as const,
+        role: "guardian" as const,
         slug: "beta-club",
       },
     ]);
@@ -34,19 +34,19 @@ describe("getMemberTribes", () => {
       {
         tribeId: "tribe-1",
         name: "Alpha Club",
-        role: "owner",
+        role: "leader",
         slug: "alpha-club",
       },
       {
         tribeId: "tribe-3",
         name: "Beta Club",
-        role: "admin",
+        role: "guardian",
         slug: "beta-club",
       },
       {
         tribeId: "tribe-2",
         name: "Zeta Club",
-        role: "member",
+        role: "tribemate",
         slug: "zeta-club",
       },
     ]);
@@ -56,21 +56,21 @@ describe("getMemberTribes", () => {
     const listVisibleMembershipTribes = jest.fn(async () => [
       {
         tribeId: "tribe-1",
-        name: "Owners",
-        role: "owner" as const,
-        slug: "owners",
+        name: "Leaders",
+        role: "leader" as const,
+        slug: "leaders",
       },
       {
         tribeId: "tribe-2",
-        name: "Admins",
-        role: "admin" as const,
-        slug: "admins",
+        name: "Guardiáns",
+        role: "guardian" as const,
+        slug: "guardians",
       },
       {
         tribeId: "tribe-3",
         name: "Members",
-        role: "member" as const,
-        slug: "members",
+        role: "tribemate" as const,
+        slug: "tribemates",
       },
     ]);
     const execute = getMemberTribes({

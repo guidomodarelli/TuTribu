@@ -12,7 +12,7 @@ export type PostCreationResult =
   | {
       status:
         | typeof POST_MUTATION_STATUS.forbidden
-        | typeof POST_MUTATION_STATUS.invalidCategory
+        | typeof POST_MUTATION_STATUS.invalidChannel
         | typeof POST_MUTATION_STATUS.invalidContent
         | typeof POST_MUTATION_STATUS.notFound;
     };

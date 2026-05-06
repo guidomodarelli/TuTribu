@@ -2,9 +2,9 @@ const TRIBE_ROUTE_PREFIX = "/tribu/";
 const ROUTE_SEGMENT_SEPARATOR = "/";
 const TRIBE_ROUTE_SEGMENTS = {
   about: "acerca-de",
-  categories: "categorias",
+  channels: "canales",
   events: "eventos",
-  members: "miembros",
+  tribemates: "integrantes",
   ranking: "ranking",
 } as const;
 
@@ -24,13 +24,13 @@ export const ROUTES = {
     about: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.about),
     bySlug: (slug: string) => TRIBE_ROUTE_PREFIX + slug,
-    categories: (slug: string) =>
-      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.categories),
+    channels: (slug: string) =>
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.channels),
     create: "/tribu/crear",
     events: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.events),
-    members: (slug: string) =>
-      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.members),
+    tribemates: (slug: string) =>
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.tribemates),
     ranking: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.ranking),
   },

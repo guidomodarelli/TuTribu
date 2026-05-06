@@ -93,9 +93,9 @@ describe("Create tribe route", () => {
   it("redirects to the newly created tribe on success", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });
@@ -104,7 +104,7 @@ describe("Create tribe route", () => {
       tribeId: "tribe-1",
       name: "Matematica Pro",
       slug: "matematica-pro",
-      ownerMemberRole: "owner",
+      leaderMemberRole: "leader",
     });
 
     const request = buildMockRequest({
@@ -115,7 +115,7 @@ describe("Create tribe route", () => {
     const response = await POST(request);
 
     expect(createTribe).toHaveBeenCalledWith({
-      creatorEmail: "owner@example.com",
+      creatorEmail: "leader@example.com",
       creatorId: "member-1",
       name: "Matematica Pro",
       slug: "matematica-pro",
@@ -128,9 +128,9 @@ describe("Create tribe route", () => {
   it("redirects back to the form with a suggested slug when there is a conflict", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });
@@ -155,9 +155,9 @@ describe("Create tribe route", () => {
   it("logs and redirects with a safe error code when creation throws unexpectedly", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });

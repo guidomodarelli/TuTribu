@@ -62,9 +62,9 @@ describe("NotFoundPage", () => {
   it("hides the sign in action when the user is already authenticated", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
-      email: "owner@example.com",
+      email: "leader@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });

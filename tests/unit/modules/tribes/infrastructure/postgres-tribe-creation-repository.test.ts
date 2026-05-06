@@ -23,7 +23,7 @@ function getSqlText(statement: unknown): string {
 }
 
 describe("PostgresTribeCreationRepository", () => {
-  it("creates the tribe and owner membership through an atomic SQL statement", async () => {
+  it("creates the tribe and leader membership through an atomic SQL statement", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
@@ -41,9 +41,9 @@ describe("PostgresTribeCreationRepository", () => {
     );
 
     await expect(
-      repository.createTribeWithOwnerMembership({
+      repository.createTribeWithLeaderMembership({
         name: "Matematica Pro",
-        ownerId: "member-1",
+        leaderId: "member-1",
         slug: "matematica-pro",
         visibility: "private",
       })
@@ -56,7 +56,7 @@ describe("PostgresTribeCreationRepository", () => {
 
     expect(execute).toHaveBeenCalledTimes(1);
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "insert into public.tribe_post_categories"
+      "insert into public.tribe_channels"
     );
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
@@ -73,9 +73,9 @@ describe("PostgresTribeCreationRepository", () => {
     });
 
     await expect(
-      repository.createTribeWithOwnerMembership({
+      repository.createTribeWithLeaderMembership({
         name: "Matematica Pro",
-        ownerId: "member-1",
+        leaderId: "member-1",
         slug: "matematica-pro",
         visibility: "private",
       })
@@ -91,9 +91,9 @@ describe("PostgresTribeCreationRepository", () => {
     });
 
     await expect(
-      repository.createTribeWithOwnerMembership({
+      repository.createTribeWithLeaderMembership({
         name: "Matematica Pro",
-        ownerId: "member-1",
+        leaderId: "member-1",
         slug: "matematica-pro",
         visibility: "private",
       })

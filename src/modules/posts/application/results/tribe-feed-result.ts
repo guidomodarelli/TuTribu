@@ -1,6 +1,6 @@
 import type {
   POST_AUTHOR_ROLE,
-  POST_CATEGORY_ACCESS_SCOPE,
+  TRIBE_CHANNEL_ACCESS_SCOPE,
   POST_MEMBERSHIP_STATUS,
 } from "@/src/modules/posts/constants/post-feed";
 
@@ -10,11 +10,11 @@ export type PostAuthorRole =
 export type PostMembershipStatus =
   (typeof POST_MEMBERSHIP_STATUS)[keyof typeof POST_MEMBERSHIP_STATUS];
 
-export type PostCategoryAccessScope =
-  (typeof POST_CATEGORY_ACCESS_SCOPE)[keyof typeof POST_CATEGORY_ACCESS_SCOPE];
+export type TribeChannelAccessScope =
+  (typeof TRIBE_CHANNEL_ACCESS_SCOPE)[keyof typeof TRIBE_CHANNEL_ACCESS_SCOPE];
 
-export type TribePostCategoryResult = {
-  accessScope: PostCategoryAccessScope;
+export type TribeChannelResult = {
+  accessScope: TribeChannelAccessScope;
   emoji: string;
   id: string;
   name: string;
@@ -39,7 +39,7 @@ export type TribeFeedCommentResult = {
 
 export type TribeFeedPostResult = {
   author: TribeFeedAuthorResult;
-  category: TribePostCategoryResult;
+  channel: TribeChannelResult;
   comments: TribeFeedCommentResult[];
   content: string;
   createdAt: string;
@@ -56,8 +56,8 @@ export type TribeFeedPermissionsResult = {
 };
 
 export type TribeFeedResult = {
-  activeCategoryId: string | null;
-  categories: TribePostCategoryResult[];
+  activeChannelId: string | null;
+  channels: TribeChannelResult[];
   posts: TribeFeedPostResult[];
   viewerPermissions: TribeFeedPermissionsResult;
 };

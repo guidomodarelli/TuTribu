@@ -209,14 +209,14 @@
     flex: 0 0 auto;
   }
 
-  &__categoryPicker {
+  &__channelPicker {
     display: flex;
     justify-content: flex-end;
   }
 
-  &__categoryTrigger,
-  &__categoryFilter,
-  &__categoryBadge {
+  &__channelTrigger,
+  &__channelFilter,
+  &__channelBadge {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
@@ -231,7 +231,7 @@
     white-space: nowrap;
   }
 
-  &__categoryTrigger {
+  &__channelTrigger {
     min-height: 2.9rem;
     padding: 0.75rem 1rem;
     cursor: pointer;
@@ -252,7 +252,7 @@
     }
   }
 
-  &__categoryFilters {
+  &__channelFilters {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -264,7 +264,7 @@
     scrollbar-width: thin;
   }
 
-  &__categoryFilter {
+  &__channelFilter {
     box-sizing: border-box;
     flex: 0 0 auto;
     justify-content: center;
@@ -310,20 +310,20 @@
     }
   }
 
-  &__categoryFilterEmoji {
+  &__channelFilterEmoji {
     flex: 0 0 auto;
     font-size: 16px;
     line-height: 1;
   }
 
-  &__categoryFilterText {
+  &__channelFilterText {
     display: block;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  &__categoryBadge {
+  &__channelBadge {
     padding: 0.35rem 0.6rem;
     color: var(--muted-foreground);
     font-size: 0.82rem;
@@ -541,17 +541,17 @@
     font-weight: 700;
     line-height: 1.4;
 
-    &--owner {
+    &--leader {
       border-color: color-mix(in oklch, var(--primary) 60%, var(--border));
       color: var(--primary);
     }
 
-    &--admin {
+    &--guardian {
       border-color: color-mix(in oklch, var(--foreground) 36%, var(--border));
       color: color-mix(in oklch, var(--foreground) 86%, var(--primary));
     }
 
-    &--member {
+    &--tribemate {
       color: var(--muted-foreground);
     }
   }

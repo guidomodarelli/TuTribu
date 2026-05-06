@@ -107,24 +107,24 @@ const authenticatedMember = {
   id: "member-1",
   email: "grace.hopper@example.com",
   name: "Grace Hopper",
-  role: "member",
+  role: "tribemate",
   avatarFallback: "GH",
   image: null,
 };
 
-const postCategories = [
+const tribeChannels = [
   {
-    accessScope: "members" as const,
+    accessScope: "tribemates" as const,
     emoji: "⭐",
-    id: "category-intro",
+    id: "channel-intro",
     name: "Intro and Goals",
     slug: "intro-and-goals",
     sortOrder: 10,
   },
   {
-    accessScope: "members" as const,
+    accessScope: "tribemates" as const,
     emoji: "💬",
-    id: "category-general",
+    id: "channel-general",
     name: "General",
     slug: "general",
     sortOrder: 20,
@@ -136,11 +136,11 @@ const createdPost = {
   author: {
     id: "member-1",
     name: "Grace Hopper",
-    role: "member" as const,
+    role: "tribemate" as const,
     avatarFallback: "GH",
     image: null,
   },
-  category: postCategories[0],
+  channel: tribeChannels[0],
   comments: [],
   content: "Nos vemos el viernes.",
   createdAt: "2026-04-26T13:00:00.000Z",
@@ -154,7 +154,7 @@ const createdComment = {
   author: {
     id: "member-1",
     name: "Grace Hopper",
-    role: "member" as const,
+    role: "tribemate" as const,
     avatarFallback: "GH",
     image: null,
   },
@@ -163,8 +163,8 @@ const createdComment = {
 };
 
 const feed = {
-  activeCategoryId: null,
-  categories: postCategories,
+  activeChannelId: null,
+  channels: tribeChannels,
   viewerPermissions: {
     canComment: true,
     canCreatePost: true,
@@ -174,13 +174,13 @@ const feed = {
     {
       id: "post-1",
       author: {
-        id: "owner-1",
+        id: "leader-1",
         name: "Ada Lovelace",
-        role: "owner" as const,
+        role: "leader" as const,
         avatarFallback: "AL",
         image: null,
       },
-      category: postCategories[1],
+      channel: tribeChannels[1],
       comments: [],
       content: "Bienvenida a la tribu",
       createdAt: "2026-04-26T12:00:00.000Z",
@@ -206,7 +206,7 @@ const feedWithAuthorImages = {
           author: {
             id: "member-1",
             name: "Grace Hopper",
-            role: "member" as const,
+            role: "tribemate" as const,
             avatarFallback: "GH",
             image: "https://example.com/grace-hopper.jpg",
           },
@@ -219,8 +219,8 @@ const feedWithAuthorImages = {
 };
 
 const algebraFeed = {
-  activeCategoryId: null,
-  categories: postCategories,
+  activeChannelId: null,
+  channels: tribeChannels,
   viewerPermissions: {
     canComment: true,
     canCreatePost: true,
@@ -230,13 +230,13 @@ const algebraFeed = {
     {
       id: "post-algebra-1",
       author: {
-        id: "owner-2",
+        id: "leader-2",
         name: "Emmy Noether",
-        role: "owner" as const,
+        role: "leader" as const,
         avatarFallback: "EN",
         image: null,
       },
-      category: postCategories[0],
+      channel: tribeChannels[0],
       comments: [],
       content: "Ya esta disponible la guia de ejercicios.",
       createdAt: "2026-04-26T14:00:00.000Z",
@@ -344,7 +344,7 @@ describe("TribeFeed", () => {
     expect(screen.getByRole("textbox", { name: "Contenido de la publicación" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Publicar" })).toBeEnabled();
 
-    await user.click(screen.getByRole("button", { name: "Categoría de la publicación" }));
+    await user.click(screen.getByRole("button", { name: "Canal de la publicación" }));
     await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
 
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
@@ -352,7 +352,7 @@ describe("TribeFeed", () => {
     expect(screen.queryByRole("dialog", { name: "Crear publicación" })).not.toBeInTheDocument();
   });
 
-  it("renders the post category with the timestamp metadata", async () => {
+  it("renders the channel with the timestamp metadata", async () => {
     const user = userEvent.setup();
 
     render(
@@ -367,13 +367,13 @@ describe("TribeFeed", () => {
 
     expect(postArticle).not.toBeNull();
 
-    const categoryBadge = within(postArticle as HTMLElement).getByText(
+    const channelBadge = within(postArticle as HTMLElement).getByText(
       (_, element) => element?.textContent === "💬 General"
     );
     const postDate = within(postArticle as HTMLElement).getByText("26 abr");
 
-    expect(categoryBadge.parentElement).not.toHaveTextContent("2026");
-    expect(categoryBadge.parentElement).toHaveTextContent("·");
+    expect(channelBadge.parentElement).not.toHaveTextContent("2026");
+    expect(channelBadge.parentElement).toHaveTextContent("·");
 
     await user.hover(postDate);
 
@@ -433,7 +433,7 @@ describe("TribeFeed", () => {
     );
   });
 
-  it("renders the post category with the previous year timestamp metadata", () => {
+  it("renders the channel with the previous year timestamp metadata", () => {
     render(
       <TribeFeed
         authenticatedMember={authenticatedMember}
@@ -479,7 +479,7 @@ describe("TribeFeed", () => {
       screen.getByRole("textbox", { name: "Contenido de la publicación" }),
       "Nos vemos el viernes."
     );
-    await user.click(screen.getByRole("button", { name: "Categoría de la publicación" }));
+    await user.click(screen.getByRole("button", { name: "Canal de la publicación" }));
     await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Publicar" }));
 
@@ -488,7 +488,7 @@ describe("TribeFeed", () => {
         "/api/tribes/matematica-pro/posts",
         expect.objectContaining({
           body: JSON.stringify({
-            categoryId: "category-intro",
+            channelId: "channel-intro",
             content: "Nos vemos el viernes.",
             title: "Nuevo encuentro",
           }),
@@ -515,7 +515,7 @@ describe("TribeFeed", () => {
     expect(screen.getByText("Nos vemos el viernes.")).toBeInTheDocument();
   });
 
-  it("selects a post category using keyboard interactions", async () => {
+  it("selects a channel using keyboard interactions", async () => {
     const user = userEvent.setup();
 
     render(
@@ -527,11 +527,11 @@ describe("TribeFeed", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Escribí algo" }));
-    await user.click(screen.getByRole("button", { name: "Categoría de la publicación" }));
+    await user.click(screen.getByRole("button", { name: "Canal de la publicación" }));
     await user.keyboard("{ArrowDown}{Enter}");
 
     expect(
-      screen.getByRole("button", { name: "Categoría de la publicación" })
+      screen.getByRole("button", { name: "Canal de la publicación" })
     ).toHaveTextContent("⭐ Intro and Goals");
   });
 
@@ -565,9 +565,9 @@ describe("TribeFeed", () => {
       name: "Requisitos pendientes",
     });
 
-    expect(within(missingRequirements).getByText("Seleccionar categoría")).toBeInTheDocument();
+    expect(within(missingRequirements).getByText("Seleccionar canal")).toBeInTheDocument();
     expect(within(missingRequirements).getByRole("listitem")).toHaveTextContent(
-      "-Seleccionar categoría"
+      "-Seleccionar canal"
     );
     expect(within(missingRequirements).queryByText("Completar título")).not.toBeInTheDocument();
     expect(within(missingRequirements).queryByText("Publicar el contenido")).not.toBeInTheDocument();
@@ -595,11 +595,11 @@ describe("TribeFeed", () => {
 
     expect(within(missingRequirements).getByText("Completar título")).toBeInTheDocument();
     expect(within(missingRequirements).getByText("Publicar el contenido")).toBeInTheDocument();
-    expect(within(missingRequirements).getByText("Seleccionar categoría")).toBeInTheDocument();
+    expect(within(missingRequirements).getByText("Seleccionar canal")).toBeInTheDocument();
     expect(within(missingRequirements).getAllByRole("listitem")).toEqual([
       expect.objectContaining({ textContent: "-Completar título" }),
       expect.objectContaining({ textContent: "-Publicar el contenido" }),
-      expect.objectContaining({ textContent: "-Seleccionar categoría" }),
+      expect.objectContaining({ textContent: "-Seleccionar canal" }),
     ]);
     expect(global.fetch).not.toHaveBeenCalled();
   });
@@ -624,7 +624,7 @@ describe("TribeFeed", () => {
       screen.getByRole("textbox", { name: "Contenido de la publicación" }),
       "Contenido temporal"
     );
-    await user.click(screen.getByRole("button", { name: "Categoría de la publicación" }));
+    await user.click(screen.getByRole("button", { name: "Canal de la publicación" }));
     await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
     await act(async () => {
       await user.click(screen.getByRole("button", { name: "Cancelar" }));
@@ -637,8 +637,8 @@ describe("TribeFeed", () => {
       screen.getByRole("textbox", { name: "Contenido de la publicación" })
     ).toHaveValue("");
     expect(
-      screen.getByRole("button", { name: "Categoría de la publicación" })
-    ).toHaveTextContent("Seleccionar categoría");
+      screen.getByRole("button", { name: "Canal de la publicación" })
+    ).toHaveTextContent("Seleccionar canal");
 
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
 
@@ -647,7 +647,7 @@ describe("TribeFeed", () => {
     });
   });
 
-  it("filters posts by category chips", async () => {
+  it("filters posts by channel chips", async () => {
     const user = userEvent.setup();
 
     render(
@@ -717,7 +717,7 @@ describe("TribeFeed", () => {
       screen.getByRole("textbox", { name: "Contenido de la publicación" }),
       "Nos vemos el viernes."
     );
-    await user.click(screen.getByRole("button", { name: "Categoría de la publicación" }));
+    await user.click(screen.getByRole("button", { name: "Canal de la publicación" }));
     await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Publicar" }));
 
@@ -1243,7 +1243,7 @@ describe("TribeFeed", () => {
                 ...feed.posts[0].author,
                 id: authenticatedMember.id,
                 name: authenticatedMember.name,
-                role: "owner" as const,
+                role: "leader" as const,
               },
             },
           ],
@@ -1267,8 +1267,8 @@ describe("TribeFeed", () => {
     expect(
       within(commentsSection).getByText("Comentario como propietario")
     ).toBeInTheDocument();
-    expect(within(commentsSection).getAllByText("Propietario")).toHaveLength(1);
-    expect(within(commentsSection).queryByText("Miembro")).not.toBeInTheDocument();
+    expect(within(commentsSection).getAllByText("Líder")).toHaveLength(1);
+    expect(within(commentsSection).queryByText("Integrante")).not.toBeInTheDocument();
 
     resolveCreateComment({
       json: async () => ({
@@ -1278,7 +1278,7 @@ describe("TribeFeed", () => {
             ...createdComment.author,
             id: authenticatedMember.id,
             name: authenticatedMember.name,
-            role: "owner" as const,
+            role: "leader" as const,
           },
           content: "Comentario como propietario",
         },
@@ -1291,8 +1291,8 @@ describe("TribeFeed", () => {
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith("Comentario publicado.");
     });
-    expect(within(commentsSection).getAllByText("Propietario")).toHaveLength(1);
-    expect(within(commentsSection).queryByText("Miembro")).not.toBeInTheDocument();
+    expect(within(commentsSection).getAllByText("Líder")).toHaveLength(1);
+    expect(within(commentsSection).queryByText("Integrante")).not.toBeInTheDocument();
   });
 
   it("removes an optimistic comment and restores the draft when the request fails", async () => {

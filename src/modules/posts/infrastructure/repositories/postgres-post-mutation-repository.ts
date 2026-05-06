@@ -36,12 +36,12 @@ type CreatedPostRow = MutationStatusRow & {
   author_image: string | null;
   author_name: string | null;
   author_role: string | null;
-  category_access_scope: string | null;
-  category_emoji: string | null;
-  category_id: string | null;
-  category_name: string | null;
-  category_slug: string | null;
-  category_sort_order: number | string | null;
+  channel_access_scope: string | null;
+  channel_emoji: string | null;
+  channel_id: string | null;
+  channel_name: string | null;
+  channel_slug: string | null;
+  channel_sort_order: number | string | null;
   post_content: string | null;
   post_created_at: Date | string | null;
   post_id: string | null;
@@ -73,7 +73,7 @@ type DeletedReactionRow = {
 };
 
 function mapFallbackCreationStatus(status: string | null): PostCreationResult {
-  if (status === POST_MUTATION_STATUS.invalidCategory) {
+  if (status === POST_MUTATION_STATUS.invalidChannel) {
     return {
       status,
     };
@@ -103,7 +103,7 @@ function mapCreatedPost(row: CreatedPostRow | null): PostCreationResult {
     row?.status === POST_MUTATION_STATUS.created &&
     row.post_id &&
     row.author_id &&
-    row.category_id &&
+    row.channel_id &&
     row.post_content &&
     row.post_created_at
   ) {
@@ -116,13 +116,13 @@ function mapCreatedPost(row: CreatedPostRow | null): PostCreationResult {
           name: row.author_name,
           role: row.author_role,
         },
-        category: {
-          accessScope: row.category_access_scope,
-          emoji: row.category_emoji,
-          id: row.category_id,
-          name: row.category_name,
-          slug: row.category_slug,
-          sortOrder: row.category_sort_order,
+        channel: {
+          accessScope: row.channel_access_scope,
+          emoji: row.channel_emoji,
+          id: row.channel_id,
+          name: row.channel_name,
+          slug: row.channel_slug,
+          sortOrder: row.channel_sort_order,
         },
         content: row.post_content,
         createdAt: row.post_created_at,
@@ -288,38 +288,38 @@ export class PostgresPostMutationRepository
           where tribes.slug = ${command.tribeSlug}
           limit 1
         ),
-        target_category as (
+        target_channel as (
           select
-            tribe_post_categories.id,
-            tribe_post_categories.name,
-            tribe_post_categories.slug,
-            tribe_post_categories.emoji,
-            tribe_post_categories.sort_order,
-            tribe_post_categories.access_scope
-          from public.tribe_post_categories
+            tribe_channels.id,
+            tribe_channels.name,
+            tribe_channels.slug,
+            tribe_channels.emoji,
+            tribe_channels.sort_order,
+            tribe_channels.access_scope
+          from public.tribe_channels
           inner join target_tribe
-            on target_tribe.id = tribe_post_categories.tribe_id
-          where tribe_post_categories.id = ${command.categoryId}
+            on target_tribe.id = tribe_channels.tribe_id
+          where tribe_channels.id = ${command.channelId}
           limit 1
         ),
         inserted_post as (
-          insert into public.posts (tribe_id, category_id, author_id, title, content, created_at, updated_at)
-          select target_tribe.id, target_category.id, ${command.authorId}, ${command.title}, ${command.content}, timezone('utc', now()), timezone('utc', now())
+          insert into public.posts (tribe_id, channel_id, author_id, title, content, created_at, updated_at)
+          select target_tribe.id, target_channel.id, ${command.authorId}, ${command.title}, ${command.content}, timezone('utc', now()), timezone('utc', now())
           from target_tribe
-          inner join target_category
+          inner join target_channel
             on true
           where public.is_active_tribe_member(target_tribe.id)
-          returning id, tribe_id, category_id, author_id, title, content, created_at
+          returning id, tribe_id, channel_id, author_id, title, content, created_at
         ),
         created_post as (
           select
             inserted_post.id as post_id,
-            target_category.id as category_id,
-            target_category.name as category_name,
-            target_category.slug as category_slug,
-            target_category.emoji as category_emoji,
-            target_category.sort_order as category_sort_order,
-            target_category.access_scope as category_access_scope,
+            target_channel.id as channel_id,
+            target_channel.name as channel_name,
+            target_channel.slug as channel_slug,
+            target_channel.emoji as channel_emoji,
+            target_channel.sort_order as channel_sort_order,
+            target_channel.access_scope as channel_access_scope,
             inserted_post.title as post_title,
             inserted_post.content as post_content,
             inserted_post.created_at as post_created_at,
@@ -328,8 +328,8 @@ export class PostgresPostMutationRepository
             post_authors.image as author_image,
             post_members.role as author_role
           from inserted_post
-          inner join target_category
-            on target_category.id = inserted_post.category_id
+          inner join target_channel
+            on target_channel.id = inserted_post.channel_id
           inner join public."user" post_authors
             on post_authors.id = inserted_post.author_id
           left join public.tribe_members post_members
@@ -340,16 +340,16 @@ export class PostgresPostMutationRepository
           case
             when exists (select 1 from inserted_post) then ${POST_MUTATION_STATUS.created}
             when not exists (select 1 from target_tribe) then ${POST_MUTATION_STATUS.notFound}
-            when not exists (select 1 from target_category) then ${POST_MUTATION_STATUS.invalidCategory}
+            when not exists (select 1 from target_channel) then ${POST_MUTATION_STATUS.invalidChannel}
             else ${POST_MUTATION_STATUS.forbidden}
           end as status,
           created_post.post_id,
-          created_post.category_id,
-          created_post.category_name,
-          created_post.category_slug,
-          created_post.category_emoji,
-          created_post.category_sort_order,
-          created_post.category_access_scope,
+          created_post.channel_id,
+          created_post.channel_name,
+          created_post.channel_slug,
+          created_post.channel_emoji,
+          created_post.channel_sort_order,
+          created_post.channel_access_scope,
           created_post.post_title,
           created_post.post_content,
           created_post.post_created_at,

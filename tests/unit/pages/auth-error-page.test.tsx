@@ -39,7 +39,7 @@ describe("AuthErrorPage", () => {
       id: "member-1",
       email: "grace.hopper@example.com",
       name: "Grace Hopper",
-      role: "admin",
+      role: "guardian",
       avatarFallback: "GH",
       image: null,
     });

@@ -1,4 +1,4 @@
-import { PostgresPostCategoryRepository } from "@/src/modules/posts/infrastructure/repositories/postgres-post-category-repository";
+import { PostgresTribeChannelRepository } from "@/src/modules/posts/infrastructure/repositories/postgres-tribe-channel-repository";
 
 function getSqlText(statement: unknown): string {
   return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
@@ -21,21 +21,21 @@ function getSqlText(statement: unknown): string {
     .join("");
 }
 
-describe("PostgresPostCategoryRepository", () => {
-  it("lists tribe categories ordered for the feed", async () => {
+describe("PostgresTribeChannelRepository", () => {
+  it("lists tribe channels ordered for the feed", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
-          access_scope: "members",
+          access_scope: "tribemates",
           emoji: "💬",
-          id: "category-general",
+          id: "channel-general",
           name: "General",
           slug: "general",
           sort_order: "20",
         },
       ],
     }));
-    const repository = new PostgresPostCategoryRepository(async (callback) =>
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
 
@@ -43,9 +43,9 @@ describe("PostgresPostCategoryRepository", () => {
       repository.listByTribeSlug({ tribeSlug: "matematica-pro" })
     ).resolves.toEqual([
       {
-        accessScope: "members",
+        accessScope: "tribemates",
         emoji: "💬",
-        id: "category-general",
+        id: "channel-general",
         name: "General",
         slug: "general",
         sortOrder: 20,
@@ -53,17 +53,17 @@ describe("PostgresPostCategoryRepository", () => {
     ]);
 
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "order by tribe_post_categories.sort_order asc"
+      "order by tribe_channels.sort_order asc"
     );
   });
 
-  it("creates categories guarded by owner or admin membership", async () => {
+  it("creates channels guarded by leader or guardian membership", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
-          access_scope: "members",
+          access_scope: "tribemates",
           emoji: "❓",
-          id: "category-questions",
+          id: "channel-questions",
           name: "Preguntas",
           slug: "preguntas",
           sort_order: 30,
@@ -71,7 +71,7 @@ describe("PostgresPostCategoryRepository", () => {
         },
       ],
     }));
-    const repository = new PostgresPostCategoryRepository(async (callback) =>
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
 
@@ -82,8 +82,8 @@ describe("PostgresPostCategoryRepository", () => {
         name: "Preguntas",
       })
     ).resolves.toMatchObject({
-      category: {
-        id: "category-questions",
+      channel: {
+        id: "channel-questions",
         slug: "preguntas",
       },
       status: "created",
@@ -91,12 +91,12 @@ describe("PostgresPostCategoryRepository", () => {
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
-    expect(sqlText).toContain("public.can_manage_tribe_categories");
-    expect(sqlText).toContain("insert into public.tribe_post_categories");
-    expect(sqlText).toContain("existing_category");
+    expect(sqlText).toContain("public.can_manage_tribe_channels");
+    expect(sqlText).toContain("insert into public.tribe_channels");
+    expect(sqlText).toContain("existing_channel");
   });
 
-  it("maps duplicate category slugs to a controlled creation status", async () => {
+  it("maps duplicate channel slugs to a controlled creation status", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
@@ -104,7 +104,7 @@ describe("PostgresPostCategoryRepository", () => {
         },
       ],
     }));
-    const repository = new PostgresPostCategoryRepository(async (callback) =>
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
 
@@ -117,14 +117,14 @@ describe("PostgresPostCategoryRepository", () => {
     ).resolves.toEqual({ status: "duplicate_slug" });
   });
 
-  it("maps unique violations to duplicate_slug during category creation", async () => {
+  it("maps unique violations to duplicate_slug during channel creation", async () => {
     const execute = jest.fn(async () => {
       throw {
         code: "23505",
-        constraint: "tribe_post_categories_tribe_id_slug_key",
+        constraint: "tribe_channels_tribe_id_slug_key",
       };
     });
-    const repository = new PostgresPostCategoryRepository(async (callback) =>
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
 
@@ -137,7 +137,7 @@ describe("PostgresPostCategoryRepository", () => {
     ).resolves.toEqual({ status: "duplicate_slug" });
   });
 
-  it("maps duplicate category slugs to a controlled update status", async () => {
+  it("maps duplicate channel slugs to a controlled update status", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
@@ -145,13 +145,13 @@ describe("PostgresPostCategoryRepository", () => {
         },
       ],
     }));
-    const repository = new PostgresPostCategoryRepository(async (callback) =>
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
 
     await expect(
       repository.update({
-        categoryId: "category-questions",
+        channelId: "channel-questions",
         tribeSlug: "matematica-pro",
         emoji: "💬",
         name: "General",
@@ -159,23 +159,23 @@ describe("PostgresPostCategoryRepository", () => {
       })
     ).resolves.toEqual({ status: "duplicate_slug" });
 
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("existing_category");
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("existing_channel");
   });
 
-  it("maps unique violations to duplicate_slug during category updates", async () => {
+  it("maps unique violations to duplicate_slug during channel updates", async () => {
     const execute = jest.fn(async () => {
       throw {
         code: "23505",
-        constraint: "tribe_post_categories_tribe_id_slug_key",
+        constraint: "tribe_channels_tribe_id_slug_key",
       };
     });
-    const repository = new PostgresPostCategoryRepository(async (callback) =>
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
 
     await expect(
       repository.update({
-        categoryId: "category-questions",
+        channelId: "channel-questions",
         tribeSlug: "matematica-pro",
         emoji: "💬",
         name: "General",
@@ -184,7 +184,7 @@ describe("PostgresPostCategoryRepository", () => {
     ).resolves.toEqual({ status: "duplicate_slug" });
   });
 
-  it("returns not_found when updating a category that does not exist", async () => {
+  it("returns not_found when updating a channel that does not exist", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
@@ -192,13 +192,13 @@ describe("PostgresPostCategoryRepository", () => {
         },
       ],
     }));
-    const repository = new PostgresPostCategoryRepository(async (callback) =>
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
 
     await expect(
       repository.update({
-        categoryId: "category-missing",
+        channelId: "channel-missing",
         tribeSlug: "matematica-pro",
         emoji: "💬",
         name: "General",
@@ -208,11 +208,11 @@ describe("PostgresPostCategoryRepository", () => {
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
-    expect(sqlText).toContain("target_category");
-    expect(sqlText).toContain("when not exists (select 1 from target_category)");
+    expect(sqlText).toContain("target_channel");
+    expect(sqlText).toContain("when not exists (select 1 from target_channel)");
   });
 
-  it("moves posts before deleting a category when a target is provided", async () => {
+  it("moves posts before deleting a channel when a target is provided", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
@@ -220,22 +220,22 @@ describe("PostgresPostCategoryRepository", () => {
         },
       ],
     }));
-    const repository = new PostgresPostCategoryRepository(async (callback) =>
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
 
     await expect(
       repository.delete({
-        categoryId: "category-questions",
+        channelId: "channel-questions",
         tribeSlug: "matematica-pro",
-        targetCategoryId: "category-general",
+        targetChannelId: "channel-general",
       })
     ).resolves.toEqual({ status: "moved_and_deleted" });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
     expect(sqlText).toContain("update public.posts");
-    expect(sqlText).toContain("delete from public.tribe_post_categories");
-    expect(sqlText).toContain("category_count");
+    expect(sqlText).toContain("delete from public.tribe_channels");
+    expect(sqlText).toContain("channel_count");
   });
 });

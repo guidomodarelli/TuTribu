@@ -243,9 +243,9 @@ describe("AppSidebar", () => {
       <AppSidebar
         authenticatedMember={{
           id: "member-1",
-          email: "owner@example.com",
+          email: "leader@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}
@@ -263,9 +263,9 @@ describe("AppSidebar", () => {
       <AppSidebar
         authenticatedMember={{
           id: "member-1",
-          email: "owner@example.com",
+          email: "leader@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}
@@ -283,9 +283,9 @@ describe("AppSidebar", () => {
       <AppSidebar
         authenticatedMember={{
           id: "member-1",
-          email: "owner@example.com",
+          email: "leader@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}
@@ -322,9 +322,9 @@ describe("AppSidebar", () => {
       <AppSidebar
         authenticatedMember={{
           id: "member-1",
-          email: "owner@example.com",
+          email: "leader@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}
@@ -344,7 +344,7 @@ describe("AppSidebar", () => {
       "true"
     );
     expect(screen.getByRole("button", { name: /eventos/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /miembros/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /integrantes/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /ranking/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /acerca de/i })).toBeInTheDocument();
   });
@@ -356,9 +356,9 @@ describe("AppSidebar", () => {
       <AppSidebar
         authenticatedMember={{
           id: "member-1",
-          email: "owner@example.com",
+          email: "leader@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}
@@ -366,7 +366,7 @@ describe("AppSidebar", () => {
           {
             tribeId: "tribe-1",
             name: "Matematica Pro",
-            role: "owner",
+            role: "leader",
             slug: "matematica-pro",
           },
         ]}
@@ -374,23 +374,23 @@ describe("AppSidebar", () => {
     );
 
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro");
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/categorias");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/canales");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/eventos");
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/miembros");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/integrantes");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/ranking");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/acerca-de");
   });
 
-  it("shows the category section to tribe owners and admins", () => {
+  it("shows the channel section to tribe leaders and guardians", () => {
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     const { rerender } = render(
       <AppSidebar
         authenticatedMember={{
           id: "member-1",
-          email: "owner@example.com",
+          email: "leader@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}
@@ -398,22 +398,22 @@ describe("AppSidebar", () => {
           {
             tribeId: "tribe-1",
             name: "Matematica Pro",
-            role: "owner",
+            role: "leader",
             slug: "matematica-pro",
           },
         ]}
       />
     );
 
-    expect(screen.getByRole("button", { name: /categorías/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /canales/i })).toBeInTheDocument();
 
     rerender(
       <AppSidebar
         authenticatedMember={{
           id: "member-1",
-          email: "admin@example.com",
+          email: "guardian@example.com",
           name: "Ada Lovelace",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "AL",
           image: null,
         }}
@@ -421,14 +421,14 @@ describe("AppSidebar", () => {
           {
             tribeId: "tribe-1",
             name: "Matematica Pro",
-            role: "admin",
+            role: "guardian",
             slug: "matematica-pro",
           },
         ]}
       />
     );
 
-    expect(screen.getByRole("button", { name: /categorías/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /canales/i })).toBeInTheDocument();
 
     rerender(
       <AppSidebar
@@ -436,7 +436,7 @@ describe("AppSidebar", () => {
           id: "member-1",
           email: "member@example.com",
           name: "Katherine Johnson",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "KJ",
           image: null,
         }}
@@ -444,14 +444,14 @@ describe("AppSidebar", () => {
           {
             tribeId: "tribe-1",
             name: "Matematica Pro",
-            role: "member",
+            role: "tribemate",
             slug: "matematica-pro",
           },
         ]}
       />
     );
 
-    expect(screen.queryByRole("button", { name: /categorías/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /canales/i })).not.toBeInTheDocument();
   });
 
   it("hides the global tribes section inside an active tribe", () => {
@@ -461,9 +461,9 @@ describe("AppSidebar", () => {
       <AppSidebar
         authenticatedMember={{
           id: "member-1",
-          email: "owner@example.com",
+          email: "leader@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}
@@ -497,9 +497,9 @@ describe("AppSidebar", () => {
       <AppSidebar
         authenticatedMember={{
           id: "member-1",
-          email: "owner@example.com",
+          email: "leader@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}
@@ -518,9 +518,9 @@ describe("AppSidebar", () => {
       "true"
     );
 
-    await user.click(screen.getByRole("button", { name: /miembros/i }));
+    await user.click(screen.getByRole("button", { name: /integrantes/i }));
 
-    expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/miembros");
+    expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/integrantes");
   });
 
   it("does not render tribe sections outside an active member tribe", () => {
@@ -530,9 +530,9 @@ describe("AppSidebar", () => {
       <AppSidebar
         authenticatedMember={{
           id: "member-1",
-          email: "owner@example.com",
+          email: "leader@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}

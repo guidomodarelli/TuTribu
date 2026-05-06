@@ -49,11 +49,11 @@ const tribeSectionNavigation = [
       pathname === ROUTES.tribes.bySlug(tribeSlug),
   },
   {
-    hrefBuilder: ROUTES.tribes.categories,
+    hrefBuilder: ROUTES.tribes.channels,
     icon: FolderIcon,
-    label: "Categorías",
+    label: "Canales",
     matchPath: (pathname: string, tribeSlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.tribes.categories(tribeSlug)),
+      isSameOrNestedPath(pathname, ROUTES.tribes.channels(tribeSlug)),
   },
   {
     hrefBuilder: ROUTES.tribes.events,
@@ -63,11 +63,11 @@ const tribeSectionNavigation = [
       isSameOrNestedPath(pathname, ROUTES.tribes.events(tribeSlug)),
   },
   {
-    hrefBuilder: ROUTES.tribes.members,
+    hrefBuilder: ROUTES.tribes.tribemates,
     icon: UsersIcon,
-    label: "Miembros",
+    label: "Integrantes",
     matchPath: (pathname: string, tribeSlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.tribes.members(tribeSlug)),
+      isSameOrNestedPath(pathname, ROUTES.tribes.tribemates(tribeSlug)),
   },
   {
     hrefBuilder: ROUTES.tribes.ranking,
@@ -87,16 +87,16 @@ const tribeSectionNavigation = [
 const APP_SIDEBAR_UI = {
   brandButtonSize: "lg",
   brandMarkLength: 2,
-  categoriesSectionLabel: "Categorías",
+  channelsSectionLabel: "Canales",
   collapsible: "icon",
   createTribeTooltip: "Nueva tribu",
   nestedRouteSeparator: "/",
   variant: "sidebar",
 } as const;
 
-const TRIBE_CATEGORY_MANAGER_ROLE = {
-  admin: "admin",
-  owner: "owner",
+const TRIBE_CHANNEL_MANAGER_ROLE = {
+  guardian: "guardian",
+  leader: "leader",
 } as const;
 
 type AppSidebarProps = {
@@ -104,12 +104,12 @@ type AppSidebarProps = {
   memberTribes: MemberTribeListItemResult[];
 };
 
-function canManageTribeCategories(
+function canManageTribeChannels(
   tribe: MemberTribeListItemResult
 ): boolean {
   return (
-    tribe.role === TRIBE_CATEGORY_MANAGER_ROLE.owner ||
-    tribe.role === TRIBE_CATEGORY_MANAGER_ROLE.admin
+    tribe.role === TRIBE_CHANNEL_MANAGER_ROLE.leader ||
+    tribe.role === TRIBE_CHANNEL_MANAGER_ROLE.guardian
   );
 }
 
@@ -118,8 +118,8 @@ function getVisibleTribeSectionNavigation(
 ) {
   return tribeSectionNavigation.filter(
     (item) =>
-      item.label !== APP_SIDEBAR_UI.categoriesSectionLabel ||
-      canManageTribeCategories(tribe)
+      item.label !== APP_SIDEBAR_UI.channelsSectionLabel ||
+      canManageTribeChannels(tribe)
   );
 }
 

@@ -104,15 +104,15 @@ const TRIBE_FEED_COPY = {
   mutedNotice: "Podes leer el feed, pero tu estado actual no permite participar.",
   postButton: "Publicar",
   postCancelButton: "Cancelar",
-  postCategoryFilterAll: "Todas",
-  postCategoryLabel: "Categoría de la publicación",
-  postCategorySelect: "Seleccionar categoría",
+  tribeChannelFilterAll: "Todas",
+  tribeChannelLabel: "Canal de la publicación",
+  tribeChannelSelect: "Seleccionar canal",
   postComposerCollapsed: "Escribí algo",
   postComposerContext: "publicando en la tribu",
   postComposerDescription:
     "Completá el título y el contenido para compartir una publicación en la tribu.",
   postComposerDialogTitle: "Crear publicación",
-  postComposerMissingCategory: "Seleccionar categoría",
+  postComposerMissingChannel: "Seleccionar canal",
   postComposerMissingContent: "Publicar el contenido",
   postComposerMissingTitle: "Completar título",
   postComposerRequirementsTitle: "Falta completar:",
@@ -122,9 +122,9 @@ const TRIBE_FEED_COPY = {
   postComposerTitlePlaceholder: "Título",
   postPlaceholder: "Compartí una novedad, pregunta o recurso para la tribu",
   roleLabel: {
-    admin: "Admin",
-    member: "Miembro",
-    owner: "Propietario",
+    guardian: "Guardián",
+    leader: "Líder",
+    tribemate: "Integrante",
   },
   sectionLabel: "Feed de publicaciones",
   submitCommentError: "No pudimos publicar el comentario.",
@@ -145,7 +145,7 @@ const TRIBE_FEED_FORM = {
 } as const;
 
 const TRIBE_FEED_ATTRIBUTES = {
-  categoryFilterEmojiHidden: true,
+  channelFilterEmojiHidden: true,
   composerAvatarSize: "lg",
   contentExpandedDataAttribute: "data-expanded",
   dropdownAlign: "center",
@@ -172,13 +172,13 @@ const TRIBE_FEED_OPTIMISTIC = {
 } as const;
 
 const TRIBE_FEED_AUTHOR_ROLE = {
-  admin: "admin",
-  owner: "owner",
+  guardian: "guardian",
+  leader: "leader",
 } as const;
 
 const TRIBE_FEED_PRIVILEGED_AUTHOR_ROLES = new Set<
   TribeFeedCommentResult["author"]["role"]
->([TRIBE_FEED_AUTHOR_ROLE.admin, TRIBE_FEED_AUTHOR_ROLE.owner]);
+>([TRIBE_FEED_AUTHOR_ROLE.guardian, TRIBE_FEED_AUTHOR_ROLE.leader]);
 
 const TRIBE_FEED_CONTENT_PREVIEW_CLASS = {
   details: "TribeFeed__content--detailsPreview",
@@ -272,7 +272,7 @@ function buildFeedStateResetKey(
 
   return [
     tribeSlug,
-    feed.activeCategoryId ?? TRIBE_FEED_RESET_KEY.empty,
+    feed.activeChannelId ?? TRIBE_FEED_RESET_KEY.empty,
     postFingerprint,
   ].join(TRIBE_FEED_RESET_KEY.keySeparator);
 }
@@ -381,7 +381,7 @@ function useRelativeTimeElementDefinition() {
 }
 
 function getMissingPostRequirements(input: {
-  categoryId: string;
+  channelId: string;
   content: string;
   title: string;
 }): string[] {
@@ -395,8 +395,8 @@ function getMissingPostRequirements(input: {
     missingRequirements.push(TRIBE_FEED_COPY.postComposerMissingContent);
   }
 
-  if (!input.categoryId) {
-    missingRequirements.push(TRIBE_FEED_COPY.postComposerMissingCategory);
+  if (!input.channelId) {
+    missingRequirements.push(TRIBE_FEED_COPY.postComposerMissingChannel);
   }
 
   return missingRequirements;
@@ -490,9 +490,9 @@ function TribeFeedContent({
   const [isPostComposerOpen, setIsPostComposerOpen] = useState(false);
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState("");
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
-    feed.activeCategoryId
+  const [selectedChannelId, setSelectedChannelId] = useState("");
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(
+    feed.activeChannelId
   );
   const [postComposerErrors, setPostComposerErrors] = useState<string[]>([]);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
@@ -504,10 +504,10 @@ function TribeFeedContent({
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const optimisticCommentCounterRef = useRef(0);
   const isBusy = Boolean(pendingActionId);
-  const selectedCategory =
-    feed.categories.find((category) => category.id === selectedCategoryId) ?? null;
-  const filteredPosts = activeCategoryId
-    ? posts.filter((post) => post.category.id === activeCategoryId)
+  const selectedChannel =
+    feed.channels.find((channel) => channel.id === selectedChannelId) ?? null;
+  const filteredPosts = activeChannelId
+    ? posts.filter((post) => post.channel.id === activeChannelId)
     : posts;
   const hasPostComposerErrors = postComposerErrors.length > 0;
   const selectedPost =
@@ -536,7 +536,7 @@ function TribeFeedContent({
   const resetPostComposer = () => {
     setPostTitle("");
     setPostContent("");
-    setSelectedCategoryId("");
+    setSelectedChannelId("");
     setPostComposerErrors([]);
   };
 
@@ -553,7 +553,7 @@ function TribeFeedContent({
     const title = postTitle.trim();
     const content = postContent.trim();
     const missingRequirements = getMissingPostRequirements({
-      categoryId: selectedCategoryId,
+      channelId: selectedChannelId,
       content,
       title,
     });
@@ -573,7 +573,7 @@ function TribeFeedContent({
       const response = await submitJsonRequest<CreatePostResponse>(
         TRIBE_FEED_ENDPOINT.post(actionTribeSlug),
         {
-          categoryId: selectedCategoryId,
+          channelId: selectedChannelId,
           content,
           title,
         }
@@ -1074,33 +1074,33 @@ function TribeFeedContent({
                 placeholder={TRIBE_FEED_COPY.postPlaceholder}
                 value={postContent}
               />
-              <div className={styles.TribeFeed__categoryPicker}>
+              <div className={styles.TribeFeed__channelPicker}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      aria-label={TRIBE_FEED_COPY.postCategoryLabel}
-                      className={styles.TribeFeed__categoryTrigger}
+                      aria-label={TRIBE_FEED_COPY.tribeChannelLabel}
+                      className={styles.TribeFeed__channelTrigger}
                       disabled={isBusy}
                       type={TRIBE_FEED_FORM.buttonType}
                     >
                       <span>
-                        {selectedCategory
-                          ? `${selectedCategory.emoji} ${selectedCategory.name}`
-                          : TRIBE_FEED_COPY.postCategorySelect}
+                        {selectedChannel
+                          ? `${selectedChannel.emoji} ${selectedChannel.name}`
+                          : TRIBE_FEED_COPY.tribeChannelSelect}
                       </span>
                       <ChevronDownIcon />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align={TRIBE_FEED_ATTRIBUTES.dropdownAlign}>
-                    {feed.categories.map((category) => (
+                    {feed.channels.map((channel) => (
                       <DropdownMenuItem
-                        key={category.id}
+                        key={channel.id}
                         onSelect={() => {
-                          setSelectedCategoryId(category.id);
+                          setSelectedChannelId(channel.id);
                           setPostComposerErrors([]);
                         }}
                       >
-                        {category.emoji} {category.name}
+                        {channel.emoji} {channel.name}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -1162,45 +1162,45 @@ function TribeFeedContent({
         </Dialog>
       ) : null}
 
-      {feed.categories.length > 0 ? (
+      {feed.channels.length > 0 ? (
         <nav
-          aria-label={TRIBE_FEED_COPY.postCategoryLabel}
-          className={styles.TribeFeed__categoryFilters}
+          aria-label={TRIBE_FEED_COPY.tribeChannelLabel}
+          className={styles.TribeFeed__channelFilters}
         >
           <button
-            className={`${styles.TribeFeed__categoryFilter} ${
-              !activeCategoryId ? styles["TribeFeed__categoryFilter--active"] : ""
+            className={`${styles.TribeFeed__channelFilter} ${
+              !activeChannelId ? styles["TribeFeed__channelFilter--active"] : ""
             }`}
             onClick={() => {
-              setActiveCategoryId(null);
+              setActiveChannelId(null);
             }}
             type={TRIBE_FEED_FORM.buttonType}
           >
-            <span className={styles.TribeFeed__categoryFilterText}>
-              {TRIBE_FEED_COPY.postCategoryFilterAll}
+            <span className={styles.TribeFeed__channelFilterText}>
+              {TRIBE_FEED_COPY.tribeChannelFilterAll}
             </span>
           </button>
-          {feed.categories.map((category) => (
+          {feed.channels.map((channel) => (
             <button
-              className={`${styles.TribeFeed__categoryFilter} ${
-                activeCategoryId === category.id
-                  ? styles["TribeFeed__categoryFilter--active"]
+              className={`${styles.TribeFeed__channelFilter} ${
+                activeChannelId === channel.id
+                  ? styles["TribeFeed__channelFilter--active"]
                   : ""
               }`}
-              key={category.id}
+              key={channel.id}
               onClick={() => {
-                setActiveCategoryId(category.id);
+                setActiveChannelId(channel.id);
               }}
               type={TRIBE_FEED_FORM.buttonType}
             >
               <span
-                aria-hidden={TRIBE_FEED_ATTRIBUTES.categoryFilterEmojiHidden}
-                className={styles.TribeFeed__categoryFilterEmoji}
+                aria-hidden={TRIBE_FEED_ATTRIBUTES.channelFilterEmojiHidden}
+                className={styles.TribeFeed__channelFilterEmoji}
               >
-                {category.emoji}
+                {channel.emoji}
               </span>
-              <span className={styles.TribeFeed__categoryFilterText}>
-                {category.name}
+              <span className={styles.TribeFeed__channelFilterText}>
+                {channel.name}
               </span>
             </button>
           ))}
@@ -1266,8 +1266,8 @@ function TribeFeedContent({
                         >
                           {TRIBE_FEED_SYMBOLS.postMetaSeparator}
                         </span>
-                        <span className={styles.TribeFeed__categoryBadge}>
-                          {post.category.emoji} {post.category.name}
+                        <span className={styles.TribeFeed__channelBadge}>
+                          {post.channel.emoji} {post.channel.name}
                         </span>
                       </div>
                     </CardHeader>
@@ -1369,8 +1369,8 @@ function TribeFeedContent({
                   >
                     {TRIBE_FEED_SYMBOLS.postMetaSeparator}
                   </span>
-                  <span className={styles.TribeFeed__categoryBadge}>
-                    {selectedPost.category.emoji} {selectedPost.category.name}
+                  <span className={styles.TribeFeed__channelBadge}>
+                    {selectedPost.channel.emoji} {selectedPost.channel.name}
                   </span>
                 </div>
               </CardHeader>

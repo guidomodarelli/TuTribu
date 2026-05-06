@@ -65,7 +65,7 @@ describe("AvatarSessionMenu", () => {
           id: "dc2b4b91-7e42-41be-bcb5-a48b61a27740",
           email: "grace.hopper@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}
@@ -96,7 +96,7 @@ describe("AvatarSessionMenu", () => {
           id: "dc2b4b91-7e42-41be-bcb5-a48b61a27740",
           email: "grace.hopper@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: "https://example.com/grace-hopper.jpg",
         }}
@@ -126,7 +126,7 @@ describe("AvatarSessionMenu", () => {
           id: "dc2b4b91-7e42-41be-bcb5-a48b61a27740",
           email: "grace.hopper@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}
@@ -160,7 +160,7 @@ describe("AvatarSessionMenu", () => {
           id: "dc2b4b91-7e42-41be-bcb5-a48b61a27740",
           email: "grace.hopper@example.com",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         }}

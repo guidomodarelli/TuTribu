@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 
 import type { Tribe } from "@/src/modules/tribes/domain/entities/tribe";
 import { TribeSlugConflictError } from "@/src/modules/tribes/domain/errors/tribe-slug-conflict-error";
-import { DEFAULT_TRIBE_POST_CATEGORIES } from "@/src/modules/posts/constants/post-feed";
+import { DEFAULT_TRIBE_CHANNELS } from "@/src/modules/posts/constants/post-feed";
 import type { TribeCreationRepository } from "@/src/modules/tribes/domain/repositories/tribe-creation-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
@@ -55,9 +55,9 @@ export class PostgresTribeCreationRepository
 {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
-  async createTribeWithOwnerMembership(input: {
+  async createTribeWithLeaderMembership(input: {
     name: string;
-    ownerId: string;
+    leaderId: string;
     slug: string;
     visibility: "private";
   }): Promise<Tribe> {
@@ -75,7 +75,7 @@ export class PostgresTribeCreationRepository
               ${input.name},
               ${input.slug},
               ${input.visibility},
-              ${input.ownerId}
+              ${input.leaderId}
             )
             returning id, name, slug, visibility
           ), inserted_membership as (
@@ -87,12 +87,12 @@ export class PostgresTribeCreationRepository
             )
             select
               inserted_tribe.id,
-              ${input.ownerId},
-              'owner',
+              ${input.leaderId},
+              'leader',
               'active'
             from inserted_tribe
-          ), inserted_categories as (
-            insert into public.tribe_post_categories (
+          ), inserted_channels as (
+            insert into public.tribe_channels (
               tribe_id,
               name,
               slug,
@@ -104,18 +104,18 @@ export class PostgresTribeCreationRepository
             )
             select
               inserted_tribe.id,
-              category_seed.name,
-              category_seed.slug,
-              category_seed.emoji,
-              category_seed.sort_order::integer,
-              'members',
+              channel_seed.name,
+              channel_seed.slug,
+              channel_seed.emoji,
+              channel_seed.sort_order::integer,
+              'tribemates',
               timezone('utc', now()),
               timezone('utc', now())
             from inserted_tribe
             cross join (
               values
-                (${DEFAULT_TRIBE_POST_CATEGORIES[0].name}, ${DEFAULT_TRIBE_POST_CATEGORIES[0].slug}, ${DEFAULT_TRIBE_POST_CATEGORIES[0].emoji}, ${DEFAULT_TRIBE_POST_CATEGORIES[0].sortOrder})
-            ) as category_seed(name, slug, emoji, sort_order)
+                (${DEFAULT_TRIBE_CHANNELS[0].name}, ${DEFAULT_TRIBE_CHANNELS[0].slug}, ${DEFAULT_TRIBE_CHANNELS[0].emoji}, ${DEFAULT_TRIBE_CHANNELS[0].sortOrder})
+            ) as channel_seed(name, slug, emoji, sort_order)
           )
           select id, name, slug, visibility
           from inserted_tribe

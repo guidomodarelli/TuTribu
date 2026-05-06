@@ -2,18 +2,18 @@ import type {
   TribeFeedAuthorResult,
   TribeFeedCommentResult,
   TribeFeedPostResult,
-  TribePostCategoryResult,
+  TribeChannelResult,
   PostAuthorRole,
 } from "@/src/modules/posts/application/results/tribe-feed-result";
 import {
   POST_AUTHOR_ROLE,
-  POST_CATEGORY_ACCESS_SCOPE,
+  TRIBE_CHANNEL_ACCESS_SCOPE,
 } from "@/src/modules/posts/constants/post-feed";
 
 const POST_FEED_DEFAULTS = {
   authorFallbackPartCount: 2,
   unknownAuthorFallback: "??",
-  unknownAuthorName: "Miembro",
+  unknownAuthorName: "Integrante",
 } as const;
 
 export type TribeFeedAuthorProjection = {
@@ -32,7 +32,7 @@ export type TribeFeedCommentProjection = {
 
 export type TribeFeedPostProjection = {
   author: TribeFeedAuthorProjection;
-  category: TribePostCategoryProjection;
+  channel: TribeChannelProjection;
   content: string;
   createdAt: Date | string;
   id: string;
@@ -41,7 +41,7 @@ export type TribeFeedPostProjection = {
   title: string | null;
 };
 
-export type TribePostCategoryProjection = {
+export type TribeChannelProjection = {
   accessScope: string | null;
   emoji: string | null;
   id: string;
@@ -67,14 +67,14 @@ export function createAvatarFallback(name: string): string {
 
 export function normalizeAuthorRole(role: string | null): PostAuthorRole {
   if (
-    role === POST_AUTHOR_ROLE.owner ||
-    role === POST_AUTHOR_ROLE.admin ||
-    role === POST_AUTHOR_ROLE.member
+    role === POST_AUTHOR_ROLE.leader ||
+    role === POST_AUTHOR_ROLE.guardian ||
+    role === POST_AUTHOR_ROLE.tribemate
   ) {
     return role;
   }
 
-  return POST_AUTHOR_ROLE.member;
+  return POST_AUTHOR_ROLE.tribemate;
 }
 
 export function createTribeFeedAuthor({
@@ -108,19 +108,19 @@ export function createTribeFeedComment({
   };
 }
 
-export function createTribePostCategory({
+export function createTribeChannel({
   accessScope,
   emoji,
   id,
   name,
   slug,
   sortOrder,
-}: TribePostCategoryProjection): TribePostCategoryResult {
+}: TribeChannelProjection): TribeChannelResult {
   return {
     accessScope:
-      accessScope === POST_CATEGORY_ACCESS_SCOPE.members
+      accessScope === TRIBE_CHANNEL_ACCESS_SCOPE.tribemates
         ? accessScope
-        : POST_CATEGORY_ACCESS_SCOPE.members,
+        : TRIBE_CHANNEL_ACCESS_SCOPE.tribemates,
     emoji: emoji || "",
     id,
     name: name || "",
@@ -131,7 +131,7 @@ export function createTribePostCategory({
 
 export function createTribeFeedPost({
   author,
-  category,
+  channel,
   content,
   createdAt,
   id,
@@ -141,7 +141,7 @@ export function createTribeFeedPost({
 }: TribeFeedPostProjection): TribeFeedPostResult {
   return {
     author: createTribeFeedAuthor(author),
-    category: createTribePostCategory(category),
+    channel: createTribeChannel(channel),
     comments: [],
     content,
     createdAt: formatPostDateTimeValue(createdAt),

@@ -2,10 +2,10 @@ import { createTribe } from "@/src/modules/tribes/application/use-cases/create-t
 import { TribeSlugConflictError } from "@/src/modules/tribes/domain/errors/tribe-slug-conflict-error";
 
 describe("createTribe", () => {
-  it("creates a private tribe and its owner membership when the creator is whitelisted", async () => {
+  it("creates a private tribe and its leader membership when the creator is whitelisted", async () => {
     const isEmailAllowed = jest.fn(async () => true);
     const isSlugTaken = jest.fn(async () => false);
-    const createTribeWithOwnerMembership = jest.fn(async () => ({
+    const createTribeWithLeaderMembership = jest.fn(async () => ({
       id: "tribe-1",
       name: "Matematica Pro",
       slug: "matematica-pro",
@@ -18,13 +18,13 @@ describe("createTribe", () => {
       },
       tribeCreationRepository: {
         isSlugTaken,
-        createTribeWithOwnerMembership,
+        createTribeWithLeaderMembership,
       },
     });
 
     await expect(
       execute({
-        creatorEmail: "  OWNER@Example.com ",
+        creatorEmail: "  LEADER@Example.com ",
         creatorId: "member-1",
         name: "  Matematica Pro  ",
         slug: "Matematica Pro",
@@ -34,14 +34,14 @@ describe("createTribe", () => {
       tribeId: "tribe-1",
       name: "Matematica Pro",
       slug: "matematica-pro",
-      ownerMemberRole: "owner",
+      leaderMemberRole: "leader",
     });
 
-    expect(isEmailAllowed).toHaveBeenCalledWith("owner@example.com");
+    expect(isEmailAllowed).toHaveBeenCalledWith("leader@example.com");
     expect(isSlugTaken).toHaveBeenCalledWith("matematica-pro");
-    expect(createTribeWithOwnerMembership).toHaveBeenCalledWith({
+    expect(createTribeWithLeaderMembership).toHaveBeenCalledWith({
       name: "Matematica Pro",
-      ownerId: "member-1",
+      leaderId: "member-1",
       slug: "matematica-pro",
       visibility: "private",
     });
@@ -55,7 +55,7 @@ describe("createTribe", () => {
       },
       tribeCreationRepository: {
         isSlugTaken: jest.fn(),
-        createTribeWithOwnerMembership: jest.fn(),
+        createTribeWithLeaderMembership: jest.fn(),
       },
     });
 
@@ -78,13 +78,13 @@ describe("createTribe", () => {
       },
       tribeCreationRepository: {
         isSlugTaken: jest.fn(),
-        createTribeWithOwnerMembership: jest.fn(),
+        createTribeWithLeaderMembership: jest.fn(),
       },
     });
 
     await expect(
       execute({
-        creatorEmail: "owner@example.com",
+        creatorEmail: "leader@example.com",
         creatorId: "member-1",
         name: "Tribu valida",
         slug: "   ---   ",
@@ -98,20 +98,20 @@ describe("createTribe", () => {
   it("suggests the next available slug when the requested slug is already taken", async () => {
     const isSlugTaken = jest
       .fn(async (slug: string) => ["matematica-pro", "matematica-pro-2"].includes(slug));
-    const createTribeWithOwnerMembership = jest.fn();
+    const createTribeWithLeaderMembership = jest.fn();
     const execute = createTribe({
       tribeCreatorWhitelistRepository: {
         isEmailAllowed: jest.fn(async () => true),
       },
       tribeCreationRepository: {
         isSlugTaken,
-        createTribeWithOwnerMembership,
+        createTribeWithLeaderMembership,
       },
     });
 
     await expect(
       execute({
-        creatorEmail: "owner@example.com",
+        creatorEmail: "leader@example.com",
         creatorId: "member-1",
         name: "Matematica Pro",
         slug: "matematica-pro",
@@ -122,7 +122,7 @@ describe("createTribe", () => {
       suggestedSlug: "matematica-pro-3",
     });
 
-    expect(createTribeWithOwnerMembership).not.toHaveBeenCalled();
+    expect(createTribeWithLeaderMembership).not.toHaveBeenCalled();
   });
 
   it("treats reserved slugs as unavailable and suggests an alternative", async () => {
@@ -132,13 +132,13 @@ describe("createTribe", () => {
       },
       tribeCreationRepository: {
         isSlugTaken: jest.fn(async () => false),
-        createTribeWithOwnerMembership: jest.fn(),
+        createTribeWithLeaderMembership: jest.fn(),
       },
     });
 
     await expect(
       execute({
-        creatorEmail: "owner@example.com",
+        creatorEmail: "leader@example.com",
         creatorId: "member-1",
         name: "Crear",
         slug: "crear",
@@ -161,7 +161,7 @@ describe("createTribe", () => {
       },
       tribeCreationRepository: {
         isSlugTaken,
-        createTribeWithOwnerMembership: jest.fn(async () => {
+        createTribeWithLeaderMembership: jest.fn(async () => {
           throw new TribeSlugConflictError();
         }),
       },
@@ -169,7 +169,7 @@ describe("createTribe", () => {
 
     await expect(
       execute({
-        creatorEmail: "owner@example.com",
+        creatorEmail: "leader@example.com",
         creatorId: "member-1",
         name: "Matematica Pro",
         slug: "matematica-pro",
@@ -187,7 +187,7 @@ describe("createTribe", () => {
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(true);
-    const createTribeWithOwnerMembership = jest
+    const createTribeWithLeaderMembership = jest
       .fn()
       .mockRejectedValueOnce(new TribeSlugConflictError())
       .mockRejectedValueOnce(new TribeSlugConflictError());
@@ -197,12 +197,12 @@ describe("createTribe", () => {
       },
       tribeCreationRepository: {
         isSlugTaken,
-        createTribeWithOwnerMembership,
+        createTribeWithLeaderMembership,
       },
     });
 
     const command = {
-      creatorEmail: "owner@example.com",
+      creatorEmail: "leader@example.com",
       creatorId: "member-1",
       name: "Matematica Pro",
       slug: "matematica-pro",

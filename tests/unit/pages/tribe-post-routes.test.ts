@@ -8,10 +8,10 @@ const getAuthenticatedMember = jest.fn();
 const createTribePost = jest.fn();
 const createPostComment = jest.fn();
 const togglePostLike = jest.fn();
-const listTribePostCategories = jest.fn();
-const createTribePostCategory = jest.fn();
-const updateTribePostCategory = jest.fn();
-const deleteTribePostCategory = jest.fn();
+const listTribeChannels = jest.fn();
+const createTribeChannel = jest.fn();
+const updateTribeChannel = jest.fn();
+const deleteTribeChannel = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -78,17 +78,17 @@ describe("Tribe post routes", () => {
     createTribePost.mockReset();
     createPostComment.mockReset();
     togglePostLike.mockReset();
-    listTribePostCategories.mockReset();
-    createTribePostCategory.mockReset();
-    updateTribePostCategory.mockReset();
-    deleteTribePostCategory.mockReset();
+    listTribeChannels.mockReset();
+    createTribeChannel.mockReset();
+    updateTribeChannel.mockReset();
+    deleteTribeChannel.mockReset();
     global.Response = MockJsonResponse as unknown as typeof Response;
 
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
       email: "member@example.com",
       name: "Grace Hopper",
-      role: "member",
+      role: "tribemate",
       avatarFallback: "GH",
       image: null,
     });
@@ -101,12 +101,12 @@ describe("Tribe post routes", () => {
       posts: {
         useCases: {
           createTribePost,
-          createTribePostCategory,
+          createTribeChannel,
           createPostComment,
-          deleteTribePostCategory,
-          listTribePostCategories,
+          deleteTribeChannel,
+          listTribeChannels,
           togglePostLike,
-          updateTribePostCategory,
+          updateTribeChannel,
         },
       },
     });
@@ -123,14 +123,14 @@ describe("Tribe post routes", () => {
         author: {
           id: "member-1",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         },
-        category: {
-          accessScope: "members",
+        channel: {
+          accessScope: "tribemates",
           emoji: "💬",
-          id: "category-general",
+          id: "channel-general",
           name: "General",
           slug: "general",
           sortOrder: 20,
@@ -148,7 +148,7 @@ describe("Tribe post routes", () => {
     const response = await POST_CREATE(
       buildJsonRequest({
         content: "Primera publicación",
-        categoryId: "category-general",
+        channelId: "channel-general",
         title: "Anuncio inicial",
       }),
       buildCreateRouteContext()
@@ -163,14 +163,14 @@ describe("Tribe post routes", () => {
         author: {
           id: "member-1",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         },
-        category: {
-          accessScope: "members",
+        channel: {
+          accessScope: "tribemates",
           emoji: "💬",
-          id: "category-general",
+          id: "channel-general",
           name: "General",
           slug: "general",
           sortOrder: 20,
@@ -185,16 +185,16 @@ describe("Tribe post routes", () => {
     });
     expect(createTribePost).toHaveBeenCalledWith({
       authorId: "member-1",
-      categoryId: "category-general",
+      channelId: "channel-general",
       tribeSlug: "matematica-pro",
       content: "Primera publicación",
       title: "Anuncio inicial",
     });
   });
 
-  it("returns a safe validation message when category is missing", async () => {
+  it("returns a safe validation message when channel is missing", async () => {
     createTribePost.mockResolvedValue({
-      status: "invalid_category",
+      status: "invalid_channel",
     });
 
     const response = await POST_CREATE(
@@ -208,7 +208,7 @@ describe("Tribe post routes", () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({
-      message: "Seleccioná una categoría antes de publicar.",
+      message: "Seleccioná un canal antes de publicar.",
     });
   });
 
@@ -253,7 +253,7 @@ describe("Tribe post routes", () => {
         author: {
           id: "member-1",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         },
@@ -276,7 +276,7 @@ describe("Tribe post routes", () => {
         author: {
           id: "member-1",
           name: "Grace Hopper",
-          role: "member",
+          role: "tribemate",
           avatarFallback: "GH",
           image: null,
         },

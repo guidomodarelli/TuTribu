@@ -76,14 +76,14 @@ describe("PostgresTribeReadRepository", () => {
           tribe_id: "tribe-1",
           tribe_row_id: "tribe-1",
           name: "Alpha Club",
-          role: "owner",
+          role: "leader",
           slug: "alpha-club",
         },
         {
           tribe_id: "tribe-2",
           tribe_row_id: "tribe-2",
           name: "Beta Club",
-          role: "member",
+          role: "tribemate",
           slug: "beta-club",
         },
       ],
@@ -99,13 +99,13 @@ describe("PostgresTribeReadRepository", () => {
       {
         tribeId: "tribe-1",
         name: "Alpha Club",
-        role: "owner",
+        role: "leader",
         slug: "alpha-club",
       },
       {
         tribeId: "tribe-2",
         name: "Beta Club",
-        role: "member",
+        role: "tribemate",
         slug: "beta-club",
       },
     ]);

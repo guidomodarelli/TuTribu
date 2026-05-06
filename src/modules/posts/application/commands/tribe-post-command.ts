@@ -1,6 +1,6 @@
 export type CreateTribePostCommand = {
   authorId: string;
-  categoryId: string;
+  channelId: string;
   tribeSlug: string;
   content: string;
   title: string;
@@ -19,22 +19,22 @@ export type TogglePostLikeCommand = {
   userId: string;
 };
 
-export type CreateTribePostCategoryCommand = {
+export type CreateTribeChannelCommand = {
   tribeSlug: string;
   emoji: string;
   name: string;
 };
 
-export type UpdateTribePostCategoryCommand = {
-  categoryId: string;
+export type UpdateTribeChannelCommand = {
+  channelId: string;
   tribeSlug: string;
   emoji: string;
   name: string;
   sortOrder: number;
 };
 
-export type DeleteTribePostCategoryCommand = {
-  categoryId: string;
+export type DeleteTribeChannelCommand = {
+  channelId: string;
   tribeSlug: string;
-  targetCategoryId?: string;
+  targetChannelId?: string;
 };

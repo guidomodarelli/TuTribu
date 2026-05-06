@@ -10,13 +10,13 @@ const memberTribes = [
   {
     tribeId: "tribe-1",
     name: "Alpha Club",
-    role: "member" as const,
+    role: "tribemate" as const,
     slug: "alpha-club",
   },
   {
     tribeId: "tribe-2",
     name: "Beta Club",
-    role: "owner" as const,
+    role: "leader" as const,
     slug: "beta-club",
   },
 ];
