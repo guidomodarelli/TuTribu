@@ -154,7 +154,7 @@ const TRIBE_ROUND_ATTRIBUTES = {
   relativeTimeNoTitleAttribute: "no-title",
   relativeTimeTag: "relative-time",
   tooltipCollisionPadding: 16,
-  tooltipSideOffset: 0,
+  tooltipSideOffset: -4,
   missingRequirementBulletHidden: true,
   messageComposerErrorId: "tribe-message-composer-error",
   messageComposerRequirementsLabel: "Requisitos pendientes",

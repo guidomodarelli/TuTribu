@@ -570,6 +570,7 @@
   }
 
   &__time {
+    width: fit-content;
     color: var(--muted-foreground);
     font-size: 0.78rem;
   }
