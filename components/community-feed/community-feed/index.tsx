@@ -1,10 +1,13 @@
 "use client";
 
 import {
-  FormEvent,
+  createElement,
   useEffect,
   useRef,
   useState,
+} from "react";
+import type {
+  FormEvent,
 } from "react";
 import {
   ChevronDownIcon,
@@ -146,6 +149,9 @@ const COMMUNITY_FEED_ATTRIBUTES = {
   contentExpandedDataAttribute: "data-expanded",
   dropdownAlign: "center",
   postMetaSeparatorHidden: true,
+  relativeTimeFormat: "relative",
+  relativeTimeNoTitleAttribute: "no-title",
+  relativeTimeTag: "relative-time",
   tooltipCollisionPadding: 16,
   tooltipSideOffset: 8,
   missingRequirementBulletHidden: true,
@@ -327,6 +333,26 @@ function formatPostCreatedTooltip(dateTime: string): string {
   ].join(COMMUNITY_FEED_FORMAT.standardSpace);
 }
 
+function PostRelativeTime({ dateTime }: { dateTime: string }) {
+  return createElement(
+    COMMUNITY_FEED_ATTRIBUTES.relativeTimeTag,
+    {
+      datetime: dateTime,
+      format: COMMUNITY_FEED_ATTRIBUTES.relativeTimeFormat,
+      [COMMUNITY_FEED_ATTRIBUTES.relativeTimeNoTitleAttribute]: "",
+    },
+    formatPostSummaryDate(dateTime)
+  );
+}
+
+function useRelativeTimeElementDefinition() {
+  useEffect(() => {
+    if (!globalThis.customElements?.get(COMMUNITY_FEED_ATTRIBUTES.relativeTimeTag)) {
+      void import("@github/relative-time-element");
+    }
+  }, []);
+}
+
 function getMissingPostRequirements(input: {
   categoryId: string;
   content: string;
@@ -358,6 +384,8 @@ function CommunityFeedContent({
   communitySlug,
   feed,
 }: CommunityFeedProps) {
+  useRelativeTimeElementDefinition();
+
   const currentCommunitySlugRef = useRef(communitySlug);
   const currentActionTokenRef = useRef(0);
   const [posts, setPosts] = useState<CommunityFeedPostResult[]>(feed.posts);
@@ -980,12 +1008,9 @@ function CommunityFeedContent({
                       <div className={styles.CommunityFeed__postMeta}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <time
-                              className={styles.CommunityFeed__time}
-                              dateTime={post.createdAt}
-                            >
-                              {formatPostSummaryDate(post.createdAt)}
-                            </time>
+                            <span className={styles.CommunityFeed__time}>
+                              <PostRelativeTime dateTime={post.createdAt} />
+                            </span>
                           </TooltipTrigger>
                           <TooltipContent
                             className={styles.CommunityFeed__postCreatedTooltip}
@@ -1092,12 +1117,22 @@ function CommunityFeedContent({
                   </span>
                 </div>
                 <div className={styles.CommunityFeed__postMeta}>
-                  <time
-                    className={styles.CommunityFeed__time}
-                    dateTime={selectedPost.createdAt}
-                  >
-                    {formatPostSummaryDate(selectedPost.createdAt)}
-                  </time>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className={styles.CommunityFeed__time}>
+                        <PostRelativeTime dateTime={selectedPost.createdAt} />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      className={styles.CommunityFeed__postCreatedTooltip}
+                      collisionPadding={
+                        COMMUNITY_FEED_ATTRIBUTES.tooltipCollisionPadding
+                      }
+                      sideOffset={COMMUNITY_FEED_ATTRIBUTES.tooltipSideOffset}
+                    >
+                      {formatPostCreatedTooltip(selectedPost.createdAt)}
+                    </TooltipContent>
+                  </Tooltip>
                   <span
                     aria-hidden={COMMUNITY_FEED_ATTRIBUTES.postMetaSeparatorHidden}
                     className={styles.CommunityFeed__postMetaSeparator}

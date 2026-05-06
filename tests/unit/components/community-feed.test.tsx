@@ -386,6 +386,27 @@ describe("CommunityFeed", () => {
     ).not.toHaveLength(0);
   });
 
+  it("renders the post timestamp with the relative time custom element", () => {
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    const postArticle = screen.getByText("Anuncio inicial").closest("article");
+
+    expect(postArticle).not.toBeNull();
+
+    const relativeTime = (postArticle as HTMLElement).querySelector("relative-time");
+
+    expect(relativeTime).not.toBeNull();
+    expect(relativeTime).toHaveAttribute("datetime", feed.posts[0].createdAt);
+    expect(relativeTime).toHaveAttribute("no-title", "");
+    expect(relativeTime).toHaveTextContent("26 abr");
+  });
+
   it("uses author images for posts and comments when available", async () => {
     const user = userEvent.setup();
 
