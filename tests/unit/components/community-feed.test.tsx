@@ -1221,6 +1221,80 @@ describe("CommunityFeed", () => {
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
+  it("renders an optimistic comment with the viewer community role without showing a member badge first", async () => {
+    const user = userEvent.setup();
+    let resolveCreateComment: (response: Response) => void = () => {};
+    const createCommentRequest = new Promise<Response>((resolve) => {
+      resolveCreateComment = resolve;
+    });
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(createCommentRequest);
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={{
+          ...feed,
+          posts: [
+            {
+              ...feed.posts[0],
+              author: {
+                ...feed.posts[0].author,
+                id: authenticatedMember.id,
+                name: authenticatedMember.name,
+                role: "owner" as const,
+              },
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir publicación: Anuncio inicial/i })
+    );
+
+    const commentInput = screen.getByRole("textbox", {
+      name: "Escribir un comentario",
+    });
+
+    await user.type(commentInput, "Comentario como propietario");
+    await user.keyboard("{Enter}");
+
+    const commentsSection = screen.getByRole("region", { name: "Comentarios" });
+
+    expect(
+      within(commentsSection).getByText("Comentario como propietario")
+    ).toBeInTheDocument();
+    expect(within(commentsSection).getAllByText("Propietario")).toHaveLength(1);
+    expect(within(commentsSection).queryByText("Miembro")).not.toBeInTheDocument();
+
+    resolveCreateComment({
+      json: async () => ({
+        comment: {
+          ...createdComment,
+          author: {
+            ...createdComment.author,
+            id: authenticatedMember.id,
+            name: authenticatedMember.name,
+            role: "owner" as const,
+          },
+          content: "Comentario como propietario",
+        },
+        message: "Comentario creado.",
+      }),
+      ok: true,
+      statusText: "Created",
+    } as Response);
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("Comentario publicado.");
+    });
+    expect(within(commentsSection).getAllByText("Propietario")).toHaveLength(1);
+    expect(within(commentsSection).queryByText("Miembro")).not.toBeInTheDocument();
+  });
+
   it("removes an optimistic comment and restores the draft when the request fails", async () => {
     const user = userEvent.setup();
     let rejectCreateComment: (response: Response) => void = () => {};

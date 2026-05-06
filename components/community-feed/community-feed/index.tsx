@@ -171,6 +171,15 @@ const COMMUNITY_FEED_OPTIMISTIC = {
   commentIdPrefix: "optimistic-comment-",
 } as const;
 
+const COMMUNITY_FEED_AUTHOR_ROLE = {
+  admin: "admin",
+  owner: "owner",
+} as const;
+
+const COMMUNITY_FEED_PRIVILEGED_AUTHOR_ROLES = new Set<
+  CommunityFeedCommentResult["author"]["role"]
+>([COMMUNITY_FEED_AUTHOR_ROLE.admin, COMMUNITY_FEED_AUTHOR_ROLE.owner]);
+
 const COMMUNITY_FEED_CONTENT_PREVIEW_CLASS = {
   details: "CommunityFeed__content--detailsPreview",
   feed: "CommunityFeed__content--feedPreview",
@@ -406,6 +415,43 @@ function getLikeButtonClassName(likedByViewer: boolean): string {
   ].join(COMMUNITY_FEED_FORMAT.standardSpace);
 }
 
+function renderAuthorRoleBadge(role: CommunityFeedCommentResult["author"]["role"]) {
+  if (!COMMUNITY_FEED_PRIVILEGED_AUTHOR_ROLES.has(role)) {
+    return null;
+  }
+
+  return (
+    <span
+      className={`${styles.CommunityFeed__roleBadge} ${
+        styles[COMMUNITY_FEED_FORMAT.roleBadgeModifierPrefix + role]
+      }`}
+    >
+      {COMMUNITY_FEED_COPY.roleLabel[role]}
+    </span>
+  );
+}
+
+function findViewerCommunityAuthor(
+  posts: CommunityFeedPostResult[],
+  viewerId: string
+): CommunityFeedCommentResult["author"] | null {
+  for (const post of posts) {
+    if (post.author.id === viewerId) {
+      return post.author;
+    }
+
+    const commentAuthor = post.comments.find(
+      (comment) => comment.author.id === viewerId
+    )?.author;
+
+    if (commentAuthor) {
+      return commentAuthor;
+    }
+  }
+
+  return null;
+}
+
 function replacePostComment(
   post: CommunityFeedPostResult,
   commentId: string,
@@ -578,13 +624,20 @@ function CommunityFeedContent({
     const optimisticCommentId =
       COMMUNITY_FEED_OPTIMISTIC.commentIdPrefix +
       String(optimisticCommentCounterRef.current);
+    const viewerCommunityAuthor = findViewerCommunityAuthor(
+      posts,
+      authenticatedMember.id
+    );
     const optimisticComment: CommunityFeedCommentResult = {
       author: {
-        avatarFallback: authenticatedMember.avatarFallback,
+        avatarFallback:
+          viewerCommunityAuthor?.avatarFallback ?? authenticatedMember.avatarFallback,
         id: authenticatedMember.id,
-        image: authenticatedMember.image,
-        name: authenticatedMember.name,
-        role: authenticatedMember.role as CommunityFeedCommentResult["author"]["role"],
+        image: viewerCommunityAuthor?.image ?? authenticatedMember.image,
+        name: viewerCommunityAuthor?.name ?? authenticatedMember.name,
+        role:
+          viewerCommunityAuthor?.role ??
+          (authenticatedMember.role as CommunityFeedCommentResult["author"]["role"]),
       },
       content,
       createdAt: new Date().toISOString(),
@@ -1188,16 +1241,7 @@ function CommunityFeedContent({
                         <p className={styles.CommunityFeed__authorName}>
                           {post.author.name}
                         </p>
-                        <span
-                          className={`${styles.CommunityFeed__roleBadge} ${
-                            styles[
-                              COMMUNITY_FEED_FORMAT.roleBadgeModifierPrefix +
-                                post.author.role
-                            ]
-                          }`}
-                        >
-                          {COMMUNITY_FEED_COPY.roleLabel[post.author.role]}
-                        </span>
+                        {renderAuthorRoleBadge(post.author.role)}
                       </div>
                       <div className={styles.CommunityFeed__postMeta}>
                         <Tooltip>
@@ -1300,16 +1344,7 @@ function CommunityFeedContent({
                   <p className={styles.CommunityFeed__authorName}>
                     {selectedPost.author.name}
                   </p>
-                  <span
-                    className={`${styles.CommunityFeed__roleBadge} ${
-                      styles[
-                        COMMUNITY_FEED_FORMAT.roleBadgeModifierPrefix +
-                          selectedPost.author.role
-                      ]
-                    }`}
-                  >
-                    {COMMUNITY_FEED_COPY.roleLabel[selectedPost.author.role]}
-                  </span>
+                  {renderAuthorRoleBadge(selectedPost.author.role)}
                 </div>
                 <div className={styles.CommunityFeed__postMeta}>
                   <Tooltip>
@@ -1383,20 +1418,7 @@ function CommunityFeedContent({
                           <div className={styles.CommunityFeed__commentBody}>
                             <p className={styles.CommunityFeed__commentMeta}>
                               <span>{comment.author.name}</span>
-                              <span
-                                className={`${styles.CommunityFeed__roleBadge} ${
-                                  styles[
-                                    COMMUNITY_FEED_FORMAT.roleBadgeModifierPrefix +
-                                      comment.author.role
-                                  ]
-                                }`}
-                              >
-                                {
-                                  COMMUNITY_FEED_COPY.roleLabel[
-                                    comment.author.role
-                                  ]
-                                }
-                              </span>
+                              {renderAuthorRoleBadge(comment.author.role)}
                             </p>
                             <p className={styles.CommunityFeed__commentContent}>
                               {comment.content}
