@@ -445,6 +445,11 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
   - infrastructure adapter or mapper tests for DTO to entity mapping
   - route-level tests to verify entrypoint wiring still renders expected UI output
 
+### Neon migration push workflow
+
+- Use `npm run db:migrate` to push versioned migrations to Neon.
+- Use `npm run db:migrate:force` only when a forced Drizzle push is intentionally required.
+
 ## 7. Concurrency, Observability, and Performance
 
 ### Concurrency baseline

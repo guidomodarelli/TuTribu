@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "test": "jest",
     "test:watch": "jest --watch",
+    "db:migrate": "node scripts/push-migrations.js",
+    "db:migrate:force": "node scripts/push-migrations.js --force",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
