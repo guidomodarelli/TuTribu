@@ -2,8 +2,19 @@
 
 import * as React from "react"
 import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar"
+import NextImage from "next/image"
 
 import { cn } from "@/lib/utils"
+
+const AVATAR_IMAGE_DIMENSION = 40
+
+type AvatarImageProps = Omit<
+  React.ComponentProps<typeof NextImage>,
+  "alt" | "height" | "src" | "width"
+> & {
+  alt?: string
+  src?: string | null
+}
 
 function Avatar({
   className,
@@ -25,14 +36,38 @@ function Avatar({
   )
 }
 
-function AvatarImage({ className, ...props }: AvatarPrimitive.Image.Props) {
+function AvatarImage({
+  alt = "",
+  className,
+  onError,
+  src,
+  ...props
+}: AvatarImageProps) {
+  const [failedImageSource, setFailedImageSource] = React.useState<
+    string | null | undefined
+  >()
+  const hasImageError = src === failedImageSource
+
+  if (!src || hasImageError) {
+    return null
+  }
+
   return (
-    <AvatarPrimitive.Image
+    <NextImage
+      alt={alt}
       data-slot="avatar-image"
       className={cn(
-        "aspect-square size-full rounded-full object-cover",
+        "absolute inset-0 aspect-square size-full rounded-full object-cover",
         className
       )}
+      height={AVATAR_IMAGE_DIMENSION}
+      onError={(event) => {
+        setFailedImageSource(src)
+        onError?.(event)
+      }}
+      src={src}
+      unoptimized
+      width={AVATAR_IMAGE_DIMENSION}
       {...props}
     />
   )

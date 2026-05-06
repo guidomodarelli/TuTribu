@@ -96,6 +96,7 @@ export const auth = betterAuth({
     [BETTER_AUTH_PROVIDER.google]: {
       clientId: betterAuthEnvironment.googleClientId,
       clientSecret: betterAuthEnvironment.googleClientSecret,
+      overrideUserInfoOnSignIn: true,
     },
   },
 });

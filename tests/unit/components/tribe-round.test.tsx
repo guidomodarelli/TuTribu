@@ -57,6 +57,27 @@ class ImageMock {
 
 globalThis.Image = ImageMock as unknown as typeof Image;
 
+class FailingImagePreloadMock {
+  complete = false;
+
+  naturalWidth = 0;
+
+  onerror: (() => void) | null = null;
+
+  onload: (() => void) | null = null;
+
+  private source = "";
+
+  get src() {
+    return this.source;
+  }
+
+  set src(nextSource: string) {
+    this.source = nextSource;
+    this.onerror?.();
+  }
+}
+
 function render(ui: ReactElement) {
   return renderComponent(ui, {
     wrapper: ({ children }: { children: ReactNode }) => (
@@ -287,6 +308,7 @@ function createDeferredResponse(): DeferredResponse {
 describe("TribeRound", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.Image = ImageMock as unknown as typeof Image;
     unexpectedConsoleErrors = [];
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(
       (...parameters: unknown[]) => {
@@ -434,6 +456,23 @@ describe("TribeRound", () => {
     expect(screen.getByRole("img", { name: "Grace Hopper" })).toHaveAttribute(
       "src",
       "https://example.com/grace-hopper.jpg"
+    );
+  });
+
+  it("keeps author images mounted when avatar preloading reports an error", () => {
+    globalThis.Image = FailingImagePreloadMock as unknown as typeof Image;
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithAuthorImages}
+      />
+    );
+
+    expect(screen.getByRole("img", { name: "Ada Lovelace" })).toHaveAttribute(
+      "src",
+      "https://example.com/ada-lovelace.jpg"
     );
   });
 

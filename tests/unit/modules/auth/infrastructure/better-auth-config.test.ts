@@ -71,6 +71,11 @@ describe("Better Auth configuration", () => {
     expect(mockBetterAuth).toHaveBeenCalledWith(
       expect.objectContaining({
         database: adapterInstance,
+        socialProviders: {
+          google: expect.objectContaining({
+            overrideUserInfoOnSignIn: true,
+          }),
+        },
       })
     );
   });
