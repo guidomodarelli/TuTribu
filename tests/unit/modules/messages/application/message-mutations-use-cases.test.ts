@@ -5,10 +5,10 @@ import { toggleMessageLike } from "@/src/modules/messages/application/use-cases/
 describe("message mutation use cases", () => {
   const tribeChannel = {
     accessScope: "tribemates" as const,
-    emoji: "💬",
-    id: "channel-general",
-    name: "General",
-    slug: "general",
+    emoji: "🔥",
+    id: "channel-ronda",
+    name: "Ronda",
+    slug: "ronda",
     sortOrder: 20,
   };
 
@@ -41,7 +41,7 @@ describe("message mutation use cases", () => {
     await expect(
       execute({
         authorId: "member-1",
-        channelId: "channel-general",
+        channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
         content: "Primera mensaje",
         title: "Bienvenida",
@@ -49,7 +49,7 @@ describe("message mutation use cases", () => {
     ).resolves.toEqual({ message: createdMessage, status: "created" });
     expect(create).toHaveBeenCalledWith({
       authorId: "member-1",
-      channelId: "channel-general",
+      channelId: "channel-ronda",
       tribeSlug: "matematica-pro",
       content: "Primera mensaje",
       title: "Bienvenida",
@@ -65,7 +65,7 @@ describe("message mutation use cases", () => {
     await expect(
       execute({
         authorId: "member-1",
-        channelId: "channel-general",
+        channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
         content: "Primera mensaje",
         title: "   ",
@@ -83,7 +83,7 @@ describe("message mutation use cases", () => {
     await expect(
       execute({
         authorId: "member-1",
-        channelId: "channel-general",
+        channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
         content: "   ",
         title: "Bienvenida",

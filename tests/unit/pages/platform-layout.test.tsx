@@ -53,7 +53,7 @@ jest.mock("@/components/platform/tribe-switcher", () => ({
     showPrivateBadge?: boolean;
   }) => (
     <span>
-      Selector de tribus: trigger {String(showDropdownTrigger)}, privada{" "}
+      Selector de tribus: trigger {String(showDropdownTrigger)}, Tribu privada{" "}
       {String(showPrivateBadge)}
     </span>
   ),
@@ -165,7 +165,7 @@ describe("PlatformLayout", () => {
     );
 
     expect(
-      screen.getByText("Selector de tribus: trigger false, privada true")
+      screen.getByText("Selector de tribus: trigger false, Tribu privada true")
     ).toBeInTheDocument();
   });
 

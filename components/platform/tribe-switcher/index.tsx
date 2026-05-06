@@ -28,7 +28,7 @@ const TRIBE_SWITCHER_UI = {
   contentSide: "bottom",
   nestedRouteSeparator: "/",
   privateBadgeAriaLabel: "Tribu privada",
-  privateBadgeLabel: "privada",
+  privateBadgeLabel: "Tribu privada",
   privateBadgeVariant: "outline",
   triggerAriaLabel: "Abrir tribus",
 } as const;

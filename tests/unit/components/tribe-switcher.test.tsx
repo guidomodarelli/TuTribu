@@ -53,7 +53,7 @@ describe("TribeSwitcher", () => {
     expect(
       screen.getByRole("button", { name: /abrir tribus/i })
     ).toBeInTheDocument();
-    expect(screen.getByText("privada")).toBeInTheDocument();
+    expect(screen.getByText("Tribu privada")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /beta club/i })
     ).not.toBeInTheDocument();
@@ -62,7 +62,7 @@ describe("TribeSwitcher", () => {
   it("does not render the private badge when no tribe is active", () => {
     render(<TribeSwitcher memberTribes={memberTribes} />);
 
-    expect(screen.queryByText("privada")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tribu privada")).not.toBeInTheDocument();
   });
 
   it("shows actions and member tribes without search when opened", async () => {

@@ -36,29 +36,29 @@ describe("Message SQL guardrails", () => {
 
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.tribe_channels");
     expect(migration).toContain("UNIQUE (tribe_id, slug)");
-    expect(migration).toContain("('General', 'general', '💬', 20)");
+    expect(migration).toContain("('Ronda', 'ronda', '🔥', 20)");
     expect(migration).not.toContain("('Anuncios', 'anuncios'");
     expect(migration).not.toContain("('Preguntas', 'preguntas'");
     expect(migration).not.toContain("('Eventos', 'eventos'");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS channel_id uuid");
-    expect(migration).toContain("WITH tribe_general_channels AS");
+    expect(migration).toContain("WITH tribe_ronda_channels AS");
     expect(migration).toContain("UPDATE public.messages");
     expect(migration).toContain("SET");
-    expect(migration).toContain("channel_id = tribe_general_channels.id");
-    expect(migration).toContain("messages.tribe_id = tribe_general_channels.tribe_id");
+    expect(migration).toContain("channel_id = tribe_ronda_channels.id");
+    expect(migration).toContain("messages.tribe_id = tribe_ronda_channels.tribe_id");
     expect(migration).toContain("ALTER COLUMN channel_id SET NOT NULL");
     expect(migration).toContain("REFERENCES public.tribe_channels(id)");
     expect(migration).not.toContain("DELETE FROM public.messages");
   });
 
-  it("moves obsolete initial channel messages into General before deleting those channels", () => {
+  it("moves obsolete initial channel messages into Ronda before deleting those channels", () => {
     const migration = readWorkspaceFile(
-      "database/migrations/20260426050000_keep_only_general_initial_channel.sql"
+      "database/migrations/20260426050000_keep_only_ronda_initial_channel.sql"
     );
 
-    expect(migration).toContain("WITH general_channels AS");
+    expect(migration).toContain("WITH ronda_channels AS");
     expect(migration).toContain("UPDATE public.messages");
-    expect(migration).toContain("channel_id = general_channels.id");
+    expect(migration).toContain("channel_id = ronda_channels.id");
     expect(migration).toContain("source_channels.slug IN ('anuncios', 'preguntas', 'eventos')");
     expect(migration).toContain("DELETE FROM public.tribe_channels obsolete_channels");
     expect(migration).toContain("obsolete_channels.slug IN ('anuncios', 'preguntas', 'eventos')");

@@ -27,10 +27,10 @@ describe("PostgresTribeChannelRepository", () => {
       rows: [
         {
           access_scope: "tribemates",
-          emoji: "💬",
-          id: "channel-general",
-          name: "General",
-          slug: "general",
+          emoji: "🔥",
+          id: "channel-ronda",
+          name: "Ronda",
+          slug: "ronda",
           sort_order: "20",
         },
       ],
@@ -44,10 +44,10 @@ describe("PostgresTribeChannelRepository", () => {
     ).resolves.toEqual([
       {
         accessScope: "tribemates",
-        emoji: "💬",
-        id: "channel-general",
-        name: "General",
-        slug: "general",
+        emoji: "🔥",
+        id: "channel-ronda",
+        name: "Ronda",
+        slug: "ronda",
         sortOrder: 20,
       },
     ]);
@@ -111,8 +111,8 @@ describe("PostgresTribeChannelRepository", () => {
     await expect(
       repository.create({
         tribeSlug: "matematica-pro",
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
       })
     ).resolves.toEqual({ status: "duplicate_slug" });
   });
@@ -131,8 +131,8 @@ describe("PostgresTribeChannelRepository", () => {
     await expect(
       repository.create({
         tribeSlug: "matematica-pro",
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
       })
     ).resolves.toEqual({ status: "duplicate_slug" });
   });
@@ -153,8 +153,8 @@ describe("PostgresTribeChannelRepository", () => {
       repository.update({
         channelId: "channel-questions",
         tribeSlug: "matematica-pro",
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
         sortOrder: 30,
       })
     ).resolves.toEqual({ status: "duplicate_slug" });
@@ -177,8 +177,8 @@ describe("PostgresTribeChannelRepository", () => {
       repository.update({
         channelId: "channel-questions",
         tribeSlug: "matematica-pro",
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
         sortOrder: 30,
       })
     ).resolves.toEqual({ status: "duplicate_slug" });
@@ -200,8 +200,8 @@ describe("PostgresTribeChannelRepository", () => {
       repository.update({
         channelId: "channel-missing",
         tribeSlug: "matematica-pro",
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
         sortOrder: 30,
       })
     ).resolves.toEqual({ status: "not_found" });
@@ -228,7 +228,7 @@ describe("PostgresTribeChannelRepository", () => {
       repository.delete({
         channelId: "channel-questions",
         tribeSlug: "matematica-pro",
-        targetChannelId: "channel-general",
+        targetChannelId: "channel-ronda",
       })
     ).resolves.toEqual({ status: "moved_and_deleted" });
 

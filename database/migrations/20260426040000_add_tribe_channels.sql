@@ -34,7 +34,7 @@ $$;
 
 WITH channel_seed(name, slug, emoji, sort_order) AS (
   VALUES
-    ('General', 'general', '💬', 20)
+    ('Ronda', 'ronda', '🔥', 20)
 )
 INSERT INTO public.tribe_channels (
   tribe_id,
@@ -62,19 +62,19 @@ ON CONFLICT (tribe_id, slug) DO NOTHING;
 ALTER TABLE public.messages
 ADD COLUMN IF NOT EXISTS channel_id uuid;
 
-WITH tribe_general_channels AS (
+WITH tribe_ronda_channels AS (
   SELECT
     tribe_channels.tribe_id,
     tribe_channels.id
   FROM public.tribe_channels
-  WHERE tribe_channels.slug = 'general'
+  WHERE tribe_channels.slug = 'ronda'
 )
 UPDATE public.messages
 SET
-  channel_id = tribe_general_channels.id,
+  channel_id = tribe_ronda_channels.id,
   updated_at = timezone('utc', now())
-FROM tribe_general_channels
-WHERE messages.tribe_id = tribe_general_channels.tribe_id
+FROM tribe_ronda_channels
+WHERE messages.tribe_id = tribe_ronda_channels.tribe_id
   AND messages.channel_id IS NULL;
 
 ALTER TABLE public.messages

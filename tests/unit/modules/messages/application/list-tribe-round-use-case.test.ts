@@ -3,10 +3,10 @@ import { listTribeRound } from "@/src/modules/messages/application/use-cases/lis
 describe("listTribeRound", () => {
   const channel = {
     accessScope: "tribemates" as const,
-    emoji: "💬",
-    id: "channel-general",
-    name: "General",
-    slug: "general",
+    emoji: "🔥",
+    id: "channel-ronda",
+    name: "Ronda",
+    slug: "ronda",
     sortOrder: 20,
   };
 

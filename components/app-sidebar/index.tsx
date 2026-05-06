@@ -63,11 +63,11 @@ const tribeSectionNavigation = [
       isSameOrNestedPath(pathname, ROUTES.tribes.events(tribeSlug)),
   },
   {
-    hrefBuilder: ROUTES.tribes.tribemates,
+    hrefBuilder: ROUTES.tribes.tribe,
     icon: UsersIcon,
-    label: "Integrantes",
+    label: "Tribu",
     matchPath: (pathname: string, tribeSlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.tribes.tribemates(tribeSlug)),
+      isSameOrNestedPath(pathname, ROUTES.tribes.tribe(tribeSlug)),
   },
   {
     hrefBuilder: ROUTES.tribes.merits,
@@ -215,7 +215,6 @@ export function AppSidebar({
       <SidebarContent>
         {activeTribe ? (
           <SidebarGroup>
-            <SidebarGroupLabel>Tribu</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {visibleTribeSectionNavigation.map((item) => {
@@ -298,7 +297,7 @@ export function AppSidebar({
               </SidebarMenu>
               {authenticatedMember && memberTribes.length === 0 ? (
                 <p className={styles.AppSidebar__emptyState}>
-                  Todavia no formas parte de ninguna tribu
+                  Todavía no formas parte de ninguna tribu
                 </p>
               ) : null}
             </SidebarGroupContent>

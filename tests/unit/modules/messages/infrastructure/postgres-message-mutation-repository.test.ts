@@ -31,10 +31,10 @@ describe("PostgresMessageMutationRepository", () => {
           author_name: "Grace Hopper",
           author_role: "tribemate",
           channel_access_scope: "tribemates",
-          channel_emoji: "💬",
-          channel_id: "channel-general",
-          channel_name: "General",
-          channel_slug: "general",
+          channel_emoji: "🔥",
+          channel_id: "channel-ronda",
+          channel_name: "Ronda",
+          channel_slug: "ronda",
           channel_sort_order: 20,
           message_content: "Primera mensaje",
           message_created_at: "2026-04-26T12:00:00.000Z",
@@ -51,7 +51,7 @@ describe("PostgresMessageMutationRepository", () => {
     await expect(
       repository.create({
         authorId: "member-1",
-        channelId: "channel-general",
+        channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
         content: "Primera mensaje",
         title: "Anuncio inicial",
@@ -61,10 +61,10 @@ describe("PostgresMessageMutationRepository", () => {
         id: "message-1",
         channel: {
           accessScope: "tribemates",
-          emoji: "💬",
-          id: "channel-general",
-          name: "General",
-          slug: "general",
+          emoji: "🔥",
+          id: "channel-ronda",
+          name: "Ronda",
+          slug: "ronda",
           sortOrder: 20,
         },
         author: {

@@ -69,9 +69,9 @@ export const TRIBE_CHANNEL_EMOJI = {
 
 export const DEFAULT_TRIBE_CHANNELS = [
   {
-    emoji: "💬",
-    name: "General",
-    slug: "general",
+    emoji: "🔥",
+    name: "Ronda",
+    slug: "ronda",
     sortOrder: 20,
   },
 ] as const;

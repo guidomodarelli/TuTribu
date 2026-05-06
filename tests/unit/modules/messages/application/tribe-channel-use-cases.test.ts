@@ -7,10 +7,10 @@ import {
 describe("channel use cases", () => {
   const channel = {
     accessScope: "tribemates" as const,
-    emoji: "💬",
-    id: "channel-general",
-    name: "General",
-    slug: "general",
+    emoji: "🔥",
+    id: "channel-ronda",
+    name: "Ronda",
+    slug: "ronda",
     sortOrder: 20,
   };
 
@@ -31,14 +31,14 @@ describe("channel use cases", () => {
     await expect(
       execute({
         tribeSlug: "matematica-pro",
-        emoji: " 💬 ",
-        name: " General ",
+        emoji: " 🔥 ",
+        name: " Ronda ",
       })
     ).resolves.toEqual({ channel, status: "created" });
     expect(create).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
-      emoji: "💬",
-      name: "General",
+      emoji: "🔥",
+      name: "Ronda",
     });
   });
 
@@ -56,7 +56,7 @@ describe("channel use cases", () => {
     await expect(
       execute({
         tribeSlug: "matematica-pro",
-        emoji: "💬",
+        emoji: "🔥",
         name: "   ",
       })
     ).resolves.toEqual({ status: "invalid_name" });
@@ -79,18 +79,18 @@ describe("channel use cases", () => {
 
     await expect(
       execute({
-        channelId: " channel-general ",
+        channelId: " channel-ronda ",
         tribeSlug: " matematica-pro ",
-        emoji: " 💬 ",
-        name: " General ",
+        emoji: " 🔥 ",
+        name: " Ronda ",
         sortOrder: 20,
       })
     ).resolves.toEqual({ channel, status: "updated" });
     expect(update).toHaveBeenCalledWith({
-      channelId: "channel-general",
+      channelId: "channel-ronda",
       tribeSlug: "matematica-pro",
-      emoji: "💬",
-      name: "General",
+      emoji: "🔥",
+      name: "Ronda",
       sortOrder: 20,
     });
   });
@@ -112,13 +112,13 @@ describe("channel use cases", () => {
       execute({
         channelId: " channel-questions ",
         tribeSlug: " matematica-pro ",
-        targetChannelId: " channel-general ",
+        targetChannelId: " channel-ronda ",
       })
     ).resolves.toEqual({ status: "moved_and_deleted" });
     expect(deleteChannel).toHaveBeenCalledWith({
       channelId: "channel-questions",
       tribeSlug: "matematica-pro",
-      targetChannelId: "channel-general",
+      targetChannelId: "channel-ronda",
     });
   });
 

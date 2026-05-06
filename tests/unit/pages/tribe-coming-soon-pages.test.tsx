@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import TribeHistoryPage from "@/app/(platform)/tribu/[slug]/historia/page";
 import TribeEventsPage from "@/app/(platform)/tribu/[slug]/eventos/page";
-import TribeTribematesPage from "@/app/(platform)/tribu/[slug]/integrantes/page";
+import TribeTribePage from "@/app/(platform)/tribu/[slug]/tribu/page";
 import TribeMeritsPage from "@/app/(platform)/tribu/[slug]/meritos/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -112,7 +112,7 @@ describe("tribe coming soon pages", () => {
     };
 
     const pages = [
-      TribeTribematesPage(pageProps),
+      TribeTribePage(pageProps),
       TribeMeritsPage(pageProps),
       TribeHistoryPage(pageProps),
     ];
@@ -167,7 +167,7 @@ describe("tribe coming soon pages", () => {
     });
 
     await expect(
-      TribeTribematesPage({
+      TribeTribePage({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),

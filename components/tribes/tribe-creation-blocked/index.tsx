@@ -18,7 +18,7 @@ export function TribeCreationBlocked({
       <header className={styles.TribeCreationBlocked__header}>
         <p className={styles.TribeCreationBlocked__eyebrow}>Acceso restringido</p>
         <h2 className={styles.TribeCreationBlocked__title}>
-          Todavia no tienes permiso para crear una tribu
+          Todavía no tienes permiso para crear una tribu
         </h2>
       </header>
       <div className={styles.TribeCreationBlocked__content}>

@@ -14,10 +14,10 @@ const errorMock = jest.fn();
 
 const tribeChannel = {
   accessScope: "tribemates" as const,
-  emoji: "💬",
-  id: "channel-general",
-  name: "General",
-  slug: "general",
+  emoji: "🔥",
+  id: "channel-ronda",
+  name: "Ronda",
+  slug: "ronda",
   sortOrder: 20,
 };
 
@@ -171,7 +171,7 @@ describe("TribePage", () => {
     expect(screen.queryByText("Mensajees")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: "Escribí algo para la ronda",
+        name: "Compartí algo en la ronda",
       })
     ).toBeInTheDocument();
     expect(
@@ -227,14 +227,14 @@ describe("TribePage", () => {
 
     expect(
       screen.queryByRole("button", {
-        name: "Escribí algo para la ronda",
+        name: "Compartí algo en la ronda",
       })
     ).not.toBeInTheDocument();
     expect(
       screen.getByText("Podes leer la ronda, pero tu estado actual no permite participar.")
     ).toBeInTheDocument();
     expect(
-      screen.getByText("La ronda esta lista para el primer mensaje")
+      screen.getByText("Compartí tu primer mensaje con la ronda")
     ).toBeInTheDocument();
   });
 

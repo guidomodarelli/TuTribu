@@ -25,10 +25,10 @@ describe("PostgresMessageRoundRepository", () => {
   const channelRows = [
     {
       access_scope: "tribemates",
-      emoji: "💬",
-      id: "channel-general",
-      name: "General",
-      slug: "general",
+      emoji: "🔥",
+      id: "channel-ronda",
+      name: "Ronda",
+      slug: "ronda",
       sort_order: 20,
     },
   ];
@@ -41,10 +41,10 @@ describe("PostgresMessageRoundRepository", () => {
         rows: [
           {
           channel_access_scope: "tribemates",
-          channel_emoji: "💬",
-          channel_id: "channel-general",
-          channel_name: "General",
-          channel_slug: "general",
+          channel_emoji: "🔥",
+          channel_id: "channel-ronda",
+          channel_name: "Ronda",
+          channel_slug: "ronda",
           channel_sort_order: 20,
           message_id: "message-1",
           message_content: "Bienvenida",
@@ -81,10 +81,10 @@ describe("PostgresMessageRoundRepository", () => {
       channels: [
         {
           accessScope: "tribemates",
-          emoji: "💬",
-          id: "channel-general",
-          name: "General",
-          slug: "general",
+          emoji: "🔥",
+          id: "channel-ronda",
+          name: "Ronda",
+          slug: "ronda",
           sortOrder: 20,
         },
       ],
@@ -98,10 +98,10 @@ describe("PostgresMessageRoundRepository", () => {
           id: "message-1",
           channel: {
             accessScope: "tribemates",
-            emoji: "💬",
-            id: "channel-general",
-            name: "General",
-            slug: "general",
+            emoji: "🔥",
+            id: "channel-ronda",
+            name: "Ronda",
+            slug: "ronda",
             sortOrder: 20,
           },
           author: {
@@ -187,10 +187,10 @@ describe("PostgresMessageRoundRepository", () => {
       channels: [
         {
           accessScope: "tribemates",
-          emoji: "💬",
-          id: "channel-general",
-          name: "General",
-          slug: "general",
+          emoji: "🔥",
+          id: "channel-ronda",
+          name: "Ronda",
+          slug: "ronda",
           sortOrder: 20,
         },
       ],
@@ -211,10 +211,10 @@ describe("PostgresMessageRoundRepository", () => {
         rows: [
           {
           channel_access_scope: "tribemates",
-          channel_emoji: "💬",
-          channel_id: "channel-general",
-          channel_name: "General",
-          channel_slug: "general",
+          channel_emoji: "🔥",
+          channel_id: "channel-ronda",
+          channel_name: "Ronda",
+          channel_slug: "ronda",
           channel_sort_order: 20,
           message_id: "message-1",
           message_content: "Bienvenida",
@@ -237,10 +237,10 @@ describe("PostgresMessageRoundRepository", () => {
           },
           {
           channel_access_scope: "tribemates",
-          channel_emoji: "💬",
-          channel_id: "channel-general",
-          channel_name: "General",
-          channel_slug: "general",
+          channel_emoji: "🔥",
+          channel_id: "channel-ronda",
+          channel_name: "Ronda",
+          channel_slug: "ronda",
           channel_sort_order: 20,
           message_id: "message-1",
           message_content: "Bienvenida",

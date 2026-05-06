@@ -123,10 +123,10 @@ const tribeChannels = [
   },
   {
     accessScope: "tribemates" as const,
-    emoji: "💬",
-    id: "channel-general",
-    name: "General",
-    slug: "general",
+    emoji: "🔥",
+    id: "channel-ronda",
+    name: "Ronda",
+    slug: "ronda",
     sortOrder: 20,
   },
 ];
@@ -329,12 +329,12 @@ describe("TribeRound", () => {
     const roundSection = container.querySelector("section");
 
     expect(roundSection?.firstElementChild).toBe(
-      screen.getByRole("button", { name: "Escribí algo para la ronda" })
+      screen.getByRole("button", { name: "Compartí algo en la ronda" })
     );
-    expect(screen.getByRole("button", { name: "Escribí algo para la ronda" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Compartí algo en la ronda" })).toBeInTheDocument();
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Escribí algo para la ronda" }));
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
 
     expect(
       screen.getByRole("dialog", { name: "Crear mensaje" })
@@ -368,7 +368,7 @@ describe("TribeRound", () => {
     expect(messageArticle).not.toBeNull();
 
     const channelBadge = within(messageArticle as HTMLElement).getByText(
-      (_, element) => element?.textContent === "💬 General"
+      (_, element) => element?.textContent === "🔥 Ronda"
     );
     const messageDate = within(messageArticle as HTMLElement).getByText("26 abr");
 
@@ -470,7 +470,7 @@ describe("TribeRound", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Escribí algo para la ronda" }));
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
     await user.type(
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"
@@ -526,7 +526,7 @@ describe("TribeRound", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Escribí algo para la ronda" }));
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
     await user.keyboard("{ArrowDown}{Enter}");
 
@@ -546,7 +546,7 @@ describe("TribeRound", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Escribí algo para la ronda" }));
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
     await user.type(
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"
@@ -586,7 +586,7 @@ describe("TribeRound", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Escribí algo para la ronda" }));
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
     await user.click(screen.getByRole("button", { name: "Publicar" }));
 
     const missingRequirements = screen.getByRole("list", {
@@ -615,7 +615,7 @@ describe("TribeRound", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Escribí algo para la ronda" }));
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
     await user.type(
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Borrador temporal"
@@ -630,7 +630,7 @@ describe("TribeRound", () => {
       await user.click(screen.getByRole("button", { name: "Cancelar" }));
     });
 
-    await user.click(screen.getByRole("button", { name: "Escribí algo para la ronda" }));
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
 
     expect(screen.getByRole("textbox", { name: "Título del mensaje" })).toHaveValue("");
     expect(
@@ -658,8 +658,8 @@ describe("TribeRound", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Todas" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "General" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Toda la ronda" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ronda" })).toBeInTheDocument();
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Intro and Goals" }));
@@ -708,7 +708,7 @@ describe("TribeRound", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Escribí algo para la ronda" }));
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
     await user.type(
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"

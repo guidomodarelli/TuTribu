@@ -26,10 +26,10 @@ jest.mock("sonner", () => ({
 const channels = [
   {
     accessScope: "tribemates" as const,
-    emoji: "💬",
-    id: "channel-general",
-    name: "General",
-    slug: "general",
+    emoji: "🔥",
+    id: "channel-ronda",
+    name: "Ronda",
+    slug: "ronda",
     sortOrder: 10,
   },
   {
@@ -67,16 +67,16 @@ describe("TribeChannelManagement", () => {
     const channelList = screen.getByRole("list", {
       name: "Canales configurados",
     });
-    const generalChannelItem = within(channelList)
-      .getByDisplayValue("General")
+    const rondaChannelItem = within(channelList)
+      .getByDisplayValue("Ronda")
       .closest("li");
 
     expect(channelList).toHaveClass("TribeChannelManagement__list");
-    expect(generalChannelItem).not.toBeNull();
-    expect(generalChannelItem).toHaveClass("TribeChannelManagement__item");
+    expect(rondaChannelItem).not.toBeNull();
+    expect(rondaChannelItem).toHaveClass("TribeChannelManagement__item");
     expect(
-      within(generalChannelItem as HTMLElement).getByRole("group", {
-        name: "Acciones de General",
+      within(rondaChannelItem as HTMLElement).getByRole("group", {
+        name: "Acciones de Ronda",
       })
     ).toHaveClass("TribeChannelManagement__actions");
   });
@@ -135,8 +135,8 @@ describe("TribeChannelManagement", () => {
     const channelList = screen.getByRole("list", {
       name: "Canales configurados",
     });
-    const generalChannelItem = within(channelList)
-      .getByDisplayValue("General")
+    const rondaChannelItem = within(channelList)
+      .getByDisplayValue("Ronda")
       .closest("li") as HTMLElement;
     const resourcesChannelItem = within(channelList)
       .getByDisplayValue("Recursos")
@@ -146,11 +146,11 @@ describe("TribeChannelManagement", () => {
       within(resourcesChannelItem).getByRole("combobox", {
         name: "Mover mensajes a",
       }),
-      "channel-general"
+      "channel-ronda"
     );
 
     await user.click(
-      within(generalChannelItem).getByRole("button", {
+      within(rondaChannelItem).getByRole("button", {
         name: "Eliminar",
       })
     );
@@ -193,7 +193,7 @@ describe("TribeChannelManagement", () => {
       within(resourcesChannelItem).getByRole("combobox", {
         name: "Mover mensajes a",
       }),
-      "channel-general"
+      "channel-ronda"
     );
 
     await user.click(
@@ -205,7 +205,7 @@ describe("TribeChannelManagement", () => {
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/tribes/matematica-pro/channels/channel-resources",
       expect.objectContaining({
-        body: JSON.stringify({ targetChannelId: "channel-general" }),
+        body: JSON.stringify({ targetChannelId: "channel-ronda" }),
         method: "DELETE",
       })
     );

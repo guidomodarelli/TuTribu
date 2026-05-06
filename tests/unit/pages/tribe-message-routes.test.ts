@@ -129,10 +129,10 @@ describe("Tribe message routes", () => {
         },
         channel: {
           accessScope: "tribemates",
-          emoji: "💬",
-          id: "channel-general",
-          name: "General",
-          slug: "general",
+          emoji: "🔥",
+          id: "channel-ronda",
+          name: "Ronda",
+          slug: "ronda",
           sortOrder: 20,
         },
         replies: [],
@@ -148,7 +148,7 @@ describe("Tribe message routes", () => {
     const response = await POST_CREATE(
       buildJsonRequest({
         content: "Primera mensaje",
-        channelId: "channel-general",
+        channelId: "channel-ronda",
         title: "Anuncio inicial",
       }),
       buildCreateRouteContext()
@@ -169,10 +169,10 @@ describe("Tribe message routes", () => {
         },
         channel: {
           accessScope: "tribemates",
-          emoji: "💬",
-          id: "channel-general",
-          name: "General",
-          slug: "general",
+          emoji: "🔥",
+          id: "channel-ronda",
+          name: "Ronda",
+          slug: "ronda",
           sortOrder: 20,
         },
         replies: [],
@@ -185,7 +185,7 @@ describe("Tribe message routes", () => {
     });
     expect(createTribeMessage).toHaveBeenCalledWith({
       authorId: "member-1",
-      channelId: "channel-general",
+      channelId: "channel-ronda",
       tribeSlug: "matematica-pro",
       content: "Primera mensaje",
       title: "Anuncio inicial",

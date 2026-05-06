@@ -157,7 +157,7 @@ describe("AppSidebar", () => {
     expect(screen.getByRole("button", { name: /matematica pro/i })).not.toHaveAttribute(
       "data-tooltip"
     );
-    expect(screen.queryByText("privada")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tribu privada")).not.toBeInTheDocument();
   });
 
   it("lets the sidebar tribe switcher occupy the available menu width", () => {
@@ -254,7 +254,7 @@ describe("AppSidebar", () => {
     );
 
     expect(
-      screen.getByText(/todavia no formas parte de ninguna tribu/i)
+      screen.getByText(/todavía no formas parte de ninguna tribu/i)
     ).toBeInTheDocument();
   });
 
@@ -318,7 +318,7 @@ describe("AppSidebar", () => {
   it("renders tribe sections when the member is inside one of their tribes", () => {
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
-    render(
+    const { container } = render(
       <AppSidebar
         authenticatedMember={{
           id: "member-1",
@@ -338,13 +338,17 @@ describe("AppSidebar", () => {
       />
     );
 
-    expect(screen.getByText("Tribu")).toBeInTheDocument();
+    expect(
+      Array.from(container.querySelectorAll("p")).some(
+        (paragraph) => paragraph.textContent === "Tribu"
+      )
+    ).toBe(false);
     expect(screen.getByRole("button", { name: /ronda/i })).toHaveAttribute(
       "data-active",
       "true"
     );
     expect(screen.getByRole("button", { name: /eventos/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /integrantes/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /tribu/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /méritos/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /historia/i })).toBeInTheDocument();
   });
@@ -414,7 +418,7 @@ describe("AppSidebar", () => {
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/canales");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/eventos");
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/integrantes");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/tribu");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/meritos");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/historia");
   });
@@ -556,9 +560,9 @@ describe("AppSidebar", () => {
       "true"
     );
 
-    await user.click(screen.getByRole("button", { name: /integrantes/i }));
+    await user.click(screen.getByRole("button", { name: /tribu/i }));
 
-    expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/integrantes");
+    expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/tribu");
   });
 
   it("does not render tribe sections outside an active member tribe", () => {

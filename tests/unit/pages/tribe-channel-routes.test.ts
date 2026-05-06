@@ -69,7 +69,7 @@ function buildTribeContext() {
 function buildChannelContext() {
   return {
     params: Promise.resolve({
-      channelId: "channel-general",
+      channelId: "channel-ronda",
       slug: "matematica-pro",
     }),
   };
@@ -78,10 +78,10 @@ function buildChannelContext() {
 describe("Tribe channel routes", () => {
   const channel = {
     accessScope: "tribemates" as const,
-    emoji: "💬",
-    id: "channel-general",
-    name: "General",
-    slug: "general",
+    emoji: "🔥",
+    id: "channel-ronda",
+    name: "Ronda",
+    slug: "ronda",
     sortOrder: 20,
   };
 
@@ -149,8 +149,8 @@ describe("Tribe channel routes", () => {
 
     const response = await POST(
       buildJsonRequest({
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
       }),
       buildTribeContext()
     );
@@ -169,8 +169,8 @@ describe("Tribe channel routes", () => {
 
     const response = await POST(
       buildJsonRequest({
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
       }),
       buildTribeContext()
     );
@@ -189,8 +189,8 @@ describe("Tribe channel routes", () => {
 
     const response = await PATCH(
       buildJsonRequest({
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
         sortOrder: 20,
       }),
       buildChannelContext()
@@ -198,10 +198,10 @@ describe("Tribe channel routes", () => {
 
     expect(response.status).toBe(200);
     expect(updateTribeChannel).toHaveBeenCalledWith({
-      channelId: "channel-general",
+      channelId: "channel-ronda",
       tribeSlug: "matematica-pro",
-      emoji: "💬",
-      name: "General",
+      emoji: "🔥",
+      name: "Ronda",
       sortOrder: 20,
     });
   });
@@ -213,8 +213,8 @@ describe("Tribe channel routes", () => {
 
     const response = await PATCH(
       buildJsonRequest({
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
         sortOrder: 20,
       }),
       buildChannelContext()
@@ -229,8 +229,8 @@ describe("Tribe channel routes", () => {
   it("rejects updates with invalid sort order values", async () => {
     const response = await PATCH(
       buildJsonRequest({
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
         sortOrder: Number.NaN,
       }),
       buildChannelContext()
@@ -246,8 +246,8 @@ describe("Tribe channel routes", () => {
   it("rejects updates when sort order is not an integer", async () => {
     const response = await PATCH(
       buildJsonRequest({
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
         sortOrder: 20.5,
       }),
       buildChannelContext()
@@ -263,8 +263,8 @@ describe("Tribe channel routes", () => {
   it("rejects updates when sort order is missing", async () => {
     const response = await PATCH(
       buildJsonRequest({
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
       }),
       buildChannelContext()
     );
@@ -279,8 +279,8 @@ describe("Tribe channel routes", () => {
   it("rejects updates when sort order is an empty string", async () => {
     const response = await PATCH(
       buildJsonRequest({
-        emoji: "💬",
-        name: "General",
+        emoji: "🔥",
+        name: "Ronda",
         sortOrder: "",
       }),
       buildChannelContext()
