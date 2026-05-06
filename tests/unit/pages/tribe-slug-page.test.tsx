@@ -171,7 +171,7 @@ describe("TribePage", () => {
     expect(screen.queryByText("Mensajees")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: "Escribí algo",
+        name: "Escribí algo para la ronda",
       })
     ).toBeInTheDocument();
     expect(
@@ -227,7 +227,7 @@ describe("TribePage", () => {
 
     expect(
       screen.queryByRole("button", {
-        name: "Escribí algo",
+        name: "Escribí algo para la ronda",
       })
     ).not.toBeInTheDocument();
     expect(

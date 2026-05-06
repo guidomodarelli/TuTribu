@@ -349,6 +349,38 @@ describe("AppSidebar", () => {
     expect(screen.getByRole("button", { name: /acerca de/i })).toBeInTheDocument();
   });
 
+  it("uses round and channel icons for tribe navigation", () => {
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
+
+    render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "leader@example.com",
+          name: "Grace Hopper",
+          role: "tribemate",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        memberTribes={[
+          {
+            tribeId: "tribe-1",
+            name: "Matematica Pro",
+            role: "leader",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(
+      screen.getByRole("button", { name: /inicio/i }).querySelector(".lucide-flame-kindling")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /canales/i }).querySelector(".lucide-signpost-big")
+    ).toBeInTheDocument();
+  });
+
   it("prefetches visible tribe section routes inside an active tribe", () => {
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 

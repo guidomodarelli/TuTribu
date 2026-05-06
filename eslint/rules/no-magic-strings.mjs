@@ -21,6 +21,17 @@ const USER_FACING_JSX_ATTRIBUTES = new Set([
   "title",
 ]);
 const NEXT_FONT_IMPORT_SOURCE_PREFIX = "next/font/";
+const SVG_ELEMENT_NAMES = new Set([
+  "circle",
+  "ellipse",
+  "g",
+  "line",
+  "path",
+  "polygon",
+  "polyline",
+  "rect",
+  "svg",
+]);
 
 function getParent(node) {
   return node.parent ?? null;
@@ -134,6 +145,56 @@ function isVisibleJsxCopyLiteral(node) {
   return false;
 }
 
+function isSvgElementName(nameNode) {
+  return nameNode?.type === "JSXIdentifier" && SVG_ELEMENT_NAMES.has(nameNode.name);
+}
+
+function isInsideSvgOpeningElement(node) {
+  let current = node;
+
+  while (current) {
+    const parent = getParent(current);
+
+    if (!parent) {
+      return false;
+    }
+
+    if (
+      parent.type === "JSXOpeningElement" &&
+      isSvgElementName(parent.name)
+    ) {
+      return true;
+    }
+
+    current = parent;
+  }
+
+  return false;
+}
+
+function isSvgMarkupLiteral(node) {
+  let current = node;
+
+  while (current) {
+    const parent = getParent(current);
+
+    if (!parent) {
+      return false;
+    }
+
+    if (
+      parent.type === "JSXAttribute" &&
+      isInsideSvgOpeningElement(parent)
+    ) {
+      return true;
+    }
+
+    current = parent;
+  }
+
+  return false;
+}
+
 function isDirectiveLiteral(node) {
   return (
     getParent(node)?.type === "ExpressionStatement" &&
@@ -232,6 +293,7 @@ function shouldIgnoreStringLikeNode(node) {
     isImportOrExportSource(node) ||
     isTypeOnlyLiteral(node) ||
     isVisibleJsxCopyLiteral(node) ||
+    isSvgMarkupLiteral(node) ||
     isObjectKey(node) ||
     isMemberPropertyName(node) ||
     isExtractedConstantLiteral(node) ||

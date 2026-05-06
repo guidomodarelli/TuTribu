@@ -342,6 +342,40 @@ describe("magic values lint rules", () => {
     expect(result.messages).toHaveLength(0);
   });
 
+  it("allows inline SVG markup strings for custom icons", async () => {
+    const eslint = await createMagicStringsEslint();
+
+    const [result] = await eslint.lintText(
+      `
+        export function TotemIcon(props: React.SVGProps<SVGSVGElement>) {
+          return (
+            <svg
+              {...props}
+              aria-hidden="true"
+              className={["lucide", "lucide-totem", props.className].filter(Boolean).join(" ")}
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M8 4h8" />
+            </svg>
+          );
+        }
+      `,
+      {
+        filePath: "components/example.tsx",
+      }
+    );
+
+    expect(result.messages).toHaveLength(0);
+  });
+
   it("does not report object keys or property-name access for magic strings", async () => {
     const eslint = await createMagicStringsEslint();
 

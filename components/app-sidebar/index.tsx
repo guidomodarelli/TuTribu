@@ -6,10 +6,10 @@ import {
   CheckIcon,
   ChevronDownIcon,
   CompassIcon,
-  FolderIcon,
-  HomeIcon,
+  FlameKindlingIcon,
   InfoIcon,
   PlusCircleIcon,
+  SignpostBigIcon,
   TrophyIcon,
   UsersIcon,
 } from "lucide-react";
@@ -43,14 +43,14 @@ const discoverTribesNavigationItem = {
 const tribeSectionNavigation = [
   {
     hrefBuilder: ROUTES.tribes.bySlug,
-    icon: HomeIcon,
+    icon: FlameKindlingIcon,
     label: "Inicio",
     matchPath: (pathname: string, tribeSlug: string) =>
       pathname === ROUTES.tribes.bySlug(tribeSlug),
   },
   {
     hrefBuilder: ROUTES.tribes.channels,
-    icon: FolderIcon,
+    icon: SignpostBigIcon,
     label: "Canales",
     matchPath: (pathname: string, tribeSlug: string) =>
       isSameOrNestedPath(pathname, ROUTES.tribes.channels(tribeSlug)),

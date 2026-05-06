@@ -107,7 +107,7 @@ const TRIBE_ROUND_COPY = {
   tribeChannelFilterAll: "Todas",
   tribeChannelLabel: "Canal del mensaje",
   tribeChannelSelect: "Seleccionar canal",
-  messageComposerCollapsed: "Escribí algo",
+  messageComposerCollapsed: "Escribí algo para la ronda",
   messageComposerContext: "publicando en la tribu",
   messageComposerDescription:
     "Completá el título y el contenido para compartir un mensaje en la tribu.",
