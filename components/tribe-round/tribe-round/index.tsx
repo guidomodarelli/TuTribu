@@ -154,7 +154,7 @@ const TRIBE_ROUND_ATTRIBUTES = {
   relativeTimeNoTitleAttribute: "no-title",
   relativeTimeTag: "relative-time",
   tooltipCollisionPadding: 16,
-  tooltipSideOffset: 8,
+  tooltipSideOffset: 0,
   missingRequirementBulletHidden: true,
   messageComposerErrorId: "tribe-message-composer-error",
   messageComposerRequirementsLabel: "Requisitos pendientes",
@@ -428,6 +428,36 @@ function renderAuthorRoleBadge(role: TribeRoundReplyResult["author"]["role"]) {
     >
       {TRIBE_ROUND_COPY.roleLabel[role]}
     </span>
+  );
+}
+
+function renderAuthorIdentity(author: TribeRoundReplyResult["author"]) {
+  return (
+    <div className={styles.TribeRound__authorIdentity}>
+      <p className={styles.TribeRound__authorName}>
+        {author.name}
+      </p>
+      {renderAuthorRoleBadge(author.role)}
+    </div>
+  );
+}
+
+function renderMessageCreatedTime(createdAt: string) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className={styles.TribeRound__time}>
+          <MessageRelativeTime dateTime={createdAt} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent
+        className={styles.TribeRound__messageCreatedTooltip}
+        collisionPadding={TRIBE_ROUND_ATTRIBUTES.tooltipCollisionPadding}
+        sideOffset={TRIBE_ROUND_ATTRIBUTES.tooltipSideOffset}
+      >
+        {formatMessageCreatedTooltip(createdAt)}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -1238,34 +1268,10 @@ function TribeRoundContent({
                         styles.TribeRound__avatar
                       )}
                       <div className={styles.TribeRound__author}>
-                        <p className={styles.TribeRound__authorName}>
-                          {message.author.name}
-                        </p>
-                        {renderAuthorRoleBadge(message.author.role)}
+                        {renderAuthorIdentity(message.author)}
+                        {renderMessageCreatedTime(message.createdAt)}
                       </div>
                       <div className={styles.TribeRound__messageMeta}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className={styles.TribeRound__time}>
-                              <MessageRelativeTime dateTime={message.createdAt} />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            className={styles.TribeRound__messageCreatedTooltip}
-                            collisionPadding={
-                              TRIBE_ROUND_ATTRIBUTES.tooltipCollisionPadding
-                            }
-                            sideOffset={TRIBE_ROUND_ATTRIBUTES.tooltipSideOffset}
-                          >
-                            {formatMessageCreatedTooltip(message.createdAt)}
-                          </TooltipContent>
-                        </Tooltip>
-                        <span
-                          aria-hidden={TRIBE_ROUND_ATTRIBUTES.messageMetaSeparatorHidden}
-                          className={styles.TribeRound__messageMetaSeparator}
-                        >
-                          {TRIBE_ROUND_SYMBOLS.messageMetaSeparator}
-                        </span>
                         <span className={styles.TribeRound__channelBadge}>
                           {message.channel.emoji} {message.channel.name}
                         </span>
@@ -1341,34 +1347,10 @@ function TribeRoundContent({
                   styles.TribeRound__avatar
                 )}
                 <div className={styles.TribeRound__author}>
-                  <p className={styles.TribeRound__authorName}>
-                    {selectedMessage.author.name}
-                  </p>
-                  {renderAuthorRoleBadge(selectedMessage.author.role)}
+                  {renderAuthorIdentity(selectedMessage.author)}
+                  {renderMessageCreatedTime(selectedMessage.createdAt)}
                 </div>
                 <div className={styles.TribeRound__messageMeta}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className={styles.TribeRound__time}>
-                        <MessageRelativeTime dateTime={selectedMessage.createdAt} />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      className={styles.TribeRound__messageCreatedTooltip}
-                      collisionPadding={
-                        TRIBE_ROUND_ATTRIBUTES.tooltipCollisionPadding
-                      }
-                      sideOffset={TRIBE_ROUND_ATTRIBUTES.tooltipSideOffset}
-                    >
-                      {formatMessageCreatedTooltip(selectedMessage.createdAt)}
-                    </TooltipContent>
-                  </Tooltip>
-                  <span
-                    aria-hidden={TRIBE_ROUND_ATTRIBUTES.messageMetaSeparatorHidden}
-                    className={styles.TribeRound__messageMetaSeparator}
-                  >
-                    {TRIBE_ROUND_SYMBOLS.messageMetaSeparator}
-                  </span>
                   <span className={styles.TribeRound__channelBadge}>
                     {selectedMessage.channel.emoji} {selectedMessage.channel.name}
                   </span>

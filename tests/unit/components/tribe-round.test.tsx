@@ -352,7 +352,7 @@ describe("TribeRound", () => {
     expect(screen.queryByRole("dialog", { name: "Crear mensaje" })).not.toBeInTheDocument();
   });
 
-  it("renders the channel with the timestamp metadata", async () => {
+  it("renders the timestamp under the message author name", async () => {
     const user = userEvent.setup();
 
     render(
@@ -367,13 +367,17 @@ describe("TribeRound", () => {
 
     expect(messageArticle).not.toBeNull();
 
-    const channelBadge = within(messageArticle as HTMLElement).getByText(
-      (_, element) => element?.textContent === "🔥 Ronda"
+    const channelBadge = (messageArticle as HTMLElement).querySelector(
+      ".TribeRound__channelBadge"
     );
     const messageDate = within(messageArticle as HTMLElement).getByText("26 abr");
 
-    expect(channelBadge.parentElement).not.toHaveTextContent("2026");
-    expect(channelBadge.parentElement).toHaveTextContent("·");
+    const authorBlock = messageDate.closest(".TribeRound__author");
+
+    expect(channelBadge).toHaveTextContent("🔥 Ronda");
+    expect(channelBadge?.parentElement).not.toHaveTextContent("26 abr");
+    expect(authorBlock).toHaveTextContent("Ada Lovelace");
+    expect(authorBlock).toHaveTextContent("Líder");
 
     await user.hover(messageDate);
 

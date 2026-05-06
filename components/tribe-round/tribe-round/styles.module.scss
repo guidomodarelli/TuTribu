@@ -520,15 +520,28 @@
     font-weight: 700;
   }
 
-  &__author,
   &__replyBody {
     display: grid;
     gap: 0.25rem;
     min-width: 0;
   }
 
+  &__author {
+    display: grid;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
   &__authorName {
     font-weight: 700;
+  }
+
+  &__authorIdentity {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   &__roleBadge {
