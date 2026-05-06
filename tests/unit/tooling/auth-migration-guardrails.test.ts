@@ -1,6 +1,7 @@
 /** @jest-environment node */
 
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const NEON_BASELINE_MIGRATION_TAG = "20260426000000_create_neon_baseline";
@@ -45,6 +46,37 @@ async function loadDrizzleConfigWithEnvironment(environment: {
     } else {
       process.env.DATABASE_MIGRATION_URL = previousDatabaseMigrationUrl;
     }
+  }
+}
+
+async function loadDrizzleConfigFromTemporaryEnvironmentFile(
+  environmentFileName: ".env" | ".env.local",
+  environmentFileContent: string
+) {
+  const previousNodeEnvironment = process.env.NODE_ENV;
+  const previousWorkingDirectory = process.cwd();
+  const temporaryWorkspace = mkdtempSync(path.join(os.tmpdir(), "latribu-env-"));
+
+  writeFileSync(
+    path.join(temporaryWorkspace, environmentFileName),
+    environmentFileContent,
+    "utf8"
+  );
+
+  process.chdir(temporaryWorkspace);
+  process.env.NODE_ENV = "development";
+
+  try {
+    return await loadDrizzleConfigWithEnvironment({});
+  } finally {
+    if (previousNodeEnvironment === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previousNodeEnvironment;
+    }
+
+    process.chdir(previousWorkingDirectory);
+    rmSync(temporaryWorkspace, { force: true, recursive: true });
   }
 }
 
@@ -158,6 +190,22 @@ describe("Auth migration guardrails", () => {
     ).resolves.toMatchObject({
       dbCredentials: {
         url: databaseUrl,
+      },
+    });
+  });
+
+  it("loads migration credentials from .env.local when shell variables are missing", async () => {
+    const databaseMigrationUrl =
+      "postgresql://migration-user:password@example.test/migration";
+
+    await expect(
+      loadDrizzleConfigFromTemporaryEnvironmentFile(
+        ".env.local",
+        `DATABASE_MIGRATION_URL=${databaseMigrationUrl}`
+      )
+    ).resolves.toMatchObject({
+      dbCredentials: {
+        url: databaseMigrationUrl,
       },
     });
   });

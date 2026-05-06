@@ -4,6 +4,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 type PushMigrationsScript = {
+  buildDrizzleKitCommand: (scriptArguments?: string[]) => {
+    command: string;
+    commandArguments: string[];
+  };
   buildDrizzleKitArguments: (scriptArguments?: string[]) => string[];
   normalizeScriptArguments: (scriptArguments?: string[]) => {
     passthroughArguments: string[];
@@ -41,6 +45,19 @@ describe("push migrations script", () => {
       "drizzle.config.ts",
       "--force",
     ]);
+  });
+
+  it("should execute the local Drizzle Kit CLI through Node", () => {
+    expect(pushMigrationsScript.buildDrizzleKitCommand(["--force"])).toEqual({
+      command: process.execPath,
+      commandArguments: [
+        "node_modules/drizzle-kit/bin.cjs",
+        "push",
+        "--config",
+        "drizzle.config.ts",
+        "--force",
+      ],
+    });
   });
 
   it("should preserve extra Drizzle arguments after selecting force mode", () => {

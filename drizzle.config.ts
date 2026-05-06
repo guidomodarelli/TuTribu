@@ -1,9 +1,19 @@
+import { loadEnvConfig } from "@next/env";
 import type { Config } from "drizzle-kit";
 
 const DATABASE_URL_ENV = "DATABASE_URL";
 const DATABASE_MIGRATION_URL_ENV = "DATABASE_MIGRATION_URL";
 const DATABASE_URL_ERROR_MESSAGE =
   "Drizzle config requires DATABASE_MIGRATION_URL or DATABASE_URL to generate migrations.";
+const LOAD_DEVELOPMENT_ENVIRONMENT_FILES = true;
+const FORCE_ENVIRONMENT_RELOAD = true;
+
+loadEnvConfig(
+  process.cwd(),
+  LOAD_DEVELOPMENT_ENVIRONMENT_FILES,
+  undefined,
+  FORCE_ENVIRONMENT_RELOAD
+);
 
 function getOptionalEnvironmentValue(name: string): string | undefined {
   const value = process.env[name]?.trim();

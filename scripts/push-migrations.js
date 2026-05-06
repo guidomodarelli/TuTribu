@@ -1,8 +1,24 @@
 #!/usr/bin/env node
+/**
+ * Provides the local Drizzle Kit migration runner used by npm scripts.
+ *
+ * @module push-migrations
+ */
 
+/**
+ * Stores the Drizzle Kit configuration file used by migration commands.
+ */
 const DRIZZLE_CONFIG_PATH = "drizzle.config.ts";
+
+/**
+ * Stores the script-owned flag that selects Drizzle Kit push mode.
+ */
 const FORCE_FLAG = "--force";
-const PACKAGE_RUNNER_COMMAND = process.platform === "win32" ? "npx.cmd" : "npx";
+
+/**
+ * Stores the local Drizzle Kit CLI entrypoint resolved from the workspace.
+ */
+const DRIZZLE_KIT_CLI_PATH = "node_modules/drizzle-kit/bin.cjs";
 
 /**
  * Splits script-owned flags from arguments passed through to Drizzle Kit.
@@ -60,6 +76,21 @@ function buildDrizzleKitArguments(scriptArguments = process.argv.slice(2)) {
 }
 
 /**
+ * Builds the executable command for the local Drizzle Kit CLI.
+ *
+ * @param {string[]} [scriptArguments] Arguments received by this script.
+ * @returns {{ command: string, commandArguments: string[] }} Command and arguments passed to child_process.
+ */
+function buildDrizzleKitCommand(scriptArguments = process.argv.slice(2)) {
+  const [, ...drizzleKitArguments] = buildDrizzleKitArguments(scriptArguments);
+
+  return {
+    command: process.execPath,
+    commandArguments: [DRIZZLE_KIT_CLI_PATH, ...drizzleKitArguments],
+  };
+}
+
+/**
  * Runs the selected Drizzle Kit migration command.
  *
  * @param {string[]} [scriptArguments] Arguments received by this script.
@@ -67,8 +98,8 @@ function buildDrizzleKitArguments(scriptArguments = process.argv.slice(2)) {
  */
 async function runPushMigrations(scriptArguments = process.argv.slice(2)) {
   const { spawnSync } = await import("node:child_process");
-  const drizzleKitArguments = buildDrizzleKitArguments(scriptArguments);
-  const result = spawnSync(PACKAGE_RUNNER_COMMAND, drizzleKitArguments, {
+  const { command, commandArguments } = buildDrizzleKitCommand(scriptArguments);
+  const result = spawnSync(command, commandArguments, {
     stdio: "inherit",
   });
 
@@ -87,6 +118,7 @@ if ((process.argv[1] ?? "").endsWith("push-migrations.js")) {
 }
 
 module.exports = {
+  buildDrizzleKitCommand,
   buildDrizzleKitArguments,
   normalizeScriptArguments,
   runPushMigrations,
