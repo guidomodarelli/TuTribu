@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 
 const pushMock = jest.fn();
+const prefetchMock = jest.fn();
 const appSidebarStyles = readFileSync(
   join(process.cwd(), "components", "app-sidebar", "styles.module.scss"),
   "utf8"
@@ -71,6 +72,7 @@ describe("AppSidebar", () => {
     pushMock.mockReset();
 
     (useRouter as jest.Mock).mockReturnValue({
+      prefetch: prefetchMock,
       push: pushMock,
     });
     (usePathname as jest.Mock).mockReturnValue("/");
@@ -345,6 +347,38 @@ describe("AppSidebar", () => {
     expect(screen.getByRole("button", { name: /miembros/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /ranking/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /acerca de/i })).toBeInTheDocument();
+  });
+
+  it("prefetches visible community section routes inside an active community", () => {
+    (usePathname as jest.Mock).mockReturnValue("/comunidad/matematica-pro");
+
+    render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "owner@example.com",
+          name: "Grace Hopper",
+          role: "member",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        memberCommunities={[
+          {
+            communityId: "community-1",
+            name: "Matematica Pro",
+            role: "owner",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro");
+    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro/categorias");
+    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro/eventos");
+    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro/miembros");
+    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro/ranking");
+    expect(prefetchMock).toHaveBeenCalledWith("/comunidad/matematica-pro/acerca-de");
   });
 
   it("shows the category section to community owners and admins", () => {

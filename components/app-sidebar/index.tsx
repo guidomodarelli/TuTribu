@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import {
   CalendarDaysIcon,
   CheckIcon,
@@ -86,6 +87,7 @@ const communitySectionNavigation = [
 const APP_SIDEBAR_UI = {
   brandButtonSize: "lg",
   brandMarkLength: 2,
+  categoriesSectionLabel: "Categorías",
   collapsible: "icon",
   createCommunityTooltip: "Nueva comunidad",
   nestedRouteSeparator: "/",
@@ -101,6 +103,25 @@ type AppSidebarProps = {
   authenticatedMember: AuthenticatedMemberResult | null;
   memberCommunities: MemberCommunityListItemResult[];
 };
+
+function canManageCommunityCategories(
+  community: MemberCommunityListItemResult
+): boolean {
+  return (
+    community.role === COMMUNITY_CATEGORY_MANAGER_ROLE.owner ||
+    community.role === COMMUNITY_CATEGORY_MANAGER_ROLE.admin
+  );
+}
+
+function getVisibleCommunitySectionNavigation(
+  community: MemberCommunityListItemResult
+) {
+  return communitySectionNavigation.filter(
+    (item) =>
+      item.label !== APP_SIDEBAR_UI.categoriesSectionLabel ||
+      canManageCommunityCategories(community)
+  );
+}
 
 function isSameOrNestedPath(pathname: string, routePath: string): boolean {
   return (
@@ -133,6 +154,23 @@ export function AppSidebar({
   const brandPath = activeCommunity
     ? ROUTES.communities.bySlug(activeCommunity.slug)
     : ROUTES.home;
+  const visibleCommunitySectionNavigation = useMemo(
+    () =>
+      activeCommunity
+        ? getVisibleCommunitySectionNavigation(activeCommunity)
+        : [],
+    [activeCommunity]
+  );
+
+  useEffect(() => {
+    if (!activeCommunity) {
+      return;
+    }
+
+    visibleCommunitySectionNavigation.forEach((item) => {
+      router.prefetch(item.hrefBuilder(activeCommunity.slug));
+    });
+  }, [activeCommunity, router, visibleCommunitySectionNavigation]);
 
   return (
     <Sidebar
@@ -180,15 +218,7 @@ export function AppSidebar({
             <SidebarGroupLabel>Comunidad</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {communitySectionNavigation.map((item) => {
-                  if (
-                    item.label === "Categorías" &&
-                    activeCommunity.role !== COMMUNITY_CATEGORY_MANAGER_ROLE.owner &&
-                    activeCommunity.role !== COMMUNITY_CATEGORY_MANAGER_ROLE.admin
-                  ) {
-                    return null;
-                  }
-
+                {visibleCommunitySectionNavigation.map((item) => {
                   const sectionPath = item.hrefBuilder(activeCommunity.slug);
                   const isSectionActive = item.matchPath(
                     pathname,
