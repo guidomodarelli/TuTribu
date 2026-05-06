@@ -167,6 +167,10 @@ const COMMUNITY_FEED_LIMITS = {
   likeDebounceMs: 300,
 } as const;
 
+const COMMUNITY_FEED_OPTIMISTIC = {
+  commentIdPrefix: "optimistic-comment-",
+} as const;
+
 const COMMUNITY_FEED_CONTENT_PREVIEW_CLASS = {
   details: "CommunityFeed__content--detailsPreview",
   feed: "CommunityFeed__content--feedPreview",
@@ -402,6 +406,29 @@ function getLikeButtonClassName(likedByViewer: boolean): string {
   ].join(COMMUNITY_FEED_FORMAT.standardSpace);
 }
 
+function replacePostComment(
+  post: CommunityFeedPostResult,
+  commentId: string,
+  nextComment: CommunityFeedCommentResult
+): CommunityFeedPostResult {
+  return {
+    ...post,
+    comments: post.comments.map((comment) =>
+      comment.id === commentId ? nextComment : comment
+    ),
+  };
+}
+
+function removePostComment(
+  post: CommunityFeedPostResult,
+  commentId: string
+): CommunityFeedPostResult {
+  return {
+    ...post,
+    comments: post.comments.filter((comment) => comment.id !== commentId),
+  };
+}
+
 function CommunityFeedContent({
   authenticatedMember,
   communitySlug,
@@ -429,6 +456,7 @@ function CommunityFeedContent({
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [isPostDetailsOpen, setIsPostDetailsOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const optimisticCommentCounterRef = useRef(0);
   const isBusy = Boolean(pendingActionId);
   const selectedCategory =
     feed.categories.find((category) => category.id === selectedCategoryId) ?? null;
@@ -546,9 +574,39 @@ function CommunityFeedContent({
 
     const actionCommunitySlug = communitySlug;
     const actionToken = currentActionTokenRef.current + 1;
+    optimisticCommentCounterRef.current += 1;
+    const optimisticCommentId =
+      COMMUNITY_FEED_OPTIMISTIC.commentIdPrefix +
+      String(optimisticCommentCounterRef.current);
+    const optimisticComment: CommunityFeedCommentResult = {
+      author: {
+        avatarFallback: authenticatedMember.avatarFallback,
+        id: authenticatedMember.id,
+        image: authenticatedMember.image,
+        name: authenticatedMember.name,
+        role: authenticatedMember.role as CommunityFeedCommentResult["author"]["role"],
+      },
+      content,
+      createdAt: new Date().toISOString(),
+      id: optimisticCommentId,
+    };
 
     currentActionTokenRef.current = actionToken;
     setPendingActionId(postId);
+    setPosts((currentPosts) =>
+      currentPosts.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              comments: [...post.comments, optimisticComment],
+            }
+          : post
+      )
+    );
+    setCommentDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [postId]: "",
+    }));
 
     try {
       const response = await submitJsonRequest<CreateCommentResponse>(
@@ -569,17 +627,14 @@ function CommunityFeedContent({
       setPosts((currentPosts) =>
         currentPosts.map((post) =>
           post.id === postId
-            ? {
-                ...post,
-                comments: [...post.comments, response.comment as CommunityFeedCommentResult],
-              }
+            ? replacePostComment(
+                post,
+                optimisticCommentId,
+                response.comment as CommunityFeedCommentResult
+              )
             : post
         )
       );
-      setCommentDrafts((currentDrafts) => ({
-        ...currentDrafts,
-        [postId]: "",
-      }));
       toast.success(COMMUNITY_FEED_COPY.submitCommentSuccess);
     } catch (error) {
       if (!isCurrentAction(actionToken, actionCommunitySlug)) {
@@ -591,6 +646,17 @@ function CommunityFeedContent({
           ? error.message
           : COMMUNITY_FEED_COPY.submitCommentError
       );
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          post.id === postId
+            ? removePostComment(post, optimisticCommentId)
+            : post
+        )
+      );
+      setCommentDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        [postId]: content,
+      }));
     } finally {
       if (isCurrentAction(actionToken, actionCommunitySlug)) {
         setPendingActionId(null);

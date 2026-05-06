@@ -1159,6 +1159,121 @@ describe("CommunityFeed", () => {
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
+  it("shows a comment optimistically before the create comment request resolves", async () => {
+    const user = userEvent.setup();
+    let resolveCreateComment: (response: Response) => void = () => {};
+    const createCommentRequest = new Promise<Response>((resolve) => {
+      resolveCreateComment = resolve;
+    });
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(createCommentRequest);
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir publicación: Anuncio inicial/i })
+    );
+
+    const commentInput = screen.getByRole("textbox", {
+      name: "Escribir un comentario",
+    });
+
+    await user.type(commentInput, "Comentario optimista");
+    await user.keyboard("{Enter}");
+
+    const commentsSection = screen.getByRole("region", { name: "Comentarios" });
+
+    expect(
+      within(commentsSection).getByText("Comentario optimista")
+    ).toBeInTheDocument();
+    expect(commentInput).toHaveValue("");
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/communities/matematica-pro/posts/post-1/comments",
+      expect.objectContaining({
+        body: JSON.stringify({
+          content: "Comentario optimista",
+        }),
+        method: "POST",
+      })
+    );
+
+    resolveCreateComment({
+      json: async () => ({
+        comment: {
+          ...createdComment,
+          content: "Comentario optimista",
+        },
+        message: "Comentario creado.",
+      }),
+      ok: true,
+      statusText: "Created",
+    } as Response);
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("Comentario publicado.");
+    });
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("removes an optimistic comment and restores the draft when the request fails", async () => {
+    const user = userEvent.setup();
+    let rejectCreateComment: (response: Response) => void = () => {};
+    const createCommentRequest = new Promise<Response>((resolve) => {
+      rejectCreateComment = resolve;
+    });
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(createCommentRequest);
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir publicación: Anuncio inicial/i })
+    );
+
+    const commentInput = screen.getByRole("textbox", {
+      name: "Escribir un comentario",
+    });
+
+    await user.type(commentInput, "Comentario fallido");
+    await user.keyboard("{Enter}");
+
+    const commentsSection = screen.getByRole("region", { name: "Comentarios" });
+
+    expect(within(commentsSection).getByText("Comentario fallido")).toBeInTheDocument();
+
+    rejectCreateComment({
+      json: async () => ({
+        message: "No pudimos publicar el comentario.",
+      }),
+      ok: false,
+      statusText: "Server Error",
+    } as Response);
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        "No pudimos publicar el comentario."
+      );
+    });
+
+    expect(
+      within(commentsSection).queryByText("Comentario fallido")
+    ).not.toBeInTheDocument();
+    expect(commentInput).toHaveValue("Comentario fallido");
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
   it("opens the post details dialog with keyboard interactions", async () => {
     const user = userEvent.setup();
 
