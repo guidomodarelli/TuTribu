@@ -174,9 +174,9 @@ export function TribeInvitationManagement({
   return (
     <section className={styles.TribeInvitationManagement}>
       <header className={styles.TribeInvitationManagement__header}>
-        <h2 className={styles.TribeInvitationManagement__title}>
+        <h1 className={styles.TribeInvitationManagement__title}>
           {INVITATION_MANAGEMENT_COPY.title}
-        </h2>
+        </h1>
         <p className={styles.TribeInvitationManagement__description}>
           {INVITATION_MANAGEMENT_COPY.description}
         </p>

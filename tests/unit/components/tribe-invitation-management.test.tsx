@@ -52,6 +52,13 @@ describe("TribeInvitationManagement", () => {
       />
     );
 
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Invitaciones",
+      })
+    ).toBeInTheDocument();
+
     await user.click(screen.getByRole("button", { name: "Crear link" }));
 
     expect(global.fetch).toHaveBeenCalledWith(
