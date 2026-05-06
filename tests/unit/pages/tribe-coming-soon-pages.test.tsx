@@ -2,10 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import TribeAboutPage from "@/app/(platform)/tribu/[slug]/acerca-de/page";
+import TribeHistoryPage from "@/app/(platform)/tribu/[slug]/historia/page";
 import TribeEventsPage from "@/app/(platform)/tribu/[slug]/eventos/page";
 import TribeTribematesPage from "@/app/(platform)/tribu/[slug]/integrantes/page";
-import TribeRankingPage from "@/app/(platform)/tribu/[slug]/ranking/page";
+import TribeMeritsPage from "@/app/(platform)/tribu/[slug]/meritos/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -113,8 +113,8 @@ describe("tribe coming soon pages", () => {
 
     const pages = [
       TribeTribematesPage(pageProps),
-      TribeRankingPage(pageProps),
-      TribeAboutPage(pageProps),
+      TribeMeritsPage(pageProps),
+      TribeHistoryPage(pageProps),
     ];
 
     for (const renderedPage of await Promise.all(pages)) {

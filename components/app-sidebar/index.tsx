@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo } from "react";
 import {
-  CalendarDaysIcon,
+  BellRingIcon,
   CheckIcon,
   ChevronDownIcon,
   CompassIcon,
   FlameKindlingIcon,
-  InfoIcon,
+  MedalIcon,
   PlusCircleIcon,
+  ScrollTextIcon,
   SignpostBigIcon,
-  TrophyIcon,
   UsersIcon,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -44,7 +44,7 @@ const tribeSectionNavigation = [
   {
     hrefBuilder: ROUTES.tribes.bySlug,
     icon: FlameKindlingIcon,
-    label: "Inicio",
+    label: "Ronda",
     matchPath: (pathname: string, tribeSlug: string) =>
       pathname === ROUTES.tribes.bySlug(tribeSlug),
   },
@@ -57,7 +57,7 @@ const tribeSectionNavigation = [
   },
   {
     hrefBuilder: ROUTES.tribes.events,
-    icon: CalendarDaysIcon,
+    icon: BellRingIcon,
     label: "Eventos",
     matchPath: (pathname: string, tribeSlug: string) =>
       isSameOrNestedPath(pathname, ROUTES.tribes.events(tribeSlug)),
@@ -70,18 +70,18 @@ const tribeSectionNavigation = [
       isSameOrNestedPath(pathname, ROUTES.tribes.tribemates(tribeSlug)),
   },
   {
-    hrefBuilder: ROUTES.tribes.ranking,
-    icon: TrophyIcon,
-    label: "Ranking",
+    hrefBuilder: ROUTES.tribes.merits,
+    icon: MedalIcon,
+    label: "Méritos",
     matchPath: (pathname: string, tribeSlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.tribes.ranking(tribeSlug)),
+      isSameOrNestedPath(pathname, ROUTES.tribes.merits(tribeSlug)),
   },
   {
-    hrefBuilder: ROUTES.tribes.about,
-    icon: InfoIcon,
-    label: "Acerca de",
+    hrefBuilder: ROUTES.tribes.history,
+    icon: ScrollTextIcon,
+    label: "Historia",
     matchPath: (pathname: string, tribeSlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.tribes.about(tribeSlug)),
+      isSameOrNestedPath(pathname, ROUTES.tribes.history(tribeSlug)),
   },
 ] as const;
 const APP_SIDEBAR_UI = {

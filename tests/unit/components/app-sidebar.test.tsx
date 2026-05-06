@@ -339,14 +339,14 @@ describe("AppSidebar", () => {
     );
 
     expect(screen.getByText("Tribu")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /inicio/i })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: /ronda/i })).toHaveAttribute(
       "data-active",
       "true"
     );
     expect(screen.getByRole("button", { name: /eventos/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /integrantes/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /ranking/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /acerca de/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /méritos/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /historia/i })).toBeInTheDocument();
   });
 
   it("uses round and channel icons for tribe navigation", () => {
@@ -374,10 +374,16 @@ describe("AppSidebar", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: /inicio/i }).querySelector(".lucide-flame-kindling")
+      screen.getByRole("button", { name: /ronda/i }).querySelector(".lucide-flame-kindling")
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /canales/i }).querySelector(".lucide-signpost-big")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /eventos/i }).querySelector(".lucide-bell-ring")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /méritos/i }).querySelector(".lucide-medal")
     ).toBeInTheDocument();
   });
 
@@ -409,8 +415,8 @@ describe("AppSidebar", () => {
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/canales");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/eventos");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/integrantes");
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/ranking");
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/acerca-de");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/meritos");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/historia");
   });
 
   it("shows the channel section to tribe leaders and guardians", () => {
@@ -579,6 +585,6 @@ describe("AppSidebar", () => {
     );
 
     expect(screen.queryByText("Tribu")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /inicio/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /ronda/i })).not.toBeInTheDocument();
   });
 });
