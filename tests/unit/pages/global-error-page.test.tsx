@@ -22,7 +22,7 @@ describe("GlobalErrorPage", () => {
     expect(screen.getByText(/error inesperado/i)).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: /algo salio mal al cargar latribu/i,
+        name: /algo salio mal al cargar tutribu/i,
       })
     ).toBeInTheDocument();
     expect(

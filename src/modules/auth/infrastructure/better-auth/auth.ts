@@ -41,20 +41,20 @@ const BETTER_AUTH_SCHEMA = {
 } as const;
 
 type GlobalBetterAuthDatabase = typeof globalThis & {
-  __laTribuBetterAuthPool?: Pool;
+  __tuTribuBetterAuthPool?: Pool;
 };
 
 function getBetterAuthPool() {
   const globalDatabase = globalThis as GlobalBetterAuthDatabase;
 
-  if (!globalDatabase.__laTribuBetterAuthPool) {
+  if (!globalDatabase.__tuTribuBetterAuthPool) {
     const { connectionString } = getServerDatabaseEnvironment();
-    globalDatabase.__laTribuBetterAuthPool = new Pool({
+    globalDatabase.__tuTribuBetterAuthPool = new Pool({
       connectionString,
     });
   }
 
-  return globalDatabase.__laTribuBetterAuthPool;
+  return globalDatabase.__tuTribuBetterAuthPool;
 }
 
 function getBetterAuthEnvironment() {

@@ -6,7 +6,7 @@ states, or user-facing interaction patterns.
 
 ## Product Feel
 
-LaTribu should feel calm, focused, and useful. The interface should help
+TuTribu should feel calm, focused, and useful. The interface should help
 people understand where they are, what they can do next, and what changed after
 an action.
 
