@@ -19,6 +19,7 @@ import {
   createMercadoPagoPreapprovalPlan,
   createMercadoPagoPreapprovalSubscription,
   getMercadoPagoPreapprovalStatus,
+  refreshMercadoPagoAccessToken,
 } from "./subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
 import { resolvePublicAppBaseUrl } from "./shared/infrastructure/backend/public-app-base-url";
@@ -90,14 +91,16 @@ export async function createRequestModules(
           executeWithRequestContext,
           createMercadoPagoPreapprovalSubscription,
           getMercadoPagoPreapprovalStatus,
-          resolvePublicAppBaseUrl
+          resolvePublicAppBaseUrl,
+          refreshMercadoPagoAccessToken
         ),
       tribePaymentIntegrationRepository:
         new PostgresTribePaymentIntegrationRepository(executeWithRequestContext),
       tribeSubscriptionPriceRepository:
         new PostgresTribeSubscriptionPriceRepository(
           executeWithRequestContext,
-          createMercadoPagoPreapprovalPlan
+          createMercadoPagoPreapprovalPlan,
+          refreshMercadoPagoAccessToken
         ),
     }),
   };

@@ -26,6 +26,10 @@ import type {
   MercadoPagoPreapprovalStatusInput,
   MercadoPagoSubscriptionInput,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
+import {
+  resolveMercadoPagoAccessToken,
+  type MercadoPagoAccessTokenRefresher,
+} from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -52,6 +56,8 @@ type SubscriptionStartContextRow = {
   existing_status_reason: string | null;
   has_active_invitation: boolean | null;
   mercado_pago_preapproval_plan_id: string | null;
+  refresh_token: string | null;
+  token_expires_at: Date | string | null;
   tribe_id: string | null;
 };
 
@@ -63,7 +69,10 @@ type SubscriptionReservationRow = {
 type WebhookSubscriptionContextRow = {
   access_token: string | null;
   operation_inserted: string | null;
+  refresh_token: string | null;
   subscription_found: boolean | null;
+  token_expires_at: Date | string | null;
+  tribe_id: string | null;
 };
 
 const SUBSCRIPTION_CHECKOUT_CONTEXT = {
@@ -150,7 +159,8 @@ export class PostgresTribeMemberSubscriptionRepository
     private readonly executeWithDatabase: DatabaseExecutor,
     private readonly createMercadoPagoSubscription: MercadoPagoSubscriptionCreator,
     private readonly getMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusGetter,
-    private readonly resolvePublicAppBaseUrl: () => string
+    private readonly resolvePublicAppBaseUrl: () => string,
+    private readonly refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher
   ) {}
 
   /**
@@ -253,7 +263,9 @@ export class PostgresTribeMemberSubscriptionRepository
           (select status_reason from existing_subscription) as existing_status_reason,
           (select checkout_url from existing_pending_checkout) as existing_checkout_url,
           public.current_app_user_email() as current_user_email,
-          tribe_payment_integrations.access_token
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at
         from (select 1) result
         cross join checkout_context
         left join public.tribe_payment_integrations
@@ -287,7 +299,18 @@ export class PostgresTribeMemberSubscriptionRepository
       };
     }
 
-    if (!context.access_token || !context.current_user_email) {
+    const accessToken = await resolveMercadoPagoAccessToken({
+      executeWithDatabase: this.executeWithDatabase,
+      refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
+      storedToken: {
+        accessToken: context.access_token,
+        refreshToken: context.refresh_token,
+        tokenExpiresAt: context.token_expires_at,
+        tribeId: context.tribe_id,
+      },
+    }).catch(() => null);
+
+    if (!accessToken || !context.current_user_email) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
     }
 
@@ -315,7 +338,7 @@ export class PostgresTribeMemberSubscriptionRepository
 
     try {
       providerSubscription = await this.createMercadoPagoSubscription({
-        accessToken: context.access_token,
+        accessToken,
         backUrl: buildSubscriptionBackUrl(
           this.resolvePublicAppBaseUrl(),
           command.tribeSlug
@@ -542,6 +565,9 @@ export class PostgresTribeMemberSubscriptionRepository
         with subscription_context as (
           select
             tribe_payment_integrations.access_token,
+            tribe_payment_integrations.refresh_token,
+            tribe_payment_integrations.token_expires_at,
+            tribe_member_subscriptions.tribe_id,
             true as subscription_found
           from public.tribe_member_subscriptions
           inner join public.tribe_payment_integrations
@@ -571,6 +597,9 @@ export class PostgresTribeMemberSubscriptionRepository
         select
           (select id from inserted_operation) as operation_inserted,
           (select access_token from subscription_context) as access_token,
+          (select refresh_token from subscription_context) as refresh_token,
+          (select token_expires_at from subscription_context) as token_expires_at,
+          (select tribe_id from subscription_context) as tribe_id,
           coalesce((select subscription_found from subscription_context), false) as subscription_found
       `);
       const context = (result.rows?.[0] ?? null) as
@@ -585,12 +614,23 @@ export class PostgresTribeMemberSubscriptionRepository
         return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook };
       }
 
-      if (!context.access_token) {
+      const accessToken = await resolveMercadoPagoAccessToken({
+        executeWithDatabase: this.executeWithDatabase,
+        refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
+        storedToken: {
+          accessToken: context.access_token,
+          refreshToken: context.refresh_token,
+          tokenExpiresAt: context.token_expires_at,
+          tribeId: context.tribe_id,
+        },
+      });
+
+      if (!accessToken) {
         return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed };
       }
 
       const providerStatus = await this.getMercadoPagoPreapprovalStatus({
-        accessToken: context.access_token,
+        accessToken,
         preapprovalId: command.resourceId,
       });
       const subscriptionStatus = mapProviderSubscriptionStatus(providerStatus);

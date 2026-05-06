@@ -25,13 +25,15 @@ function createRepository(
   execute: jest.Mock,
   createMercadoPagoSubscription = jest.fn(),
   getMercadoPagoPreapprovalStatus = jest.fn(),
-  resolvePublicAppBaseUrl = jest.fn(() => "https://tutribu.example.com")
+  resolvePublicAppBaseUrl = jest.fn(() => "https://tutribu.example.com"),
+  refreshMercadoPagoAccessToken = jest.fn()
 ) {
   return new PostgresTribeMemberSubscriptionRepository(
     async (callback) => callback({ execute } as never),
     createMercadoPagoSubscription,
     getMercadoPagoPreapprovalStatus,
-    resolvePublicAppBaseUrl
+    resolvePublicAppBaseUrl,
+    refreshMercadoPagoAccessToken
   );
 }
 
@@ -158,6 +160,73 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(createMercadoPagoSubscription).not.toHaveBeenCalled();
     expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
       /insert into public\.tribe_member_subscriptions/
+    );
+  });
+
+  it("refreshes expired Mercado Pago tokens before creating provider checkouts", async () => {
+    const expiredTokenDate = new Date(Date.now() - 60_000).toISOString();
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "expired-access-token",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: null,
+            existing_status_reason: null,
+            has_active_invitation: true,
+            mercado_pago_preapproval_plan_id: "plan-1",
+            refresh_token: "refresh-token",
+            token_expires_at: expiredTokenDate,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
+    const createMercadoPagoSubscription = jest.fn(async () => ({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/new",
+      providerSubscriptionId: "preapproval-2",
+    }));
+    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+      accessToken: "fresh-access-token",
+      expiresIn: 3600,
+      providerAccountId: "seller-1",
+      refreshToken: "new-refresh-token",
+    }));
+    const repository = createRepository(
+      execute,
+      createMercadoPagoSubscription,
+      jest.fn(),
+      jest.fn(() => "https://tutribu.example.com"),
+      refreshMercadoPagoAccessToken
+    );
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "new-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/new",
+      status: "pending",
+    });
+
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith("refresh-token");
+    expect(createMercadoPagoSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "fresh-access-token",
+      })
+    );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
+      /update public\.tribe_payment_integrations/
     );
   });
 
@@ -344,6 +413,60 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
 
     expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
       /status in \([\s\S]*active[\s\S]*grace_period[\s\S]*\)/
+    );
+  });
+
+  it("refreshes expired Mercado Pago tokens before reconciling webhooks", async () => {
+    const expiredTokenDate = new Date(Date.now() - 60_000).toISOString();
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "expired-access-token",
+            operation_inserted: "operation-1",
+            refresh_token: "refresh-token",
+            subscription_found: true,
+            token_expires_at: expiredTokenDate,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    const getMercadoPagoPreapprovalStatus = jest.fn(async () => "authorized");
+    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+      accessToken: "fresh-access-token",
+      expiresIn: 3600,
+      providerAccountId: "seller-1",
+      refreshToken: "new-refresh-token",
+    }));
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      getMercadoPagoPreapprovalStatus,
+      jest.fn(() => "https://tutribu.example.com"),
+      refreshMercadoPagoAccessToken
+    );
+
+    await expect(
+      repository.handleWebhook({
+        eventId: "event-1",
+        resourceId: "preapproval-1",
+        topic: "subscription_preapproval.updated",
+      })
+    ).resolves.toEqual({
+      status: "processed",
+    });
+
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith("refresh-token");
+    expect(getMercadoPagoPreapprovalStatus).toHaveBeenCalledWith({
+      accessToken: "fresh-access-token",
+      preapprovalId: "preapproval-1",
+    });
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
+      /update public\.tribe_payment_integrations/
     );
   });
 

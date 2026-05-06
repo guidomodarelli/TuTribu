@@ -54,6 +54,7 @@ function readStringField(body: unknown, field: string): string {
 }
 
 function buildSubscriptionIdempotencyKey(input: {
+  idempotencyKey: string;
   invitationToken: string;
   memberId: string;
   tribeSlug: string;
@@ -61,11 +62,15 @@ function buildSubscriptionIdempotencyKey(input: {
   const invitationTokenHash = createHash(SUBSCRIPTION_IDEMPOTENCY.hashAlgorithm)
     .update(input.invitationToken)
     .digest(SUBSCRIPTION_IDEMPOTENCY.hashEncoding);
+  const idempotencyKeyHash = createHash(SUBSCRIPTION_IDEMPOTENCY.hashAlgorithm)
+    .update(input.idempotencyKey)
+    .digest(SUBSCRIPTION_IDEMPOTENCY.hashEncoding);
 
   return [
     input.memberId,
     input.tribeSlug,
     invitationTokenHash,
+    idempotencyKeyHash,
   ].join(SUBSCRIPTION_IDEMPOTENCY.separator);
 }
 
@@ -94,8 +99,9 @@ export async function POST(
     SUBSCRIPTION_START_FIELD.invitationToken
   );
   const idempotencyKey =
-    request.headers.get(SUBSCRIPTION_IDEMPOTENCY.header) ??
     buildSubscriptionIdempotencyKey({
+      idempotencyKey:
+        request.headers.get(SUBSCRIPTION_IDEMPOTENCY.header) ?? invitationToken,
       invitationToken,
       memberId: authenticatedMember.id,
       tribeSlug: slug,

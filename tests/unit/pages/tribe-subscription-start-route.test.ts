@@ -9,6 +9,10 @@ function hashInvitationToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function hashIdempotencyKey(idempotencyKey: string): string {
+  return createHash("sha256").update(idempotencyKey).digest("hex");
+}
+
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
 }));
@@ -96,7 +100,12 @@ describe("tribe subscription start route", () => {
 
     expect(response.status).toBe(200);
     expect(startTribeMemberSubscription).toHaveBeenCalledWith({
-      idempotencyKey: "request-1",
+      idempotencyKey: [
+        "member-1",
+        "matematica-pro",
+        hashInvitationToken("invitation-token-1"),
+        hashIdempotencyKey("request-1"),
+      ].join(":"),
       invitationToken: "invitation-token-1",
       tribeSlug: "matematica-pro",
     });
@@ -116,6 +125,7 @@ describe("tribe subscription start route", () => {
         "member-1",
         "matematica-pro",
         hashInvitationToken("invitation-token-1"),
+        hashIdempotencyKey("invitation-token-1"),
       ].join(":"),
       invitationToken: "invitation-token-1",
       tribeSlug: "matematica-pro",

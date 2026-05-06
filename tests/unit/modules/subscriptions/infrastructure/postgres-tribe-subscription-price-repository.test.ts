@@ -24,11 +24,13 @@ function getSqlText(statement: unknown): string {
 
 function createRepository(
   execute: jest.Mock,
-  createMercadoPagoPlan = jest.fn(async () => "plan-1")
+  createMercadoPagoPlan = jest.fn(async () => "plan-1"),
+  refreshMercadoPagoAccessToken = jest.fn()
 ) {
   return new PostgresTribeSubscriptionPriceRepository(
     async (callback) => callback({ execute } as never),
-    createMercadoPagoPlan
+    createMercadoPagoPlan,
+    refreshMercadoPagoAccessToken
   );
 }
 
@@ -163,7 +165,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     });
     const repository = new PostgresTribeSubscriptionPriceRepository(
       executeWithDatabase,
-      createMercadoPagoPlan
+      createMercadoPagoPlan,
+      jest.fn()
     );
 
     await repository.create({
@@ -179,5 +182,65 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       "transaction:end",
       "provider:create-plan",
     ]);
+  });
+
+  it("refreshes expired Mercado Pago tokens before creating provider plans", async () => {
+    const expiredTokenDate = new Date(Date.now() - 60_000).toISOString();
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "expired-access-token",
+            can_manage_prices: true,
+            existing_price_count: 0,
+            refresh_token: "refresh-token",
+            token_expires_at: expiredTokenDate,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+          }),
+        ],
+      });
+    const createMercadoPagoPlan = jest.fn(async () => "plan-1");
+    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+      accessToken: "fresh-access-token",
+      expiresIn: 3600,
+      providerAccountId: "seller-1",
+      refreshToken: "new-refresh-token",
+    }));
+    const repository = createRepository(
+      execute,
+      createMercadoPagoPlan,
+      refreshMercadoPagoAccessToken
+    );
+
+    await expect(
+      repository.create({
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+    });
+
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith("refresh-token");
+    expect(createMercadoPagoPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "fresh-access-token",
+      })
+    );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
+      /update public\.tribe_payment_integrations/
+    );
   });
 });

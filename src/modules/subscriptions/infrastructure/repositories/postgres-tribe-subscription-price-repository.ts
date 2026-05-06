@@ -23,6 +23,10 @@ import type {
 } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MercadoPagoPlanInput } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
+import {
+  resolveMercadoPagoAccessToken,
+  type MercadoPagoAccessTokenRefresher,
+} from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -55,6 +59,8 @@ type PriceCreationContextRow = {
   access_token: string | null;
   can_manage_prices: boolean | null;
   existing_price_count: number | string | null;
+  refresh_token: string | null;
+  token_expires_at: Date | string | null;
   tribe_id: string | null;
 };
 
@@ -134,7 +140,8 @@ export class PostgresTribeSubscriptionPriceRepository
 {
   constructor(
     private readonly executeWithDatabase: DatabaseExecutor,
-    private readonly createMercadoPagoPlan: MercadoPagoPlanCreator
+    private readonly createMercadoPagoPlan: MercadoPagoPlanCreator,
+    private readonly refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher
   ) {}
 
   /**
@@ -241,7 +248,9 @@ export class PostgresTribeSubscriptionPriceRepository
           (select id from target_tribe) as tribe_id,
           coalesce(public.can_manage_tribe_subscription_prices((select id from target_tribe)), false) as can_manage_prices,
           (select existing_price_count from active_prices) as existing_price_count,
-          tribe_payment_integrations.access_token
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at
         from (select 1) result
         left join public.tribe_payment_integrations
           on tribe_payment_integrations.tribe_id = (select id from target_tribe)
@@ -268,12 +277,23 @@ export class PostgresTribeSubscriptionPriceRepository
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached };
     }
 
-    if (!creationContext.access_token) {
+    const accessToken = await resolveMercadoPagoAccessToken({
+      executeWithDatabase: this.executeWithDatabase,
+      refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
+      storedToken: {
+        accessToken: creationContext.access_token,
+        refreshToken: creationContext.refresh_token,
+        tokenExpiresAt: creationContext.token_expires_at,
+        tribeId: creationContext.tribe_id,
+      },
+    }).catch(() => null);
+
+    if (!accessToken) {
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
     }
 
     const mercadoPagoPlanId = await this.createMercadoPagoPlan({
-      accessToken: creationContext.access_token,
+      accessToken,
       amountCents: command.amountCents,
       currency: command.currency,
       idempotencyKey: buildPlanIdempotencyKey(command),

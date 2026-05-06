@@ -180,6 +180,46 @@ export async function exchangeMercadoPagoAuthorizationCode(
 }
 
 /**
+ * Refreshes an expired Mercado Pago account token.
+ *
+ * @param refreshToken - Refresh token persisted for the tribe integration.
+ * @returns Fresh token payload required to keep the integration usable.
+ */
+export async function refreshMercadoPagoAccessToken(
+  refreshToken: string
+): Promise<MercadoPagoOAuthTokenResult> {
+  const response = await fetch(MERCADO_PAGO_URL.oauthToken, {
+    body: JSON.stringify({
+      client_id: readRequiredMercadoPagoEnvironment(MERCADO_PAGO_ENV.clientId),
+      client_secret: readRequiredMercadoPagoEnvironment(
+        MERCADO_PAGO_ENV.clientSecret
+      ),
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    }),
+    headers: {
+      [MERCADO_PAGO_HTTP.contentTypeHeader]: MERCADO_PAGO_HTTP.jsonContentType,
+    },
+    method: MERCADO_PAGO_HTTP.postMethod,
+  });
+  const body = await readMercadoPagoResponse<MercadoPagoOAuthResponse>(response);
+
+  if (!body.access_token) {
+    throw new Error("Mercado Pago refresh response did not include access_token");
+  }
+
+  return {
+    accessToken: body.access_token,
+    expiresIn: typeof body.expires_in === "number" ? body.expires_in : null,
+    providerAccountId:
+      body.user_id === undefined || body.user_id === null
+        ? null
+        : String(body.user_id),
+    refreshToken: body.refresh_token ?? null,
+  };
+}
+
+/**
  * Creates a Mercado Pago subscription plan.
  *
  * @param input - Plan data and account token.
