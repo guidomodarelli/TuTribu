@@ -348,7 +348,7 @@ describe("AppSidebar", () => {
       "true"
     );
     expect(screen.getByRole("button", { name: /eventos/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /tribu/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /la tribu/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /méritos/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /historia/i })).toBeInTheDocument();
   });
@@ -384,7 +384,7 @@ describe("AppSidebar", () => {
       screen.getByRole("button", { name: /canales/i }).querySelector(".lucide-signpost-big")
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /eventos/i }).querySelector(".lucide-bell-ring")
+      screen.getByRole("button", { name: /eventos/i }).querySelector(".lucide-calendar-days")
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /méritos/i }).querySelector(".lucide-medal")
@@ -560,7 +560,7 @@ describe("AppSidebar", () => {
       "true"
     );
 
-    await user.click(screen.getByRole("button", { name: /tribu/i }));
+    await user.click(screen.getByRole("button", { name: /la tribu/i }));
 
     expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/tribu");
   });

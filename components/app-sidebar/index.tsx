@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import {
-  BellRingIcon,
+  CalendarDaysIcon,
   CheckIcon,
   ChevronDownIcon,
   CompassIcon,
@@ -57,7 +57,7 @@ const tribeSectionNavigation = [
   },
   {
     hrefBuilder: ROUTES.tribes.events,
-    icon: BellRingIcon,
+    icon: CalendarDaysIcon,
     label: "Eventos",
     matchPath: (pathname: string, tribeSlug: string) =>
       isSameOrNestedPath(pathname, ROUTES.tribes.events(tribeSlug)),
@@ -65,7 +65,7 @@ const tribeSectionNavigation = [
   {
     hrefBuilder: ROUTES.tribes.tribe,
     icon: UsersIcon,
-    label: "Tribu",
+    label: "La tribu",
     matchPath: (pathname: string, tribeSlug: string) =>
       isSameOrNestedPath(pathname, ROUTES.tribes.tribe(tribeSlug)),
   },
