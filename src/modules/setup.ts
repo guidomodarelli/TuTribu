@@ -1,5 +1,4 @@
 import { buildAuthModule } from "./auth/setup";
-import { getRequestAuthContext } from "./auth/infrastructure/better-auth/server-auth-context";
 import { BetterAuthSessionRepository } from "./auth/infrastructure/repositories/better-auth-session-repository";
 import { buildCommunitiesModule } from "./communities/setup";
 import { PostgresCommunityCreationRepository } from "./communities/infrastructure/repositories/postgres-community-creation-repository";
@@ -15,6 +14,9 @@ type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabas
 
 export async function createRequestModules() {
   const databaseClient = await createServerDatabaseClient();
+  const { getRequestAuthContext } = await import(
+    "./auth/infrastructure/better-auth/server-auth-context"
+  );
   const authContext = await getRequestAuthContext();
   const executeWithRequestContext = <T>(
     callback: Parameters<RequestScopedDatabaseClient["withRequestContext"]>[1]

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
-import { createRequestModules } from "@/src/modules/setup";
+import { createRequestAuthModule } from "@/src/modules/auth/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import styles from "./not-found.module.scss";
@@ -20,6 +20,21 @@ const NOT_FOUND_PAGE_LOG = {
   resolveSessionFailureMessage: "Failed to resolve session for not found page",
 } as const;
 
+async function resolveAuthenticatedMemberForNotFoundPage(
+  logger: ReturnType<typeof createServerLogger>
+) {
+  try {
+    return await createRequestAuthModule().useCases.getAuthenticatedMember();
+  } catch (error) {
+    logger.error({
+      message: NOT_FOUND_PAGE_LOG.resolveSessionFailureMessage,
+      error,
+    });
+
+    return null;
+  }
+}
+
 export default async function NotFoundPage() {
   const requestHeaders = await headers();
   const { requestId } = resolveRequestContext(requestHeaders);
@@ -28,16 +43,8 @@ export default async function NotFoundPage() {
     operation: NOT_FOUND_PAGE_LOG.operation,
     requestId,
   });
-  const authenticatedMember = await createRequestModules()
-    .then((modules) => modules.auth.useCases.getAuthenticatedMember())
-    .catch((error: unknown) => {
-      logger.error({
-        message: NOT_FOUND_PAGE_LOG.resolveSessionFailureMessage,
-        error,
-      });
-
-      return null;
-    });
+  const authenticatedMember =
+    await resolveAuthenticatedMemberForNotFoundPage(logger);
 
   return (
     <main className={styles.NotFoundPage}>
