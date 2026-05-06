@@ -69,6 +69,56 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(createMercadoPagoSubscription).not.toHaveBeenCalled();
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
+      /tribe_member_subscriptions\.status = .*pending/
+    );
+  });
+
+  it("does not reuse checkout operations unless a pending local subscription still exists", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            mercado_pago_preapproval_plan_id: "plan-1",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const createMercadoPagoSubscription = jest.fn(async () => ({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/new",
+      providerSubscriptionId: "preapproval-2",
+    }));
+    const repository = createRepository(execute, createMercadoPagoSubscription);
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "new-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/new",
+      status: "pending",
+    });
+
+    expect(createMercadoPagoSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "new-attempt",
+        preapprovalPlanId: "plan-1",
+      })
+    );
   });
 
   it("rejects checkout starts when the invitation is not active for the tribe", async () => {

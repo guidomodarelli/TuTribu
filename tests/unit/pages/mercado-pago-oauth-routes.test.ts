@@ -127,4 +127,35 @@ describe("Mercado Pago OAuth routes", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(connectTribePaymentIntegration).not.toHaveBeenCalled();
   });
+
+  it("redirects OAuth token exchange failures to a safe setup status", async () => {
+    const startRedirect = await START_GET(
+      {
+        headers: new Headers(),
+        url: "https://tutribu.example.com/api/tribes/matematica-pro/mercado-pago/oauth/start",
+      } as unknown as Request,
+      buildStartContext()
+    ).catch(resolveRedirectUrl);
+    const state = new URL(startRedirect).searchParams.get("state");
+
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        message: "invalid_grant",
+      }),
+      ok: false,
+      status: 400,
+    });
+
+    const callbackRedirect = await CALLBACK_GET(
+      {
+        headers: new Headers(),
+        url: `https://tutribu.example.com/api/mercado-pago/oauth/callback?code=expired-code&state=${state}`,
+      } as unknown as Request
+    ).catch(resolveRedirectUrl);
+
+    expect(callbackRedirect).toBe(
+      "/tribu/matematica-pro/precios?status=setup_required"
+    );
+    expect(connectTribePaymentIntegration).not.toHaveBeenCalled();
+  });
 });

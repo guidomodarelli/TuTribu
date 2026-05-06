@@ -232,6 +232,13 @@ export class PostgresTribeMemberSubscriptionRepository
           where subscription_idempotency_operations.user_id = public.current_app_user_id()
             and subscription_idempotency_operations.operation_type = 'start_member_subscription'
             and subscription_idempotency_operations.response_body ? 'checkoutUrl'
+            and exists (
+              select 1
+              from public.tribe_member_subscriptions
+              where tribe_member_subscriptions.tribe_id = target_tribe.id
+                and tribe_member_subscriptions.user_id = public.current_app_user_id()
+                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+            )
           order by subscription_idempotency_operations.created_at desc
           limit 1
         )
@@ -347,6 +354,13 @@ export class PostgresTribeMemberSubscriptionRepository
             and user_id = public.current_app_user_id()
             and operation_type = 'start_member_subscription'
             and response_body ? 'checkoutUrl'
+            and exists (
+              select 1
+              from public.tribe_member_subscriptions
+              where tribe_member_subscriptions.tribe_id = ${context.tribe_id}
+                and tribe_member_subscriptions.user_id = public.current_app_user_id()
+                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+            )
           order by created_at desc
           limit 1
         `);
