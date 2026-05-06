@@ -19,6 +19,9 @@ describe("Tribe SQL guardrails", () => {
     "database/migrations/20260426070000_add_tribe_invitations.sql";
   const tribeTimestampDefaultsMigrationPath =
     "database/migrations/20260426080000_fix_tribe_timestamp_defaults.sql";
+  const visibleTribeMembersMigrationPath =
+    "database/migrations/20260506090000_add_visible_tribe_members_function.sql";
+  const drizzleMigrationJournalPath = "database/migrations/meta/_journal.json";
 
   it("enforces single-segment slugs in shared migrations", () => {
     const tribesMigration = readWorkspaceFile(
@@ -143,6 +146,36 @@ describe("Tribe SQL guardrails", () => {
     );
     expect(tribeInvitationsMigration).not.toContain(
       FORBIDDEN_INVITATION_ID_CAST
+    );
+  });
+
+  it("lists visible tribe members through a definer function guarded by viewer membership", () => {
+    const visibleTribeMembersMigration = readWorkspaceFile(
+      visibleTribeMembersMigrationPath
+    );
+
+    expect(visibleTribeMembersMigration).toContain(
+      "CREATE OR REPLACE FUNCTION public.list_visible_tribe_members_by_slug"
+    );
+    expect(visibleTribeMembersMigration).toContain("SECURITY DEFINER");
+    expect(visibleTribeMembersMigration).toContain(
+      "viewer_membership.user_id = public.current_app_user_id()"
+    );
+    expect(visibleTribeMembersMigration).toContain(
+      "viewer_membership.status IN ('active', 'muted')"
+    );
+    expect(visibleTribeMembersMigration).toContain(
+      "GRANT EXECUTE ON FUNCTION public.list_visible_tribe_members_by_slug(text)"
+    );
+  });
+
+  it("registers the visible tribe members function migration in the Drizzle journal", () => {
+    const drizzleMigrationJournal = readWorkspaceFile(
+      drizzleMigrationJournalPath
+    );
+
+    expect(drizzleMigrationJournal).toContain(
+      "20260506090000_add_visible_tribe_members_function"
     );
   });
 });

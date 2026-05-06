@@ -4,6 +4,7 @@ import { getTribeBySlug } from "@/src/modules/tribes/application/use-cases/get-t
 import { getTribeCreationEligibility } from "@/src/modules/tribes/application/use-cases/get-tribe-creation-eligibility-use-case";
 import { getTribePageAccess } from "@/src/modules/tribes/application/use-cases/get-tribe-page-access-use-case";
 import { getMemberTribes } from "@/src/modules/tribes/application/use-cases/get-member-tribes-use-case";
+import { listVisibleTribeMembers } from "@/src/modules/tribes/application/use-cases/list-visible-tribe-members-use-case";
 import {
   acceptTribeInvitation,
   createTribeInvitation,
@@ -47,6 +48,9 @@ export function buildTribesModule({
         tribeReadRepository,
       }),
       getMemberTribes: getMemberTribes({
+        tribeReadRepository,
+      }),
+      listVisibleTribeMembers: listVisibleTribeMembers({
         tribeReadRepository,
       }),
       listTribeInvitations: listTribeInvitations({

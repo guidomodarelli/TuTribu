@@ -131,4 +131,55 @@ describe("PostgresTribeReadRepository", () => {
       "tribe_members.user_id = public.current_app_user_id()"
     );
   });
+
+  it("lists visible members for a readable tribe", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          image: null,
+          member_id: "member-1",
+          name: "Ada Lovelace",
+          role: "leader",
+        },
+        {
+          image: "https://example.com/grace.png",
+          member_id: "member-2",
+          name: "Grace Hopper",
+          role: "guardian",
+        },
+      ],
+    }));
+
+    const repository = new PostgresTribeReadRepository(async (callback) =>
+      callback({
+        execute,
+      } as never)
+    );
+
+    await expect(
+      repository.listVisibleTribeMembersBySlug("matematica-pro")
+    ).resolves.toEqual([
+      {
+        avatarFallback: "AL",
+        id: "member-1",
+        image: null,
+        name: "Ada Lovelace",
+        role: "leader",
+      },
+      {
+        avatarFallback: "GH",
+        id: "member-2",
+        image: "https://example.com/grace.png",
+        name: "Grace Hopper",
+        role: "guardian",
+      },
+    ]);
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain(
+      "from public.list_visible_tribe_members_by_slug("
+    );
+    expect(sqlText).not.toContain("inner join public.tribe_members");
+  });
 });

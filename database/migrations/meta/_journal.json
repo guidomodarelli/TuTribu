@@ -8,6 +8,13 @@
       "when": 1777161600000,
       "tag": "20260426000000_create_neon_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778058000000,
+      "tag": "20260506090000_add_visible_tribe_members_function",
+      "breakpoints": true
     }
   ]
 }
