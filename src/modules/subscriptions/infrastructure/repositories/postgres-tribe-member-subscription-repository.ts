@@ -62,6 +62,7 @@ type ExistingOperationRow = {
 type WebhookSubscriptionContextRow = {
   access_token: string | null;
   operation_inserted: string | null;
+  subscription_found: boolean | null;
 };
 
 const SUBSCRIPTION_CHECKOUT_CONTEXT = {
@@ -406,7 +407,18 @@ export class PostgresTribeMemberSubscriptionRepository
         topic: command.topic,
       });
       const result = await database.execute(sql`
-        with inserted_operation as (
+        with subscription_context as (
+          select
+            tribe_payment_integrations.access_token,
+            true as subscription_found
+          from public.tribe_member_subscriptions
+          inner join public.tribe_payment_integrations
+            on tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
+            and tribe_payment_integrations.provider = 'mercado_pago'
+          where tribe_member_subscriptions.mercado_pago_preapproval_id = ${command.resourceId}
+          limit 1
+        ),
+        inserted_operation as (
           insert into public.subscription_idempotency_operations (
             operation_key,
             operation_type,
@@ -414,34 +426,30 @@ export class PostgresTribeMemberSubscriptionRepository
             response_body,
             created_at
           )
-          values (
+          select
             ${operationKey},
             'mercado_pago_webhook',
             ${payloadHash},
             '{}'::jsonb,
             timezone('utc', now())
-          )
+          where exists (select 1 from subscription_context)
           on conflict (operation_key) do nothing
           returning id
-        ),
-      subscription_context as (
-        select tribe_payment_integrations.access_token
-        from public.tribe_member_subscriptions
-        inner join public.tribe_payment_integrations
-          on tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
-          and tribe_payment_integrations.provider = 'mercado_pago'
-        where tribe_member_subscriptions.mercado_pago_preapproval_id = ${command.resourceId}
-        limit 1
-      )
-      select
-        (select id from inserted_operation) as operation_inserted,
-        (select access_token from subscription_context) as access_token
+        )
+        select
+          (select id from inserted_operation) as operation_inserted,
+          (select access_token from subscription_context) as access_token,
+          coalesce((select subscription_found from subscription_context), false) as subscription_found
       `);
       const context = (result.rows?.[0] ?? null) as
         | WebhookSubscriptionContextRow
         | null;
 
-      if (!context?.operation_inserted) {
+      if (!context?.subscription_found) {
+        return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook };
+      }
+
+      if (!context.operation_inserted) {
         return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook };
       }
 

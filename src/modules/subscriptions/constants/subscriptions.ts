@@ -57,6 +57,7 @@ export const TRIBE_MEMBER_SUBSCRIPTION_STATUS = {
   pending: "pending",
   pastDue: "past_due",
   processed: "processed",
+  retryableWebhook: "retryable_webhook",
 } as const;
 
 /**

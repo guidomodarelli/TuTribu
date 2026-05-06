@@ -117,4 +117,24 @@ describe("Mercado Pago webhook route", () => {
       topic: "subscription_preapproval.created",
     });
   });
+
+  it("asks Mercado Pago to retry when the subscription is not ready locally", async () => {
+    handleMercadoPagoSubscriptionWebhook.mockResolvedValue({
+      status: "retryable_webhook",
+    });
+
+    const timestamp = String(Date.now());
+    const requestId = "request-1";
+    const response = await POST(
+      buildWebhookRequest({
+        "x-request-id": requestId,
+        "x-signature": buildWebhookSignature("preapproval-1", requestId, timestamp),
+      })
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      message: "No pudimos procesar el webhook.",
+    });
+  });
 });

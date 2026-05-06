@@ -35,6 +35,7 @@ const HTTP_STATUS = {
   badRequest: 400,
   ok: 200,
   serverError: 500,
+  serviceUnavailable: 503,
   unauthorized: 401,
 } as const;
 
@@ -109,6 +110,13 @@ export async function POST(request: Request) {
         resourceId,
         topic,
       });
+
+    if (result.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook) {
+      return Response.json(
+        { message: WEBHOOK_RESPONSE.unexpectedMessage },
+        { status: HTTP_STATUS.serviceUnavailable }
+      );
+    }
 
     return Response.json(
       {

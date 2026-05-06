@@ -113,6 +113,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           {
             access_token: "access-token",
             operation_inserted: "operation-1",
+            subscription_found: true,
           },
         ],
       })
@@ -149,6 +150,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           {
             access_token: "access-token",
             operation_inserted: "operation-1",
+            subscription_found: true,
           },
         ],
       })
@@ -184,6 +186,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           {
             access_token: "access-token",
             operation_inserted: "operation-1",
+            subscription_found: true,
           },
         ],
       })
@@ -211,12 +214,43 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
   });
 
+  it("keeps webhooks retryable when the local subscription is not stored yet", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          access_token: null,
+          subscription_found: false,
+        },
+      ],
+    });
+    const getMercadoPagoPreapprovalStatus = jest.fn();
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      getMercadoPagoPreapprovalStatus
+    );
+
+    await expect(
+      repository.handleWebhook({
+        eventId: "event-1",
+        resourceId: "preapproval-1",
+        topic: "subscription_preapproval.created",
+      })
+    ).resolves.toEqual({
+      status: "retryable_webhook",
+    });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(getMercadoPagoPreapprovalStatus).not.toHaveBeenCalled();
+  });
+
   it("does not call the provider again for duplicate webhook events", async () => {
     const execute = jest.fn().mockResolvedValueOnce({
       rows: [
         {
           access_token: "access-token",
           operation_inserted: null,
+          subscription_found: true,
         },
       ],
     });

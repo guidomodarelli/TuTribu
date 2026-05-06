@@ -242,6 +242,7 @@ FOR SELECT
 USING (
   user_id = public.current_app_user_id()
   OR public.can_manage_tribe_subscription_prices(tribe_id)
+  OR public.is_mercado_pago_webhook_verified()
 );
 
 CREATE POLICY "Members can create own idempotency operations"

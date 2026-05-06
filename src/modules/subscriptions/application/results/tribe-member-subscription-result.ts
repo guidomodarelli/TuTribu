@@ -22,5 +22,6 @@ export type TribeMemberSubscriptionStartResult =
 export type TribeMemberSubscriptionWebhookResult = {
   status:
     | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook
-    | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed;
+    | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed
+    | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook;
 };
