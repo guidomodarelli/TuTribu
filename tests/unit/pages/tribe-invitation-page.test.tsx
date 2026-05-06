@@ -1,0 +1,145 @@
+import { render, screen } from "@testing-library/react";
+import { redirect } from "next/navigation";
+
+import TribeInvitationPage, {
+  acceptInvitationAction,
+} from "@/app/(platform)/tribu/[slug]/invitar/[token]/page";
+import { createRequestModules } from "@/src/modules/setup";
+
+const getAuthenticatedMember = jest.fn();
+const acceptTribeInvitation = jest.fn();
+
+jest.mock("next/navigation", () => ({
+  redirect: jest.fn(),
+}));
+
+jest.mock("@/src/modules/setup", () => ({
+  createRequestModules: jest.fn(),
+}));
+
+function buildPageProps() {
+  return {
+    params: Promise.resolve({
+      slug: "matematica-pro",
+      token: "invitation-token",
+    }),
+  };
+}
+
+function buildPagePropsWithStatus(status: string) {
+  return {
+    ...buildPageProps(),
+    searchParams: Promise.resolve({
+      status,
+    }),
+  };
+}
+
+describe("TribeInvitationPage", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getAuthenticatedMember.mockResolvedValue({
+      avatarFallback: "GH",
+      email: "member@example.com",
+      id: "member-1",
+      image: null,
+      name: "Grace Hopper",
+      role: "tribemate",
+    });
+    acceptTribeInvitation.mockResolvedValue({
+      status: "accepted",
+    });
+    (createRequestModules as jest.Mock).mockResolvedValue({
+      auth: {
+        useCases: {
+          getAuthenticatedMember,
+        },
+      },
+      tribes: {
+        useCases: {
+          acceptTribeInvitation,
+        },
+      },
+    });
+  });
+
+  it("redirects unauthenticated visitors to sign in with the invitation callback", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+    (redirect as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(TribeInvitationPage(buildPageProps())).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(redirect).toHaveBeenCalledWith(
+      "/auth/signin?callbackUrl=/tribu/matematica-pro/invitar/invitation-token"
+    );
+    expect(acceptTribeInvitation).not.toHaveBeenCalled();
+  });
+
+  it("renders an explicit acceptance form without accepting during GET", async () => {
+    render(await TribeInvitationPage(buildPageProps()));
+
+    expect(
+      screen.getByRole("heading", { name: "Sumarte a esta tribu" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Aceptar invitación" })
+    ).toBeInTheDocument();
+    expect(acceptTribeInvitation).not.toHaveBeenCalled();
+  });
+
+  it("accepts a valid invitation from the POST action and redirects to the tribe", async () => {
+    (redirect as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(
+      acceptInvitationAction({
+        slug: "matematica-pro",
+        token: "invitation-token",
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(acceptTribeInvitation).toHaveBeenCalledWith({
+      token: "invitation-token",
+      tribeSlug: "matematica-pro",
+    });
+    expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro");
+  });
+
+  it("renders a safe Spanish message for blocked members", async () => {
+    render(await TribeInvitationPage(buildPagePropsWithStatus("blocked")));
+
+    expect(
+      screen.getByRole("heading", { name: "No pudimos sumar tu cuenta" })
+    ).toBeInTheDocument();
+  });
+
+  it("renders a safe Spanish message for revoked invitations", async () => {
+    render(await TribeInvitationPage(buildPagePropsWithStatus("revoked")));
+
+    expect(
+      screen.getByRole("heading", { name: "Esta invitación no está disponible" })
+    ).toBeInTheDocument();
+  });
+
+  it("redirects invalid acceptance action results back to a safe status page", async () => {
+    acceptTribeInvitation.mockResolvedValue({
+      status: "invalid",
+    });
+    (redirect as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(
+      acceptInvitationAction({
+        slug: "matematica-pro",
+        token: "invitation-token",
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(redirect).toHaveBeenCalledWith(
+      "/tribu/matematica-pro/invitar/invitation-token?status=invalid"
+    );
+  });
+});

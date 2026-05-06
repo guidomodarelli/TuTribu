@@ -3,6 +3,7 @@ import { BetterAuthSessionRepository } from "./auth/infrastructure/repositories/
 import { buildTribesModule } from "./tribes/setup";
 import { PostgresTribeCreationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creation-repository";
 import { PostgresTribeCreatorWhitelistRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creator-whitelist-repository";
+import { PostgresTribeInvitationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-invitation-repository";
 import { PostgresTribeReadRepository } from "./tribes/infrastructure/repositories/postgres-tribe-read-repository";
 import { PostgresMessageRoundRepository } from "./messages/infrastructure/repositories/postgres-message-round-repository";
 import { PostgresTribeChannelRepository } from "./messages/infrastructure/repositories/postgres-tribe-channel-repository";
@@ -35,6 +36,9 @@ export async function createRequestModules() {
       ),
       tribeCreatorWhitelistRepository:
         new PostgresTribeCreatorWhitelistRepository(executeWithRequestContext),
+      tribeInvitationRepository: new PostgresTribeInvitationRepository(
+        executeWithRequestContext
+      ),
     }),
     messages: buildMessagesModule({
       tribeChannelRepository: new PostgresTribeChannelRepository(

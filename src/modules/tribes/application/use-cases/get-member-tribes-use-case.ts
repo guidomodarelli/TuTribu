@@ -17,8 +17,15 @@ export function getMemberTribes({
   return async (): Promise<MemberTribeListItemResult[]> => {
     const tribes =
       await tribeReadRepository.listVisibleMembershipTribes();
+    const uniqueTribesById = new Map<string, MemberTribeListItemResult>();
 
-    return [...tribes].sort((left, right) =>
+    tribes.forEach((tribe) => {
+      if (!uniqueTribesById.has(tribe.tribeId)) {
+        uniqueTribesById.set(tribe.tribeId, tribe);
+      }
+    });
+
+    return [...uniqueTribesById.values()].sort((left, right) =>
       left.name.localeCompare(
         right.name,
         MEMBER_TRIBES_SORT_LOCALE,

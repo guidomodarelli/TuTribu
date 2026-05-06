@@ -347,6 +347,7 @@ describe("AppSidebar", () => {
       "data-active",
       "true"
     );
+    expect(screen.queryByRole("button", { name: /invitaciones/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /eventos/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /la tribu/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /méritos/i })).toBeInTheDocument();
@@ -379,6 +380,9 @@ describe("AppSidebar", () => {
 
     expect(
       screen.getByRole("button", { name: /fogón/i }).querySelector(".lucide-flame-kindling")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /invitaciones/i }).querySelector(".lucide-mail-plus")
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /canales/i }).querySelector(".lucide-signpost-big")
@@ -416,6 +420,7 @@ describe("AppSidebar", () => {
     );
 
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro");
+    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/invitaciones");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/canales");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/eventos");
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/tribu");
@@ -423,7 +428,7 @@ describe("AppSidebar", () => {
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/historia");
   });
 
-  it("shows the channel section to tribe leaders and guardians", () => {
+  it("shows admin sections to tribe leaders and guardians below the round", () => {
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     const { rerender } = render(
@@ -448,6 +453,25 @@ describe("AppSidebar", () => {
     );
 
     expect(screen.getByRole("button", { name: /canales/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /invitaciones/i })).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button").findIndex((button) =>
+        button.textContent?.includes("Fogón")
+      )
+    ).toBeLessThan(
+      screen.getAllByRole("button").findIndex((button) =>
+        button.textContent?.includes("Invitaciones")
+      )
+    );
+    expect(
+      screen.getAllByRole("button").findIndex((button) =>
+        button.textContent?.includes("Invitaciones")
+      )
+    ).toBeLessThan(
+      screen.getAllByRole("button").findIndex((button) =>
+        button.textContent?.includes("Canales")
+      )
+    );
 
     rerender(
       <AppSidebar
@@ -471,6 +495,7 @@ describe("AppSidebar", () => {
     );
 
     expect(screen.getByRole("button", { name: /canales/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /invitaciones/i })).toBeInTheDocument();
 
     rerender(
       <AppSidebar
@@ -494,6 +519,7 @@ describe("AppSidebar", () => {
     );
 
     expect(screen.queryByRole("button", { name: /canales/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /invitaciones/i })).not.toBeInTheDocument();
   });
 
   it("hides the global tribes section inside an active tribe", () => {

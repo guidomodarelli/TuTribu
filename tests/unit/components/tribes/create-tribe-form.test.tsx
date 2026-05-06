@@ -4,6 +4,16 @@ import userEvent from "@testing-library/user-event";
 import { CreateTribeForm } from "@/components/tribes/create-tribe-form";
 
 describe("CreateTribeForm", () => {
+  it("submits tribe creation to the configured path with POST", () => {
+    render(<CreateTribeForm submitPath="/api/tribes" />);
+
+    const submitButton = screen.getByRole("button", { name: /crear tribu/i });
+    const form = submitButton.closest("form");
+
+    expect(form).toHaveAttribute("action", "/api/tribes");
+    expect(form).toHaveAttribute("method", "post");
+  });
+
   it("suggests a slug from the tribe name", async () => {
     const user = userEvent.setup();
 
@@ -29,6 +39,24 @@ describe("CreateTribeForm", () => {
 
     expect(screen.getByLabelText(/slug/i)).toHaveValue("algebra-pro");
     expect(screen.getByText(/^editado$/i)).toBeInTheDocument();
+  });
+
+  it("keeps syncing when the initial slug already matches the initial name", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CreateTribeForm
+        initialName="Tribu de Algebra"
+        initialSlug="tribu-de-algebra"
+        submitPath="/tribu/crear"
+      />
+    );
+
+    await user.clear(screen.getByLabelText(/nombre de la tribu/i));
+    await user.type(screen.getByLabelText(/nombre de la tribu/i), "Tribu de Historia");
+
+    expect(screen.getByLabelText(/slug/i)).toHaveValue("tribu-de-historia");
+    expect(screen.getByText(/^sincronizado$/i)).toBeInTheDocument();
   });
 
   it("lets the user resync the slug from the tribe name", async () => {

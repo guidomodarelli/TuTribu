@@ -21,7 +21,7 @@ const CREATE_TRIBE_FORM_BUTTON = {
 } as const;
 const CREATE_TRIBE_FORM_FIELD = {
   hiddenType: "hidden",
-  method: "message",
+  method: "post",
   name: "name",
   slug: "slug",
 } as const;
@@ -61,8 +61,11 @@ export function CreateTribeForm({
   const slugInputId = useId();
   const [name, setName] = useState(initialName);
   const [slug, setSlug] = useState(initialSlug);
+  const normalizedInitialNameSlug = normalizeTribeSlug(initialName);
+  const normalizedInitialSlug = normalizeTribeSlug(initialSlug);
   const [hasManualSlugChanges, setHasManualSlugChanges] = useState(
-    initialSlug.trim().length > 0
+    normalizedInitialSlug.length > 0 &&
+      normalizedInitialSlug !== normalizedInitialNameSlug
   );
   const normalizedNameSlug = normalizeTribeSlug(name);
   const canonicalSlug = normalizeTribeSlug(slug);

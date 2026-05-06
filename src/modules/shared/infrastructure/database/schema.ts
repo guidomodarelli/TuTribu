@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -8,6 +9,8 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+
+const UTC_NOW_SQL = sql`timezone('utc', now())`;
 
 export const users = pgTable("user", {
   id: text("id").primaryKey(),
@@ -86,7 +89,9 @@ export const tribes = pgTable("tribes", {
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
 }, (table) => ({
   slugKey: uniqueIndex("tribes_slug_key").on(table.slug),
 }));
@@ -101,11 +106,33 @@ export const tribeMembers = pgTable("tribe_members", {
     .references(() => users.id, { onDelete: "cascade" }),
   role: text("role").notNull(),
   status: text("status").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
 }, (table) => ({
   membershipKey: uniqueIndex("tribe_members_tribe_id_user_id_key").on(
     table.tribeId,
     table.userId
+  ),
+}));
+
+export const tribeInvitations = pgTable("tribe_invitations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => users.id),
+  status: text("status").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+}, (table) => ({
+  tokenHashKey: uniqueIndex("tribe_invitations_token_hash_key").on(table.tokenHash),
+  tribeStatusIndex: index("idx_tribe_invitations_tribe_status").on(
+    table.tribeId,
+    table.status
   ),
 }));
 
@@ -119,8 +146,12 @@ export const tribeChannels = pgTable("tribe_channels", {
   emoji: text("emoji").notNull(),
   sortOrder: integer("sort_order").notNull(),
   accessScope: text("access_scope").notNull().default("tribemates"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
 }, (table) => ({
   tribeSlugKey: uniqueIndex("tribe_channels_tribe_id_slug_key").on(
     table.tribeId,

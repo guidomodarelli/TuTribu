@@ -7,6 +7,7 @@ import {
   ChevronDownIcon,
   CompassIcon,
   FlameKindlingIcon,
+  MailPlusIcon,
   MedalIcon,
   PlusCircleIcon,
   ScrollTextIcon,
@@ -49,6 +50,13 @@ const tribeSectionNavigation = [
       pathname === ROUTES.tribes.bySlug(tribeSlug),
   },
   {
+    hrefBuilder: ROUTES.tribes.invitations,
+    icon: MailPlusIcon,
+    label: "Invitaciones",
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.invitations(tribeSlug)),
+  },
+  {
     hrefBuilder: ROUTES.tribes.channels,
     icon: SignpostBigIcon,
     label: "Canales",
@@ -88,6 +96,7 @@ const APP_SIDEBAR_UI = {
   brandButtonSize: "lg",
   brandMarkLength: 2,
   channelsSectionLabel: "Canales",
+  invitationsSectionLabel: "Invitaciones",
   collapsible: "icon",
   createTribeTooltip: "Nueva tribu",
   nestedRouteSeparator: "/",
@@ -98,6 +107,11 @@ const TRIBE_CHANNEL_MANAGER_ROLE = {
   guardian: "guardian",
   leader: "leader",
 } as const;
+
+const TRIBE_ADMIN_SECTION_LABELS = new Set<string>([
+  APP_SIDEBAR_UI.channelsSectionLabel,
+  APP_SIDEBAR_UI.invitationsSectionLabel,
+]);
 
 type AppSidebarProps = {
   authenticatedMember: AuthenticatedMemberResult | null;
@@ -118,7 +132,7 @@ function getVisibleTribeSectionNavigation(
 ) {
   return tribeSectionNavigation.filter(
     (item) =>
-      item.label !== APP_SIDEBAR_UI.channelsSectionLabel ||
+      !TRIBE_ADMIN_SECTION_LABELS.has(item.label) ||
       canManageTribeChannels(tribe)
   );
 }

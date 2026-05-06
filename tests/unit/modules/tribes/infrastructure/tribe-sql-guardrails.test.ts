@@ -5,9 +5,20 @@ function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
+const FORBIDDEN_INVITATION_TOKEN_CONTEXT_SETTING = [
+  "current",
+  "invitation",
+  "token",
+].join("_");
+const FORBIDDEN_INVITATION_ID_CAST = ["id", "text"].join("::");
+
 describe("Tribe SQL guardrails", () => {
   const neonBaselineMigrationPath =
     "database/migrations/20260426000000_create_neon_baseline.sql";
+  const tribeInvitationsMigrationPath =
+    "database/migrations/20260426070000_add_tribe_invitations.sql";
+  const tribeTimestampDefaultsMigrationPath =
+    "database/migrations/20260426080000_fix_tribe_timestamp_defaults.sql";
 
   it("enforces single-segment slugs in shared migrations", () => {
     const tribesMigration = readWorkspaceFile(
@@ -84,4 +95,54 @@ describe("Tribe SQL guardrails", () => {
     );
   });
 
+  it("keeps tribe creation timestamps database-generated", () => {
+    const tribeTimestampDefaultsMigration = readWorkspaceFile(
+      tribeTimestampDefaultsMigrationPath
+    );
+
+    expect(tribeTimestampDefaultsMigration).toContain(
+      "ALTER TABLE public.tribes"
+    );
+    expect(tribeTimestampDefaultsMigration).toContain(
+      "ALTER COLUMN created_at SET DEFAULT timezone('utc', now())"
+    );
+    expect(tribeTimestampDefaultsMigration).toContain(
+      "ALTER TABLE public.tribe_members"
+    );
+    expect(tribeTimestampDefaultsMigration).toContain(
+      "ALTER COLUMN created_at SET DEFAULT timezone('utc', now())"
+    );
+  });
+
+  it("allows authenticated users to inspect invitation status by token and accept active invitations", () => {
+    const tribeInvitationsMigration = readWorkspaceFile(
+      tribeInvitationsMigrationPath
+    );
+
+    expect(tribeInvitationsMigration).toContain(
+      "CREATE POLICY \"Authenticated users can accept active invitations\""
+    );
+    expect(tribeInvitationsMigration).toContain(
+      "CREATE POLICY \"Authenticated users can read invitation by token\""
+    );
+    expect(tribeInvitationsMigration).toContain(
+      "CREATE POLICY \"Authenticated users can read invited tribe by token\""
+    );
+    expect(tribeInvitationsMigration).toContain("role = 'tribemate'");
+    expect(tribeInvitationsMigration).toContain(
+      "tribe_invitations.status = 'active'"
+    );
+    expect(tribeInvitationsMigration).toContain(
+      "status IN ('active', 'revoked')"
+    );
+    expect(tribeInvitationsMigration).toContain(
+      "app.current_invitation_hash"
+    );
+    expect(tribeInvitationsMigration).not.toContain(
+      FORBIDDEN_INVITATION_TOKEN_CONTEXT_SETTING
+    );
+    expect(tribeInvitationsMigration).not.toContain(
+      FORBIDDEN_INVITATION_ID_CAST
+    );
+  });
 });

@@ -1,0 +1,45 @@
+.TribeInvitationPage {
+  display: grid;
+  min-height: min(70vh, 42rem);
+  place-items: center;
+  padding: 2rem 1rem;
+
+  &__content {
+    display: grid;
+    gap: 0.75rem;
+    max-width: 38rem;
+    width: 100%;
+  }
+
+  &__eyebrow,
+  &__title,
+  &__description {
+    margin: 0;
+  }
+
+  &__eyebrow {
+    color: var(--muted-foreground);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  &__title {
+    font-size: clamp(1.7rem, 1.6vw + 1rem, 2.4rem);
+    font-weight: 700;
+    line-height: 1.12;
+  }
+
+  &__description {
+    color: var(--muted-foreground);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  &__form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+}

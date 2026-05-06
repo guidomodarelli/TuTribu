@@ -4,20 +4,29 @@ import { getTribeBySlug } from "@/src/modules/tribes/application/use-cases/get-t
 import { getTribeCreationEligibility } from "@/src/modules/tribes/application/use-cases/get-tribe-creation-eligibility-use-case";
 import { getTribePageAccess } from "@/src/modules/tribes/application/use-cases/get-tribe-page-access-use-case";
 import { getMemberTribes } from "@/src/modules/tribes/application/use-cases/get-member-tribes-use-case";
+import {
+  acceptTribeInvitation,
+  createTribeInvitation,
+  listTribeInvitations,
+  revokeTribeInvitation,
+} from "@/src/modules/tribes/application/use-cases/manage-tribe-invitations-use-cases";
 import type { TribeCreationRepository } from "@/src/modules/tribes/domain/repositories/tribe-creation-repository";
 import type { TribeCreatorWhitelistRepository } from "@/src/modules/tribes/domain/repositories/tribe-creator-whitelist-repository";
+import type { TribeInvitationRepository } from "@/src/modules/tribes/domain/repositories/tribe-invitation-repository";
 import type { TribeReadRepository } from "@/src/modules/tribes/domain/repositories/tribe-read-repository";
 
 type TribesModuleDependencies = {
   tribeReadRepository: TribeReadRepository;
   tribeCreationRepository: TribeCreationRepository;
   tribeCreatorWhitelistRepository: TribeCreatorWhitelistRepository;
+  tribeInvitationRepository: TribeInvitationRepository;
 };
 
 export function buildTribesModule({
   tribeReadRepository,
   tribeCreationRepository,
   tribeCreatorWhitelistRepository,
+  tribeInvitationRepository,
 }: TribesModuleDependencies) {
   return {
     useCases: {
@@ -39,6 +48,18 @@ export function buildTribesModule({
       }),
       getMemberTribes: getMemberTribes({
         tribeReadRepository,
+      }),
+      listTribeInvitations: listTribeInvitations({
+        tribeInvitationRepository,
+      }),
+      createTribeInvitation: createTribeInvitation({
+        tribeInvitationRepository,
+      }),
+      revokeTribeInvitation: revokeTribeInvitation({
+        tribeInvitationRepository,
+      }),
+      acceptTribeInvitation: acceptTribeInvitation({
+        tribeInvitationRepository,
       }),
     },
   };

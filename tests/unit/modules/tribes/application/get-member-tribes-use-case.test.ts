@@ -83,4 +83,49 @@ describe("getMemberTribes", () => {
 
     await expect(execute()).resolves.toHaveLength(3);
   });
+
+  it("returns one visible membership per tribe when the repository returns duplicates", async () => {
+    const listVisibleMembershipTribes = jest.fn(async () => [
+      {
+        tribeId: "tribe-1",
+        name: "Alpha Club",
+        role: "tribemate" as const,
+        slug: "alpha-club",
+      },
+      {
+        tribeId: "tribe-1",
+        name: "Alpha Club",
+        role: "leader" as const,
+        slug: "alpha-club",
+      },
+      {
+        tribeId: "tribe-2",
+        name: "Beta Club",
+        role: "guardian" as const,
+        slug: "beta-club",
+      },
+    ]);
+    const execute = getMemberTribes({
+      tribeReadRepository: {
+        findBySlug: jest.fn(),
+        findCurrentMembershipStatusBySlug: jest.fn(),
+        listVisibleMembershipTribes,
+      },
+    });
+
+    await expect(execute()).resolves.toEqual([
+      {
+        tribeId: "tribe-1",
+        name: "Alpha Club",
+        role: "tribemate",
+        slug: "alpha-club",
+      },
+      {
+        tribeId: "tribe-2",
+        name: "Beta Club",
+        role: "guardian",
+        slug: "beta-club",
+      },
+    ]);
+  });
 });
