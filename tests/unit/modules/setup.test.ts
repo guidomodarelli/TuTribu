@@ -37,7 +37,7 @@ describe("createRequestModules", () => {
     const modules = await createRequestModules();
 
     await modules.auth.useCases.getAuthenticatedMember();
-    await modules.communities.useCases.getCommunityCreationEligibility({
+    await modules.tribes.useCases.getTribeCreationEligibility({
       creatorEmail: "owner@example.com",
     });
 

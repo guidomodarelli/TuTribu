@@ -68,17 +68,17 @@ export const verifications = pgTable("verification", {
   identifierIndex: index("idx_verification_identifier").on(table.identifier),
 }));
 
-export const communityCreatorWhitelist = pgTable("community_creator_whitelist", {
+export const tribeCreatorWhitelist = pgTable("tribe_creator_whitelist", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").notNull(),
   notes: text("notes"),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 }, (table) => ({
-  emailKey: uniqueIndex("community_creator_whitelist_email_key").on(table.email),
+  emailKey: uniqueIndex("tribe_creator_whitelist_email_key").on(table.email),
 }));
 
-export const communities = pgTable("communities", {
+export const tribes = pgTable("tribes", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull(),
@@ -88,14 +88,14 @@ export const communities = pgTable("communities", {
     .references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 }, (table) => ({
-  slugKey: uniqueIndex("communities_slug_key").on(table.slug),
+  slugKey: uniqueIndex("tribes_slug_key").on(table.slug),
 }));
 
-export const communityMembers = pgTable("community_members", {
+export const tribeMembers = pgTable("tribe_members", {
   id: uuid("id").defaultRandom().primaryKey(),
-  communityId: uuid("community_id")
+  tribeId: uuid("tribe_id")
     .notNull()
-    .references(() => communities.id, { onDelete: "cascade" }),
+    .references(() => tribes.id, { onDelete: "cascade" }),
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -103,17 +103,17 @@ export const communityMembers = pgTable("community_members", {
   status: text("status").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 }, (table) => ({
-  membershipKey: uniqueIndex("community_members_community_id_user_id_key").on(
-    table.communityId,
+  membershipKey: uniqueIndex("tribe_members_tribe_id_user_id_key").on(
+    table.tribeId,
     table.userId
   ),
 }));
 
-export const communityPostCategories = pgTable("community_post_categories", {
+export const tribePostCategories = pgTable("tribe_post_categories", {
   id: uuid("id").defaultRandom().primaryKey(),
-  communityId: uuid("community_id")
+  tribeId: uuid("tribe_id")
     .notNull()
-    .references(() => communities.id, { onDelete: "cascade" }),
+    .references(() => tribes.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   slug: text("slug").notNull(),
   emoji: text("emoji").notNull(),
@@ -122,24 +122,24 @@ export const communityPostCategories = pgTable("community_post_categories", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 }, (table) => ({
-  communitySlugKey: uniqueIndex("community_post_categories_community_id_slug_key").on(
-    table.communityId,
+  tribeSlugKey: uniqueIndex("tribe_post_categories_tribe_id_slug_key").on(
+    table.tribeId,
     table.slug
   ),
-  communitySortOrderIndex: index("idx_community_post_categories_sort_order").on(
-    table.communityId,
+  tribeSortOrderIndex: index("idx_tribe_post_categories_sort_order").on(
+    table.tribeId,
     table.sortOrder
   ),
 }));
 
 export const posts = pgTable("posts", {
   id: uuid("id").defaultRandom().primaryKey(),
-  communityId: uuid("community_id")
+  tribeId: uuid("tribe_id")
     .notNull()
-    .references(() => communities.id, { onDelete: "cascade" }),
+    .references(() => tribes.id, { onDelete: "cascade" }),
   categoryId: uuid("category_id")
     .notNull()
-    .references(() => communityPostCategories.id),
+    .references(() => tribePostCategories.id),
   authorId: text("author_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -148,8 +148,8 @@ export const posts = pgTable("posts", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 }, (table) => ({
-  communityCreatedAtIndex: index("idx_posts_community_created_at").on(
-    table.communityId,
+  tribeCreatedAtIndex: index("idx_posts_tribe_created_at").on(
+    table.tribeId,
     table.createdAt
   ),
 }));
@@ -159,9 +159,9 @@ export const postComments = pgTable("post_comments", {
   postId: uuid("post_id")
     .notNull()
     .references(() => posts.id, { onDelete: "cascade" }),
-  communityId: uuid("community_id")
+  tribeId: uuid("tribe_id")
     .notNull()
-    .references(() => communities.id, { onDelete: "cascade" }),
+    .references(() => tribes.id, { onDelete: "cascade" }),
   authorId: text("author_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -179,9 +179,9 @@ export const postReactions = pgTable("post_reactions", {
   postId: uuid("post_id")
     .notNull()
     .references(() => posts.id, { onDelete: "cascade" }),
-  communityId: uuid("community_id")
+  tribeId: uuid("tribe_id")
     .notNull()
-    .references(() => communities.id, { onDelete: "cascade" }),
+    .references(() => tribes.id, { onDelete: "cascade" }),
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),

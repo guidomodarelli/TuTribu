@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
-import { CommunitySwitcher } from "@/components/platform/community-switcher";
+import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,8 +27,8 @@ export default async function PlatformLayout({
       : undefined;
   const modules = await createRequestModules();
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
-  const memberCommunities = authenticatedMember
-    ? await modules.communities.useCases.getMemberCommunities()
+  const memberTribes = authenticatedMember
+    ? await modules.tribes.useCases.getMemberTribes()
     : [];
 
   return (
@@ -36,13 +36,13 @@ export default async function PlatformLayout({
       <SidebarProvider defaultOpen={defaultSidebarOpen}>
         <AppSidebar
           authenticatedMember={authenticatedMember}
-          memberCommunities={memberCommunities}
+          memberTribes={memberTribes}
         />
         <SidebarInset className={styles.PlatformLayout}>
           <header className={styles.PlatformLayout__header}>
             <SidebarTrigger className={styles.PlatformLayout__trigger} />
-            <CommunitySwitcher
-              memberCommunities={memberCommunities}
+            <TribeSwitcher
+              memberTribes={memberTribes}
               showDropdownTrigger={false}
               showPrivateBadge
             />

@@ -1,22 +1,22 @@
 import { sql } from "drizzle-orm";
 
 import type {
-  CommunityFeedCommentResult,
-  CommunityFeedPostResult,
-  CommunityFeedResult,
-  CommunityPostCategoryResult,
+  TribeFeedCommentResult,
+  TribeFeedPostResult,
+  TribeFeedResult,
+  TribePostCategoryResult,
   PostMembershipStatus,
-} from "@/src/modules/posts/application/results/community-feed-result";
+} from "@/src/modules/posts/application/results/tribe-feed-result";
 import { POST_MEMBERSHIP_STATUS } from "@/src/modules/posts/constants/post-feed";
 import type {
-  ListCommunityFeedQuery,
+  ListTribeFeedQuery,
   PostFeedReadRepository,
 } from "@/src/modules/posts/domain/repositories/post-feed-read-repository";
 import {
-  createCommunityFeedAuthor,
-  createCommunityPostCategory,
+  createTribeFeedAuthor,
+  createTribePostCategory,
   formatPostDateTimeValue,
-} from "@/src/modules/posts/infrastructure/mappers/community-feed-view-model-mapper";
+} from "@/src/modules/posts/infrastructure/mappers/tribe-feed-view-model-mapper";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
@@ -71,7 +71,7 @@ function normalizeMembershipStatus(status: string | null): PostMembershipStatus 
   return null;
 }
 
-function createComment(row: PostFeedRow): CommunityFeedCommentResult | null {
+function createComment(row: PostFeedRow): TribeFeedCommentResult | null {
   if (
     !row.comment_id ||
     !row.comment_author_id ||
@@ -82,7 +82,7 @@ function createComment(row: PostFeedRow): CommunityFeedCommentResult | null {
   }
 
   return {
-    author: createCommunityFeedAuthor({
+    author: createTribeFeedAuthor({
       id: row.comment_author_id,
       image: row.comment_author_image,
       name: row.comment_author_name,
@@ -104,9 +104,9 @@ function createPermissions(status: PostMembershipStatus | null) {
   };
 }
 
-function mapRowsToCategories(rows: PostCategoryRow[]): CommunityPostCategoryResult[] {
+function mapRowsToCategories(rows: PostCategoryRow[]): TribePostCategoryResult[] {
   return rows.map((row) =>
-    createCommunityPostCategory({
+    createTribePostCategory({
       accessScope: row.access_scope,
       emoji: row.emoji,
       id: row.id,
@@ -119,10 +119,10 @@ function mapRowsToCategories(rows: PostCategoryRow[]): CommunityPostCategoryResu
 
 function mapRowsToFeed(
   rows: PostFeedRow[],
-  categories: CommunityPostCategoryResult[]
-): CommunityFeedResult {
+  categories: TribePostCategoryResult[]
+): TribeFeedResult {
   const firstRow = rows[0];
-  const postsById = new Map<string, CommunityFeedPostResult>();
+  const postsById = new Map<string, TribeFeedPostResult>();
 
   rows.forEach((row) => {
     if (!row.post_id || !row.author_id || !row.post_content || !row.post_created_at) {
@@ -133,13 +133,13 @@ function mapRowsToFeed(
 
     if (!existingPost && row.category_id) {
       postsById.set(row.post_id, {
-        author: createCommunityFeedAuthor({
+        author: createTribeFeedAuthor({
           id: row.author_id,
           image: row.author_image,
           name: row.author_name,
           role: row.author_role,
         }),
-        category: createCommunityPostCategory({
+        category: createTribePostCategory({
           accessScope: row.category_access_scope,
           emoji: row.category_emoji,
           id: row.category_id,
@@ -178,35 +178,35 @@ function mapRowsToFeed(
 export class PostgresPostFeedRepository implements PostFeedReadRepository {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
-  async listByCommunitySlug({
-    communitySlug,
+  async listByTribeSlug({
+    tribeSlug,
     viewerId,
-  }: ListCommunityFeedQuery): Promise<CommunityFeedResult> {
+  }: ListTribeFeedQuery): Promise<TribeFeedResult> {
     return this.executeWithDatabase(async (database) => {
       const categoriesResult = await database.execute(sql`
-        with target_community as (
-          select communities.id
-          from public.communities
-          where communities.slug = ${communitySlug}
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
           limit 1
         )
         select
-          community_post_categories.id,
-          community_post_categories.name,
-          community_post_categories.slug,
-          community_post_categories.emoji,
-          community_post_categories.sort_order,
-          community_post_categories.access_scope
-        from public.community_post_categories
-        inner join target_community
-          on target_community.id = community_post_categories.community_id
-        order by community_post_categories.sort_order asc, community_post_categories.name asc
+          tribe_post_categories.id,
+          tribe_post_categories.name,
+          tribe_post_categories.slug,
+          tribe_post_categories.emoji,
+          tribe_post_categories.sort_order,
+          tribe_post_categories.access_scope
+        from public.tribe_post_categories
+        inner join target_tribe
+          on target_tribe.id = tribe_post_categories.tribe_id
+        order by tribe_post_categories.sort_order asc, tribe_post_categories.name asc
       `);
       const result = await database.execute(sql`
-        with target_community as (
-          select communities.id
-          from public.communities
-          where communities.slug = ${communitySlug}
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
           limit 1
         ),
         post_like_counts as (
@@ -216,8 +216,8 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
           from public.post_reactions
           inner join public.posts liked_posts
             on liked_posts.id = post_reactions.post_id
-          inner join target_community
-            on target_community.id = liked_posts.community_id
+          inner join target_tribe
+            on target_tribe.id = liked_posts.tribe_id
           where post_reactions.type = 'like'
           group by post_reactions.post_id
         )
@@ -226,12 +226,12 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
           posts.title as post_title,
           posts.content as post_content,
           posts.created_at as post_created_at,
-          community_post_categories.id as category_id,
-          community_post_categories.name as category_name,
-          community_post_categories.slug as category_slug,
-          community_post_categories.emoji as category_emoji,
-          community_post_categories.sort_order as category_sort_order,
-          community_post_categories.access_scope as category_access_scope,
+          tribe_post_categories.id as category_id,
+          tribe_post_categories.name as category_name,
+          tribe_post_categories.slug as category_slug,
+          tribe_post_categories.emoji as category_emoji,
+          tribe_post_categories.sort_order as category_sort_order,
+          tribe_post_categories.access_scope as category_access_scope,
           post_authors.id as author_id,
           post_authors.name as author_name,
           post_authors.image as author_image,
@@ -252,25 +252,25 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
           comment_authors.image as comment_author_image,
           comment_members.role as comment_author_role,
           viewer_members.status as viewer_membership_status
-        from target_community
-        inner join public.community_members viewer_members
-          on viewer_members.community_id = target_community.id
+        from target_tribe
+        inner join public.tribe_members viewer_members
+          on viewer_members.tribe_id = target_tribe.id
           and viewer_members.user_id = ${viewerId}
         left join public.posts
-          on posts.community_id = target_community.id
+          on posts.tribe_id = target_tribe.id
           and posts.category_id is not null
           and exists (
             select 1
-            from public.community_post_categories category_matches
+            from public.tribe_post_categories category_matches
             where category_matches.id = posts.category_id
-              and category_matches.community_id = target_community.id
+              and category_matches.tribe_id = target_tribe.id
           )
-        left join public.community_post_categories
-          on community_post_categories.id = posts.category_id
+        left join public.tribe_post_categories
+          on tribe_post_categories.id = posts.category_id
         left join public."user" post_authors
           on post_authors.id = posts.author_id
-        left join public.community_members post_members
-          on post_members.community_id = posts.community_id
+        left join public.tribe_members post_members
+          on post_members.tribe_id = posts.tribe_id
           and post_members.user_id = posts.author_id
         left join post_like_counts
           on post_like_counts.post_id = posts.id
@@ -278,18 +278,18 @@ export class PostgresPostFeedRepository implements PostFeedReadRepository {
           on post_comments.post_id = posts.id
         left join public."user" comment_authors
           on comment_authors.id = post_comments.author_id
-        left join public.community_members comment_members
-          on comment_members.community_id = posts.community_id
+        left join public.tribe_members comment_members
+          on comment_members.tribe_id = posts.tribe_id
           and comment_members.user_id = post_comments.author_id
         where viewer_members.status in ('active', 'muted')
         group by
           posts.id,
-          community_post_categories.id,
-          community_post_categories.name,
-          community_post_categories.slug,
-          community_post_categories.emoji,
-          community_post_categories.sort_order,
-          community_post_categories.access_scope,
+          tribe_post_categories.id,
+          tribe_post_categories.name,
+          tribe_post_categories.slug,
+          tribe_post_categories.emoji,
+          tribe_post_categories.sort_order,
+          tribe_post_categories.access_scope,
           post_like_counts.like_count,
           post_authors.id,
           post_members.role,

@@ -1,16 +1,16 @@
 import type {
-  CreateCommunityPostCategoryCommand,
-  DeleteCommunityPostCategoryCommand,
-  UpdateCommunityPostCategoryCommand,
-} from "@/src/modules/posts/application/commands/community-post-command";
+  CreateTribePostCategoryCommand,
+  DeleteTribePostCategoryCommand,
+  UpdateTribePostCategoryCommand,
+} from "@/src/modules/posts/application/commands/tribe-post-command";
 import type { PostCategoryListResult } from "@/src/modules/posts/application/results/post-category-result";
 import {
-  COMMUNITY_POST_CATEGORY_EMOJI,
-  COMMUNITY_POST_CATEGORY_NAME,
+  TRIBE_POST_CATEGORY_EMOJI,
+  TRIBE_POST_CATEGORY_NAME,
   POST_CATEGORY_MUTATION_STATUS,
 } from "@/src/modules/posts/constants/post-feed";
 import type {
-  ListCommunityPostCategoriesQuery,
+  ListTribePostCategoriesQuery,
   PostCategoryRepository,
 } from "@/src/modules/posts/domain/repositories/post-category-repository";
 
@@ -28,27 +28,27 @@ function isInvalidText(value: string, limits: { maxLength: number; minLength: nu
 
 function isInvalidCategoryInput(name: string, emoji: string): boolean {
   return (
-    isInvalidText(name, COMMUNITY_POST_CATEGORY_NAME) ||
-    isInvalidText(emoji, COMMUNITY_POST_CATEGORY_EMOJI)
+    isInvalidText(name, TRIBE_POST_CATEGORY_NAME) ||
+    isInvalidText(emoji, TRIBE_POST_CATEGORY_EMOJI)
   );
 }
 
-export function listCommunityPostCategories({
+export function listTribePostCategories({
   postCategoryRepository,
 }: PostCategoryDependencies) {
   return async (
-    query: ListCommunityPostCategoriesQuery
+    query: ListTribePostCategoriesQuery
   ): Promise<PostCategoryListResult> => ({
-    categories: await postCategoryRepository.listByCommunitySlug({
-      communitySlug: query.communitySlug.trim(),
+    categories: await postCategoryRepository.listByTribeSlug({
+      tribeSlug: query.tribeSlug.trim(),
     }),
   });
 }
 
-export function createCommunityPostCategory({
+export function createTribePostCategory({
   postCategoryRepository,
 }: PostCategoryDependencies) {
-  return async (command: CreateCommunityPostCategoryCommand) => {
+  return async (command: CreateTribePostCategoryCommand) => {
     const name = normalizeText(command.name);
     const emoji = normalizeText(command.emoji);
 
@@ -59,17 +59,17 @@ export function createCommunityPostCategory({
     }
 
     return postCategoryRepository.create({
-      communitySlug: command.communitySlug.trim(),
+      tribeSlug: command.tribeSlug.trim(),
       emoji,
       name,
     });
   };
 }
 
-export function updateCommunityPostCategory({
+export function updateTribePostCategory({
   postCategoryRepository,
 }: PostCategoryDependencies) {
-  return async (command: UpdateCommunityPostCategoryCommand) => {
+  return async (command: UpdateTribePostCategoryCommand) => {
     const name = normalizeText(command.name);
     const emoji = normalizeText(command.emoji);
 
@@ -81,7 +81,7 @@ export function updateCommunityPostCategory({
 
     return postCategoryRepository.update({
       categoryId: command.categoryId.trim(),
-      communitySlug: command.communitySlug.trim(),
+      tribeSlug: command.tribeSlug.trim(),
       emoji,
       name,
       sortOrder: command.sortOrder,
@@ -89,15 +89,15 @@ export function updateCommunityPostCategory({
   };
 }
 
-export function deleteCommunityPostCategory({
+export function deleteTribePostCategory({
   postCategoryRepository,
 }: PostCategoryDependencies) {
-  return async (command: DeleteCommunityPostCategoryCommand) => {
+  return async (command: DeleteTribePostCategoryCommand) => {
     const normalizedTargetCategoryId = command.targetCategoryId?.trim();
 
     return postCategoryRepository.delete({
       categoryId: command.categoryId.trim(),
-      communitySlug: command.communitySlug.trim(),
+      tribeSlug: command.tribeSlug.trim(),
       targetCategoryId: normalizedTargetCategoryId || undefined,
     });
   };

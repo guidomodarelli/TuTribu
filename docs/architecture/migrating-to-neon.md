@@ -26,11 +26,11 @@ Para este proyecto:
 * **Neon** queda como Postgres hospedado
 * **Drizzle** es la capa tipada de persistencia
 * **RLS** protege ownership, membership y tenant scope
-* **`community`** sigue siendo el tenant canonico
+* **`tribe`** sigue siendo el tenant canonico
 
 La identidad estable del usuario sale de `public."user".id`.
 
-La pertenencia, el rol y el alcance multi-tenant no salen de la sesion por si solos: se resuelven con `community_members`, `community_id` y RLS.
+La pertenencia, el rol y el alcance multi-tenant no salen de la sesion por si solos: se resuelven con `tribe_members`, `tribe_id` y RLS.
 
 ---
 
@@ -99,7 +99,7 @@ src/
       infrastructure/
         better-auth/
         repositories/
-    communities/
+    tribes/
       application/
       domain/
       infrastructure/
@@ -118,5 +118,5 @@ src/
 * cualquier cambio estructural sale con migration SQL en `database/migrations`
 * `DATABASE_URL` es el contrato de runtime; en Neon debe usar conexion directa para mantener el runtime warm y evitar PgBouncer/serverless pooling por defecto
 * `DATABASE_MIGRATION_URL` es opcional y debe apuntar a una conexion directa cuando el tooling lo requiera
-* `community_members` sigue siendo la fuente de verdad de permisos por tribu
+* `tribe_members` sigue siendo la fuente de verdad de permisos por tribu
 * ninguna ruta nueva debe depender de rutas OAuth custom fuera de `/api/auth/[...all]`

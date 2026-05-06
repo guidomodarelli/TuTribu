@@ -52,7 +52,7 @@ describe("PostgresPostMutationRepository", () => {
       repository.create({
         authorId: "member-1",
         categoryId: "category-general",
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         content: "Primera publicación",
         title: "Anuncio inicial",
       })
@@ -88,11 +88,11 @@ describe("PostgresPostMutationRepository", () => {
 
     expect(sqlText).toContain("insert into public.posts");
     expect(sqlText).toContain(
-      "(community_id, category_id, author_id, title, content, created_at, updated_at)"
+      "(tribe_id, category_id, author_id, title, content, created_at, updated_at)"
     );
     expect(sqlText).toContain("target_category");
     expect(sqlText).toContain(
-      "where public.is_active_community_member(target_community.id)"
+      "where public.is_active_tribe_member(target_tribe.id)"
     );
     expect(sqlText).toContain("returning");
     expect(sqlText).toContain("post_authors.name as author_name");
@@ -105,7 +105,7 @@ describe("PostgresPostMutationRepository", () => {
         rows: [
           {
             can_write: true,
-            community_id: "community-1",
+            tribe_id: "tribe-1",
             post_id: "post-1",
           },
         ],
@@ -133,7 +133,7 @@ describe("PostgresPostMutationRepository", () => {
 
     await expect(
       repository.toggle({
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         postId: "post-1",
         userId: "member-1",
       })
@@ -149,11 +149,11 @@ describe("PostgresPostMutationRepository", () => {
     const countSqlText = getSqlText(execute.mock.calls[3]?.[0]);
 
     expect(targetPostSqlText).toContain(
-      "public.is_active_community_member(posts.community_id) as can_write"
+      "public.is_active_tribe_member(posts.tribe_id) as can_write"
     );
     expect(deleteSqlText).toContain("delete from public.post_reactions");
     expect(insertSqlText).toContain(
-      "(post_id, community_id, user_id, type, created_at)"
+      "(post_id, tribe_id, user_id, type, created_at)"
     );
     expect(insertSqlText).toContain("on conflict (post_id, user_id) do nothing");
     expect(countSqlText).toContain("count(*) as like_count");
@@ -181,7 +181,7 @@ describe("PostgresPostMutationRepository", () => {
     await expect(
       repository.create({
         authorId: "member-1",
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         content: "Excelente clase",
         postId: "post-1",
       })
@@ -204,7 +204,7 @@ describe("PostgresPostMutationRepository", () => {
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
     expect(sqlText).toContain("insert into public.post_comments");
-    expect(sqlText).toContain("(post_id, community_id, author_id, content, created_at)");
+    expect(sqlText).toContain("(post_id, tribe_id, author_id, content, created_at)");
     expect(sqlText).toContain("comment_authors.name as comment_author_name");
   });
 });

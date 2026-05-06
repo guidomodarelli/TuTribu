@@ -1,19 +1,19 @@
 import { notFound } from "next/navigation";
 
-import { CommunityFeed } from "@/components/community-feed/community-feed";
-import { resolveVisibleCommunityPageAccess } from "./community-page-access";
+import { TribeFeed } from "@/components/tribe-feed/tribe-feed";
+import { resolveVisibleTribePageAccess } from "./tribe-page-access";
 import styles from "./page.module.scss";
 
-const COMMUNITY_PAGE_LOG_REASON = {
+const TRIBE_PAGE_LOG_REASON = {
   unexpectedFeedRepositoryError: "unexpected_feed_repository_error",
 } as const;
 
-const COMMUNITY_PAGE_LOG = {
-  operation: "community-page",
-  resolveFeedFailureMessage: "Failed to resolve community feed",
+const TRIBE_PAGE_LOG = {
+  operation: "tribe-page",
+  resolveFeedFailureMessage: "Failed to resolve tribe feed",
 } as const;
 
-export default async function CommunityPage({
+export default async function TribePage({
   params,
 }: {
   params: Promise<{
@@ -21,21 +21,21 @@ export default async function CommunityPage({
   }>;
 }) {
   const { slug } = await params;
-  const { authenticatedMember, community, logger, modules } =
-    await resolveVisibleCommunityPageAccess({
-      operation: COMMUNITY_PAGE_LOG.operation,
+  const { authenticatedMember, tribe, logger, modules } =
+    await resolveVisibleTribePageAccess({
+      operation: TRIBE_PAGE_LOG.operation,
       slug,
     });
 
-  const feed = await modules.posts.useCases.listCommunityFeed({
-    communitySlug: community.slug,
+  const feed = await modules.posts.useCases.listTribeFeed({
+    tribeSlug: tribe.slug,
     viewerId: authenticatedMember.id,
   }).catch((error: unknown) => {
     logger.error({
-      message: COMMUNITY_PAGE_LOG.resolveFeedFailureMessage,
+      message: TRIBE_PAGE_LOG.resolveFeedFailureMessage,
       error,
       metadata: {
-        reason: COMMUNITY_PAGE_LOG_REASON.unexpectedFeedRepositoryError,
+        reason: TRIBE_PAGE_LOG_REASON.unexpectedFeedRepositoryError,
         slug,
         viewerId: authenticatedMember?.id ?? null,
       },
@@ -44,10 +44,10 @@ export default async function CommunityPage({
   });
 
   return (
-    <main className={styles.CommunityPage}>
-      <CommunityFeed
+    <main className={styles.TribePage}>
+      <TribeFeed
         authenticatedMember={authenticatedMember}
-        communitySlug={community.slug}
+        tribeSlug={tribe.slug}
         feed={feed}
       />
     </main>

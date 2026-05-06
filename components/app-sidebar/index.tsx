@@ -15,11 +15,11 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { CommunitySwitcher } from "@/components/platform/community-switcher";
+import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
-import type { MemberCommunityListItemResult } from "@/src/modules/communities/application/results/member-community-list-item-result";
+import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import styles from "./styles.module.scss";
 import {
   Sidebar,
@@ -35,53 +35,53 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 
-const discoverCommunitiesNavigationItem = {
+const discoverTribesNavigationItem = {
   href: ROUTES.home,
   icon: CompassIcon,
   label: "Descubrir tribus",
 } as const;
-const communitySectionNavigation = [
+const tribeSectionNavigation = [
   {
-    hrefBuilder: ROUTES.communities.bySlug,
+    hrefBuilder: ROUTES.tribes.bySlug,
     icon: HomeIcon,
     label: "Inicio",
-    matchPath: (pathname: string, communitySlug: string) =>
-      pathname === ROUTES.communities.bySlug(communitySlug),
+    matchPath: (pathname: string, tribeSlug: string) =>
+      pathname === ROUTES.tribes.bySlug(tribeSlug),
   },
   {
-    hrefBuilder: ROUTES.communities.categories,
+    hrefBuilder: ROUTES.tribes.categories,
     icon: FolderIcon,
     label: "Categorías",
-    matchPath: (pathname: string, communitySlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.communities.categories(communitySlug)),
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.categories(tribeSlug)),
   },
   {
-    hrefBuilder: ROUTES.communities.events,
+    hrefBuilder: ROUTES.tribes.events,
     icon: CalendarDaysIcon,
     label: "Eventos",
-    matchPath: (pathname: string, communitySlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.communities.events(communitySlug)),
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.events(tribeSlug)),
   },
   {
-    hrefBuilder: ROUTES.communities.members,
+    hrefBuilder: ROUTES.tribes.members,
     icon: UsersIcon,
     label: "Miembros",
-    matchPath: (pathname: string, communitySlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.communities.members(communitySlug)),
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.members(tribeSlug)),
   },
   {
-    hrefBuilder: ROUTES.communities.ranking,
+    hrefBuilder: ROUTES.tribes.ranking,
     icon: TrophyIcon,
     label: "Ranking",
-    matchPath: (pathname: string, communitySlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.communities.ranking(communitySlug)),
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.ranking(tribeSlug)),
   },
   {
-    hrefBuilder: ROUTES.communities.about,
+    hrefBuilder: ROUTES.tribes.about,
     icon: InfoIcon,
     label: "Acerca de",
-    matchPath: (pathname: string, communitySlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.communities.about(communitySlug)),
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.about(tribeSlug)),
   },
 ] as const;
 const APP_SIDEBAR_UI = {
@@ -89,37 +89,37 @@ const APP_SIDEBAR_UI = {
   brandMarkLength: 2,
   categoriesSectionLabel: "Categorías",
   collapsible: "icon",
-  createCommunityTooltip: "Nueva tribu",
+  createTribeTooltip: "Nueva tribu",
   nestedRouteSeparator: "/",
   variant: "sidebar",
 } as const;
 
-const COMMUNITY_CATEGORY_MANAGER_ROLE = {
+const TRIBE_CATEGORY_MANAGER_ROLE = {
   admin: "admin",
   owner: "owner",
 } as const;
 
 type AppSidebarProps = {
   authenticatedMember: AuthenticatedMemberResult | null;
-  memberCommunities: MemberCommunityListItemResult[];
+  memberTribes: MemberTribeListItemResult[];
 };
 
-function canManageCommunityCategories(
-  community: MemberCommunityListItemResult
+function canManageTribeCategories(
+  tribe: MemberTribeListItemResult
 ): boolean {
   return (
-    community.role === COMMUNITY_CATEGORY_MANAGER_ROLE.owner ||
-    community.role === COMMUNITY_CATEGORY_MANAGER_ROLE.admin
+    tribe.role === TRIBE_CATEGORY_MANAGER_ROLE.owner ||
+    tribe.role === TRIBE_CATEGORY_MANAGER_ROLE.admin
   );
 }
 
-function getVisibleCommunitySectionNavigation(
-  community: MemberCommunityListItemResult
+function getVisibleTribeSectionNavigation(
+  tribe: MemberTribeListItemResult
 ) {
-  return communitySectionNavigation.filter(
+  return tribeSectionNavigation.filter(
     (item) =>
       item.label !== APP_SIDEBAR_UI.categoriesSectionLabel ||
-      canManageCommunityCategories(community)
+      canManageTribeCategories(tribe)
   );
 }
 
@@ -130,8 +130,8 @@ function isSameOrNestedPath(pathname: string, routePath: string): boolean {
   );
 }
 
-function getCommunityBrandMark(communityName: string): string {
-  return communityName
+function getTribeBrandMark(tribeName: string): string {
+  return tribeName
     .trim()
     .slice(0, APP_SIDEBAR_UI.brandMarkLength)
     .toUpperCase();
@@ -139,38 +139,38 @@ function getCommunityBrandMark(communityName: string): string {
 
 export function AppSidebar({
   authenticatedMember,
-  memberCommunities,
+  memberTribes,
 }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const isCreateCommunityActive = pathname === ROUTES.communities.create;
-  const activeCommunity = memberCommunities.find((community) =>
-    isSameOrNestedPath(pathname, ROUTES.communities.bySlug(community.slug))
+  const isCreateTribeActive = pathname === ROUTES.tribes.create;
+  const activeTribe = memberTribes.find((tribe) =>
+    isSameOrNestedPath(pathname, ROUTES.tribes.bySlug(tribe.slug))
   );
-  const brandName = activeCommunity?.name ?? siteConfig.name;
-  const brandMark = activeCommunity
-    ? getCommunityBrandMark(activeCommunity.name)
+  const brandName = activeTribe?.name ?? siteConfig.name;
+  const brandMark = activeTribe
+    ? getTribeBrandMark(activeTribe.name)
     : siteConfig.brandMark;
-  const brandPath = activeCommunity
-    ? ROUTES.communities.bySlug(activeCommunity.slug)
+  const brandPath = activeTribe
+    ? ROUTES.tribes.bySlug(activeTribe.slug)
     : ROUTES.home;
-  const visibleCommunitySectionNavigation = useMemo(
+  const visibleTribeSectionNavigation = useMemo(
     () =>
-      activeCommunity
-        ? getVisibleCommunitySectionNavigation(activeCommunity)
+      activeTribe
+        ? getVisibleTribeSectionNavigation(activeTribe)
         : [],
-    [activeCommunity]
+    [activeTribe]
   );
 
   useEffect(() => {
-    if (!activeCommunity) {
+    if (!activeTribe) {
       return;
     }
 
-    visibleCommunitySectionNavigation.forEach((item) => {
-      router.prefetch(item.hrefBuilder(activeCommunity.slug));
+    visibleTribeSectionNavigation.forEach((item) => {
+      router.prefetch(item.hrefBuilder(activeTribe.slug));
     });
-  }, [activeCommunity, router, visibleCommunitySectionNavigation]);
+  }, [activeTribe, router, visibleTribeSectionNavigation]);
 
   return (
     <Sidebar
@@ -181,9 +181,9 @@ export function AppSidebar({
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            {activeCommunity ? (
-              <CommunitySwitcher
-                className={styles.AppSidebar__communitySwitcher}
+            {activeTribe ? (
+              <TribeSwitcher
+                className={styles.AppSidebar__tribeSwitcher}
                 dropdownTrigger={
                   <SidebarMenuButton
                     size={APP_SIDEBAR_UI.brandButtonSize}
@@ -194,7 +194,7 @@ export function AppSidebar({
                     <ChevronDownIcon className={styles.AppSidebar__brandChevron} />
                   </SidebarMenuButton>
                 }
-                memberCommunities={memberCommunities}
+                memberTribes={memberTribes}
                 showPrivateBadge={false}
               />
             ) : (
@@ -213,16 +213,16 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarSeparator className={styles.AppSidebar__separator} />
       <SidebarContent>
-        {activeCommunity ? (
+        {activeTribe ? (
           <SidebarGroup>
             <SidebarGroupLabel>Tribu</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {visibleCommunitySectionNavigation.map((item) => {
-                  const sectionPath = item.hrefBuilder(activeCommunity.slug);
+                {visibleTribeSectionNavigation.map((item) => {
+                  const sectionPath = item.hrefBuilder(activeTribe.slug);
                   const isSectionActive = item.matchPath(
                     pathname,
-                    activeCommunity.slug
+                    activeTribe.slug
                   );
 
                   return (
@@ -244,16 +244,16 @@ export function AppSidebar({
             </SidebarGroupContent>
           </SidebarGroup>
         ) : null}
-        {activeCommunity ? null : (
+        {activeTribe ? null : (
           <SidebarGroup>
             <SidebarGroupLabel>Tribus</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    tooltip={APP_SIDEBAR_UI.createCommunityTooltip}
-                    isActive={isCreateCommunityActive}
-                    onClick={() => router.push(ROUTES.communities.create)}
+                    tooltip={APP_SIDEBAR_UI.createTribeTooltip}
+                    isActive={isCreateTribeActive}
+                    onClick={() => router.push(ROUTES.tribes.create)}
                   >
                     <PlusCircleIcon />
                     <span className={styles.AppSidebar__itemLabel}>Nueva tribu</span>
@@ -261,34 +261,34 @@ export function AppSidebar({
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    tooltip={discoverCommunitiesNavigationItem.label}
-                    isActive={pathname === discoverCommunitiesNavigationItem.href}
-                    onClick={() => router.push(discoverCommunitiesNavigationItem.href)}
+                    tooltip={discoverTribesNavigationItem.label}
+                    isActive={pathname === discoverTribesNavigationItem.href}
+                    onClick={() => router.push(discoverTribesNavigationItem.href)}
                   >
-                    <discoverCommunitiesNavigationItem.icon />
+                    <discoverTribesNavigationItem.icon />
                     <span className={styles.AppSidebar__itemLabel}>
-                      {discoverCommunitiesNavigationItem.label}
+                      {discoverTribesNavigationItem.label}
                     </span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                {memberCommunities.map((community) => {
-                  const communityPath = ROUTES.communities.bySlug(community.slug);
-                  const isCommunityActive =
-                    pathname === communityPath ||
-                    pathname.startsWith(`${communityPath}/`);
+                {memberTribes.map((tribe) => {
+                  const tribePath = ROUTES.tribes.bySlug(tribe.slug);
+                  const isTribeActive =
+                    pathname === tribePath ||
+                    pathname.startsWith(`${tribePath}/`);
 
                   return (
-                    <SidebarMenuItem key={community.communityId}>
+                    <SidebarMenuItem key={tribe.tribeId}>
                       <SidebarMenuButton
-                        tooltip={community.name}
-                        isActive={isCommunityActive}
-                        onClick={() => router.push(communityPath)}
+                        tooltip={tribe.name}
+                        isActive={isTribeActive}
+                        onClick={() => router.push(tribePath)}
                       >
                         <UsersIcon />
                         <span className={styles.AppSidebar__itemLabel}>
-                          {community.name}
+                          {tribe.name}
                         </span>
-                        {isCommunityActive ? (
+                        {isTribeActive ? (
                           <CheckIcon className={styles.AppSidebar__activeIcon} />
                         ) : null}
                       </SidebarMenuButton>
@@ -296,7 +296,7 @@ export function AppSidebar({
                   );
                 })}
               </SidebarMenu>
-              {authenticatedMember && memberCommunities.length === 0 ? (
+              {authenticatedMember && memberTribes.length === 0 ? (
                 <p className={styles.AppSidebar__emptyState}>
                   Todavia no formas parte de ninguna tribu
                 </p>

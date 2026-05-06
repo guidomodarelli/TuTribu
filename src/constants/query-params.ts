@@ -2,7 +2,7 @@ export const QUERY_PARAMS = {
   auth: {
     callbackUrl: "callbackUrl",
   },
-  communities: {
+  tribes: {
     error: "error",
     name: "name",
     slug: "slug",

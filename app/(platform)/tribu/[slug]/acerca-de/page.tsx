@@ -1,20 +1,20 @@
-import { CommunityComingSoonPage } from "../community-coming-soon-page";
+import { TribeComingSoonPage } from "../tribe-coming-soon-page";
 
-const COMMUNITY_ABOUT_PAGE = {
+const TRIBE_ABOUT_PAGE = {
   heading: "Acerca de",
-  operation: "community-about-page",
+  operation: "tribe-about-page",
 } as const;
 
-export default async function CommunityAboutPage({
+export default async function TribeAboutPage({
   params,
 }: {
   params: Promise<{
     slug: string;
   }>;
 }) {
-  return CommunityComingSoonPage({
-    heading: COMMUNITY_ABOUT_PAGE.heading,
-    operation: COMMUNITY_ABOUT_PAGE.operation,
+  return TribeComingSoonPage({
+    heading: TRIBE_ABOUT_PAGE.heading,
+    operation: TRIBE_ABOUT_PAGE.operation,
     params,
   });
 }

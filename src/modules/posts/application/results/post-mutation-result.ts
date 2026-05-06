@@ -1,12 +1,12 @@
 import type { POST_MUTATION_STATUS } from "@/src/modules/posts/constants/post-feed";
 import type {
-  CommunityFeedCommentResult,
-  CommunityFeedPostResult,
-} from "@/src/modules/posts/application/results/community-feed-result";
+  TribeFeedCommentResult,
+  TribeFeedPostResult,
+} from "@/src/modules/posts/application/results/tribe-feed-result";
 
 export type PostCreationResult =
   | {
-      post: CommunityFeedPostResult;
+      post: TribeFeedPostResult;
       status: typeof POST_MUTATION_STATUS.created;
     }
   | {
@@ -19,7 +19,7 @@ export type PostCreationResult =
 
 export type PostCommentCreationResult =
   | {
-      comment: CommunityFeedCommentResult;
+      comment: TribeFeedCommentResult;
       status: typeof POST_MUTATION_STATUS.created;
     }
   | {

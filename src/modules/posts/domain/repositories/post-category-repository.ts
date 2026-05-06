@@ -1,30 +1,30 @@
 import type {
-  CreateCommunityPostCategoryCommand,
-  DeleteCommunityPostCategoryCommand,
-  UpdateCommunityPostCategoryCommand,
-} from "@/src/modules/posts/application/commands/community-post-command";
-import type { CommunityPostCategoryResult } from "@/src/modules/posts/application/results/community-feed-result";
+  CreateTribePostCategoryCommand,
+  DeleteTribePostCategoryCommand,
+  UpdateTribePostCategoryCommand,
+} from "@/src/modules/posts/application/commands/tribe-post-command";
+import type { TribePostCategoryResult } from "@/src/modules/posts/application/results/tribe-feed-result";
 import type {
   PostCategoryCreationResult,
   PostCategoryDeletionResult,
   PostCategoryUpdateResult,
 } from "@/src/modules/posts/application/results/post-category-result";
 
-export type ListCommunityPostCategoriesQuery = {
-  communitySlug: string;
+export type ListTribePostCategoriesQuery = {
+  tribeSlug: string;
 };
 
 export interface PostCategoryRepository {
   create(
-    command: CreateCommunityPostCategoryCommand
+    command: CreateTribePostCategoryCommand
   ): Promise<PostCategoryCreationResult>;
   delete(
-    command: DeleteCommunityPostCategoryCommand
+    command: DeleteTribePostCategoryCommand
   ): Promise<PostCategoryDeletionResult>;
-  listByCommunitySlug(
-    query: ListCommunityPostCategoriesQuery
-  ): Promise<CommunityPostCategoryResult[]>;
+  listByTribeSlug(
+    query: ListTribePostCategoriesQuery
+  ): Promise<TribePostCategoryResult[]>;
   update(
-    command: UpdateCommunityPostCategoryCommand
+    command: UpdateTribePostCategoryCommand
   ): Promise<PostCategoryUpdateResult>;
 }

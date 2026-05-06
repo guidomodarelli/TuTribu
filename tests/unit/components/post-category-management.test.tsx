@@ -3,13 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { PostCategoryManagement } from "@/components/community-feed/post-category-management";
+import { PostCategoryManagement } from "@/components/tribe-feed/post-category-management";
 
 const postCategoryManagementStyles = readFileSync(
   join(
     process.cwd(),
     "components",
-    "community-feed",
+    "tribe-feed",
     "post-category-management",
     "styles.module.scss"
   ),
@@ -52,7 +52,7 @@ describe("PostCategoryManagement", () => {
     render(
       <PostCategoryManagement
         categories={categories}
-        communitySlug="matematica-pro"
+        tribeSlug="matematica-pro"
       />
     );
 
@@ -128,7 +128,7 @@ describe("PostCategoryManagement", () => {
     render(
       <PostCategoryManagement
         categories={categories}
-        communitySlug="matematica-pro"
+        tribeSlug="matematica-pro"
       />
     );
 
@@ -178,7 +178,7 @@ describe("PostCategoryManagement", () => {
     render(
       <PostCategoryManagement
         categories={categories}
-        communitySlug="matematica-pro"
+        tribeSlug="matematica-pro"
       />
     );
 
@@ -203,7 +203,7 @@ describe("PostCategoryManagement", () => {
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "/api/communities/matematica-pro/post-categories/category-resources",
+      "/api/tribes/matematica-pro/post-categories/category-resources",
       expect.objectContaining({
         body: JSON.stringify({ targetCategoryId: "category-general" }),
         method: "DELETE",

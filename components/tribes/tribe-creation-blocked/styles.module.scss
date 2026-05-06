@@ -1,0 +1,35 @@
+.TribeCreationBlocked {
+  display: grid;
+  gap: 1.25rem;
+  width: min(100%, 42rem);
+
+  &__header {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  &__eyebrow {
+    margin: 0;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--foreground) 58%, transparent);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: clamp(1.5rem, 2vw, 2rem);
+    line-height: 1.1;
+  }
+
+  &__content {
+    display: grid;
+    gap: 1rem;
+  }
+
+  &__description,
+  &__note {
+    margin: 0;
+    color: color-mix(in srgb, var(--foreground) 78%, transparent);
+  }
+}

@@ -144,7 +144,7 @@ describe("Auth migration guardrails", () => {
 
     expect(snapshot.dialect).toBe("postgresql");
     expect(Object.hasOwn(snapshot.tables, "public.user")).toBe(true);
-    expect(Object.hasOwn(snapshot.tables, "public.communities")).toBe(true);
+    expect(Object.hasOwn(snapshot.tables, "public.tribes")).toBe(true);
   });
 
   it("falls back to DATABASE_URL when DATABASE_MIGRATION_URL is empty", async () => {

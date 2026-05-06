@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 
-import { PostCategoryManagement } from "@/components/community-feed/post-category-management";
-import { COMMUNITY_MEMBERSHIP_STATUS } from "@/src/modules/communities/constants/community-page-access";
-import { resolveVisibleCommunityPageAccess } from "../community-page-access";
+import { PostCategoryManagement } from "@/components/tribe-feed/post-category-management";
+import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
 const CATEGORY_MANAGEMENT_PAGE_LOG = {
-  operation: "community-category-management-page",
-  resolveCategoriesFailureMessage: "Failed to resolve community post categories",
+  operation: "tribe-category-management-page",
+  resolveCategoriesFailureMessage: "Failed to resolve tribe post categories",
 } as const;
 
 const CATEGORY_MANAGER_ROLE = {
@@ -14,7 +14,7 @@ const CATEGORY_MANAGER_ROLE = {
   owner: "owner",
 } as const;
 
-export default async function CommunityCategoriesPage({
+export default async function TribeCategoriesPage({
   params,
 }: {
   params: Promise<{
@@ -22,15 +22,15 @@ export default async function CommunityCategoriesPage({
   }>;
 }) {
   const { slug } = await params;
-  const { authenticatedMember, community, logger, modules } =
-    await resolveVisibleCommunityPageAccess({
+  const { authenticatedMember, tribe, logger, modules } =
+    await resolveVisibleTribePageAccess({
       operation: CATEGORY_MANAGEMENT_PAGE_LOG.operation,
       slug,
     });
 
   const currentMembership = (
-    await modules.communities.useCases.getMemberCommunities()
-  ).find((communityListItem) => communityListItem.slug === community.slug);
+    await modules.tribes.useCases.getMemberTribes()
+  ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
 
   if (
     currentMembership?.role !== CATEGORY_MANAGER_ROLE.owner &&
@@ -40,17 +40,17 @@ export default async function CommunityCategoriesPage({
   }
 
   const membershipStatus =
-    await modules.communities.useCases.getCurrentCommunityMembershipStatus(
-      community.slug
+    await modules.tribes.useCases.getCurrentTribeMembershipStatus(
+      tribe.slug
     );
 
-  if (membershipStatus !== COMMUNITY_MEMBERSHIP_STATUS.active) {
+  if (membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active) {
     notFound();
   }
 
   const categoryResult = await modules.posts.useCases
-    .listCommunityPostCategories({
-      communitySlug: community.slug,
+    .listTribePostCategories({
+      tribeSlug: tribe.slug,
       viewerId: authenticatedMember.id,
     })
     .catch((error: unknown) => {
@@ -69,7 +69,7 @@ export default async function CommunityCategoriesPage({
     <main>
       <PostCategoryManagement
         categories={categoryResult.categories}
-        communitySlug={community.slug}
+        tribeSlug={tribe.slug}
       />
     </main>
   );

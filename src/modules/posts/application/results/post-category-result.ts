@@ -1,16 +1,16 @@
 import type { POST_CATEGORY_MUTATION_STATUS } from "@/src/modules/posts/constants/post-feed";
-import type { CommunityPostCategoryResult } from "./community-feed-result";
+import type { TribePostCategoryResult } from "./tribe-feed-result";
 
 export type PostCategoryMutationStatus =
   (typeof POST_CATEGORY_MUTATION_STATUS)[keyof typeof POST_CATEGORY_MUTATION_STATUS];
 
 export type PostCategoryListResult = {
-  categories: CommunityPostCategoryResult[];
+  categories: TribePostCategoryResult[];
 };
 
 export type PostCategoryCreationResult =
   | {
-      category: CommunityPostCategoryResult;
+      category: TribePostCategoryResult;
       status: typeof POST_CATEGORY_MUTATION_STATUS.created;
     }
   | {
@@ -23,7 +23,7 @@ export type PostCategoryCreationResult =
 
 export type PostCategoryUpdateResult =
   | {
-      category: CommunityPostCategoryResult;
+      category: TribePostCategoryResult;
       status: typeof POST_CATEGORY_MUTATION_STATUS.updated;
     }
   | {

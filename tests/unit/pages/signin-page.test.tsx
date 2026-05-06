@@ -54,7 +54,7 @@ describe("SignInPage", () => {
           getAuthenticatedMember,
         },
       },
-      communities: {
+      tribes: {
         useCases: {},
       },
     });

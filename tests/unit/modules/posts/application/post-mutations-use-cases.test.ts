@@ -1,4 +1,4 @@
-import { createCommunityPost } from "@/src/modules/posts/application/use-cases/create-community-post-use-case";
+import { createTribePost } from "@/src/modules/posts/application/use-cases/create-tribe-post-use-case";
 import { createPostComment } from "@/src/modules/posts/application/use-cases/create-post-comment-use-case";
 import { togglePostLike } from "@/src/modules/posts/application/use-cases/toggle-post-like-use-case";
 
@@ -12,7 +12,7 @@ describe("post mutation use cases", () => {
     sortOrder: 20,
   };
 
-  it("creates a community post when content is valid", async () => {
+  it("creates a tribe post when content is valid", async () => {
     const createdPost = {
       id: "post-1",
       author: {
@@ -34,7 +34,7 @@ describe("post mutation use cases", () => {
       post: createdPost,
       status: "created" as const,
     }));
-    const execute = createCommunityPost({
+    const execute = createTribePost({
       postCreationRepository: { create },
     });
 
@@ -42,7 +42,7 @@ describe("post mutation use cases", () => {
       execute({
         authorId: "member-1",
         categoryId: "category-general",
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         content: "Primera publicación",
         title: "Bienvenida",
       })
@@ -50,15 +50,15 @@ describe("post mutation use cases", () => {
     expect(create).toHaveBeenCalledWith({
       authorId: "member-1",
       categoryId: "category-general",
-      communitySlug: "matematica-pro",
+      tribeSlug: "matematica-pro",
       content: "Primera publicación",
       title: "Bienvenida",
     });
   });
 
-  it("rejects a blank community post title before calling the repository", async () => {
+  it("rejects a blank tribe post title before calling the repository", async () => {
     const create = jest.fn();
-    const execute = createCommunityPost({
+    const execute = createTribePost({
       postCreationRepository: { create },
     });
 
@@ -66,7 +66,7 @@ describe("post mutation use cases", () => {
       execute({
         authorId: "member-1",
         categoryId: "category-general",
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         content: "Primera publicación",
         title: "   ",
       })
@@ -74,9 +74,9 @@ describe("post mutation use cases", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("rejects a blank community post before calling the repository", async () => {
+  it("rejects a blank tribe post before calling the repository", async () => {
     const create = jest.fn();
-    const execute = createCommunityPost({
+    const execute = createTribePost({
       postCreationRepository: { create },
     });
 
@@ -84,7 +84,7 @@ describe("post mutation use cases", () => {
       execute({
         authorId: "member-1",
         categoryId: "category-general",
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         content: "   ",
         title: "Bienvenida",
       })
@@ -94,7 +94,7 @@ describe("post mutation use cases", () => {
 
   it("rejects a post without category before calling the repository", async () => {
     const create = jest.fn();
-    const execute = createCommunityPost({
+    const execute = createTribePost({
       postCreationRepository: { create },
     });
 
@@ -102,7 +102,7 @@ describe("post mutation use cases", () => {
       execute({
         authorId: "member-1",
         categoryId: "   ",
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         content: "Primera publicación",
         title: "Bienvenida",
       })
@@ -134,7 +134,7 @@ describe("post mutation use cases", () => {
     await expect(
       execute({
         authorId: "member-1",
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         content: "Excelente clase",
         postId: "post-1",
       })
@@ -153,7 +153,7 @@ describe("post mutation use cases", () => {
 
     await expect(
       execute({
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         postId: "post-1",
         userId: "member-1",
       })

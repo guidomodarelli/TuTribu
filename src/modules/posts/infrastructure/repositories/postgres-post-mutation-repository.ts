@@ -1,10 +1,10 @@
 import { sql } from "drizzle-orm";
 
 import type {
-  CreateCommunityPostCommand,
+  CreateTribePostCommand,
   CreatePostCommentCommand,
   TogglePostLikeCommand,
-} from "@/src/modules/posts/application/commands/community-post-command";
+} from "@/src/modules/posts/application/commands/tribe-post-command";
 import type {
   PostCommentCreationResult,
   PostCreationResult,
@@ -18,9 +18,9 @@ import type { PostCommentRepository } from "@/src/modules/posts/domain/repositor
 import type { PostCreationRepository } from "@/src/modules/posts/domain/repositories/post-creation-repository";
 import type { PostReactionRepository } from "@/src/modules/posts/domain/repositories/post-reaction-repository";
 import {
-  createCommunityFeedComment,
-  createCommunityFeedPost,
-} from "@/src/modules/posts/infrastructure/mappers/community-feed-view-model-mapper";
+  createTribeFeedComment,
+  createTribeFeedPost,
+} from "@/src/modules/posts/infrastructure/mappers/tribe-feed-view-model-mapper";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
@@ -64,7 +64,7 @@ type LikeCountRow = {
 
 type TargetPostRow = {
   can_write: boolean;
-  community_id: string;
+  tribe_id: string;
   post_id: string;
 };
 
@@ -108,7 +108,7 @@ function mapCreatedPost(row: CreatedPostRow | null): PostCreationResult {
     row.post_created_at
   ) {
     return {
-      post: createCommunityFeedPost({
+      post: createTribeFeedPost({
         id: row.post_id,
         author: {
           id: row.author_id,
@@ -146,7 +146,7 @@ function mapCreatedComment(row: CreatedCommentRow | null): PostCommentCreationRe
     row.comment_created_at
   ) {
     return {
-      comment: createCommunityFeedComment({
+      comment: createTribeFeedComment({
         id: row.comment_id,
         author: {
           id: row.comment_author_id,
@@ -169,10 +169,10 @@ export class PostgresPostMutationRepository
 {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
-  async create(command: CreateCommunityPostCommand): Promise<PostCreationResult>;
+  async create(command: CreateTribePostCommand): Promise<PostCreationResult>;
   async create(command: CreatePostCommentCommand): Promise<PostCommentCreationResult>;
   async create(
-    command: CreateCommunityPostCommand | CreatePostCommentCommand
+    command: CreateTribePostCommand | CreatePostCommentCommand
   ): Promise<PostCreationResult | PostCommentCreationResult> {
     if ("postId" in command) {
       return this.createComment(command);
@@ -186,13 +186,13 @@ export class PostgresPostMutationRepository
       const targetPostResult = await database.execute(sql`
         select
           posts.id as post_id,
-          posts.community_id,
-          public.is_active_community_member(posts.community_id) as can_write
+          posts.tribe_id,
+          public.is_active_tribe_member(posts.tribe_id) as can_write
         from public.posts
-        inner join public.communities
-          on communities.id = posts.community_id
+        inner join public.tribes
+          on tribes.id = posts.tribe_id
         where posts.id = ${command.postId}
-          and communities.slug = ${command.communitySlug}
+          and tribes.slug = ${command.tribeSlug}
         limit 1
       `);
       const targetPost = (targetPostResult.rows?.[0] ?? null) as TargetPostRow | null;
@@ -229,10 +229,10 @@ export class PostgresPostMutationRepository
         status = POST_MUTATION_STATUS.unliked;
       } else {
         await database.execute(sql`
-          insert into public.post_reactions (post_id, community_id, user_id, type, created_at)
+          insert into public.post_reactions (post_id, tribe_id, user_id, type, created_at)
           values (
             ${targetPost.post_id},
-            ${targetPost.community_id},
+            ${targetPost.tribe_id},
             ${command.userId},
             ${POST_REACTION_TYPE.like},
             timezone('utc', now())
@@ -278,38 +278,38 @@ export class PostgresPostMutationRepository
   }
 
   private async createPost(
-    command: CreateCommunityPostCommand
+    command: CreateTribePostCommand
   ): Promise<PostCreationResult> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        with target_community as (
-          select communities.id
-          from public.communities
-          where communities.slug = ${command.communitySlug}
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
           limit 1
         ),
         target_category as (
           select
-            community_post_categories.id,
-            community_post_categories.name,
-            community_post_categories.slug,
-            community_post_categories.emoji,
-            community_post_categories.sort_order,
-            community_post_categories.access_scope
-          from public.community_post_categories
-          inner join target_community
-            on target_community.id = community_post_categories.community_id
-          where community_post_categories.id = ${command.categoryId}
+            tribe_post_categories.id,
+            tribe_post_categories.name,
+            tribe_post_categories.slug,
+            tribe_post_categories.emoji,
+            tribe_post_categories.sort_order,
+            tribe_post_categories.access_scope
+          from public.tribe_post_categories
+          inner join target_tribe
+            on target_tribe.id = tribe_post_categories.tribe_id
+          where tribe_post_categories.id = ${command.categoryId}
           limit 1
         ),
         inserted_post as (
-          insert into public.posts (community_id, category_id, author_id, title, content, created_at, updated_at)
-          select target_community.id, target_category.id, ${command.authorId}, ${command.title}, ${command.content}, timezone('utc', now()), timezone('utc', now())
-          from target_community
+          insert into public.posts (tribe_id, category_id, author_id, title, content, created_at, updated_at)
+          select target_tribe.id, target_category.id, ${command.authorId}, ${command.title}, ${command.content}, timezone('utc', now()), timezone('utc', now())
+          from target_tribe
           inner join target_category
             on true
-          where public.is_active_community_member(target_community.id)
-          returning id, community_id, category_id, author_id, title, content, created_at
+          where public.is_active_tribe_member(target_tribe.id)
+          returning id, tribe_id, category_id, author_id, title, content, created_at
         ),
         created_post as (
           select
@@ -332,14 +332,14 @@ export class PostgresPostMutationRepository
             on target_category.id = inserted_post.category_id
           inner join public."user" post_authors
             on post_authors.id = inserted_post.author_id
-          left join public.community_members post_members
-            on post_members.community_id = inserted_post.community_id
+          left join public.tribe_members post_members
+            on post_members.tribe_id = inserted_post.tribe_id
             and post_members.user_id = inserted_post.author_id
         )
         select
           case
             when exists (select 1 from inserted_post) then ${POST_MUTATION_STATUS.created}
-            when not exists (select 1 from target_community) then ${POST_MUTATION_STATUS.notFound}
+            when not exists (select 1 from target_tribe) then ${POST_MUTATION_STATUS.notFound}
             when not exists (select 1 from target_category) then ${POST_MUTATION_STATUS.invalidCategory}
             else ${POST_MUTATION_STATUS.forbidden}
           end as status,
@@ -372,20 +372,20 @@ export class PostgresPostMutationRepository
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         with target_post as (
-          select posts.id, posts.community_id
+          select posts.id, posts.tribe_id
           from public.posts
-          inner join public.communities
-            on communities.id = posts.community_id
+          inner join public.tribes
+            on tribes.id = posts.tribe_id
           where posts.id = ${command.postId}
-            and communities.slug = ${command.communitySlug}
+            and tribes.slug = ${command.tribeSlug}
           limit 1
         ),
         inserted_comment as (
-          insert into public.post_comments (post_id, community_id, author_id, content, created_at)
-          select target_post.id, target_post.community_id, ${command.authorId}, ${command.content}, timezone('utc', now())
+          insert into public.post_comments (post_id, tribe_id, author_id, content, created_at)
+          select target_post.id, target_post.tribe_id, ${command.authorId}, ${command.content}, timezone('utc', now())
           from target_post
-          where public.is_active_community_member(target_post.community_id)
-          returning id, community_id, author_id, content, created_at
+          where public.is_active_tribe_member(target_post.tribe_id)
+          returning id, tribe_id, author_id, content, created_at
         ),
         created_comment as (
           select
@@ -399,8 +399,8 @@ export class PostgresPostMutationRepository
           from inserted_comment
           inner join public."user" comment_authors
             on comment_authors.id = inserted_comment.author_id
-          left join public.community_members comment_members
-            on comment_members.community_id = inserted_comment.community_id
+          left join public.tribe_members comment_members
+            on comment_members.tribe_id = inserted_comment.tribe_id
             and comment_members.user_id = inserted_comment.author_id
         )
         select

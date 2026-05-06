@@ -1,6 +1,6 @@
-const COMMUNITY_ROUTE_PREFIX = "/tribu/";
+const TRIBE_ROUTE_PREFIX = "/tribu/";
 const ROUTE_SEGMENT_SEPARATOR = "/";
-const COMMUNITY_ROUTE_SEGMENTS = {
+const TRIBE_ROUTE_SEGMENTS = {
   about: "acerca-de",
   categories: "categorias",
   events: "eventos",
@@ -8,31 +8,31 @@ const COMMUNITY_ROUTE_SEGMENTS = {
   ranking: "ranking",
 } as const;
 
-function buildCommunitySectionRoute(slug: string, section: string): string {
-  return `${COMMUNITY_ROUTE_PREFIX}${slug}${ROUTE_SEGMENT_SEPARATOR}${section}`;
+function buildTribeSectionRoute(slug: string, section: string): string {
+  return `${TRIBE_ROUTE_PREFIX}${slug}${ROUTE_SEGMENT_SEPARATOR}${section}`;
 }
 
 export const ROUTES = {
   api: {
-    communities: "/api/communities",
+    tribes: "/api/tribes",
   },
   auth: {
     error: "/auth/error",
     signIn: "/auth/signin",
   },
-  communities: {
+  tribes: {
     about: (slug: string) =>
-      buildCommunitySectionRoute(slug, COMMUNITY_ROUTE_SEGMENTS.about),
-    bySlug: (slug: string) => COMMUNITY_ROUTE_PREFIX + slug,
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.about),
+    bySlug: (slug: string) => TRIBE_ROUTE_PREFIX + slug,
     categories: (slug: string) =>
-      buildCommunitySectionRoute(slug, COMMUNITY_ROUTE_SEGMENTS.categories),
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.categories),
     create: "/tribu/crear",
     events: (slug: string) =>
-      buildCommunitySectionRoute(slug, COMMUNITY_ROUTE_SEGMENTS.events),
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.events),
     members: (slug: string) =>
-      buildCommunitySectionRoute(slug, COMMUNITY_ROUTE_SEGMENTS.members),
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.members),
     ranking: (slug: string) =>
-      buildCommunitySectionRoute(slug, COMMUNITY_ROUTE_SEGMENTS.ranking),
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.ranking),
   },
   home: "/",
 } as const;

@@ -12,7 +12,7 @@ const platformLayoutStyles = readFileSync(
 );
 
 const getAuthenticatedMember = jest.fn();
-const getMemberCommunities = jest.fn();
+const getMemberTribes = jest.fn();
 
 jest.mock("next/headers", () => ({
   cookies: jest.fn(),
@@ -21,15 +21,15 @@ jest.mock("next/headers", () => ({
 jest.mock("@/components/app-sidebar", () => ({
   AppSidebar: ({
     authenticatedMember,
-    memberCommunities,
+    memberTribes,
   }: {
     authenticatedMember: { name: string } | null;
-    memberCommunities: Array<{ name: string }>;
+    memberTribes: Array<{ name: string }>;
   }) => (
     <div>
       <span>Sidebar</span>
       <span>{authenticatedMember?.name ?? "Sin sesion"}</span>
-      <span>{memberCommunities.map((community) => community.name).join(",")}</span>
+      <span>{memberTribes.map((tribe) => tribe.name).join(",")}</span>
     </div>
   ),
 }));
@@ -44,8 +44,8 @@ jest.mock("@/components/theme/theme-mode-dropdown", () => ({
   ThemeModeDropdown: () => <span>Selector de tema</span>,
 }));
 
-jest.mock("@/components/platform/community-switcher", () => ({
-  CommunitySwitcher: ({
+jest.mock("@/components/platform/tribe-switcher", () => ({
+  TribeSwitcher: ({
     showDropdownTrigger,
     showPrivateBadge,
   }: {
@@ -93,7 +93,7 @@ describe("PlatformLayout", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
-    getMemberCommunities.mockReset();
+    getMemberTribes.mockReset();
     (cookies as jest.Mock).mockResolvedValue({
       get: jest.fn(() => undefined),
     });
@@ -104,15 +104,15 @@ describe("PlatformLayout", () => {
           getAuthenticatedMember,
         },
       },
-      communities: {
+      tribes: {
         useCases: {
-          getMemberCommunities,
+          getMemberTribes,
         },
       },
     });
   });
 
-  it("resolves member communities server-side and passes them to the sidebar", async () => {
+  it("resolves member tribes server-side and passes them to the sidebar", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
       email: "owner@example.com",
@@ -121,9 +121,9 @@ describe("PlatformLayout", () => {
       avatarFallback: "GH",
       image: null,
     });
-    getMemberCommunities.mockResolvedValue([
+    getMemberTribes.mockResolvedValue([
       {
-        communityId: "community-1",
+        tribeId: "tribe-1",
         name: "Alpha Club",
         slug: "alpha-club",
       },
@@ -141,7 +141,7 @@ describe("PlatformLayout", () => {
     expect(screen.getByText("Alpha Club")).toBeInTheDocument();
   });
 
-  it("renders only the private community badge in the platform header", async () => {
+  it("renders only the private tribe badge in the platform header", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
       email: "owner@example.com",
@@ -150,9 +150,9 @@ describe("PlatformLayout", () => {
       avatarFallback: "GH",
       image: null,
     });
-    getMemberCommunities.mockResolvedValue([
+    getMemberTribes.mockResolvedValue([
       {
-        communityId: "community-1",
+        tribeId: "tribe-1",
         name: "Alpha Club",
         slug: "alpha-club",
       },
@@ -178,7 +178,7 @@ describe("PlatformLayout", () => {
       avatarFallback: "GH",
       image: null,
     });
-    getMemberCommunities.mockResolvedValue([]);
+    getMemberTribes.mockResolvedValue([]);
 
     render(
       await PlatformLayout({
@@ -202,7 +202,7 @@ describe("PlatformLayout", () => {
       avatarFallback: "GH",
       image: null,
     });
-    getMemberCommunities.mockResolvedValue([]);
+    getMemberTribes.mockResolvedValue([]);
 
     const { container } = render(
       await PlatformLayout({
@@ -216,9 +216,9 @@ describe("PlatformLayout", () => {
     );
   });
 
-  it("skips member communities when there is no authenticated member", async () => {
+  it("skips member tribes when there is no authenticated member", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
-    getMemberCommunities.mockResolvedValue([]);
+    getMemberTribes.mockResolvedValue([]);
 
     render(
       await PlatformLayout({
@@ -226,7 +226,7 @@ describe("PlatformLayout", () => {
       })
     );
 
-    expect(getMemberCommunities).not.toHaveBeenCalled();
+    expect(getMemberTribes).not.toHaveBeenCalled();
     expect(screen.getByText("Sin sesion")).toBeInTheDocument();
   });
 

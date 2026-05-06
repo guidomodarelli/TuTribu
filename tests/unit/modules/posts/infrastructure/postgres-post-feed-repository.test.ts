@@ -72,8 +72,8 @@ describe("PostgresPostFeedRepository", () => {
     );
 
     await expect(
-      repository.listByCommunitySlug({
-        communitySlug: "matematica-pro",
+      repository.listByTribeSlug({
+        tribeSlug: "matematica-pro",
         viewerId: "member-1",
       })
     ).resolves.toEqual({
@@ -139,7 +139,7 @@ describe("PostgresPostFeedRepository", () => {
     );
   });
 
-  it("returns viewer permissions when the community has no posts yet", async () => {
+  it("returns viewer permissions when the tribe has no posts yet", async () => {
     const execute = jest
       .fn()
       .mockResolvedValueOnce({ rows: categoryRows })
@@ -178,8 +178,8 @@ describe("PostgresPostFeedRepository", () => {
     );
 
     await expect(
-      repository.listByCommunitySlug({
-        communitySlug: "matematica-pro",
+      repository.listByTribeSlug({
+        tribeSlug: "matematica-pro",
         viewerId: "member-1",
       })
     ).resolves.toEqual({
@@ -268,8 +268,8 @@ describe("PostgresPostFeedRepository", () => {
     );
 
     await expect(
-      repository.listByCommunitySlug({
-        communitySlug: "matematica-pro",
+      repository.listByTribeSlug({
+        tribeSlug: "matematica-pro",
         viewerId: "member-1",
       })
     ).resolves.toMatchObject({
@@ -288,12 +288,12 @@ describe("PostgresPostFeedRepository", () => {
     const sqlText = getSqlText(execute.mock.calls[1]?.[0]);
 
     expect(sqlText).toContain("post_like_counts");
-    expect(sqlText).toContain("with target_community as");
-    expect(sqlText).toContain("where communities.slug =");
+    expect(sqlText).toContain("with target_tribe as");
+    expect(sqlText).toContain("where tribes.slug =");
     expect(sqlText).toContain("inner join public.posts liked_posts");
-    expect(sqlText).toContain("on target_community.id = liked_posts.community_id");
+    expect(sqlText).toContain("on target_tribe.id = liked_posts.tribe_id");
     expect(sqlText).toContain("and posts.category_id is not null");
-    expect(sqlText).toContain("and category_matches.community_id = target_community.id");
+    expect(sqlText).toContain("and category_matches.tribe_id = target_tribe.id");
     expect(sqlText).not.toContain("count(post_reactions.id) filter");
   });
 });

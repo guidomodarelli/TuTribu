@@ -71,13 +71,13 @@ describe("server observability", () => {
     it("writes structured JSON info logs", () => {
       const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
       const logger = createServerLogger({
-        feature: "communities",
-        operation: "get-community-page",
+        feature: "tribes",
+        operation: "get-tribe-page",
         requestId: "req-123",
       });
 
       logger.info({
-        message: "Community page resolved",
+        message: "Tribe page resolved",
         metadata: {
           slug: "matematica-pro",
         },
@@ -89,9 +89,9 @@ describe("server observability", () => {
 
       expect(entry).toEqual({
         level: "info",
-        message: "Community page resolved",
-        feature: "communities",
-        operation: "get-community-page",
+        message: "Tribe page resolved",
+        feature: "tribes",
+        operation: "get-tribe-page",
         requestId: "req-123",
         metadata: {
           slug: "matematica-pro",

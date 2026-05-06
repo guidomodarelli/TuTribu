@@ -22,7 +22,7 @@ function getSqlText(statement: unknown): string {
 }
 
 describe("PostgresPostCategoryRepository", () => {
-  it("lists community categories ordered for the feed", async () => {
+  it("lists tribe categories ordered for the feed", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
@@ -40,7 +40,7 @@ describe("PostgresPostCategoryRepository", () => {
     );
 
     await expect(
-      repository.listByCommunitySlug({ communitySlug: "matematica-pro" })
+      repository.listByTribeSlug({ tribeSlug: "matematica-pro" })
     ).resolves.toEqual([
       {
         accessScope: "members",
@@ -53,7 +53,7 @@ describe("PostgresPostCategoryRepository", () => {
     ]);
 
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "order by community_post_categories.sort_order asc"
+      "order by tribe_post_categories.sort_order asc"
     );
   });
 
@@ -77,7 +77,7 @@ describe("PostgresPostCategoryRepository", () => {
 
     await expect(
       repository.create({
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         emoji: "❓",
         name: "Preguntas",
       })
@@ -91,8 +91,8 @@ describe("PostgresPostCategoryRepository", () => {
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
-    expect(sqlText).toContain("public.can_manage_community_categories");
-    expect(sqlText).toContain("insert into public.community_post_categories");
+    expect(sqlText).toContain("public.can_manage_tribe_categories");
+    expect(sqlText).toContain("insert into public.tribe_post_categories");
     expect(sqlText).toContain("existing_category");
   });
 
@@ -110,7 +110,7 @@ describe("PostgresPostCategoryRepository", () => {
 
     await expect(
       repository.create({
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         emoji: "💬",
         name: "General",
       })
@@ -121,7 +121,7 @@ describe("PostgresPostCategoryRepository", () => {
     const execute = jest.fn(async () => {
       throw {
         code: "23505",
-        constraint: "community_post_categories_community_id_slug_key",
+        constraint: "tribe_post_categories_tribe_id_slug_key",
       };
     });
     const repository = new PostgresPostCategoryRepository(async (callback) =>
@@ -130,7 +130,7 @@ describe("PostgresPostCategoryRepository", () => {
 
     await expect(
       repository.create({
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         emoji: "💬",
         name: "General",
       })
@@ -152,7 +152,7 @@ describe("PostgresPostCategoryRepository", () => {
     await expect(
       repository.update({
         categoryId: "category-questions",
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         emoji: "💬",
         name: "General",
         sortOrder: 30,
@@ -166,7 +166,7 @@ describe("PostgresPostCategoryRepository", () => {
     const execute = jest.fn(async () => {
       throw {
         code: "23505",
-        constraint: "community_post_categories_community_id_slug_key",
+        constraint: "tribe_post_categories_tribe_id_slug_key",
       };
     });
     const repository = new PostgresPostCategoryRepository(async (callback) =>
@@ -176,7 +176,7 @@ describe("PostgresPostCategoryRepository", () => {
     await expect(
       repository.update({
         categoryId: "category-questions",
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         emoji: "💬",
         name: "General",
         sortOrder: 30,
@@ -199,7 +199,7 @@ describe("PostgresPostCategoryRepository", () => {
     await expect(
       repository.update({
         categoryId: "category-missing",
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         emoji: "💬",
         name: "General",
         sortOrder: 30,
@@ -227,7 +227,7 @@ describe("PostgresPostCategoryRepository", () => {
     await expect(
       repository.delete({
         categoryId: "category-questions",
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         targetCategoryId: "category-general",
       })
     ).resolves.toEqual({ status: "moved_and_deleted" });
@@ -235,7 +235,7 @@ describe("PostgresPostCategoryRepository", () => {
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
     expect(sqlText).toContain("update public.posts");
-    expect(sqlText).toContain("delete from public.community_post_categories");
+    expect(sqlText).toContain("delete from public.tribe_post_categories");
     expect(sqlText).toContain("category_count");
   });
 });

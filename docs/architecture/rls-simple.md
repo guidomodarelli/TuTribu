@@ -48,15 +48,15 @@ Ese acople es aceptable porque:
 ## Casos adecuados
 
 * ownership por `user_id = current_app_user_id`
-* acceso por pertenencia a `community_id`
-* acceso via `community_members`
+* acceso por pertenencia a `tribe_id`
+* acceso via `tribe_members`
 * acceso por rol simple
 * lectura y escritura sobre filas del propio usuario
 
 La regla importante es:
 
 * la sesion identifica al usuario
-* `community_members` resuelve pertenencia y rol
+* `tribe_members` resuelve pertenencia y rol
 * RLS usa el contexto `app.current_user_*`
 
 ## Ejemplos

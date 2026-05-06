@@ -1,5 +1,5 @@
 import { POST_COMMENT_CONTENT, POST_MUTATION_STATUS } from "@/src/modules/posts/constants/post-feed";
-import type { CreatePostCommentCommand } from "@/src/modules/posts/application/commands/community-post-command";
+import type { CreatePostCommentCommand } from "@/src/modules/posts/application/commands/tribe-post-command";
 import type { PostCommentCreationResult } from "@/src/modules/posts/application/results/post-mutation-result";
 import type { PostCommentRepository } from "@/src/modules/posts/domain/repositories/post-comment-repository";
 
@@ -34,7 +34,7 @@ export function createPostComment({
 
     return postCommentRepository.create({
       ...command,
-      communitySlug: command.communitySlug.trim(),
+      tribeSlug: command.tribeSlug.trim(),
       content,
     });
   };

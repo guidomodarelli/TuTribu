@@ -1,10 +1,10 @@
-import type { CommunityFeedResult } from "@/src/modules/posts/application/results/community-feed-result";
+import type { TribeFeedResult } from "@/src/modules/posts/application/results/tribe-feed-result";
 
-export type ListCommunityFeedQuery = {
-  communitySlug: string;
+export type ListTribeFeedQuery = {
+  tribeSlug: string;
   viewerId: string;
 };
 
 export interface PostFeedReadRepository {
-  listByCommunitySlug(query: ListCommunityFeedQuery): Promise<CommunityFeedResult>;
+  listByTribeSlug(query: ListTribeFeedQuery): Promise<TribeFeedResult>;
 }

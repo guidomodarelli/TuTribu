@@ -36,8 +36,8 @@ Responde:
 
 La autorizacion real se resuelve con:
 
-* `community_members`
-* `community_id`
+* `tribe_members`
+* `tribe_id`
 * policies de RLS
 * casos de uso y servicios de aplicacion
 
@@ -50,7 +50,7 @@ Responde:
 La regla practica es esta:
 
 > **Better Auth responde quien es el usuario**
-> **`community_members` responde que rol y estado tiene en cada tribu**
+> **`tribe_members` responde que rol y estado tiene en cada tribu**
 > **RLS decide si puede tocar los datos**
 > **Next.js refleja esos permisos y orquesta acciones**
 
@@ -60,14 +60,14 @@ La regla practica es esta:
 
 La fuente de verdad del sistema de roles por tribu es:
 
-* `community_members(community_id, user_id, role, status)`
+* `tribe_members(tribe_id, user_id, role, status)`
 
 Reglas fijas:
 
-* el rol siempre esta acotado por `community_id`
+* el rol siempre esta acotado por `tribe_id`
 * un mismo usuario puede tener roles distintos en tribus distintas
 * `profiles` no debe guardar el rol de tribu como atributo global
-* la sesion o las cookies no reemplazan la relacion `community_members`
+* la sesion o las cookies no reemplazan la relacion `tribe_members`
 * los roles globales no reemplazan permisos por tribu
 
 ---
@@ -75,8 +75,8 @@ Reglas fijas:
 # Tipos canonicos
 
 ```ts
-type CommunityRole = "owner" | "admin" | "member";
-type CommunityStatus = "active" | "muted" | "blocked";
+type TribeRole = "owner" | "admin" | "member";
+type TribeStatus = "active" | "muted" | "blocked";
 ```
 
 ## Roles por tribu
@@ -95,10 +95,10 @@ type CommunityStatus = "active" | "muted" | "blocked";
 
 En este MVP, crear tribu se resuelve con una whitelist global:
 
-* la capacidad de crear tribu vive en `community_creator_whitelist`
+* la capacidad de crear tribu vive en `tribe_creator_whitelist`
 * la whitelist se consulta por email normalizado
 * la whitelist no reemplaza `owner/admin/member`
-* una vez creada la tribu, la autorizacion vuelve al modelo por `community_members`
+* una vez creada la tribu, la autorizacion vuelve al modelo por `tribe_members`
 
 ---
 

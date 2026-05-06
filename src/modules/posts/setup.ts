@@ -1,22 +1,22 @@
-import { createCommunityPost } from "@/src/modules/posts/application/use-cases/create-community-post-use-case";
+import { createTribePost } from "@/src/modules/posts/application/use-cases/create-tribe-post-use-case";
 import { createPostComment } from "@/src/modules/posts/application/use-cases/create-post-comment-use-case";
-import { listCommunityFeed } from "@/src/modules/posts/application/use-cases/list-community-feed-use-case";
+import { listTribeFeed } from "@/src/modules/posts/application/use-cases/list-tribe-feed-use-case";
 import {
-  createCommunityPostCategory,
-  deleteCommunityPostCategory,
-  listCommunityPostCategories,
-  updateCommunityPostCategory,
+  createTribePostCategory,
+  deleteTribePostCategory,
+  listTribePostCategories,
+  updateTribePostCategory,
 } from "@/src/modules/posts/application/use-cases/manage-post-categories-use-cases";
 import { togglePostLike } from "@/src/modules/posts/application/use-cases/toggle-post-like-use-case";
 import type {
-  CreateCommunityPostCommand,
-  CreateCommunityPostCategoryCommand,
+  CreateTribePostCommand,
+  CreateTribePostCategoryCommand,
   CreatePostCommentCommand,
-  DeleteCommunityPostCategoryCommand,
+  DeleteTribePostCategoryCommand,
   TogglePostLikeCommand,
-  UpdateCommunityPostCategoryCommand,
-} from "@/src/modules/posts/application/commands/community-post-command";
-import type { CommunityFeedResult } from "@/src/modules/posts/application/results/community-feed-result";
+  UpdateTribePostCategoryCommand,
+} from "@/src/modules/posts/application/commands/tribe-post-command";
+import type { TribeFeedResult } from "@/src/modules/posts/application/results/tribe-feed-result";
 import type {
   PostCategoryCreationResult,
   PostCategoryDeletionResult,
@@ -32,7 +32,7 @@ import type { PostCommentRepository } from "@/src/modules/posts/domain/repositor
 import type { PostCategoryRepository } from "@/src/modules/posts/domain/repositories/post-category-repository";
 import type { PostCreationRepository } from "@/src/modules/posts/domain/repositories/post-creation-repository";
 import type {
-  ListCommunityFeedQuery,
+  ListTribeFeedQuery,
   PostFeedReadRepository,
 } from "@/src/modules/posts/domain/repositories/post-feed-read-repository";
 import type { PostReactionRepository } from "@/src/modules/posts/domain/repositories/post-reaction-repository";
@@ -47,25 +47,25 @@ type PostsModuleDependencies = {
 
 type PostsModule = {
   useCases: {
-    createCommunityPost: (
-      command: CreateCommunityPostCommand
+    createTribePost: (
+      command: CreateTribePostCommand
     ) => Promise<PostCreationResult>;
-    createCommunityPostCategory: (
-      command: CreateCommunityPostCategoryCommand
+    createTribePostCategory: (
+      command: CreateTribePostCategoryCommand
     ) => Promise<PostCategoryCreationResult>;
-    deleteCommunityPostCategory: (
-      command: DeleteCommunityPostCategoryCommand
+    deleteTribePostCategory: (
+      command: DeleteTribePostCategoryCommand
     ) => Promise<PostCategoryDeletionResult>;
     createPostComment: (
       command: CreatePostCommentCommand
     ) => Promise<PostCommentCreationResult>;
-    listCommunityFeed: (query: ListCommunityFeedQuery) => Promise<CommunityFeedResult>;
-    listCommunityPostCategories: (
-      query: ListCommunityFeedQuery
+    listTribeFeed: (query: ListTribeFeedQuery) => Promise<TribeFeedResult>;
+    listTribePostCategories: (
+      query: ListTribeFeedQuery
     ) => Promise<PostCategoryListResult>;
     togglePostLike: (command: TogglePostLikeCommand) => Promise<PostLikeToggleResult>;
-    updateCommunityPostCategory: (
-      command: UpdateCommunityPostCategoryCommand
+    updateTribePostCategory: (
+      command: UpdateTribePostCategoryCommand
     ) => Promise<PostCategoryUpdateResult>;
   };
 };
@@ -79,20 +79,20 @@ export function buildPostsModule({
 }: PostsModuleDependencies): PostsModule {
   return {
     useCases: {
-      createCommunityPost: createCommunityPost({ postCreationRepository }),
-      createCommunityPostCategory: createCommunityPostCategory({
+      createTribePost: createTribePost({ postCreationRepository }),
+      createTribePostCategory: createTribePostCategory({
         postCategoryRepository,
       }),
-      deleteCommunityPostCategory: deleteCommunityPostCategory({
+      deleteTribePostCategory: deleteTribePostCategory({
         postCategoryRepository,
       }),
       createPostComment: createPostComment({ postCommentRepository }),
-      listCommunityFeed: listCommunityFeed({ postFeedReadRepository }),
-      listCommunityPostCategories: listCommunityPostCategories({
+      listTribeFeed: listTribeFeed({ postFeedReadRepository }),
+      listTribePostCategories: listTribePostCategories({
         postCategoryRepository,
       }),
       togglePostLike: togglePostLike({ postReactionRepository }),
-      updateCommunityPostCategory: updateCommunityPostCategory({
+      updateTribePostCategory: updateTribePostCategory({
         postCategoryRepository,
       }),
     },

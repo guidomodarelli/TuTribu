@@ -1,9 +1,9 @@
-export const COMMUNITY_POST_CONTENT = {
+export const TRIBE_POST_CONTENT = {
   maxLength: 2000,
   minLength: 1,
 } as const;
 
-export const COMMUNITY_POST_TITLE = {
+export const TRIBE_POST_TITLE = {
   maxLength: 120,
   minLength: 1,
 } as const;
@@ -57,17 +57,17 @@ export const POST_CATEGORY_MUTATION_STATUS = {
   updated: "updated",
 } as const;
 
-export const COMMUNITY_POST_CATEGORY_NAME = {
+export const TRIBE_POST_CATEGORY_NAME = {
   maxLength: 80,
   minLength: 1,
 } as const;
 
-export const COMMUNITY_POST_CATEGORY_EMOJI = {
+export const TRIBE_POST_CATEGORY_EMOJI = {
   maxLength: 8,
   minLength: 1,
 } as const;
 
-export const DEFAULT_COMMUNITY_POST_CATEGORIES = [
+export const DEFAULT_TRIBE_POST_CATEGORIES = [
   {
     emoji: "💬",
     name: "General",

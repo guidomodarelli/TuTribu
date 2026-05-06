@@ -337,7 +337,7 @@ CREATE INDEX idx_posts_user_id ON posts(user_id);
 ### Authorization rules
 
 - Use **RLS simple** as the authorization baseline for data access.
-- Keep RLS focused on ownership, membership, simple roles, and clear tenant or community scope.
+- Keep RLS focused on ownership, membership, simple roles, and clear tenant or tribe scope.
 - Create and maintain RLS policies through versioned SQL migrations. `Drizzle` may model tables and persistence, but it is not the source of truth for policies.
 - Do not move complex business rules, dynamic workflows, or highly contextual product decisions into SQL policies.
 - Keep complex authorization and product behavior in application use cases and domain services.

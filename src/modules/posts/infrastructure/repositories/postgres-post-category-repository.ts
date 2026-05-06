@@ -1,11 +1,11 @@
 import { sql } from "drizzle-orm";
 
 import type {
-  CreateCommunityPostCategoryCommand,
-  DeleteCommunityPostCategoryCommand,
-  UpdateCommunityPostCategoryCommand,
-} from "@/src/modules/posts/application/commands/community-post-command";
-import type { CommunityPostCategoryResult } from "@/src/modules/posts/application/results/community-feed-result";
+  CreateTribePostCategoryCommand,
+  DeleteTribePostCategoryCommand,
+  UpdateTribePostCategoryCommand,
+} from "@/src/modules/posts/application/commands/tribe-post-command";
+import type { TribePostCategoryResult } from "@/src/modules/posts/application/results/tribe-feed-result";
 import type {
   PostCategoryCreationResult,
   PostCategoryDeletionResult,
@@ -13,10 +13,10 @@ import type {
 } from "@/src/modules/posts/application/results/post-category-result";
 import { POST_CATEGORY_MUTATION_STATUS } from "@/src/modules/posts/constants/post-feed";
 import type {
-  ListCommunityPostCategoriesQuery,
+  ListTribePostCategoriesQuery,
   PostCategoryRepository,
 } from "@/src/modules/posts/domain/repositories/post-category-repository";
-import { createCommunityPostCategory } from "@/src/modules/posts/infrastructure/mappers/community-feed-view-model-mapper";
+import { createTribePostCategory } from "@/src/modules/posts/infrastructure/mappers/tribe-feed-view-model-mapper";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
@@ -57,7 +57,7 @@ const POSTGRES_ERROR = {
 } as const;
 
 const POST_CATEGORY_CONSTRAINT = {
-  communitySlugKey: "community_post_categories_community_id_slug_key",
+  tribeSlugKey: "tribe_post_categories_tribe_id_slug_key",
 } as const;
 
 function createCategorySlug(name: string): string {
@@ -71,8 +71,8 @@ function createCategorySlug(name: string): string {
   return normalizedSlug || CATEGORY_SLUG.emptyFallback;
 }
 
-function mapCategory(row: CategoryRow): CommunityPostCategoryResult {
-  return createCommunityPostCategory({
+function mapCategory(row: CategoryRow): TribePostCategoryResult {
+  return createTribePostCategory({
     accessScope: row.access_scope,
     emoji: row.emoji,
     id: row.id,
@@ -170,35 +170,35 @@ function isDuplicateCategorySlugError(error: unknown): boolean {
 
   return (
     postgresError.code === POSTGRES_ERROR.uniqueViolation &&
-    postgresError.constraint === POST_CATEGORY_CONSTRAINT.communitySlugKey
+    postgresError.constraint === POST_CATEGORY_CONSTRAINT.tribeSlugKey
   );
 }
 
 export class PostgresPostCategoryRepository implements PostCategoryRepository {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
-  async listByCommunitySlug({
-    communitySlug,
-  }: ListCommunityPostCategoriesQuery): Promise<CommunityPostCategoryResult[]> {
+  async listByTribeSlug({
+    tribeSlug,
+  }: ListTribePostCategoriesQuery): Promise<TribePostCategoryResult[]> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        with target_community as (
-          select communities.id
-          from public.communities
-          where communities.slug = ${communitySlug}
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
           limit 1
         )
         select
-          community_post_categories.id,
-          community_post_categories.name,
-          community_post_categories.slug,
-          community_post_categories.emoji,
-          community_post_categories.sort_order,
-          community_post_categories.access_scope
-        from public.community_post_categories
-        inner join target_community
-          on target_community.id = community_post_categories.community_id
-        order by community_post_categories.sort_order asc, community_post_categories.name asc
+          tribe_post_categories.id,
+          tribe_post_categories.name,
+          tribe_post_categories.slug,
+          tribe_post_categories.emoji,
+          tribe_post_categories.sort_order,
+          tribe_post_categories.access_scope
+        from public.tribe_post_categories
+        inner join target_tribe
+          on target_tribe.id = tribe_post_categories.tribe_id
+        order by tribe_post_categories.sort_order asc, tribe_post_categories.name asc
       `);
 
       return ((result.rows ?? []) as CategoryRow[]).map(mapCategory);
@@ -206,38 +206,38 @@ export class PostgresPostCategoryRepository implements PostCategoryRepository {
   }
 
   async create(
-    command: CreateCommunityPostCategoryCommand
+    command: CreateTribePostCategoryCommand
   ): Promise<PostCategoryCreationResult> {
     return this.executeWithDatabase(async (database) => {
       try {
         const result = await database.execute(sql`
-          with target_community as (
-            select communities.id
-            from public.communities
-            where communities.slug = ${command.communitySlug}
+          with target_tribe as (
+            select tribes.id
+            from public.tribes
+            where tribes.slug = ${command.tribeSlug}
             limit 1
           ),
           next_sort_order as (
             select coalesce(max(sort_order), 0) + 10 as value
-            from public.community_post_categories
-            inner join target_community
-              on target_community.id = community_post_categories.community_id
+            from public.tribe_post_categories
+            inner join target_tribe
+              on target_tribe.id = tribe_post_categories.tribe_id
           ),
           category_input as (
             select ${createCategorySlug(command.name)} as slug
           ),
           existing_category as (
-            select community_post_categories.id
-            from public.community_post_categories
-            inner join target_community
-              on target_community.id = community_post_categories.community_id
+            select tribe_post_categories.id
+            from public.tribe_post_categories
+            inner join target_tribe
+              on target_tribe.id = tribe_post_categories.tribe_id
             inner join category_input
-              on category_input.slug = community_post_categories.slug
+              on category_input.slug = tribe_post_categories.slug
             limit 1
           ),
           inserted_category as (
-            insert into public.community_post_categories (
-              community_id,
+            insert into public.tribe_post_categories (
+              tribe_id,
               name,
               slug,
               emoji,
@@ -247,7 +247,7 @@ export class PostgresPostCategoryRepository implements PostCategoryRepository {
               updated_at
             )
             select
-              target_community.id,
+              target_tribe.id,
               ${command.name},
               category_input.slug,
               ${command.emoji},
@@ -255,18 +255,18 @@ export class PostgresPostCategoryRepository implements PostCategoryRepository {
               'members',
               timezone('utc', now()),
               timezone('utc', now())
-            from target_community
+            from target_tribe
             cross join category_input
             cross join next_sort_order
-            where public.can_manage_community_categories(target_community.id)
+            where public.can_manage_tribe_categories(target_tribe.id)
               and not exists (select 1 from existing_category)
             returning id, name, slug, emoji, sort_order, access_scope
           )
           select
             case
               when exists (select 1 from inserted_category) then ${POST_CATEGORY_MUTATION_STATUS.created}
-              when not exists (select 1 from target_community) then ${POST_CATEGORY_MUTATION_STATUS.notFound}
-              when not public.can_manage_community_categories((select id from target_community)) then ${POST_CATEGORY_MUTATION_STATUS.forbidden}
+              when not exists (select 1 from target_tribe) then ${POST_CATEGORY_MUTATION_STATUS.notFound}
+              when not public.can_manage_tribe_categories((select id from target_tribe)) then ${POST_CATEGORY_MUTATION_STATUS.forbidden}
               when exists (select 1 from existing_category) then ${POST_CATEGORY_MUTATION_STATUS.duplicateSlug}
               else ${POST_CATEGORY_MUTATION_STATUS.forbidden}
             end as status,
@@ -297,65 +297,65 @@ export class PostgresPostCategoryRepository implements PostCategoryRepository {
   }
 
   async update(
-    command: UpdateCommunityPostCategoryCommand
+    command: UpdateTribePostCategoryCommand
   ): Promise<PostCategoryUpdateResult> {
     return this.executeWithDatabase(async (database) => {
       try {
         const result = await database.execute(sql`
-          with target_community as (
-            select communities.id
-            from public.communities
-            where communities.slug = ${command.communitySlug}
+          with target_tribe as (
+            select tribes.id
+            from public.tribes
+            where tribes.slug = ${command.tribeSlug}
             limit 1
           ),
           target_category as (
-            select community_post_categories.id
-            from public.community_post_categories
-            inner join target_community
-              on target_community.id = community_post_categories.community_id
-            where community_post_categories.id = ${command.categoryId}
+            select tribe_post_categories.id
+            from public.tribe_post_categories
+            inner join target_tribe
+              on target_tribe.id = tribe_post_categories.tribe_id
+            where tribe_post_categories.id = ${command.categoryId}
             limit 1
           ),
           category_input as (
             select ${createCategorySlug(command.name)} as slug
           ),
           existing_category as (
-            select community_post_categories.id
-            from public.community_post_categories
-            inner join target_community
-              on target_community.id = community_post_categories.community_id
+            select tribe_post_categories.id
+            from public.tribe_post_categories
+            inner join target_tribe
+              on target_tribe.id = tribe_post_categories.tribe_id
             inner join category_input
-              on category_input.slug = community_post_categories.slug
-            where community_post_categories.id <> ${command.categoryId}
+              on category_input.slug = tribe_post_categories.slug
+            where tribe_post_categories.id <> ${command.categoryId}
             limit 1
           ),
           updated_category as (
-            update public.community_post_categories
+            update public.tribe_post_categories
             set
               name = ${command.name},
               slug = (select slug from category_input),
               emoji = ${command.emoji},
               sort_order = ${command.sortOrder},
               updated_at = timezone('utc', now())
-            from target_community
-            where community_post_categories.id = ${command.categoryId}
-              and community_post_categories.community_id = target_community.id
-              and public.can_manage_community_categories(target_community.id)
+            from target_tribe
+            where tribe_post_categories.id = ${command.categoryId}
+              and tribe_post_categories.tribe_id = target_tribe.id
+              and public.can_manage_tribe_categories(target_tribe.id)
               and exists (select 1 from target_category)
               and not exists (select 1 from existing_category)
             returning
-              community_post_categories.id,
-              community_post_categories.name,
-              community_post_categories.slug,
-              community_post_categories.emoji,
-              community_post_categories.sort_order,
-              community_post_categories.access_scope
+              tribe_post_categories.id,
+              tribe_post_categories.name,
+              tribe_post_categories.slug,
+              tribe_post_categories.emoji,
+              tribe_post_categories.sort_order,
+              tribe_post_categories.access_scope
           )
           select
             case
               when exists (select 1 from updated_category) then ${POST_CATEGORY_MUTATION_STATUS.updated}
-              when not exists (select 1 from target_community) then ${POST_CATEGORY_MUTATION_STATUS.notFound}
-              when not public.can_manage_community_categories((select id from target_community)) then ${POST_CATEGORY_MUTATION_STATUS.forbidden}
+              when not exists (select 1 from target_tribe) then ${POST_CATEGORY_MUTATION_STATUS.notFound}
+              when not public.can_manage_tribe_categories((select id from target_tribe)) then ${POST_CATEGORY_MUTATION_STATUS.forbidden}
               when not exists (select 1 from target_category) then ${POST_CATEGORY_MUTATION_STATUS.notFound}
               when exists (select 1 from existing_category) then ${POST_CATEGORY_MUTATION_STATUS.duplicateSlug}
               else ${POST_CATEGORY_MUTATION_STATUS.forbidden}
@@ -387,31 +387,31 @@ export class PostgresPostCategoryRepository implements PostCategoryRepository {
   }
 
   async delete(
-    command: DeleteCommunityPostCategoryCommand
+    command: DeleteTribePostCategoryCommand
   ): Promise<PostCategoryDeletionResult> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        with target_community as (
-          select communities.id
-          from public.communities
-          where communities.slug = ${command.communitySlug}
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
           limit 1
         ),
         target_category as (
-          select community_post_categories.id, community_post_categories.community_id
-          from public.community_post_categories
-          inner join target_community
-            on target_community.id = community_post_categories.community_id
-          where community_post_categories.id = ${command.categoryId}
+          select tribe_post_categories.id, tribe_post_categories.tribe_id
+          from public.tribe_post_categories
+          inner join target_tribe
+            on target_tribe.id = tribe_post_categories.tribe_id
+          where tribe_post_categories.id = ${command.categoryId}
           limit 1
         ),
         target_replacement as (
-          select community_post_categories.id
-          from public.community_post_categories
-          inner join target_community
-            on target_community.id = community_post_categories.community_id
-          where community_post_categories.id = ${command.targetCategoryId || null}
-            and community_post_categories.id <> ${command.categoryId}
+          select tribe_post_categories.id
+          from public.tribe_post_categories
+          inner join target_tribe
+            on target_tribe.id = tribe_post_categories.tribe_id
+          where tribe_post_categories.id = ${command.targetCategoryId || null}
+            and tribe_post_categories.id <> ${command.categoryId}
           limit 1
         ),
         category_counts as (
@@ -423,9 +423,9 @@ export class PostgresPostCategoryRepository implements PostCategoryRepository {
               inner join target_category
                 on target_category.id = posts.category_id
             ) as post_count
-          from public.community_post_categories
-          inner join target_community
-            on target_community.id = community_post_categories.community_id
+          from public.tribe_post_categories
+          inner join target_tribe
+            on target_tribe.id = tribe_post_categories.tribe_id
         ),
         moved_posts as (
           update public.posts
@@ -433,27 +433,27 @@ export class PostgresPostCategoryRepository implements PostCategoryRepository {
             category_id = (select id from target_replacement),
             updated_at = timezone('utc', now())
           where posts.category_id = (select id from target_category)
-            and public.can_manage_community_categories(posts.community_id)
+            and public.can_manage_tribe_categories(posts.tribe_id)
             and (select post_count from category_counts) > 0
             and exists (select 1 from target_replacement)
           returning posts.id
         ),
         deleted_category as (
-          delete from public.community_post_categories
-          where community_post_categories.id = (select id from target_category)
-            and public.can_manage_community_categories(community_post_categories.community_id)
+          delete from public.tribe_post_categories
+          where tribe_post_categories.id = (select id from target_category)
+            and public.can_manage_tribe_categories(tribe_post_categories.tribe_id)
             and (select category_count from category_counts) > 1
             and (
               (select post_count from category_counts) = 0
               or exists (select 1 from target_replacement)
             )
-          returning community_post_categories.id
+          returning tribe_post_categories.id
         )
         select
           case
-            when not exists (select 1 from target_community) then ${POST_CATEGORY_MUTATION_STATUS.notFound}
+            when not exists (select 1 from target_tribe) then ${POST_CATEGORY_MUTATION_STATUS.notFound}
             when not exists (select 1 from target_category) then ${POST_CATEGORY_MUTATION_STATUS.notFound}
-            when not public.can_manage_community_categories((select id from target_community)) then ${POST_CATEGORY_MUTATION_STATUS.forbidden}
+            when not public.can_manage_tribe_categories((select id from target_tribe)) then ${POST_CATEGORY_MUTATION_STATUS.forbidden}
             when (select category_count from category_counts) <= 1 then ${POST_CATEGORY_MUTATION_STATUS.lastCategory}
             when (select post_count from category_counts) > 0
               and not exists (select 1 from target_replacement) then ${POST_CATEGORY_MUTATION_STATUS.categoryHasPosts}

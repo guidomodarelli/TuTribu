@@ -1,4 +1,4 @@
-.CommunityLoadingPage {
+.TribeLoadingPage {
   display: grid;
   gap: clamp(1rem, 3vw, 1.5rem);
   min-height: 100%;
@@ -62,7 +62,7 @@
   &__shortBodyLine {
     border-radius: var(--radius-md);
     background-color: var(--muted);
-    animation: community-loading-pulse 1.4s ease-in-out infinite;
+    animation: tribe-loading-pulse 1.4s ease-in-out infinite;
   }
 
   &__avatar {
@@ -106,7 +106,7 @@
   }
 }
 
-@keyframes community-loading-pulse {
+@keyframes tribe-loading-pulse {
   0%,
   100% {
     opacity: 0.5;

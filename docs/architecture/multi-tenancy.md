@@ -4,7 +4,7 @@
 
 Esta aplicacion es **multi-tenant**.
 
-El tenant canonico del producto es **`community`**. Cada tribu debe aislar:
+El tenant canonico del producto es **`tribe`**. Cada tribu debe aislar:
 
 * owner
 * admins
@@ -20,8 +20,8 @@ La estrategia vigente es:
 * **single app**
 * **single database**
 * **shared schema**
-* tablas multi-tenant con `community_id`
-* tabla de membresia `community_members`
+* tablas multi-tenant con `tribe_id`
+* tabla de membresia `tribe_members`
 * **RLS simple**
 * reglas de negocio complejas en `application` y `domain`
 
@@ -34,10 +34,10 @@ No se considera `course` como tenant arquitectonico.
 ## Tablas nucleares
 
 * `user`
-* `communities`
-* `community_members`
-* `community_creator_whitelist`
-* `community_post_categories`
+* `tribes`
+* `tribe_members`
+* `tribe_creator_whitelist`
+* `tribe_post_categories`
 * `posts`
 * `comments`
 * `events`
@@ -46,7 +46,7 @@ No se considera `course` como tenant arquitectonico.
 
 Las tablas multi-tenant deben usar:
 
-* `community_id` para alcance por tenant
+* `tribe_id` para alcance por tenant
 * `user_id` o `created_by` para ownership
 
 Las publicaciones siempre pertenecen a una categoria de la misma tribu mediante
@@ -54,10 +54,10 @@ Las publicaciones siempre pertenecen a una categoria de la misma tribu mediante
 elimina una categoria con publicaciones, la app debe mover esas publicaciones a
 otra categoria del mismo tenant antes de borrar la categoria origen.
 
-La tabla `community_members` modela:
+La tabla `tribe_members` modela:
 
 * `user_id`
-* `community_id`
+* `tribe_id`
 * `role`
 * `status`
 
@@ -79,8 +79,8 @@ Eso incluye:
 
 La pertenencia y el rol se resuelven con:
 
-* `community_members`
-* `community_id`
+* `tribe_members`
+* `tribe_id`
 * policies de RLS
 * casos de uso y servicios de aplicacion
 
@@ -95,16 +95,16 @@ RLS usa contexto de request seteado por la app:
 * `app.current_user_email`
 * `FORCE ROW LEVEL SECURITY` en tablas protegidas cuando la app entra por una conexion compartida a Postgres
 
-La fuente de verdad sigue siendo `community_members`, no la sesion.
+La fuente de verdad sigue siendo `tribe_members`, no la sesion.
 
 Antes de que exista la primera membership, la plataforma puede aplicar un permiso global de creacion:
 
-* ese permiso vive en `community_creator_whitelist`
+* ese permiso vive en `tribe_creator_whitelist`
 * las filas de esa whitelist son datos operativos del entorno
 
 Despues de crear la tribu:
 
-* el usuario creador pasa a estar modelado por `community_members`
+* el usuario creador pasa a estar modelado por `tribe_members`
 * su rol inicial queda como `owner`
 
 ---
@@ -127,5 +127,5 @@ La estrategia elegida sigue siendo **multi-tenancy simple con shared schema**.
 
 La regla es:
 
-* `community` define el limite de aislamiento
+* `tribe` define el limite de aislamiento
 * `course` cuelga de una tribu cuando el dominio lo necesite

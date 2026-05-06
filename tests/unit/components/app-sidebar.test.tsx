@@ -79,7 +79,7 @@ describe("AppSidebar", () => {
   });
 
   it("renders the discovery navigation item with a compass icon", () => {
-    render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
+    render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
 
     const discoveryButton = screen.getByRole("button", {
       name: /descubrir tribus/i,
@@ -93,32 +93,32 @@ describe("AppSidebar", () => {
   });
 
   it("uses the default sidebar variant", () => {
-    render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
+    render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
 
     expect(screen.getByRole("complementary")).toHaveAttribute("data-variant", "sidebar");
   });
 
   it("keeps the header separator constrained to the sidebar width", () => {
-    render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
+    render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
 
     expect(screen.getByRole("separator")).toHaveClass("AppSidebar__separator");
   });
 
   it("keeps the brand mark at a stable size during sidebar transitions", () => {
-    render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
+    render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
 
     expect(screen.getByText("TT")).toHaveClass("AppSidebar__brandMark");
   });
 
-  it("replaces the product brand with the active community identity inside a community", () => {
+  it("replaces the product brand with the active tribe identity inside a tribe", () => {
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     render(
       <AppSidebar
         authenticatedMember={null}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
           },
@@ -134,15 +134,15 @@ describe("AppSidebar", () => {
     expect(screen.queryByText("TuTribu")).not.toBeInTheDocument();
   });
 
-  it("uses the active community brand button as the community switcher trigger", () => {
+  it("uses the active tribe brand button as the tribe switcher trigger", () => {
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     render(
       <AppSidebar
         authenticatedMember={null}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
           },
@@ -160,36 +160,36 @@ describe("AppSidebar", () => {
     expect(screen.queryByText("privada")).not.toBeInTheDocument();
   });
 
-  it("lets the sidebar community switcher occupy the available menu width", () => {
-    expect(appSidebarStyles).toMatch(/&__communitySwitcher\s*{[^}]*display:\s*flex;/s);
-    expect(appSidebarStyles).toMatch(/&__communitySwitcher\s*{[^}]*width:\s*100%;/s);
+  it("lets the sidebar tribe switcher occupy the available menu width", () => {
+    expect(appSidebarStyles).toMatch(/&__tribeSwitcher\s*{[^}]*display:\s*flex;/s);
+    expect(appSidebarStyles).toMatch(/&__tribeSwitcher\s*{[^}]*width:\s*100%;/s);
   });
 
-  it("keeps long active community names truncated before the chevron", () => {
+  it("keeps long active tribe names truncated before the chevron", () => {
     expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*min-width:\s*0;/s);
     expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*overflow:\s*hidden;/s);
     expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*text-overflow:\s*ellipsis;/s);
     expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*white-space:\s*nowrap;/s);
   });
 
-  it("does not render the community switcher sidebar action outside a community", () => {
-    render(<AppSidebar authenticatedMember={null} memberCommunities={[]} />);
+  it("does not render the tribe switcher sidebar action outside a tribe", () => {
+    render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
 
     expect(
       screen.queryByRole("button", { name: /abrir tribus/i })
     ).not.toBeInTheDocument();
   });
 
-  it("opens community switcher actions when the active community brand is clicked", async () => {
+  it("opens tribe switcher actions when the active tribe brand is clicked", async () => {
     const user = userEvent.setup();
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro/eventos");
 
     render(
       <AppSidebar
         authenticatedMember={null}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
           },
@@ -203,18 +203,18 @@ describe("AppSidebar", () => {
     expect(screen.getByRole("menuitem", { name: /descubrir tribus/i })).toBeInTheDocument();
   });
 
-  it("renders discovery below the create action and before member communities", () => {
+  it("renders discovery below the create action and before member tribes", () => {
     render(
       <AppSidebar
         authenticatedMember={null}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Alpha Club",
             slug: "alpha-club",
           },
           {
-            communityId: "community-2",
+            tribeId: "tribe-2",
             name: "Beta Club",
             slug: "beta-club",
           },
@@ -222,23 +222,23 @@ describe("AppSidebar", () => {
       />
     );
 
-    const communityButtons = screen.getAllByRole("button");
-    const createCommunityIndex = communityButtons.findIndex((button) =>
+    const tribeButtons = screen.getAllByRole("button");
+    const createTribeIndex = tribeButtons.findIndex((button) =>
       button.textContent?.includes("Nueva tribu")
     );
-    const discoverCommunitiesIndex = communityButtons.findIndex((button) =>
+    const discoverTribesIndex = tribeButtons.findIndex((button) =>
       button.textContent?.includes("Descubrir tribus")
     );
-    const firstMemberCommunityIndex = communityButtons.findIndex((button) =>
+    const firstMemberTribeIndex = tribeButtons.findIndex((button) =>
       button.textContent?.includes("Alpha Club")
     );
 
     expect(screen.getByText(/^Tribus$/i)).toBeInTheDocument();
-    expect(createCommunityIndex).toBeLessThan(discoverCommunitiesIndex);
-    expect(discoverCommunitiesIndex).toBeLessThan(firstMemberCommunityIndex);
+    expect(createTribeIndex).toBeLessThan(discoverTribesIndex);
+    expect(discoverTribesIndex).toBeLessThan(firstMemberTribeIndex);
   });
 
-  it("shows an empty state when the authenticated member has no communities", () => {
+  it("shows an empty state when the authenticated member has no tribes", () => {
     render(
       <AppSidebar
         authenticatedMember={{
@@ -249,7 +249,7 @@ describe("AppSidebar", () => {
           avatarFallback: "GH",
           image: null,
         }}
-        memberCommunities={[]}
+        memberTribes={[]}
       />
     );
 
@@ -269,14 +269,14 @@ describe("AppSidebar", () => {
           avatarFallback: "GH",
           image: null,
         }}
-        memberCommunities={[]}
+        memberTribes={[]}
       />
     );
 
     expect(screen.queryByText("Cuenta")).not.toBeInTheDocument();
   });
 
-  it("navigates to a member community from the global communities section", async () => {
+  it("navigates to a member tribe from the global tribes section", async () => {
     const user = userEvent.setup();
 
     render(
@@ -289,14 +289,14 @@ describe("AppSidebar", () => {
           avatarFallback: "GH",
           image: null,
         }}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Alpha Club",
             slug: "alpha-club",
           },
           {
-            communityId: "community-2",
+            tribeId: "tribe-2",
             name: "Beta Club",
             slug: "beta-club",
           },
@@ -315,7 +315,7 @@ describe("AppSidebar", () => {
     expect(pushMock).toHaveBeenCalledWith("/tribu/alpha-club");
   });
 
-  it("renders community sections when the member is inside one of their communities", () => {
+  it("renders tribe sections when the member is inside one of their tribes", () => {
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     render(
@@ -328,9 +328,9 @@ describe("AppSidebar", () => {
           avatarFallback: "GH",
           image: null,
         }}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
           },
@@ -349,7 +349,7 @@ describe("AppSidebar", () => {
     expect(screen.getByRole("button", { name: /acerca de/i })).toBeInTheDocument();
   });
 
-  it("prefetches visible community section routes inside an active community", () => {
+  it("prefetches visible tribe section routes inside an active tribe", () => {
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     render(
@@ -362,9 +362,9 @@ describe("AppSidebar", () => {
           avatarFallback: "GH",
           image: null,
         }}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "owner",
             slug: "matematica-pro",
@@ -381,7 +381,7 @@ describe("AppSidebar", () => {
     expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/acerca-de");
   });
 
-  it("shows the category section to community owners and admins", () => {
+  it("shows the category section to tribe owners and admins", () => {
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     const { rerender } = render(
@@ -394,9 +394,9 @@ describe("AppSidebar", () => {
           avatarFallback: "GH",
           image: null,
         }}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "owner",
             slug: "matematica-pro",
@@ -417,9 +417,9 @@ describe("AppSidebar", () => {
           avatarFallback: "AL",
           image: null,
         }}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "admin",
             slug: "matematica-pro",
@@ -440,9 +440,9 @@ describe("AppSidebar", () => {
           avatarFallback: "KJ",
           image: null,
         }}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "member",
             slug: "matematica-pro",
@@ -454,7 +454,7 @@ describe("AppSidebar", () => {
     expect(screen.queryByRole("button", { name: /categorías/i })).not.toBeInTheDocument();
   });
 
-  it("hides the global communities section inside an active community", () => {
+  it("hides the global tribes section inside an active tribe", () => {
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     render(
@@ -467,9 +467,9 @@ describe("AppSidebar", () => {
           avatarFallback: "GH",
           image: null,
         }}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
           },
@@ -489,7 +489,7 @@ describe("AppSidebar", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("marks the active community section and navigates to real section routes", async () => {
+  it("marks the active tribe section and navigates to real section routes", async () => {
     const user = userEvent.setup();
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro/eventos");
 
@@ -503,9 +503,9 @@ describe("AppSidebar", () => {
           avatarFallback: "GH",
           image: null,
         }}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
           },
@@ -523,7 +523,7 @@ describe("AppSidebar", () => {
     expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/miembros");
   });
 
-  it("does not render community sections outside an active member community", () => {
+  it("does not render tribe sections outside an active member tribe", () => {
     (usePathname as jest.Mock).mockReturnValue("/");
 
     render(
@@ -536,9 +536,9 @@ describe("AppSidebar", () => {
           avatarFallback: "GH",
           image: null,
         }}
-        memberCommunities={[
+        memberTribes={[
           {
-            communityId: "community-1",
+            tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
           },

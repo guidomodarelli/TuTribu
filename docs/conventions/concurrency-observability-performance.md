@@ -24,8 +24,8 @@ Do not log secrets, tokens, raw provider payloads, session data, or internal sta
 
 ```ts
 logger.info({
-  message: "Community created",
-  communityId,
+  message: "Tribe created",
+  tribeId,
   requestId,
   durationMs,
 });

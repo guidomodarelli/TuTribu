@@ -1,4 +1,4 @@
-import type { TogglePostLikeCommand } from "@/src/modules/posts/application/commands/community-post-command";
+import type { TogglePostLikeCommand } from "@/src/modules/posts/application/commands/tribe-post-command";
 import type { PostLikeToggleResult } from "@/src/modules/posts/application/results/post-mutation-result";
 import type { PostReactionRepository } from "@/src/modules/posts/domain/repositories/post-reaction-repository";
 
@@ -14,6 +14,6 @@ export function togglePostLike({
   ): Promise<PostLikeToggleResult> =>
     postReactionRepository.toggle({
       ...command,
-      communitySlug: command.communitySlug.trim(),
+      tribeSlug: command.tribeSlug.trim(),
     });
 }

@@ -125,8 +125,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.communities": {
-      "name": "communities",
+    "public.tribes": {
+      "name": "tribes",
       "schema": "",
       "columns": {
         "id": {
@@ -169,8 +169,8 @@
         }
       },
       "indexes": {
-        "communities_slug_key": {
-          "name": "communities_slug_key",
+        "tribes_slug_key": {
+          "name": "tribes_slug_key",
           "columns": [
             {
               "expression": "slug",
@@ -186,9 +186,9 @@
         }
       },
       "foreignKeys": {
-        "communities_created_by_user_id_fk": {
-          "name": "communities_created_by_user_id_fk",
-          "tableFrom": "communities",
+        "tribes_created_by_user_id_fk": {
+          "name": "tribes_created_by_user_id_fk",
+          "tableFrom": "tribes",
           "tableTo": "user",
           "columnsFrom": [
             "created_by"
@@ -206,8 +206,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.community_creator_whitelist": {
-      "name": "community_creator_whitelist",
+    "public.tribe_creator_whitelist": {
+      "name": "tribe_creator_whitelist",
       "schema": "",
       "columns": {
         "id": {
@@ -243,8 +243,8 @@
         }
       },
       "indexes": {
-        "community_creator_whitelist_email_key": {
-          "name": "community_creator_whitelist_email_key",
+        "tribe_creator_whitelist_email_key": {
+          "name": "tribe_creator_whitelist_email_key",
           "columns": [
             {
               "expression": "email",
@@ -260,9 +260,9 @@
         }
       },
       "foreignKeys": {
-        "community_creator_whitelist_created_by_user_id_fk": {
-          "name": "community_creator_whitelist_created_by_user_id_fk",
-          "tableFrom": "community_creator_whitelist",
+        "tribe_creator_whitelist_created_by_user_id_fk": {
+          "name": "tribe_creator_whitelist_created_by_user_id_fk",
+          "tableFrom": "tribe_creator_whitelist",
           "tableTo": "user",
           "columnsFrom": [
             "created_by"
@@ -280,8 +280,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.community_members": {
-      "name": "community_members",
+    "public.tribe_members": {
+      "name": "tribe_members",
       "schema": "",
       "columns": {
         "id": {
@@ -291,8 +291,8 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "community_id": {
-          "name": "community_id",
+        "tribe_id": {
+          "name": "tribe_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -323,11 +323,11 @@
         }
       },
       "indexes": {
-        "community_members_community_id_user_id_key": {
-          "name": "community_members_community_id_user_id_key",
+        "tribe_members_tribe_id_user_id_key": {
+          "name": "tribe_members_tribe_id_user_id_key",
           "columns": [
             {
-              "expression": "community_id",
+              "expression": "tribe_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -346,12 +346,12 @@
         }
       },
       "foreignKeys": {
-        "community_members_community_id_communities_id_fk": {
-          "name": "community_members_community_id_communities_id_fk",
-          "tableFrom": "community_members",
-          "tableTo": "communities",
+        "tribe_members_tribe_id_tribes_id_fk": {
+          "name": "tribe_members_tribe_id_tribes_id_fk",
+          "tableFrom": "tribe_members",
+          "tableTo": "tribes",
           "columnsFrom": [
-            "community_id"
+            "tribe_id"
           ],
           "columnsTo": [
             "id"
@@ -359,9 +359,9 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "community_members_user_id_user_id_fk": {
-          "name": "community_members_user_id_user_id_fk",
-          "tableFrom": "community_members",
+        "tribe_members_user_id_user_id_fk": {
+          "name": "tribe_members_user_id_user_id_fk",
+          "tableFrom": "tribe_members",
           "tableTo": "user",
           "columnsFrom": [
             "user_id"

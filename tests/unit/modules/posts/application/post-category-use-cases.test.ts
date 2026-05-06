@@ -1,7 +1,7 @@
 import {
-  createCommunityPostCategory,
-  deleteCommunityPostCategory,
-  updateCommunityPostCategory,
+  createTribePostCategory,
+  deleteTribePostCategory,
+  updateTribePostCategory,
 } from "@/src/modules/posts/application/use-cases/manage-post-categories-use-cases";
 
 describe("post category use cases", () => {
@@ -19,24 +19,24 @@ describe("post category use cases", () => {
       category,
       status: "created" as const,
     }));
-    const execute = createCommunityPostCategory({
+    const execute = createTribePostCategory({
       postCategoryRepository: {
         create,
         delete: jest.fn(),
-        listByCommunitySlug: jest.fn(),
+        listByTribeSlug: jest.fn(),
         update: jest.fn(),
       },
     });
 
     await expect(
       execute({
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         emoji: " 💬 ",
         name: " General ",
       })
     ).resolves.toEqual({ category, status: "created" });
     expect(create).toHaveBeenCalledWith({
-      communitySlug: "matematica-pro",
+      tribeSlug: "matematica-pro",
       emoji: "💬",
       name: "General",
     });
@@ -44,18 +44,18 @@ describe("post category use cases", () => {
 
   it("rejects a category without name before calling the repository", async () => {
     const create = jest.fn();
-    const execute = createCommunityPostCategory({
+    const execute = createTribePostCategory({
       postCategoryRepository: {
         create,
         delete: jest.fn(),
-        listByCommunitySlug: jest.fn(),
+        listByTribeSlug: jest.fn(),
         update: jest.fn(),
       },
     });
 
     await expect(
       execute({
-        communitySlug: "matematica-pro",
+        tribeSlug: "matematica-pro",
         emoji: "💬",
         name: "   ",
       })
@@ -68,11 +68,11 @@ describe("post category use cases", () => {
       category,
       status: "updated" as const,
     }));
-    const execute = updateCommunityPostCategory({
+    const execute = updateTribePostCategory({
       postCategoryRepository: {
         create: jest.fn(),
         delete: jest.fn(),
-        listByCommunitySlug: jest.fn(),
+        listByTribeSlug: jest.fn(),
         update,
       },
     });
@@ -80,7 +80,7 @@ describe("post category use cases", () => {
     await expect(
       execute({
         categoryId: " category-general ",
-        communitySlug: " matematica-pro ",
+        tribeSlug: " matematica-pro ",
         emoji: " 💬 ",
         name: " General ",
         sortOrder: 20,
@@ -88,7 +88,7 @@ describe("post category use cases", () => {
     ).resolves.toEqual({ category, status: "updated" });
     expect(update).toHaveBeenCalledWith({
       categoryId: "category-general",
-      communitySlug: "matematica-pro",
+      tribeSlug: "matematica-pro",
       emoji: "💬",
       name: "General",
       sortOrder: 20,
@@ -99,11 +99,11 @@ describe("post category use cases", () => {
     const deleteCategory = jest.fn(async () => ({
       status: "moved_and_deleted" as const,
     }));
-    const execute = deleteCommunityPostCategory({
+    const execute = deleteTribePostCategory({
       postCategoryRepository: {
         create: jest.fn(),
         delete: deleteCategory,
-        listByCommunitySlug: jest.fn(),
+        listByTribeSlug: jest.fn(),
         update: jest.fn(),
       },
     });
@@ -111,13 +111,13 @@ describe("post category use cases", () => {
     await expect(
       execute({
         categoryId: " category-questions ",
-        communitySlug: " matematica-pro ",
+        tribeSlug: " matematica-pro ",
         targetCategoryId: " category-general ",
       })
     ).resolves.toEqual({ status: "moved_and_deleted" });
     expect(deleteCategory).toHaveBeenCalledWith({
       categoryId: "category-questions",
-      communitySlug: "matematica-pro",
+      tribeSlug: "matematica-pro",
       targetCategoryId: "category-general",
     });
   });
@@ -126,11 +126,11 @@ describe("post category use cases", () => {
     const deleteCategory = jest.fn(async () => ({
       status: "deleted" as const,
     }));
-    const execute = deleteCommunityPostCategory({
+    const execute = deleteTribePostCategory({
       postCategoryRepository: {
         create: jest.fn(),
         delete: deleteCategory,
-        listByCommunitySlug: jest.fn(),
+        listByTribeSlug: jest.fn(),
         update: jest.fn(),
       },
     });
@@ -138,13 +138,13 @@ describe("post category use cases", () => {
     await expect(
       execute({
         categoryId: " category-questions ",
-        communitySlug: " matematica-pro ",
+        tribeSlug: " matematica-pro ",
         targetCategoryId: "   ",
       })
     ).resolves.toEqual({ status: "deleted" });
     expect(deleteCategory).toHaveBeenCalledWith({
       categoryId: "category-questions",
-      communitySlug: "matematica-pro",
+      tribeSlug: "matematica-pro",
       targetCategoryId: undefined,
     });
   });

@@ -28,7 +28,7 @@ describe("AuthErrorPage", () => {
           getAuthenticatedMember,
         },
       },
-      communities: {
+      tribes: {
         useCases: {},
       },
     });
