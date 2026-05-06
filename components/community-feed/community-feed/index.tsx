@@ -8,6 +8,7 @@ import {
 } from "react";
 import type {
   FormEvent,
+  MouseEvent,
 } from "react";
 import {
   ChevronDownIcon,
@@ -661,6 +662,10 @@ function CommunityFeedContent({
     setIsPostDetailsOpen(true);
   };
 
+  const stopPostDetailsOpening = (event: MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+  };
+
   const togglePostContentExpansion = (postId: string) => {
     setExpandedPostIds((currentExpandedPostIds) => ({
       ...currentExpandedPostIds,
@@ -975,14 +980,16 @@ function CommunityFeedContent({
         <ol className={styles.CommunityFeed__postList}>
           {filteredPosts.map((post) => (
             <li className={styles.CommunityFeed__post} key={post.id}>
-              <Card className={styles.CommunityFeed__postCard}>
+              <Card
+                className={styles.CommunityFeed__postCard}
+                onClick={() => {
+                  openPostDetails(post.id);
+                }}
+              >
                 <article className={styles.CommunityFeed__postArticle}>
                   <button
                     aria-label={`${COMMUNITY_FEED_COPY.openPostDetailsAriaLabelPrefix}: ${post.title || post.content}`}
                     className={styles.CommunityFeed__postDetailsTrigger}
-                    onClick={() => {
-                      openPostDetails(post.id);
-                    }}
                     type={COMMUNITY_FEED_FORM.buttonType}
                   >
                     <CardHeader className={styles.CommunityFeed__postHeader}>
@@ -1054,7 +1061,8 @@ function CommunityFeedContent({
                       aria-label={`${COMMUNITY_FEED_COPY.likeButtonAriaLabel} ${post.likeCount}`}
                       className={styles.CommunityFeed__likeButton}
                       disabled={!feed.viewerPermissions.canReact || isBusy}
-                      onClick={() => {
+                      onClick={(event) => {
+                        stopPostDetailsOpening(event);
                         void handleToggleLike(post.id);
                       }}
                       type={COMMUNITY_FEED_FORM.buttonType}

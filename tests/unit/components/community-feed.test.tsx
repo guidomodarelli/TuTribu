@@ -824,6 +824,36 @@ describe("CommunityFeed", () => {
       ).not.toBeInTheDocument();
     });
 
+    await user.click(postDetailsButton.closest('[data-slot="card"]') as HTMLElement);
+
+    expect(
+      screen.getByRole("dialog", { name: "Publicación" })
+    ).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Publicación" })
+      ).not.toBeInTheDocument();
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "Me gusta 2" }).parentElement as HTMLElement
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "Publicación" })
+    ).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Publicación" })
+      ).not.toBeInTheDocument();
+    });
+
     postDetailsButton.focus();
 
     expect(postDetailsButton).toHaveFocus();

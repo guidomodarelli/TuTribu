@@ -30,6 +30,7 @@
   }
 
   &__postCard {
+    cursor: pointer;
     transition:
       border-color 160ms ease,
       box-shadow 160ms ease;
@@ -50,10 +51,6 @@
       outline-offset: 3px;
       border-radius: 0.5rem;
     }
-  }
-
-  &__postArticle {
-    cursor: pointer;
   }
 
   &__composer {
