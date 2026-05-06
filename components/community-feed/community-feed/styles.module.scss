@@ -366,13 +366,11 @@
   &__postActions {
     display: flex;
     justify-content: flex-start;
-    padding-inline: 0.5rem;
-  }
-
-  &__postActions {
     margin-top: 0.75rem;
+    padding-inline: 0.5rem;
+
     &--dialog {
-      margin-top: 0;
+      margin-bottom: 0.75rem;
       padding-inline: 0;
     }
   }
