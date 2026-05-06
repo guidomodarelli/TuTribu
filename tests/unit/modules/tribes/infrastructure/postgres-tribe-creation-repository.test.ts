@@ -61,6 +61,7 @@ describe("PostgresTribeCreationRepository", () => {
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
     expect(sqlText).toContain("General");
+    expect(sqlText).toContain("sort_order::integer");
     expect(sqlText).not.toContain("Anuncios");
     expect(sqlText).not.toContain("Preguntas");
     expect(sqlText).not.toContain("Eventos");

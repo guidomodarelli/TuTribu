@@ -39,17 +39,21 @@
   &__syncButton {
     cursor: pointer;
     border-color: color-mix(in srgb, var(--primary) 26%, var(--border));
-    background: color-mix(in srgb, var(--primary) 7%, white);
+    background: color-mix(in srgb, var(--primary) 7%, var(--background));
     color: color-mix(in srgb, var(--foreground) 92%, var(--primary));
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 8%, transparent);
 
     &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--primary) 12%, white);
+      background: color-mix(in srgb, var(--primary) 12%, var(--background));
       border-color: color-mix(in srgb, var(--primary) 44%, var(--border));
     }
 
     &:disabled {
       cursor: not-allowed;
+      border-color: color-mix(in srgb, var(--border) 78%, var(--foreground));
+      background: color-mix(in srgb, var(--muted) 72%, var(--background));
+      color: color-mix(in srgb, var(--muted-foreground) 84%, var(--foreground));
+      opacity: 1;
     }
   }
 

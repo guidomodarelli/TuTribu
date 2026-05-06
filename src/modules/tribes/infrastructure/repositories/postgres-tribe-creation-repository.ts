@@ -107,7 +107,7 @@ export class PostgresTribeCreationRepository
               category_seed.name,
               category_seed.slug,
               category_seed.emoji,
-              category_seed.sort_order,
+              category_seed.sort_order::integer,
               'members',
               timezone('utc', now()),
               timezone('utc', now())
