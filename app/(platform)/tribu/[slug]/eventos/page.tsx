@@ -1,4 +1,5 @@
-import { TribeComingSoonPage } from "../tribe-coming-soon-page";
+import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
+import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
 const TRIBE_EVENTS_PAGE = {
   heading: "Eventos",
@@ -7,14 +8,33 @@ const TRIBE_EVENTS_PAGE = {
 
 export default async function TribeEventsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{
     slug: string;
   }>;
+  searchParams?: Promise<{
+    month?: string;
+  }>;
 }) {
-  return TribeComingSoonPage({
-    heading: TRIBE_EVENTS_PAGE.heading,
+  const { slug } = await params;
+  const resolvedSearchParams = await searchParams;
+  const { modules } = await resolveVisibleTribePageAccess({
     operation: TRIBE_EVENTS_PAGE.operation,
-    params,
+    slug,
   });
+
+  const result = await modules.events.useCases.listTribeEvents({
+    month: resolvedSearchParams?.month,
+    tribeSlug: slug,
+  });
+
+  return (
+    <TribeEventsCalendar
+      events={result.events}
+      month={result.month}
+      tribeSlug={slug}
+      viewerPermissions={result.viewerPermissions}
+    />
+  );
 }

@@ -1,0 +1,221 @@
+.TribeEventsCalendar {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  padding: clamp(1rem, 3vw, 2rem);
+
+  & [data-slot="table-container"] {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  &__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    align-items: center;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    padding-bottom: 1rem;
+  }
+
+  &__todayLink,
+  &__iconLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 999rem;
+    color: var(--foreground);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  &__todayLink {
+    width: fit-content;
+    min-height: 2.5rem;
+    padding: 0 1rem;
+  }
+
+  &__monthNavigation {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  &__iconLink {
+    width: 2.5rem;
+    height: 2.5rem;
+
+    svg {
+      width: 1.1rem;
+      height: 1.1rem;
+    }
+  }
+
+  &__monthTitleGroup {
+    display: grid;
+    gap: 0.2rem;
+    justify-items: center;
+    min-width: 0;
+    text-align: center;
+  }
+
+  &__title,
+  &__timeLabel {
+    margin: 0;
+  }
+
+  &__title {
+    font-size: clamp(1.35rem, 3vw, 1.85rem);
+    line-height: 1.15;
+  }
+
+  &__timeLabel {
+    color: var(--muted-foreground);
+    font-weight: 600;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: flex-start;
+  }
+
+  &__viewToggle {
+    display: inline-flex;
+    gap: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.2rem;
+  }
+
+  &__calendarTable {
+    width: 100%;
+    table-layout: fixed;
+    min-width: 42rem;
+    border: 1px solid var(--border);
+  }
+
+  &__listTable {
+    width: 100%;
+    min-width: max-content;
+  }
+
+  &__dayHeader {
+    border-left: 1px solid var(--border);
+    text-align: center;
+  }
+
+  &__dayCell {
+    width: calc(100% / 7);
+    height: 8rem;
+    border-left: 1px solid var(--border);
+    white-space: normal;
+    vertical-align: top;
+  }
+
+  &__dayNumber,
+  &__dayNumberMuted {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    font-weight: 700;
+  }
+
+  &__dayNumberMuted {
+    color: var(--muted-foreground);
+  }
+
+  &__dayEvents {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+  }
+
+  &__eventPill {
+    width: 100%;
+    border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border));
+    border-radius: 0.45rem;
+    background: color-mix(in oklch, var(--primary) 10%, var(--background));
+    color: var(--foreground);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+    padding: 0.35rem;
+    text-align: left;
+  }
+
+  &__rowActions,
+  &__formActions,
+  &__timeFields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  &__dialog {
+    width: min(100% - 2rem, 36rem);
+  }
+
+  &__form,
+  &__field {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  &__field {
+    font-weight: 700;
+  }
+
+  &__timeFields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  &__textarea {
+    min-height: 7rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--background);
+    color: var(--foreground);
+    font: inherit;
+    padding: 0.75rem;
+    resize: vertical;
+  }
+
+  &__formActions {
+    justify-content: flex-end;
+    padding-top: 0.5rem;
+  }
+
+  &__srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 62rem) {
+  .TribeEventsCalendar {
+    &__header {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+
+    &__actions {
+      justify-content: flex-end;
+    }
+  }
+}

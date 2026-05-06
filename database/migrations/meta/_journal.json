@@ -15,6 +15,13 @@
       "when": 1778058000000,
       "tag": "20260506090000_add_visible_tribe_members_function",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778068800000,
+      "tag": "20260506120000_create_tribe_events",
+      "breakpoints": true
     }
   ]
 }

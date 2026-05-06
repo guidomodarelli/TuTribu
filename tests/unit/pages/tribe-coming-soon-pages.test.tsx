@@ -10,11 +10,15 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 
 const getAuthenticatedMember = jest.fn();
 const getTribePageAccess = jest.fn();
+const listTribeEvents = jest.fn();
 const infoMock = jest.fn();
 const errorMock = jest.fn();
 
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(),
+  useRouter: () => ({
+    refresh: jest.fn(),
+  }),
 }));
 
 jest.mock("next/headers", () => ({
@@ -56,6 +60,7 @@ describe("tribe coming soon pages", () => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
     getTribePageAccess.mockReset();
+    listTribeEvents.mockReset();
     infoMock.mockReset();
     errorMock.mockReset();
 
@@ -70,6 +75,11 @@ describe("tribe coming soon pages", () => {
           getTribePageAccess,
         },
       },
+      events: {
+        useCases: {
+          listTribeEvents,
+        },
+      },
     });
     (headers as jest.Mock).mockResolvedValue(new Headers());
     (createServerLogger as jest.Mock).mockReturnValue({
@@ -78,26 +88,52 @@ describe("tribe coming soon pages", () => {
     });
   });
 
-  it("renders the shared coming soon state for future tribe sections", async () => {
+  it("renders the event calendar page when tribe access is visible", async () => {
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
+    listTribeEvents.mockResolvedValue({
+      events: [
+        {
+          description: "Repaso mensual",
+          endsAt: "2026-05-06T19:00:00.000Z",
+          id: "event-1",
+          meetingUrl: "https://meet.google.com/abc-defg-hij",
+          startsAt: "2026-05-06T18:00:00.000Z",
+          title: "Clase abierta",
+        },
+      ],
+      month: {
+        current: "2026-05",
+        next: "2026-06",
+        previous: "2026-04",
+      },
+      viewerPermissions: {
+        canManageEvents: true,
+      },
+    });
 
     render(
       await TribeEventsPage({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
+        searchParams: Promise.resolve({
+          month: "2026-05",
+        }),
       })
     );
 
     expect(
       screen.getByRole("heading", {
-        name: "Eventos",
+        name: "Mayo 2026",
         level: 1,
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("Próximamente")).toBeInTheDocument();
-    expect(screen.getByText("Esta sección está en construcción.")).toBeInTheDocument();
+    expect(screen.getByText("Clase abierta")).toBeInTheDocument();
+    expect(listTribeEvents).toHaveBeenCalledWith({
+      month: "2026-05",
+      tribeSlug: "matematica-pro",
+    });
   });
 
   it("uses the same shared state across all planned tribe sections", async () => {

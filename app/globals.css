@@ -143,6 +143,10 @@
     background-image: var(--body-background-image);
   }
 
+  .GlobalErrorPageBody {
+    min-height: 100dvh;
+  }
+
   ::selection {
     background: oklch(0.8 0.15 286.2 / 50%);
   }

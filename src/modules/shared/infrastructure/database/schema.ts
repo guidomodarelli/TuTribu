@@ -225,3 +225,29 @@ export const messageReactions = pgTable("message_reactions", {
     table.userId
   ),
 }));
+
+export const events = pgTable("events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  meetingUrl: text("meeting_url"),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  tribeStartsAtIndex: index("idx_events_tribe_starts_at").on(
+    table.tribeId,
+    table.startsAt
+  ),
+}));

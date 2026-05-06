@@ -9,6 +9,8 @@ import { PostgresMessageRoundRepository } from "./messages/infrastructure/reposi
 import { PostgresTribeChannelRepository } from "./messages/infrastructure/repositories/postgres-tribe-channel-repository";
 import { PostgresMessageMutationRepository } from "./messages/infrastructure/repositories/postgres-message-mutation-repository";
 import { buildMessagesModule } from "./messages/setup";
+import { buildEventsModule } from "./events/setup";
+import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
 import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
 
 type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
@@ -52,6 +54,11 @@ export async function createRequestModules() {
       ),
       messageRoundReadRepository: new PostgresMessageRoundRepository(executeWithRequestContext),
       messageReactionRepository: new PostgresMessageMutationRepository(
+        executeWithRequestContext
+      ),
+    }),
+    events: buildEventsModule({
+      tribeEventRepository: new PostgresTribeEventRepository(
         executeWithRequestContext
       ),
     }),
