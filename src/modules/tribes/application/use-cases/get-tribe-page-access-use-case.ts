@@ -37,15 +37,6 @@ export function getTribePageAccess({
       };
     }
 
-    const tribe = await tribeReadRepository.findBySlug(normalizedSlug);
-
-    if (tribe) {
-      return {
-        status: TRIBE_PAGE_ACCESS_STATUS.visible,
-        tribe,
-      };
-    }
-
     const membershipStatus =
       await tribeReadRepository.findCurrentMembershipStatusBySlug(
         normalizedSlug
@@ -55,6 +46,25 @@ export function getTribePageAccess({
       return {
         status: TRIBE_PAGE_ACCESS_STATUS.hidden,
         reason: TRIBE_PAGE_ACCESS_REASON.blockedHidden,
+      };
+    }
+
+    if (
+      membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active &&
+      membershipStatus !== TRIBE_MEMBERSHIP_STATUS.muted
+    ) {
+      return {
+        status: TRIBE_PAGE_ACCESS_STATUS.hidden,
+        reason: TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible,
+      };
+    }
+
+    const tribe = await tribeReadRepository.findBySlug(normalizedSlug);
+
+    if (tribe) {
+      return {
+        status: TRIBE_PAGE_ACCESS_STATUS.visible,
+        tribe,
       };
     }
 

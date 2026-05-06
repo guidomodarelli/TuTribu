@@ -113,4 +113,22 @@ describe("PostgresTribeReadRepository", () => {
     expect(execute).toHaveBeenCalledTimes(1);
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("tribe_members.role");
   });
+
+  it("limits visible membership tribes to the current member", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [],
+    }));
+
+    const repository = new PostgresTribeReadRepository(async (callback) =>
+      callback({
+        execute,
+      } as never)
+    );
+
+    await repository.listVisibleMembershipTribes();
+
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
+      "tribe_members.user_id = public.current_app_user_id()"
+    );
+  });
 });

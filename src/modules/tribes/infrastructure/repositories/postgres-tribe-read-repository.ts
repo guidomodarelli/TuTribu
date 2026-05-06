@@ -86,6 +86,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           ${TRIBE_MEMBERSHIP_STATUS.active},
           ${TRIBE_MEMBERSHIP_STATUS.muted}
         )
+          and tribe_members.user_id = public.current_app_user_id()
         order by tribes.name asc
       `);
 
