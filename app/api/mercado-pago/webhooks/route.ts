@@ -13,6 +13,8 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 const WEBHOOK_FIELD = {
   action: "action",
   data: "data",
+  dataIdQuery: "data.id",
+  dataIdUrlQuery: "data.id_url",
   id: "id",
   resource: "resource",
   topic: "topic",
@@ -50,19 +52,40 @@ function readString(value: unknown): string {
 }
 
 /**
- * Extracts a nested data identifier from Mercado Pago webhook payloads.
+ * Normalizes Mercado Pago resource identifiers for signature verification.
  *
+ * @param resourceId - Resource identifier received from Mercado Pago.
+ * @returns Lowercase resource identifier.
+ */
+function normalizeResourceId(resourceId: string): string {
+  return resourceId.trim().toLowerCase();
+}
+
+/**
+ * Extracts the signed Mercado Pago resource identifier from URL or body data.
+ *
+ * @param requestUrl - Webhook request URL.
  * @param body - Parsed webhook body.
  * @returns Resource identifier.
  */
-function readResourceId(body: Record<string, unknown>): string {
+function readResourceId(requestUrl: URL, body: Record<string, unknown>): string {
+  const dataIdFromUrl =
+    requestUrl.searchParams.get(WEBHOOK_FIELD.dataIdQuery) ??
+    requestUrl.searchParams.get(WEBHOOK_FIELD.dataIdUrlQuery);
+
+  if (dataIdFromUrl) {
+    return normalizeResourceId(dataIdFromUrl);
+  }
+
   const data = body[WEBHOOK_FIELD.data];
 
   if (data && typeof data === "object" && WEBHOOK_FIELD.id in data) {
-    return readString((data as Record<string, unknown>)[WEBHOOK_FIELD.id]);
+    return normalizeResourceId(
+      readString((data as Record<string, unknown>)[WEBHOOK_FIELD.id])
+    );
   }
 
-  return readString(body[WEBHOOK_FIELD.resource]);
+  return normalizeResourceId(readString(body[WEBHOOK_FIELD.resource]));
 }
 
 export async function POST(request: Request) {
@@ -74,9 +97,10 @@ export async function POST(request: Request) {
   });
 
   try {
+    const requestUrl = new URL(request.url);
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const eventId = readString(body[WEBHOOK_FIELD.id]) || requestId;
-    const resourceId = readResourceId(body);
+    const resourceId = readResourceId(requestUrl, body);
     const topic =
       readString(body[WEBHOOK_FIELD.action]) ||
       readString(body[WEBHOOK_FIELD.type]) ||

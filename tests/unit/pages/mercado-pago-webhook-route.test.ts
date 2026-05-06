@@ -47,7 +47,7 @@ function buildWebhookSignature(resourceId: string, requestId: string, timestamp:
   return `ts=${timestamp},v1=${signature}`;
 }
 
-function buildWebhookRequest(headers: HeadersInit = {}) {
+function buildWebhookRequest(headers: HeadersInit = {}, url?: string) {
   return {
     headers: new Headers(headers),
     json: async () => ({
@@ -58,7 +58,7 @@ function buildWebhookRequest(headers: HeadersInit = {}) {
       id: "event-1",
     }),
     method: "POST",
-    url: "https://tutribu.example.com/api/mercado-pago/webhooks",
+    url: url ?? "https://tutribu.example.com/api/mercado-pago/webhooks",
   } as unknown as Request;
 }
 
@@ -114,6 +114,31 @@ describe("Mercado Pago webhook route", () => {
     expect(handleMercadoPagoSubscriptionWebhook).toHaveBeenCalledWith({
       eventId: "event-1",
       resourceId: "preapproval-1",
+      topic: "subscription_preapproval.created",
+    });
+  });
+
+  it("uses the signed data id from the callback URL", async () => {
+    const timestamp = String(Date.now());
+    const requestId = "request-1";
+    const response = await POST(
+      buildWebhookRequest(
+        {
+          "x-request-id": requestId,
+          "x-signature": buildWebhookSignature(
+            "preapproval-from-url",
+            requestId,
+            timestamp
+          ),
+        },
+        "https://tutribu.example.com/api/mercado-pago/webhooks?data.id=PREAPPROVAL-FROM-URL"
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(handleMercadoPagoSubscriptionWebhook).toHaveBeenCalledWith({
+      eventId: "event-1",
+      resourceId: "preapproval-from-url",
       topic: "subscription_preapproval.created",
     });
   });

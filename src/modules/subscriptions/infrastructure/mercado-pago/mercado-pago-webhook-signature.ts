@@ -58,7 +58,7 @@ export function verifyMercadoPagoWebhookSignature(input: {
   }
 
   const manifest = [
-    `id:${input.resourceId};`,
+    `id:${input.resourceId.trim().toLowerCase()};`,
     `request-id:${requestId};`,
     `ts:${parsedSignature.timestamp};`,
   ].join("");
