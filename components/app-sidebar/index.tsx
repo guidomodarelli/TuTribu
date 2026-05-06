@@ -44,7 +44,7 @@ const tribeSectionNavigation = [
   {
     hrefBuilder: ROUTES.tribes.bySlug,
     icon: FlameKindlingIcon,
-    label: "Ronda",
+    label: "Fogón",
     matchPath: (pathname: string, tribeSlug: string) =>
       pathname === ROUTES.tribes.bySlug(tribeSlug),
   },

@@ -343,7 +343,7 @@ describe("AppSidebar", () => {
         (paragraph) => paragraph.textContent === "Tribu"
       )
     ).toBe(false);
-    expect(screen.getByRole("button", { name: /ronda/i })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: /fogón/i })).toHaveAttribute(
       "data-active",
       "true"
     );
@@ -378,7 +378,7 @@ describe("AppSidebar", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: /ronda/i }).querySelector(".lucide-flame-kindling")
+      screen.getByRole("button", { name: /fogón/i }).querySelector(".lucide-flame-kindling")
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /canales/i }).querySelector(".lucide-signpost-big")

@@ -342,7 +342,7 @@ describe("TribeRound", () => {
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Título del mensaje" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Contenido del mensaje" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Publicar" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Compartir" })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
     await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
@@ -481,7 +481,7 @@ describe("TribeRound", () => {
     );
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
     await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
-    await user.click(screen.getByRole("button", { name: "Publicar" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
@@ -556,9 +556,9 @@ describe("TribeRound", () => {
       "Nos vemos el viernes."
     );
 
-    expect(screen.getByRole("button", { name: "Publicar" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Compartir" })).toBeEnabled();
 
-    await user.click(screen.getByRole("button", { name: "Publicar" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     expect(screen.getByText("Falta completar:")).toBeInTheDocument();
     const missingRequirements = screen.getByRole("list", {
@@ -587,7 +587,7 @@ describe("TribeRound", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
-    await user.click(screen.getByRole("button", { name: "Publicar" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     const missingRequirements = screen.getByRole("list", {
       name: "Requisitos pendientes",
@@ -638,7 +638,7 @@ describe("TribeRound", () => {
     ).toHaveValue("");
     expect(
       screen.getByRole("button", { name: "Canal del mensaje" })
-    ).toHaveTextContent("Seleccionar canal");
+    ).toHaveTextContent("Elegir canal");
 
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
 
@@ -658,7 +658,7 @@ describe("TribeRound", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Todo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Todos" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ronda" })).toBeInTheDocument();
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
 
@@ -679,7 +679,7 @@ describe("TribeRound", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Todo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Todos" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ronda" })).toBeInTheDocument();
   });
 
@@ -735,7 +735,7 @@ describe("TribeRound", () => {
     );
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
     await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
-    await user.click(screen.getByRole("button", { name: "Publicar" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(

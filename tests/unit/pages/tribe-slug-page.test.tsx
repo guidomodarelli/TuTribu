@@ -234,7 +234,7 @@ describe("TribePage", () => {
       screen.getByText("Podes leer la ronda, pero tu estado actual no permite participar.")
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Compartí tu primer mensaje con la ronda")
+      screen.getByText("Compartí el primer mensaje de la ronda")
     ).toBeInTheDocument();
   });
 
