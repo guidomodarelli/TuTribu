@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 
 import type { Tribe } from "@/src/modules/tribes/domain/entities/tribe";
 import { TribeSlugConflictError } from "@/src/modules/tribes/domain/errors/tribe-slug-conflict-error";
-import { DEFAULT_TRIBE_CHANNELS } from "@/src/modules/posts/constants/post-feed";
+import { DEFAULT_TRIBE_CHANNELS } from "@/src/modules/messages/constants/message-round";
 import type { TribeCreationRepository } from "@/src/modules/tribes/domain/repositories/tribe-creation-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 

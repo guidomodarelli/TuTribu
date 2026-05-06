@@ -4,10 +4,10 @@ import { buildTribesModule } from "./tribes/setup";
 import { PostgresTribeCreationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creation-repository";
 import { PostgresTribeCreatorWhitelistRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creator-whitelist-repository";
 import { PostgresTribeReadRepository } from "./tribes/infrastructure/repositories/postgres-tribe-read-repository";
-import { PostgresPostFeedRepository } from "./posts/infrastructure/repositories/postgres-post-feed-repository";
-import { PostgresTribeChannelRepository } from "./posts/infrastructure/repositories/postgres-tribe-channel-repository";
-import { PostgresPostMutationRepository } from "./posts/infrastructure/repositories/postgres-post-mutation-repository";
-import { buildPostsModule } from "./posts/setup";
+import { PostgresMessageRoundRepository } from "./messages/infrastructure/repositories/postgres-message-round-repository";
+import { PostgresTribeChannelRepository } from "./messages/infrastructure/repositories/postgres-tribe-channel-repository";
+import { PostgresMessageMutationRepository } from "./messages/infrastructure/repositories/postgres-message-mutation-repository";
+import { buildMessagesModule } from "./messages/setup";
 import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
 
 type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
@@ -36,18 +36,18 @@ export async function createRequestModules() {
       tribeCreatorWhitelistRepository:
         new PostgresTribeCreatorWhitelistRepository(executeWithRequestContext),
     }),
-    posts: buildPostsModule({
+    messages: buildMessagesModule({
       tribeChannelRepository: new PostgresTribeChannelRepository(
         executeWithRequestContext
       ),
-      postCommentRepository: new PostgresPostMutationRepository(
+      messageReplyRepository: new PostgresMessageMutationRepository(
         executeWithRequestContext
       ),
-      postCreationRepository: new PostgresPostMutationRepository(
+      messageCreationRepository: new PostgresMessageMutationRepository(
         executeWithRequestContext
       ),
-      postFeedReadRepository: new PostgresPostFeedRepository(executeWithRequestContext),
-      postReactionRepository: new PostgresPostMutationRepository(
+      messageRoundReadRepository: new PostgresMessageRoundRepository(executeWithRequestContext),
+      messageReactionRepository: new PostgresMessageMutationRepository(
         executeWithRequestContext
       ),
     }),

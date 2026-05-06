@@ -132,7 +132,7 @@ export const tribeChannels = pgTable("tribe_channels", {
   ),
 }));
 
-export const posts = pgTable("posts", {
+export const messages = pgTable("messages", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")
     .notNull()
@@ -148,17 +148,17 @@ export const posts = pgTable("posts", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 }, (table) => ({
-  tribeCreatedAtIndex: index("idx_posts_tribe_created_at").on(
+  tribeCreatedAtIndex: index("idx_messages_tribe_created_at").on(
     table.tribeId,
     table.createdAt
   ),
 }));
 
-export const postComments = pgTable("post_comments", {
+export const messageReplies = pgTable("message_replies", {
   id: uuid("id").defaultRandom().primaryKey(),
-  postId: uuid("post_id")
+  messageId: uuid("message_id")
     .notNull()
-    .references(() => posts.id, { onDelete: "cascade" }),
+    .references(() => messages.id, { onDelete: "cascade" }),
   tribeId: uuid("tribe_id")
     .notNull()
     .references(() => tribes.id, { onDelete: "cascade" }),
@@ -168,17 +168,17 @@ export const postComments = pgTable("post_comments", {
   content: text("content").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 }, (table) => ({
-  postCreatedAtIndex: index("idx_post_comments_post_created_at").on(
-    table.postId,
+  messageCreatedAtIndex: index("idx_message_replies_message_created_at").on(
+    table.messageId,
     table.createdAt
   ),
 }));
 
-export const postReactions = pgTable("post_reactions", {
+export const messageReactions = pgTable("message_reactions", {
   id: uuid("id").defaultRandom().primaryKey(),
-  postId: uuid("post_id")
+  messageId: uuid("message_id")
     .notNull()
-    .references(() => posts.id, { onDelete: "cascade" }),
+    .references(() => messages.id, { onDelete: "cascade" }),
   tribeId: uuid("tribe_id")
     .notNull()
     .references(() => tribes.id, { onDelete: "cascade" }),
@@ -188,9 +188,9 @@ export const postReactions = pgTable("post_reactions", {
   type: text("type").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 }, (table) => ({
-  postTypeIndex: index("idx_post_reactions_post_type").on(table.postId, table.type),
-  reactionKey: uniqueIndex("post_reactions_post_id_user_id_key").on(
-    table.postId,
+  messageTypeIndex: index("idx_message_reactions_message_type").on(table.messageId, table.type),
+  reactionKey: uniqueIndex("message_reactions_message_id_user_id_key").on(
+    table.messageId,
     table.userId
   ),
 }));

@@ -3,13 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { TribeChannelManagement } from "@/components/tribe-feed/tribe-channel-management";
+import { TribeChannelManagement } from "@/components/tribe-round/tribe-channel-management";
 
 const tribeChannelManagementStyles = readFileSync(
   join(
     process.cwd(),
     "components",
-    "tribe-feed",
+    "tribe-round",
     "tribe-channel-management",
     "styles.module.scss"
   ),
@@ -144,7 +144,7 @@ describe("TribeChannelManagement", () => {
 
     await user.selectOptions(
       within(resourcesChannelItem).getByRole("combobox", {
-        name: "Mover publicaciones a",
+        name: "Mover mensajes a",
       }),
       "channel-general"
     );
@@ -165,7 +165,7 @@ describe("TribeChannelManagement", () => {
     expect((global.fetch as jest.Mock).mock.calls[1][1].body).toBeUndefined();
   });
 
-  it("keeps the selected target channel when deleting a channel with posts", async () => {
+  it("keeps the selected target channel when deleting a channel with messages", async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -191,7 +191,7 @@ describe("TribeChannelManagement", () => {
 
     await user.selectOptions(
       within(resourcesChannelItem).getByRole("combobox", {
-        name: "Mover publicaciones a",
+        name: "Mover mensajes a",
       }),
       "channel-general"
     );

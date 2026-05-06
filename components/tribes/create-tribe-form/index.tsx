@@ -21,7 +21,7 @@ const CREATE_TRIBE_FORM_BUTTON = {
 } as const;
 const CREATE_TRIBE_FORM_FIELD = {
   hiddenType: "hidden",
-  method: "post",
+  method: "message",
   name: "name",
   slug: "slug",
 } as const;

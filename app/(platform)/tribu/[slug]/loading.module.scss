@@ -16,7 +16,7 @@
   }
 
   &__composer,
-  &__post {
+  &__message {
     display: grid;
     gap: 1rem;
     padding: clamp(1rem, 3vw, 1.25rem);
@@ -36,18 +36,18 @@
     gap: 0.75rem;
   }
 
-  &__feed {
+  &__round {
     display: grid;
     gap: 1rem;
   }
 
-  &__postHeader {
+  &__messageHeader {
     display: flex;
     gap: 0.875rem;
     align-items: center;
   }
 
-  &__postMeta {
+  &__messageMeta {
     display: grid;
     flex: 1;
     gap: 0.5rem;

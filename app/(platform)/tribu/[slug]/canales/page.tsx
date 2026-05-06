@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { TribeChannelManagement } from "@/components/tribe-feed/tribe-channel-management";
+import { TribeChannelManagement } from "@/components/tribe-round/tribe-channel-management";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
@@ -48,7 +48,7 @@ export default async function TribeChannelsPage({
     notFound();
   }
 
-  const channelResult = await modules.posts.useCases
+  const channelResult = await modules.messages.useCases
     .listTribeChannels({
       tribeSlug: tribe.slug,
       viewerId: authenticatedMember.id,

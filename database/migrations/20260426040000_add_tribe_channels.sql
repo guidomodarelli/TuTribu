@@ -59,7 +59,7 @@ FROM public.tribes
 CROSS JOIN channel_seed
 ON CONFLICT (tribe_id, slug) DO NOTHING;
 
-ALTER TABLE public.posts
+ALTER TABLE public.messages
 ADD COLUMN IF NOT EXISTS channel_id uuid;
 
 WITH tribe_general_channels AS (
@@ -69,15 +69,15 @@ WITH tribe_general_channels AS (
   FROM public.tribe_channels
   WHERE tribe_channels.slug = 'general'
 )
-UPDATE public.posts
+UPDATE public.messages
 SET
   channel_id = tribe_general_channels.id,
   updated_at = timezone('utc', now())
 FROM tribe_general_channels
-WHERE posts.tribe_id = tribe_general_channels.tribe_id
-  AND posts.channel_id IS NULL;
+WHERE messages.tribe_id = tribe_general_channels.tribe_id
+  AND messages.channel_id IS NULL;
 
-ALTER TABLE public.posts
+ALTER TABLE public.messages
 ALTER COLUMN channel_id SET NOT NULL;
 
 DO $$
@@ -85,18 +85,18 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM pg_constraint
-    WHERE conname = 'posts_channel_id_fkey'
-      AND conrelid = 'public.posts'::regclass
+    WHERE conname = 'messages_channel_id_fkey'
+      AND conrelid = 'public.messages'::regclass
   ) THEN
-    ALTER TABLE public.posts
-    ADD CONSTRAINT posts_channel_id_fkey
+    ALTER TABLE public.messages
+    ADD CONSTRAINT messages_channel_id_fkey
     FOREIGN KEY (channel_id)
     REFERENCES public.tribe_channels(id);
   END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS idx_posts_channel_created_at
-ON public.posts(channel_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_channel_created_at
+ON public.messages(channel_id, created_at DESC);
 
 ALTER TABLE public.tribe_channels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tribe_channels FORCE ROW LEVEL SECURITY;

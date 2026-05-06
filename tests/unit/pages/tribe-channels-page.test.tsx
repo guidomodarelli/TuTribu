@@ -22,7 +22,7 @@ jest.mock("next/headers", () => ({
   headers: jest.fn(),
 }));
 
-jest.mock("@/components/tribe-feed/tribe-channel-management", () => ({
+jest.mock("@/components/tribe-round/tribe-channel-management", () => ({
   TribeChannelManagement: ({
     channels,
     tribeSlug,
@@ -120,7 +120,7 @@ describe("TribeChannelsPage", () => {
           getMemberTribes,
         },
       },
-      posts: {
+      messages: {
         useCases: {
           listTribeChannels,
         },

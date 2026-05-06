@@ -1,4 +1,4 @@
-import { TRIBE_CHANNEL_MUTATION_STATUS } from "@/src/modules/posts/constants/post-feed";
+import { TRIBE_CHANNEL_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -12,13 +12,13 @@ const CHANNEL_ROUTE_FIELD = {
 
 const CHANNEL_ROUTE_LOG = {
   deleteFailureMessage: "Tribe channel deletion failed",
-  feature: "posts",
-  operation: "manage-tribe-post-channel",
+  feature: "messages",
+  operation: "manage-tribe-message-channel",
   updateFailureMessage: "Tribe channel update failed",
 } as const;
 
 const CHANNEL_ROUTE_RESPONSE = {
-  channelHasPostsMessage: "Elegí otro canal para mover las publicaciones.",
+  channelHasMessagesMessage: "Elegí otro canal para mover las mensajes.",
   deleteSuccessMessage: "Canal eliminado.",
   duplicateSlugMessage: "Ya existe un canal con ese nombre.",
   forbiddenMessage: "No tenés permisos para gestionar canales.",
@@ -26,7 +26,7 @@ const CHANNEL_ROUTE_RESPONSE = {
   invalidNameMessage: "Definí un nombre y un ícono para el canal.",
   invalidSortOrderMessage: "El orden del canal es inválido.",
   lastChannelMessage: "La tribu necesita al menos un canal.",
-  movedAndDeletedMessage: "Canal eliminado y publicaciones movidas.",
+  movedAndDeletedMessage: "Canal eliminado y mensajes movidas.",
   notFoundMessage: "No pudimos encontrar el canal.",
   unauthorizedMessage: "Iniciá sesión para gestionar canales.",
   unexpectedDeleteMessage: "No pudimos eliminar el canal. Intentá de nuevo.",
@@ -121,7 +121,7 @@ export async function PATCH(
       );
     }
 
-    const result = await modules.posts.useCases.updateTribeChannel({
+    const result = await modules.messages.useCases.updateTribeChannel({
       channelId,
       tribeSlug: slug,
       emoji: readStringField(body, CHANNEL_ROUTE_FIELD.emoji),
@@ -206,7 +206,7 @@ export async function DELETE(
 
   try {
     const body = await request.json().catch(() => null);
-    const result = await modules.posts.useCases.deleteTribeChannel({
+    const result = await modules.messages.useCases.deleteTribeChannel({
       channelId,
       tribeSlug: slug,
       targetChannelId: readStringField(body, CHANNEL_ROUTE_FIELD.targetChannelId),
@@ -223,9 +223,9 @@ export async function DELETE(
           { message: CHANNEL_ROUTE_RESPONSE.movedAndDeletedMessage },
           HTTP_STATUS.ok
         );
-      case TRIBE_CHANNEL_MUTATION_STATUS.channelHasPosts:
+      case TRIBE_CHANNEL_MUTATION_STATUS.channelHasMessages:
         return createJsonResponse(
-          { message: CHANNEL_ROUTE_RESPONSE.channelHasPostsMessage },
+          { message: CHANNEL_ROUTE_RESPONSE.channelHasMessagesMessage },
           HTTP_STATUS.badRequest
         );
       case TRIBE_CHANNEL_MUTATION_STATUS.invalidChannel:

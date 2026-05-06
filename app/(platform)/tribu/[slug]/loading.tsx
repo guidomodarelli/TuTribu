@@ -1,8 +1,8 @@
 import styles from "./loading.module.scss";
 
 const TRIBE_LOADING_SKELETON = {
-  feedItemKeyPrefix: "tribe-loading-post",
-  feedItemCount: 3,
+  roundItemKeyPrefix: "tribe-loading-message",
+  roundItemCount: 3,
   filterKeyPrefix: "tribe-loading-filter",
   filterCount: 4,
   keySeparator: "-",
@@ -34,16 +34,16 @@ export default function TribeLoadingPage() {
           )
         )}
       </div>
-      <section className={styles.TribeLoadingPage__feed}>
-        {Array.from({ length: TRIBE_LOADING_SKELETON.feedItemCount }).map(
-          (_, feedItemIndex) => (
+      <section className={styles.TribeLoadingPage__round}>
+        {Array.from({ length: TRIBE_LOADING_SKELETON.roundItemCount }).map(
+          (_, roundItemIndex) => (
             <article
-              className={styles.TribeLoadingPage__post}
-              key={`${TRIBE_LOADING_SKELETON.feedItemKeyPrefix}${TRIBE_LOADING_SKELETON.keySeparator}${feedItemIndex}`}
+              className={styles.TribeLoadingPage__message}
+              key={`${TRIBE_LOADING_SKELETON.roundItemKeyPrefix}${TRIBE_LOADING_SKELETON.keySeparator}${roundItemIndex}`}
             >
-              <div className={styles.TribeLoadingPage__postHeader}>
+              <div className={styles.TribeLoadingPage__messageHeader}>
                 <div className={styles.TribeLoadingPage__avatar} />
-                <div className={styles.TribeLoadingPage__postMeta}>
+                <div className={styles.TribeLoadingPage__messageMeta}>
                   <div className={styles.TribeLoadingPage__titleLine} />
                   <div className={styles.TribeLoadingPage__metaLine} />
                 </div>

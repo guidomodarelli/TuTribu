@@ -1,4 +1,4 @@
-import { TRIBE_CHANNEL_MUTATION_STATUS } from "@/src/modules/posts/constants/post-feed";
+import { TRIBE_CHANNEL_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -10,7 +10,7 @@ const CHANNEL_ROUTE_FIELD = {
 
 const CHANNEL_ROUTE_LOG = {
   createFailureMessage: "Tribe channel creation failed",
-  feature: "posts",
+  feature: "messages",
   listFailureMessage: "Tribe channel listing failed",
   operation: "manage-tribe-channels",
 } as const;
@@ -76,7 +76,7 @@ export async function GET(
   }
 
   try {
-    const result = await modules.posts.useCases.listTribeChannels({
+    const result = await modules.messages.useCases.listTribeChannels({
       tribeSlug: slug,
       viewerId: authenticatedMember.id,
     });
@@ -126,7 +126,7 @@ export async function POST(
 
   try {
     const body = await request.json().catch(() => null);
-    const result = await modules.posts.useCases.createTribeChannel({
+    const result = await modules.messages.useCases.createTribeChannel({
       tribeSlug: slug,
       emoji: readStringField(body, CHANNEL_ROUTE_FIELD.emoji),
       name: readStringField(body, CHANNEL_ROUTE_FIELD.name),

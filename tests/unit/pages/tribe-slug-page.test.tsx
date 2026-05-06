@@ -8,7 +8,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 
 const getAuthenticatedMember = jest.fn();
 const getTribePageAccess = jest.fn();
-const listTribeFeed = jest.fn();
+const listTribeRound = jest.fn();
 const infoMock = jest.fn();
 const errorMock = jest.fn();
 
@@ -48,7 +48,7 @@ describe("TribePage", () => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
     getTribePageAccess.mockReset();
-    listTribeFeed.mockReset();
+    listTribeRound.mockReset();
     infoMock.mockReset();
     errorMock.mockReset();
 
@@ -63,9 +63,9 @@ describe("TribePage", () => {
           getTribePageAccess,
         },
       },
-      posts: {
+      messages: {
         useCases: {
-          listTribeFeed,
+          listTribeRound,
         },
       },
     });
@@ -94,17 +94,17 @@ describe("TribePage", () => {
         visibility: "private",
       },
     });
-    listTribeFeed.mockResolvedValue({
+    listTribeRound.mockResolvedValue({
       activeChannelId: null,
       channels: [tribeChannel],
       viewerPermissions: {
-        canComment: true,
-        canCreatePost: true,
+        canReply: true,
+        canCreateMessage: true,
         canReact: true,
       },
-      posts: [
+      messages: [
         {
-          id: "post-1",
+          id: "message-1",
           author: {
             id: "leader-1",
             name: "Ada Lovelace",
@@ -113,9 +113,9 @@ describe("TribePage", () => {
             image: null,
           },
           channel: tribeChannel,
-          comments: [
+          replies: [
             {
-              id: "comment-1",
+              id: "reply-1",
               author: {
                 id: "guardian-1",
                 name: "Grace Hopper",
@@ -134,7 +134,7 @@ describe("TribePage", () => {
           title: "Anuncio inicial",
         },
         {
-          id: "post-2",
+          id: "message-2",
           author: {
             id: "member-2",
             name: "Katherine Johnson",
@@ -143,7 +143,7 @@ describe("TribePage", () => {
             image: null,
           },
           channel: tribeChannel,
-          comments: [],
+          replies: [],
           content: "Comparto un recurso nuevo",
           createdAt: "2026-04-26T11:00:00.000Z",
           likedByViewer: true,
@@ -168,7 +168,7 @@ describe("TribePage", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Tribu privada")).not.toBeInTheDocument();
     expect(screen.queryByText("/tribu/matematica-pro")).not.toBeInTheDocument();
-    expect(screen.queryByText("Publicaciones")).not.toBeInTheDocument();
+    expect(screen.queryByText("Mensajees")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: "Escribí algo",
@@ -176,7 +176,7 @@ describe("TribePage", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("textbox", {
-        name: "Escribir un comentario",
+        name: "Escribir una respuesta",
       })
     ).not.toBeInTheDocument();
     expect(screen.getByText("Bienvenida a la tribu")).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe("TribePage", () => {
     expect(screen.queryByText("Estado de la tribu")).not.toBeInTheDocument();
   });
 
-  it("renders a read-only empty feed for muted members", async () => {
+  it("renders a read-only empty round for muted members", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
       email: "muted@example.com",
@@ -206,15 +206,15 @@ describe("TribePage", () => {
         visibility: "private",
       },
     });
-    listTribeFeed.mockResolvedValue({
+    listTribeRound.mockResolvedValue({
       activeChannelId: null,
       channels: [tribeChannel],
       viewerPermissions: {
-        canComment: false,
-        canCreatePost: false,
+        canReply: false,
+        canCreateMessage: false,
         canReact: false,
       },
-      posts: [],
+      messages: [],
     });
 
     render(
@@ -231,10 +231,10 @@ describe("TribePage", () => {
       })
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText("Podes leer el feed, pero tu estado actual no permite participar.")
+      screen.getByText("Podes leer la ronda, pero tu estado actual no permite participar.")
     ).toBeInTheDocument();
     expect(
-      screen.getByText("El feed esta listo para la primera publicacion")
+      screen.getByText("La ronda esta lista para el primer mensaje")
     ).toBeInTheDocument();
   });
 

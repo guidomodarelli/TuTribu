@@ -19,8 +19,8 @@ ON public.tribe_channels;
 DROP POLICY IF EXISTS "Leaders can manage tribe channels"
 ON public.tribe_channels;
 
-DROP POLICY IF EXISTS "Leaders and guardians can move posts between channels"
-ON public.posts;
+DROP POLICY IF EXISTS "Leaders and guardians can move messages between channels"
+ON public.messages;
 
 CREATE POLICY "Leaders and guardians can manage tribe channels"
 ON public.tribe_channels
@@ -32,8 +32,8 @@ WITH CHECK (
   public.can_manage_tribe_channels(tribe_id)
 );
 
-CREATE POLICY "Leaders and guardians can move posts between channels"
-ON public.posts
+CREATE POLICY "Leaders and guardians can move messages between channels"
+ON public.messages
 FOR UPDATE
 USING (
   public.can_manage_tribe_channels(tribe_id)

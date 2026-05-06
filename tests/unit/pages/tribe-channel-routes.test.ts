@@ -102,7 +102,7 @@ describe("Tribe channel routes", () => {
           getAuthenticatedMember,
         },
       },
-      posts: {
+      messages: {
         useCases: {
           createTribeChannel,
           deleteTribeChannel,
@@ -293,16 +293,16 @@ describe("Tribe channel routes", () => {
     expect(updateTribeChannel).not.toHaveBeenCalled();
   });
 
-  it("requires a target channel when deleting a channel with posts", async () => {
+  it("requires a target channel when deleting a channel with messages", async () => {
     deleteTribeChannel.mockResolvedValue({
-      status: "channel_has_posts",
+      status: "channel_has_messages",
     });
 
     const response = await DELETE(buildJsonRequest(), buildChannelContext());
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      message: "Elegí otro canal para mover las publicaciones.",
+      message: "Elegí otro canal para mover las mensajes.",
     });
   });
 });
