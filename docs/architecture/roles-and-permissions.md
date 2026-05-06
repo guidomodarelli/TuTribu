@@ -75,15 +75,15 @@ Reglas fijas:
 # Tipos canonicos
 
 ```ts
-type TribeRole = "owner" | "admin" | "member";
+type TribeRole = "leader" | "guardian" | "tribemate";
 type TribeStatus = "active" | "muted" | "blocked";
 ```
 
 ## Roles por tribu
 
-* `owner`
-* `admin`
-* `member`
+* `leader`
+* `guardian`
+* `tribemate`
 
 ## Estados por tribu
 
@@ -97,26 +97,26 @@ En este MVP, crear tribu se resuelve con una whitelist global:
 
 * la capacidad de crear tribu vive en `tribe_creator_whitelist`
 * la whitelist se consulta por email normalizado
-* la whitelist no reemplaza `owner/admin/member`
+* la whitelist no reemplaza `leader/guardian/tribemate`
 * una vez creada la tribu, la autorizacion vuelve al modelo por `tribe_members`
 
 ---
 
 # Matriz base
 
-## `owner`
+## `leader`
 
 Puede:
 
 * editar tribu
 * borrar tribu
 * crear, editar y eliminar categorias de posts
-* transferir ownership
-* nombrar admins
+* transferir liderazgo
+* nombrar guardians
 * moderar miembros
 * moderar contenido dentro de su tribu
 
-## `admin`
+## `guardian`
 
 Puede:
 
@@ -129,10 +129,10 @@ Puede:
 No puede:
 
 * borrar tribu
-* cambiar owner
-* transferir ownership
+* cambiar leader
+* transferir liderazgo
 
-## `member`
+## `tribemate`
 
 Puede:
 

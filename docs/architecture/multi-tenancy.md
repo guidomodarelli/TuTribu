@@ -6,9 +6,9 @@ Esta aplicacion es **multi-tenant**.
 
 El tenant canonico del producto es **`tribe`**. Cada tribu debe aislar:
 
-* owner
-* admins
-* members
+* leader
+* guardians
+* tribemates
 * categorias de posts
 * posts
 * comments
@@ -105,7 +105,7 @@ Antes de que exista la primera membership, la plataforma puede aplicar un permis
 Despues de crear la tribu:
 
 * el usuario creador pasa a estar modelado por `tribe_members`
-* su rol inicial queda como `owner`
+* su rol inicial queda como `leader`
 
 ---
 
