@@ -23,7 +23,7 @@ npm run test:e2e
 
 Create `.env.local` from `.env.example` and provide:
 
-- `DATABASE_URL`: runtime Postgres connection string. Use the pooled Neon URL for deployed runtime environments.
+- `DATABASE_URL`: runtime Postgres connection string. Use the direct Neon URL for warm runtime environments. Do not use the `-pooler` host here unless the deployment explicitly needs PgBouncer-style transaction pooling.
 - `DATABASE_MIGRATION_URL`: optional direct Postgres connection string for migrations and tooling.
 - `BETTER_AUTH_URL`
 - `BETTER_AUTH_SECRET`
@@ -41,7 +41,7 @@ openssl rand -base64 32
 Local example:
 
 ```dotenv
-DATABASE_URL=postgresql://user:password@host-pooler.region.aws.neon.tech/database?sslmode=verify-full&channel_binding=require
+DATABASE_URL=postgresql://user:password@host.region.aws.neon.tech/database?sslmode=verify-full&channel_binding=require
 DATABASE_MIGRATION_URL=postgresql://user:password@host.region.aws.neon.tech/database?sslmode=verify-full&channel_binding=require
 BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_SECRET=replace-with-a-strong-random-secret
@@ -55,8 +55,9 @@ Neon role and schema guidance:
 
 - Using Neon's default database owner and the `public` schema is acceptable for local development and early project setup.
 - Keep `public` unless the application needs stronger separation between apps, modules, tenants, or permission scopes within the same database.
-- For production-like environments, prefer separate credentials by responsibility: `DATABASE_URL` should use a runtime role with limited permissions, while `DATABASE_MIGRATION_URL` can use the owner or migration role needed for schema changes.
+- For production-like environments, prefer separate credentials by responsibility: `DATABASE_URL` should use a runtime role with limited permissions over a direct Neon connection, while `DATABASE_MIGRATION_URL` can use the owner or migration role needed for schema changes.
 - Do not run the application runtime with an owner/admin role once least-privilege credentials are available.
+- To keep Neon warm, disable Scale to Zero in the Neon compute settings when the plan supports it. Free plan computes keep the fixed Scale to Zero behavior.
 
 ## Better Auth Setup
 

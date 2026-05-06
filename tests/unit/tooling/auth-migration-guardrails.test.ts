@@ -104,6 +104,10 @@ describe("Auth migration guardrails", () => {
     expect(readme).toContain("LATRIBU_BACKEND_BASE_URL");
     expect(readme).toContain("CONTACT_EMAIL");
     expect(readme).toContain("Neon Postgres");
+    expect(readme).toContain("direct Neon URL for warm runtime environments");
+    expect(readme).toContain("disable Scale to Zero");
+    expect(readme).not.toContain("Use the pooled Neon URL for deployed runtime environments");
+    expect(readme).not.toContain("host-pooler.region.aws.neon.tech");
     expect(environmentExample).not.toContain("SUPABASE_URL");
     expect(environmentExample).not.toContain("SUPABASE_PUBLISHABLE_KEY");
     expect(readme).not.toContain("SUPABASE_URL");
