@@ -164,4 +164,50 @@ describe("PostCategoryManagement", () => {
     expect(global.fetch).toHaveBeenCalledTimes(2);
     expect((global.fetch as jest.Mock).mock.calls[1][1].body).toBeUndefined();
   });
+
+  it("keeps the selected target category when deleting a category with posts", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        message: "Categoría eliminada.",
+      }),
+    });
+
+    const user = userEvent.setup();
+
+    render(
+      <PostCategoryManagement
+        categories={categories}
+        communitySlug="matematica-pro"
+      />
+    );
+
+    const categoryList = screen.getByRole("list", {
+      name: "Categorías configuradas",
+    });
+    const resourcesCategoryItem = within(categoryList)
+      .getByDisplayValue("Recursos")
+      .closest("li") as HTMLElement;
+
+    await user.selectOptions(
+      within(resourcesCategoryItem).getByRole("combobox", {
+        name: "Mover publicaciones a",
+      }),
+      "category-general"
+    );
+
+    await user.click(
+      within(resourcesCategoryItem).getByRole("button", {
+        name: "Eliminar",
+      })
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/communities/matematica-pro/post-categories/category-resources",
+      expect.objectContaining({
+        body: JSON.stringify({ targetCategoryId: "category-general" }),
+        method: "DELETE",
+      })
+    );
+  });
 });

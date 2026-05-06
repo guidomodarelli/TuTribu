@@ -344,9 +344,11 @@ export function PostCategoryManagement({
                     className={styles.PostCategoryManagement__select}
                     disabled={pendingCategoryId === category.id}
                     onChange={(event) => {
+                      const selectedTargetCategoryId = event.currentTarget.value;
+
                       setTargetCategoryById((currentTargets) => ({
                         ...currentTargets,
-                        [category.id]: event.currentTarget.value,
+                        [category.id]: selectedTargetCategoryId,
                       }));
                     }}
                     value={targetCategoryById[category.id] ?? ""}
