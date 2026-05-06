@@ -164,6 +164,7 @@ const COMMUNITY_FEED_ATTRIBUTES = {
 
 const COMMUNITY_FEED_LIMITS = {
   collapsedContentCharacters: 320,
+  likeDebounceMs: 300,
 } as const;
 
 const COMMUNITY_FEED_CONTENT_PREVIEW_CLASS = {
@@ -216,6 +217,18 @@ type ToggleLikeResponse = {
   likeCount?: number;
   message?: string;
 };
+
+type PendingLikeIntent = {
+  baselineLikedByViewer: boolean;
+  baselineLikeCount: number;
+  intendedLikedByViewer: boolean;
+  isRequestInFlight: boolean;
+  shouldFlushAfterRequest: boolean;
+};
+
+type LikeDebounceTimers = Record<string, ReturnType<typeof setTimeout>>;
+
+type PendingLikeIntents = Record<string, PendingLikeIntent | undefined>;
 
 const COMMUNITY_FEED_RESET_KEY = {
   empty: "",
@@ -380,6 +393,15 @@ function isLongPostContent(content: string): boolean {
   return content.length > COMMUNITY_FEED_LIMITS.collapsedContentCharacters;
 }
 
+function getLikeButtonClassName(likedByViewer: boolean): string {
+  return [
+    styles.CommunityFeed__likeButton,
+    ...(likedByViewer
+      ? [styles["CommunityFeed__likeButton--active"]]
+      : []),
+  ].join(COMMUNITY_FEED_FORMAT.standardSpace);
+}
+
 function CommunityFeedContent({
   authenticatedMember,
   communitySlug,
@@ -389,6 +411,8 @@ function CommunityFeedContent({
 
   const currentCommunitySlugRef = useRef(communitySlug);
   const currentActionTokenRef = useRef(0);
+  const likeDebounceTimersRef = useRef<LikeDebounceTimers>({});
+  const pendingLikeIntentsRef = useRef<PendingLikeIntents>({});
   const [posts, setPosts] = useState<CommunityFeedPostResult[]>(feed.posts);
   const [isPostComposerOpen, setIsPostComposerOpen] = useState(false);
   const [postTitle, setPostTitle] = useState("");
@@ -423,6 +447,11 @@ function CommunityFeedContent({
     return () => {
       currentActionTokenRef.current += 1;
       currentCommunitySlugRef.current = COMMUNITY_FEED_RESET_KEY.empty;
+      Object.values(likeDebounceTimersRef.current).forEach((timer) => {
+        clearTimeout(timer);
+      });
+      likeDebounceTimersRef.current = {};
+      pendingLikeIntentsRef.current = {};
     };
   }, []);
 
@@ -569,43 +598,74 @@ function CommunityFeedContent({
     }
   };
 
-  const handleToggleLike = async (postId: string) => {
-    const actionCommunitySlug = communitySlug;
-    const actionToken = currentActionTokenRef.current + 1;
+  const clearLikeDebounceTimer = (postId: string) => {
+    const timer = likeDebounceTimersRef.current[postId];
 
-    currentActionTokenRef.current = actionToken;
-    setPendingActionId(postId);
-    const currentPost = posts.find((post) => post.id === postId);
-
-    if (!currentPost) {
-      setPendingActionId(null);
+    if (!timer) {
       return;
     }
 
-    const optimisticLikedByViewer = !currentPost.likedByViewer;
-    const optimisticLikeCount = Math.max(
-      0,
-      currentPost.likeCount + (optimisticLikedByViewer ? 1 : -1)
-    );
+    clearTimeout(timer);
+    delete likeDebounceTimersRef.current[postId];
+  };
 
+  const applyPostLikeState = (
+    postId: string,
+    likedByViewer: boolean,
+    likeCount: number
+  ) => {
     setPosts((currentPosts) =>
       currentPosts.map((post) =>
         post.id === postId
           ? {
               ...post,
-              likedByViewer: optimisticLikedByViewer,
-              likeCount: optimisticLikeCount,
+              likedByViewer,
+              likeCount,
             }
           : post
       )
     );
+  };
+
+  const flushPendingLikeIntent = async (postId: string) => {
+    clearLikeDebounceTimer(postId);
+
+    const pendingLikeIntent = pendingLikeIntentsRef.current[postId];
+
+    if (!pendingLikeIntent) {
+      return;
+    }
+
+    if (pendingLikeIntent.isRequestInFlight) {
+      pendingLikeIntentsRef.current[postId] = {
+        ...pendingLikeIntent,
+        shouldFlushAfterRequest: true,
+      };
+      return;
+    }
+
+    if (
+      pendingLikeIntent.intendedLikedByViewer ===
+      pendingLikeIntent.baselineLikedByViewer
+    ) {
+      delete pendingLikeIntentsRef.current[postId];
+      return;
+    }
+
+    const actionCommunitySlug = communitySlug;
+
+    pendingLikeIntentsRef.current[postId] = {
+      ...pendingLikeIntent,
+      isRequestInFlight: true,
+      shouldFlushAfterRequest: false,
+    };
 
     try {
       const response = await submitJsonRequest<ToggleLikeResponse>(
         COMMUNITY_FEED_ENDPOINT.like(actionCommunitySlug, postId)
       );
 
-      if (!isCurrentAction(actionToken, actionCommunitySlug)) {
+      if (currentCommunitySlugRef.current !== actionCommunitySlug) {
         return;
       }
 
@@ -616,41 +676,102 @@ function CommunityFeedContent({
         throw new Error(COMMUNITY_FEED_COPY.toggleLikeError);
       }
 
-      setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                likedByViewer: response.likedByViewer as boolean,
-                likeCount: response.likeCount as number,
-              }
-            : post
-        )
-      );
-    } catch (error) {
-      if (!isCurrentAction(actionToken, actionCommunitySlug)) {
+      const latestPendingLikeIntent = pendingLikeIntentsRef.current[postId];
+
+      if (!latestPendingLikeIntent) {
+        applyPostLikeState(postId, response.likedByViewer, response.likeCount);
         return;
       }
 
-      setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                likedByViewer: currentPost.likedByViewer,
-                likeCount: currentPost.likeCount,
-              }
-            : post
+      if (latestPendingLikeIntent.intendedLikedByViewer === response.likedByViewer) {
+        applyPostLikeState(postId, response.likedByViewer, response.likeCount);
+        delete pendingLikeIntentsRef.current[postId];
+        return;
+      }
+
+      pendingLikeIntentsRef.current[postId] = {
+        baselineLikedByViewer: response.likedByViewer,
+        baselineLikeCount: response.likeCount,
+        intendedLikedByViewer: latestPendingLikeIntent.intendedLikedByViewer,
+        isRequestInFlight: false,
+        shouldFlushAfterRequest: latestPendingLikeIntent.shouldFlushAfterRequest,
+      };
+
+      applyPostLikeState(
+        postId,
+        latestPendingLikeIntent.intendedLikedByViewer,
+        Math.max(
+          0,
+          response.likeCount +
+            (latestPendingLikeIntent.intendedLikedByViewer ? 1 : -1)
         )
       );
+
+      void flushPendingLikeIntent(postId);
+    } catch (error) {
+      if (currentCommunitySlugRef.current !== actionCommunitySlug) {
+        return;
+      }
+
+      const latestPendingLikeIntent = pendingLikeIntentsRef.current[postId];
+
+      if (latestPendingLikeIntent) {
+        applyPostLikeState(
+          postId,
+          latestPendingLikeIntent.baselineLikedByViewer,
+          latestPendingLikeIntent.baselineLikeCount
+        );
+        delete pendingLikeIntentsRef.current[postId];
+      }
+
       toast.error(
         error instanceof Error ? error.message : COMMUNITY_FEED_COPY.toggleLikeError
       );
-    } finally {
-      if (isCurrentAction(actionToken, actionCommunitySlug)) {
-        setPendingActionId(null);
-      }
     }
+  };
+
+  const schedulePendingLikeIntentFlush = (postId: string) => {
+    clearLikeDebounceTimer(postId);
+    likeDebounceTimersRef.current[postId] = setTimeout(() => {
+      void flushPendingLikeIntent(postId);
+    }, COMMUNITY_FEED_LIMITS.likeDebounceMs);
+  };
+
+  const handleToggleLike = (postId: string) => {
+    setPosts((currentPosts) =>
+      currentPosts.map((post) => {
+        if (post.id !== postId) {
+          return post;
+        }
+
+        const pendingLikeIntent = pendingLikeIntentsRef.current[postId];
+        const baselineLikedByViewer =
+          pendingLikeIntent?.baselineLikedByViewer ?? post.likedByViewer;
+        const baselineLikeCount =
+          pendingLikeIntent?.baselineLikeCount ?? post.likeCount;
+        const intendedLikedByViewer = !post.likedByViewer;
+        const optimisticLikeCount = Math.max(
+          0,
+          post.likeCount + (intendedLikedByViewer ? 1 : -1)
+        );
+
+        pendingLikeIntentsRef.current[postId] = {
+          baselineLikedByViewer,
+          baselineLikeCount,
+          intendedLikedByViewer,
+          isRequestInFlight: pendingLikeIntent?.isRequestInFlight ?? false,
+          shouldFlushAfterRequest: pendingLikeIntent?.shouldFlushAfterRequest ?? false,
+        };
+
+        schedulePendingLikeIntentFlush(postId);
+
+        return {
+          ...post,
+          likedByViewer: intendedLikedByViewer,
+          likeCount: optimisticLikeCount,
+        };
+      })
+    );
   };
 
   const openPostDetails = (postId: string) => {
@@ -1059,11 +1180,11 @@ function CommunityFeedContent({
                   <div className={styles.CommunityFeed__postActions}>
                     <Button
                       aria-label={`${COMMUNITY_FEED_COPY.likeButtonAriaLabel} ${post.likeCount}`}
-                      className={styles.CommunityFeed__likeButton}
-                      disabled={!feed.viewerPermissions.canReact || isBusy}
+                      className={getLikeButtonClassName(post.likedByViewer)}
+                      disabled={!feed.viewerPermissions.canReact}
                       onClick={(event) => {
                         stopPostDetailsOpening(event);
-                        void handleToggleLike(post.id);
+                        handleToggleLike(post.id);
                       }}
                       type={COMMUNITY_FEED_FORM.buttonType}
                       variant={COMMUNITY_FEED_FORM.outlineVariant}
@@ -1165,10 +1286,12 @@ function CommunityFeedContent({
                 >
                   <Button
                     aria-label={`${COMMUNITY_FEED_COPY.likeButtonAriaLabel} ${selectedPost.likeCount}`}
-                    className={styles.CommunityFeed__likeButton}
-                    disabled={!feed.viewerPermissions.canReact || isBusy}
+                    className={getLikeButtonClassName(
+                      selectedPost.likedByViewer
+                    )}
+                    disabled={!feed.viewerPermissions.canReact}
                     onClick={() => {
-                      void handleToggleLike(selectedPost.id);
+                      handleToggleLike(selectedPost.id);
                     }}
                     type={COMMUNITY_FEED_FORM.buttonType}
                     variant={COMMUNITY_FEED_FORM.outlineVariant}

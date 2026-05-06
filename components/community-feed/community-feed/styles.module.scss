@@ -391,6 +391,18 @@
       outline: 2px solid var(--ring);
       outline-offset: 2px;
     }
+
+    &--active {
+      color: var(--primary);
+
+      svg {
+        fill: currentColor;
+      }
+
+      &:hover {
+        color: color-mix(in oklch, var(--primary) 84%, var(--foreground));
+      }
+    }
   }
 
   &__empty {

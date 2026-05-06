@@ -754,7 +754,10 @@ describe("CommunityFeed", () => {
   });
 
   it("updates likes optimistically and reconciles without refreshing the route", async () => {
-    const user = userEvent.setup();
+    jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
 
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       json: async () => ({
@@ -774,25 +777,100 @@ describe("CommunityFeed", () => {
       />
     );
 
-    expect(
-      screen.queryByRole("dialog", { name: "Publicación" })
-    ).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Me gusta 2" }));
-
-    expect(screen.getByRole("button", { name: "Me gusta 3" })).toBeInTheDocument();
-    expect(
-      screen.queryByRole("dialog", { name: "Publicación" })
-    ).not.toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/communities/matematica-pro/posts/post-1/like",
-        expect.objectContaining({
-          method: "POST",
-        })
+    try {
+      expect(screen.getByRole("button", { name: "Me gusta 2" })).not.toHaveClass(
+        "CommunityFeed__likeButton--active"
       );
+      expect(
+        screen.queryByRole("dialog", { name: "Publicación" })
+      ).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Me gusta 2" }));
+
+      expect(screen.getByRole("button", { name: "Me gusta 3" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Me gusta 3" })).toHaveClass(
+        "CommunityFeed__likeButton--active"
+      );
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(
+        screen.queryByRole("dialog", { name: "Publicación" })
+      ).not.toBeInTheDocument();
+
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/communities/matematica-pro/posts/post-1/like",
+          expect.objectContaining({
+            method: "POST",
+          })
+        );
+      });
+      expect(refreshMock).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("renders a filled like heart when the viewer already liked the post", () => {
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={{
+          ...feed,
+          posts: [
+            {
+              ...feed.posts[0],
+              likedByViewer: true,
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Me gusta 2" })).toHaveClass(
+      "CommunityFeed__likeButton--active"
+    );
+  });
+
+  it("keeps the last debounced like intent and skips the request when clicks cancel out", async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
     });
-    expect(refreshMock).not.toHaveBeenCalled();
+
+    render(
+      <CommunityFeed
+        authenticatedMember={authenticatedMember}
+        communitySlug="matematica-pro"
+        feed={feed}
+      />
+    );
+
+    try {
+      await user.click(screen.getByRole("button", { name: "Me gusta 2" }));
+      expect(screen.getByRole("button", { name: "Me gusta 3" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Me gusta 3" })).toHaveClass(
+        "CommunityFeed__likeButton--active"
+      );
+
+      await user.click(screen.getByRole("button", { name: "Me gusta 3" }));
+      expect(screen.getByRole("button", { name: "Me gusta 2" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Me gusta 2" })).not.toHaveClass(
+        "CommunityFeed__likeButton--active"
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(refreshMock).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("opens the post details dialog from the post content without nesting action buttons", async () => {
@@ -982,7 +1060,10 @@ describe("CommunityFeed", () => {
   });
 
   it("reverts an optimistic like when the request fails", async () => {
-    const user = userEvent.setup();
+    jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
 
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       json: async () => ({
@@ -1000,13 +1081,22 @@ describe("CommunityFeed", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Me gusta 2" }));
+    try {
+      await user.click(screen.getByRole("button", { name: "Me gusta 2" }));
+      expect(screen.getByRole("button", { name: "Me gusta 3" })).toBeEnabled();
 
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("No pudimos actualizar la reaccion.");
-    });
-    expect(screen.getByRole("button", { name: "Me gusta 2" })).toBeInTheDocument();
-    expect(refreshMock).not.toHaveBeenCalled();
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith("No pudimos actualizar la reaccion.");
+      });
+      expect(screen.getByRole("button", { name: "Me gusta 2" })).toBeInTheDocument();
+      expect(refreshMock).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("appends the returned comment without refreshing the route", async () => {
