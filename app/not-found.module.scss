@@ -1,4 +1,9 @@
 .NotFoundPage {
+  --not-found-accent-warm: oklch(0.84 0.12 78 / 26%);
+  --not-found-accent-cool: oklch(0.82 0.11 220 / 22%);
+  --not-found-surface-start: oklch(0.995 0.01 95);
+  --not-found-surface-end: oklch(0.975 0.01 95);
+
   position: relative;
   isolation: isolate;
   display: grid;
@@ -16,9 +21,9 @@
     inset: 0;
     z-index: -1;
     background:
-      radial-gradient(circle at 15% 20%, oklch(0.84 0.12 78 / 26%), transparent 26%),
-      radial-gradient(circle at 85% 18%, oklch(0.82 0.11 220 / 22%), transparent 28%),
-      linear-gradient(180deg, oklch(0.995 0.01 95), oklch(0.975 0.01 95));
+      radial-gradient(circle at 15% 20%, var(--not-found-accent-warm), transparent 26%),
+      radial-gradient(circle at 85% 18%, var(--not-found-accent-cool), transparent 28%),
+      linear-gradient(180deg, var(--not-found-surface-start), var(--not-found-surface-end));
   }
 
   &__eyebrow {
@@ -35,7 +40,7 @@
     max-width: 11ch;
     font-size: clamp(2.9rem, 9vw, 6rem);
     line-height: 0.95;
-    letter-spacing: -0.05em;
+    letter-spacing: 0;
     text-wrap: balance;
   }
 
@@ -54,6 +59,13 @@
     gap: 0.875rem;
     padding-top: 0.5rem;
   }
+}
+
+:global(.dark) .NotFoundPage {
+  --not-found-accent-warm: oklch(0.48 0.14 78 / 18%);
+  --not-found-accent-cool: oklch(0.52 0.13 220 / 20%);
+  --not-found-surface-start: oklch(0.145 0 0);
+  --not-found-surface-end: oklch(0.205 0 0);
 }
 
 @media (width <= 640px) {

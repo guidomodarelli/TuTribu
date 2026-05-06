@@ -13,6 +13,7 @@ const NOT_FOUND_UI = {
   ariaHidden: "true",
   buttonSize: "lg",
   outlineVariant: "outline",
+  backdropTestId: "not-found-backdrop",
 } as const;
 const NOT_FOUND_PAGE_LOG = {
   feature: "app",
@@ -50,6 +51,7 @@ export default async function NotFoundPage() {
     <main className={styles.NotFoundPage}>
       <div
         className={styles.NotFoundPage__backdrop}
+        data-testid={NOT_FOUND_UI.backdropTestId}
         aria-hidden={NOT_FOUND_UI.ariaHidden}
       />
       <p className={styles.NotFoundPage__eyebrow}>Error 404</p>
