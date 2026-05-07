@@ -623,7 +623,7 @@ export class PostgresTribeMemberSubscriptionRepository
       });
 
       if (!accessToken) {
-        return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed };
+        return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook };
       }
 
       const providerStatus = await this.getMercadoPagoPreapprovalStatus({

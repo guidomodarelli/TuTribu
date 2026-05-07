@@ -590,6 +590,39 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(getMercadoPagoPreapprovalStatus).not.toHaveBeenCalled();
   });
 
+  it("keeps webhooks retryable when the provider token cannot be resolved", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          access_token: "expired-access-token",
+          operation_inserted: "operation-1",
+          refresh_token: null,
+          subscription_found: true,
+          token_expires_at: new Date(Date.now() - 60_000).toISOString(),
+          tribe_id: "tribe-1",
+        },
+      ],
+    });
+    const getMercadoPagoPreapprovalStatus = jest.fn();
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      getMercadoPagoPreapprovalStatus
+    );
+
+    await expect(
+      repository.handleWebhook({
+        eventId: "event-1",
+        resourceId: "preapproval-1",
+        topic: "subscription_preapproval.updated",
+      })
+    ).resolves.toEqual({
+      status: "retryable_webhook",
+    });
+
+    expect(getMercadoPagoPreapprovalStatus).not.toHaveBeenCalled();
+  });
+
   it("does not call the provider again for duplicate webhook events", async () => {
     const execute = jest.fn().mockResolvedValueOnce({
       rows: [
