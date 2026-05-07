@@ -70,6 +70,20 @@ CREATE TABLE IF NOT EXISTS public.subscription_idempotency_operations (
 CREATE UNIQUE INDEX IF NOT EXISTS subscription_idempotency_operations_key
 ON public.subscription_idempotency_operations(operation_key);
 
+ALTER TABLE public.tribe_members
+ADD COLUMN IF NOT EXISTS status_reason text NOT NULL DEFAULT 'none';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'tribe_members_status_reason_check'
+  ) THEN
+    ALTER TABLE public.tribe_members
+    ADD CONSTRAINT tribe_members_status_reason_check
+    CHECK (status_reason IN ('none', 'conduct_blocked', 'payment_blocked'));
+  END IF;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.can_view_tribe_subscription_prices(
   target_tribe_id uuid
 )
@@ -151,6 +165,36 @@ USING (
       current_setting('app.subscription_checkout_tribe_id', true),
       ''
     )::uuid = tribe_id
+  )
+);
+
+CREATE POLICY "Checkout and verified webhooks can refresh payment integration tokens"
+ON public.tribe_payment_integrations
+FOR UPDATE
+USING (
+  provider = 'mercado_pago'
+  AND (
+    public.is_mercado_pago_webhook_verified()
+    OR (
+      public.current_app_user_id() <> ''
+      AND nullif(
+        current_setting('app.subscription_checkout_tribe_id', true),
+        ''
+      )::uuid = tribe_id
+    )
+  )
+)
+WITH CHECK (
+  provider = 'mercado_pago'
+  AND (
+    public.is_mercado_pago_webhook_verified()
+    OR (
+      public.current_app_user_id() <> ''
+      AND nullif(
+        current_setting('app.subscription_checkout_tribe_id', true),
+        ''
+      )::uuid = tribe_id
+    )
   )
 );
 
@@ -254,6 +298,7 @@ USING (public.is_mercado_pago_webhook_verified())
 WITH CHECK (
   public.is_mercado_pago_webhook_verified()
   AND status IN ('active', 'blocked')
+  AND status_reason IN ('none', 'payment_blocked')
 );
 
 CREATE POLICY "Authenticated users can create paid pending memberships"
@@ -263,6 +308,7 @@ WITH CHECK (
   user_id = public.current_app_user_id()
   AND role = 'tribemate'
   AND status = 'blocked'
+  AND status_reason = 'payment_blocked'
   AND EXISTS (
     SELECT 1
     FROM public.tribe_subscription_prices

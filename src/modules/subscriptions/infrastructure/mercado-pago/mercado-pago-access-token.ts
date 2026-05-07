@@ -25,6 +25,10 @@ export type StoredMercadoPagoAccessToken = {
 };
 
 const MERCADO_PAGO_TOKEN_REFRESH_WINDOW_MS = 5 * 60 * 1000;
+const MERCADO_PAGO_TOKEN_REFRESH_CONTEXT = {
+  checkoutTribeSettingName: "app.subscription_checkout_tribe_id",
+  provider: "mercado_pago",
+} as const;
 
 /**
  * Resolves an access token, refreshing and persisting it when it is expired.
@@ -96,6 +100,13 @@ async function persistMercadoPagoAccessToken(input: {
 }): Promise<void> {
   await input.executeWithDatabase(async (database) => {
     await database.execute(sql`
+      with token_refresh_context as (
+        select set_config(
+          ${MERCADO_PAGO_TOKEN_REFRESH_CONTEXT.checkoutTribeSettingName},
+          ${input.tribeId},
+          true
+        )
+      )
       update public.tribe_payment_integrations
       set
         access_token = ${input.refreshedToken.accessToken},
@@ -112,8 +123,9 @@ async function persistMercadoPagoAccessToken(input: {
           else timezone('utc', now()) + (${input.refreshedToken.expiresIn}::integer || ' seconds')::interval
         end,
         updated_at = timezone('utc', now())
+      from token_refresh_context
       where tribe_id = ${input.tribeId}
-        and provider = 'mercado_pago'
+        and provider = ${MERCADO_PAGO_TOKEN_REFRESH_CONTEXT.provider}
     `);
   });
 }

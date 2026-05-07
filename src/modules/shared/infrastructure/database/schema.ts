@@ -107,6 +107,7 @@ export const tribeMembers = pgTable("tribe_members", {
     .references(() => users.id, { onDelete: "cascade" }),
   role: text("role").notNull(),
   status: text("status").notNull(),
+  statusReason: text("status_reason").notNull().default("none"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),

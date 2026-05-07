@@ -21,6 +21,10 @@ const WEBHOOK_FIELD = {
   type: "type",
 } as const;
 
+const WEBHOOK_TOPIC = {
+  subscriptionPreapprovalPrefix: "subscription_preapproval",
+} as const;
+
 const WEBHOOK_RESPONSE = {
   invalidMessage: "Webhook inválido.",
   unauthorizedMessage: "Webhook no autorizado.",
@@ -42,13 +46,21 @@ const HTTP_STATUS = {
 } as const;
 
 /**
- * Reads a string value from webhook payloads.
+ * Reads a scalar string value from webhook payloads.
  *
  * @param value - Unknown payload value.
- * @returns String value or empty string.
+ * @returns String or numeric value as a string, or empty string.
  */
-function readString(value: unknown): string {
-  return typeof value === "string" ? value : "";
+function readScalarString(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return "";
 }
 
 /**
@@ -81,11 +93,35 @@ function readResourceId(requestUrl: URL, body: Record<string, unknown>): string 
 
   if (data && typeof data === "object" && WEBHOOK_FIELD.id in data) {
     return normalizeResourceId(
-      readString((data as Record<string, unknown>)[WEBHOOK_FIELD.id])
+      readScalarString((data as Record<string, unknown>)[WEBHOOK_FIELD.id])
     );
   }
 
-  return normalizeResourceId(readString(body[WEBHOOK_FIELD.resource]));
+  return normalizeResourceId(readScalarString(body[WEBHOOK_FIELD.resource]));
+}
+
+/**
+ * Determines whether the webhook topic belongs to Mercado Pago subscriptions.
+ *
+ * @param topic - Mercado Pago action, type, or topic field.
+ * @returns Whether the topic should be handled by the subscription use case.
+ */
+function isSubscriptionWebhookTopic(topic: string): boolean {
+  return topic.startsWith(WEBHOOK_TOPIC.subscriptionPreapprovalPrefix);
+}
+
+/**
+ * Resolves the Mercado Pago topic field without letting generic actions hide it.
+ *
+ * @param body - Parsed webhook body.
+ * @returns Provider topic value used for subscription routing.
+ */
+function readWebhookTopic(body: Record<string, unknown>): string {
+  const type = readScalarString(body[WEBHOOK_FIELD.type]);
+  const topic = readScalarString(body[WEBHOOK_FIELD.topic]);
+  const action = readScalarString(body[WEBHOOK_FIELD.action]);
+
+  return type || topic || action;
 }
 
 export async function POST(request: Request) {
@@ -99,12 +135,9 @@ export async function POST(request: Request) {
   try {
     const requestUrl = new URL(request.url);
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-    const eventId = readString(body[WEBHOOK_FIELD.id]) || requestId;
+    const eventId = readScalarString(body[WEBHOOK_FIELD.id]) || requestId;
     const resourceId = readResourceId(requestUrl, body);
-    const topic =
-      readString(body[WEBHOOK_FIELD.action]) ||
-      readString(body[WEBHOOK_FIELD.type]) ||
-      readString(body[WEBHOOK_FIELD.topic]);
+    const topic = readWebhookTopic(body);
 
     if (!resourceId || !topic) {
       return Response.json(
@@ -122,6 +155,13 @@ export async function POST(request: Request) {
       return Response.json(
         { message: WEBHOOK_RESPONSE.unauthorizedMessage },
         { status: HTTP_STATUS.unauthorized }
+      );
+    }
+
+    if (!isSubscriptionWebhookTopic(topic)) {
+      return Response.json(
+        { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed },
+        { status: HTTP_STATUS.ok }
       );
     }
 

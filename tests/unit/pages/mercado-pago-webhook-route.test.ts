@@ -47,16 +47,20 @@ function buildWebhookSignature(resourceId: string, requestId: string, timestamp:
   return `ts=${timestamp},v1=${signature}`;
 }
 
-function buildWebhookRequest(headers: HeadersInit = {}, url?: string) {
+function buildWebhookRequest(
+  headers: HeadersInit = {},
+  url?: string,
+  body: Record<string, unknown> = {
+    action: "subscription_preapproval.created",
+    data: {
+      id: "preapproval-1",
+    },
+    id: "event-1",
+  }
+) {
   return {
     headers: new Headers(headers),
-    json: async () => ({
-      action: "subscription_preapproval.created",
-      data: {
-        id: "preapproval-1",
-      },
-      id: "event-1",
-    }),
+    json: async () => body,
     method: "POST",
     url: url ?? "https://tutribu.example.com/api/mercado-pago/webhooks",
   } as unknown as Request;
@@ -116,6 +120,94 @@ describe("Mercado Pago webhook route", () => {
       resourceId: "preapproval-1",
       topic: "subscription_preapproval.created",
     });
+  });
+
+  it("preserves numeric Mercado Pago event ids for idempotency", async () => {
+    const timestamp = String(Date.now());
+    const requestId = "request-1";
+    const response = await POST(
+      buildWebhookRequest(
+        {
+          "x-request-id": requestId,
+          "x-signature": buildWebhookSignature("preapproval-1", requestId, timestamp),
+        },
+        undefined,
+        {
+          action: "subscription_preapproval.updated",
+          data: {
+            id: "preapproval-1",
+          },
+          id: 123456789,
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(handleMercadoPagoSubscriptionWebhook).toHaveBeenCalledWith({
+      eventId: "123456789",
+      resourceId: "preapproval-1",
+      topic: "subscription_preapproval.updated",
+    });
+  });
+
+  it("processes subscription webhooks when Mercado Pago sends a generic action with a subscription type", async () => {
+    const timestamp = String(Date.now());
+    const requestId = "request-1";
+    const response = await POST(
+      buildWebhookRequest(
+        {
+          "x-request-id": requestId,
+          "x-signature": buildWebhookSignature("preapproval-1", requestId, timestamp),
+        },
+        undefined,
+        {
+          action: "updated",
+          data: {
+            id: "preapproval-1",
+          },
+          id: "event-1",
+          type: "subscription_preapproval",
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(createRequestModules).toHaveBeenCalledWith({
+      mercadoPagoWebhookVerified: true,
+    });
+    expect(handleMercadoPagoSubscriptionWebhook).toHaveBeenCalledWith({
+      eventId: "event-1",
+      resourceId: "preapproval-1",
+      topic: "subscription_preapproval",
+    });
+  });
+
+  it("ignores signed webhook payloads for non-subscription topics", async () => {
+    const timestamp = String(Date.now());
+    const requestId = "request-1";
+    const response = await POST(
+      buildWebhookRequest(
+        {
+          "x-request-id": requestId,
+          "x-signature": buildWebhookSignature("payment-1", requestId, timestamp),
+        },
+        undefined,
+        {
+          action: "payment.created",
+          data: {
+            id: "payment-1",
+          },
+          id: "payment-event-1",
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      status: "processed",
+    });
+    expect(createRequestModules).not.toHaveBeenCalled();
+    expect(handleMercadoPagoSubscriptionWebhook).not.toHaveBeenCalled();
   });
 
   it("uses the signed data id from the callback URL", async () => {

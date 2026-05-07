@@ -49,4 +49,37 @@ describe("Subscription SQL guardrails", () => {
     expect(policy).toMatch(/WITH CHECK \(public\.is_mercado_pago_webhook_verified\(\)\)/);
     expect(policy).not.toMatch(/user_id = public\.current_app_user_id\(\)/);
   });
+
+  it("allows token refreshes from checkout and verified webhook contexts", () => {
+    const migration = readWorkspaceFile(SUBSCRIPTIONS_MIGRATION_PATH);
+    const policy = readPolicyBlock(
+      migration,
+      "Checkout and verified webhooks can refresh payment integration tokens"
+    );
+
+    expect(policy).toMatch(/FOR UPDATE/);
+    expect(policy).toMatch(/provider = 'mercado_pago'/);
+    expect(policy).toMatch(/public\.is_mercado_pago_webhook_verified\(\)/);
+    expect(policy).toMatch(
+      /current_setting\('app\.subscription_checkout_tribe_id', true\)/
+    );
+    expect(policy).not.toMatch(/connected_by = public\.current_app_user_id\(\)/);
+  });
+
+  it("stores the current membership block reason for payment reentry checks", () => {
+    const migration = readWorkspaceFile(SUBSCRIPTIONS_MIGRATION_PATH);
+    const paidMembershipPolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can create paid pending memberships"
+    );
+    const webhookMembershipPolicy = readPolicyBlock(
+      migration,
+      "Verified Mercado Pago webhooks can update paid memberships"
+    );
+
+    expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS status_reason text NOT NULL DEFAULT 'none'/);
+    expect(migration).toMatch(/tribe_members_status_reason_check/);
+    expect(paidMembershipPolicy).toMatch(/status_reason = 'payment_blocked'/);
+    expect(webhookMembershipPolicy).toMatch(/status_reason IN \('none', 'payment_blocked'\)/);
+  });
 });

@@ -210,6 +210,8 @@ describe("PostgresTribeInvitationRepository", () => {
     );
     expect(sqlText).not.toContain(FORBIDDEN_TRIBE_INVITATION_ID_CAST);
     expect(sqlText).toContain("status = 'blocked'");
+    expect(sqlText).toContain("tribe_members.status_reason");
+    expect(sqlText).not.toContain("existing_subscription");
     expect(sqlText).not.toContain("plain-token");
   });
 

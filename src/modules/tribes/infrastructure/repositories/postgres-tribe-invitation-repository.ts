@@ -343,20 +343,13 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           limit 1
         ),
         existing_membership as (
-          select tribe_members.status
+          select
+            tribe_members.status,
+            tribe_members.status_reason
           from public.tribe_members
           inner join target_tribe
             on target_tribe.id = tribe_members.tribe_id
           where tribe_members.user_id = public.current_app_user_id()
-          limit 1
-        ),
-        existing_subscription as (
-          select tribe_member_subscriptions.status_reason
-          from public.tribe_member_subscriptions
-          inner join target_tribe
-            on target_tribe.id = tribe_member_subscriptions.tribe_id
-          where tribe_member_subscriptions.user_id = public.current_app_user_id()
-          order by tribe_member_subscriptions.created_at desc
           limit 1
         ),
         current_subscription_price as (
@@ -405,11 +398,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             when exists (
               select 1 from existing_membership
               where status = 'blocked'
-                and not exists (
-                  select 1
-                  from existing_subscription
-                  where status_reason = 'payment_blocked'
-                )
+                and status_reason <> 'payment_blocked'
             ) then ${TRIBE_INVITATION_STATUS.blocked}
             when exists (
               select 1 from current_subscription_price

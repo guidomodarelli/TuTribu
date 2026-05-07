@@ -53,7 +53,7 @@ type SubscriptionStartContextRow = {
   current_user_email: string | null;
   existing_checkout_url: string | null;
   existing_membership_status: string | null;
-  existing_status_reason: string | null;
+  existing_membership_status_reason: string | null;
   has_active_invitation: boolean | null;
   mercado_pago_preapproval_plan_id: string | null;
   refresh_token: string | null;
@@ -219,20 +219,13 @@ export class PostgresTribeMemberSubscriptionRepository
           limit 1
         ),
         existing_membership as (
-          select tribe_members.status
+          select
+            tribe_members.status,
+            tribe_members.status_reason
           from public.tribe_members
           inner join target_tribe
             on target_tribe.id = tribe_members.tribe_id
           where tribe_members.user_id = public.current_app_user_id()
-          limit 1
-        ),
-        existing_subscription as (
-          select tribe_member_subscriptions.status_reason
-          from public.tribe_member_subscriptions
-          inner join target_tribe
-            on target_tribe.id = tribe_member_subscriptions.tribe_id
-          where tribe_member_subscriptions.user_id = public.current_app_user_id()
-          order by tribe_member_subscriptions.created_at desc
           limit 1
         ),
         existing_pending_checkout as (
@@ -260,7 +253,7 @@ export class PostgresTribeMemberSubscriptionRepository
           (select mercado_pago_preapproval_plan_id from current_price) as mercado_pago_preapproval_plan_id,
           exists (select 1 from active_invitation) as has_active_invitation,
           (select status from existing_membership) as existing_membership_status,
-          (select status_reason from existing_subscription) as existing_status_reason,
+          (select status_reason from existing_membership) as existing_membership_status_reason,
           (select checkout_url from existing_pending_checkout) as existing_checkout_url,
           public.current_app_user_email() as current_user_email,
           tribe_payment_integrations.access_token,
@@ -286,7 +279,7 @@ export class PostgresTribeMemberSubscriptionRepository
 
     if (
       context.existing_membership_status === "blocked" &&
-      context.existing_status_reason !==
+      context.existing_membership_status_reason !==
         TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked
     ) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked };
@@ -411,6 +404,7 @@ export class PostgresTribeMemberSubscriptionRepository
             user_id,
             role,
             status,
+            status_reason,
             created_at
           )
           select
@@ -418,6 +412,7 @@ export class PostgresTribeMemberSubscriptionRepository
             public.current_app_user_id(),
             'tribemate',
             'blocked',
+            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
             timezone('utc', now())
           from checkout_context
           on conflict (tribe_id, user_id) do nothing
@@ -505,6 +500,7 @@ export class PostgresTribeMemberSubscriptionRepository
           user_id,
           role,
           status,
+          status_reason,
           created_at
         )
         values (
@@ -512,6 +508,7 @@ export class PostgresTribeMemberSubscriptionRepository
           public.current_app_user_id(),
           'tribemate',
           'blocked',
+          ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
           timezone('utc', now())
         )
         on conflict (tribe_id, user_id) do nothing
@@ -646,7 +643,8 @@ export class PostgresTribeMemberSubscriptionRepository
 
       await database.execute(sql`
         update public.tribe_members
-        set status = case
+        set
+          status = case
           when exists (
             select 1
             from public.tribe_member_subscriptions
@@ -658,6 +656,19 @@ export class PostgresTribeMemberSubscriptionRepository
               )
           ) then 'active'
           else 'blocked'
+        end,
+          status_reason = case
+          when exists (
+            select 1
+            from public.tribe_member_subscriptions
+            where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+              and tribe_member_subscriptions.user_id = tribe_members.user_id
+              and tribe_member_subscriptions.status in (
+                ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
+                ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod}
+              )
+          ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none}
+          else ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
         end
         where exists (
           select 1
@@ -666,6 +677,10 @@ export class PostgresTribeMemberSubscriptionRepository
             and tribe_member_subscriptions.user_id = tribe_members.user_id
             and tribe_member_subscriptions.mercado_pago_preapproval_id = ${command.resourceId}
         )
+          and not (
+            tribe_members.status = 'blocked'
+            and tribe_members.status_reason <> ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+          )
       `);
 
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed };

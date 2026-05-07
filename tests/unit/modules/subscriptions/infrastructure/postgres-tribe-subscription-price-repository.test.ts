@@ -93,11 +93,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     });
   });
 
-  it("revalidates the active price limit inside the insert transaction", async () => {
+  it("does not create a provider plan when reservation hits the price limit", async () => {
     const execute = jest.fn(async (statement) => {
       const sqlText = getSqlText(statement);
 
-      if (sqlText.includes("active_prices_before_insert")) {
+      if (sqlText.includes("reserved_price")) {
         return {
           rows: [
             {
@@ -133,24 +133,49 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached,
     });
 
-    expect(createMercadoPagoPlan).toHaveBeenCalledTimes(1);
+    expect(createMercadoPagoPlan).not.toHaveBeenCalled();
   });
 
-  it("creates the Mercado Pago plan after the validation transaction finishes", async () => {
+  it("creates the Mercado Pago plan after the local price reservation finishes", async () => {
     const transactionEvents: string[] = [];
     const executeWithDatabase = jest.fn(async (callback) => {
       transactionEvents.push("transaction:start");
 
       const result = await callback({
-        execute: jest.fn().mockResolvedValue({
-          rows: [
-            {
-              access_token: "access-token",
-              can_manage_prices: true,
-              existing_price_count: 0,
-              tribe_id: "tribe-1",
-            },
-          ],
+        execute: jest.fn(async (statement) => {
+          const sqlText = getSqlText(statement);
+
+          if (sqlText.includes("reserved_price")) {
+            return {
+              rows: [
+                {
+                  reserved_price_id: "price-1",
+                  status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+                },
+              ],
+            };
+          }
+
+          if (sqlText.includes("mercado_pago_preapproval_plan_id =")) {
+            return {
+              rows: [
+                createSubscriptionPriceRow({
+                  status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+                }),
+              ],
+            };
+          }
+
+          return {
+            rows: [
+              {
+                access_token: "access-token",
+                can_manage_prices: true,
+                existing_price_count: 0,
+                tribe_id: "tribe-1",
+              },
+            ],
+          };
         }),
       } as never);
 
@@ -180,6 +205,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(transactionEvents.slice(0, 3)).toEqual([
       "transaction:start",
       "transaction:end",
+      "transaction:start",
+    ]);
+    expect(transactionEvents.slice(2, 5)).toEqual([
+      "transaction:start",
+      "transaction:end",
       "provider:create-plan",
     ]);
   });
@@ -201,6 +231,14 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         ],
       })
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            reserved_price_id: "price-1",
+            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+          },
+        ],
+      })
       .mockResolvedValueOnce({
         rows: [
           createSubscriptionPriceRow({
@@ -241,6 +279,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     );
     expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
       /update public\.tribe_payment_integrations/
+    );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
+      /set_config\([\s\S]*app\.subscription_checkout_tribe_id/
     );
   });
 });

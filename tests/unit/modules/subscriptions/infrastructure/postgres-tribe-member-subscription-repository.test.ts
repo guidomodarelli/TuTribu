@@ -49,7 +49,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           existing_checkout_url:
             "https://www.mercadopago.com.ar/subscriptions/existing",
           existing_membership_status: "blocked",
-          existing_status_reason: "payment_blocked",
+          existing_membership_status_reason: "payment_blocked",
           has_active_invitation: true,
           mercado_pago_preapproval_plan_id: "plan-1",
           tribe_id: "tribe-1",
@@ -88,7 +88,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_user_email: "member@example.com",
             existing_checkout_url: null,
             existing_membership_status: "blocked",
-            existing_status_reason: "payment_blocked",
+            existing_membership_status_reason: "payment_blocked",
             has_active_invitation: true,
             mercado_pago_preapproval_plan_id: "plan-1",
             tribe_id: "tribe-1",
@@ -124,6 +124,43 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
   });
 
+  it("rejects conduct-blocked members even when old subscriptions were payment-blocked", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          access_token: "access-token",
+          current_price_id: "price-1",
+          current_price_name: "Plan mensual",
+          current_user_email: "member@example.com",
+          existing_checkout_url: null,
+          existing_membership_status: "blocked",
+          existing_membership_status_reason: "conduct_blocked",
+          has_active_invitation: true,
+          mercado_pago_preapproval_plan_id: "plan-1",
+          tribe_id: "tribe-1",
+        },
+      ],
+    });
+    const createMercadoPagoSubscription = jest.fn();
+    const repository = createRepository(execute, createMercadoPagoSubscription);
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "conduct-blocked-retry",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "conduct_blocked",
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toMatch(/tribe_members\.status_reason/);
+    expect(sqlText).not.toMatch(/existing_subscription/);
+    expect(createMercadoPagoSubscription).not.toHaveBeenCalled();
+  });
+
   it("does not create a provider checkout when another request already reserved the subscription", async () => {
     const execute = jest
       .fn()
@@ -136,7 +173,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_user_email: "member@example.com",
             existing_checkout_url: null,
             existing_membership_status: null,
-            existing_status_reason: null,
+            existing_membership_status_reason: null,
             has_active_invitation: true,
             mercado_pago_preapproval_plan_id: "plan-1",
             tribe_id: "tribe-1",
@@ -176,7 +213,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_user_email: "member@example.com",
             existing_checkout_url: null,
             existing_membership_status: null,
-            existing_status_reason: null,
+            existing_membership_status_reason: null,
             has_active_invitation: true,
             mercado_pago_preapproval_plan_id: "plan-1",
             refresh_token: "refresh-token",
@@ -228,6 +265,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
       /update public\.tribe_payment_integrations/
     );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
+      /set_config\([\s\S]*app\.subscription_checkout_tribe_id/
+    );
   });
 
   it("releases the local reservation when Mercado Pago checkout creation fails", async () => {
@@ -242,7 +282,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_user_email: "member@example.com",
             existing_checkout_url: null,
             existing_membership_status: null,
-            existing_status_reason: null,
+            existing_membership_status_reason: null,
             has_active_invitation: true,
             mercado_pago_preapproval_plan_id: "plan-1",
             tribe_id: "tribe-1",
@@ -284,7 +324,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           existing_checkout_url:
             "https://www.mercadopago.com.ar/subscriptions/existing",
           existing_membership_status: null,
-          existing_status_reason: null,
+          existing_membership_status_reason: null,
           has_active_invitation: false,
           mercado_pago_preapproval_plan_id: "plan-1",
           tribe_id: "tribe-1",
@@ -414,6 +454,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
       /status in \([\s\S]*active[\s\S]*grace_period[\s\S]*\)/
     );
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
+      /status_reason = case[\s\S]*else/
+    );
   });
 
   it("refreshes expired Mercado Pago tokens before reconciling webhooks", async () => {
@@ -468,6 +511,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
       /update public\.tribe_payment_integrations/
     );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
+      /set_config\([\s\S]*app\.subscription_checkout_tribe_id/
+    );
   });
 
   it("reconciles membership status against any current paid subscription", async () => {
@@ -508,6 +554,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
     expect(membershipUpdateSql).toMatch(
       /where exists \([\s\S]*tribe_member_subscriptions\.mercado_pago_preapproval_id =/
+    );
+    expect(membershipUpdateSql).toMatch(
+      /and not \([\s\S]*tribe_members\.status = 'blocked'[\s\S]*tribe_members\.status_reason <>/
     );
   });
 
