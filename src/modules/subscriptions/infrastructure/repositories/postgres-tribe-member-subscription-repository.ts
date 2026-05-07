@@ -68,11 +68,15 @@ type SubscriptionReservationRow = {
 
 type WebhookSubscriptionContextRow = {
   access_token: string | null;
-  operation_inserted: string | null;
+  existing_operation_id: string | null;
   refresh_token: string | null;
   subscription_found: boolean | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
+};
+
+type WebhookOperationInsertRow = {
+  operation_inserted: string | null;
 };
 
 const SUBSCRIPTION_CHECKOUT_CONTEXT = {
@@ -573,26 +577,14 @@ export class PostgresTribeMemberSubscriptionRepository
           where tribe_member_subscriptions.mercado_pago_preapproval_id = ${command.resourceId}
           limit 1
         ),
-        inserted_operation as (
-          insert into public.subscription_idempotency_operations (
-            operation_key,
-            operation_type,
-            payload_hash,
-            response_body,
-            created_at
-          )
-          select
-            ${operationKey},
-            'mercado_pago_webhook',
-            ${payloadHash},
-            '{}'::jsonb,
-            timezone('utc', now())
-          where exists (select 1 from subscription_context)
-          on conflict (operation_key) do nothing
-          returning id
+        existing_operation as (
+          select subscription_idempotency_operations.id
+          from public.subscription_idempotency_operations
+          where subscription_idempotency_operations.operation_key = ${operationKey}
+          limit 1
         )
         select
-          (select id from inserted_operation) as operation_inserted,
+          (select id from existing_operation) as existing_operation_id,
           (select access_token from subscription_context) as access_token,
           (select refresh_token from subscription_context) as refresh_token,
           (select token_expires_at from subscription_context) as token_expires_at,
@@ -607,7 +599,7 @@ export class PostgresTribeMemberSubscriptionRepository
         return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook };
       }
 
-      if (!context.operation_inserted) {
+      if (context.existing_operation_id) {
         return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook };
       }
 
@@ -631,6 +623,32 @@ export class PostgresTribeMemberSubscriptionRepository
         preapprovalId: command.resourceId,
       });
       const subscriptionStatus = mapProviderSubscriptionStatus(providerStatus);
+
+      const operationResult = await database.execute(sql`
+        insert into public.subscription_idempotency_operations (
+          operation_key,
+          operation_type,
+          payload_hash,
+          response_body,
+          created_at
+        )
+        values (
+          ${operationKey},
+          'mercado_pago_webhook',
+          ${payloadHash},
+          '{}'::jsonb,
+          timezone('utc', now())
+        )
+        on conflict (operation_key) do nothing
+        returning id as operation_inserted
+      `);
+      const operation = (operationResult.rows?.[0] ?? null) as
+        | WebhookOperationInsertRow
+        | null;
+
+      if (!operation?.operation_inserted) {
+        return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook };
+      }
 
       await database.execute(sql`
         update public.tribe_member_subscriptions

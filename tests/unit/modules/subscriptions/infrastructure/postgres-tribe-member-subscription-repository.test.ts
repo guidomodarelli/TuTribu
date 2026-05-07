@@ -354,11 +354,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
-            operation_inserted: "operation-1",
+            existing_operation_id: null,
             subscription_found: true,
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalStatus = jest.fn(async () => "pending");
@@ -391,11 +392,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
-            operation_inserted: "operation-1",
+            existing_operation_id: null,
             subscription_found: true,
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalStatus = jest.fn(async () => "canceled");
@@ -416,7 +418,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(
-      (execute.mock.calls[1]?.[0] as { queryChunks?: unknown[] }).queryChunks
+      (execute.mock.calls[2]?.[0] as { queryChunks?: unknown[] }).queryChunks
     ).toEqual(expect.arrayContaining(["payment_blocked"]));
   });
 
@@ -427,11 +429,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
-            operation_inserted: "operation-1",
+            existing_operation_id: null,
             subscription_found: true,
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalStatus = jest.fn(async () => "paused");
@@ -451,10 +454,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       status: "processed",
     });
 
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
+    expect(getSqlText(execute.mock.calls[3]?.[0])).toMatch(
       /status in \([\s\S]*active[\s\S]*grace_period[\s\S]*\)/
     );
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
+    expect(getSqlText(execute.mock.calls[3]?.[0])).toMatch(
       /status_reason = case[\s\S]*else/
     );
   });
@@ -467,7 +470,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "expired-access-token",
-            operation_inserted: "operation-1",
+            existing_operation_id: null,
             refresh_token: "refresh-token",
             subscription_found: true,
             token_expires_at: expiredTokenDate,
@@ -476,6 +479,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         ],
       })
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalStatus = jest.fn(async () => "authorized");
@@ -523,11 +527,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
-            operation_inserted: "operation-1",
+            existing_operation_id: null,
             subscription_found: true,
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalStatus = jest.fn(async () => "canceled");
@@ -547,7 +552,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       status: "processed",
     });
 
-    const membershipUpdateSql = getSqlText(execute.mock.calls[2]?.[0]);
+    const membershipUpdateSql = getSqlText(execute.mock.calls[3]?.[0]);
 
     expect(membershipUpdateSql).toMatch(
       /where tribe_member_subscriptions\.tribe_id = tribe_members\.tribe_id[\s\S]*tribe_member_subscriptions\.user_id = tribe_members\.user_id[\s\S]*tribe_member_subscriptions\.status in/
@@ -595,7 +600,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       rows: [
         {
           access_token: "expired-access-token",
-          operation_inserted: "operation-1",
+          existing_operation_id: null,
           refresh_token: null,
           subscription_found: true,
           token_expires_at: new Date(Date.now() - 60_000).toISOString(),
@@ -621,6 +626,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(getMercadoPagoPreapprovalStatus).not.toHaveBeenCalled();
+    expect(getSqlText(execute.mock.calls[0]?.[0])).not.toMatch(
+      /insert into public\.subscription_idempotency_operations/
+    );
   });
 
   it("does not call the provider again for duplicate webhook events", async () => {
@@ -628,7 +636,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       rows: [
         {
           access_token: "access-token",
-          operation_inserted: null,
+          existing_operation_id: "operation-1",
           subscription_found: true,
         },
       ],
