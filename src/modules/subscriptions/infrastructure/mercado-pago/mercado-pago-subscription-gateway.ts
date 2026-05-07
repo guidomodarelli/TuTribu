@@ -29,6 +29,16 @@ const MERCADO_PAGO_HTTP = {
   postMethod: "POST",
 } as const;
 
+const MERCADO_PAGO_ERROR_DETAIL = {
+  maxCauseCount: 3,
+  maxTextLength: 240,
+} as const;
+
+const MERCADO_PAGO_SENSITIVE_TEXT_PATTERNS = [
+  /\b(?:APP_USR|TEST)-[A-Za-z0-9._-]+/g,
+  /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+] as const;
+
 export type MercadoPagoPlanInput = {
   accessToken: string;
   amountCents: number;
@@ -79,6 +89,12 @@ type MercadoPagoOAuthResponse = {
   user_id?: number | string;
 };
 
+type MercadoPagoErrorBody = {
+  cause?: unknown;
+  error?: unknown;
+  message?: unknown;
+};
+
 /**
  * Reads a required Mercado Pago environment value.
  *
@@ -97,6 +113,96 @@ function readRequiredMercadoPagoEnvironment(name: string): string {
 }
 
 /**
+ * Redacts sensitive provider values before they can reach application logs.
+ *
+ * @param value - Provider text that may include tokens or PII.
+ * @returns Safe text for diagnostics.
+ */
+function redactMercadoPagoDiagnosticText(value: string): string {
+  return MERCADO_PAGO_SENSITIVE_TEXT_PATTERNS.reduce(
+    (safeValue, pattern) => safeValue.replace(pattern, "[redacted]"),
+    value
+  );
+}
+
+/**
+ * Converts simple provider values to bounded safe diagnostic text.
+ *
+ * @param value - Unknown value returned by Mercado Pago.
+ * @returns Safe diagnostic text, or null when the value is not useful.
+ */
+function toSafeMercadoPagoDiagnosticText(value: unknown): string | null {
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  ) {
+    return null;
+  }
+
+  const safeText = redactMercadoPagoDiagnosticText(String(value)).trim();
+
+  return safeText
+    ? safeText.slice(0, MERCADO_PAGO_ERROR_DETAIL.maxTextLength)
+    : null;
+}
+
+/**
+ * Builds bounded cause details from a Mercado Pago error body.
+ *
+ * @param cause - Provider cause payload.
+ * @returns Safe cause details for diagnostics.
+ */
+function buildMercadoPagoCauseDetails(cause: unknown): string[] {
+  if (!Array.isArray(cause)) {
+    return [];
+  }
+
+  return cause
+    .slice(0, MERCADO_PAGO_ERROR_DETAIL.maxCauseCount)
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return toSafeMercadoPagoDiagnosticText(entry);
+      }
+
+      const details = entry as Record<string, unknown>;
+      const code = toSafeMercadoPagoDiagnosticText(details.code);
+      const description = toSafeMercadoPagoDiagnosticText(details.description);
+
+      return [code, description].filter(Boolean).join(": ") || null;
+    })
+    .filter((detail): detail is string => Boolean(detail));
+}
+
+/**
+ * Builds the public error message for failed Mercado Pago requests.
+ *
+ * @param status - HTTP status returned by Mercado Pago.
+ * @param body - Parsed provider response body.
+ * @returns Error message with safe provider diagnostics.
+ */
+function buildMercadoPagoRequestFailureMessage(
+  status: number,
+  body: unknown
+): string {
+  const baseMessage = "Mercado Pago request failed with status " + status;
+  if (!body || typeof body !== "object") {
+    return baseMessage;
+  }
+
+  const errorBody = body as MercadoPagoErrorBody;
+  const providerDetails = [
+    toSafeMercadoPagoDiagnosticText(errorBody.message),
+    toSafeMercadoPagoDiagnosticText(errorBody.error),
+    ...buildMercadoPagoCauseDetails(errorBody.cause),
+  ].filter((detail): detail is string => Boolean(detail));
+
+  return providerDetails.length
+    ? baseMessage + ": " + providerDetails.join("; ")
+    : baseMessage;
+}
+
+/**
  * Parses a provider JSON response and validates HTTP success.
  *
  * @param response - Fetch response returned by Mercado Pago.
@@ -107,7 +213,9 @@ async function readMercadoPagoResponse<T>(response: Response): Promise<T> {
   const body = (await response.json().catch(() => ({}))) as T;
 
   if (!response.ok) {
-    throw new Error("Mercado Pago request failed with status " + response.status);
+    throw new Error(
+      buildMercadoPagoRequestFailureMessage(response.status, body)
+    );
   }
 
   return body;
