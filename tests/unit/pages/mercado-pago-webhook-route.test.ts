@@ -182,6 +182,42 @@ describe("Mercado Pago webhook route", () => {
     });
   });
 
+  it("processes the Mercado Pago dashboard simulator subscription payload", async () => {
+    const timestamp = String(Date.now());
+    const requestId = "request-1";
+    const response = await POST(
+      buildWebhookRequest(
+        {
+          "x-request-id": requestId,
+          "x-signature": buildWebhookSignature("123456", requestId, timestamp),
+        },
+        undefined,
+        {
+          action: "updated",
+          application_id: "7171404559040283",
+          data: {
+            id: "123456",
+          },
+          date: "2021-11-01T02:02:02Z",
+          entity: "preapproval",
+          id: "123456",
+          type: "subscription_preapproval",
+          version: 8,
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(createRequestModules).toHaveBeenCalledWith({
+      mercadoPagoWebhookVerified: true,
+    });
+    expect(handleMercadoPagoSubscriptionWebhook).toHaveBeenCalledWith({
+      eventId: "123456",
+      resourceId: "123456",
+      topic: "subscription_preapproval",
+    });
+  });
+
   it("ignores signed webhook payloads for non-subscription topics", async () => {
     const timestamp = String(Date.now());
     const requestId = "request-1";

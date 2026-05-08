@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { SubscriptionReturnStatus } from "@/components/subscriptions/subscription-return-status";
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 import {
   TRIBE_MEMBERSHIP_STATUS_REASON,
@@ -27,13 +28,6 @@ const TRIBE_PAGE_QUERY = {
   mercadoPagoPreapprovalId: "preapproval_id",
 } as const;
 
-const SUBSCRIPTION_RETURN_COPY = {
-  description:
-    "Mercado Pago nos está avisando el resultado. En unos segundos vas a poder volver a entrar a la tribu.",
-  eyebrow: "Suscripción",
-  title: "Estamos confirmando tu suscripción",
-} as const;
-
 type TribePageSearchParams = {
   [TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId]?: string | string[];
 };
@@ -59,17 +53,7 @@ function readFirstSearchParamValue(
 function renderSubscriptionReturnStatus() {
   return (
     <main className={styles.TribePage}>
-      <section className={styles.TribePage__subscriptionReturn}>
-        <p className={styles.TribePage__eyebrow}>
-          {SUBSCRIPTION_RETURN_COPY.eyebrow}
-        </p>
-        <h1 className={styles.TribePage__title}>
-          {SUBSCRIPTION_RETURN_COPY.title}
-        </h1>
-        <p className={styles.TribePage__description}>
-          {SUBSCRIPTION_RETURN_COPY.description}
-        </p>
-      </section>
+      <SubscriptionReturnStatus />
     </main>
   );
 }

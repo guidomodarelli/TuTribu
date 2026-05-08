@@ -1,0 +1,28 @@
+.SubscriptionReturnStatus {
+  align-content: center;
+  display: grid;
+  gap: 1rem;
+  max-width: 42rem;
+  min-height: 70vh;
+
+  &__eyebrow {
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  &__title {
+    color: var(--foreground);
+    font-size: clamp(2.25rem, 7vw, 5rem);
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  &__description {
+    color: var(--muted-foreground);
+    font-size: 1.05rem;
+    line-height: 1.7;
+    max-width: 36rem;
+  }
+}
