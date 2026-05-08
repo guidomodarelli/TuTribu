@@ -673,8 +673,7 @@ export class PostgresTribeSubscriptionPriceRepository
           : null;
 
       if (providerPlanStatus !== MERCADO_PAGO_PROVIDER_PLAN_STATUS.active) {
-        const canceledPrice = await this.updateProviderPlanPriceStatus({
-          nextStatus: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+        const canceledPrice = await this.cancelProviderPlanPrice({
           priceId: providerPlanPrice.id,
           tribeSlug: query.tribeSlug,
         });
@@ -682,14 +681,6 @@ export class PostgresTribeSubscriptionPriceRepository
         if (canceledPrice) {
           canceledPriceIds.push(canceledPrice.id);
         }
-      } else if (
-        providerPlanPrice.status === TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled
-      ) {
-        await this.updateProviderPlanPriceStatus({
-          nextStatus: TRIBE_SUBSCRIPTION_PRICE_STATUS.active,
-          priceId: providerPlanPrice.id,
-          tribeSlug: query.tribeSlug,
-        });
       }
     }
 
@@ -743,8 +734,7 @@ export class PostgresTribeSubscriptionPriceRepository
         : null;
 
     if (providerPlanStatus !== MERCADO_PAGO_PROVIDER_PLAN_STATUS.active) {
-      const canceledPrice = await this.updateProviderPlanPriceStatus({
-        nextStatus: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+      const canceledPrice = await this.cancelProviderPlanPrice({
         priceId: providerPlanPrice.id,
         tribeSlug: command.tribeSlug,
       });
@@ -755,19 +745,6 @@ export class PostgresTribeSubscriptionPriceRepository
           isCurrent: false,
           status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
         },
-        status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
-      };
-    }
-
-    if (providerPlanPrice.status === TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled) {
-      const activePrice = await this.updateProviderPlanPriceStatus({
-        nextStatus: TRIBE_SUBSCRIPTION_PRICE_STATUS.active,
-        priceId: providerPlanPrice.id,
-        tribeSlug: command.tribeSlug,
-      });
-
-      return {
-        price: activePrice ?? mapSubscriptionPrice(providerPlanPrice),
         status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
       };
     }
@@ -951,7 +928,7 @@ export class PostgresTribeSubscriptionPriceRepository
           on target_tribe.id = tribe_subscription_prices.tribe_id
         left join public.tribe_member_subscriptions
           on tribe_member_subscriptions.price_id = tribe_subscription_prices.id
-        where tribe_subscription_prices.status in ('active', 'canceled')
+        where tribe_subscription_prices.status = 'active'
           and (${input.priceId ?? ""} = '' or tribe_subscription_prices.id::text = ${input.priceId ?? ""})
           and public.can_manage_tribe_subscription_prices(target_tribe.id)
         group by tribe_subscription_prices.id
@@ -997,15 +974,12 @@ export class PostgresTribeSubscriptionPriceRepository
   }
 
   /**
-   * Updates local price status after provider plan verification.
+   * Cancels a local price after provider plan verification proves it is gone.
    *
-   * @param input - Tribe slug, price identifier, and next status.
+   * @param input - Tribe slug and price identifier.
    * @returns Updated price, or null when no row was updated.
    */
-  private async updateProviderPlanPriceStatus(input: {
-    nextStatus:
-      | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.active
-      | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled;
+  private async cancelProviderPlanPrice(input: {
     priceId: string;
     tribeSlug: string;
   }): Promise<TribeSubscriptionPriceResult | null> {
@@ -1020,15 +994,12 @@ export class PostgresTribeSubscriptionPriceRepository
         updated_price as (
         update public.tribe_subscription_prices
         set
-          status = ${input.nextStatus},
-          is_current = case
-            when ${input.nextStatus} = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled}
-              then false
-            else tribe_subscription_prices.is_current
-          end
+          status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled},
+          is_current = false,
+          mercado_pago_preapproval_plan_id = null
         where tribe_subscription_prices.tribe_id = (select id from target_tribe)
           and tribe_subscription_prices.id = ${input.priceId}
-          and tribe_subscription_prices.status in ('active', 'canceled')
+          and tribe_subscription_prices.status = 'active'
           and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
         returning id, name, amount_cents, currency, frequency, status, is_current, created_at
         )

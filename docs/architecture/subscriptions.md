@@ -39,3 +39,11 @@ La integración guarda tokens OAuth solo del lado servidor en
 `tribe_payment_integrations`. Las operaciones externas usan claves de
 idempotencia y los webhooks se registran en
 `subscription_idempotency_operations` para evitar efectos duplicados.
+
+Cuando la verificación contra Mercado Pago confirma que un
+`mercado_pago_preapproval_plan_id` ya no existe o no está activo, el precio
+local se marca como `canceled`, deja de ser `current` y se limpia el
+identificador de plan del proveedor. Esa transición es irreversible: los
+precios cancelados no vuelven a consultarse en Mercado Pago ni pueden
+reactivarse; cualquier nueva oferta debe crear una nueva versión de precio y
+un nuevo plan de proveedor.

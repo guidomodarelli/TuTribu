@@ -114,6 +114,12 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     expect(await screen.findByText("Cancelado")).toBeInTheDocument();
     expect(screen.getByText("Plan mensual")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Verificar plan" })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Verificar suscriptores" })
+    ).toBeDisabled();
   });
 
   it("should verify one provider plan from the row action", async () => {

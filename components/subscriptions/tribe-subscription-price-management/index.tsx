@@ -803,7 +803,11 @@ export function TribeSubscriptionPriceManagement({
                     {PRICE_MANAGEMENT_COPY.removeButton}
                   </Button>
                   <Button
-                    disabled={Boolean(pendingAction) || isVerifyingProviderPlans}
+                    disabled={
+                      Boolean(pendingAction) ||
+                      isVerifyingProviderPlans ||
+                      price.status === PRICE_MANAGEMENT_STATUS.canceled
+                    }
                     onClick={() => {
                       void handleVerifyProviderPlan(price.id);
                     }}
@@ -814,7 +818,11 @@ export function TribeSubscriptionPriceManagement({
                     {PRICE_MANAGEMENT_COPY.verifyProviderPlanButton}
                   </Button>
                   <Button
-                    disabled={Boolean(pendingAction) || isVerifyingProviderPlans}
+                    disabled={
+                      Boolean(pendingAction) ||
+                      isVerifyingProviderPlans ||
+                      price.status === PRICE_MANAGEMENT_STATUS.canceled
+                    }
                     onClick={() => {
                       void handleVerifyProviderSubscribers(price.id);
                     }}

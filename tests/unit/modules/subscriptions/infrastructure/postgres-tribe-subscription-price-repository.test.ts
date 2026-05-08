@@ -389,9 +389,43 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
       verifiedCount: 1,
     });
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
-      /set[\s\S]*status = [\s\S]*is_current = case/
+  });
+
+  it("should not query Mercado Pago when no active local provider plan exists", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [],
+      });
+    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      getMercadoPagoPlanStatus
     );
+
+    await expect(
+      repository.verifyProviderPlan({
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound,
+    });
+    expect(getMercadoPagoPlanStatus).not.toHaveBeenCalled();
+    expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("should not call Mercado Pago when the viewer cannot manage prices", async () => {
