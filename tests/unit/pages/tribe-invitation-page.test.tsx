@@ -101,6 +101,19 @@ describe("TribeInvitationPage", () => {
     expect(acceptTribeInvitation).not.toHaveBeenCalled();
   });
 
+  it("renders the subscription payment form when the invitation requires a subscription", async () => {
+    render(await TribeInvitationPage(buildPagePropsWithStatus("subscription_required")));
+
+    expect(
+      screen.getByRole("heading", { name: "Completá tu suscripción" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Continuar con el pago" })
+    ).toBeInTheDocument();
+    expect(acceptTribeInvitation).not.toHaveBeenCalled();
+    expect(startTribeMemberSubscription).not.toHaveBeenCalled();
+  });
+
   it("accepts a valid invitation from the POST action and redirects to the tribe", async () => {
     (redirect as unknown as jest.Mock).mockImplementation(() => {
       throw new Error("NEXT_REDIRECT");
