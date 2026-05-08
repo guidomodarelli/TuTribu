@@ -1,8 +1,15 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
+}
+
+function readVersionedMigrationTags(): string[] {
+  return readdirSync(path.join(process.cwd(), "database/migrations"))
+    .filter((migrationFileName) => migrationFileName.endsWith(".sql"))
+    .map((migrationFileName) => migrationFileName.replace(/\.sql$/, ""))
+    .sort();
 }
 
 const FORBIDDEN_INVITATION_TOKEN_CONTEXT_SETTING = [
@@ -21,6 +28,8 @@ describe("Tribe SQL guardrails", () => {
     "database/migrations/20260426080000_fix_tribe_timestamp_defaults.sql";
   const visibleTribeMembersMigrationPath =
     "database/migrations/20260506090000_add_visible_tribe_members_function.sql";
+  const invitationAcceptanceRepairMigrationPath =
+    "database/migrations/20260506110000_repair_invitation_acceptance_storage.sql";
   const drizzleMigrationJournalPath = "database/migrations/meta/_journal.json";
 
   it("enforces single-segment slugs in shared migrations", () => {
@@ -149,6 +158,32 @@ describe("Tribe SQL guardrails", () => {
     );
   });
 
+  it("repairs invitation acceptance storage after skipped historical migrations", () => {
+    const repairMigration = readWorkspaceFile(
+      invitationAcceptanceRepairMigrationPath
+    );
+
+    expect(repairMigration).toContain(
+      "CREATE TABLE IF NOT EXISTS public.tribe_invitations"
+    );
+    expect(repairMigration).toContain(
+      "CREATE UNIQUE INDEX IF NOT EXISTS tribe_invitations_token_hash_key"
+    );
+    expect(repairMigration).toContain(
+      "ADD COLUMN IF NOT EXISTS status_reason text NOT NULL DEFAULT 'none'"
+    );
+    expect(repairMigration).toContain(
+      "CREATE POLICY \"Authenticated users can read invitation by token\""
+    );
+    expect(repairMigration).toContain(
+      "CREATE POLICY \"Authenticated users can accept active invitations\""
+    );
+    expect(repairMigration).toContain("app.current_invitation_hash");
+    expect(repairMigration).toContain(
+      "GRANT EXECUTE ON FUNCTION public.can_manage_tribe_invitations(uuid)"
+    );
+  });
+
   it("lists visible tribe members through a definer function guarded by viewer membership", () => {
     const visibleTribeMembersMigration = readWorkspaceFile(
       visibleTribeMembersMigrationPath
@@ -176,6 +211,44 @@ describe("Tribe SQL guardrails", () => {
 
     expect(drizzleMigrationJournal).toContain(
       "20260506090000_add_visible_tribe_members_function"
+    );
+  });
+
+  it("registers every versioned SQL migration in the Drizzle journal", () => {
+    const journal = JSON.parse(
+      readWorkspaceFile(drizzleMigrationJournalPath)
+    ) as {
+      entries: Array<{ tag: string }>;
+    };
+    const registeredMigrationTags = journal.entries
+      .map((journalEntry) => journalEntry.tag)
+      .sort();
+
+    expect(registeredMigrationTags).toEqual(readVersionedMigrationTags());
+  });
+
+  it("runs the invitation acceptance repair before subscription migrations", () => {
+    const journal = JSON.parse(
+      readWorkspaceFile(drizzleMigrationJournalPath)
+    ) as {
+      entries: Array<{ idx: number; tag: string; when: number }>;
+    };
+    const repairMigrationEntry = journal.entries.find(
+      (journalEntry) =>
+        journalEntry.tag === "20260506110000_repair_invitation_acceptance_storage"
+    );
+    const subscriptionMigrationEntry = journal.entries.find(
+      (journalEntry) =>
+        journalEntry.tag === "20260506130000_create_tribe_subscriptions"
+    );
+
+    expect(repairMigrationEntry).toBeDefined();
+    expect(subscriptionMigrationEntry).toBeDefined();
+    expect(repairMigrationEntry?.idx).toBeLessThan(
+      subscriptionMigrationEntry?.idx ?? Number.POSITIVE_INFINITY
+    );
+    expect(repairMigrationEntry?.when).toBeLessThan(
+      subscriptionMigrationEntry?.when ?? Number.POSITIVE_INFINITY
     );
   });
 });

@@ -12,19 +12,82 @@
     {
       "idx": 1,
       "version": "7",
+      "when": 1777165200000,
+      "tag": "20260426010000_create_tribe_messages_round",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777168800000,
+      "tag": "20260426020000_add_message_titles",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777172400000,
+      "tag": "20260426030000_restore_message_round_timestamp_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777176000000,
+      "tag": "20260426040000_add_tribe_channels",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777179600000,
+      "tag": "20260426050000_keep_only_ronda_initial_channel",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777183200000,
+      "tag": "20260426060000_limit_channel_management_to_leaders_and_guardians",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777186800000,
+      "tag": "20260426070000_add_tribe_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777190400000,
+      "tag": "20260426080000_fix_tribe_timestamp_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
       "when": 1778058000000,
       "tag": "20260506090000_add_visible_tribe_members_function",
       "breakpoints": true
     },
     {
-      "idx": 2,
+      "idx": 10,
+      "version": "7",
+      "when": 1778065200000,
+      "tag": "20260506110000_repair_invitation_acceptance_storage",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
       "version": "7",
       "when": 1778068800000,
       "tag": "20260506120000_create_tribe_events",
       "breakpoints": true
     },
     {
-      "idx": 3,
+      "idx": 12,
       "version": "7",
       "when": 1778072400000,
       "tag": "20260506130000_create_tribe_subscriptions",
