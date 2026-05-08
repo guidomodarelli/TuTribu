@@ -154,7 +154,7 @@ describe("Mercado Pago OAuth routes", () => {
     ).catch(resolveRedirectUrl);
 
     expect(callbackRedirect).toBe(
-      "/tribu/matematica-pro/precios?status=setup_required"
+      "/tribu/matematica-pro/precios?status=setup_required&statusOrigin=mercado_pago_oauth"
     );
     expect(connectTribePaymentIntegration).not.toHaveBeenCalled();
   });

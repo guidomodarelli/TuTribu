@@ -18,11 +18,12 @@ const OAUTH_CALLBACK_QUERY = {
   code: "code",
   state: "state",
   status: "status",
+  statusOrigin: "statusOrigin",
 } as const;
 
 const OAUTH_REDIRECT = {
   querySeparator: "?",
-  valueSeparator: "=",
+  statusOriginValue: "mercado_pago_oauth",
 } as const;
 
 const OAUTH_CALLBACK_LOG = {
@@ -36,17 +37,27 @@ const OAUTH_CALLBACK_LOG = {
  *
  * @param tribeSlug - Tribe slug.
  * @param status - Connection status.
+ * @param statusOrigin - Optional source of the redirected status.
  * @returns Prices page route.
  */
-function buildPricesRedirect(tribeSlug: string, status: string): string {
+function buildPricesRedirect(
+  tribeSlug: string,
+  status: string,
+  statusOrigin?: string
+): string {
   const pricesPath = ROUTES.tribes.prices(tribeSlug);
+  const searchParams = new URLSearchParams({
+    [OAUTH_CALLBACK_QUERY.status]: status,
+  });
+
+  if (statusOrigin) {
+    searchParams.set(OAUTH_CALLBACK_QUERY.statusOrigin, statusOrigin);
+  }
 
   return [
     pricesPath,
     OAUTH_REDIRECT.querySeparator,
-    OAUTH_CALLBACK_QUERY.status,
-    OAUTH_REDIRECT.valueSeparator,
-    status,
+    searchParams.toString(),
   ].join("");
 }
 
@@ -102,7 +113,8 @@ export async function GET(request: Request) {
     redirect(
       buildPricesRedirect(
         verifiedState.tribeSlug,
-        TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired
+        TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired,
+        OAUTH_REDIRECT.statusOriginValue
       )
     );
   }

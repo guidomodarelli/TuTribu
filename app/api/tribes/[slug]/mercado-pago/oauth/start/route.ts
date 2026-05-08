@@ -19,7 +19,8 @@ const MERCADO_PAGO_OAUTH_ROLE = {
 const OAUTH_REDIRECT = {
   querySeparator: "?",
   statusParam: "status",
-  valueSeparator: "=",
+  statusOriginParam: "statusOrigin",
+  statusOriginValue: "mercado_pago_oauth",
 } as const;
 
 /**
@@ -30,12 +31,15 @@ const OAUTH_REDIRECT = {
  * @returns Prices page route with a status query.
  */
 function buildPricesStatusRedirect(tribeSlug: string, status: string): string {
+  const searchParams = new URLSearchParams({
+    [OAUTH_REDIRECT.statusParam]: status,
+    [OAUTH_REDIRECT.statusOriginParam]: OAUTH_REDIRECT.statusOriginValue,
+  });
+
   return [
     ROUTES.tribes.prices(tribeSlug),
     OAUTH_REDIRECT.querySeparator,
-    OAUTH_REDIRECT.statusParam,
-    OAUTH_REDIRECT.valueSeparator,
-    status,
+    searchParams.toString(),
   ].join("");
 }
 

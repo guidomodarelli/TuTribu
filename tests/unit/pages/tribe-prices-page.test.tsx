@@ -27,12 +27,14 @@ jest.mock("@/components/subscriptions/tribe-subscription-price-management", () =
     isMercadoPagoConnected,
     prices,
     shouldAutoConnectMercadoPago,
+    statusMessage,
     tribeSlug,
   }: {
     canManagePrices: boolean;
     isMercadoPagoConnected: boolean;
     prices: unknown[];
     shouldAutoConnectMercadoPago?: boolean;
+    statusMessage: string | null;
     tribeSlug: string;
   }) => (
     <section>
@@ -41,6 +43,7 @@ jest.mock("@/components/subscriptions/tribe-subscription-price-management", () =
       <p>{canManagePrices ? "opera" : "lee"}</p>
       <p>{isMercadoPagoConnected ? "conectado" : "desconectado"}</p>
       <p>{shouldAutoConnectMercadoPago ? "auto-conecta" : "no-auto-conecta"}</p>
+      {statusMessage ? <p>{statusMessage}</p> : null}
       <p>{prices.length}</p>
     </section>
   ),
@@ -188,6 +191,43 @@ describe("TribePricesPage", () => {
         message: "Failed to resolve tribe subscription prices",
       })
     );
+  });
+
+  it("does not render stale setup status when Mercado Pago is connected", async () => {
+    render(
+      await TribePricesPage({
+        ...buildPageProps(),
+        searchParams: Promise.resolve({
+          status: "setup_required",
+        }),
+      })
+    );
+
+    expect(
+      screen.queryByText(
+        "Falta configurar la aplicación OAuth de Mercado Pago en el entorno."
+      )
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("conectado")).toBeInTheDocument();
+  });
+
+  it("renders fresh OAuth setup status when Mercado Pago is connected", async () => {
+    render(
+      await TribePricesPage({
+        ...buildPageProps(),
+        searchParams: Promise.resolve({
+          status: "setup_required",
+          statusOrigin: "mercado_pago_oauth",
+        }),
+      })
+    );
+
+    expect(
+      screen.getByText(
+        "Falta configurar la aplicación OAuth de Mercado Pago en el entorno."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText("conectado")).toBeInTheDocument();
   });
 
   it("returns 404 when a regular member opens price management", async () => {

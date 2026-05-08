@@ -23,6 +23,11 @@ const PRICE_ADMIN_ROLE = {
 
 const PRICE_PAGE_QUERY = {
   status: "status",
+  statusOrigin: "statusOrigin",
+} as const;
+
+const PRICE_PAGE_STATUS_ORIGIN = {
+  mercadoPagoOAuth: "mercado_pago_oauth",
 } as const;
 
 const PRICE_PAGE_STATUS_MESSAGE = {
@@ -33,6 +38,7 @@ const PRICE_PAGE_STATUS_MESSAGE = {
 
 type TribePricesPageSearchParams = {
   status?: string | string[];
+  statusOrigin?: string | string[];
 };
 
 /**
@@ -78,6 +84,26 @@ function resolveStatusMessage(status: string | null): string | null {
 }
 
 /**
+ * Resolves whether a setup query status is stale for the loaded integration.
+ *
+ * @param status - Raw status query value.
+ * @param hasMercadoPagoIntegration - Whether the tribe currently has an integration.
+ * @param statusOrigin - Raw status origin query value.
+ * @returns Whether the setup status should be hidden.
+ */
+function shouldHideSetupStatus(
+  status: string | null,
+  hasMercadoPagoIntegration: boolean,
+  statusOrigin: string | null
+): boolean {
+  return (
+    status === TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired &&
+    hasMercadoPagoIntegration &&
+    statusOrigin !== PRICE_PAGE_STATUS_ORIGIN.mercadoPagoOAuth
+  );
+}
+
+/**
  * Renders subscription price settings for tribe leaders and guardians.
  *
  * @param props - Route params with the tribe slug.
@@ -97,7 +123,10 @@ export default async function TribePricesPage({
   const status = readFirstSearchParamValue(
     resolvedSearchParams[PRICE_PAGE_QUERY.status]
   );
-  const statusMessage = resolveStatusMessage(status);
+  const statusOrigin = readFirstSearchParamValue(
+    resolvedSearchParams[PRICE_PAGE_QUERY.statusOrigin]
+  );
+  const queryStatusMessage = resolveStatusMessage(status);
   const { authenticatedMember, tribe, logger, modules } =
     await resolveVisibleTribePageAccess({
       operation: PRICE_MANAGEMENT_PAGE_LOG.operation,
@@ -152,6 +181,13 @@ export default async function TribePricesPage({
         },
       };
     });
+  const statusMessage = shouldHideSetupStatus(
+    status,
+    priceList.hasMercadoPagoIntegration,
+    statusOrigin
+  )
+    ? null
+    : queryStatusMessage;
 
   return (
     <main>
