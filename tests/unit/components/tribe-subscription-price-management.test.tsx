@@ -45,6 +45,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         canManagePrices
+        isMercadoPagoConnected
         prices={[activePrice]}
         statusMessage={null}
         tribeSlug="matematica-pro"
@@ -66,6 +67,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         canManagePrices
+        isMercadoPagoConnected
         prices={[activePrice]}
         statusMessage={null}
         tribeSlug="matematica-pro"
@@ -106,6 +108,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         canManagePrices
+        isMercadoPagoConnected
         prices={[activePrice]}
         statusMessage={null}
         tribeSlug="matematica-pro"
@@ -150,6 +153,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         canManagePrices
+        isMercadoPagoConnected
         prices={[activePrice]}
         statusMessage={null}
         tribeSlug="matematica-pro"
@@ -204,6 +208,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         canManagePrices
+        isMercadoPagoConnected
         prices={[priceWithLocalAssociation]}
         statusMessage={null}
         tribeSlug="matematica-pro"
@@ -247,6 +252,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         canManagePrices
+        isMercadoPagoConnected
         prices={[]}
         statusMessage={null}
         tribeSlug="matematica-pro"
@@ -267,5 +273,36 @@ describe("TribeSubscriptionPriceManagement", () => {
       "El precio mensual mínimo es $ 15."
     );
     expect(amountError).toBeInTheDocument();
+  });
+
+  it("should block price creation and start Mercado Pago connection automatically when disconnected", async () => {
+    const navigateToMercadoPagoConnection = jest.fn();
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected={false}
+        navigateToMercadoPagoConnection={navigateToMercadoPagoConnection}
+        prices={[]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.getByText(
+        "No estás conectado a Mercado Pago. Estamos intentando conectarte automáticamente."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toBeDisabled();
+    expect(screen.getByLabelText("Precio mensual")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Crear precio" })).toBeDisabled();
+
+    await waitFor(() => {
+      expect(navigateToMercadoPagoConnection).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/mercado-pago/oauth/start"
+      );
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

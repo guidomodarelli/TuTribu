@@ -183,6 +183,7 @@ describe("manage tribe subscription prices use cases", () => {
 
   it("lists prices with viewer permissions from the repository", async () => {
     const listByTribeSlug = jest.fn(async () => ({
+      hasMercadoPagoIntegration: true,
       prices: [createdPrice],
       viewerPermissions: {
         canManagePrices: false,
@@ -198,6 +199,7 @@ describe("manage tribe subscription prices use cases", () => {
         tribeSlug: " matematica-pro ",
       })
     ).resolves.toEqual({
+      hasMercadoPagoIntegration: true,
       prices: [createdPrice],
       viewerPermissions: {
         canManagePrices: false,

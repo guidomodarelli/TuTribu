@@ -94,9 +94,10 @@ export default async function TribePricesPage({
 }) {
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
-  const statusMessage = resolveStatusMessage(
-    readFirstSearchParamValue(resolvedSearchParams[PRICE_PAGE_QUERY.status])
+  const status = readFirstSearchParamValue(
+    resolvedSearchParams[PRICE_PAGE_QUERY.status]
   );
+  const statusMessage = resolveStatusMessage(status);
   const { authenticatedMember, tribe, logger, modules } =
     await resolveVisibleTribePageAccess({
       operation: PRICE_MANAGEMENT_PAGE_LOG.operation,
@@ -120,10 +121,17 @@ export default async function TribePricesPage({
     notFound();
   }
 
+  const shouldAutoConnectMercadoPago =
+    status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.connected &&
+    status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;
   const priceList = await modules.subscriptions.useCases
     .listTribeSubscriptionPrices({
       tribeSlug: tribe.slug,
     })
+    .then((resolvedPriceList) => ({
+      ...resolvedPriceList,
+      shouldAutoConnectMercadoPago,
+    }))
     .catch((error: unknown) => {
       logger.error({
         message: PRICE_MANAGEMENT_PAGE_LOG.resolvePricesFailureMessage,
@@ -135,7 +143,9 @@ export default async function TribePricesPage({
       });
 
       return {
+        hasMercadoPagoIntegration: false,
         prices: [],
+        shouldAutoConnectMercadoPago: false,
         viewerPermissions: {
           canManagePrices: currentMembership.role === PRICE_ADMIN_ROLE.leader,
           canViewPrices: true,
@@ -147,7 +157,9 @@ export default async function TribePricesPage({
     <main>
       <TribeSubscriptionPriceManagement
         canManagePrices={priceList.viewerPermissions.canManagePrices}
+        isMercadoPagoConnected={priceList.hasMercadoPagoIntegration}
         prices={priceList.prices}
+        shouldAutoConnectMercadoPago={priceList.shouldAutoConnectMercadoPago}
         statusMessage={statusMessage}
         tribeSlug={tribe.slug}
       />

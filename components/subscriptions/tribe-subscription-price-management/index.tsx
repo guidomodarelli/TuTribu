@@ -12,6 +12,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -35,6 +36,8 @@ const PRICE_MANAGEMENT_COPY = {
   amountPlaceholder: "5000",
   connectButton: "Conectar Mercado Pago",
   createButton: "Crear precio",
+  disconnectedNotice:
+    "No estás conectado a Mercado Pago. Estamos intentando conectarte automáticamente.",
   canceledBadge: "Cancelado",
   currentBadge: "Actual",
   description:
@@ -134,7 +137,10 @@ class PriceRequestError extends Error {
 
 type TribeSubscriptionPriceManagementProps = {
   canManagePrices: boolean;
+  isMercadoPagoConnected: boolean;
+  navigateToMercadoPagoConnection?: (connectionEndpoint: string) => void;
   prices: TribeSubscriptionPriceResult[];
+  shouldAutoConnectMercadoPago?: boolean;
   statusMessage: string | null;
   tribeSlug: string;
 };
@@ -311,7 +317,10 @@ function isAbortError(error: unknown): boolean {
 
 export function TribeSubscriptionPriceManagement({
   canManagePrices,
+  isMercadoPagoConnected,
+  navigateToMercadoPagoConnection,
   prices,
+  shouldAutoConnectMercadoPago = true,
   statusMessage,
   tribeSlug,
 }: TribeSubscriptionPriceManagementProps) {
@@ -329,6 +338,7 @@ export function TribeSubscriptionPriceManagement({
     setProviderSubscriberCountsByPriceId,
   ] = useState<Record<string, number>>({});
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const hasStartedMercadoPagoConnection = useRef(false);
   const nameInputId = useId();
   const amountInputId = useId();
   const amountErrorId = useId();
@@ -338,6 +348,27 @@ export function TribeSubscriptionPriceManagement({
         firstPrice.createdAt < secondPrice.createdAt ? 1 : -1
       ),
     [priceItems]
+  );
+  const isMercadoPagoConnectionRequired =
+    canManagePrices && !isMercadoPagoConnected;
+  const isPriceManagementDisabled =
+    Boolean(pendingAction) ||
+    isVerifyingProviderPlans ||
+    isMercadoPagoConnectionRequired;
+  const mercadoPagoConnectionEndpoint = buildMercadoPagoConnectionEndpoint(
+    tribeSlug
+  );
+  const startMercadoPagoConnection = useCallback(
+    (connectionEndpoint: string) => {
+      if (navigateToMercadoPagoConnection) {
+        navigateToMercadoPagoConnection(connectionEndpoint);
+
+        return;
+      }
+
+      window.location.href = connectionEndpoint;
+    },
+    [navigateToMercadoPagoConnection]
   );
 
   /**
@@ -373,7 +404,7 @@ export function TribeSubscriptionPriceManagement({
   }, []);
 
   useEffect(() => {
-    if (!canManagePrices || prices.length === 0) {
+    if (!canManagePrices || !isMercadoPagoConnected || prices.length === 0) {
       return undefined;
     }
 
@@ -431,8 +462,27 @@ export function TribeSubscriptionPriceManagement({
   }, [
     applyProviderPlanVerificationResponse,
     canManagePrices,
+    isMercadoPagoConnected,
     prices.length,
     tribeSlug,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isMercadoPagoConnectionRequired ||
+      !shouldAutoConnectMercadoPago ||
+      hasStartedMercadoPagoConnection.current
+    ) {
+      return;
+    }
+
+    hasStartedMercadoPagoConnection.current = true;
+    startMercadoPagoConnection(mercadoPagoConnectionEndpoint);
+  }, [
+    isMercadoPagoConnectionRequired,
+    mercadoPagoConnectionEndpoint,
+    shouldAutoConnectMercadoPago,
+    startMercadoPagoConnection,
   ]);
 
   /**
@@ -443,6 +493,11 @@ export function TribeSubscriptionPriceManagement({
    */
   const handleCreatePrice = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (isMercadoPagoConnectionRequired) {
+      return;
+    }
+
     setPendingAction(PRICE_MANAGEMENT_COPY.createButton);
     setFieldErrors({});
 
@@ -624,7 +679,7 @@ export function TribeSubscriptionPriceManagement({
         {canManagePrices ? (
           <Button
             onClick={() => {
-              window.location.href = buildMercadoPagoConnectionEndpoint(tribeSlug);
+              startMercadoPagoConnection(mercadoPagoConnectionEndpoint);
             }}
             type={PRICE_MANAGEMENT_REQUEST.buttonType}
             variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
@@ -657,6 +712,15 @@ export function TribeSubscriptionPriceManagement({
         </p>
       ) : null}
 
+      {isMercadoPagoConnectionRequired ? (
+        <p
+          className={styles.TribeSubscriptionPriceManagement__status}
+          role={PRICE_MANAGEMENT_REQUEST.statusRole}
+        >
+          {PRICE_MANAGEMENT_COPY.disconnectedNotice}
+        </p>
+      ) : null}
+
       {canManagePrices ? (
         <form
           className={styles.TribeSubscriptionPriceManagement__form}
@@ -670,6 +734,7 @@ export function TribeSubscriptionPriceManagement({
               {PRICE_MANAGEMENT_COPY.nameLabel}
             </label>
             <Input
+              disabled={isMercadoPagoConnectionRequired}
               id={nameInputId}
               onChange={(event) => {
                 setName(event.currentTarget.value);
@@ -686,6 +751,7 @@ export function TribeSubscriptionPriceManagement({
               {PRICE_MANAGEMENT_COPY.amountLabel}
             </label>
             <Input
+              disabled={isMercadoPagoConnectionRequired}
               id={amountInputId}
               inputMode={PRICE_MANAGEMENT_FORMAT.inputMode}
               aria-describedby={
@@ -713,8 +779,7 @@ export function TribeSubscriptionPriceManagement({
           </div>
           <Button
             disabled={
-              Boolean(pendingAction) ||
-              isVerifyingProviderPlans ||
+              isPriceManagementDisabled ||
               !name.trim() ||
               !amount.trim()
             }
@@ -772,8 +837,7 @@ export function TribeSubscriptionPriceManagement({
                 <div className={styles.TribeSubscriptionPriceManagement__actions}>
                   <Button
                     disabled={
-                      Boolean(pendingAction) ||
-                      isVerifyingProviderPlans ||
+                      isPriceManagementDisabled ||
                       price.isCurrent ||
                       price.status === PRICE_MANAGEMENT_STATUS.canceled
                     }
@@ -788,8 +852,7 @@ export function TribeSubscriptionPriceManagement({
                   </Button>
                   <Button
                     disabled={
-                      Boolean(pendingAction) ||
-                      isVerifyingProviderPlans ||
+                      isPriceManagementDisabled ||
                       price.activeSubscribersCount > 0 ||
                       price.status === PRICE_MANAGEMENT_STATUS.canceled
                     }
@@ -804,8 +867,7 @@ export function TribeSubscriptionPriceManagement({
                   </Button>
                   <Button
                     disabled={
-                      Boolean(pendingAction) ||
-                      isVerifyingProviderPlans ||
+                      isPriceManagementDisabled ||
                       price.status === PRICE_MANAGEMENT_STATUS.canceled
                     }
                     onClick={() => {
@@ -819,8 +881,7 @@ export function TribeSubscriptionPriceManagement({
                   </Button>
                   <Button
                     disabled={
-                      Boolean(pendingAction) ||
-                      isVerifyingProviderPlans ||
+                      isPriceManagementDisabled ||
                       price.status === PRICE_MANAGEMENT_STATUS.canceled
                     }
                     onClick={() => {

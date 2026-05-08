@@ -55,6 +55,68 @@ function createSubscriptionPriceRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe("PostgresTribeSubscriptionPriceRepository", () => {
+  it("lists prices with Mercado Pago integration availability", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          ...createSubscriptionPriceRow(),
+          can_manage_prices: true,
+          can_view_prices: true,
+          has_mercado_pago_integration: true,
+        },
+      ],
+    }));
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.listByTribeSlug({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      hasMercadoPagoIntegration: true,
+      prices: [
+        {
+          id: "price-1",
+        },
+      ],
+      viewerPermissions: {
+        canManagePrices: true,
+        canViewPrices: true,
+      },
+    });
+  });
+
+  it("lists expired Mercado Pago integration without refresh token as disconnected", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          ...createSubscriptionPriceRow(),
+          can_manage_prices: true,
+          can_view_prices: true,
+          has_mercado_pago_integration: false,
+        },
+      ],
+    }));
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.listByTribeSlug({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      hasMercadoPagoIntegration: false,
+      prices: [
+        {
+          id: "price-1",
+        },
+      ],
+      viewerPermissions: {
+        canManagePrices: true,
+        canViewPrices: true,
+      },
+    });
+  });
+
   it("clears the previous current price before marking another price as current", async () => {
     const execute = jest.fn(async (statement) => {
       const sqlText = getSqlText(statement);

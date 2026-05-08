@@ -24,17 +24,23 @@ jest.mock("next/headers", () => ({
 jest.mock("@/components/subscriptions/tribe-subscription-price-management", () => ({
   TribeSubscriptionPriceManagement: ({
     canManagePrices,
+    isMercadoPagoConnected,
     prices,
+    shouldAutoConnectMercadoPago,
     tribeSlug,
   }: {
     canManagePrices: boolean;
+    isMercadoPagoConnected: boolean;
     prices: unknown[];
+    shouldAutoConnectMercadoPago?: boolean;
     tribeSlug: string;
   }) => (
     <section>
       <h1>Gestión de precios</h1>
       <p>{tribeSlug}</p>
       <p>{canManagePrices ? "opera" : "lee"}</p>
+      <p>{isMercadoPagoConnected ? "conectado" : "desconectado"}</p>
+      <p>{shouldAutoConnectMercadoPago ? "auto-conecta" : "no-auto-conecta"}</p>
       <p>{prices.length}</p>
     </section>
   ),
@@ -106,6 +112,7 @@ describe("TribePricesPage", () => {
           status: "active",
         },
       ],
+      hasMercadoPagoIntegration: true,
       viewerPermissions: {
         canManagePrices: true,
         canViewPrices: true,
@@ -142,6 +149,8 @@ describe("TribePricesPage", () => {
 
     expect(screen.getByRole("heading", { name: "Gestión de precios" })).toBeInTheDocument();
     expect(screen.getByText("opera")).toBeInTheDocument();
+    expect(screen.getByText("conectado")).toBeInTheDocument();
+    expect(screen.getByText("auto-conecta")).toBeInTheDocument();
   });
 
   it("renders read-only price management for guardians", async () => {
@@ -155,6 +164,7 @@ describe("TribePricesPage", () => {
     ]);
     listTribeSubscriptionPrices.mockResolvedValue({
       prices: [],
+      hasMercadoPagoIntegration: false,
       viewerPermissions: {
         canManagePrices: false,
         canViewPrices: true,
@@ -164,6 +174,20 @@ describe("TribePricesPage", () => {
     render(await TribePricesPage(buildPageProps()));
 
     expect(screen.getByText("lee")).toBeInTheDocument();
+  });
+
+  it("does not start Mercado Pago auto connection when price loading fails", async () => {
+    listTribeSubscriptionPrices.mockRejectedValue(new Error("database timeout"));
+
+    render(await TribePricesPage(buildPageProps()));
+
+    expect(screen.getByText("desconectado")).toBeInTheDocument();
+    expect(screen.getByText("no-auto-conecta")).toBeInTheDocument();
+    expect(errorMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Failed to resolve tribe subscription prices",
+      })
+    );
   });
 
   it("returns 404 when a regular member opens price management", async () => {

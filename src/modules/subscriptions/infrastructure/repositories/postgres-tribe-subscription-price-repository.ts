@@ -62,6 +62,7 @@ type SubscriptionPriceRow = {
 type SubscriptionPriceListRow = SubscriptionPriceRow & {
   can_manage_prices: boolean | null;
   can_view_prices: boolean | null;
+  has_mercado_pago_integration: boolean | null;
 };
 
 type SubscriptionPriceMutationRow = SubscriptionPriceRow & {
@@ -231,6 +232,20 @@ export class PostgresTribeSubscriptionPriceRepository
             coalesce(public.can_view_tribe_subscription_prices((select id from target_tribe)), false) as can_view_prices,
             coalesce(public.can_manage_tribe_subscription_prices((select id from target_tribe)), false) as can_manage_prices
         ),
+        payment_integration as (
+          select exists (
+            select 1
+            from public.tribe_payment_integrations
+            where tribe_payment_integrations.tribe_id = (select id from target_tribe)
+              and tribe_payment_integrations.provider = 'mercado_pago'
+              and tribe_payment_integrations.access_token is not null
+              and (
+                tribe_payment_integrations.token_expires_at is null
+                or tribe_payment_integrations.token_expires_at > timezone('utc', now()) + interval '5 minutes'
+                or tribe_payment_integrations.refresh_token is not null
+              )
+          ) as has_mercado_pago_integration
+        ),
         price_rows as (
           select
             tribe_subscription_prices.id,
@@ -264,8 +279,10 @@ export class PostgresTribeSubscriptionPriceRepository
           price_rows.created_at,
           price_rows.active_subscribers_count,
           viewer_permissions.can_view_prices,
-          viewer_permissions.can_manage_prices
+          viewer_permissions.can_manage_prices,
+          payment_integration.has_mercado_pago_integration
         from viewer_permissions
+        cross join payment_integration
         left join price_rows
           on true
         order by price_rows.created_at desc
@@ -273,6 +290,9 @@ export class PostgresTribeSubscriptionPriceRepository
       const rows = (result.rows ?? []) as SubscriptionPriceListRow[];
 
       return {
+        hasMercadoPagoIntegration: Boolean(
+          rows[0]?.has_mercado_pago_integration
+        ),
         prices: rows
           .filter((row) => row.id)
           .map((row) => mapSubscriptionPrice(row)),

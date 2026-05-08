@@ -23,6 +23,7 @@ export type TribeSubscriptionPriceResult = {
 };
 
 export type TribeSubscriptionPriceListResult = {
+  hasMercadoPagoIntegration: boolean;
   prices: TribeSubscriptionPriceResult[];
   viewerPermissions: {
     canManagePrices: boolean;
