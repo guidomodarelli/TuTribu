@@ -38,6 +38,27 @@ function createRepository(
 }
 
 describe("PostgresTribeMemberSubscriptionRepository", () => {
+  it("validates Mercado Pago return ids only for the current pending subscription", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [{ has_pending_subscription_return: true }],
+    }));
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.hasPendingSubscriptionReturn({
+        providerSubscriptionId: "preapproval-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toBe(true);
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toMatch(/tribe_member_subscriptions\.mercado_pago_preapproval_id =/);
+    expect(sqlText).toMatch(/tribe_member_subscriptions\.user_id = public\.current_app_user_id\(\)/);
+    expect(sqlText).toMatch(/tribe_member_subscriptions\.status = .*pending/);
+    expect(sqlText).toMatch(/tribes\.slug =/);
+  });
+
   it("reuses an existing pending checkout before creating another provider subscription", async () => {
     const execute = jest.fn().mockResolvedValueOnce({
       rows: [

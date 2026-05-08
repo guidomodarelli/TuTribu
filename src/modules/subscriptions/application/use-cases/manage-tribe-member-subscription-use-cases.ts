@@ -6,6 +6,7 @@
 
 import type {
   MercadoPagoSubscriptionWebhookCommand,
+  PendingSubscriptionReturnQuery,
   StartCurrentPriceSubscriptionCommand,
   TribeMemberSubscriptionRepository,
 } from "@/src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository";
@@ -55,5 +56,21 @@ export function handleMercadoPagoSubscriptionWebhook({
       eventId: normalizeText(command.eventId),
       resourceId: normalizeText(command.resourceId),
       topic: normalizeText(command.topic),
+    });
+}
+
+/**
+ * Confirms that a Mercado Pago return belongs to the current pending subscription.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that validates the pending provider subscription.
+ */
+export function validatePendingTribeMemberSubscriptionReturn({
+  tribeMemberSubscriptionRepository,
+}: TribeMemberSubscriptionDependencies) {
+  return async (query: PendingSubscriptionReturnQuery) =>
+    tribeMemberSubscriptionRepository.hasPendingSubscriptionReturn({
+      providerSubscriptionId: normalizeText(query.providerSubscriptionId),
+      tribeSlug: normalizeText(query.tribeSlug),
     });
 }

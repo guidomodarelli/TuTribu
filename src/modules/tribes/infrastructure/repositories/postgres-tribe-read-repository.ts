@@ -6,8 +6,16 @@ import type {
   TribeMemberRole,
 } from "@/src/modules/tribes/application/results/tribe-member-result";
 import type { Tribe } from "@/src/modules/tribes/domain/entities/tribe";
-import type { TribeReadRepository } from "@/src/modules/tribes/domain/repositories/tribe-read-repository";
-import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import type {
+  TribeMembershipAccess,
+  TribeMembershipStatus,
+  TribeMembershipStatusReason,
+  TribeReadRepository,
+} from "@/src/modules/tribes/domain/repositories/tribe-read-repository";
+import {
+  TRIBE_MEMBERSHIP_STATUS,
+  TRIBE_MEMBERSHIP_STATUS_REASON,
+} from "@/src/modules/tribes/constants/tribe-page-access";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
@@ -36,6 +44,11 @@ type PostgresTribeMemberRow = {
   member_id: string;
   name: string | null;
   role: string | null;
+};
+
+type PostgresMembershipAccessRow = {
+  status: string | null;
+  status_reason: string | null;
 };
 
 const TRIBE_MEMBER_DEFAULTS = {
@@ -71,6 +84,29 @@ function normalizeTribeMemberRole(role: string | null): TribeMemberRole {
   }
 
   return TRIBE_MEMBER_ROLE.tribemate;
+}
+
+function normalizeMembershipStatus(
+  status: string | null
+): TribeMembershipStatus | null {
+  return status === TRIBE_MEMBERSHIP_STATUS.active ||
+    status === TRIBE_MEMBERSHIP_STATUS.muted ||
+    status === TRIBE_MEMBERSHIP_STATUS.blocked
+    ? status
+    : null;
+}
+
+function normalizeMembershipStatusReason(
+  statusReason: string | null
+): TribeMembershipStatusReason {
+  if (
+    statusReason === TRIBE_MEMBERSHIP_STATUS_REASON.conductBlocked ||
+    statusReason === TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked
+  ) {
+    return statusReason;
+  }
+
+  return TRIBE_MEMBERSHIP_STATUS_REASON.none;
 }
 
 function mapTribeMemberRow(row: PostgresTribeMemberRow): TribeMemberResult {
@@ -111,21 +147,34 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
     });
   }
 
-  async findCurrentMembershipStatusBySlug(
+  async findCurrentMembershipAccessBySlug(
     slug: string
-  ): Promise<"active" | "muted" | "blocked" | null> {
+  ): Promise<TribeMembershipAccess | null> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        select public.get_current_tribe_membership_status_by_slug(${slug}) as status
+        select status, status_reason
+        from public.get_current_tribe_membership_by_slug(${slug})
       `);
-      const data = result.rows?.[0]?.status;
+      const data = (result.rows?.[0] ?? null) as PostgresMembershipAccessRow | null;
+      const status = normalizeMembershipStatus(data?.status ?? null);
 
-      return data === TRIBE_MEMBERSHIP_STATUS.active ||
-        data === TRIBE_MEMBERSHIP_STATUS.muted ||
-        data === TRIBE_MEMBERSHIP_STATUS.blocked
-        ? data
-        : null;
+      if (!status) {
+        return null;
+      }
+
+      return {
+        status,
+        statusReason: normalizeMembershipStatusReason(data?.status_reason ?? null),
+      };
     });
+  }
+
+  async findCurrentMembershipStatusBySlug(
+    slug: string
+  ): Promise<TribeMembershipStatus | null> {
+    const membershipAccess = await this.findCurrentMembershipAccessBySlug(slug);
+
+    return membershipAccess?.status ?? null;
   }
 
   async listVisibleMembershipTribes(): Promise<MemberTribeListItemResult[]> {

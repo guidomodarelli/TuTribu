@@ -92,6 +92,13 @@
       "when": 1778072400000,
       "tag": "20260506130000_create_tribe_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1778241600000,
+      "tag": "20260508120000_add_membership_access_reason_function",
+      "breakpoints": true
     }
   ]
 }

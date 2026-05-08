@@ -21,10 +21,18 @@ export type MercadoPagoSubscriptionWebhookCommand = {
   topic: string;
 };
 
+export type PendingSubscriptionReturnQuery = {
+  providerSubscriptionId: string;
+  tribeSlug: string;
+};
+
 export type TribeMemberSubscriptionRepository = {
   handleWebhook(
     command: MercadoPagoSubscriptionWebhookCommand
   ): Promise<TribeMemberSubscriptionWebhookResult>;
+  hasPendingSubscriptionReturn(
+    query: PendingSubscriptionReturnQuery
+  ): Promise<boolean>;
   startCurrentPriceSubscription(
     command: StartCurrentPriceSubscriptionCommand
   ): Promise<TribeMemberSubscriptionStartResult>;

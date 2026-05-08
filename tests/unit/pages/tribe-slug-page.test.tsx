@@ -9,6 +9,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 const getAuthenticatedMember = jest.fn();
 const getTribePageAccess = jest.fn();
 const listTribeRound = jest.fn();
+const validatePendingTribeMemberSubscriptionReturn = jest.fn();
 const infoMock = jest.fn();
 const errorMock = jest.fn();
 
@@ -49,6 +50,7 @@ describe("TribePage", () => {
     getAuthenticatedMember.mockReset();
     getTribePageAccess.mockReset();
     listTribeRound.mockReset();
+    validatePendingTribeMemberSubscriptionReturn.mockReset();
     infoMock.mockReset();
     errorMock.mockReset();
 
@@ -66,6 +68,11 @@ describe("TribePage", () => {
       messages: {
         useCases: {
           listTribeRound,
+        },
+      },
+      subscriptions: {
+        useCases: {
+          validatePendingTribeMemberSubscriptionReturn,
         },
       },
     });
@@ -300,6 +307,119 @@ describe("TribePage", () => {
         viewerId: "member-1",
       }),
     });
+  });
+
+  it("renders a subscription confirmation status instead of 404 after Mercado Pago returns", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "blocked@example.com",
+      name: "Blocked User",
+      role: "tribemate",
+      avatarFallback: "BU",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      blockedReason: "payment_blocked",
+      reason: "blocked_hidden",
+    });
+    validatePendingTribeMemberSubscriptionReturn.mockResolvedValue(true);
+
+    render(
+      await TribePage({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-1",
+        }),
+      })
+    );
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(listTribeRound).not.toHaveBeenCalled();
+    expect(validatePendingTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
+      providerSubscriptionId: "preapproval-1",
+      tribeSlug: "matematica-pro",
+    });
+    expect(
+      screen.getByRole("heading", { name: "Estamos confirmando tu suscripción" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Mercado Pago nos está avisando el resultado. En unos segundos vas a poder volver a entrar a la tribu."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("returns 404 when the Mercado Pago return id does not match a pending subscription", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "blocked@example.com",
+      name: "Blocked User",
+      role: "tribemate",
+      avatarFallback: "BU",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      blockedReason: "payment_blocked",
+      reason: "blocked_hidden",
+    });
+    validatePendingTribeMemberSubscriptionReturn.mockResolvedValue(false);
+    (notFound as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(
+      TribePage({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-fake",
+        }),
+      })
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(validatePendingTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
+      providerSubscriptionId: "preapproval-fake",
+      tribeSlug: "matematica-pro",
+    });
+    expect(listTribeRound).not.toHaveBeenCalled();
+  });
+
+  it("keeps conduct-blocked members hidden when the return URL includes a Mercado Pago preapproval", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "blocked@example.com",
+      name: "Blocked User",
+      role: "tribemate",
+      avatarFallback: "BU",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      blockedReason: "conduct_blocked",
+      reason: "blocked_hidden",
+    });
+    (notFound as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(
+      TribePage({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-1",
+        }),
+      })
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(notFound).toHaveBeenCalled();
+    expect(listTribeRound).not.toHaveBeenCalled();
   });
 
   it("returns 404 and logs generic hidden access when the slug is not visible", async () => {

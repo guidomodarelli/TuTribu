@@ -1,6 +1,7 @@
 import {
   handleMercadoPagoSubscriptionWebhook,
   startTribeMemberSubscription,
+  validatePendingTribeMemberSubscriptionReturn,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import type { TribeMemberSubscriptionRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository";
@@ -10,6 +11,7 @@ function createRepository(
 ): TribeMemberSubscriptionRepository {
   return {
     handleWebhook: jest.fn(),
+    hasPendingSubscriptionReturn: jest.fn(),
     startCurrentPriceSubscription: jest.fn(),
     ...overrides,
   };
@@ -86,6 +88,26 @@ describe("tribe member subscription use cases", () => {
       eventId: "webhook-1",
       resourceId: "preapproval-1",
       topic: "subscription_preapproval",
+    });
+  });
+
+  it("validates pending Mercado Pago returns against the current member subscription", async () => {
+    const hasPendingSubscriptionReturn = jest.fn(async () => true);
+    const execute = validatePendingTribeMemberSubscriptionReturn({
+      tribeMemberSubscriptionRepository: createRepository({
+        hasPendingSubscriptionReturn,
+      }),
+    });
+
+    await expect(
+      execute({
+        providerSubscriptionId: " preapproval-1 ",
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toBe(true);
+    expect(hasPendingSubscriptionReturn).toHaveBeenCalledWith({
+      providerSubscriptionId: "preapproval-1",
+      tribeSlug: "matematica-pro",
     });
   });
 });

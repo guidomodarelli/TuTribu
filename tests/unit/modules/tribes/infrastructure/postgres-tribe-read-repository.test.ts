@@ -48,9 +48,9 @@ describe("PostgresTribeReadRepository", () => {
     });
   });
 
-  it("returns the current membership status through the diagnostic function that preserves blocked-member detection", async () => {
+  it("returns the current membership access through the diagnostic function that preserves blocked-member detection", async () => {
     const execute = jest.fn(async () => ({
-      rows: [{ status: "blocked" }],
+      rows: [{ status: "blocked", status_reason: "payment_blocked" }],
     }));
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
@@ -60,12 +60,15 @@ describe("PostgresTribeReadRepository", () => {
     );
 
     await expect(
-      repository.findCurrentMembershipStatusBySlug("matematica-pro")
-    ).resolves.toBe("blocked");
+      repository.findCurrentMembershipAccessBySlug("matematica-pro")
+    ).resolves.toEqual({
+      status: "blocked",
+      statusReason: "payment_blocked",
+    });
 
     expect(execute).toHaveBeenCalledTimes(1);
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "select public.get_current_tribe_membership_status_by_slug("
+      "from public.get_current_tribe_membership_by_slug("
     );
   });
 

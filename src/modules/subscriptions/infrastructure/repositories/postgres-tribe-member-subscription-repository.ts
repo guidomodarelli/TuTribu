@@ -80,6 +80,10 @@ type WebhookOperationInsertRow = {
   operation_inserted: string | null;
 };
 
+type PendingSubscriptionReturnRow = {
+  has_pending_subscription_return: boolean | null;
+};
+
 const SUBSCRIPTION_CHECKOUT_CONTEXT = {
   invitationSettingName: "app.current_invitation_hash",
   settingName: "app.subscription_checkout_tribe_id",
@@ -174,6 +178,40 @@ export class PostgresTribeMemberSubscriptionRepository
     private readonly resolvePublicAppBaseUrl: () => string,
     private readonly refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher
   ) {}
+
+  /**
+   * Verifies that a provider return belongs to the current user's pending subscription.
+   *
+   * @param query - Tribe slug and Mercado Pago preapproval id from the return URL.
+   * @returns Whether the return can show the pending confirmation state.
+   */
+  async hasPendingSubscriptionReturn(query: {
+    providerSubscriptionId: string;
+    tribeSlug: string;
+  }): Promise<boolean> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${query.tribeSlug}
+          limit 1
+        )
+        select exists (
+          select 1
+          from public.tribe_member_subscriptions
+          inner join target_tribe
+            on target_tribe.id = tribe_member_subscriptions.tribe_id
+          where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+            and tribe_member_subscriptions.mercado_pago_preapproval_id = ${query.providerSubscriptionId}
+        ) as has_pending_subscription_return
+      `);
+      const row = (result.rows?.[0] ?? null) as PendingSubscriptionReturnRow | null;
+
+      return row?.has_pending_subscription_return === true;
+    });
+  }
 
   /**
    * Starts or resumes a current-price subscription for the current user.

@@ -14,6 +14,7 @@ import {
 import {
   handleMercadoPagoSubscriptionWebhook,
   startTribeMemberSubscription,
+  validatePendingTribeMemberSubscriptionReturn,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
 import type { TribeMemberSubscriptionRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository";
 import type { TribePaymentIntegrationRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-payment-integration-repository";
@@ -59,6 +60,10 @@ export function buildSubscriptionsModule({
       startTribeMemberSubscription: startTribeMemberSubscription({
         tribeMemberSubscriptionRepository,
       }),
+      validatePendingTribeMemberSubscriptionReturn:
+        validatePendingTribeMemberSubscriptionReturn({
+          tribeMemberSubscriptionRepository,
+        }),
     },
   };
 }

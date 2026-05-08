@@ -21,7 +21,7 @@ type ResolveVisibleTribePageAccessOptions = {
   slug: string;
 };
 
-export async function resolveVisibleTribePageAccess({
+export async function resolveTribePageAccess({
   operation,
   slug,
 }: ResolveVisibleTribePageAccessOptions) {
@@ -50,15 +50,36 @@ export async function resolveVisibleTribePageAccess({
           viewerId: authenticatedMember?.id ?? null,
         },
       });
-      notFound();
+      throw error;
     });
+
+  return {
+    authenticatedMember,
+    logger,
+    modules,
+    result: accessResult,
+  };
+}
+
+export async function resolveVisibleTribePageAccess(
+  options: ResolveVisibleTribePageAccessOptions
+) {
+  const access = await resolveTribePageAccess(options).catch(() => {
+    notFound();
+  });
+
+  if (!access) {
+    notFound();
+  }
+
+  const { authenticatedMember, logger, modules, result: accessResult } = access;
 
   if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
     logger.info({
       message: TRIBE_PAGE_ACCESS_LOG.hiddenAccessMessage,
       metadata: {
         reason: accessResult.reason,
-        slug,
+        slug: options.slug,
         viewerId: authenticatedMember?.id ?? null,
       },
     });

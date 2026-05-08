@@ -49,6 +49,7 @@ describe("listVisibleTribeMembers", () => {
     const execute = listVisibleTribeMembers({
       tribeReadRepository: {
         findBySlug: jest.fn(),
+        findCurrentMembershipAccessBySlug: jest.fn(),
         findCurrentMembershipStatusBySlug: jest.fn(),
         listVisibleMembershipTribes: jest.fn(),
         listVisibleTribeMembersBySlug,

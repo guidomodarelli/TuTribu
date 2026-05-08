@@ -4,6 +4,12 @@ export const TRIBE_MEMBERSHIP_STATUS = {
   muted: "muted",
 } as const;
 
+export const TRIBE_MEMBERSHIP_STATUS_REASON = {
+  conductBlocked: "conduct_blocked",
+  none: "none",
+  paymentBlocked: "payment_blocked",
+} as const;
+
 export const TRIBE_PAGE_ACCESS_STATUS = {
   hidden: "hidden",
   visible: "visible",

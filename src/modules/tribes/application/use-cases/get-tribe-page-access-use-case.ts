@@ -2,6 +2,7 @@ import type { TribeReadRepository } from "@/src/modules/tribes/domain/repositori
 
 import {
   TRIBE_MEMBERSHIP_STATUS,
+  TRIBE_MEMBERSHIP_STATUS_REASON,
   TRIBE_PAGE_ACCESS_REASON,
   TRIBE_PAGE_ACCESS_STATUS,
   type TribePageAccessResult,
@@ -37,14 +38,25 @@ export function getTribePageAccess({
       };
     }
 
-    const membershipStatus =
-      await tribeReadRepository.findCurrentMembershipStatusBySlug(
-        normalizedSlug
-      );
+    const membershipAccess = tribeReadRepository.findCurrentMembershipAccessBySlug
+      ? await tribeReadRepository.findCurrentMembershipAccessBySlug(normalizedSlug)
+      : await tribeReadRepository
+          .findCurrentMembershipStatusBySlug(normalizedSlug)
+          .then((status) =>
+            status
+              ? {
+                  status,
+                  statusReason: TRIBE_MEMBERSHIP_STATUS_REASON.none,
+                }
+              : null
+          );
+    const membershipStatus = membershipAccess?.status ?? null;
 
     if (membershipStatus === TRIBE_MEMBERSHIP_STATUS.blocked) {
       return {
         status: TRIBE_PAGE_ACCESS_STATUS.hidden,
+        blockedReason:
+          membershipAccess?.statusReason ?? TRIBE_MEMBERSHIP_STATUS_REASON.none,
         reason: TRIBE_PAGE_ACCESS_REASON.blockedHidden,
       };
     }

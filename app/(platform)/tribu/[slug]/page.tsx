@@ -1,34 +1,157 @@
 import { notFound } from "next/navigation";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
-import { resolveVisibleTribePageAccess } from "./tribe-page-access";
+import {
+  TRIBE_MEMBERSHIP_STATUS_REASON,
+  TRIBE_PAGE_ACCESS_REASON,
+  TRIBE_PAGE_ACCESS_STATUS,
+} from "@/src/modules/tribes/application/results/tribe-page-access-result";
+import { resolveTribePageAccess } from "./tribe-page-access";
 import styles from "./page.module.scss";
 
 const TRIBE_PAGE_LOG_REASON = {
   unexpectedRoundRepositoryError: "unexpected_round_repository_error",
+  unexpectedSubscriptionReturnRepositoryError:
+    "unexpected_subscription_return_repository_error",
 } as const;
 
 const TRIBE_PAGE_LOG = {
+  hiddenAccessMessage: "Tribe access hidden",
   operation: "tribe-page",
   resolveRoundFailureMessage: "Failed to resolve tribe round",
+  resolveSubscriptionReturnFailureMessage:
+    "Failed to resolve subscription return",
 } as const;
+
+const TRIBE_PAGE_QUERY = {
+  mercadoPagoPreapprovalId: "preapproval_id",
+} as const;
+
+const SUBSCRIPTION_RETURN_COPY = {
+  description:
+    "Mercado Pago nos está avisando el resultado. En unos segundos vas a poder volver a entrar a la tribu.",
+  eyebrow: "Suscripción",
+  title: "Estamos confirmando tu suscripción",
+} as const;
+
+type TribePageSearchParams = {
+  [TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId]?: string | string[];
+};
+
+function readFirstSearchParamValue(
+  searchParamValue: string | string[] | undefined
+): string | null {
+  if (typeof searchParamValue === "string") {
+    return searchParamValue;
+  }
+
+  if (Array.isArray(searchParamValue)) {
+    const firstStringValue = searchParamValue.find(
+      (value) => value.trim().length > 0
+    );
+
+    return firstStringValue ?? null;
+  }
+
+  return null;
+}
+
+function renderSubscriptionReturnStatus() {
+  return (
+    <main className={styles.TribePage}>
+      <section className={styles.TribePage__subscriptionReturn}>
+        <p className={styles.TribePage__eyebrow}>
+          {SUBSCRIPTION_RETURN_COPY.eyebrow}
+        </p>
+        <h1 className={styles.TribePage__title}>
+          {SUBSCRIPTION_RETURN_COPY.title}
+        </h1>
+        <p className={styles.TribePage__description}>
+          {SUBSCRIPTION_RETURN_COPY.description}
+        </p>
+      </section>
+    </main>
+  );
+}
 
 export default async function TribePage({
   params,
+  searchParams = Promise.resolve({}),
 }: {
   params: Promise<{
     slug: string;
   }>;
+  searchParams?: Promise<TribePageSearchParams>;
 }) {
   const { slug } = await params;
-  const { authenticatedMember, tribe, logger, modules } =
-    await resolveVisibleTribePageAccess({
-      operation: TRIBE_PAGE_LOG.operation,
-      slug,
+  const resolvedSearchParams = await searchParams;
+  const mercadoPagoPreapprovalId = readFirstSearchParamValue(
+    resolvedSearchParams[TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId]
+  );
+  const access = await resolveTribePageAccess({
+    operation: TRIBE_PAGE_LOG.operation,
+    slug,
+  }).catch(() => {
+    notFound();
+  });
+
+  if (!access) {
+    notFound();
+  }
+
+  const { authenticatedMember, logger, modules, result: accessResult } = access;
+
+  if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
+    logger.info({
+      message: TRIBE_PAGE_LOG.hiddenAccessMessage,
+      metadata: {
+        reason: accessResult.reason,
+        slug,
+        viewerId: authenticatedMember?.id ?? null,
+      },
     });
 
+    if (
+      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden &&
+      accessResult.blockedReason ===
+        TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked &&
+      mercadoPagoPreapprovalId
+    ) {
+      const hasPendingSubscriptionReturn =
+        await modules.subscriptions.useCases
+          .validatePendingTribeMemberSubscriptionReturn({
+            providerSubscriptionId: mercadoPagoPreapprovalId,
+            tribeSlug: slug,
+          })
+          .catch((error: unknown) => {
+            logger.error({
+              message: TRIBE_PAGE_LOG.resolveSubscriptionReturnFailureMessage,
+              error,
+              metadata: {
+                reason:
+                  TRIBE_PAGE_LOG_REASON.unexpectedSubscriptionReturnRepositoryError,
+                slug,
+                viewerId: authenticatedMember?.id ?? null,
+              },
+            });
+
+            return false;
+          });
+
+      if (hasPendingSubscriptionReturn) {
+        return renderSubscriptionReturnStatus();
+      }
+    }
+
+    notFound();
+  }
+
+  if (!authenticatedMember) {
+    notFound();
+  }
+
   const round = await modules.messages.useCases.listTribeRound({
-    tribeSlug: tribe.slug,
+    tribeSlug: accessResult.tribe.slug,
     viewerId: authenticatedMember.id,
   }).catch((error: unknown) => {
     logger.error({
@@ -47,7 +170,7 @@ export default async function TribePage({
     <main className={styles.TribePage}>
       <TribeRound
         authenticatedMember={authenticatedMember}
-        tribeSlug={tribe.slug}
+        tribeSlug={accessResult.tribe.slug}
         round={round}
       />
     </main>

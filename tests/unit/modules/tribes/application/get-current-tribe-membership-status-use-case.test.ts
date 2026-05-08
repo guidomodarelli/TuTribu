@@ -6,6 +6,7 @@ describe("getCurrentTribeMembershipStatus", () => {
     const execute = getCurrentTribeMembershipStatus({
       tribeReadRepository: {
         findBySlug: jest.fn(),
+        findCurrentMembershipAccessBySlug: jest.fn(),
         findCurrentMembershipStatusBySlug,
         listVisibleMembershipTribes: jest.fn(),
       },
@@ -20,6 +21,7 @@ describe("getCurrentTribeMembershipStatus", () => {
     const execute = getCurrentTribeMembershipStatus({
       tribeReadRepository: {
         findBySlug: jest.fn(),
+        findCurrentMembershipAccessBySlug: jest.fn(),
         findCurrentMembershipStatusBySlug,
         listVisibleMembershipTribes: jest.fn(),
       },
