@@ -50,10 +50,12 @@ export type MercadoPagoPlanInput = {
 
 export type MercadoPagoSubscriptionInput = {
   accessToken: string;
+  amountCents: number;
   backUrl: string;
+  currency: string;
+  externalReference: string;
   idempotencyKey: string;
   payerEmail: string;
-  preapprovalPlanId: string;
   reason: string;
 };
 
@@ -375,10 +377,17 @@ export async function createMercadoPagoPreapprovalSubscription(
 ) {
   const response = await fetch(MERCADO_PAGO_URL.preapproval, {
     body: JSON.stringify({
+      auto_recurring: {
+        currency_id: input.currency,
+        frequency: 1,
+        frequency_type: "months",
+        transaction_amount: input.amountCents / 100,
+      },
       back_url: input.backUrl,
+      external_reference: input.externalReference,
       payer_email: input.payerEmail,
-      preapproval_plan_id: input.preapprovalPlanId,
       reason: input.reason,
+      status: "pending",
     }),
     headers: {
       [MERCADO_PAGO_HTTP.authorizationHeader]:

@@ -43,6 +43,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       rows: [
         {
           access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
           current_price_id: "price-1",
           current_price_name: "Plan mensual",
           current_user_email: "member@example.com",
@@ -51,7 +53,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           existing_membership_status: "blocked",
           existing_membership_status_reason: "payment_blocked",
           has_active_invitation: true,
-          mercado_pago_preapproval_plan_id: "plan-1",
           tribe_id: "tribe-1",
         },
       ],
@@ -83,6 +84,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
             current_price_id: "price-1",
             current_price_name: "Plan mensual",
             current_user_email: "member@example.com",
@@ -90,8 +93,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             existing_membership_status: "blocked",
             existing_membership_status_reason: "payment_blocked",
             has_active_invitation: true,
-            mercado_pago_preapproval_plan_id: "plan-1",
-            tribe_id: "tribe-1",
+          tribe_id: "tribe-1",
           },
         ],
       })
@@ -118,8 +120,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
 
     expect(createMercadoPagoSubscription).toHaveBeenCalledWith(
       expect.objectContaining({
+        amountCents: 1500,
+        currency: "ARS",
+        externalReference: "subscription-2",
         idempotencyKey: "new-attempt",
-        preapprovalPlanId: "plan-1",
       })
     );
   });
@@ -129,6 +133,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       rows: [
         {
           access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
           current_price_id: "price-1",
           current_price_name: "Plan mensual",
           current_user_email: "member@example.com",
@@ -136,7 +142,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           existing_membership_status: "blocked",
           existing_membership_status_reason: "conduct_blocked",
           has_active_invitation: true,
-          mercado_pago_preapproval_plan_id: "plan-1",
           tribe_id: "tribe-1",
         },
       ],
@@ -168,6 +173,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
             current_price_id: "price-1",
             current_price_name: "Plan mensual",
             current_user_email: "member@example.com",
@@ -175,8 +182,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             existing_membership_status: null,
             existing_membership_status_reason: null,
             has_active_invitation: true,
-            mercado_pago_preapproval_plan_id: "plan-1",
-            tribe_id: "tribe-1",
+          tribe_id: "tribe-1",
           },
         ],
       })
@@ -207,6 +213,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
             current_price_id: "price-1",
             current_price_name: "Plan mensual",
             current_user_email: "member@example.com",
@@ -214,8 +222,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             existing_membership_status: "blocked",
             existing_membership_status_reason: "payment_blocked",
             has_active_invitation: true,
-            mercado_pago_preapproval_plan_id: "plan-1",
-            tribe_id: "tribe-1",
+          tribe_id: "tribe-1",
           },
         ],
       })
@@ -252,8 +259,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(reservationSql).toMatch(/5 minutes/);
     expect(createMercadoPagoSubscription).toHaveBeenCalledWith(
       expect.objectContaining({
+        amountCents: 1500,
+        currency: "ARS",
+        externalReference: "stale-subscription-1",
         idempotencyKey: "recovered-attempt",
-        preapprovalPlanId: "plan-1",
       })
     );
   });
@@ -266,15 +275,15 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "expired-access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
             current_price_id: "price-1",
             current_price_name: "Plan mensual",
             current_user_email: "member@example.com",
             existing_checkout_url: null,
             existing_membership_status: null,
             existing_membership_status_reason: null,
-            has_active_invitation: true,
-            mercado_pago_preapproval_plan_id: "plan-1",
-            refresh_token: "refresh-token",
+            has_active_invitation: true,            refresh_token: "refresh-token",
             token_expires_at: expiredTokenDate,
             tribe_id: "tribe-1",
           },
@@ -335,6 +344,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
             current_price_id: "price-1",
             current_price_name: "Plan mensual",
             current_user_email: "member@example.com",
@@ -342,8 +353,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             existing_membership_status: null,
             existing_membership_status_reason: null,
             has_active_invitation: true,
-            mercado_pago_preapproval_plan_id: "plan-1",
-            tribe_id: "tribe-1",
+          tribe_id: "tribe-1",
           },
         ],
       })
@@ -376,6 +386,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       rows: [
         {
           access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
           current_price_id: "price-1",
           current_price_name: "Plan mensual",
           current_user_email: "member@example.com",
@@ -384,7 +396,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           existing_membership_status: null,
           existing_membership_status_reason: null,
           has_active_invitation: false,
-          mercado_pago_preapproval_plan_id: "plan-1",
           tribe_id: "tribe-1",
         },
       ],
@@ -412,6 +423,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
             existing_operation_id: null,
             subscription_found: true,
           },
@@ -450,6 +463,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
             existing_operation_id: null,
             subscription_found: true,
           },
@@ -487,6 +502,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
             existing_operation_id: null,
             subscription_found: true,
           },
@@ -528,6 +545,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "expired-access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
             existing_operation_id: null,
             refresh_token: "refresh-token",
             subscription_found: true,
@@ -585,6 +604,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
             existing_operation_id: null,
             subscription_found: true,
           },
@@ -658,6 +679,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       rows: [
         {
           access_token: "expired-access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
           existing_operation_id: null,
           refresh_token: null,
           subscription_found: true,
@@ -694,6 +717,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       rows: [
         {
           access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
           existing_operation_id: "operation-1",
           subscription_found: true,
         },

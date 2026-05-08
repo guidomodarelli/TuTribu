@@ -1,5 +1,6 @@
 import {
   createMercadoPagoPreapprovalPlan,
+  createMercadoPagoPreapprovalSubscription,
   getMercadoPagoPreapprovalStatus,
   refreshMercadoPagoAccessToken,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
@@ -118,6 +119,57 @@ describe("mercado pago subscription gateway", () => {
           "Content-Type": "application/json",
           "X-Idempotency-Key":
             "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",
+        },
+        method: "POST",
+      }
+    );
+  });
+
+  it("creates pending subscriptions without an associated plan for checkout redirects", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        id: "preapproval-1",
+        init_point: "https://www.mercadopago.com.ar/subscriptions/checkout",
+      }),
+      ok: true,
+    });
+
+    await expect(
+      createMercadoPagoPreapprovalSubscription({
+        accessToken: "access-token",
+        amountCents: 1500,
+        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
+        currency: "ARS",
+        externalReference: "subscription-1",
+        idempotencyKey: "member-subscription-1",
+        payerEmail: "member@example.com",
+        reason: "Plan mensual",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
+      providerSubscriptionId: "preapproval-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.mercadopago.com/preapproval",
+      {
+        body: JSON.stringify({
+          auto_recurring: {
+            currency_id: "ARS",
+            frequency: 1,
+            frequency_type: "months",
+            transaction_amount: 15,
+          },
+          back_url: "https://tutribu.example.com/tribu/matematica-pro",
+          external_reference: "subscription-1",
+          payer_email: "member@example.com",
+          reason: "Plan mensual",
+          status: "pending",
+        }),
+        headers: {
+          Authorization: "Bearer access-token",
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": "member-subscription-1",
         },
         method: "POST",
       }
