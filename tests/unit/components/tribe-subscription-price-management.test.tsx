@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { TribeSubscriptionPriceManagement } from "@/components/subscriptions/tribe-subscription-price-management";
@@ -12,6 +12,29 @@ jest.mock("sonner", () => ({
 
 describe("TribeSubscriptionPriceManagement", () => {
   const previousFetch = global.fetch;
+  const activePrice = {
+    activeSubscribersCount: 0,
+    amountCents: 500000,
+    createdAt: "2026-05-06T12:00:00.000Z",
+    currency: "ARS" as const,
+    frequency: "monthly" as const,
+    id: "price-1",
+    isCurrent: false,
+    name: "Plan mensual",
+    status: "active" as const,
+  };
+
+  beforeEach(() => {
+    global.fetch = jest.fn(async () => ({
+        json: async () => ({
+        canceledPriceIds: [],
+        message: "Planes verificados con Mercado Pago.",
+        prices: [activePrice],
+        verifiedCount: 1,
+      }),
+      ok: true,
+    })) as jest.Mock;
+  });
 
   afterEach(() => {
     global.fetch = previousFetch;
@@ -22,19 +45,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         canManagePrices
-        prices={[
-          {
-            activeSubscribersCount: 0,
-            amountCents: 500000,
-            createdAt: "2026-05-06T12:00:00.000Z",
-            currency: "ARS",
-            frequency: "monthly",
-            id: "price-1",
-            isCurrent: false,
-            name: "Plan mensual",
-            status: "active",
-          },
-        ]}
+        prices={[activePrice]}
         statusMessage={null}
         tribeSlug="matematica-pro"
       />
@@ -43,6 +54,176 @@ describe("TribeSubscriptionPriceManagement", () => {
     expect(
       screen.getByRole("button", { name: "Marcar como actual" })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Verificar plan" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Verificar suscriptores" })
+    ).toBeInTheDocument();
+  });
+
+  it("should verify provider plans when the prices page loads", async () => {
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      await screen.findByText("Verificando planes con Mercado Pago...")
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices/verify-provider-plans",
+        expect.objectContaining({
+          method: "POST",
+          signal: expect.any(AbortSignal),
+        })
+      );
+    });
+  });
+
+  it("should keep canceled prices visible after the automatic verification", async () => {
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        canceledPriceIds: ["price-1"],
+        message: "Planes verificados con Mercado Pago.",
+        prices: [
+          {
+            ...activePrice,
+            isCurrent: false,
+            status: "canceled",
+          },
+        ],
+        verifiedCount: 1,
+      }),
+      ok: true,
+    })) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(await screen.findByText("Cancelado")).toBeInTheDocument();
+    expect(screen.getByText("Plan mensual")).toBeInTheDocument();
+  });
+
+  it("should verify one provider plan from the row action", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          canceledPriceIds: [],
+          message: "Planes verificados con Mercado Pago.",
+          prices: [activePrice],
+          verifiedCount: 1,
+        }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          message: "El plan figura cancelado en Mercado Pago.",
+          price: {
+            ...activePrice,
+            isCurrent: false,
+            status: "canceled",
+          },
+        }),
+        ok: true,
+      }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    await user.click(screen.getByRole("button", { name: "Verificar plan" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices/price-1/verify-provider-plan",
+        expect.objectContaining({
+          method: "POST",
+        })
+      );
+      expect(screen.getByText("Cancelado")).toBeInTheDocument();
+    });
+  });
+
+  it("should show provider subscriber count without enabling deletion for local associations", async () => {
+    const user = userEvent.setup();
+    const priceWithLocalAssociation = {
+      ...activePrice,
+      activeSubscribersCount: 1,
+    };
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          canceledPriceIds: [],
+          message: "Planes verificados con Mercado Pago.",
+          prices: [priceWithLocalAssociation],
+          verifiedCount: 1,
+        }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          message: "Suscriptores verificados con Mercado Pago.",
+          price: {
+            ...priceWithLocalAssociation,
+          },
+          providerActiveSubscribersCount: 0,
+          verifiedCount: 3,
+        }),
+        ok: true,
+      }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        prices={[priceWithLocalAssociation]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Verificar suscriptores" })
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices/price-1/verify-provider-subscribers",
+        expect.objectContaining({
+          method: "POST",
+        })
+      );
+      expect(screen.getByText("1 miembros asociados")).toBeInTheDocument();
+      expect(
+        screen.getByText("0 suscriptores vigentes en Mercado Pago")
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Eliminar" })).toBeDisabled();
+    });
   });
 
   it("shows the amount field error returned by the price creation endpoint", async () => {

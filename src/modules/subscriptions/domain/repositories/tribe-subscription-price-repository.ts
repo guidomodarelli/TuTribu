@@ -5,6 +5,9 @@
  */
 
 import type {
+  TribeSubscriptionProviderPlanVerificationResult,
+  TribeSubscriptionProviderPlansVerificationResult,
+  TribeSubscriptionProviderSubscribersVerificationResult,
   TribeSubscriptionPriceListResult,
   TribeSubscriptionPriceMutationResult,
 } from "@/src/modules/subscriptions/application/results/tribe-subscription-price-result";
@@ -43,4 +46,13 @@ export type TribeSubscriptionPriceRepository = {
   makeCurrent(
     command: TribeSubscriptionPriceIdentity
   ): Promise<TribeSubscriptionPriceMutationResult>;
+  verifyProviderPlan(
+    command: TribeSubscriptionPriceIdentity
+  ): Promise<TribeSubscriptionProviderPlanVerificationResult>;
+  verifyProviderPlans(
+    query: TribeSubscriptionPriceListQuery
+  ): Promise<TribeSubscriptionProviderPlansVerificationResult>;
+  verifyProviderSubscribers(
+    command: TribeSubscriptionPriceIdentity
+  ): Promise<TribeSubscriptionProviderSubscribersVerificationResult>;
 };

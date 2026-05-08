@@ -64,6 +64,11 @@ export type MercadoPagoPreapprovalStatusInput = {
   preapprovalId: string;
 };
 
+export type MercadoPagoPreapprovalPlanStatusInput = {
+  accessToken: string;
+  preapprovalPlanId: string;
+};
+
 export type MercadoPagoOAuthTokenResult = {
   accessToken: string;
   expiresIn: number | null;
@@ -73,6 +78,10 @@ export type MercadoPagoOAuthTokenResult = {
 
 type MercadoPagoPlanResponse = {
   id?: string;
+};
+
+type MercadoPagoPreapprovalPlanResponse = {
+  status?: string;
 };
 
 type MercadoPagoSubscriptionResponse = {
@@ -364,6 +373,43 @@ export async function createMercadoPagoPreapprovalPlan(
   }
 
   return body.id;
+}
+
+/**
+ * Reads the current Mercado Pago preapproval plan status from the provider.
+ *
+ * @param input - Provider plan identifier and account token.
+ * @returns Provider plan status value, or null when the plan does not exist.
+ */
+export async function getMercadoPagoPreapprovalPlanStatus(
+  input: MercadoPagoPreapprovalPlanStatusInput
+): Promise<string | null> {
+  const response = await fetch(
+    `${MERCADO_PAGO_URL.preapprovalPlan}/${input.preapprovalPlanId}`,
+    {
+      headers: {
+        [MERCADO_PAGO_HTTP.authorizationHeader]:
+          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
+      },
+      method: MERCADO_PAGO_HTTP.getMethod,
+    }
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  const body = await readMercadoPagoResponse<MercadoPagoPreapprovalPlanResponse>(
+    response
+  );
+
+  if (!body.status) {
+    throw new Error(
+      "Mercado Pago preapproval plan response did not include status"
+    );
+  }
+
+  return body.status;
 }
 
 /**

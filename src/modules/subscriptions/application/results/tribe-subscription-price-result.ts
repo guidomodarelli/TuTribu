@@ -19,7 +19,7 @@ export type TribeSubscriptionPriceResult = {
   id: string;
   isCurrent: boolean;
   name: string;
-  status: "active" | "deleted";
+  status: "active" | "canceled" | "deleted";
 };
 
 export type TribeSubscriptionPriceListResult = {
@@ -44,6 +44,49 @@ export type TribeSubscriptionPriceMutationResult =
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;
+    };
+
+export type TribeSubscriptionProviderPlanVerificationResult =
+  | {
+      price: TribeSubscriptionPriceResult;
+      status: typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.verified;
+    }
+  | {
+      status:
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;
+    };
+
+export type TribeSubscriptionProviderPlansVerificationResult =
+  | {
+      canceledPriceIds: string[];
+      prices: TribeSubscriptionPriceResult[];
+      status: typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.verified;
+      verifiedCount: number;
+    }
+  | {
+      status:
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;
+    };
+
+export type TribeSubscriptionProviderSubscribersVerificationResult =
+  | {
+      price: TribeSubscriptionPriceResult;
+      providerActiveSubscribersCount: number;
+      status: typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.verified;
+      verifiedCount: number;
+    }
+  | {
+      status:
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;

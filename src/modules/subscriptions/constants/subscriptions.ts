@@ -32,7 +32,9 @@ export const TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS = 1500;
  * Defines mutation and access statuses for tribe subscription prices.
  */
 export const TRIBE_SUBSCRIPTION_PRICE_STATUS = {
+  active: "active",
   connected: "connected",
+  canceled: "canceled",
   created: "created",
   current: "current",
   deleted: "deleted",
@@ -44,6 +46,7 @@ export const TRIBE_SUBSCRIPTION_PRICE_STATUS = {
   notFound: "not_found",
   setupRequired: "setup_required",
   subscriptionRequired: "subscription_required",
+  verified: "verified",
 } as const;
 
 /**

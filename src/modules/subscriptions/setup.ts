@@ -10,6 +10,9 @@ import {
   deleteTribeSubscriptionPrice,
   listTribeSubscriptionPrices,
   makeTribeSubscriptionPriceCurrent,
+  verifyTribeSubscriptionProviderPlan,
+  verifyTribeSubscriptionProviderPlans,
+  verifyTribeSubscriptionProviderSubscribers,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscription-prices-use-cases";
 import {
   handleMercadoPagoSubscriptionWebhook,
@@ -63,6 +66,16 @@ export function buildSubscriptionsModule({
       validatePendingTribeMemberSubscriptionReturn:
         validatePendingTribeMemberSubscriptionReturn({
           tribeMemberSubscriptionRepository,
+        }),
+      verifyTribeSubscriptionProviderPlan: verifyTribeSubscriptionProviderPlan({
+        tribeSubscriptionPriceRepository,
+      }),
+      verifyTribeSubscriptionProviderPlans: verifyTribeSubscriptionProviderPlans({
+        tribeSubscriptionPriceRepository,
+      }),
+      verifyTribeSubscriptionProviderSubscribers:
+        verifyTribeSubscriptionProviderSubscribers({
+          tribeSubscriptionPriceRepository,
         }),
     },
   };

@@ -163,3 +163,50 @@ export function deleteTribeSubscriptionPrice({
       tribeSlug: normalizeText(command.tribeSlug),
     });
 }
+
+/**
+ * Verifies all active provider plans for a tribe.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that verifies provider plans by tribe slug.
+ */
+export function verifyTribeSubscriptionProviderPlans({
+  tribeSubscriptionPriceRepository,
+}: TribeSubscriptionPriceDependencies) {
+  return async (query: TribeSubscriptionPriceListQuery) =>
+    tribeSubscriptionPriceRepository.verifyProviderPlans({
+      tribeSlug: normalizeText(query.tribeSlug),
+    });
+}
+
+/**
+ * Verifies one active provider plan for a tribe price.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that verifies one provider plan by price id.
+ */
+export function verifyTribeSubscriptionProviderPlan({
+  tribeSubscriptionPriceRepository,
+}: TribeSubscriptionPriceDependencies) {
+  return async (command: TribeSubscriptionPriceIdentity) =>
+    tribeSubscriptionPriceRepository.verifyProviderPlan({
+      priceId: normalizeText(command.priceId),
+      tribeSlug: normalizeText(command.tribeSlug),
+    });
+}
+
+/**
+ * Verifies real Mercado Pago subscribers for one tribe price.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that verifies provider subscribers by price id.
+ */
+export function verifyTribeSubscriptionProviderSubscribers({
+  tribeSubscriptionPriceRepository,
+}: TribeSubscriptionPriceDependencies) {
+  return async (command: TribeSubscriptionPriceIdentity) =>
+    tribeSubscriptionPriceRepository.verifyProviderSubscribers({
+      priceId: normalizeText(command.priceId),
+      tribeSlug: normalizeText(command.tribeSlug),
+    });
+}

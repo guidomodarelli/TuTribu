@@ -1,6 +1,7 @@
 import {
   createMercadoPagoPreapprovalPlan,
   createMercadoPagoPreapprovalSubscription,
+  getMercadoPagoPreapprovalPlanStatus,
   getMercadoPagoPreapprovalStatus,
   refreshMercadoPagoAccessToken,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
@@ -80,6 +81,68 @@ describe("mercado pago subscription gateway", () => {
         preapprovalId: "preapproval-1",
       })
     ).rejects.toThrow("Mercado Pago preapproval response did not include status");
+  });
+
+  it("should read the provider plan status when Mercado Pago returns a subscription plan", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        status: "active",
+      }),
+      ok: true,
+    });
+
+    await expect(
+      getMercadoPagoPreapprovalPlanStatus({
+        accessToken: "access-token",
+        preapprovalPlanId: "plan-1",
+      })
+    ).resolves.toBe("active");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.mercadopago.com/preapproval_plan/plan-1",
+      {
+        headers: {
+          Authorization: "Bearer access-token",
+        },
+        method: "GET",
+      }
+    );
+  });
+
+  it("should return null when Mercado Pago no longer has the subscription plan", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        message: "Not-found",
+      }),
+      ok: false,
+      status: 404,
+    });
+
+    await expect(
+      getMercadoPagoPreapprovalPlanStatus({
+        accessToken: "access-token",
+        preapprovalPlanId: "plan-1",
+      })
+    ).resolves.toBeNull();
+  });
+
+  it("should redact sensitive provider details when plan lookup fails", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        message: "Token APP_USR-secret-value failed for owner@example.com",
+      }),
+      ok: false,
+      status: 500,
+    });
+
+    await expect(
+      getMercadoPagoPreapprovalPlanStatus({
+        accessToken: "access-token",
+        preapprovalPlanId: "plan-1",
+      })
+    ).rejects.toThrow(
+      "Mercado Pago request failed with status 500: Token [redacted] failed for [redacted]"
+    );
   });
 
   it("creates Mercado Pago preapproval plans with the recurring price payload", async () => {

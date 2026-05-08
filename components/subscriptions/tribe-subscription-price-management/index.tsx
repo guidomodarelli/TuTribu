@@ -6,11 +6,19 @@
  * @module tribe-subscription-price-management
  */
 
-import { FormEvent, useId, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+} from "react";
 import {
   CheckCircle2Icon,
   CreditCardIcon,
   PlusIcon,
+  RefreshCwIcon,
   StarIcon,
   Trash2Icon,
 } from "lucide-react";
@@ -27,6 +35,7 @@ const PRICE_MANAGEMENT_COPY = {
   amountPlaceholder: "5000",
   connectButton: "Conectar Mercado Pago",
   createButton: "Crear precio",
+  canceledBadge: "Cancelado",
   currentBadge: "Actual",
   description:
     "Creá versiones históricas de precios. Los miembros existentes conservan siempre el precio con el que entraron.",
@@ -34,6 +43,10 @@ const PRICE_MANAGEMENT_COPY = {
   fallbackCreateError: "No pudimos crear el precio.",
   fallbackDeleteError: "No pudimos eliminar el precio.",
   fallbackMakeCurrentError: "No pudimos marcar el precio como actual.",
+  fallbackVerifyProviderPlanError:
+    "No pudimos verificar los planes. Intentá de nuevo.",
+  fallbackVerifyProviderSubscribersError:
+    "No pudimos verificar los suscriptores. Intentá de nuevo.",
   guardianNotice: "Tenés acceso de lectura. Solo el líder puede operar cambios.",
   makeCurrentButton: "Marcar como actual",
   nameLabel: "Nombre",
@@ -42,6 +55,10 @@ const PRICE_MANAGEMENT_COPY = {
   readonlyBadge: "Solo lectura",
   removeButton: "Eliminar",
   title: "Precios",
+  providerSubscribersMetaSuffix: "suscriptores vigentes en Mercado Pago",
+  verifyProviderPlanButton: "Verificar plan",
+  verifyProviderSubscribersButton: "Verificar suscriptores",
+  verifyingProviderPlans: "Verificando planes con Mercado Pago...",
 } as const;
 
 const PRICE_MANAGEMENT_ROUTE = {
@@ -50,21 +67,31 @@ const PRICE_MANAGEMENT_ROUTE = {
   makeCurrentSegment: "/make-current",
   pricesSegment: "/subscriptions/prices",
   segmentSeparator: "/",
+  verifyProviderPlanSegment: "/verify-provider-plan",
+  verifyProviderPlansSegment: "/subscriptions/prices/verify-provider-plans",
+  verifyProviderSubscribersSegment: "/verify-provider-subscribers",
 } as const;
 
 const PRICE_MANAGEMENT_REQUEST = {
   buttonType: "button",
   contentTypeHeader: "Content-Type",
   deleteMethod: "DELETE",
+  destructiveBadgeVariant: "destructive",
   jsonContentType: "application/json",
   postMethod: "POST",
+  pricesProperty: "prices",
   submitType: "submit",
   outlineVariant: "outline",
   readonlyBadgeVariant: "secondary",
   statusRole: "status",
 } as const;
 
+const PRICE_MANAGEMENT_STATUS = {
+  canceled: "canceled",
+} as const;
+
 const PRICE_MANAGEMENT_FORMAT = {
+  abortErrorName: "AbortError",
   amountDivisor: 100,
   currency: "ARS",
   inputMode: "decimal",
@@ -76,6 +103,20 @@ type PriceResponse = {
   fieldErrors?: PriceFieldErrors;
   message?: string;
   price?: TribeSubscriptionPriceResult;
+};
+
+type ProviderPlansVerificationResponse = {
+  canceledPriceIds: string[];
+  message?: string;
+  prices: TribeSubscriptionPriceResult[];
+  verifiedCount: number;
+};
+
+type ProviderPlanVerificationResponse = {
+  message?: string;
+  price?: TribeSubscriptionPriceResult;
+  providerActiveSubscribersCount?: number;
+  verifiedCount?: number;
 };
 
 type PriceFieldErrors = {
@@ -128,6 +169,54 @@ function buildPriceEndpoint(tribeSlug: string, priceId: string): string {
 }
 
 /**
+ * Builds the endpoint that verifies all provider plans for a tribe.
+ *
+ * @param tribeSlug - Current tribe slug.
+ * @returns Provider plan verification endpoint.
+ */
+function buildProviderPlansVerificationEndpoint(tribeSlug: string): string {
+  return (
+    PRICE_MANAGEMENT_ROUTE.apiTribes +
+    tribeSlug +
+    PRICE_MANAGEMENT_ROUTE.verifyProviderPlansSegment
+  );
+}
+
+/**
+ * Builds the endpoint that verifies one provider plan for a price.
+ *
+ * @param tribeSlug - Current tribe slug.
+ * @param priceId - Subscription price identifier.
+ * @returns Provider plan verification endpoint.
+ */
+function buildProviderPlanVerificationEndpoint(
+  tribeSlug: string,
+  priceId: string
+): string {
+  return (
+    buildPriceEndpoint(tribeSlug, priceId) +
+    PRICE_MANAGEMENT_ROUTE.verifyProviderPlanSegment
+  );
+}
+
+/**
+ * Builds the endpoint that verifies real provider subscribers for a price.
+ *
+ * @param tribeSlug - Current tribe slug.
+ * @param priceId - Subscription price identifier.
+ * @returns Provider subscriber verification endpoint.
+ */
+function buildProviderSubscribersVerificationEndpoint(
+  tribeSlug: string,
+  priceId: string
+): string {
+  return (
+    buildPriceEndpoint(tribeSlug, priceId) +
+    PRICE_MANAGEMENT_ROUTE.verifyProviderSubscribersSegment
+  );
+}
+
+/**
  * Builds the Mercado Pago OAuth start endpoint.
  *
  * @param tribeSlug - Current tribe slug.
@@ -165,7 +254,8 @@ function formatAmount(amountCents: number): string {
 async function submitPriceRequest(
   url: string,
   method: string,
-  body?: Record<string, string>
+  body?: Record<string, string>,
+  signal?: AbortSignal
 ): Promise<PriceResponse> {
   const response = await fetch(url, {
     body: body ? JSON.stringify(body) : undefined,
@@ -174,6 +264,7 @@ async function submitPriceRequest(
         PRICE_MANAGEMENT_REQUEST.jsonContentType,
     },
     method,
+    signal,
   });
   const responseBody = (await response.json().catch(() => ({}))) as PriceResponse;
 
@@ -187,6 +278,37 @@ async function submitPriceRequest(
   return responseBody;
 }
 
+/**
+ * Sends a provider plan verification request and reads a safe JSON response.
+ *
+ * @param url - Request URL.
+ * @param signal - Optional abort signal for automatic verification.
+ * @returns Parsed provider plan verification response.
+ */
+async function submitProviderPlanVerificationRequest<
+  VerificationResponse extends ProviderPlanVerificationResponse | ProviderPlansVerificationResponse,
+>(url: string, signal?: AbortSignal): Promise<VerificationResponse> {
+  return submitPriceRequest(
+    url,
+    PRICE_MANAGEMENT_REQUEST.postMethod,
+    undefined,
+    signal
+  ) as Promise<VerificationResponse>;
+}
+
+/**
+ * Detects request cancellation errors from fetch.
+ *
+ * @param error - Unknown error thrown by the request.
+ * @returns Whether the error represents an aborted request.
+ */
+function isAbortError(error: unknown): boolean {
+  return (
+    error instanceof DOMException &&
+    error.name === PRICE_MANAGEMENT_FORMAT.abortErrorName
+  );
+}
+
 export function TribeSubscriptionPriceManagement({
   canManagePrices,
   prices,
@@ -197,6 +319,15 @@ export function TribeSubscriptionPriceManagement({
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [fieldErrors, setFieldErrors] = useState<PriceFieldErrors>({});
+  const [providerVerificationMessage, setProviderVerificationMessage] = useState<
+    string | null
+  >(null);
+  const [isVerifyingProviderPlans, setIsVerifyingProviderPlans] =
+    useState(false);
+  const [
+    providerSubscriberCountsByPriceId,
+    setProviderSubscriberCountsByPriceId,
+  ] = useState<Record<string, number>>({});
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const nameInputId = useId();
   const amountInputId = useId();
@@ -208,6 +339,101 @@ export function TribeSubscriptionPriceManagement({
       ),
     [priceItems]
   );
+
+  /**
+   * Applies a provider verification response to the local price list.
+   *
+   * @param response - Provider verification response returned by the API.
+   * @returns Void.
+   */
+  const applyProviderPlanVerificationResponse = useCallback((
+    response: ProviderPlanVerificationResponse | ProviderPlansVerificationResponse
+  ) => {
+    if (PRICE_MANAGEMENT_REQUEST.pricesProperty in response) {
+      setPriceItems(response.prices);
+
+      return;
+    }
+
+    if (response.price) {
+      setPriceItems((currentPrices) =>
+        currentPrices.map((price) =>
+          price.id === response.price!.id ? response.price! : price
+        )
+      );
+
+      if (typeof response.providerActiveSubscribersCount === "number") {
+        setProviderSubscriberCountsByPriceId((currentCounts) => ({
+          ...currentCounts,
+          [response.price!.id]: response.providerActiveSubscribersCount!,
+        }));
+      }
+    }
+
+  }, []);
+
+  useEffect(() => {
+    if (!canManagePrices || prices.length === 0) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    let isActive = true;
+
+    /**
+     * Verifies provider plans once the price management view loads.
+     *
+     * @returns Promise resolved after verification completes.
+     */
+    async function verifyProviderPlansOnLoad() {
+      setIsVerifyingProviderPlans(true);
+      setProviderVerificationMessage(
+        PRICE_MANAGEMENT_COPY.verifyingProviderPlans
+      );
+
+      try {
+        const response =
+          await submitProviderPlanVerificationRequest<ProviderPlansVerificationResponse>(
+            buildProviderPlansVerificationEndpoint(tribeSlug),
+            controller.signal
+          );
+
+        if (!isActive) {
+          return;
+        }
+
+        applyProviderPlanVerificationResponse(response);
+        setProviderVerificationMessage(response.message ?? null);
+      } catch (error) {
+        if (!isActive || isAbortError(error)) {
+          return;
+        }
+
+        const fallbackMessage =
+          error instanceof Error
+            ? error.message
+            : PRICE_MANAGEMENT_COPY.fallbackVerifyProviderPlanError;
+        setProviderVerificationMessage(fallbackMessage);
+        toast.error(fallbackMessage);
+      } finally {
+        if (isActive) {
+          setIsVerifyingProviderPlans(false);
+        }
+      }
+    }
+
+    void verifyProviderPlansOnLoad();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [
+    applyProviderPlanVerificationResponse,
+    canManagePrices,
+    prices.length,
+    tribeSlug,
+  ]);
 
   /**
    * Creates a new immutable price version.
@@ -321,6 +547,69 @@ export function TribeSubscriptionPriceManagement({
     }
   };
 
+  /**
+   * Verifies one price provider plan and removes it locally when missing.
+   *
+   * @param priceId - Price identifier to verify.
+   * @returns Promise resolved after the request completes.
+   */
+  const handleVerifyProviderPlan = async (priceId: string) => {
+    setPendingAction(PRICE_MANAGEMENT_COPY.verifyProviderPlanButton + priceId);
+
+    try {
+      const response =
+        await submitProviderPlanVerificationRequest<ProviderPlanVerificationResponse>(
+          buildProviderPlanVerificationEndpoint(tribeSlug, priceId)
+        );
+
+      applyProviderPlanVerificationResponse(response);
+      toast.success(
+        response.message ?? PRICE_MANAGEMENT_COPY.verifyProviderPlanButton
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : PRICE_MANAGEMENT_COPY.fallbackVerifyProviderPlanError
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  /**
+   * Verifies real provider subscribers and updates the displayed count.
+   *
+   * @param priceId - Price identifier whose subscribers should be verified.
+   * @returns Promise resolved after the request completes.
+   */
+  const handleVerifyProviderSubscribers = async (priceId: string) => {
+    setPendingAction(
+      PRICE_MANAGEMENT_COPY.verifyProviderSubscribersButton + priceId
+    );
+
+    try {
+      const response =
+        await submitProviderPlanVerificationRequest<ProviderPlanVerificationResponse>(
+          buildProviderSubscribersVerificationEndpoint(tribeSlug, priceId)
+        );
+
+      applyProviderPlanVerificationResponse(response);
+      toast.success(
+        response.message ??
+          PRICE_MANAGEMENT_COPY.verifyProviderSubscribersButton
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : PRICE_MANAGEMENT_COPY.fallbackVerifyProviderSubscribersError
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
   return (
     <section className={styles.TribeSubscriptionPriceManagement}>
       <header className={styles.TribeSubscriptionPriceManagement__header}>
@@ -356,6 +645,15 @@ export function TribeSubscriptionPriceManagement({
           role={PRICE_MANAGEMENT_REQUEST.statusRole}
         >
           {statusMessage}
+        </p>
+      ) : null}
+
+      {providerVerificationMessage ? (
+        <p
+          className={styles.TribeSubscriptionPriceManagement__status}
+          role={PRICE_MANAGEMENT_REQUEST.statusRole}
+        >
+          {providerVerificationMessage}
         </p>
       ) : null}
 
@@ -414,7 +712,12 @@ export function TribeSubscriptionPriceManagement({
             ) : null}
           </div>
           <Button
-            disabled={Boolean(pendingAction) || !name.trim() || !amount.trim()}
+            disabled={
+              Boolean(pendingAction) ||
+              isVerifyingProviderPlans ||
+              !name.trim() ||
+              !amount.trim()
+            }
             type={PRICE_MANAGEMENT_REQUEST.submitType}
           >
             <PlusIcon />
@@ -447,6 +750,12 @@ export function TribeSubscriptionPriceManagement({
                 <span className={styles.TribeSubscriptionPriceManagement__meta}>
                   {price.activeSubscribersCount} miembros asociados
                 </span>
+                {providerSubscriberCountsByPriceId[price.id] !== undefined ? (
+                  <span className={styles.TribeSubscriptionPriceManagement__meta}>
+                    {providerSubscriberCountsByPriceId[price.id]}{" "}
+                    {PRICE_MANAGEMENT_COPY.providerSubscribersMetaSuffix}
+                  </span>
+                ) : null}
               </div>
               {price.isCurrent ? (
                 <Badge>
@@ -454,10 +763,20 @@ export function TribeSubscriptionPriceManagement({
                   {PRICE_MANAGEMENT_COPY.currentBadge}
                 </Badge>
               ) : null}
+              {price.status === PRICE_MANAGEMENT_STATUS.canceled ? (
+                <Badge variant={PRICE_MANAGEMENT_REQUEST.destructiveBadgeVariant}>
+                  {PRICE_MANAGEMENT_COPY.canceledBadge}
+                </Badge>
+              ) : null}
               {canManagePrices ? (
                 <div className={styles.TribeSubscriptionPriceManagement__actions}>
                   <Button
-                    disabled={Boolean(pendingAction) || price.isCurrent}
+                    disabled={
+                      Boolean(pendingAction) ||
+                      isVerifyingProviderPlans ||
+                      price.isCurrent ||
+                      price.status === PRICE_MANAGEMENT_STATUS.canceled
+                    }
                     onClick={() => {
                       void handleMakeCurrent(price.id);
                     }}
@@ -469,7 +788,10 @@ export function TribeSubscriptionPriceManagement({
                   </Button>
                   <Button
                     disabled={
-                      Boolean(pendingAction) || price.activeSubscribersCount > 0
+                      Boolean(pendingAction) ||
+                      isVerifyingProviderPlans ||
+                      price.activeSubscribersCount > 0 ||
+                      price.status === PRICE_MANAGEMENT_STATUS.canceled
                     }
                     onClick={() => {
                       void handleDeletePrice(price.id);
@@ -479,6 +801,28 @@ export function TribeSubscriptionPriceManagement({
                   >
                     <Trash2Icon />
                     {PRICE_MANAGEMENT_COPY.removeButton}
+                  </Button>
+                  <Button
+                    disabled={Boolean(pendingAction) || isVerifyingProviderPlans}
+                    onClick={() => {
+                      void handleVerifyProviderPlan(price.id);
+                    }}
+                    type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                    variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                  >
+                    <RefreshCwIcon />
+                    {PRICE_MANAGEMENT_COPY.verifyProviderPlanButton}
+                  </Button>
+                  <Button
+                    disabled={Boolean(pendingAction) || isVerifyingProviderPlans}
+                    onClick={() => {
+                      void handleVerifyProviderSubscribers(price.id);
+                    }}
+                    type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                    variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                  >
+                    <RefreshCwIcon />
+                    {PRICE_MANAGEMENT_COPY.verifyProviderSubscribersButton}
                   </Button>
                 </div>
               ) : null}

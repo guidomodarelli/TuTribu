@@ -3,6 +3,9 @@ import {
   deleteTribeSubscriptionPrice,
   listTribeSubscriptionPrices,
   makeTribeSubscriptionPriceCurrent,
+  verifyTribeSubscriptionProviderPlan,
+  verifyTribeSubscriptionProviderPlans,
+  verifyTribeSubscriptionProviderSubscribers,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscription-prices-use-cases";
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import type { TribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
@@ -15,6 +18,9 @@ function createRepository(
     delete: jest.fn(),
     listByTribeSlug: jest.fn(),
     makeCurrent: jest.fn(),
+    verifyProviderPlan: jest.fn(),
+    verifyProviderPlans: jest.fn(),
+    verifyProviderSubscribers: jest.fn(),
     ...overrides,
   };
 }
@@ -197,6 +203,90 @@ describe("manage tribe subscription prices use cases", () => {
         canManagePrices: false,
         canViewPrices: true,
       },
+    });
+  });
+
+  it("should verify provider plans for a tribe with normalized input", async () => {
+    const verifyProviderPlans = jest.fn(async () => ({
+      canceledPriceIds: [],
+      prices: [createdPrice],
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+      verifiedCount: 1,
+    }));
+    const execute = verifyTribeSubscriptionProviderPlans({
+      tribeSubscriptionPriceRepository: createRepository({ verifyProviderPlans }),
+    });
+
+    await expect(
+      execute({
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toEqual({
+      canceledPriceIds: [],
+      prices: [createdPrice],
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+      verifiedCount: 1,
+    });
+    expect(verifyProviderPlans).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should verify one provider plan with normalized input", async () => {
+    const verifyProviderPlan = jest.fn(async () => ({
+      price: createdPrice,
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+    }));
+    const execute = verifyTribeSubscriptionProviderPlan({
+      tribeSubscriptionPriceRepository: createRepository({ verifyProviderPlan }),
+    });
+
+    await expect(
+      execute({
+        priceId: " price-1 ",
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toEqual({
+      price: createdPrice,
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+    });
+    expect(verifyProviderPlan).toHaveBeenCalledWith({
+      priceId: "price-1",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should verify provider subscribers for one price with normalized input", async () => {
+    const verifyProviderSubscribers = jest.fn(async () => ({
+      price: {
+        ...createdPrice,
+      },
+      providerActiveSubscribersCount: 1,
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+      verifiedCount: 2,
+    }));
+    const execute = verifyTribeSubscriptionProviderSubscribers({
+      tribeSubscriptionPriceRepository: createRepository({
+        verifyProviderSubscribers,
+      }),
+    });
+
+    await expect(
+      execute({
+        priceId: " price-1 ",
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        activeSubscribersCount: 0,
+      },
+      providerActiveSubscribersCount: 1,
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+      verifiedCount: 2,
+    });
+    expect(verifyProviderSubscribers).toHaveBeenCalledWith({
+      priceId: "price-1",
+      tribeSlug: "matematica-pro",
     });
   });
 });

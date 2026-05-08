@@ -18,6 +18,7 @@ import { PostgresTribeSubscriptionPriceRepository } from "./subscriptions/infras
 import {
   createMercadoPagoPreapprovalPlan,
   createMercadoPagoPreapprovalSubscription,
+  getMercadoPagoPreapprovalPlanStatus,
   getMercadoPagoPreapprovalStatus,
   refreshMercadoPagoAccessToken,
 } from "./subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
@@ -100,7 +101,9 @@ export async function createRequestModules(
         new PostgresTribeSubscriptionPriceRepository(
           executeWithRequestContext,
           createMercadoPagoPreapprovalPlan,
-          refreshMercadoPagoAccessToken
+          refreshMercadoPagoAccessToken,
+          getMercadoPagoPreapprovalPlanStatus,
+          getMercadoPagoPreapprovalStatus
         ),
     }),
   };
