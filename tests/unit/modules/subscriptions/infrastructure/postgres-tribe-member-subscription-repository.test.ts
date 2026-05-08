@@ -200,6 +200,64 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
   });
 
+  it("recovers stale pending reservations that never reached Mercado Pago", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            mercado_pago_preapproval_plan_id: "plan-1",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            checkout_url: null,
+            reserved_subscription_id: "stale-subscription-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: "stale-subscription-1" }] });
+    const createMercadoPagoSubscription = jest.fn(async () => ({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/recovered",
+      providerSubscriptionId: "preapproval-recovered",
+    }));
+    const repository = createRepository(execute, createMercadoPagoSubscription);
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "recovered-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/recovered",
+      status: "pending",
+    });
+
+    const reservationSql = getSqlText(execute.mock.calls[1]?.[0]);
+
+    expect(reservationSql).toMatch(/existing_recoverable_reservation/);
+    expect(reservationSql).toMatch(/mercado_pago_preapproval_id is null/);
+    expect(reservationSql).toMatch(/5 minutes/);
+    expect(createMercadoPagoSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "recovered-attempt",
+        preapprovalPlanId: "plan-1",
+      })
+    );
+  });
+
   it("refreshes expired Mercado Pago tokens before creating provider checkouts", async () => {
     const expiredTokenDate = new Date(Date.now() - 60_000).toISOString();
     const execute = jest

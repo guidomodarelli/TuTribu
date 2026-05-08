@@ -84,6 +84,13 @@ const SUBSCRIPTION_CHECKOUT_CONTEXT = {
   settingName: "app.subscription_checkout_tribe_id",
 } as const;
 
+/**
+ * Defines when an unfinished local checkout reservation can be retried.
+ */
+const SUBSCRIPTION_RESERVATION = {
+  staleReservationInterval: "5 minutes",
+} as const;
+
 const MERCADO_PAGO_PREAPPROVAL_STATUS = {
   authorized: "authorized",
   canceled: "canceled",
@@ -444,6 +451,17 @@ export class PostgresTribeMemberSubscriptionRepository
           on conflict do nothing
           returning id
         ),
+        existing_recoverable_reservation as (
+          select tribe_member_subscriptions.id
+          from public.tribe_member_subscriptions
+          where tribe_member_subscriptions.tribe_id = ${input.tribeId}
+            and tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+            and tribe_member_subscriptions.mercado_pago_preapproval_id is null
+            and tribe_member_subscriptions.updated_at <
+              timezone('utc', now()) - ${SUBSCRIPTION_RESERVATION.staleReservationInterval}::interval
+          limit 1
+        ),
         existing_pending_checkout as (
           select subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url
           from public.subscription_idempotency_operations
@@ -462,7 +480,10 @@ export class PostgresTribeMemberSubscriptionRepository
           limit 1
         )
         select
-          (select id from reserved_subscription) as reserved_subscription_id,
+          coalesce(
+            (select id from reserved_subscription),
+            (select id from existing_recoverable_reservation)
+          ) as reserved_subscription_id,
           (select checkout_url from existing_pending_checkout) as checkout_url
       `);
 
