@@ -6,7 +6,7 @@
  * @module tribe-subscription-price-management
  */
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useId, useMemo, useState } from "react";
 import {
   CheckCircle2Icon,
   CreditCardIcon,
@@ -73,9 +73,23 @@ const PRICE_MANAGEMENT_FORMAT = {
 } as const;
 
 type PriceResponse = {
+  fieldErrors?: PriceFieldErrors;
   message?: string;
   price?: TribeSubscriptionPriceResult;
 };
+
+type PriceFieldErrors = {
+  amount?: string;
+};
+
+class PriceRequestError extends Error {
+  constructor(
+    message: string,
+    readonly fieldErrors: PriceFieldErrors = {}
+  ) {
+    super(message);
+  }
+}
 
 type TribeSubscriptionPriceManagementProps = {
   canManagePrices: boolean;
@@ -164,7 +178,10 @@ async function submitPriceRequest(
   const responseBody = (await response.json().catch(() => ({}))) as PriceResponse;
 
   if (!response.ok) {
-    throw new Error(responseBody.message ?? PRICE_MANAGEMENT_COPY.fallbackCreateError);
+    throw new PriceRequestError(
+      responseBody.message ?? PRICE_MANAGEMENT_COPY.fallbackCreateError,
+      responseBody.fieldErrors
+    );
   }
 
   return responseBody;
@@ -179,7 +196,11 @@ export function TribeSubscriptionPriceManagement({
   const [priceItems, setPriceItems] = useState(prices);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<PriceFieldErrors>({});
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const nameInputId = useId();
+  const amountInputId = useId();
+  const amountErrorId = useId();
   const sortedPrices = useMemo(
     () =>
       [...priceItems].sort((firstPrice, secondPrice) =>
@@ -197,6 +218,7 @@ export function TribeSubscriptionPriceManagement({
   const handleCreatePrice = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setPendingAction(PRICE_MANAGEMENT_COPY.createButton);
+    setFieldErrors({});
 
     try {
       const response = await submitPriceRequest(
@@ -216,6 +238,12 @@ export function TribeSubscriptionPriceManagement({
       setName("");
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.createButton);
     } catch (error) {
+      if (error instanceof PriceRequestError && error.fieldErrors.amount) {
+        setFieldErrors(error.fieldErrors);
+
+        return;
+      }
+
       toast.error(
         error instanceof Error
           ? error.message
@@ -336,31 +364,55 @@ export function TribeSubscriptionPriceManagement({
           className={styles.TribeSubscriptionPriceManagement__form}
           onSubmit={handleCreatePrice}
         >
-          <label className={styles.TribeSubscriptionPriceManagement__field}>
-            <span className={styles.TribeSubscriptionPriceManagement__label}>
+          <div className={styles.TribeSubscriptionPriceManagement__field}>
+            <label
+              className={styles.TribeSubscriptionPriceManagement__label}
+              htmlFor={nameInputId}
+            >
               {PRICE_MANAGEMENT_COPY.nameLabel}
-            </span>
+            </label>
             <Input
+              id={nameInputId}
               onChange={(event) => {
                 setName(event.currentTarget.value);
               }}
               placeholder={PRICE_MANAGEMENT_COPY.namePlaceholder}
               value={name}
             />
-          </label>
-          <label className={styles.TribeSubscriptionPriceManagement__field}>
-            <span className={styles.TribeSubscriptionPriceManagement__label}>
+          </div>
+          <div className={styles.TribeSubscriptionPriceManagement__field}>
+            <label
+              className={styles.TribeSubscriptionPriceManagement__label}
+              htmlFor={amountInputId}
+            >
               {PRICE_MANAGEMENT_COPY.amountLabel}
-            </span>
+            </label>
             <Input
+              id={amountInputId}
               inputMode={PRICE_MANAGEMENT_FORMAT.inputMode}
+              aria-describedby={
+                fieldErrors.amount ? amountErrorId : undefined
+              }
+              aria-invalid={fieldErrors.amount ? true : undefined}
               onChange={(event) => {
                 setAmount(event.currentTarget.value);
+                setFieldErrors((currentFieldErrors) => ({
+                  ...currentFieldErrors,
+                  amount: undefined,
+                }));
               }}
               placeholder={PRICE_MANAGEMENT_COPY.amountPlaceholder}
               value={amount}
             />
-          </label>
+            {fieldErrors.amount ? (
+              <span
+                className={styles.TribeSubscriptionPriceManagement__fieldError}
+                id={amountErrorId}
+              >
+                {fieldErrors.amount}
+              </span>
+            ) : null}
+          </div>
           <Button
             disabled={Boolean(pendingAction) || !name.trim() || !amount.trim()}
             type={PRICE_MANAGEMENT_REQUEST.submitType}

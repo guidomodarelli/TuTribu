@@ -76,6 +76,22 @@ describe("manage tribe subscription prices use cases", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("rejects amounts lower than the Mercado Pago minimum before calling the repository", async () => {
+    const create = jest.fn();
+    const execute = createTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({ create }),
+    });
+
+    await expect(
+      execute({
+        amount: "14.99",
+        name: "Plan mensual",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput });
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("rejects amounts that do not fit in the persisted cents column", async () => {
     const create = jest.fn();
     const execute = createTribeSubscriptionPrice({

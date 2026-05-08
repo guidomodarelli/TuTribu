@@ -7,6 +7,7 @@
 import {
   TRIBE_SUBSCRIPTION_CURRENCY,
   TRIBE_SUBSCRIPTION_FREQUENCY,
+  TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
@@ -64,7 +65,7 @@ function parseAmountCents(amount: string): number | null {
   );
 
   return Number.isSafeInteger(amountCents) &&
-    amountCents > 0 &&
+    amountCents >= TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS &&
     amountCents <= POSTGRES_INTEGER_MAX_VALUE
     ? amountCents
     : null;

@@ -49,6 +49,12 @@
     font-weight: 600;
   }
 
+  &__fieldError {
+    color: var(--destructive);
+    font-size: 0.875rem;
+    margin: 0;
+  }
+
   &__list {
     display: grid;
     gap: 0.75rem;

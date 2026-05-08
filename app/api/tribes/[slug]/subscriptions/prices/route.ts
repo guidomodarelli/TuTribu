@@ -4,7 +4,10 @@
  * @module tribe-subscription-prices-route
  */
 
-import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import {
+  TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS,
+  TRIBE_SUBSCRIPTION_PRICE_STATUS,
+} from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -12,6 +15,13 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 const PRICE_ROUTE_FIELD = {
   amount: "amount",
   name: "name",
+} as const;
+
+const PRICE_ROUTE_AMOUNT = {
+  centsMultiplier: 100,
+  commaSeparator: ",",
+  dotSeparator: ".",
+  validPattern: /^\d+(\.\d{1,2})?$/,
 } as const;
 
 const PRICE_ROUTE_LOG = {
@@ -22,6 +32,7 @@ const PRICE_ROUTE_LOG = {
 } as const;
 
 const PRICE_ROUTE_RESPONSE = {
+  amountMinimumFieldMessage: "El precio mensual mínimo es $ 15.",
   createdMessage: "Precio creado.",
   forbiddenMessage: "No tenés permisos para gestionar precios.",
   invalidInputMessage: "Definí un nombre y un precio mensual válido.",
@@ -31,6 +42,10 @@ const PRICE_ROUTE_RESPONSE = {
   unauthorizedMessage: "Iniciá sesión para gestionar precios.",
   unexpectedCreateMessage: "No pudimos crear el precio. Intentá de nuevo.",
   unexpectedListMessage: "No pudimos cargar los precios. Intentá de nuevo.",
+} as const;
+
+const MERCADO_PAGO_PRICE_REJECTION = {
+  minimumAmountMessage: "Cannot pay an amount lower than $ 15.00",
 } as const;
 
 const HTTP_STATUS = {
@@ -70,6 +85,75 @@ function readStringField(body: unknown, field: string): string {
   const value = (body as Record<string, unknown>)[field];
 
   return typeof value === "string" ? value : "";
+}
+
+/**
+ * Creates the safe response used for amount validation failures.
+ *
+ * @returns JSON body with form field errors.
+ */
+function createInvalidPriceAmountResponse(): Record<string, unknown> {
+  return {
+    fieldErrors: {
+      [PRICE_ROUTE_FIELD.amount]: PRICE_ROUTE_RESPONSE.amountMinimumFieldMessage,
+    },
+    message: PRICE_ROUTE_RESPONSE.invalidInputMessage,
+  };
+}
+
+/**
+ * Converts a submitted route amount into cents when it has a valid shape.
+ *
+ * @param amount - Raw amount submitted by the form.
+ * @returns Amount in cents, or null when the route cannot classify it.
+ */
+function parseRouteAmountCents(amount: string): number | null {
+  const normalizedAmount = amount
+    .trim()
+    .replace(
+      PRICE_ROUTE_AMOUNT.commaSeparator,
+      PRICE_ROUTE_AMOUNT.dotSeparator
+    );
+
+  if (!PRICE_ROUTE_AMOUNT.validPattern.test(normalizedAmount)) {
+    return null;
+  }
+
+  const amountCents = Math.round(
+    Number(normalizedAmount) * PRICE_ROUTE_AMOUNT.centsMultiplier
+  );
+
+  return Number.isSafeInteger(amountCents) ? amountCents : null;
+}
+
+/**
+ * Determines whether an invalid input response belongs to the amount minimum.
+ *
+ * @param body - Parsed request body.
+ * @returns Whether the response should include an amount field error.
+ */
+function hasMinimumAmountValidationError(body: unknown): boolean {
+  const amountCents = parseRouteAmountCents(
+    readStringField(body, PRICE_ROUTE_FIELD.amount)
+  );
+
+  return (
+    amountCents !== null &&
+    amountCents < TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS
+  );
+}
+
+/**
+ * Detects the Mercado Pago minimum amount rejection without exposing provider text.
+ *
+ * @param error - Error thrown by the provider adapter.
+ * @returns Whether the error should be mapped to the amount field.
+ */
+function isMercadoPagoMinimumAmountError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes(MERCADO_PAGO_PRICE_REJECTION.minimumAmountMessage)
+  );
 }
 
 export async function GET(
@@ -165,7 +249,9 @@ export async function POST(
         );
       case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
         return createJsonResponse(
-          { message: PRICE_ROUTE_RESPONSE.invalidInputMessage },
+          hasMinimumAmountValidationError(body)
+            ? createInvalidPriceAmountResponse()
+            : { message: PRICE_ROUTE_RESPONSE.invalidInputMessage },
           HTTP_STATUS.badRequest
         );
       case TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached:
@@ -191,6 +277,13 @@ export async function POST(
         );
     }
   } catch (error) {
+    if (isMercadoPagoMinimumAmountError(error)) {
+      return createJsonResponse(
+        createInvalidPriceAmountResponse(),
+        HTTP_STATUS.badRequest
+      );
+    }
+
     logger.error({
       message: PRICE_ROUTE_LOG.createFailureMessage,
       error,

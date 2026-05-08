@@ -24,6 +24,11 @@ export const TRIBE_SUBSCRIPTION_FREQUENCY = {
 export const TRIBE_SUBSCRIPTION_PRICE_LIMIT = 30;
 
 /**
+ * Defines the minimum recurring price accepted by Mercado Pago for ARS plans.
+ */
+export const TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS = 1500;
+
+/**
  * Defines mutation and access statuses for tribe subscription prices.
  */
 export const TRIBE_SUBSCRIPTION_PRICE_STATUS = {
