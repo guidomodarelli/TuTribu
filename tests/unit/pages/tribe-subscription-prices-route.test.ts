@@ -1,10 +1,16 @@
 import { POST } from "@/app/api/tribes/[slug]/subscriptions/prices/route";
+import {
+  DELETE,
+  PATCH,
+} from "@/app/api/tribes/[slug]/subscriptions/prices/[priceId]/route";
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const getAuthenticatedMember = jest.fn();
 const createTribeSubscriptionPrice = jest.fn();
+const deleteTribeSubscriptionPrice = jest.fn();
+const updateTribeSubscriptionPrice = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -76,6 +82,8 @@ describe("tribe subscription prices route", () => {
       subscriptions: {
         useCases: {
           createTribeSubscriptionPrice,
+          deleteTribeSubscriptionPrice,
+          updateTribeSubscriptionPrice,
         },
       },
     });
@@ -119,6 +127,87 @@ describe("tribe subscription prices route", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       message: "Definí un nombre y un precio mensual válido.",
+    });
+  });
+
+  it("should update one price from the item route", async () => {
+    updateTribeSubscriptionPrice.mockResolvedValue({
+      price: {
+        activeSubscribersCount: 0,
+        amountCents: 500000,
+        createdAt: "2026-05-06T12:00:00.000Z",
+        currency: "ARS",
+        frequency: "monthly",
+        id: "price-1",
+        isCurrent: false,
+        name: "Plan actualizado",
+        status: "active",
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    });
+
+    const response = await PATCH(
+      buildRequest({
+        amount: "5000",
+        name: "Plan actualizado",
+      }),
+      {
+        params: Promise.resolve({
+          priceId: "price-1",
+          slug: "matematica-pro",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      message: "Precio actualizado.",
+      price: {
+        name: "Plan actualizado",
+      },
+    });
+    expect(updateTribeSubscriptionPrice).toHaveBeenCalledWith({
+      amount: "5000",
+      name: "Plan actualizado",
+      priceId: "price-1",
+      tribeSlug: "matematica-pro",
+    });
+    expect(createServerLogger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "update-tribe-subscription-price",
+      })
+    );
+  });
+
+  it("should return a canceled price from the item delete route", async () => {
+    deleteTribeSubscriptionPrice.mockResolvedValue({
+      price: {
+        activeSubscribersCount: 0,
+        amountCents: 500000,
+        createdAt: "2026-05-06T12:00:00.000Z",
+        currency: "ARS",
+        frequency: "monthly",
+        id: "price-1",
+        isCurrent: false,
+        name: "Plan mensual",
+        status: "canceled",
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+    });
+
+    const response = await DELETE(buildRequest(), {
+      params: Promise.resolve({
+        priceId: "price-1",
+        slug: "matematica-pro",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      message: "Precio cancelado.",
+      price: {
+        status: "canceled",
+      },
     });
   });
 });

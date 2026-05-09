@@ -4,6 +4,7 @@ import { POST } from "@/app/api/mercado-pago/webhooks/route";
 import { createRequestModules } from "@/src/modules/setup";
 
 const handleMercadoPagoSubscriptionWebhook = jest.fn();
+const syncMercadoPagoSubscriptionProviderPlanWebhook = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -76,10 +77,14 @@ describe("Mercado Pago webhook route", () => {
     handleMercadoPagoSubscriptionWebhook.mockResolvedValue({
       status: "processed",
     });
+    syncMercadoPagoSubscriptionProviderPlanWebhook.mockResolvedValue({
+      status: "verified",
+    });
     (createRequestModules as jest.Mock).mockResolvedValue({
       subscriptions: {
         useCases: {
           handleMercadoPagoSubscriptionWebhook,
+          syncMercadoPagoSubscriptionProviderPlanWebhook,
         },
       },
     });
@@ -244,6 +249,71 @@ describe("Mercado Pago webhook route", () => {
     });
     expect(createRequestModules).not.toHaveBeenCalled();
     expect(handleMercadoPagoSubscriptionWebhook).not.toHaveBeenCalled();
+  });
+
+  it("should process signed Mercado Pago subscription plan webhooks", async () => {
+    const timestamp = String(Date.now());
+    const requestId = "request-1";
+    const response = await POST(
+      buildWebhookRequest(
+        {
+          "x-request-id": requestId,
+          "x-signature": buildWebhookSignature("plan-1", requestId, timestamp),
+        },
+        undefined,
+        {
+          action: "subscription_preapproval_plan.updated",
+          data: {
+            id: "plan-1",
+          },
+          id: "event-1",
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(handleMercadoPagoSubscriptionWebhook).not.toHaveBeenCalled();
+    expect(syncMercadoPagoSubscriptionProviderPlanWebhook).toHaveBeenCalledWith({
+      eventId: "event-1",
+      resourceId: "plan-1",
+      topic: "subscription_preapproval_plan.updated",
+    });
+  });
+
+  it("asks Mercado Pago to retry when the subscription plan sync cannot access the provider", async () => {
+    syncMercadoPagoSubscriptionProviderPlanWebhook.mockResolvedValue({
+      status: "missing_integration",
+    });
+
+    const timestamp = String(Date.now());
+    const requestId = "request-1";
+    const response = await POST(
+      buildWebhookRequest(
+        {
+          "x-request-id": requestId,
+          "x-signature": buildWebhookSignature("plan-1", requestId, timestamp),
+        },
+        undefined,
+        {
+          action: "subscription_preapproval_plan.updated",
+          data: {
+            id: "plan-1",
+          },
+          id: "event-1",
+        }
+      )
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      message: "No pudimos procesar el webhook.",
+    });
+    expect(handleMercadoPagoSubscriptionWebhook).not.toHaveBeenCalled();
+    expect(syncMercadoPagoSubscriptionProviderPlanWebhook).toHaveBeenCalledWith({
+      eventId: "event-1",
+      resourceId: "plan-1",
+      topic: "subscription_preapproval_plan.updated",
+    });
   });
 
   it("uses the signed data id from the callback URL", async () => {

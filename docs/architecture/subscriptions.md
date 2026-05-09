@@ -9,9 +9,10 @@ el precio actual.
 
 ## Modelo
 
-Los precios son versiones históricas inmutables en
-`tribe_subscription_prices`. No se editan; un cambio crea una nueva versión y
-el líder puede marcar una versión como `current`.
+Los precios son versiones históricas en `tribe_subscription_prices`. La política
+de modificación es mixta: el nombre y el estado del plan se sincronizan sobre el
+mismo precio y el mismo plan de Mercado Pago; los cambios de monto o frecuencia
+crean una nueva versión y un nuevo plan de proveedor.
 
 Reglas:
 
@@ -19,7 +20,7 @@ Reglas:
 * solo una versión activa puede ser `current`
 * nuevos integrantes ven únicamente la versión `current`
 * miembros existentes conservan su `price_id` original
-* no se elimina una versión con miembros asociados
+* no se cancela una versión con miembros asociados
 * cada tribu puede tener hasta 30 precios activos
 
 ## Estado de acceso
@@ -47,3 +48,14 @@ identificador de plan del proveedor. Esa transición es irreversible: los
 precios cancelados no vuelven a consultarse en Mercado Pago ni pueden
 reactivarse; cualquier nueva oferta debe crear una nueva versión de precio y
 un nuevo plan de proveedor.
+
+Los planes creados por LaTribu se identifican en Mercado Pago con
+`external_reference = latribu:price:<priceId>`. La app solo sincroniza planes
+que estén vinculados por ese `external_reference` o por un
+`mercado_pago_preapproval_plan_id` ya persistido localmente; los planes sueltos
+de la cuenta conectada se ignoran.
+
+Las acciones iniciadas desde LaTribu se aplican primero contra Mercado Pago y
+luego se reflejan localmente. Los webhooks `subscription_preapproval_plan`
+actualizan el nombre local cuando el plan sigue activo y cancelan el precio
+local cuando el plan proveedor deja de estar activo.

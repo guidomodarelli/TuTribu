@@ -46,6 +46,7 @@ export const TRIBE_SUBSCRIPTION_PRICE_STATUS = {
   notFound: "not_found",
   setupRequired: "setup_required",
   subscriptionRequired: "subscription_required",
+  updated: "updated",
   verified: "verified",
 } as const;
 

@@ -7,6 +7,7 @@
 import type {
   TribeSubscriptionProviderPlanVerificationResult,
   TribeSubscriptionProviderPlansVerificationResult,
+  TribeSubscriptionProviderPlanSyncResult,
   TribeSubscriptionProviderSubscribersVerificationResult,
   TribeSubscriptionPriceListResult,
   TribeSubscriptionPriceMutationResult,
@@ -22,6 +23,16 @@ export type CreateTribeSubscriptionPriceCommand = {
   frequency: typeof TRIBE_SUBSCRIPTION_FREQUENCY.monthly;
   name: string;
   tribeSlug: string;
+};
+
+export type UpdateTribeSubscriptionPriceCommand = CreateTribeSubscriptionPriceCommand & {
+  priceId: string;
+};
+
+export type SyncTribeSubscriptionProviderPlanCommand = {
+  eventId: string;
+  resourceId: string;
+  topic: string;
 };
 
 export type TribeSubscriptionPriceIdentity = {
@@ -45,6 +56,12 @@ export type TribeSubscriptionPriceRepository = {
   ): Promise<TribeSubscriptionPriceListResult>;
   makeCurrent(
     command: TribeSubscriptionPriceIdentity
+  ): Promise<TribeSubscriptionPriceMutationResult>;
+  syncProviderPlan(
+    command: SyncTribeSubscriptionProviderPlanCommand
+  ): Promise<TribeSubscriptionProviderPlanSyncResult>;
+  update(
+    command: UpdateTribeSubscriptionPriceCommand
   ): Promise<TribeSubscriptionPriceMutationResult>;
   verifyProviderPlan(
     command: TribeSubscriptionPriceIdentity

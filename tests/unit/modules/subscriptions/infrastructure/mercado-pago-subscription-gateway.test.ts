@@ -1,9 +1,12 @@
 import {
   createMercadoPagoPreapprovalPlan,
   createMercadoPagoPreapprovalSubscription,
+  getMercadoPagoPreapprovalPlan,
   getMercadoPagoPreapprovalPlanStatus,
   getMercadoPagoPreapprovalStatus,
   refreshMercadoPagoAccessToken,
+  searchMercadoPagoPreapprovalPlans,
+  updateMercadoPagoPreapprovalPlan,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 
 describe("mercado pago subscription gateway", () => {
@@ -158,6 +161,7 @@ describe("mercado pago subscription gateway", () => {
         accessToken: "access-token",
         amountCents: 120000,
         currency: "ARS",
+        externalReference: "latribu:price:price-1",
         idempotencyKey: "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",
         name: "Plan mensual",
         reason: "Plan mensual",
@@ -175,6 +179,7 @@ describe("mercado pago subscription gateway", () => {
             transaction_amount: 1200,
           },
           back_url: "https://tutribu.example.com",
+          external_reference: "latribu:price:price-1",
           reason: "Plan mensual",
         }),
         headers: {
@@ -185,6 +190,119 @@ describe("mercado pago subscription gateway", () => {
         },
         method: "POST",
       }
+    );
+  });
+
+  it("should update Mercado Pago preapproval plan mutable fields", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        auto_recurring: {
+          currency_id: "ARS",
+          transaction_amount: 1200,
+        },
+        external_reference: "latribu:price:price-1",
+        id: "plan-1",
+        reason: "Plan actualizado",
+        status: "active",
+      }),
+      ok: true,
+    });
+
+    await expect(
+      updateMercadoPagoPreapprovalPlan({
+        accessToken: "access-token",
+        externalReference: "latribu:price:price-1",
+        preapprovalPlanId: "plan-1",
+        reason: "Plan actualizado",
+        status: "active",
+      })
+    ).resolves.toEqual({
+      amountCents: 120000,
+      currency: "ARS",
+      externalReference: "latribu:price:price-1",
+      id: "plan-1",
+      reason: "Plan actualizado",
+      status: "active",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.mercadopago.com/preapproval_plan/plan-1",
+      {
+        body: JSON.stringify({
+          external_reference: "latribu:price:price-1",
+          reason: "Plan actualizado",
+          status: "active",
+        }),
+        headers: {
+          Authorization: "Bearer access-token",
+          "Content-Type": "application/json",
+        },
+        method: "PUT",
+      }
+    );
+  });
+
+  it("should read Mercado Pago preapproval plan details", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        auto_recurring: {
+          currency_id: "ARS",
+          transaction_amount: 1200,
+        },
+        external_reference: "latribu:price:price-1",
+        id: "plan-1",
+        reason: "Plan mensual",
+        status: "active",
+      }),
+      ok: true,
+    });
+
+    await expect(
+      getMercadoPagoPreapprovalPlan({
+        accessToken: "access-token",
+        preapprovalPlanId: "plan-1",
+      })
+    ).resolves.toMatchObject({
+      amountCents: 120000,
+      externalReference: "latribu:price:price-1",
+      reason: "Plan mensual",
+      status: "active",
+    });
+  });
+
+  it("should search Mercado Pago preapproval plans by external reference", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        results: [
+          {
+            external_reference: "latribu:price:price-1",
+            id: "plan-1",
+            reason: "Plan mensual",
+            status: "active",
+          },
+        ],
+      }),
+      ok: true,
+    });
+
+    await expect(
+      searchMercadoPagoPreapprovalPlans({
+        accessToken: "access-token",
+        externalReference: "latribu:price:price-1",
+      })
+    ).resolves.toMatchObject([
+      {
+        externalReference: "latribu:price:price-1",
+        id: "plan-1",
+        reason: "Plan mensual",
+        status: "active",
+      },
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.mercadopago.com/preapproval_plan/search?external_reference=latribu%3Aprice%3Aprice-1",
+      expect.objectContaining({
+        method: "GET",
+      })
     );
   });
 
@@ -262,6 +380,7 @@ describe("mercado pago subscription gateway", () => {
         accessToken: "access-token",
         amountCents: 120000,
         currency: "ARS",
+        externalReference: "latribu:price:price-1",
         idempotencyKey: "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",
         name: "Plan mensual",
         reason: "Plan mensual",
@@ -283,6 +402,7 @@ describe("mercado pago subscription gateway", () => {
         accessToken: "access-token",
         amountCents: 120000,
         currency: "ARS",
+        externalReference: "latribu:price:price-1",
         idempotencyKey: "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",
         name: "Plan mensual",
         reason: "Plan mensual",

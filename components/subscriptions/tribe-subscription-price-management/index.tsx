@@ -18,6 +18,7 @@ import {
 import {
   CheckCircle2Icon,
   CreditCardIcon,
+  PencilIcon,
   PlusIcon,
   RefreshCwIcon,
   StarIcon,
@@ -45,6 +46,7 @@ const PRICE_MANAGEMENT_COPY = {
   emptyState: "Todavía no hay precios configurados.",
   fallbackCreateError: "No pudimos crear el precio.",
   fallbackDeleteError: "No pudimos eliminar el precio.",
+  fallbackUpdateError: "No pudimos actualizar el precio.",
   fallbackMakeCurrentError: "No pudimos marcar el precio como actual.",
   fallbackVerifyProviderPlanError:
     "No pudimos verificar los planes. Intentá de nuevo.",
@@ -54,9 +56,14 @@ const PRICE_MANAGEMENT_COPY = {
   makeCurrentButton: "Marcar como actual",
   nameLabel: "Nombre",
   namePlaceholder: "Plan mensual",
+  cancelEditButton: "Cancelar edición",
+  editAmountLabel: "Nuevo precio mensual",
+  editButton: "Editar",
+  editNameLabel: "Nuevo nombre",
   priceListLabel: "Precios históricos",
   readonlyBadge: "Solo lectura",
   removeButton: "Eliminar",
+  saveEditButton: "Guardar cambios",
   title: "Precios",
   providerSubscribersMetaSuffix: "suscriptores vigentes en Mercado Pago",
   verifyProviderPlanButton: "Verificar plan",
@@ -82,6 +89,7 @@ const PRICE_MANAGEMENT_REQUEST = {
   destructiveBadgeVariant: "destructive",
   jsonContentType: "application/json",
   postMethod: "POST",
+  patchMethod: "PATCH",
   pricesProperty: "prices",
   submitType: "submit",
   outlineVariant: "outline",
@@ -91,6 +99,11 @@ const PRICE_MANAGEMENT_REQUEST = {
 
 const PRICE_MANAGEMENT_STATUS = {
   canceled: "canceled",
+} as const;
+
+const PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX = {
+  amount: "-edit-amount",
+  name: "-edit-name",
 } as const;
 
 const PRICE_MANAGEMENT_FORMAT = {
@@ -124,6 +137,12 @@ type ProviderPlanVerificationResponse = {
 
 type PriceFieldErrors = {
   amount?: string;
+};
+
+type EditingPrice = {
+  amount: string;
+  id: string;
+  name: string;
 };
 
 class PriceRequestError extends Error {
@@ -250,6 +269,16 @@ function formatAmount(amountCents: number): string {
 }
 
 /**
+ * Formats ARS cents for editable decimal inputs.
+ *
+ * @param amountCents - Amount in cents.
+ * @returns Decimal amount without currency symbols.
+ */
+function formatAmountInputValue(amountCents: number): string {
+  return String(amountCents / PRICE_MANAGEMENT_FORMAT.amountDivisor);
+}
+
+/**
  * Sends a price mutation request and reads a safe JSON response.
  *
  * @param url - Request URL.
@@ -327,6 +356,7 @@ export function TribeSubscriptionPriceManagement({
   const [priceItems, setPriceItems] = useState(prices);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [editingPrice, setEditingPrice] = useState<EditingPrice | null>(null);
   const [fieldErrors, setFieldErrors] = useState<PriceFieldErrors>({});
   const [providerVerificationMessage, setProviderVerificationMessage] = useState<
     string | null
@@ -342,6 +372,7 @@ export function TribeSubscriptionPriceManagement({
   const nameInputId = useId();
   const amountInputId = useId();
   const amountErrorId = useId();
+  const editAmountErrorId = useId();
   const sortedPrices = useMemo(
     () =>
       [...priceItems].sort((firstPrice, secondPrice) =>
@@ -402,6 +433,35 @@ export function TribeSubscriptionPriceManagement({
     }
 
   }, []);
+
+  /**
+   * Applies one price mutation response to the local list.
+   *
+   * @param price - Mutated price returned by the API.
+   * @returns Void.
+   */
+  const applyPriceMutationResponse = useCallback(
+    (price: TribeSubscriptionPriceResult) => {
+      setPriceItems((currentPrices) => {
+        const hasExistingPrice = currentPrices.some(
+          (currentPrice) => currentPrice.id === price.id
+        );
+        const updatedPrices = hasExistingPrice
+          ? currentPrices.map((currentPrice) =>
+              currentPrice.id === price.id ? price : currentPrice
+            )
+          : [price, ...currentPrices];
+
+        return price.isCurrent
+          ? updatedPrices.map((currentPrice) => ({
+              ...currentPrice,
+              isCurrent: currentPrice.id === price.id,
+            }))
+          : updatedPrices;
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     if (!canManagePrices || !isMercadoPagoConnected || prices.length === 0) {
@@ -512,7 +572,7 @@ export function TribeSubscriptionPriceManagement({
       );
 
       if (response.price) {
-        setPriceItems((currentPrices) => [response.price!, ...currentPrices]);
+        applyPriceMutationResponse(response.price);
       }
 
       setAmount("");
@@ -536,6 +596,91 @@ export function TribeSubscriptionPriceManagement({
   };
 
   /**
+   * Starts inline editing for one active price.
+   *
+   * @param price - Price selected for editing.
+   * @returns Void.
+   */
+  const handleStartEditingPrice = (price: TribeSubscriptionPriceResult) => {
+    setEditingPrice({
+      amount: formatAmountInputValue(price.amountCents),
+      id: price.id,
+      name: price.name,
+    });
+    setFieldErrors({});
+  };
+
+  /**
+   * Updates the current inline editing draft.
+   *
+   * @param partialEditingPrice - Partial editing state to merge.
+   * @returns Void.
+   */
+  const updateEditingPrice = (partialEditingPrice: Partial<EditingPrice>) => {
+    setEditingPrice((currentEditingPrice) =>
+      currentEditingPrice
+        ? {
+            ...currentEditingPrice,
+            ...partialEditingPrice,
+          }
+        : currentEditingPrice
+    );
+    setFieldErrors((currentFieldErrors) => ({
+      ...currentFieldErrors,
+      amount: undefined,
+    }));
+  };
+
+  /**
+   * Saves an inline price edit using the mixed synchronization policy.
+   *
+   * @param event - Form submission event.
+   * @returns Promise resolved after the request completes.
+   */
+  const handleUpdatePrice = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editingPrice) {
+      return;
+    }
+
+    setPendingAction(PRICE_MANAGEMENT_COPY.saveEditButton + editingPrice.id);
+    setFieldErrors({});
+
+    try {
+      const response = await submitPriceRequest(
+        buildPriceEndpoint(tribeSlug, editingPrice.id),
+        PRICE_MANAGEMENT_REQUEST.patchMethod,
+        {
+          amount: editingPrice.amount,
+          name: editingPrice.name,
+        }
+      );
+
+      if (response.price) {
+        applyPriceMutationResponse(response.price);
+      }
+
+      setEditingPrice(null);
+      toast.success(response.message ?? PRICE_MANAGEMENT_COPY.saveEditButton);
+    } catch (error) {
+      if (error instanceof PriceRequestError && error.fieldErrors.amount) {
+        setFieldErrors(error.fieldErrors);
+
+        return;
+      }
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : PRICE_MANAGEMENT_COPY.fallbackUpdateError
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  /**
    * Marks an existing price as current.
    *
    * @param priceId - Price identifier to mark current.
@@ -552,12 +697,7 @@ export function TribeSubscriptionPriceManagement({
       );
 
       if (response.price) {
-        setPriceItems((currentPrices) =>
-          currentPrices.map((price) => ({
-            ...price,
-            isCurrent: price.id === response.price!.id,
-          }))
-        );
+        applyPriceMutationResponse(response.price);
       }
 
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.makeCurrentButton);
@@ -587,9 +727,9 @@ export function TribeSubscriptionPriceManagement({
         PRICE_MANAGEMENT_REQUEST.deleteMethod
       );
 
-      setPriceItems((currentPrices) =>
-        currentPrices.filter((price) => price.id !== priceId)
-      );
+      if (response.price) {
+        applyPriceMutationResponse(response.price);
+      }
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.removeButton);
     } catch (error) {
       toast.error(
@@ -838,6 +978,20 @@ export function TribeSubscriptionPriceManagement({
                   <Button
                     disabled={
                       isPriceManagementDisabled ||
+                      price.status === PRICE_MANAGEMENT_STATUS.canceled
+                    }
+                    onClick={() => {
+                      handleStartEditingPrice(price);
+                    }}
+                    type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                    variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                  >
+                    <PencilIcon />
+                    {PRICE_MANAGEMENT_COPY.editButton}
+                  </Button>
+                  <Button
+                    disabled={
+                      isPriceManagementDisabled ||
                       price.isCurrent ||
                       price.status === PRICE_MANAGEMENT_STATUS.canceled
                     }
@@ -894,6 +1048,85 @@ export function TribeSubscriptionPriceManagement({
                     {PRICE_MANAGEMENT_COPY.verifyProviderSubscribersButton}
                   </Button>
                 </div>
+              ) : null}
+              {editingPrice?.id === price.id ? (
+                <form
+                  className={styles.TribeSubscriptionPriceManagement__editForm}
+                  onSubmit={handleUpdatePrice}
+                >
+                  <div className={styles.TribeSubscriptionPriceManagement__field}>
+                    <label
+                      className={styles.TribeSubscriptionPriceManagement__label}
+                      htmlFor={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.name}`}
+                    >
+                      {PRICE_MANAGEMENT_COPY.editNameLabel}
+                    </label>
+                    <Input
+                      id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.name}`}
+                      onChange={(event) => {
+                        updateEditingPrice({
+                          name: event.currentTarget.value,
+                        });
+                      }}
+                      value={editingPrice.name}
+                    />
+                  </div>
+                  <div className={styles.TribeSubscriptionPriceManagement__field}>
+                    <label
+                      className={styles.TribeSubscriptionPriceManagement__label}
+                      htmlFor={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.amount}`}
+                    >
+                      {PRICE_MANAGEMENT_COPY.editAmountLabel}
+                    </label>
+                    <Input
+                      aria-describedby={
+                        fieldErrors.amount ? editAmountErrorId : undefined
+                      }
+                      aria-invalid={fieldErrors.amount ? true : undefined}
+                      id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.amount}`}
+                      inputMode={PRICE_MANAGEMENT_FORMAT.inputMode}
+                      onChange={(event) => {
+                        updateEditingPrice({
+                          amount: event.currentTarget.value,
+                        });
+                      }}
+                      value={editingPrice.amount}
+                    />
+                    {fieldErrors.amount ? (
+                      <span
+                        className={
+                          styles.TribeSubscriptionPriceManagement__fieldError
+                        }
+                        id={editAmountErrorId}
+                      >
+                        {fieldErrors.amount}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className={styles.TribeSubscriptionPriceManagement__actions}>
+                    <Button
+                      disabled={
+                        isPriceManagementDisabled ||
+                        !editingPrice.name.trim() ||
+                        !editingPrice.amount.trim()
+                      }
+                      type={PRICE_MANAGEMENT_REQUEST.submitType}
+                    >
+                      <CheckCircle2Icon />
+                      {PRICE_MANAGEMENT_COPY.saveEditButton}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setEditingPrice(null);
+                        setFieldErrors({});
+                      }}
+                      type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                      variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                    >
+                      {PRICE_MANAGEMENT_COPY.cancelEditButton}
+                    </Button>
+                  </div>
+                </form>
               ) : null}
             </li>
           ))}

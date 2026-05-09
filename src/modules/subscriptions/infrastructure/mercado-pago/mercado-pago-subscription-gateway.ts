@@ -27,6 +27,7 @@ const MERCADO_PAGO_HTTP = {
   idempotencyHeader: "X-Idempotency-Key",
   jsonContentType: "application/json",
   postMethod: "POST",
+  putMethod: "PUT",
 } as const;
 
 const MERCADO_PAGO_ERROR_DETAIL = {
@@ -43,9 +44,18 @@ export type MercadoPagoPlanInput = {
   accessToken: string;
   amountCents: number;
   currency: string;
+  externalReference: string;
   idempotencyKey: string;
   name: string;
   reason: string;
+};
+
+export type MercadoPagoPlanUpdateInput = {
+  accessToken: string;
+  externalReference: string;
+  preapprovalPlanId: string;
+  reason: string;
+  status: string;
 };
 
 export type MercadoPagoSubscriptionInput = {
@@ -69,6 +79,25 @@ export type MercadoPagoPreapprovalPlanStatusInput = {
   preapprovalPlanId: string;
 };
 
+export type MercadoPagoPreapprovalPlanInput = {
+  accessToken: string;
+  preapprovalPlanId: string;
+};
+
+export type MercadoPagoPreapprovalPlanSearchInput = {
+  accessToken: string;
+  externalReference: string;
+};
+
+export type MercadoPagoPreapprovalPlanResult = {
+  amountCents: number | null;
+  currency: string | null;
+  externalReference: string | null;
+  id: string;
+  reason: string | null;
+  status: string;
+};
+
 export type MercadoPagoOAuthTokenResult = {
   accessToken: string;
   expiresIn: number | null;
@@ -81,7 +110,20 @@ type MercadoPagoPlanResponse = {
 };
 
 type MercadoPagoPreapprovalPlanResponse = {
+  auto_recurring?: {
+    currency_id?: string;
+    frequency?: number;
+    frequency_type?: string;
+    transaction_amount?: number;
+  };
+  external_reference?: string | number | null;
+  id?: string;
+  reason?: string | null;
   status?: string;
+};
+
+type MercadoPagoPreapprovalPlanSearchResponse = {
+  results?: MercadoPagoPreapprovalPlanResponse[];
 };
 
 type MercadoPagoSubscriptionResponse = {
@@ -211,6 +253,40 @@ function buildMercadoPagoRequestFailureMessage(
   return providerDetails.length
     ? baseMessage + ": " + providerDetails.join("; ")
     : baseMessage;
+}
+
+/**
+ * Maps a Mercado Pago preapproval plan response into the internal provider result.
+ *
+ * @param body - Provider plan response body.
+ * @param fallbackPlanId - Plan identifier used when the provider body omits the id.
+ * @returns Normalized provider plan result.
+ * @throws When Mercado Pago omits the required plan status.
+ */
+function mapMercadoPagoPreapprovalPlanResponse(
+  body: MercadoPagoPreapprovalPlanResponse,
+  fallbackPlanId: string
+): MercadoPagoPreapprovalPlanResult {
+  if (!body.status) {
+    throw new Error(
+      "Mercado Pago preapproval plan response did not include status"
+    );
+  }
+
+  return {
+    amountCents:
+      typeof body.auto_recurring?.transaction_amount === "number"
+        ? Math.round(body.auto_recurring.transaction_amount * 100)
+        : null,
+    currency: body.auto_recurring?.currency_id ?? null,
+    externalReference:
+      body.external_reference === undefined || body.external_reference === null
+        ? null
+        : String(body.external_reference),
+    id: body.id ?? fallbackPlanId,
+    reason: body.reason ?? null,
+    status: body.status,
+  };
 }
 
 /**
@@ -356,6 +432,7 @@ export async function createMercadoPagoPreapprovalPlan(
         transaction_amount: input.amountCents / 100,
       },
       back_url: resolvePublicAppBaseUrl(),
+      external_reference: input.externalReference,
       reason: input.reason,
     }),
     headers: {
@@ -373,6 +450,100 @@ export async function createMercadoPagoPreapprovalPlan(
   }
 
   return body.id;
+}
+
+/**
+ * Updates mutable Mercado Pago subscription plan fields.
+ *
+ * @param input - Provider plan identifier, account token, and mutable plan data.
+ * @returns Updated Mercado Pago plan details.
+ */
+export async function updateMercadoPagoPreapprovalPlan(
+  input: MercadoPagoPlanUpdateInput
+): Promise<MercadoPagoPreapprovalPlanResult> {
+  const response = await fetch(
+    `${MERCADO_PAGO_URL.preapprovalPlan}/${input.preapprovalPlanId}`,
+    {
+      body: JSON.stringify({
+        external_reference: input.externalReference,
+        reason: input.reason,
+        status: input.status,
+      }),
+      headers: {
+        [MERCADO_PAGO_HTTP.authorizationHeader]:
+          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
+        [MERCADO_PAGO_HTTP.contentTypeHeader]:
+          MERCADO_PAGO_HTTP.jsonContentType,
+      },
+      method: MERCADO_PAGO_HTTP.putMethod,
+    }
+  );
+  const body = await readMercadoPagoResponse<MercadoPagoPreapprovalPlanResponse>(
+    response
+  );
+
+  return mapMercadoPagoPreapprovalPlanResponse(body, input.preapprovalPlanId);
+}
+
+/**
+ * Reads full Mercado Pago preapproval plan details from the provider.
+ *
+ * @param input - Provider plan identifier and account token.
+ * @returns Normalized provider plan details, or null when the plan does not exist.
+ */
+export async function getMercadoPagoPreapprovalPlan(
+  input: MercadoPagoPreapprovalPlanInput
+): Promise<MercadoPagoPreapprovalPlanResult | null> {
+  const response = await fetch(
+    `${MERCADO_PAGO_URL.preapprovalPlan}/${input.preapprovalPlanId}`,
+    {
+      headers: {
+        [MERCADO_PAGO_HTTP.authorizationHeader]:
+          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
+      },
+      method: MERCADO_PAGO_HTTP.getMethod,
+    }
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  const body = await readMercadoPagoResponse<MercadoPagoPreapprovalPlanResponse>(
+    response
+  );
+
+  return mapMercadoPagoPreapprovalPlanResponse(body, input.preapprovalPlanId);
+}
+
+/**
+ * Searches Mercado Pago preapproval plans by external reference.
+ *
+ * @param input - Provider account token and external reference to match.
+ * @returns Linked provider plans returned by Mercado Pago.
+ */
+export async function searchMercadoPagoPreapprovalPlans(
+  input: MercadoPagoPreapprovalPlanSearchInput
+): Promise<MercadoPagoPreapprovalPlanResult[]> {
+  const searchUrl = new URL(`${MERCADO_PAGO_URL.preapprovalPlan}/search`);
+
+  searchUrl.searchParams.set("external_reference", input.externalReference);
+
+  const response = await fetch(searchUrl.toString(), {
+    headers: {
+      [MERCADO_PAGO_HTTP.authorizationHeader]:
+        MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
+    },
+    method: MERCADO_PAGO_HTTP.getMethod,
+  });
+  const body =
+    await readMercadoPagoResponse<MercadoPagoPreapprovalPlanSearchResponse>(
+      response
+    );
+
+  return (body.results ?? []).map((plan) =>
+    mapMercadoPagoPreapprovalPlanResponse(plan, plan.id ?? "")
+  );
 }
 
 /**

@@ -35,8 +35,10 @@ export type TribeSubscriptionPriceMutationResult =
   | {
       price: TribeSubscriptionPriceResult;
       status:
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.created
-        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.current;
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.current
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.updated;
     }
   | {
       status:
@@ -45,6 +47,19 @@ export type TribeSubscriptionPriceMutationResult =
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;
+    };
+
+export type TribeSubscriptionProviderPlanSyncResult =
+  | {
+      price: TribeSubscriptionPriceResult;
+      status: typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.verified;
+    }
+  | {
+      status:
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;

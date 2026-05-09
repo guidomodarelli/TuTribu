@@ -10,6 +10,8 @@ import {
   deleteTribeSubscriptionPrice,
   listTribeSubscriptionPrices,
   makeTribeSubscriptionPriceCurrent,
+  syncMercadoPagoSubscriptionProviderPlanWebhook,
+  updateTribeSubscriptionPrice,
   verifyTribeSubscriptionProviderPlan,
   verifyTribeSubscriptionProviderPlans,
   verifyTribeSubscriptionProviderSubscribers,
@@ -60,6 +62,10 @@ export function buildSubscriptionsModule({
       makeTribeSubscriptionPriceCurrent: makeTribeSubscriptionPriceCurrent({
         tribeSubscriptionPriceRepository,
       }),
+      syncMercadoPagoSubscriptionProviderPlanWebhook:
+        syncMercadoPagoSubscriptionProviderPlanWebhook({
+          tribeSubscriptionPriceRepository,
+        }),
       startTribeMemberSubscription: startTribeMemberSubscription({
         tribeMemberSubscriptionRepository,
       }),
@@ -67,6 +73,9 @@ export function buildSubscriptionsModule({
         validatePendingTribeMemberSubscriptionReturn({
           tribeMemberSubscriptionRepository,
         }),
+      updateTribeSubscriptionPrice: updateTribeSubscriptionPrice({
+        tribeSubscriptionPriceRepository,
+      }),
       verifyTribeSubscriptionProviderPlan: verifyTribeSubscriptionProviderPlan({
         tribeSubscriptionPriceRepository,
       }),

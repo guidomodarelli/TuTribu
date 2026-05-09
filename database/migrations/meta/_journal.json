@@ -99,6 +99,13 @@
       "when": 1778241600000,
       "tag": "20260508120000_add_membership_access_reason_function",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1778245200000,
+      "tag": "20260508130000_allow_provider_plan_webhook_price_sync",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,10 @@
  * @module mercado-pago-webhooks-route
  */
 
-import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import {
+  TRIBE_MEMBER_SUBSCRIPTION_STATUS,
+  TRIBE_SUBSCRIPTION_PRICE_STATUS,
+} from "@/src/modules/subscriptions/constants/subscriptions";
 import { verifyMercadoPagoWebhookSignature } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-webhook-signature";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -22,6 +25,7 @@ const WEBHOOK_FIELD = {
 } as const;
 
 const WEBHOOK_TOPIC = {
+  subscriptionPreapprovalPlanPrefix: "subscription_preapproval_plan",
   subscriptionPreapprovalPrefix: "subscription_preapproval",
 } as const;
 
@@ -111,6 +115,29 @@ function isSubscriptionWebhookTopic(topic: string): boolean {
 }
 
 /**
+ * Determines whether the webhook topic belongs to Mercado Pago subscription plans.
+ *
+ * @param topic - Mercado Pago action, type, or topic field.
+ * @returns Whether the topic should be handled by the provider plan use case.
+ */
+function isSubscriptionPlanWebhookTopic(topic: string): boolean {
+  return topic.startsWith(WEBHOOK_TOPIC.subscriptionPreapprovalPlanPrefix);
+}
+
+/**
+ * Determines whether a provider plan webhook should be retried by Mercado Pago.
+ *
+ * @param status - Subscription price synchronization result status.
+ * @returns Whether the webhook did not reach the provider-backed sync boundary.
+ */
+function isRetryableSubscriptionPlanSyncStatus(status: string): boolean {
+  return (
+    status === TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration ||
+    status === TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired
+  );
+}
+
+/**
  * Resolves the Mercado Pago topic field without letting generic actions hide it.
  *
  * @param body - Parsed webhook body.
@@ -158,7 +185,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isSubscriptionWebhookTopic(topic)) {
+    if (
+      !isSubscriptionWebhookTopic(topic) &&
+      !isSubscriptionPlanWebhookTopic(topic)
+    ) {
       return Response.json(
         { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed },
         { status: HTTP_STATUS.ok }
@@ -168,6 +198,29 @@ export async function POST(request: Request) {
     const modules = await createRequestModules({
       mercadoPagoWebhookVerified: true,
     });
+    if (isSubscriptionPlanWebhookTopic(topic)) {
+      const result =
+        await modules.subscriptions.useCases.syncMercadoPagoSubscriptionProviderPlanWebhook(
+          {
+            eventId,
+            resourceId,
+            topic,
+          }
+        );
+
+      if (isRetryableSubscriptionPlanSyncStatus(result.status)) {
+        return Response.json(
+          { message: WEBHOOK_RESPONSE.unexpectedMessage },
+          { status: HTTP_STATUS.serviceUnavailable }
+        );
+      }
+
+      return Response.json(
+        { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed },
+        { status: HTTP_STATUS.ok }
+      );
+    }
+
     const result =
       await modules.subscriptions.useCases.handleMercadoPagoSubscriptionWebhook({
         eventId,

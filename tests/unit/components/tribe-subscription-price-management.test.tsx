@@ -55,12 +55,122 @@ describe("TribeSubscriptionPriceManagement", () => {
     expect(
       screen.getByRole("button", { name: "Marcar como actual" })
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Editar" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Verificar plan" })
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Verificar suscriptores" })
     ).toBeInTheDocument();
+  });
+
+  it("should update one provider plan from the inline edit action", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          canceledPriceIds: [],
+          message: "Planes verificados con Mercado Pago.",
+          prices: [activePrice],
+          verifiedCount: 1,
+        }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          message: "Precio actualizado.",
+          price: {
+            ...activePrice,
+            name: "Plan premium",
+          },
+        }),
+        ok: true,
+      }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    await user.clear(screen.getByLabelText("Nuevo nombre"));
+    await user.type(screen.getByLabelText("Nuevo nombre"), "Plan premium");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices/price-1",
+        expect.objectContaining({
+          body: JSON.stringify({
+            amount: "5000",
+            name: "Plan premium",
+          }),
+          method: "PATCH",
+        })
+      );
+      expect(screen.getByText("Plan premium")).toBeInTheDocument();
+    });
+  });
+
+  it("should keep a canceled price visible after the delete action", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          canceledPriceIds: [],
+          message: "Planes verificados con Mercado Pago.",
+          prices: [activePrice],
+          verifiedCount: 1,
+        }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          message: "Precio cancelado.",
+          price: {
+            ...activePrice,
+            isCurrent: false,
+            status: "canceled",
+          },
+        }),
+        ok: true,
+      }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices/price-1",
+        expect.objectContaining({
+          method: "DELETE",
+        })
+      );
+      expect(screen.getByText("Cancelado")).toBeInTheDocument();
+      expect(screen.getByText("Plan mensual")).toBeInTheDocument();
+    });
   });
 
   it("should verify provider plans when the prices page loads", async () => {

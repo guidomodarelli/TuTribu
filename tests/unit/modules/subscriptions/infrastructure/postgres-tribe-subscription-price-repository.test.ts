@@ -27,11 +27,29 @@ function createRepository(
   createMercadoPagoPlan = jest.fn(async () => "plan-1"),
   refreshMercadoPagoAccessToken = jest.fn(),
   getMercadoPagoPlanStatus = jest.fn(async () => "active"),
-  getMercadoPagoSubscriptionStatus = jest.fn(async () => "authorized")
+  getMercadoPagoSubscriptionStatus = jest.fn(async () => "authorized"),
+  updateMercadoPagoPlan = jest.fn(async () => ({
+    amountCents: 500000,
+    currency: "ARS",
+    externalReference: "latribu:price:price-1",
+    id: "plan-1",
+    reason: "Plan mensual",
+    status: "active",
+  })),
+  getMercadoPagoPlan = jest.fn(async () => ({
+    amountCents: 500000,
+    currency: "ARS",
+    externalReference: "latribu:price:price-1",
+    id: "plan-1",
+    reason: "Plan mensual",
+    status: "active",
+  }))
 ) {
   return new PostgresTribeSubscriptionPriceRepository(
     async (callback) => callback({ execute } as never),
     createMercadoPagoPlan,
+    updateMercadoPagoPlan,
+    getMercadoPagoPlan,
     refreshMercadoPagoAccessToken,
     getMercadoPagoPlanStatus,
     getMercadoPagoSubscriptionStatus
@@ -257,6 +275,22 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     const repository = new PostgresTribeSubscriptionPriceRepository(
       executeWithDatabase,
       createMercadoPagoPlan,
+      jest.fn(async () => ({
+        amountCents: 500000,
+        currency: "ARS",
+        externalReference: "latribu:price:price-1",
+        id: "plan-1",
+        reason: "Plan mensual",
+        status: "active",
+      })),
+      jest.fn(async () => ({
+        amountCents: 500000,
+        currency: "ARS",
+        externalReference: "latribu:price:price-1",
+        id: "plan-1",
+        reason: "Plan mensual",
+        status: "active",
+      })),
       jest.fn(),
       jest.fn(async () => "active"),
       jest.fn(async () => "authorized")
@@ -280,6 +314,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       "transaction:end",
       "provider:create-plan",
     ]);
+    expect(createMercadoPagoPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        externalReference: "latribu:price:price-1",
+        idempotencyKey:
+          "tribe-price:price-1:matematica-pro:Plan mensual:500000:ARS:monthly",
+      })
+    );
   });
 
   it("refreshes expired Mercado Pago tokens before creating provider plans", async () => {
@@ -580,5 +621,139 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       verifiedCount: 3,
     });
     expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(3);
+  });
+
+  it("should release provider plan webhook idempotency when synchronization fails", async () => {
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (sqlText.includes("delete from public.subscription_idempotency_operations")) {
+        return { rows: [] };
+      }
+
+      if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
+        return {
+          rows: [
+            {
+              id: "operation-1",
+            },
+          ],
+        };
+      }
+
+      return {
+        rows: [
+          {
+            ...createSubscriptionPriceRow({
+              mercado_pago_preapproval_plan_id: "plan-1",
+              tribe_id: "tribe-1",
+            }),
+            access_token: "access-token",
+            refresh_token: null,
+            token_expires_at: null,
+          },
+        ],
+      };
+    });
+    const getMercadoPagoPlan = jest.fn(async () => {
+      throw new Error("provider unavailable");
+    });
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => "active"),
+      jest.fn(async () => "authorized"),
+      jest.fn(),
+      getMercadoPagoPlan
+    );
+
+    await expect(
+      repository.syncProviderPlan({
+        eventId: "event-1",
+        resourceId: "plan-1",
+        topic: "subscription_preapproval_plan.updated",
+      })
+    ).rejects.toThrow("provider unavailable");
+    expect(getMercadoPagoPlan).toHaveBeenCalledWith({
+      accessToken: "access-token",
+      preapprovalPlanId: "plan-1",
+    });
+    expect(
+      execute.mock.calls.some((call) =>
+        getSqlText(call[0]).includes(
+          "delete from public.subscription_idempotency_operations"
+        )
+      )
+    ).toBe(true);
+  });
+
+  it("should not cancel the provider plan when a subscription appears during cancellation", async () => {
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (sqlText.includes("has_associated_subscriptions")) {
+        return {
+          rows: [
+            {
+              has_associated_subscriptions: false,
+            },
+          ],
+        };
+      }
+
+      if (sqlText.includes("was_current")) {
+        return {
+          rows: [
+            {
+              ...createSubscriptionPriceRow({
+                active_subscribers_count: 1,
+                mercado_pago_preapproval_plan_id: "plan-1",
+                tribe_id: "tribe-1",
+                was_current: true,
+              }),
+              access_token: "access-token",
+              can_manage_prices: true,
+              refresh_token: null,
+              token_expires_at: null,
+            },
+          ],
+        };
+      }
+
+      return {
+        rows: [
+          {
+            ...createSubscriptionPriceRow({
+              mercado_pago_preapproval_plan_id: "plan-1",
+              tribe_id: "tribe-1",
+            }),
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+          },
+        ],
+      };
+    });
+    const updateMercadoPagoPlan = jest.fn();
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => "active"),
+      jest.fn(async () => "authorized"),
+      updateMercadoPagoPlan
+    );
+
+    await expect(
+      repository.delete({
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers,
+    });
+    expect(updateMercadoPagoPlan).not.toHaveBeenCalled();
   });
 });

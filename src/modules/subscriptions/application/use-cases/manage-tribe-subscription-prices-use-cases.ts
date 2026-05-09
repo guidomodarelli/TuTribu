@@ -12,9 +12,11 @@ import {
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
   CreateTribeSubscriptionPriceCommand,
+  SyncTribeSubscriptionProviderPlanCommand,
   TribeSubscriptionPriceIdentity,
   TribeSubscriptionPriceListQuery,
   TribeSubscriptionPriceRepository,
+  UpdateTribeSubscriptionPriceCommand,
 } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
 
 type TribeSubscriptionPriceDependencies = {
@@ -25,6 +27,10 @@ type CreateTribeSubscriptionPriceInput = {
   amount: string;
   name: string;
   tribeSlug: string;
+};
+
+type UpdateTribeSubscriptionPriceInput = CreateTribeSubscriptionPriceInput & {
+  priceId: string;
 };
 
 const AMOUNT_DECIMAL_SEPARATOR = {
@@ -98,6 +104,28 @@ function buildCreateCommand(
 }
 
 /**
+ * Builds the canonical repository command for updating a price.
+ *
+ * @param input - Raw price update input from the route or UI.
+ * @returns Normalized update command, or null when user input is invalid.
+ */
+function buildUpdateCommand(
+  input: UpdateTribeSubscriptionPriceInput
+): UpdateTribeSubscriptionPriceCommand | null {
+  const createCommand = buildCreateCommand(input);
+  const priceId = normalizeText(input.priceId);
+
+  if (!createCommand || !priceId) {
+    return null;
+  }
+
+  return {
+    ...createCommand,
+    priceId,
+  };
+}
+
+/**
  * Lists immutable subscription prices for a tribe.
  *
  * @param dependencies - Repository dependencies for the use case.
@@ -133,6 +161,26 @@ export function createTribeSubscriptionPrice({
 }
 
 /**
+ * Updates mutable price data or creates a new version for amount changes.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that updates one price version.
+ */
+export function updateTribeSubscriptionPrice({
+  tribeSubscriptionPriceRepository,
+}: TribeSubscriptionPriceDependencies) {
+  return async (input: UpdateTribeSubscriptionPriceInput) => {
+    const command = buildUpdateCommand(input);
+
+    if (!command) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput };
+    }
+
+    return tribeSubscriptionPriceRepository.update(command);
+  };
+}
+
+/**
  * Marks an existing subscription price as the current price for new members.
  *
  * @param dependencies - Repository dependencies for the use case.
@@ -161,6 +209,23 @@ export function deleteTribeSubscriptionPrice({
     tribeSubscriptionPriceRepository.delete({
       priceId: normalizeText(command.priceId),
       tribeSlug: normalizeText(command.tribeSlug),
+    });
+}
+
+/**
+ * Synchronizes a Mercado Pago preapproval plan webhook into the local price.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that reconciles one provider plan webhook.
+ */
+export function syncMercadoPagoSubscriptionProviderPlanWebhook({
+  tribeSubscriptionPriceRepository,
+}: TribeSubscriptionPriceDependencies) {
+  return async (command: SyncTribeSubscriptionProviderPlanCommand) =>
+    tribeSubscriptionPriceRepository.syncProviderPlan({
+      eventId: normalizeText(command.eventId),
+      resourceId: normalizeText(command.resourceId),
+      topic: normalizeText(command.topic),
     });
 }
 

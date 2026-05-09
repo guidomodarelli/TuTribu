@@ -39,6 +39,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  &__editForm {
+    border-block-start: 1px solid var(--border);
+    display: grid;
+    gap: 1rem;
+    grid-column: 1 / -1;
+    padding-block-start: 1rem;
+  }
+
   &__field {
     display: grid;
     gap: 0.4rem;
@@ -99,6 +107,11 @@
 
     &__form {
       grid-template-columns: minmax(12rem, 1fr) minmax(10rem, 0.5fr) max-content;
+    }
+
+    &__editForm {
+      align-items: end;
+      grid-template-columns: minmax(12rem, 1fr) minmax(10rem, 0.5fr) minmax(14rem, 0.7fr);
     }
 
     &__item {

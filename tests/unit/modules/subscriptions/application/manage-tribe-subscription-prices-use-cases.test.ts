@@ -3,6 +3,8 @@ import {
   deleteTribeSubscriptionPrice,
   listTribeSubscriptionPrices,
   makeTribeSubscriptionPriceCurrent,
+  syncMercadoPagoSubscriptionProviderPlanWebhook,
+  updateTribeSubscriptionPrice,
   verifyTribeSubscriptionProviderPlan,
   verifyTribeSubscriptionProviderPlans,
   verifyTribeSubscriptionProviderSubscribers,
@@ -18,6 +20,8 @@ function createRepository(
     delete: jest.fn(),
     listByTribeSlug: jest.fn(),
     makeCurrent: jest.fn(),
+    syncProviderPlan: jest.fn(),
+    update: jest.fn(),
     verifyProviderPlan: jest.fn(),
     verifyProviderPlans: jest.fn(),
     verifyProviderSubscribers: jest.fn(),
@@ -208,6 +212,58 @@ describe("manage tribe subscription prices use cases", () => {
     });
   });
 
+  it("should update one price with normalized mixed-policy input", async () => {
+    const update = jest.fn(async () => ({
+      price: {
+        ...createdPrice,
+        name: "Plan actualizado",
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    }));
+    const execute = updateTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({ update }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: " Plan actualizado ",
+        priceId: " price-1 ",
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        name: "Plan actualizado",
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    });
+    expect(update).toHaveBeenCalledWith({
+      amountCents: 500000,
+      currency: "ARS",
+      frequency: "monthly",
+      name: "Plan actualizado",
+      priceId: "price-1",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should reject invalid update amounts before calling the repository", async () => {
+    const update = jest.fn();
+    const execute = updateTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({ update }),
+    });
+
+    await expect(
+      execute({
+        amount: "10",
+        name: "Plan actualizado",
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput });
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it("should verify provider plans for a tribe with normalized input", async () => {
     const verifyProviderPlans = jest.fn(async () => ({
       canceledPriceIds: [],
@@ -289,6 +345,32 @@ describe("manage tribe subscription prices use cases", () => {
     expect(verifyProviderSubscribers).toHaveBeenCalledWith({
       priceId: "price-1",
       tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should sync provider plan webhooks with normalized input", async () => {
+    const syncProviderPlan = jest.fn(async () => ({
+      price: createdPrice,
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+    }));
+    const execute = syncMercadoPagoSubscriptionProviderPlanWebhook({
+      tribeSubscriptionPriceRepository: createRepository({ syncProviderPlan }),
+    });
+
+    await expect(
+      execute({
+        eventId: " event-1 ",
+        resourceId: " plan-1 ",
+        topic: " subscription_preapproval_plan.updated ",
+      })
+    ).resolves.toEqual({
+      price: createdPrice,
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+    });
+    expect(syncProviderPlan).toHaveBeenCalledWith({
+      eventId: "event-1",
+      resourceId: "plan-1",
+      topic: "subscription_preapproval_plan.updated",
     });
   });
 });
