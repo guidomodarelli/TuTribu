@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
+import { getServerBetterAuthSession as getSession } from "@/src/modules/auth/infrastructure/better-auth/server-auth-context";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { TRIBE_INVITATION_STATUS } from "@/src/modules/tribes/constants/tribe-invitations";
 import styles from "./page.module.scss";
@@ -163,6 +164,12 @@ export async function acceptInvitationAction({
 }: AcceptInvitationActionInput) {
   "use server";
 
+  const session = await getSession();
+
+  if (!session) {
+    redirect(buildSignInRedirectPath(slug, token));
+  }
+
   const modules = await createRequestModules();
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
@@ -187,6 +194,12 @@ export async function startInvitationSubscriptionAction({
   token,
 }: AcceptInvitationActionInput) {
   "use server";
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect(ROUTES.auth.signIn);
+  }
 
   const modules = await createRequestModules();
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
