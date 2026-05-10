@@ -172,7 +172,7 @@ export async function fetchWithResilience(
   };
   const method = init.method ?? FETCH_DEFAULT_METHOD;
 
-  for (let attempt = 0; attempt <= config.maxRetries; attempt += 1) {
+  async function executeAttempt(attempt: number): Promise<HttpResponse> {
     const attemptNumber = attempt + 1;
     const { requestInit, cleanup, getAbortReason } = buildRequestInit(init, config.timeoutMs);
 
@@ -196,7 +196,7 @@ export async function fetchWithResilience(
           status: response.status,
         });
         await delay(config.retryDelayMs);
-        continue;
+        return executeAttempt(attempt + 1);
       }
 
       return response;
@@ -262,8 +262,9 @@ export async function fetchWithResilience(
       }
 
       await delay(config.retryDelayMs);
+      return executeAttempt(attempt + 1);
     }
   }
 
-  throw new Error(FETCH_RESILIENCE_ERROR_MESSAGE.requestFailed);
+  return executeAttempt(0);
 }
