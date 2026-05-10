@@ -30,22 +30,23 @@ function normalizeEmail(email: string | null): string | null {
 
 async function findAvailableSuggestedSlug(
   baseSlug: string,
-  tribeCreationRepository: TribeCreationRepository
+  tribeCreationRepository: TribeCreationRepository,
+  suggestionIndex = INITIAL_SLUG_SUGGESTION_INDEX
 ): Promise<string> {
-  let suggestionIndex = INITIAL_SLUG_SUGGESTION_INDEX;
+  const suggestedSlug = buildTribeSlugSuggestion(baseSlug, suggestionIndex);
 
-  while (true) {
-    const suggestedSlug = buildTribeSlugSuggestion(baseSlug, suggestionIndex);
-
-    if (
-      !isReservedTribeSlug(suggestedSlug) &&
-      !(await tribeCreationRepository.isSlugTaken(suggestedSlug))
-    ) {
-      return suggestedSlug;
-    }
-
-    suggestionIndex += 1;
+  if (
+    !isReservedTribeSlug(suggestedSlug) &&
+    !(await tribeCreationRepository.isSlugTaken(suggestedSlug))
+  ) {
+    return suggestedSlug;
   }
+
+  return findAvailableSuggestedSlug(
+    baseSlug,
+    tribeCreationRepository,
+    suggestionIndex + 1
+  );
 }
 
 export function createTribe({
