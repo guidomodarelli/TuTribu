@@ -1,0 +1,87 @@
+{
+  "ignore": {
+    "overrides": [
+      {
+        "files": ["app/(platform)/tribu/[slug]/eventos/page.tsx"],
+        "rules": [
+          "react-doctor/async-parallel",
+          "react-doctor/server-sequential-independent-await"
+        ]
+      },
+      {
+        "files": ["app/(platform)/tribu/[slug]/tribu/page.tsx"],
+        "rules": ["react-doctor/async-parallel"]
+      },
+      {
+        "files": ["components/auth/auto-sign-in-with-google/index.tsx"],
+        "rules": ["react-doctor/nextjs-no-client-side-redirect"]
+      },
+      {
+        "files": ["components/events/tribe-events-calendar/index.tsx"],
+        "rules": [
+          "react-doctor/no-giant-component",
+          "react-doctor/prefer-useReducer"
+        ]
+      },
+      {
+        "files": [
+          "components/subscriptions/tribe-subscription-price-management/index.tsx"
+        ],
+        "rules": [
+          "react-doctor/no-cascading-set-state",
+          "react-doctor/no-derived-state-effect",
+          "react-doctor/no-derived-useState",
+          "react-doctor/no-giant-component",
+          "react-doctor/prefer-useReducer"
+        ]
+      },
+      {
+        "files": ["components/tribe-round/tribe-channel-management/index.tsx"],
+        "rules": [
+          "react-doctor/no-derived-state-effect",
+          "react-doctor/no-derived-useState",
+          "react-doctor/no-giant-component",
+          "react-doctor/prefer-useReducer"
+        ]
+      },
+      {
+        "files": ["components/tribe-round/tribe-round/index.tsx"],
+        "rules": [
+          "react-doctor/js-index-maps",
+          "react-doctor/no-derived-useState",
+          "react-doctor/no-giant-component",
+          "react-doctor/no-render-in-render",
+          "react-doctor/prefer-useReducer"
+        ]
+      },
+      {
+        "files": ["components/ui/avatar.tsx"],
+        "rules": ["react-doctor/rerender-state-only-in-handlers"]
+      },
+      {
+        "files": ["components/tribes/create-tribe-form/index.tsx"],
+        "rules": [
+          "react-doctor/no-derived-useState"
+        ]
+      },
+      {
+        "files": ["components/tribes/tribe-invitation-management/index.tsx"],
+        "rules": ["react-doctor/no-derived-useState"]
+      },
+      {
+        "files": [
+          "src/modules/shared/infrastructure/database/server-database-client.ts"
+        ],
+        "rules": ["react-doctor/async-parallel"]
+      },
+      {
+        "files": ["tests/unit/components/theme-mode-dropdown.test.tsx"],
+        "rules": ["react-doctor/js-cache-storage"]
+      },
+      {
+        "files": ["tests/unit/tooling/eslint-magic-values.test.mjs"],
+        "rules": ["knip/files"]
+      }
+    ]
+  }
+}
