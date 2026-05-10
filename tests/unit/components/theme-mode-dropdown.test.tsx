@@ -86,7 +86,9 @@ describe("ThemeModeDropdown", () => {
     await user.click(screen.getByRole("button", { name: /cambiar tema/i }));
     await user.click(screen.getByRole("menuitemradio", { name: /oscuro/i }));
 
-    expect(localStorage.getItem("tutribu-theme")).toBe("dark");
+    const storedThemeMode = localStorage.getItem("tutribu-theme");
+
+    expect(storedThemeMode).toBe("dark");
     expect(document.documentElement).toHaveClass("dark");
   });
 
@@ -99,7 +101,9 @@ describe("ThemeModeDropdown", () => {
     await user.click(screen.getByRole("button", { name: /cambiar tema/i }));
     await user.click(screen.getByRole("menuitemradio", { name: /claro/i }));
 
-    expect(localStorage.getItem("tutribu-theme")).toBe("light");
+    const storedThemeMode = localStorage.getItem("tutribu-theme");
+
+    expect(storedThemeMode).toBe("light");
     expect(document.documentElement).not.toHaveClass("dark");
   });
 

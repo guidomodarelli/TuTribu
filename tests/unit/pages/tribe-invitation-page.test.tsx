@@ -8,6 +8,7 @@ import TribeInvitationPage, {
 } from "@/app/(platform)/tribu/[slug]/invitar/[token]/page";
 import { createRequestModules } from "@/src/modules/setup";
 
+const mockGetSession = jest.fn();
 const getAuthenticatedMember = jest.fn();
 const acceptTribeInvitation = jest.fn();
 const startTribeMemberSubscription = jest.fn();
@@ -23,6 +24,13 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
 }));
+
+jest.mock(
+  "@/src/modules/auth/infrastructure/better-auth/server-auth-context",
+  () => ({
+    getServerBetterAuthSession: (...args: unknown[]) => mockGetSession(...args),
+  })
+);
 
 function buildPageProps() {
   return {
@@ -45,6 +53,11 @@ function buildPagePropsWithStatus(status: string) {
 describe("TribeInvitationPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetSession.mockResolvedValue({
+      user: {
+        id: "member-1",
+      },
+    });
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
       email: "member@example.com",
