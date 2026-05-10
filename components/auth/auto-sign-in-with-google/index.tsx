@@ -15,7 +15,7 @@ type AutoSignInWithGoogleProps = {
 
 export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps) {
   const hasTriggeredSignInRef = useRef(false);
-  const router = useRouter();
+  const { push } = useRouter();
 
   useEffect(() => {
     if (hasTriggeredSignInRef.current) {
@@ -24,9 +24,9 @@ export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps)
 
     hasTriggeredSignInRef.current = true;
     void startGoogleSignIn(callbackUrl).catch(() => {
-      router.push(ROUTES.auth.error);
+      push(ROUTES.auth.error);
     });
-  }, [callbackUrl, router]);
+  }, [callbackUrl, push]);
 
   return (
     <div className={styles.AutoSignInWithGoogle}>

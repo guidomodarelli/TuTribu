@@ -26,7 +26,7 @@ export function AvatarSessionMenuClient({
   signInPath,
   signOutCallbackUrl,
 }: AvatarSessionMenuClientProps) {
-  const router = useRouter();
+  const { push } = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = async () => {
@@ -38,10 +38,10 @@ export function AvatarSessionMenuClient({
 
     try {
       await signOutMember();
-      router.push(signOutCallbackUrl);
+      push(signOutCallbackUrl);
     } catch {
       toast.error(AUTH_SIGN_OUT_REQUEST.errorMessage);
-      router.push(AUTH_SIGN_OUT_REQUEST.errorPath);
+      push(AUTH_SIGN_OUT_REQUEST.errorPath);
     } finally {
       setIsSigningOut(false);
     }

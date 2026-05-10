@@ -49,7 +49,7 @@ export function TribeSwitcher({
   showPrivateBadge = true,
 }: TribeSwitcherProps) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { push } = useRouter();
   const activeTribe = memberTribes.find((tribe) => {
     const tribePath = ROUTES.tribes.bySlug(tribe.slug);
 
@@ -60,11 +60,11 @@ export function TribeSwitcher({
   });
 
   const navigateToCreateTribe = () => {
-    router.push(ROUTES.tribes.create);
+    push(ROUTES.tribes.create);
   };
 
   const navigateToDiscovery = () => {
-    router.push(ROUTES.home);
+    push(ROUTES.home);
   };
 
   if (!activeTribe) {
@@ -118,7 +118,7 @@ export function TribeSwitcher({
                   key={tribe.tribeId}
                   className={styles.TribeSwitcher__item}
                   data-active={isActiveTribe}
-                  onClick={() => router.push(tribePath)}
+                  onClick={() => push(tribePath)}
                 >
                   <UsersIcon />
                   <span className={styles.TribeSwitcher__tribeName}>

@@ -26,17 +26,17 @@ const SUBSCRIPTION_RETURN_ACCESSIBILITY = {
  * @returns Subscription return status section.
  */
 export function SubscriptionReturnStatus() {
-  const router = useRouter();
+  const { refresh } = useRouter();
 
   useEffect(() => {
     const refreshIntervalId = window.setInterval(() => {
-      router.refresh();
+      refresh();
     }, SUBSCRIPTION_RETURN_REFRESH_INTERVAL_MS);
 
     return () => {
       window.clearInterval(refreshIntervalId);
     };
-  }, [router]);
+  }, [refresh]);
 
   return (
     <section

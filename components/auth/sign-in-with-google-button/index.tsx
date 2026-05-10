@@ -18,11 +18,11 @@ const SIGN_IN_WITH_GOOGLE_BUTTON = {
 export function SignInWithGoogleButton({
   callbackUrl,
 }: SignInWithGoogleButtonProps) {
-  const router = useRouter();
+  const { push } = useRouter();
 
   const handleGoogleSignIn = () => {
     void startGoogleSignIn(callbackUrl).catch(() => {
-      router.push(ROUTES.auth.error);
+      push(ROUTES.auth.error);
     });
   };
 

@@ -354,7 +354,7 @@ export function TribeEventsCalendar({
   tribeSlug,
   viewerPermissions,
 }: TribeEventsCalendarProps) {
-  const router = useRouter();
+  const { refresh } = useRouter();
   const [calendarMode, setCalendarMode] = useState<CalendarMode>(
     CALENDAR_MODE.calendar
   );
@@ -469,7 +469,7 @@ export function TribeEventsCalendar({
       });
       toast.success(result.message ?? COPY.eventSaveFallback);
       closeForm();
-      router.refresh();
+      refresh();
     } finally {
       isSavingEventRef.current = false;
       setIsSavingEvent(false);
@@ -504,7 +504,7 @@ export function TribeEventsCalendar({
       };
     });
     toast.success(result.message ?? COPY.deleteSuccess);
-    router.refresh();
+    refresh();
   };
 
   return (

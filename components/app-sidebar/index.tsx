@@ -166,7 +166,7 @@ export function AppSidebar({
   memberTribes,
 }: AppSidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { prefetch, push } = useRouter();
   const isCreateTribeActive = pathname === ROUTES.tribes.create;
   const activeTribe = memberTribes.find((tribe) =>
     isSameOrNestedPath(pathname, ROUTES.tribes.bySlug(tribe.slug))
@@ -192,9 +192,9 @@ export function AppSidebar({
     }
 
     visibleTribeSectionNavigation.forEach((item) => {
-      router.prefetch(item.hrefBuilder(activeTribe.slug));
+      prefetch(item.hrefBuilder(activeTribe.slug));
     });
-  }, [activeTribe, router, visibleTribeSectionNavigation]);
+  }, [activeTribe, prefetch, visibleTribeSectionNavigation]);
 
   return (
     <Sidebar
@@ -226,7 +226,7 @@ export function AppSidebar({
                 size={APP_SIDEBAR_UI.brandButtonSize}
                 tooltip={brandName}
                 isActive={pathname === brandPath}
-                onClick={() => router.push(brandPath)}
+                onClick={() => push(brandPath)}
               >
                 <span className={styles.AppSidebar__brandMark}>{brandMark}</span>
                 <span className={styles.AppSidebar__brandName}>{brandName}</span>
@@ -253,7 +253,7 @@ export function AppSidebar({
                       <SidebarMenuButton
                         tooltip={item.label}
                         isActive={isSectionActive}
-                        onClick={() => router.push(sectionPath)}
+                        onClick={() => push(sectionPath)}
                       >
                         <item.icon />
                         <span className={styles.AppSidebar__itemLabel}>
@@ -276,7 +276,7 @@ export function AppSidebar({
                   <SidebarMenuButton
                     tooltip={APP_SIDEBAR_UI.createTribeTooltip}
                     isActive={isCreateTribeActive}
-                    onClick={() => router.push(ROUTES.tribes.create)}
+                    onClick={() => push(ROUTES.tribes.create)}
                   >
                     <PlusCircleIcon />
                     <span className={styles.AppSidebar__itemLabel}>Nueva tribu</span>
@@ -286,7 +286,7 @@ export function AppSidebar({
                   <SidebarMenuButton
                     tooltip={discoverTribesNavigationItem.label}
                     isActive={pathname === discoverTribesNavigationItem.href}
-                    onClick={() => router.push(discoverTribesNavigationItem.href)}
+                    onClick={() => push(discoverTribesNavigationItem.href)}
                   >
                     <discoverTribesNavigationItem.icon />
                     <span className={styles.AppSidebar__itemLabel}>
@@ -305,7 +305,7 @@ export function AppSidebar({
                       <SidebarMenuButton
                         tooltip={tribe.name}
                         isActive={isTribeActive}
-                        onClick={() => router.push(tribePath)}
+                        onClick={() => push(tribePath)}
                       >
                         <UsersIcon />
                         <span className={styles.AppSidebar__itemLabel}>
