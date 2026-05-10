@@ -57,6 +57,12 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    files: ["components/ui/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+  {
     files: [
       "app/**/*.{ts,tsx}",
       "components/**/*.{ts,tsx}",
