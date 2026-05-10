@@ -85,6 +85,7 @@ export function CreateTribeForm({
         name={CREATE_TRIBE_FORM_FIELD.slug}
         type={CREATE_TRIBE_FORM_FIELD.hiddenType}
         value={canonicalSlug}
+        readOnly
       />
       <div className={styles.CreateTribeForm__field}>
         <label
