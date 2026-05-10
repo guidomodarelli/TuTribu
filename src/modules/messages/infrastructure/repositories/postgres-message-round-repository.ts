@@ -183,122 +183,124 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
     viewerId,
   }: ListTribeRoundQuery): Promise<TribeRoundResult> {
     return this.executeWithDatabase(async (database) => {
-      const channelsResult = await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${tribeSlug}
-          limit 1
-        )
-        select
-          tribe_channels.id,
-          tribe_channels.name,
-          tribe_channels.slug,
-          tribe_channels.emoji,
-          tribe_channels.sort_order,
-          tribe_channels.access_scope
-        from public.tribe_channels
-        inner join target_tribe
-          on target_tribe.id = tribe_channels.tribe_id
-        order by tribe_channels.sort_order asc, tribe_channels.name asc
-      `);
-      const result = await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${tribeSlug}
-          limit 1
-        ),
-        message_like_counts as (
-          select
-            message_reactions.message_id,
-            count(*) as like_count
-          from public.message_reactions
-          inner join public.messages liked_messages
-            on liked_messages.id = message_reactions.message_id
-          inner join target_tribe
-            on target_tribe.id = liked_messages.tribe_id
-          where message_reactions.type = 'like'
-          group by message_reactions.message_id
-        )
-        select
-          messages.id as message_id,
-          messages.title as message_title,
-          messages.content as message_content,
-          messages.created_at as message_created_at,
-          tribe_channels.id as channel_id,
-          tribe_channels.name as channel_name,
-          tribe_channels.slug as channel_slug,
-          tribe_channels.emoji as channel_emoji,
-          tribe_channels.sort_order as channel_sort_order,
-          tribe_channels.access_scope as channel_access_scope,
-          message_authors.id as author_id,
-          message_authors.name as author_name,
-          message_authors.image as author_image,
-          message_members.role as author_role,
-          coalesce(message_like_counts.like_count, 0) as like_count,
-          exists (
-            select 1
-            from public.message_reactions viewer_reactions
-            where viewer_reactions.message_id = messages.id
-              and viewer_reactions.user_id = ${viewerId}
-              and viewer_reactions.type = 'like'
-          ) as liked_by_viewer,
-          message_replies.id as reply_id,
-          message_replies.content as reply_content,
-          message_replies.created_at as reply_created_at,
-          reply_authors.id as reply_author_id,
-          reply_authors.name as reply_author_name,
-          reply_authors.image as reply_author_image,
-          reply_members.role as reply_author_role,
-          viewer_members.status as viewer_membership_status
-        from target_tribe
-        inner join public.tribe_members viewer_members
-          on viewer_members.tribe_id = target_tribe.id
-          and viewer_members.user_id = ${viewerId}
-        left join public.messages
-          on messages.tribe_id = target_tribe.id
-          and messages.channel_id is not null
-          and exists (
-            select 1
-            from public.tribe_channels channel_matches
-            where channel_matches.id = messages.channel_id
-              and channel_matches.tribe_id = target_tribe.id
+      const [channelsResult, result] = await Promise.all([
+        database.execute(sql`
+          with target_tribe as (
+            select tribes.id
+            from public.tribes
+            where tribes.slug = ${tribeSlug}
+            limit 1
           )
-        left join public.tribe_channels
-          on tribe_channels.id = messages.channel_id
-        left join public."user" message_authors
-          on message_authors.id = messages.author_id
-        left join public.tribe_members message_members
-          on message_members.tribe_id = messages.tribe_id
-          and message_members.user_id = messages.author_id
-        left join message_like_counts
-          on message_like_counts.message_id = messages.id
-        left join public.message_replies
-          on message_replies.message_id = messages.id
-        left join public."user" reply_authors
-          on reply_authors.id = message_replies.author_id
-        left join public.tribe_members reply_members
-          on reply_members.tribe_id = messages.tribe_id
-          and reply_members.user_id = message_replies.author_id
-        where viewer_members.status in ('active', 'muted')
-        group by
-          messages.id,
-          tribe_channels.id,
-          tribe_channels.name,
-          tribe_channels.slug,
-          tribe_channels.emoji,
-          tribe_channels.sort_order,
-          tribe_channels.access_scope,
-          message_like_counts.like_count,
-          message_authors.id,
-          message_members.role,
-          message_replies.id,
-          reply_authors.id,
-          reply_members.role,
-          viewer_members.status
-        order by messages.created_at desc, message_replies.created_at asc
-      `);
+          select
+            tribe_channels.id,
+            tribe_channels.name,
+            tribe_channels.slug,
+            tribe_channels.emoji,
+            tribe_channels.sort_order,
+            tribe_channels.access_scope
+          from public.tribe_channels
+          inner join target_tribe
+            on target_tribe.id = tribe_channels.tribe_id
+          order by tribe_channels.sort_order asc, tribe_channels.name asc
+        `),
+        database.execute(sql`
+          with target_tribe as (
+            select tribes.id
+            from public.tribes
+            where tribes.slug = ${tribeSlug}
+            limit 1
+          ),
+          message_like_counts as (
+            select
+              message_reactions.message_id,
+              count(*) as like_count
+            from public.message_reactions
+            inner join public.messages liked_messages
+              on liked_messages.id = message_reactions.message_id
+            inner join target_tribe
+              on target_tribe.id = liked_messages.tribe_id
+            where message_reactions.type = 'like'
+            group by message_reactions.message_id
+          )
+          select
+            messages.id as message_id,
+            messages.title as message_title,
+            messages.content as message_content,
+            messages.created_at as message_created_at,
+            tribe_channels.id as channel_id,
+            tribe_channels.name as channel_name,
+            tribe_channels.slug as channel_slug,
+            tribe_channels.emoji as channel_emoji,
+            tribe_channels.sort_order as channel_sort_order,
+            tribe_channels.access_scope as channel_access_scope,
+            message_authors.id as author_id,
+            message_authors.name as author_name,
+            message_authors.image as author_image,
+            message_members.role as author_role,
+            coalesce(message_like_counts.like_count, 0) as like_count,
+            exists (
+              select 1
+              from public.message_reactions viewer_reactions
+              where viewer_reactions.message_id = messages.id
+                and viewer_reactions.user_id = ${viewerId}
+                and viewer_reactions.type = 'like'
+            ) as liked_by_viewer,
+            message_replies.id as reply_id,
+            message_replies.content as reply_content,
+            message_replies.created_at as reply_created_at,
+            reply_authors.id as reply_author_id,
+            reply_authors.name as reply_author_name,
+            reply_authors.image as reply_author_image,
+            reply_members.role as reply_author_role,
+            viewer_members.status as viewer_membership_status
+          from target_tribe
+          inner join public.tribe_members viewer_members
+            on viewer_members.tribe_id = target_tribe.id
+            and viewer_members.user_id = ${viewerId}
+          left join public.messages
+            on messages.tribe_id = target_tribe.id
+            and messages.channel_id is not null
+            and exists (
+              select 1
+              from public.tribe_channels channel_matches
+              where channel_matches.id = messages.channel_id
+                and channel_matches.tribe_id = target_tribe.id
+            )
+          left join public.tribe_channels
+            on tribe_channels.id = messages.channel_id
+          left join public."user" message_authors
+            on message_authors.id = messages.author_id
+          left join public.tribe_members message_members
+            on message_members.tribe_id = messages.tribe_id
+            and message_members.user_id = messages.author_id
+          left join message_like_counts
+            on message_like_counts.message_id = messages.id
+          left join public.message_replies
+            on message_replies.message_id = messages.id
+          left join public."user" reply_authors
+            on reply_authors.id = message_replies.author_id
+          left join public.tribe_members reply_members
+            on reply_members.tribe_id = messages.tribe_id
+            and reply_members.user_id = message_replies.author_id
+          where viewer_members.status in ('active', 'muted')
+          group by
+            messages.id,
+            tribe_channels.id,
+            tribe_channels.name,
+            tribe_channels.slug,
+            tribe_channels.emoji,
+            tribe_channels.sort_order,
+            tribe_channels.access_scope,
+            message_like_counts.like_count,
+            message_authors.id,
+            message_members.role,
+            message_replies.id,
+            reply_authors.id,
+            reply_members.role,
+            viewer_members.status
+          order by messages.created_at desc, message_replies.created_at asc
+        `),
+      ]);
 
       return mapRowsToRound(
         (result.rows ?? []) as MessageRoundRow[],

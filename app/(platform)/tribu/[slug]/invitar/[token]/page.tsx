@@ -227,8 +227,10 @@ export default async function TribeInvitationPage({
   }>;
   searchParams?: Promise<TribeInvitationPageSearchParams>;
 }) {
-  const { slug, token } = await params;
-  const resolvedSearchParams = await searchParams;
+  const [{ slug, token }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const status = readFirstSearchParamValue(
     resolvedSearchParams[INVITATION_PAGE_ROUTE.statusParam]
   );

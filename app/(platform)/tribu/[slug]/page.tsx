@@ -67,8 +67,10 @@ export default async function TribePage({
   }>;
   searchParams?: Promise<TribePageSearchParams>;
 }) {
-  const { slug } = await params;
-  const resolvedSearchParams = await searchParams;
+  const [{ slug }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const mercadoPagoPreapprovalId = readFirstSearchParamValue(
     resolvedSearchParams[TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId]
   );

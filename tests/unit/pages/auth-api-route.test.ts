@@ -29,8 +29,10 @@ describe("Better Auth API route", () => {
     const request = {
       url: "https://tutribu.example.com/api/auth/get-session",
     } as Request;
-    const getResponse = await GET(request);
-    const messageResponse = await POST(request);
+    const [getResponse, messageResponse] = await Promise.all([
+      GET(request),
+      POST(request),
+    ]);
 
     expect(mockToNextJsHandler).toHaveBeenCalledWith(
       expect.objectContaining({

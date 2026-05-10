@@ -62,15 +62,17 @@ export async function createServerDatabaseClient() {
         await client.query(DATABASE_TRANSACTION.begin);
 
         const database = createRequestDatabase(client);
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserId}, ${context.userId ?? DATABASE_TRANSACTION.emptySettingValue}, true)`
-        );
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserEmail}, ${context.email ?? DATABASE_TRANSACTION.emptySettingValue}, true)`
-        );
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : DATABASE_TRANSACTION.emptySettingValue}, true)`
-        );
+        await Promise.all([
+          database.execute(
+            sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserId}, ${context.userId ?? DATABASE_TRANSACTION.emptySettingValue}, true)`
+          ),
+          database.execute(
+            sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserEmail}, ${context.email ?? DATABASE_TRANSACTION.emptySettingValue}, true)`
+          ),
+          database.execute(
+            sql`select set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : DATABASE_TRANSACTION.emptySettingValue}, true)`
+          ),
+        ]);
 
         const result = await callback(database);
         await client.query(DATABASE_TRANSACTION.commit);

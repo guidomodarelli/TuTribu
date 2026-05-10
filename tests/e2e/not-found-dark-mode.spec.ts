@@ -33,17 +33,15 @@ async function getNotFoundBackdropImageForTheme(
 }
 
 test("uses a theme-aware not found backdrop in dark mode", async ({ browser }) => {
-  const darkPage = await browser.newPage();
-  const lightPage = await browser.newPage();
+  const [darkPage, lightPage] = await Promise.all([
+    browser.newPage(),
+    browser.newPage(),
+  ]);
 
-  const darkBackdropImage = await getNotFoundBackdropImageForTheme(
-    darkPage,
-    DARK_THEME_STORAGE_VALUE
-  );
-  const lightBackdropImage = await getNotFoundBackdropImageForTheme(
-    lightPage,
-    LIGHT_THEME_STORAGE_VALUE
-  );
+  const [darkBackdropImage, lightBackdropImage] = await Promise.all([
+    getNotFoundBackdropImageForTheme(darkPage, DARK_THEME_STORAGE_VALUE),
+    getNotFoundBackdropImageForTheme(lightPage, LIGHT_THEME_STORAGE_VALUE),
+  ]);
 
   await expect(darkPage.locator("html")).toHaveClass(/dark/);
   expect(darkBackdropImage).not.toBe(lightBackdropImage);

@@ -17,8 +17,10 @@ export default async function TribeEventsPage({
     month?: string;
   }>;
 }) {
-  const { slug } = await params;
-  const resolvedSearchParams = await searchParams;
+  const [{ slug }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const { modules } = await resolveVisibleTribePageAccess({
     operation: TRIBE_EVENTS_PAGE.operation,
     slug,

@@ -82,8 +82,10 @@ export async function POST(
     }>;
   }
 ) {
-  const { slug } = await context.params;
-  const modules = await createRequestModules();
+  const [{ slug }, modules] = await Promise.all([
+    context.params,
+    createRequestModules(),
+  ]);
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {

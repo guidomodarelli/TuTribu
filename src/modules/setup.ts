@@ -35,11 +35,12 @@ type RequestModuleContextOverrides = {
 export async function createRequestModules(
   contextOverrides: RequestModuleContextOverrides = {}
 ) {
-  const databaseClient = await createServerDatabaseClient();
-  const { getRequestAuthContext } = await import(
-    "./auth/infrastructure/better-auth/server-auth-context"
-  );
-  const authContext = await getRequestAuthContext();
+  const [databaseClient, authContext] = await Promise.all([
+    createServerDatabaseClient(),
+    import("./auth/infrastructure/better-auth/server-auth-context").then(
+      ({ getRequestAuthContext }) => getRequestAuthContext()
+    ),
+  ]);
   const executeWithRequestContext = <T>(
     callback: Parameters<RequestScopedDatabaseClient["withRequestContext"]>[1]
   ) =>

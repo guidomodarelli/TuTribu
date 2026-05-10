@@ -950,29 +950,35 @@ export class PostgresTribeSubscriptionPriceRepository
     const providerPlanPrices = await this.listProviderPlanPrices({
       tribeSlug: query.tribeSlug,
     });
-    const canceledPriceIds: string[] = [];
+    const canceledPrices = await Promise.all(
+      providerPlanPrices.map(async (providerPlanPrice) => {
+        const providerPlanStatus =
+          providerPlanPrice.mercado_pago_preapproval_plan_id
+            ? await this.getMercadoPagoPlanStatus({
+                accessToken: accessToken.value,
+                preapprovalPlanId:
+                  providerPlanPrice.mercado_pago_preapproval_plan_id,
+              })
+            : null;
 
-    for (const providerPlanPrice of providerPlanPrices) {
-      const providerPlanStatus =
-        providerPlanPrice.mercado_pago_preapproval_plan_id
-          ? await this.getMercadoPagoPlanStatus({
-              accessToken: accessToken.value,
-              preapprovalPlanId:
-                providerPlanPrice.mercado_pago_preapproval_plan_id,
+        return providerPlanStatus !== MERCADO_PAGO_PROVIDER_PLAN_STATUS.active
+          ? this.cancelProviderPlanPrice({
+              priceId: providerPlanPrice.id,
+              tribeSlug: query.tribeSlug,
             })
           : null;
-
-      if (providerPlanStatus !== MERCADO_PAGO_PROVIDER_PLAN_STATUS.active) {
-        const canceledPrice = await this.cancelProviderPlanPrice({
-          priceId: providerPlanPrice.id,
-          tribeSlug: query.tribeSlug,
-        });
-
+      })
+    );
+    const canceledPriceIds = canceledPrices.reduce<string[]>(
+      (priceIds, canceledPrice) => {
         if (canceledPrice) {
-          canceledPriceIds.push(canceledPrice.id);
+          priceIds.push(canceledPrice.id);
         }
-      }
-    }
+
+        return priceIds;
+      },
+      []
+    );
 
     const refreshedPriceList = await this.listByTribeSlug(query);
 
@@ -1080,23 +1086,22 @@ export class PostgresTribeSubscriptionPriceRepository
       priceId: command.priceId,
       tribeSlug: command.tribeSlug,
     });
-    let activeSubscribersCount = 0;
-
-    for (const providerSubscriber of providerSubscribers) {
-      if (!providerSubscriber.mercado_pago_preapproval_id) {
-        continue;
-      }
-
-      const providerSubscriptionStatus =
-        await this.getMercadoPagoSubscriptionStatus({
+    const providerSubscriptionStatuses = await Promise.all(
+      providerSubscribers.map((providerSubscriber) =>
+        providerSubscriber.mercado_pago_preapproval_id
+          ? this.getMercadoPagoSubscriptionStatus({
           accessToken: accessToken.value,
           preapprovalId: providerSubscriber.mercado_pago_preapproval_id,
-        });
-
-      if (isProviderSubscriptionStillAttached(providerSubscriptionStatus)) {
-        activeSubscribersCount += 1;
-      }
-    }
+            })
+          : Promise.resolve(null)
+      )
+    );
+    const activeSubscribersCount = providerSubscriptionStatuses.filter(
+      (providerSubscriptionStatus) =>
+        providerSubscriptionStatus
+          ? isProviderSubscriptionStillAttached(providerSubscriptionStatus)
+          : false
+    ).length;
 
     return {
       price: mapSubscriptionPrice(providerPlanPrice),

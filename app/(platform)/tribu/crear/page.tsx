@@ -97,22 +97,24 @@ export default async function CreateTribePage({
     );
   }
 
-  const eligibility = await modules.tribes.useCases
-    .getTribeCreationEligibility({
-      creatorEmail: authenticatedMember.email,
-    })
-    .catch((error: unknown) => {
-      logger.error({
-        message: CREATE_TRIBE_PAGE_LOG.resolveEligibilityFailureMessage,
-        error,
-        metadata: {
-          creatorId: authenticatedMember.id,
-        },
-      });
+  const [eligibility, resolvedSearchParams] = await Promise.all([
+    modules.tribes.useCases
+      .getTribeCreationEligibility({
+        creatorEmail: authenticatedMember.email,
+      })
+      .catch((error: unknown) => {
+        logger.error({
+          message: CREATE_TRIBE_PAGE_LOG.resolveEligibilityFailureMessage,
+          error,
+          metadata: {
+            creatorId: authenticatedMember.id,
+          },
+        });
 
-      throw error;
-    });
-  const resolvedSearchParams = await searchParams;
+        throw error;
+      }),
+    searchParams,
+  ]);
   const contactEmail = getContactEmail();
 
   if (!eligibility.canCreate) {
