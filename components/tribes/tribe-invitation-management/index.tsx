@@ -39,6 +39,13 @@ const INVITATION_MANAGEMENT_REQUEST = {
   buttonType: "button",
   outlineVariant: "outline",
 } as const;
+const INVITATION_CREATED_AT_FORMATTER = new Intl.DateTimeFormat(
+  INVITATION_MANAGEMENT_REQUEST.locale,
+  {
+    dateStyle: INVITATION_MANAGEMENT_REQUEST.dateStyle,
+    timeStyle: INVITATION_MANAGEMENT_REQUEST.timeStyle,
+  }
+);
 
 type InvitationResponse = {
   invitation?: TribeInvitationListItemResult;
@@ -84,10 +91,7 @@ async function submitInvitationRequest(
 }
 
 function formatCreatedAt(value: string): string {
-  return new Intl.DateTimeFormat(INVITATION_MANAGEMENT_REQUEST.locale, {
-    dateStyle: INVITATION_MANAGEMENT_REQUEST.dateStyle,
-    timeStyle: INVITATION_MANAGEMENT_REQUEST.timeStyle,
-  }).format(new Date(value));
+  return INVITATION_CREATED_AT_FORMATTER.format(new Date(value));
 }
 
 export function TribeInvitationManagement({

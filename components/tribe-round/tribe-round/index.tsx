@@ -204,6 +204,27 @@ const TRIBE_ROUND_FORMAT = {
   timeStyle: "short",
   year: "numeric",
 } as const;
+const MESSAGE_FULL_DATE_TIME_FORMATTER = new Intl.DateTimeFormat(
+  TRIBE_ROUND_FORMAT.locale,
+  {
+    dateStyle: TRIBE_ROUND_FORMAT.dateStyle,
+    timeStyle: TRIBE_ROUND_FORMAT.timeStyle,
+  }
+);
+const CURRENT_YEAR_MESSAGE_DATE_FORMATTER = new Intl.DateTimeFormat(
+  TRIBE_ROUND_FORMAT.locale,
+  {
+    day: TRIBE_ROUND_FORMAT.day,
+    month: TRIBE_ROUND_FORMAT.month,
+  }
+);
+const PAST_YEAR_MESSAGE_DATE_FORMATTER = new Intl.DateTimeFormat(
+  TRIBE_ROUND_FORMAT.locale,
+  {
+    month: TRIBE_ROUND_FORMAT.month,
+    year: TRIBE_ROUND_FORMAT.year,
+  }
+);
 
 type TribeRoundProps = {
   authenticatedMember: AuthenticatedMemberResult;
@@ -325,31 +346,20 @@ function normalizeFormattedDateTime(formattedDateTime: string): string {
 
 function formatMessageFullDateTime(dateTime: string): string {
   return normalizeFormattedDateTime(
-    new Intl.DateTimeFormat(TRIBE_ROUND_FORMAT.locale, {
-      dateStyle: TRIBE_ROUND_FORMAT.dateStyle,
-      timeStyle: TRIBE_ROUND_FORMAT.timeStyle,
-    }).format(new Date(dateTime))
+    MESSAGE_FULL_DATE_TIME_FORMATTER.format(new Date(dateTime))
   );
 }
 
 function formatMessageSummaryDate(dateTime: string): string {
   const messageDate = new Date(dateTime);
   const currentDate = new Date();
-  const dateOptions: Intl.DateTimeFormatOptions =
+  const formatter =
     messageDate.getFullYear() === currentDate.getFullYear()
-      ? {
-          day: TRIBE_ROUND_FORMAT.day,
-          month: TRIBE_ROUND_FORMAT.month,
-        }
-      : {
-          month: TRIBE_ROUND_FORMAT.month,
-          year: TRIBE_ROUND_FORMAT.year,
-        };
+      ? CURRENT_YEAR_MESSAGE_DATE_FORMATTER
+      : PAST_YEAR_MESSAGE_DATE_FORMATTER;
 
   return normalizeFormattedDateTime(
-    new Intl.DateTimeFormat(TRIBE_ROUND_FORMAT.locale, dateOptions).format(
-      messageDate
-    )
+    formatter.format(messageDate)
   );
 }
 

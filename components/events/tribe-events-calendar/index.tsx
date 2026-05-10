@@ -179,17 +179,55 @@ const KEY_PREFIX = {
   week: "week-",
 } as const;
 const TIME_RANGE_SEPARATOR = " - ";
+const CURRENT_MONTH_FORMATTER = new Intl.DateTimeFormat(
+  DATE_TIME_FORMAT.localeMachine,
+  {
+    month: DATE_TIME_FORMAT.monthNumeric,
+    timeZone: CALENDAR.timeZone,
+    year: DATE_TIME_FORMAT.year,
+  }
+);
+const MONTH_TITLE_FORMATTER = new Intl.DateTimeFormat(
+  DATE_TIME_FORMAT.localeSpanish,
+  {
+    month: DATE_TIME_FORMAT.monthLong,
+    timeZone: CALENDAR.timeZone,
+    year: DATE_TIME_FORMAT.year,
+  }
+);
+const EVENT_TIME_FORMATTER = new Intl.DateTimeFormat(
+  DATE_TIME_FORMAT.localeSpanish,
+  {
+    hour: DATE_TIME_FORMAT.hour,
+    hourCycle: CALENDAR.hourCycle,
+    minute: DATE_TIME_FORMAT.minute,
+    timeZone: CALENDAR.timeZone,
+  }
+);
+const EVENT_DATE_FORMATTER = new Intl.DateTimeFormat(
+  DATE_TIME_FORMAT.localeSpanish,
+  {
+    day: DATE_TIME_FORMAT.day,
+    month: DATE_TIME_FORMAT.monthShort,
+    timeZone: CALENDAR.timeZone,
+  }
+);
+const DATE_INPUT_FORMATTER = new Intl.DateTimeFormat(
+  DATE_TIME_FORMAT.localeMachine,
+  {
+    day: DATE_TIME_FORMAT.day,
+    month: DATE_TIME_FORMAT.monthNumeric,
+    timeZone: CALENDAR.timeZone,
+    year: DATE_TIME_FORMAT.year,
+  }
+);
 
 function buildEventsRoute(tribeSlug: string, month: string): string {
   return `${ROUTES.tribes.events(tribeSlug)}${ROUTE_QUERY.month}${month}`;
 }
 
 function getCurrentBuenosAiresMonth(): string {
-  const parts = new Intl.DateTimeFormat(DATE_TIME_FORMAT.localeMachine, {
-    month: DATE_TIME_FORMAT.monthNumeric,
-    timeZone: CALENDAR.timeZone,
-    year: DATE_TIME_FORMAT.year,
-  }).formatToParts(new Date());
+  const parts = CURRENT_MONTH_FORMATTER.formatToParts(new Date());
   const year =
     parts.find((part) => part.type === DATE_TIME_FORMAT.partYear)?.value ??
     DATE_TIME_FORMAT.fallbackYear;
@@ -204,11 +242,7 @@ function formatMonthTitle(month: string): string {
   const date = new Date(
     `${month}${CALENDAR.firstMonthDayTime}${CALENDAR.buenosAiresOffset}`
   );
-  const parts = new Intl.DateTimeFormat(DATE_TIME_FORMAT.localeSpanish, {
-    month: DATE_TIME_FORMAT.monthLong,
-    timeZone: CALENDAR.timeZone,
-    year: DATE_TIME_FORMAT.year,
-  }).formatToParts(date);
+  const parts = MONTH_TITLE_FORMATTER.formatToParts(date);
   const monthName =
     parts.find((part) => part.type === DATE_TIME_FORMAT.partMonth)?.value ??
     EMPTY_FIELD.value;
@@ -223,40 +257,21 @@ function formatMonthTitle(month: string): string {
 }
 
 function formatEventTime(value: string): string {
-  return new Intl.DateTimeFormat(DATE_TIME_FORMAT.localeSpanish, {
-    hour: DATE_TIME_FORMAT.hour,
-    hourCycle: CALENDAR.hourCycle,
-    minute: DATE_TIME_FORMAT.minute,
-    timeZone: CALENDAR.timeZone,
-  }).format(new Date(value));
+  return EVENT_TIME_FORMATTER.format(new Date(value));
 }
 
 function formatEventDate(value: string): string {
-  return new Intl.DateTimeFormat(DATE_TIME_FORMAT.localeSpanish, {
-    day: DATE_TIME_FORMAT.day,
-    month: DATE_TIME_FORMAT.monthShort,
-    timeZone: CALENDAR.timeZone,
-  }).format(new Date(value));
+  return EVENT_DATE_FORMATTER.format(new Date(value));
 }
 
 function formatCurrentTimeLabel(): string {
-  const time = new Intl.DateTimeFormat(DATE_TIME_FORMAT.localeSpanish, {
-    hour: DATE_TIME_FORMAT.hour,
-    hourCycle: CALENDAR.hourCycle,
-    minute: DATE_TIME_FORMAT.minute,
-    timeZone: CALENDAR.timeZone,
-  }).format(new Date());
+  const time = EVENT_TIME_FORMATTER.format(new Date());
 
   return `${time}${CALENDAR.titleSeparator}${DATE_TIME_FORMAT.timeLabelSuffix}`;
 }
 
 function getBuenosAiresDateInputValue(value: string): string {
-  const parts = new Intl.DateTimeFormat(DATE_TIME_FORMAT.localeMachine, {
-    day: DATE_TIME_FORMAT.day,
-    month: DATE_TIME_FORMAT.monthNumeric,
-    timeZone: CALENDAR.timeZone,
-    year: DATE_TIME_FORMAT.year,
-  }).formatToParts(new Date(value));
+  const parts = DATE_INPUT_FORMATTER.formatToParts(new Date(value));
   const year =
     parts.find((part) => part.type === DATE_TIME_FORMAT.partYear)?.value ??
     EMPTY_FIELD.value;

@@ -114,6 +114,13 @@ const PRICE_MANAGEMENT_FORMAT = {
   locale: "es-AR",
   style: "currency",
 } as const;
+const PRICE_AMOUNT_FORMATTER = new Intl.NumberFormat(
+  PRICE_MANAGEMENT_FORMAT.locale,
+  {
+    currency: PRICE_MANAGEMENT_FORMAT.currency,
+    style: PRICE_MANAGEMENT_FORMAT.style,
+  }
+);
 
 type PriceResponse = {
   fieldErrors?: PriceFieldErrors;
@@ -262,10 +269,9 @@ function buildMercadoPagoConnectionEndpoint(tribeSlug: string): string {
  * @returns Localized ARS amount.
  */
 function formatAmount(amountCents: number): string {
-  return new Intl.NumberFormat(PRICE_MANAGEMENT_FORMAT.locale, {
-    currency: PRICE_MANAGEMENT_FORMAT.currency,
-    style: PRICE_MANAGEMENT_FORMAT.style,
-  }).format(amountCents / PRICE_MANAGEMENT_FORMAT.amountDivisor);
+  return PRICE_AMOUNT_FORMATTER.format(
+    amountCents / PRICE_MANAGEMENT_FORMAT.amountDivisor
+  );
 }
 
 /**
