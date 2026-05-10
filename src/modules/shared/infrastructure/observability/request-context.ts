@@ -23,8 +23,11 @@ function readRequestId(headersLike?: HeadersLike | null): string | null {
 
   const [requestId] = rawHeader
     .split(REQUEST_ID_SEPARATOR)
-    .map((value) => value.trim())
-    .filter(Boolean);
+    .flatMap((value) => {
+      const trimmedValue = value.trim();
+
+      return trimmedValue ? [trimmedValue] : [];
+    });
 
   return requestId ?? null;
 }
