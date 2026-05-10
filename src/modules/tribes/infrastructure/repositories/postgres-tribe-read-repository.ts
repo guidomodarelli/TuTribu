@@ -203,14 +203,18 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           name?: string | null;
           slug?: string | null;
         }
-      >)
-        .filter((row) => row.name && row.slug)
-        .map((row) => ({
-          tribeId: row.tribe_row_id ?? row.tribe_id,
-          name: row.name!,
-          role: row.role,
-          slug: row.slug!,
-        }));
+      >).reduce<MemberTribeListItemResult[]>((membershipTribes, row) => {
+        if (row.name && row.slug) {
+          membershipTribes.push({
+            tribeId: row.tribe_row_id ?? row.tribe_id,
+            name: row.name,
+            role: row.role,
+            slug: row.slug,
+          });
+        }
+
+        return membershipTribes;
+      }, []);
     });
   }
 

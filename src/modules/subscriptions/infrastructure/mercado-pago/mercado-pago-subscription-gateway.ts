@@ -211,20 +211,32 @@ function buildMercadoPagoCauseDetails(cause: unknown): string[] {
     return [];
   }
 
-  return cause
-    .slice(0, MERCADO_PAGO_ERROR_DETAIL.maxCauseCount)
-    .map((entry) => {
+  return cause.reduce<string[]>((detailsList, entry, entryIndex) => {
+    if (entryIndex >= MERCADO_PAGO_ERROR_DETAIL.maxCauseCount) {
+      return detailsList;
+    }
+
       if (!entry || typeof entry !== "object") {
-        return toSafeMercadoPagoDiagnosticText(entry);
+        const safeDetail = toSafeMercadoPagoDiagnosticText(entry);
+
+        if (safeDetail) {
+          detailsList.push(safeDetail);
+        }
+
+        return detailsList;
       }
 
       const details = entry as Record<string, unknown>;
       const code = toSafeMercadoPagoDiagnosticText(details.code);
       const description = toSafeMercadoPagoDiagnosticText(details.description);
+      const safeDetail = [code, description].filter(Boolean).join(": ");
 
-      return [code, description].filter(Boolean).join(": ") || null;
-    })
-    .filter((detail): detail is string => Boolean(detail));
+      if (safeDetail) {
+        detailsList.push(safeDetail);
+      }
+
+      return detailsList;
+    }, []);
 }
 
 /**

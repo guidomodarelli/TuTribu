@@ -185,8 +185,19 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
       `);
       const rows = (result.rows ?? []) as EventListRow[];
 
+      const events = rows.reduce<ReturnType<typeof mapEvent>[]>(
+        (mappedEvents, row) => {
+          if (isEventRow(row)) {
+            mappedEvents.push(mapEvent(row));
+          }
+
+          return mappedEvents;
+        },
+        []
+      );
+
       return {
-        events: rows.filter(isEventRow).map(mapEvent),
+        events,
         viewerPermissions: {
           canManageEvents: Boolean(rows[0]?.can_manage_events),
         },

@@ -357,13 +357,22 @@ export class PostgresTribeSubscriptionPriceRepository
       `);
       const rows = (result.rows ?? []) as SubscriptionPriceListRow[];
 
+      const prices = rows.reduce<ReturnType<typeof mapSubscriptionPrice>[]>(
+        (mappedPrices, row) => {
+          if (row.id) {
+            mappedPrices.push(mapSubscriptionPrice(row));
+          }
+
+          return mappedPrices;
+        },
+        []
+      );
+
       return {
         hasMercadoPagoIntegration: Boolean(
           rows[0]?.has_mercado_pago_integration
         ),
-        prices: rows
-          .filter((row) => row.id)
-          .map((row) => mapSubscriptionPrice(row)),
+        prices,
         viewerPermissions: {
           canManagePrices: Boolean(rows[0]?.can_manage_prices),
           canViewPrices: Boolean(rows[0]?.can_view_prices),

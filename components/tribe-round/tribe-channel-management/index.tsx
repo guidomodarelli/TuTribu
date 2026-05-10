@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import type { ReactNode } from "react";
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -356,13 +357,19 @@ export function TribeChannelManagement({
                     <option value={CHANNEL_MANAGEMENT_FORM.emptySelectValue}>
                       {CHANNEL_MANAGEMENT_COPY.selectTargetPlaceholder}
                     </option>
-                    {channelItems
-                      .filter((targetChannel) => targetChannel.id !== channel.id)
-                      .map((targetChannel) => (
+                    {channelItems.reduce<ReactNode[]>((targetOptions, targetChannel) => {
+                      if (targetChannel.id === channel.id) {
+                        return targetOptions;
+                      }
+
+                      targetOptions.push(
                         <option key={targetChannel.id} value={targetChannel.id}>
                           {targetChannel.emoji} {targetChannel.name}
                         </option>
-                    ))}
+                      );
+
+                      return targetOptions;
+                    }, [])}
                   </select>
                 </label>
                 <div

@@ -6,10 +6,15 @@ function readWorkspaceFile(relativePath: string): string {
 }
 
 function readVersionedMigrationTags(): string[] {
-  return readdirSync(path.join(process.cwd(), "database/migrations"))
-    .filter((migrationFileName) => migrationFileName.endsWith(".sql"))
-    .map((migrationFileName) => migrationFileName.replace(/\.sql$/, ""))
-    .sort();
+  return readdirSync(path.join(process.cwd(), "database/migrations")).reduce<
+    string[]
+  >((migrationTags, migrationFileName) => {
+    if (migrationFileName.endsWith(".sql")) {
+      migrationTags.push(migrationFileName.replace(/\.sql$/, ""));
+    }
+
+    return migrationTags;
+  }, []).sort();
 }
 
 const FORBIDDEN_INVITATION_TOKEN_CONTEXT_SETTING = [
