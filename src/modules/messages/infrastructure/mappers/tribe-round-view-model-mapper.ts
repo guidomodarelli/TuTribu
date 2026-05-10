@@ -54,7 +54,7 @@ export function formatMessageDateTimeValue(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : value;
 }
 
-export function createAvatarFallback(name: string): string {
+function createAvatarFallback(name: string): string {
   const fallback = name
     .split(/\s+/)
     .filter(Boolean)
@@ -65,7 +65,7 @@ export function createAvatarFallback(name: string): string {
   return fallback || POST_FEED_DEFAULTS.unknownAuthorFallback;
 }
 
-export function normalizeAuthorRole(role: string | null): MessageAuthorRole {
+function normalizeAuthorRole(role: string | null): MessageAuthorRole {
   if (
     role === MESSAGE_AUTHOR_ROLE.leader ||
     role === MESSAGE_AUTHOR_ROLE.guardian ||
