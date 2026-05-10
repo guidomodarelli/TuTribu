@@ -25,7 +25,7 @@ export function getMemberTribes({
       }
     });
 
-    return [...uniqueTribesById.values()].sort((left, right) =>
+    return Array.from(uniqueTribesById.values()).toSorted((left, right) =>
       left.name.localeCompare(
         right.name,
         MEMBER_TRIBES_SORT_LOCALE,

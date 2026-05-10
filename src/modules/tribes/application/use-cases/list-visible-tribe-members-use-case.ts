@@ -40,7 +40,7 @@ export function listVisibleTribeMembers({
       }
     });
 
-    return [...uniqueTribeMembersById.values()].sort((left, right) => {
+    return Array.from(uniqueTribeMembersById.values()).toSorted((left, right) => {
       const rolePriorityDifference =
         TRIBE_MEMBER_ROLE_PRIORITY[left.role] -
         TRIBE_MEMBER_ROLE_PRIORITY[right.role];

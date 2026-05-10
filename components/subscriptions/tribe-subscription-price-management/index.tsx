@@ -381,7 +381,7 @@ export function TribeSubscriptionPriceManagement({
   const editAmountErrorId = useId();
   const sortedPrices = useMemo(
     () =>
-      [...priceItems].sort((firstPrice, secondPrice) =>
+      priceItems.toSorted((firstPrice, secondPrice) =>
         firstPrice.createdAt < secondPrice.createdAt ? 1 : -1
       ),
     [priceItems]
