@@ -48,7 +48,7 @@ function isPrivilegedTribeMemberRole(
   return TRIBE_MEMBER_PRIVILEGED_ROLES.has(role);
 }
 
-function renderRoleBadge(role: TribeMemberRole) {
+function TribeMemberRoleBadge({ role }: { role: TribeMemberRole }) {
   if (!isPrivilegedTribeMemberRole(role)) {
     return null;
   }
@@ -104,7 +104,7 @@ export function TribeMemberList({ members }: TribeMemberListProps) {
               </Avatar>
               <div className={styles.TribeMemberList__identity}>
                 <p className={styles.TribeMemberList__name}>{member.name}</p>
-                {renderRoleBadge(member.role)}
+                <TribeMemberRoleBadge role={member.role} />
               </div>
             </li>
           ))}
