@@ -13,7 +13,7 @@ export type FetchResilienceOptions = {
   timeoutMs: number;
 };
 
-export type FetchLifecycleEvent = {
+type FetchLifecycleEvent = {
   attempt: number;
   event:
     | "request-attempted"

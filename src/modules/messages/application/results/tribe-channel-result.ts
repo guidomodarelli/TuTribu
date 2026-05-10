@@ -1,9 +1,6 @@
 import type { TRIBE_CHANNEL_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
 import type { TribeChannelResult } from "./tribe-round-result";
 
-export type TribeChannelMutationStatus =
-  (typeof TRIBE_CHANNEL_MUTATION_STATUS)[keyof typeof TRIBE_CHANNEL_MUTATION_STATUS];
-
 export type TribeChannelListResult = {
   channels: TribeChannelResult[];
 };

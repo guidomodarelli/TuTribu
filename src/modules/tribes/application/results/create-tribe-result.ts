@@ -10,7 +10,7 @@ import {
   CREATE_TRIBE_STATUS,
 } from "@/src/modules/tribes/constants/create-tribe";
 
-export type CreateTribeCreatedResult = {
+type CreateTribeCreatedResult = {
   status: typeof CREATE_TRIBE_STATUS.created;
   tribeId: string;
   name: string;
@@ -18,20 +18,20 @@ export type CreateTribeCreatedResult = {
   leaderMemberRole: typeof CREATE_TRIBE_MEMBER_ROLE.leader;
 };
 
-export type CreateTribeConflictResult = {
+type CreateTribeConflictResult = {
   status: typeof CREATE_TRIBE_STATUS.slugConflict;
   message: string;
   suggestedSlug: string;
 };
 
-export type CreateTribeInvalidResult = {
+type CreateTribeInvalidResult = {
   status:
     | typeof CREATE_TRIBE_STATUS.invalidName
     | typeof CREATE_TRIBE_STATUS.invalidSlug;
   message: string;
 };
 
-export type CreateTribeNotAllowedResult = {
+type CreateTribeNotAllowedResult = {
   status: typeof CREATE_TRIBE_STATUS.notAllowed;
 };
 

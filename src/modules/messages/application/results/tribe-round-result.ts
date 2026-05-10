@@ -10,7 +10,7 @@ export type MessageAuthorRole =
 export type MessageMembershipStatus =
   (typeof MESSAGE_MEMBERSHIP_STATUS)[keyof typeof MESSAGE_MEMBERSHIP_STATUS];
 
-export type TribeChannelAccessScope =
+type TribeChannelAccessScope =
   (typeof TRIBE_CHANNEL_ACCESS_SCOPE)[keyof typeof TRIBE_CHANNEL_ACCESS_SCOPE];
 
 export type TribeChannelResult = {
@@ -49,7 +49,7 @@ export type TribeRoundMessageResult = {
   title: string | null;
 };
 
-export type TribeRoundPermissionsResult = {
+type TribeRoundPermissionsResult = {
   canReply: boolean;
   canCreateMessage: boolean;
   canReact: boolean;

@@ -35,7 +35,7 @@ export function storeThemeMode(themeMode: ThemeMode) {
   }
 }
 
-export function resolveSystemThemeMode(): Exclude<ThemeMode, "system"> {
+function resolveSystemThemeMode(): Exclude<ThemeMode, "system"> {
   if (!window.matchMedia) {
     return LIGHT_THEME_MODE;
   }
