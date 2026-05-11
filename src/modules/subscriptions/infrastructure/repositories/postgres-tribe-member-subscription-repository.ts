@@ -27,11 +27,14 @@ import type {
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type {
   MercadoPagoPreapprovalStatusInput,
+  MercadoPagoSubscriptionInput,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import {
   resolveMercadoPagoAccessToken,
   type MercadoPagoAccessTokenRefresher,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token";
+import { ROUTES } from "@/src/constants/routes";
+import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -41,7 +44,12 @@ type MercadoPagoPreapprovalStatusGetter = (
   input: MercadoPagoPreapprovalStatusInput
 ) => Promise<string | null>;
 
-type MercadoPagoPlanCheckoutUrlBuilder = (preapprovalPlanId: string) => string;
+type MercadoPagoSubscriptionCreator = (
+  input: MercadoPagoSubscriptionInput
+) => Promise<{
+  checkoutUrl: string;
+  providerSubscriptionId: string;
+}>;
 
 type MercadoPagoPreapprovalStatusUpdater = (input: {
   accessToken: string;
@@ -57,7 +65,9 @@ type SubscriptionStartContextRow = {
   current_price_name: string | null;
   current_price_provider_plan_id: string | null;
   current_user_email: string | null;
+  existing_checkout_subscription_id: string | null;
   existing_checkout_url: string | null;
+  existing_provider_subscription_id: string | null;
   existing_membership_status: string | null;
   existing_membership_status_reason: string | null;
   has_active_invitation: boolean | null;
@@ -137,8 +147,8 @@ const MERCADO_PAGO_PREAPPROVAL_STATUS = {
   pending: "pending",
 } as const;
 
-const MERCADO_PAGO_CHECKOUT_QUERY_PARAM = {
-  preapprovalPlanId: "preapproval_plan_id",
+const SUBSCRIPTION_PROVIDER_REFERENCE = {
+  prefix: "latribu:subscription:",
 } as const;
 
 /**
@@ -162,27 +172,39 @@ function hashInvitationToken(token: string): string {
 }
 
 /**
- * Checks whether a stored checkout URL still targets the current provider plan.
+ * Checks whether a stored checkout URL points to a concrete provider subscription.
  *
  * @param checkoutUrl - Previously persisted checkout URL.
- * @param preapprovalPlanId - Current Mercado Pago preapproval plan identifier.
- * @returns Whether the checkout URL points to the current provider plan.
+ * @returns Whether the URL carries a Mercado Pago preapproval id.
  */
-function usesCurrentPreapprovalPlan(
-  checkoutUrl: string,
-  preapprovalPlanId: string
-): boolean {
+function usesProviderSubscriptionCheckout(checkoutUrl: string): boolean {
   try {
     const parsedCheckoutUrl = new URL(checkoutUrl);
 
-    return (
-      parsedCheckoutUrl.searchParams.get(
-        MERCADO_PAGO_CHECKOUT_QUERY_PARAM.preapprovalPlanId
-      ) === preapprovalPlanId
-    );
+    return Boolean(parsedCheckoutUrl.searchParams.get("preapproval_id"));
   } catch {
     return false;
   }
+}
+
+/**
+ * Builds the return URL Mercado Pago should use after member checkout.
+ *
+ * @param tribeSlug - Current tribe slug.
+ * @returns Public tribe URL used as Mercado Pago back URL.
+ */
+function buildMemberSubscriptionBackUrl(tribeSlug: string): string {
+  return resolvePublicAppBaseUrl() + ROUTES.tribes.bySlug(tribeSlug);
+}
+
+/**
+ * Builds the provider external reference for a member subscription.
+ *
+ * @param subscriptionId - Local subscription identifier.
+ * @returns Stable Mercado Pago external reference.
+ */
+function buildSubscriptionExternalReference(subscriptionId: string): string {
+  return SUBSCRIPTION_PROVIDER_REFERENCE.prefix + subscriptionId;
 }
 
 /**
@@ -226,7 +248,7 @@ export class PostgresTribeMemberSubscriptionRepository
 {
   constructor(
     private readonly executeWithDatabase: DatabaseExecutor,
-    private readonly buildMercadoPagoPlanCheckoutUrl: MercadoPagoPlanCheckoutUrlBuilder,
+    private readonly createMercadoPagoSubscription: MercadoPagoSubscriptionCreator,
     private readonly getMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusGetter,
     private readonly updateMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusUpdater,
     private readonly refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher
@@ -691,20 +713,20 @@ export class PostgresTribeMemberSubscriptionRepository
           limit 1
         ),
         existing_pending_checkout as (
-          select subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url
-          from public.subscription_idempotency_operations
+          select
+            subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url,
+            tribe_member_subscriptions.id as subscription_id,
+            tribe_member_subscriptions.mercado_pago_preapproval_id as provider_subscription_id
+          from public.tribe_member_subscriptions
           inner join target_tribe
-            on target_tribe.id = subscription_idempotency_operations.tribe_id
-          where subscription_idempotency_operations.user_id = public.current_app_user_id()
+            on target_tribe.id = tribe_member_subscriptions.tribe_id
+          inner join public.subscription_idempotency_operations
+            on subscription_idempotency_operations.tribe_id = target_tribe.id
+            and subscription_idempotency_operations.user_id = tribe_member_subscriptions.user_id
             and subscription_idempotency_operations.operation_type = 'start_member_subscription'
             and subscription_idempotency_operations.response_body ? 'checkoutUrl'
-            and exists (
-              select 1
-              from public.tribe_member_subscriptions
-              where tribe_member_subscriptions.tribe_id = target_tribe.id
-                and tribe_member_subscriptions.user_id = public.current_app_user_id()
-                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-            )
+          where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
           order by subscription_idempotency_operations.created_at desc
           limit 1
         )
@@ -718,7 +740,9 @@ export class PostgresTribeMemberSubscriptionRepository
           exists (select 1 from active_invitation) as has_active_invitation,
           (select status from existing_membership) as existing_membership_status,
           (select status_reason from existing_membership) as existing_membership_status_reason,
+          (select subscription_id from existing_pending_checkout) as existing_checkout_subscription_id,
           (select checkout_url from existing_pending_checkout) as existing_checkout_url,
+          (select provider_subscription_id from existing_pending_checkout) as existing_provider_subscription_id,
           public.current_app_user_email() as current_user_email,
           tribe_payment_integrations.access_token,
           tribe_payment_integrations.refresh_token,
@@ -739,9 +763,16 @@ export class PostgresTribeMemberSubscriptionRepository
 
     if (
       !context?.current_price_id ||
-      !context.current_price_provider_plan_id
+      !context.current_price_provider_plan_id ||
+      context.current_price_amount_cents === null ||
+      !context.current_price_currency ||
+      !context.current_price_name
     ) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice };
+    }
+
+    if (!context.current_user_email) {
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
     }
 
     if (
@@ -752,12 +783,13 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked };
     }
 
-    if (context.existing_checkout_url) {
+    if (
+      context.existing_checkout_url &&
+      context.existing_provider_subscription_id &&
+      usesProviderSubscriptionCheckout(context.existing_checkout_url)
+    ) {
       return {
-        checkoutUrl: this.resolveCurrentPlanCheckoutUrl(
-          context.existing_checkout_url,
-          context.current_price_provider_plan_id
-        ),
+        checkoutUrl: context.existing_checkout_url,
         status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
       };
     }
@@ -777,55 +809,64 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
     }
 
-    const reservation = await this.reservePendingSubscription({
-      currentPriceId: context.current_price_id,
-      invitationTokenHash,
-      tribeId: context.tribe_id,
-    });
+    const shouldReplaceExistingPlanCheckout =
+      context.existing_checkout_subscription_id &&
+      context.existing_checkout_url &&
+      !usesProviderSubscriptionCheckout(context.existing_checkout_url);
+    const reservation = shouldReplaceExistingPlanCheckout
+      ? {
+          checkout_url: null,
+          reserved_subscription_id: context.existing_checkout_subscription_id,
+        }
+      : await this.reservePendingSubscription({
+          currentPriceId: context.current_price_id,
+          invitationTokenHash,
+          tribeId: context.tribe_id,
+        });
 
     if (reservation.checkout_url) {
-      return {
-        checkoutUrl: this.resolveCurrentPlanCheckoutUrl(
-          reservation.checkout_url,
-          context.current_price_provider_plan_id
-        ),
-        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
-      };
+      return usesProviderSubscriptionCheckout(reservation.checkout_url)
+        ? {
+            checkoutUrl: reservation.checkout_url,
+            status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+          }
+        : { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
     }
 
     if (!reservation.reserved_subscription_id) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
     }
 
-    const checkoutUrl = this.buildMercadoPagoPlanCheckoutUrl(
-      context.current_price_provider_plan_id
-    );
+    let providerSubscription: Awaited<
+      ReturnType<MercadoPagoSubscriptionCreator>
+    >;
+
+    try {
+      providerSubscription = await this.createMercadoPagoSubscription({
+        accessToken,
+        amountCents: context.current_price_amount_cents,
+        backUrl: buildMemberSubscriptionBackUrl(command.tribeSlug),
+        currency: context.current_price_currency,
+        externalReference: buildSubscriptionExternalReference(
+          reservation.reserved_subscription_id
+        ),
+        idempotencyKey: `member-subscription:${command.tribeSlug}:${command.idempotencyKey}`,
+        payerEmail: context.current_user_email,
+        preapprovalPlanId: context.current_price_provider_plan_id,
+        reason: context.current_price_name,
+      });
+    } catch {
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+    }
 
     return this.persistReservedCheckout({
-      checkoutUrl,
+      checkoutUrl: providerSubscription.checkoutUrl,
       operationKey,
+      providerSubscriptionId: providerSubscription.providerSubscriptionId,
       subscriptionId: reservation.reserved_subscription_id,
       tribeId: context.tribe_id,
       tribeSlug: command.tribeSlug,
     });
-  }
-
-  /**
-   * Reuses valid pending checkout URLs and rebuilds legacy preapproval checkouts.
-   *
-   * @param checkoutUrl - Previously persisted checkout URL.
-   * @param preapprovalPlanId - Current Mercado Pago preapproval plan identifier.
-   * @returns Checkout URL that targets the current provider plan.
-   */
-  private resolveCurrentPlanCheckoutUrl(
-    checkoutUrl: string,
-    preapprovalPlanId: string
-  ): string {
-    if (usesCurrentPreapprovalPlan(checkoutUrl, preapprovalPlanId)) {
-      return checkoutUrl;
-    }
-
-    return this.buildMercadoPagoPlanCheckoutUrl(preapprovalPlanId);
   }
 
   /**
@@ -964,6 +1005,7 @@ export class PostgresTribeMemberSubscriptionRepository
   private async persistReservedCheckout(input: {
     checkoutUrl: string;
     operationKey: string;
+    providerSubscriptionId: string;
     subscriptionId: string;
     tribeId: string | null;
     tribeSlug: string;
@@ -972,6 +1014,7 @@ export class PostgresTribeMemberSubscriptionRepository
       const updatedSubscriptionResult = await database.execute(sql`
         update public.tribe_member_subscriptions
         set
+          mercado_pago_preapproval_id = ${input.providerSubscriptionId},
           updated_at = timezone('utc', now())
         where tribe_member_subscriptions.id = ${input.subscriptionId}
           and tribe_member_subscriptions.user_id = public.current_app_user_id()
