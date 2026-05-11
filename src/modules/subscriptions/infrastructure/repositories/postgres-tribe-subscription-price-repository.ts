@@ -1686,6 +1686,24 @@ export class PostgresTribeSubscriptionPriceRepository
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
     }
 
+    const providerSubscribers = await this.listProviderSubscribers({
+      priceId: command.priceId,
+      tribeSlug: command.tribeSlug,
+    });
+    const hasProviderPlanLink = Boolean(
+      updateContext.mercado_pago_preapproval_plan_id
+    );
+    const needsProviderVerification =
+      hasProviderPlanLink || providerSubscribers.length > 0;
+
+    if (!needsProviderVerification) {
+      const wasDeleted = await this.deleteCanceledProviderPlanPrice(command);
+
+      return wasDeleted
+        ? { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted }
+        : { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
+    }
+
     const accessToken = await this.resolveAccessTokenForProviderMutation(
       updateContext
     );
@@ -1694,23 +1712,17 @@ export class PostgresTribeSubscriptionPriceRepository
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
     }
 
-    if (!updateContext.mercado_pago_preapproval_plan_id) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
+    if (updateContext.mercado_pago_preapproval_plan_id) {
+      const providerPlanStatus = await this.getMercadoPagoPlanStatus({
+        accessToken,
+        preapprovalPlanId: updateContext.mercado_pago_preapproval_plan_id,
+      });
+
+      if (providerPlanStatus === MERCADO_PAGO_PROVIDER_PLAN_STATUS.active) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
+      }
     }
 
-    const providerPlanStatus = await this.getMercadoPagoPlanStatus({
-      accessToken,
-      preapprovalPlanId: updateContext.mercado_pago_preapproval_plan_id,
-    });
-
-    if (providerPlanStatus === MERCADO_PAGO_PROVIDER_PLAN_STATUS.active) {
-      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
-    }
-
-    const providerSubscribers = await this.listProviderSubscribers({
-      priceId: command.priceId,
-      tribeSlug: command.tribeSlug,
-    });
     const providerSubscriptionStatuses =
       await readProviderSubscriptionStatuses({
         accessToken,

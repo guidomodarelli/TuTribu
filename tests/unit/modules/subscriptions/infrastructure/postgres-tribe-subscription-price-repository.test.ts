@@ -870,6 +870,120 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(updateMercadoPagoPlan).not.toHaveBeenCalled();
   });
 
+  it("should delete canceled local prices when the provider plan link is already missing", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...createSubscriptionPriceRow({
+              mercado_pago_preapproval_plan_id: null,
+              status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+              tribe_id: "tribe-1",
+            }),
+            access_token: null,
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            has_local_active_subscriptions: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            was_deleted: true,
+          },
+        ],
+      });
+    const getMercadoPagoPlanStatus = jest.fn();
+    const getMercadoPagoSubscriptionStatus = jest.fn();
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      getMercadoPagoPlanStatus,
+      getMercadoPagoSubscriptionStatus
+    );
+
+    await expect(
+      repository.delete({
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted,
+    });
+    expect(getMercadoPagoPlanStatus).not.toHaveBeenCalled();
+    expect(getMercadoPagoSubscriptionStatus).not.toHaveBeenCalled();
+  });
+
+  it("should keep missing provider-plan prices when historical provider subscribers are still attached", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...createSubscriptionPriceRow({
+              mercado_pago_preapproval_plan_id: null,
+              status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+              tribe_id: "tribe-1",
+            }),
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            has_local_active_subscriptions: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            mercado_pago_preapproval_id: "subscription-1",
+          },
+        ],
+      });
+    const getMercadoPagoPlanStatus = jest.fn();
+    const getMercadoPagoSubscriptionStatus = jest.fn(async () => "authorized");
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      getMercadoPagoPlanStatus,
+      getMercadoPagoSubscriptionStatus
+    );
+
+    await expect(
+      repository.delete({
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers,
+    });
+    expect(getMercadoPagoPlanStatus).not.toHaveBeenCalled();
+    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledWith({
+      accessToken: "access-token",
+      preapprovalId: "subscription-1",
+    });
+  });
+
   it("should delete canceled prices after checking historical provider subscribers with limited concurrency", async () => {
     const providerSubscriberRows = createProviderSubscriberRows(12);
     const execute = jest
