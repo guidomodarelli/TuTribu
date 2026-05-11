@@ -17,6 +17,7 @@ import type {
 } from "@/src/modules/subscriptions/application/results/tribe-subscription-price-result";
 import {
   TRIBE_MEMBER_SUBSCRIPTION_STATUS,
+  TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON,
   TRIBE_SUBSCRIPTION_PRICE_LIMIT,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
@@ -93,6 +94,12 @@ type SubscriptionProviderSubscriberRow = {
   mercado_pago_preapproval_id: string | null;
 };
 
+type SubscriptionProviderSubscriberStatusUpdate = {
+  provider_subscription_id: string;
+  status_reason: string;
+  subscription_status: string;
+};
+
 type PriceCreationContextRow = {
   access_token: string | null;
   can_manage_prices: boolean | null;
@@ -154,9 +161,12 @@ const MERCADO_PAGO_PROVIDER_PLAN_STATUS = {
   canceled: "canceled",
 } as const;
 
-const MERCADO_PAGO_PROVIDER_SUBSCRIPTION_CANCELED_STATUS = {
+const MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS = {
+  authorized: "authorized",
   canceled: "canceled",
   cancelled: "cancelled",
+  paused: "paused",
+  pending: "pending",
 } as const;
 
 const MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS_LOOKUP_CONCURRENCY_LIMIT = 5;
@@ -176,10 +186,84 @@ function isProviderSubscriptionStillAttached(
 
   return (
     providerSubscriptionStatus !==
-      MERCADO_PAGO_PROVIDER_SUBSCRIPTION_CANCELED_STATUS.canceled &&
+      MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.canceled &&
     providerSubscriptionStatus !==
-      MERCADO_PAGO_PROVIDER_SUBSCRIPTION_CANCELED_STATUS.cancelled
+      MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.cancelled
   );
+}
+
+/**
+ * Maps Mercado Pago subscription statuses into local subscription access states.
+ *
+ * @param providerSubscriptionStatus - Subscription status returned by Mercado Pago.
+ * @returns Local subscription status and access reason to persist.
+ */
+function mapProviderSubscriptionStatus(providerSubscriptionStatus: string | null): {
+  status: string;
+  statusReason: string;
+} {
+  switch (providerSubscriptionStatus) {
+    case MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.authorized:
+      return {
+        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.active,
+        statusReason: TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none,
+      };
+    case MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.canceled:
+    case MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.cancelled:
+    case null:
+      return {
+        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled,
+        statusReason:
+          TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive,
+      };
+    case MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.paused:
+      return {
+        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused,
+        statusReason:
+          TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive,
+      };
+    case MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.pending:
+    default:
+      return {
+        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+        statusReason: TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked,
+      };
+  }
+}
+
+/**
+ * Builds local status updates aligned to verified provider subscribers.
+ *
+ * @param input - Provider subscriber rows and statuses returned by Mercado Pago.
+ * @returns Persistable status updates for subscribers with provider identifiers.
+ */
+function buildProviderSubscriberStatusUpdates(input: {
+  providerSubscribers: SubscriptionProviderSubscriberRow[];
+  providerSubscriptionStatuses: (string | null)[];
+}): SubscriptionProviderSubscriberStatusUpdate[] {
+  return input.providerSubscriptionStatuses.reduce<
+    SubscriptionProviderSubscriberStatusUpdate[]
+  >((statusUpdates, providerSubscriptionStatus, subscriberIndex) => {
+    const providerSubscriptionId =
+      input.providerSubscribers[subscriberIndex]
+        ?.mercado_pago_preapproval_id;
+
+    if (!providerSubscriptionId) {
+      return statusUpdates;
+    }
+
+    const subscriptionStatus = mapProviderSubscriptionStatus(
+      providerSubscriptionStatus
+    );
+
+    statusUpdates.push({
+      provider_subscription_id: providerSubscriptionId,
+      status_reason: subscriptionStatus.statusReason,
+      subscription_status: subscriptionStatus.status,
+    });
+
+    return statusUpdates;
+  }, []);
 }
 
 /**
@@ -1098,12 +1182,11 @@ export class PostgresTribeSubscriptionPriceRepository
       return accessToken;
     }
 
-    const providerPlanPrice = (
-      await this.listProviderPlanPrices({
+    const providerPlanPrice =
+      await this.readProviderSubscriberVerificationPrice({
         priceId: command.priceId,
         tribeSlug: command.tribeSlug,
-      })
-    )[0];
+      });
 
     if (!providerPlanPrice) {
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
@@ -1181,15 +1264,29 @@ export class PostgresTribeSubscriptionPriceRepository
           this.getMercadoPagoSubscriptionStatus,
         providerSubscribers,
       });
+    const providerSubscriberStatusUpdates =
+      buildProviderSubscriberStatusUpdates({
+        providerSubscribers,
+        providerSubscriptionStatuses,
+      });
     const activeSubscribersCount = providerSubscriptionStatuses.filter(
       (providerSubscriptionStatus) =>
         providerSubscriptionStatus
           ? isProviderSubscriptionStillAttached(providerSubscriptionStatus)
           : false
     ).length;
+    const reconciledPrice = await this.reconcileProviderSubscriberStatuses({
+      priceId: command.priceId,
+      providerSubscriberStatusUpdates,
+      tribeSlug: command.tribeSlug,
+    });
+
+    if (!reconciledPrice) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
+    }
 
     return {
-      price: mapSubscriptionPrice(providerPlanPrice),
+      price: reconciledPrice,
       providerActiveSubscribersCount: activeSubscribersCount,
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
       verifiedCount: providerSubscribers.length,
@@ -1511,6 +1608,214 @@ export class PostgresTribeSubscriptionPriceRepository
     return accessToken
       ? { value: accessToken }
       : { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
+  }
+
+  /**
+   * Reads a price that can have its stored subscribers verified against Mercado Pago.
+   *
+   * @param input - Tribe and price identifiers used to scope the verification.
+   * @returns Price row for active or canceled prices, or null when unavailable.
+   */
+  private async readProviderSubscriberVerificationPrice(input: {
+    priceId: string;
+    tribeSlug: string;
+  }): Promise<SubscriptionProviderPlanRow | null> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${input.tribeSlug}
+          limit 1
+        )
+        select
+          tribe_subscription_prices.id,
+          tribe_subscription_prices.name,
+          tribe_subscription_prices.amount_cents,
+          tribe_subscription_prices.currency,
+          tribe_subscription_prices.frequency,
+          tribe_subscription_prices.status,
+          tribe_subscription_prices.is_current,
+          tribe_subscription_prices.created_at,
+          tribe_subscription_prices.mercado_pago_preapproval_plan_id,
+          count(tribe_member_subscriptions.id) filter (
+            where tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
+          ) as active_subscribers_count
+        from public.tribe_subscription_prices
+        inner join target_tribe
+          on target_tribe.id = tribe_subscription_prices.tribe_id
+        left join public.tribe_member_subscriptions
+          on tribe_member_subscriptions.price_id = tribe_subscription_prices.id
+        where tribe_subscription_prices.id = ${input.priceId}
+          and tribe_subscription_prices.status in ('active', 'canceled')
+          and public.can_manage_tribe_subscription_prices(target_tribe.id)
+        group by tribe_subscription_prices.id
+        limit 1
+      `);
+
+      return (result.rows?.[0] ?? null) as
+        | SubscriptionProviderPlanRow
+        | null;
+    });
+  }
+
+  /**
+   * Persists provider-backed subscriber statuses and recalculates local member access.
+   *
+   * @param input - Price identity and verified subscriber status updates.
+   * @returns Reconciled price row with the updated association count.
+   */
+  private async reconcileProviderSubscriberStatuses(input: {
+    priceId: string;
+    providerSubscriberStatusUpdates: SubscriptionProviderSubscriberStatusUpdate[];
+    tribeSlug: string;
+  }): Promise<TribeSubscriptionPriceResult | null> {
+    if (input.providerSubscriberStatusUpdates.length === 0) {
+      const price = await this.readProviderSubscriberVerificationPrice({
+        priceId: input.priceId,
+        tribeSlug: input.tribeSlug,
+      });
+
+      return price ? mapSubscriptionPrice(price) : null;
+    }
+
+    const statusUpdatesJson = JSON.stringify(
+      input.providerSubscriberStatusUpdates
+    );
+
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${input.tribeSlug}
+          limit 1
+        ),
+        target_price as (
+          select
+            tribe_subscription_prices.id,
+            tribe_subscription_prices.name,
+            tribe_subscription_prices.amount_cents,
+            tribe_subscription_prices.currency,
+            tribe_subscription_prices.frequency,
+            tribe_subscription_prices.status,
+            tribe_subscription_prices.is_current,
+            tribe_subscription_prices.created_at
+          from public.tribe_subscription_prices
+          inner join target_tribe
+            on target_tribe.id = tribe_subscription_prices.tribe_id
+          where tribe_subscription_prices.id = ${input.priceId}
+            and tribe_subscription_prices.status in ('active', 'canceled')
+            and public.can_manage_tribe_subscription_prices(target_tribe.id)
+          limit 1
+        ),
+        provider_statuses as (
+          select
+            provider_statuses.provider_subscription_id,
+            provider_statuses.subscription_status,
+            provider_statuses.status_reason
+          from jsonb_to_recordset(${statusUpdatesJson}::jsonb) as provider_statuses(
+            provider_subscription_id text,
+            subscription_status text,
+            status_reason text
+          )
+        ),
+        updated_subscriptions as (
+          update public.tribe_member_subscriptions
+          set
+            status = provider_statuses.subscription_status,
+            status_reason = provider_statuses.status_reason,
+            updated_at = timezone('utc', now())
+          from provider_statuses,
+            target_price
+          where tribe_member_subscriptions.price_id = target_price.id
+            and tribe_member_subscriptions.mercado_pago_preapproval_id =
+              provider_statuses.provider_subscription_id
+          returning
+            tribe_member_subscriptions.tribe_id,
+            tribe_member_subscriptions.user_id
+        ),
+        affected_members as (
+          select distinct
+            updated_subscriptions.tribe_id,
+            updated_subscriptions.user_id
+          from updated_subscriptions
+        ),
+        updated_members as (
+          update public.tribe_members
+          set
+            status = case
+              when exists (
+                select 1
+                from public.tribe_member_subscriptions
+                where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                  and tribe_member_subscriptions.user_id = tribe_members.user_id
+                  and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+              ) then 'active'
+              when exists (
+                select 1
+                from public.tribe_member_subscriptions
+                where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                  and tribe_member_subscriptions.user_id = tribe_members.user_id
+                  and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+              ) then 'blocked'
+              else 'removed'
+            end,
+            status_reason = case
+              when exists (
+                select 1
+                from public.tribe_member_subscriptions
+                where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                  and tribe_member_subscriptions.user_id = tribe_members.user_id
+                  and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+              ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none}
+              when exists (
+                select 1
+                from public.tribe_member_subscriptions
+                where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                  and tribe_member_subscriptions.user_id = tribe_members.user_id
+                  and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+              ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+              else ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
+            end
+          from affected_members
+          where tribe_members.tribe_id = affected_members.tribe_id
+            and tribe_members.user_id = affected_members.user_id
+            and not (
+              tribe_members.status = 'blocked'
+              and tribe_members.status_reason <> ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+            )
+          returning tribe_members.user_id
+        )
+        select
+          target_price.id,
+          target_price.name,
+          target_price.amount_cents,
+          target_price.currency,
+          target_price.frequency,
+          target_price.status,
+          target_price.is_current,
+          target_price.created_at,
+          count(tribe_member_subscriptions.id) filter (
+            where tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
+          ) as active_subscribers_count
+        from target_price
+        left join public.tribe_member_subscriptions
+          on tribe_member_subscriptions.price_id = target_price.id
+        group by
+          target_price.id,
+          target_price.name,
+          target_price.amount_cents,
+          target_price.currency,
+          target_price.frequency,
+          target_price.status,
+          target_price.is_current,
+          target_price.created_at
+      `);
+      const row = (result.rows?.[0] ?? null) as SubscriptionPriceRow | null;
+
+      return row ? mapSubscriptionPrice(row) : null;
+    });
   }
 
   /**

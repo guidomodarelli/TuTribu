@@ -175,6 +175,34 @@ describe("tribe subscription provider plan verification routes", () => {
     });
   });
 
+  it("should return a reconciled canceled price when provider subscribers are verified", async () => {
+    const canceledPrice = {
+      ...activePrice,
+      activeSubscribersCount: 0,
+      isCurrent: false,
+      status: "canceled" as const,
+    };
+    verifyTribeSubscriptionProviderSubscribers.mockResolvedValue({
+      price: canceledPrice,
+      providerActiveSubscribersCount: 0,
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+      verifiedCount: 1,
+    });
+
+    const response = await POST_VERIFY_SUBSCRIBERS(
+      buildRequest(),
+      buildPriceContext()
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      message: "Suscriptores verificados con Mercado Pago.",
+      price: canceledPrice,
+      providerActiveSubscribersCount: 0,
+      verifiedCount: 1,
+    });
+  });
+
   it("should return forbidden when the viewer cannot verify provider plans", async () => {
     verifyTribeSubscriptionProviderPlans.mockResolvedValue({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden,

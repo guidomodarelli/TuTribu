@@ -1056,7 +1056,8 @@ export function TribeSubscriptionPriceManagement({
                   <Button
                     disabled={
                       isPriceManagementDisabled ||
-                      price.status === PRICE_MANAGEMENT_STATUS.canceled
+                      (price.status === PRICE_MANAGEMENT_STATUS.canceled &&
+                        price.activeSubscribersCount === 0)
                     }
                     onClick={() => {
                       void handleVerifyProviderSubscribers(price.id);

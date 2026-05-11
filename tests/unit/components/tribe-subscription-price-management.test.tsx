@@ -347,6 +347,76 @@ describe("TribeSubscriptionPriceManagement", () => {
     });
   });
 
+  it("should verify canceled price subscribers and enable deletion when Mercado Pago has no active associations", async () => {
+    const user = userEvent.setup();
+    const canceledPriceWithLocalAssociation = {
+      ...activePrice,
+      activeSubscribersCount: 1,
+      isCurrent: false,
+      status: "canceled" as const,
+    };
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          canceledPriceIds: [],
+          message: "Planes verificados con Mercado Pago.",
+          prices: [canceledPriceWithLocalAssociation],
+          verifiedCount: 1,
+        }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          message: "Suscriptores verificados con Mercado Pago.",
+          price: {
+            ...canceledPriceWithLocalAssociation,
+            activeSubscribersCount: 0,
+          },
+          providerActiveSubscribersCount: 0,
+          verifiedCount: 1,
+        }),
+        ok: true,
+      }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[canceledPriceWithLocalAssociation]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      await screen.findByText("Planes verificados con Mercado Pago.")
+    ).toBeInTheDocument();
+
+    const verifySubscribersButton = screen.getByRole("button", {
+      name: "Verificar suscriptores",
+    });
+    expect(verifySubscribersButton).toBeEnabled();
+    await user.click(verifySubscribersButton);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices/price-1/verify-provider-subscribers",
+        expect.objectContaining({
+          method: "POST",
+        })
+      );
+      expect(screen.getByText("0 miembros asociados")).toBeInTheDocument();
+      expect(
+        screen.getByText("0 suscriptores vigentes en Mercado Pago")
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Eliminar" })).toBeEnabled();
+    });
+  });
+
   it("shows the amount field error returned by the price creation endpoint", async () => {
     const user = userEvent.setup();
     global.fetch = jest.fn(async () => ({

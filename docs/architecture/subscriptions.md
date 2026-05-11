@@ -65,6 +65,13 @@ operación reciente de checkout del mismo usuario para el plan actual, el retorn
 puede recuperar la fila local de suscripción siempre que el `preapproval_id`
 pertenezca al `mercado_pago_preapproval_plan_id` actual de la tribu.
 
+La verificación manual de suscriptores de un precio consulta cada
+`mercado_pago_preapproval_id` local contra Mercado Pago y reconcilia la base
+local antes de responder. `authorized`, `pending` y `paused` siguen contando
+como suscripciones asociadas al precio; solo `authorized` da acceso activo,
+`pending` bloquea por pago y `paused`, `canceled`, `cancelled` o un
+preapproval inexistente remueven el acceso por suscripción inactiva.
+
 Las acciones iniciadas desde LaTribu se aplican primero contra Mercado Pago y
 luego se reflejan localmente. Los webhooks `subscription_preapproval_plan`
 actualizan el nombre local cuando el plan sigue activo y cancelan el precio
