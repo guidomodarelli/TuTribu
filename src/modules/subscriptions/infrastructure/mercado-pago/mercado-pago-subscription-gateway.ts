@@ -607,12 +607,6 @@ export async function createMercadoPagoPreapprovalSubscription(
 ) {
   const response = await fetch(MERCADO_PAGO_URL.preapproval, {
     body: JSON.stringify({
-      auto_recurring: {
-        currency_id: input.currency,
-        frequency: 1,
-        frequency_type: "months",
-        transaction_amount: input.amountCents / 100,
-      },
       back_url: input.backUrl,
       external_reference: input.externalReference,
       payer_email: input.payerEmail,
@@ -644,14 +638,51 @@ export async function createMercadoPagoPreapprovalSubscription(
 }
 
 /**
+ * Updates a Mercado Pago preapproval subscription status.
+ *
+ * @param input - Provider subscription identifier, account token, and target status.
+ * @returns The status confirmed by Mercado Pago.
+ */
+export async function updateMercadoPagoPreapprovalSubscriptionStatus(input: {
+  accessToken: string;
+  preapprovalId: string;
+  status: "canceled";
+}): Promise<string> {
+  const response = await fetch(
+    `${MERCADO_PAGO_URL.preapproval}/${input.preapprovalId}`,
+    {
+      body: JSON.stringify({
+        status: input.status,
+      }),
+      headers: {
+        [MERCADO_PAGO_HTTP.authorizationHeader]:
+          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
+        [MERCADO_PAGO_HTTP.contentTypeHeader]:
+          MERCADO_PAGO_HTTP.jsonContentType,
+      },
+      method: MERCADO_PAGO_HTTP.putMethod,
+    }
+  );
+  const body = await readMercadoPagoResponse<MercadoPagoPreapprovalResponse>(
+    response
+  );
+
+  if (!body.status) {
+    throw new Error("Mercado Pago preapproval response did not include status");
+  }
+
+  return body.status;
+}
+
+/**
  * Reads the current Mercado Pago preapproval status from the provider.
  *
  * @param input - Provider subscription identifier and account token.
- * @returns Provider status value.
+ * @returns Provider status value, or null when the preapproval does not exist.
  */
 export async function getMercadoPagoPreapprovalStatus(
   input: MercadoPagoPreapprovalStatusInput
-): Promise<string> {
+): Promise<string | null> {
   const response = await fetch(
     `${MERCADO_PAGO_URL.preapproval}/${input.preapprovalId}`,
     {
@@ -662,6 +693,11 @@ export async function getMercadoPagoPreapprovalStatus(
       method: MERCADO_PAGO_HTTP.getMethod,
     }
   );
+
+  if (response.status === 404) {
+    return null;
+  }
+
   const body = await readMercadoPagoResponse<MercadoPagoPreapprovalResponse>(
     response
   );

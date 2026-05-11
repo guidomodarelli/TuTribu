@@ -6,6 +6,7 @@
 
 import type {
   TribeMemberSubscriptionStartResult,
+  TribeMemberSubscriptionStatusResult,
   TribeMemberSubscriptionWebhookResult,
 } from "@/src/modules/subscriptions/application/results/tribe-member-subscription-result";
 
@@ -26,13 +27,26 @@ export type PendingSubscriptionReturnQuery = {
   tribeSlug: string;
 };
 
+export type TribeMemberSubscriptionStatusQuery = {
+  tribeSlug: string;
+};
+
 export type TribeMemberSubscriptionRepository = {
+  cancelOwnSubscription(
+    query: TribeMemberSubscriptionStatusQuery
+  ): Promise<TribeMemberSubscriptionStatusResult>;
+  confirmSubscriptionReturn(
+    query: PendingSubscriptionReturnQuery
+  ): Promise<TribeMemberSubscriptionStatusResult>;
   handleWebhook(
     command: MercadoPagoSubscriptionWebhookCommand
   ): Promise<TribeMemberSubscriptionWebhookResult>;
   hasPendingSubscriptionReturn(
     query: PendingSubscriptionReturnQuery
   ): Promise<boolean>;
+  reconcileCurrentMemberSubscription(
+    query: TribeMemberSubscriptionStatusQuery
+  ): Promise<TribeMemberSubscriptionStatusResult>;
   startCurrentPriceSubscription(
     command: StartCurrentPriceSubscriptionCommand
   ): Promise<TribeMemberSubscriptionStartResult>;

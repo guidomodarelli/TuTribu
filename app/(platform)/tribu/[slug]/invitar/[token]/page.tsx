@@ -8,7 +8,11 @@ import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
 import { getServerBetterAuthSession as getSession } from "@/src/modules/auth/infrastructure/better-auth/server-auth-context";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
-import { TRIBE_INVITATION_STATUS } from "@/src/modules/tribes/constants/tribe-invitations";
+import type { TribeInvitationSubscriptionOfferResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
+import {
+  TRIBE_INVITATION_STATUS,
+  TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS,
+} from "@/src/modules/tribes/constants/tribe-invitations";
 import styles from "./page.module.scss";
 
 const INVITATION_PAGE_COPY = {
@@ -26,6 +30,10 @@ const INVITATION_PAGE_COPY = {
   paymentButton: "Continuar con el pago",
   paymentDescription:
     "Esta tribu tiene una suscripción activa. Para entrar, continuá con el precio actual.",
+  paymentOfferAmountLabel: "Precio mensual",
+  paymentOfferAvailabilityLabel: "Estado",
+  paymentOfferAvailable: "disponible",
+  paymentOfferUnavailable: "no disponible",
   paymentUnavailableDescription:
     "No pudimos iniciar el pago en este momento. Intentá de nuevo más tarde o pedí ayuda a quien administra la tribu.",
   paymentUnavailableTitle: "No pudimos iniciar el pago",
@@ -43,10 +51,16 @@ const INVITATION_PAGE_FORM = {
 } as const;
 
 const INVITATION_SUBSCRIPTION = {
+  amountDivisor: 100,
   checkoutUrlProperty: "checkoutUrl",
   hashAlgorithm: "sha256",
   hashEncoding: "hex",
   idempotencySeparator: ":",
+} as const;
+
+const INVITATION_SUBSCRIPTION_AMOUNT_FORMAT = {
+  currencyStyle: "currency",
+  locale: "es-AR",
 } as const;
 
 type TribeInvitationPageSearchParams = {
@@ -156,6 +170,58 @@ function renderSubscriptionStartStatus(status: string) {
   }
 
   return null;
+}
+
+function formatInvitationSubscriptionAmount(
+  amountCents: number,
+  currency: string
+): string {
+  return new Intl.NumberFormat(INVITATION_SUBSCRIPTION_AMOUNT_FORMAT.locale, {
+    currency,
+    style: INVITATION_SUBSCRIPTION_AMOUNT_FORMAT.currencyStyle,
+  }).format(amountCents / INVITATION_SUBSCRIPTION.amountDivisor);
+}
+
+function renderSubscriptionOffer(
+  offer: TribeInvitationSubscriptionOfferResult
+) {
+  if (
+    offer.status !== TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS.available
+  ) {
+    return (
+      <div className={styles.TribeInvitationPage__offer}>
+        <p className={styles.TribeInvitationPage__offerStatus}>
+          {INVITATION_PAGE_COPY.paymentOfferAvailabilityLabel}:{" "}
+          {INVITATION_PAGE_COPY.paymentOfferUnavailable}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.TribeInvitationPage__offer}>
+      <p className={styles.TribeInvitationPage__offerName}>
+        {offer.price.name}
+      </p>
+      <dl className={styles.TribeInvitationPage__offerDetails}>
+        <div className={styles.TribeInvitationPage__offerDetail}>
+          <dt className={styles.TribeInvitationPage__offerTerm}>
+            {INVITATION_PAGE_COPY.paymentOfferAmountLabel}
+          </dt>
+          <dd className={styles.TribeInvitationPage__offerValue}>
+            {formatInvitationSubscriptionAmount(
+              offer.price.amountCents,
+              offer.price.currency
+            )}
+          </dd>
+        </div>
+      </dl>
+      <p className={styles.TribeInvitationPage__offerStatus}>
+        {INVITATION_PAGE_COPY.paymentOfferAvailabilityLabel}:{" "}
+        {INVITATION_PAGE_COPY.paymentOfferAvailable}
+      </p>
+    </div>
+  );
 }
 
 export async function acceptInvitationAction({
@@ -284,6 +350,14 @@ export default async function TribeInvitationPage({
       slug,
       token,
     });
+    const subscriptionOffer =
+      await modules.tribes.useCases.getTribeInvitationSubscriptionOffer({
+        token,
+        tribeSlug: slug,
+      });
+    const canStartSubscription =
+      subscriptionOffer.status ===
+      TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS.available;
 
     return (
       <main className={styles.TribeInvitationPage}>
@@ -297,14 +371,17 @@ export default async function TribeInvitationPage({
           <p className={styles.TribeInvitationPage__description}>
             {INVITATION_PAGE_COPY.paymentDescription}
           </p>
-          <form
-            action={startSubscription}
-            className={styles.TribeInvitationPage__form}
-          >
-            <Button type={INVITATION_PAGE_FORM.submitButtonType}>
-              {INVITATION_PAGE_COPY.paymentButton}
-            </Button>
-          </form>
+          {renderSubscriptionOffer(subscriptionOffer)}
+          {canStartSubscription ? (
+            <form
+              action={startSubscription}
+              className={styles.TribeInvitationPage__form}
+            >
+              <Button type={INVITATION_PAGE_FORM.submitButtonType}>
+                {INVITATION_PAGE_COPY.paymentButton}
+              </Button>
+            </form>
+          ) : null}
         </section>
       </main>
     );

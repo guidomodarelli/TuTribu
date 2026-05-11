@@ -25,3 +25,15 @@ export type TribeMemberSubscriptionWebhookResult = {
     | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed
     | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook;
 };
+
+export type TribeMemberSubscriptionStatusResult = {
+  status:
+    | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.active
+    | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled
+    | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice
+    | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound
+    | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused
+    | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending
+    | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable
+    | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.removedBySubscription;
+};

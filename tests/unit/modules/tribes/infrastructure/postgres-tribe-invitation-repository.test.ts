@@ -314,4 +314,51 @@ describe("PostgresTribeInvitationRepository", () => {
     expect(targetInvitationPosition).toBeLessThan(targetTribePosition);
     expect(revokedStatusPosition).toBeLessThan(invalidFallbackPosition);
   });
+
+  it("returns the current active subscription offer for an active invitation", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          amount_cents: 500000,
+          currency: "ARS",
+          frequency: "monthly",
+          name: "Plan mensual",
+        },
+      ],
+    }));
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.getSubscriptionOffer({
+        token: "plain-token",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
+    });
+  });
+
+  it("returns unavailable when the invitation has no active current subscription offer", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [],
+    }));
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.getSubscriptionOffer({
+        token: "plain-token",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "unavailable" });
+  });
 });

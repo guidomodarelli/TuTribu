@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from "crypto";
 import type {
   AcceptTribeInvitationCommand,
   CreateTribeInvitationCommand,
+  GetTribeInvitationSubscriptionOfferQuery,
   ListTribeInvitationsQuery,
   RevokeTribeInvitationCommand,
   TribeInvitationRepository,
@@ -66,5 +67,15 @@ export function acceptTribeInvitation({
     tribeInvitationRepository.accept({
       token: command.token.trim(),
       tribeSlug: command.tribeSlug.trim(),
+    });
+}
+
+export function getTribeInvitationSubscriptionOffer({
+  tribeInvitationRepository,
+}: TribeInvitationDependencies) {
+  return async (query: GetTribeInvitationSubscriptionOfferQuery) =>
+    tribeInvitationRepository.getSubscriptionOffer({
+      token: query.token.trim(),
+      tribeSlug: query.tribeSlug.trim(),
     });
 }

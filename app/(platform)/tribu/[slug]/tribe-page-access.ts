@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { TRIBE_PAGE_ACCESS_STATUS } from "@/src/modules/tribes/application/results/tribe-page-access-result";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -35,6 +36,34 @@ export async function resolveTribePageAccess({
   const modules = await createRequestModules();
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
+  const subscriptionReconciliationModules =
+    authenticatedMember
+      ? await createRequestModules({
+          mercadoPagoWebhookVerified: true,
+        })
+      : null;
+  const reconcileCurrentTribeMemberSubscription =
+    subscriptionReconciliationModules?.subscriptions?.useCases
+      ?.reconcileCurrentTribeMemberSubscription;
+  const subscriptionReconciliationResult =
+    authenticatedMember && reconcileCurrentTribeMemberSubscription
+      ? await reconcileCurrentTribeMemberSubscription({
+          tribeSlug: slug,
+        }).catch((error: unknown) => {
+          logger.error({
+            message: TRIBE_PAGE_ACCESS_LOG.resolveAccessFailureMessage,
+            error,
+            metadata: {
+              reason: TRIBE_PAGE_ACCESS_LOG_REASON.unexpectedRepositoryError,
+              slug,
+              viewerId: authenticatedMember.id,
+            },
+          });
+
+          return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
+        })
+      : null;
+
   const accessResult = await modules.tribes.useCases
     .getTribePageAccess({
       isAuthenticated: Boolean(authenticatedMember),
@@ -58,6 +87,7 @@ export async function resolveTribePageAccess({
     logger,
     modules,
     result: accessResult,
+    subscriptionReconciliationResult,
   };
 }
 
@@ -72,7 +102,13 @@ export async function resolveVisibleTribePageAccess(
     notFound();
   }
 
-  const { authenticatedMember, logger, modules, result: accessResult } = access;
+  const {
+    authenticatedMember,
+    logger,
+    modules,
+    result: accessResult,
+    subscriptionReconciliationResult,
+  } = access;
 
   if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
     logger.info({
@@ -96,5 +132,6 @@ export async function resolveVisibleTribePageAccess(
     tribe: accessResult.tribe,
     logger,
     modules,
+    subscriptionReconciliationResult,
   };
 }

@@ -91,7 +91,8 @@ function normalizeMembershipStatus(
 ): TribeMembershipStatus | null {
   return status === TRIBE_MEMBERSHIP_STATUS.active ||
     status === TRIBE_MEMBERSHIP_STATUS.muted ||
-    status === TRIBE_MEMBERSHIP_STATUS.blocked
+    status === TRIBE_MEMBERSHIP_STATUS.blocked ||
+    status === TRIBE_MEMBERSHIP_STATUS.removed
     ? status
     : null;
 }
@@ -101,7 +102,8 @@ function normalizeMembershipStatusReason(
 ): TribeMembershipStatusReason {
   if (
     statusReason === TRIBE_MEMBERSHIP_STATUS_REASON.conductBlocked ||
-    statusReason === TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked
+    statusReason === TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked ||
+    statusReason === TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive
   ) {
     return statusReason;
   }

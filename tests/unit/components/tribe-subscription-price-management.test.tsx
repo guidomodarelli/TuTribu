@@ -121,27 +121,28 @@ describe("TribeSubscriptionPriceManagement", () => {
     });
   });
 
-  it("should keep a canceled price visible after the delete action", async () => {
+  it("should remove a canceled price after the delete action", async () => {
     const user = userEvent.setup();
+    const canceledPrice = {
+      ...activePrice,
+      isCurrent: false,
+      status: "canceled" as const,
+    };
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
           message: "Planes verificados con Mercado Pago.",
-          prices: [activePrice],
+          prices: [canceledPrice],
           verifiedCount: 1,
         }),
         ok: true,
       })
       .mockResolvedValueOnce({
         json: async () => ({
-          message: "Precio cancelado.",
-          price: {
-            ...activePrice,
-            isCurrent: false,
-            status: "canceled",
-          },
+          deletedPriceId: "price-1",
+          message: "Precio eliminado.",
         }),
         ok: true,
       }) as jest.Mock;
@@ -150,7 +151,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       <TribeSubscriptionPriceManagement
         canManagePrices
         isMercadoPagoConnected
-        prices={[activePrice]}
+        prices={[canceledPrice]}
         statusMessage={null}
         tribeSlug="matematica-pro"
       />
@@ -168,8 +169,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           method: "DELETE",
         })
       );
-      expect(screen.getByText("Cancelado")).toBeInTheDocument();
-      expect(screen.getByText("Plan mensual")).toBeInTheDocument();
+      expect(screen.queryByText("Plan mensual")).not.toBeInTheDocument();
     });
   });
 

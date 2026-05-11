@@ -209,6 +209,14 @@ export async function DELETE(
           },
           HTTP_STATUS.ok
         );
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted:
+        return createJsonResponse(
+          {
+            deletedPriceId: priceId,
+            message: PRICE_ITEM_ROUTE_RESPONSE.deletedMessage,
+          },
+          HTTP_STATUS.ok
+        );
       case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers:
         return createJsonResponse(
           { message: PRICE_ITEM_ROUTE_RESPONSE.hasSubscribersMessage },

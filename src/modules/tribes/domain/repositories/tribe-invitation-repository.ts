@@ -3,6 +3,7 @@ import type {
   TribeInvitationCreationResult,
   TribeInvitationListItemResult,
   TribeInvitationRevocationResult,
+  TribeInvitationSubscriptionOfferResult,
 } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 
 export type CreateTribeInvitationCommand = {
@@ -21,6 +22,11 @@ export type AcceptTribeInvitationCommand = {
   tribeSlug: string;
 };
 
+export type GetTribeInvitationSubscriptionOfferQuery = {
+  token: string;
+  tribeSlug: string;
+};
+
 export type RevokeTribeInvitationCommand = {
   invitationId: string;
   tribeSlug: string;
@@ -29,6 +35,9 @@ export type RevokeTribeInvitationCommand = {
 export type TribeInvitationRepository = {
   accept(command: AcceptTribeInvitationCommand): Promise<TribeInvitationAcceptanceResult>;
   create(command: CreateTribeInvitationCommand): Promise<TribeInvitationCreationResult>;
+  getSubscriptionOffer(
+    query: GetTribeInvitationSubscriptionOfferQuery
+  ): Promise<TribeInvitationSubscriptionOfferResult>;
   listByTribeSlug(query: ListTribeInvitationsQuery): Promise<TribeInvitationListItemResult[]>;
   revoke(command: RevokeTribeInvitationCommand): Promise<TribeInvitationRevocationResult>;
 };

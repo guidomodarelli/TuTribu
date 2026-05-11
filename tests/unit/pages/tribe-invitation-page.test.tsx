@@ -11,6 +11,7 @@ import { createRequestModules } from "@/src/modules/setup";
 const mockGetSession = jest.fn();
 const getAuthenticatedMember = jest.fn();
 const acceptTribeInvitation = jest.fn();
+const getTribeInvitationSubscriptionOffer = jest.fn();
 const startTribeMemberSubscription = jest.fn();
 
 function hashInvitationToken(token: string): string {
@@ -78,6 +79,7 @@ describe("TribeInvitationPage", () => {
       tribes: {
         useCases: {
           acceptTribeInvitation,
+          getTribeInvitationSubscriptionOffer,
         },
       },
       subscriptions: {
@@ -85,6 +87,15 @@ describe("TribeInvitationPage", () => {
           startTribeMemberSubscription,
         },
       },
+    });
+    getTribeInvitationSubscriptionOffer.mockResolvedValue({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
     });
   });
 
@@ -123,6 +134,14 @@ describe("TribeInvitationPage", () => {
     expect(
       screen.getByRole("button", { name: "Continuar con el pago" })
     ).toBeInTheDocument();
+    expect(screen.getByText("Plan mensual")).toBeInTheDocument();
+    expect(screen.getByText("Precio mensual")).toBeInTheDocument();
+    expect(screen.getByText(/5\.000/)).toBeInTheDocument();
+    expect(screen.getByText("Estado: disponible")).toBeInTheDocument();
+    expect(getTribeInvitationSubscriptionOffer).toHaveBeenCalledWith({
+      token: "invitation-token",
+      tribeSlug: "matematica-pro",
+    });
     expect(acceptTribeInvitation).not.toHaveBeenCalled();
     expect(startTribeMemberSubscription).not.toHaveBeenCalled();
   });
