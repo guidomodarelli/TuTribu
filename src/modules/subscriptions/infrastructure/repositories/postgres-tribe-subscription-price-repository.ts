@@ -41,6 +41,8 @@ import {
   resolveMercadoPagoAccessToken,
   type MercadoPagoAccessTokenRefresher,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token";
+import { ROUTES } from "@/src/constants/routes";
+import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -257,6 +259,16 @@ function mapSubscriptionPrice(row: SubscriptionPriceRow): TribeSubscriptionPrice
  */
 function buildPriceExternalReference(priceId: string): string {
   return `latribu:price:${priceId}`;
+}
+
+/**
+ * Builds the successful return URL stored in Mercado Pago plans.
+ *
+ * @param tribeSlug - Current tribe slug.
+ * @returns Public tribe URL used as Mercado Pago back URL.
+ */
+function buildProviderPlanBackUrl(tribeSlug: string): string {
+  return resolvePublicAppBaseUrl() + ROUTES.tribes.bySlug(tribeSlug);
 }
 
 /**
@@ -545,6 +557,7 @@ export class PostgresTribeSubscriptionPriceRepository
       mercadoPagoPlanId = await this.createMercadoPagoPlan({
         accessToken,
         amountCents: command.amountCents,
+        backUrl: buildProviderPlanBackUrl(command.tribeSlug),
         currency: command.currency,
         externalReference: buildPriceExternalReference(
           reservation.reserved_price_id
@@ -737,6 +750,7 @@ export class PostgresTribeSubscriptionPriceRepository
     if (updateContext.mercado_pago_preapproval_plan_id) {
       await this.updateMercadoPagoPlan({
         accessToken,
+        backUrl: buildProviderPlanBackUrl(command.tribeSlug),
         externalReference: buildPriceExternalReference(command.priceId),
         preapprovalPlanId: updateContext.mercado_pago_preapproval_plan_id,
         reason: command.name,

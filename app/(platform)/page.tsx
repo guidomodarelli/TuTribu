@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/src/constants/routes";
@@ -15,9 +16,54 @@ const HOME_PAGE_COPY = {
   signInAction: "Iniciar sesion",
 } as const;
 
-export default async function HomePage() {
+const HOME_PAGE_QUERY = {
+  mercadoPagoPreapprovalId: "preapproval_id",
+} as const;
+
+type HomePageSearchParams = {
+  [HOME_PAGE_QUERY.mercadoPagoPreapprovalId]?: string | string[];
+};
+
+function readFirstSearchParamValue(
+  searchParamValue: string | string[] | undefined
+): string | null {
+  if (typeof searchParamValue === "string") {
+    return searchParamValue;
+  }
+
+  if (Array.isArray(searchParamValue)) {
+    const firstStringValue = searchParamValue.find(
+      (value) => value.trim().length > 0
+    );
+
+    return firstStringValue ?? null;
+  }
+
+  return null;
+}
+
+export default async function HomePage({
+  searchParams = Promise.resolve({}),
+}: {
+  searchParams?: Promise<HomePageSearchParams>;
+} = {}) {
+  const resolvedSearchParams = await searchParams;
+  const mercadoPagoPreapprovalId = readFirstSearchParamValue(
+    resolvedSearchParams[HOME_PAGE_QUERY.mercadoPagoPreapprovalId]
+  );
   const modules = await createRequestModules();
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
+
+  if (authenticatedMember && mercadoPagoPreapprovalId) {
+    const returnPath =
+      await modules.subscriptions.useCases.resolveTribeMemberSubscriptionReturnPath({
+        providerSubscriptionId: mercadoPagoPreapprovalId,
+      });
+
+    if (returnPath) {
+      redirect(returnPath);
+    }
+  }
 
   return (
     <main className={styles.HomePage}>

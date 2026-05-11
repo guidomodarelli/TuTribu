@@ -105,6 +105,20 @@ function createProviderSubscriberRows(count: number) {
 }
 
 describe("PostgresTribeSubscriptionPriceRepository", () => {
+  const previousBaseUrl = process.env.BETTER_AUTH_URL;
+
+  beforeEach(() => {
+    process.env.BETTER_AUTH_URL = "https://tutribu.example.com";
+  });
+
+  afterAll(() => {
+    if (previousBaseUrl === undefined) {
+      delete process.env.BETTER_AUTH_URL;
+    } else {
+      process.env.BETTER_AUTH_URL = previousBaseUrl;
+    }
+  });
+
   it("lists prices with Mercado Pago integration availability", async () => {
     const execute = jest.fn(async () => ({
       rows: [
@@ -352,6 +366,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ]);
     expect(createMercadoPagoPlan).toHaveBeenCalledWith(
       expect.objectContaining({
+        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
         externalReference: "latribu:price:price-1",
         idempotencyKey:
           "tribe-price:price-1:matematica-pro:Plan mensual:500000:ARS:monthly",
@@ -420,6 +435,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(createMercadoPagoPlan).toHaveBeenCalledWith(
       expect.objectContaining({
         accessToken: "fresh-access-token",
+        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
       })
     );
     expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(

@@ -7,6 +7,7 @@
 import type {
   MercadoPagoSubscriptionWebhookCommand,
   PendingSubscriptionReturnQuery,
+  ProviderSubscriptionReturnPathQuery,
   StartCurrentPriceSubscriptionCommand,
   TribeMemberSubscriptionStatusQuery,
   TribeMemberSubscriptionRepository,
@@ -89,6 +90,21 @@ export function confirmTribeMemberSubscriptionReturn({
     tribeMemberSubscriptionRepository.confirmSubscriptionReturn({
       providerSubscriptionId: normalizeText(query.providerSubscriptionId),
       tribeSlug: normalizeText(query.tribeSlug),
+    });
+}
+
+/**
+ * Resolves a Mercado Pago return path when the provider lands on the home page.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that maps a provider subscription to an internal route.
+ */
+export function resolveTribeMemberSubscriptionReturnPath({
+  tribeMemberSubscriptionRepository,
+}: TribeMemberSubscriptionDependencies) {
+  return async (query: ProviderSubscriptionReturnPathQuery) =>
+    tribeMemberSubscriptionRepository.resolveReturnPathByProviderSubscription({
+      providerSubscriptionId: normalizeText(query.providerSubscriptionId),
     });
 }
 

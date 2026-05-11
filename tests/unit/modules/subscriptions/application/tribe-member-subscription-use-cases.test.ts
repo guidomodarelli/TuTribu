@@ -3,6 +3,7 @@ import {
   confirmTribeMemberSubscriptionReturn,
   handleMercadoPagoSubscriptionWebhook,
   reconcileCurrentTribeMemberSubscription,
+  resolveTribeMemberSubscriptionReturnPath,
   startTribeMemberSubscription,
   validatePendingTribeMemberSubscriptionReturn,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
@@ -18,6 +19,7 @@ function createRepository(
     handleWebhook: jest.fn(),
     hasPendingSubscriptionReturn: jest.fn(),
     reconcileCurrentMemberSubscription: jest.fn(),
+    resolveReturnPathByProviderSubscription: jest.fn(),
     startCurrentPriceSubscription: jest.fn(),
     ...overrides,
   };
@@ -138,6 +140,26 @@ describe("tribe member subscription use cases", () => {
     expect(confirmSubscriptionReturn).toHaveBeenCalledWith({
       providerSubscriptionId: "preapproval-1",
       tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("resolves Mercado Pago returns from the home page to the owning tribe", async () => {
+    const resolveReturnPathByProviderSubscription = jest.fn(
+      async () => "/tribu/matematica-pro?preapproval_id=preapproval-1"
+    );
+    const execute = resolveTribeMemberSubscriptionReturnPath({
+      tribeMemberSubscriptionRepository: createRepository({
+        resolveReturnPathByProviderSubscription,
+      }),
+    });
+
+    await expect(
+      execute({
+        providerSubscriptionId: " preapproval-1 ",
+      })
+    ).resolves.toBe("/tribu/matematica-pro?preapproval_id=preapproval-1");
+    expect(resolveReturnPathByProviderSubscription).toHaveBeenCalledWith({
+      providerSubscriptionId: "preapproval-1",
     });
   });
 

@@ -27,6 +27,10 @@ export type PendingSubscriptionReturnQuery = {
   tribeSlug: string;
 };
 
+export type ProviderSubscriptionReturnPathQuery = {
+  providerSubscriptionId: string;
+};
+
 export type TribeMemberSubscriptionStatusQuery = {
   tribeSlug: string;
 };
@@ -47,6 +51,9 @@ export type TribeMemberSubscriptionRepository = {
   reconcileCurrentMemberSubscription(
     query: TribeMemberSubscriptionStatusQuery
   ): Promise<TribeMemberSubscriptionStatusResult>;
+  resolveReturnPathByProviderSubscription(
+    query: ProviderSubscriptionReturnPathQuery
+  ): Promise<string | null>;
   startCurrentPriceSubscription(
     command: StartCurrentPriceSubscriptionCommand
   ): Promise<TribeMemberSubscriptionStartResult>;

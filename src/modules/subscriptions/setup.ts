@@ -21,6 +21,7 @@ import {
   confirmTribeMemberSubscriptionReturn,
   handleMercadoPagoSubscriptionWebhook,
   reconcileCurrentTribeMemberSubscription,
+  resolveTribeMemberSubscriptionReturnPath,
   startTribeMemberSubscription,
   validatePendingTribeMemberSubscriptionReturn,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
@@ -74,6 +75,10 @@ export function buildSubscriptionsModule({
       }),
       reconcileCurrentTribeMemberSubscription:
         reconcileCurrentTribeMemberSubscription({
+          tribeMemberSubscriptionRepository,
+        }),
+      resolveTribeMemberSubscriptionReturnPath:
+        resolveTribeMemberSubscriptionReturnPath({
           tribeMemberSubscriptionRepository,
         }),
       syncMercadoPagoSubscriptionProviderPlanWebhook:

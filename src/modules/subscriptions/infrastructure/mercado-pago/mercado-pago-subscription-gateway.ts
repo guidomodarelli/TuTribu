@@ -44,6 +44,7 @@ const MERCADO_PAGO_SENSITIVE_TEXT_PATTERNS = [
 export type MercadoPagoPlanInput = {
   accessToken: string;
   amountCents: number;
+  backUrl: string;
   currency: string;
   externalReference: string;
   idempotencyKey: string;
@@ -53,6 +54,7 @@ export type MercadoPagoPlanInput = {
 
 export type MercadoPagoPlanUpdateInput = {
   accessToken: string;
+  backUrl: string;
   externalReference: string;
   preapprovalPlanId: string;
   reason: string;
@@ -461,7 +463,7 @@ export async function createMercadoPagoPreapprovalPlan(
         frequency_type: "months",
         transaction_amount: input.amountCents / 100,
       },
-      back_url: resolvePublicAppBaseUrl(),
+      back_url: input.backUrl,
       external_reference: input.externalReference,
       reason: input.reason,
     }),
@@ -495,6 +497,7 @@ export async function updateMercadoPagoPreapprovalPlan(
     `${MERCADO_PAGO_URL.preapprovalPlan}/${input.preapprovalPlanId}`,
     {
       body: JSON.stringify({
+        back_url: input.backUrl,
         external_reference: input.externalReference,
         reason: input.reason,
         status: input.status,
