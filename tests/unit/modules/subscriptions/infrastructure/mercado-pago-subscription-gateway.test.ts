@@ -328,7 +328,8 @@ describe("mercado pago subscription gateway", () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
         id: "preapproval-1",
-        init_point: "https://www.mercadopago.com.ar/subscriptions/checkout",
+        init_point:
+          "https://www.mercadopago.com.ar/subscriptions/checkout?flow=provider&preapproval_id=preapproval-1",
       }),
       ok: true,
     });
@@ -346,7 +347,8 @@ describe("mercado pago subscription gateway", () => {
         reason: "Plan mensual",
       })
     ).resolves.toEqual({
-      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
+      checkoutUrl:
+        "https://www.mercadopago.com.ar/subscriptions/checkout?flow=provider&preapproval_id=preapproval-1",
       providerSubscriptionId: "preapproval-1",
     });
 
