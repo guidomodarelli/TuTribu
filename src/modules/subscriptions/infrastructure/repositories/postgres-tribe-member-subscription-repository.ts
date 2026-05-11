@@ -137,6 +137,10 @@ const MERCADO_PAGO_PREAPPROVAL_STATUS = {
   pending: "pending",
 } as const;
 
+const MERCADO_PAGO_CHECKOUT_QUERY_PARAM = {
+  preapprovalPlanId: "preapproval_plan_id",
+} as const;
+
 /**
  * Hashes an idempotent operation payload for safe persistence.
  *
@@ -155,6 +159,30 @@ function hashPayload(payload: Record<string, string>): string {
  */
 function hashInvitationToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+/**
+ * Checks whether a stored checkout URL still targets the current provider plan.
+ *
+ * @param checkoutUrl - Previously persisted checkout URL.
+ * @param preapprovalPlanId - Current Mercado Pago preapproval plan identifier.
+ * @returns Whether the checkout URL points to the current provider plan.
+ */
+function usesCurrentPreapprovalPlan(
+  checkoutUrl: string,
+  preapprovalPlanId: string
+): boolean {
+  try {
+    const parsedCheckoutUrl = new URL(checkoutUrl);
+
+    return (
+      parsedCheckoutUrl.searchParams.get(
+        MERCADO_PAGO_CHECKOUT_QUERY_PARAM.preapprovalPlanId
+      ) === preapprovalPlanId
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -726,7 +754,10 @@ export class PostgresTribeMemberSubscriptionRepository
 
     if (context.existing_checkout_url) {
       return {
-        checkoutUrl: context.existing_checkout_url,
+        checkoutUrl: this.resolveCurrentPlanCheckoutUrl(
+          context.existing_checkout_url,
+          context.current_price_provider_plan_id
+        ),
         status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
       };
     }
@@ -754,7 +785,10 @@ export class PostgresTribeMemberSubscriptionRepository
 
     if (reservation.checkout_url) {
       return {
-        checkoutUrl: reservation.checkout_url,
+        checkoutUrl: this.resolveCurrentPlanCheckoutUrl(
+          reservation.checkout_url,
+          context.current_price_provider_plan_id
+        ),
         status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
       };
     }
@@ -774,6 +808,24 @@ export class PostgresTribeMemberSubscriptionRepository
       tribeId: context.tribe_id,
       tribeSlug: command.tribeSlug,
     });
+  }
+
+  /**
+   * Reuses valid pending checkout URLs and rebuilds legacy preapproval checkouts.
+   *
+   * @param checkoutUrl - Previously persisted checkout URL.
+   * @param preapprovalPlanId - Current Mercado Pago preapproval plan identifier.
+   * @returns Checkout URL that targets the current provider plan.
+   */
+  private resolveCurrentPlanCheckoutUrl(
+    checkoutUrl: string,
+    preapprovalPlanId: string
+  ): string {
+    if (usesCurrentPreapprovalPlan(checkoutUrl, preapprovalPlanId)) {
+      return checkoutUrl;
+    }
+
+    return this.buildMercadoPagoPlanCheckoutUrl(preapprovalPlanId);
   }
 
   /**

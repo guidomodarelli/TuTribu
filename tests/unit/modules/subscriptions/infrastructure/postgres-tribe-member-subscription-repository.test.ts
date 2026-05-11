@@ -142,8 +142,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           current_price_name: "Plan mensual",
           current_price_provider_plan_id: "provider-plan-1",
           current_user_email: "member@example.com",
-          existing_checkout_url:
-            "https://www.mercadopago.com.ar/subscriptions/existing",
+          existing_checkout_url: PROVIDER_SUBSCRIPTION_CHECKOUT_URL,
           existing_membership_status: "blocked",
           existing_membership_status_reason: "payment_blocked",
           has_active_invitation: true,
@@ -163,7 +162,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/existing",
+      checkoutUrl: PROVIDER_SUBSCRIPTION_CHECKOUT_URL,
       status: "pending",
     });
 
@@ -171,6 +170,51 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       /tribe_member_subscriptions\.status = .*pending/
     );
     expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+  });
+
+  it("rebuilds legacy pending checkout URLs with the current provider plan id", async () => {
+    const legacyProviderSubscriptionCheckoutUrl =
+      "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_id=preapproval-1";
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          access_token: "access-token",
+          current_price_amount_cents: 1500,
+          current_price_currency: "ARS",
+          current_price_id: "price-1",
+          current_price_plan_id: "plan-1",
+          current_price_name: "Plan mensual",
+          current_price_provider_plan_id: "provider-plan-1",
+          current_user_email: "member@example.com",
+          existing_checkout_url: legacyProviderSubscriptionCheckoutUrl,
+          existing_membership_status: "blocked",
+          existing_membership_status_reason: "payment_blocked",
+          has_active_invitation: true,
+          tribe_id: "tribe-1",
+        },
+      ],
+    });
+    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
+      () => PROVIDER_SUBSCRIPTION_CHECKOUT_URL
+    );
+    const repository = createRepository(execute, {
+      buildMercadoPagoPlanCheckoutUrl,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "new-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: PROVIDER_SUBSCRIPTION_CHECKOUT_URL,
+      status: "pending",
+    });
+
+    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
+      "provider-plan-1"
+    );
   });
 
   it("starts a provider plan checkout when no pending local subscription still exists", async () => {
