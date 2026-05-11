@@ -1,6 +1,7 @@
 import {
   createMercadoPagoPreapprovalPlan,
   createMercadoPagoPreapprovalSubscription,
+  buildMercadoPagoPreapprovalPlanCheckoutUrl,
   getMercadoPagoPreapprovalPlan,
   getMercadoPagoPreapprovalPlanStatus,
   getMercadoPagoPreapprovalStatus,
@@ -321,6 +322,12 @@ describe("mercado pago subscription gateway", () => {
       expect.objectContaining({
         method: "GET",
       })
+    );
+  });
+
+  it("builds Mercado Pago checkout URLs from the provider preapproval plan", () => {
+    expect(buildMercadoPagoPreapprovalPlanCheckoutUrl("plan-1")).toBe(
+      "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=plan-1"
     );
   });
 

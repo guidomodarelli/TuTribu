@@ -229,6 +229,28 @@ describe("TribeInvitationPage", () => {
     );
   });
 
+  it("redirects subscription starts to the Mercado Pago plan checkout", async () => {
+    startTribeMemberSubscription.mockResolvedValue({
+      checkoutUrl:
+        "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=provider-plan-1",
+      status: "pending",
+    });
+    (redirect as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(
+      startInvitationSubscriptionAction({
+        slug: "matematica-pro",
+        token: "invitation-token",
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(redirect).toHaveBeenCalledWith(
+      "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=provider-plan-1"
+    );
+  });
+
   it("redirects unexpected payment start errors to a safe status page", async () => {
     startTribeMemberSubscription.mockRejectedValue(new Error("provider timeout"));
     (redirect as unknown as jest.Mock).mockImplementation(() => {

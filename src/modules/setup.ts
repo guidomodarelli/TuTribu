@@ -17,7 +17,7 @@ import { PostgresTribePaymentIntegrationRepository } from "./subscriptions/infra
 import { PostgresTribeSubscriptionPriceRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-subscription-price-repository";
 import {
   createMercadoPagoPreapprovalPlan,
-  createMercadoPagoPreapprovalSubscription,
+  buildMercadoPagoPreapprovalPlanCheckoutUrl,
   getMercadoPagoPreapprovalPlan,
   getMercadoPagoPreapprovalPlanStatus,
   getMercadoPagoPreapprovalStatus,
@@ -26,7 +26,6 @@ import {
   updateMercadoPagoPreapprovalSubscriptionStatus,
 } from "./subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
-import { resolvePublicAppBaseUrl } from "./shared/infrastructure/backend/public-app-base-url";
 
 type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
 type RequestModuleContextOverrides = {
@@ -94,10 +93,9 @@ export async function createRequestModules(
       tribeMemberSubscriptionRepository:
         new PostgresTribeMemberSubscriptionRepository(
           executeWithRequestContext,
-          createMercadoPagoPreapprovalSubscription,
+          buildMercadoPagoPreapprovalPlanCheckoutUrl,
           getMercadoPagoPreapprovalStatus,
           updateMercadoPagoPreapprovalSubscriptionStatus,
-          resolvePublicAppBaseUrl,
           refreshMercadoPagoAccessToken
         ),
       tribePaymentIntegrationRepository:
