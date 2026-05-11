@@ -113,6 +113,13 @@
       "when": 1778500800000,
       "tag": "20260511120000_add_removed_subscription_membership_status",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1778527800000,
+      "tag": "20260511193000_allow_verified_subscription_return_recovery",
+      "breakpoints": true
     }
   ]
 }

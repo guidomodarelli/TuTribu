@@ -78,6 +78,18 @@ export type MercadoPagoPreapprovalStatusInput = {
   preapprovalId: string;
 };
 
+export type MercadoPagoPreapprovalDetailsInput = {
+  accessToken: string;
+  preapprovalId: string;
+};
+
+export type MercadoPagoPreapprovalDetailsResult = {
+  externalReference: string | null;
+  id: string;
+  preapprovalPlanId: string | null;
+  status: string;
+};
+
 export type MercadoPagoPreapprovalPlanStatusInput = {
   accessToken: string;
   preapprovalPlanId: string;
@@ -136,6 +148,9 @@ type MercadoPagoSubscriptionResponse = {
 };
 
 type MercadoPagoPreapprovalResponse = {
+  external_reference?: string | number | null;
+  id?: string;
+  preapproval_plan_id?: string | null;
   status?: string;
 };
 
@@ -727,4 +742,47 @@ export async function getMercadoPagoPreapprovalStatus(
   }
 
   return body.status;
+}
+
+/**
+ * Reads Mercado Pago preapproval details required to recover plan checkout returns.
+ *
+ * @param input - Provider subscription identifier and account token.
+ * @returns Provider preapproval details, or null when the preapproval does not exist.
+ */
+export async function getMercadoPagoPreapprovalDetails(
+  input: MercadoPagoPreapprovalDetailsInput
+): Promise<MercadoPagoPreapprovalDetailsResult | null> {
+  const response = await fetch(
+    `${MERCADO_PAGO_URL.preapproval}/${input.preapprovalId}`,
+    {
+      headers: {
+        [MERCADO_PAGO_HTTP.authorizationHeader]:
+          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
+      },
+      method: MERCADO_PAGO_HTTP.getMethod,
+    }
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  const body = await readMercadoPagoResponse<MercadoPagoPreapprovalResponse>(
+    response
+  );
+
+  if (!body.status) {
+    throw new Error("Mercado Pago preapproval response did not include status");
+  }
+
+  return {
+    externalReference:
+      body.external_reference === undefined || body.external_reference === null
+        ? null
+        : String(body.external_reference),
+    id: body.id ?? input.preapprovalId,
+    preapprovalPlanId: body.preapproval_plan_id ?? null,
+    status: body.status,
+  };
 }

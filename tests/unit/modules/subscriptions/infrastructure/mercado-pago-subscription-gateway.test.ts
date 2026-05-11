@@ -2,6 +2,7 @@ import {
   createMercadoPagoPreapprovalPlan,
   createMercadoPagoPreapprovalSubscription,
   buildMercadoPagoPreapprovalPlanCheckoutUrl,
+  getMercadoPagoPreapprovalDetails,
   getMercadoPagoPreapprovalPlan,
   getMercadoPagoPreapprovalPlanStatus,
   getMercadoPagoPreapprovalStatus,
@@ -86,6 +87,40 @@ describe("mercado pago subscription gateway", () => {
         preapprovalId: "preapproval-1",
       })
     ).rejects.toThrow("Mercado Pago preapproval response did not include status");
+  });
+
+  it("reads provider preapproval details needed to recover plan checkout returns", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        external_reference: "latribu:price:price-1",
+        id: "preapproval-1",
+        preapproval_plan_id: "plan-1",
+        status: "authorized",
+      }),
+      ok: true,
+    });
+
+    await expect(
+      getMercadoPagoPreapprovalDetails({
+        accessToken: "access-token",
+        preapprovalId: "preapproval-1",
+      })
+    ).resolves.toEqual({
+      externalReference: "latribu:price:price-1",
+      id: "preapproval-1",
+      preapprovalPlanId: "plan-1",
+      status: "authorized",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.mercadopago.com/preapproval/preapproval-1",
+      {
+        headers: {
+          Authorization: "Bearer access-token",
+        },
+        method: "GET",
+      }
+    );
   });
 
   it("should return null when Mercado Pago no longer has the preapproval", async () => {

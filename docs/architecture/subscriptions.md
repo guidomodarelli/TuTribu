@@ -58,6 +58,13 @@ que estén vinculados por ese `external_reference` o por un
 `mercado_pago_preapproval_plan_id` ya persistido localmente; los planes sueltos
 de la cuenta conectada se ignoran.
 
+Cuando Mercado Pago vuelve con un `preapproval_id` desde el checkout de un
+plan, la app confirma el retorno contra la API del proveedor antes de dar
+acceso. Si la reserva local pendiente no quedó asociada pero existe una
+operación reciente de checkout del mismo usuario para el plan actual, el retorno
+puede recuperar la fila local de suscripción siempre que el `preapproval_id`
+pertenezca al `mercado_pago_preapproval_plan_id` actual de la tribu.
+
 Las acciones iniciadas desde LaTribu se aplican primero contra Mercado Pago y
 luego se reflejan localmente. Los webhooks `subscription_preapproval_plan`
 actualizan el nombre local cuando el plan sigue activo y cancelan el precio

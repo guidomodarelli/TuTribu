@@ -31,6 +31,18 @@ const TRIBE_PAGE_QUERY = {
   mercadoPagoPreapprovalId: "preapproval_id",
 } as const;
 
+const SUBSCRIPTION_RETURN_BLOCKED_REASONS: ReadonlySet<string> = new Set([
+  TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked,
+  TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive,
+]);
+
+const SUBSCRIPTION_RETURN_VISIBLE_STATUSES: ReadonlySet<string> = new Set([
+  TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled,
+  TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+  TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable,
+  TRIBE_MEMBER_SUBSCRIPTION_STATUS.removedBySubscription,
+]);
+
 type TribePageSearchParams = {
   [TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId]?: string | string[];
 };
@@ -102,8 +114,7 @@ export default async function TribePage({
 
     if (
       accessResult.reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden &&
-      accessResult.blockedReason ===
-        TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked &&
+      SUBSCRIPTION_RETURN_BLOCKED_REASONS.has(accessResult.blockedReason) &&
       mercadoPagoPreapprovalId
     ) {
       const subscriptionConfirmationModules = await createRequestModules({
@@ -145,9 +156,8 @@ export default async function TribePage({
       }
 
       if (
-        subscriptionReturn?.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending ||
-        subscriptionReturn?.status ===
-          TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable
+        subscriptionReturn &&
+        SUBSCRIPTION_RETURN_VISIBLE_STATUSES.has(subscriptionReturn.status)
       ) {
         return renderSubscriptionReturnStatus();
       }
