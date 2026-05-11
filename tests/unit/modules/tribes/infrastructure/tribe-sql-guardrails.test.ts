@@ -35,6 +35,8 @@ describe("Tribe SQL guardrails", () => {
     "database/migrations/20260506090000_add_visible_tribe_members_function.sql";
   const invitationAcceptanceRepairMigrationPath =
     "database/migrations/20260506110000_repair_invitation_acceptance_storage.sql";
+  const removedSubscriptionMembershipStatusMigrationPath =
+    "database/migrations/20260511120000_add_removed_subscription_membership_status.sql";
   const drizzleMigrationJournalPath = "database/migrations/meta/_journal.json";
 
   it("enforces single-segment slugs in shared migrations", () => {
@@ -206,6 +208,25 @@ describe("Tribe SQL guardrails", () => {
     );
     expect(visibleTribeMembersMigration).toContain(
       "GRANT EXECUTE ON FUNCTION public.list_visible_tribe_members_by_slug(text)"
+    );
+  });
+
+  it("removes inactive subscription memberships from tribe row read access", () => {
+    const removedSubscriptionMembershipStatusMigration = readWorkspaceFile(
+      removedSubscriptionMembershipStatusMigrationPath
+    );
+
+    expect(removedSubscriptionMembershipStatusMigration).toContain(
+      "DROP POLICY IF EXISTS \"Tribemates can read own tribes\""
+    );
+    expect(removedSubscriptionMembershipStatusMigration).toContain(
+      "CREATE POLICY \"Tribemates can read own tribes\""
+    );
+    expect(removedSubscriptionMembershipStatusMigration).toContain(
+      "tribe_members.status IN ('active', 'muted')"
+    );
+    expect(removedSubscriptionMembershipStatusMigration).not.toContain(
+      "tribe_members.status <> 'blocked'"
     );
   });
 

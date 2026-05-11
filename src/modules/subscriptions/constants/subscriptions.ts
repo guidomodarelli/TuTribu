@@ -62,10 +62,14 @@ export const TRIBE_MEMBER_SUBSCRIPTION_STATUS = {
   gracePeriod: "grace_period",
   invalidInvitation: "invalid_invitation",
   missingCurrentPrice: "missing_current_price",
+  notFound: "not_found",
   paymentBlocked: "payment_blocked",
+  paused: "paused",
   pending: "pending",
   pastDue: "past_due",
+  providerUnavailable: "provider_unavailable",
   processed: "processed",
+  removedBySubscription: "removed_by_subscription",
   retryableWebhook: "retryable_webhook",
 } as const;
 
@@ -76,4 +80,5 @@ export const TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON = {
   conductBlocked: "conduct_blocked",
   none: "none",
   paymentBlocked: "payment_blocked",
+  subscriptionInactive: "subscription_inactive",
 } as const;

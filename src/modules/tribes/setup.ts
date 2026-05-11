@@ -8,6 +8,7 @@ import { listVisibleTribeMembers } from "@/src/modules/tribes/application/use-ca
 import {
   acceptTribeInvitation,
   createTribeInvitation,
+  getTribeInvitationSubscriptionOffer,
   listTribeInvitations,
   revokeTribeInvitation,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-invitations-use-cases";
@@ -63,6 +64,9 @@ export function buildTribesModule({
         tribeInvitationRepository,
       }),
       acceptTribeInvitation: acceptTribeInvitation({
+        tribeInvitationRepository,
+      }),
+      getTribeInvitationSubscriptionOffer: getTribeInvitationSubscriptionOffer({
         tribeInvitationRepository,
       }),
     },

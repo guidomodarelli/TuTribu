@@ -3,6 +3,8 @@ import path from "node:path";
 
 const SUBSCRIPTIONS_MIGRATION_PATH =
   "database/migrations/20260506130000_create_tribe_subscriptions.sql";
+const REMOVED_MEMBERSHIP_STATUS_MIGRATION_PATH =
+  "database/migrations/20260511120000_add_removed_subscription_membership_status.sql";
 
 function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -81,5 +83,19 @@ describe("Subscription SQL guardrails", () => {
     expect(migration).toMatch(/tribe_members_status_reason_check/);
     expect(paidMembershipPolicy).toMatch(/status_reason = 'payment_blocked'/);
     expect(webhookMembershipPolicy).toMatch(/status_reason IN \('none', 'payment_blocked'\)/);
+  });
+
+  it("keeps paused member subscriptions inside the current subscription uniqueness guard", () => {
+    const migration = readWorkspaceFile(REMOVED_MEMBERSHIP_STATUS_MIGRATION_PATH);
+
+    expect(migration).toContain(
+      "DROP INDEX IF EXISTS public.tribe_member_subscriptions_active_key"
+    );
+    expect(migration).toContain(
+      "CREATE UNIQUE INDEX IF NOT EXISTS tribe_member_subscriptions_active_key"
+    );
+    expect(migration).toContain(
+      "WHERE status IN ('active', 'pending', 'grace_period', 'past_due', 'payment_blocked', 'paused')"
+    );
   });
 });

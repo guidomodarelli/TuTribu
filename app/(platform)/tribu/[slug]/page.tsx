@@ -1,6 +1,9 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { SubscriptionReturnStatus } from "@/components/subscriptions/subscription-return-status";
+import { ROUTES } from "@/src/constants/routes";
+import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import { createRequestModules } from "@/src/modules/setup";
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 import {
   TRIBE_MEMBERSHIP_STATUS_REASON,
@@ -103,9 +106,16 @@ export default async function TribePage({
         TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked &&
       mercadoPagoPreapprovalId
     ) {
-      const hasPendingSubscriptionReturn =
-        await modules.subscriptions.useCases
-          .validatePendingTribeMemberSubscriptionReturn({
+      const subscriptionConfirmationModules = await createRequestModules({
+        mercadoPagoWebhookVerified: true,
+      });
+      const confirmSubscriptionReturn =
+        subscriptionConfirmationModules.subscriptions.useCases
+          .confirmTribeMemberSubscriptionReturn;
+      const validatePendingSubscriptionReturn =
+        modules.subscriptions.useCases.validatePendingTribeMemberSubscriptionReturn;
+      const subscriptionReturn = confirmSubscriptionReturn
+        ? await confirmSubscriptionReturn({
             providerSubscriptionId: mercadoPagoPreapprovalId,
             tribeSlug: slug,
           })
@@ -121,10 +131,24 @@ export default async function TribePage({
               },
             });
 
-            return false;
-          });
+            return null;
+          })
+        : (await validatePendingSubscriptionReturn({
+            providerSubscriptionId: mercadoPagoPreapprovalId,
+            tribeSlug: slug,
+          }))
+          ? { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending }
+          : null;
 
-      if (hasPendingSubscriptionReturn) {
+      if (subscriptionReturn?.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.active) {
+        redirect(ROUTES.tribes.bySlug(slug));
+      }
+
+      if (
+        subscriptionReturn?.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending ||
+        subscriptionReturn?.status ===
+          TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable
+      ) {
         return renderSubscriptionReturnStatus();
       }
     }

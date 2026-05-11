@@ -1,6 +1,7 @@
 import {
   acceptTribeInvitation,
   createTribeInvitation,
+  getTribeInvitationSubscriptionOffer,
   listTribeInvitations,
   revokeTribeInvitation,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-invitations-use-cases";
@@ -21,6 +22,15 @@ function buildRepository(
       },
       invitationUrl: "https://tutribu.example.com/tribu/matematica-pro/invitar/token",
       status: TRIBE_INVITATION_STATUS.created,
+    })),
+    getSubscriptionOffer: jest.fn(async () => ({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
     })),
     listByTribeSlug: jest.fn(async () => []),
     revoke: jest.fn(async () => ({ status: TRIBE_INVITATION_STATUS.revoked })),
@@ -130,5 +140,29 @@ describe("manage tribe invitations use cases", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_INVITATION_STATUS.accepted });
+  });
+
+  it("gets the current invitation subscription offer with normalized inputs", async () => {
+    const repository = buildRepository();
+    const useCase = getTribeInvitationSubscriptionOffer({
+      tribeInvitationRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        token: " invitation-token ",
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        name: "Plan mensual",
+      },
+      status: "available",
+    });
+
+    expect(repository.getSubscriptionOffer).toHaveBeenCalledWith({
+      token: "invitation-token",
+      tribeSlug: "matematica-pro",
+    });
   });
 });
