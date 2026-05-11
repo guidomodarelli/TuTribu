@@ -170,18 +170,21 @@ function hashInvitationToken(token: string): string {
 }
 
 /**
- * Checks whether a stored checkout URL points to a provider plan checkout.
+ * Reads the Mercado Pago plan identifier from a stored checkout URL.
  *
  * @param checkoutUrl - Previously persisted checkout URL.
- * @returns Whether the URL carries a Mercado Pago preapproval plan id.
+ * @returns Mercado Pago preapproval plan id, or null when the URL is not a plan checkout.
  */
-function usesProviderPlanCheckout(checkoutUrl: string): boolean {
+function readProviderPlanIdFromCheckoutUrl(checkoutUrl: string): string | null {
   try {
     const parsedCheckoutUrl = new URL(checkoutUrl);
+    const providerPlanId = parsedCheckoutUrl.searchParams
+      .get("preapproval_plan_id")
+      ?.trim();
 
-    return Boolean(parsedCheckoutUrl.searchParams.get("preapproval_plan_id"));
+    return providerPlanId || null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -834,9 +837,13 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked };
     }
 
+    const existingCheckoutProviderPlanId = context.existing_checkout_url
+      ? readProviderPlanIdFromCheckoutUrl(context.existing_checkout_url)
+      : null;
+
     if (
       context.existing_checkout_url &&
-      usesProviderPlanCheckout(context.existing_checkout_url)
+      existingCheckoutProviderPlanId === context.current_price_provider_plan_id
     ) {
       return {
         checkoutUrl: context.existing_checkout_url,
@@ -844,11 +851,10 @@ export class PostgresTribeMemberSubscriptionRepository
       };
     }
 
-    const shouldReplaceExistingNonPlanCheckout =
+    const shouldReplaceExistingCheckout =
       context.existing_checkout_subscription_id &&
-      context.existing_checkout_url &&
-      !usesProviderPlanCheckout(context.existing_checkout_url);
-    const reservation = shouldReplaceExistingNonPlanCheckout
+      context.existing_checkout_url;
+    const reservation = shouldReplaceExistingCheckout
       ? {
           checkout_url: null,
           reserved_subscription_id: context.existing_checkout_subscription_id,
@@ -860,12 +866,23 @@ export class PostgresTribeMemberSubscriptionRepository
         });
 
     if (reservation.checkout_url) {
-      return usesProviderPlanCheckout(reservation.checkout_url)
-        ? {
-            checkoutUrl: reservation.checkout_url,
-            status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
-          }
-        : { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+      const reservationCheckoutProviderPlanId = readProviderPlanIdFromCheckoutUrl(
+        reservation.checkout_url
+      );
+
+      if (
+        reservationCheckoutProviderPlanId ===
+        context.current_price_provider_plan_id
+      ) {
+        return {
+          checkoutUrl: reservation.checkout_url,
+          status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+        };
+      }
+
+      if (!reservation.reserved_subscription_id) {
+        return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+      }
     }
 
     if (!reservation.reserved_subscription_id) {
@@ -1068,7 +1085,14 @@ export class PostgresTribeMemberSubscriptionRepository
           ${JSON.stringify({ checkoutUrl: input.checkoutUrl })}::jsonb,
           timezone('utc', now())
         )
-        on conflict (operation_key) do nothing
+        on conflict (operation_key) do update
+        set
+          payload_hash = excluded.payload_hash,
+          response_body = excluded.response_body,
+          created_at = excluded.created_at
+        where subscription_idempotency_operations.operation_type = excluded.operation_type
+          and subscription_idempotency_operations.tribe_id = excluded.tribe_id
+          and subscription_idempotency_operations.user_id = excluded.user_id
       `);
 
       return {

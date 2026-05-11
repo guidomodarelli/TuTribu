@@ -55,6 +55,9 @@ function createRepository(
 const PROVIDER_PLAN_CHECKOUT_URL =
   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=provider-plan-1";
 
+const PREVIOUS_PROVIDER_PLAN_CHECKOUT_URL =
+  "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=previous-provider-plan";
+
 const PROVIDER_MEMBER_PREAPPROVAL_CHECKOUT_URL =
   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_id=preapproval-1";
 
@@ -207,6 +210,53 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       /tribe_member_subscriptions\.status = .*pending/
     );
     expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+  });
+
+  it("replaces pending plan checkout URLs when they target an old provider plan", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          access_token: "access-token",
+          current_price_amount_cents: 1500,
+          current_price_currency: "ARS",
+          current_price_id: "price-1",
+          current_price_name: "Plan mensual",
+          current_price_provider_plan_id: "provider-plan-1",
+          current_user_email: "member@example.com",
+          existing_checkout_url: PREVIOUS_PROVIDER_PLAN_CHECKOUT_URL,
+          existing_checkout_subscription_id: "subscription-1",
+          existing_provider_subscription_id: null,
+          existing_membership_status: "blocked",
+          existing_membership_status_reason: "payment_blocked",
+          has_active_invitation: true,
+          tribe_id: "tribe-1",
+        },
+      ],
+    }).mockResolvedValueOnce({ rows: [] });
+    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
+      () => PROVIDER_PLAN_CHECKOUT_URL
+    );
+    const repository = createRepository(execute, {
+      buildMercadoPagoPlanCheckoutUrl,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "retry-current-plan",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      status: "pending",
+    });
+
+    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
+      "provider-plan-1"
+    );
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
+      /on conflict \(operation_key\) do update[\s\S]*response_body = excluded\.response_body/
+    );
   });
 
   it("replaces legacy member preapproval checkout URLs with provider plan checkouts", async () => {
