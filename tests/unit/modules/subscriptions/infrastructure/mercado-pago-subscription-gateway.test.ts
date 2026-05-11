@@ -306,7 +306,7 @@ describe("mercado pago subscription gateway", () => {
     );
   });
 
-  it("creates pending subscriptions without an associated plan for checkout redirects", async () => {
+  it("creates pending subscriptions with the current associated plan for checkout redirects", async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
         id: "preapproval-1",
@@ -324,6 +324,7 @@ describe("mercado pago subscription gateway", () => {
         externalReference: "subscription-1",
         idempotencyKey: "member-subscription-1",
         payerEmail: "member@example.com",
+        preapprovalPlanId: "provider-plan-1",
         reason: "Plan mensual",
       })
     ).resolves.toEqual({
@@ -344,6 +345,7 @@ describe("mercado pago subscription gateway", () => {
           back_url: "https://tutribu.example.com/tribu/matematica-pro",
           external_reference: "subscription-1",
           payer_email: "member@example.com",
+          preapproval_plan_id: "provider-plan-1",
           reason: "Plan mensual",
           status: "pending",
         }),

@@ -23,19 +23,23 @@ function getSqlText(statement: unknown): string {
 
 function createRepository(
   execute: jest.Mock,
-  createMercadoPagoSubscription = jest.fn(),
-  getMercadoPagoPreapprovalStatus = jest.fn(),
-  resolvePublicAppBaseUrl = jest.fn(() => "https://tutribu.example.com"),
-  refreshMercadoPagoAccessToken = jest.fn()
+  options: {
+    createMercadoPagoSubscription?: jest.Mock;
+    getMercadoPagoPreapprovalStatus?: jest.Mock;
+    refreshMercadoPagoAccessToken?: jest.Mock;
+  } = {}
 ) {
   return new PostgresTribeMemberSubscriptionRepository(
     async (callback) => callback({ execute } as never),
-    createMercadoPagoSubscription,
-    getMercadoPagoPreapprovalStatus,
-    resolvePublicAppBaseUrl,
-    refreshMercadoPagoAccessToken
+    options.createMercadoPagoSubscription ?? jest.fn(),
+    options.getMercadoPagoPreapprovalStatus ?? jest.fn(),
+    () => "https://tutribu.example.com",
+    options.refreshMercadoPagoAccessToken ?? jest.fn()
   );
 }
+
+const PROVIDER_SUBSCRIPTION_CHECKOUT_URL =
+  "https://www.mercadopago.com.ar/subscriptions/preapproval-2";
 
 describe("PostgresTribeMemberSubscriptionRepository", () => {
   it("validates Mercado Pago return ids only for the current pending subscription", async () => {
@@ -65,9 +69,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         {
           access_token: "access-token",
             current_price_amount_cents: 1500,
-            current_price_currency: "ARS",
+          current_price_currency: "ARS",
           current_price_id: "price-1",
           current_price_name: "Plan mensual",
+          current_price_provider_plan_id: "provider-plan-1",
           current_user_email: "member@example.com",
           existing_checkout_url:
             "https://www.mercadopago.com.ar/subscriptions/existing",
@@ -79,7 +84,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       ],
     });
     const createMercadoPagoSubscription = jest.fn();
-    const repository = createRepository(execute, createMercadoPagoSubscription);
+    const repository = createRepository(execute, {
+      createMercadoPagoSubscription,
+    });
 
     await expect(
       repository.startCurrentPriceSubscription({
@@ -92,13 +99,13 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       status: "pending",
     });
 
-    expect(createMercadoPagoSubscription).not.toHaveBeenCalled();
     expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
       /tribe_member_subscriptions\.status = .*pending/
     );
+    expect(createMercadoPagoSubscription).not.toHaveBeenCalled();
   });
 
-  it("does not reuse checkout operations unless a pending local subscription still exists", async () => {
+  it("starts a provider plan checkout when no pending local subscription still exists", async () => {
     const execute = jest
       .fn()
       .mockResolvedValueOnce({
@@ -109,6 +116,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_price_currency: "ARS",
             current_price_id: "price-1",
             current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
             current_user_email: "member@example.com",
             existing_checkout_url: null,
             existing_membership_status: "blocked",
@@ -123,10 +131,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       })
       .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
     const createMercadoPagoSubscription = jest.fn(async () => ({
-      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/new",
+      checkoutUrl: PROVIDER_SUBSCRIPTION_CHECKOUT_URL,
       providerSubscriptionId: "preapproval-2",
     }));
-    const repository = createRepository(execute, createMercadoPagoSubscription);
+    const repository = createRepository(execute, {
+      createMercadoPagoSubscription,
+    });
 
     await expect(
       repository.startCurrentPriceSubscription({
@@ -135,17 +145,19 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/new",
+      checkoutUrl: PROVIDER_SUBSCRIPTION_CHECKOUT_URL,
       status: "pending",
     });
 
     expect(createMercadoPagoSubscription).toHaveBeenCalledWith(
       expect.objectContaining({
-        amountCents: 1500,
-        currency: "ARS",
         externalReference: "subscription-2",
         idempotencyKey: "new-attempt",
+        preapprovalPlanId: "provider-plan-1",
       })
+    );
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
+      /mercado_pago_preapproval_id\s*=/
     );
   });
 
@@ -155,9 +167,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         {
           access_token: "access-token",
             current_price_amount_cents: 1500,
-            current_price_currency: "ARS",
+          current_price_currency: "ARS",
           current_price_id: "price-1",
           current_price_name: "Plan mensual",
+          current_price_provider_plan_id: "provider-plan-1",
           current_user_email: "member@example.com",
           existing_checkout_url: null,
           existing_membership_status: "blocked",
@@ -168,7 +181,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       ],
     });
     const createMercadoPagoSubscription = jest.fn();
-    const repository = createRepository(execute, createMercadoPagoSubscription);
+    const repository = createRepository(execute, {
+      createMercadoPagoSubscription,
+    });
 
     await expect(
       repository.startCurrentPriceSubscription({
@@ -198,6 +213,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_price_currency: "ARS",
             current_price_id: "price-1",
             current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
             current_user_email: "member@example.com",
             existing_checkout_url: null,
             existing_membership_status: null,
@@ -209,7 +225,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       })
       .mockResolvedValueOnce({ rows: [{ reserved_subscription_id: null }] });
     const createMercadoPagoSubscription = jest.fn();
-    const repository = createRepository(execute, createMercadoPagoSubscription);
+    const repository = createRepository(execute, {
+      createMercadoPagoSubscription,
+    });
 
     await expect(
       repository.startCurrentPriceSubscription({
@@ -221,10 +239,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       status: "payment_blocked",
     });
 
-    expect(createMercadoPagoSubscription).not.toHaveBeenCalled();
     expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
       /insert into public\.tribe_member_subscriptions/
     );
+    expect(createMercadoPagoSubscription).not.toHaveBeenCalled();
   });
 
   it("recovers stale pending reservations that never reached Mercado Pago", async () => {
@@ -238,6 +256,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_price_currency: "ARS",
             current_price_id: "price-1",
             current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
             current_user_email: "member@example.com",
             existing_checkout_url: null,
             existing_membership_status: "blocked",
@@ -257,10 +276,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       })
       .mockResolvedValueOnce({ rows: [{ id: "stale-subscription-1" }] });
     const createMercadoPagoSubscription = jest.fn(async () => ({
-      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/recovered",
+      checkoutUrl: PROVIDER_SUBSCRIPTION_CHECKOUT_URL,
       providerSubscriptionId: "preapproval-recovered",
     }));
-    const repository = createRepository(execute, createMercadoPagoSubscription);
+    const repository = createRepository(execute, {
+      createMercadoPagoSubscription,
+    });
 
     await expect(
       repository.startCurrentPriceSubscription({
@@ -269,7 +290,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/recovered",
+      checkoutUrl: PROVIDER_SUBSCRIPTION_CHECKOUT_URL,
       status: "pending",
     });
 
@@ -280,10 +301,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(reservationSql).toMatch(/5 minutes/);
     expect(createMercadoPagoSubscription).toHaveBeenCalledWith(
       expect.objectContaining({
-        amountCents: 1500,
-        currency: "ARS",
         externalReference: "stale-subscription-1",
         idempotencyKey: "recovered-attempt",
+        preapprovalPlanId: "provider-plan-1",
       })
     );
   });
@@ -300,6 +320,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_price_currency: "ARS",
             current_price_id: "price-1",
             current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
             current_user_email: "member@example.com",
             existing_checkout_url: null,
             existing_membership_status: null,
@@ -316,7 +337,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       })
       .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
     const createMercadoPagoSubscription = jest.fn(async () => ({
-      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/new",
+      checkoutUrl: PROVIDER_SUBSCRIPTION_CHECKOUT_URL,
       providerSubscriptionId: "preapproval-2",
     }));
     const refreshMercadoPagoAccessToken = jest.fn(async () => ({
@@ -325,13 +346,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       providerAccountId: "seller-1",
       refreshToken: "new-refresh-token",
     }));
-    const repository = createRepository(
-      execute,
+    const repository = createRepository(execute, {
       createMercadoPagoSubscription,
-      jest.fn(),
-      jest.fn(() => "https://tutribu.example.com"),
-      refreshMercadoPagoAccessToken
-    );
+      refreshMercadoPagoAccessToken,
+    });
 
     await expect(
       repository.startCurrentPriceSubscription({
@@ -340,7 +358,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/new",
+      checkoutUrl: PROVIDER_SUBSCRIPTION_CHECKOUT_URL,
       status: "pending",
     });
 
@@ -358,7 +376,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
   });
 
-  it("releases the local reservation when Mercado Pago checkout creation fails", async () => {
+  it("persists the provider preapproval id for return and webhook reconciliation", async () => {
     const execute = jest
       .fn()
       .mockResolvedValueOnce({
@@ -369,6 +387,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_price_currency: "ARS",
             current_price_id: "price-1",
             current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
             current_user_email: "member@example.com",
             existing_checkout_url: null,
             existing_membership_status: null,
@@ -381,11 +400,62 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       .mockResolvedValueOnce({
         rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
       })
+      .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
+    const createMercadoPagoSubscription = jest.fn(async () => ({
+      checkoutUrl: PROVIDER_SUBSCRIPTION_CHECKOUT_URL,
+      providerSubscriptionId: "preapproval-2",
+    }));
+    const repository = createRepository(execute, {
+      createMercadoPagoSubscription,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "retryable-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: PROVIDER_SUBSCRIPTION_CHECKOUT_URL,
+      status: "pending",
+    });
+
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
+      /mercado_pago_preapproval_id\s*=/
+    );
+  });
+
+  it("releases the local reservation when Mercado Pago checkout creation fails", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: null,
+            existing_membership_status_reason: null,
+            has_active_invitation: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
       .mockResolvedValueOnce({ rows: [] });
     const createMercadoPagoSubscription = jest.fn(async () => {
       throw new Error("provider unavailable");
     });
-    const repository = createRepository(execute, createMercadoPagoSubscription);
+    const repository = createRepository(execute, {
+      createMercadoPagoSubscription,
+    });
 
     await expect(
       repository.startCurrentPriceSubscription({
@@ -408,9 +478,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         {
           access_token: "access-token",
             current_price_amount_cents: 1500,
-            current_price_currency: "ARS",
+          current_price_currency: "ARS",
           current_price_id: "price-1",
           current_price_name: "Plan mensual",
+          current_price_provider_plan_id: "provider-plan-1",
           current_user_email: "member@example.com",
           existing_checkout_url:
             "https://www.mercadopago.com.ar/subscriptions/existing",
@@ -422,7 +493,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       ],
     });
     const createMercadoPagoSubscription = jest.fn();
-    const repository = createRepository(execute, createMercadoPagoSubscription);
+    const repository = createRepository(execute, {
+      createMercadoPagoSubscription,
+    });
 
     await expect(
       repository.startCurrentPriceSubscription({
@@ -455,11 +528,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalStatus = jest.fn(async () => "pending");
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      getMercadoPagoPreapprovalStatus
-    );
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
 
     await expect(
       repository.handleWebhook({
@@ -495,11 +566,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalStatus = jest.fn(async () => "canceled");
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      getMercadoPagoPreapprovalStatus
-    );
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
 
     await expect(
       repository.handleWebhook({
@@ -534,11 +603,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalStatus = jest.fn(async () => "paused");
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      getMercadoPagoPreapprovalStatus
-    );
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
 
     await expect(
       repository.handleWebhook({
@@ -587,13 +654,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       providerAccountId: "seller-1",
       refreshToken: "new-refresh-token",
     }));
-    const repository = createRepository(
-      execute,
-      jest.fn(),
+    const repository = createRepository(execute, {
       getMercadoPagoPreapprovalStatus,
-      jest.fn(() => "https://tutribu.example.com"),
-      refreshMercadoPagoAccessToken
-    );
+      refreshMercadoPagoAccessToken,
+    });
 
     await expect(
       repository.handleWebhook({
@@ -636,11 +700,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalStatus = jest.fn(async () => "canceled");
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      getMercadoPagoPreapprovalStatus
-    );
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
 
     await expect(
       repository.handleWebhook({
@@ -675,11 +737,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       ],
     });
     const getMercadoPagoPreapprovalStatus = jest.fn();
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      getMercadoPagoPreapprovalStatus
-    );
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
 
     await expect(
       repository.handleWebhook({
@@ -711,11 +771,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       ],
     });
     const getMercadoPagoPreapprovalStatus = jest.fn();
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      getMercadoPagoPreapprovalStatus
-    );
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
 
     await expect(
       repository.handleWebhook({
@@ -746,11 +804,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       ],
     });
     const getMercadoPagoPreapprovalStatus = jest.fn();
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      getMercadoPagoPreapprovalStatus
-    );
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
 
     await expect(
       repository.handleWebhook({

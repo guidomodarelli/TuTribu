@@ -35,6 +35,10 @@ type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
 
+type MercadoPagoPreapprovalStatusGetter = (
+  input: MercadoPagoPreapprovalStatusInput
+) => Promise<string>;
+
 type MercadoPagoSubscriptionCreator = (
   input: MercadoPagoSubscriptionInput
 ) => Promise<{
@@ -42,16 +46,13 @@ type MercadoPagoSubscriptionCreator = (
   providerSubscriptionId: string;
 }>;
 
-type MercadoPagoPreapprovalStatusGetter = (
-  input: MercadoPagoPreapprovalStatusInput
-) => Promise<string>;
-
 type SubscriptionStartContextRow = {
   access_token: string | null;
   current_price_amount_cents: number | null;
   current_price_currency: string | null;
   current_price_id: string | null;
   current_price_name: string | null;
+  current_price_provider_plan_id: string | null;
   current_user_email: string | null;
   existing_checkout_url: string | null;
   existing_membership_status: string | null;
@@ -304,6 +305,7 @@ export class PostgresTribeMemberSubscriptionRepository
           (select amount_cents from current_price) as current_price_amount_cents,
           (select currency from current_price) as current_price_currency,
           (select name from current_price) as current_price_name,
+          (select mercado_pago_preapproval_plan_id from current_price) as current_price_provider_plan_id,
           exists (select 1 from active_invitation) as has_active_invitation,
           (select status from existing_membership) as existing_membership_status,
           (select status_reason from existing_membership) as existing_membership_status_reason,
@@ -329,7 +331,8 @@ export class PostgresTribeMemberSubscriptionRepository
     if (
       !context?.current_price_id ||
       !context.current_price_amount_cents ||
-      !context.current_price_currency
+      !context.current_price_currency ||
+      !context.current_price_provider_plan_id
     ) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice };
     }
@@ -398,6 +401,7 @@ export class PostgresTribeMemberSubscriptionRepository
         externalReference: reservation.reserved_subscription_id,
         idempotencyKey: command.idempotencyKey,
         payerEmail: context.current_user_email,
+        preapprovalPlanId: context.current_price_provider_plan_id,
         reason: context.current_price_name ?? "Tribe subscription",
       });
     } catch {

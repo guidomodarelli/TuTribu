@@ -66,6 +66,7 @@ export type MercadoPagoSubscriptionInput = {
   externalReference: string;
   idempotencyKey: string;
   payerEmail: string;
+  preapprovalPlanId: string;
   reason: string;
 };
 
@@ -615,6 +616,7 @@ export async function createMercadoPagoPreapprovalSubscription(
       back_url: input.backUrl,
       external_reference: input.externalReference,
       payer_email: input.payerEmail,
+      preapproval_plan_id: input.preapprovalPlanId,
       reason: input.reason,
       status: "pending",
     }),
