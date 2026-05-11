@@ -8,6 +8,7 @@ import type {
   MercadoPagoSubscriptionWebhookCommand,
   PendingSubscriptionReturnQuery,
   StartCurrentPriceSubscriptionCommand,
+  TribeMemberSubscriptionStatusQuery,
   TribeMemberSubscriptionRepository,
 } from "@/src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository";
 
@@ -71,6 +72,52 @@ export function validatePendingTribeMemberSubscriptionReturn({
   return async (query: PendingSubscriptionReturnQuery) =>
     tribeMemberSubscriptionRepository.hasPendingSubscriptionReturn({
       providerSubscriptionId: normalizeText(query.providerSubscriptionId),
+      tribeSlug: normalizeText(query.tribeSlug),
+    });
+}
+
+/**
+ * Confirms a Mercado Pago return and applies the resulting access state.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that validates a provider return.
+ */
+export function confirmTribeMemberSubscriptionReturn({
+  tribeMemberSubscriptionRepository,
+}: TribeMemberSubscriptionDependencies) {
+  return async (query: PendingSubscriptionReturnQuery) =>
+    tribeMemberSubscriptionRepository.confirmSubscriptionReturn({
+      providerSubscriptionId: normalizeText(query.providerSubscriptionId),
+      tribeSlug: normalizeText(query.tribeSlug),
+    });
+}
+
+/**
+ * Reconciles the current member subscription before granting tribe access.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that refreshes local access from Mercado Pago.
+ */
+export function reconcileCurrentTribeMemberSubscription({
+  tribeMemberSubscriptionRepository,
+}: TribeMemberSubscriptionDependencies) {
+  return async (query: TribeMemberSubscriptionStatusQuery) =>
+    tribeMemberSubscriptionRepository.reconcileCurrentMemberSubscription({
+      tribeSlug: normalizeText(query.tribeSlug),
+    });
+}
+
+/**
+ * Cancels the current member subscription from inside the tribe.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that cancels the provider subscription.
+ */
+export function cancelOwnTribeMemberSubscription({
+  tribeMemberSubscriptionRepository,
+}: TribeMemberSubscriptionDependencies) {
+  return async (query: TribeMemberSubscriptionStatusQuery) =>
+    tribeMemberSubscriptionRepository.cancelOwnSubscription({
       tribeSlug: normalizeText(query.tribeSlug),
     });
 }

@@ -10,6 +10,7 @@ import { sql } from "drizzle-orm";
 
 import type {
   TribeMemberSubscriptionStartResult,
+  TribeMemberSubscriptionStatusResult,
   TribeMemberSubscriptionWebhookResult,
 } from "@/src/modules/subscriptions/application/results/tribe-member-subscription-result";
 import {
@@ -18,7 +19,9 @@ import {
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
   MercadoPagoSubscriptionWebhookCommand,
+  PendingSubscriptionReturnQuery,
   StartCurrentPriceSubscriptionCommand,
+  TribeMemberSubscriptionStatusQuery,
   TribeMemberSubscriptionRepository,
 } from "@/src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
@@ -44,7 +47,13 @@ type MercadoPagoSubscriptionCreator = (
 
 type MercadoPagoPreapprovalStatusGetter = (
   input: MercadoPagoPreapprovalStatusInput
-) => Promise<string>;
+) => Promise<string | null>;
+
+type MercadoPagoPreapprovalStatusUpdater = (input: {
+  accessToken: string;
+  preapprovalId: string;
+  status: "canceled";
+}) => Promise<string>;
 
 type SubscriptionStartContextRow = {
   access_token: string | null;
@@ -52,6 +61,7 @@ type SubscriptionStartContextRow = {
   current_price_currency: string | null;
   current_price_id: string | null;
   current_price_name: string | null;
+  current_price_plan_id: string | null;
   current_user_email: string | null;
   existing_checkout_url: string | null;
   existing_membership_status: string | null;
@@ -84,6 +94,15 @@ type PendingSubscriptionReturnRow = {
   has_pending_subscription_return: boolean | null;
 };
 
+type SubscriptionReconciliationContextRow = {
+  access_token: string | null;
+  mercado_pago_preapproval_id: string | null;
+  refresh_token: string | null;
+  subscription_found: boolean | null;
+  token_expires_at: Date | string | null;
+  tribe_id: string | null;
+};
+
 const SUBSCRIPTION_CHECKOUT_CONTEXT = {
   invitationSettingName: "app.current_invitation_hash",
   settingName: "app.subscription_checkout_tribe_id",
@@ -95,6 +114,18 @@ const SUBSCRIPTION_CHECKOUT_CONTEXT = {
 const SUBSCRIPTION_RESERVATION = {
   staleReservationInterval: "5 minutes",
 } as const;
+
+/**
+ * Local statuses that represent a live provider preapproval blocking another checkout.
+ */
+const CURRENT_MEMBER_SUBSCRIPTION_STATUSES = sql`(
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pastDue},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused}
+)`;
 
 const MERCADO_PAGO_PREAPPROVAL_STATUS = {
   authorized: "authorized",
@@ -141,7 +172,7 @@ function buildSubscriptionBackUrl(baseUrl: string, tribeSlug: string): string {
  * @param providerStatus - Status returned by Mercado Pago for a preapproval.
  * @returns Local subscription status and status reason.
  */
-function mapProviderSubscriptionStatus(providerStatus: string) {
+function mapProviderSubscriptionStatus(providerStatus: string | null) {
   switch (providerStatus) {
     case MERCADO_PAGO_PREAPPROVAL_STATUS.authorized:
       return {
@@ -150,14 +181,17 @@ function mapProviderSubscriptionStatus(providerStatus: string) {
       };
     case MERCADO_PAGO_PREAPPROVAL_STATUS.canceled:
     case MERCADO_PAGO_PREAPPROVAL_STATUS.cancelled:
+    case null:
       return {
         status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled,
-        statusReason: TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked,
+        statusReason:
+          TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive,
       };
     case MERCADO_PAGO_PREAPPROVAL_STATUS.paused:
       return {
-        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod,
-        statusReason: TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked,
+        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused,
+        statusReason:
+          TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive,
       };
     case MERCADO_PAGO_PREAPPROVAL_STATUS.pending:
     default:
@@ -175,6 +209,7 @@ export class PostgresTribeMemberSubscriptionRepository
     private readonly executeWithDatabase: DatabaseExecutor,
     private readonly createMercadoPagoSubscription: MercadoPagoSubscriptionCreator,
     private readonly getMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusGetter,
+    private readonly updateMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusUpdater,
     private readonly resolvePublicAppBaseUrl: () => string,
     private readonly refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher
   ) {}
@@ -210,6 +245,220 @@ export class PostgresTribeMemberSubscriptionRepository
       const row = (result.rows?.[0] ?? null) as PendingSubscriptionReturnRow | null;
 
       return row?.has_pending_subscription_return === true;
+    });
+  }
+
+  /**
+   * Confirms a provider return and applies access changes immediately.
+   *
+   * @param query - Tribe slug and Mercado Pago preapproval id from the return URL.
+   * @returns Local status after provider reconciliation.
+   */
+  async confirmSubscriptionReturn(
+    query: PendingSubscriptionReturnQuery
+  ): Promise<TribeMemberSubscriptionStatusResult> {
+    return this.reconcileSubscriptionByProviderId({
+      providerSubscriptionId: query.providerSubscriptionId,
+      tribeSlug: query.tribeSlug,
+    });
+  }
+
+  /**
+   * Reconciles the current member subscription before granting tribe access.
+   *
+   * @param query - Tribe slug used to find the current member subscription.
+   * @returns Local status after provider reconciliation.
+   */
+  async reconcileCurrentMemberSubscription(
+    query: TribeMemberSubscriptionStatusQuery
+  ): Promise<TribeMemberSubscriptionStatusResult> {
+    return this.reconcileSubscriptionByProviderId({
+      providerSubscriptionId: null,
+      tribeSlug: query.tribeSlug,
+    });
+  }
+
+  /**
+   * Cancels the current member subscription in Mercado Pago and removes access.
+   *
+   * @param query - Tribe slug used to find the current member subscription.
+   * @returns Local status after provider cancellation.
+   */
+  async cancelOwnSubscription(
+    query: TribeMemberSubscriptionStatusQuery
+  ): Promise<TribeMemberSubscriptionStatusResult> {
+    const context = await this.resolveSubscriptionReconciliationContext({
+      providerSubscriptionId: null,
+      tribeSlug: query.tribeSlug,
+    });
+
+    if (!context?.subscription_found || !context.mercado_pago_preapproval_id) {
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound };
+    }
+
+    const accessToken = await this.resolveAccessTokenForSubscriptionContext(
+      context
+    );
+
+    if (!accessToken) {
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
+    }
+
+    let confirmedProviderStatus: string;
+
+    try {
+      confirmedProviderStatus = await this.updateMercadoPagoPreapprovalStatus({
+        accessToken,
+        preapprovalId: context.mercado_pago_preapproval_id,
+        status: MERCADO_PAGO_PREAPPROVAL_STATUS.canceled,
+      });
+    } catch {
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
+    }
+
+    if (
+      confirmedProviderStatus !== MERCADO_PAGO_PREAPPROVAL_STATUS.canceled &&
+      confirmedProviderStatus !== MERCADO_PAGO_PREAPPROVAL_STATUS.cancelled
+    ) {
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
+    }
+
+    await this.persistProviderSubscriptionStatus({
+      providerSubscriptionId: context.mercado_pago_preapproval_id,
+      providerStatus: confirmedProviderStatus,
+    });
+
+    return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled };
+  }
+
+  private async reconcileSubscriptionByProviderId(input: {
+    providerSubscriptionId: string | null;
+    tribeSlug: string;
+  }): Promise<TribeMemberSubscriptionStatusResult> {
+    const context = await this.resolveSubscriptionReconciliationContext(input);
+
+    if (!context?.subscription_found || !context.mercado_pago_preapproval_id) {
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound };
+    }
+
+    const accessToken = await this.resolveAccessTokenForSubscriptionContext(
+      context
+    );
+
+    if (!accessToken) {
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
+    }
+
+    let providerStatus: string | null;
+
+    try {
+      providerStatus = await this.getMercadoPagoPreapprovalStatus({
+        accessToken,
+        preapprovalId: context.mercado_pago_preapproval_id,
+      });
+    } catch {
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
+    }
+
+    const subscriptionStatus = mapProviderSubscriptionStatus(providerStatus);
+
+    await this.persistProviderSubscriptionStatus({
+      providerSubscriptionId: context.mercado_pago_preapproval_id,
+      providerStatus,
+    });
+
+    return {
+      status:
+        subscriptionStatus.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused
+          ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.removedBySubscription
+          : subscriptionStatus.status,
+    };
+  }
+
+  private async resolveAccessTokenForSubscriptionContext(
+    context: SubscriptionReconciliationContextRow
+  ): Promise<string | null> {
+    return resolveMercadoPagoAccessToken({
+      executeWithDatabase: this.executeWithDatabase,
+      refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
+      storedToken: {
+        accessToken: context.access_token,
+        refreshToken: context.refresh_token,
+        tokenExpiresAt: context.token_expires_at,
+        tribeId: context.tribe_id,
+      },
+    }).catch(() => null);
+  }
+
+  private async resolveSubscriptionReconciliationContext(input: {
+    providerSubscriptionId: string | null;
+    tribeSlug: string;
+  }): Promise<SubscriptionReconciliationContextRow | null> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${input.tribeSlug}
+          limit 1
+        ),
+        target_subscription as (
+          select
+            tribe_member_subscriptions.tribe_id,
+            tribe_member_subscriptions.mercado_pago_preapproval_id
+          from public.tribe_member_subscriptions
+          inner join target_tribe
+            on target_tribe.id = tribe_member_subscriptions.tribe_id
+          where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
+            and (
+              ${input.providerSubscriptionId ?? ""} = ''
+              or tribe_member_subscriptions.mercado_pago_preapproval_id = ${input.providerSubscriptionId ?? ""}
+            )
+            and tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
+          order by tribe_member_subscriptions.updated_at desc
+          limit 1
+        )
+        select
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          coalesce((select mercado_pago_preapproval_id from target_subscription), null) as mercado_pago_preapproval_id,
+          coalesce((select tribe_id from target_subscription), (select id from target_tribe)) as tribe_id,
+          coalesce((select true from target_subscription), false) as subscription_found,
+          tribe_payment_integrations.token_expires_at
+        from (select 1) result
+        left join public.tribe_payment_integrations
+          on tribe_payment_integrations.tribe_id = (select id from target_tribe)
+          and tribe_payment_integrations.provider = 'mercado_pago'
+      `);
+
+      return (result.rows?.[0] ?? null) as
+        | SubscriptionReconciliationContextRow
+        | null;
+    });
+  }
+
+  private async persistProviderSubscriptionStatus(input: {
+    providerSubscriptionId: string;
+    providerStatus: string | null;
+  }): Promise<void> {
+    const subscriptionStatus = mapProviderSubscriptionStatus(input.providerStatus);
+
+    await this.executeWithDatabase(async (database) => {
+      await database.execute(sql`
+        update public.tribe_member_subscriptions
+        set
+          status = ${subscriptionStatus.status},
+          status_reason = ${subscriptionStatus.statusReason},
+          updated_at = timezone('utc', now())
+        where mercado_pago_preapproval_id = ${input.providerSubscriptionId}
+          and user_id = public.current_app_user_id()
+      `);
+
+      await this.updateMembershipAccessForProviderSubscription(
+        database,
+        input.providerSubscriptionId
+      );
     });
   }
 
@@ -304,6 +553,7 @@ export class PostgresTribeMemberSubscriptionRepository
           (select amount_cents from current_price) as current_price_amount_cents,
           (select currency from current_price) as current_price_currency,
           (select name from current_price) as current_price_name,
+          (select mercado_pago_preapproval_plan_id from current_price) as current_price_plan_id,
           exists (select 1 from active_invitation) as has_active_invitation,
           (select status from existing_membership) as existing_membership_status,
           (select status_reason from existing_membership) as existing_membership_status_reason,
@@ -329,7 +579,8 @@ export class PostgresTribeMemberSubscriptionRepository
     if (
       !context?.current_price_id ||
       !context.current_price_amount_cents ||
-      !context.current_price_currency
+      !context.current_price_currency ||
+      !context.current_price_plan_id
     ) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice };
     }
@@ -398,6 +649,7 @@ export class PostgresTribeMemberSubscriptionRepository
         externalReference: reservation.reserved_subscription_id,
         idempotencyKey: command.idempotencyKey,
         payerEmail: context.current_user_email,
+        preapprovalPlanId: context.current_price_plan_id,
         reason: context.current_price_name ?? "Tribe subscription",
       });
     } catch {
@@ -436,6 +688,12 @@ export class PostgresTribeMemberSubscriptionRepository
     });
   }
 
+  /**
+   * Reserves a local pending subscription before creating the provider checkout.
+   *
+   * @param input - Current tribe price and invitation data used for the reservation.
+   * @returns Existing checkout data or the reserved local subscription id.
+   */
   private async reservePendingSubscription(input: {
     currentPriceId: string;
     invitationTokenHash: string;
@@ -474,7 +732,12 @@ export class PostgresTribeMemberSubscriptionRepository
             ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
             timezone('utc', now())
           from checkout_context
-          on conflict (tribe_id, user_id) do nothing
+          on conflict (tribe_id, user_id) do update
+          set
+            status = 'blocked',
+            status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+          where tribe_members.status = 'removed'
+            and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
           returning id
         ),
         reserved_subscription as (
@@ -509,6 +772,16 @@ export class PostgresTribeMemberSubscriptionRepository
             and tribe_member_subscriptions.updated_at <
               timezone('utc', now()) - ${SUBSCRIPTION_RESERVATION.staleReservationInterval}::interval
           limit 1
+          for update skip locked
+        ),
+        claimed_recoverable_reservation as (
+          update public.tribe_member_subscriptions
+          set updated_at = timezone('utc', now())
+          where tribe_member_subscriptions.id = (
+            select id from existing_recoverable_reservation
+          )
+            and not exists (select 1 from reserved_subscription)
+          returning id
         ),
         existing_pending_checkout as (
           select subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url
@@ -530,7 +803,7 @@ export class PostgresTribeMemberSubscriptionRepository
         select
           coalesce(
             (select id from reserved_subscription),
-            (select id from existing_recoverable_reservation)
+            (select id from claimed_recoverable_reservation)
           ) as reserved_subscription_id,
           (select checkout_url from existing_pending_checkout) as checkout_url
       `);
@@ -542,6 +815,12 @@ export class PostgresTribeMemberSubscriptionRepository
     });
   }
 
+  /**
+   * Persists the provider checkout idempotently after Mercado Pago accepts it.
+   *
+   * @param input - Provider checkout data and local subscription identity.
+   * @returns Start result containing the checkout URL when persistence succeeds.
+   */
   private async persistReservedCheckout(input: {
     checkoutUrl: string;
     operationKey: string;
@@ -584,7 +863,12 @@ export class PostgresTribeMemberSubscriptionRepository
           ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
           timezone('utc', now())
         )
-        on conflict (tribe_id, user_id) do nothing
+        on conflict (tribe_id, user_id) do update
+        set
+          status = 'blocked',
+          status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+        where tribe_members.status = 'removed'
+          and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
       `);
 
       await database.execute(sql`
@@ -728,49 +1012,67 @@ export class PostgresTribeMemberSubscriptionRepository
         where mercado_pago_preapproval_id = ${command.resourceId}
       `);
 
-      await database.execute(sql`
-        update public.tribe_members
-        set
-          status = case
-          when exists (
-            select 1
-            from public.tribe_member_subscriptions
-            where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-              and tribe_member_subscriptions.user_id = tribe_members.user_id
-              and tribe_member_subscriptions.status in (
-                ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
-                ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod}
-              )
-          ) then 'active'
-          else 'blocked'
-        end,
-          status_reason = case
-          when exists (
-            select 1
-            from public.tribe_member_subscriptions
-            where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-              and tribe_member_subscriptions.user_id = tribe_members.user_id
-              and tribe_member_subscriptions.status in (
-                ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
-                ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod}
-              )
-          ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none}
-          else ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-        end
-        where exists (
+      await this.updateMembershipAccessForProviderSubscription(
+        database,
+        command.resourceId
+      );
+
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed };
+    });
+  }
+
+  private async updateMembershipAccessForProviderSubscription(
+    database: RequestDatabase,
+    providerSubscriptionId: string
+  ): Promise<void> {
+    await database.execute(sql`
+      update public.tribe_members
+      set
+        status = case
+        when exists (
           select 1
           from public.tribe_member_subscriptions
           where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
             and tribe_member_subscriptions.user_id = tribe_members.user_id
-            and tribe_member_subscriptions.mercado_pago_preapproval_id = ${command.resourceId}
+            and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+        ) then 'active'
+        when exists (
+          select 1
+          from public.tribe_member_subscriptions
+          where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+            and tribe_member_subscriptions.user_id = tribe_members.user_id
+            and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+        ) then 'blocked'
+        else 'removed'
+      end,
+        status_reason = case
+        when exists (
+          select 1
+          from public.tribe_member_subscriptions
+          where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+            and tribe_member_subscriptions.user_id = tribe_members.user_id
+            and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+        ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none}
+        when exists (
+          select 1
+          from public.tribe_member_subscriptions
+          where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+            and tribe_member_subscriptions.user_id = tribe_members.user_id
+            and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+        ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+        else ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
+      end
+      where exists (
+        select 1
+        from public.tribe_member_subscriptions
+        where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+          and tribe_member_subscriptions.user_id = tribe_members.user_id
+          and tribe_member_subscriptions.mercado_pago_preapproval_id = ${providerSubscriptionId}
+      )
+        and not (
+          tribe_members.status = 'blocked'
+          and tribe_members.status_reason <> ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
         )
-          and not (
-            tribe_members.status = 'blocked'
-            and tribe_members.status_reason <> ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-          )
-      `);
-
-      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed };
-    });
+    `);
   }
 }

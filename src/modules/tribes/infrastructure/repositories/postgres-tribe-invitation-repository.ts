@@ -1,7 +1,10 @@
 import { createHash } from "crypto";
 import { sql } from "drizzle-orm";
 
-import { TRIBE_INVITATION_STATUS } from "@/src/modules/tribes/constants/tribe-invitations";
+import {
+  TRIBE_INVITATION_STATUS,
+  TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS,
+} from "@/src/modules/tribes/constants/tribe-invitations";
 import type {
   AcceptTribeInvitationCommand,
   CreateTribeInvitationCommand,
@@ -14,6 +17,7 @@ import type {
   TribeInvitationCreationResult,
   TribeInvitationListItemResult,
   TribeInvitationRevocationResult,
+  TribeInvitationSubscriptionOfferResult,
 } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
@@ -33,6 +37,13 @@ type InvitationCreationRow = InvitationRow & {
 
 type InvitationStatusRow = {
   status: string | null;
+};
+
+type InvitationSubscriptionOfferRow = {
+  amount_cents: number;
+  currency: string;
+  frequency: string;
+  name: string;
 };
 
 const INVITATION_ROUTE = {
@@ -127,6 +138,24 @@ function mapAcceptanceResult(row: InvitationStatusRow | null): TribeInvitationAc
   }
 
   return { status: TRIBE_INVITATION_STATUS.invalid };
+}
+
+function mapSubscriptionOfferResult(
+  row: InvitationSubscriptionOfferRow | null
+): TribeInvitationSubscriptionOfferResult {
+  return row
+    ? {
+        price: {
+          amountCents: row.amount_cents,
+          currency: row.currency,
+          frequency: row.frequency,
+          name: row.name,
+        },
+        status: TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS.available,
+      }
+    : {
+        status: TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS.unavailable,
+      };
 }
 
 function isMissingInvitationStorageError(error: unknown): boolean {
@@ -423,6 +452,63 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
       `);
 
       return mapAcceptanceResult((result.rows?.[0] ?? null) as InvitationStatusRow | null);
+    });
+  }
+
+  async getSubscriptionOffer(command: {
+    token: string;
+    tribeSlug: string;
+  }): Promise<TribeInvitationSubscriptionOfferResult> {
+    return this.executeWithDatabase(async (database) => {
+      const tokenHash = hashInvitationToken(command.token);
+      const result = await database.execute(sql`
+        with invitation_offer_context as (
+          select
+            set_config(
+              ${INVITATION_DATABASE_CONTEXT_SETTING.currentInvitationHash},
+              ${tokenHash},
+              true
+            )
+        ),
+        target_invitation as (
+          select
+            tribe_invitations.status,
+            tribe_invitations.tribe_id
+          from public.tribe_invitations
+          cross join invitation_offer_context
+          where tribe_invitations.token_hash = ${tokenHash}
+          limit 1
+        ),
+        target_tribe as (
+          select tribes.id
+          from public.tribes
+          inner join target_invitation
+            on target_invitation.tribe_id = tribes.id
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+        )
+        select
+          tribe_subscription_prices.amount_cents,
+          tribe_subscription_prices.currency,
+          tribe_subscription_prices.frequency,
+          tribe_subscription_prices.name
+        from public.tribe_subscription_prices
+        inner join target_tribe
+          on target_tribe.id = tribe_subscription_prices.tribe_id
+        where tribe_subscription_prices.is_current = true
+          and tribe_subscription_prices.status = 'active'
+          and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
+          and exists (
+            select 1
+            from target_invitation
+            where target_invitation.status = ${TRIBE_INVITATION_STATUS.active}
+          )
+        limit 1
+      `);
+
+      return mapSubscriptionOfferResult(
+        (result.rows?.[0] ?? null) as InvitationSubscriptionOfferRow | null
+      );
     });
   }
 }

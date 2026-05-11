@@ -1,4 +1,7 @@
-import type { TRIBE_INVITATION_STATUS } from "@/src/modules/tribes/constants/tribe-invitations";
+import type {
+  TRIBE_INVITATION_STATUS,
+  TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS,
+} from "@/src/modules/tribes/constants/tribe-invitations";
 
 export type TribeInvitationListItemResult = {
   createdAt: string;
@@ -35,3 +38,19 @@ export type TribeInvitationAcceptanceResult = {
     | typeof TRIBE_INVITATION_STATUS.revoked
     | typeof TRIBE_INVITATION_STATUS.subscriptionRequired;
 };
+
+export type TribeInvitationSubscriptionOfferPriceResult = {
+  amountCents: number;
+  currency: string;
+  frequency: string;
+  name: string;
+};
+
+export type TribeInvitationSubscriptionOfferResult =
+  | {
+      price: TribeInvitationSubscriptionOfferPriceResult;
+      status: typeof TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS.available;
+    }
+  | {
+      status: typeof TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS.unavailable;
+    };

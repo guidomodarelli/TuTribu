@@ -11,6 +11,11 @@ export const TRIBE_INVITATION_STATUS = {
   subscriptionRequired: "subscription_required",
 } as const;
 
+export const TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS = {
+  available: "available",
+  unavailable: "unavailable",
+} as const;
+
 export const TRIBE_INVITATION_ROLE = {
   guardian: "guardian",
   leader: "leader",

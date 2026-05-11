@@ -16,6 +16,7 @@ import type {
   TribeSubscriptionPriceResult,
 } from "@/src/modules/subscriptions/application/results/tribe-subscription-price-result";
 import {
+  TRIBE_MEMBER_SUBSCRIPTION_STATUS,
   TRIBE_SUBSCRIPTION_PRICE_LIMIT,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
@@ -57,7 +58,7 @@ type MercadoPagoPlanUpdater = (
 ) => Promise<MercadoPagoPreapprovalPlanResult>;
 type MercadoPagoSubscriptionStatusGetter = (
   input: MercadoPagoPreapprovalStatusInput
-) => Promise<string>;
+) => Promise<string | null>;
 
 type SubscriptionPriceRow = {
   active_subscribers_count: number | string | null;
@@ -134,6 +135,18 @@ type ProviderPlanWebhookContextRow = SubscriptionProviderPlanRow & {
 const SUBSCRIPTION_PRICE_PROVIDER_PLAN_RESERVATION_STATUS =
   "pending_provider_plan";
 
+/**
+ * Local subscription statuses that still represent a live provider commitment.
+ */
+const CURRENT_MEMBER_SUBSCRIPTION_STATUSES = sql`(
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pastDue},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused}
+)`;
+
 const MERCADO_PAGO_PROVIDER_PLAN_STATUS = {
   active: "active",
   canceled: "canceled",
@@ -144,6 +157,8 @@ const MERCADO_PAGO_PROVIDER_SUBSCRIPTION_CANCELED_STATUS = {
   cancelled: "cancelled",
 } as const;
 
+const MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS_LOOKUP_CONCURRENCY_LIMIT = 5;
+
 /**
  * Determines whether Mercado Pago still treats a subscription as attached.
  *
@@ -151,14 +166,64 @@ const MERCADO_PAGO_PROVIDER_SUBSCRIPTION_CANCELED_STATUS = {
  * @returns Whether the subscription is not effectively canceled.
  */
 function isProviderSubscriptionStillAttached(
-  providerSubscriptionStatus: string
+  providerSubscriptionStatus: string | null
 ): boolean {
+  if (!providerSubscriptionStatus) {
+    return false;
+  }
+
   return (
     providerSubscriptionStatus !==
       MERCADO_PAGO_PROVIDER_SUBSCRIPTION_CANCELED_STATUS.canceled &&
     providerSubscriptionStatus !==
       MERCADO_PAGO_PROVIDER_SUBSCRIPTION_CANCELED_STATUS.cancelled
   );
+}
+
+/**
+ * Reads provider subscriber statuses without opening an unbounded request fan-out.
+ *
+ * @param input - Access token, provider subscriber rows, and status reader.
+ * @returns Provider statuses aligned to the local subscriber rows.
+ */
+async function readProviderSubscriptionStatuses(input: {
+  accessToken: string;
+  getMercadoPagoSubscriptionStatus: MercadoPagoSubscriptionStatusGetter;
+  providerSubscribers: SubscriptionProviderSubscriberRow[];
+}): Promise<(string | null)[]> {
+  const providerSubscriptionStatuses: (string | null)[] = new Array(
+    input.providerSubscribers.length
+  );
+  let nextSubscriberIndex = 0;
+
+  async function readNextProviderSubscriptions(): Promise<void> {
+    while (nextSubscriberIndex < input.providerSubscribers.length) {
+      const providerSubscriberIndex = nextSubscriberIndex;
+      nextSubscriberIndex += 1;
+
+      const providerSubscriber =
+        input.providerSubscribers[providerSubscriberIndex];
+
+      providerSubscriptionStatuses[providerSubscriberIndex] =
+        providerSubscriber.mercado_pago_preapproval_id
+          ? await input.getMercadoPagoSubscriptionStatus({
+              accessToken: input.accessToken,
+              preapprovalId: providerSubscriber.mercado_pago_preapproval_id,
+            })
+          : null;
+    }
+  }
+
+  const workerCount = Math.min(
+    MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS_LOOKUP_CONCURRENCY_LIMIT,
+    input.providerSubscribers.length
+  );
+
+  await Promise.all(
+    Array.from({ length: workerCount }, () => readNextProviderSubscriptions())
+  );
+
+  return providerSubscriptionStatuses;
 }
 
 /**
@@ -325,7 +390,7 @@ export class PostgresTribeSubscriptionPriceRepository
             tribe_subscription_prices.is_current,
             tribe_subscription_prices.created_at,
             count(tribe_member_subscriptions.id) filter (
-              where tribe_member_subscriptions.status in ('active', 'pending', 'grace_period', 'past_due', 'payment_blocked')
+              where tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
             ) as active_subscribers_count
           from public.tribe_subscription_prices
           inner join target_tribe
@@ -715,7 +780,7 @@ export class PostgresTribeSubscriptionPriceRepository
           inner join target_tribe
             on target_tribe.id = tribe_subscription_prices.tribe_id
           where tribe_subscription_prices.id = ${command.priceId}
-            and tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.status in ('active', 'canceled')
           limit 1
         )
         select
@@ -1095,16 +1160,13 @@ export class PostgresTribeSubscriptionPriceRepository
       priceId: command.priceId,
       tribeSlug: command.tribeSlug,
     });
-    const providerSubscriptionStatuses = await Promise.all(
-      providerSubscribers.map((providerSubscriber) =>
-        providerSubscriber.mercado_pago_preapproval_id
-          ? this.getMercadoPagoSubscriptionStatus({
-          accessToken: accessToken.value,
-          preapprovalId: providerSubscriber.mercado_pago_preapproval_id,
-            })
-          : Promise.resolve(null)
-      )
-    );
+    const providerSubscriptionStatuses =
+      await readProviderSubscriptionStatuses({
+        accessToken: accessToken.value,
+        getMercadoPagoSubscriptionStatus:
+          this.getMercadoPagoSubscriptionStatus,
+        providerSubscribers,
+      });
     const activeSubscribersCount = providerSubscriptionStatuses.filter(
       (providerSubscriptionStatus) =>
         providerSubscriptionStatus
@@ -1350,8 +1412,7 @@ export class PostgresTribeSubscriptionPriceRepository
         update public.tribe_subscription_prices
         set
           status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled},
-          is_current = false,
-          mercado_pago_preapproval_plan_id = null
+          is_current = false
         where tribe_subscription_prices.id = ${input.priceId}
           and tribe_subscription_prices.status = 'active'
         returning id, name, amount_cents, currency, frequency, status, is_current, created_at, 0 as active_subscribers_count
@@ -1467,7 +1528,7 @@ export class PostgresTribeSubscriptionPriceRepository
           tribe_subscription_prices.created_at,
           tribe_subscription_prices.mercado_pago_preapproval_plan_id,
           count(tribe_member_subscriptions.id) filter (
-            where tribe_member_subscriptions.status in ('active', 'pending', 'grace_period', 'past_due', 'payment_blocked')
+            where tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
           ) as active_subscribers_count
         from public.tribe_subscription_prices
         inner join target_tribe
@@ -1541,8 +1602,7 @@ export class PostgresTribeSubscriptionPriceRepository
         update public.tribe_subscription_prices
         set
           status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled},
-          is_current = false,
-          mercado_pago_preapproval_plan_id = null
+          is_current = false
         where tribe_subscription_prices.tribe_id = (select id from target_tribe)
           and tribe_subscription_prices.id = ${input.priceId}
           and tribe_subscription_prices.status = 'active'
@@ -1559,7 +1619,7 @@ export class PostgresTribeSubscriptionPriceRepository
           updated_price.is_current,
           updated_price.created_at,
           count(tribe_member_subscriptions.id) filter (
-            where tribe_member_subscriptions.status in ('active', 'pending', 'grace_period', 'past_due', 'payment_blocked')
+            where tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
           ) as active_subscribers_count
         from updated_price
         left join public.tribe_member_subscriptions
@@ -1600,10 +1660,16 @@ export class PostgresTribeSubscriptionPriceRepository
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
     }
 
-    const hasAssociatedMembers = await this.hasAssociatedSubscriptions(command.priceId);
+    const hasLocalActiveSubscriptions = await this.hasLocalActiveSubscriptions(
+      command.priceId
+    );
 
-    if (hasAssociatedMembers) {
+    if (hasLocalActiveSubscriptions) {
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers };
+    }
+
+    if (updateContext.status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
     }
 
     const accessToken = await this.resolveAccessTokenForProviderMutation(
@@ -1614,48 +1680,45 @@ export class PostgresTribeSubscriptionPriceRepository
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
     }
 
-    const cancellationReservation =
-      await this.reserveProviderPlanPriceCancellation(command);
-
-    if (!cancellationReservation?.tribe_id) {
+    if (!updateContext.mercado_pago_preapproval_plan_id) {
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
     }
 
-    if (!cancellationReservation.can_manage_prices) {
+    const providerPlanStatus = await this.getMercadoPagoPlanStatus({
+      accessToken,
+      preapprovalPlanId: updateContext.mercado_pago_preapproval_plan_id,
+    });
+
+    if (providerPlanStatus === MERCADO_PAGO_PROVIDER_PLAN_STATUS.active) {
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
     }
 
-    if (Number(cancellationReservation.active_subscribers_count ?? 0) > 0) {
+    const providerSubscribers = await this.listProviderSubscribers({
+      priceId: command.priceId,
+      tribeSlug: command.tribeSlug,
+    });
+    const providerSubscriptionStatuses =
+      await readProviderSubscriptionStatuses({
+        accessToken,
+        getMercadoPagoSubscriptionStatus:
+          this.getMercadoPagoSubscriptionStatus,
+        providerSubscribers,
+      });
+    const hasProviderActiveSubscribers = providerSubscriptionStatuses.some(
+      (providerSubscriptionStatus) =>
+        providerSubscriptionStatus
+          ? isProviderSubscriptionStillAttached(providerSubscriptionStatus)
+          : false
+    );
+
+    if (hasProviderActiveSubscribers) {
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers };
     }
 
-    try {
-      if (cancellationReservation.mercado_pago_preapproval_plan_id) {
-        await this.updateMercadoPagoPlan({
-          accessToken,
-          externalReference: buildPriceExternalReference(command.priceId),
-          preapprovalPlanId: cancellationReservation.mercado_pago_preapproval_plan_id,
-          reason: cancellationReservation.name,
-          status: MERCADO_PAGO_PROVIDER_PLAN_STATUS.canceled,
-        });
-      }
-    } catch (error) {
-      await this.restoreProviderPlanPriceCancellationReservation({
-        priceId: command.priceId,
-        tribeSlug: command.tribeSlug,
-        wasCurrent: Boolean(cancellationReservation.was_current),
-      });
+    const wasDeleted = await this.deleteCanceledProviderPlanPrice(command);
 
-      throw error;
-    }
-
-    const canceledPrice = await this.cancelProviderPlanPrice(command);
-
-    return canceledPrice
-      ? {
-          price: canceledPrice,
-          status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
-        }
+    return wasDeleted
+      ? { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted }
       : { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
   }
 
@@ -1802,25 +1865,64 @@ export class PostgresTribeSubscriptionPriceRepository
    * @param priceId - Local subscription price identifier.
    * @returns Whether the price has associated subscriptions.
    */
-  private async hasAssociatedSubscriptions(priceId: string): Promise<boolean> {
+  private async hasLocalActiveSubscriptions(priceId: string): Promise<boolean> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         select exists (
           select 1
           from public.tribe_member_subscriptions
           where tribe_member_subscriptions.price_id = ${priceId}
+            and tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
           limit 1
-        ) as has_associated_subscriptions
+        ) as has_local_active_subscriptions
       `);
 
       return Boolean(
         (
           result.rows?.[0] as
             | {
-                has_associated_subscriptions?: boolean;
+                has_local_active_subscriptions?: boolean;
               }
             | undefined
-        )?.has_associated_subscriptions
+        )?.has_local_active_subscriptions
+      );
+    });
+  }
+
+  private async deleteCanceledProviderPlanPrice(
+    command: TribeSubscriptionPriceIdentity
+  ): Promise<boolean> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+        ),
+        deleted_price as (
+          update public.tribe_subscription_prices
+          set
+            status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted},
+            is_current = false,
+            deleted_at = timezone('utc', now())
+          where tribe_subscription_prices.tribe_id = (select id from target_tribe)
+            and tribe_subscription_prices.id = ${command.priceId}
+            and tribe_subscription_prices.status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled}
+            and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
+          returning id
+        )
+        select exists (select 1 from deleted_price) as was_deleted
+      `);
+
+      return Boolean(
+        (
+          result.rows?.[0] as
+            | {
+                was_deleted?: boolean;
+              }
+            | undefined
+        )?.was_deleted
       );
     });
   }

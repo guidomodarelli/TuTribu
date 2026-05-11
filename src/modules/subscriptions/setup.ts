@@ -17,7 +17,10 @@ import {
   verifyTribeSubscriptionProviderSubscribers,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscription-prices-use-cases";
 import {
+  cancelOwnTribeMemberSubscription,
+  confirmTribeMemberSubscriptionReturn,
   handleMercadoPagoSubscriptionWebhook,
+  reconcileCurrentTribeMemberSubscription,
   startTribeMemberSubscription,
   validatePendingTribeMemberSubscriptionReturn,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
@@ -53,6 +56,13 @@ export function buildSubscriptionsModule({
       deleteTribeSubscriptionPrice: deleteTribeSubscriptionPrice({
         tribeSubscriptionPriceRepository,
       }),
+      cancelOwnTribeMemberSubscription: cancelOwnTribeMemberSubscription({
+        tribeMemberSubscriptionRepository,
+      }),
+      confirmTribeMemberSubscriptionReturn:
+        confirmTribeMemberSubscriptionReturn({
+          tribeMemberSubscriptionRepository,
+        }),
       handleMercadoPagoSubscriptionWebhook: handleMercadoPagoSubscriptionWebhook({
         tribeMemberSubscriptionRepository,
       }),
@@ -62,6 +72,10 @@ export function buildSubscriptionsModule({
       makeTribeSubscriptionPriceCurrent: makeTribeSubscriptionPriceCurrent({
         tribeSubscriptionPriceRepository,
       }),
+      reconcileCurrentTribeMemberSubscription:
+        reconcileCurrentTribeMemberSubscription({
+          tribeMemberSubscriptionRepository,
+        }),
       syncMercadoPagoSubscriptionProviderPlanWebhook:
         syncMercadoPagoSubscriptionProviderPlanWebhook({
           tribeSubscriptionPriceRepository,

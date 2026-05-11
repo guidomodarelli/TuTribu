@@ -63,6 +63,8 @@ const PRICE_MANAGEMENT_COPY = {
   priceListLabel: "Precios históricos",
   readonlyBadge: "Solo lectura",
   removeButton: "Eliminar",
+  replacementPlanNotice:
+    "Este precio tiene suscriptores asociados. Creá un nuevo plan para próximos miembros.",
   saveEditButton: "Guardar cambios",
   title: "Precios",
   providerSubscribersMetaSuffix: "suscriptores vigentes en Mercado Pago",
@@ -123,6 +125,7 @@ const PRICE_AMOUNT_FORMATTER = new Intl.NumberFormat(
 );
 
 type PriceResponse = {
+  deletedPriceId?: string;
   fieldErrors?: PriceFieldErrors;
   message?: string;
   price?: TribeSubscriptionPriceResult;
@@ -736,6 +739,11 @@ export function TribeSubscriptionPriceManagement({
       if (response.price) {
         applyPriceMutationResponse(response.price);
       }
+      if (response.deletedPriceId) {
+        setPriceItems((currentPrices) =>
+          currentPrices.filter((price) => price.id !== response.deletedPriceId)
+        );
+      }
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.removeButton);
     } catch (error) {
       toast.error(
@@ -981,24 +989,30 @@ export function TribeSubscriptionPriceManagement({
               ) : null}
               {canManagePrices ? (
                 <div className={styles.TribeSubscriptionPriceManagement__actions}>
-                  <Button
-                    disabled={
-                      isPriceManagementDisabled ||
-                      price.status === PRICE_MANAGEMENT_STATUS.canceled
-                    }
-                    onClick={() => {
-                      handleStartEditingPrice(price);
-                    }}
-                    type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                    variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
-                  >
-                    <PencilIcon />
-                    {PRICE_MANAGEMENT_COPY.editButton}
-                  </Button>
+                  {price.activeSubscribersCount > 0 ? (
+                    <span className={styles.TribeSubscriptionPriceManagement__meta}>
+                      {PRICE_MANAGEMENT_COPY.replacementPlanNotice}
+                    </span>
+                  ) : null}
+                  {price.activeSubscribersCount === 0 &&
+                  price.status !== PRICE_MANAGEMENT_STATUS.canceled ? (
+                    <Button
+                      disabled={isPriceManagementDisabled}
+                      onClick={() => {
+                        handleStartEditingPrice(price);
+                      }}
+                      type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                      variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                    >
+                      <PencilIcon />
+                      {PRICE_MANAGEMENT_COPY.editButton}
+                    </Button>
+                  ) : null}
                   <Button
                     disabled={
                       isPriceManagementDisabled ||
                       price.isCurrent ||
+                      price.activeSubscribersCount > 0 ||
                       price.status === PRICE_MANAGEMENT_STATUS.canceled
                     }
                     onClick={() => {
@@ -1014,7 +1028,7 @@ export function TribeSubscriptionPriceManagement({
                     disabled={
                       isPriceManagementDisabled ||
                       price.activeSubscribersCount > 0 ||
-                      price.status === PRICE_MANAGEMENT_STATUS.canceled
+                      price.status !== PRICE_MANAGEMENT_STATUS.canceled
                     }
                     onClick={() => {
                       void handleDeletePrice(price.id);

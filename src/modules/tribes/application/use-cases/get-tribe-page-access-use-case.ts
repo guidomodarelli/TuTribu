@@ -52,7 +52,10 @@ export function getTribePageAccess({
           );
     const membershipStatus = membershipAccess?.status ?? null;
 
-    if (membershipStatus === TRIBE_MEMBERSHIP_STATUS.blocked) {
+    if (
+      membershipStatus === TRIBE_MEMBERSHIP_STATUS.blocked ||
+      membershipStatus === TRIBE_MEMBERSHIP_STATUS.removed
+    ) {
       return {
         status: TRIBE_PAGE_ACCESS_STATUS.hidden,
         blockedReason:

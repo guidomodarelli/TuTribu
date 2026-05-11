@@ -11,6 +11,14 @@ function getSqlText(statement: unknown): string {
       if (
         chunk &&
         typeof chunk === "object" &&
+        "queryChunks" in chunk
+      ) {
+        return getSqlText(chunk);
+      }
+
+      if (
+        chunk &&
+        typeof chunk === "object" &&
         "value" in chunk &&
         Array.isArray((chunk as { value: unknown }).value)
       ) {
@@ -72,6 +80,30 @@ function createSubscriptionPriceRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+async function waitUntil(condition: () => boolean): Promise<void> {
+  for (let attemptIndex = 0; attemptIndex < 20; attemptIndex += 1) {
+    if (condition()) {
+      return;
+    }
+
+    await Promise.resolve();
+  }
+
+  throw new Error("Condition was not met before the test timeout");
+}
+
+function createProviderSubscriberRows(count: number) {
+  const providerSubscriberRows = [];
+
+  for (let subscriberIndex = 0; subscriberIndex < count; subscriberIndex += 1) {
+    providerSubscriberRows.push({
+      mercado_pago_preapproval_id: `subscription-${subscriberIndex + 1}`,
+    });
+  }
+
+  return providerSubscriberRows;
+}
+
 describe("PostgresTribeSubscriptionPriceRepository", () => {
   it("lists prices with Mercado Pago integration availability", async () => {
     const execute = jest.fn(async () => ({
@@ -102,6 +134,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         canViewPrices: true,
       },
     });
+
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
+      /tribe_member_subscriptions\.status in \([\s\S]*paused/
+    );
   });
 
   it("lists expired Mercado Pago integration without refresh token as disconnected", async () => {
@@ -494,6 +530,67 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     });
   });
 
+  it("should keep the Mercado Pago plan identifier when provider verification cancels a local price", async () => {
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (sqlText.includes("set") && sqlText.includes("mercado_pago_preapproval_plan_id = null")) {
+        throw new Error("provider plan id must be preserved");
+      }
+
+      if (sqlText.includes("access_token")) {
+        return {
+          rows: [
+            {
+              access_token: "access-token",
+              can_manage_prices: true,
+              refresh_token: null,
+              token_expires_at: null,
+              tribe_id: "tribe-1",
+            },
+          ],
+        };
+      }
+
+      if (sqlText.includes("mercado_pago_preapproval_plan_id")) {
+        return {
+          rows: [
+            createSubscriptionPriceRow({
+              mercado_pago_preapproval_plan_id: "plan-1",
+            }),
+          ],
+        };
+      }
+
+      return {
+        rows: [
+          createSubscriptionPriceRow({
+            is_current: false,
+            status: "canceled",
+          }),
+        ],
+      };
+    });
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => null)
+    );
+
+    await expect(
+      repository.verifyProviderPlan({
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        status: "canceled",
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+    });
+  });
+
   it("should not query Mercado Pago when no active local provider plan exists", async () => {
     const execute = jest
       .fn()
@@ -692,11 +789,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     const execute = jest.fn(async (statement) => {
       const sqlText = getSqlText(statement);
 
-      if (sqlText.includes("has_associated_subscriptions")) {
+      if (sqlText.includes("has_local_active_subscriptions")) {
         return {
           rows: [
             {
-              has_associated_subscriptions: false,
+              has_local_active_subscriptions: true,
             },
           ],
         };
@@ -755,5 +852,106 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers,
     });
     expect(updateMercadoPagoPlan).not.toHaveBeenCalled();
+  });
+
+  it("should delete canceled prices after checking historical provider subscribers with limited concurrency", async () => {
+    const providerSubscriberRows = createProviderSubscriberRows(12);
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...createSubscriptionPriceRow({
+              mercado_pago_preapproval_plan_id: "plan-1",
+              status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+              tribe_id: "tribe-1",
+            }),
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            has_local_active_subscriptions: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: providerSubscriberRows,
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            was_deleted: true,
+          },
+        ],
+      });
+    const releaseStatusLookups: Array<() => void> = [];
+    let activeStatusLookupCount = 0;
+    let maximumActiveStatusLookupCount = 0;
+    const getMercadoPagoSubscriptionStatus = jest.fn(async () => {
+      activeStatusLookupCount += 1;
+      maximumActiveStatusLookupCount = Math.max(
+        maximumActiveStatusLookupCount,
+        activeStatusLookupCount
+      );
+
+      await new Promise<void>((resolve) => {
+        releaseStatusLookups.push(resolve);
+      });
+
+      activeStatusLookupCount -= 1;
+
+      return null;
+    });
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => "canceled"),
+      getMercadoPagoSubscriptionStatus
+    );
+
+    const deleteResult = repository.delete({
+      priceId: "price-1",
+      tribeSlug: "matematica-pro",
+    });
+
+    await waitUntil(() => releaseStatusLookups.length === 5);
+    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(5);
+
+    releaseStatusLookups.splice(0).forEach((releaseStatusLookup) => {
+      releaseStatusLookup();
+    });
+
+    await waitUntil(
+      () =>
+        getMercadoPagoSubscriptionStatus.mock.calls.length === 10 &&
+        releaseStatusLookups.length === 5
+    );
+
+    releaseStatusLookups.splice(0).forEach((releaseStatusLookup) => {
+      releaseStatusLookup();
+    });
+
+    await waitUntil(
+      () =>
+        getMercadoPagoSubscriptionStatus.mock.calls.length === 12 &&
+        releaseStatusLookups.length === 2
+    );
+
+    releaseStatusLookups.splice(0).forEach((releaseStatusLookup) => {
+      releaseStatusLookup();
+    });
+
+    await expect(deleteResult).resolves.toEqual({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted,
+    });
+    expect(maximumActiveStatusLookupCount).toBe(5);
+    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(12);
   });
 });

@@ -24,7 +24,8 @@ export type TribePageAccessResult =
       blockedReason:
         | typeof TRIBE_MEMBERSHIP_STATUS_REASON.conductBlocked
         | typeof TRIBE_MEMBERSHIP_STATUS_REASON.none
-        | typeof TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked;
+        | typeof TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked
+        | typeof TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive;
     }
   | {
       status: typeof TRIBE_PAGE_ACCESS_STATUS.hidden;

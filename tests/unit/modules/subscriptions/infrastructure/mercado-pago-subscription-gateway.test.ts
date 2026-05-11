@@ -7,6 +7,7 @@ import {
   refreshMercadoPagoAccessToken,
   searchMercadoPagoPreapprovalPlans,
   updateMercadoPagoPreapprovalPlan,
+  updateMercadoPagoPreapprovalSubscriptionStatus,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 
 describe("mercado pago subscription gateway", () => {
@@ -84,6 +85,23 @@ describe("mercado pago subscription gateway", () => {
         preapprovalId: "preapproval-1",
       })
     ).rejects.toThrow("Mercado Pago preapproval response did not include status");
+  });
+
+  it("should return null when Mercado Pago no longer has the preapproval", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        message: "Not-found",
+      }),
+      ok: false,
+      status: 404,
+    });
+
+    await expect(
+      getMercadoPagoPreapprovalStatus({
+        accessToken: "access-token",
+        preapprovalId: "preapproval-1",
+      })
+    ).resolves.toBeNull();
   });
 
   it("should read the provider plan status when Mercado Pago returns a subscription plan", async () => {
@@ -306,7 +324,7 @@ describe("mercado pago subscription gateway", () => {
     );
   });
 
-  it("creates pending subscriptions without an associated plan for checkout redirects", async () => {
+  it("creates pending subscriptions associated to the current Mercado Pago plan", async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
         id: "preapproval-1",
@@ -324,6 +342,7 @@ describe("mercado pago subscription gateway", () => {
         externalReference: "subscription-1",
         idempotencyKey: "member-subscription-1",
         payerEmail: "member@example.com",
+        preapprovalPlanId: "plan-1",
         reason: "Plan mensual",
       })
     ).resolves.toEqual({
@@ -335,15 +354,10 @@ describe("mercado pago subscription gateway", () => {
       "https://api.mercadopago.com/preapproval",
       {
         body: JSON.stringify({
-          auto_recurring: {
-            currency_id: "ARS",
-            frequency: 1,
-            frequency_type: "months",
-            transaction_amount: 15,
-          },
           back_url: "https://tutribu.example.com/tribu/matematica-pro",
           external_reference: "subscription-1",
           payer_email: "member@example.com",
+          preapproval_plan_id: "plan-1",
           reason: "Plan mensual",
           status: "pending",
         }),
@@ -353,6 +367,37 @@ describe("mercado pago subscription gateway", () => {
           "X-Idempotency-Key": "member-subscription-1",
         },
         method: "POST",
+      }
+    );
+  });
+
+  it("cancels a Mercado Pago preapproval subscription through the provider API", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        status: "canceled",
+      }),
+      ok: true,
+    });
+
+    await expect(
+      updateMercadoPagoPreapprovalSubscriptionStatus({
+        accessToken: "access-token",
+        preapprovalId: "preapproval-1",
+        status: "canceled",
+      })
+    ).resolves.toBe("canceled");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.mercadopago.com/preapproval/preapproval-1",
+      {
+        body: JSON.stringify({
+          status: "canceled",
+        }),
+        headers: {
+          Authorization: "Bearer access-token",
+          "Content-Type": "application/json",
+        },
+        method: "PUT",
       }
     );
   });
