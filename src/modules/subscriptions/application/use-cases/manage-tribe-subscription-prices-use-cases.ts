@@ -9,6 +9,7 @@ import {
   TRIBE_SUBSCRIPTION_FREQUENCY,
   TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
+  TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
   CreateTribeSubscriptionPriceCommand,
@@ -26,6 +27,8 @@ type TribeSubscriptionPriceDependencies = {
 type CreateTribeSubscriptionPriceInput = {
   amount: string;
   name: string;
+  trialFrequency?: string;
+  trialFrequencyType?: string;
   tribeSlug: string;
 };
 
@@ -40,6 +43,24 @@ const AMOUNT_DECIMAL_SEPARATOR = {
 const AMOUNT_CENTS_MULTIPLIER = 100;
 const POSTGRES_INTEGER_MAX_VALUE = 2147483647;
 const VALID_AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
+const VALID_TRIAL_FREQUENCY_PATTERN = /^\d+$/;
+const SUPPORTED_TRIAL_FREQUENCY_TYPES = new Set<string>([
+  TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days,
+  TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.months,
+]);
+
+type NormalizedTrialPeriod = {
+  trialFrequency: number | null;
+  trialFrequencyType:
+    | typeof TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days
+    | typeof TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.months
+    | null;
+};
+
+type NormalizedUpdateTrialPeriod = {
+  trialFrequency?: NormalizedTrialPeriod["trialFrequency"];
+  trialFrequencyType?: NormalizedTrialPeriod["trialFrequencyType"];
+};
 
 /**
  * Normalizes text input by trimming surrounding whitespace.
@@ -78,6 +99,71 @@ function parseAmountCents(amount: string): number | null {
 }
 
 /**
+ * Converts optional trial period fields into the canonical application command shape.
+ *
+ * @param input - Raw trial period values.
+ * @returns Normalized trial period, or null when the submitted value is invalid.
+ */
+function parseTrialPeriod(input: {
+  trialFrequency?: string;
+  trialFrequencyType?: string;
+}): NormalizedTrialPeriod | null {
+  const trialFrequency = normalizeText(input.trialFrequency ?? "");
+  const trialFrequencyType = normalizeText(
+    input.trialFrequencyType ?? TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days
+  );
+
+  if (!trialFrequency) {
+    return {
+      trialFrequency: null,
+      trialFrequencyType: null,
+    };
+  }
+
+  if (
+    !VALID_TRIAL_FREQUENCY_PATTERN.test(trialFrequency) ||
+    !SUPPORTED_TRIAL_FREQUENCY_TYPES.has(trialFrequencyType)
+  ) {
+    return null;
+  }
+
+  const parsedTrialFrequency = Number(trialFrequency);
+
+  if (
+    !Number.isSafeInteger(parsedTrialFrequency) ||
+    parsedTrialFrequency <= 0 ||
+    parsedTrialFrequency > POSTGRES_INTEGER_MAX_VALUE
+  ) {
+    return null;
+  }
+
+  return {
+    trialFrequency: parsedTrialFrequency,
+    trialFrequencyType: trialFrequencyType as NormalizedTrialPeriod["trialFrequencyType"],
+  };
+}
+
+/**
+ * Converts optional update trial fields while preserving omitted values.
+ *
+ * @param input - Raw trial period values from a partial update.
+ * @returns Normalized trial period, undefined fields when omitted, or null when invalid.
+ */
+function parseUpdateTrialPeriod(input: {
+  trialFrequency?: string;
+  trialFrequencyType?: string;
+}): NormalizedUpdateTrialPeriod | null {
+  if (
+    input.trialFrequency === undefined &&
+    input.trialFrequencyType === undefined
+  ) {
+    return {};
+  }
+
+  return parseTrialPeriod(input);
+}
+
+/**
  * Builds the canonical repository command for creating a price.
  *
  * @param input - Raw price creation input from the route or UI.
@@ -88,9 +174,10 @@ function buildCreateCommand(
 ): CreateTribeSubscriptionPriceCommand | null {
   const amountCents = parseAmountCents(input.amount);
   const name = normalizeText(input.name);
+  const trialPeriod = parseTrialPeriod(input);
   const tribeSlug = normalizeText(input.tribeSlug);
 
-  if (!amountCents || !name || !tribeSlug) {
+  if (!amountCents || !name || !trialPeriod || !tribeSlug) {
     return null;
   }
 
@@ -99,6 +186,7 @@ function buildCreateCommand(
     currency: TRIBE_SUBSCRIPTION_CURRENCY.ars,
     frequency: TRIBE_SUBSCRIPTION_FREQUENCY.monthly,
     name,
+    ...trialPeriod,
     tribeSlug,
   };
 }
@@ -112,16 +200,24 @@ function buildCreateCommand(
 function buildUpdateCommand(
   input: UpdateTribeSubscriptionPriceInput
 ): UpdateTribeSubscriptionPriceCommand | null {
-  const createCommand = buildCreateCommand(input);
+  const amountCents = parseAmountCents(input.amount);
+  const name = normalizeText(input.name);
   const priceId = normalizeText(input.priceId);
+  const trialPeriod = parseUpdateTrialPeriod(input);
+  const tribeSlug = normalizeText(input.tribeSlug);
 
-  if (!createCommand || !priceId) {
+  if (!amountCents || !name || !priceId || !trialPeriod || !tribeSlug) {
     return null;
   }
 
   return {
-    ...createCommand,
+    amountCents,
+    currency: TRIBE_SUBSCRIPTION_CURRENCY.ars,
+    frequency: TRIBE_SUBSCRIPTION_FREQUENCY.monthly,
+    name,
     priceId,
+    ...trialPeriod,
+    tribeSlug,
   };
 }
 

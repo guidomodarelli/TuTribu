@@ -127,6 +127,20 @@
       "when": 1778533200000,
       "tag": "20260511210000_allow_paid_subscription_retry",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1778583600000,
+      "tag": "20260512120000_add_subscription_price_trial_period",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1778587200000,
+      "tag": "20260512130000_fix_subscription_price_trial_period_constraint",
+      "breakpoints": true
     }
   ]
 }

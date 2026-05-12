@@ -53,6 +53,10 @@ describe("manage tribe subscription prices use cases", () => {
     isCurrent: false,
     name: "Plan mensual",
     status: "active" as const,
+    trial: {
+      frequency: 7,
+      frequencyType: "days" as const,
+    },
   };
 
   it("creates cheaper prices because historical versions are immutable", async () => {
@@ -68,6 +72,8 @@ describe("manage tribe subscription prices use cases", () => {
       execute({
         amount: "5000",
         name: " Plan mensual ",
+        trialFrequency: " 7 ",
+        trialFrequencyType: " days ",
         tribeSlug: " matematica-pro ",
       })
     ).resolves.toEqual({
@@ -79,8 +85,28 @@ describe("manage tribe subscription prices use cases", () => {
       currency: "ARS",
       frequency: "monthly",
       name: "Plan mensual",
+      trialFrequency: 7,
+      trialFrequencyType: "days",
       tribeSlug: "matematica-pro",
     });
+  });
+
+  it("should reject invalid trial periods before calling the repository", async () => {
+    const create = jest.fn();
+    const execute = createTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({ create }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: "Plan mensual",
+        trialFrequency: "0",
+        trialFrequencyType: "days",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput });
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects invalid amounts before calling the repository", async () => {
@@ -244,6 +270,8 @@ describe("manage tribe subscription prices use cases", () => {
         amount: "5000",
         name: " Plan actualizado ",
         priceId: " price-1 ",
+        trialFrequency: "14",
+        trialFrequencyType: "days",
         tribeSlug: " matematica-pro ",
       })
     ).resolves.toMatchObject({
@@ -258,6 +286,76 @@ describe("manage tribe subscription prices use cases", () => {
       frequency: "monthly",
       name: "Plan actualizado",
       priceId: "price-1",
+      trialFrequency: 14,
+      trialFrequencyType: "days",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should preserve omitted trial fields when updating legacy clients", async () => {
+    const update = jest.fn(async () => ({
+      price: createdPrice,
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    }));
+    const execute = updateTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({ update }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: "Plan actualizado",
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    });
+    expect(update).toHaveBeenCalledWith({
+      amountCents: 500000,
+      currency: "ARS",
+      frequency: "monthly",
+      name: "Plan actualizado",
+      priceId: "price-1",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should clear trial fields when updating with an empty trial frequency", async () => {
+    const update = jest.fn(async () => ({
+      price: {
+        ...createdPrice,
+        trial: null,
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    }));
+    const execute = updateTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({ update }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: "Plan actualizado",
+        priceId: "price-1",
+        trialFrequency: "",
+        trialFrequencyType: "days",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        trial: null,
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    });
+    expect(update).toHaveBeenCalledWith({
+      amountCents: 500000,
+      currency: "ARS",
+      frequency: "monthly",
+      name: "Plan actualizado",
+      priceId: "price-1",
+      trialFrequency: null,
+      trialFrequencyType: null,
       tribeSlug: "matematica-pro",
     });
   });

@@ -84,6 +84,8 @@ function createSubscriptionPriceRow(overrides: Record<string, unknown> = {}) {
     name: "Plan mensual",
     status: "active",
     status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
+    trial_frequency: 7,
+    trial_frequency_type: "days",
     ...overrides,
   };
 }
@@ -330,8 +332,17 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       }
 
       if (sqlText.includes("set is_current = true")) {
+        const returnsTrial = sqlText.includes(
+          "updated_current_price.trial_frequency"
+        );
+
         return {
-          rows: [createSubscriptionPriceRow()],
+          rows: [
+            createSubscriptionPriceRow({
+              trial_frequency: returnsTrial ? 1 : null,
+              trial_frequency_type: returnsTrial ? "months" : null,
+            }),
+          ],
         };
       }
 
@@ -354,6 +365,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       price: {
         id: "price-1",
         isCurrent: true,
+        trial: {
+          frequency: 1,
+          frequencyType: "months",
+        },
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
     });
@@ -483,6 +498,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       currency: "ARS",
       frequency: "monthly",
       name: "Plan mensual",
+      trialFrequency: 7,
+      trialFrequencyType: "days",
       tribeSlug: "matematica-pro",
     });
 
@@ -502,7 +519,169 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         externalReference: "latribu:price:price-1",
         idempotencyKey:
           "tribe-price:price-1:matematica-pro:Plan mensual:500000:ARS:monthly",
+        trialFrequency: 7,
+        trialFrequencyType: "days",
       })
+    );
+  });
+
+  it("should update Mercado Pago and local storage when the trial period changes", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...createSubscriptionPriceRow({
+              mercado_pago_preapproval_plan_id: "plan-1",
+              trial_frequency: 7,
+              trial_frequency_type: "days",
+              tribe_id: "tribe-1",
+            }),
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+            trial_frequency: 14,
+            trial_frequency_type: "days",
+          }),
+        ],
+      });
+    const updateMercadoPagoPlan = jest.fn(async () => ({
+      amountCents: 500000,
+      currency: "ARS",
+      externalReference: "latribu:price:price-1",
+      id: "plan-1",
+      reason: "Plan mensual",
+      status: "active",
+      trial: {
+        frequency: 14,
+        frequencyType: "days",
+      },
+    }));
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => "active"),
+      jest.fn(async () => "authorized"),
+      updateMercadoPagoPlan
+    );
+
+    await expect(
+      repository.update({
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+        priceId: "price-1",
+        trialFrequency: 14,
+        trialFrequencyType: "days",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        trial: {
+          frequency: 14,
+          frequencyType: "days",
+        },
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    });
+    expect(updateMercadoPagoPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trialFrequency: 14,
+        trialFrequencyType: "days",
+      })
+    );
+    expect(getSqlText(execute.mock.calls[1][0])).toContain("trial_frequency");
+    expect(getSqlText(execute.mock.calls[1][0])).toContain(
+      "trial_frequency_type"
+    );
+  });
+
+  it("should preserve the stored trial period when update fields are omitted", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...createSubscriptionPriceRow({
+              mercado_pago_preapproval_plan_id: "plan-1",
+              trial_frequency: 7,
+              trial_frequency_type: "days",
+              tribe_id: "tribe-1",
+            }),
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+            trial_frequency: 7,
+            trial_frequency_type: "days",
+          }),
+        ],
+      });
+    const updateMercadoPagoPlan = jest.fn(async () => ({
+      amountCents: 500000,
+      currency: "ARS",
+      externalReference: "latribu:price:price-1",
+      id: "plan-1",
+      reason: "Plan mensual actualizado",
+      status: "active",
+      trial: {
+        frequency: 7,
+        frequencyType: "days",
+      },
+    }));
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => "active"),
+      jest.fn(async () => "authorized"),
+      updateMercadoPagoPlan
+    );
+
+    await expect(
+      repository.update({
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual actualizado",
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        trial: {
+          frequency: 7,
+          frequencyType: "days",
+        },
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    });
+    expect(updateMercadoPagoPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trialFrequency: 7,
+        trialFrequencyType: "days",
+      })
+    );
+    expect(getSqlText(execute.mock.calls[0][0])).toContain("trial_frequency");
+    expect(getSqlText(execute.mock.calls[0][0])).toContain(
+      "trial_frequency_type"
     );
   });
 
@@ -710,11 +889,15 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         };
       }
 
+      const returnsTrial = sqlText.includes("updated_price.trial_frequency");
+
       return {
         rows: [
           createSubscriptionPriceRow({
             is_current: false,
             status: "canceled",
+            trial_frequency: returnsTrial ? 1 : null,
+            trial_frequency_type: returnsTrial ? "months" : null,
           }),
         ],
       };
@@ -734,6 +917,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ).resolves.toMatchObject({
       price: {
         status: "canceled",
+        trial: {
+          frequency: 1,
+          frequencyType: "months",
+        },
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
@@ -774,6 +961,58 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     });
     expect(getMercadoPagoPlanStatus).not.toHaveBeenCalled();
     expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it("should read trial fields when provider plan verification returns the local price", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            mercado_pago_preapproval_plan_id: "plan-1",
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [createSubscriptionPriceRow()],
+      });
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => "active")
+    );
+
+    await expect(
+      repository.verifyProviderPlan({
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        trial: {
+          frequency: 7,
+          frequencyType: "days",
+        },
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+    });
+
+    const verificationSqlText = getSqlText(execute.mock.calls[1][0]);
+
+    expect(verificationSqlText).toContain("trial_frequency");
+    expect(verificationSqlText).toContain("trial_frequency_type");
   });
 
   it("should not call Mercado Pago when the viewer cannot manage prices", async () => {
@@ -874,6 +1113,14 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       accessToken: "access-token",
       preapprovalId: "subscription-1",
     });
+    const reconciliationSqlText = getSqlText(execute.mock.calls[3][0]);
+
+    expect(reconciliationSqlText).toMatch(
+      /group by[\s\S]*target_price\.trial_frequency/
+    );
+    expect(reconciliationSqlText).toMatch(
+      /group by[\s\S]*target_price\.trial_frequency_type/
+    );
     expect(
       execute.mock.calls.some((call) =>
         getSqlText(call[0]).includes("update public.tribe_member_subscriptions")
@@ -1111,6 +1358,18 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     const execute = jest.fn(async (statement) => {
       const sqlText = getSqlText(statement);
 
+      if (sqlText.includes("update public.tribe_subscription_prices")) {
+        return {
+          rows: [
+            createSubscriptionPriceRow({
+              name: "Plan actualizado",
+              trial_frequency: 21,
+              trial_frequency_type: "days",
+            }),
+          ],
+        };
+      }
+
       if (sqlText.includes("from public.tribe_subscription_prices")) {
         if (sqlText.includes("inner join public.tribes")) {
           return { rows: [] };
@@ -1156,6 +1415,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       id: "plan-1",
       reason: "Plan actualizado",
       status: "active",
+      trial: {
+        frequency: 21,
+        frequencyType: "days",
+      },
     }));
     const repository = createRepository(
       execute,
@@ -1176,6 +1439,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ).resolves.toMatchObject({
       price: {
         name: "Plan actualizado",
+        trial: {
+          frequency: 21,
+          frequencyType: "days",
+        },
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });

@@ -22,6 +22,8 @@ Reglas:
 * miembros existentes conservan su `price_id` original
 * no se cancela una versión con miembros asociados
 * cada tribu puede tener hasta 30 precios activos
+* el período de prueba gratuita es parte mutable del precio y se sincroniza
+  sobre el mismo `preapproval_plan` de Mercado Pago
 
 ## Estado de acceso
 
@@ -84,8 +86,12 @@ suscripción inactiva.
 
 Las acciones iniciadas desde LaTribu se aplican primero contra Mercado Pago y
 luego se reflejan localmente. Los webhooks `subscription_preapproval_plan`
-actualizan el nombre local cuando el plan sigue activo y cancelan el precio
-local cuando el plan proveedor deja de estar activo.
+actualizan el nombre y el período de prueba local cuando el plan sigue activo y
+cancelan el precio local cuando el plan proveedor deja de estar activo. La app
+modela el trial con `trial_frequency` y `trial_frequency_type`, mapeados desde
+`auto_recurring.free_trial.frequency` y
+`auto_recurring.free_trial.frequency_type`; si Mercado Pago no devuelve
+`free_trial`, el precio local queda sin período de prueba.
 
 Una eliminación local de precio solo puede ocurrir después de que el precio ya
 esté `canceled`, Mercado Pago confirme que el plan proveedor no está activo y

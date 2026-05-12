@@ -326,12 +326,12 @@
     }
 
     &__form {
-      grid-template-columns: minmax(12rem, 1fr) minmax(10rem, 0.8fr) max-content;
+      grid-template-columns: minmax(12rem, 1fr) minmax(10rem, 0.8fr) minmax(10rem, 0.6fr) max-content;
     }
 
     &__editForm {
       align-items: end;
-      grid-template-columns: minmax(12rem, 1fr) minmax(10rem, 0.8fr) minmax(14rem, 0.7fr);
+      grid-template-columns: minmax(12rem, 1fr) minmax(10rem, 0.8fr) minmax(10rem, 0.6fr) minmax(14rem, 0.7fr);
     }
   }
 }

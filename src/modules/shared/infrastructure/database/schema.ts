@@ -292,6 +292,8 @@ export const tribeSubscriptionPrices = pgTable("tribe_subscription_prices", {
   status: text("status").notNull(),
   isCurrent: boolean("is_current").notNull().default(false),
   mercadoPagoPreapprovalPlanId: text("mercado_pago_preapproval_plan_id"),
+  trialFrequency: integer("trial_frequency"),
+  trialFrequencyType: text("trial_frequency_type"),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),

@@ -130,7 +130,95 @@ describe("tribe subscription prices route", () => {
     });
   });
 
+  it("should preserve omitted trial frequency type in legacy price creation requests", async () => {
+    createTribeSubscriptionPrice.mockResolvedValue({
+      price: {
+        activeSubscribersCount: 0,
+        amountCents: 500000,
+        createdAt: "2026-05-06T12:00:00.000Z",
+        currency: "ARS",
+        frequency: "monthly",
+        id: "price-1",
+        isCurrent: false,
+        name: "Plan mensual",
+        status: "active",
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+    });
+
+    const response = await POST(
+      buildRequest({
+        amount: "5000",
+        name: "Plan mensual",
+        trialFrequency: "14",
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(201);
+    expect(createTribeSubscriptionPrice).toHaveBeenCalledWith({
+      amount: "5000",
+      name: "Plan mensual",
+      trialFrequency: "14",
+      trialFrequencyType: undefined,
+      tribeSlug: "matematica-pro",
+    });
+  });
+
   it("should update one price from the item route", async () => {
+    updateTribeSubscriptionPrice.mockResolvedValue({
+      price: {
+        activeSubscribersCount: 0,
+        amountCents: 500000,
+        createdAt: "2026-05-06T12:00:00.000Z",
+        currency: "ARS",
+        frequency: "monthly",
+        id: "price-1",
+        isCurrent: false,
+        name: "Plan actualizado",
+        status: "active",
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    });
+
+    const response = await PATCH(
+      buildRequest({
+        amount: "5000",
+        name: "Plan actualizado",
+        trialFrequency: "14",
+        trialFrequencyType: "days",
+      }),
+      {
+        params: Promise.resolve({
+          priceId: "price-1",
+          slug: "matematica-pro",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      message: "Precio actualizado.",
+      price: {
+        name: "Plan actualizado",
+      },
+    });
+    expect(updateTribeSubscriptionPrice).toHaveBeenCalledWith({
+      amount: "5000",
+      name: "Plan actualizado",
+      priceId: "price-1",
+      trialFrequency: "14",
+      trialFrequencyType: "days",
+      tribeSlug: "matematica-pro",
+    });
+    expect(createServerLogger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "update-tribe-subscription-price",
+      })
+    );
+  });
+
+  it("should preserve omitted trial fields in legacy price update requests", async () => {
     updateTribeSubscriptionPrice.mockResolvedValue({
       price: {
         activeSubscribersCount: 0,
@@ -160,23 +248,14 @@ describe("tribe subscription prices route", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      message: "Precio actualizado.",
-      price: {
-        name: "Plan actualizado",
-      },
-    });
     expect(updateTribeSubscriptionPrice).toHaveBeenCalledWith({
       amount: "5000",
       name: "Plan actualizado",
       priceId: "price-1",
+      trialFrequency: undefined,
+      trialFrequencyType: undefined,
       tribeSlug: "matematica-pro",
     });
-    expect(createServerLogger).toHaveBeenCalledWith(
-      expect.objectContaining({
-        operation: "update-tribe-subscription-price",
-      })
-    );
   });
 
   it("should return a canceled price from the item delete route", async () => {

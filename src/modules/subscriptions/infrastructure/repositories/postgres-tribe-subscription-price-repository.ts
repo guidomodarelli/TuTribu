@@ -90,6 +90,8 @@ type SubscriptionPriceRow = {
   is_current: boolean;
   name: string;
   status: "active" | "canceled" | "deleted";
+  trial_frequency: number | null;
+  trial_frequency_type: "days" | "months" | null;
 };
 
 type SubscriptionPriceListRow = SubscriptionPriceRow & {
@@ -159,6 +161,11 @@ type PriceUpdateContextRow = SubscriptionProviderPlanRow & {
   refresh_token: string | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
+};
+
+type ResolvedUpdateTrialPeriod = {
+  trialFrequency: number | null;
+  trialFrequencyType: "days" | "months" | null;
 };
 
 type PriceCancellationReservationRow = PriceUpdateContextRow & {
@@ -531,6 +538,13 @@ function mapSubscriptionPrice(row: SubscriptionPriceRow): TribeSubscriptionPrice
     isCurrent: row.is_current,
     name: row.name,
     status: row.status,
+    trial:
+      row.trial_frequency && row.trial_frequency_type
+        ? {
+            frequency: row.trial_frequency,
+            frequencyType: row.trial_frequency_type,
+          }
+        : null,
   };
 }
 
@@ -658,6 +672,29 @@ function mapPriceMutationResult(
   };
 }
 
+/**
+ * Resolves omitted update trial fields from the currently stored price.
+ *
+ * @param command - Price update command.
+ * @param updateContext - Stored price state loaded for the update.
+ * @returns Trial period values to persist and synchronize.
+ */
+function resolveUpdateTrialPeriod(
+  command: UpdateTribeSubscriptionPriceCommand,
+  updateContext: PriceUpdateContextRow
+): ResolvedUpdateTrialPeriod {
+  return {
+    trialFrequency:
+      command.trialFrequency === undefined
+        ? updateContext.trial_frequency
+        : command.trialFrequency,
+    trialFrequencyType:
+      command.trialFrequencyType === undefined
+        ? updateContext.trial_frequency_type
+        : command.trialFrequencyType,
+  };
+}
+
 export class PostgresTribeSubscriptionPriceRepository
   implements
     TribeProviderSubscriberReconciliationRepository,
@@ -731,6 +768,8 @@ export class PostgresTribeSubscriptionPriceRepository
             tribe_subscription_prices.frequency,
             tribe_subscription_prices.status,
             tribe_subscription_prices.is_current,
+            tribe_subscription_prices.trial_frequency,
+            tribe_subscription_prices.trial_frequency_type,
             tribe_subscription_prices.created_at,
             count(tribe_member_subscriptions.id) filter (
               where tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
@@ -752,6 +791,8 @@ export class PostgresTribeSubscriptionPriceRepository
           price_rows.frequency,
           price_rows.status,
           price_rows.is_current,
+          price_rows.trial_frequency,
+          price_rows.trial_frequency_type,
           price_rows.created_at,
           price_rows.active_subscribers_count,
           viewer_permissions.can_view_prices,
@@ -1038,6 +1079,8 @@ export class PostgresTribeSubscriptionPriceRepository
         idempotencyKey: providerPlanOperationKey,
         name: command.name,
         reason: command.name,
+        trialFrequency: command.trialFrequency,
+        trialFrequencyType: command.trialFrequencyType,
         ...(traceContext ? { traceContext } : {}),
       });
     } catch (error) {
@@ -1083,6 +1126,8 @@ export class PostgresTribeSubscriptionPriceRepository
             frequency,
             status,
             is_current,
+            trial_frequency,
+            trial_frequency_type,
             mercado_pago_preapproval_plan_id,
             created_by,
             created_at
@@ -1095,6 +1140,8 @@ export class PostgresTribeSubscriptionPriceRepository
             ${command.frequency},
             ${SUBSCRIPTION_PRICE_PROVIDER_PLAN_RESERVATION_STATUS},
             false,
+            ${command.trialFrequency},
+            ${command.trialFrequencyType},
             null,
             public.current_app_user_id(),
             timezone('utc', now())
@@ -1151,7 +1198,7 @@ export class PostgresTribeSubscriptionPriceRepository
         where tribe_subscription_prices.id = ${input.priceId}
           and tribe_subscription_prices.status = ${SUBSCRIPTION_PRICE_PROVIDER_PLAN_RESERVATION_STATUS}
           and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
-        returning id, name, amount_cents, currency, frequency, status, is_current, created_at
+        returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at
       `);
 
       return mapPriceMutationResult(
@@ -1187,6 +1234,7 @@ export class PostgresTribeSubscriptionPriceRepository
     }
 
     const amountHasChanged = updateContext.amount_cents !== command.amountCents;
+    const resolvedTrialPeriod = resolveUpdateTrialPeriod(command, updateContext);
 
     if (amountHasChanged) {
       const createdPriceResult = await this.create({
@@ -1194,6 +1242,7 @@ export class PostgresTribeSubscriptionPriceRepository
         currency: command.currency,
         frequency: command.frequency,
         name: command.name,
+        ...resolvedTrialPeriod,
         tribeSlug: command.tribeSlug,
       });
 
@@ -1239,11 +1288,15 @@ export class PostgresTribeSubscriptionPriceRepository
         preapprovalPlanId: updateContext.mercado_pago_preapproval_plan_id,
         reason: command.name,
         status: MERCADO_PAGO_PROVIDER_PLAN_STATUS.active,
+        ...resolvedTrialPeriod,
         ...(traceContext ? { traceContext } : {}),
       });
     }
 
-    return this.updateLocalPriceName(command);
+    return this.updateLocalPriceMutableFields({
+      ...command,
+      ...resolvedTrialPeriod,
+    });
   }
 
   /**
@@ -1273,6 +1326,8 @@ export class PostgresTribeSubscriptionPriceRepository
             tribe_subscription_prices.frequency,
             tribe_subscription_prices.status,
             tribe_subscription_prices.is_current,
+            tribe_subscription_prices.trial_frequency,
+            tribe_subscription_prices.trial_frequency_type,
             tribe_subscription_prices.created_at,
             tribe_subscription_prices.mercado_pago_preapproval_plan_id
           from public.tribe_subscription_prices
@@ -1291,6 +1346,8 @@ export class PostgresTribeSubscriptionPriceRepository
           target_price.frequency,
           target_price.status,
           target_price.is_current,
+          target_price.trial_frequency,
+          target_price.trial_frequency_type,
           target_price.created_at,
           target_price.mercado_pago_preapproval_plan_id,
           0 as active_subscribers_count,
@@ -1332,12 +1389,12 @@ export class PostgresTribeSubscriptionPriceRepository
   }
 
   /**
-   * Persists a mutable local price name after Mercado Pago accepts the change.
+   * Persists mutable local price fields after Mercado Pago accepts the change.
    *
    * @param command - Price update command.
    * @returns Updated price mutation result.
    */
-  private async updateLocalPriceName(
+  private async updateLocalPriceMutableFields(
     command: UpdateTribeSubscriptionPriceCommand
   ): Promise<TribeSubscriptionPriceMutationResult> {
     return this.executeWithDatabase(async (database) => {
@@ -1350,12 +1407,15 @@ export class PostgresTribeSubscriptionPriceRepository
         ),
         updated_price as (
           update public.tribe_subscription_prices
-          set name = ${command.name}
+          set
+            name = ${command.name},
+            trial_frequency = ${command.trialFrequency},
+            trial_frequency_type = ${command.trialFrequencyType}
           where tribe_subscription_prices.tribe_id = (select id from target_tribe)
             and tribe_subscription_prices.id = ${command.priceId}
             and tribe_subscription_prices.status = 'active'
             and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
-          returning id, name, amount_cents, currency, frequency, status, is_current, created_at
+          returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at
         )
         select
           ${TRIBE_SUBSCRIPTION_PRICE_STATUS.updated} as status_result,
@@ -1366,6 +1426,8 @@ export class PostgresTribeSubscriptionPriceRepository
           updated_price.frequency,
           updated_price.status,
           updated_price.is_current,
+          updated_price.trial_frequency,
+          updated_price.trial_frequency_type,
           updated_price.created_at,
           0 as active_subscribers_count
         from updated_price
@@ -1472,7 +1534,7 @@ export class PostgresTribeSubscriptionPriceRepository
             and tribe_subscription_prices.id = ${command.priceId}
             and tribe_subscription_prices.status = 'active'
             and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
-          returning id, name, amount_cents, currency, frequency, status, is_current, created_at
+          returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at
         )
         select
           case
@@ -1486,6 +1548,8 @@ export class PostgresTribeSubscriptionPriceRepository
           updated_current_price.frequency,
           updated_current_price.status,
           updated_current_price.is_current,
+          updated_current_price.trial_frequency,
+          updated_current_price.trial_frequency_type,
           updated_current_price.created_at,
           0 as active_subscribers_count
         from (select 1) result
@@ -1817,6 +1881,8 @@ export class PostgresTribeSubscriptionPriceRepository
       const updatedPrice = await this.updateLocalPriceNameFromWebhook({
         name: providerPlan.reason ?? webhookContext.name,
         priceId: webhookContext.id,
+        trialFrequency: providerPlan.trial?.frequency ?? null,
+        trialFrequencyType: providerPlan.trial?.frequencyType ?? null,
       });
 
       return updatedPrice
@@ -1852,6 +1918,8 @@ export class PostgresTribeSubscriptionPriceRepository
           tribe_subscription_prices.frequency,
           tribe_subscription_prices.status,
           tribe_subscription_prices.is_current,
+          tribe_subscription_prices.trial_frequency,
+          tribe_subscription_prices.trial_frequency_type,
           tribe_subscription_prices.created_at,
           tribe_subscription_prices.mercado_pago_preapproval_plan_id,
           0 as active_subscribers_count,
@@ -1946,14 +2014,19 @@ export class PostgresTribeSubscriptionPriceRepository
   private async updateLocalPriceNameFromWebhook(input: {
     name: string;
     priceId: string;
+    trialFrequency: number | null;
+    trialFrequencyType: "days" | "months" | null;
   }): Promise<TribeSubscriptionPriceResult | null> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         update public.tribe_subscription_prices
-        set name = ${input.name}
+        set
+          name = ${input.name},
+          trial_frequency = ${input.trialFrequency},
+          trial_frequency_type = ${input.trialFrequencyType}
         where tribe_subscription_prices.id = ${input.priceId}
           and tribe_subscription_prices.status = 'active'
-        returning id, name, amount_cents, currency, frequency, status, is_current, created_at, 0 as active_subscribers_count
+        returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at, 0 as active_subscribers_count
       `);
       const row = (result.rows?.[0] ?? null) as SubscriptionPriceRow | null;
 
@@ -1978,7 +2051,7 @@ export class PostgresTribeSubscriptionPriceRepository
           is_current = false
         where tribe_subscription_prices.id = ${input.priceId}
           and tribe_subscription_prices.status = 'active'
-        returning id, name, amount_cents, currency, frequency, status, is_current, created_at, 0 as active_subscribers_count
+        returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at, 0 as active_subscribers_count
       `);
       const row = (result.rows?.[0] ?? null) as SubscriptionPriceRow | null;
 
@@ -2088,6 +2161,8 @@ export class PostgresTribeSubscriptionPriceRepository
           tribe_subscription_prices.frequency,
           tribe_subscription_prices.status,
           tribe_subscription_prices.is_current,
+          tribe_subscription_prices.trial_frequency,
+          tribe_subscription_prices.trial_frequency_type,
           tribe_subscription_prices.created_at,
           tribe_subscription_prices.mercado_pago_preapproval_plan_id,
           count(tribe_member_subscriptions.id) filter (
@@ -2152,6 +2227,8 @@ export class PostgresTribeSubscriptionPriceRepository
             tribe_subscription_prices.frequency,
             tribe_subscription_prices.status,
             tribe_subscription_prices.is_current,
+            tribe_subscription_prices.trial_frequency,
+            tribe_subscription_prices.trial_frequency_type,
             tribe_subscription_prices.created_at
           from public.tribe_subscription_prices
           inner join target_tribe
@@ -2247,6 +2324,8 @@ export class PostgresTribeSubscriptionPriceRepository
           target_price.frequency,
           target_price.status,
           target_price.is_current,
+          target_price.trial_frequency,
+          target_price.trial_frequency_type,
           target_price.created_at,
           count(tribe_member_subscriptions.id) filter (
             where tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
@@ -2262,6 +2341,8 @@ export class PostgresTribeSubscriptionPriceRepository
           target_price.frequency,
           target_price.status,
           target_price.is_current,
+          target_price.trial_frequency,
+          target_price.trial_frequency_type,
           target_price.created_at
       `);
       const row = (result.rows?.[0] ?? null) as SubscriptionPriceRow | null;
@@ -2517,7 +2598,7 @@ export class PostgresTribeSubscriptionPriceRepository
           and tribe_subscription_prices.id = ${input.priceId}
           and tribe_subscription_prices.status = 'active'
           and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
-        returning id, name, amount_cents, currency, frequency, status, is_current, created_at
+        returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at
         )
         select
           updated_price.id,
@@ -2527,6 +2608,8 @@ export class PostgresTribeSubscriptionPriceRepository
           updated_price.frequency,
           updated_price.status,
           updated_price.is_current,
+          updated_price.trial_frequency,
+          updated_price.trial_frequency_type,
           updated_price.created_at,
           count(tribe_member_subscriptions.id) filter (
             where tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
@@ -2542,6 +2625,8 @@ export class PostgresTribeSubscriptionPriceRepository
           updated_price.frequency,
           updated_price.status,
           updated_price.is_current,
+          updated_price.trial_frequency,
+          updated_price.trial_frequency_type,
           updated_price.created_at
       `);
 

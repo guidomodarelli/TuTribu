@@ -9,6 +9,7 @@ import type {
   TRIBE_SUBSCRIPTION_CURRENCY,
   TRIBE_SUBSCRIPTION_FREQUENCY,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
+  TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 
 export type TribeSubscriptionPriceResult = {
@@ -21,6 +22,12 @@ export type TribeSubscriptionPriceResult = {
   isCurrent: boolean;
   name: string;
   status: "active" | "canceled" | "deleted";
+  trial: {
+    frequency: number;
+    frequencyType:
+      | typeof TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days
+      | typeof TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.months;
+  } | null;
 };
 
 export type TribeSubscriptionPriceListResult = {

@@ -108,7 +108,15 @@ const PRICE_MANAGEMENT_COPY = {
   tableActionsHeader: "Acciones",
   tableNameHeader: "Nombre",
   tableStatusHeader: "Estado",
+  tableTrialHeader: "Prueba gratis",
   title: "Precios",
+  trialDaysLabel: "Días de prueba gratis",
+  trialDaysPlaceholder: "7",
+  trialDaySuffix: "día",
+  trialEmptyLabel: "Sin prueba gratis",
+  trialDaysSuffix: "días",
+  trialMonthSuffix: "mes",
+  trialMonthsSuffix: "meses",
   providerSubscribersMetaSuffix: "suscriptores vigentes en Mercado Pago",
   verifyProviderPlanButton: "Verificar plan",
   verifyProviderSubscribersButton: "Verificar suscriptores",
@@ -131,7 +139,7 @@ const PRICE_MANAGEMENT_ROUTE = {
 const PRICE_MANAGEMENT_REQUEST = {
   ariaHidden: true,
   buttonType: "button",
-  tableColumnCount: 4,
+  tableColumnCount: 5,
   contentTypeHeader: "Content-Type",
   deleteMethod: "DELETE",
   destructiveBadgeVariant: "destructive",
@@ -152,6 +160,7 @@ const PRICE_MANAGEMENT_STATUS = {
 const PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX = {
   amount: "-edit-amount",
   name: "-edit-name",
+  trialFrequency: "-edit-trial-frequency",
 } as const;
 
 const PRICE_MANAGEMENT_ELEMENT_ID = {
@@ -164,8 +173,12 @@ const PRICE_MANAGEMENT_FORMAT = {
   amountDivisor: 100,
   currency: "ARS",
   inputMode: "decimal",
+  numericInputMode: "numeric",
   locale: "es-AR",
+  labelSeparator: " ",
+  monthlyTrialFrequencyType: "months",
   style: "currency",
+  trialFrequencyType: "days",
 } as const;
 const PRICE_AMOUNT_FORMATTER = new Intl.NumberFormat(
   PRICE_MANAGEMENT_FORMAT.locale,
@@ -210,6 +223,8 @@ type EditingPrice = {
   amount: string;
   id: string;
   name: string;
+  trialFrequency: string;
+  trialFrequencyType: "days" | "months";
 };
 
 class PriceRequestError extends Error {
@@ -362,6 +377,42 @@ function formatAmountInputValue(amountCents: number): string {
 }
 
 /**
+ * Resolves the localized unit label for a trial period.
+ *
+ * @param trial - Subscription price trial data.
+ * @returns Spanish trial unit label.
+ */
+function getTrialUnitLabel(
+  trial: NonNullable<TribeSubscriptionPriceResult["trial"]>
+): string {
+  if (
+    trial.frequencyType === PRICE_MANAGEMENT_FORMAT.monthlyTrialFrequencyType
+  ) {
+    return trial.frequency === 1
+      ? PRICE_MANAGEMENT_COPY.trialMonthSuffix
+      : PRICE_MANAGEMENT_COPY.trialMonthsSuffix;
+  }
+
+  return trial.frequency === 1
+    ? PRICE_MANAGEMENT_COPY.trialDaySuffix
+    : PRICE_MANAGEMENT_COPY.trialDaysSuffix;
+}
+
+/**
+ * Formats trial period data for price tables.
+ *
+ * @param price - Subscription price result.
+ * @returns Spanish trial period label.
+ */
+function formatTrialPeriod(price: TribeSubscriptionPriceResult): string {
+  return price.trial
+    ? `${price.trial.frequency}${
+        PRICE_MANAGEMENT_FORMAT.labelSeparator
+      }${getTrialUnitLabel(price.trial)}`
+    : PRICE_MANAGEMENT_COPY.trialEmptyLabel;
+}
+
+/**
  * Sends a price mutation request and reads a safe JSON response.
  *
  * @param url - Request URL.
@@ -455,6 +506,7 @@ export function TribeSubscriptionPriceManagement({
   const [priceItems, setPriceItems] = useState(prices);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [trialFrequency, setTrialFrequency] = useState("");
   const [editingPrice, setEditingPrice] = useState<EditingPrice | null>(null);
   const [fieldErrors, setFieldErrors] = useState<PriceFieldErrors>({});
   const [providerVerificationMessage, setProviderVerificationMessage] = useState<
@@ -476,6 +528,7 @@ export function TribeSubscriptionPriceManagement({
   const hasStartedMercadoPagoConnection = useRef(false);
   const nameInputId = useId();
   const amountInputId = useId();
+  const trialFrequencyInputId = useId();
   const amountErrorId = useId();
   const editAmountErrorId = useId();
   const sortedPrices = useMemo(
@@ -716,6 +769,8 @@ export function TribeSubscriptionPriceManagement({
         {
           amount,
           name,
+          trialFrequency,
+          trialFrequencyType: PRICE_MANAGEMENT_FORMAT.trialFrequencyType,
         }
       );
 
@@ -725,6 +780,7 @@ export function TribeSubscriptionPriceManagement({
 
       setAmount("");
       setName("");
+      setTrialFrequency("");
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.createButton);
     } catch (error) {
       if (error instanceof PriceRequestError && error.fieldErrors.amount) {
@@ -754,6 +810,9 @@ export function TribeSubscriptionPriceManagement({
       amount: formatAmountInputValue(price.amountCents),
       id: price.id,
       name: price.name,
+      trialFrequency: price.trial ? String(price.trial.frequency) : "",
+      trialFrequencyType:
+        price.trial?.frequencyType ?? PRICE_MANAGEMENT_FORMAT.trialFrequencyType,
     });
     setFieldErrors({});
   };
@@ -802,6 +861,8 @@ export function TribeSubscriptionPriceManagement({
         {
           amount: editingPrice.amount,
           name: editingPrice.name,
+          trialFrequency: editingPrice.trialFrequency,
+          trialFrequencyType: editingPrice.trialFrequencyType,
         }
       );
 
@@ -1242,6 +1303,24 @@ export function TribeSubscriptionPriceManagement({
                 </span>
               ) : null}
             </div>
+            <div className={styles.TribeSubscriptionPriceManagement__field}>
+              <label
+                className={styles.TribeSubscriptionPriceManagement__label}
+                htmlFor={trialFrequencyInputId}
+              >
+                {PRICE_MANAGEMENT_COPY.trialDaysLabel}
+              </label>
+              <Input
+                disabled={isMercadoPagoConnectionRequired}
+                id={trialFrequencyInputId}
+                inputMode={PRICE_MANAGEMENT_FORMAT.numericInputMode}
+                onChange={(event) => {
+                  setTrialFrequency(event.currentTarget.value);
+                }}
+                placeholder={PRICE_MANAGEMENT_COPY.trialDaysPlaceholder}
+                value={trialFrequency}
+              />
+            </div>
             <Button
               disabled={
                 isPriceManagementDisabled ||
@@ -1275,6 +1354,9 @@ export function TribeSubscriptionPriceManagement({
               </TableHead>
               <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
                 {PRICE_MANAGEMENT_COPY.amountLabel}
+              </TableHead>
+              <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
+                {PRICE_MANAGEMENT_COPY.tableTrialHeader}
               </TableHead>
               <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
                 {PRICE_MANAGEMENT_COPY.tableStatusHeader}
@@ -1314,6 +1396,9 @@ export function TribeSubscriptionPriceManagement({
                   </TableCell>
                   <TableCell className={styles.TribeSubscriptionPriceManagement__amount}>
                     {formatAmount(price.amountCents)}
+                  </TableCell>
+                  <TableCell className={styles.TribeSubscriptionPriceManagement__meta}>
+                    {formatTrialPeriod(price)}
                   </TableCell>
                   <TableCell>
                     <span className={styles.TribeSubscriptionPriceManagement__badges}>
@@ -1484,6 +1569,26 @@ export function TribeSubscriptionPriceManagement({
                               {fieldErrors.amount}
                             </span>
                           ) : null}
+                        </div>
+                        <div className={styles.TribeSubscriptionPriceManagement__field}>
+                          <label
+                            className={styles.TribeSubscriptionPriceManagement__label}
+                            htmlFor={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.trialFrequency}`}
+                          >
+                            {PRICE_MANAGEMENT_COPY.trialDaysLabel}
+                          </label>
+                          <Input
+                            id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.trialFrequency}`}
+                            inputMode={PRICE_MANAGEMENT_FORMAT.numericInputMode}
+                            onChange={(event) => {
+                              updateEditingPrice({
+                                trialFrequency: event.currentTarget.value,
+                                trialFrequencyType:
+                                  PRICE_MANAGEMENT_FORMAT.trialFrequencyType,
+                              });
+                            }}
+                            value={editingPrice.trialFrequency}
+                          />
                         </div>
                         <div className={styles.TribeSubscriptionPriceManagement__actions}>
                           <Button

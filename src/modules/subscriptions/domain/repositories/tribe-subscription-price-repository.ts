@@ -14,6 +14,7 @@ import type {
 import type {
   TRIBE_SUBSCRIPTION_CURRENCY,
   TRIBE_SUBSCRIPTION_FREQUENCY,
+  TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 
 export type CreateTribeSubscriptionPriceCommand = {
@@ -21,11 +22,21 @@ export type CreateTribeSubscriptionPriceCommand = {
   currency: typeof TRIBE_SUBSCRIPTION_CURRENCY.ars;
   frequency: typeof TRIBE_SUBSCRIPTION_FREQUENCY.monthly;
   name: string;
+  trialFrequency: number | null;
+  trialFrequencyType:
+    | typeof TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days
+    | typeof TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.months
+    | null;
   tribeSlug: string;
 };
 
-export type UpdateTribeSubscriptionPriceCommand = CreateTribeSubscriptionPriceCommand & {
+export type UpdateTribeSubscriptionPriceCommand = Omit<
+  CreateTribeSubscriptionPriceCommand,
+  "trialFrequency" | "trialFrequencyType"
+> & {
   priceId: string;
+  trialFrequency?: CreateTribeSubscriptionPriceCommand["trialFrequency"];
+  trialFrequencyType?: CreateTribeSubscriptionPriceCommand["trialFrequencyType"];
 };
 
 export type SyncTribeSubscriptionProviderPlanCommand = {

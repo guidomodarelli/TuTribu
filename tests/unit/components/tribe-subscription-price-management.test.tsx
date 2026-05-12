@@ -22,6 +22,10 @@ describe("TribeSubscriptionPriceManagement", () => {
     isCurrent: false,
     name: "Plan mensual",
     status: "active" as const,
+    trial: {
+      frequency: 7,
+      frequencyType: "days" as const,
+    },
   };
   const subscriberDiagnostics = {
     lastReconciledAt: "2026-05-12T01:00:00.000Z",
@@ -92,6 +96,9 @@ describe("TribeSubscriptionPriceManagement", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("columnheader", { name: "Precio mensual" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Prueba gratis" })
     ).toBeInTheDocument();
     expect(
       screen.getByRole("columnheader", { name: "Estado" })
@@ -273,6 +280,10 @@ describe("TribeSubscriptionPriceManagement", () => {
           price: {
             ...activePrice,
             name: "Plan premium",
+            trial: {
+              frequency: 14,
+              frequencyType: "days",
+            },
           },
         }),
         ok: true,
@@ -294,6 +305,11 @@ describe("TribeSubscriptionPriceManagement", () => {
     await user.click(screen.getByRole("button", { name: "Editar" }));
     await user.clear(screen.getByLabelText("Nuevo nombre"));
     await user.type(screen.getByLabelText("Nuevo nombre"), "Plan premium");
+    const editTrialFrequencyInput = screen.getAllByLabelText(
+      "Días de prueba gratis"
+    )[1];
+    await user.clear(editTrialFrequencyInput);
+    await user.type(editTrialFrequencyInput, "14");
     await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
     await waitFor(() => {
@@ -303,11 +319,148 @@ describe("TribeSubscriptionPriceManagement", () => {
           body: JSON.stringify({
             amount: "5000",
             name: "Plan premium",
+            trialFrequency: "14",
+            trialFrequencyType: "days",
           }),
           method: "PATCH",
         })
       );
       expect(screen.getByText("Plan premium")).toBeInTheDocument();
+      expect(screen.getByText("14 días")).toBeInTheDocument();
+    });
+  });
+
+  it("should preserve an existing monthly trial unit when editing a price", async () => {
+    const user = userEvent.setup();
+    const monthlyTrialPrice = {
+      ...activePrice,
+      trial: {
+        frequency: 1,
+        frequencyType: "months" as const,
+      },
+    };
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      json: async () => ({
+        message: "Precio actualizado.",
+        price: {
+          ...monthlyTrialPrice,
+          name: "Plan mensual actualizado",
+        },
+      }),
+      ok: true,
+    }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[monthlyTrialPrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(screen.getByText("1 mes")).toBeInTheDocument();
+    expect(screen.queryByText("1 días")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    await user.clear(screen.getByLabelText("Nuevo nombre"));
+    await user.type(
+      screen.getByLabelText("Nuevo nombre"),
+      "Plan mensual actualizado"
+    );
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices/price-1",
+        expect.objectContaining({
+          body: JSON.stringify({
+            amount: "5000",
+            name: "Plan mensual actualizado",
+            trialFrequency: "1",
+            trialFrequencyType: "months",
+          }),
+          method: "PATCH",
+        })
+      );
+    });
+  });
+
+  it("should send days when editing the trial frequency from a monthly trial price", async () => {
+    const user = userEvent.setup();
+    const monthlyTrialPrice = {
+      ...activePrice,
+      trial: {
+        frequency: 1,
+        frequencyType: "months" as const,
+      },
+    };
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          canceledPriceIds: [],
+          message: "Planes verificados con Mercado Pago.",
+          prices: [monthlyTrialPrice],
+          verifiedCount: 1,
+        }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          message: "Precio actualizado.",
+          price: {
+            ...monthlyTrialPrice,
+            name: "Plan mensual actualizado",
+            trial: {
+              frequency: 7,
+              frequencyType: "days",
+            },
+          },
+        }),
+        ok: true,
+      }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[monthlyTrialPrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    await user.clear(screen.getByLabelText("Nuevo nombre"));
+    await user.type(
+      screen.getByLabelText("Nuevo nombre"),
+      "Plan mensual actualizado"
+    );
+    const editTrialFrequencyInput = screen.getAllByLabelText(
+      "Días de prueba gratis"
+    )[1];
+    await user.clear(editTrialFrequencyInput);
+    await user.type(editTrialFrequencyInput, "7");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices/price-1",
+        expect.objectContaining({
+          body: JSON.stringify({
+            amount: "5000",
+            name: "Plan mensual actualizado",
+            trialFrequency: "7",
+            trialFrequencyType: "days",
+          }),
+          method: "PATCH",
+        })
+      );
     });
   });
 

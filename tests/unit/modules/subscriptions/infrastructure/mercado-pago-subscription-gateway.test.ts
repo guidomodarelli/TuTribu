@@ -224,6 +224,8 @@ describe("mercado pago subscription gateway", () => {
         idempotencyKey: "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",
         name: "Plan mensual",
         reason: "Plan mensual",
+        trialFrequency: 7,
+        trialFrequencyType: "days",
       })
     ).resolves.toBe("plan-1");
 
@@ -235,6 +237,10 @@ describe("mercado pago subscription gateway", () => {
             currency_id: "ARS",
             frequency: 1,
             frequency_type: "months",
+            free_trial: {
+              frequency: 7,
+              frequency_type: "days",
+            },
             transaction_amount: 1200,
           },
           back_url: "https://tutribu.example.com/tribu/matematica-pro",
@@ -275,6 +281,8 @@ describe("mercado pago subscription gateway", () => {
         preapprovalPlanId: "plan-1",
         reason: "Plan actualizado",
         status: "active",
+        trialFrequency: 14,
+        trialFrequencyType: "days",
       })
     ).resolves.toEqual({
       amountCents: 120000,
@@ -283,12 +291,19 @@ describe("mercado pago subscription gateway", () => {
       id: "plan-1",
       reason: "Plan actualizado",
       status: "active",
+      trial: null,
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.mercadopago.com/preapproval_plan/plan-1",
       expect.objectContaining({
         body: JSON.stringify({
+          auto_recurring: {
+            free_trial: {
+              frequency: 14,
+              frequency_type: "days",
+            },
+          },
           back_url: "https://tutribu.example.com/tribu/matematica-pro",
           external_reference: "latribu:price:price-1",
           reason: "Plan actualizado",

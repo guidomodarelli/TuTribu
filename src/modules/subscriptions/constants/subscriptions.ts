@@ -19,6 +19,14 @@ export const TRIBE_SUBSCRIPTION_FREQUENCY = {
 } as const;
 
 /**
+ * Defines Mercado Pago free trial period units supported by subscription plans.
+ */
+export const TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE = {
+  days: "days",
+  months: "months",
+} as const;
+
+/**
  * Defines the maximum number of historical prices allowed per tribe.
  */
 export const TRIBE_SUBSCRIPTION_PRICE_LIMIT = 30;

@@ -99,6 +99,8 @@ export type MercadoPagoPlanInput = {
   name: string;
   reason: string;
   traceContext?: PaymentOperationTraceContext;
+  trialFrequency?: number | null;
+  trialFrequencyType?: "days" | "months" | null;
 };
 
 export type MercadoPagoPlanUpdateInput = {
@@ -109,6 +111,8 @@ export type MercadoPagoPlanUpdateInput = {
   reason: string;
   status: string;
   traceContext?: PaymentOperationTraceContext;
+  trialFrequency?: number | null;
+  trialFrequencyType?: "days" | "months" | null;
 };
 
 export type MercadoPagoSubscriptionInput = {
@@ -168,6 +172,10 @@ export type MercadoPagoPreapprovalPlanResult = {
   id: string;
   reason: string | null;
   status: string;
+  trial: {
+    frequency: number;
+    frequencyType: "days" | "months";
+  } | null;
 };
 
 export type MercadoPagoOAuthTokenResult = {
@@ -186,6 +194,10 @@ type MercadoPagoPreapprovalPlanResponse = {
     currency_id?: string;
     frequency?: number;
     frequency_type?: string;
+    free_trial?: {
+      frequency?: number;
+      frequency_type?: string;
+    } | null;
     transaction_amount?: number;
   };
   external_reference?: string | number | null;
@@ -503,7 +515,34 @@ function mapMercadoPagoPreapprovalPlanResponse(
     id: body.id ?? fallbackPlanId,
     reason: body.reason ?? null,
     status: body.status,
+    trial:
+      typeof body.auto_recurring?.free_trial?.frequency === "number" &&
+      (body.auto_recurring.free_trial.frequency_type === "days" ||
+        body.auto_recurring.free_trial.frequency_type === "months")
+        ? {
+            frequency: body.auto_recurring.free_trial.frequency,
+            frequencyType: body.auto_recurring.free_trial.frequency_type,
+          }
+        : null,
   };
+}
+
+/**
+ * Builds the Mercado Pago free trial payload when a trial period is configured.
+ *
+ * @param input - Optional trial values from the application command.
+ * @returns Provider free trial payload, or null to clear the trial.
+ */
+function buildMercadoPagoFreeTrialPayload(input: {
+  trialFrequency?: number | null;
+  trialFrequencyType?: "days" | "months" | null;
+}) {
+  return input.trialFrequency && input.trialFrequencyType
+    ? {
+        frequency: input.trialFrequency,
+        frequency_type: input.trialFrequencyType,
+      }
+    : null;
 }
 
 /**
@@ -690,6 +729,7 @@ export async function createMercadoPagoPreapprovalPlan(
           currency_id: input.currency,
           frequency: 1,
           frequency_type: "months",
+          free_trial: buildMercadoPagoFreeTrialPayload(input),
           transaction_amount: input.amountCents / 100,
         },
         back_url: input.backUrl,
@@ -752,6 +792,9 @@ export async function updateMercadoPagoPreapprovalPlan(
     `${MERCADO_PAGO_URL.preapprovalPlan}/${input.preapprovalPlanId}`,
     {
       body: JSON.stringify({
+        auto_recurring: {
+          free_trial: buildMercadoPagoFreeTrialPayload(input),
+        },
         back_url: input.backUrl,
         external_reference: input.externalReference,
         reason: input.reason,

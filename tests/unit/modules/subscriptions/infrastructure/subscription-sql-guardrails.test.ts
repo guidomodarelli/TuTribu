@@ -5,6 +5,10 @@ const SUBSCRIPTIONS_MIGRATION_PATH =
   "database/migrations/20260506130000_create_tribe_subscriptions.sql";
 const REMOVED_MEMBERSHIP_STATUS_MIGRATION_PATH =
   "database/migrations/20260511120000_add_removed_subscription_membership_status.sql";
+const TRIAL_PERIOD_MIGRATION_PATH =
+  "database/migrations/20260512120000_add_subscription_price_trial_period.sql";
+const TRIAL_PERIOD_CONSTRAINT_FIX_MIGRATION_PATH =
+  "database/migrations/20260512130000_fix_subscription_price_trial_period_constraint.sql";
 
 function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -96,6 +100,32 @@ describe("Subscription SQL guardrails", () => {
     );
     expect(migration).toContain(
       "WHERE status IN ('active', 'pending', 'grace_period', 'past_due', 'payment_blocked', 'paused')"
+    );
+  });
+
+  it("persists optional Mercado Pago trial periods on subscription prices", () => {
+    const migration = readWorkspaceFile(TRIAL_PERIOD_MIGRATION_PATH);
+    const constraintFixMigration = readWorkspaceFile(
+      TRIAL_PERIOD_CONSTRAINT_FIX_MIGRATION_PATH
+    );
+
+    expect(migration).toContain(
+      "ADD COLUMN IF NOT EXISTS trial_frequency integer"
+    );
+    expect(migration).toContain(
+      "ADD COLUMN IF NOT EXISTS trial_frequency_type text"
+    );
+    expect(migration).toContain("tribe_subscription_prices_trial_period_check");
+    expect(migration).toContain("trial_frequency > 0");
+    expect(migration).toContain("trial_frequency_type IN ('days', 'months')");
+    expect(constraintFixMigration).toContain(
+      "DROP CONSTRAINT IF EXISTS tribe_subscription_prices_trial_period_check"
+    );
+    expect(constraintFixMigration).toContain(
+      "trial_frequency IS NOT NULL"
+    );
+    expect(constraintFixMigration).toContain(
+      "trial_frequency_type IS NOT NULL"
     );
   });
 });

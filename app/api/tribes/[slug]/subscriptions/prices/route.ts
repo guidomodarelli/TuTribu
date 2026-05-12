@@ -15,6 +15,8 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 const PRICE_ROUTE_FIELD = {
   amount: "amount",
   name: "name",
+  trialFrequency: "trialFrequency",
+  trialFrequencyType: "trialFrequencyType",
 } as const;
 
 const PRICE_ROUTE_AMOUNT = {
@@ -80,6 +82,26 @@ function createJsonResponse(body: Record<string, unknown>, status: number): Resp
 function readStringField(body: unknown, field: string): string {
   if (!body || typeof body !== "object" || !(field in body)) {
     return "";
+  }
+
+  const value = (body as Record<string, unknown>)[field];
+
+  return typeof value === "string" ? value : "";
+}
+
+/**
+ * Reads an optional string field without collapsing omitted fields.
+ *
+ * @param body - Parsed JSON body.
+ * @param field - Field name to read.
+ * @returns String field value, an empty string for invalid provided values, or undefined when omitted.
+ */
+function readOptionalStringField(
+  body: unknown,
+  field: string
+): string | undefined {
+  if (!body || typeof body !== "object" || !(field in body)) {
+    return undefined;
   }
 
   const value = (body as Record<string, unknown>)[field];
@@ -235,6 +257,14 @@ export async function POST(
     const result = await modules.subscriptions.useCases.createTribeSubscriptionPrice({
       amount: readStringField(body, PRICE_ROUTE_FIELD.amount),
       name: readStringField(body, PRICE_ROUTE_FIELD.name),
+      trialFrequency: readOptionalStringField(
+        body,
+        PRICE_ROUTE_FIELD.trialFrequency
+      ),
+      trialFrequencyType: readOptionalStringField(
+        body,
+        PRICE_ROUTE_FIELD.trialFrequencyType
+      ),
       tribeSlug: slug,
     });
 
