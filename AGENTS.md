@@ -463,6 +463,7 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 - Use structured, contextual logs for relevant server-side flows and include correlation identifiers such as `requestId` or `traceId` when available.
 - Keep logs and error reporting safe: never expose secrets, tokens, raw provider payloads, or internal diagnostics in user-facing messages.
 - Do not add `catch` blocks that only swallow errors or redirect control flow without classification, logging, or user feedback. Every `catch` must do at least one intentional responsibility: map an expected failure to a stable result, log an unexpected failure with context, trigger safe user feedback, or rethrow to the appropriate error boundary.
+- For retryable operations and external provider integration calls, log each attempt and final outcome with a stable trace context. Include `operation_key`, `requestId`, relevant business identifiers such as `priceId` or `tribeSlug`, redacted provider identifiers such as `providerPlanId` or `preapprovalId`, and `result` when available.
 
 ### Reliability and performance baseline
 
