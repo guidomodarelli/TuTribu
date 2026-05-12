@@ -8,6 +8,8 @@ import { sql } from "drizzle-orm";
 
 import type {
   TribeProviderSubscriberReconciliationResult,
+  TribeSubscriberDiagnosticsReconciliationResult,
+  TribeSubscriberDiagnosticsResult,
   TribeSubscriptionProviderPlanVerificationResult,
   TribeSubscriptionProviderPlansVerificationResult,
   TribeSubscriptionProviderPlanSyncResult,
@@ -26,6 +28,7 @@ import type {
   TribeProviderSubscriberReconciliationCommand,
   TribeProviderSubscriberReconciliationRepository,
 } from "@/src/modules/subscriptions/application/ports/tribe-provider-subscriber-reconciliation-repository";
+import type { TribeSubscriberDiagnosticsRepository } from "@/src/modules/subscriptions/application/ports/tribe-subscriber-diagnostics-repository";
 import type {
   CreateTribeSubscriptionPriceCommand,
   SyncTribeSubscriptionProviderPlanCommand,
@@ -110,6 +113,16 @@ type SubscriptionProviderPlanRow = SubscriptionPriceRow & {
 
 type SubscriptionProviderSubscriberRow = {
   mercado_pago_preapproval_id: string | null;
+};
+
+type TribeSubscriberDiagnosticsRow = {
+  last_reconciled_at: Date | string | null;
+  local_active_subscribers_count: number | string | null;
+  mercado_pago_authorized_subscribers_count: number | string | null;
+  mercado_pago_canceled_or_missing_subscribers_count: number | string | null;
+  mercado_pago_paused_subscribers_count: number | string | null;
+  mercado_pago_pending_subscribers_count: number | string | null;
+  target_tribe_id: string | null;
 };
 
 type SubscriptionProviderSubscriberStatusUpdate = {
@@ -522,6 +535,39 @@ function mapSubscriptionPrice(row: SubscriptionPriceRow): TribeSubscriptionPrice
 }
 
 /**
+ * Converts aggregate subscriber diagnostics from database rows to application results.
+ *
+ * @param row - Aggregate diagnostics row.
+ * @returns Subscriber diagnostics result.
+ */
+function mapSubscriberDiagnostics(
+  row: TribeSubscriberDiagnosticsRow
+): TribeSubscriberDiagnosticsResult {
+  const lastReconciledAt = row.last_reconciled_at
+    ? new Date(row.last_reconciled_at).toISOString()
+    : undefined;
+
+  return {
+    ...(lastReconciledAt ? { lastReconciledAt } : {}),
+    localActiveSubscribersCount: Number(
+      row.local_active_subscribers_count ?? 0
+    ),
+    mercadoPagoAuthorizedSubscribersCount: Number(
+      row.mercado_pago_authorized_subscribers_count ?? 0
+    ),
+    mercadoPagoCanceledOrMissingSubscribersCount: Number(
+      row.mercado_pago_canceled_or_missing_subscribers_count ?? 0
+    ),
+    mercadoPagoPausedSubscribersCount: Number(
+      row.mercado_pago_paused_subscribers_count ?? 0
+    ),
+    mercadoPagoPendingSubscribersCount: Number(
+      row.mercado_pago_pending_subscribers_count ?? 0
+    ),
+  };
+}
+
+/**
  * Builds the local external reference stored in Mercado Pago plans.
  *
  * @param priceId - Local subscription price identifier.
@@ -615,6 +661,7 @@ function mapPriceMutationResult(
 export class PostgresTribeSubscriptionPriceRepository
   implements
     TribeProviderSubscriberReconciliationRepository,
+    TribeSubscriberDiagnosticsRepository,
     TribeSubscriptionPriceRepository
 {
   /**
@@ -754,6 +801,124 @@ export class PostgresTribeSubscriptionPriceRepository
         canViewPrices: Boolean(rows[0]?.can_view_prices),
       },
     };
+  }
+
+  /**
+   * Reads aggregate local subscriber diagnostics for tribe leaders.
+   *
+   * @param query - Tribe slug query.
+   * @returns Aggregate diagnostics, or null when the tribe is missing or forbidden.
+   */
+  async getSubscriberDiagnostics(
+    query: TribeSubscriptionPriceListQuery
+  ): Promise<TribeSubscriberDiagnosticsResult | null> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${query.tribeSlug}
+          limit 1
+        )
+        select
+          target_tribe.id as target_tribe_id,
+          count(tribe_member_subscriptions.id) filter (
+            where tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+          ) as local_active_subscribers_count,
+          count(tribe_member_subscriptions.id) filter (
+            where tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+              and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
+          ) as mercado_pago_authorized_subscribers_count,
+          count(tribe_member_subscriptions.id) filter (
+            where tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+          ) as mercado_pago_pending_subscribers_count,
+          count(tribe_member_subscriptions.id) filter (
+            where tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused}
+          ) as mercado_pago_paused_subscribers_count,
+          count(tribe_member_subscriptions.id) filter (
+            where tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled}
+              or (
+                tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+                and tribe_member_subscriptions.mercado_pago_preapproval_id is null
+              )
+          ) as mercado_pago_canceled_or_missing_subscribers_count,
+          max(tribe_member_subscriptions.updated_at) as last_reconciled_at
+        from target_tribe
+        left join public.tribe_subscription_prices
+          on tribe_subscription_prices.tribe_id = target_tribe.id
+          and tribe_subscription_prices.status in ('active', 'canceled')
+        left join public.tribe_member_subscriptions
+          on tribe_member_subscriptions.price_id = tribe_subscription_prices.id
+          and tribe_member_subscriptions.tribe_id = target_tribe.id
+        where public.can_manage_tribe_subscription_prices(target_tribe.id)
+        group by target_tribe.id
+      `);
+      const row = (result.rows?.[0] ?? null) as
+        | TribeSubscriberDiagnosticsRow
+        | null;
+
+      return row?.target_tribe_id ? mapSubscriberDiagnostics(row) : null;
+    });
+  }
+
+  /**
+   * Reconciles every stored provider subscriber before returning aggregate diagnostics.
+   *
+   * @param query - Tribe slug query.
+   * @returns Reconciled diagnostics or a stable failure status.
+   */
+  async reconcileSubscriberDiagnostics(
+    query: TribeSubscriptionPriceListQuery
+  ): Promise<TribeSubscriberDiagnosticsReconciliationResult> {
+    const verificationContext = await this.resolveProviderPlanVerificationContext(
+      query.tribeSlug
+    );
+    const accessToken = await this.resolveVerificationAccessToken(
+      verificationContext
+    );
+
+    if ("status" in accessToken) {
+      return accessToken;
+    }
+
+    const providerSubscribers = await this.listProviderSubscribersByTribe({
+      tribeSlug: query.tribeSlug,
+    });
+    const providerSubscriptionStatuses =
+      await readProviderSubscriptionStatuses({
+        accessToken: accessToken.value,
+        getMercadoPagoSubscriptionStatus:
+          this.getMercadoPagoSubscriptionStatus,
+        operationKey: [
+          SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.verifyProviderSubscribers,
+          query.tribeSlug,
+          "diagnostics",
+        ].join(SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.separator),
+        priceId: "subscriber-diagnostics",
+        providerSubscribers,
+        requestId: this.requestId,
+        tribeSlug: query.tribeSlug,
+      });
+    const providerSubscriberStatusUpdates =
+      buildProviderSubscriberStatusUpdates({
+        providerSubscribers,
+        providerSubscriptionStatuses,
+      });
+
+    await this.reconcileTribeProviderSubscriberStatuses({
+      providerSubscriberStatusUpdates,
+      tribeSlug: query.tribeSlug,
+    });
+
+    const diagnostics = await this.getSubscriberDiagnostics(query);
+
+    return diagnostics
+      ? {
+          diagnostics,
+          status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+          verifiedCount: providerSubscribers.length,
+        }
+      : { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
   }
 
   /**
@@ -2183,6 +2348,145 @@ export class PostgresTribeSubscriptionPriceRepository
       `);
 
       return (result.rows ?? []) as SubscriptionProviderSubscriberRow[];
+    });
+  }
+
+  /**
+   * Lists local provider subscriber identifiers for all visible tribe prices.
+   *
+   * @param input - Tribe slug used to scope subscribers.
+   * @returns Provider subscriber identifiers persisted for active or canceled prices.
+   */
+  private async listProviderSubscribersByTribe(input: {
+    tribeSlug: string;
+  }): Promise<SubscriptionProviderSubscriberRow[]> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${input.tribeSlug}
+          limit 1
+        )
+        select tribe_member_subscriptions.mercado_pago_preapproval_id
+        from public.tribe_member_subscriptions
+        inner join public.tribe_subscription_prices
+          on tribe_subscription_prices.id = tribe_member_subscriptions.price_id
+        inner join target_tribe
+          on target_tribe.id = tribe_subscription_prices.tribe_id
+        where tribe_subscription_prices.status in ('active', 'canceled')
+          and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
+          and public.can_manage_tribe_subscription_prices(target_tribe.id)
+        order by tribe_member_subscriptions.created_at asc
+      `);
+
+      return (result.rows ?? []) as SubscriptionProviderSubscriberRow[];
+    });
+  }
+
+  /**
+   * Persists provider-backed subscriber statuses for all tribe diagnostics rows.
+   *
+   * @param input - Tribe slug and verified subscriber status updates.
+   * @returns Promise resolved after local subscriber state is updated.
+   */
+  private async reconcileTribeProviderSubscriberStatuses(input: {
+    providerSubscriberStatusUpdates: SubscriptionProviderSubscriberStatusUpdate[];
+    tribeSlug: string;
+  }): Promise<void> {
+    if (input.providerSubscriberStatusUpdates.length === 0) {
+      return;
+    }
+
+    const statusUpdatesJson = JSON.stringify(
+      input.providerSubscriberStatusUpdates
+    );
+
+    await this.executeWithDatabase(async (database) => {
+      await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${input.tribeSlug}
+          limit 1
+        ),
+        provider_statuses as (
+          select
+            provider_statuses.provider_subscription_id,
+            provider_statuses.subscription_status,
+            provider_statuses.status_reason
+          from jsonb_to_recordset(${statusUpdatesJson}::jsonb) as provider_statuses(
+            provider_subscription_id text,
+            subscription_status text,
+            status_reason text
+          )
+        ),
+        updated_subscriptions as (
+          update public.tribe_member_subscriptions
+          set
+            status = provider_statuses.subscription_status,
+            status_reason = provider_statuses.status_reason,
+            updated_at = timezone('utc', now())
+          from provider_statuses,
+            target_tribe
+          where tribe_member_subscriptions.tribe_id = target_tribe.id
+            and tribe_member_subscriptions.mercado_pago_preapproval_id =
+              provider_statuses.provider_subscription_id
+            and public.can_manage_tribe_subscription_prices(target_tribe.id)
+          returning
+            tribe_member_subscriptions.tribe_id,
+            tribe_member_subscriptions.user_id
+        ),
+        affected_members as (
+          select distinct
+            updated_subscriptions.tribe_id,
+            updated_subscriptions.user_id
+          from updated_subscriptions
+        )
+        update public.tribe_members
+        set
+          status = case
+            when exists (
+              select 1
+              from public.tribe_member_subscriptions
+              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                and tribe_member_subscriptions.user_id = tribe_members.user_id
+                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+            ) then 'active'
+            when exists (
+              select 1
+              from public.tribe_member_subscriptions
+              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                and tribe_member_subscriptions.user_id = tribe_members.user_id
+                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+            ) then 'blocked'
+            else 'removed'
+          end,
+          status_reason = case
+            when exists (
+              select 1
+              from public.tribe_member_subscriptions
+              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                and tribe_member_subscriptions.user_id = tribe_members.user_id
+                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+            ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none}
+            when exists (
+              select 1
+              from public.tribe_member_subscriptions
+              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                and tribe_member_subscriptions.user_id = tribe_members.user_id
+                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+            ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+            else ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
+          end
+        from affected_members
+        where tribe_members.tribe_id = affected_members.tribe_id
+          and tribe_members.user_id = affected_members.user_id
+          and not (
+            tribe_members.status = 'blocked'
+            and tribe_members.status_reason <> ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+          )
+      `);
     });
   }
 

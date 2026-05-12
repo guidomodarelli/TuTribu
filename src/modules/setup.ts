@@ -124,6 +124,7 @@ export async function createRequestModules(
         new PostgresTribePaymentIntegrationRepository(executeWithRequestContext),
       tribeProviderSubscriberReconciliationRepository:
         tribeSubscriptionPriceRepository,
+      tribeSubscriberDiagnosticsRepository: tribeSubscriptionPriceRepository,
       tribeSubscriptionPriceRepository:
         tribeSubscriptionPriceRepository,
     }),

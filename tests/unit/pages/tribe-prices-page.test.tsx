@@ -10,6 +10,7 @@ const getAuthenticatedMember = jest.fn();
 const getTribePageAccess = jest.fn();
 const getCurrentTribeMembershipStatus = jest.fn();
 const getMemberTribes = jest.fn();
+const getTribeSubscriberDiagnostics = jest.fn();
 const listTribeSubscriptionPrices = jest.fn();
 const errorMock = jest.fn();
 
@@ -27,6 +28,7 @@ jest.mock("@/components/subscriptions/tribe-subscription-price-management", () =
     isMercadoPagoConnected,
     prices,
     shouldAutoConnectMercadoPago,
+    subscriberDiagnostics,
     statusMessage,
     tribeSlug,
   }: {
@@ -34,6 +36,7 @@ jest.mock("@/components/subscriptions/tribe-subscription-price-management", () =
     isMercadoPagoConnected: boolean;
     prices: unknown[];
     shouldAutoConnectMercadoPago?: boolean;
+    subscriberDiagnostics?: unknown;
     statusMessage: string | null;
     tribeSlug: string;
   }) => (
@@ -44,6 +47,7 @@ jest.mock("@/components/subscriptions/tribe-subscription-price-management", () =
       <p>{isMercadoPagoConnected ? "conectado" : "desconectado"}</p>
       <p>{shouldAutoConnectMercadoPago ? "auto-conecta" : "no-auto-conecta"}</p>
       {statusMessage ? <p>{statusMessage}</p> : null}
+      <p>{subscriberDiagnostics ? "con-diagnostico" : "sin-diagnostico"}</p>
       <p>{prices.length}</p>
     </section>
   ),
@@ -122,6 +126,13 @@ describe("TribePricesPage", () => {
         canViewPrices: true,
       },
     });
+    getTribeSubscriberDiagnostics.mockResolvedValue({
+      localActiveSubscribersCount: 2,
+      mercadoPagoAuthorizedSubscribersCount: 2,
+      mercadoPagoCanceledOrMissingSubscribersCount: 1,
+      mercadoPagoPausedSubscribersCount: 0,
+      mercadoPagoPendingSubscribersCount: 3,
+    });
     (headers as jest.Mock).mockResolvedValue(new Headers());
     (createServerLogger as jest.Mock).mockReturnValue({
       error: errorMock,
@@ -135,6 +146,7 @@ describe("TribePricesPage", () => {
       },
       subscriptions: {
         useCases: {
+          getTribeSubscriberDiagnostics,
           listTribeSubscriptionPrices,
         },
       },
@@ -155,6 +167,10 @@ describe("TribePricesPage", () => {
     expect(screen.getByText("opera")).toBeInTheDocument();
     expect(screen.getByText("conectado")).toBeInTheDocument();
     expect(screen.getByText("auto-conecta")).toBeInTheDocument();
+    expect(screen.getByText("con-diagnostico")).toBeInTheDocument();
+    expect(getTribeSubscriberDiagnostics).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
   });
 
   it("renders read-only price management for guardians", async () => {
@@ -179,6 +195,8 @@ describe("TribePricesPage", () => {
     render(await TribePricesPage(buildPageProps()));
 
     expect(screen.getByText("lee")).toBeInTheDocument();
+    expect(screen.getByText("sin-diagnostico")).toBeInTheDocument();
+    expect(getTribeSubscriberDiagnostics).not.toHaveBeenCalled();
   });
 
   it("does not start Mercado Pago auto connection when price loading fails", async () => {
@@ -242,7 +260,6 @@ describe("TribePricesPage", () => {
         canViewPrices: true,
       },
     });
-
     render(
       await TribePricesPage({
         ...buildPageProps(),

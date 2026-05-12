@@ -23,6 +23,14 @@ describe("TribeSubscriptionPriceManagement", () => {
     name: "Plan mensual",
     status: "active" as const,
   };
+  const subscriberDiagnostics = {
+    lastReconciledAt: "2026-05-12T01:00:00.000Z",
+    localActiveSubscribersCount: 2,
+    mercadoPagoAuthorizedSubscribersCount: 2,
+    mercadoPagoCanceledOrMissingSubscribersCount: 1,
+    mercadoPagoPausedSubscribersCount: 0,
+    mercadoPagoPendingSubscribersCount: 3,
+  };
 
   beforeEach(() => {
     global.fetch = jest.fn(async () => ({
@@ -82,6 +90,137 @@ describe("TribeSubscriptionPriceManagement", () => {
     expect(
       screen.queryByRole("button", { name: "Conectar Mercado Pago" })
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Detalle de suscriptores" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("should render subscriber diagnostics only for leaders", () => {
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[activePrice]}
+        subscriberDiagnostics={subscriberDiagnostics}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Detalle de suscriptores" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Activos locales")).toBeInTheDocument();
+    expect(screen.getByText("Pendientes en Mercado Pago")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Actualizar diagnóstico" })
+    ).toBeInTheDocument();
+  });
+
+  it("should update subscriber diagnostics from the manual action", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          canceledPriceIds: [],
+          message: "Planes verificados con Mercado Pago.",
+          prices: [activePrice],
+          verifiedCount: 1,
+        }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          diagnostics: {
+            ...subscriberDiagnostics,
+            localActiveSubscribersCount: 4,
+            mercadoPagoAuthorizedSubscribersCount: 4,
+          },
+          message: "Diagnóstico actualizado con Mercado Pago.",
+          verifiedCount: 6,
+        }),
+        ok: true,
+      }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[activePrice]}
+        subscriberDiagnostics={subscriberDiagnostics}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Actualizar diagnóstico" })
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/subscriber-diagnostics/reconcile",
+        expect.objectContaining({
+          method: "POST",
+        })
+      );
+      expect(
+        screen.getByText("Diagnóstico actualizado con Mercado Pago.")
+      ).toBeInTheDocument();
+      expect(screen.getAllByText("4")).toHaveLength(2);
+    });
+  });
+
+  it("should keep diagnostics visible and show a safe error when reconciliation fails", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          canceledPriceIds: [],
+          message: "Planes verificados con Mercado Pago.",
+          prices: [activePrice],
+          verifiedCount: 1,
+        }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          message: "No pudimos actualizar el diagnóstico. Intentá de nuevo.",
+        }),
+        ok: false,
+      }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[activePrice]}
+        subscriberDiagnostics={subscriberDiagnostics}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Actualizar diagnóstico" })
+    );
+
+    expect(
+      await screen.findByText(
+        "No pudimos actualizar el diagnóstico. Intentá de nuevo."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Detalle de suscriptores" })
+    ).toBeInTheDocument();
   });
 
   it("should update one provider plan from the inline edit action", async () => {

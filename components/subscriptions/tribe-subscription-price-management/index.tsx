@@ -29,7 +29,10 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { TribeSubscriptionPriceResult } from "@/src/modules/subscriptions/application/results/tribe-subscription-price-result";
+import type {
+  TribeSubscriberDiagnosticsResult,
+  TribeSubscriptionPriceResult,
+} from "@/src/modules/subscriptions/application/results/tribe-subscription-price-result";
 import styles from "./styles.module.scss";
 
 const PRICE_MANAGEMENT_COPY = {
@@ -53,8 +56,16 @@ const PRICE_MANAGEMENT_COPY = {
     "No pudimos verificar los planes. Intentá de nuevo.",
   fallbackVerifyProviderSubscribersError:
     "No pudimos verificar los suscriptores. Intentá de nuevo.",
+  fallbackSubscriberDiagnosticsError:
+    "No pudimos actualizar el diagnóstico. Intentá de nuevo.",
   guardianNotice: "Tenés acceso de lectura. Solo el líder puede operar cambios.",
+  localActiveSubscribersLabel: "Activos locales",
   makeCurrentButton: "Marcar como actual",
+  mercadoPagoAuthorizedSubscribersLabel: "Autorizados en Mercado Pago",
+  mercadoPagoCanceledOrMissingSubscribersLabel:
+    "Cancelados o ausentes en Mercado Pago",
+  mercadoPagoPausedSubscribersLabel: "Pausados en Mercado Pago",
+  mercadoPagoPendingSubscribersLabel: "Pendientes en Mercado Pago",
   nameLabel: "Nombre",
   namePlaceholder: "Plan mensual",
   cancelEditButton: "Cancelar edición",
@@ -68,6 +79,10 @@ const PRICE_MANAGEMENT_COPY = {
   replacementPlanNotice:
     "Este precio tiene suscriptores asociados. Creá un nuevo plan para próximos miembros.",
   saveEditButton: "Guardar cambios",
+  subscriberDiagnosticsLastReconciledPrefix: "Última actualización:",
+  subscriberDiagnosticsTitle: "Detalle de suscriptores",
+  subscriberDiagnosticsUpdateButton: "Actualizar diagnóstico",
+  subscriberDiagnosticsUpdating: "Actualizando diagnóstico...",
   title: "Precios",
   providerSubscribersMetaSuffix: "suscriptores vigentes en Mercado Pago",
   verifyProviderPlanButton: "Verificar plan",
@@ -80,6 +95,8 @@ const PRICE_MANAGEMENT_ROUTE = {
   connectSegment: "/mercado-pago/oauth/start",
   makeCurrentSegment: "/make-current",
   pricesSegment: "/subscriptions/prices",
+  subscriberDiagnosticsReconcileSegment:
+    "/subscriptions/subscriber-diagnostics/reconcile",
   segmentSeparator: "/",
   verifyProviderPlanSegment: "/verify-provider-plan",
   verifyProviderPlansSegment: "/subscriptions/prices/verify-provider-plans",
@@ -108,6 +125,10 @@ const PRICE_MANAGEMENT_STATUS = {
 const PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX = {
   amount: "-edit-amount",
   name: "-edit-name",
+} as const;
+
+const PRICE_MANAGEMENT_ELEMENT_ID = {
+  subscriberDiagnosticsTitle: "subscriber-diagnostics-title",
 } as const;
 
 const PRICE_MANAGEMENT_FORMAT = {
@@ -147,6 +168,12 @@ type ProviderPlanVerificationResponse = {
   verifiedCount?: number;
 };
 
+type SubscriberDiagnosticsReconciliationResponse = {
+  diagnostics?: TribeSubscriberDiagnosticsResult;
+  message?: string;
+  verifiedCount?: number;
+};
+
 type PriceFieldErrors = {
   amount?: string;
 };
@@ -172,6 +199,7 @@ type TribeSubscriptionPriceManagementProps = {
   navigateToMercadoPagoConnection?: (connectionEndpoint: string) => void;
   prices: TribeSubscriptionPriceResult[];
   shouldAutoConnectMercadoPago?: boolean;
+  subscriberDiagnostics?: TribeSubscriberDiagnosticsResult | null;
   statusMessage: string | null;
   tribeSlug: string;
 };
@@ -250,6 +278,22 @@ function buildProviderSubscribersVerificationEndpoint(
   return (
     buildPriceEndpoint(tribeSlug, priceId) +
     PRICE_MANAGEMENT_ROUTE.verifyProviderSubscribersSegment
+  );
+}
+
+/**
+ * Builds the endpoint that reconciles aggregate subscriber diagnostics.
+ *
+ * @param tribeSlug - Current tribe slug.
+ * @returns Subscriber diagnostics reconciliation endpoint.
+ */
+function buildSubscriberDiagnosticsReconciliationEndpoint(
+  tribeSlug: string
+): string {
+  return (
+    PRICE_MANAGEMENT_ROUTE.apiTribes +
+    tribeSlug +
+    PRICE_MANAGEMENT_ROUTE.subscriberDiagnosticsReconcileSegment
   );
 }
 
@@ -343,6 +387,21 @@ async function submitProviderPlanVerificationRequest<
 }
 
 /**
+ * Sends a subscriber diagnostics reconciliation request.
+ *
+ * @param tribeSlug - Current tribe slug.
+ * @returns Parsed diagnostics reconciliation response.
+ */
+async function submitSubscriberDiagnosticsReconciliationRequest(
+  tribeSlug: string
+): Promise<SubscriberDiagnosticsReconciliationResponse> {
+  return submitPriceRequest(
+    buildSubscriberDiagnosticsReconciliationEndpoint(tribeSlug),
+    PRICE_MANAGEMENT_REQUEST.postMethod
+  ) as Promise<SubscriberDiagnosticsReconciliationResponse>;
+}
+
+/**
  * Detects request cancellation errors from fetch.
  *
  * @param error - Unknown error thrown by the request.
@@ -361,6 +420,7 @@ export function TribeSubscriptionPriceManagement({
   navigateToMercadoPagoConnection,
   prices,
   shouldAutoConnectMercadoPago = true,
+  subscriberDiagnostics,
   statusMessage,
   tribeSlug,
 }: TribeSubscriptionPriceManagementProps) {
@@ -378,6 +438,12 @@ export function TribeSubscriptionPriceManagement({
     providerSubscriberCountsByPriceId,
     setProviderSubscriberCountsByPriceId,
   ] = useState<Record<string, number>>({});
+  const [subscriberDiagnosticsResult, setSubscriberDiagnosticsResult] =
+    useState<TribeSubscriberDiagnosticsResult | null>(
+      subscriberDiagnostics ?? null
+    );
+  const [subscriberDiagnosticsMessage, setSubscriberDiagnosticsMessage] =
+    useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const hasStartedMercadoPagoConnection = useRef(false);
   const nameInputId = useId();
@@ -398,6 +464,8 @@ export function TribeSubscriptionPriceManagement({
     isVerifyingProviderPlans ||
     isMercadoPagoConnectionRequired;
   const shouldShowMercadoPagoConnectionHealth = canManagePrices;
+  const shouldShowSubscriberDiagnostics =
+    canManagePrices && Boolean(subscriberDiagnosticsResult);
   const mercadoPagoConnectionStatusLabel = isMercadoPagoConnected
     ? PRICE_MANAGEMENT_COPY.connectedStatus
     : PRICE_MANAGEMENT_COPY.requiresReconnectionStatus;
@@ -825,6 +893,44 @@ export function TribeSubscriptionPriceManagement({
     }
   };
 
+  /**
+   * Reconciles aggregate subscriber diagnostics with Mercado Pago.
+   *
+   * @returns Promise resolved after diagnostics state is refreshed.
+   */
+  const handleReconcileSubscriberDiagnostics = async () => {
+    setPendingAction(PRICE_MANAGEMENT_COPY.subscriberDiagnosticsUpdateButton);
+    setSubscriberDiagnosticsMessage(
+      PRICE_MANAGEMENT_COPY.subscriberDiagnosticsUpdating
+    );
+
+    try {
+      const response = await submitSubscriberDiagnosticsReconciliationRequest(
+        tribeSlug
+      );
+
+      if (response.diagnostics) {
+        setSubscriberDiagnosticsResult(response.diagnostics);
+      }
+
+      setSubscriberDiagnosticsMessage(response.message ?? null);
+      toast.success(
+        response.message ??
+          PRICE_MANAGEMENT_COPY.subscriberDiagnosticsUpdateButton
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : PRICE_MANAGEMENT_COPY.fallbackSubscriberDiagnosticsError;
+
+      setSubscriberDiagnosticsMessage(message);
+      toast.error(message);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
   return (
     <section className={styles.TribeSubscriptionPriceManagement}>
       <header className={styles.TribeSubscriptionPriceManagement__header}>
@@ -893,6 +999,176 @@ export function TribeSubscriptionPriceManagement({
         >
           {PRICE_MANAGEMENT_COPY.disconnectedNotice}
         </p>
+      ) : null}
+
+      {shouldShowSubscriberDiagnostics && subscriberDiagnosticsResult ? (
+        <section
+          aria-labelledby={
+            PRICE_MANAGEMENT_ELEMENT_ID.subscriberDiagnosticsTitle
+          }
+          className={styles.TribeSubscriptionPriceManagement__diagnostics}
+        >
+          <div
+            className={
+              styles.TribeSubscriptionPriceManagement__diagnosticsHeader
+            }
+          >
+            <div>
+              <h2
+                className={
+                  styles.TribeSubscriptionPriceManagement__sectionTitle
+                }
+                id={PRICE_MANAGEMENT_ELEMENT_ID.subscriberDiagnosticsTitle}
+              >
+                {PRICE_MANAGEMENT_COPY.subscriberDiagnosticsTitle}
+              </h2>
+              {subscriberDiagnosticsResult.lastReconciledAt ? (
+                <p className={styles.TribeSubscriptionPriceManagement__meta}>
+                  {PRICE_MANAGEMENT_COPY.subscriberDiagnosticsLastReconciledPrefix}{" "}
+                  {new Intl.DateTimeFormat(
+                    PRICE_MANAGEMENT_FORMAT.locale
+                  ).format(
+                    new Date(subscriberDiagnosticsResult.lastReconciledAt)
+                  )}
+                </p>
+              ) : null}
+            </div>
+            {isMercadoPagoConnected ? (
+              <Button
+                disabled={Boolean(pendingAction)}
+                onClick={() => {
+                  void handleReconcileSubscriberDiagnostics();
+                }}
+                type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+              >
+                <RefreshCwIcon />
+                {PRICE_MANAGEMENT_COPY.subscriberDiagnosticsUpdateButton}
+              </Button>
+            ) : null}
+          </div>
+          {subscriberDiagnosticsMessage ? (
+            <p
+              className={styles.TribeSubscriptionPriceManagement__status}
+              role={PRICE_MANAGEMENT_REQUEST.statusRole}
+            >
+              {subscriberDiagnosticsMessage}
+            </p>
+          ) : null}
+          <dl
+            className={
+              styles.TribeSubscriptionPriceManagement__diagnosticsList
+            }
+          >
+            <div
+              className={
+                styles.TribeSubscriptionPriceManagement__diagnosticsItem
+              }
+            >
+              <dt
+                className={
+                  styles.TribeSubscriptionPriceManagement__diagnosticsTerm
+                }
+              >
+                {PRICE_MANAGEMENT_COPY.localActiveSubscribersLabel}
+              </dt>
+              <dd
+                className={
+                  styles.TribeSubscriptionPriceManagement__diagnosticsValue
+                }
+              >
+                {subscriberDiagnosticsResult.localActiveSubscribersCount}
+              </dd>
+            </div>
+            <div
+              className={
+                styles.TribeSubscriptionPriceManagement__diagnosticsItem
+              }
+            >
+              <dt
+                className={
+                  styles.TribeSubscriptionPriceManagement__diagnosticsTerm
+                }
+              >
+                {PRICE_MANAGEMENT_COPY.mercadoPagoAuthorizedSubscribersLabel}
+              </dt>
+              <dd
+                className={
+                  styles.TribeSubscriptionPriceManagement__diagnosticsValue
+                }
+              >
+                {
+                  subscriberDiagnosticsResult.mercadoPagoAuthorizedSubscribersCount
+                }
+              </dd>
+            </div>
+            <div
+              className={
+                styles.TribeSubscriptionPriceManagement__diagnosticsItem
+              }
+            >
+              <dt
+                className={
+                  styles.TribeSubscriptionPriceManagement__diagnosticsTerm
+                }
+              >
+                {PRICE_MANAGEMENT_COPY.mercadoPagoPendingSubscribersLabel}
+              </dt>
+              <dd
+                className={
+                  styles.TribeSubscriptionPriceManagement__diagnosticsValue
+                }
+              >
+                {subscriberDiagnosticsResult.mercadoPagoPendingSubscribersCount}
+              </dd>
+            </div>
+            <div
+              className={
+                styles.TribeSubscriptionPriceManagement__diagnosticsItem
+              }
+            >
+              <dt
+                className={
+                  styles.TribeSubscriptionPriceManagement__diagnosticsTerm
+                }
+              >
+                {PRICE_MANAGEMENT_COPY.mercadoPagoPausedSubscribersLabel}
+              </dt>
+              <dd
+                className={
+                  styles.TribeSubscriptionPriceManagement__diagnosticsValue
+                }
+              >
+                {subscriberDiagnosticsResult.mercadoPagoPausedSubscribersCount}
+              </dd>
+            </div>
+            <div
+              className={
+                styles.TribeSubscriptionPriceManagement__diagnosticsItem
+              }
+            >
+              <dt
+                className={
+                  styles.TribeSubscriptionPriceManagement__diagnosticsTerm
+                }
+              >
+                {
+                  PRICE_MANAGEMENT_COPY
+                    .mercadoPagoCanceledOrMissingSubscribersLabel
+                }
+              </dt>
+              <dd
+                className={
+                  styles.TribeSubscriptionPriceManagement__diagnosticsValue
+                }
+              >
+                {
+                  subscriberDiagnosticsResult.mercadoPagoCanceledOrMissingSubscribersCount
+                }
+              </dd>
+            </div>
+          </dl>
+        </section>
       ) : null}
 
       {canManagePrices ? (

@@ -8,8 +8,13 @@ import {
   verifyTribeSubscriptionProviderPlan,
   verifyTribeSubscriptionProviderPlans,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscription-prices-use-cases";
+import {
+  getTribeSubscriberDiagnostics,
+  reconcileTribeSubscriberDiagnostics,
+} from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscriber-diagnostics-use-cases";
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import type { TribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
+import type { TribeSubscriberDiagnosticsRepository } from "@/src/modules/subscriptions/application/ports/tribe-subscriber-diagnostics-repository";
 
 function createRepository(
   overrides: Partial<TribeSubscriptionPriceRepository> = {}
@@ -23,6 +28,16 @@ function createRepository(
     update: jest.fn(),
     verifyProviderPlan: jest.fn(),
     verifyProviderPlans: jest.fn(),
+    ...overrides,
+  };
+}
+
+function createSubscriberDiagnosticsRepository(
+  overrides: Partial<TribeSubscriberDiagnosticsRepository> = {}
+): TribeSubscriberDiagnosticsRepository {
+  return {
+    getSubscriberDiagnostics: jest.fn(),
+    reconcileSubscriberDiagnostics: jest.fn(),
     ...overrides,
   };
 }
@@ -337,6 +352,65 @@ describe("manage tribe subscription prices use cases", () => {
       eventId: "event-1",
       resourceId: "plan-1",
       topic: "subscription_preapproval_plan.updated",
+    });
+  });
+
+  it("should read subscriber diagnostics with normalized input", async () => {
+    const diagnostics = {
+      lastReconciledAt: "2026-05-12T01:00:00.000Z",
+      localActiveSubscribersCount: 4,
+      mercadoPagoAuthorizedSubscribersCount: 4,
+      mercadoPagoCanceledOrMissingSubscribersCount: 1,
+      mercadoPagoPausedSubscribersCount: 2,
+      mercadoPagoPendingSubscribersCount: 3,
+    };
+    const getSubscriberDiagnostics = jest.fn(async () => diagnostics);
+    const execute = getTribeSubscriberDiagnostics({
+      tribeSubscriberDiagnosticsRepository:
+        createSubscriberDiagnosticsRepository({ getSubscriberDiagnostics }),
+    });
+
+    await expect(
+      execute({
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toEqual(diagnostics);
+    expect(getSubscriberDiagnostics).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should reconcile subscriber diagnostics with normalized input", async () => {
+    const diagnostics = {
+      localActiveSubscribersCount: 1,
+      mercadoPagoAuthorizedSubscribersCount: 1,
+      mercadoPagoCanceledOrMissingSubscribersCount: 0,
+      mercadoPagoPausedSubscribersCount: 0,
+      mercadoPagoPendingSubscribersCount: 0,
+    };
+    const reconcileSubscriberDiagnostics = jest.fn(async () => ({
+      diagnostics,
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+      verifiedCount: 1,
+    }));
+    const execute = reconcileTribeSubscriberDiagnostics({
+      tribeSubscriberDiagnosticsRepository:
+        createSubscriberDiagnosticsRepository({
+          reconcileSubscriberDiagnostics,
+        }),
+    });
+
+    await expect(
+      execute({
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toEqual({
+      diagnostics,
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+      verifiedCount: 1,
+    });
+    expect(reconcileSubscriberDiagnostics).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
     });
   });
 });

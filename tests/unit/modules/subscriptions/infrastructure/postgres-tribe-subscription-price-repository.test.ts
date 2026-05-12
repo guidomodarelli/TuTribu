@@ -1185,6 +1185,164 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     });
   });
 
+  it("should classify active subscriber diagnostics without provider identifiers as missing", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          last_reconciled_at: "2026-05-12T01:00:00.000Z",
+          local_active_subscribers_count: "2",
+          mercado_pago_authorized_subscribers_count: "2",
+          mercado_pago_canceled_or_missing_subscribers_count: "1",
+          mercado_pago_paused_subscribers_count: "4",
+          mercado_pago_pending_subscribers_count: "3",
+          target_tribe_id: "tribe-1",
+        },
+      ],
+    });
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.getSubscriberDiagnostics({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      lastReconciledAt: "2026-05-12T01:00:00.000Z",
+      localActiveSubscribersCount: 2,
+      mercadoPagoAuthorizedSubscribersCount: 2,
+      mercadoPagoCanceledOrMissingSubscribersCount: 1,
+      mercadoPagoPausedSubscribersCount: 4,
+      mercadoPagoPendingSubscribersCount: 3,
+    });
+
+    const diagnosticsSqlText = getSqlText(execute.mock.calls[0][0]);
+
+    expect(diagnosticsSqlText).toContain(
+      "count(tribe_member_subscriptions.id) filter"
+    );
+    expect(diagnosticsSqlText).toContain(
+      "public.can_manage_tribe_subscription_prices"
+    );
+    expect(diagnosticsSqlText).not.toContain("user_id");
+    expect(diagnosticsSqlText).toContain(
+      "tribe_member_subscriptions.mercado_pago_preapproval_id is not null"
+    );
+    expect(diagnosticsSqlText).toContain(
+      "tribe_member_subscriptions.mercado_pago_preapproval_id is null"
+    );
+  });
+
+  it("should return null when aggregate diagnostics have no authorized target tribe", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          last_reconciled_at: null,
+          local_active_subscribers_count: "0",
+          mercado_pago_authorized_subscribers_count: "0",
+          mercado_pago_canceled_or_missing_subscribers_count: "0",
+          mercado_pago_paused_subscribers_count: "0",
+          mercado_pago_pending_subscribers_count: "0",
+          target_tribe_id: null,
+        },
+      ],
+    });
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.getSubscriberDiagnostics({
+        tribeSlug: "unknown-tribe",
+      })
+    ).resolves.toBeNull();
+  });
+
+  it("should reconcile aggregate subscriber diagnostics with authorized pending paused and missing counts", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            mercado_pago_preapproval_id: "subscription-1",
+          },
+          {
+            mercado_pago_preapproval_id: "subscription-2",
+          },
+          {
+            mercado_pago_preapproval_id: "subscription-3",
+          },
+          {
+            mercado_pago_preapproval_id: "subscription-4",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            last_reconciled_at: "2026-05-12T01:05:00.000Z",
+            local_active_subscribers_count: 1,
+            mercado_pago_authorized_subscribers_count: 1,
+            mercado_pago_canceled_or_missing_subscribers_count: 1,
+            mercado_pago_paused_subscribers_count: 1,
+            mercado_pago_pending_subscribers_count: 1,
+            target_tribe_id: "tribe-1",
+          },
+        ],
+      });
+    const getMercadoPagoSubscriptionStatus = jest
+      .fn()
+      .mockResolvedValueOnce("authorized")
+      .mockResolvedValueOnce("pending")
+      .mockResolvedValueOnce("paused")
+      .mockResolvedValueOnce(null);
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => "active"),
+      getMercadoPagoSubscriptionStatus
+    );
+
+    await expect(
+      repository.reconcileSubscriberDiagnostics({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      diagnostics: {
+        lastReconciledAt: "2026-05-12T01:05:00.000Z",
+        localActiveSubscribersCount: 1,
+        mercadoPagoAuthorizedSubscribersCount: 1,
+        mercadoPagoCanceledOrMissingSubscribersCount: 1,
+        mercadoPagoPausedSubscribersCount: 1,
+        mercadoPagoPendingSubscribersCount: 1,
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+      verifiedCount: 4,
+    });
+    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(4);
+    expect(
+      execute.mock.calls.some((call) =>
+        getSqlText(call[0]).includes("update public.tribe_member_subscriptions")
+      )
+    ).toBe(true);
+    expect(
+      execute.mock.calls.some((call) =>
+        getSqlText(call[0]).includes("update public.tribe_members")
+      )
+    ).toBe(true);
+  });
+
   it("should not cancel the provider plan when a subscription appears during cancellation", async () => {
     const execute = jest.fn(async (statement) => {
       const sqlText = getSqlText(statement);

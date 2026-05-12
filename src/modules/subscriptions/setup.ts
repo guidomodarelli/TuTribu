@@ -17,6 +17,10 @@ import {
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscription-prices-use-cases";
 import { reconcileTribeSubscriptionProviderSubscribers } from "@/src/modules/subscriptions/application/use-cases/reconcile-tribe-subscription-provider-subscribers-use-case";
 import {
+  getTribeSubscriberDiagnostics,
+  reconcileTribeSubscriberDiagnostics,
+} from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscriber-diagnostics-use-cases";
+import {
   cancelOwnTribeMemberSubscription,
   handleMercadoPagoSubscriptionWebhook,
   reconcileCurrentTribeMemberSubscription,
@@ -27,6 +31,7 @@ import {
   validatePendingTribeMemberSubscriptionReturn,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
 import type { TribeProviderSubscriberReconciliationRepository } from "@/src/modules/subscriptions/application/ports/tribe-provider-subscriber-reconciliation-repository";
+import type { TribeSubscriberDiagnosticsRepository } from "@/src/modules/subscriptions/application/ports/tribe-subscriber-diagnostics-repository";
 import type { TribeMemberSubscriptionRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository";
 import type { TribePaymentIntegrationRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-payment-integration-repository";
 import type { TribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
@@ -35,6 +40,7 @@ type SubscriptionsModuleDependencies = {
   tribeMemberSubscriptionRepository: TribeMemberSubscriptionRepository;
   tribePaymentIntegrationRepository: TribePaymentIntegrationRepository;
   tribeProviderSubscriberReconciliationRepository: TribeProviderSubscriberReconciliationRepository;
+  tribeSubscriberDiagnosticsRepository: TribeSubscriberDiagnosticsRepository;
   tribeSubscriptionPriceRepository: TribeSubscriptionPriceRepository;
 };
 
@@ -48,6 +54,7 @@ export function buildSubscriptionsModule({
   tribeMemberSubscriptionRepository,
   tribePaymentIntegrationRepository,
   tribeProviderSubscriberReconciliationRepository,
+  tribeSubscriberDiagnosticsRepository,
   tribeSubscriptionPriceRepository,
 }: SubscriptionsModuleDependencies) {
   return {
@@ -67,6 +74,9 @@ export function buildSubscriptionsModule({
       handleMercadoPagoSubscriptionWebhook: handleMercadoPagoSubscriptionWebhook({
         tribeMemberSubscriptionRepository,
       }),
+      getTribeSubscriberDiagnostics: getTribeSubscriberDiagnostics({
+        tribeSubscriberDiagnosticsRepository,
+      }),
       listTribeSubscriptionPrices: listTribeSubscriptionPrices({
         tribeSubscriptionPriceRepository,
       }),
@@ -81,6 +91,9 @@ export function buildSubscriptionsModule({
         reconcileTribeSubscriptionProviderSubscribers({
           tribeProviderSubscriberReconciliationRepository,
         }),
+      reconcileTribeSubscriberDiagnostics: reconcileTribeSubscriberDiagnostics({
+        tribeSubscriberDiagnosticsRepository,
+      }),
       resolveTribeMemberSubscriptionReturnPath:
         resolveTribeMemberSubscriptionReturnPath({
           tribeMemberSubscriptionRepository,

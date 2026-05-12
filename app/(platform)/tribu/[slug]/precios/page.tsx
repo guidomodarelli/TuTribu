@@ -15,6 +15,8 @@ import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-pa
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
 const PRICE_MANAGEMENT_PAGE_LOG = {
+  resolveDiagnosticsFailureMessage:
+    "Failed to resolve tribe subscriber diagnostics",
   operation: "tribe-subscription-price-management-page",
   resolvePricesFailureMessage: "Failed to resolve tribe subscription prices",
 } as const;
@@ -196,6 +198,25 @@ export default async function TribePricesPage({
   const isMercadoPagoConnected =
     priceList.mercadoPagoConnectionStatus ===
     MERCADO_PAGO_CONNECTION_STATUS.connected;
+  const subscriberDiagnostics = priceList.viewerPermissions.canManagePrices
+    ? await modules.subscriptions.useCases
+        .getTribeSubscriberDiagnostics({
+          tribeSlug: tribe.slug,
+        })
+        .catch((error: unknown) => {
+          logger.error({
+            message:
+              PRICE_MANAGEMENT_PAGE_LOG.resolveDiagnosticsFailureMessage,
+            error,
+            metadata: {
+              slug,
+              viewerId: authenticatedMember.id,
+            },
+          });
+
+          return null;
+        })
+    : null;
   const statusMessage = shouldHideQueryStatus(
     status,
     isMercadoPagoConnected,
@@ -211,6 +232,7 @@ export default async function TribePricesPage({
         isMercadoPagoConnected={isMercadoPagoConnected}
         prices={priceList.prices}
         shouldAutoConnectMercadoPago={priceList.shouldAutoConnectMercadoPago}
+        subscriberDiagnostics={subscriberDiagnostics}
         statusMessage={statusMessage}
         tribeSlug={tribe.slug}
       />

@@ -35,6 +35,15 @@ export type TribeSubscriptionPriceListResult = {
   };
 };
 
+export type TribeSubscriberDiagnosticsResult = {
+  lastReconciledAt?: string;
+  localActiveSubscribersCount: number;
+  mercadoPagoAuthorizedSubscribersCount: number;
+  mercadoPagoCanceledOrMissingSubscribersCount: number;
+  mercadoPagoPausedSubscribersCount: number;
+  mercadoPagoPendingSubscribersCount: number;
+};
+
 export type TribeSubscriptionPriceMutationResult =
   | {
       price: TribeSubscriptionPriceResult;
@@ -101,6 +110,20 @@ export type TribeProviderSubscriberReconciliationResult =
   | {
       price: TribeSubscriptionPriceResult;
       providerActiveSubscribersCount: number;
+      status: typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.verified;
+      verifiedCount: number;
+    }
+  | {
+      status:
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound
+        | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;
+    };
+
+export type TribeSubscriberDiagnosticsReconciliationResult =
+  | {
+      diagnostics: TribeSubscriberDiagnosticsResult;
       status: typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.verified;
       verifiedCount: number;
     }
