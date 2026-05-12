@@ -108,6 +108,7 @@ export async function POST(
     body,
     SUBSCRIPTION_START_FIELD.invitationToken
   );
+  const hasInvitationToken = invitationToken.trim().length > 0;
   const idempotencyKey =
     buildSubscriptionIdempotencyKey({
       idempotencyKey:
@@ -116,12 +117,16 @@ export async function POST(
       memberId: authenticatedMember.id,
       tribeSlug: slug,
     });
-  const result =
-    await modules.subscriptions.useCases.startTribeMemberSubscription({
-      idempotencyKey,
-      invitationToken,
-      tribeSlug: slug,
-    });
+  const result = hasInvitationToken
+    ? await modules.subscriptions.useCases.startTribeMemberSubscription({
+        idempotencyKey,
+        invitationToken,
+        tribeSlug: slug,
+      })
+    : await modules.subscriptions.useCases.retryTribeMemberSubscriptionPayment({
+        idempotencyKey,
+        tribeSlug: slug,
+      });
 
   switch (result.status) {
     case TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending:

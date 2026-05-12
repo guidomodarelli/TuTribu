@@ -4,6 +4,7 @@ import { createHash } from "crypto";
 
 const getAuthenticatedMember = jest.fn();
 const startTribeMemberSubscription = jest.fn();
+const retryTribeMemberSubscriptionPayment = jest.fn();
 
 function hashInvitationToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -84,6 +85,7 @@ describe("tribe subscription start route", () => {
       },
       subscriptions: {
         useCases: {
+          retryTribeMemberSubscriptionPayment,
           startTribeMemberSubscription,
         },
       },
@@ -148,5 +150,26 @@ describe("tribe subscription start route", () => {
     await expect(response.json()).resolves.toEqual({
       message: "La invitación no está disponible.",
     });
+  });
+
+  it("starts a direct payment retry when no invitation token is provided", async () => {
+    retryTribeMemberSubscriptionPayment.mockResolvedValue({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
+      status: "pending",
+    });
+
+    const response = await POST(buildRequest({}), buildContext());
+
+    expect(response.status).toBe(200);
+    expect(retryTribeMemberSubscriptionPayment).toHaveBeenCalledWith({
+      idempotencyKey: [
+        "member-1",
+        "matematica-pro",
+        hashInvitationToken(""),
+        hashIdempotencyKey("request-1"),
+      ].join(":"),
+      tribeSlug: "matematica-pro",
+    });
+    expect(startTribeMemberSubscription).not.toHaveBeenCalled();
   });
 });

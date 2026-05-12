@@ -8,6 +8,7 @@ import type {
   MercadoPagoSubscriptionWebhookCommand,
   PendingSubscriptionReturnQuery,
   ProviderSubscriptionReturnPathQuery,
+  RetryCurrentPriceSubscriptionPaymentCommand,
   StartCurrentPriceSubscriptionCommand,
   TribeMemberSubscriptionStatusQuery,
   TribeMemberSubscriptionRepository,
@@ -90,6 +91,22 @@ export function confirmTribeMemberSubscriptionReturn({
     tribeMemberSubscriptionRepository.confirmSubscriptionReturn({
       providerSubscriptionId: normalizeText(query.providerSubscriptionId),
       tribeSlug: normalizeText(query.tribeSlug),
+    });
+}
+
+/**
+ * Retries payment for a recoverable member subscription without an invitation.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that starts a retry checkout.
+ */
+export function retryTribeMemberSubscriptionPayment({
+  tribeMemberSubscriptionRepository,
+}: TribeMemberSubscriptionDependencies) {
+  return async (command: RetryCurrentPriceSubscriptionPaymentCommand) =>
+    tribeMemberSubscriptionRepository.retryCurrentPriceSubscriptionPayment({
+      idempotencyKey: normalizeText(command.idempotencyKey),
+      tribeSlug: normalizeText(command.tribeSlug),
     });
 }
 

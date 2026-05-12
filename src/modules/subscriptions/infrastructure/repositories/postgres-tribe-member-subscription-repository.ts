@@ -21,6 +21,7 @@ import type {
   MercadoPagoSubscriptionWebhookCommand,
   PendingSubscriptionReturnQuery,
   ProviderSubscriptionReturnPathQuery,
+  RetryCurrentPriceSubscriptionPaymentCommand,
   StartCurrentPriceSubscriptionCommand,
   TribeMemberSubscriptionStatusQuery,
   TribeMemberSubscriptionRepository,
@@ -80,6 +81,7 @@ type SubscriptionStartContextRow = {
   existing_membership_status: string | null;
   existing_membership_status_reason: string | null;
   has_active_invitation: boolean | null;
+  has_retry_blocking_member_subscription: boolean | null;
   refresh_token: string | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
@@ -98,6 +100,13 @@ type WebhookSubscriptionContextRow = {
   subscription_found: boolean | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
+};
+
+type StartSubscriptionCheckoutInput = {
+  idempotencyKey: string;
+  invitationTokenHash: string;
+  requiresActiveInvitation: boolean;
+  tribeSlug: string;
 };
 
 type WebhookOperationInsertRow = {
@@ -596,10 +605,7 @@ export class PostgresTribeMemberSubscriptionRepository
     });
 
     return {
-      status:
-        subscriptionStatus.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused
-          ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.removedBySubscription
-          : subscriptionStatus.status,
+      status: subscriptionStatus.status,
     };
   }
 
@@ -670,10 +676,7 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     return {
-      status:
-        subscriptionStatus.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused
-          ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.removedBySubscription
-          : subscriptionStatus.status,
+      status: subscriptionStatus.status,
     };
   }
 
@@ -760,10 +763,7 @@ export class PostgresTribeMemberSubscriptionRepository
     );
 
     return {
-      status:
-        subscriptionStatus.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused
-          ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.removedBySubscription
-          : subscriptionStatus.status,
+      status: subscriptionStatus.status,
     };
   }
 
@@ -1076,19 +1076,46 @@ export class PostgresTribeMemberSubscriptionRepository
   async startCurrentPriceSubscription(
     command: StartCurrentPriceSubscriptionCommand
   ): Promise<TribeMemberSubscriptionStartResult> {
+    return this.startCurrentPriceSubscriptionCheckout({
+      idempotencyKey: command.idempotencyKey,
+      invitationTokenHash: hashInvitationToken(command.invitationToken),
+      requiresActiveInvitation: true,
+      tribeSlug: command.tribeSlug,
+    });
+  }
+
+  /**
+   * Retries a current-price subscription for a recoverable paid member.
+   *
+   * @param command - Tribe slug and idempotency key.
+   * @returns Checkout URL or a stable rejection status.
+   */
+  async retryCurrentPriceSubscriptionPayment(
+    command: RetryCurrentPriceSubscriptionPaymentCommand
+  ): Promise<TribeMemberSubscriptionStartResult> {
+    return this.startCurrentPriceSubscriptionCheckout({
+      idempotencyKey: command.idempotencyKey,
+      invitationTokenHash: "",
+      requiresActiveInvitation: false,
+      tribeSlug: command.tribeSlug,
+    });
+  }
+
+  private async startCurrentPriceSubscriptionCheckout(
+    input: StartSubscriptionCheckoutInput
+  ): Promise<TribeMemberSubscriptionStartResult> {
     const operationKey = [
       MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.startSubscription,
-      command.tribeSlug,
-      command.idempotencyKey,
+      input.tribeSlug,
+      input.idempotencyKey,
     ].join(MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.separator);
-    const invitationTokenHash = hashInvitationToken(command.invitationToken);
 
     const context = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
-          where tribes.slug = ${command.tribeSlug}
+          where tribes.slug = ${input.tribeSlug}
           limit 1
         ),
         checkout_context as (
@@ -1100,7 +1127,7 @@ export class PostgresTribeMemberSubscriptionRepository
             ),
             set_config(
               ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
-              ${invitationTokenHash},
+              ${input.invitationTokenHash},
               true
             )
         ),
@@ -1110,7 +1137,7 @@ export class PostgresTribeMemberSubscriptionRepository
           cross join checkout_context
           inner join target_tribe
             on target_tribe.id = tribe_invitations.tribe_id
-          where tribe_invitations.token_hash = ${invitationTokenHash}
+          where tribe_invitations.token_hash = ${input.invitationTokenHash}
             and tribe_invitations.status = 'active'
           limit 1
         ),
@@ -1136,6 +1163,15 @@ export class PostgresTribeMemberSubscriptionRepository
           inner join target_tribe
             on target_tribe.id = tribe_members.tribe_id
           where tribe_members.user_id = public.current_app_user_id()
+          limit 1
+        ),
+        retry_blocking_member_subscription as (
+          select 1
+          from public.tribe_member_subscriptions
+          inner join target_tribe
+            on target_tribe.id = tribe_member_subscriptions.tribe_id
+          where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
           limit 1
         ),
         existing_pending_checkout as (
@@ -1166,6 +1202,7 @@ export class PostgresTribeMemberSubscriptionRepository
           exists (select 1 from active_invitation) as has_active_invitation,
           (select status from existing_membership) as existing_membership_status,
           (select status_reason from existing_membership) as existing_membership_status_reason,
+          exists (select 1 from retry_blocking_member_subscription) as has_retry_blocking_member_subscription,
           (select subscription_id from existing_pending_checkout) as existing_checkout_subscription_id,
           (select checkout_url from existing_pending_checkout) as existing_checkout_url,
           (select provider_subscription_id from existing_pending_checkout) as existing_provider_subscription_id,
@@ -1183,18 +1220,52 @@ export class PostgresTribeMemberSubscriptionRepository
       return (result.rows?.[0] ?? null) as SubscriptionStartContextRow | null;
     });
 
-    if (!context?.has_active_invitation) {
+    if (input.requiresActiveInvitation && !context?.has_active_invitation) {
       logMemberSubscriptionPaymentResult({
         operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
         result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.invalidInvitation,
         traceContext: buildMemberSubscriptionPaymentTraceContext({
           operationKey,
           requestId: this.requestId,
-          tribeSlug: command.tribeSlug,
+          tribeSlug: input.tribeSlug,
         }),
       });
 
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.invalidInvitation };
+    }
+
+    const hasRetryBlockingMemberSubscription =
+      context?.has_retry_blocking_member_subscription === true;
+    const hasRecoverablePaymentMembership =
+      (context?.existing_membership_status === "blocked" &&
+        context.existing_membership_status_reason ===
+          TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked) ||
+      (context?.existing_membership_status === "removed" &&
+        context.existing_membership_status_reason ===
+          TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive &&
+        !hasRetryBlockingMemberSubscription);
+
+    if (!input.requiresActiveInvitation && !hasRecoverablePaymentMembership) {
+      const retryRejectionStatus =
+        context?.existing_membership_status === "blocked" &&
+        context.existing_membership_status_reason !==
+          TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked
+          ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked
+          : TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked;
+
+      logMemberSubscriptionPaymentResult({
+        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
+        result: retryRejectionStatus,
+        traceContext: buildMemberSubscriptionPaymentTraceContext({
+          operationKey,
+          priceId: context?.current_price_id,
+          providerPlanId: context?.current_price_provider_plan_id,
+          requestId: this.requestId,
+          tribeSlug: input.tribeSlug,
+        }),
+      });
+
+      return { status: retryRejectionStatus };
     }
 
     if (
@@ -1212,7 +1283,7 @@ export class PostgresTribeMemberSubscriptionRepository
           priceId: context?.current_price_id,
           providerPlanId: context?.current_price_provider_plan_id,
           requestId: this.requestId,
-          tribeSlug: command.tribeSlug,
+          tribeSlug: input.tribeSlug,
         }),
       });
 
@@ -1228,7 +1299,7 @@ export class PostgresTribeMemberSubscriptionRepository
           priceId: context.current_price_id,
           providerPlanId: context.current_price_provider_plan_id,
           requestId: this.requestId,
-          tribeSlug: command.tribeSlug,
+          tribeSlug: input.tribeSlug,
         }),
       });
 
@@ -1248,7 +1319,7 @@ export class PostgresTribeMemberSubscriptionRepository
           priceId: context.current_price_id,
           providerPlanId: context.current_price_provider_plan_id,
           requestId: this.requestId,
-          tribeSlug: command.tribeSlug,
+          tribeSlug: input.tribeSlug,
         }),
       });
 
@@ -1272,7 +1343,7 @@ export class PostgresTribeMemberSubscriptionRepository
           priceId: context.current_price_id,
           providerPlanId: context.current_price_provider_plan_id,
           requestId: this.requestId,
-          tribeSlug: command.tribeSlug,
+          tribeSlug: input.tribeSlug,
         }),
       });
 
@@ -1292,7 +1363,7 @@ export class PostgresTribeMemberSubscriptionRepository
         }
       : await this.reservePendingSubscription({
           currentPriceId: context.current_price_id,
-          invitationTokenHash,
+          invitationTokenHash: input.invitationTokenHash,
           tribeId: context.tribe_id,
         });
 
@@ -1313,7 +1384,7 @@ export class PostgresTribeMemberSubscriptionRepository
             priceId: context.current_price_id,
             providerPlanId: context.current_price_provider_plan_id,
             requestId: this.requestId,
-            tribeSlug: command.tribeSlug,
+            tribeSlug: input.tribeSlug,
           }),
         });
 
@@ -1332,7 +1403,7 @@ export class PostgresTribeMemberSubscriptionRepository
             priceId: context.current_price_id,
             providerPlanId: context.current_price_provider_plan_id,
             requestId: this.requestId,
-            tribeSlug: command.tribeSlug,
+            tribeSlug: input.tribeSlug,
           }),
         });
 
@@ -1349,7 +1420,7 @@ export class PostgresTribeMemberSubscriptionRepository
           priceId: context.current_price_id,
           providerPlanId: context.current_price_provider_plan_id,
           requestId: this.requestId,
-          tribeSlug: command.tribeSlug,
+          tribeSlug: input.tribeSlug,
         }),
       });
 
@@ -1367,7 +1438,7 @@ export class PostgresTribeMemberSubscriptionRepository
       providerPlanId: context.current_price_provider_plan_id,
       requestId: this.requestId,
       tribeId: context.tribe_id,
-      tribeSlug: command.tribeSlug,
+      tribeSlug: input.tribeSlug,
     });
   }
 

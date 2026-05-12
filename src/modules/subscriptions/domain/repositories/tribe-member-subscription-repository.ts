@@ -16,6 +16,11 @@ export type StartCurrentPriceSubscriptionCommand = {
   tribeSlug: string;
 };
 
+export type RetryCurrentPriceSubscriptionPaymentCommand = {
+  idempotencyKey: string;
+  tribeSlug: string;
+};
+
 export type MercadoPagoSubscriptionWebhookCommand = {
   eventId: string;
   resourceId: string;
@@ -54,6 +59,9 @@ export type TribeMemberSubscriptionRepository = {
   resolveReturnPathByProviderSubscription(
     query: ProviderSubscriptionReturnPathQuery
   ): Promise<string | null>;
+  retryCurrentPriceSubscriptionPayment(
+    command: RetryCurrentPriceSubscriptionPaymentCommand
+  ): Promise<TribeMemberSubscriptionStartResult>;
   startCurrentPriceSubscription(
     command: StartCurrentPriceSubscriptionCommand
   ): Promise<TribeMemberSubscriptionStartResult>;

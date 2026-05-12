@@ -4,6 +4,7 @@ import {
   handleMercadoPagoSubscriptionWebhook,
   reconcileCurrentTribeMemberSubscription,
   resolveTribeMemberSubscriptionReturnPath,
+  retryTribeMemberSubscriptionPayment,
   startTribeMemberSubscription,
   validatePendingTribeMemberSubscriptionReturn,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
@@ -20,6 +21,7 @@ function createRepository(
     hasPendingSubscriptionReturn: jest.fn(),
     reconcileCurrentMemberSubscription: jest.fn(),
     resolveReturnPathByProviderSubscription: jest.fn(),
+    retryCurrentPriceSubscriptionPayment: jest.fn(),
     startCurrentPriceSubscription: jest.fn(),
     ...overrides,
   };
@@ -139,6 +141,32 @@ describe("tribe member subscription use cases", () => {
     });
     expect(confirmSubscriptionReturn).toHaveBeenCalledWith({
       providerSubscriptionId: "preapproval-1",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("retries a current-price subscription payment with normalized input", async () => {
+    const retryCurrentPriceSubscriptionPayment = jest.fn(async () => ({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+    }));
+    const execute = retryTribeMemberSubscriptionPayment({
+      tribeMemberSubscriptionRepository: createRepository({
+        retryCurrentPriceSubscriptionPayment,
+      }),
+    });
+
+    await expect(
+      execute({
+        idempotencyKey: " retry-payment-1 ",
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+    });
+    expect(retryCurrentPriceSubscriptionPayment).toHaveBeenCalledWith({
+      idempotencyKey: "retry-payment-1",
       tribeSlug: "matematica-pro",
     });
   });

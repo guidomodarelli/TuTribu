@@ -162,6 +162,10 @@ export default async function TribePage({
         redirect(ROUTES.tribes.bySlug(slug));
       }
 
+      if (subscriptionReturn?.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused) {
+        redirect(ROUTES.tribes.subscription(slug));
+      }
+
       if (
         subscriptionReturn &&
         SUBSCRIPTION_RETURN_VISIBLE_STATUSES.has(subscriptionReturn.status)

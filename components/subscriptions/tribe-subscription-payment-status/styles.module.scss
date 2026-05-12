@@ -1,0 +1,35 @@
+.TribeSubscriptionPaymentStatus {
+  align-content: start;
+  display: grid;
+  gap: 1rem;
+  max-width: 42rem;
+
+  &__eyebrow {
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  &__title {
+    color: var(--foreground);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0;
+  }
+
+  &__description {
+    color: var(--muted-foreground);
+    line-height: 1.7;
+    margin: 0;
+  }
+
+  &__feedback {
+    background: var(--muted);
+    color: var(--foreground);
+    margin: 0;
+    padding: 0.75rem 1rem;
+  }
+}

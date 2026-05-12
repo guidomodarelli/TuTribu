@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import TribePage from "@/app/(platform)/tribu/[slug]/page";
 import { createRequestModules } from "@/src/modules/setup";
@@ -26,6 +26,7 @@ const tribeChannel = {
 
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(),
+  redirect: jest.fn(),
   useRouter: () => ({
     refresh: jest.fn(),
   }),
@@ -50,6 +51,10 @@ describe("TribePage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (notFound as unknown as jest.Mock).mockReset();
+    (redirect as unknown as jest.Mock).mockReset();
+    (redirect as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
     (createRequestModules as jest.Mock).mockReset();
     getAuthenticatedMember.mockReset();
     getTribePageAccess.mockReset();
@@ -604,6 +609,83 @@ describe("TribePage", () => {
     expect(
       screen.getByRole("heading", { name: "Estamos confirmando tu suscripción" })
     ).toBeInTheDocument();
+  });
+
+  it("redirects paused Mercado Pago returns to the subscription status page", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "blocked@example.com",
+      name: "Blocked User",
+      role: "tribemate",
+      avatarFallback: "BU",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      blockedReason: "subscription_inactive",
+      reason: "blocked_hidden",
+    });
+    confirmTribeMemberSubscriptionReturn.mockResolvedValue({
+      status: "paused",
+    });
+    let createModulesCallCount = 0;
+
+    (createRequestModules as jest.Mock).mockImplementation(async () => {
+      createModulesCallCount += 1;
+
+      if (createModulesCallCount === 3) {
+        return {
+          subscriptions: {
+            useCases: {
+              confirmTribeMemberSubscriptionReturn,
+            },
+          },
+        };
+      }
+
+      return {
+        auth: {
+          useCases: {
+            getAuthenticatedMember,
+          },
+        },
+        tribes: {
+          useCases: {
+            getTribePageAccess,
+          },
+        },
+        messages: {
+          useCases: {
+            listTribeRound,
+          },
+        },
+        subscriptions: {
+          useCases: {
+            confirmTribeMemberSubscriptionReturn: undefined,
+            reconcileCurrentTribeMemberSubscription: undefined,
+            validatePendingTribeMemberSubscriptionReturn,
+          },
+        },
+      };
+    });
+
+    await expect(
+      TribePage({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-1",
+        }),
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro/suscripcion");
+    expect(confirmTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
+      providerSubscriptionId: "preapproval-1",
+      tribeSlug: "matematica-pro",
+    });
   });
 
   it("returns 404 when the Mercado Pago return id does not match a pending subscription", async () => {
