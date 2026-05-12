@@ -17,6 +17,9 @@ importers:
       '@github/relative-time-element':
         specifier: ^5.0.0
         version: 5.0.0
+      '@next/env':
+        specifier: 16.2.4
+        version: 16.2.4
       better-auth:
         specifier: ^1.6.9
         version: 1.6.9(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@types/pg@8.20.0)(kysely@0.28.14)(pg@8.20.0))(next@16.2.4(@babel/core@7.29.0)(@playwright/test@1.59.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(sass@1.99.0))(pg@8.20.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
