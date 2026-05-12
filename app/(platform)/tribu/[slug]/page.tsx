@@ -127,13 +127,13 @@ export default async function TribePage({
         mercadoPagoWebhookVerified: true,
         requestId,
       });
-      const confirmSubscriptionReturn =
+      const resolveSubscriptionReturn =
         subscriptionConfirmationModules.subscriptions.useCases
-          .confirmTribeMemberSubscriptionReturn;
+          .resolveTribeMemberSubscriptionReturn;
       const validatePendingSubscriptionReturn =
         modules.subscriptions.useCases.validatePendingTribeMemberSubscriptionReturn;
-      const subscriptionReturn = confirmSubscriptionReturn
-        ? await confirmSubscriptionReturn({
+      const subscriptionReturn = resolveSubscriptionReturn
+        ? await resolveSubscriptionReturn({
             providerSubscriptionId: mercadoPagoPreapprovalId,
             tribeSlug: slug,
           })

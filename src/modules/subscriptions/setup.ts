@@ -18,9 +18,9 @@ import {
 import { reconcileTribeSubscriptionProviderSubscribers } from "@/src/modules/subscriptions/application/use-cases/reconcile-tribe-subscription-provider-subscribers-use-case";
 import {
   cancelOwnTribeMemberSubscription,
-  confirmTribeMemberSubscriptionReturn,
   handleMercadoPagoSubscriptionWebhook,
   reconcileCurrentTribeMemberSubscription,
+  resolveTribeMemberSubscriptionReturn,
   resolveTribeMemberSubscriptionReturnPath,
   retryTribeMemberSubscriptionPayment,
   startTribeMemberSubscription,
@@ -64,10 +64,6 @@ export function buildSubscriptionsModule({
       cancelOwnTribeMemberSubscription: cancelOwnTribeMemberSubscription({
         tribeMemberSubscriptionRepository,
       }),
-      confirmTribeMemberSubscriptionReturn:
-        confirmTribeMemberSubscriptionReturn({
-          tribeMemberSubscriptionRepository,
-        }),
       handleMercadoPagoSubscriptionWebhook: handleMercadoPagoSubscriptionWebhook({
         tribeMemberSubscriptionRepository,
       }),
@@ -87,6 +83,10 @@ export function buildSubscriptionsModule({
         }),
       resolveTribeMemberSubscriptionReturnPath:
         resolveTribeMemberSubscriptionReturnPath({
+          tribeMemberSubscriptionRepository,
+        }),
+      resolveTribeMemberSubscriptionReturn:
+        resolveTribeMemberSubscriptionReturn({
           tribeMemberSubscriptionRepository,
         }),
       retryTribeMemberSubscriptionPayment: retryTribeMemberSubscriptionPayment({

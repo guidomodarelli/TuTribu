@@ -44,9 +44,6 @@ export type TribeMemberSubscriptionRepository = {
   cancelOwnSubscription(
     query: TribeMemberSubscriptionStatusQuery
   ): Promise<TribeMemberSubscriptionStatusResult>;
-  confirmSubscriptionReturn(
-    query: PendingSubscriptionReturnQuery
-  ): Promise<TribeMemberSubscriptionStatusResult>;
   handleWebhook(
     command: MercadoPagoSubscriptionWebhookCommand
   ): Promise<TribeMemberSubscriptionWebhookResult>;
@@ -59,6 +56,9 @@ export type TribeMemberSubscriptionRepository = {
   resolveReturnPathByProviderSubscription(
     query: ProviderSubscriptionReturnPathQuery
   ): Promise<string | null>;
+  resolveSubscriptionReturn(
+    query: PendingSubscriptionReturnQuery
+  ): Promise<TribeMemberSubscriptionStatusResult>;
   retryCurrentPriceSubscriptionPayment(
     command: RetryCurrentPriceSubscriptionPaymentCommand
   ): Promise<TribeMemberSubscriptionStartResult>;

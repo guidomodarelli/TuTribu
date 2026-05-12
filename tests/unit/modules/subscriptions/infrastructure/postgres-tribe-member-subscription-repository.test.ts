@@ -117,7 +117,31 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(sqlText).toMatch(/tribes\.slug/);
   });
 
-  it("attaches the returned Mercado Pago preapproval id to the pending plan checkout", async () => {
+  it("reads an already stored return status without calling Mercado Pago", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [{ status: "active" }],
+    }));
+    const getMercadoPagoPreapprovalStatus = jest.fn();
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
+
+    await expect(
+      repository.resolveSubscriptionReturn({
+        providerSubscriptionId: "preapproval-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "active",
+    });
+
+    expect(getMercadoPagoPreapprovalStatus).not.toHaveBeenCalled();
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
+      /mercado_pago_preapproval_id =/
+    );
+  });
+
+  it("attaches the returned Mercado Pago preapproval id to the pending plan checkout without activating access", async () => {
     const execute = jest
       .fn()
       .mockResolvedValueOnce({
@@ -151,12 +175,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     await expect(
-      repository.confirmSubscriptionReturn({
+      repository.resolveSubscriptionReturn({
         providerSubscriptionId: "preapproval-2",
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      status: "active",
+      status: "pending",
     });
 
     expect(getMercadoPagoPreapprovalStatus).toHaveBeenCalledWith({
@@ -169,9 +193,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
       /where tribe_member_subscriptions\.id =/
     );
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
+      /status = .*pending/
+    );
   });
 
-  it("recovers a provider plan checkout return when the pending local reservation is missing", async () => {
+  it("recovers a provider plan checkout return as pending when the local reservation is missing", async () => {
     const execute = jest
       .fn()
       .mockResolvedValueOnce({
@@ -224,12 +251,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     await expect(
-      repository.confirmSubscriptionReturn({
+      repository.resolveSubscriptionReturn({
         providerSubscriptionId: "preapproval-2",
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      status: "active",
+      status: "pending",
     });
 
     expect(getMercadoPagoPreapprovalDetails).toHaveBeenCalledWith({
@@ -245,6 +272,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(getSqlText(execute.mock.calls[4]?.[0])).toMatch(
       /mercado_pago_preapproval_id/
     );
+    expect(getSqlText(execute.mock.calls[4]?.[0])).toMatch(/pending/);
   });
 
   it("does not recover a missing local reservation from a different provider plan", async () => {
@@ -297,7 +325,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     await expect(
-      repository.confirmSubscriptionReturn({
+      repository.resolveSubscriptionReturn({
         providerSubscriptionId: "preapproval-2",
         tribeSlug: "matematica-pro",
       })

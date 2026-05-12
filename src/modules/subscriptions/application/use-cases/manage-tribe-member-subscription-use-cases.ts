@@ -79,16 +79,16 @@ export function validatePendingTribeMemberSubscriptionReturn({
 }
 
 /**
- * Confirms a Mercado Pago return and applies the resulting access state.
+ * Resolves a Mercado Pago return without treating the browser return as the access source.
  *
  * @param dependencies - Repository dependencies for the use case.
- * @returns Executable use case that validates a provider return.
+ * @returns Executable use case that reads or repairs the local return state.
  */
-export function confirmTribeMemberSubscriptionReturn({
+export function resolveTribeMemberSubscriptionReturn({
   tribeMemberSubscriptionRepository,
 }: TribeMemberSubscriptionDependencies) {
   return async (query: PendingSubscriptionReturnQuery) =>
-    tribeMemberSubscriptionRepository.confirmSubscriptionReturn({
+    tribeMemberSubscriptionRepository.resolveSubscriptionReturn({
       providerSubscriptionId: normalizeText(query.providerSubscriptionId),
       tribeSlug: normalizeText(query.tribeSlug),
     });

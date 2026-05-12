@@ -150,6 +150,10 @@ type MissingSubscriptionReturnRecoveryContextRow = {
   tribe_id: string | null;
 };
 
+type SubscriptionReturnStatusRow = {
+  status: string | null;
+};
+
 const SUBSCRIPTION_CHECKOUT_CONTEXT = {
   invitationSettingName: "app.current_invitation_hash",
   settingName: "app.subscription_checkout_tribe_id",
@@ -448,15 +452,15 @@ export class PostgresTribeMemberSubscriptionRepository
   }
 
   /**
-   * Confirms a provider return and applies access changes immediately.
+   * Resolves a provider return and repairs local linkage while the webhook is pending.
    *
    * @param query - Tribe slug and Mercado Pago preapproval id from the return URL.
-   * @returns Local status after provider reconciliation.
+   * @returns Local status that the return page can show without granting access itself.
    */
-  async confirmSubscriptionReturn(
+  async resolveSubscriptionReturn(
     query: PendingSubscriptionReturnQuery
   ): Promise<TribeMemberSubscriptionStatusResult> {
-    const existingSubscription = await this.reconcileSubscriptionByProviderId({
+    const existingSubscription = await this.resolveLocalSubscriptionReturnStatus({
       providerSubscriptionId: query.providerSubscriptionId,
       tribeSlug: query.tribeSlug,
     });
@@ -472,6 +476,35 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     return this.recoverMissingPlanCheckoutReturn(query);
+  }
+
+  private async resolveLocalSubscriptionReturnStatus(input: {
+    providerSubscriptionId: string;
+    tribeSlug: string;
+  }): Promise<TribeMemberSubscriptionStatusResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${input.tribeSlug}
+          limit 1
+        )
+        select tribe_member_subscriptions.status
+        from public.tribe_member_subscriptions
+        inner join target_tribe
+          on target_tribe.id = tribe_member_subscriptions.tribe_id
+        where tribe_member_subscriptions.user_id = public.current_app_user_id()
+          and tribe_member_subscriptions.mercado_pago_preapproval_id = ${input.providerSubscriptionId}
+        order by tribe_member_subscriptions.updated_at desc
+        limit 1
+      `);
+      const row = (result.rows?.[0] ?? null) as SubscriptionReturnStatusRow | null;
+
+      return {
+        status: row?.status ?? TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound,
+      } as TribeMemberSubscriptionStatusResult;
+    });
   }
 
   /**
@@ -662,11 +695,8 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound };
     }
 
-    const subscriptionStatus = mapMercadoPagoSubscriptionStatus(providerStatus);
-
     const wasProviderSubscriptionAttached =
       await this.attachProviderSubscriptionToPendingPlanCheckout({
-        providerStatus,
         providerSubscriptionId: query.providerSubscriptionId,
         subscriptionId: context.reserved_subscription_id,
       });
@@ -676,7 +706,7 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     return {
-      status: subscriptionStatus.status,
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
     };
   }
 
@@ -749,7 +779,6 @@ export class PostgresTribeMemberSubscriptionRepository
     const wasSubscriptionRecovered =
       await this.persistRecoveredPlanCheckoutReturn({
         priceId: context.current_price_id,
-        providerStatus: providerSubscription.status,
         providerSubscriptionId: query.providerSubscriptionId,
         tribeId: context.tribe_id,
       });
@@ -758,12 +787,8 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound };
     }
 
-    const subscriptionStatus = mapMercadoPagoSubscriptionStatus(
-      providerSubscription.status
-    );
-
     return {
-      status: subscriptionStatus.status,
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
     };
   }
 
@@ -958,21 +983,16 @@ export class PostgresTribeMemberSubscriptionRepository
   }
 
   private async attachProviderSubscriptionToPendingPlanCheckout(input: {
-    providerStatus: string;
     providerSubscriptionId: string;
     subscriptionId: string;
   }): Promise<boolean> {
-    const subscriptionStatus = mapMercadoPagoSubscriptionStatus(
-      input.providerStatus
-    );
-
     return this.executeWithDatabase(async (database) => {
       const updatedSubscriptionResult = await database.execute(sql`
         update public.tribe_member_subscriptions
         set
           mercado_pago_preapproval_id = ${input.providerSubscriptionId},
-          status = ${subscriptionStatus.status},
-          status_reason = ${subscriptionStatus.statusReason},
+          status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
+          status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
           updated_at = timezone('utc', now())
         where tribe_member_subscriptions.id = ${input.subscriptionId}
           and tribe_member_subscriptions.user_id = public.current_app_user_id()
@@ -995,14 +1015,9 @@ export class PostgresTribeMemberSubscriptionRepository
 
   private async persistRecoveredPlanCheckoutReturn(input: {
     priceId: string;
-    providerStatus: string;
     providerSubscriptionId: string;
     tribeId: string;
   }): Promise<boolean> {
-    const subscriptionStatus = mapMercadoPagoSubscriptionStatus(
-      input.providerStatus
-    );
-
     return this.executeWithDatabase(async (database) => {
       await database.execute(sql`
         insert into public.tribe_members (
@@ -1045,8 +1060,8 @@ export class PostgresTribeMemberSubscriptionRepository
           public.current_app_user_id(),
           ${input.priceId},
           ${input.providerSubscriptionId},
-          ${subscriptionStatus.status},
-          ${subscriptionStatus.statusReason},
+          ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
+          ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
           timezone('utc', now()),
           timezone('utc', now())
         )

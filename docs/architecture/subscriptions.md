@@ -63,11 +63,14 @@ que estén vinculados por ese `external_reference` o por un
 de la cuenta conectada se ignoran.
 
 Cuando Mercado Pago vuelve con un `preapproval_id` desde el checkout de un
-plan, la app confirma el retorno contra la API del proveedor antes de dar
-acceso. Si la reserva local pendiente no quedó asociada pero existe una
-operación reciente de checkout del mismo usuario para el plan actual, el retorno
-puede recuperar la fila local de suscripción siempre que el `preapproval_id`
-pertenezca al `mercado_pago_preapproval_plan_id` actual de la tribu.
+plan, el retorno del usuario no da acceso por sí mismo. La página de retorno
+solo muestra el estado local y, si el `preapproval_id` todavía no está asociado,
+puede consultar a Mercado Pago para vincular o recuperar una fila local
+pendiente siempre que exista una operación reciente de checkout del mismo
+usuario para el plan actual y el `preapproval_id` pertenezca al
+`mercado_pago_preapproval_plan_id` actual de la tribu. Esa reparación conserva
+la suscripción local como `pending`; la activación o remoción de acceso queda a
+cargo del webhook verificado o de una reconciliación server-side posterior.
 
 La reconciliación de suscriptores de un precio es un caso de uso reusable, no
 una regla propia de la pantalla de precios. Puede dispararse desde el botón

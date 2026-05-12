@@ -1,8 +1,8 @@
 import {
   cancelOwnTribeMemberSubscription,
-  confirmTribeMemberSubscriptionReturn,
   handleMercadoPagoSubscriptionWebhook,
   reconcileCurrentTribeMemberSubscription,
+  resolveTribeMemberSubscriptionReturn,
   resolveTribeMemberSubscriptionReturnPath,
   retryTribeMemberSubscriptionPayment,
   startTribeMemberSubscription,
@@ -16,11 +16,11 @@ function createRepository(
 ): TribeMemberSubscriptionRepository {
   return {
     cancelOwnSubscription: jest.fn(),
-    confirmSubscriptionReturn: jest.fn(),
     handleWebhook: jest.fn(),
     hasPendingSubscriptionReturn: jest.fn(),
     reconcileCurrentMemberSubscription: jest.fn(),
     resolveReturnPathByProviderSubscription: jest.fn(),
+    resolveSubscriptionReturn: jest.fn(),
     retryCurrentPriceSubscriptionPayment: jest.fn(),
     startCurrentPriceSubscription: jest.fn(),
     ...overrides,
@@ -121,13 +121,13 @@ describe("tribe member subscription use cases", () => {
     });
   });
 
-  it("confirms an authorized Mercado Pago return and delegates membership activation", async () => {
-    const confirmSubscriptionReturn = jest.fn(async () => ({
-      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.active,
+  it("resolves a Mercado Pago return without making the return the access source", async () => {
+    const resolveSubscriptionReturn = jest.fn(async () => ({
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
     }));
-    const execute = confirmTribeMemberSubscriptionReturn({
+    const execute = resolveTribeMemberSubscriptionReturn({
       tribeMemberSubscriptionRepository: createRepository({
-        confirmSubscriptionReturn,
+        resolveSubscriptionReturn,
       }),
     });
 
@@ -137,9 +137,9 @@ describe("tribe member subscription use cases", () => {
         tribeSlug: " matematica-pro ",
       })
     ).resolves.toEqual({
-      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.active,
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
     });
-    expect(confirmSubscriptionReturn).toHaveBeenCalledWith({
+    expect(resolveSubscriptionReturn).toHaveBeenCalledWith({
       providerSubscriptionId: "preapproval-1",
       tribeSlug: "matematica-pro",
     });

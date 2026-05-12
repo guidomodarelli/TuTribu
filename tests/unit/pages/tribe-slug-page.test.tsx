@@ -9,7 +9,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 const getAuthenticatedMember = jest.fn();
 const getTribePageAccess = jest.fn();
 const listTribeRound = jest.fn();
-const confirmTribeMemberSubscriptionReturn = jest.fn();
+const resolveTribeMemberSubscriptionReturn = jest.fn();
 const reconcileCurrentTribeMemberSubscription = jest.fn();
 const validatePendingTribeMemberSubscriptionReturn = jest.fn();
 const infoMock = jest.fn();
@@ -59,7 +59,7 @@ describe("TribePage", () => {
     getAuthenticatedMember.mockReset();
     getTribePageAccess.mockReset();
     listTribeRound.mockReset();
-    confirmTribeMemberSubscriptionReturn.mockReset();
+    resolveTribeMemberSubscriptionReturn.mockReset();
     reconcileCurrentTribeMemberSubscription.mockReset();
     validatePendingTribeMemberSubscriptionReturn.mockReset();
     infoMock.mockReset();
@@ -83,7 +83,7 @@ describe("TribePage", () => {
       },
       subscriptions: {
         useCases: {
-          confirmTribeMemberSubscriptionReturn: undefined,
+          resolveTribeMemberSubscriptionReturn: undefined,
           reconcileCurrentTribeMemberSubscription: undefined,
           validatePendingTribeMemberSubscriptionReturn,
         },
@@ -466,7 +466,7 @@ describe("TribePage", () => {
       blockedReason: "payment_blocked",
       reason: "blocked_hidden",
     });
-    confirmTribeMemberSubscriptionReturn.mockResolvedValue({
+    resolveTribeMemberSubscriptionReturn.mockResolvedValue({
       status: "provider_unavailable",
     });
     (createRequestModules as jest.Mock)
@@ -488,7 +488,7 @@ describe("TribePage", () => {
         },
         subscriptions: {
           useCases: {
-            confirmTribeMemberSubscriptionReturn: undefined,
+            resolveTribeMemberSubscriptionReturn: undefined,
             reconcileCurrentTribeMemberSubscription: undefined,
             validatePendingTribeMemberSubscriptionReturn,
           },
@@ -504,7 +504,7 @@ describe("TribePage", () => {
       .mockResolvedValueOnce({
         subscriptions: {
           useCases: {
-            confirmTribeMemberSubscriptionReturn,
+            resolveTribeMemberSubscriptionReturn,
           },
         },
       });
@@ -523,7 +523,7 @@ describe("TribePage", () => {
     expect(notFound).not.toHaveBeenCalled();
     expect(listTribeRound).not.toHaveBeenCalled();
     expect(validatePendingTribeMemberSubscriptionReturn).not.toHaveBeenCalled();
-    expect(confirmTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
+    expect(resolveTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
       providerSubscriptionId: "preapproval-1",
       tribeSlug: "matematica-pro",
     });
@@ -546,7 +546,7 @@ describe("TribePage", () => {
       blockedReason: "subscription_inactive",
       reason: "blocked_hidden",
     });
-    confirmTribeMemberSubscriptionReturn.mockResolvedValue({
+    resolveTribeMemberSubscriptionReturn.mockResolvedValue({
       status: "pending",
     });
     let createModulesCallCount = 0;
@@ -558,7 +558,7 @@ describe("TribePage", () => {
         return {
           subscriptions: {
             useCases: {
-              confirmTribeMemberSubscriptionReturn,
+              resolveTribeMemberSubscriptionReturn,
             },
           },
         };
@@ -582,7 +582,7 @@ describe("TribePage", () => {
         },
         subscriptions: {
           useCases: {
-            confirmTribeMemberSubscriptionReturn: undefined,
+            resolveTribeMemberSubscriptionReturn: undefined,
             reconcileCurrentTribeMemberSubscription: undefined,
             validatePendingTribeMemberSubscriptionReturn,
           },
@@ -602,7 +602,7 @@ describe("TribePage", () => {
     );
 
     expect(notFound).not.toHaveBeenCalled();
-    expect(confirmTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
+    expect(resolveTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
       providerSubscriptionId: "preapproval-1",
       tribeSlug: "matematica-pro",
     });
@@ -625,7 +625,7 @@ describe("TribePage", () => {
       blockedReason: "subscription_inactive",
       reason: "blocked_hidden",
     });
-    confirmTribeMemberSubscriptionReturn.mockResolvedValue({
+    resolveTribeMemberSubscriptionReturn.mockResolvedValue({
       status: "paused",
     });
     let createModulesCallCount = 0;
@@ -637,7 +637,7 @@ describe("TribePage", () => {
         return {
           subscriptions: {
             useCases: {
-              confirmTribeMemberSubscriptionReturn,
+              resolveTribeMemberSubscriptionReturn,
             },
           },
         };
@@ -661,7 +661,7 @@ describe("TribePage", () => {
         },
         subscriptions: {
           useCases: {
-            confirmTribeMemberSubscriptionReturn: undefined,
+            resolveTribeMemberSubscriptionReturn: undefined,
             reconcileCurrentTribeMemberSubscription: undefined,
             validatePendingTribeMemberSubscriptionReturn,
           },
@@ -682,7 +682,7 @@ describe("TribePage", () => {
 
     expect(notFound).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro/suscripcion");
-    expect(confirmTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
+    expect(resolveTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
       providerSubscriptionId: "preapproval-1",
       tribeSlug: "matematica-pro",
     });
