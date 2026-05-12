@@ -39,6 +39,10 @@ import {
   resolveMercadoPagoAccessToken,
   type MercadoPagoAccessTokenRefresher,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token";
+import {
+  MERCADO_PAGO_SUBSCRIPTION_STATUS,
+  mapMercadoPagoSubscriptionStatus,
+} from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-status-mapper";
 import { ROUTES } from "@/src/constants/routes";
 
 type DatabaseExecutor = <T>(
@@ -165,14 +169,6 @@ const CURRENT_MEMBER_SUBSCRIPTION_STATUSES = sql`(
   ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked},
   ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused}
 )`;
-
-const MERCADO_PAGO_PREAPPROVAL_STATUS = {
-  authorized: "authorized",
-  canceled: "canceled",
-  cancelled: "cancelled",
-  paused: "paused",
-  pending: "pending",
-} as const;
 
 const MEMBER_SUBSCRIPTION_PAYMENT_OPERATION = {
   cancelSubscription: "cancel-member-subscription",
@@ -325,42 +321,6 @@ function buildProviderSubscriptionReturnPath(input: {
  */
 function buildPriceExternalReference(priceId: string): string {
   return `latribu:price:${priceId}`;
-}
-
-/**
- * Maps Mercado Pago preapproval statuses into the local subscription lifecycle.
- *
- * @param providerStatus - Status returned by Mercado Pago for a preapproval.
- * @returns Local subscription status and status reason.
- */
-function mapProviderSubscriptionStatus(providerStatus: string | null) {
-  switch (providerStatus) {
-    case MERCADO_PAGO_PREAPPROVAL_STATUS.authorized:
-      return {
-        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.active,
-        statusReason: TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none,
-      };
-    case MERCADO_PAGO_PREAPPROVAL_STATUS.canceled:
-    case MERCADO_PAGO_PREAPPROVAL_STATUS.cancelled:
-    case null:
-      return {
-        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled,
-        statusReason:
-          TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive,
-      };
-    case MERCADO_PAGO_PREAPPROVAL_STATUS.paused:
-      return {
-        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused,
-        statusReason:
-          TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive,
-      };
-    case MERCADO_PAGO_PREAPPROVAL_STATUS.pending:
-    default:
-      return {
-        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
-        statusReason: TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked,
-      };
-  }
 }
 
 export class PostgresTribeMemberSubscriptionRepository
@@ -564,7 +524,7 @@ export class PostgresTribeMemberSubscriptionRepository
       confirmedProviderStatus = await this.updateMercadoPagoPreapprovalStatus({
         accessToken,
         preapprovalId: context.mercado_pago_preapproval_id,
-        status: MERCADO_PAGO_PREAPPROVAL_STATUS.canceled,
+        status: MERCADO_PAGO_SUBSCRIPTION_STATUS.canceled,
         ...(traceContext ? { traceContext } : {}),
       });
     } catch {
@@ -572,8 +532,8 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     if (
-      confirmedProviderStatus !== MERCADO_PAGO_PREAPPROVAL_STATUS.canceled &&
-      confirmedProviderStatus !== MERCADO_PAGO_PREAPPROVAL_STATUS.cancelled
+      confirmedProviderStatus !== MERCADO_PAGO_SUBSCRIPTION_STATUS.canceled &&
+      confirmedProviderStatus !== MERCADO_PAGO_SUBSCRIPTION_STATUS.cancelled
     ) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
     }
@@ -628,7 +588,7 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
     }
 
-    const subscriptionStatus = mapProviderSubscriptionStatus(providerStatus);
+    const subscriptionStatus = mapMercadoPagoSubscriptionStatus(providerStatus);
 
     await this.persistProviderSubscriptionStatus({
       providerSubscriptionId: context.mercado_pago_preapproval_id,
@@ -696,7 +656,7 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound };
     }
 
-    const subscriptionStatus = mapProviderSubscriptionStatus(providerStatus);
+    const subscriptionStatus = mapMercadoPagoSubscriptionStatus(providerStatus);
 
     const wasProviderSubscriptionAttached =
       await this.attachProviderSubscriptionToPendingPlanCheckout({
@@ -795,7 +755,7 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound };
     }
 
-    const subscriptionStatus = mapProviderSubscriptionStatus(
+    const subscriptionStatus = mapMercadoPagoSubscriptionStatus(
       providerSubscription.status
     );
 
@@ -975,7 +935,9 @@ export class PostgresTribeMemberSubscriptionRepository
     providerSubscriptionId: string;
     providerStatus: string | null;
   }): Promise<void> {
-    const subscriptionStatus = mapProviderSubscriptionStatus(input.providerStatus);
+    const subscriptionStatus = mapMercadoPagoSubscriptionStatus(
+      input.providerStatus
+    );
 
     await this.executeWithDatabase(async (database) => {
       await database.execute(sql`
@@ -1000,7 +962,9 @@ export class PostgresTribeMemberSubscriptionRepository
     providerSubscriptionId: string;
     subscriptionId: string;
   }): Promise<boolean> {
-    const subscriptionStatus = mapProviderSubscriptionStatus(input.providerStatus);
+    const subscriptionStatus = mapMercadoPagoSubscriptionStatus(
+      input.providerStatus
+    );
 
     return this.executeWithDatabase(async (database) => {
       const updatedSubscriptionResult = await database.execute(sql`
@@ -1035,7 +999,9 @@ export class PostgresTribeMemberSubscriptionRepository
     providerSubscriptionId: string;
     tribeId: string;
   }): Promise<boolean> {
-    const subscriptionStatus = mapProviderSubscriptionStatus(input.providerStatus);
+    const subscriptionStatus = mapMercadoPagoSubscriptionStatus(
+      input.providerStatus
+    );
 
     return this.executeWithDatabase(async (database) => {
       await database.execute(sql`
@@ -1705,7 +1671,8 @@ export class PostgresTribeMemberSubscriptionRepository
         preapprovalId: command.resourceId,
         ...(traceContext ? { traceContext } : {}),
       });
-      const subscriptionStatus = mapProviderSubscriptionStatus(providerStatus);
+      const subscriptionStatus =
+        mapMercadoPagoSubscriptionStatus(providerStatus);
 
       const operationResult = await database.execute(sql`
         insert into public.subscription_idempotency_operations (

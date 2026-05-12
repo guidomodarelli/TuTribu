@@ -43,6 +43,7 @@ import {
   resolveMercadoPagoAccessToken,
   type MercadoPagoAccessTokenRefresher,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token";
+import { mapMercadoPagoSubscriptionStatus } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-status-mapper";
 import { ROUTES } from "@/src/constants/routes";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 
@@ -162,14 +163,6 @@ const MERCADO_PAGO_PROVIDER_PLAN_STATUS = {
   canceled: "canceled",
 } as const;
 
-const MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS = {
-  authorized: "authorized",
-  canceled: "canceled",
-  cancelled: "cancelled",
-  paused: "paused",
-  pending: "pending",
-} as const;
-
 const MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS_LOOKUP_CONCURRENCY_LIMIT = 5;
 
 const SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY = {
@@ -228,66 +221,6 @@ function buildSubscriptionPriceOperationKey(parts: {
 }
 
 /**
- * Determines whether Mercado Pago still treats a subscription as attached.
- *
- * @param providerSubscriptionStatus - Subscription status returned by Mercado Pago.
- * @returns Whether the subscription is not effectively canceled.
- */
-function isProviderSubscriptionStillAttached(
-  providerSubscriptionStatus: string | null
-): boolean {
-  if (!providerSubscriptionStatus) {
-    return false;
-  }
-
-  return (
-    providerSubscriptionStatus !==
-      MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.canceled &&
-    providerSubscriptionStatus !==
-      MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.cancelled
-  );
-}
-
-/**
- * Maps Mercado Pago subscription statuses into local subscription access states.
- *
- * @param providerSubscriptionStatus - Subscription status returned by Mercado Pago.
- * @returns Local subscription status and access reason to persist.
- */
-function mapProviderSubscriptionStatus(providerSubscriptionStatus: string | null): {
-  status: string;
-  statusReason: string;
-} {
-  switch (providerSubscriptionStatus) {
-    case MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.authorized:
-      return {
-        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.active,
-        statusReason: TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none,
-      };
-    case MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.canceled:
-    case MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.cancelled:
-    case null:
-      return {
-        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled,
-        statusReason:
-          TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive,
-      };
-    case MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.paused:
-      return {
-        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused,
-        statusReason:
-          TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive,
-      };
-    case MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS.pending:
-    default:
-      return {
-        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
-        statusReason: TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked,
-      };
-  }
-}
-
-/**
  * Builds local status updates aligned to verified provider subscribers.
  *
  * @param input - Provider subscriber rows and statuses returned by Mercado Pago.
@@ -308,7 +241,7 @@ function buildProviderSubscriberStatusUpdates(input: {
       return statusUpdates;
     }
 
-    const subscriptionStatus = mapProviderSubscriptionStatus(
+    const subscriptionStatus = mapMercadoPagoSubscriptionStatus(
       providerSubscriptionStatus
     );
 
@@ -1416,9 +1349,8 @@ export class PostgresTribeSubscriptionPriceRepository
       });
     const activeSubscribersCount = providerSubscriptionStatuses.filter(
       (providerSubscriptionStatus) =>
-        providerSubscriptionStatus
-          ? isProviderSubscriptionStillAttached(providerSubscriptionStatus)
-          : false
+        mapMercadoPagoSubscriptionStatus(providerSubscriptionStatus)
+          .isAttachedToProviderPlan
     ).length;
     const reconciledPrice = await this.reconcileProviderSubscriberStatuses({
       priceId: command.priceId,
@@ -2215,9 +2147,8 @@ export class PostgresTribeSubscriptionPriceRepository
       });
     const hasProviderActiveSubscribers = providerSubscriptionStatuses.some(
       (providerSubscriptionStatus) =>
-        providerSubscriptionStatus
-          ? isProviderSubscriptionStillAttached(providerSubscriptionStatus)
-          : false
+        mapMercadoPagoSubscriptionStatus(providerSubscriptionStatus)
+          .isAttachedToProviderPlan
     );
 
     if (hasProviderActiveSubscribers) {
