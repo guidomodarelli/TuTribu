@@ -12,6 +12,10 @@
     gap: 1rem;
   }
 
+  &__headingGroup {
+    display: grid;
+  }
+
   &__connection {
     align-items: center;
     display: flex;
@@ -276,10 +280,29 @@
   .TribeSubscriptionPriceManagement {
     &__header {
       align-items: start;
+      column-gap: 1.25rem;
+      grid-template-areas:
+        "title connection"
+        "description description";
       grid-template-columns: minmax(0, 1fr) max-content;
+      row-gap: 0;
+    }
+
+    &__headingGroup {
+      display: contents;
+    }
+
+    &__title {
+      grid-area: title;
+    }
+
+    &__description {
+      grid-area: description;
     }
 
     &__connection {
+      align-self: center;
+      grid-area: connection;
       justify-content: start;
     }
 

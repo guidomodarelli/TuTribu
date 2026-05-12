@@ -999,7 +999,7 @@ export function TribeSubscriptionPriceManagement({
   return (
     <section className={styles.TribeSubscriptionPriceManagement}>
       <header className={styles.TribeSubscriptionPriceManagement__header}>
-        <div>
+        <div className={styles.TribeSubscriptionPriceManagement__headingGroup}>
           <h1 className={styles.TribeSubscriptionPriceManagement__title}>
             {PRICE_MANAGEMENT_COPY.title}
           </h1>
