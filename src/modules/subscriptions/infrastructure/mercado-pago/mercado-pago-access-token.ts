@@ -31,24 +31,16 @@ const MERCADO_PAGO_TOKEN_REFRESH_CONTEXT = {
 } as const;
 
 /**
- * Resolves an access token, refreshing and persisting it when it is expired.
+ * Refreshes and persists a stored Mercado Pago access token.
  *
  * @param input - Stored token data and token refresh dependencies.
- * @returns Fresh access token or null when no usable token can be resolved.
+ * @returns Fresh access token or null when no refresh token can be used.
  */
-export async function resolveMercadoPagoAccessToken(input: {
+export async function refreshStoredMercadoPagoAccessToken(input: {
   executeWithDatabase: DatabaseExecutor;
   refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher;
   storedToken: StoredMercadoPagoAccessToken;
 }): Promise<string | null> {
-  if (!input.storedToken.accessToken) {
-    return null;
-  }
-
-  if (isMercadoPagoAccessTokenFresh(input.storedToken.tokenExpiresAt)) {
-    return input.storedToken.accessToken;
-  }
-
   if (!input.storedToken.refreshToken || !input.storedToken.tribeId) {
     return null;
   }
@@ -68,12 +60,41 @@ export async function resolveMercadoPagoAccessToken(input: {
 }
 
 /**
+ * Resolves an access token, refreshing and persisting it when it is expired.
+ *
+ * @param input - Stored token data and token refresh dependencies.
+ * @returns Fresh access token or null when no usable token can be resolved.
+ */
+export async function resolveMercadoPagoAccessToken(input: {
+  executeWithDatabase: DatabaseExecutor;
+  refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher;
+  storedToken: StoredMercadoPagoAccessToken;
+}): Promise<string | null> {
+  if (!input.storedToken.accessToken && !input.storedToken.refreshToken) {
+    return null;
+  }
+
+  if (
+    input.storedToken.accessToken &&
+    isMercadoPagoAccessTokenFresh(input.storedToken.tokenExpiresAt)
+  ) {
+    return input.storedToken.accessToken;
+  }
+
+  return refreshStoredMercadoPagoAccessToken({
+    executeWithDatabase: input.executeWithDatabase,
+    refreshMercadoPagoAccessToken: input.refreshMercadoPagoAccessToken,
+    storedToken: input.storedToken,
+  });
+}
+
+/**
  * Determines whether a token is usable beyond the refresh safety window.
  *
  * @param tokenExpiresAt - Persisted provider expiration timestamp.
  * @returns Whether the stored token should be used without refreshing.
  */
-function isMercadoPagoAccessTokenFresh(tokenExpiresAt: Date | string | null): boolean {
+export function isMercadoPagoAccessTokenFresh(tokenExpiresAt: Date | string | null): boolean {
   if (!tokenExpiresAt) {
     return true;
   }

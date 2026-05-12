@@ -188,6 +188,7 @@ describe("manage tribe subscription prices use cases", () => {
   it("lists prices with viewer permissions from the repository", async () => {
     const listByTribeSlug = jest.fn(async () => ({
       hasMercadoPagoIntegration: true,
+      mercadoPagoConnectionStatus: "connected" as const,
       prices: [createdPrice],
       viewerPermissions: {
         canManagePrices: false,
@@ -204,6 +205,7 @@ describe("manage tribe subscription prices use cases", () => {
       })
     ).resolves.toEqual({
       hasMercadoPagoIntegration: true,
+      mercadoPagoConnectionStatus: "connected",
       prices: [createdPrice],
       viewerPermissions: {
         canManagePrices: false,

@@ -5,6 +5,7 @@
  */
 
 import type {
+  MERCADO_PAGO_CONNECTION_STATUS,
   TRIBE_SUBSCRIPTION_CURRENCY,
   TRIBE_SUBSCRIPTION_FREQUENCY,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
@@ -24,6 +25,9 @@ export type TribeSubscriptionPriceResult = {
 
 export type TribeSubscriptionPriceListResult = {
   hasMercadoPagoIntegration: boolean;
+  mercadoPagoConnectionStatus:
+    | typeof MERCADO_PAGO_CONNECTION_STATUS.connected
+    | typeof MERCADO_PAGO_CONNECTION_STATUS.requiresReconnection;
   prices: TribeSubscriptionPriceResult[];
   viewerPermissions: {
     canManagePrices: boolean;

@@ -62,6 +62,26 @@ describe("TribeSubscriptionPriceManagement", () => {
     expect(
       screen.getByRole("button", { name: "Verificar suscriptores" })
     ).toBeInTheDocument();
+    expect(screen.getByText("Conectado")).toBeInTheDocument();
+  });
+
+  it("should hide Mercado Pago connection health for read-only users", () => {
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices={false}
+        isMercadoPagoConnected={false}
+        prices={[]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(screen.getByText("Solo lectura")).toBeInTheDocument();
+    expect(screen.queryByText("Conectado")).not.toBeInTheDocument();
+    expect(screen.queryByText("Requiere reconexión")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Conectar Mercado Pago" })
+    ).not.toBeInTheDocument();
   });
 
   it("should update one provider plan from the inline edit action", async () => {
@@ -455,7 +475,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     expect(amountError).toBeInTheDocument();
   });
 
-  it("should block price creation and start Mercado Pago connection automatically when disconnected", async () => {
+  it("should block price creation and start Mercado Pago connection automatically when reconnection is required", async () => {
     const navigateToMercadoPagoConnection = jest.fn();
 
     render(
@@ -471,9 +491,10 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     expect(
       screen.getByText(
-        "No estás conectado a Mercado Pago. Estamos intentando conectarte automáticamente."
+        "Mercado Pago requiere reconexión. Estamos intentando conectarte automáticamente."
       )
     ).toBeInTheDocument();
+    expect(screen.getByText("Requiere reconexión")).toBeInTheDocument();
     expect(screen.getByLabelText("Nombre")).toBeDisabled();
     expect(screen.getByLabelText("Precio mensual")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Crear precio" })).toBeDisabled();

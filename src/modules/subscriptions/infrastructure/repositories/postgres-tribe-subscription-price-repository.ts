@@ -16,6 +16,7 @@ import type {
   TribeSubscriptionPriceResult,
 } from "@/src/modules/subscriptions/application/results/tribe-subscription-price-result";
 import {
+  MERCADO_PAGO_CONNECTION_STATUS,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON,
   TRIBE_SUBSCRIPTION_PRICE_LIMIT,
@@ -40,8 +41,11 @@ import type {
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import type { PaymentOperationTraceContext } from "@/src/modules/subscriptions/infrastructure/observability/payment-operation-logger";
 import {
+  isMercadoPagoAccessTokenFresh,
+  refreshStoredMercadoPagoAccessToken,
   resolveMercadoPagoAccessToken,
   type MercadoPagoAccessTokenRefresher,
+  type StoredMercadoPagoAccessToken,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token";
 import { mapMercadoPagoSubscriptionStatus } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-status-mapper";
 import { ROUTES } from "@/src/constants/routes";
@@ -65,6 +69,10 @@ type MercadoPagoSubscriptionStatusGetter = (
   input: MercadoPagoPreapprovalStatusInput
 ) => Promise<string | null>;
 
+type MercadoPagoConnectionStatus =
+  | typeof MERCADO_PAGO_CONNECTION_STATUS.connected
+  | typeof MERCADO_PAGO_CONNECTION_STATUS.requiresReconnection;
+
 type SubscriptionPriceRow = {
   active_subscribers_count: number | string | null;
   amount_cents: number;
@@ -78,9 +86,13 @@ type SubscriptionPriceRow = {
 };
 
 type SubscriptionPriceListRow = SubscriptionPriceRow & {
+  access_token: string | null;
   can_manage_prices: boolean | null;
   can_view_prices: boolean | null;
   has_mercado_pago_integration: boolean | null;
+  refresh_token: string | null;
+  token_expires_at: Date | string | null;
+  tribe_id: string | null;
 };
 
 type SubscriptionPriceMutationRow = SubscriptionPriceRow & {
@@ -173,6 +185,166 @@ const SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY = {
   verifyProviderPlan: "verify-provider-plan",
   verifyProviderSubscribers: "verify-provider-subscribers",
 } as const;
+
+const MERCADO_PAGO_PAYMENT_INTEGRATION = {
+  checkoutTribeSettingName: "app.subscription_checkout_tribe_id",
+  provider: "mercado_pago",
+} as const;
+
+type MercadoPagoConnectionTokenRow = {
+  access_token: string | null;
+  refresh_token: string | null;
+  token_expires_at: Date | string | null;
+  tribe_id: string | null;
+};
+
+/**
+ * Normalizes token expiration timestamps for stable comparisons across database drivers.
+ *
+ * @param tokenExpiresAt - Token expiration timestamp read from Postgres.
+ * @returns Epoch milliseconds or null when the timestamp is absent or invalid.
+ */
+function normalizeMercadoPagoTokenExpiration(
+  tokenExpiresAt: Date | string | null
+): number | null {
+  if (!tokenExpiresAt) {
+    return null;
+  }
+
+  const expirationTime = new Date(tokenExpiresAt).getTime();
+
+  return Number.isFinite(expirationTime) ? expirationTime : null;
+}
+
+/**
+ * Determines whether a reloaded token differs from the originally listed token.
+ *
+ * @param input - Original and reloaded token snapshots.
+ * @returns Whether another request likely persisted a newer token.
+ */
+function hasStoredMercadoPagoTokenChanged(input: {
+  reloadedToken: StoredMercadoPagoAccessToken;
+  storedToken: StoredMercadoPagoAccessToken;
+}): boolean {
+  return (
+    input.reloadedToken.accessToken !== input.storedToken.accessToken ||
+    input.reloadedToken.refreshToken !== input.storedToken.refreshToken ||
+    normalizeMercadoPagoTokenExpiration(input.reloadedToken.tokenExpiresAt) !==
+      normalizeMercadoPagoTokenExpiration(input.storedToken.tokenExpiresAt)
+  );
+}
+
+/**
+ * Reads the latest persisted Mercado Pago token for one tribe.
+ *
+ * @param input - Tribe identity and database executor.
+ * @returns Stored token data, or null when no integration exists.
+ */
+async function readLatestStoredMercadoPagoAccessToken(input: {
+  executeWithDatabase: DatabaseExecutor;
+  tribeId: string | null;
+}): Promise<StoredMercadoPagoAccessToken | null> {
+  if (!input.tribeId) {
+    return null;
+  }
+
+  return input.executeWithDatabase(async (database) => {
+    const result = await database.execute(sql`
+      with token_refresh_context as (
+        select set_config(
+          ${MERCADO_PAGO_PAYMENT_INTEGRATION.checkoutTribeSettingName},
+          ${input.tribeId},
+          true
+        )
+      )
+      select
+        tribe_payment_integrations.tribe_id,
+        tribe_payment_integrations.access_token,
+        tribe_payment_integrations.refresh_token,
+        tribe_payment_integrations.token_expires_at
+      from token_refresh_context
+      cross join public.tribe_payment_integrations
+      where tribe_payment_integrations.tribe_id = ${input.tribeId}
+        and tribe_payment_integrations.provider = ${MERCADO_PAGO_PAYMENT_INTEGRATION.provider}
+      limit 1
+    `);
+    const row = (result.rows?.[0] ?? null) as
+      | MercadoPagoConnectionTokenRow
+      | null;
+
+    return row
+      ? {
+          accessToken: row.access_token,
+          refreshToken: row.refresh_token,
+          tokenExpiresAt: row.token_expires_at,
+          tribeId: row.tribe_id,
+        }
+      : null;
+  });
+}
+
+/**
+ * Resolves a fresh token persisted by a concurrent refresh after this request failed.
+ *
+ * @param input - Original token and reloaded token data.
+ * @returns Fresh access token, or null when reconnection is still required.
+ */
+function resolveFreshConcurrentMercadoPagoAccessToken(input: {
+  reloadedToken: StoredMercadoPagoAccessToken | null;
+  storedToken: StoredMercadoPagoAccessToken;
+}): string | null {
+  if (!input.reloadedToken?.accessToken) {
+    return null;
+  }
+
+  return hasStoredMercadoPagoTokenChanged({
+    reloadedToken: input.reloadedToken,
+    storedToken: input.storedToken,
+  }) && isMercadoPagoAccessTokenFresh(input.reloadedToken.tokenExpiresAt)
+    ? input.reloadedToken.accessToken
+    : null;
+}
+
+/**
+ * Resolves Mercado Pago integration health by forcing an OAuth token refresh.
+ *
+ * @param input - Stored token data and refresh dependencies.
+ * @returns Connected when Mercado Pago accepts the refresh token, otherwise reconnection required.
+ */
+async function resolveMercadoPagoConnectionStatus(input: {
+  executeWithDatabase: DatabaseExecutor;
+  refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher;
+  storedToken: {
+    accessToken: string | null;
+    refreshToken: string | null;
+    tokenExpiresAt: Date | string | null;
+    tribeId: string | null;
+  };
+}): Promise<MercadoPagoConnectionStatus> {
+  let refreshedAccessToken: string | null;
+
+  try {
+    refreshedAccessToken = await refreshStoredMercadoPagoAccessToken({
+      executeWithDatabase: input.executeWithDatabase,
+      refreshMercadoPagoAccessToken: input.refreshMercadoPagoAccessToken,
+      storedToken: input.storedToken,
+    });
+  } catch {
+    const reloadedToken = await readLatestStoredMercadoPagoAccessToken({
+      executeWithDatabase: input.executeWithDatabase,
+      tribeId: input.storedToken.tribeId,
+    }).catch(() => null);
+
+    refreshedAccessToken = resolveFreshConcurrentMercadoPagoAccessToken({
+      reloadedToken,
+      storedToken: input.storedToken,
+    });
+  }
+
+  return refreshedAccessToken
+    ? MERCADO_PAGO_CONNECTION_STATUS.connected
+    : MERCADO_PAGO_CONNECTION_STATUS.requiresReconnection;
+}
 
 /**
  * Builds a trace context for Mercado Pago operations scoped to subscription prices.
@@ -464,7 +636,7 @@ export class PostgresTribeSubscriptionPriceRepository
   async listByTribeSlug(
     query: TribeSubscriptionPriceListQuery
   ): Promise<TribeSubscriptionPriceListResult> {
-    return this.executeWithDatabase(async (database) => {
+    const rows = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         with target_tribe as (
           select tribes.id
@@ -478,18 +650,17 @@ export class PostgresTribeSubscriptionPriceRepository
             coalesce(public.can_manage_tribe_subscription_prices((select id from target_tribe)), false) as can_manage_prices
         ),
         payment_integration as (
-          select exists (
-            select 1
-            from public.tribe_payment_integrations
-            where tribe_payment_integrations.tribe_id = (select id from target_tribe)
-              and tribe_payment_integrations.provider = 'mercado_pago'
-              and tribe_payment_integrations.access_token is not null
-              and (
-                tribe_payment_integrations.token_expires_at is null
-                or tribe_payment_integrations.token_expires_at > timezone('utc', now()) + interval '5 minutes'
-                or tribe_payment_integrations.refresh_token is not null
-              )
-          ) as has_mercado_pago_integration
+          select
+            target_tribe.id as tribe_id,
+            tribe_payment_integrations.access_token,
+            tribe_payment_integrations.refresh_token,
+            tribe_payment_integrations.token_expires_at
+          from (select 1) result
+          left join target_tribe
+            on true
+          left join public.tribe_payment_integrations
+            on tribe_payment_integrations.tribe_id = target_tribe.id
+            and tribe_payment_integrations.provider = 'mercado_pago'
         ),
         price_rows as (
           select
@@ -525,37 +696,51 @@ export class PostgresTribeSubscriptionPriceRepository
           price_rows.active_subscribers_count,
           viewer_permissions.can_view_prices,
           viewer_permissions.can_manage_prices,
-          payment_integration.has_mercado_pago_integration
+          payment_integration.tribe_id,
+          payment_integration.access_token,
+          payment_integration.refresh_token,
+          payment_integration.token_expires_at
         from viewer_permissions
         cross join payment_integration
         left join price_rows
           on true
         order by price_rows.created_at desc
       `);
-      const rows = (result.rows ?? []) as SubscriptionPriceListRow[];
 
-      const prices = rows.reduce<ReturnType<typeof mapSubscriptionPrice>[]>(
-        (mappedPrices, row) => {
-          if (row.id) {
-            mappedPrices.push(mapSubscriptionPrice(row));
-          }
-
-          return mappedPrices;
-        },
-        []
-      );
-
-      return {
-        hasMercadoPagoIntegration: Boolean(
-          rows[0]?.has_mercado_pago_integration
-        ),
-        prices,
-        viewerPermissions: {
-          canManagePrices: Boolean(rows[0]?.can_manage_prices),
-          canViewPrices: Boolean(rows[0]?.can_view_prices),
-        },
-      };
+      return (result.rows ?? []) as SubscriptionPriceListRow[];
     });
+    const prices = rows.reduce<ReturnType<typeof mapSubscriptionPrice>[]>(
+      (mappedPrices, row) => {
+        if (row.id) {
+          mappedPrices.push(mapSubscriptionPrice(row));
+        }
+
+        return mappedPrices;
+      },
+      []
+    );
+    const mercadoPagoConnectionStatus =
+      await resolveMercadoPagoConnectionStatus({
+        executeWithDatabase: this.executeWithDatabase,
+        refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
+        storedToken: {
+          accessToken: rows[0]?.access_token ?? null,
+          refreshToken: rows[0]?.refresh_token ?? null,
+          tokenExpiresAt: rows[0]?.token_expires_at ?? null,
+          tribeId: rows[0]?.tribe_id ?? null,
+        },
+      });
+
+    return {
+      hasMercadoPagoIntegration:
+        mercadoPagoConnectionStatus === MERCADO_PAGO_CONNECTION_STATUS.connected,
+      mercadoPagoConnectionStatus,
+      prices,
+      viewerPermissions: {
+        canManagePrices: Boolean(rows[0]?.can_manage_prices),
+        canViewPrices: Boolean(rows[0]?.can_view_prices),
+      },
+    };
   }
 
   /**

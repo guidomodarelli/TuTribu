@@ -116,6 +116,7 @@ describe("TribePricesPage", () => {
         },
       ],
       hasMercadoPagoIntegration: true,
+      mercadoPagoConnectionStatus: "connected",
       viewerPermissions: {
         canManagePrices: true,
         canViewPrices: true,
@@ -168,6 +169,7 @@ describe("TribePricesPage", () => {
     listTribeSubscriptionPrices.mockResolvedValue({
       prices: [],
       hasMercadoPagoIntegration: false,
+      mercadoPagoConnectionStatus: "requires_reconnection",
       viewerPermissions: {
         canManagePrices: false,
         canViewPrices: true,
@@ -228,6 +230,32 @@ describe("TribePricesPage", () => {
       )
     ).toBeInTheDocument();
     expect(screen.getByText("conectado")).toBeInTheDocument();
+  });
+
+  it("does not render stale connected status when Mercado Pago requires reconnection", async () => {
+    listTribeSubscriptionPrices.mockResolvedValue({
+      prices: [],
+      hasMercadoPagoIntegration: false,
+      mercadoPagoConnectionStatus: "requires_reconnection",
+      viewerPermissions: {
+        canManagePrices: true,
+        canViewPrices: true,
+      },
+    });
+
+    render(
+      await TribePricesPage({
+        ...buildPageProps(),
+        searchParams: Promise.resolve({
+          status: "connected",
+        }),
+      })
+    );
+
+    expect(
+      screen.queryByText("Mercado Pago quedó conectado.")
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("desconectado")).toBeInTheDocument();
   });
 
   it("returns 404 when a regular member opens price management", async () => {

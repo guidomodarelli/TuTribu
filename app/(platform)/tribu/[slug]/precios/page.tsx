@@ -7,7 +7,10 @@
 import { notFound } from "next/navigation";
 
 import { TribeSubscriptionPriceManagement } from "@/components/subscriptions/tribe-subscription-price-management";
-import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import {
+  MERCADO_PAGO_CONNECTION_STATUS,
+  TRIBE_SUBSCRIPTION_PRICE_STATUS,
+} from "@/src/modules/subscriptions/constants/subscriptions";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
@@ -84,21 +87,28 @@ function resolveStatusMessage(status: string | null): string | null {
 }
 
 /**
- * Resolves whether a setup query status is stale for the loaded integration.
+ * Resolves whether a query status is stale for the loaded integration.
  *
  * @param status - Raw status query value.
- * @param hasMercadoPagoIntegration - Whether the tribe currently has an integration.
+ * @param isMercadoPagoConnected - Whether the tribe has a refreshed provider integration.
  * @param statusOrigin - Raw status origin query value.
- * @returns Whether the setup status should be hidden.
+ * @returns Whether the query status should be hidden.
  */
-function shouldHideSetupStatus(
+function shouldHideQueryStatus(
   status: string | null,
-  hasMercadoPagoIntegration: boolean,
+  isMercadoPagoConnected: boolean,
   statusOrigin: string | null
 ): boolean {
+  if (
+    status === TRIBE_SUBSCRIPTION_PRICE_STATUS.connected &&
+    !isMercadoPagoConnected
+  ) {
+    return true;
+  }
+
   return (
     status === TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired &&
-    hasMercadoPagoIntegration &&
+    isMercadoPagoConnected &&
     statusOrigin !== PRICE_PAGE_STATUS_ORIGIN.mercadoPagoOAuth
   );
 }
@@ -173,6 +183,8 @@ export default async function TribePricesPage({
 
       return {
         hasMercadoPagoIntegration: false,
+        mercadoPagoConnectionStatus:
+          MERCADO_PAGO_CONNECTION_STATUS.requiresReconnection,
         prices: [],
         shouldAutoConnectMercadoPago: false,
         viewerPermissions: {
@@ -181,9 +193,12 @@ export default async function TribePricesPage({
         },
       };
     });
-  const statusMessage = shouldHideSetupStatus(
+  const isMercadoPagoConnected =
+    priceList.mercadoPagoConnectionStatus ===
+    MERCADO_PAGO_CONNECTION_STATUS.connected;
+  const statusMessage = shouldHideQueryStatus(
     status,
-    priceList.hasMercadoPagoIntegration,
+    isMercadoPagoConnected,
     statusOrigin
   )
     ? null
@@ -193,7 +208,7 @@ export default async function TribePricesPage({
     <main>
       <TribeSubscriptionPriceManagement
         canManagePrices={priceList.viewerPermissions.canManagePrices}
-        isMercadoPagoConnected={priceList.hasMercadoPagoIntegration}
+        isMercadoPagoConnected={isMercadoPagoConnected}
         prices={priceList.prices}
         shouldAutoConnectMercadoPago={priceList.shouldAutoConnectMercadoPago}
         statusMessage={statusMessage}

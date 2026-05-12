@@ -43,6 +43,10 @@ La integración guarda tokens OAuth solo del lado servidor en
 `tribe_payment_integrations`. Las operaciones externas usan claves de
 idempotencia y los webhooks se registran en
 `subscription_idempotency_operations` para evitar efectos duplicados.
+La pantalla de gestión no considera `Conectado` por la mera existencia de
+`tribe_payment_integrations`: el health check de Mercado Pago fuerza un
+refresh OAuth server-side y solo muestra `Conectado` si ese refresh persiste un
+token nuevo. Si falla o no hay `refresh_token`, muestra `Requiere reconexión`.
 
 Cuando la verificación contra Mercado Pago confirma que un
 `mercado_pago_preapproval_plan_id` ya no existe o no está activo, el precio

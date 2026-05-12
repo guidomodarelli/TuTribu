@@ -29,6 +29,14 @@ export const TRIBE_SUBSCRIPTION_PRICE_LIMIT = 30;
 export const TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS = 1500;
 
 /**
+ * Defines Mercado Pago OAuth integration health states.
+ */
+export const MERCADO_PAGO_CONNECTION_STATUS = {
+  connected: "connected",
+  requiresReconnection: "requires_reconnection",
+} as const;
+
+/**
  * Defines mutation and access statuses for tribe subscription prices.
  */
 export const TRIBE_SUBSCRIPTION_PRICE_STATUS = {

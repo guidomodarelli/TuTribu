@@ -36,9 +36,10 @@ const PRICE_MANAGEMENT_COPY = {
   amountLabel: "Precio mensual",
   amountPlaceholder: "5000",
   connectButton: "Conectar Mercado Pago",
+  connectedStatus: "Conectado",
   createButton: "Crear precio",
   disconnectedNotice:
-    "No estás conectado a Mercado Pago. Estamos intentando conectarte automáticamente.",
+    "Mercado Pago requiere reconexión. Estamos intentando conectarte automáticamente.",
   canceledBadge: "Cancelado",
   currentBadge: "Actual",
   description:
@@ -63,6 +64,7 @@ const PRICE_MANAGEMENT_COPY = {
   priceListLabel: "Precios históricos",
   readonlyBadge: "Solo lectura",
   removeButton: "Eliminar",
+  requiresReconnectionStatus: "Requiere reconexión",
   replacementPlanNotice:
     "Este precio tiene suscriptores asociados. Creá un nuevo plan para próximos miembros.",
   saveEditButton: "Guardar cambios",
@@ -395,6 +397,10 @@ export function TribeSubscriptionPriceManagement({
     Boolean(pendingAction) ||
     isVerifyingProviderPlans ||
     isMercadoPagoConnectionRequired;
+  const shouldShowMercadoPagoConnectionHealth = canManagePrices;
+  const mercadoPagoConnectionStatusLabel = isMercadoPagoConnected
+    ? PRICE_MANAGEMENT_COPY.connectedStatus
+    : PRICE_MANAGEMENT_COPY.requiresReconnectionStatus;
   const mercadoPagoConnectionEndpoint = buildMercadoPagoConnectionEndpoint(
     tribeSlug
   );
@@ -830,22 +836,36 @@ export function TribeSubscriptionPriceManagement({
             {PRICE_MANAGEMENT_COPY.description}
           </p>
         </div>
-        {canManagePrices ? (
-          <Button
-            onClick={() => {
-              startMercadoPagoConnection(mercadoPagoConnectionEndpoint);
-            }}
-            type={PRICE_MANAGEMENT_REQUEST.buttonType}
-            variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
-          >
-            <CreditCardIcon />
-            {PRICE_MANAGEMENT_COPY.connectButton}
-          </Button>
-        ) : (
-          <Badge variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}>
-            {PRICE_MANAGEMENT_COPY.readonlyBadge}
-          </Badge>
-        )}
+        <div className={styles.TribeSubscriptionPriceManagement__connection}>
+          {shouldShowMercadoPagoConnectionHealth ? (
+            <Badge
+              variant={
+                isMercadoPagoConnected
+                  ? undefined
+                  : PRICE_MANAGEMENT_REQUEST.destructiveBadgeVariant
+              }
+            >
+              {isMercadoPagoConnected ? <CheckCircle2Icon /> : <RefreshCwIcon />}
+              {mercadoPagoConnectionStatusLabel}
+            </Badge>
+          ) : null}
+          {canManagePrices ? (
+            <Button
+              onClick={() => {
+                startMercadoPagoConnection(mercadoPagoConnectionEndpoint);
+              }}
+              type={PRICE_MANAGEMENT_REQUEST.buttonType}
+              variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+            >
+              <CreditCardIcon />
+              {PRICE_MANAGEMENT_COPY.connectButton}
+            </Button>
+          ) : (
+            <Badge variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}>
+              {PRICE_MANAGEMENT_COPY.readonlyBadge}
+            </Badge>
+          )}
+        </div>
       </header>
 
       {statusMessage ? (

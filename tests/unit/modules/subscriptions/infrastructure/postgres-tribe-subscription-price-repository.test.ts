@@ -33,7 +33,12 @@ function getSqlText(statement: unknown): string {
 function createRepository(
   execute: jest.Mock,
   createMercadoPagoPlan = jest.fn(async () => "plan-1"),
-  refreshMercadoPagoAccessToken = jest.fn(),
+  refreshMercadoPagoAccessToken = jest.fn(async () => ({
+    accessToken: "fresh-access-token",
+    expiresIn: 3600,
+    providerAccountId: "seller-1",
+    refreshToken: "new-refresh-token",
+  })),
   getMercadoPagoPlanStatus = jest.fn(async () => "active"),
   getMercadoPagoSubscriptionStatus = jest.fn(async () => "authorized"),
   updateMercadoPagoPlan = jest.fn(async () => ({
@@ -119,18 +124,32 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     }
   });
 
-  it("lists prices with Mercado Pago integration availability", async () => {
+  it("should list prices with connected Mercado Pago health when token refresh succeeds", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
           ...createSubscriptionPriceRow(),
+          access_token: "stored-access-token",
           can_manage_prices: true,
           can_view_prices: true,
           has_mercado_pago_integration: true,
+          refresh_token: "stored-refresh-token",
+          token_expires_at: "2026-05-06T13:05:00.000Z",
+          tribe_id: "tribe-1",
         },
       ],
     }));
-    const repository = createRepository(execute);
+    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+      accessToken: "fresh-access-token",
+      expiresIn: 3600,
+      providerAccountId: "seller-1",
+      refreshToken: "new-refresh-token",
+    }));
+    const repository = createRepository(
+      execute,
+      jest.fn(async () => "plan-1"),
+      refreshMercadoPagoAccessToken
+    );
 
     await expect(
       repository.listByTribeSlug({
@@ -138,6 +157,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       })
     ).resolves.toMatchObject({
       hasMercadoPagoIntegration: true,
+      mercadoPagoConnectionStatus: "connected",
       prices: [
         {
           id: "price-1",
@@ -152,20 +172,34 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
       /tribe_member_subscriptions\.status in \([\s\S]*paused/
     );
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith(
+      "stored-refresh-token"
+    );
   });
 
-  it("lists expired Mercado Pago integration without refresh token as disconnected", async () => {
+  it("should list Mercado Pago health as requiring reconnection when token refresh fails", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
           ...createSubscriptionPriceRow(),
+          access_token: "stored-access-token",
           can_manage_prices: true,
           can_view_prices: true,
-          has_mercado_pago_integration: false,
+          has_mercado_pago_integration: true,
+          refresh_token: "revoked-refresh-token",
+          token_expires_at: "2026-05-06T13:05:00.000Z",
+          tribe_id: "tribe-1",
         },
       ],
     }));
-    const repository = createRepository(execute);
+    const refreshMercadoPagoAccessToken = jest.fn(async () => {
+      throw new Error("Mercado Pago rejected refresh token");
+    });
+    const repository = createRepository(
+      execute,
+      jest.fn(async () => "plan-1"),
+      refreshMercadoPagoAccessToken
+    );
 
     await expect(
       repository.listByTribeSlug({
@@ -173,6 +207,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       })
     ).resolves.toMatchObject({
       hasMercadoPagoIntegration: false,
+      mercadoPagoConnectionStatus: "requires_reconnection",
       prices: [
         {
           id: "price-1",
@@ -183,6 +218,100 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         canViewPrices: true,
       },
     });
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith(
+      "revoked-refresh-token"
+    );
+  });
+
+  it("should keep Mercado Pago health connected when a concurrent refresh already persisted a fresh token", async () => {
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (
+        sqlText.includes(
+          "where tribe_payment_integrations.tribe_id ="
+        )
+      ) {
+        return {
+          rows: [
+            {
+              access_token: "fresh-access-token",
+              refresh_token: "new-refresh-token",
+              token_expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+              tribe_id: "tribe-1",
+            },
+          ],
+        };
+      }
+
+      return {
+        rows: [
+          {
+            ...createSubscriptionPriceRow(),
+            access_token: "stored-access-token",
+            can_manage_prices: true,
+            can_view_prices: true,
+            has_mercado_pago_integration: true,
+            refresh_token: "revoked-refresh-token",
+            token_expires_at: "2026-05-06T13:05:00.000Z",
+            tribe_id: "tribe-1",
+          },
+        ],
+      };
+    });
+    const refreshMercadoPagoAccessToken = jest.fn(async () => {
+      throw new Error("Mercado Pago rejected rotated refresh token");
+    });
+    const repository = createRepository(
+      execute,
+      jest.fn(async () => "plan-1"),
+      refreshMercadoPagoAccessToken
+    );
+
+    await expect(
+      repository.listByTribeSlug({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      hasMercadoPagoIntegration: true,
+      mercadoPagoConnectionStatus: "connected",
+    });
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith(
+      "revoked-refresh-token"
+    );
+  });
+
+  it("should list expired Mercado Pago integration without refresh token as requiring reconnection", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          ...createSubscriptionPriceRow(),
+          access_token: "expired-access-token",
+          can_manage_prices: true,
+          can_view_prices: true,
+          has_mercado_pago_integration: false,
+          refresh_token: null,
+          token_expires_at: "2026-05-06T12:00:00.000Z",
+          tribe_id: "tribe-1",
+        },
+      ],
+    }));
+    const refreshMercadoPagoAccessToken = jest.fn();
+    const repository = createRepository(
+      execute,
+      jest.fn(async () => "plan-1"),
+      refreshMercadoPagoAccessToken
+    );
+
+    await expect(
+      repository.listByTribeSlug({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      hasMercadoPagoIntegration: false,
+      mercadoPagoConnectionStatus: "requires_reconnection",
+    });
+    expect(refreshMercadoPagoAccessToken).not.toHaveBeenCalled();
   });
 
   it("clears the previous current price before marking another price as current", async () => {
