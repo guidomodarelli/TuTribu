@@ -47,7 +47,7 @@ function createRepository(
   updateMercadoPagoPlan = jest.fn(async () => ({
     amountCents: 500000,
     currency: "ARS",
-    externalReference: "latribu:price:price-1",
+    externalReference: "tutribu:price:price-1",
     id: "plan-1",
     reason: "Plan mensual",
     status: "active",
@@ -55,7 +55,7 @@ function createRepository(
   getMercadoPagoPlan = jest.fn(async () => ({
     amountCents: 500000,
     currency: "ARS",
-    externalReference: "latribu:price:price-1",
+    externalReference: "tutribu:price:price-1",
     id: "plan-1",
     reason: "Plan mensual",
     status: "active",
@@ -475,7 +475,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       jest.fn(async () => ({
         amountCents: 500000,
         currency: "ARS",
-        externalReference: "latribu:price:price-1",
+        externalReference: "tutribu:price:price-1",
         id: "plan-1",
         reason: "Plan mensual",
         status: "active",
@@ -483,7 +483,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       jest.fn(async () => ({
         amountCents: 500000,
         currency: "ARS",
-        externalReference: "latribu:price:price-1",
+        externalReference: "tutribu:price:price-1",
         id: "plan-1",
         reason: "Plan mensual",
         status: "active",
@@ -516,7 +516,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(createMercadoPagoPlan).toHaveBeenCalledWith(
       expect.objectContaining({
         backUrl: "https://tutribu.example.com/tribu/matematica-pro",
-        externalReference: "latribu:price:price-1",
+        externalReference: "tutribu:price:price-1",
         idempotencyKey:
           "tribe-price:price-1:matematica-pro:Plan mensual:500000:ARS:monthly",
         trialFrequency: 7,
@@ -556,7 +556,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     const updateMercadoPagoPlan = jest.fn(async () => ({
       amountCents: 500000,
       currency: "ARS",
-      externalReference: "latribu:price:price-1",
+      externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan mensual",
       status: "active",
@@ -637,7 +637,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     const updateMercadoPagoPlan = jest.fn(async () => ({
       amountCents: 500000,
       currency: "ARS",
-      externalReference: "latribu:price:price-1",
+      externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan mensual actualizado",
       status: "active",
@@ -1411,7 +1411,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     const getMercadoPagoPlan = jest.fn(async () => ({
       amountCents: 500000,
       currency: "ARS",
-      externalReference: "latribu:price:price-1",
+      externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan actualizado",
       status: "active",

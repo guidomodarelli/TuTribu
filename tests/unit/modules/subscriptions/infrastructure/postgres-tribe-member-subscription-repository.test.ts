@@ -241,7 +241,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalDetails = jest.fn(async () => ({
-      externalReference: "latribu:price:price-1",
+      externalReference: "tutribu:price:price-1",
       id: "preapproval-2",
       preapprovalPlanId: "provider-plan-1",
       status: "authorized",
@@ -315,7 +315,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         ],
       });
     const getMercadoPagoPreapprovalDetails = jest.fn(async () => ({
-      externalReference: "latribu:price:other-price",
+      externalReference: "tutribu:price:other-price",
       id: "preapproval-2",
       preapprovalPlanId: "other-provider-plan",
       status: "authorized",

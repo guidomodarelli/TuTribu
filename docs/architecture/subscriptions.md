@@ -58,8 +58,8 @@ oferta local: cualquier nueva oferta debe crear una nueva versión de precio y
 un nuevo plan de proveedor, pero el identificador se preserva para poder
 reconciliar suscriptores y webhooks posteriores.
 
-Los planes creados por LaTribu se identifican en Mercado Pago con
-`external_reference = latribu:price:<priceId>`. La app solo sincroniza planes
+Los planes creados por TuTribu se identifican en Mercado Pago con
+`external_reference = tutribu:price:<priceId>`. La app solo sincroniza planes
 que estén vinculados por ese `external_reference` o por un
 `mercado_pago_preapproval_plan_id` ya persistido localmente; los planes sueltos
 de la cuenta conectada se ignoran.
@@ -84,7 +84,7 @@ Pago y reconcilia la base local antes de responder. `authorized`, `pending` y
 `canceled`, `cancelled` o un preapproval inexistente remueven el acceso por
 suscripción inactiva.
 
-Las acciones iniciadas desde LaTribu se aplican primero contra Mercado Pago y
+Las acciones iniciadas desde TuTribu se aplican primero contra Mercado Pago y
 luego se reflejan localmente. Los webhooks `subscription_preapproval_plan`
 actualizan el nombre y el período de prueba local cuando el plan sigue activo y
 cancelan el precio local cuando el plan proveedor deja de estar activo. La app

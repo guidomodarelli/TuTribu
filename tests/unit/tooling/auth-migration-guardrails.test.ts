@@ -55,7 +55,7 @@ async function loadDrizzleConfigFromTemporaryEnvironmentFile(
 ) {
   const previousNodeEnvironment = process.env.NODE_ENV;
   const previousWorkingDirectory = process.cwd();
-  const temporaryWorkspace = mkdtempSync(path.join(os.tmpdir(), "latribu-env-"));
+  const temporaryWorkspace = mkdtempSync(path.join(os.tmpdir(), "tutribu-env-"));
 
   writeFileSync(
     path.join(temporaryWorkspace, environmentFileName),

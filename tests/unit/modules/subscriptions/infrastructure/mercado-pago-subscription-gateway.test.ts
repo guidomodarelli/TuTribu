@@ -96,7 +96,7 @@ describe("mercado pago subscription gateway", () => {
   it("reads provider preapproval details needed to recover plan checkout returns", async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
-        external_reference: "latribu:price:price-1",
+        external_reference: "tutribu:price:price-1",
         id: "preapproval-1",
         preapproval_plan_id: "plan-1",
         status: "authorized",
@@ -110,7 +110,7 @@ describe("mercado pago subscription gateway", () => {
         preapprovalId: "preapproval-1",
       })
     ).resolves.toEqual({
-      externalReference: "latribu:price:price-1",
+      externalReference: "tutribu:price:price-1",
       id: "preapproval-1",
       preapprovalPlanId: "plan-1",
       status: "authorized",
@@ -220,7 +220,7 @@ describe("mercado pago subscription gateway", () => {
         amountCents: 120000,
         backUrl: "https://tutribu.example.com/tribu/matematica-pro",
         currency: "ARS",
-        externalReference: "latribu:price:price-1",
+        externalReference: "tutribu:price:price-1",
         idempotencyKey: "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",
         name: "Plan mensual",
         reason: "Plan mensual",
@@ -244,7 +244,7 @@ describe("mercado pago subscription gateway", () => {
             transaction_amount: 1200,
           },
           back_url: "https://tutribu.example.com/tribu/matematica-pro",
-          external_reference: "latribu:price:price-1",
+          external_reference: "tutribu:price:price-1",
           reason: "Plan mensual",
         }),
         headers: {
@@ -265,7 +265,7 @@ describe("mercado pago subscription gateway", () => {
           currency_id: "ARS",
           transaction_amount: 1200,
         },
-        external_reference: "latribu:price:price-1",
+        external_reference: "tutribu:price:price-1",
         id: "plan-1",
         reason: "Plan actualizado",
         status: "active",
@@ -277,7 +277,7 @@ describe("mercado pago subscription gateway", () => {
       updateMercadoPagoPreapprovalPlan({
         accessToken: "access-token",
         backUrl: "https://tutribu.example.com/tribu/matematica-pro",
-        externalReference: "latribu:price:price-1",
+        externalReference: "tutribu:price:price-1",
         preapprovalPlanId: "plan-1",
         reason: "Plan actualizado",
         status: "active",
@@ -287,7 +287,7 @@ describe("mercado pago subscription gateway", () => {
     ).resolves.toEqual({
       amountCents: 120000,
       currency: "ARS",
-      externalReference: "latribu:price:price-1",
+      externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan actualizado",
       status: "active",
@@ -305,7 +305,7 @@ describe("mercado pago subscription gateway", () => {
             },
           },
           back_url: "https://tutribu.example.com/tribu/matematica-pro",
-          external_reference: "latribu:price:price-1",
+          external_reference: "tutribu:price:price-1",
           reason: "Plan actualizado",
           status: "active",
         }),
@@ -325,7 +325,7 @@ describe("mercado pago subscription gateway", () => {
           currency_id: "ARS",
           transaction_amount: 1200,
         },
-        external_reference: "latribu:price:price-1",
+        external_reference: "tutribu:price:price-1",
         id: "plan-1",
         reason: "Plan mensual",
         status: "active",
@@ -340,7 +340,7 @@ describe("mercado pago subscription gateway", () => {
       })
     ).resolves.toMatchObject({
       amountCents: 120000,
-      externalReference: "latribu:price:price-1",
+      externalReference: "tutribu:price:price-1",
       reason: "Plan mensual",
       status: "active",
     });
@@ -351,7 +351,7 @@ describe("mercado pago subscription gateway", () => {
       json: async () => ({
         results: [
           {
-            external_reference: "latribu:price:price-1",
+            external_reference: "tutribu:price:price-1",
             id: "plan-1",
             reason: "Plan mensual",
             status: "active",
@@ -364,18 +364,18 @@ describe("mercado pago subscription gateway", () => {
     await expect(
       searchMercadoPagoPreapprovalPlans({
         accessToken: "access-token",
-        externalReference: "latribu:price:price-1",
+        externalReference: "tutribu:price:price-1",
       })
     ).resolves.toMatchObject([
       {
-        externalReference: "latribu:price:price-1",
+        externalReference: "tutribu:price:price-1",
         id: "plan-1",
         reason: "Plan mensual",
         status: "active",
       },
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.mercadopago.com/preapproval_plan/search?external_reference=latribu%3Aprice%3Aprice-1",
+      "https://api.mercadopago.com/preapproval_plan/search?external_reference=tutribu%3Aprice%3Aprice-1",
       expect.objectContaining({
         method: "GET",
       })
@@ -408,7 +408,7 @@ describe("mercado pago subscription gateway", () => {
         amountCents: 120000,
         backUrl: "https://tutribu.example.com/tribu/matematica-pro",
         currency: "ARS",
-        externalReference: "latribu:price:price-1",
+        externalReference: "tutribu:price:price-1",
         idempotencyKey: "operation-1",
         name: "Plan mensual",
         reason: "Plan mensual",
@@ -575,7 +575,7 @@ describe("mercado pago subscription gateway", () => {
         amountCents: 120000,
         backUrl: "https://tutribu.example.com/tribu/matematica-pro",
         currency: "ARS",
-        externalReference: "latribu:price:price-1",
+        externalReference: "tutribu:price:price-1",
         idempotencyKey: "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",
         name: "Plan mensual",
         reason: "Plan mensual",
@@ -598,7 +598,7 @@ describe("mercado pago subscription gateway", () => {
         amountCents: 120000,
         backUrl: "https://tutribu.example.com/tribu/matematica-pro",
         currency: "ARS",
-        externalReference: "latribu:price:price-1",
+        externalReference: "tutribu:price:price-1",
         idempotencyKey: "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",
         name: "Plan mensual",
         reason: "Plan mensual",

@@ -585,10 +585,10 @@ function mapSubscriberDiagnostics(
  * Builds the local external reference stored in Mercado Pago plans.
  *
  * @param priceId - Local subscription price identifier.
- * @returns Provider external reference for a LaTribu price.
+ * @returns Provider external reference for a TuTribu price.
  */
 function buildPriceExternalReference(priceId: string): string {
-  return `latribu:price:${priceId}`;
+  return `tutribu:price:${priceId}`;
 }
 
 /**
@@ -605,12 +605,12 @@ function buildProviderPlanBackUrl(tribeSlug: string): string {
  * Reads a local price identifier from a Mercado Pago external reference.
  *
  * @param externalReference - Provider external reference value.
- * @returns Local price identifier, or null when the reference is not from LaTribu.
+ * @returns Local price identifier, or null when the reference is not from TuTribu.
  */
 function parsePriceIdFromExternalReference(
   externalReference: string | null
 ): string | null {
-  const prefix = "latribu:price:";
+  const prefix = "tutribu:price:";
 
   return externalReference?.startsWith(prefix)
     ? externalReference.slice(prefix.length)

@@ -330,10 +330,10 @@ function buildProviderSubscriptionReturnPath(input: {
  * Builds the local external reference stored in Mercado Pago plans.
  *
  * @param priceId - Local subscription price identifier.
- * @returns Provider external reference for a LaTribu price.
+ * @returns Provider external reference for a TuTribu price.
  */
 function buildPriceExternalReference(priceId: string): string {
-  return `latribu:price:${priceId}`;
+  return `tutribu:price:${priceId}`;
 }
 
 export class PostgresTribeMemberSubscriptionRepository
