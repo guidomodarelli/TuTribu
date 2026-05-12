@@ -171,7 +171,7 @@ export async function GET(
     operation: PRICE_ROUTE_LOG.operation,
     requestId,
   });
-  const modules = await createRequestModules();
+  const modules = await createRequestModules({ requestId });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
@@ -220,7 +220,7 @@ export async function POST(
     operation: PRICE_ROUTE_LOG.operation,
     requestId,
   });
-  const modules = await createRequestModules();
+  const modules = await createRequestModules({ requestId });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {

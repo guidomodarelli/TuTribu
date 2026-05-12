@@ -27,6 +27,10 @@ describe("mercado pago subscription gateway", () => {
     global.fetch = fetchMock;
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   afterAll(() => {
     global.fetch = previousFetch;
 
@@ -66,12 +70,12 @@ describe("mercado pago subscription gateway", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.mercadopago.com/preapproval/preapproval-1",
-      {
+      expect.objectContaining({
         headers: {
           Authorization: "Bearer access-token",
         },
         method: "GET",
-      }
+      })
     );
   });
 
@@ -114,12 +118,12 @@ describe("mercado pago subscription gateway", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.mercadopago.com/preapproval/preapproval-1",
-      {
+      expect.objectContaining({
         headers: {
           Authorization: "Bearer access-token",
         },
         method: "GET",
-      }
+      })
     );
   });
 
@@ -157,12 +161,12 @@ describe("mercado pago subscription gateway", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.mercadopago.com/preapproval_plan/plan-1",
-      {
+      expect.objectContaining({
         headers: {
           Authorization: "Bearer access-token",
         },
         method: "GET",
-      }
+      })
     );
   });
 
@@ -225,7 +229,7 @@ describe("mercado pago subscription gateway", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.mercadopago.com/preapproval_plan",
-      {
+      expect.objectContaining({
         body: JSON.stringify({
           auto_recurring: {
             currency_id: "ARS",
@@ -244,7 +248,7 @@ describe("mercado pago subscription gateway", () => {
             "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",
         },
         method: "POST",
-      }
+      })
     );
   });
 
@@ -283,7 +287,7 @@ describe("mercado pago subscription gateway", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.mercadopago.com/preapproval_plan/plan-1",
-      {
+      expect.objectContaining({
         body: JSON.stringify({
           back_url: "https://tutribu.example.com/tribu/matematica-pro",
           external_reference: "latribu:price:price-1",
@@ -295,7 +299,7 @@ describe("mercado pago subscription gateway", () => {
           "Content-Type": "application/json",
         },
         method: "PUT",
-      }
+      })
     );
   });
 
@@ -363,6 +367,89 @@ describe("mercado pago subscription gateway", () => {
     );
   });
 
+  it("should retry and trace Mercado Pago plan creation with redacted provider identifiers", async () => {
+    const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    fetchMock
+      .mockResolvedValueOnce({
+        json: async () => ({
+          message: "temporary provider outage",
+        }),
+        ok: false,
+        status: 503,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          id: "plan-secret-1234567890",
+        }),
+        ok: true,
+        status: 200,
+      });
+
+    await expect(
+      createMercadoPagoPreapprovalPlan({
+        accessToken: "access-token",
+        amountCents: 120000,
+        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
+        currency: "ARS",
+        externalReference: "latribu:price:price-1",
+        idempotencyKey: "operation-1",
+        name: "Plan mensual",
+        reason: "Plan mensual",
+        traceContext: {
+          operationKey: "operation-1",
+          priceId: "price-1",
+          requestId: "request-1",
+          tribeSlug: "matematica-pro",
+        },
+      })
+    ).resolves.toBe("plan-secret-1234567890");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const [serializedRetryEntry] = warnSpy.mock.calls[0];
+    const retryEntry = JSON.parse(serializedRetryEntry as string);
+
+    expect(retryEntry).toMatchObject({
+      level: "warn",
+      operation: "create-mercado-pago-preapproval-plan",
+      requestId: "request-1",
+    });
+    expect(retryEntry.metadata).toMatchObject({
+      attempt: 1,
+      operation_key: "operation-1",
+      priceId: "price-1",
+      result: "retry_scheduled",
+      status: 503,
+      tribeSlug: "matematica-pro",
+    });
+
+    const successLog = infoSpy.mock.calls
+      .map(([serializedEntry]) => JSON.parse(serializedEntry as string))
+      .find((entry) => entry.metadata?.result === "success");
+
+    expect(successLog).toMatchObject({
+      level: "info",
+      operation: "create-mercado-pago-preapproval-plan",
+      requestId: "request-1",
+    });
+    expect(successLog.metadata).toMatchObject({
+      operation_key: "operation-1",
+      priceId: "price-1",
+      result: "success",
+      tribeSlug: "matematica-pro",
+    });
+    expect(successLog.metadata.providerPlanId).toMatch(
+      /^\[redacted:[a-f0-9]{12}\]$/
+    );
+    expect(
+      [...infoSpy.mock.calls, ...warnSpy.mock.calls]
+        .map(([serializedEntry]) => serializedEntry)
+        .join("\n")
+    ).not.toContain("plan-secret-1234567890");
+  });
+
   it("builds Mercado Pago checkout URLs from the provider preapproval plan", () => {
     expect(buildMercadoPagoPreapprovalPlanCheckoutUrl("plan-1")).toBe(
       "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=plan-1"
@@ -399,7 +486,7 @@ describe("mercado pago subscription gateway", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.mercadopago.com/preapproval",
-      {
+      expect.objectContaining({
         body: JSON.stringify({
           back_url: "https://tutribu.example.com/tribu/matematica-pro",
           external_reference: "subscription-1",
@@ -414,7 +501,7 @@ describe("mercado pago subscription gateway", () => {
           "X-Idempotency-Key": "member-subscription-1",
         },
         method: "POST",
-      }
+      })
     );
   });
 
@@ -436,7 +523,7 @@ describe("mercado pago subscription gateway", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.mercadopago.com/preapproval/preapproval-1",
-      {
+      expect.objectContaining({
         body: JSON.stringify({
           status: "canceled",
         }),
@@ -445,7 +532,7 @@ describe("mercado pago subscription gateway", () => {
           "Content-Type": "application/json",
         },
         method: "PUT",
-      }
+      })
     );
   });
 

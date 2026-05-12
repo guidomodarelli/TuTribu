@@ -100,7 +100,13 @@ export default async function TribePage({
     notFound();
   }
 
-  const { authenticatedMember, logger, modules, result: accessResult } = access;
+  const {
+    authenticatedMember,
+    logger,
+    modules,
+    requestId,
+    result: accessResult,
+  } = access;
 
   if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
     logger.info({
@@ -119,6 +125,7 @@ export default async function TribePage({
     ) {
       const subscriptionConfirmationModules = await createRequestModules({
         mercadoPagoWebhookVerified: true,
+        requestId,
       });
       const confirmSubscriptionReturn =
         subscriptionConfirmationModules.subscriptions.useCases

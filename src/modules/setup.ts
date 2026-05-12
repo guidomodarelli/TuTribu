@@ -31,11 +31,19 @@ import { createServerDatabaseClient } from "./shared/infrastructure/database/ser
 type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
 type RequestModuleContextOverrides = {
   mercadoPagoWebhookVerified?: boolean;
+  requestId?: string;
 };
 
+/**
+ * Builds request-scoped modules with database context and optional tracing metadata.
+ *
+ * @param contextOverrides - Request flags and correlation data for infrastructure adapters.
+ * @returns Composed application modules for the current request.
+ */
 export async function createRequestModules(
   contextOverrides: RequestModuleContextOverrides = {}
 ) {
+  const { requestId, ...databaseContextOverrides } = contextOverrides;
   const [databaseClient, authContext] = await Promise.all([
     createServerDatabaseClient(),
     import("./auth/infrastructure/better-auth/server-auth-context").then(
@@ -48,7 +56,7 @@ export async function createRequestModules(
     databaseClient.withRequestContext(
       {
         ...authContext,
-        ...contextOverrides,
+        ...databaseContextOverrides,
       },
       callback
     ) as Promise<T>;
@@ -98,7 +106,8 @@ export async function createRequestModules(
           getMercadoPagoPreapprovalDetails,
           getMercadoPagoPreapprovalStatus,
           updateMercadoPagoPreapprovalSubscriptionStatus,
-          refreshMercadoPagoAccessToken
+          refreshMercadoPagoAccessToken,
+          requestId
         ),
       tribePaymentIntegrationRepository:
         new PostgresTribePaymentIntegrationRepository(executeWithRequestContext),
@@ -110,7 +119,8 @@ export async function createRequestModules(
           getMercadoPagoPreapprovalPlan,
           refreshMercadoPagoAccessToken,
           getMercadoPagoPreapprovalPlanStatus,
-          getMercadoPagoPreapprovalStatus
+          getMercadoPagoPreapprovalStatus,
+          requestId
         ),
     }),
   };

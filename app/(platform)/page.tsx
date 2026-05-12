@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
+import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import styles from "./page.module.scss";
 
 const HOME_PAGE_COPY = {
@@ -51,7 +53,9 @@ export default async function HomePage({
   const mercadoPagoPreapprovalId = readFirstSearchParamValue(
     resolvedSearchParams[HOME_PAGE_QUERY.mercadoPagoPreapprovalId]
   );
-  const modules = await createRequestModules();
+  const requestHeaders = await headers();
+  const { requestId } = resolveRequestContext(requestHeaders);
+  const modules = await createRequestModules({ requestId });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (authenticatedMember && mercadoPagoPreapprovalId) {

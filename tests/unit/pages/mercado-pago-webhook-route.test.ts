@@ -119,6 +119,7 @@ describe("Mercado Pago webhook route", () => {
     expect(response.status).toBe(200);
     expect(createRequestModules).toHaveBeenCalledWith({
       mercadoPagoWebhookVerified: true,
+      requestId,
     });
     expect(handleMercadoPagoSubscriptionWebhook).toHaveBeenCalledWith({
       eventId: "event-1",
@@ -179,6 +180,7 @@ describe("Mercado Pago webhook route", () => {
     expect(response.status).toBe(200);
     expect(createRequestModules).toHaveBeenCalledWith({
       mercadoPagoWebhookVerified: true,
+      requestId,
     });
     expect(handleMercadoPagoSubscriptionWebhook).toHaveBeenCalledWith({
       eventId: "event-1",
@@ -215,6 +217,7 @@ describe("Mercado Pago webhook route", () => {
     expect(response.status).toBe(200);
     expect(createRequestModules).toHaveBeenCalledWith({
       mercadoPagoWebhookVerified: true,
+      requestId,
     });
     expect(handleMercadoPagoSubscriptionWebhook).toHaveBeenCalledWith({
       eventId: "123456",

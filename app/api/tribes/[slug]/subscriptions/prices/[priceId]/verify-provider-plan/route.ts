@@ -68,7 +68,7 @@ export async function POST(
     operation: PROVIDER_PLAN_VERIFICATION_ROUTE_LOG.operation,
     requestId,
   });
-  const modules = await createRequestModules();
+  const modules = await createRequestModules({ requestId });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {

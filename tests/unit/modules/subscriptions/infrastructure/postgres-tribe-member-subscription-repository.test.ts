@@ -935,6 +935,59 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
   });
 
+  it("processes verified webhooks with the RLS-safe subscription context", async () => {
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (sqlText.includes("with subscription_context")) {
+        return sqlText.includes("inner join public.tribes")
+          ? {
+              rows: [
+                {
+                  access_token: null,
+                  subscription_found: false,
+                },
+              ],
+            }
+          : {
+              rows: [
+                {
+                  access_token: "access-token",
+                  existing_operation_id: null,
+                  price_id: "price-1",
+                  subscription_found: true,
+                  tribe_id: "tribe-1",
+                },
+              ],
+            };
+      }
+
+      if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
+        return { rows: [{ operation_inserted: "operation-1" }] };
+      }
+
+      return { rows: [] };
+    });
+    const getMercadoPagoPreapprovalStatus = jest.fn(async () => "authorized");
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
+
+    await expect(
+      repository.handleWebhook({
+        eventId: "event-1",
+        resourceId: "preapproval-1",
+        topic: "subscription_preapproval.updated",
+      })
+    ).resolves.toEqual({
+      status: "processed",
+    });
+    expect(getMercadoPagoPreapprovalStatus).toHaveBeenCalledWith({
+      accessToken: "access-token",
+      preapprovalId: "preapproval-1",
+    });
+  });
+
   it("marks canceled subscriptions as removed access by subscription inactivity", async () => {
     const execute = jest
       .fn()

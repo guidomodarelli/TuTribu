@@ -91,7 +91,7 @@ export async function PATCH(
     operation: PRICE_ITEM_ROUTE_LOG.updateOperation,
     requestId,
   });
-  const modules = await createRequestModules();
+  const modules = await createRequestModules({ requestId });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
@@ -183,7 +183,7 @@ export async function DELETE(
     operation: PRICE_ITEM_ROUTE_LOG.deleteOperation,
     requestId,
   });
-  const modules = await createRequestModules();
+  const modules = await createRequestModules({ requestId });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {

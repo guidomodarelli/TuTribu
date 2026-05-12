@@ -972,6 +972,84 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ).toBe(true);
   });
 
+  it("should sync provider plan webhooks with the RLS-safe price context", async () => {
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (sqlText.includes("from public.tribe_subscription_prices")) {
+        if (sqlText.includes("inner join public.tribes")) {
+          return { rows: [] };
+        }
+
+        return {
+          rows: [
+            {
+              ...createSubscriptionPriceRow({
+                mercado_pago_preapproval_plan_id: "plan-1",
+                tribe_id: "tribe-1",
+              }),
+              access_token: "access-token",
+              refresh_token: null,
+              token_expires_at: null,
+            },
+          ],
+        };
+      }
+
+      if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
+        return {
+          rows: [
+            {
+              id: "operation-1",
+            },
+          ],
+        };
+      }
+
+      return {
+        rows: [
+          createSubscriptionPriceRow({
+            name: "Plan actualizado",
+          }),
+        ],
+      };
+    });
+    const getMercadoPagoPlan = jest.fn(async () => ({
+      amountCents: 500000,
+      currency: "ARS",
+      externalReference: "latribu:price:price-1",
+      id: "plan-1",
+      reason: "Plan actualizado",
+      status: "active",
+    }));
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => "active"),
+      jest.fn(async () => "authorized"),
+      jest.fn(),
+      getMercadoPagoPlan
+    );
+
+    await expect(
+      repository.syncProviderPlan({
+        eventId: "event-1",
+        resourceId: "plan-1",
+        topic: "subscription_preapproval_plan.updated",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        name: "Plan actualizado",
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+    });
+    expect(getMercadoPagoPlan).toHaveBeenCalledWith({
+      accessToken: "access-token",
+      preapprovalPlanId: "plan-1",
+    });
+  });
+
   it("should not cancel the provider plan when a subscription appears during cancellation", async () => {
     const execute = jest.fn(async (statement) => {
       const sqlText = getSqlText(statement);

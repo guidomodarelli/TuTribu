@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import HomePage from "@/app/(platform)/page";
@@ -11,6 +12,10 @@ jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
 }));
 
+jest.mock("next/headers", () => ({
+  headers: jest.fn(),
+}));
+
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
 }));
@@ -19,6 +24,7 @@ describe("HomePage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
+    (headers as jest.Mock).mockResolvedValue(new Headers());
 
     (createRequestModules as jest.Mock).mockResolvedValue({
       auth: {

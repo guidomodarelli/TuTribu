@@ -53,6 +53,7 @@ export async function DELETE(
   });
   const modules = await createRequestModules({
     mercadoPagoWebhookVerified: true,
+    requestId,
   });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 

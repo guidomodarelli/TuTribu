@@ -8,6 +8,7 @@ import { createHash } from "crypto";
 
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
+import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 
 const SUBSCRIPTION_START_RESPONSE = {
   conductBlockedMessage: "No podés reingresar a esta tribu con esta cuenta.",
@@ -53,6 +54,12 @@ function readStringField(body: unknown, field: string): string {
   return typeof value === "string" ? value : "";
 }
 
+/**
+ * Builds a stable subscription checkout idempotency key without storing raw tokens.
+ *
+ * @param input - Member, tribe, invitation, and request idempotency identifiers.
+ * @returns Stable idempotency key scoped to one checkout attempt.
+ */
 function buildSubscriptionIdempotencyKey(input: {
   idempotencyKey: string;
   invitationToken: string;
@@ -82,9 +89,10 @@ export async function POST(
     }>;
   }
 ) {
+  const { requestId } = resolveRequestContext(request.headers);
   const [{ slug }, modules] = await Promise.all([
     context.params,
-    createRequestModules(),
+    createRequestModules({ requestId }),
   ]);
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 

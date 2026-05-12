@@ -33,13 +33,14 @@ export async function resolveTribePageAccess({
     operation,
     requestId,
   });
-  const modules = await createRequestModules();
+  const modules = await createRequestModules({ requestId });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   const subscriptionReconciliationModules =
     authenticatedMember
       ? await createRequestModules({
           mercadoPagoWebhookVerified: true,
+          requestId,
         })
       : null;
   const reconcileCurrentTribeMemberSubscription =
@@ -86,6 +87,7 @@ export async function resolveTribePageAccess({
     authenticatedMember,
     logger,
     modules,
+    requestId,
     result: accessResult,
     subscriptionReconciliationResult,
   };

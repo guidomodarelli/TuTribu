@@ -38,6 +38,7 @@ import type {
   MercadoPagoPreapprovalStatusInput,
   MercadoPagoPreapprovalPlanStatusInput,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
+import type { PaymentOperationTraceContext } from "@/src/modules/subscriptions/infrastructure/observability/payment-operation-logger";
 import {
   resolveMercadoPagoAccessToken,
   type MercadoPagoAccessTokenRefresher,
@@ -171,6 +172,61 @@ const MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS = {
 
 const MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS_LOOKUP_CONCURRENCY_LIMIT = 5;
 
+const SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY = {
+  deleteProviderPlanPrice: "delete-provider-plan-price",
+  separator: ":",
+  syncProviderPlanWebhook: "mercado-pago-plan-webhook",
+  updateProviderPlan: "update-provider-plan",
+  verifyProviderPlan: "verify-provider-plan",
+  verifyProviderSubscribers: "verify-provider-subscribers",
+} as const;
+
+/**
+ * Builds a trace context for Mercado Pago operations scoped to subscription prices.
+ *
+ * @param input - Payment operation identifiers available at the repository boundary.
+ * @returns Trace context for provider logging, or undefined when request tracing is unavailable.
+ */
+function buildSubscriptionPricePaymentTraceContext(input: {
+  operationKey: string;
+  preapprovalId?: string | null;
+  priceId?: string | null;
+  providerPlanId?: string | null;
+  requestId?: string;
+  tribeSlug?: string | null;
+}): PaymentOperationTraceContext | undefined {
+  if (!input.requestId) {
+    return undefined;
+  }
+
+  return {
+    operationKey: input.operationKey,
+    preapprovalId: input.preapprovalId,
+    priceId: input.priceId,
+    providerPlanId: input.providerPlanId,
+    requestId: input.requestId,
+    tribeSlug: input.tribeSlug,
+  };
+}
+
+/**
+ * Builds a stable operation key for price-scoped Mercado Pago reads and writes.
+ *
+ * @param parts - Operation family and local identifiers.
+ * @returns Stable operation key for tracing retries and outcomes.
+ */
+function buildSubscriptionPriceOperationKey(parts: {
+  operation: string;
+  priceId: string;
+  tribeSlug: string;
+}): string {
+  return [
+    parts.operation,
+    parts.tribeSlug,
+    parts.priceId,
+  ].join(SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.separator);
+}
+
 /**
  * Determines whether Mercado Pago still treats a subscription as attached.
  *
@@ -275,7 +331,11 @@ function buildProviderSubscriberStatusUpdates(input: {
 async function readProviderSubscriptionStatuses(input: {
   accessToken: string;
   getMercadoPagoSubscriptionStatus: MercadoPagoSubscriptionStatusGetter;
+  operationKey: string;
+  priceId: string;
   providerSubscribers: SubscriptionProviderSubscriberRow[];
+  requestId?: string;
+  tribeSlug: string;
 }): Promise<(string | null)[]> {
   const providerSubscriptionStatuses: (string | null)[] = new Array(
     input.providerSubscribers.length
@@ -289,12 +349,22 @@ async function readProviderSubscriptionStatuses(input: {
 
       const providerSubscriber =
         input.providerSubscribers[providerSubscriberIndex];
+      const traceContext = providerSubscriber.mercado_pago_preapproval_id
+        ? buildSubscriptionPricePaymentTraceContext({
+            operationKey: input.operationKey,
+            preapprovalId: providerSubscriber.mercado_pago_preapproval_id,
+            priceId: input.priceId,
+            requestId: input.requestId,
+            tribeSlug: input.tribeSlug,
+          })
+        : undefined;
 
       providerSubscriptionStatuses[providerSubscriberIndex] =
         providerSubscriber.mercado_pago_preapproval_id
           ? await input.getMercadoPagoSubscriptionStatus({
               accessToken: input.accessToken,
               preapprovalId: providerSubscriber.mercado_pago_preapproval_id,
+              ...(traceContext ? { traceContext } : {}),
             })
           : null;
     }
@@ -429,6 +499,18 @@ function mapPriceMutationResult(
 export class PostgresTribeSubscriptionPriceRepository
   implements TribeSubscriptionPriceRepository
 {
+  /**
+   * Creates a subscription price repository with provider adapters and trace context.
+   *
+   * @param executeWithDatabase - Request-scoped database executor.
+   * @param createMercadoPagoPlan - Adapter that creates provider plans.
+   * @param updateMercadoPagoPlan - Adapter that updates provider plans.
+   * @param getMercadoPagoPlan - Adapter that reads provider plan details.
+   * @param refreshMercadoPagoAccessToken - Adapter that refreshes provider tokens.
+   * @param getMercadoPagoPlanStatus - Adapter that reads provider plan status.
+   * @param getMercadoPagoSubscriptionStatus - Adapter that reads provider subscription status.
+   * @param requestId - Optional request correlation identifier for payment traces.
+   */
   constructor(
     private readonly executeWithDatabase: DatabaseExecutor,
     private readonly createMercadoPagoPlan: MercadoPagoPlanCreator,
@@ -436,7 +518,8 @@ export class PostgresTribeSubscriptionPriceRepository
     private readonly getMercadoPagoPlan: MercadoPagoPlanGetter,
     private readonly refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher,
     private readonly getMercadoPagoPlanStatus: MercadoPagoPlanStatusGetter,
-    private readonly getMercadoPagoSubscriptionStatus: MercadoPagoSubscriptionStatusGetter
+    private readonly getMercadoPagoSubscriptionStatus: MercadoPagoSubscriptionStatusGetter,
+    private readonly requestId?: string
   ) {}
 
   /**
@@ -636,6 +719,16 @@ export class PostgresTribeSubscriptionPriceRepository
     }
 
     let mercadoPagoPlanId: string;
+    const providerPlanOperationKey = buildPlanIdempotencyKey(
+      command,
+      reservation.reserved_price_id
+    );
+    const traceContext = buildSubscriptionPricePaymentTraceContext({
+      operationKey: providerPlanOperationKey,
+      priceId: reservation.reserved_price_id,
+      requestId: this.requestId,
+      tribeSlug: command.tribeSlug,
+    });
 
     try {
       mercadoPagoPlanId = await this.createMercadoPagoPlan({
@@ -646,12 +739,10 @@ export class PostgresTribeSubscriptionPriceRepository
         externalReference: buildPriceExternalReference(
           reservation.reserved_price_id
         ),
-        idempotencyKey: buildPlanIdempotencyKey(
-          command,
-          reservation.reserved_price_id
-        ),
+        idempotencyKey: providerPlanOperationKey,
         name: command.name,
         reason: command.name,
+        ...(traceContext ? { traceContext } : {}),
       });
     } catch (error) {
       await this.releaseProviderPlanPriceReservation(reservation.reserved_price_id);
@@ -832,6 +923,19 @@ export class PostgresTribeSubscriptionPriceRepository
     }
 
     if (updateContext.mercado_pago_preapproval_plan_id) {
+      const operationKey = buildSubscriptionPriceOperationKey({
+        operation: SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.updateProviderPlan,
+        priceId: command.priceId,
+        tribeSlug: command.tribeSlug,
+      });
+      const traceContext = buildSubscriptionPricePaymentTraceContext({
+        operationKey,
+        priceId: command.priceId,
+        providerPlanId: updateContext.mercado_pago_preapproval_plan_id,
+        requestId: this.requestId,
+        tribeSlug: command.tribeSlug,
+      });
+
       await this.updateMercadoPagoPlan({
         accessToken,
         backUrl: buildProviderPlanBackUrl(command.tribeSlug),
@@ -839,6 +943,7 @@ export class PostgresTribeSubscriptionPriceRepository
         preapprovalPlanId: updateContext.mercado_pago_preapproval_plan_id,
         reason: command.name,
         status: MERCADO_PAGO_PROVIDER_PLAN_STATUS.active,
+        ...(traceContext ? { traceContext } : {}),
       });
     }
 
@@ -1124,12 +1229,28 @@ export class PostgresTribeSubscriptionPriceRepository
     });
     const canceledPrices = await Promise.all(
       providerPlanPrices.map(async (providerPlanPrice) => {
+        const traceContext = providerPlanPrice.mercado_pago_preapproval_plan_id
+          ? buildSubscriptionPricePaymentTraceContext({
+              operationKey: buildSubscriptionPriceOperationKey({
+                operation:
+                  SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.verifyProviderPlan,
+                priceId: providerPlanPrice.id,
+                tribeSlug: query.tribeSlug,
+              }),
+              priceId: providerPlanPrice.id,
+              providerPlanId:
+                providerPlanPrice.mercado_pago_preapproval_plan_id,
+              requestId: this.requestId,
+              tribeSlug: query.tribeSlug,
+            })
+          : undefined;
         const providerPlanStatus =
           providerPlanPrice.mercado_pago_preapproval_plan_id
             ? await this.getMercadoPagoPlanStatus({
                 accessToken: accessToken.value,
                 preapprovalPlanId:
                   providerPlanPrice.mercado_pago_preapproval_plan_id,
+                ...(traceContext ? { traceContext } : {}),
               })
             : null;
 
@@ -1192,11 +1313,26 @@ export class PostgresTribeSubscriptionPriceRepository
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
     }
 
+    const traceContext = providerPlanPrice.mercado_pago_preapproval_plan_id
+      ? buildSubscriptionPricePaymentTraceContext({
+          operationKey: buildSubscriptionPriceOperationKey({
+            operation:
+              SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.verifyProviderPlan,
+            priceId: providerPlanPrice.id,
+            tribeSlug: command.tribeSlug,
+          }),
+          priceId: providerPlanPrice.id,
+          providerPlanId: providerPlanPrice.mercado_pago_preapproval_plan_id,
+          requestId: this.requestId,
+          tribeSlug: command.tribeSlug,
+        })
+      : undefined;
     const providerPlanStatus =
       providerPlanPrice.mercado_pago_preapproval_plan_id
         ? await this.getMercadoPagoPlanStatus({
             accessToken: accessToken.value,
             preapprovalPlanId: providerPlanPrice.mercado_pago_preapproval_plan_id,
+            ...(traceContext ? { traceContext } : {}),
           })
         : null;
 
@@ -1262,7 +1398,16 @@ export class PostgresTribeSubscriptionPriceRepository
         accessToken: accessToken.value,
         getMercadoPagoSubscriptionStatus:
           this.getMercadoPagoSubscriptionStatus,
+        operationKey: buildSubscriptionPriceOperationKey({
+          operation:
+            SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.verifyProviderSubscribers,
+          priceId: command.priceId,
+          tribeSlug: command.tribeSlug,
+        }),
+        priceId: command.priceId,
         providerSubscribers,
+        requestId: this.requestId,
+        tribeSlug: command.tribeSlug,
       });
     const providerSubscriberStatusUpdates =
       buildProviderSubscriberStatusUpdates({
@@ -1337,9 +1482,20 @@ export class PostgresTribeSubscriptionPriceRepository
     }
 
     try {
+      const operationKey = [
+        SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.syncProviderPlanWebhook,
+        command.eventId,
+      ].join(SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.separator);
+      const traceContext = buildSubscriptionPricePaymentTraceContext({
+        operationKey,
+        priceId: webhookContext.id,
+        providerPlanId: command.resourceId,
+        requestId: this.requestId,
+      });
       const providerPlan = await this.getMercadoPagoPlan({
         accessToken,
         preapprovalPlanId: command.resourceId,
+        ...(traceContext ? { traceContext } : {}),
       });
       const linkedPriceId = parsePriceIdFromExternalReference(
         providerPlan?.externalReference ?? null
@@ -2018,9 +2174,22 @@ export class PostgresTribeSubscriptionPriceRepository
     }
 
     if (updateContext.mercado_pago_preapproval_plan_id) {
+      const traceContext = buildSubscriptionPricePaymentTraceContext({
+        operationKey: buildSubscriptionPriceOperationKey({
+          operation:
+            SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.deleteProviderPlanPrice,
+          priceId: command.priceId,
+          tribeSlug: command.tribeSlug,
+        }),
+        priceId: command.priceId,
+        providerPlanId: updateContext.mercado_pago_preapproval_plan_id,
+        requestId: this.requestId,
+        tribeSlug: command.tribeSlug,
+      });
       const providerPlanStatus = await this.getMercadoPagoPlanStatus({
         accessToken,
         preapprovalPlanId: updateContext.mercado_pago_preapproval_plan_id,
+        ...(traceContext ? { traceContext } : {}),
       });
 
       if (providerPlanStatus === MERCADO_PAGO_PROVIDER_PLAN_STATUS.active) {
@@ -2033,7 +2202,16 @@ export class PostgresTribeSubscriptionPriceRepository
         accessToken,
         getMercadoPagoSubscriptionStatus:
           this.getMercadoPagoSubscriptionStatus,
+        operationKey: buildSubscriptionPriceOperationKey({
+          operation:
+            SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.deleteProviderPlanPrice,
+          priceId: command.priceId,
+          tribeSlug: command.tribeSlug,
+        }),
+        priceId: command.priceId,
         providerSubscribers,
+        requestId: this.requestId,
+        tribeSlug: command.tribeSlug,
       });
     const hasProviderActiveSubscribers = providerSubscriptionStatuses.some(
       (providerSubscriptionStatus) =>
