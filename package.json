@@ -2,6 +2,7 @@
   "name": "tutribu",
   "version": "0.2.0",
   "private": true,
+  "packageManager": "pnpm@11.1.1",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -17,6 +18,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
+    "@better-auth/drizzle-adapter": "1.6.9",
     "@github/relative-time-element": "^5.0.0",
     "better-auth": "^1.6.9",
     "class-variance-authority": "^0.7.1",
@@ -54,6 +56,7 @@
     "jest-environment-jsdom": "^30.3.0",
     "sass": "^1.99.0",
     "tailwindcss": "^4.2.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "8.59.2"
   }
 }
