@@ -259,19 +259,3 @@ export function verifyTribeSubscriptionProviderPlan({
       tribeSlug: normalizeText(command.tribeSlug),
     });
 }
-
-/**
- * Verifies real Mercado Pago subscribers for one tribe price.
- *
- * @param dependencies - Repository dependencies for the use case.
- * @returns Executable use case that verifies provider subscribers by price id.
- */
-export function verifyTribeSubscriptionProviderSubscribers({
-  tribeSubscriptionPriceRepository,
-}: TribeSubscriptionPriceDependencies) {
-  return async (command: TribeSubscriptionPriceIdentity) =>
-    tribeSubscriptionPriceRepository.verifyProviderSubscribers({
-      priceId: normalizeText(command.priceId),
-      tribeSlug: normalizeText(command.tribeSlug),
-    });
-}

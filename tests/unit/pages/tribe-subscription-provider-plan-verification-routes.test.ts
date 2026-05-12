@@ -1,14 +1,17 @@
 import { POST as POST_VERIFY_ONE } from "@/app/api/tribes/[slug]/subscriptions/prices/[priceId]/verify-provider-plan/route";
 import { POST as POST_VERIFY_SUBSCRIBERS } from "@/app/api/tribes/[slug]/subscriptions/prices/[priceId]/verify-provider-subscribers/route";
 import { POST as POST_VERIFY_ALL } from "@/app/api/tribes/[slug]/subscriptions/prices/verify-provider-plans/route";
-import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import {
+  TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE,
+  TRIBE_SUBSCRIPTION_PRICE_STATUS,
+} from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const getAuthenticatedMember = jest.fn();
+const reconcileTribeSubscriptionProviderSubscribers = jest.fn();
 const verifyTribeSubscriptionProviderPlan = jest.fn();
 const verifyTribeSubscriptionProviderPlans = jest.fn();
-const verifyTribeSubscriptionProviderSubscribers = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -99,9 +102,9 @@ describe("tribe subscription provider plan verification routes", () => {
       },
       subscriptions: {
         useCases: {
+          reconcileTribeSubscriptionProviderSubscribers,
           verifyTribeSubscriptionProviderPlan,
           verifyTribeSubscriptionProviderPlans,
-          verifyTribeSubscriptionProviderSubscribers,
         },
       },
     });
@@ -150,7 +153,7 @@ describe("tribe subscription provider plan verification routes", () => {
   });
 
   it("should return a provider-backed subscriber count for one price", async () => {
-    verifyTribeSubscriptionProviderSubscribers.mockResolvedValue({
+    reconcileTribeSubscriptionProviderSubscribers.mockResolvedValue({
       price: {
         ...activePrice,
       },
@@ -173,6 +176,11 @@ describe("tribe subscription provider plan verification routes", () => {
       providerActiveSubscribersCount: 2,
       verifiedCount: 3,
     });
+    expect(reconcileTribeSubscriptionProviderSubscribers).toHaveBeenCalledWith({
+      priceId: "price-1",
+      source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton,
+      tribeSlug: "matematica-pro",
+    });
   });
 
   it("should return a reconciled canceled price when provider subscribers are verified", async () => {
@@ -182,7 +190,7 @@ describe("tribe subscription provider plan verification routes", () => {
       isCurrent: false,
       status: "canceled" as const,
     };
-    verifyTribeSubscriptionProviderSubscribers.mockResolvedValue({
+    reconcileTribeSubscriptionProviderSubscribers.mockResolvedValue({
       price: canceledPrice,
       providerActiveSubscribersCount: 0,
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,

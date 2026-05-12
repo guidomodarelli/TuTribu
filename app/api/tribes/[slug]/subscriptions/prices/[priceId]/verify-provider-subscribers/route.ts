@@ -4,7 +4,10 @@
  * @module tribe-subscription-provider-subscribers-verification-route
  */
 
-import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import {
+  TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE,
+  TRIBE_SUBSCRIPTION_PRICE_STATUS,
+} from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -12,7 +15,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 const PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_LOG = {
   failureMessage: "Tribe subscription provider subscribers verification failed",
   feature: "subscriptions",
-  operation: "verify-tribe-subscription-provider-subscribers",
+  operation: "reconcile-tribe-subscription-provider-subscribers",
 } as const;
 
 const PROVIDER_SUBSCRIBERS_VERIFICATION_ROUTE_RESPONSE = {
@@ -47,7 +50,7 @@ function createJsonResponse(body: Record<string, unknown>, status: number): Resp
 }
 
 /**
- * Verifies real Mercado Pago subscribers for a tribe price.
+ * Reconciles real Mercado Pago subscribers for a tribe price.
  *
  * @param request - HTTP request carrying auth cookies and tracing headers.
  * @param context - Route params with the tribe slug and price id.
@@ -85,8 +88,9 @@ export async function POST(
   try {
     const result =
       await modules.subscriptions.useCases
-        .verifyTribeSubscriptionProviderSubscribers({
+        .reconcileTribeSubscriptionProviderSubscribers({
           priceId,
+          source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton,
           tribeSlug: slug,
         });
 

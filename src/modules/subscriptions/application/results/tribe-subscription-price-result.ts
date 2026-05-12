@@ -97,7 +97,7 @@ export type TribeSubscriptionProviderPlansVerificationResult =
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.setupRequired;
     };
 
-export type TribeSubscriptionProviderSubscribersVerificationResult =
+export type TribeProviderSubscriberReconciliationResult =
   | {
       price: TribeSubscriptionPriceResult;
       providerActiveSubscribersCount: number;

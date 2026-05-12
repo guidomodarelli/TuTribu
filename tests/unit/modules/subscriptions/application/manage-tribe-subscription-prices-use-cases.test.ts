@@ -7,7 +7,6 @@ import {
   updateTribeSubscriptionPrice,
   verifyTribeSubscriptionProviderPlan,
   verifyTribeSubscriptionProviderPlans,
-  verifyTribeSubscriptionProviderSubscribers,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscription-prices-use-cases";
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import type { TribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
@@ -24,7 +23,6 @@ function createRepository(
     update: jest.fn(),
     verifyProviderPlan: jest.fn(),
     verifyProviderPlans: jest.fn(),
-    verifyProviderSubscribers: jest.fn(),
     ...overrides,
   };
 }
@@ -311,40 +309,6 @@ describe("manage tribe subscription prices use cases", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
     expect(verifyProviderPlan).toHaveBeenCalledWith({
-      priceId: "price-1",
-      tribeSlug: "matematica-pro",
-    });
-  });
-
-  it("should verify provider subscribers for one price with normalized input", async () => {
-    const verifyProviderSubscribers = jest.fn(async () => ({
-      price: {
-        ...createdPrice,
-      },
-      providerActiveSubscribersCount: 1,
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
-      verifiedCount: 2,
-    }));
-    const execute = verifyTribeSubscriptionProviderSubscribers({
-      tribeSubscriptionPriceRepository: createRepository({
-        verifyProviderSubscribers,
-      }),
-    });
-
-    await expect(
-      execute({
-        priceId: " price-1 ",
-        tribeSlug: " matematica-pro ",
-      })
-    ).resolves.toMatchObject({
-      price: {
-        activeSubscribersCount: 0,
-      },
-      providerActiveSubscribersCount: 1,
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
-      verifiedCount: 2,
-    });
-    expect(verifyProviderSubscribers).toHaveBeenCalledWith({
       priceId: "price-1",
       tribeSlug: "matematica-pro",
     });

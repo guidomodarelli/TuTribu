@@ -7,10 +7,10 @@
 import { sql } from "drizzle-orm";
 
 import type {
+  TribeProviderSubscriberReconciliationResult,
   TribeSubscriptionProviderPlanVerificationResult,
   TribeSubscriptionProviderPlansVerificationResult,
   TribeSubscriptionProviderPlanSyncResult,
-  TribeSubscriptionProviderSubscribersVerificationResult,
   TribeSubscriptionPriceListResult,
   TribeSubscriptionPriceMutationResult,
   TribeSubscriptionPriceResult,
@@ -22,6 +22,10 @@ import {
   TRIBE_SUBSCRIPTION_PRICE_LIMIT,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
+import type {
+  TribeProviderSubscriberReconciliationCommand,
+  TribeProviderSubscriberReconciliationRepository,
+} from "@/src/modules/subscriptions/application/ports/tribe-provider-subscriber-reconciliation-repository";
 import type {
   CreateTribeSubscriptionPriceCommand,
   SyncTribeSubscriptionProviderPlanCommand,
@@ -383,13 +387,20 @@ function buildSubscriptionPricePaymentTraceContext(input: {
 function buildSubscriptionPriceOperationKey(parts: {
   operation: string;
   priceId: string;
+  source?: string;
   tribeSlug: string;
 }): string {
-  return [
+  const operationKeyParts = [
     parts.operation,
     parts.tribeSlug,
     parts.priceId,
-  ].join(SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.separator);
+  ];
+
+  if (parts.source) {
+    operationKeyParts.push(parts.source);
+  }
+
+  return operationKeyParts.join(SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.separator);
 }
 
 /**
@@ -602,7 +613,9 @@ function mapPriceMutationResult(
 }
 
 export class PostgresTribeSubscriptionPriceRepository
-  implements TribeSubscriptionPriceRepository
+  implements
+    TribeProviderSubscriberReconciliationRepository,
+    TribeSubscriptionPriceRepository
 {
   /**
    * Creates a subscription price repository with provider adapters and trace context.
@@ -1477,14 +1490,14 @@ export class PostgresTribeSubscriptionPriceRepository
   }
 
   /**
-   * Verifies real Mercado Pago subscribers for one local price.
+   * Reconciles real Mercado Pago subscribers for one local price.
    *
-   * @param command - Price identity command.
-   * @returns Provider subscriber verification result with a provider-backed count.
+   * @param command - Reconciliation command with price identity and trigger source.
+   * @returns Provider subscriber reconciliation result with a provider-backed count.
    */
-  async verifyProviderSubscribers(
-    command: TribeSubscriptionPriceIdentity
-  ): Promise<TribeSubscriptionProviderSubscribersVerificationResult> {
+  async reconcileProviderSubscribers(
+    command: TribeProviderSubscriberReconciliationCommand
+  ): Promise<TribeProviderSubscriberReconciliationResult> {
     const verificationContext = await this.resolveProviderPlanVerificationContext(
       command.tribeSlug
     );
@@ -1520,6 +1533,7 @@ export class PostgresTribeSubscriptionPriceRepository
           operation:
             SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.verifyProviderSubscribers,
           priceId: command.priceId,
+          source: command.source,
           tribeSlug: command.tribeSlug,
         }),
         priceId: command.priceId,

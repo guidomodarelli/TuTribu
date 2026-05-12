@@ -37,6 +37,16 @@ export const MERCADO_PAGO_CONNECTION_STATUS = {
 } as const;
 
 /**
+ * Defines the supported triggers for provider subscriber reconciliation.
+ */
+export const TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE = {
+  adminRepair: "admin_repair",
+  manualButton: "manual_button",
+  scheduledJob: "scheduled_job",
+  webhook: "webhook",
+} as const;
+
+/**
  * Defines mutation and access statuses for tribe subscription prices.
  */
 export const TRIBE_SUBSCRIPTION_PRICE_STATUS = {

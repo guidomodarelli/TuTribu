@@ -60,6 +60,17 @@ export async function createRequestModules(
       },
       callback
     ) as Promise<T>;
+  const tribeSubscriptionPriceRepository =
+    new PostgresTribeSubscriptionPriceRepository(
+      executeWithRequestContext,
+      createMercadoPagoPreapprovalPlan,
+      updateMercadoPagoPreapprovalPlan,
+      getMercadoPagoPreapprovalPlan,
+      refreshMercadoPagoAccessToken,
+      getMercadoPagoPreapprovalPlanStatus,
+      getMercadoPagoPreapprovalStatus,
+      requestId
+    );
 
   return {
     auth: buildAuthModule({
@@ -111,17 +122,10 @@ export async function createRequestModules(
         ),
       tribePaymentIntegrationRepository:
         new PostgresTribePaymentIntegrationRepository(executeWithRequestContext),
+      tribeProviderSubscriberReconciliationRepository:
+        tribeSubscriptionPriceRepository,
       tribeSubscriptionPriceRepository:
-        new PostgresTribeSubscriptionPriceRepository(
-          executeWithRequestContext,
-          createMercadoPagoPreapprovalPlan,
-          updateMercadoPagoPreapprovalPlan,
-          getMercadoPagoPreapprovalPlan,
-          refreshMercadoPagoAccessToken,
-          getMercadoPagoPreapprovalPlanStatus,
-          getMercadoPagoPreapprovalStatus,
-          requestId
-        ),
+        tribeSubscriptionPriceRepository,
     }),
   };
 }

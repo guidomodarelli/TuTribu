@@ -8,7 +8,6 @@ import type {
   TribeSubscriptionProviderPlanVerificationResult,
   TribeSubscriptionProviderPlansVerificationResult,
   TribeSubscriptionProviderPlanSyncResult,
-  TribeSubscriptionProviderSubscribersVerificationResult,
   TribeSubscriptionPriceListResult,
   TribeSubscriptionPriceMutationResult,
 } from "@/src/modules/subscriptions/application/results/tribe-subscription-price-result";
@@ -69,7 +68,4 @@ export type TribeSubscriptionPriceRepository = {
   verifyProviderPlans(
     query: TribeSubscriptionPriceListQuery
   ): Promise<TribeSubscriptionProviderPlansVerificationResult>;
-  verifyProviderSubscribers(
-    command: TribeSubscriptionPriceIdentity
-  ): Promise<TribeSubscriptionProviderSubscribersVerificationResult>;
 };

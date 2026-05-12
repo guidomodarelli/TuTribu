@@ -1,4 +1,7 @@
-import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import {
+  TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE,
+  TRIBE_SUBSCRIPTION_PRICE_STATUS,
+} from "@/src/modules/subscriptions/constants/subscriptions";
 import { PostgresTribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/infrastructure/repositories/postgres-tribe-subscription-price-repository";
 
 function getSqlText(statement: unknown): string {
@@ -853,8 +856,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     );
 
     await expect(
-      repository.verifyProviderSubscribers({
+      repository.reconcileProviderSubscribers({
         priceId: "price-1",
+        source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toMatchObject({
@@ -939,8 +943,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     );
 
     await expect(
-      repository.verifyProviderSubscribers({
+      repository.reconcileProviderSubscribers({
         priceId: "price-1",
+        source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toMatchObject({
@@ -1021,8 +1026,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     );
 
     await expect(
-      repository.verifyProviderSubscribers({
+      repository.reconcileProviderSubscribers({
         priceId: "price-1",
+        source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toMatchObject({

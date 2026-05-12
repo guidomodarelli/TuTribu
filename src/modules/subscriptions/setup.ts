@@ -14,8 +14,8 @@ import {
   updateTribeSubscriptionPrice,
   verifyTribeSubscriptionProviderPlan,
   verifyTribeSubscriptionProviderPlans,
-  verifyTribeSubscriptionProviderSubscribers,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscription-prices-use-cases";
+import { reconcileTribeSubscriptionProviderSubscribers } from "@/src/modules/subscriptions/application/use-cases/reconcile-tribe-subscription-provider-subscribers-use-case";
 import {
   cancelOwnTribeMemberSubscription,
   confirmTribeMemberSubscriptionReturn,
@@ -26,6 +26,7 @@ import {
   startTribeMemberSubscription,
   validatePendingTribeMemberSubscriptionReturn,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
+import type { TribeProviderSubscriberReconciliationRepository } from "@/src/modules/subscriptions/application/ports/tribe-provider-subscriber-reconciliation-repository";
 import type { TribeMemberSubscriptionRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository";
 import type { TribePaymentIntegrationRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-payment-integration-repository";
 import type { TribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
@@ -33,6 +34,7 @@ import type { TribeSubscriptionPriceRepository } from "@/src/modules/subscriptio
 type SubscriptionsModuleDependencies = {
   tribeMemberSubscriptionRepository: TribeMemberSubscriptionRepository;
   tribePaymentIntegrationRepository: TribePaymentIntegrationRepository;
+  tribeProviderSubscriberReconciliationRepository: TribeProviderSubscriberReconciliationRepository;
   tribeSubscriptionPriceRepository: TribeSubscriptionPriceRepository;
 };
 
@@ -45,6 +47,7 @@ type SubscriptionsModuleDependencies = {
 export function buildSubscriptionsModule({
   tribeMemberSubscriptionRepository,
   tribePaymentIntegrationRepository,
+  tribeProviderSubscriberReconciliationRepository,
   tribeSubscriptionPriceRepository,
 }: SubscriptionsModuleDependencies) {
   return {
@@ -78,6 +81,10 @@ export function buildSubscriptionsModule({
         reconcileCurrentTribeMemberSubscription({
           tribeMemberSubscriptionRepository,
         }),
+      reconcileTribeSubscriptionProviderSubscribers:
+        reconcileTribeSubscriptionProviderSubscribers({
+          tribeProviderSubscriberReconciliationRepository,
+        }),
       resolveTribeMemberSubscriptionReturnPath:
         resolveTribeMemberSubscriptionReturnPath({
           tribeMemberSubscriptionRepository,
@@ -105,10 +112,6 @@ export function buildSubscriptionsModule({
       verifyTribeSubscriptionProviderPlans: verifyTribeSubscriptionProviderPlans({
         tribeSubscriptionPriceRepository,
       }),
-      verifyTribeSubscriptionProviderSubscribers:
-        verifyTribeSubscriptionProviderSubscribers({
-          tribeSubscriptionPriceRepository,
-        }),
     },
   };
 }
