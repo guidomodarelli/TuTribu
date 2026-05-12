@@ -73,6 +73,37 @@ describe("TribeSubscriptionPriceManagement", () => {
     expect(screen.getByText("Conectado")).toBeInTheDocument();
   });
 
+  it("should render prices as an operational table with creation and help sections", () => {
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Crear nuevo precio" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Nombre" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Precio mensual" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Estado" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Acciones" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Sobre los precios" })
+    ).toBeInTheDocument();
+  });
+
   it("should hide Mercado Pago connection health for read-only users", () => {
     render(
       <TribeSubscriptionPriceManagement

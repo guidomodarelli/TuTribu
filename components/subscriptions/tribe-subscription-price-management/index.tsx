@@ -8,6 +8,7 @@
 
 import {
   FormEvent,
+  Fragment,
   useCallback,
   useEffect,
   useId,
@@ -17,18 +18,32 @@ import {
 } from "react";
 import {
   CheckCircle2Icon,
+  Clock3Icon,
   CreditCardIcon,
+  InfoIcon,
   PencilIcon,
+  PauseCircleIcon,
   PlusIcon,
   RefreshCwIcon,
   StarIcon,
   Trash2Icon,
+  UserRoundXIcon,
+  UsersRoundIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type {
   TribeSubscriberDiagnosticsResult,
   TribeSubscriptionPriceResult,
@@ -36,11 +51,13 @@ import type {
 import styles from "./styles.module.scss";
 
 const PRICE_MANAGEMENT_COPY = {
+  activeBadge: "Activo",
   amountLabel: "Precio mensual",
   amountPlaceholder: "5000",
   connectButton: "Conectar Mercado Pago",
   connectedStatus: "Conectado",
   createButton: "Crear precio",
+  createSectionTitle: "Crear nuevo precio",
   disconnectedNotice:
     "Mercado Pago requiere reconexión. Estamos intentando conectarte automáticamente.",
   canceledBadge: "Cancelado",
@@ -58,6 +75,8 @@ const PRICE_MANAGEMENT_COPY = {
     "No pudimos verificar los suscriptores. Intentá de nuevo.",
   fallbackSubscriberDiagnosticsError:
     "No pudimos actualizar el diagnóstico. Intentá de nuevo.",
+  freshSubscriberDiagnosticsStatus:
+    "Diagnóstico actualizado con Mercado Pago.",
   guardianNotice: "Tenés acceso de lectura. Solo el líder puede operar cambios.",
   localActiveSubscribersLabel: "Activos locales",
   makeCurrentButton: "Marcar como actual",
@@ -73,6 +92,9 @@ const PRICE_MANAGEMENT_COPY = {
   editButton: "Editar",
   editNameLabel: "Nuevo nombre",
   priceListLabel: "Precios históricos",
+  pricesHelpDescription:
+    "Al crear un nuevo precio, se guardará como versión histórica. Los miembros existentes mantendrán el precio con el que se asociaron.",
+  pricesHelpTitle: "Sobre los precios",
   readonlyBadge: "Solo lectura",
   removeButton: "Eliminar",
   requiresReconnectionStatus: "Requiere reconexión",
@@ -83,6 +105,9 @@ const PRICE_MANAGEMENT_COPY = {
   subscriberDiagnosticsTitle: "Detalle de suscriptores",
   subscriberDiagnosticsUpdateButton: "Actualizar diagnóstico",
   subscriberDiagnosticsUpdating: "Actualizando diagnóstico...",
+  tableActionsHeader: "Acciones",
+  tableNameHeader: "Nombre",
+  tableStatusHeader: "Estado",
   title: "Precios",
   providerSubscribersMetaSuffix: "suscriptores vigentes en Mercado Pago",
   verifyProviderPlanButton: "Verificar plan",
@@ -104,7 +129,9 @@ const PRICE_MANAGEMENT_ROUTE = {
 } as const;
 
 const PRICE_MANAGEMENT_REQUEST = {
+  ariaHidden: true,
   buttonType: "button",
+  tableColumnCount: 4,
   contentTypeHeader: "Content-Type",
   deleteMethod: "DELETE",
   destructiveBadgeVariant: "destructive",
@@ -128,6 +155,7 @@ const PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX = {
 } as const;
 
 const PRICE_MANAGEMENT_ELEMENT_ID = {
+  createPriceTitle: "create-subscription-price-title",
   subscriberDiagnosticsTitle: "subscriber-diagnostics-title",
 } as const;
 
@@ -472,6 +500,43 @@ export function TribeSubscriptionPriceManagement({
   const mercadoPagoConnectionEndpoint = buildMercadoPagoConnectionEndpoint(
     tribeSlug
   );
+  const subscriberDiagnosticsItems = subscriberDiagnosticsResult
+    ? [
+        {
+          icon: <UsersRoundIcon />,
+          label: PRICE_MANAGEMENT_COPY.localActiveSubscribersLabel,
+          tone: styles.TribeSubscriptionPriceManagement__diagnosticsIconBlue,
+          value: subscriberDiagnosticsResult.localActiveSubscribersCount,
+        },
+        {
+          icon: <CheckCircle2Icon />,
+          label: PRICE_MANAGEMENT_COPY.mercadoPagoAuthorizedSubscribersLabel,
+          tone: styles.TribeSubscriptionPriceManagement__diagnosticsIconGreen,
+          value:
+            subscriberDiagnosticsResult.mercadoPagoAuthorizedSubscribersCount,
+        },
+        {
+          icon: <Clock3Icon />,
+          label: PRICE_MANAGEMENT_COPY.mercadoPagoPendingSubscribersLabel,
+          tone: styles.TribeSubscriptionPriceManagement__diagnosticsIconOrange,
+          value: subscriberDiagnosticsResult.mercadoPagoPendingSubscribersCount,
+        },
+        {
+          icon: <PauseCircleIcon />,
+          label: PRICE_MANAGEMENT_COPY.mercadoPagoPausedSubscribersLabel,
+          tone: styles.TribeSubscriptionPriceManagement__diagnosticsIconPurple,
+          value: subscriberDiagnosticsResult.mercadoPagoPausedSubscribersCount,
+        },
+        {
+          icon: <UserRoundXIcon />,
+          label:
+            PRICE_MANAGEMENT_COPY.mercadoPagoCanceledOrMissingSubscribersLabel,
+          tone: styles.TribeSubscriptionPriceManagement__diagnosticsIconRed,
+          value:
+            subscriberDiagnosticsResult.mercadoPagoCanceledOrMissingSubscribersCount,
+        },
+      ]
+    : [];
   const startMercadoPagoConnection = useCallback(
     (connectionEndpoint: string) => {
       if (navigateToMercadoPagoConnection) {
@@ -967,12 +1032,16 @@ export function TribeSubscriptionPriceManagement({
               {PRICE_MANAGEMENT_COPY.connectButton}
             </Button>
           ) : (
-            <Badge variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}>
+            <Badge
+              variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}
+            >
               {PRICE_MANAGEMENT_COPY.readonlyBadge}
             </Badge>
           )}
         </div>
       </header>
+
+      <Separator />
 
       {statusMessage ? (
         <p
@@ -1052,7 +1121,17 @@ export function TribeSubscriptionPriceManagement({
               className={styles.TribeSubscriptionPriceManagement__status}
               role={PRICE_MANAGEMENT_REQUEST.statusRole}
             >
+              <CheckCircle2Icon />
               {subscriberDiagnosticsMessage}
+            </p>
+          ) : null}
+          {!subscriberDiagnosticsMessage && isMercadoPagoConnected ? (
+            <p
+              className={styles.TribeSubscriptionPriceManagement__status}
+              role={PRICE_MANAGEMENT_REQUEST.statusRole}
+            >
+              <CheckCircle2Icon />
+              {PRICE_MANAGEMENT_COPY.freshSubscriberDiagnosticsStatus}
             </p>
           ) : null}
           <dl
@@ -1060,399 +1139,407 @@ export function TribeSubscriptionPriceManagement({
               styles.TribeSubscriptionPriceManagement__diagnosticsList
             }
           >
-            <div
-              className={
-                styles.TribeSubscriptionPriceManagement__diagnosticsItem
-              }
-            >
-              <dt
+            {subscriberDiagnosticsItems.map((item) => (
+              <div
                 className={
-                  styles.TribeSubscriptionPriceManagement__diagnosticsTerm
+                  styles.TribeSubscriptionPriceManagement__diagnosticsItem
                 }
+                key={item.label}
               >
-                {PRICE_MANAGEMENT_COPY.localActiveSubscribersLabel}
-              </dt>
-              <dd
-                className={
-                  styles.TribeSubscriptionPriceManagement__diagnosticsValue
-                }
-              >
-                {subscriberDiagnosticsResult.localActiveSubscribersCount}
-              </dd>
-            </div>
-            <div
-              className={
-                styles.TribeSubscriptionPriceManagement__diagnosticsItem
-              }
-            >
-              <dt
-                className={
-                  styles.TribeSubscriptionPriceManagement__diagnosticsTerm
-                }
-              >
-                {PRICE_MANAGEMENT_COPY.mercadoPagoAuthorizedSubscribersLabel}
-              </dt>
-              <dd
-                className={
-                  styles.TribeSubscriptionPriceManagement__diagnosticsValue
-                }
-              >
-                {
-                  subscriberDiagnosticsResult.mercadoPagoAuthorizedSubscribersCount
-                }
-              </dd>
-            </div>
-            <div
-              className={
-                styles.TribeSubscriptionPriceManagement__diagnosticsItem
-              }
-            >
-              <dt
-                className={
-                  styles.TribeSubscriptionPriceManagement__diagnosticsTerm
-                }
-              >
-                {PRICE_MANAGEMENT_COPY.mercadoPagoPendingSubscribersLabel}
-              </dt>
-              <dd
-                className={
-                  styles.TribeSubscriptionPriceManagement__diagnosticsValue
-                }
-              >
-                {subscriberDiagnosticsResult.mercadoPagoPendingSubscribersCount}
-              </dd>
-            </div>
-            <div
-              className={
-                styles.TribeSubscriptionPriceManagement__diagnosticsItem
-              }
-            >
-              <dt
-                className={
-                  styles.TribeSubscriptionPriceManagement__diagnosticsTerm
-                }
-              >
-                {PRICE_MANAGEMENT_COPY.mercadoPagoPausedSubscribersLabel}
-              </dt>
-              <dd
-                className={
-                  styles.TribeSubscriptionPriceManagement__diagnosticsValue
-                }
-              >
-                {subscriberDiagnosticsResult.mercadoPagoPausedSubscribersCount}
-              </dd>
-            </div>
-            <div
-              className={
-                styles.TribeSubscriptionPriceManagement__diagnosticsItem
-              }
-            >
-              <dt
-                className={
-                  styles.TribeSubscriptionPriceManagement__diagnosticsTerm
-                }
-              >
-                {
-                  PRICE_MANAGEMENT_COPY
-                    .mercadoPagoCanceledOrMissingSubscribersLabel
-                }
-              </dt>
-              <dd
-                className={
-                  styles.TribeSubscriptionPriceManagement__diagnosticsValue
-                }
-              >
-                {
-                  subscriberDiagnosticsResult.mercadoPagoCanceledOrMissingSubscribersCount
-                }
-              </dd>
-            </div>
+                <dt
+                  className={
+                    styles.TribeSubscriptionPriceManagement__diagnosticsTerm
+                  }
+                >
+                  <span
+                    className={`${styles.TribeSubscriptionPriceManagement__diagnosticsIcon} ${item.tone}`}
+                    aria-hidden={PRICE_MANAGEMENT_REQUEST.ariaHidden}
+                  >
+                    {item.icon}
+                  </span>
+                  {item.label}
+                </dt>
+                <dd
+                  className={
+                    styles.TribeSubscriptionPriceManagement__diagnosticsValue
+                  }
+                >
+                  {item.value}
+                </dd>
+              </div>
+            ))}
           </dl>
         </section>
       ) : null}
 
+      <Separator />
+
       {canManagePrices ? (
-        <form
-          className={styles.TribeSubscriptionPriceManagement__form}
-          onSubmit={handleCreatePrice}
+        <section
+          aria-labelledby={PRICE_MANAGEMENT_ELEMENT_ID.createPriceTitle}
+          className={styles.TribeSubscriptionPriceManagement__create}
         >
-          <div className={styles.TribeSubscriptionPriceManagement__field}>
-            <label
-              className={styles.TribeSubscriptionPriceManagement__label}
-              htmlFor={nameInputId}
-            >
-              {PRICE_MANAGEMENT_COPY.nameLabel}
-            </label>
-            <Input
-              disabled={isMercadoPagoConnectionRequired}
-              id={nameInputId}
-              onChange={(event) => {
-                setName(event.currentTarget.value);
-              }}
-              placeholder={PRICE_MANAGEMENT_COPY.namePlaceholder}
-              value={name}
-            />
-          </div>
-          <div className={styles.TribeSubscriptionPriceManagement__field}>
-            <label
-              className={styles.TribeSubscriptionPriceManagement__label}
-              htmlFor={amountInputId}
-            >
-              {PRICE_MANAGEMENT_COPY.amountLabel}
-            </label>
-            <Input
-              disabled={isMercadoPagoConnectionRequired}
-              id={amountInputId}
-              inputMode={PRICE_MANAGEMENT_FORMAT.inputMode}
-              aria-describedby={
-                fieldErrors.amount ? amountErrorId : undefined
-              }
-              aria-invalid={fieldErrors.amount ? true : undefined}
-              onChange={(event) => {
-                setAmount(event.currentTarget.value);
-                setFieldErrors((currentFieldErrors) => ({
-                  ...currentFieldErrors,
-                  amount: undefined,
-                }));
-              }}
-              placeholder={PRICE_MANAGEMENT_COPY.amountPlaceholder}
-              value={amount}
-            />
-            {fieldErrors.amount ? (
-              <span
-                className={styles.TribeSubscriptionPriceManagement__fieldError}
-                id={amountErrorId}
-              >
-                {fieldErrors.amount}
-              </span>
-            ) : null}
-          </div>
-          <Button
-            disabled={
-              isPriceManagementDisabled ||
-              !name.trim() ||
-              !amount.trim()
-            }
-            type={PRICE_MANAGEMENT_REQUEST.submitType}
+          <h2
+            className={styles.TribeSubscriptionPriceManagement__sectionTitle}
+            id={PRICE_MANAGEMENT_ELEMENT_ID.createPriceTitle}
           >
-            <PlusIcon />
-            {PRICE_MANAGEMENT_COPY.createButton}
-          </Button>
-        </form>
+            {PRICE_MANAGEMENT_COPY.createSectionTitle}
+          </h2>
+          <form
+            className={styles.TribeSubscriptionPriceManagement__form}
+            onSubmit={handleCreatePrice}
+          >
+            <div className={styles.TribeSubscriptionPriceManagement__field}>
+              <label
+                className={styles.TribeSubscriptionPriceManagement__label}
+                htmlFor={nameInputId}
+              >
+                {PRICE_MANAGEMENT_COPY.nameLabel}
+              </label>
+              <Input
+                disabled={isMercadoPagoConnectionRequired}
+                id={nameInputId}
+                onChange={(event) => {
+                  setName(event.currentTarget.value);
+                }}
+                placeholder={PRICE_MANAGEMENT_COPY.namePlaceholder}
+                value={name}
+              />
+            </div>
+            <div className={styles.TribeSubscriptionPriceManagement__field}>
+              <label
+                className={styles.TribeSubscriptionPriceManagement__label}
+                htmlFor={amountInputId}
+              >
+                {PRICE_MANAGEMENT_COPY.amountLabel}
+              </label>
+              <Input
+                disabled={isMercadoPagoConnectionRequired}
+                id={amountInputId}
+                inputMode={PRICE_MANAGEMENT_FORMAT.inputMode}
+                aria-describedby={
+                  fieldErrors.amount ? amountErrorId : undefined
+                }
+                aria-invalid={fieldErrors.amount ? true : undefined}
+                onChange={(event) => {
+                  setAmount(event.currentTarget.value);
+                  setFieldErrors((currentFieldErrors) => ({
+                    ...currentFieldErrors,
+                    amount: undefined,
+                  }));
+                }}
+                placeholder={PRICE_MANAGEMENT_COPY.amountPlaceholder}
+                value={amount}
+              />
+              {fieldErrors.amount ? (
+                <span
+                  className={
+                    styles.TribeSubscriptionPriceManagement__fieldError
+                  }
+                  id={amountErrorId}
+                >
+                  {fieldErrors.amount}
+                </span>
+              ) : null}
+            </div>
+            <Button
+              disabled={
+                isPriceManagementDisabled ||
+                !name.trim() ||
+                !amount.trim()
+              }
+              type={PRICE_MANAGEMENT_REQUEST.submitType}
+            >
+              <PlusIcon />
+              {PRICE_MANAGEMENT_COPY.createButton}
+            </Button>
+          </form>
+        </section>
       ) : (
         <p className={styles.TribeSubscriptionPriceManagement__notice}>
           {PRICE_MANAGEMENT_COPY.guardianNotice}
         </p>
       )}
 
+      <Separator />
+
       {sortedPrices.length > 0 ? (
-        <ol
+        <Table
           aria-label={PRICE_MANAGEMENT_COPY.priceListLabel}
-          className={styles.TribeSubscriptionPriceManagement__list}
+          className={styles.TribeSubscriptionPriceManagement__table}
         >
-          {sortedPrices.map((price) => (
-            <li
-              className={styles.TribeSubscriptionPriceManagement__item}
-              key={price.id}
-            >
-              <div className={styles.TribeSubscriptionPriceManagement__summary}>
-                <strong className={styles.TribeSubscriptionPriceManagement__name}>
-                  {price.name}
-                </strong>
-                <span className={styles.TribeSubscriptionPriceManagement__amount}>
-                  {formatAmount(price.amountCents)}
-                </span>
-                <span className={styles.TribeSubscriptionPriceManagement__meta}>
-                  {price.activeSubscribersCount} miembros asociados
-                </span>
-                {providerSubscriberCountsByPriceId[price.id] !== undefined ? (
-                  <span className={styles.TribeSubscriptionPriceManagement__meta}>
-                    {providerSubscriberCountsByPriceId[price.id]}{" "}
-                    {PRICE_MANAGEMENT_COPY.providerSubscribersMetaSuffix}
-                  </span>
-                ) : null}
-              </div>
-              {price.isCurrent ? (
-                <Badge>
-                  <CheckCircle2Icon />
-                  {PRICE_MANAGEMENT_COPY.currentBadge}
-                </Badge>
-              ) : null}
-              {price.status === PRICE_MANAGEMENT_STATUS.canceled ? (
-                <Badge variant={PRICE_MANAGEMENT_REQUEST.destructiveBadgeVariant}>
-                  {PRICE_MANAGEMENT_COPY.canceledBadge}
-                </Badge>
-              ) : null}
-              {canManagePrices ? (
-                <div className={styles.TribeSubscriptionPriceManagement__actions}>
-                  {price.activeSubscribersCount > 0 ? (
-                    <span className={styles.TribeSubscriptionPriceManagement__meta}>
-                      {PRICE_MANAGEMENT_COPY.replacementPlanNotice}
-                    </span>
-                  ) : null}
-                  {price.activeSubscribersCount === 0 &&
-                  price.status !== PRICE_MANAGEMENT_STATUS.canceled ? (
-                    <Button
-                      disabled={isPriceManagementDisabled}
-                      onClick={() => {
-                        handleStartEditingPrice(price);
-                      }}
-                      type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                      variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
-                    >
-                      <PencilIcon />
-                      {PRICE_MANAGEMENT_COPY.editButton}
-                    </Button>
-                  ) : null}
-                  <Button
-                    disabled={
-                      isPriceManagementDisabled ||
-                      price.isCurrent ||
-                      price.activeSubscribersCount > 0 ||
-                      price.status === PRICE_MANAGEMENT_STATUS.canceled
-                    }
-                    onClick={() => {
-                      void handleMakeCurrent(price.id);
-                    }}
-                    type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                    variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
-                  >
-                    <StarIcon />
-                    {PRICE_MANAGEMENT_COPY.makeCurrentButton}
-                  </Button>
-                  <Button
-                    disabled={
-                      isPriceManagementDisabled ||
-                      price.activeSubscribersCount > 0 ||
-                      price.status !== PRICE_MANAGEMENT_STATUS.canceled
-                    }
-                    onClick={() => {
-                      void handleDeletePrice(price.id);
-                    }}
-                    type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                    variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
-                  >
-                    <Trash2Icon />
-                    {PRICE_MANAGEMENT_COPY.removeButton}
-                  </Button>
-                  <Button
-                    disabled={
-                      isPriceManagementDisabled ||
-                      price.status === PRICE_MANAGEMENT_STATUS.canceled
-                    }
-                    onClick={() => {
-                      void handleVerifyProviderPlan(price.id);
-                    }}
-                    type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                    variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
-                  >
-                    <RefreshCwIcon />
-                    {PRICE_MANAGEMENT_COPY.verifyProviderPlanButton}
-                  </Button>
-                  <Button
-                    disabled={
-                      isPriceManagementDisabled ||
-                      (price.status === PRICE_MANAGEMENT_STATUS.canceled &&
-                        price.activeSubscribersCount === 0)
-                    }
-                    onClick={() => {
-                      void handleVerifyProviderSubscribers(price.id);
-                    }}
-                    type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                    variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
-                  >
-                    <RefreshCwIcon />
-                    {PRICE_MANAGEMENT_COPY.verifyProviderSubscribersButton}
-                  </Button>
-                </div>
-              ) : null}
-              {editingPrice?.id === price.id ? (
-                <form
-                  className={styles.TribeSubscriptionPriceManagement__editForm}
-                  onSubmit={handleUpdatePrice}
-                >
-                  <div className={styles.TribeSubscriptionPriceManagement__field}>
-                    <label
-                      className={styles.TribeSubscriptionPriceManagement__label}
-                      htmlFor={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.name}`}
-                    >
-                      {PRICE_MANAGEMENT_COPY.editNameLabel}
-                    </label>
-                    <Input
-                      id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.name}`}
-                      onChange={(event) => {
-                        updateEditingPrice({
-                          name: event.currentTarget.value,
-                        });
-                      }}
-                      value={editingPrice.name}
-                    />
-                  </div>
-                  <div className={styles.TribeSubscriptionPriceManagement__field}>
-                    <label
-                      className={styles.TribeSubscriptionPriceManagement__label}
-                      htmlFor={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.amount}`}
-                    >
-                      {PRICE_MANAGEMENT_COPY.editAmountLabel}
-                    </label>
-                    <Input
-                      aria-describedby={
-                        fieldErrors.amount ? editAmountErrorId : undefined
+          <TableHeader>
+            <TableRow className={styles.TribeSubscriptionPriceManagement__tableHeaderRow}>
+              <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
+                {PRICE_MANAGEMENT_COPY.tableNameHeader}
+              </TableHead>
+              <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
+                {PRICE_MANAGEMENT_COPY.amountLabel}
+              </TableHead>
+              <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
+                {PRICE_MANAGEMENT_COPY.tableStatusHeader}
+              </TableHead>
+              <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
+                {PRICE_MANAGEMENT_COPY.tableActionsHeader}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedPrices.map((price) => (
+              <Fragment key={price.id}>
+                <TableRow className={styles.TribeSubscriptionPriceManagement__tableRow}>
+                  <TableCell className={styles.TribeSubscriptionPriceManagement__nameCell}>
+                    <span
+                      className={
+                        styles.TribeSubscriptionPriceManagement__priceIndicator
                       }
-                      aria-invalid={fieldErrors.amount ? true : undefined}
-                      id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.amount}`}
-                      inputMode={PRICE_MANAGEMENT_FORMAT.inputMode}
-                      onChange={(event) => {
-                        updateEditingPrice({
-                          amount: event.currentTarget.value,
-                        });
-                      }}
-                      value={editingPrice.amount}
+                      aria-hidden={PRICE_MANAGEMENT_REQUEST.ariaHidden}
                     />
-                    {fieldErrors.amount ? (
-                      <span
-                        className={
-                          styles.TribeSubscriptionPriceManagement__fieldError
-                        }
-                        id={editAmountErrorId}
+                    <span className={styles.TribeSubscriptionPriceManagement__summary}>
+                      <strong
+                        className={styles.TribeSubscriptionPriceManagement__name}
                       >
-                        {fieldErrors.amount}
+                        {price.name}
+                      </strong>
+                      <span className={styles.TribeSubscriptionPriceManagement__meta}>
+                        {price.activeSubscribersCount} miembros asociados
                       </span>
+                      {providerSubscriberCountsByPriceId[price.id] !== undefined ? (
+                        <span className={styles.TribeSubscriptionPriceManagement__meta}>
+                          {providerSubscriberCountsByPriceId[price.id]}{" "}
+                          {PRICE_MANAGEMENT_COPY.providerSubscribersMetaSuffix}
+                        </span>
+                      ) : null}
+                    </span>
+                  </TableCell>
+                  <TableCell className={styles.TribeSubscriptionPriceManagement__amount}>
+                    {formatAmount(price.amountCents)}
+                  </TableCell>
+                  <TableCell>
+                    <span className={styles.TribeSubscriptionPriceManagement__badges}>
+                      {price.isCurrent ? (
+                        <Badge>
+                          <CheckCircle2Icon />
+                          {PRICE_MANAGEMENT_COPY.currentBadge}
+                        </Badge>
+                      ) : null}
+                      {price.status === PRICE_MANAGEMENT_STATUS.canceled ? (
+                        <Badge
+                          className={styles.TribeSubscriptionPriceManagement__canceledBadge}
+                          variant={
+                            PRICE_MANAGEMENT_REQUEST.destructiveBadgeVariant
+                          }
+                        >
+                          {PRICE_MANAGEMENT_COPY.canceledBadge}
+                        </Badge>
+                      ) : null}
+                      {!price.isCurrent &&
+                      price.status !== PRICE_MANAGEMENT_STATUS.canceled ? (
+                        <Badge variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}>
+                          {PRICE_MANAGEMENT_COPY.activeBadge}
+                        </Badge>
+                      ) : null}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {canManagePrices ? (
+                      <div className={styles.TribeSubscriptionPriceManagement__actions}>
+                        {price.activeSubscribersCount > 0 ? (
+                          <span
+                            className={styles.TribeSubscriptionPriceManagement__meta}
+                          >
+                            {PRICE_MANAGEMENT_COPY.replacementPlanNotice}
+                          </span>
+                        ) : null}
+                        {price.activeSubscribersCount === 0 &&
+                        price.status !== PRICE_MANAGEMENT_STATUS.canceled ? (
+                          <Button
+                            disabled={isPriceManagementDisabled}
+                            onClick={() => {
+                              handleStartEditingPrice(price);
+                            }}
+                            type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                            variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                          >
+                            <PencilIcon />
+                            {PRICE_MANAGEMENT_COPY.editButton}
+                          </Button>
+                        ) : null}
+                        <Button
+                          disabled={
+                            isPriceManagementDisabled ||
+                            price.isCurrent ||
+                            price.activeSubscribersCount > 0 ||
+                            price.status === PRICE_MANAGEMENT_STATUS.canceled
+                          }
+                          onClick={() => {
+                            void handleMakeCurrent(price.id);
+                          }}
+                          type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                          variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                        >
+                          <StarIcon />
+                          {PRICE_MANAGEMENT_COPY.makeCurrentButton}
+                        </Button>
+                        <Button
+                          disabled={
+                            isPriceManagementDisabled ||
+                            price.activeSubscribersCount > 0 ||
+                            price.status !== PRICE_MANAGEMENT_STATUS.canceled
+                          }
+                          onClick={() => {
+                            void handleDeletePrice(price.id);
+                          }}
+                          type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                          variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                        >
+                          <Trash2Icon />
+                          {PRICE_MANAGEMENT_COPY.removeButton}
+                        </Button>
+                        <Button
+                          disabled={
+                            isPriceManagementDisabled ||
+                            price.status === PRICE_MANAGEMENT_STATUS.canceled
+                          }
+                          onClick={() => {
+                            void handleVerifyProviderPlan(price.id);
+                          }}
+                          type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                          variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                        >
+                          <RefreshCwIcon />
+                          {PRICE_MANAGEMENT_COPY.verifyProviderPlanButton}
+                        </Button>
+                        <Button
+                          disabled={
+                            isPriceManagementDisabled ||
+                            (price.status === PRICE_MANAGEMENT_STATUS.canceled &&
+                              price.activeSubscribersCount === 0)
+                          }
+                          onClick={() => {
+                            void handleVerifyProviderSubscribers(price.id);
+                          }}
+                          type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                          variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                        >
+                          <RefreshCwIcon />
+                          {PRICE_MANAGEMENT_COPY.verifyProviderSubscribersButton}
+                        </Button>
+                      </div>
                     ) : null}
-                  </div>
-                  <div className={styles.TribeSubscriptionPriceManagement__actions}>
-                    <Button
-                      disabled={
-                        isPriceManagementDisabled ||
-                        !editingPrice.name.trim() ||
-                        !editingPrice.amount.trim()
-                      }
-                      type={PRICE_MANAGEMENT_REQUEST.submitType}
-                    >
-                      <CheckCircle2Icon />
-                      {PRICE_MANAGEMENT_COPY.saveEditButton}
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setEditingPrice(null);
-                        setFieldErrors({});
-                      }}
-                      type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                      variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
-                    >
-                      {PRICE_MANAGEMENT_COPY.cancelEditButton}
-                    </Button>
-                  </div>
-                </form>
-              ) : null}
-            </li>
-          ))}
-        </ol>
+                  </TableCell>
+                </TableRow>
+                {editingPrice?.id === price.id ? (
+                  <TableRow className={styles.TribeSubscriptionPriceManagement__editRow}>
+                    <TableCell colSpan={PRICE_MANAGEMENT_REQUEST.tableColumnCount}>
+                      <form
+                        className={styles.TribeSubscriptionPriceManagement__editForm}
+                        onSubmit={handleUpdatePrice}
+                      >
+                        <div className={styles.TribeSubscriptionPriceManagement__field}>
+                          <label
+                            className={styles.TribeSubscriptionPriceManagement__label}
+                            htmlFor={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.name}`}
+                          >
+                            {PRICE_MANAGEMENT_COPY.editNameLabel}
+                          </label>
+                          <Input
+                            id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.name}`}
+                            onChange={(event) => {
+                              updateEditingPrice({
+                                name: event.currentTarget.value,
+                              });
+                            }}
+                            value={editingPrice.name}
+                          />
+                        </div>
+                        <div className={styles.TribeSubscriptionPriceManagement__field}>
+                          <label
+                            className={styles.TribeSubscriptionPriceManagement__label}
+                            htmlFor={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.amount}`}
+                          >
+                            {PRICE_MANAGEMENT_COPY.editAmountLabel}
+                          </label>
+                          <Input
+                            aria-describedby={
+                              fieldErrors.amount ? editAmountErrorId : undefined
+                            }
+                            aria-invalid={fieldErrors.amount ? true : undefined}
+                            id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.amount}`}
+                            inputMode={PRICE_MANAGEMENT_FORMAT.inputMode}
+                            onChange={(event) => {
+                              updateEditingPrice({
+                                amount: event.currentTarget.value,
+                              });
+                            }}
+                            value={editingPrice.amount}
+                          />
+                          {fieldErrors.amount ? (
+                            <span
+                              className={
+                                styles.TribeSubscriptionPriceManagement__fieldError
+                              }
+                              id={editAmountErrorId}
+                            >
+                              {fieldErrors.amount}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className={styles.TribeSubscriptionPriceManagement__actions}>
+                          <Button
+                            disabled={
+                              isPriceManagementDisabled ||
+                              !editingPrice.name.trim() ||
+                              !editingPrice.amount.trim()
+                            }
+                            type={PRICE_MANAGEMENT_REQUEST.submitType}
+                          >
+                            <CheckCircle2Icon />
+                            {PRICE_MANAGEMENT_COPY.saveEditButton}
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setEditingPrice(null);
+                              setFieldErrors({});
+                            }}
+                            type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                            variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                          >
+                            {PRICE_MANAGEMENT_COPY.cancelEditButton}
+                          </Button>
+                        </div>
+                      </form>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </Fragment>
+            ))}
+          </TableBody>
+        </Table>
       ) : (
         <p className={styles.TribeSubscriptionPriceManagement__empty}>
           {PRICE_MANAGEMENT_COPY.emptyState}
         </p>
       )}
+
+      <Separator />
+
+      <section className={styles.TribeSubscriptionPriceManagement__help}>
+        <span
+          className={styles.TribeSubscriptionPriceManagement__helpIcon}
+          aria-hidden={PRICE_MANAGEMENT_REQUEST.ariaHidden}
+        >
+          <InfoIcon />
+        </span>
+        <div>
+          <h2 className={styles.TribeSubscriptionPriceManagement__helpTitle}>
+            {PRICE_MANAGEMENT_COPY.pricesHelpTitle}
+          </h2>
+          <p className={styles.TribeSubscriptionPriceManagement__helpText}>
+            {PRICE_MANAGEMENT_COPY.pricesHelpDescription}
+          </p>
+        </div>
+      </section>
     </section>
   );
 }
