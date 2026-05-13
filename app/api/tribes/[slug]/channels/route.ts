@@ -1,4 +1,5 @@
 import { TRIBE_CHANNEL_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
+import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -134,6 +135,8 @@ export async function POST(
 
     switch (result.status) {
       case TRIBE_CHANNEL_MUTATION_STATUS.created:
+        revalidateTribeRoundCache(slug);
+
         return createJsonResponse(
           {
             channel: result.channel,

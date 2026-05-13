@@ -2,7 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import HomePage from "@/app/(platform)/page";
+import {
+  HomePageContent,
+  HomePageView,
+} from "@/app/(platform)/home-page-content";
 import { createRequestModules } from "@/src/modules/setup";
 
 const getAuthenticatedMember = jest.fn();
@@ -44,7 +47,7 @@ describe("HomePage", () => {
   it("renders the sign in call to action when there is no authenticated member", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
 
-    render(await HomePage());
+    render(await HomePageContent());
 
     expect(
       screen.getByRole("heading", {
@@ -71,8 +74,19 @@ describe("HomePage", () => {
       image: null,
     });
 
-    render(await HomePage());
+    render(await HomePageContent());
 
+    expect(
+      screen.queryByRole("link", { name: /iniciar sesion/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders a neutral pending view before authentication is resolved", () => {
+    render(<HomePageView isAuthenticated={null} />);
+
+    expect(
+      screen.getByText(/preparando tu espacio dentro de la plataforma/i)
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: /iniciar sesion/i })
     ).not.toBeInTheDocument();
@@ -95,7 +109,7 @@ describe("HomePage", () => {
     });
 
     await expect(
-      HomePage({
+      HomePageContent({
         searchParams: Promise.resolve({
           preapproval_id: "preapproval-1",
         }),

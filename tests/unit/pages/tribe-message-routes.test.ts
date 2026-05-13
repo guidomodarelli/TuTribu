@@ -4,6 +4,7 @@ import { POST as POST_LIKE } from "@/app/api/tribes/[slug]/messages/[messageId]/
 import { POST as POST_PIN } from "@/app/api/tribes/[slug]/messages/[messageId]/pin/route";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { revalidateTag } from "next/cache";
 
 const getAuthenticatedMember = jest.fn();
 const createTribeMessage = jest.fn();
@@ -17,6 +18,10 @@ const deleteTribeChannel = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
+}));
+
+jest.mock("next/cache", () => ({
+  revalidateTag: jest.fn(),
 }));
 
 jest.mock(
@@ -85,6 +90,7 @@ describe("Tribe message routes", () => {
     createTribeChannel.mockReset();
     updateTribeChannel.mockReset();
     deleteTribeChannel.mockReset();
+    (revalidateTag as jest.Mock).mockReset();
     global.Response = MockJsonResponse as unknown as typeof Response;
 
     getAuthenticatedMember.mockResolvedValue({
@@ -194,6 +200,10 @@ describe("Tribe message routes", () => {
       content: "Primera mensaje",
       title: "Anuncio inicial",
     });
+    expect(revalidateTag).toHaveBeenCalledWith(
+      "tribe-round:matematica-pro",
+      { expire: 0 }
+    );
   });
 
   it("returns a safe validation message when channel is missing", async () => {
@@ -214,6 +224,7 @@ describe("Tribe message routes", () => {
     expect(body).toEqual({
       message: "Seleccioná un canal antes de publicar.",
     });
+    expect(revalidateTag).not.toHaveBeenCalled();
   });
 
   it("returns a safe validation message when the tribe message is invalid", async () => {
@@ -289,6 +300,10 @@ describe("Tribe message routes", () => {
       },
       message: "Respuesta creado.",
     });
+    expect(revalidateTag).toHaveBeenCalledWith(
+      "tribe-round:matematica-pro",
+      { expire: 0 }
+    );
   });
 
   it("returns not found when like messageId is not a UUID", async () => {
@@ -324,6 +339,10 @@ describe("Tribe message routes", () => {
       likeCount: 3,
       message: "Reaccion actualizada.",
     });
+    expect(revalidateTag).toHaveBeenCalledWith(
+      "tribe-round:matematica-pro",
+      { expire: 0 }
+    );
   });
 
   it("returns not found when pin messageId is not a UUID", async () => {
@@ -364,6 +383,10 @@ describe("Tribe message routes", () => {
       tribeSlug: "matematica-pro",
       userId: "member-1",
     });
+    expect(revalidateTag).toHaveBeenCalledWith(
+      "tribe-round:matematica-pro",
+      { expire: 0 }
+    );
   });
 
   it("returns a safe warning when the pin limit is reached", async () => {

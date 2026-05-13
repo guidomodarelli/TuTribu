@@ -1,7 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { redirect, useRouter } from "next/navigation";
 
-import SignInPage from "@/app/auth/signin/page";
+import {
+  SignInContent,
+  SignInPendingView,
+} from "@/app/auth/signin/sign-in-content";
 import { createRequestModules } from "@/src/modules/setup";
 
 const getAuthenticatedMember = jest.fn();
@@ -77,7 +80,7 @@ describe("SignInPage", () => {
     });
 
     await expect(
-      SignInPage({
+      SignInContent({
         searchParams: createSearchParams("/auth/error"),
       })
     ).rejects.toThrow("NEXT_REDIRECT");
@@ -99,7 +102,7 @@ describe("SignInPage", () => {
     });
 
     await expect(
-      SignInPage({
+      SignInContent({
         searchParams: createSearchParams(),
       })
     ).rejects.toThrow("NEXT_REDIRECT");
@@ -121,7 +124,7 @@ describe("SignInPage", () => {
     });
 
     await expect(
-      SignInPage({
+      SignInContent({
         searchParams: createSearchParams("https://evil.example.com/callback"),
       })
     ).rejects.toThrow("NEXT_REDIRECT");
@@ -133,7 +136,7 @@ describe("SignInPage", () => {
     getAuthenticatedMember.mockResolvedValue(null);
 
     render(
-      await SignInPage({
+      await SignInContent({
         searchParams: createSearchParams(),
       })
     );
@@ -152,11 +155,20 @@ describe("SignInPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders the pending view without starting Google sign-in", () => {
+    render(<SignInPendingView />);
+
+    expect(
+      screen.getByText(/preparando acceso/i)
+    ).toBeInTheDocument();
+    expect(startGoogleSignInMock).not.toHaveBeenCalled();
+  });
+
   it("uses a safe callback path from search params in automatic sign-in", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
 
     render(
-      await SignInPage({
+      await SignInContent({
         searchParams: createSearchParams("/auth/error"),
       })
     );
@@ -170,7 +182,7 @@ describe("SignInPage", () => {
     getAuthenticatedMember.mockResolvedValue(null);
 
     render(
-      await SignInPage({
+      await SignInContent({
         searchParams: createSearchParams("https://evil.example.com/callback"),
       })
     );

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cookies } from "next/headers";
 
-import PlatformLayout from "@/app/(platform)/layout";
+import { PlatformLayoutContent } from "@/app/(platform)/layout";
 import { createRequestModules } from "@/src/modules/setup";
 
 const platformLayoutStyles = readFileSync(
@@ -130,7 +130,7 @@ describe("PlatformLayout", () => {
     ]);
 
     render(
-      await PlatformLayout({
+      await PlatformLayoutContent({
         children: <div>Contenido</div>,
       })
     );
@@ -159,7 +159,7 @@ describe("PlatformLayout", () => {
     ]);
 
     render(
-      await PlatformLayout({
+      await PlatformLayoutContent({
         children: <div>Contenido</div>,
       })
     );
@@ -181,7 +181,7 @@ describe("PlatformLayout", () => {
     getMemberTribes.mockResolvedValue([]);
 
     render(
-      await PlatformLayout({
+      await PlatformLayoutContent({
         children: <div>Contenido</div>,
       })
     );
@@ -205,7 +205,7 @@ describe("PlatformLayout", () => {
     getMemberTribes.mockResolvedValue([]);
 
     const { container } = render(
-      await PlatformLayout({
+      await PlatformLayoutContent({
         children: <div>Contenido</div>,
       })
     );
@@ -221,7 +221,7 @@ describe("PlatformLayout", () => {
     getMemberTribes.mockResolvedValue([]);
 
     render(
-      await PlatformLayout({
+      await PlatformLayoutContent({
         children: <div>Contenido</div>,
       })
     );

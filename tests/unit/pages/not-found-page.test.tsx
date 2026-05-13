@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 
-import NotFoundPage from "@/app/not-found";
+import {
+  NotFoundSessionAction,
+  NotFoundView,
+} from "@/app/not-found-content";
 import { createRequestAuthModule } from "@/src/modules/auth/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -22,6 +25,10 @@ jest.mock(
     createServerLogger: jest.fn(),
   })
 );
+
+async function renderNotFoundPageWithSessionAction() {
+  render(<NotFoundView sessionAction={await NotFoundSessionAction()} />);
+}
 
 describe("NotFoundPage", () => {
   beforeEach(() => {
@@ -44,7 +51,7 @@ describe("NotFoundPage", () => {
   it("renders the sign in action when there is no authenticated member", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
 
-    render(await NotFoundPage());
+    await renderNotFoundPageWithSessionAction();
 
     expect(
       screen.getByRole("heading", {
@@ -69,7 +76,7 @@ describe("NotFoundPage", () => {
       image: null,
     });
 
-    render(await NotFoundPage());
+    await renderNotFoundPageWithSessionAction();
 
     expect(
       screen.getByRole("link", { name: /volver al inicio/i })
@@ -82,7 +89,7 @@ describe("NotFoundPage", () => {
   it("falls back safely when the session lookup fails", async () => {
     getAuthenticatedMember.mockRejectedValue(new Error("session_lookup_failed"));
 
-    render(await NotFoundPage());
+    await renderNotFoundPageWithSessionAction();
 
     expect(
       screen.getByRole("heading", {
@@ -103,7 +110,7 @@ describe("NotFoundPage", () => {
       throw new Error("module_setup_failed");
     });
 
-    render(await NotFoundPage());
+    await renderNotFoundPageWithSessionAction();
 
     expect(
       screen.getByRole("heading", {
@@ -128,7 +135,7 @@ describe("NotFoundPage", () => {
       },
     }));
 
-    render(await NotFoundPage());
+    await renderNotFoundPageWithSessionAction();
 
     expect(
       screen.getByRole("heading", {

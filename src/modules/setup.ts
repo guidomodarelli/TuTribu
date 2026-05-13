@@ -93,6 +93,11 @@ export async function createRequestModules(
       tribeChannelRepository: new PostgresTribeChannelRepository(
         executeWithRequestContext
       ),
+      listCachedTribeRoundSharedData: (query) =>
+        import("./messages/infrastructure/cache/tribe-round-shared-data-cache").then(
+          ({ listCachedTribeRoundSharedData }) =>
+            listCachedTribeRoundSharedData(query)
+        ),
       messageReplyRepository: new PostgresMessageMutationRepository(
         executeWithRequestContext
       ),

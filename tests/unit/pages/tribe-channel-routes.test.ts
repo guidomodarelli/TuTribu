@@ -7,6 +7,7 @@ import {
   PATCH,
 } from "@/app/api/tribes/[slug]/channels/[channelId]/route";
 import { createRequestModules } from "@/src/modules/setup";
+import { revalidateTag } from "next/cache";
 
 const getAuthenticatedMember = jest.fn();
 const listTribeChannels = jest.fn();
@@ -16,6 +17,10 @@ const deleteTribeChannel = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
+}));
+
+jest.mock("next/cache", () => ({
+  revalidateTag: jest.fn(),
 }));
 
 jest.mock(
@@ -87,6 +92,7 @@ describe("Tribe channel routes", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (revalidateTag as jest.Mock).mockReset();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -160,6 +166,10 @@ describe("Tribe channel routes", () => {
       channel,
       message: "Canal creado.",
     });
+    expect(revalidateTag).toHaveBeenCalledWith(
+      "tribe-round:matematica-pro",
+      { expire: 0 }
+    );
   });
 
   it("returns a safe duplicate message when creating an existing channel slug", async () => {
@@ -179,6 +189,7 @@ describe("Tribe channel routes", () => {
     await expect(response.json()).resolves.toEqual({
       message: "Ya existe un canal con ese nombre.",
     });
+    expect(revalidateTag).not.toHaveBeenCalled();
   });
 
   it("updates a channel from request body fields", async () => {
@@ -204,6 +215,10 @@ describe("Tribe channel routes", () => {
       name: "Ronda",
       sortOrder: 20,
     });
+    expect(revalidateTag).toHaveBeenCalledWith(
+      "tribe-round:matematica-pro",
+      { expire: 0 }
+    );
   });
 
   it("returns a safe duplicate message when renaming to an existing channel slug", async () => {
@@ -304,5 +319,23 @@ describe("Tribe channel routes", () => {
     await expect(response.json()).resolves.toEqual({
       message: "Elegí otro canal para mover las mensajes.",
     });
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
+
+  it("revalidates the tribe round cache after deleting a channel", async () => {
+    deleteTribeChannel.mockResolvedValue({
+      status: "deleted",
+    });
+
+    const response = await DELETE(buildJsonRequest(), buildChannelContext());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      message: "Canal eliminado.",
+    });
+    expect(revalidateTag).toHaveBeenCalledWith(
+      "tribe-round:matematica-pro",
+      { expire: 0 }
+    );
   });
 });

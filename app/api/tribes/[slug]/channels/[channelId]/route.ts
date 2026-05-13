@@ -1,4 +1,5 @@
 import { TRIBE_CHANNEL_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
+import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -131,6 +132,8 @@ export async function PATCH(
 
     switch (result.status) {
       case TRIBE_CHANNEL_MUTATION_STATUS.updated:
+        revalidateTribeRoundCache(slug);
+
         return createJsonResponse(
           {
             channel: result.channel,
@@ -214,11 +217,15 @@ export async function DELETE(
 
     switch (result.status) {
       case TRIBE_CHANNEL_MUTATION_STATUS.deleted:
+        revalidateTribeRoundCache(slug);
+
         return createJsonResponse(
           { message: CHANNEL_ROUTE_RESPONSE.deleteSuccessMessage },
           HTTP_STATUS.ok
         );
       case TRIBE_CHANNEL_MUTATION_STATUS.movedAndDeleted:
+        revalidateTribeRoundCache(slug);
+
         return createJsonResponse(
           { message: CHANNEL_ROUTE_RESPONSE.movedAndDeletedMessage },
           HTTP_STATUS.ok

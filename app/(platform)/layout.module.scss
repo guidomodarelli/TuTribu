@@ -45,10 +45,47 @@
   }
 }
 
+.PlatformLayoutFallback {
+  display: flex;
+  min-height: 100dvh;
+  background: var(--background);
+
+  &__sidebar {
+    display: none;
+    width: 16rem;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    background: var(--sidebar);
+  }
+
+  &__main {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  &__header {
+    height: 3.5rem;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    background-color: color-mix(in oklch, var(--background) 80%, transparent);
+  }
+
+  &__content {
+    flex: 1;
+  }
+}
+
 @media (min-width: 1024px) {
   .PlatformLayout {
     &__header {
       padding-inline: 1.5rem;
+    }
+  }
+
+  .PlatformLayoutFallback {
+    &__sidebar {
+      display: block;
     }
   }
 }

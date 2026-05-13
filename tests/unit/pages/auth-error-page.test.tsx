@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 
-import AuthErrorPage from "@/app/auth/error/page";
+import { AuthErrorContent } from "@/app/auth/error/auth-error-content";
 import { createRequestModules } from "@/src/modules/setup";
 
 const getAuthenticatedMember = jest.fn();
@@ -47,7 +47,7 @@ describe("AuthErrorPage", () => {
       throw new Error("NEXT_REDIRECT");
     });
 
-    await expect(AuthErrorPage()).rejects.toThrow("NEXT_REDIRECT");
+    await expect(AuthErrorContent()).rejects.toThrow("NEXT_REDIRECT");
 
     expect(redirect).toHaveBeenCalledWith("/");
   });
@@ -55,7 +55,7 @@ describe("AuthErrorPage", () => {
   it("renders authentication error content for unauthenticated users", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
 
-    render(await AuthErrorPage());
+    render(await AuthErrorContent());
 
     expect(screen.getByText(/error de autenticacion/i)).toBeInTheDocument();
     expect(

@@ -37,7 +37,7 @@ export type TribeRoundReplyResult = {
   id: string;
 };
 
-export type TribeRoundMessageResult = {
+export type TribeRoundSharedMessageResult = {
   author: TribeRoundAuthorResult;
   channel: TribeChannelResult;
   replies: TribeRoundReplyResult[];
@@ -45,17 +45,31 @@ export type TribeRoundMessageResult = {
   createdAt: string;
   id: string;
   isPinned?: boolean;
-  likedByViewer: boolean;
   likeCount: number;
   pinnedAt?: string | null;
   title: string | null;
 };
 
-type TribeRoundPermissionsResult = {
+export type TribeRoundMessageResult = TribeRoundSharedMessageResult & {
+  likedByViewer: boolean;
+};
+
+export type TribeRoundPermissionsResult = {
   canReply: boolean;
   canCreateMessage: boolean;
   canPinMessages?: boolean;
   canReact: boolean;
+};
+
+export type TribeRoundSharedDataResult = {
+  activeChannelId: string | null;
+  channels: TribeChannelResult[];
+  messages: TribeRoundSharedMessageResult[];
+};
+
+export type TribeRoundViewerStateResult = {
+  likedMessageIds: string[];
+  viewerPermissions: TribeRoundPermissionsResult;
 };
 
 export type TribeRoundResult = {

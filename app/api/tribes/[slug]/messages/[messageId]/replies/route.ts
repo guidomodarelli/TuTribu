@@ -1,4 +1,5 @@
 import { MESSAGE_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
+import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { isUuidRouteParam } from "@/src/modules/messages/infrastructure/http/message-route-params";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -90,6 +91,8 @@ export async function POST(
 
     switch (result.status) {
       case MESSAGE_MUTATION_STATUS.created:
+        revalidateTribeRoundCache(slug);
+
         return createJsonResponse(
           {
             reply: result.reply,

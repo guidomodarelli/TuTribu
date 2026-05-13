@@ -18,7 +18,10 @@ import type {
   ToggleMessagePinCommand,
   UpdateTribeChannelCommand,
 } from "@/src/modules/messages/application/commands/tribe-message-command";
-import type { TribeRoundResult } from "@/src/modules/messages/application/results/tribe-round-result";
+import type {
+  TribeRoundResult,
+  TribeRoundSharedDataResult,
+} from "@/src/modules/messages/application/results/tribe-round-result";
 import type {
   TribeChannelCreationResult,
   TribeChannelDeletionResult,
@@ -36,6 +39,7 @@ import type { TribeChannelRepository } from "@/src/modules/messages/domain/repos
 import type { MessageCreationRepository } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type {
   ListTribeRoundQuery,
+  ListTribeRoundSharedDataQuery,
   MessageRoundReadRepository,
 } from "@/src/modules/messages/domain/repositories/message-round-read-repository";
 import type { MessageReactionRepository } from "@/src/modules/messages/domain/repositories/message-reaction-repository";
@@ -43,6 +47,9 @@ import type { MessagePinRepository } from "@/src/modules/messages/domain/reposit
 
 type MessagesModuleDependencies = {
   tribeChannelRepository: TribeChannelRepository;
+  listCachedTribeRoundSharedData?: (
+    query: ListTribeRoundSharedDataQuery
+  ) => Promise<TribeRoundSharedDataResult>;
   messageReplyRepository: MessageReplyRepository;
   messageCreationRepository: MessageCreationRepository;
   messageRoundReadRepository: MessageRoundReadRepository;
@@ -78,6 +85,7 @@ type MessagesModule = {
 
 export function buildMessagesModule({
   tribeChannelRepository,
+  listCachedTribeRoundSharedData,
   messageReplyRepository,
   messageCreationRepository,
   messageRoundReadRepository,
@@ -94,7 +102,10 @@ export function buildMessagesModule({
         tribeChannelRepository,
       }),
       createMessageReply: createMessageReply({ messageReplyRepository }),
-      listTribeRound: listTribeRound({ messageRoundReadRepository }),
+      listTribeRound: listTribeRound({
+        listCachedTribeRoundSharedData,
+        messageRoundReadRepository,
+      }),
       listTribeChannels: listTribeChannels({
         tribeChannelRepository,
       }),

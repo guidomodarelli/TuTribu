@@ -2,9 +2,12 @@ import { sql } from "drizzle-orm";
 
 import type {
   TribeRoundReplyResult,
-  TribeRoundMessageResult,
   TribeRoundResult,
   TribeChannelResult,
+  TribeRoundPermissionsResult,
+  TribeRoundSharedDataResult,
+  TribeRoundSharedMessageResult,
+  TribeRoundViewerStateResult,
   MessageMembershipStatus,
 } from "@/src/modules/messages/application/results/tribe-round-result";
 import {
@@ -26,7 +29,7 @@ type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
 
-type MessageRoundRow = {
+type MessageRoundSharedRow = {
   author_id: string | null;
   author_image: string | null;
   author_name: string | null;
@@ -45,14 +48,11 @@ type MessageRoundRow = {
   reply_created_at: Date | string | null;
   reply_id: string | null;
   like_count: number | string;
-  liked_by_viewer: boolean;
   message_pinned_at: Date | string | null;
   message_content: string | null;
   message_created_at: Date | string | null;
   message_id: string | null;
   message_title: string | null;
-  viewer_membership_status: string | null;
-  viewer_membership_role: string | null;
 };
 
 type TribeChannelRow = {
@@ -64,7 +64,15 @@ type TribeChannelRow = {
   sort_order: number | string | null;
 };
 
-function normalizeMembershipStatus(status: string | null): MessageMembershipStatus | null {
+type MessageRoundViewerStateRow = {
+  liked_message_ids: string[] | null;
+  viewer_membership_status: string | null;
+  viewer_membership_role: string | null;
+};
+
+function normalizeMembershipStatus(
+  status: string | null
+): MessageMembershipStatus | null {
   if (
     status === MESSAGE_MEMBERSHIP_STATUS.active ||
     status === MESSAGE_MEMBERSHIP_STATUS.muted ||
@@ -76,7 +84,7 @@ function normalizeMembershipStatus(status: string | null): MessageMembershipStat
   return null;
 }
 
-function createReply(row: MessageRoundRow): TribeRoundReplyResult | null {
+function createReply(row: MessageRoundSharedRow): TribeRoundReplyResult | null {
   if (
     !row.reply_id ||
     !row.reply_author_id ||
@@ -99,7 +107,9 @@ function createReply(row: MessageRoundRow): TribeRoundReplyResult | null {
   };
 }
 
-function createPermissions(status: MessageMembershipStatus | null) {
+function createPermissions(
+  status: MessageMembershipStatus | null
+): TribeRoundPermissionsResult {
   const canParticipate = status === MESSAGE_MEMBERSHIP_STATUS.active;
 
   return {
@@ -110,11 +120,17 @@ function createPermissions(status: MessageMembershipStatus | null) {
   };
 }
 
-function canViewerPinMessages(row: MessageRoundRow | undefined): boolean {
+function canViewerPinMessages({
+  role,
+  status,
+}: {
+  role: string | null;
+  status: MessageMembershipStatus | null;
+}): boolean {
   return (
-    row?.viewer_membership_status === MESSAGE_MEMBERSHIP_STATUS.active &&
-    (row.viewer_membership_role === MESSAGE_AUTHOR_ROLE.leader ||
-      row.viewer_membership_role === MESSAGE_AUTHOR_ROLE.guardian)
+    status === MESSAGE_MEMBERSHIP_STATUS.active &&
+    (role === MESSAGE_AUTHOR_ROLE.leader ||
+      role === MESSAGE_AUTHOR_ROLE.guardian)
   );
 }
 
@@ -132,14 +148,35 @@ function mapRowsToChannels(rows: TribeChannelRow[]): TribeChannelResult[] {
 }
 
 function mapRowsToRound(
-  rows: MessageRoundRow[],
-  channels: TribeChannelResult[]
+  sharedData: TribeRoundSharedDataResult,
+  viewerState: TribeRoundViewerStateResult
 ): TribeRoundResult {
-  const firstRow = rows[0];
-  const messagesById = new Map<string, TribeRoundMessageResult>();
+  const likedMessageIds = new Set(viewerState.likedMessageIds);
+
+  return {
+    activeChannelId: sharedData.activeChannelId,
+    channels: sharedData.channels,
+    messages: sharedData.messages.map((message) => ({
+      ...message,
+      likedByViewer: likedMessageIds.has(message.id),
+    })),
+    viewerPermissions: viewerState.viewerPermissions,
+  };
+}
+
+function mapRowsToSharedData(
+  rows: MessageRoundSharedRow[],
+  channels: TribeChannelResult[]
+): TribeRoundSharedDataResult {
+  const messagesById = new Map<string, TribeRoundSharedMessageResult>();
 
   rows.forEach((row) => {
-    if (!row.message_id || !row.author_id || !row.message_content || !row.message_created_at) {
+    if (
+      !row.message_id ||
+      !row.author_id ||
+      !row.message_content ||
+      !row.message_created_at
+    ) {
       return;
     }
 
@@ -166,7 +203,6 @@ function mapRowsToRound(
         createdAt: formatMessageDateTimeValue(row.message_created_at),
         id: row.message_id,
         isPinned: Boolean(row.message_pinned_at),
-        likedByViewer: row.liked_by_viewer,
         likeCount: Number(row.like_count),
         pinnedAt: row.message_pinned_at
           ? formatMessageDateTimeValue(row.message_pinned_at)
@@ -187,11 +223,24 @@ function mapRowsToRound(
     activeChannelId: null,
     channels,
     messages: [...messagesById.values()],
+  };
+}
+
+function mapViewerStateRow(
+  row: MessageRoundViewerStateRow | null
+): TribeRoundViewerStateResult {
+  const membershipStatus = normalizeMembershipStatus(
+    row?.viewer_membership_status ?? null
+  );
+
+  return {
+    likedMessageIds: row?.liked_message_ids ?? [],
     viewerPermissions: {
-      ...createPermissions(
-        normalizeMembershipStatus(firstRow?.viewer_membership_status ?? null)
-      ),
-      canPinMessages: canViewerPinMessages(firstRow),
+      ...createPermissions(membershipStatus),
+      canPinMessages: canViewerPinMessages({
+        role: row?.viewer_membership_role ?? null,
+        status: membershipStatus,
+      }),
     },
   };
 }
@@ -203,6 +252,17 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
     tribeSlug,
     viewerId,
   }: ListTribeRoundQuery): Promise<TribeRoundResult> {
+    const [sharedData, viewerState] = await Promise.all([
+      this.listSharedDataByTribeSlug({ tribeSlug, viewerId }),
+      this.listViewerStateByTribeSlug({ tribeSlug, viewerId }),
+    ]);
+
+    return mapRowsToRound(sharedData, viewerState);
+  }
+
+  async listSharedDataByTribeSlug({
+    tribeSlug,
+  }: ListTribeRoundQuery): Promise<TribeRoundSharedDataResult> {
     return this.executeWithDatabase(async (database) => {
       const [channelsResult, result] = await Promise.all([
         database.execute(sql`
@@ -260,26 +320,14 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             message_members.role as author_role,
             coalesce(message_like_counts.like_count, 0) as like_count,
             message_pins.pinned_at as message_pinned_at,
-            exists (
-              select 1
-              from public.message_reactions viewer_reactions
-              where viewer_reactions.message_id = messages.id
-                and viewer_reactions.user_id = ${viewerId}
-                and viewer_reactions.type = 'like'
-            ) as liked_by_viewer,
             message_replies.id as reply_id,
             message_replies.content as reply_content,
             message_replies.created_at as reply_created_at,
             reply_authors.id as reply_author_id,
             reply_authors.name as reply_author_name,
             reply_authors.image as reply_author_image,
-            reply_members.role as reply_author_role,
-            viewer_members.status as viewer_membership_status,
-            viewer_members.role as viewer_membership_role
+            reply_members.role as reply_author_role
           from target_tribe
-          inner join public.tribe_members viewer_members
-            on viewer_members.tribe_id = target_tribe.id
-            and viewer_members.user_id = ${viewerId}
           left join public.messages
             on messages.tribe_id = target_tribe.id
             and messages.channel_id is not null
@@ -307,7 +355,6 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
           left join public.tribe_members reply_members
             on reply_members.tribe_id = messages.tribe_id
             and reply_members.user_id = message_replies.author_id
-          where viewer_members.status in ('active', 'muted')
           group by
             messages.id,
             tribe_channels.id,
@@ -322,16 +369,65 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             message_members.role,
             message_replies.id,
             reply_authors.id,
-            reply_members.role,
-            viewer_members.status,
-            viewer_members.role
+            reply_members.role
           order by message_pins.pinned_at desc nulls last, messages.created_at desc, message_replies.created_at asc
         `),
       ]);
 
-      return mapRowsToRound(
-        (result.rows ?? []) as MessageRoundRow[],
+      return mapRowsToSharedData(
+        (result.rows ?? []) as MessageRoundSharedRow[],
         mapRowsToChannels((channelsResult.rows ?? []) as TribeChannelRow[])
+      );
+    });
+  }
+
+  async listViewerStateByTribeSlug({
+    tribeSlug,
+    viewerId,
+  }: ListTribeRoundQuery): Promise<TribeRoundViewerStateResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
+          limit 1
+        ),
+        viewer_membership as (
+          select tribe_members.status, tribe_members.role
+          from public.tribe_members
+          inner join target_tribe
+            on target_tribe.id = tribe_members.tribe_id
+          where tribe_members.user_id = ${viewerId}
+            and tribe_members.status in ('active', 'muted')
+          limit 1
+        ),
+        liked_messages as (
+          select message_reactions.message_id::text as message_id
+          from public.message_reactions
+          inner join public.messages
+            on messages.id = message_reactions.message_id
+          inner join target_tribe
+            on target_tribe.id = messages.tribe_id
+          where message_reactions.user_id = ${viewerId}
+            and message_reactions.type = 'like'
+        )
+        select
+          viewer_membership.status as viewer_membership_status,
+          viewer_membership.role as viewer_membership_role,
+          coalesce(
+            array_agg(liked_messages.message_id)
+              filter (where liked_messages.message_id is not null),
+            array[]::text[]
+          ) as liked_message_ids
+        from viewer_membership
+        left join liked_messages
+          on true
+        group by viewer_membership.status, viewer_membership.role
+      `);
+
+      return mapViewerStateRow(
+        (result.rows?.[0] ?? null) as MessageRoundViewerStateRow | null
       );
     });
   }
