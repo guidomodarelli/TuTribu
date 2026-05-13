@@ -190,6 +190,7 @@ const round = {
     canReply: true,
     canCreateMessage: true,
     canReact: true,
+    canPinMessages: true,
   },
   messages: [
     {
@@ -246,6 +247,7 @@ const algebraRound = {
     canReply: true,
     canCreateMessage: true,
     canReact: true,
+    canPinMessages: false,
   },
   messages: [
     {
@@ -894,6 +896,212 @@ describe("TribeRound", () => {
     );
   });
 
+  it("renders the active pin toggle after the channel badge", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              isPinned: true,
+              pinnedAt: "2026-04-26T13:00:00.000Z",
+            },
+          ],
+        }}
+      />
+    );
+
+    const messageArticle = screen.getByText("Anuncio inicial").closest("article");
+
+    expect(messageArticle).not.toBeNull();
+
+    const messageMeta = (messageArticle as HTMLElement).querySelector(
+      ".TribeRound__messageMeta"
+    );
+    const channelBadge = within(messageMeta as HTMLElement).getByText("🔥 Ronda");
+    const pinButton = within(messageMeta as HTMLElement).getByRole("button", {
+      name: "Despinear mensaje",
+    });
+
+    expect(pinButton).toHaveClass("TribeRound__pinButton--active");
+    expect(channelBadge.nextElementSibling).toBe(pinButton);
+  });
+
+  it("renders pinned messages with a visible indicator and toggles pin without refreshing", async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        isPinned: false,
+        pinnedAt: null,
+        message: "Mensaje despineado.",
+      }),
+      ok: true,
+      statusText: "OK",
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              isPinned: true,
+              pinnedAt: "2026-04-26T13:00:00.000Z",
+            },
+          ],
+        }}
+      />
+    );
+
+    try {
+      expect(screen.getByRole("button", { name: "Despinear mensaje" })).toHaveClass(
+        "TribeRound__pinButton--active"
+      );
+
+      await user.click(screen.getByRole("button", { name: "Despinear mensaje" }));
+
+      expect(screen.getByRole("button", { name: "Pinear mensaje" })).not.toHaveClass(
+        "TribeRound__pinButton--active"
+      );
+      expect(global.fetch).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/tribes/matematica-pro/messages/message-1/pin",
+          expect.objectContaining({
+            method: "POST",
+          })
+        );
+      });
+      expect(toast.success).toHaveBeenCalledWith("Mensaje despineado.");
+      expect(screen.getByRole("button", { name: "Pinear mensaje" })).not.toHaveClass(
+        "TribeRound__pinButton--active"
+      );
+      expect(refreshMock).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("hides pin actions when the viewer cannot pin messages", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          viewerPermissions: {
+            ...round.viewerPermissions,
+            canPinMessages: false,
+          },
+        }}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Pinear mensaje" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows a warning when the pinned message limit is reached", async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        message: "Solo podes pinear hasta 3 mensajes en el fogón.",
+      }),
+      ok: false,
+      statusText: "Conflict",
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    try {
+      await user.click(screen.getByRole("button", { name: "Pinear mensaje" }));
+
+      expect(screen.getByRole("button", { name: "Despinear mensaje" })).toHaveClass(
+        "TribeRound__pinButton--active"
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+
+      await waitFor(() => {
+        expect(toast.warning).toHaveBeenCalledWith(
+          "Solo podes pinear hasta 3 mensajes en el fogón."
+        );
+      });
+      expect(screen.getByRole("button", { name: "Pinear mensaje" })).not.toHaveClass(
+        "TribeRound__pinButton--active"
+      );
+      expect(refreshMock).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("keeps the last debounced pin intent and skips the request when clicks cancel out", async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    try {
+      await user.click(screen.getByRole("button", { name: "Pinear mensaje" }));
+      expect(screen.getByRole("button", { name: "Despinear mensaje" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Despinear mensaje" })).toHaveClass(
+        "TribeRound__pinButton--active"
+      );
+
+      await user.click(screen.getByRole("button", { name: "Despinear mensaje" }));
+      expect(screen.getByRole("button", { name: "Pinear mensaje" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Pinear mensaje" })).not.toHaveClass(
+        "TribeRound__pinButton--active"
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(refreshMock).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("keeps the last debounced like intent and skips the request when clicks cancel out", async () => {
     jest.useFakeTimers();
     const user = userEvent.setup({
@@ -1152,6 +1360,50 @@ describe("TribeRound", () => {
         expect(toast.error).toHaveBeenCalledWith("No pudimos actualizar la reaccion.");
       });
       expect(screen.getByRole("button", { name: "Me gusta 2" })).toBeInTheDocument();
+      expect(refreshMock).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("reverts an optimistic pin when the request fails", async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        message: "No pudimos actualizar el pin.",
+      }),
+      ok: false,
+      statusText: "Server Error",
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    try {
+      await user.click(screen.getByRole("button", { name: "Pinear mensaje" }));
+      expect(screen.getByRole("button", { name: "Despinear mensaje" })).toHaveClass(
+        "TribeRound__pinButton--active"
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith("No pudimos actualizar el pin.");
+      });
+      expect(screen.getByRole("button", { name: "Pinear mensaje" })).not.toHaveClass(
+        "TribeRound__pinButton--active"
+      );
       expect(refreshMock).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();

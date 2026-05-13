@@ -141,6 +141,13 @@
       "when": 1778587200000,
       "tag": "20260512130000_fix_subscription_price_trial_period_constraint",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1778590800000,
+      "tag": "20260512140000_create_message_pins",
+      "breakpoints": true
     }
   ]
 }

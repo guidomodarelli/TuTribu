@@ -228,6 +228,24 @@ export const messageReactions = pgTable("message_reactions", {
   ),
 }));
 
+export const messagePins = pgTable("message_pins", {
+  messageId: uuid("message_id")
+    .primaryKey()
+    .references(() => messages.id, { onDelete: "cascade" }),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  pinnedBy: text("pinned_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  pinnedAt: timestamp("pinned_at", { withTimezone: true }).notNull(),
+}, (table) => ({
+  tribePinnedAtIndex: index("idx_message_pins_tribe_pinned_at").on(
+    table.tribeId,
+    table.pinnedAt
+  ),
+}));
+
 export const events = pgTable("events", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")

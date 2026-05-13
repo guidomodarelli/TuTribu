@@ -7,7 +7,10 @@ import type {
   TribeChannelResult,
   MessageMembershipStatus,
 } from "@/src/modules/messages/application/results/tribe-round-result";
-import { MESSAGE_MEMBERSHIP_STATUS } from "@/src/modules/messages/constants/message-round";
+import {
+  MESSAGE_AUTHOR_ROLE,
+  MESSAGE_MEMBERSHIP_STATUS,
+} from "@/src/modules/messages/constants/message-round";
 import type {
   ListTribeRoundQuery,
   MessageRoundReadRepository,
@@ -43,11 +46,13 @@ type MessageRoundRow = {
   reply_id: string | null;
   like_count: number | string;
   liked_by_viewer: boolean;
+  message_pinned_at: Date | string | null;
   message_content: string | null;
   message_created_at: Date | string | null;
   message_id: string | null;
   message_title: string | null;
   viewer_membership_status: string | null;
+  viewer_membership_role: string | null;
 };
 
 type TribeChannelRow = {
@@ -100,8 +105,17 @@ function createPermissions(status: MessageMembershipStatus | null) {
   return {
     canReply: canParticipate,
     canCreateMessage: canParticipate,
+    canPinMessages: false,
     canReact: canParticipate,
   };
+}
+
+function canViewerPinMessages(row: MessageRoundRow | undefined): boolean {
+  return (
+    row?.viewer_membership_status === MESSAGE_MEMBERSHIP_STATUS.active &&
+    (row.viewer_membership_role === MESSAGE_AUTHOR_ROLE.leader ||
+      row.viewer_membership_role === MESSAGE_AUTHOR_ROLE.guardian)
+  );
 }
 
 function mapRowsToChannels(rows: TribeChannelRow[]): TribeChannelResult[] {
@@ -151,8 +165,12 @@ function mapRowsToRound(
         content: row.message_content,
         createdAt: formatMessageDateTimeValue(row.message_created_at),
         id: row.message_id,
+        isPinned: Boolean(row.message_pinned_at),
         likedByViewer: row.liked_by_viewer,
         likeCount: Number(row.like_count),
+        pinnedAt: row.message_pinned_at
+          ? formatMessageDateTimeValue(row.message_pinned_at)
+          : null,
         title: row.message_title,
       });
     }
@@ -169,9 +187,12 @@ function mapRowsToRound(
     activeChannelId: null,
     channels,
     messages: [...messagesById.values()],
-    viewerPermissions: createPermissions(
-      normalizeMembershipStatus(firstRow?.viewer_membership_status ?? null)
-    ),
+    viewerPermissions: {
+      ...createPermissions(
+        normalizeMembershipStatus(firstRow?.viewer_membership_status ?? null)
+      ),
+      canPinMessages: canViewerPinMessages(firstRow),
+    },
   };
 }
 
@@ -238,6 +259,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             message_authors.image as author_image,
             message_members.role as author_role,
             coalesce(message_like_counts.like_count, 0) as like_count,
+            message_pins.pinned_at as message_pinned_at,
             exists (
               select 1
               from public.message_reactions viewer_reactions
@@ -252,7 +274,8 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             reply_authors.name as reply_author_name,
             reply_authors.image as reply_author_image,
             reply_members.role as reply_author_role,
-            viewer_members.status as viewer_membership_status
+            viewer_members.status as viewer_membership_status,
+            viewer_members.role as viewer_membership_role
           from target_tribe
           inner join public.tribe_members viewer_members
             on viewer_members.tribe_id = target_tribe.id
@@ -275,6 +298,8 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             and message_members.user_id = messages.author_id
           left join message_like_counts
             on message_like_counts.message_id = messages.id
+          left join public.message_pins
+            on message_pins.message_id = messages.id
           left join public.message_replies
             on message_replies.message_id = messages.id
           left join public."user" reply_authors
@@ -292,13 +317,15 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             tribe_channels.sort_order,
             tribe_channels.access_scope,
             message_like_counts.like_count,
+            message_pins.pinned_at,
             message_authors.id,
             message_members.role,
             message_replies.id,
             reply_authors.id,
             reply_members.role,
-            viewer_members.status
-          order by messages.created_at desc, message_replies.created_at asc
+            viewer_members.status,
+            viewer_members.role
+          order by message_pins.pinned_at desc nulls last, messages.created_at desc, message_replies.created_at asc
         `),
       ]);
 

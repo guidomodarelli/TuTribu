@@ -44,14 +44,17 @@ export type TribeRoundMessageResult = {
   content: string;
   createdAt: string;
   id: string;
+  isPinned?: boolean;
   likedByViewer: boolean;
   likeCount: number;
+  pinnedAt?: string | null;
   title: string | null;
 };
 
 type TribeRoundPermissionsResult = {
   canReply: boolean;
   canCreateMessage: boolean;
+  canPinMessages?: boolean;
   canReact: boolean;
 };
 

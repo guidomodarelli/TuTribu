@@ -78,7 +78,9 @@ describe("PostgresMessageMutationRepository", () => {
         content: "Primera mensaje",
         createdAt: "2026-04-26T12:00:00.000Z",
         likedByViewer: false,
+        isPinned: false,
         likeCount: 0,
+        pinnedAt: null,
         title: "Anuncio inicial",
       },
       status: "created",
@@ -157,6 +159,165 @@ describe("PostgresMessageMutationRepository", () => {
     );
     expect(insertSqlText).toContain("on conflict (message_id, user_id) do nothing");
     expect(countSqlText).toContain("count(*) as like_count");
+  });
+
+  it("pins messages through a limit-guarded transaction", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_pin: true,
+            is_pinned: false,
+            message_id: "message-1",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ pinned_count: "2" }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            pinned_at: "2026-04-26T13:00:00.000Z",
+          },
+        ],
+      });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.togglePin({
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        userId: "leader-1",
+      })
+    ).resolves.toEqual({
+      isPinned: true,
+      pinnedAt: "2026-04-26T13:00:00.000Z",
+      status: "pinned",
+    });
+
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
+      "public.can_pin_tribe_messages(messages.tribe_id) as can_pin"
+    );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("pg_advisory_xact_lock");
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("select message_pins.pinned_at");
+    expect(getSqlText(execute.mock.calls[3]?.[0])).toContain("count(*) as pinned_count");
+    expect(getSqlText(execute.mock.calls[4]?.[0])).toContain("insert into public.message_pins");
+  });
+
+  it("blocks pinning when the tribe pin limit is reached", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_pin: true,
+            is_pinned: false,
+            message_id: "message-4",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ pinned_count: "3" }] });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.togglePin({
+        messageId: "message-4",
+        tribeSlug: "matematica-pro",
+        userId: "leader-1",
+      })
+    ).resolves.toEqual({
+      isPinned: false,
+      pinnedAt: null,
+      status: "pin_limit_reached",
+    });
+    expect(execute).toHaveBeenCalledTimes(4);
+  });
+
+  it("returns the concurrent pin state when another request pinned the same message after locking", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_pin: true,
+            is_pinned: false,
+            message_id: "message-1",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            pinned_at: "2026-04-26T13:00:00.000Z",
+          },
+        ],
+      });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.togglePin({
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        userId: "leader-2",
+      })
+    ).resolves.toEqual({
+      isPinned: true,
+      pinnedAt: "2026-04-26T13:00:00.000Z",
+      status: "pinned",
+    });
+
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
+      "where message_pins.message_id ="
+    );
+    expect(execute).toHaveBeenCalledTimes(3);
+  });
+
+  it("unpins an already pinned message", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_pin: true,
+            is_pinned: true,
+            message_id: "message-1",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: "message-1" }] });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.togglePin({
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        userId: "guardian-1",
+      })
+    ).resolves.toEqual({
+      isPinned: false,
+      pinnedAt: null,
+      status: "unpinned",
+    });
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+      "delete from public.message_pins"
+    );
   });
 
   it("creates replies with the returned reply view model", async () => {

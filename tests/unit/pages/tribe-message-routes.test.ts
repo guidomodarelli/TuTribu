@@ -1,6 +1,7 @@
 import { POST as POST_CREATE } from "@/app/api/tribes/[slug]/messages/route";
 import { POST as POST_REPLY } from "@/app/api/tribes/[slug]/messages/[messageId]/replies/route";
 import { POST as POST_LIKE } from "@/app/api/tribes/[slug]/messages/[messageId]/like/route";
+import { POST as POST_PIN } from "@/app/api/tribes/[slug]/messages/[messageId]/pin/route";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -8,6 +9,7 @@ const getAuthenticatedMember = jest.fn();
 const createTribeMessage = jest.fn();
 const createMessageReply = jest.fn();
 const toggleMessageLike = jest.fn();
+const toggleMessagePin = jest.fn();
 const listTribeChannels = jest.fn();
 const createTribeChannel = jest.fn();
 const updateTribeChannel = jest.fn();
@@ -78,6 +80,7 @@ describe("Tribe message routes", () => {
     createTribeMessage.mockReset();
     createMessageReply.mockReset();
     toggleMessageLike.mockReset();
+    toggleMessagePin.mockReset();
     listTribeChannels.mockReset();
     createTribeChannel.mockReset();
     updateTribeChannel.mockReset();
@@ -106,6 +109,7 @@ describe("Tribe message routes", () => {
           deleteTribeChannel,
           listTribeChannels,
           toggleMessageLike,
+          toggleMessagePin,
           updateTribeChannel,
         },
       },
@@ -319,6 +323,65 @@ describe("Tribe message routes", () => {
       likedByViewer: true,
       likeCount: 3,
       message: "Reaccion actualizada.",
+    });
+  });
+
+  it("returns not found when pin messageId is not a UUID", async () => {
+    const response = await POST_PIN(
+      buildJsonRequest(),
+      buildRouteContext("not-a-uuid")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      message: "No pudimos encontrar el mensaje.",
+    });
+    expect(toggleMessagePin).not.toHaveBeenCalled();
+  });
+
+  it("returns the pinned message state", async () => {
+    toggleMessagePin.mockResolvedValue({
+      isPinned: true,
+      pinnedAt: "2026-04-26T13:00:00.000Z",
+      status: "pinned",
+    });
+
+    const response = await POST_PIN(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      isPinned: true,
+      message: "Mensaje pineado.",
+      pinnedAt: "2026-04-26T13:00:00.000Z",
+    });
+    expect(toggleMessagePin).toHaveBeenCalledWith({
+      messageId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+  });
+
+  it("returns a safe warning when the pin limit is reached", async () => {
+    toggleMessagePin.mockResolvedValue({
+      isPinned: false,
+      pinnedAt: null,
+      status: "pin_limit_reached",
+    });
+
+    const response = await POST_PIN(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      message: "Solo podes pinear hasta 3 mensajes en el fogón.",
     });
   });
 });

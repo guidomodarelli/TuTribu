@@ -13,6 +13,7 @@ import type {
 import {
   ChevronDownIcon,
   HeartIcon,
+  PinIcon,
   SendIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -62,6 +63,7 @@ const TRIBE_ROUND_ROUTE = {
   apiTribes: "/api/tribes/",
   repliesSegment: "/replies",
   likeSegment: "/like",
+  pinSegment: "/pin",
   messagesBaseSegment: "/messages",
   messagesSegment: "/messages/",
 } as const;
@@ -79,6 +81,12 @@ const TRIBE_ROUND_ENDPOINT = {
     TRIBE_ROUND_ROUTE.messagesSegment +
     messageId +
     TRIBE_ROUND_ROUTE.likeSegment,
+  pin: (tribeSlug: string, messageId: string) =>
+    TRIBE_ROUND_ROUTE.apiTribes +
+    tribeSlug +
+    TRIBE_ROUND_ROUTE.messagesSegment +
+    messageId +
+    TRIBE_ROUND_ROUTE.pinSegment,
   message: (tribeSlug: string) =>
     TRIBE_ROUND_ROUTE.apiTribes +
     tribeSlug +
@@ -102,6 +110,11 @@ const TRIBE_ROUND_COPY = {
   likeButton: "Me gusta",
   likeButtonAriaLabel: "Me gusta",
   mutedNotice: "Podes leer la ronda, pero tu estado actual no permite participar.",
+  pinButtonAriaLabel: "Pinear mensaje",
+  pinnedBadge: "Pineado",
+  pinLimitReachedMessage: "Solo podes pinear hasta 3 mensajes en el fogón.",
+  togglePinError: "No pudimos actualizar el pin.",
+  unpinButtonAriaLabel: "Despinear mensaje",
   messageButton: "Compartir",
   messageCancelButton: "Cancelar",
   tribeChannelFilterAll: "Todos",
@@ -138,6 +151,7 @@ const TRIBE_ROUND_FORM = {
   buttonType: "button",
   contentTypeHeader: "Content-Type",
   defaultVariant: "default",
+  iconSize: "icon",
   jsonContentType: "application/json",
   method: "POST",
   outlineVariant: "outline",
@@ -164,7 +178,7 @@ const TRIBE_ROUND_ATTRIBUTES = {
 
 const TRIBE_ROUND_LIMITS = {
   collapsedContentCharacters: 320,
-  likeDebounceMs: 300,
+  toggleDebounceMs: 300,
 } as const;
 
 const TRIBE_ROUND_OPTIMISTIC = {
@@ -252,6 +266,12 @@ type ToggleLikeResponse = {
   message?: string;
 };
 
+type TogglePinResponse = {
+  isPinned?: boolean;
+  message?: string;
+  pinnedAt?: string | null;
+};
+
 type PendingLikeIntent = {
   baselineLikedByViewer: boolean;
   baselineLikeCount: number;
@@ -260,9 +280,21 @@ type PendingLikeIntent = {
   shouldFlushAfterRequest: boolean;
 };
 
+type PendingPinIntent = {
+  baselineIsPinned: boolean;
+  baselinePinnedAt: string | null;
+  intendedIsPinned: boolean;
+  isRequestInFlight: boolean;
+  shouldFlushAfterRequest: boolean;
+};
+
 type LikeDebounceTimers = Record<string, ReturnType<typeof setTimeout>>;
 
+type PinDebounceTimers = Record<string, ReturnType<typeof setTimeout>>;
+
 type PendingLikeIntents = Record<string, PendingLikeIntent | undefined>;
+
+type PendingPinIntents = Record<string, PendingPinIntent | undefined>;
 
 const TRIBE_ROUND_RESET_KEY = {
   empty: "",
@@ -284,6 +316,10 @@ function buildRoundStateResetKey(
         message.createdAt,
         String(message.replies.length),
         String(message.likeCount),
+        message.isPinned
+          ? TRIBE_ROUND_RESET_KEY.true
+          : TRIBE_ROUND_RESET_KEY.false,
+        message.pinnedAt ?? TRIBE_ROUND_RESET_KEY.empty,
         message.likedByViewer
           ? TRIBE_ROUND_RESET_KEY.true
           : TRIBE_ROUND_RESET_KEY.false,
@@ -425,6 +461,15 @@ function getLikeButtonClassName(likedByViewer: boolean): string {
   ].join(TRIBE_ROUND_FORMAT.standardSpace);
 }
 
+function getPinButtonClassName(isPinned: boolean): string {
+  return [
+    styles.TribeRound__pinButton,
+    ...(isPinned
+      ? [styles["TribeRound__pinButton--active"]]
+      : []),
+  ].join(TRIBE_ROUND_FORMAT.standardSpace);
+}
+
 function renderAuthorRoleBadge(role: TribeRoundReplyResult["author"]["role"]) {
   if (!TRIBE_ROUND_PRIVILEGED_AUTHOR_ROLES.has(role)) {
     return null;
@@ -468,6 +513,19 @@ function renderMessageCreatedTime(createdAt: string) {
         {formatMessageCreatedTooltip(createdAt)}
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+function renderPinnedBadge(message: TribeRoundMessageResult) {
+  if (!message.isPinned) {
+    return null;
+  }
+
+  return (
+    <span className={styles.TribeRound__pinnedBadge}>
+      <PinIcon />
+      {TRIBE_ROUND_COPY.pinnedBadge}
+    </span>
   );
 }
 
@@ -515,6 +573,40 @@ function removeMessageReply(
   };
 }
 
+function sortMessagesByPinnedState(
+  messages: TribeRoundMessageResult[]
+): TribeRoundMessageResult[] {
+  return [...messages].sort((firstMessage, secondMessage) => {
+    const firstPinnedTime = firstMessage.pinnedAt
+      ? new Date(firstMessage.pinnedAt).getTime()
+      : 0;
+    const secondPinnedTime = secondMessage.pinnedAt
+      ? new Date(secondMessage.pinnedAt).getTime()
+      : 0;
+
+    if (firstPinnedTime !== secondPinnedTime) {
+      return secondPinnedTime - firstPinnedTime;
+    }
+
+    return (
+      new Date(secondMessage.createdAt).getTime() -
+      new Date(firstMessage.createdAt).getTime()
+    );
+  });
+}
+
+function getOptimisticPinnedAt(
+  intendedIsPinned: boolean,
+  baselineIsPinned: boolean,
+  baselinePinnedAt: string | null
+): string | null {
+  if (!intendedIsPinned) {
+    return null;
+  }
+
+  return baselineIsPinned ? baselinePinnedAt : new Date().toISOString();
+}
+
 function TribeRoundContent({
   authenticatedMember,
   tribeSlug,
@@ -526,6 +618,8 @@ function TribeRoundContent({
   const currentActionTokenRef = useRef(0);
   const likeDebounceTimersRef = useRef<LikeDebounceTimers>({});
   const pendingLikeIntentsRef = useRef<PendingLikeIntents>({});
+  const pinDebounceTimersRef = useRef<PinDebounceTimers>({});
+  const pendingPinIntentsRef = useRef<PendingPinIntents>({});
   const [messages, setMessages] = useState<TribeRoundMessageResult[]>(round.messages);
   const [isMessageComposerOpen, setIsMessageComposerOpen] = useState(false);
   const [messageTitle, setMessageTitle] = useState("");
@@ -564,8 +658,13 @@ function TribeRoundContent({
       Object.values(likeDebounceTimersRef.current).forEach((timer) => {
         clearTimeout(timer);
       });
+      Object.values(pinDebounceTimersRef.current).forEach((timer) => {
+        clearTimeout(timer);
+      });
       likeDebounceTimersRef.current = {};
       pendingLikeIntentsRef.current = {};
+      pinDebounceTimersRef.current = {};
+      pendingPinIntentsRef.current = {};
     };
   }, []);
 
@@ -627,7 +726,12 @@ function TribeRoundContent({
         throw new Error(TRIBE_ROUND_COPY.submitMessageError);
       }
 
-      setMessages((currentMessages) => [response.tribeMessage as TribeRoundMessageResult, ...currentMessages]);
+      setMessages((currentMessages) =>
+        sortMessagesByPinnedState([
+          response.tribeMessage as TribeRoundMessageResult,
+          ...currentMessages,
+        ])
+      );
       resetMessageComposer();
       setIsMessageComposerOpen(false);
       toast.success(TRIBE_ROUND_COPY.submitMessageSuccess);
@@ -893,7 +997,7 @@ function TribeRoundContent({
     clearLikeDebounceTimer(messageId);
     likeDebounceTimersRef.current[messageId] = setTimeout(() => {
       void flushPendingLikeIntent(messageId);
-    }, TRIBE_ROUND_LIMITS.likeDebounceMs);
+    }, TRIBE_ROUND_LIMITS.toggleDebounceMs);
   };
 
   const handleToggleLike = (messageId: string) => {
@@ -930,6 +1034,189 @@ function TribeRoundContent({
           likeCount: optimisticLikeCount,
         };
       })
+    );
+  };
+
+  const clearPinDebounceTimer = (messageId: string) => {
+    const timer = pinDebounceTimersRef.current[messageId];
+
+    if (!timer) {
+      return;
+    }
+
+    clearTimeout(timer);
+    delete pinDebounceTimersRef.current[messageId];
+  };
+
+  const applyMessagePinState = (
+    messageId: string,
+    isPinned: boolean,
+    pinnedAt: string | null
+  ) => {
+    setMessages((currentMessages) =>
+      sortMessagesByPinnedState(
+        currentMessages.map((message) =>
+          message.id === messageId
+            ? {
+                ...message,
+                isPinned,
+                pinnedAt,
+              }
+            : message
+        )
+      )
+    );
+  };
+
+  const flushPendingPinIntent = async (messageId: string) => {
+    clearPinDebounceTimer(messageId);
+
+    const pendingPinIntent = pendingPinIntentsRef.current[messageId];
+
+    if (!pendingPinIntent) {
+      return;
+    }
+
+    if (pendingPinIntent.isRequestInFlight) {
+      pendingPinIntentsRef.current[messageId] = {
+        ...pendingPinIntent,
+        shouldFlushAfterRequest: true,
+      };
+      return;
+    }
+
+    if (pendingPinIntent.intendedIsPinned === pendingPinIntent.baselineIsPinned) {
+      delete pendingPinIntentsRef.current[messageId];
+      return;
+    }
+
+    const actionTribeSlug = tribeSlug;
+
+    pendingPinIntentsRef.current[messageId] = {
+      ...pendingPinIntent,
+      isRequestInFlight: true,
+      shouldFlushAfterRequest: false,
+    };
+
+    try {
+      const response = await submitJsonRequest<TogglePinResponse>(
+        TRIBE_ROUND_ENDPOINT.pin(actionTribeSlug, messageId)
+      );
+
+      if (currentTribeSlugRef.current !== actionTribeSlug) {
+        return;
+      }
+
+      if (typeof response.isPinned !== "boolean") {
+        throw new Error(TRIBE_ROUND_COPY.togglePinError);
+      }
+
+      const responsePinnedAt = response.pinnedAt ?? null;
+      const latestPendingPinIntent = pendingPinIntentsRef.current[messageId];
+
+      if (!latestPendingPinIntent) {
+        applyMessagePinState(messageId, response.isPinned, responsePinnedAt);
+        return;
+      }
+
+      if (latestPendingPinIntent.intendedIsPinned === response.isPinned) {
+        applyMessagePinState(messageId, response.isPinned, responsePinnedAt);
+        delete pendingPinIntentsRef.current[messageId];
+        toast.success(response.message ?? TRIBE_ROUND_COPY.togglePinError);
+        return;
+      }
+
+      pendingPinIntentsRef.current[messageId] = {
+        baselineIsPinned: response.isPinned,
+        baselinePinnedAt: responsePinnedAt,
+        intendedIsPinned: latestPendingPinIntent.intendedIsPinned,
+        isRequestInFlight: false,
+        shouldFlushAfterRequest: latestPendingPinIntent.shouldFlushAfterRequest,
+      };
+
+      applyMessagePinState(
+        messageId,
+        latestPendingPinIntent.intendedIsPinned,
+        getOptimisticPinnedAt(
+          latestPendingPinIntent.intendedIsPinned,
+          response.isPinned,
+          responsePinnedAt
+        )
+      );
+
+      void flushPendingPinIntent(messageId);
+    } catch (error) {
+      if (currentTribeSlugRef.current !== actionTribeSlug) {
+        return;
+      }
+
+      const latestPendingPinIntent = pendingPinIntentsRef.current[messageId];
+
+      if (latestPendingPinIntent) {
+        applyMessagePinState(
+          messageId,
+          latestPendingPinIntent.baselineIsPinned,
+          latestPendingPinIntent.baselinePinnedAt
+        );
+        delete pendingPinIntentsRef.current[messageId];
+      }
+
+      const errorMessage =
+        error instanceof Error ? error.message : TRIBE_ROUND_COPY.togglePinError;
+
+      if (errorMessage === TRIBE_ROUND_COPY.pinLimitReachedMessage) {
+        toast.warning(errorMessage);
+      } else {
+        toast.error(errorMessage);
+      }
+    }
+  };
+
+  const schedulePendingPinIntentFlush = (messageId: string) => {
+    clearPinDebounceTimer(messageId);
+    pinDebounceTimersRef.current[messageId] = setTimeout(() => {
+      void flushPendingPinIntent(messageId);
+    }, TRIBE_ROUND_LIMITS.toggleDebounceMs);
+  };
+
+  const handleTogglePin = (messageId: string) => {
+    setMessages((currentMessages) =>
+      sortMessagesByPinnedState(
+        currentMessages.map((message) => {
+          if (message.id !== messageId) {
+            return message;
+          }
+
+          const pendingPinIntent = pendingPinIntentsRef.current[messageId];
+          const baselineIsPinned =
+            pendingPinIntent?.baselineIsPinned ?? Boolean(message.isPinned);
+          const baselinePinnedAt =
+            pendingPinIntent?.baselinePinnedAt ?? message.pinnedAt ?? null;
+          const intendedIsPinned = !message.isPinned;
+          const optimisticPinnedAt = getOptimisticPinnedAt(
+            intendedIsPinned,
+            baselineIsPinned,
+            baselinePinnedAt
+          );
+
+          pendingPinIntentsRef.current[messageId] = {
+            baselineIsPinned,
+            baselinePinnedAt,
+            intendedIsPinned,
+            isRequestInFlight: pendingPinIntent?.isRequestInFlight ?? false,
+            shouldFlushAfterRequest:
+              pendingPinIntent?.shouldFlushAfterRequest ?? false,
+          };
+
+          schedulePendingPinIntentFlush(messageId);
+
+          return {
+            ...message,
+            isPinned: intendedIsPinned,
+            pinnedAt: optimisticPinnedAt,
+          };
+        })
+      )
     );
   };
 
@@ -1006,6 +1293,41 @@ function TribeRoundContent({
       >
         {message.content}
       </p>
+    );
+  };
+
+  const renderMessagePinControl = (
+    message: TribeRoundMessageResult,
+    shouldStopDetailsOpening = false
+  ) => {
+    const isPinned = Boolean(message.isPinned);
+
+    if (!round.viewerPermissions.canPinMessages) {
+      return renderPinnedBadge(message);
+    }
+
+    return (
+      <Button
+        aria-label={
+          isPinned
+            ? TRIBE_ROUND_COPY.unpinButtonAriaLabel
+            : TRIBE_ROUND_COPY.pinButtonAriaLabel
+        }
+        aria-pressed={isPinned}
+        className={getPinButtonClassName(isPinned)}
+        onClick={(event) => {
+          if (shouldStopDetailsOpening) {
+            stopMessageDetailsOpening(event);
+          }
+
+          handleTogglePin(message.id);
+        }}
+        size={TRIBE_ROUND_FORM.iconSize}
+        type={TRIBE_ROUND_FORM.buttonType}
+        variant={TRIBE_ROUND_FORM.outlineVariant}
+      >
+        <PinIcon />
+      </Button>
     );
   };
 
@@ -1267,6 +1589,12 @@ function TribeRoundContent({
                 }}
               >
                 <article className={styles.TribeRound__messageArticle}>
+                  <div className={styles.TribeRound__messageMeta}>
+                    <span className={styles.TribeRound__channelBadge}>
+                      {message.channel.emoji} {message.channel.name}
+                    </span>
+                    {renderMessagePinControl(message, true)}
+                  </div>
                   <button
                     aria-label={`${TRIBE_ROUND_COPY.openMessageDetailsAriaLabelPrefix}: ${message.title || message.content}`}
                     className={styles.TribeRound__messageDetailsTrigger}
@@ -1280,11 +1608,6 @@ function TribeRoundContent({
                       <div className={styles.TribeRound__author}>
                         {renderAuthorIdentity(message.author)}
                         {renderMessageCreatedTime(message.createdAt)}
-                      </div>
-                      <div className={styles.TribeRound__messageMeta}>
-                        <span className={styles.TribeRound__channelBadge}>
-                          {message.channel.emoji} {message.channel.name}
-                        </span>
                       </div>
                     </CardHeader>
 
@@ -1364,6 +1687,7 @@ function TribeRoundContent({
                   <span className={styles.TribeRound__channelBadge}>
                     {selectedMessage.channel.emoji} {selectedMessage.channel.name}
                   </span>
+                  {renderMessagePinControl(selectedMessage)}
                 </div>
               </CardHeader>
               <CardContent className={styles.TribeRound__messageContent}>

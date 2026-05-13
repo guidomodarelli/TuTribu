@@ -4,22 +4,27 @@ import type {
   CreateTribeMessageCommand,
   CreateMessageReplyCommand,
   ToggleMessageLikeCommand,
+  ToggleMessagePinCommand,
 } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type {
   MessageReplyCreationResult,
   MessageCreationResult,
   MessageLikeToggleResult,
+  MessagePinToggleResult,
 } from "@/src/modules/messages/application/results/message-mutation-result";
 import {
   MESSAGE_MUTATION_STATUS,
   MESSAGE_REACTION_TYPE,
+  PINNED_TRIBE_MESSAGES_LIMIT,
 } from "@/src/modules/messages/constants/message-round";
 import type { MessageReplyRepository } from "@/src/modules/messages/domain/repositories/message-reply-repository";
 import type { MessageCreationRepository } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type { MessageReactionRepository } from "@/src/modules/messages/domain/repositories/message-reaction-repository";
+import type { MessagePinRepository } from "@/src/modules/messages/domain/repositories/message-pin-repository";
 import {
   createTribeRoundReply,
   createTribeRoundMessage,
+  formatMessageDateTimeValue,
 } from "@/src/modules/messages/infrastructure/mappers/tribe-round-view-model-mapper";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
@@ -66,6 +71,25 @@ type TargetMessageRow = {
   can_write: boolean;
   tribe_id: string;
   message_id: string;
+};
+
+type PinTargetMessageRow = {
+  can_pin: boolean;
+  is_pinned: boolean;
+  message_id: string;
+  tribe_id: string;
+};
+
+type PinCountRow = {
+  pinned_count: number | string | null;
+};
+
+type InsertedPinRow = {
+  pinned_at: Date | string | null;
+};
+
+type ExistingPinRow = {
+  pinned_at: Date | string | null;
 };
 
 type DeletedReactionRow = {
@@ -165,7 +189,7 @@ function mapCreatedReply(row: CreatedReplyRow | null): MessageReplyCreationResul
 }
 
 export class PostgresMessageMutationRepository
-  implements MessageCreationRepository, MessageReplyRepository, MessageReactionRepository
+  implements MessageCreationRepository, MessageReplyRepository, MessageReactionRepository, MessagePinRepository
 {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
@@ -273,6 +297,126 @@ export class PostgresMessageMutationRepository
         likedByViewer: false,
         likeCount,
         status: MESSAGE_MUTATION_STATUS.forbidden,
+      };
+    });
+  }
+
+  async togglePin(command: ToggleMessagePinCommand): Promise<MessagePinToggleResult> {
+    return this.executeWithDatabase(async (database) => {
+      const targetMessageResult = await database.execute(sql`
+        select
+          messages.id as message_id,
+          messages.tribe_id,
+          public.can_pin_tribe_messages(messages.tribe_id) as can_pin,
+          exists (
+            select 1
+            from public.message_pins
+            where message_pins.message_id = messages.id
+          ) as is_pinned
+        from public.messages
+        inner join public.tribes
+          on tribes.id = messages.tribe_id
+        where messages.id = ${command.messageId}
+          and tribes.slug = ${command.tribeSlug}
+        limit 1
+      `);
+      const targetMessage = (targetMessageResult.rows?.[0] ?? null) as
+        | PinTargetMessageRow
+        | null;
+
+      if (!targetMessage) {
+        return {
+          isPinned: false,
+          pinnedAt: null,
+          status: MESSAGE_MUTATION_STATUS.notFound,
+        };
+      }
+
+      if (!targetMessage.can_pin) {
+        return {
+          isPinned: targetMessage.is_pinned,
+          pinnedAt: null,
+          status: MESSAGE_MUTATION_STATUS.forbidden,
+        };
+      }
+
+      if (targetMessage.is_pinned) {
+        await database.execute(sql`
+          delete from public.message_pins
+          where message_pins.message_id = ${targetMessage.message_id}
+        `);
+
+        return {
+          isPinned: false,
+          pinnedAt: null,
+          status: MESSAGE_MUTATION_STATUS.unpinned,
+        };
+      }
+
+      await database.execute(sql`
+        select pg_advisory_xact_lock(hashtext(${targetMessage.tribe_id}))
+      `);
+
+      const existingPinResult = await database.execute(sql`
+        select message_pins.pinned_at
+        from public.message_pins
+        where message_pins.message_id = ${targetMessage.message_id}
+        limit 1
+      `);
+      const existingPin = (existingPinResult.rows?.[0] ?? null) as
+        | ExistingPinRow
+        | null;
+
+      if (existingPin) {
+        return {
+          isPinned: true,
+          pinnedAt: existingPin.pinned_at
+            ? formatMessageDateTimeValue(existingPin.pinned_at)
+            : null,
+          status: MESSAGE_MUTATION_STATUS.pinned,
+        };
+      }
+
+      const pinnedCountResult = await database.execute(sql`
+        select count(*) as pinned_count
+        from public.message_pins
+        where message_pins.tribe_id = ${targetMessage.tribe_id}
+      `);
+      const pinnedCount = Number(
+        ((pinnedCountResult.rows?.[0] ?? null) as PinCountRow | null)?.pinned_count ?? 0
+      );
+
+      if (pinnedCount >= PINNED_TRIBE_MESSAGES_LIMIT) {
+        return {
+          isPinned: false,
+          pinnedAt: null,
+          status: MESSAGE_MUTATION_STATUS.pinLimitReached,
+        };
+      }
+
+      const insertedPinResult = await database.execute(sql`
+        insert into public.message_pins (message_id, tribe_id, pinned_by, pinned_at)
+        values (
+          ${targetMessage.message_id},
+          ${targetMessage.tribe_id},
+          ${command.userId},
+          timezone('utc', now())
+        )
+        on conflict (message_id) do update
+        set pinned_by = excluded.pinned_by,
+            pinned_at = excluded.pinned_at
+        returning pinned_at
+      `);
+      const insertedPin = (insertedPinResult.rows?.[0] ?? null) as
+        | InsertedPinRow
+        | null;
+
+      return {
+        isPinned: true,
+        pinnedAt: insertedPin?.pinned_at
+          ? formatMessageDateTimeValue(insertedPin.pinned_at)
+          : null,
+        status: MESSAGE_MUTATION_STATUS.pinned,
       };
     });
   }

@@ -36,8 +36,10 @@ export type TribeRoundMessageProjection = {
   content: string;
   createdAt: Date | string;
   id: string;
+  isPinned?: boolean;
   likedByViewer: boolean;
   likeCount: number;
+  pinnedAt?: Date | string | null;
   title: string | null;
 };
 
@@ -135,8 +137,10 @@ export function createTribeRoundMessage({
   content,
   createdAt,
   id,
+  isPinned = false,
   likedByViewer,
   likeCount,
+  pinnedAt = null,
   title,
 }: TribeRoundMessageProjection): TribeRoundMessageResult {
   return {
@@ -146,8 +150,10 @@ export function createTribeRoundMessage({
     content,
     createdAt: formatMessageDateTimeValue(createdAt),
     id,
+    isPinned,
     likedByViewer,
     likeCount,
+    pinnedAt: pinnedAt ? formatMessageDateTimeValue(pinnedAt) : null,
     title,
   };
 }

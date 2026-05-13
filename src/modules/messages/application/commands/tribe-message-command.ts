@@ -19,6 +19,12 @@ export type ToggleMessageLikeCommand = {
   userId: string;
 };
 
+export type ToggleMessagePinCommand = {
+  tribeSlug: string;
+  messageId: string;
+  userId: string;
+};
+
 export type CreateTribeChannelCommand = {
   tribeSlug: string;
   emoji: string;
