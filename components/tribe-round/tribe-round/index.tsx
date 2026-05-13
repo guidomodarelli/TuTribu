@@ -178,7 +178,7 @@ const TRIBE_ROUND_ATTRIBUTES = {
 
 const TRIBE_ROUND_LIMITS = {
   collapsedContentCharacters: 320,
-  likeDebounceMs: 300,
+  toggleDebounceMs: 300,
 } as const;
 
 const TRIBE_ROUND_OPTIMISTIC = {
@@ -280,9 +280,21 @@ type PendingLikeIntent = {
   shouldFlushAfterRequest: boolean;
 };
 
+type PendingPinIntent = {
+  baselineIsPinned: boolean;
+  baselinePinnedAt: string | null;
+  intendedIsPinned: boolean;
+  isRequestInFlight: boolean;
+  shouldFlushAfterRequest: boolean;
+};
+
 type LikeDebounceTimers = Record<string, ReturnType<typeof setTimeout>>;
 
+type PinDebounceTimers = Record<string, ReturnType<typeof setTimeout>>;
+
 type PendingLikeIntents = Record<string, PendingLikeIntent | undefined>;
+
+type PendingPinIntents = Record<string, PendingPinIntent | undefined>;
 
 const TRIBE_ROUND_RESET_KEY = {
   empty: "",
@@ -583,6 +595,18 @@ function sortMessagesByPinnedState(
   });
 }
 
+function getOptimisticPinnedAt(
+  intendedIsPinned: boolean,
+  baselineIsPinned: boolean,
+  baselinePinnedAt: string | null
+): string | null {
+  if (!intendedIsPinned) {
+    return null;
+  }
+
+  return baselineIsPinned ? baselinePinnedAt : new Date().toISOString();
+}
+
 function TribeRoundContent({
   authenticatedMember,
   tribeSlug,
@@ -594,6 +618,8 @@ function TribeRoundContent({
   const currentActionTokenRef = useRef(0);
   const likeDebounceTimersRef = useRef<LikeDebounceTimers>({});
   const pendingLikeIntentsRef = useRef<PendingLikeIntents>({});
+  const pinDebounceTimersRef = useRef<PinDebounceTimers>({});
+  const pendingPinIntentsRef = useRef<PendingPinIntents>({});
   const [messages, setMessages] = useState<TribeRoundMessageResult[]>(round.messages);
   const [isMessageComposerOpen, setIsMessageComposerOpen] = useState(false);
   const [messageTitle, setMessageTitle] = useState("");
@@ -632,8 +658,13 @@ function TribeRoundContent({
       Object.values(likeDebounceTimersRef.current).forEach((timer) => {
         clearTimeout(timer);
       });
+      Object.values(pinDebounceTimersRef.current).forEach((timer) => {
+        clearTimeout(timer);
+      });
       likeDebounceTimersRef.current = {};
       pendingLikeIntentsRef.current = {};
+      pinDebounceTimersRef.current = {};
+      pendingPinIntentsRef.current = {};
     };
   }, []);
 
@@ -966,7 +997,7 @@ function TribeRoundContent({
     clearLikeDebounceTimer(messageId);
     likeDebounceTimersRef.current[messageId] = setTimeout(() => {
       void flushPendingLikeIntent(messageId);
-    }, TRIBE_ROUND_LIMITS.likeDebounceMs);
+    }, TRIBE_ROUND_LIMITS.toggleDebounceMs);
   };
 
   const handleToggleLike = (messageId: string) => {
@@ -1006,10 +1037,66 @@ function TribeRoundContent({
     );
   };
 
-  const handleTogglePin = async (messageId: string) => {
+  const clearPinDebounceTimer = (messageId: string) => {
+    const timer = pinDebounceTimersRef.current[messageId];
+
+    if (!timer) {
+      return;
+    }
+
+    clearTimeout(timer);
+    delete pinDebounceTimersRef.current[messageId];
+  };
+
+  const applyMessagePinState = (
+    messageId: string,
+    isPinned: boolean,
+    pinnedAt: string | null
+  ) => {
+    setMessages((currentMessages) =>
+      sortMessagesByPinnedState(
+        currentMessages.map((message) =>
+          message.id === messageId
+            ? {
+                ...message,
+                isPinned,
+                pinnedAt,
+              }
+            : message
+        )
+      )
+    );
+  };
+
+  const flushPendingPinIntent = async (messageId: string) => {
+    clearPinDebounceTimer(messageId);
+
+    const pendingPinIntent = pendingPinIntentsRef.current[messageId];
+
+    if (!pendingPinIntent) {
+      return;
+    }
+
+    if (pendingPinIntent.isRequestInFlight) {
+      pendingPinIntentsRef.current[messageId] = {
+        ...pendingPinIntent,
+        shouldFlushAfterRequest: true,
+      };
+      return;
+    }
+
+    if (pendingPinIntent.intendedIsPinned === pendingPinIntent.baselineIsPinned) {
+      delete pendingPinIntentsRef.current[messageId];
+      return;
+    }
+
     const actionTribeSlug = tribeSlug;
 
-    setPendingActionId(messageId);
+    pendingPinIntentsRef.current[messageId] = {
+      ...pendingPinIntent,
+      isRequestInFlight: true,
+      shouldFlushAfterRequest: false,
+    };
 
     try {
       const response = await submitJsonRequest<TogglePinResponse>(
@@ -1024,23 +1111,54 @@ function TribeRoundContent({
         throw new Error(TRIBE_ROUND_COPY.togglePinError);
       }
 
-      setMessages((currentMessages) =>
-        sortMessagesByPinnedState(
-          currentMessages.map((message) =>
-            message.id === messageId
-              ? {
-                  ...message,
-                  isPinned: response.isPinned,
-                  pinnedAt: response.pinnedAt ?? null,
-                }
-              : message
-          )
+      const responsePinnedAt = response.pinnedAt ?? null;
+      const latestPendingPinIntent = pendingPinIntentsRef.current[messageId];
+
+      if (!latestPendingPinIntent) {
+        applyMessagePinState(messageId, response.isPinned, responsePinnedAt);
+        return;
+      }
+
+      if (latestPendingPinIntent.intendedIsPinned === response.isPinned) {
+        applyMessagePinState(messageId, response.isPinned, responsePinnedAt);
+        delete pendingPinIntentsRef.current[messageId];
+        toast.success(response.message ?? TRIBE_ROUND_COPY.togglePinError);
+        return;
+      }
+
+      pendingPinIntentsRef.current[messageId] = {
+        baselineIsPinned: response.isPinned,
+        baselinePinnedAt: responsePinnedAt,
+        intendedIsPinned: latestPendingPinIntent.intendedIsPinned,
+        isRequestInFlight: false,
+        shouldFlushAfterRequest: latestPendingPinIntent.shouldFlushAfterRequest,
+      };
+
+      applyMessagePinState(
+        messageId,
+        latestPendingPinIntent.intendedIsPinned,
+        getOptimisticPinnedAt(
+          latestPendingPinIntent.intendedIsPinned,
+          response.isPinned,
+          responsePinnedAt
         )
       );
-      toast.success(response.message ?? TRIBE_ROUND_COPY.togglePinError);
+
+      void flushPendingPinIntent(messageId);
     } catch (error) {
       if (currentTribeSlugRef.current !== actionTribeSlug) {
         return;
+      }
+
+      const latestPendingPinIntent = pendingPinIntentsRef.current[messageId];
+
+      if (latestPendingPinIntent) {
+        applyMessagePinState(
+          messageId,
+          latestPendingPinIntent.baselineIsPinned,
+          latestPendingPinIntent.baselinePinnedAt
+        );
+        delete pendingPinIntentsRef.current[messageId];
       }
 
       const errorMessage =
@@ -1051,11 +1169,55 @@ function TribeRoundContent({
       } else {
         toast.error(errorMessage);
       }
-    } finally {
-      if (currentTribeSlugRef.current === actionTribeSlug) {
-        setPendingActionId(null);
-      }
     }
+  };
+
+  const schedulePendingPinIntentFlush = (messageId: string) => {
+    clearPinDebounceTimer(messageId);
+    pinDebounceTimersRef.current[messageId] = setTimeout(() => {
+      void flushPendingPinIntent(messageId);
+    }, TRIBE_ROUND_LIMITS.toggleDebounceMs);
+  };
+
+  const handleTogglePin = (messageId: string) => {
+    setMessages((currentMessages) =>
+      sortMessagesByPinnedState(
+        currentMessages.map((message) => {
+          if (message.id !== messageId) {
+            return message;
+          }
+
+          const pendingPinIntent = pendingPinIntentsRef.current[messageId];
+          const baselineIsPinned =
+            pendingPinIntent?.baselineIsPinned ?? Boolean(message.isPinned);
+          const baselinePinnedAt =
+            pendingPinIntent?.baselinePinnedAt ?? message.pinnedAt ?? null;
+          const intendedIsPinned = !message.isPinned;
+          const optimisticPinnedAt = getOptimisticPinnedAt(
+            intendedIsPinned,
+            baselineIsPinned,
+            baselinePinnedAt
+          );
+
+          pendingPinIntentsRef.current[messageId] = {
+            baselineIsPinned,
+            baselinePinnedAt,
+            intendedIsPinned,
+            isRequestInFlight: pendingPinIntent?.isRequestInFlight ?? false,
+            shouldFlushAfterRequest:
+              pendingPinIntent?.shouldFlushAfterRequest ?? false,
+          };
+
+          schedulePendingPinIntentFlush(messageId);
+
+          return {
+            ...message,
+            isPinned: intendedIsPinned,
+            pinnedAt: optimisticPinnedAt,
+          };
+        })
+      )
+    );
   };
 
   const openMessageDetails = (messageId: string) => {
@@ -1153,13 +1315,12 @@ function TribeRoundContent({
         }
         aria-pressed={isPinned}
         className={getPinButtonClassName(isPinned)}
-        disabled={isBusy}
         onClick={(event) => {
           if (shouldStopDetailsOpening) {
             stopMessageDetailsOpening(event);
           }
 
-          void handleTogglePin(message.id);
+          handleTogglePin(message.id);
         }}
         size={TRIBE_ROUND_FORM.iconSize}
         type={TRIBE_ROUND_FORM.buttonType}
@@ -1429,10 +1590,10 @@ function TribeRoundContent({
               >
                 <article className={styles.TribeRound__messageArticle}>
                   <div className={styles.TribeRound__messageMeta}>
-                    {renderMessagePinControl(message, true)}
                     <span className={styles.TribeRound__channelBadge}>
                       {message.channel.emoji} {message.channel.name}
                     </span>
+                    {renderMessagePinControl(message, true)}
                   </div>
                   <button
                     aria-label={`${TRIBE_ROUND_COPY.openMessageDetailsAriaLabelPrefix}: ${message.title || message.content}`}
@@ -1523,10 +1684,10 @@ function TribeRoundContent({
                   {renderMessageCreatedTime(selectedMessage.createdAt)}
                 </div>
                 <div className={styles.TribeRound__messageMeta}>
-                  {renderMessagePinControl(selectedMessage)}
                   <span className={styles.TribeRound__channelBadge}>
                     {selectedMessage.channel.emoji} {selectedMessage.channel.name}
                   </span>
+                  {renderMessagePinControl(selectedMessage)}
                 </div>
               </CardHeader>
               <CardContent className={styles.TribeRound__messageContent}>
