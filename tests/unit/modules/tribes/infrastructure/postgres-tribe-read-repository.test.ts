@@ -72,6 +72,82 @@ describe("PostgresTribeReadRepository", () => {
     );
   });
 
+  it("returns the current membership access and readable tribe in one database query", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          id: "tribe-1",
+          name: "Matematica Pro",
+          slug: "matematica-pro",
+          status: "active",
+          status_reason: "none",
+          visibility: "private",
+        },
+      ],
+    }));
+
+    const repository = new PostgresTribeReadRepository(async (callback) =>
+      callback({
+        execute,
+      } as never)
+    );
+
+    await expect(
+      repository.findCurrentMembershipAccessWithTribeBySlug("matematica-pro")
+    ).resolves.toEqual({
+      membershipAccess: {
+        status: "active",
+        statusReason: "none",
+      },
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain(
+      "from public.get_current_tribe_membership_by_slug("
+    );
+    expect(sqlText).toContain("left join public.tribes");
+  });
+
+  it("keeps the membership access when the tribe row is not readable", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          id: null,
+          name: null,
+          slug: null,
+          status: "active",
+          status_reason: "none",
+          visibility: null,
+        },
+      ],
+    }));
+
+    const repository = new PostgresTribeReadRepository(async (callback) =>
+      callback({
+        execute,
+      } as never)
+    );
+
+    await expect(
+      repository.findCurrentMembershipAccessWithTribeBySlug("matematica-pro")
+    ).resolves.toEqual({
+      membershipAccess: {
+        status: "active",
+        statusReason: "none",
+      },
+      tribe: null,
+    });
+  });
+
   it("lists visible membership tribes for the current member", async () => {
     const execute = jest.fn(async () => ({
       rows: [

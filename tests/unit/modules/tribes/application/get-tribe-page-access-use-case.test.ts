@@ -77,6 +77,53 @@ describe("getTribePageAccess", () => {
     });
   });
 
+  it("uses the combined membership and tribe lookup for visible readers", async () => {
+    const findBySlug = jest.fn();
+    const findCurrentMembershipAccessBySlug = jest.fn();
+    const findCurrentMembershipAccessWithTribeBySlug = jest.fn(async () => ({
+      membershipAccess: {
+        status: "active" as const,
+        statusReason: "none" as const,
+      },
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private" as const,
+      },
+    }));
+    const execute = getTribePageAccess({
+      tribeReadRepository: {
+        findBySlug,
+        findCurrentMembershipAccessBySlug,
+        findCurrentMembershipAccessWithTribeBySlug,
+        findCurrentMembershipStatusBySlug: jest.fn(async () => "active" as const),
+        listVisibleMembershipTribes: jest.fn(),
+      },
+    });
+
+    await expect(
+      execute({
+        isAuthenticated: true,
+        slug: "Matematica-Pro",
+      })
+    ).resolves.toEqual({
+      status: "visible",
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+
+    expect(findCurrentMembershipAccessWithTribeBySlug).toHaveBeenCalledWith(
+      "matematica-pro"
+    );
+    expect(findCurrentMembershipAccessBySlug).not.toHaveBeenCalled();
+    expect(findBySlug).not.toHaveBeenCalled();
+  });
+
   it("returns the visible tribe for muted readers", async () => {
     const execute = getTribePageAccess({
       tribeReadRepository: {

@@ -14,8 +14,16 @@ export type TribeMembershipAccess = {
   statusReason: TribeMembershipStatusReason;
 };
 
+export type TribeMembershipAccessWithTribe = {
+  membershipAccess: TribeMembershipAccess;
+  tribe: Tribe | null;
+};
+
 export interface TribeReadRepository {
   findBySlug(slug: string): Promise<Tribe | null>;
+  findCurrentMembershipAccessWithTribeBySlug?(
+    slug: string
+  ): Promise<TribeMembershipAccessWithTribe | null>;
   findCurrentMembershipAccessBySlug?(
     slug: string
   ): Promise<TribeMembershipAccess | null>;

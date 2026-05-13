@@ -8,6 +8,7 @@ import type {
 import type { Tribe } from "@/src/modules/tribes/domain/entities/tribe";
 import type {
   TribeMembershipAccess,
+  TribeMembershipAccessWithTribe,
   TribeMembershipStatus,
   TribeMembershipStatusReason,
   TribeReadRepository,
@@ -49,6 +50,13 @@ type PostgresTribeMemberRow = {
 type PostgresMembershipAccessRow = {
   status: string | null;
   status_reason: string | null;
+};
+
+type PostgresMembershipAccessWithTribeRow = PostgresMembershipAccessRow & {
+  id: string | null;
+  name: string | null;
+  slug: string | null;
+  visibility: "private" | null;
 };
 
 const TRIBE_MEMBER_DEFAULTS = {
@@ -123,6 +131,30 @@ function mapTribeMemberRow(row: PostgresTribeMemberRow): TribeMemberResult {
   };
 }
 
+function mapTribeRow(row: PostgresTribeRow): Tribe {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    visibility: row.visibility,
+  };
+}
+
+function mapReadableTribeRow(
+  row: PostgresMembershipAccessWithTribeRow
+): Tribe | null {
+  if (!row.id || !row.name || !row.slug || !row.visibility) {
+    return null;
+  }
+
+  return mapTribeRow({
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    visibility: row.visibility,
+  });
+}
+
 export class PostgresTribeReadRepository implements TribeReadRepository {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
@@ -140,11 +172,46 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
         return null;
       }
 
+      return mapTribeRow(data);
+    });
+  }
+
+  async findCurrentMembershipAccessWithTribeBySlug(
+    slug: string
+  ): Promise<TribeMembershipAccessWithTribe | null> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with membership_access as (
+          select status, status_reason
+          from public.get_current_tribe_membership_by_slug(${slug})
+        )
+        select
+          membership_access.status,
+          membership_access.status_reason,
+          tribes.id,
+          tribes.name,
+          tribes.slug,
+          tribes.visibility
+        from membership_access
+        left join public.tribes
+          on tribes.slug = ${slug}
+        limit 1
+      `);
+      const data = (result.rows?.[0] ?? null) as
+        | PostgresMembershipAccessWithTribeRow
+        | null;
+      const status = normalizeMembershipStatus(data?.status ?? null);
+
+      if (!data || !status) {
+        return null;
+      }
+
       return {
-        id: data.id,
-        name: data.name,
-        slug: data.slug,
-        visibility: data.visibility,
+        membershipAccess: {
+          status,
+          statusReason: normalizeMembershipStatusReason(data.status_reason),
+        },
+        tribe: mapReadableTribeRow(data),
       };
     });
   }
