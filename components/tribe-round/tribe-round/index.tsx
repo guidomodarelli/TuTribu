@@ -544,6 +544,16 @@ function formatPollVoteCount(voteCount: number): string {
   ].join(TRIBE_ROUND_FORMAT.standardSpace);
 }
 
+function getPersistedPollSelection(
+  poll: TribeRoundMessageResult["poll"]
+): string[] {
+  return poll
+    ? poll.options
+        .filter((option) => option.selectedByViewer)
+        .map((option) => option.id)
+    : [];
+}
+
 function MessageRelativeTime({ dateTime }: { dateTime: string }) {
   return createElement(
     TRIBE_ROUND_ATTRIBUTES.relativeTimeTag,
@@ -1651,7 +1661,8 @@ function TribeRoundContent({
   };
 
   const handleSubmitPollVote = async (message: TribeRoundMessageResult) => {
-    const optionIds = selectedPollOptionIds[message.id] ?? [];
+    const optionIds =
+      selectedPollOptionIds[message.id] ?? getPersistedPollSelection(message.poll);
 
     if (optionIds.length === 0) {
       toast.warning(TRIBE_ROUND_COPY.pollSubmitButton);
@@ -1813,10 +1824,7 @@ function TribeRoundContent({
     }
 
     const selectedOptionIds =
-      selectedPollOptionIds[message.id] ??
-      poll.options
-        .filter((option) => option.selectedByViewer)
-        .map((option) => option.id);
+      selectedPollOptionIds[message.id] ?? getPersistedPollSelection(poll);
     const shouldShowResults = poll.viewerHasVoted;
 
     return (

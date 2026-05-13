@@ -812,6 +812,71 @@ describe("TribeRound", () => {
     expect(await screen.findByText("100% · 1")).toBeInTheDocument();
   });
 
+  it("submits persisted poll selection when voting without changing options", async () => {
+    const user = userEvent.setup();
+    const roundWithPersistedPollVote = {
+      ...roundWithPoll,
+      messages: [
+        {
+          ...roundWithPoll.messages[0],
+          poll: {
+            ...roundWithPoll.messages[0].poll,
+            options: [
+              {
+                id: "option-1",
+                percentage: 100,
+                selectedByViewer: true,
+                text: "Álgebra",
+                voteCount: 1,
+              },
+              {
+                id: "option-2",
+                percentage: 0,
+                selectedByViewer: false,
+                text: "Geometría",
+                voteCount: 0,
+              },
+            ],
+            totalVoteCount: 1,
+            viewerHasVoted: true,
+          },
+        },
+      ],
+    };
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        message: "Voto registrado.",
+        poll: roundWithPersistedPollVote.messages[0].poll,
+      }),
+      ok: true,
+      statusText: "OK",
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithPersistedPollVote}
+      />
+    );
+
+    await user.click(screen.getAllByRole("button", { name: "Votar" })[0]);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/message-1/poll/votes",
+        expect.objectContaining({
+          body: JSON.stringify({
+            optionIds: ["option-1"],
+          }),
+          method: "POST",
+        })
+      );
+    });
+    expect(toast.warning).not.toHaveBeenCalledWith("Votar");
+  });
+
   it("preserves persisted multiple poll selections when changing one vote", async () => {
     const user = userEvent.setup();
     const roundWithPersistedMultiplePollVotes = {
