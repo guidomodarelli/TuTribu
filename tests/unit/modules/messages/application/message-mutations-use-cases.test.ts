@@ -209,7 +209,7 @@ describe("message mutation use cases", () => {
         content: "Primera mensaje",
         poll: {
           allowMultipleVotes: true,
-          options: [" Álgebra ", " Geometría "],
+          options: [" Álgebra ", "   ", " Geometría "],
           question: " ¿Qué vemos? ",
         },
         title: "Bienvenida",

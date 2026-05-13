@@ -19,14 +19,14 @@ type MessagePollDependencies = {
  * Normalizes a poll draft before validation and persistence.
  *
  * @param poll - Poll draft supplied by a client or route.
- * @returns Normalized poll draft with trimmed question and options.
+ * @returns Normalized poll draft with trimmed question and non-empty options.
  */
 export function normalizeMessagePollDraft(
   poll: MessagePollDraftCommand
 ): MessagePollDraftCommand {
   return {
     allowMultipleVotes: Boolean(poll.allowMultipleVotes),
-    options: poll.options.map((option) => option.trim()),
+    options: poll.options.map((option) => option.trim()).filter(Boolean),
     question: poll.question.trim(),
   };
 }
