@@ -146,6 +146,7 @@ export function createTribeRoundMessage({
   return {
     author: createTribeRoundAuthor(author),
     channel: createTribeChannel(channel),
+    hasLoadedReplies: true,
     replies: [],
     content,
     createdAt: formatMessageDateTimeValue(createdAt),

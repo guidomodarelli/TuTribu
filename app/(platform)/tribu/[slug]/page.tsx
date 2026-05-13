@@ -28,7 +28,9 @@ const TRIBE_PAGE_LOG = {
 } as const;
 
 const TRIBE_PAGE_QUERY = {
+  channel: "channel",
   mercadoPagoPreapprovalId: "preapproval_id",
+  page: "page",
 } as const;
 
 const SUBSCRIPTION_RETURN_BLOCKED_REASONS: ReadonlySet<string> = new Set([
@@ -44,7 +46,9 @@ const SUBSCRIPTION_RETURN_VISIBLE_STATUSES: ReadonlySet<string> = new Set([
 ]);
 
 type TribePageSearchParams = {
+  [TRIBE_PAGE_QUERY.channel]?: string | string[];
   [TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId]?: string | string[];
+  [TRIBE_PAGE_QUERY.page]?: string | string[];
 };
 
 function readFirstSearchParamValue(
@@ -63,6 +67,15 @@ function readFirstSearchParamValue(
   }
 
   return null;
+}
+
+function readPositiveIntegerSearchParam(
+  searchParamValue: string | string[] | undefined
+): number {
+  const rawValue = readFirstSearchParamValue(searchParamValue);
+  const numericValue = rawValue ? Number(rawValue) : 1;
+
+  return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : 1;
 }
 
 function renderSubscriptionReturnStatus() {
@@ -88,6 +101,12 @@ export default async function TribePage({
   ]);
   const mercadoPagoPreapprovalId = readFirstSearchParamValue(
     resolvedSearchParams[TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId]
+  );
+  const channelSlug = readFirstSearchParamValue(
+    resolvedSearchParams[TRIBE_PAGE_QUERY.channel]
+  );
+  const page = readPositiveIntegerSearchParam(
+    resolvedSearchParams[TRIBE_PAGE_QUERY.page]
   );
   const access = await resolveTribePageAccess({
     operation: TRIBE_PAGE_LOG.operation,
@@ -182,6 +201,8 @@ export default async function TribePage({
   }
 
   const round = await modules.messages.useCases.listTribeRound({
+    channelSlug,
+    page,
     tribeSlug: accessResult.tribe.slug,
     viewerId: authenticatedMember.id,
   }).catch((error: unknown) => {

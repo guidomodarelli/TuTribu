@@ -31,6 +31,8 @@ export const MESSAGE_REACTION_TYPE = {
 
 export const PINNED_TRIBE_MESSAGES_LIMIT = 3;
 
+export const TRIBE_ROUND_PAGE_SIZE = 15;
+
 export const MESSAGE_MUTATION_STATUS = {
   created: "created",
   forbidden: "forbidden",

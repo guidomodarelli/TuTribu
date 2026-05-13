@@ -40,7 +40,6 @@ export type TribeRoundReplyResult = {
 export type TribeRoundSharedMessageResult = {
   author: TribeRoundAuthorResult;
   channel: TribeChannelResult;
-  replies: TribeRoundReplyResult[];
   content: string;
   createdAt: string;
   id: string;
@@ -51,7 +50,9 @@ export type TribeRoundSharedMessageResult = {
 };
 
 export type TribeRoundMessageResult = TribeRoundSharedMessageResult & {
+  hasLoadedReplies?: boolean;
   likedByViewer: boolean;
+  replies: TribeRoundReplyResult[];
 };
 
 export type TribeRoundPermissionsResult = {
@@ -65,6 +66,7 @@ export type TribeRoundSharedDataResult = {
   activeChannelId: string | null;
   channels: TribeChannelResult[];
   messages: TribeRoundSharedMessageResult[];
+  pagination: TribeRoundPaginationResult;
 };
 
 export type TribeRoundViewerStateResult = {
@@ -72,9 +74,26 @@ export type TribeRoundViewerStateResult = {
   viewerPermissions: TribeRoundPermissionsResult;
 };
 
+export type TribeRoundPaginationResult = {
+  currentPage: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  pageSize: number;
+};
+
 export type TribeRoundResult = {
   activeChannelId: string | null;
   channels: TribeChannelResult[];
   messages: TribeRoundMessageResult[];
+  pagination: TribeRoundPaginationResult;
   viewerPermissions: TribeRoundPermissionsResult;
 };
+
+export type TribeRoundRepliesResult =
+  | {
+      replies: TribeRoundReplyResult[];
+      status: "found";
+    }
+  | {
+      status: "forbidden" | "not_found";
+    };

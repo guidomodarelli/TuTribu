@@ -16,6 +16,8 @@ type RequestScopedDatabaseClient = Awaited<
 >;
 
 export async function listCachedTribeRoundSharedData({
+  channelSlug,
+  page,
   tribeSlug,
   viewerId,
 }: ListTribeRoundSharedDataQuery): Promise<TribeRoundSharedDataResult> {
@@ -40,6 +42,8 @@ export async function listCachedTribeRoundSharedData({
   );
 
   return messageRoundReadRepository.listSharedDataByTribeSlug({
+    channelSlug,
+    page,
     tribeSlug,
     viewerId,
   });

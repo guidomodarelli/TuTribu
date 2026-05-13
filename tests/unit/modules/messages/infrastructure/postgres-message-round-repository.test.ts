@@ -33,7 +33,7 @@ describe("PostgresMessageRoundRepository", () => {
     },
   ];
 
-  it("maps round rows into messages with replies and reactions", async () => {
+  it("maps paginated round rows into messages without loading replies", async () => {
     const execute = jest
       .fn()
       .mockResolvedValueOnce({ rows: channelRows })
@@ -120,20 +120,8 @@ describe("PostgresMessageRoundRepository", () => {
             avatarFallback: "AL",
             image: null,
           },
-          replies: [
-            {
-              id: "reply-1",
-              author: {
-                id: "member-1",
-                name: "Grace Hopper",
-                role: "tribemate",
-                avatarFallback: "GH",
-                image: null,
-              },
-              content: "Gracias",
-              createdAt: "2026-04-26T12:05:00.000Z",
-            },
-          ],
+          hasLoadedReplies: false,
+          replies: [],
           content: "Bienvenida",
           createdAt: "2026-04-26T12:00:00.000Z",
           likedByViewer: true,
@@ -143,10 +131,19 @@ describe("PostgresMessageRoundRepository", () => {
           title: "Anuncio inicial",
         },
       ],
+      pagination: {
+        currentPage: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        pageSize: 15,
+      },
     });
 
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
-      "order by message_pins.pinned_at desc nulls last, messages.created_at desc, message_replies.created_at asc"
+      "order by message_pins.pinned_at desc nulls last, messages.created_at desc, messages.id desc"
+    );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).not.toContain(
+      "message_replies"
     );
   });
 
@@ -220,10 +217,16 @@ describe("PostgresMessageRoundRepository", () => {
         canPinMessages: false,
       },
       messages: [],
+      pagination: {
+        currentPage: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        pageSize: 15,
+      },
     });
   });
 
-  it("uses preaggregated like counts so replies do not multiply reactions", async () => {
+  it("uses preaggregated like counts without joining replies", async () => {
     const execute = jest
       .fn()
       .mockResolvedValueOnce({ rows: channelRows })
@@ -304,10 +307,8 @@ describe("PostgresMessageRoundRepository", () => {
         {
           id: "message-1",
           likeCount: 1,
-          replies: [
-            { id: "reply-1" },
-            { id: "reply-2" },
-          ],
+          hasLoadedReplies: false,
+          replies: [],
         },
       ],
     });
@@ -325,6 +326,7 @@ describe("PostgresMessageRoundRepository", () => {
     expect(sqlText).toContain("and channel_matches.tribe_id = target_tribe.id");
     expect(sqlText).not.toContain("liked_by_viewer");
     expect(sqlText).not.toContain("viewer_membership_status");
+    expect(sqlText).not.toContain("message_replies");
     expect(sqlText).not.toContain("count(message_reactions.id) filter");
   });
 
@@ -387,12 +389,122 @@ describe("PostgresMessageRoundRepository", () => {
           likedByViewer: expect.any(Boolean),
         }),
       ],
+      pagination: {
+        currentPage: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        pageSize: 15,
+      },
     });
 
     const sqlText = getSqlText(execute.mock.calls[1]?.[0]);
 
     expect(sqlText).not.toContain("liked_by_viewer");
     expect(sqlText).not.toContain("viewer_membership_status");
+  });
+
+  it("filters shared round data by channel and detects the next page", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: channelRows })
+      .mockResolvedValueOnce({
+        rows: Array.from({ length: 16 }, (_, index) => ({
+          channel_access_scope: "tribemates",
+          channel_emoji: "🔥",
+          channel_id: "channel-ronda",
+          channel_name: "Ronda",
+          channel_slug: "ronda",
+          channel_sort_order: 20,
+          message_id: `message-${index + 1}`,
+          message_content: "Bienvenida",
+          message_created_at: "2026-04-26T12:00:00.000Z",
+          message_title: "Anuncio inicial",
+          author_id: "leader-1",
+          author_name: "Ada Lovelace",
+          author_image: null,
+          author_role: "leader",
+          like_count: "2",
+          message_pinned_at: null,
+        })),
+      });
+    const repository = new PostgresMessageRoundRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listSharedDataByTribeSlug({
+        channelSlug: "ronda",
+        page: 2,
+        tribeSlug: "matematica-pro",
+        viewerId: "member-1",
+      })
+    ).resolves.toMatchObject({
+      activeChannelId: "channel-ronda",
+      messages: expect.arrayContaining([
+        expect.objectContaining({ id: "message-1" }),
+      ]),
+      pagination: {
+        currentPage: 2,
+        hasNextPage: true,
+        hasPreviousPage: true,
+        pageSize: 15,
+      },
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[1]?.[0]);
+
+    expect(sqlText).toContain("selected_channel.slug");
+    expect(sqlText).toContain("limit");
+    expect(sqlText).toContain("offset");
+  });
+
+  it("lists message replies separately from the shared round", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          status_result: "found",
+          reply_id: "reply-1",
+          reply_content: "Gracias",
+          reply_created_at: "2026-04-26T12:05:00.000Z",
+          reply_author_id: "member-1",
+          reply_author_name: "Grace Hopper",
+          reply_author_image: null,
+          reply_author_role: "tribemate",
+        },
+      ],
+    });
+    const repository = new PostgresMessageRoundRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listRepliesByMessageId({
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        viewerId: "member-1",
+      })
+    ).resolves.toEqual({
+      status: "found",
+      replies: [
+        {
+          id: "reply-1",
+          author: {
+            id: "member-1",
+            name: "Grace Hopper",
+            role: "tribemate",
+            avatarFallback: "GH",
+            image: null,
+          },
+          content: "Gracias",
+          createdAt: "2026-04-26T12:05:00.000Z",
+        },
+      ],
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain("message_replies");
+    expect(sqlText).toContain("order by message_replies.created_at asc");
   });
 
   it("returns viewer state separately from shared message rows", async () => {

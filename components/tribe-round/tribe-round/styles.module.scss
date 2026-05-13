@@ -279,6 +279,7 @@
     cursor: pointer;
     font-size: 15px;
     overflow: hidden;
+    text-decoration: none;
     text-overflow: ellipsis;
     appearance: none;
     transition:
@@ -459,6 +460,14 @@
     display: grid;
     gap: 0;
     position: relative;
+  }
+
+  &__pagination {
+    margin-top: 0.25rem;
+  }
+
+  &__paginationControl {
+    cursor: not-allowed;
   }
 
   &__messageDetailsBody {
@@ -687,6 +696,20 @@
   &__replies {
     display: grid;
     gap: 0.75rem;
+  }
+
+  &__replyStatus {
+    display: grid;
+    gap: 0.5rem;
+    justify-items: flex-start;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  &__replyStatusText {
+    margin: 0;
   }
 
   &__reply {

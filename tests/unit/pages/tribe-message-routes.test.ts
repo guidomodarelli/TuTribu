@@ -1,5 +1,8 @@
 import { POST as POST_CREATE } from "@/app/api/tribes/[slug]/messages/route";
-import { POST as POST_REPLY } from "@/app/api/tribes/[slug]/messages/[messageId]/replies/route";
+import {
+  GET as GET_REPLIES,
+  POST as POST_REPLY,
+} from "@/app/api/tribes/[slug]/messages/[messageId]/replies/route";
 import { POST as POST_LIKE } from "@/app/api/tribes/[slug]/messages/[messageId]/like/route";
 import { POST as POST_PIN } from "@/app/api/tribes/[slug]/messages/[messageId]/pin/route";
 import { createRequestModules } from "@/src/modules/setup";
@@ -9,6 +12,7 @@ import { revalidateTag } from "next/cache";
 const getAuthenticatedMember = jest.fn();
 const createTribeMessage = jest.fn();
 const createMessageReply = jest.fn();
+const listMessageReplies = jest.fn();
 const toggleMessageLike = jest.fn();
 const toggleMessagePin = jest.fn();
 const listTribeChannels = jest.fn();
@@ -84,6 +88,7 @@ describe("Tribe message routes", () => {
     getAuthenticatedMember.mockReset();
     createTribeMessage.mockReset();
     createMessageReply.mockReset();
+    listMessageReplies.mockReset();
     toggleMessageLike.mockReset();
     toggleMessagePin.mockReset();
     listTribeChannels.mockReset();
@@ -112,6 +117,7 @@ describe("Tribe message routes", () => {
           createTribeMessage,
           createTribeChannel,
           createMessageReply,
+          listMessageReplies,
           deleteTribeChannel,
           listTribeChannels,
           toggleMessageLike,
@@ -304,6 +310,70 @@ describe("Tribe message routes", () => {
       "tribe-round:matematica-pro",
       { expire: 0 }
     );
+  });
+
+  it("returns replies when opening a message detail", async () => {
+    listMessageReplies.mockResolvedValue({
+      status: "found",
+      replies: [
+        {
+          id: "reply-1",
+          author: {
+            id: "member-1",
+            name: "Grace Hopper",
+            role: "tribemate",
+            avatarFallback: "GH",
+            image: null,
+          },
+          content: "Gracias",
+          createdAt: "2026-04-26T12:05:00.000Z",
+        },
+      ],
+    });
+
+    const response = await GET_REPLIES(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      replies: [
+        {
+          id: "reply-1",
+          author: {
+            id: "member-1",
+            name: "Grace Hopper",
+            role: "tribemate",
+            avatarFallback: "GH",
+            image: null,
+          },
+          content: "Gracias",
+          createdAt: "2026-04-26T12:05:00.000Z",
+        },
+      ],
+    });
+    expect(listMessageReplies).toHaveBeenCalledWith({
+      messageId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
+      tribeSlug: "matematica-pro",
+      viewerId: "member-1",
+    });
+  });
+
+  it("returns a safe loading message when listing replies fails unexpectedly", async () => {
+    listMessageReplies.mockRejectedValue(new Error("database unavailable"));
+
+    const response = await GET_REPLIES(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      message: "No pudimos cargar las respuestas. Intentalo de nuevo.",
+    });
   });
 
   it("returns not found when like messageId is not a UUID", async () => {

@@ -24,6 +24,13 @@ const tribeChannel = {
   sortOrder: 20,
 };
 
+const tribeRoundPagination = {
+  currentPage: 1,
+  hasNextPage: false,
+  hasPreviousPage: false,
+  pageSize: 15,
+};
+
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(),
   redirect: jest.fn(),
@@ -122,6 +129,7 @@ describe("TribePage", () => {
         canCreateMessage: true,
         canReact: true,
       },
+      pagination: tribeRoundPagination,
       messages: [
         {
           id: "message-1",
@@ -237,6 +245,7 @@ describe("TribePage", () => {
         canCreateMessage: true,
         canReact: true,
       },
+      pagination: tribeRoundPagination,
       messages: [],
     });
     (notFound as unknown as jest.Mock).mockImplementation(() => {
@@ -290,6 +299,8 @@ describe("TribePage", () => {
     });
     expect(notFound).not.toHaveBeenCalled();
     expect(listTribeRound).toHaveBeenCalledWith({
+      channelSlug: null,
+      page: 1,
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
@@ -321,6 +332,7 @@ describe("TribePage", () => {
         canCreateMessage: false,
         canReact: false,
       },
+      pagination: tribeRoundPagination,
       messages: [],
     });
 
@@ -343,6 +355,61 @@ describe("TribePage", () => {
     expect(
       screen.getByText("Compartí el primer mensaje de la ronda")
     ).toBeInTheDocument();
+  });
+
+  it("passes channel and page search params to the tribe round use case", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "leader@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "visible",
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+    listTribeRound.mockResolvedValue({
+      activeChannelId: tribeChannel.id,
+      channels: [tribeChannel],
+      viewerPermissions: {
+        canReply: true,
+        canCreateMessage: true,
+        canReact: true,
+      },
+      pagination: {
+        currentPage: 2,
+        hasNextPage: false,
+        hasPreviousPage: true,
+        pageSize: 15,
+      },
+      messages: [],
+    });
+
+    render(
+      await TribePage({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          channel: "ronda",
+          page: "2",
+        }),
+      })
+    );
+
+    expect(listTribeRound).toHaveBeenCalledWith({
+      channelSlug: "ronda",
+      page: 2,
+      tribeSlug: "matematica-pro",
+      viewerId: "member-1",
+    });
   });
 
   it("returns 404 and logs unauthenticated hidden access", async () => {

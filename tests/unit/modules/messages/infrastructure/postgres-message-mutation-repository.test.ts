@@ -77,6 +77,7 @@ describe("PostgresMessageMutationRepository", () => {
         replies: [],
         content: "Primera mensaje",
         createdAt: "2026-04-26T12:00:00.000Z",
+        hasLoadedReplies: true,
         likedByViewer: false,
         isPinned: false,
         likeCount: 0,

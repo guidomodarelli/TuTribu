@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   createElement,
   useEffect,
@@ -11,6 +12,8 @@ import type {
   MouseEvent,
 } from "react";
 import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ChevronDownIcon,
   HeartIcon,
   PinIcon,
@@ -51,6 +54,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type {
   TribeRoundReplyResult,
@@ -61,6 +71,10 @@ import styles from "./styles.module.scss";
 
 const TRIBE_ROUND_ROUTE = {
   apiTribes: "/api/tribes/",
+  channelQueryParam: "channel",
+  pageQueryParam: "page",
+  platformTribeSegment: "/tribu/",
+  querySeparator: "?",
   repliesSegment: "/replies",
   likeSegment: "/like",
   pinSegment: "/pin",
@@ -99,6 +113,9 @@ const TRIBE_ROUND_COPY = {
   replySendButtonAriaLabel: "Enviar respuesta",
   replyPlaceholder: "Escribi una respuesta",
   repliesTitle: "Respuestas",
+  repliesLoading: "Cargando respuestas...",
+  repliesLoadError: "No pudimos cargar las respuestas.",
+  repliesRetry: "Reintentar",
   messageDetailsDialogDescription: "Detalle del mensaje y sus respuestas.",
   messageDetailsDialogTitle: "Mensaje",
   messageDetailsContentLabel: "Contenido del mensaje",
@@ -147,10 +164,15 @@ const TRIBE_ROUND_COPY = {
   toggleLikeError: "No pudimos actualizar la reaccion.",
 } as const;
 
+const TRIBE_ROUND_PATH = {
+  tribe: (tribeSlug: string) => TRIBE_ROUND_ROUTE.platformTribeSegment + tribeSlug,
+} as const;
+
 const TRIBE_ROUND_FORM = {
   buttonType: "button",
   contentTypeHeader: "Content-Type",
   defaultVariant: "default",
+  ghostVariant: "ghost",
   iconSize: "icon",
   jsonContentType: "application/json",
   method: "POST",
@@ -163,6 +185,8 @@ const TRIBE_ROUND_ATTRIBUTES = {
   composerAvatarSize: "lg",
   contentExpandedDataAttribute: "data-expanded",
   dropdownAlign: "center",
+  inlineEndIcon: "inline-end",
+  inlineStartIcon: "inline-start",
   messageMetaSeparatorHidden: true,
   relativeTimeFormat: "relative",
   relativeTimeNoTitleAttribute: "no-title",
@@ -174,6 +198,7 @@ const TRIBE_ROUND_ATTRIBUTES = {
   messageComposerRequirementsLabel: "Requisitos pendientes",
   messageDetailsTitleHidden: true,
   regionRole: "region",
+  trueString: "true",
 } as const;
 
 const TRIBE_ROUND_LIMITS = {
@@ -205,6 +230,17 @@ type TribeRoundContentPreviewClass =
 const TRIBE_ROUND_SYMBOLS = {
   missingRequirementBullet: "-",
   messageMetaSeparator: "·",
+} as const;
+
+const TRIBE_ROUND_REPLY_LOAD_STATUS = {
+  error: "error",
+  loaded: "loaded",
+  loading: "loading",
+} as const;
+
+const TRIBE_ROUND_PAGINATION_LABEL = {
+  next: "Siguiente",
+  previous: "Anterior",
 } as const;
 
 const TRIBE_ROUND_FORMAT = {
@@ -260,6 +296,11 @@ type CreateReplyResponse = {
   message?: string;
 };
 
+type ListRepliesResponse = {
+  replies?: TribeRoundReplyResult[];
+  message?: string;
+};
+
 type ToggleLikeResponse = {
   likedByViewer?: boolean;
   likeCount?: number;
@@ -296,6 +337,9 @@ type PendingLikeIntents = Record<string, PendingLikeIntent | undefined>;
 
 type PendingPinIntents = Record<string, PendingPinIntent | undefined>;
 
+type ReplyLoadStatus =
+  (typeof TRIBE_ROUND_REPLY_LOAD_STATUS)[keyof typeof TRIBE_ROUND_REPLY_LOAD_STATUS];
+
 const TRIBE_ROUND_RESET_KEY = {
   empty: "",
   false: "0",
@@ -330,6 +374,7 @@ function buildRoundStateResetKey(
   return [
     tribeSlug,
     round.activeChannelId ?? TRIBE_ROUND_RESET_KEY.empty,
+    String(round.pagination.currentPage),
     messageFingerprint,
   ].join(TRIBE_ROUND_RESET_KEY.keySeparator);
 }
@@ -354,7 +399,8 @@ async function readApiErrorMessage(response: Response): Promise<string | null> {
 
 async function submitJsonRequest<ResponseBody>(
   url: string,
-  body?: Record<string, string>
+  body?: Record<string, string>,
+  signal?: AbortSignal
 ): Promise<ResponseBody> {
   const response = await fetch(url, {
     body: body ? JSON.stringify(body) : undefined,
@@ -363,7 +409,21 @@ async function submitJsonRequest<ResponseBody>(
         TRIBE_ROUND_FORM.jsonContentType,
     },
     method: TRIBE_ROUND_FORM.method,
+    signal,
   });
+
+  if (!response.ok) {
+    throw new Error((await readApiErrorMessage(response)) ?? response.statusText);
+  }
+
+  return (await response.json().catch(() => ({}))) as ResponseBody;
+}
+
+async function readJsonRequest<ResponseBody>(
+  url: string,
+  signal?: AbortSignal
+): Promise<ResponseBody> {
+  const response = await fetch(url, { signal });
 
   if (!response.ok) {
     throw new Error((await readApiErrorMessage(response)) ?? response.statusText);
@@ -470,6 +530,32 @@ function getPinButtonClassName(isPinned: boolean): string {
   ].join(TRIBE_ROUND_FORMAT.standardSpace);
 }
 
+function buildTribeRoundPageHref({
+  channelSlug,
+  page,
+  tribeSlug,
+}: {
+  channelSlug: string | null;
+  page: number;
+  tribeSlug: string;
+}): string {
+  const searchParams = new URLSearchParams();
+
+  if (channelSlug) {
+    searchParams.set(TRIBE_ROUND_ROUTE.channelQueryParam, channelSlug);
+  }
+
+  if (page > 1) {
+    searchParams.set(TRIBE_ROUND_ROUTE.pageQueryParam, String(page));
+  }
+
+  const queryString = searchParams.toString();
+
+  return queryString
+    ? `${TRIBE_ROUND_PATH.tribe(tribeSlug)}${TRIBE_ROUND_ROUTE.querySeparator}${queryString}`
+    : TRIBE_ROUND_PATH.tribe(tribeSlug);
+}
+
 function renderAuthorRoleBadge(role: TribeRoundReplyResult["author"]["role"]) {
   if (!TRIBE_ROUND_PRIVILEGED_AUTHOR_ROLES.has(role)) {
     return null;
@@ -555,12 +641,38 @@ function replaceMessageReply(
   replyId: string,
   nextReply: TribeRoundReplyResult
 ): TribeRoundMessageResult {
+  const hasReplyToReplace = message.replies.some((reply) => reply.id === replyId);
+
+  if (!hasReplyToReplace) {
+    const hasNextReply = message.replies.some((reply) => reply.id === nextReply.id);
+
+    return {
+      ...message,
+      replies: hasNextReply ? message.replies : [...message.replies, nextReply],
+    };
+  }
+
   return {
     ...message,
     replies: message.replies.map((reply) =>
       reply.id === replyId ? nextReply : reply
     ),
   };
+}
+
+function mergeRepliesPreservingLocalReplies({
+  fetchedReplies,
+  localReplies,
+}: {
+  fetchedReplies: TribeRoundReplyResult[];
+  localReplies: TribeRoundReplyResult[];
+}): TribeRoundReplyResult[] {
+  const fetchedReplyIds = new Set(fetchedReplies.map((reply) => reply.id));
+  const localRepliesMissingFromFetch = localReplies.filter(
+    (reply) => !fetchedReplyIds.has(reply.id)
+  );
+
+  return [...fetchedReplies, ...localRepliesMissingFromFetch];
 }
 
 function removeMessageReply(
@@ -595,6 +707,45 @@ function sortMessagesByPinnedState(
   });
 }
 
+function getMessagesAfterVisibleMessageCreation({
+  createdMessage,
+  currentMessages,
+  pagination,
+}: {
+  createdMessage: TribeRoundMessageResult;
+  currentMessages: TribeRoundMessageResult[];
+  pagination: TribeRoundResult["pagination"];
+}): TribeRoundMessageResult[] {
+  if (pagination.currentPage !== 1) {
+    return currentMessages;
+  }
+
+  const sortedMessages = sortMessagesByPinnedState([createdMessage, ...currentMessages]);
+
+  return sortedMessages.slice(0, pagination.pageSize);
+}
+
+function getPaginationAfterVisibleMessageCreation({
+  currentMessageCount,
+  pagination,
+}: {
+  currentMessageCount: number;
+  pagination: TribeRoundResult["pagination"];
+}): TribeRoundResult["pagination"] {
+  if (pagination.currentPage !== 1) {
+    return pagination;
+  }
+
+  if (currentMessageCount < pagination.pageSize) {
+    return pagination;
+  }
+
+  return {
+    ...pagination,
+    hasNextPage: true,
+  };
+}
+
 function getOptimisticPinnedAt(
   intendedIsPinned: boolean,
   baselineIsPinned: boolean,
@@ -621,15 +772,16 @@ function TribeRoundContent({
   const pinDebounceTimersRef = useRef<PinDebounceTimers>({});
   const pendingPinIntentsRef = useRef<PendingPinIntents>({});
   const [messages, setMessages] = useState<TribeRoundMessageResult[]>(round.messages);
+  const [visiblePagination, setVisiblePagination] = useState(round.pagination);
   const [isMessageComposerOpen, setIsMessageComposerOpen] = useState(false);
   const [messageTitle, setMessageTitle] = useState("");
   const [messageContent, setMessageContent] = useState("");
   const [selectedChannelId, setSelectedChannelId] = useState("");
-  const [activeChannelId, setActiveChannelId] = useState<string | null>(
-    round.activeChannelId
-  );
   const [messageComposerErrors, setMessageComposerErrors] = useState<string[]>([]);
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [replyLoadStatuses, setReplyLoadStatuses] = useState<
+    Record<string, ReplyLoadStatus | undefined>
+  >({});
   const [expandedMessageIds, setExpandedMessageIds] = useState<Record<string, boolean>>(
     {}
   );
@@ -640,12 +792,19 @@ function TribeRoundContent({
   const isBusy = Boolean(pendingActionId);
   const selectedChannel =
     round.channels.find((channel) => channel.id === selectedChannelId) ?? null;
-  const filteredMessages = activeChannelId
-    ? messages.filter((message) => message.channel.id === activeChannelId)
-    : messages;
   const hasMessageComposerErrors = messageComposerErrors.length > 0;
   const selectedMessage =
     messages.find((message) => message.id === selectedMessageId) ?? null;
+  const selectedMessageHasLoadedReplies = selectedMessage?.hasLoadedReplies;
+  const selectedMessageRepliesId = selectedMessage?.id;
+  const activeChannel =
+    round.channels.find((channel) => channel.id === round.activeChannelId) ?? null;
+  const selectedMessageReplyLoadStatus = selectedMessage
+    ? replyLoadStatuses[selectedMessage.id] ??
+      (selectedMessage.hasLoadedReplies === false
+        ? TRIBE_ROUND_REPLY_LOAD_STATUS.loading
+        : TRIBE_ROUND_REPLY_LOAD_STATUS.loaded)
+    : TRIBE_ROUND_REPLY_LOAD_STATUS.loaded;
 
   useEffect(() => {
     currentTribeSlugRef.current = tribeSlug;
@@ -667,6 +826,79 @@ function TribeRoundContent({
       pendingPinIntentsRef.current = {};
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      !isMessageDetailsOpen ||
+      !selectedMessageRepliesId ||
+      selectedMessageHasLoadedReplies !== false ||
+      selectedMessageReplyLoadStatus !== TRIBE_ROUND_REPLY_LOAD_STATUS.loading
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    let isActive = true;
+    const actionTribeSlug = tribeSlug;
+    const messageId = selectedMessageRepliesId;
+
+    void readJsonRequest<ListRepliesResponse>(
+      TRIBE_ROUND_ENDPOINT.reply(actionTribeSlug, messageId),
+      controller.signal
+    )
+      .then((response) => {
+        if (!isActive || currentTribeSlugRef.current !== actionTribeSlug) {
+          return;
+        }
+
+        const replies = Array.isArray(response.replies) ? response.replies : [];
+
+        setMessages((currentMessages) =>
+          currentMessages.map((message) =>
+            message.id === messageId
+              ? {
+                  ...message,
+                  hasLoadedReplies: true,
+                  replies: mergeRepliesPreservingLocalReplies({
+                    fetchedReplies: replies,
+                    localReplies: message.replies,
+                  }),
+                }
+              : message
+          )
+        );
+        setReplyLoadStatuses((currentStatuses) => ({
+          ...currentStatuses,
+          [messageId]: TRIBE_ROUND_REPLY_LOAD_STATUS.loaded,
+        }));
+      })
+      .catch((error) => {
+        if (!isActive || controller.signal.aborted) {
+          return;
+        }
+
+        setReplyLoadStatuses((currentStatuses) => ({
+          ...currentStatuses,
+          [messageId]: TRIBE_ROUND_REPLY_LOAD_STATUS.error,
+        }));
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : TRIBE_ROUND_COPY.repliesLoadError
+        );
+      });
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [
+    isMessageDetailsOpen,
+    selectedMessageHasLoadedReplies,
+    selectedMessageRepliesId,
+    selectedMessageReplyLoadStatus,
+    tribeSlug,
+  ]);
 
   const isCurrentAction = (actionToken: number, actionTribeSlug: string) =>
     currentActionTokenRef.current === actionToken &&
@@ -726,12 +958,26 @@ function TribeRoundContent({
         throw new Error(TRIBE_ROUND_COPY.submitMessageError);
       }
 
-      setMessages((currentMessages) =>
-        sortMessagesByPinnedState([
-          response.tribeMessage as TribeRoundMessageResult,
-          ...currentMessages,
-        ])
-      );
+      const createdMessage = response.tribeMessage as TribeRoundMessageResult;
+
+      if (
+        !round.activeChannelId ||
+        createdMessage.channel.id === round.activeChannelId
+      ) {
+        setVisiblePagination((currentPagination) =>
+          getPaginationAfterVisibleMessageCreation({
+            currentMessageCount: messages.length,
+            pagination: currentPagination,
+          })
+        );
+        setMessages((currentMessages) =>
+          getMessagesAfterVisibleMessageCreation({
+            createdMessage,
+            currentMessages,
+            pagination: visiblePagination,
+          })
+        );
+      }
       resetMessageComposer();
       setIsMessageComposerOpen(false);
       toast.success(TRIBE_ROUND_COPY.submitMessageSuccess);
@@ -795,11 +1041,24 @@ function TribeRoundContent({
         message.id === messageId
           ? {
               ...message,
+              hasLoadedReplies: message.hasLoadedReplies === false ? false : true,
               replies: [...message.replies, optimisticReply],
             }
           : message
       )
     );
+    setReplyLoadStatuses((currentStatuses) => {
+      const currentStatus = currentStatuses[messageId];
+
+      if (currentStatus !== TRIBE_ROUND_REPLY_LOAD_STATUS.error) {
+        return currentStatuses;
+      }
+
+      return {
+        ...currentStatuses,
+        [messageId]: TRIBE_ROUND_REPLY_LOAD_STATUS.loading,
+      };
+    });
     setReplyDrafts((currentDrafts) => ({
       ...currentDrafts,
       [messageId]: "",
@@ -1229,6 +1488,23 @@ function TribeRoundContent({
     setIsMessageDetailsOpen(true);
   };
 
+  const retryLoadingReplies = (messageId: string) => {
+    setReplyLoadStatuses((currentStatuses) => ({
+      ...currentStatuses,
+      [messageId]: TRIBE_ROUND_REPLY_LOAD_STATUS.loading,
+    }));
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === messageId
+          ? {
+              ...message,
+              hasLoadedReplies: false,
+            }
+          : message
+      )
+    );
+  };
+
   const stopMessageDetailsOpening = (event: MouseEvent<HTMLElement>) => {
     event.stopPropagation();
   };
@@ -1529,31 +1805,33 @@ function TribeRoundContent({
           aria-label={TRIBE_ROUND_COPY.tribeChannelLabel}
           className={styles.TribeRound__channelFilters}
         >
-          <button
+          <Link
             className={`${styles.TribeRound__channelFilter} ${
-              !activeChannelId ? styles["TribeRound__channelFilter--active"] : ""
+              !round.activeChannelId ? styles["TribeRound__channelFilter--active"] : ""
             }`}
-            onClick={() => {
-              setActiveChannelId(null);
-            }}
-            type={TRIBE_ROUND_FORM.buttonType}
+            href={buildTribeRoundPageHref({
+              channelSlug: null,
+              page: 1,
+              tribeSlug,
+            })}
           >
             <span className={styles.TribeRound__channelFilterText}>
               {TRIBE_ROUND_COPY.tribeChannelFilterAll}
             </span>
-          </button>
+          </Link>
           {round.channels.map((channel) => (
-            <button
+            <Link
               className={`${styles.TribeRound__channelFilter} ${
-                activeChannelId === channel.id
+                round.activeChannelId === channel.id
                   ? styles["TribeRound__channelFilter--active"]
                   : ""
               }`}
+              href={buildTribeRoundPageHref({
+                channelSlug: channel.slug,
+                page: 1,
+                tribeSlug,
+              })}
               key={channel.id}
-              onClick={() => {
-                setActiveChannelId(channel.id);
-              }}
-              type={TRIBE_ROUND_FORM.buttonType}
             >
               <span
                 aria-hidden={TRIBE_ROUND_ATTRIBUTES.channelFilterEmojiHidden}
@@ -1564,12 +1842,12 @@ function TribeRoundContent({
               <span className={styles.TribeRound__channelFilterText}>
                 {channel.name}
               </span>
-            </button>
+            </Link>
           ))}
         </nav>
       ) : null}
 
-      {filteredMessages.length === 0 ? (
+      {messages.length === 0 ? (
         <div className={styles.TribeRound__empty}>
           <h3 className={styles.TribeRound__emptyTitle}>
             {TRIBE_ROUND_COPY.emptyTitle}
@@ -1580,7 +1858,7 @@ function TribeRoundContent({
         </div>
       ) : (
         <ol className={styles.TribeRound__messageList}>
-          {filteredMessages.map((message) => (
+          {messages.map((message) => (
             <li className={styles.TribeRound__message} key={message.id}>
               <Card
                 className={styles.TribeRound__messageCard}
@@ -1648,6 +1926,62 @@ function TribeRoundContent({
           ))}
         </ol>
       )}
+      {visiblePagination.hasPreviousPage || visiblePagination.hasNextPage ? (
+        <Pagination className={styles.TribeRound__pagination}>
+          <PaginationContent>
+            <PaginationItem>
+              {visiblePagination.hasPreviousPage ? (
+                <PaginationPrevious
+                  aria-label={TRIBE_ROUND_PAGINATION_LABEL.previous}
+                  href={buildTribeRoundPageHref({
+                    channelSlug: activeChannel?.slug ?? null,
+                    page: Math.max(1, visiblePagination.currentPage - 1),
+                    tribeSlug,
+                  })}
+                  text={TRIBE_ROUND_PAGINATION_LABEL.previous}
+                />
+              ) : (
+                <Button
+                  aria-disabled={TRIBE_ROUND_ATTRIBUTES.trueString}
+                  aria-label={TRIBE_ROUND_PAGINATION_LABEL.previous}
+                  className={styles.TribeRound__paginationControl}
+                  disabled
+                  type={TRIBE_ROUND_FORM.buttonType}
+                  variant={TRIBE_ROUND_FORM.ghostVariant}
+                >
+                  <ChevronLeftIcon data-icon={TRIBE_ROUND_ATTRIBUTES.inlineStartIcon} />
+                  <span>{TRIBE_ROUND_PAGINATION_LABEL.previous}</span>
+                </Button>
+              )}
+            </PaginationItem>
+            <PaginationItem>
+              {visiblePagination.hasNextPage ? (
+                <PaginationNext
+                  aria-label={TRIBE_ROUND_PAGINATION_LABEL.next}
+                  href={buildTribeRoundPageHref({
+                    channelSlug: activeChannel?.slug ?? null,
+                    page: visiblePagination.currentPage + 1,
+                    tribeSlug,
+                  })}
+                  text={TRIBE_ROUND_PAGINATION_LABEL.next}
+                />
+              ) : (
+                <Button
+                  aria-disabled={TRIBE_ROUND_ATTRIBUTES.trueString}
+                  aria-label={TRIBE_ROUND_PAGINATION_LABEL.next}
+                  className={styles.TribeRound__paginationControl}
+                  disabled
+                  type={TRIBE_ROUND_FORM.buttonType}
+                  variant={TRIBE_ROUND_FORM.ghostVariant}
+                >
+                  <span>{TRIBE_ROUND_PAGINATION_LABEL.next}</span>
+                  <ChevronRightIcon data-icon={TRIBE_ROUND_ATTRIBUTES.inlineEndIcon} />
+                </Button>
+              )}
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      ) : null}
       <Dialog open={isMessageDetailsOpen} onOpenChange={setIsMessageDetailsOpen}>
         <DialogContent className={styles.TribeRound__composerDialog}>
           <DialogHeader className={styles.TribeRound__composerDialogHeader}>
@@ -1723,6 +2057,29 @@ function TribeRoundContent({
                   aria-label={TRIBE_ROUND_COPY.repliesTitle}
                   className={styles.TribeRound__replies}
                 >
+                  {selectedMessageReplyLoadStatus ===
+                  TRIBE_ROUND_REPLY_LOAD_STATUS.loading ? (
+                    <p className={styles.TribeRound__replyStatus}>
+                      {TRIBE_ROUND_COPY.repliesLoading}
+                    </p>
+                  ) : null}
+                  {selectedMessageReplyLoadStatus ===
+                  TRIBE_ROUND_REPLY_LOAD_STATUS.error ? (
+                    <div className={styles.TribeRound__replyStatus}>
+                      <p className={styles.TribeRound__replyStatusText}>
+                        {TRIBE_ROUND_COPY.repliesLoadError}
+                      </p>
+                      <Button
+                        onClick={() => {
+                          retryLoadingReplies(selectedMessage.id);
+                        }}
+                        type={TRIBE_ROUND_FORM.buttonType}
+                        variant={TRIBE_ROUND_FORM.outlineVariant}
+                      >
+                        {TRIBE_ROUND_COPY.repliesRetry}
+                      </Button>
+                    </div>
+                  ) : null}
                   {selectedMessage.replies.length > 0 ? (
                     <ol className={styles.TribeRound__replyList}>
                       {selectedMessage.replies.map((reply) => (
@@ -1766,7 +2123,11 @@ function TribeRoundContent({
                         <input
                           aria-label={TRIBE_ROUND_COPY.replyInputLabel}
                           className={styles.TribeRound__replyInput}
-                          disabled={isBusy}
+                          disabled={
+                            isBusy ||
+                            selectedMessageReplyLoadStatus ===
+                              TRIBE_ROUND_REPLY_LOAD_STATUS.loading
+                          }
                           onChange={(event) => {
                             const nextReplyDraft = event.currentTarget.value;
 
@@ -1776,13 +2137,22 @@ function TribeRoundContent({
                             }));
                           }}
                           placeholder={TRIBE_ROUND_COPY.replyPlaceholder}
-                          value={replyDrafts[selectedMessage.id] ?? ""}
+                          value={
+                            replyDrafts[selectedMessage.id] ??
+                            TRIBE_ROUND_RESET_KEY.empty
+                          }
                         />
                         <button
                           aria-label={TRIBE_ROUND_COPY.replySendButtonAriaLabel}
                           className={styles.TribeRound__replySendButton}
                           disabled={
-                            isBusy || !(replyDrafts[selectedMessage.id] ?? "").trim()
+                            isBusy ||
+                            selectedMessageReplyLoadStatus ===
+                              TRIBE_ROUND_REPLY_LOAD_STATUS.loading ||
+                            !(
+                              replyDrafts[selectedMessage.id] ??
+                              TRIBE_ROUND_RESET_KEY.empty
+                            ).trim()
                           }
                           type={TRIBE_ROUND_FORM.submitType}
                         >

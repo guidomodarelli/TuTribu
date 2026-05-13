@@ -152,6 +152,13 @@ const tribeChannels = [
   },
 ];
 
+const roundPagination = {
+  currentPage: 1,
+  hasNextPage: false,
+  hasPreviousPage: false,
+  pageSize: 15,
+};
+
 const createdMessage = {
   id: "message-2",
   author: {
@@ -183,9 +190,17 @@ const createdReply = {
   createdAt: "2026-04-26T13:05:00.000Z",
 };
 
+const existingReply = {
+  ...createdReply,
+  id: "reply-existing",
+  content: "Respuesta anterior",
+  createdAt: "2026-04-26T12:05:00.000Z",
+};
+
 const round = {
   activeChannelId: null,
   channels: tribeChannels,
+  pagination: roundPagination,
   viewerPermissions: {
     canReply: true,
     canCreateMessage: true,
@@ -243,6 +258,7 @@ const roundWithAuthorImages = {
 const algebraRound = {
   activeChannelId: null,
   channels: tribeChannels,
+  pagination: roundPagination,
   viewerPermissions: {
     canReply: true,
     canCreateMessage: true,
@@ -286,6 +302,69 @@ const roundWithLongMessage = {
       ...round.messages[0],
       content: longMessageContent,
       title: "Lectura larga",
+    },
+  ],
+};
+
+const paginatedRound = {
+  ...round,
+  activeChannelId: tribeChannels[1].id,
+  pagination: {
+    currentPage: 2,
+    hasNextPage: true,
+    hasPreviousPage: true,
+    pageSize: 15,
+  },
+};
+
+const lastPaginatedRound = {
+  ...round,
+  activeChannelId: tribeChannels[1].id,
+  pagination: {
+    currentPage: 3,
+    hasNextPage: false,
+    hasPreviousPage: true,
+    pageSize: 15,
+  },
+};
+
+const fullFirstPageRound = {
+  ...round,
+  pagination: {
+    currentPage: 1,
+    hasNextPage: true,
+    hasPreviousPage: false,
+    pageSize: 1,
+  },
+};
+
+const exhaustedFullFirstPageRound = {
+  ...round,
+  pagination: {
+    currentPage: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+    pageSize: 1,
+  },
+};
+
+const secondPageRound = {
+  ...round,
+  pagination: {
+    currentPage: 2,
+    hasNextPage: false,
+    hasPreviousPage: true,
+    pageSize: 1,
+  },
+};
+
+const roundWithDeferredReplies = {
+  ...round,
+  messages: [
+    {
+      ...round.messages[0],
+      hasLoadedReplies: false,
+      replies: [],
     },
   ],
 };
@@ -560,6 +639,210 @@ describe("TribeRound", () => {
     expect(screen.getByText("Nos vemos el viernes.")).toBeInTheDocument();
   });
 
+  it("keeps a created message out of the visible list when another channel is active", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          activeChannelId: tribeChannels[1].id,
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Nos vemos el viernes."
+    );
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages",
+        expect.objectContaining({
+          body: JSON.stringify({
+            channelId: "channel-intro",
+            content: "Nos vemos el viernes.",
+            title: "Nuevo encuentro",
+          }),
+          method: "POST",
+        })
+      );
+    });
+
+    await act(async () => {
+      deferredResponse.resolve({
+        json: async () => ({
+          message: "Mensaje creado.",
+          tribeMessage: createdMessage,
+        }),
+        ok: true,
+        statusText: "Created",
+      } as Response);
+    });
+
+    expect(toast.success).toHaveBeenCalledWith("Mensaje creado.");
+    expect(screen.queryByRole("dialog", { name: "Crear mensaje" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+    expect(screen.queryByText("Nos vemos el viernes.")).not.toBeInTheDocument();
+    expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the visible first page within its page size when creating a message", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={fullFirstPageRound}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Nos vemos el viernes."
+    );
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    await act(async () => {
+      deferredResponse.resolve({
+        json: async () => ({
+          message: "Mensaje creado.",
+          tribeMessage: createdMessage,
+        }),
+        ok: true,
+        statusText: "Created",
+      } as Response);
+    });
+
+    expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
+    expect(screen.queryByText("Anuncio inicial")).not.toBeInTheDocument();
+    const messageList = screen.getByText("Nuevo encuentro").closest("ol");
+
+    expect(messageList).not.toBeNull();
+    expect(within(messageList as HTMLElement).getAllByRole("listitem")).toHaveLength(1);
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps an exhausted first page within its page size when creating a message", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={exhaustedFullFirstPageRound}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Nos vemos el viernes."
+    );
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    await act(async () => {
+      deferredResponse.resolve({
+        json: async () => ({
+          message: "Mensaje creado.",
+          tribeMessage: createdMessage,
+        }),
+        ok: true,
+        statusText: "Created",
+      } as Response);
+    });
+
+    const messageList = screen.getByText("Nuevo encuentro").closest("ol");
+
+    expect(messageList).not.toBeNull();
+    expect(within(messageList as HTMLElement).queryByText("Anuncio inicial")).not.toBeInTheDocument();
+    expect(within(messageList as HTMLElement).getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Siguiente" })).toHaveAttribute(
+      "href",
+      "/tribu/matematica-pro?page=2"
+    );
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a created message out of later pages because the server places it on page one", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={secondPageRound}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Nos vemos el viernes."
+    );
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    await act(async () => {
+      deferredResponse.resolve({
+        json: async () => ({
+          message: "Mensaje creado.",
+          tribeMessage: createdMessage,
+        }),
+        ok: true,
+        statusText: "Created",
+      } as Response);
+    });
+
+    expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+    expect(screen.queryByText("Nos vemos el viernes.")).not.toBeInTheDocument();
+    expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
   it("selects a channel using keyboard interactions", async () => {
     const user = userEvent.setup();
 
@@ -692,9 +975,7 @@ describe("TribeRound", () => {
     });
   });
 
-  it("filters messages by channel chips", async () => {
-    const user = userEvent.setup();
-
+  it("links channel chips to server-filtered round pages", () => {
     render(
       <TribeRound
         authenticatedMember={authenticatedMember}
@@ -703,13 +984,15 @@ describe("TribeRound", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Todos" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ronda" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Todos" })).toHaveAttribute(
+      "href",
+      "/tribu/matematica-pro"
+    );
+    expect(screen.getByRole("link", { name: "Ronda" })).toHaveAttribute(
+      "href",
+      "/tribu/matematica-pro?channel=ronda"
+    );
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Intro and Goals" }));
-
-    expect(screen.queryByText("Anuncio inicial")).not.toBeInTheDocument();
   });
 
   it("keeps channel filters visible when the round has only one channel", () => {
@@ -724,8 +1007,44 @@ describe("TribeRound", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Todos" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ronda" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Todos" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ronda" })).toBeInTheDocument();
+  });
+
+  it("renders pagination links that preserve the active channel", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={paginatedRound}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Anterior" })).toHaveAttribute(
+      "href",
+      "/tribu/matematica-pro?channel=ronda"
+    );
+    expect(screen.getByRole("link", { name: "Siguiente" })).toHaveAttribute(
+      "href",
+      "/tribu/matematica-pro?channel=ronda&page=3"
+    );
+  });
+
+  it("renders the unavailable next page control without a navigable link", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={lastPaginatedRound}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Anterior" })).toHaveAttribute(
+      "href",
+      "/tribu/matematica-pro?channel=ronda&page=2"
+    );
+    expect(screen.queryByRole("link", { name: "Siguiente" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled();
   });
 
   it("syncs local messages when the server round changes", async () => {
@@ -1468,6 +1787,222 @@ describe("TribeRound", () => {
     const repliesSection = screen.getByRole("region", { name: "Respuestas" });
     expect(within(repliesSection).getByText("Excelente clase")).toBeInTheDocument();
     expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("loads replies only after opening a message detail", async () => {
+    const user = userEvent.setup();
+    const deferredRepliesResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredRepliesResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithDeferredReplies}
+      />
+    );
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(screen.queryByText("Excelente clase")).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
+    );
+
+    expect(screen.getByText("Cargando respuestas...")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/message-1/replies",
+        expect.objectContaining({
+          signal: expect.any(AbortSignal),
+        })
+      );
+    });
+
+    deferredRepliesResponse.resolve({
+      json: async () => ({
+        replies: [createdReply],
+      }),
+      ok: true,
+      statusText: "OK",
+    } as Response);
+
+    const repliesSection = screen.getByRole("region", { name: "Respuestas" });
+
+    expect(
+      await within(repliesSection).findByText("Excelente clase")
+    ).toBeInTheDocument();
+  });
+
+  it("reloads existing replies after creating a reply from a failed deferred load", async () => {
+    const user = userEvent.setup();
+    const failedLoadMessage = "No pudimos cargar las respuestas.";
+
+    (global.fetch as jest.Mock).mockImplementation(
+      async (url: string, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          return {
+            json: async () => ({
+              reply: createdReply,
+              message: "Respuesta creado.",
+            }),
+            ok: true,
+            statusText: "Created",
+          };
+        }
+
+        const getRepliesCalls = (global.fetch as jest.Mock).mock.calls.filter(
+          ([calledUrl, calledInit]) =>
+            calledUrl === "/api/tribes/matematica-pro/messages/message-1/replies" &&
+            (calledInit as RequestInit | undefined)?.method !== "POST"
+        );
+
+        if (getRepliesCalls.length === 1) {
+          return {
+            json: async () => ({
+              message: failedLoadMessage,
+            }),
+            ok: false,
+            statusText: "Server Error",
+          };
+        }
+
+        return {
+          json: async () => ({
+            replies: [existingReply, createdReply],
+          }),
+          ok: true,
+          statusText: "OK",
+        };
+      }
+    );
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithDeferredReplies}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
+    );
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(failedLoadMessage);
+    });
+
+    const replyInput = screen.getByRole("textbox", {
+      name: "Escribir una respuesta",
+    });
+
+    await user.type(replyInput, "Excelente clase");
+    await user.keyboard("{Enter}");
+
+    await waitFor(() => {
+      expect(
+        (global.fetch as jest.Mock).mock.calls.filter(
+          ([calledUrl, calledInit]) =>
+            calledUrl ===
+              "/api/tribes/matematica-pro/messages/message-1/replies" &&
+            (calledInit as RequestInit | undefined)?.method !== "POST"
+        )
+      ).toHaveLength(2);
+    });
+
+    const repliesSection = screen.getByRole("region", { name: "Respuestas" });
+
+    expect(
+      await within(repliesSection).findByText("Respuesta anterior")
+    ).toBeInTheDocument();
+    expect(within(repliesSection).getByText("Excelente clase")).toBeInTheDocument();
+  });
+
+  it("preserves a created reply when the failed deferred load retry returns stale replies first", async () => {
+    const user = userEvent.setup();
+    const failedLoadMessage = "No pudimos cargar las respuestas.";
+    const createReplyResponse = createDeferredResponse();
+    let getRepliesCallCount = 0;
+
+    (global.fetch as jest.Mock).mockImplementation(
+      async (url: string, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          return createReplyResponse.promise;
+        }
+
+        if (url === "/api/tribes/matematica-pro/messages/message-1/replies") {
+          getRepliesCallCount += 1;
+
+          if (getRepliesCallCount === 1) {
+            return {
+              json: async () => ({
+                message: failedLoadMessage,
+              }),
+              ok: false,
+              statusText: "Server Error",
+            };
+          }
+
+          return {
+            json: async () => ({
+              replies: [existingReply],
+            }),
+            ok: true,
+            statusText: "OK",
+          };
+        }
+
+        throw new Error("Unexpected request");
+      }
+    );
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithDeferredReplies}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
+    );
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(failedLoadMessage);
+    });
+
+    const replyInput = screen.getByRole("textbox", {
+      name: "Escribir una respuesta",
+    });
+
+    await user.type(replyInput, "Excelente clase");
+    await user.keyboard("{Enter}");
+
+    await waitFor(() => {
+      expect(getRepliesCallCount).toBe(2);
+    });
+
+    await act(async () => {
+      createReplyResponse.resolve({
+        json: async () => ({
+          reply: createdReply,
+          message: "Respuesta creado.",
+        }),
+        ok: true,
+        statusText: "Created",
+      } as Response);
+    });
+
+    const repliesSection = screen.getByRole("region", { name: "Respuestas" });
+
+    expect(
+      await within(repliesSection).findByText("Respuesta anterior")
+    ).toBeInTheDocument();
+    expect(within(repliesSection).getByText("Excelente clase")).toBeInTheDocument();
   });
 
   it("shows a reply optimistically before the create reply request resolves", async () => {

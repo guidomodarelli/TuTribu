@@ -1,8 +1,11 @@
 import type {
   TribeRoundResult,
+  TribeRoundRepliesResult,
   TribeRoundSharedDataResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
+import { TRIBE_ROUND_PAGE_SIZE } from "@/src/modules/messages/constants/message-round";
 import type {
+  ListMessageRepliesQuery,
   ListTribeRoundQuery,
   ListTribeRoundSharedDataQuery,
   MessageRoundReadRepository,
@@ -31,10 +34,27 @@ function mergeTribeRoundWithViewerState({
     channels: sharedData.channels,
     messages: sharedData.messages.map((message) => ({
       ...message,
+      hasLoadedReplies: false,
       likedByViewer: likedMessageIds.has(message.id),
+      replies: [],
     })),
+    pagination: sharedData.pagination,
     viewerPermissions: viewerState.viewerPermissions,
   };
+}
+
+function normalizePage(page: number | undefined): number {
+  if (!Number.isInteger(page) || !page || page < 1) {
+    return 1;
+  }
+
+  return page;
+}
+
+function normalizeChannelSlug(channelSlug: string | null | undefined): string | null {
+  const normalizedChannelSlug = channelSlug?.trim() ?? "";
+
+  return normalizedChannelSlug.length > 0 ? normalizedChannelSlug : null;
 }
 
 export function listTribeRound({
@@ -43,6 +63,8 @@ export function listTribeRound({
 }: ListTribeRoundDependencies) {
   return async (query: ListTribeRoundQuery): Promise<TribeRoundResult> => {
     const normalizedQuery = {
+      channelSlug: normalizeChannelSlug(query.channelSlug),
+      page: normalizePage(query.page),
       tribeSlug: query.tribeSlug.trim(),
       viewerId: query.viewerId,
     };
@@ -60,5 +82,28 @@ export function listTribeRound({
       sharedData,
       viewerState,
     });
+  };
+}
+
+export function listMessageReplies({
+  messageRoundReadRepository,
+}: ListTribeRoundDependencies) {
+  return async (
+    query: ListMessageRepliesQuery
+  ): Promise<TribeRoundRepliesResult> => {
+    return messageRoundReadRepository.listRepliesByMessageId({
+      messageId: query.messageId,
+      tribeSlug: query.tribeSlug.trim(),
+      viewerId: query.viewerId,
+    });
+  };
+}
+
+export function createEmptyTribeRoundPagination(currentPage = 1) {
+  return {
+    currentPage,
+    hasNextPage: false,
+    hasPreviousPage: currentPage > 1,
+    pageSize: TRIBE_ROUND_PAGE_SIZE,
   };
 }

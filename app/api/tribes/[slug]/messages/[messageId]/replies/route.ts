@@ -12,16 +12,24 @@ const CREATE_REPLY_ROUTE_FIELD = {
 const CREATE_REPLY_ROUTE_LOG = {
   createFailureMessage: "Message reply creation failed",
   feature: "messages",
+  listFailureMessage: "Message replies listing failed",
   operation: "create-message-reply",
+  readOperation: "list-message-replies",
 } as const;
 
 const CREATE_REPLY_ROUTE_RESPONSE = {
   forbiddenMessage: "No tenes permisos para responder esta mensaje.",
+  forbiddenReadMessage: "No tenes permisos para ver las respuestas de este mensaje.",
   invalidContentMessage: "Escribi una respuesta antes de enviarlo.",
+  loadUnexpectedMessage: "No pudimos cargar las respuestas. Intentalo de nuevo.",
   notFoundMessage: "No pudimos encontrar el mensaje.",
   successMessage: "Respuesta creado.",
   unexpectedMessage: "No pudimos crear la respuesta. Intentalo de nuevo.",
   unauthorizedMessage: "Inicia sesion para responder.",
+} as const;
+
+const LIST_MESSAGE_REPLIES_STATUS = {
+  found: "found",
 } as const;
 
 const HTTP_STATUS = {
@@ -29,6 +37,7 @@ const HTTP_STATUS = {
   created: 201,
   forbidden: 403,
   notFound: 404,
+  ok: 200,
   serverError: 500,
   unauthorized: 401,
 } as const;
@@ -45,6 +54,79 @@ function readContentFromBody(body: unknown): string {
   const content = (body as Record<string, unknown>)[CREATE_REPLY_ROUTE_FIELD.content];
 
   return typeof content === "string" ? content : "";
+}
+
+export async function GET(
+  request: Request,
+  context: {
+    params: Promise<{
+      messageId: string;
+      slug: string;
+    }>;
+  }
+) {
+  const { messageId, slug } = await context.params;
+  const { requestId } = resolveRequestContext(request.headers);
+  const logger = createServerLogger({
+    feature: CREATE_REPLY_ROUTE_LOG.feature,
+    operation: CREATE_REPLY_ROUTE_LOG.readOperation,
+    requestId,
+  });
+  const modules = await createRequestModules();
+  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
+
+  if (!authenticatedMember) {
+    return createJsonResponse(
+      { message: CREATE_REPLY_ROUTE_RESPONSE.unauthorizedMessage },
+      HTTP_STATUS.unauthorized
+    );
+  }
+
+  if (!isUuidRouteParam(messageId)) {
+    return createJsonResponse(
+      { message: CREATE_REPLY_ROUTE_RESPONSE.notFoundMessage },
+      HTTP_STATUS.notFound
+    );
+  }
+
+  try {
+    const result = await modules.messages.useCases.listMessageReplies({
+      messageId,
+      tribeSlug: slug,
+      viewerId: authenticatedMember.id,
+    });
+
+    switch (result.status) {
+      case LIST_MESSAGE_REPLIES_STATUS.found:
+        return createJsonResponse({ replies: result.replies }, HTTP_STATUS.ok);
+      case MESSAGE_MUTATION_STATUS.notFound:
+        return createJsonResponse(
+          { message: CREATE_REPLY_ROUTE_RESPONSE.notFoundMessage },
+          HTTP_STATUS.notFound
+        );
+      case MESSAGE_MUTATION_STATUS.forbidden:
+      default:
+        return createJsonResponse(
+          { message: CREATE_REPLY_ROUTE_RESPONSE.forbiddenReadMessage },
+          HTTP_STATUS.forbidden
+        );
+    }
+  } catch (error) {
+    logger.error({
+      message: CREATE_REPLY_ROUTE_LOG.listFailureMessage,
+      error,
+      metadata: {
+        messageId,
+        slug,
+        viewerId: authenticatedMember.id,
+      },
+    });
+
+    return createJsonResponse(
+      { message: CREATE_REPLY_ROUTE_RESPONSE.loadUnexpectedMessage },
+      HTTP_STATUS.serverError
+    );
+  }
 }
 
 export async function POST(

@@ -1,6 +1,9 @@
 import { createTribeMessage } from "@/src/modules/messages/application/use-cases/create-tribe-message-use-case";
 import { createMessageReply } from "@/src/modules/messages/application/use-cases/create-message-reply-use-case";
-import { listTribeRound } from "@/src/modules/messages/application/use-cases/list-tribe-round-use-case";
+import {
+  listMessageReplies,
+  listTribeRound,
+} from "@/src/modules/messages/application/use-cases/list-tribe-round-use-case";
 import {
   createTribeChannel,
   deleteTribeChannel,
@@ -20,6 +23,7 @@ import type {
 } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type {
   TribeRoundResult,
+  TribeRoundRepliesResult,
   TribeRoundSharedDataResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
 import type {
@@ -38,6 +42,7 @@ import type { MessageReplyRepository } from "@/src/modules/messages/domain/repos
 import type { TribeChannelRepository } from "@/src/modules/messages/domain/repositories/tribe-channel-repository";
 import type { MessageCreationRepository } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type {
+  ListMessageRepliesQuery,
   ListTribeRoundQuery,
   ListTribeRoundSharedDataQuery,
   MessageRoundReadRepository,
@@ -72,6 +77,9 @@ type MessagesModule = {
       command: CreateMessageReplyCommand
     ) => Promise<MessageReplyCreationResult>;
     listTribeRound: (query: ListTribeRoundQuery) => Promise<TribeRoundResult>;
+    listMessageReplies: (
+      query: ListMessageRepliesQuery
+    ) => Promise<TribeRoundRepliesResult>;
     listTribeChannels: (
       query: ListTribeRoundQuery
     ) => Promise<TribeChannelListResult>;
@@ -104,6 +112,9 @@ export function buildMessagesModule({
       createMessageReply: createMessageReply({ messageReplyRepository }),
       listTribeRound: listTribeRound({
         listCachedTribeRoundSharedData,
+        messageRoundReadRepository,
+      }),
+      listMessageReplies: listMessageReplies({
         messageRoundReadRepository,
       }),
       listTribeChannels: listTribeChannels({

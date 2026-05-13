@@ -32,6 +32,12 @@ describe("listTribeRound", () => {
           title: "Bienvenida",
         },
       ],
+      pagination: {
+        currentPage: 2,
+        hasNextPage: true,
+        hasPreviousPage: true,
+        pageSize: 15,
+      },
     }));
     const listViewerStateByTribeSlug = jest.fn(async () => ({
       likedMessageIds: ["message-1"],
@@ -43,6 +49,7 @@ describe("listTribeRound", () => {
     }));
     const messageRoundReadRepository = {
       listByTribeSlug: jest.fn(),
+      listRepliesByMessageId: jest.fn(),
       listSharedDataByTribeSlug,
       listViewerStateByTribeSlug,
     };
@@ -51,6 +58,8 @@ describe("listTribeRound", () => {
     await expect(
       execute({
         tribeSlug: "matematica-pro",
+        channelSlug: "ronda",
+        page: 2,
         viewerId: "member-1",
       })
     ).resolves.toEqual({
@@ -64,16 +73,28 @@ describe("listTribeRound", () => {
       messages: [
         expect.objectContaining({
           id: "message-1",
+          hasLoadedReplies: false,
           likedByViewer: true,
           likeCount: 1,
+          replies: [],
         }),
       ],
+      pagination: {
+        currentPage: 2,
+        hasNextPage: true,
+        hasPreviousPage: true,
+        pageSize: 15,
+      },
     });
     expect(listSharedDataByTribeSlug).toHaveBeenCalledWith({
+      channelSlug: "ronda",
+      page: 2,
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
     expect(listViewerStateByTribeSlug).toHaveBeenCalledWith({
+      channelSlug: "ronda",
+      page: 2,
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
@@ -84,10 +105,17 @@ describe("listTribeRound", () => {
     const execute = listTribeRound({
       messageRoundReadRepository: {
         listByTribeSlug: jest.fn(),
+        listRepliesByMessageId: jest.fn(),
         listSharedDataByTribeSlug: jest.fn(async () => ({
           activeChannelId: null,
           channels: [channel],
           messages: [],
+          pagination: {
+            currentPage: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+            pageSize: 15,
+          },
         })),
         listViewerStateByTribeSlug: jest.fn(async () => ({
           likedMessageIds: [],
@@ -114,6 +142,12 @@ describe("listTribeRound", () => {
         canReact: false,
       },
       messages: [],
+      pagination: {
+        currentPage: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        pageSize: 15,
+      },
     });
   });
 
@@ -131,11 +165,18 @@ describe("listTribeRound", () => {
       activeChannelId: null,
       channels: [channel],
       messages: [],
+      pagination: {
+        currentPage: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        pageSize: 15,
+      },
     }));
     const execute = listTribeRound({
       listCachedTribeRoundSharedData,
       messageRoundReadRepository: {
         listByTribeSlug: jest.fn(),
+        listRepliesByMessageId: jest.fn(),
         listSharedDataByTribeSlug,
         listViewerStateByTribeSlug,
       },
@@ -155,14 +196,24 @@ describe("listTribeRound", () => {
         canReact: true,
       },
       messages: [],
+      pagination: {
+        currentPage: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        pageSize: 15,
+      },
     });
 
     expect(listCachedTribeRoundSharedData).toHaveBeenCalledWith({
+      channelSlug: null,
+      page: 1,
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
     expect(listSharedDataByTribeSlug).not.toHaveBeenCalled();
     expect(listViewerStateByTribeSlug).toHaveBeenCalledWith({
+      channelSlug: null,
+      page: 1,
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
