@@ -64,6 +64,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 const ibmPlexMono = IBM_Plex_Mono({
+  preload: false,
   variable: "--font-ibm-plex-mono",
   subsets: ["latin"],
   weight: ["400", "500"],

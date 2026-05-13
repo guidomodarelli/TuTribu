@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import type {
+  CSSProperties,
   FormEvent,
   MouseEvent,
 } from "react";
@@ -16,8 +17,12 @@ import {
   ChevronRightIcon,
   ChevronDownIcon,
   HeartIcon,
+  ListPlusIcon,
+  MoreHorizontalIcon,
   PinIcon,
+  TrashIcon,
   SendIcon,
+  XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,6 +66,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type {
   TribeRoundReplyResult,
@@ -78,6 +84,8 @@ const TRIBE_ROUND_ROUTE = {
   repliesSegment: "/replies",
   likeSegment: "/like",
   pinSegment: "/pin",
+  pollSegment: "/poll",
+  pollVotesSegment: "/votes",
   messagesBaseSegment: "/messages",
   messagesSegment: "/messages/",
 } as const;
@@ -105,6 +113,20 @@ const TRIBE_ROUND_ENDPOINT = {
     TRIBE_ROUND_ROUTE.apiTribes +
     tribeSlug +
     TRIBE_ROUND_ROUTE.messagesBaseSegment,
+  poll: (tribeSlug: string, messageId: string) =>
+    TRIBE_ROUND_ROUTE.apiTribes +
+    tribeSlug +
+    TRIBE_ROUND_ROUTE.messagesSegment +
+    messageId +
+    TRIBE_ROUND_ROUTE.pollSegment,
+  pollVotes: (tribeSlug: string, messageId: string) =>
+    TRIBE_ROUND_ENDPOINT.poll(tribeSlug, messageId) +
+    TRIBE_ROUND_ROUTE.pollVotesSegment,
+  messageItem: (tribeSlug: string, messageId: string) =>
+    TRIBE_ROUND_ROUTE.apiTribes +
+    tribeSlug +
+    TRIBE_ROUND_ROUTE.messagesSegment +
+    messageId,
 } as const;
 
 const TRIBE_ROUND_COPY = {
@@ -121,6 +143,10 @@ const TRIBE_ROUND_COPY = {
   messageDetailsContentLabel: "Contenido del mensaje",
   messageContentShowLess: "Ver menos",
   messageContentShowMore: "Ver más",
+  messageDeleteButton: "Eliminar mensaje",
+  messageDeleteError: "No pudimos eliminar el mensaje.",
+  messageDeleteSuccess: "Mensaje eliminado.",
+  messageMoreActionsAriaLabel: "Acciones del mensaje",
   emptyDescription:
     "Todavía no hay mensajes. Las novedades, preguntas y recursos van a aparecer acá.",
   emptyTitle: "Compartí el primer mensaje de la ronda",
@@ -144,6 +170,7 @@ const TRIBE_ROUND_COPY = {
   messageComposerDialogTitle: "Crear mensaje",
   messageComposerMissingChannel: "Seleccionar canal",
   messageComposerMissingContent: "Publicar el contenido",
+  messageComposerMissingPoll: "Completar la encuesta",
   messageComposerMissingTitle: "Completar título",
   messageComposerRequirementsTitle: "Falta completar:",
   messageCreatedTooltipPrefix: "Mensaje creado:",
@@ -151,6 +178,20 @@ const TRIBE_ROUND_COPY = {
   messageComposerTitleLabel: "Título del mensaje",
   messageComposerTitlePlaceholder: "Título del mensaje",
   messagePlaceholder: "Contá una novedad, hacé una pregunta o compartí un recurso",
+  pollAddButton: "Agregar encuesta",
+  pollAddOptionButton: "Agregar opción",
+  pollAllowMultipleVotesLabel: "Permitir varias opciones",
+  pollOptionPlaceholder: "Opción",
+  pollQuestionLabel: "Pregunta de la encuesta",
+  pollQuestionPlaceholder: "Pregunta de la encuesta",
+  pollRemoveButton: "Quitar encuesta",
+  pollRemoveOptionButton: "Quitar opción",
+  pollSubmitButton: "Votar",
+  pollSubmitError: "No pudimos registrar tu voto.",
+  pollSubmitSuccess: "Voto registrado.",
+  pollToggleMultipleVotesLabel: "Voto múltiple",
+  pollVotePluralLabel: "votos",
+  pollVoteSingularLabel: "voto",
   roleLabel: {
     guardian: "Guardián",
     leader: "Líder",
@@ -175,6 +216,7 @@ const TRIBE_ROUND_FORM = {
   ghostVariant: "ghost",
   iconSize: "icon",
   jsonContentType: "application/json",
+  deleteMethod: "DELETE",
   method: "POST",
   outlineVariant: "outline",
   submitType: "submit",
@@ -208,6 +250,16 @@ const TRIBE_ROUND_LIMITS = {
 
 const TRIBE_ROUND_OPTIMISTIC = {
   replyIdPrefix: "optimistic-reply-",
+} as const;
+
+const TRIBE_ROUND_POLL = {
+  draftKeyPrefix: "poll-option-",
+  initialOptionCount: 3,
+  minimumOptionCount: 2,
+  multipleInputType: "checkbox",
+  percentageStyleProperty: "--poll-result",
+  percentageSuffix: "%",
+  singleInputType: "radio",
 } as const;
 
 const TRIBE_ROUND_AUTHOR_ROLE = {
@@ -259,6 +311,7 @@ const MESSAGE_FULL_DATE_TIME_FORMATTER = new Intl.DateTimeFormat(
   {
     dateStyle: TRIBE_ROUND_FORMAT.dateStyle,
     timeStyle: TRIBE_ROUND_FORMAT.timeStyle,
+    timeZone: BUENOS_AIRES_TIME_ZONE,
   }
 );
 const CURRENT_YEAR_MESSAGE_DATE_FORMATTER = new Intl.DateTimeFormat(
@@ -266,12 +319,21 @@ const CURRENT_YEAR_MESSAGE_DATE_FORMATTER = new Intl.DateTimeFormat(
   {
     day: TRIBE_ROUND_FORMAT.day,
     month: TRIBE_ROUND_FORMAT.month,
+    timeZone: BUENOS_AIRES_TIME_ZONE,
   }
 );
 const PAST_YEAR_MESSAGE_DATE_FORMATTER = new Intl.DateTimeFormat(
   TRIBE_ROUND_FORMAT.locale,
   {
     month: TRIBE_ROUND_FORMAT.month,
+    timeZone: BUENOS_AIRES_TIME_ZONE,
+    year: TRIBE_ROUND_FORMAT.year,
+  }
+);
+const MESSAGE_YEAR_FORMATTER = new Intl.DateTimeFormat(
+  TRIBE_ROUND_FORMAT.locale,
+  {
+    timeZone: BUENOS_AIRES_TIME_ZONE,
     year: TRIBE_ROUND_FORMAT.year,
   }
 );
@@ -289,6 +351,11 @@ type ApiErrorResponse = {
 type CreateMessageResponse = {
   message?: string;
   tribeMessage?: TribeRoundMessageResult;
+};
+
+type MessagePollResponse = {
+  message?: string;
+  poll?: TribeRoundMessageResult["poll"] | null;
 };
 
 type CreateReplyResponse = {
@@ -399,8 +466,9 @@ async function readApiErrorMessage(response: Response): Promise<string | null> {
 
 async function submitJsonRequest<ResponseBody>(
   url: string,
-  body?: Record<string, string>,
-  signal?: AbortSignal
+  body?: Record<string, unknown>,
+  signal?: AbortSignal,
+  method: string = TRIBE_ROUND_FORM.method
 ): Promise<ResponseBody> {
   const response = await fetch(url, {
     body: body ? JSON.stringify(body) : undefined,
@@ -408,7 +476,7 @@ async function submitJsonRequest<ResponseBody>(
       [TRIBE_ROUND_FORM.contentTypeHeader]:
         TRIBE_ROUND_FORM.jsonContentType,
     },
-    method: TRIBE_ROUND_FORM.method,
+    method,
     signal,
   });
 
@@ -450,7 +518,8 @@ function formatMessageSummaryDate(dateTime: string): string {
   const messageDate = new Date(dateTime);
   const currentDate = new Date();
   const formatter =
-    messageDate.getFullYear() === currentDate.getFullYear()
+    MESSAGE_YEAR_FORMATTER.format(messageDate) ===
+    MESSAGE_YEAR_FORMATTER.format(currentDate)
       ? CURRENT_YEAR_MESSAGE_DATE_FORMATTER
       : PAST_YEAR_MESSAGE_DATE_FORMATTER;
 
@@ -463,6 +532,15 @@ function formatMessageCreatedTooltip(dateTime: string): string {
   return [
     TRIBE_ROUND_COPY.messageCreatedTooltipPrefix,
     formatMessageFullDateTime(dateTime),
+  ].join(TRIBE_ROUND_FORMAT.standardSpace);
+}
+
+function formatPollVoteCount(voteCount: number): string {
+  return [
+    String(voteCount),
+    voteCount === 1
+      ? TRIBE_ROUND_COPY.pollVoteSingularLabel
+      : TRIBE_ROUND_COPY.pollVotePluralLabel,
   ].join(TRIBE_ROUND_FORMAT.standardSpace);
 }
 
@@ -489,6 +567,11 @@ function useRelativeTimeElementDefinition() {
 function getMissingMessageRequirements(input: {
   channelId: string;
   content: string;
+  poll?: {
+    enabled: boolean;
+    options: string[];
+    question: string;
+  };
   title: string;
 }): string[] {
   const missingRequirements: string[] = [];
@@ -503,6 +586,17 @@ function getMissingMessageRequirements(input: {
 
   if (!input.channelId) {
     missingRequirements.push(TRIBE_ROUND_COPY.messageComposerMissingChannel);
+  }
+
+  if (
+    input.poll?.enabled &&
+    (
+      !input.poll.question.trim() ||
+      input.poll.options.filter((option) => option.trim()).length <
+        TRIBE_ROUND_POLL.minimumOptionCount
+    )
+  ) {
+    missingRequirements.push(TRIBE_ROUND_COPY.messageComposerMissingPoll);
   }
 
   return missingRequirements;
@@ -776,6 +870,15 @@ function TribeRoundContent({
   const [isMessageComposerOpen, setIsMessageComposerOpen] = useState(false);
   const [messageTitle, setMessageTitle] = useState("");
   const [messageContent, setMessageContent] = useState("");
+  const [isPollComposerEnabled, setIsPollComposerEnabled] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState<string[]>(
+    Array.from({ length: TRIBE_ROUND_POLL.initialOptionCount }, () => "")
+  );
+  const [pollAllowsMultipleVotes, setPollAllowsMultipleVotes] = useState(false);
+  const [selectedPollOptionIds, setSelectedPollOptionIds] = useState<
+    Record<string, string[] | undefined>
+  >({});
   const [selectedChannelId, setSelectedChannelId] = useState("");
   const [messageComposerErrors, setMessageComposerErrors] = useState<string[]>([]);
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
@@ -907,6 +1010,12 @@ function TribeRoundContent({
   const resetMessageComposer = () => {
     setMessageTitle("");
     setMessageContent("");
+    setIsPollComposerEnabled(false);
+    setPollQuestion("");
+    setPollOptions(
+      Array.from({ length: TRIBE_ROUND_POLL.initialOptionCount }, () => "")
+    );
+    setPollAllowsMultipleVotes(false);
     setSelectedChannelId("");
     setMessageComposerErrors([]);
   };
@@ -926,6 +1035,11 @@ function TribeRoundContent({
     const missingRequirements = getMissingMessageRequirements({
       channelId: selectedChannelId,
       content,
+      poll: {
+        enabled: isPollComposerEnabled,
+        options: pollOptions,
+        question: pollQuestion,
+      },
       title,
     });
 
@@ -946,6 +1060,17 @@ function TribeRoundContent({
         {
           channelId: selectedChannelId,
           content,
+          ...(isPollComposerEnabled
+            ? {
+                poll: {
+                  allowMultipleVotes: pollAllowsMultipleVotes,
+                  options: pollOptions
+                    .map((option) => option.trim())
+                    .filter(Boolean),
+                  question: pollQuestion.trim(),
+                },
+              }
+            : {}),
           title,
         }
       );
@@ -1479,6 +1604,109 @@ function TribeRoundContent({
     );
   };
 
+  const updateMessagePoll = (
+    messageId: string,
+    poll: TribeRoundMessageResult["poll"] | null
+  ) => {
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === messageId
+          ? {
+              ...message,
+              poll,
+            }
+          : message
+      )
+    );
+  };
+
+  const handlePollOptionSelection = ({
+    allowMultipleVotes,
+    messageId,
+    optionId,
+  }: {
+    allowMultipleVotes: boolean;
+    messageId: string;
+    optionId: string;
+  }) => {
+    setSelectedPollOptionIds((currentSelections) => {
+      const currentOptionIds = currentSelections[messageId] ?? [];
+
+      if (!allowMultipleVotes) {
+        return {
+          ...currentSelections,
+          [messageId]: [optionId],
+        };
+      }
+
+      return {
+        ...currentSelections,
+        [messageId]: currentOptionIds.includes(optionId)
+          ? currentOptionIds.filter((currentOptionId) => currentOptionId !== optionId)
+          : [...currentOptionIds, optionId],
+      };
+    });
+  };
+
+  const handleSubmitPollVote = async (message: TribeRoundMessageResult) => {
+    const optionIds = selectedPollOptionIds[message.id] ?? [];
+
+    if (optionIds.length === 0) {
+      toast.warning(TRIBE_ROUND_COPY.pollSubmitButton);
+      return;
+    }
+
+    setPendingActionId(message.id);
+
+    try {
+      const response = await submitJsonRequest<MessagePollResponse>(
+        TRIBE_ROUND_ENDPOINT.pollVotes(tribeSlug, message.id),
+        { optionIds }
+      );
+
+      if (!response.poll) {
+        throw new Error(TRIBE_ROUND_COPY.pollSubmitError);
+      }
+
+      updateMessagePoll(message.id, response.poll);
+      toast.success(response.message ?? TRIBE_ROUND_COPY.pollSubmitSuccess);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : TRIBE_ROUND_COPY.pollSubmitError
+      );
+    } finally {
+      setPendingActionId(null);
+    }
+  };
+
+  const handleDeleteMessage = async (message: TribeRoundMessageResult) => {
+    setPendingActionId(message.id);
+
+    try {
+      const response = await submitJsonRequest<ApiErrorResponse>(
+        TRIBE_ROUND_ENDPOINT.messageItem(tribeSlug, message.id),
+        undefined,
+        undefined,
+        TRIBE_ROUND_FORM.deleteMethod
+      );
+
+      setMessages((currentMessages) =>
+        currentMessages.filter((currentMessage) => currentMessage.id !== message.id)
+      );
+      if (selectedMessageId === message.id) {
+        setIsMessageDetailsOpen(false);
+        setSelectedMessageId(null);
+      }
+      toast.success(response.message ?? TRIBE_ROUND_COPY.messageDeleteSuccess);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : TRIBE_ROUND_COPY.messageDeleteError
+      );
+    } finally {
+      setPendingActionId(null);
+    }
+  };
+
   const openMessageDetails = (messageId: string) => {
     setExpandedMessageIds((currentExpandedMessageIds) => ({
       ...currentExpandedMessageIds,
@@ -1572,6 +1800,109 @@ function TribeRoundContent({
     );
   };
 
+  const renderMessagePoll = (
+    message: TribeRoundMessageResult,
+    shouldStopDetailsOpening = false
+  ) => {
+    const poll = message.poll;
+
+    if (!poll) {
+      return null;
+    }
+
+    const selectedOptionIds =
+      selectedPollOptionIds[message.id] ??
+      poll.options
+        .filter((option) => option.selectedByViewer)
+        .map((option) => option.id);
+    const shouldShowResults = poll.viewerHasVoted;
+
+    return (
+      <section
+        aria-label={poll.question}
+        className={styles.TribeRound__poll}
+        onClick={(event) => {
+          if (shouldStopDetailsOpening) {
+            stopMessageDetailsOpening(event);
+          }
+        }}
+      >
+        <div className={styles.TribeRound__pollHeader}>
+          <div className={styles.TribeRound__pollHeading}>
+            <p className={styles.TribeRound__pollQuestion}>{poll.question}</p>
+            <span className={styles.TribeRound__pollMode}>
+              {poll.allowMultipleVotes
+                ? TRIBE_ROUND_COPY.pollToggleMultipleVotesLabel
+                : TRIBE_ROUND_COPY.pollSubmitButton}
+            </span>
+          </div>
+        </div>
+        <div className={styles.TribeRound__pollOptions}>
+          {poll.options.map((option) => {
+            const isSelected = selectedOptionIds.includes(option.id);
+
+            return (
+              <label
+                className={styles.TribeRound__pollOption}
+                key={option.id}
+              >
+                <input
+                  checked={isSelected}
+                  disabled={isBusy}
+                  name={TRIBE_ROUND_ROUTE.pollSegment + poll.id}
+                  onChange={() => {
+                    handlePollOptionSelection({
+                      allowMultipleVotes: poll.allowMultipleVotes,
+                      messageId: message.id,
+                      optionId: option.id,
+                    });
+                  }}
+                  type={
+                    poll.allowMultipleVotes
+                      ? TRIBE_ROUND_POLL.multipleInputType
+                      : TRIBE_ROUND_POLL.singleInputType
+                  }
+                />
+                <span className={styles.TribeRound__pollOptionText}>
+                  {option.text}
+                </span>
+                {shouldShowResults ? (
+                  <span className={styles.TribeRound__pollResult}>
+                    {option.percentage}% · {option.voteCount}
+                  </span>
+                ) : null}
+                {shouldShowResults ? (
+                  <span
+                    className={styles.TribeRound__pollBar}
+                    style={{
+                      [TRIBE_ROUND_POLL.percentageStyleProperty]:
+                        String(option.percentage) + TRIBE_ROUND_POLL.percentageSuffix,
+                    } as CSSProperties}
+                  />
+                ) : null}
+              </label>
+            );
+          })}
+        </div>
+        <p className={styles.TribeRound__pollHint}>
+          {formatPollVoteCount(poll.totalVoteCount)}
+        </p>
+        <div className={styles.TribeRound__pollActions}>
+          <Button
+            disabled={isBusy || selectedOptionIds.length === 0}
+            onClick={() => {
+              void handleSubmitPollVote(message);
+            }}
+            type={TRIBE_ROUND_FORM.buttonType}
+            variant={TRIBE_ROUND_FORM.outlineVariant}
+          >
+            {TRIBE_ROUND_COPY.pollSubmitButton}
+          </Button>
+        </div>
+      </section>
+    );
+  };
+
   const renderMessagePinControl = (
     message: TribeRoundMessageResult,
     shouldStopDetailsOpening = false
@@ -1604,6 +1935,56 @@ function TribeRoundContent({
       >
         <PinIcon />
       </Button>
+    );
+  };
+
+  const renderMessageActionsMenu = (
+    message: TribeRoundMessageResult,
+    shouldStopDetailsOpening = false
+  ) => {
+    if (!message.permissions?.canDelete) {
+      return null;
+    }
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            aria-label={TRIBE_ROUND_COPY.messageMoreActionsAriaLabel}
+            className={styles.TribeRound__messageMoreButton}
+            onClick={(event) => {
+              if (shouldStopDetailsOpening) {
+                stopMessageDetailsOpening(event);
+              }
+            }}
+            size={TRIBE_ROUND_FORM.iconSize}
+            type={TRIBE_ROUND_FORM.buttonType}
+            variant={TRIBE_ROUND_FORM.ghostVariant}
+          >
+            <MoreHorizontalIcon />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}
+          className={styles.TribeRound__messageMenuContent}
+        >
+          <DropdownMenuItem
+            className={styles.TribeRound__messageMenuItem}
+            disabled={isBusy}
+            onClick={(event) => {
+              if (shouldStopDetailsOpening) {
+                stopMessageDetailsOpening(event);
+              }
+            }}
+            onSelect={() => {
+              void handleDeleteMessage(message);
+            }}
+          >
+            <TrashIcon />
+            {TRIBE_ROUND_COPY.messageDeleteButton}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   };
 
@@ -1680,103 +2061,234 @@ function TribeRoundContent({
               className={styles.TribeRound__composer}
               onSubmit={handleCreateMessage}
             >
-              <input
-                aria-describedby={
-                  hasMessageComposerErrors
-                    ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
-                    : undefined
-                }
-                aria-label={TRIBE_ROUND_COPY.messageComposerTitleLabel}
-                className={styles.TribeRound__titleInput}
-                disabled={isBusy}
-                onChange={(event) => {
-                  setMessageTitle(event.currentTarget.value);
-                  setMessageComposerErrors([]);
-                }}
-                placeholder={TRIBE_ROUND_COPY.messageComposerTitlePlaceholder}
-                value={messageTitle}
-              />
-              <textarea
-                aria-describedby={
-                  hasMessageComposerErrors
-                    ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
-                    : undefined
-                }
-                aria-label={TRIBE_ROUND_COPY.messageComposerLabel}
-                className={styles.TribeRound__textarea}
-                disabled={isBusy}
-                onChange={(event) => {
-                  setMessageContent(event.currentTarget.value);
-                  setMessageComposerErrors([]);
-                }}
-                placeholder={TRIBE_ROUND_COPY.messagePlaceholder}
-                value={messageContent}
-              />
-              <div className={styles.TribeRound__channelPicker}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      aria-label={TRIBE_ROUND_COPY.tribeChannelLabel}
-                      className={styles.TribeRound__channelTrigger}
-                      disabled={isBusy}
-                      type={TRIBE_ROUND_FORM.buttonType}
-                    >
-                      <span>
-                        {selectedChannel
-                          ? `${selectedChannel.emoji} ${selectedChannel.name}`
-                          : TRIBE_ROUND_COPY.tribeChannelSelect}
-                      </span>
-                      <ChevronDownIcon />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}>
-                    {round.channels.map((channel) => (
-                      <DropdownMenuItem
-                        key={channel.id}
-                        onSelect={() => {
-                          setSelectedChannelId(channel.id);
+              <div className={styles.TribeRound__composerBody}>
+                <input
+                  aria-describedby={
+                    hasMessageComposerErrors
+                      ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                      : undefined
+                  }
+                  aria-label={TRIBE_ROUND_COPY.messageComposerTitleLabel}
+                  className={styles.TribeRound__titleInput}
+                  disabled={isBusy}
+                  onChange={(event) => {
+                    setMessageTitle(event.currentTarget.value);
+                    setMessageComposerErrors([]);
+                  }}
+                  placeholder={TRIBE_ROUND_COPY.messageComposerTitlePlaceholder}
+                  value={messageTitle}
+                />
+                <textarea
+                  aria-describedby={
+                    hasMessageComposerErrors
+                      ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                      : undefined
+                  }
+                  aria-label={TRIBE_ROUND_COPY.messageComposerLabel}
+                  className={styles.TribeRound__textarea}
+                  disabled={isBusy}
+                  onChange={(event) => {
+                    setMessageContent(event.currentTarget.value);
+                    setMessageComposerErrors([]);
+                  }}
+                  placeholder={TRIBE_ROUND_COPY.messagePlaceholder}
+                  value={messageContent}
+                />
+                {isPollComposerEnabled ? (
+                  <section className={styles.TribeRound__pollComposer}>
+                  <div className={styles.TribeRound__pollComposerHeader}>
+                    <label className={styles.TribeRound__pollComposerLabel}>
+                      <span>{TRIBE_ROUND_COPY.pollQuestionLabel}</span>
+                      <input
+                        aria-describedby={
+                          hasMessageComposerErrors
+                            ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                            : undefined
+                        }
+                        className={styles.TribeRound__pollInput}
+                        disabled={isBusy}
+                        onChange={(event) => {
+                          setPollQuestion(event.currentTarget.value);
                           setMessageComposerErrors([]);
                         }}
+                        placeholder={TRIBE_ROUND_COPY.pollQuestionPlaceholder}
+                        value={pollQuestion}
+                      />
+                    </label>
+                    <Button
+                      disabled={isBusy}
+                      onClick={() => {
+                        setIsPollComposerEnabled(false);
+                      }}
+                      type={TRIBE_ROUND_FORM.buttonType}
+                      variant={TRIBE_ROUND_FORM.ghostVariant}
+                      aria-label={TRIBE_ROUND_COPY.pollRemoveButton}
+                      className={styles.TribeRound__pollComposerCloseButton}
+                    >
+                      <XIcon />
+                    </Button>
+                  </div>
+                  <div className={styles.TribeRound__pollComposerOptions}>
+                    {pollOptions.map((option, optionIndex) => (
+                      <label
+                        className={styles.TribeRound__pollComposerLabel}
+                        key={TRIBE_ROUND_POLL.draftKeyPrefix + String(optionIndex)}
                       >
-                        {channel.emoji} {channel.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              {hasMessageComposerErrors ? (
-                <div
-                  className={styles.TribeRound__composerError}
-                  id={TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId}
-                >
-                  <p className={styles.TribeRound__composerErrorTitle}>
-                    {TRIBE_ROUND_COPY.messageComposerRequirementsTitle}
-                  </p>
-                  <ul
-                    aria-label={
-                      TRIBE_ROUND_ATTRIBUTES.messageComposerRequirementsLabel
-                    }
-                    className={styles.TribeRound__composerErrorList}
-                  >
-                    {messageComposerErrors.map((messageComposerError) => (
-                      <li
-                        className={styles.TribeRound__composerErrorItem}
-                        key={messageComposerError}
-                      >
-                        <span
-                          aria-hidden={
-                            TRIBE_ROUND_ATTRIBUTES.missingRequirementBulletHidden
-                          }
-                          className={styles.TribeRound__composerErrorBullet}
-                        >
-                          {TRIBE_ROUND_SYMBOLS.missingRequirementBullet}
+                        <span>
+                          {TRIBE_ROUND_COPY.pollOptionPlaceholder}{" "}
+                          {optionIndex + 1}
                         </span>
-                        {messageComposerError}
-                      </li>
+                        <div className={styles.TribeRound__pollOptionDraft}>
+                          <input
+                            className={styles.TribeRound__pollInput}
+                            disabled={isBusy}
+                            onChange={(event) => {
+                              const nextValue = event.currentTarget.value;
+
+                              setPollOptions((currentOptions) =>
+                                currentOptions.map((currentOption, currentIndex) =>
+                                  currentIndex === optionIndex
+                                    ? nextValue
+                                    : currentOption
+                                )
+                              );
+                              setMessageComposerErrors([]);
+                            }}
+                            placeholder={TRIBE_ROUND_COPY.pollOptionPlaceholder}
+                            value={option}
+                          />
+                          {pollOptions.length > TRIBE_ROUND_POLL.minimumOptionCount ? (
+                            <Button
+                              aria-label={TRIBE_ROUND_COPY.pollRemoveOptionButton}
+                              className={styles.TribeRound__pollOptionRemoveButton}
+                              disabled={isBusy}
+                              onClick={() => {
+                                setPollOptions((currentOptions) =>
+                                  currentOptions.filter(
+                                    (_option, currentIndex) =>
+                                      currentIndex !== optionIndex
+                                  )
+                                );
+                              }}
+                              type={TRIBE_ROUND_FORM.buttonType}
+                              variant={TRIBE_ROUND_FORM.ghostVariant}
+                            >
+                              <TrashIcon />
+                            </Button>
+                          ) : null}
+                        </div>
+                      </label>
                     ))}
-                  </ul>
+                  </div>
+                  <div className={styles.TribeRound__pollComposerControls}>
+                    <Button
+                      className={styles.TribeRound__pollAddOptionButton}
+                      disabled={isBusy}
+                      onClick={() => {
+                        setPollOptions((currentOptions) => [
+                          ...currentOptions,
+                          "",
+                        ]);
+                      }}
+                      type={TRIBE_ROUND_FORM.buttonType}
+                      variant={TRIBE_ROUND_FORM.outlineVariant}
+                    >
+                      <ListPlusIcon />
+                      {TRIBE_ROUND_COPY.pollAddOptionButton}
+                    </Button>
+                    <label className={styles.TribeRound__pollMultipleToggle}>
+                      <input
+                        checked={pollAllowsMultipleVotes}
+                        disabled={isBusy}
+                        onChange={(event) => {
+                          setPollAllowsMultipleVotes(event.currentTarget.checked);
+                        }}
+                        type={TRIBE_ROUND_POLL.multipleInputType}
+                      />
+                      <span>{TRIBE_ROUND_COPY.pollAllowMultipleVotesLabel}</span>
+                    </label>
+                  </div>
+                  </section>
+                ) : (
+                  <Button
+                    className={styles.TribeRound__pollAddButton}
+                    disabled={isBusy}
+                    onClick={() => {
+                      setIsPollComposerEnabled(true);
+                    }}
+                    type={TRIBE_ROUND_FORM.buttonType}
+                    variant={TRIBE_ROUND_FORM.outlineVariant}
+                  >
+                    <ListPlusIcon />
+                    {TRIBE_ROUND_COPY.pollAddButton}
+                  </Button>
+                )}
+                <div className={styles.TribeRound__channelPicker}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        aria-label={TRIBE_ROUND_COPY.tribeChannelLabel}
+                        className={styles.TribeRound__channelTrigger}
+                        disabled={isBusy}
+                        type={TRIBE_ROUND_FORM.buttonType}
+                      >
+                        <span>
+                          {selectedChannel
+                            ? `${selectedChannel.emoji} ${selectedChannel.name}`
+                            : TRIBE_ROUND_COPY.tribeChannelSelect}
+                        </span>
+                        <ChevronDownIcon />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}>
+                      {round.channels.map((channel) => (
+                        <DropdownMenuItem
+                          key={channel.id}
+                          onSelect={() => {
+                            setSelectedChannelId(channel.id);
+                            setMessageComposerErrors([]);
+                          }}
+                        >
+                          {channel.emoji} {channel.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-              ) : null}
+                {hasMessageComposerErrors ? (
+                  <div
+                    className={styles.TribeRound__composerError}
+                    id={TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId}
+                  >
+                    <p className={styles.TribeRound__composerErrorTitle}>
+                      {TRIBE_ROUND_COPY.messageComposerRequirementsTitle}
+                    </p>
+                    <ul
+                      aria-label={
+                        TRIBE_ROUND_ATTRIBUTES.messageComposerRequirementsLabel
+                      }
+                      className={styles.TribeRound__composerErrorList}
+                    >
+                      {messageComposerErrors.map((messageComposerError) => (
+                        <li
+                          className={styles.TribeRound__composerErrorItem}
+                          key={messageComposerError}
+                        >
+                          <span
+                            aria-hidden={
+                              TRIBE_ROUND_ATTRIBUTES.missingRequirementBulletHidden
+                            }
+                            className={styles.TribeRound__composerErrorBullet}
+                          >
+                            {TRIBE_ROUND_SYMBOLS.missingRequirementBullet}
+                          </span>
+                          {messageComposerError}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
               <DialogFooter className={styles.TribeRound__composerFooter}>
                 <DialogClose asChild>
                   <Button
@@ -1872,6 +2384,7 @@ function TribeRoundContent({
                       {message.channel.emoji} {message.channel.name}
                     </span>
                     {renderMessagePinControl(message, true)}
+                    {renderMessageActionsMenu(message, true)}
                   </div>
                   <button
                     aria-label={`${TRIBE_ROUND_COPY.openMessageDetailsAriaLabelPrefix}: ${message.title || message.content}`}
@@ -1903,6 +2416,7 @@ function TribeRoundContent({
                       )}
                     </CardContent>
                   </button>
+                  {renderMessagePoll(message, true)}
 
                   <div className={styles.TribeRound__messageActions}>
                     <Button
@@ -2022,6 +2536,7 @@ function TribeRoundContent({
                     {selectedMessage.channel.emoji} {selectedMessage.channel.name}
                   </span>
                   {renderMessagePinControl(selectedMessage)}
+                  {renderMessageActionsMenu(selectedMessage)}
                 </div>
               </CardHeader>
               <CardContent className={styles.TribeRound__messageContent}>
@@ -2032,6 +2547,7 @@ function TribeRoundContent({
                 ) : null}
                 {renderMessageContent(selectedMessage)}
                 {renderMessageContentToggle(selectedMessage)}
+                {renderMessagePoll(selectedMessage)}
                 <div
                   className={`${styles.TribeRound__messageActions} ${styles["TribeRound__messageActions--dialog"]}`}
                 >

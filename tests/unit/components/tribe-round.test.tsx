@@ -306,6 +306,38 @@ const roundWithLongMessage = {
   ],
 };
 
+const roundWithPoll = {
+  ...round,
+  messages: [
+    {
+      ...round.messages[0],
+      poll: {
+        allowMultipleVotes: false,
+        id: "poll-1",
+        options: [
+          {
+            id: "option-1",
+            percentage: 0,
+            selectedByViewer: false,
+            text: "Álgebra",
+            voteCount: 0,
+          },
+          {
+            id: "option-2",
+            percentage: 0,
+            selectedByViewer: false,
+            text: "Geometría",
+            voteCount: 0,
+          },
+        ],
+        question: "¿Qué tema seguimos?",
+        totalVoteCount: 0,
+        viewerHasVoted: false,
+      },
+    },
+  ],
+};
+
 const paginatedRound = {
   ...round,
   activeChannelId: tribeChannels[1].id,
@@ -637,6 +669,147 @@ describe("TribeRound", () => {
     expect(screen.queryByRole("dialog", { name: "Crear mensaje" })).not.toBeInTheDocument();
     expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
     expect(screen.getByText("Nos vemos el viernes.")).toBeInTheDocument();
+  });
+
+  it("submits a poll draft with a new message", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Nos vemos el viernes."
+    );
+    await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Pregunta de la encuesta" }),
+      "¿Qué tema seguimos?"
+    );
+    const optionInputs = [
+      screen.getByRole("textbox", { name: "Opción 1" }),
+      screen.getByRole("textbox", { name: "Opción 2" }),
+    ];
+
+    await user.type(optionInputs[0], "Álgebra");
+    await user.type(optionInputs[1], "Geometría");
+    await user.click(screen.getByLabelText("Permitir varias opciones"));
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages",
+        expect.objectContaining({
+          body: JSON.stringify({
+            channelId: "channel-intro",
+            content: "Nos vemos el viernes.",
+            poll: {
+              allowMultipleVotes: true,
+              options: ["Álgebra", "Geometría"],
+              question: "¿Qué tema seguimos?",
+            },
+            title: "Nuevo encuentro",
+          }),
+          method: "POST",
+        })
+      );
+    });
+  });
+
+  it("shows three poll option fields when composing a survey", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByLabelText("Compartí algo en la ronda"));
+    await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
+
+    expect(screen.getByLabelText("Quitar encuesta")).toBeInTheDocument();
+    expect(screen.getAllByRole("textbox", { name: /Opción/ })).toHaveLength(3);
+    expect(screen.getByText("Opción 1")).toBeInTheDocument();
+    expect(screen.getByText("Opción 2")).toBeInTheDocument();
+    expect(screen.getByText("Opción 3")).toBeInTheDocument();
+  });
+
+  it("submits a poll vote and reveals percentages with counts", async () => {
+    const user = userEvent.setup();
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        message: "Voto registrado.",
+        poll: {
+          ...roundWithPoll.messages[0].poll,
+          options: [
+            {
+              id: "option-1",
+              percentage: 100,
+              selectedByViewer: true,
+              text: "Álgebra",
+              voteCount: 1,
+            },
+            {
+              id: "option-2",
+              percentage: 0,
+              selectedByViewer: false,
+              text: "Geometría",
+              voteCount: 0,
+            },
+          ],
+          totalVoteCount: 1,
+          viewerHasVoted: true,
+        },
+      }),
+      ok: true,
+      statusText: "OK",
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithPoll}
+      />
+    );
+
+    expect(screen.getByText("0 votos")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Editar encuesta" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cerrar encuesta" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reabrir encuesta" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Eliminar encuesta" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Álgebra"));
+    await user.click(screen.getAllByRole("button", { name: "Votar" })[0]);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/message-1/poll/votes",
+        expect.objectContaining({
+          body: JSON.stringify({
+            optionIds: ["option-1"],
+          }),
+          method: "POST",
+        })
+      );
+    });
+    expect(await screen.findByText("100% · 1")).toBeInTheDocument();
   });
 
   it("keeps a created message out of the visible list when another channel is active", async () => {
@@ -1334,6 +1507,37 @@ describe("TribeRound", () => {
     expect(
       screen.queryByRole("button", { name: "Pinear mensaje" })
     ).not.toBeInTheDocument();
+  });
+
+  it("renders message menu actions with a non-wrapping item class", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              permissions: {
+                canDelete: true,
+              },
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Acciones del mensaje" })
+    );
+
+    expect(
+      screen.getByRole("menuitem", { name: "Eliminar mensaje" })
+    ).toHaveClass("TribeRound__messageMenuItem");
+    expect(screen.getByRole("menu")).toHaveClass("TribeRound__messageMenuContent");
   });
 
   it("shows a warning when the pinned message limit is reached", async () => {

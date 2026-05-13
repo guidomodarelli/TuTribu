@@ -43,7 +43,9 @@ export function NotFoundSignInAction() {
       size={NOT_FOUND_UI.buttonSize}
       variant={NOT_FOUND_UI.outlineVariant}
     >
-      <Link href={ROUTES.auth.signIn}>Iniciar sesion</Link>
+      <Link href={ROUTES.auth.signIn} prefetch={false}>
+        Iniciar sesion
+      </Link>
     </Button>
   );
 }
@@ -84,7 +86,9 @@ export function NotFoundView({
       </p>
       <div className={styles.NotFoundPage__actions}>
         <Button asChild size={NOT_FOUND_UI.buttonSize}>
-          <Link href={ROUTES.home}>Volver al inicio</Link>
+          <Link href={ROUTES.home} prefetch={false}>
+            Volver al inicio
+          </Link>
         </Button>
         {sessionAction}
       </div>

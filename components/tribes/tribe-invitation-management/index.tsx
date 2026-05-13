@@ -5,6 +5,7 @@ import { ClipboardIcon, LinkIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import type { TribeInvitationListItemResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import styles from "./styles.module.scss";
 
@@ -44,6 +45,7 @@ const INVITATION_CREATED_AT_FORMATTER = new Intl.DateTimeFormat(
   {
     dateStyle: INVITATION_MANAGEMENT_REQUEST.dateStyle,
     timeStyle: INVITATION_MANAGEMENT_REQUEST.timeStyle,
+    timeZone: BUENOS_AIRES_TIME_ZONE,
   }
 );
 

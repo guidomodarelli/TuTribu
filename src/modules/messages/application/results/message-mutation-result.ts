@@ -1,5 +1,6 @@
 import type { MESSAGE_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
 import type {
+  MessagePollResult,
   TribeRoundReplyResult,
   TribeRoundMessageResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
@@ -14,6 +15,7 @@ export type MessageCreationResult =
         | typeof MESSAGE_MUTATION_STATUS.forbidden
         | typeof MESSAGE_MUTATION_STATUS.invalidChannel
         | typeof MESSAGE_MUTATION_STATUS.invalidContent
+        | typeof MESSAGE_MUTATION_STATUS.invalidPoll
         | typeof MESSAGE_MUTATION_STATUS.notFound;
     };
 
@@ -49,3 +51,22 @@ export type MessagePinToggleResult = {
     | typeof MESSAGE_MUTATION_STATUS.forbidden
     | typeof MESSAGE_MUTATION_STATUS.notFound;
 };
+
+export type MessageDeletionResult = {
+  status:
+    | typeof MESSAGE_MUTATION_STATUS.deleted
+    | typeof MESSAGE_MUTATION_STATUS.forbidden
+    | typeof MESSAGE_MUTATION_STATUS.notFound;
+};
+
+export type MessagePollMutationResult =
+  | {
+      poll: MessagePollResult;
+      status: typeof MESSAGE_MUTATION_STATUS.voted;
+    }
+  | {
+      status:
+        | typeof MESSAGE_MUTATION_STATUS.forbidden
+        | typeof MESSAGE_MUTATION_STATUS.invalidPoll
+        | typeof MESSAGE_MUTATION_STATUS.notFound;
+    };

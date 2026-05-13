@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import {
   CalendarDaysIcon,
   CheckIcon,
@@ -166,7 +166,7 @@ export function AppSidebar({
   memberTribes,
 }: AppSidebarProps) {
   const pathname = usePathname();
-  const { prefetch, push } = useRouter();
+  const { push } = useRouter();
   const isCreateTribeActive = pathname === ROUTES.tribes.create;
   const activeTribe = memberTribes.find((tribe) =>
     isSameOrNestedPath(pathname, ROUTES.tribes.bySlug(tribe.slug))
@@ -185,16 +185,6 @@ export function AppSidebar({
         : [],
     [activeTribe]
   );
-
-  useEffect(() => {
-    if (!activeTribe) {
-      return;
-    }
-
-    visibleTribeSectionNavigation.forEach((item) => {
-      prefetch(item.hrefBuilder(activeTribe.slug));
-    });
-  }, [activeTribe, prefetch, visibleTribeSectionNavigation]);
 
   return (
     <Sidebar

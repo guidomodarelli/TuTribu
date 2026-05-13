@@ -13,6 +13,21 @@ export const MESSAGE_REPLY_CONTENT = {
   minLength: 1,
 } as const;
 
+export const MESSAGE_POLL_QUESTION = {
+  maxLength: 160,
+  minLength: 1,
+} as const;
+
+export const MESSAGE_POLL_OPTION_TEXT = {
+  maxLength: 80,
+  minLength: 1,
+} as const;
+
+export const MESSAGE_POLL_OPTIONS = {
+  maxCount: 10,
+  minCount: 2,
+} as const;
+
 export const MESSAGE_AUTHOR_ROLE = {
   guardian: "guardian",
   leader: "leader",
@@ -29,21 +44,32 @@ export const MESSAGE_REACTION_TYPE = {
   like: "like",
 } as const;
 
+export const MESSAGE_POLL_STATUS = {
+  closed: "closed",
+  open: "open",
+} as const;
+
 export const PINNED_TRIBE_MESSAGES_LIMIT = 3;
 
 export const TRIBE_ROUND_PAGE_SIZE = 15;
 
 export const MESSAGE_MUTATION_STATUS = {
+  closed: "closed",
   created: "created",
+  deleted: "deleted",
   forbidden: "forbidden",
   invalidChannel: "invalid_channel",
   invalidContent: "invalid_content",
+  invalidPoll: "invalid_poll",
   liked: "liked",
   notFound: "not_found",
   pinLimitReached: "pin_limit_reached",
   pinned: "pinned",
+  reopened: "reopened",
   unliked: "unliked",
   unpinned: "unpinned",
+  updated: "updated",
+  voted: "voted",
 } as const;
 
 export const TRIBE_CHANNEL_ACCESS_SCOPE = {

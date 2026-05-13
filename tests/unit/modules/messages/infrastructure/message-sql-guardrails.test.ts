@@ -5,6 +5,17 @@ function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
+function readPolicyBlock(migration: string, policyName: string): string {
+  const policyStart = migration.indexOf(`CREATE POLICY "${policyName}"`);
+  const policyEnd = migration.indexOf(";", policyStart);
+
+  if (policyStart === -1 || policyEnd === -1) {
+    throw new Error(`Policy ${policyName} was not found in migration`);
+  }
+
+  return migration.slice(policyStart, policyEnd + 1);
+}
+
 describe("Message SQL guardrails", () => {
   const messagesMigrationPath =
     "database/migrations/20260426010000_create_tribe_messages_round.sql";
@@ -115,6 +126,54 @@ describe("Message SQL guardrails", () => {
       expect.arrayContaining([
         expect.objectContaining({
           tag: "20260512140000_create_message_pins",
+        }),
+      ])
+    );
+  });
+
+  it("restricts message poll management to authors, leaders, and guardians", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260513120000_create_message_polls.sql"
+    );
+    const pollPolicy = readPolicyBlock(
+      migration,
+      "Authors leaders and guardians can manage message polls"
+    );
+    const optionPolicy = readPolicyBlock(
+      migration,
+      "Authors leaders and guardians can manage message poll options"
+    );
+
+    expect(pollPolicy).toMatch(/public\.can_pin_tribe_messages\(tribe_id\)/);
+    expect(pollPolicy).toMatch(/messages\.author_id = public\.current_app_user_id\(\)/);
+    expect(pollPolicy).not.toMatch(/public\.is_active_tribe_member\(tribe_id\)/);
+    expect(optionPolicy).toMatch(/public\.can_pin_tribe_messages\(tribe_id\)/);
+    expect(optionPolicy).toMatch(/messages\.author_id = public\.current_app_user_id\(\)/);
+    expect(optionPolicy).not.toMatch(/public\.is_active_tribe_member\(tribe_id\)/);
+  });
+
+  it("allows deleting complete messages through author or staff RLS and keeps polls open", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260513130000_delete_messages_with_poll_blocks.sql"
+    );
+    const migrationJournal = JSON.parse(
+      readWorkspaceFile("database/migrations/meta/_journal.json")
+    ) as { entries: Array<{ tag: string }> };
+    const deletePolicy = readPolicyBlock(
+      migration,
+      "Authors leaders and guardians can delete tribe messages"
+    );
+
+    expect(migration).toContain("UPDATE public.message_polls");
+    expect(migration).toContain("WHERE status = 'closed'");
+    expect(deletePolicy).toContain("FOR DELETE");
+    expect(deletePolicy).toMatch(/author_id = public\.current_app_user_id\(\)/);
+    expect(deletePolicy).toMatch(/public\.is_active_tribe_member\(tribe_id\)/);
+    expect(deletePolicy).toMatch(/public\.can_pin_tribe_messages\(tribe_id\)/);
+    expect(migrationJournal.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "20260513130000_delete_messages_with_poll_blocks",
         }),
       ])
     );
