@@ -56,6 +56,7 @@ describe("PostgresMessageRoundRepository", () => {
           author_role: "leader",
           like_count: "2",
           liked_by_viewer: true,
+          message_pinned_at: "2026-04-26T13:00:00.000Z",
           reply_id: "reply-1",
           reply_content: "Gracias",
           reply_created_at: "2026-04-26T12:05:00.000Z",
@@ -64,6 +65,7 @@ describe("PostgresMessageRoundRepository", () => {
           reply_author_image: null,
           reply_author_role: "tribemate",
           viewer_membership_status: "active",
+          viewer_membership_role: "leader",
           },
         ],
       });
@@ -92,6 +94,7 @@ describe("PostgresMessageRoundRepository", () => {
         canReply: true,
         canCreateMessage: true,
         canReact: true,
+        canPinMessages: true,
       },
       messages: [
         {
@@ -129,13 +132,15 @@ describe("PostgresMessageRoundRepository", () => {
           createdAt: "2026-04-26T12:00:00.000Z",
           likedByViewer: true,
           likeCount: 2,
+          isPinned: true,
+          pinnedAt: "2026-04-26T13:00:00.000Z",
           title: "Anuncio inicial",
         },
       ],
     });
 
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
-      "order by messages.created_at desc, message_replies.created_at asc"
+      "order by message_pins.pinned_at desc nulls last, messages.created_at desc, message_replies.created_at asc"
     );
   });
 
@@ -162,6 +167,7 @@ describe("PostgresMessageRoundRepository", () => {
           author_role: null,
           like_count: "0",
           liked_by_viewer: false,
+          message_pinned_at: null,
           reply_id: null,
           reply_content: null,
           reply_created_at: null,
@@ -170,6 +176,7 @@ describe("PostgresMessageRoundRepository", () => {
           reply_author_image: null,
           reply_author_role: null,
           viewer_membership_status: "active",
+          viewer_membership_role: "tribemate",
           },
         ],
       });
@@ -198,6 +205,7 @@ describe("PostgresMessageRoundRepository", () => {
         canReply: true,
         canCreateMessage: true,
         canReact: true,
+        canPinMessages: false,
       },
       messages: [],
     });
@@ -226,6 +234,7 @@ describe("PostgresMessageRoundRepository", () => {
           author_role: "leader",
           like_count: "1",
           liked_by_viewer: true,
+          message_pinned_at: null,
           reply_id: "reply-1",
           reply_content: "Gracias",
           reply_created_at: "2026-04-26T12:05:00.000Z",
@@ -234,6 +243,7 @@ describe("PostgresMessageRoundRepository", () => {
           reply_author_image: null,
           reply_author_role: "tribemate",
           viewer_membership_status: "active",
+          viewer_membership_role: "tribemate",
           },
           {
           channel_access_scope: "tribemates",
@@ -252,6 +262,7 @@ describe("PostgresMessageRoundRepository", () => {
           author_role: "leader",
           like_count: "1",
           liked_by_viewer: true,
+          message_pinned_at: null,
           reply_id: "reply-2",
           reply_content: "Vamos",
           reply_created_at: "2026-04-26T12:06:00.000Z",
@@ -260,6 +271,7 @@ describe("PostgresMessageRoundRepository", () => {
           reply_author_image: null,
           reply_author_role: "tribemate",
           viewer_membership_status: "active",
+          viewer_membership_role: "tribemate",
           },
         ],
       });
@@ -288,6 +300,8 @@ describe("PostgresMessageRoundRepository", () => {
     const sqlText = getSqlText(execute.mock.calls[1]?.[0]);
 
     expect(sqlText).toContain("message_like_counts");
+    expect(sqlText).toContain("left join public.message_pins");
+    expect(sqlText).toContain("message_pins.pinned_at as message_pinned_at");
     expect(sqlText).toContain("with target_tribe as");
     expect(sqlText).toContain("where tribes.slug =");
     expect(sqlText).toContain("inner join public.messages liked_messages");

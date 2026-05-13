@@ -13,6 +13,7 @@ import type {
 import {
   ChevronDownIcon,
   HeartIcon,
+  PinIcon,
   SendIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -62,6 +63,7 @@ const TRIBE_ROUND_ROUTE = {
   apiTribes: "/api/tribes/",
   repliesSegment: "/replies",
   likeSegment: "/like",
+  pinSegment: "/pin",
   messagesBaseSegment: "/messages",
   messagesSegment: "/messages/",
 } as const;
@@ -79,6 +81,12 @@ const TRIBE_ROUND_ENDPOINT = {
     TRIBE_ROUND_ROUTE.messagesSegment +
     messageId +
     TRIBE_ROUND_ROUTE.likeSegment,
+  pin: (tribeSlug: string, messageId: string) =>
+    TRIBE_ROUND_ROUTE.apiTribes +
+    tribeSlug +
+    TRIBE_ROUND_ROUTE.messagesSegment +
+    messageId +
+    TRIBE_ROUND_ROUTE.pinSegment,
   message: (tribeSlug: string) =>
     TRIBE_ROUND_ROUTE.apiTribes +
     tribeSlug +
@@ -102,6 +110,11 @@ const TRIBE_ROUND_COPY = {
   likeButton: "Me gusta",
   likeButtonAriaLabel: "Me gusta",
   mutedNotice: "Podes leer la ronda, pero tu estado actual no permite participar.",
+  pinButtonAriaLabel: "Pinear mensaje",
+  pinnedBadge: "Pineado",
+  pinLimitReachedMessage: "Solo podes pinear hasta 3 mensajes en el fogón.",
+  togglePinError: "No pudimos actualizar el pin.",
+  unpinButtonAriaLabel: "Despinear mensaje",
   messageButton: "Compartir",
   messageCancelButton: "Cancelar",
   tribeChannelFilterAll: "Todos",
@@ -138,6 +151,7 @@ const TRIBE_ROUND_FORM = {
   buttonType: "button",
   contentTypeHeader: "Content-Type",
   defaultVariant: "default",
+  iconSize: "icon",
   jsonContentType: "application/json",
   method: "POST",
   outlineVariant: "outline",
@@ -252,6 +266,12 @@ type ToggleLikeResponse = {
   message?: string;
 };
 
+type TogglePinResponse = {
+  isPinned?: boolean;
+  message?: string;
+  pinnedAt?: string | null;
+};
+
 type PendingLikeIntent = {
   baselineLikedByViewer: boolean;
   baselineLikeCount: number;
@@ -284,6 +304,10 @@ function buildRoundStateResetKey(
         message.createdAt,
         String(message.replies.length),
         String(message.likeCount),
+        message.isPinned
+          ? TRIBE_ROUND_RESET_KEY.true
+          : TRIBE_ROUND_RESET_KEY.false,
+        message.pinnedAt ?? TRIBE_ROUND_RESET_KEY.empty,
         message.likedByViewer
           ? TRIBE_ROUND_RESET_KEY.true
           : TRIBE_ROUND_RESET_KEY.false,
@@ -425,6 +449,15 @@ function getLikeButtonClassName(likedByViewer: boolean): string {
   ].join(TRIBE_ROUND_FORMAT.standardSpace);
 }
 
+function getPinButtonClassName(isPinned: boolean): string {
+  return [
+    styles.TribeRound__pinButton,
+    ...(isPinned
+      ? [styles["TribeRound__pinButton--active"]]
+      : []),
+  ].join(TRIBE_ROUND_FORMAT.standardSpace);
+}
+
 function renderAuthorRoleBadge(role: TribeRoundReplyResult["author"]["role"]) {
   if (!TRIBE_ROUND_PRIVILEGED_AUTHOR_ROLES.has(role)) {
     return null;
@@ -471,6 +504,19 @@ function renderMessageCreatedTime(createdAt: string) {
   );
 }
 
+function renderPinnedBadge(message: TribeRoundMessageResult) {
+  if (!message.isPinned) {
+    return null;
+  }
+
+  return (
+    <span className={styles.TribeRound__pinnedBadge}>
+      <PinIcon />
+      {TRIBE_ROUND_COPY.pinnedBadge}
+    </span>
+  );
+}
+
 function findViewerTribeAuthor(
   messages: TribeRoundMessageResult[],
   viewerId: string
@@ -513,6 +559,28 @@ function removeMessageReply(
     ...message,
     replies: message.replies.filter((reply) => reply.id !== replyId),
   };
+}
+
+function sortMessagesByPinnedState(
+  messages: TribeRoundMessageResult[]
+): TribeRoundMessageResult[] {
+  return [...messages].sort((firstMessage, secondMessage) => {
+    const firstPinnedTime = firstMessage.pinnedAt
+      ? new Date(firstMessage.pinnedAt).getTime()
+      : 0;
+    const secondPinnedTime = secondMessage.pinnedAt
+      ? new Date(secondMessage.pinnedAt).getTime()
+      : 0;
+
+    if (firstPinnedTime !== secondPinnedTime) {
+      return secondPinnedTime - firstPinnedTime;
+    }
+
+    return (
+      new Date(secondMessage.createdAt).getTime() -
+      new Date(firstMessage.createdAt).getTime()
+    );
+  });
 }
 
 function TribeRoundContent({
@@ -627,7 +695,12 @@ function TribeRoundContent({
         throw new Error(TRIBE_ROUND_COPY.submitMessageError);
       }
 
-      setMessages((currentMessages) => [response.tribeMessage as TribeRoundMessageResult, ...currentMessages]);
+      setMessages((currentMessages) =>
+        sortMessagesByPinnedState([
+          response.tribeMessage as TribeRoundMessageResult,
+          ...currentMessages,
+        ])
+      );
       resetMessageComposer();
       setIsMessageComposerOpen(false);
       toast.success(TRIBE_ROUND_COPY.submitMessageSuccess);
@@ -933,6 +1006,58 @@ function TribeRoundContent({
     );
   };
 
+  const handleTogglePin = async (messageId: string) => {
+    const actionTribeSlug = tribeSlug;
+
+    setPendingActionId(messageId);
+
+    try {
+      const response = await submitJsonRequest<TogglePinResponse>(
+        TRIBE_ROUND_ENDPOINT.pin(actionTribeSlug, messageId)
+      );
+
+      if (currentTribeSlugRef.current !== actionTribeSlug) {
+        return;
+      }
+
+      if (typeof response.isPinned !== "boolean") {
+        throw new Error(TRIBE_ROUND_COPY.togglePinError);
+      }
+
+      setMessages((currentMessages) =>
+        sortMessagesByPinnedState(
+          currentMessages.map((message) =>
+            message.id === messageId
+              ? {
+                  ...message,
+                  isPinned: response.isPinned,
+                  pinnedAt: response.pinnedAt ?? null,
+                }
+              : message
+          )
+        )
+      );
+      toast.success(response.message ?? TRIBE_ROUND_COPY.togglePinError);
+    } catch (error) {
+      if (currentTribeSlugRef.current !== actionTribeSlug) {
+        return;
+      }
+
+      const errorMessage =
+        error instanceof Error ? error.message : TRIBE_ROUND_COPY.togglePinError;
+
+      if (errorMessage === TRIBE_ROUND_COPY.pinLimitReachedMessage) {
+        toast.warning(errorMessage);
+      } else {
+        toast.error(errorMessage);
+      }
+    } finally {
+      if (currentTribeSlugRef.current === actionTribeSlug) {
+        setPendingActionId(null);
+      }
+    }
+  };
+
   const openMessageDetails = (messageId: string) => {
     setExpandedMessageIds((currentExpandedMessageIds) => ({
       ...currentExpandedMessageIds,
@@ -1006,6 +1131,42 @@ function TribeRoundContent({
       >
         {message.content}
       </p>
+    );
+  };
+
+  const renderMessagePinControl = (
+    message: TribeRoundMessageResult,
+    shouldStopDetailsOpening = false
+  ) => {
+    const isPinned = Boolean(message.isPinned);
+
+    if (!round.viewerPermissions.canPinMessages) {
+      return renderPinnedBadge(message);
+    }
+
+    return (
+      <Button
+        aria-label={
+          isPinned
+            ? TRIBE_ROUND_COPY.unpinButtonAriaLabel
+            : TRIBE_ROUND_COPY.pinButtonAriaLabel
+        }
+        aria-pressed={isPinned}
+        className={getPinButtonClassName(isPinned)}
+        disabled={isBusy}
+        onClick={(event) => {
+          if (shouldStopDetailsOpening) {
+            stopMessageDetailsOpening(event);
+          }
+
+          void handleTogglePin(message.id);
+        }}
+        size={TRIBE_ROUND_FORM.iconSize}
+        type={TRIBE_ROUND_FORM.buttonType}
+        variant={TRIBE_ROUND_FORM.outlineVariant}
+      >
+        <PinIcon />
+      </Button>
     );
   };
 
@@ -1267,6 +1428,12 @@ function TribeRoundContent({
                 }}
               >
                 <article className={styles.TribeRound__messageArticle}>
+                  <div className={styles.TribeRound__messageMeta}>
+                    {renderMessagePinControl(message, true)}
+                    <span className={styles.TribeRound__channelBadge}>
+                      {message.channel.emoji} {message.channel.name}
+                    </span>
+                  </div>
                   <button
                     aria-label={`${TRIBE_ROUND_COPY.openMessageDetailsAriaLabelPrefix}: ${message.title || message.content}`}
                     className={styles.TribeRound__messageDetailsTrigger}
@@ -1280,11 +1447,6 @@ function TribeRoundContent({
                       <div className={styles.TribeRound__author}>
                         {renderAuthorIdentity(message.author)}
                         {renderMessageCreatedTime(message.createdAt)}
-                      </div>
-                      <div className={styles.TribeRound__messageMeta}>
-                        <span className={styles.TribeRound__channelBadge}>
-                          {message.channel.emoji} {message.channel.name}
-                        </span>
                       </div>
                     </CardHeader>
 
@@ -1361,6 +1523,7 @@ function TribeRoundContent({
                   {renderMessageCreatedTime(selectedMessage.createdAt)}
                 </div>
                 <div className={styles.TribeRound__messageMeta}>
+                  {renderMessagePinControl(selectedMessage)}
                   <span className={styles.TribeRound__channelBadge}>
                     {selectedMessage.channel.emoji} {selectedMessage.channel.name}
                   </span>

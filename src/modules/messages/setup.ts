@@ -8,12 +8,14 @@ import {
   updateTribeChannel,
 } from "@/src/modules/messages/application/use-cases/manage-tribe-channels-use-cases";
 import { toggleMessageLike } from "@/src/modules/messages/application/use-cases/toggle-message-like-use-case";
+import { toggleMessagePin } from "@/src/modules/messages/application/use-cases/toggle-message-pin-use-case";
 import type {
   CreateTribeMessageCommand,
   CreateTribeChannelCommand,
   CreateMessageReplyCommand,
   DeleteTribeChannelCommand,
   ToggleMessageLikeCommand,
+  ToggleMessagePinCommand,
   UpdateTribeChannelCommand,
 } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type { TribeRoundResult } from "@/src/modules/messages/application/results/tribe-round-result";
@@ -27,6 +29,7 @@ import type {
   MessageReplyCreationResult,
   MessageCreationResult,
   MessageLikeToggleResult,
+  MessagePinToggleResult,
 } from "@/src/modules/messages/application/results/message-mutation-result";
 import type { MessageReplyRepository } from "@/src/modules/messages/domain/repositories/message-reply-repository";
 import type { TribeChannelRepository } from "@/src/modules/messages/domain/repositories/tribe-channel-repository";
@@ -36,6 +39,7 @@ import type {
   MessageRoundReadRepository,
 } from "@/src/modules/messages/domain/repositories/message-round-read-repository";
 import type { MessageReactionRepository } from "@/src/modules/messages/domain/repositories/message-reaction-repository";
+import type { MessagePinRepository } from "@/src/modules/messages/domain/repositories/message-pin-repository";
 
 type MessagesModuleDependencies = {
   tribeChannelRepository: TribeChannelRepository;
@@ -43,6 +47,7 @@ type MessagesModuleDependencies = {
   messageCreationRepository: MessageCreationRepository;
   messageRoundReadRepository: MessageRoundReadRepository;
   messageReactionRepository: MessageReactionRepository;
+  messagePinRepository: MessagePinRepository;
 };
 
 type MessagesModule = {
@@ -64,6 +69,7 @@ type MessagesModule = {
       query: ListTribeRoundQuery
     ) => Promise<TribeChannelListResult>;
     toggleMessageLike: (command: ToggleMessageLikeCommand) => Promise<MessageLikeToggleResult>;
+    toggleMessagePin: (command: ToggleMessagePinCommand) => Promise<MessagePinToggleResult>;
     updateTribeChannel: (
       command: UpdateTribeChannelCommand
     ) => Promise<TribeChannelUpdateResult>;
@@ -76,6 +82,7 @@ export function buildMessagesModule({
   messageCreationRepository,
   messageRoundReadRepository,
   messageReactionRepository,
+  messagePinRepository,
 }: MessagesModuleDependencies): MessagesModule {
   return {
     useCases: {
@@ -92,6 +99,7 @@ export function buildMessagesModule({
         tribeChannelRepository,
       }),
       toggleMessageLike: toggleMessageLike({ messageReactionRepository }),
+      toggleMessagePin: toggleMessagePin({ messagePinRepository }),
       updateTribeChannel: updateTribeChannel({
         tribeChannelRepository,
       }),

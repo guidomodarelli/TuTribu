@@ -216,6 +216,7 @@
 
   &__channelTrigger,
   &__channelFilter,
+  &__pinnedBadge,
   &__channelBadge {
     display: inline-flex;
     align-items: center;
@@ -324,9 +325,26 @@
   }
 
   &__channelBadge {
+    max-width: min(12rem, 48vw);
+    overflow: hidden;
     padding: 0.35rem 0.6rem;
     color: var(--muted-foreground);
     font-size: 0.82rem;
+    text-overflow: ellipsis;
+  }
+
+  &__pinnedBadge {
+    border-color: color-mix(in oklch, var(--primary) 48%, var(--border));
+    background: color-mix(in oklch, var(--primary) 10%, var(--background));
+    color: var(--primary);
+    padding: 0.35rem 0.6rem;
+    font-size: 0.82rem;
+
+    svg {
+      width: 0.85rem;
+      height: 0.85rem;
+      fill: currentColor;
+    }
   }
 
   &__titleInput,
@@ -373,7 +391,8 @@
     }
   }
 
-  &__likeButton {
+  &__likeButton,
+  &__pinButton {
     border-color: transparent;
     background: transparent;
     box-shadow: none;
@@ -406,6 +425,14 @@
     }
   }
 
+  &__pinButton {
+    width: 2rem;
+    min-width: 2rem;
+    height: 2rem;
+    border-radius: 999rem;
+    padding: 0;
+  }
+
   &__empty {
     display: grid;
     gap: 6px;
@@ -431,6 +458,7 @@
   &__messageArticle {
     display: grid;
     gap: 0;
+    position: relative;
   }
 
   &__messageDetailsBody {
@@ -487,6 +515,8 @@
     grid-template-columns: auto minmax(0, 1fr);
     gap: 0.75rem;
     align-items: start;
+    min-height: 2.5rem;
+    padding-inline-end: min(10rem, 42vw);
   }
 
   &__messageContent {
@@ -578,10 +608,14 @@
   &__messageMeta {
     display: inline-flex;
     align-items: center;
-    grid-column: 2;
     gap: 0.45rem;
-    flex-wrap: wrap;
-    justify-content: flex-start;
+    justify-content: flex-end;
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    right: 1rem;
+    max-width: calc(100% - 5rem);
+    flex-wrap: nowrap;
   }
 
   &__messageMetaSeparator {
@@ -767,16 +801,6 @@
 
 @media (min-width: 768px) {
   .TribeRound {
-    &__messageHeader {
-      grid-template-columns: auto minmax(0, 1fr) auto;
-    }
-
-    &__messageMeta {
-      grid-column: auto;
-      justify-content: flex-end;
-      text-align: right;
-    }
-
     &__replyForm {
       grid-template-columns: auto minmax(0, 1fr);
       align-items: center;

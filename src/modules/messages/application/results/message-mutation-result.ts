@@ -38,3 +38,14 @@ export type MessageLikeToggleResult = {
     | typeof MESSAGE_MUTATION_STATUS.forbidden
     | typeof MESSAGE_MUTATION_STATUS.notFound;
 };
+
+export type MessagePinToggleResult = {
+  isPinned: boolean;
+  pinnedAt: string | null;
+  status:
+    | typeof MESSAGE_MUTATION_STATUS.pinned
+    | typeof MESSAGE_MUTATION_STATUS.unpinned
+    | typeof MESSAGE_MUTATION_STATUS.pinLimitReached
+    | typeof MESSAGE_MUTATION_STATUS.forbidden
+    | typeof MESSAGE_MUTATION_STATUS.notFound;
+};

@@ -29,6 +29,8 @@ export const MESSAGE_REACTION_TYPE = {
   like: "like",
 } as const;
 
+export const PINNED_TRIBE_MESSAGES_LIMIT = 3;
+
 export const MESSAGE_MUTATION_STATUS = {
   created: "created",
   forbidden: "forbidden",
@@ -36,7 +38,10 @@ export const MESSAGE_MUTATION_STATUS = {
   invalidContent: "invalid_content",
   liked: "liked",
   notFound: "not_found",
+  pinLimitReached: "pin_limit_reached",
+  pinned: "pinned",
   unliked: "unliked",
+  unpinned: "unpinned",
 } as const;
 
 export const TRIBE_CHANNEL_ACCESS_SCOPE = {

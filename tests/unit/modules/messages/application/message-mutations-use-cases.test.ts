@@ -1,6 +1,7 @@
 import { createTribeMessage } from "@/src/modules/messages/application/use-cases/create-tribe-message-use-case";
 import { createMessageReply } from "@/src/modules/messages/application/use-cases/create-message-reply-use-case";
 import { toggleMessageLike } from "@/src/modules/messages/application/use-cases/toggle-message-like-use-case";
+import { toggleMessagePin } from "@/src/modules/messages/application/use-cases/toggle-message-pin-use-case";
 
 describe("message mutation use cases", () => {
   const tribeChannel = {
@@ -161,6 +162,57 @@ describe("message mutation use cases", () => {
       likedByViewer: true,
       likeCount: 3,
       status: "liked",
+    });
+  });
+
+  it("pins a message through the pin repository", async () => {
+    const togglePin = jest.fn(async () => ({
+      isPinned: true,
+      pinnedAt: "2026-04-26T13:00:00.000Z",
+      status: "pinned" as const,
+    }));
+    const execute = toggleMessagePin({
+      messagePinRepository: { togglePin },
+    });
+
+    await expect(
+      execute({
+        tribeSlug: " matematica-pro ",
+        messageId: "message-1",
+        userId: "leader-1",
+      })
+    ).resolves.toEqual({
+      isPinned: true,
+      pinnedAt: "2026-04-26T13:00:00.000Z",
+      status: "pinned",
+    });
+    expect(togglePin).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+      messageId: "message-1",
+      userId: "leader-1",
+    });
+  });
+
+  it("blocks a fourth pinned message through the pin repository", async () => {
+    const togglePin = jest.fn(async () => ({
+      isPinned: false,
+      pinnedAt: null,
+      status: "pin_limit_reached" as const,
+    }));
+    const execute = toggleMessagePin({
+      messagePinRepository: { togglePin },
+    });
+
+    await expect(
+      execute({
+        tribeSlug: "matematica-pro",
+        messageId: "message-4",
+        userId: "leader-1",
+      })
+    ).resolves.toEqual({
+      isPinned: false,
+      pinnedAt: null,
+      status: "pin_limit_reached",
     });
   });
 });

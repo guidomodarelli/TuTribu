@@ -103,6 +103,9 @@ export async function createRequestModules(
       messageReactionRepository: new PostgresMessageMutationRepository(
         executeWithRequestContext
       ),
+      messagePinRepository: new PostgresMessageMutationRepository(
+        executeWithRequestContext
+      ),
     }),
     events: buildEventsModule({
       tribeEventRepository: new PostgresTribeEventRepository(

@@ -93,4 +93,30 @@ describe("Message SQL guardrails", () => {
     expect(migration).toContain("public.is_active_tribe_member(tribe_id)");
     expect(migration).toContain("public.can_read_tribe_content(tribe_id)");
   });
+
+  it("adds message pins with RLS restricted to active leaders and guardians", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260512140000_create_message_pins.sql"
+    );
+    const migrationJournal = JSON.parse(
+      readWorkspaceFile("database/migrations/meta/_journal.json")
+    ) as { entries: Array<{ tag: string }> };
+
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.message_pins");
+    expect(migration).toContain("message_id uuid PRIMARY KEY");
+    expect(migration).toContain("pinned_by text NOT NULL REFERENCES public.\"user\"(id)");
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION public.can_pin_tribe_messages");
+    expect(migration).toContain("tribe_members.role IN ('leader', 'guardian')");
+    expect(migration).toContain("tribe_members.status = 'active'");
+    expect(migration).toContain("ALTER TABLE public.message_pins FORCE ROW LEVEL SECURITY");
+    expect(migration).toContain("Tribemates can read message pins");
+    expect(migration).toContain("Leaders and guardians can manage message pins");
+    expect(migrationJournal.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "20260512140000_create_message_pins",
+        }),
+      ])
+    );
+  });
 });
