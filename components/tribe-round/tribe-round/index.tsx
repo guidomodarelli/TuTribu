@@ -1661,6 +1661,10 @@ function TribeRoundContent({
   };
 
   const handleSubmitPollVote = async (message: TribeRoundMessageResult) => {
+    if (!round.viewerPermissions.canReact) {
+      return;
+    }
+
     const optionIds =
       selectedPollOptionIds[message.id] ?? getPersistedPollSelection(message.poll);
 
@@ -1826,6 +1830,7 @@ function TribeRoundContent({
     const selectedOptionIds =
       selectedPollOptionIds[message.id] ?? getPersistedPollSelection(poll);
     const shouldShowResults = poll.viewerHasVoted;
+    const canVote = round.viewerPermissions.canReact;
 
     return (
       <section
@@ -1858,7 +1863,7 @@ function TribeRoundContent({
               >
                 <input
                   checked={isSelected}
-                  disabled={isBusy}
+                  disabled={isBusy || !canVote}
                   name={TRIBE_ROUND_ROUTE.pollSegment + poll.id}
                   onChange={() => {
                     handlePollOptionSelection({
@@ -1900,7 +1905,7 @@ function TribeRoundContent({
         </p>
         <div className={styles.TribeRound__pollActions}>
           <Button
-            disabled={isBusy || selectedOptionIds.length === 0}
+            disabled={isBusy || !canVote || selectedOptionIds.length === 0}
             onClick={() => {
               void handleSubmitPollVote(message);
             }}

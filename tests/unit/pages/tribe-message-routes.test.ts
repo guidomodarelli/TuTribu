@@ -27,6 +27,7 @@ const listTribeChannels = jest.fn();
 const createTribeChannel = jest.fn();
 const updateTribeChannel = jest.fn();
 const deleteTribeChannel = jest.fn();
+const loggerError = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -139,9 +140,10 @@ describe("Tribe message routes", () => {
       },
     });
     (createServerLogger as jest.Mock).mockReturnValue({
-      error: jest.fn(),
+      error: loggerError,
       info: jest.fn(),
     });
+    loggerError.mockReset();
   });
 
   it("passes title and content to the tribe message use case", async () => {
@@ -614,6 +616,33 @@ describe("Tribe message routes", () => {
       tribeSlug: "matematica-pro",
       userId: "member-1",
     });
+  });
+
+  it("returns a safe poll voting message when the vote use case fails unexpectedly", async () => {
+    submitMessagePollVote.mockRejectedValue(new Error("database unavailable"));
+
+    const response = await POST_POLL_VOTE(
+      buildJsonRequest({
+        optionIds: ["option-1"],
+      } as never),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      message: "No pudimos registrar tu voto. Intentalo de nuevo.",
+    });
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Message poll vote failed",
+        metadata: {
+          messageId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
+          slug: "matematica-pro",
+          viewerId: "member-1",
+        },
+      })
+    );
   });
 
   it("deletes a full message and revalidates the round cache", async () => {

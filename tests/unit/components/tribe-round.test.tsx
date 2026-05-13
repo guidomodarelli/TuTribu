@@ -812,6 +812,32 @@ describe("TribeRound", () => {
     expect(await screen.findByText("100% · 1")).toBeInTheDocument();
   });
 
+  it("disables poll voting when the viewer cannot react", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...roundWithPoll,
+          viewerPermissions: {
+            ...roundWithPoll.viewerPermissions,
+            canReact: false,
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByLabelText("Álgebra")).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Votar" })[0]).toBeDisabled();
+
+    await user.click(screen.getByLabelText("Álgebra"));
+    await user.click(screen.getAllByRole("button", { name: "Votar" })[0]);
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("submits persisted poll selection when voting without changing options", async () => {
     const user = userEvent.setup();
     const roundWithPersistedPollVote = {
