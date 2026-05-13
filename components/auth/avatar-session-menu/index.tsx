@@ -27,6 +27,7 @@ type AvatarSessionMenuProps = {
 
 const AVATAR_INITIALS_SEPARATOR = " ";
 const AVATAR_INITIALS_MAX_PARTS = 2;
+const AVATAR_IMAGE_LOADING_PRIORITY = "eager";
 const AVATAR_SESSION_FALLBACK = {
   authenticatedFallback: "IN",
   guestEmail: "Sin correo",
@@ -34,6 +35,7 @@ const AVATAR_SESSION_FALLBACK = {
 } as const;
 const AVATAR_SESSION_MENU_UI = {
   accountMenuLabel: "Menu de cuenta",
+  avatarLoading: AVATAR_IMAGE_LOADING_PRIORITY,
   buttonType: "button",
   dropdownAlign: "end",
   dropdownSide: "bottom",
@@ -75,7 +77,13 @@ export function AvatarSessionMenu({
           className={styles.AvatarSessionMenu}
         >
           <Avatar>
-            {avatarImage ? <AvatarImage alt={avatarName} src={avatarImage} /> : null}
+            {avatarImage ? (
+              <AvatarImage
+                alt={avatarName}
+                loading={AVATAR_SESSION_MENU_UI.avatarLoading}
+                src={avatarImage}
+              />
+            ) : null}
             <AvatarFallback>{avatarFallback}</AvatarFallback>
           </Avatar>
         </button>

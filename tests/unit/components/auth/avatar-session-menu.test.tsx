@@ -110,6 +110,25 @@ describe("AvatarSessionMenu", () => {
     expect(document.body.querySelectorAll('[data-slot="avatar"]')).toHaveLength(1);
   });
 
+  it("loads the trigger avatar eagerly when the member image is above the fold", () => {
+    render(
+      <AvatarSessionMenuClient
+        authenticatedMember={{
+          id: "dc2b4b91-7e42-41be-bcb5-a48b61a27740",
+          email: "grace.hopper@example.com",
+          name: "Grace Hopper",
+          role: "tribemate",
+          avatarFallback: "GH",
+          image: "https://example.com/grace-hopper.jpg",
+        }}
+        signInPath="/auth/signin"
+        signOutCallbackUrl="/auth/signin"
+      />
+    );
+
+    expect(screen.getByAltText("Grace Hopper")).toHaveAttribute("loading", "eager");
+  });
+
   it("prevents duplicate sign-out requests while one is already in flight", async () => {
     const user = userEvent.setup();
     let resolveSignOut: (() => void) | null = null;
