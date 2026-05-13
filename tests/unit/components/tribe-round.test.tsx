@@ -812,6 +812,92 @@ describe("TribeRound", () => {
     expect(await screen.findByText("100% · 1")).toBeInTheDocument();
   });
 
+  it("preserves persisted multiple poll selections when changing one vote", async () => {
+    const user = userEvent.setup();
+    const roundWithPersistedMultiplePollVotes = {
+      ...roundWithPoll,
+      messages: [
+        {
+          ...roundWithPoll.messages[0],
+          poll: {
+            ...roundWithPoll.messages[0].poll,
+            allowMultipleVotes: true,
+            options: [
+              {
+                id: "option-1",
+                percentage: 50,
+                selectedByViewer: true,
+                text: "Álgebra",
+                voteCount: 1,
+              },
+              {
+                id: "option-2",
+                percentage: 50,
+                selectedByViewer: true,
+                text: "Geometría",
+                voteCount: 1,
+              },
+            ],
+            totalVoteCount: 2,
+            viewerHasVoted: true,
+          },
+        },
+      ],
+    };
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        message: "Voto registrado.",
+        poll: {
+          ...roundWithPersistedMultiplePollVotes.messages[0].poll,
+          options: [
+            {
+              id: "option-1",
+              percentage: 0,
+              selectedByViewer: false,
+              text: "Álgebra",
+              voteCount: 0,
+            },
+            {
+              id: "option-2",
+              percentage: 100,
+              selectedByViewer: true,
+              text: "Geometría",
+              voteCount: 1,
+            },
+          ],
+          totalVoteCount: 1,
+          viewerHasVoted: true,
+        },
+      }),
+      ok: true,
+      statusText: "OK",
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithPersistedMultiplePollVotes}
+      />
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: /Álgebra/ }));
+    await user.click(screen.getAllByRole("button", { name: "Votar" })[0]);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/message-1/poll/votes",
+        expect.objectContaining({
+          body: JSON.stringify({
+            optionIds: ["option-2"],
+          }),
+          method: "POST",
+        })
+      );
+    });
+  });
+
   it("keeps a created message out of the visible list when another channel is active", async () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();

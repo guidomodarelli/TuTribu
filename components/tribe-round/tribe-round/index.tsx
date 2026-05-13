@@ -1622,15 +1622,17 @@ function TribeRoundContent({
 
   const handlePollOptionSelection = ({
     allowMultipleVotes,
+    baselineOptionIds,
     messageId,
     optionId,
   }: {
     allowMultipleVotes: boolean;
+    baselineOptionIds: string[];
     messageId: string;
     optionId: string;
   }) => {
     setSelectedPollOptionIds((currentSelections) => {
-      const currentOptionIds = currentSelections[messageId] ?? [];
+      const currentOptionIds = currentSelections[messageId] ?? baselineOptionIds;
 
       if (!allowMultipleVotes) {
         return {
@@ -1853,6 +1855,7 @@ function TribeRoundContent({
                   onChange={() => {
                     handlePollOptionSelection({
                       allowMultipleVotes: poll.allowMultipleVotes,
+                      baselineOptionIds: selectedOptionIds,
                       messageId: message.id,
                       optionId: option.id,
                     });
