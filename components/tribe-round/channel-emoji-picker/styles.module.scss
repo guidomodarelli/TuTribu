@@ -50,5 +50,89 @@
     width: min(20rem, calc(100vw - 2rem));
     overflow: hidden;
     padding: 0;
+
+    :global(.EmojiPickerReact) {
+      --epr-bg-color: var(--popover);
+      --epr-category-label-bg-color: color-mix(
+        in oklch,
+        var(--popover) 92%,
+        transparent
+      );
+      --epr-category-label-text-color: var(--popover-foreground);
+      --epr-text-color: var(--muted-foreground);
+      --epr-highlight-color: var(--primary);
+      --epr-hover-bg-color: var(--muted);
+      --epr-focus-bg-color: color-mix(in oklch, var(--primary) 12%, var(--muted));
+      --epr-search-input-bg-color: var(--background);
+      --epr-search-input-bg-color-active: var(--background);
+      --epr-search-input-text-color: var(--foreground);
+      --epr-search-input-placeholder-color: var(--muted-foreground);
+      --epr-search-border-color: var(--border);
+      --epr-search-border-color-active: var(--ring);
+      --epr-picker-border-color: var(--border);
+      --epr-category-icon-active-color: var(--primary);
+      --epr-emoji-hover-color: var(--muted);
+      --epr-picker-border-radius: 0.5rem;
+    }
+
+    :global(.EmojiPickerReact.epr-dark-theme) {
+      --epr-dark-bg-color: var(--popover);
+      --epr-dark-category-label-bg-color: color-mix(
+        in oklch,
+        var(--popover) 92%,
+        transparent
+      );
+      --epr-dark-text-color: var(--muted-foreground);
+      --epr-dark-highlight-color: var(--primary);
+      --epr-dark-hover-bg-color: var(--muted);
+      --epr-dark-focus-bg-color: color-mix(
+        in oklch,
+        var(--primary) 16%,
+        var(--muted)
+      );
+      --epr-dark-search-input-bg-color: var(--background);
+      --epr-dark-search-input-bg-color-active: var(--background);
+      --epr-dark-picker-border-color: var(--border);
+      --epr-dark-category-icon-active-color: var(--primary);
+    }
+
+    :global(.EmojiPickerReact *),
+    :global(.EmojiPickerReact) {
+      scrollbar-color: color-mix(in oklch, var(--muted-foreground) 48%, transparent)
+        transparent;
+      scrollbar-width: thin;
+    }
+
+    :global(.EmojiPickerReact *::-webkit-scrollbar),
+    :global(.EmojiPickerReact::-webkit-scrollbar) {
+      width: 0.45rem;
+      height: 0.45rem;
+    }
+
+    :global(.EmojiPickerReact *::-webkit-scrollbar-track),
+    :global(.EmojiPickerReact::-webkit-scrollbar-track) {
+      background: transparent;
+    }
+
+    :global(.EmojiPickerReact *::-webkit-scrollbar-thumb),
+    :global(.EmojiPickerReact::-webkit-scrollbar-thumb) {
+      border: 0.12rem solid transparent;
+      border-radius: 999rem;
+      background-color: color-mix(
+        in oklch,
+        var(--muted-foreground) 48%,
+        transparent
+      );
+      background-clip: content-box;
+    }
+
+    :global(.EmojiPickerReact *::-webkit-scrollbar-thumb:hover),
+    :global(.EmojiPickerReact::-webkit-scrollbar-thumb:hover) {
+      background-color: color-mix(
+        in oklch,
+        var(--muted-foreground) 62%,
+        transparent
+      );
+    }
   }
 }

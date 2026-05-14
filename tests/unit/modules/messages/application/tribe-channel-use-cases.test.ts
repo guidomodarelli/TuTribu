@@ -220,6 +220,27 @@ describe("channel use cases", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("rejects a channel creation when the name has more than 30 characters", async () => {
+    const create = jest.fn();
+    const execute = createTribeChannel({
+      tribeChannelRepository: {
+        create,
+        delete: jest.fn(),
+        listByTribeSlug: jest.fn(),
+        update: jest.fn(),
+      },
+    });
+
+    await expect(
+      execute({
+        tribeSlug: "matematica-pro",
+        emoji: "🔥",
+        name: "Canal con nombre demasiado largo",
+      })
+    ).resolves.toEqual({ status: "invalid_name" });
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("rejects a channel update with text as emoji before calling the repository", async () => {
     const update = jest.fn();
     const execute = updateTribeChannel({
@@ -237,6 +258,29 @@ describe("channel use cases", () => {
         tribeSlug: "matematica-pro",
         emoji: "fire",
         name: "Ronda",
+        sortOrder: 20,
+      })
+    ).resolves.toEqual({ status: "invalid_name" });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a channel update when the name has more than 30 characters", async () => {
+    const update = jest.fn();
+    const execute = updateTribeChannel({
+      tribeChannelRepository: {
+        create: jest.fn(),
+        delete: jest.fn(),
+        listByTribeSlug: jest.fn(),
+        update,
+      },
+    });
+
+    await expect(
+      execute({
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        emoji: "🔥",
+        name: "Canal con nombre demasiado largo",
         sortOrder: 20,
       })
     ).resolves.toEqual({ status: "invalid_name" });

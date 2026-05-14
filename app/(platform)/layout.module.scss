@@ -2,6 +2,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
+  min-width: 0;
 
   &__header {
     position: sticky;
@@ -33,10 +34,12 @@
     display: flex;
     flex: 1;
     min-height: 0;
+    min-width: 0;
     flex-direction: column;
 
     > :where(main, section) {
       box-sizing: border-box;
+      min-width: 0;
       width: 100%;
       max-width: 720px;
       margin-inline: auto;

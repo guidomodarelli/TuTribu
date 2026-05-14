@@ -2506,16 +2506,28 @@ function TribeRoundContent({
                         <ChevronDownIcon />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}>
+                    <DropdownMenuContent
+                      align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}
+                      className={styles.TribeRound__channelMenuContent}
+                    >
                       {round.channels.map((channel) => (
                         <DropdownMenuItem
+                          className={styles.TribeRound__channelMenuItem}
                           key={channel.id}
                           onSelect={() => {
                             setSelectedChannelId(channel.id);
                             setMessageComposerErrors([]);
                           }}
                         >
-                          {channel.emoji} {channel.name}
+                          <span
+                            aria-hidden={TRIBE_ROUND_ATTRIBUTES.channelFilterEmojiHidden}
+                            className={styles.TribeRound__channelMenuEmoji}
+                          >
+                            {channel.emoji}
+                          </span>
+                          <span className={styles.TribeRound__channelMenuText}>
+                            {channel.name}
+                          </span>
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuContent>

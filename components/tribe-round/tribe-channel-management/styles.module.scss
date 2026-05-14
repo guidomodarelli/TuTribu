@@ -53,7 +53,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 0.85rem;
-    align-items: end;
+    align-items: start;
   }
 
   &__list {
@@ -68,7 +68,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 0.85rem;
-    align-items: end;
+    align-items: start;
     border: 1px solid var(--border);
     border-radius: 0.9rem;
     background: var(--channel-surface);
@@ -86,6 +86,12 @@
     font-size: 0.82rem;
     font-weight: 600;
     line-height: 1.25;
+  }
+
+  &__fieldHelp {
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+    line-height: 1.35;
   }
 
   &__emojiInput,
@@ -140,10 +146,12 @@
   }
 
   &__createButton {
+    align-self: end;
     font-weight: 650;
   }
 
   &__actions {
+    align-self: end;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.6rem;

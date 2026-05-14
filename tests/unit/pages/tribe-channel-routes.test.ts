@@ -192,6 +192,27 @@ describe("Tribe channel routes", () => {
     expect(revalidateTag).not.toHaveBeenCalled();
   });
 
+  it("returns a specific validation message when channel creation input is invalid", async () => {
+    createTribeChannel.mockResolvedValue({
+      status: "invalid_name",
+    });
+
+    const response = await POST(
+      buildJsonRequest({
+        emoji: "",
+        name: "Canal con nombre demasiado largo",
+      }),
+      buildTribeContext()
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      message:
+        "Definí un nombre de hasta 30 caracteres y elegí un ícono para el canal.",
+    });
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
+
   it("updates a channel from request body fields", async () => {
     updateTribeChannel.mockResolvedValue({
       channel,
@@ -239,6 +260,28 @@ describe("Tribe channel routes", () => {
     await expect(response.json()).resolves.toEqual({
       message: "Ya existe un canal con ese nombre.",
     });
+  });
+
+  it("returns a specific validation message when channel update input is invalid", async () => {
+    updateTribeChannel.mockResolvedValue({
+      status: "invalid_name",
+    });
+
+    const response = await PATCH(
+      buildJsonRequest({
+        emoji: "🔥",
+        name: "Canal con nombre demasiado largo",
+        sortOrder: 20,
+      }),
+      buildChannelContext()
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      message:
+        "Definí un nombre de hasta 30 caracteres y elegí un ícono para el canal.",
+    });
+    expect(revalidateTag).not.toHaveBeenCalled();
   });
 
   it("rejects updates with invalid sort order values", async () => {

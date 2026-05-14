@@ -76,6 +76,8 @@ jest.mock("emoji-picker-react", () => ({
   },
   Theme: {
     AUTO: "auto",
+    DARK: "dark",
+    LIGHT: "light",
   },
   default: mockEmojiPicker,
 }));
@@ -198,7 +200,7 @@ describe("TribeChannelManagement", () => {
     const emojiPicker = screen.getByRole("button", { name: "Elegir estrella" });
 
     expect(emojiPicker).toHaveAttribute("data-emoji-style", "apple");
-    expect(emojiPicker).toHaveAttribute("data-theme", "auto");
+    expect(emojiPicker).toHaveAttribute("data-theme", "light");
     expect(emojiPicker).toHaveAttribute("data-skin-tones-disabled", "false");
     expect(emojiPicker).toHaveAttribute("data-search-disabled", "false");
     expect(emojiPicker).toHaveAttribute("data-auto-focus-search", "true");
@@ -349,6 +351,69 @@ describe("TribeChannelManagement", () => {
         method: "POST",
       })
     );
+  });
+
+  it("shows the 30 character name limit while creating and editing channels", () => {
+    render(
+      <TribeChannelManagement
+        channels={channels}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const createButton = screen.getByRole("button", { name: "Crear canal" });
+    const createForm = createButton.closest("form") as HTMLElement;
+    const channelList = screen.getByRole("list", {
+      name: "Canales configurados",
+    });
+    const rondaChannelItem = within(channelList)
+      .getByDisplayValue("Ronda")
+      .closest("li") as HTMLElement;
+
+    expect(
+      within(createForm).getByRole("textbox", { name: "Nombre" })
+    ).toHaveAttribute("maxlength", "30");
+    expect(
+      within(rondaChannelItem).getByRole("textbox", { name: "Nombre" })
+    ).toHaveAttribute("maxlength", "30");
+    expect(screen.getAllByText("Máximo 30 caracteres.")).not.toHaveLength(0);
+  });
+
+  it("prevents saving an edited channel with a name over 30 characters", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeChannelManagement
+        channels={[
+          {
+            ...channels[0],
+            name: "Canal con nombre demasiado largo",
+          },
+          channels[1],
+        ]}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const channelList = screen.getByRole("list", {
+      name: "Canales configurados",
+    });
+    const longNameChannelItem = within(channelList)
+      .getByDisplayValue("Canal con nombre demasiado largo")
+      .closest("li") as HTMLElement;
+
+    expect(
+      within(longNameChannelItem).getByText("Usá 30 caracteres o menos.")
+    ).toBeInTheDocument();
+    expect(
+      within(longNameChannelItem).getByRole("button", { name: "Guardar" })
+    ).toBeDisabled();
+
+    await user.click(
+      within(longNameChannelItem).getByRole("button", { name: "Guardar" })
+    );
+
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("updates a channel emoji selected from the picker", async () => {

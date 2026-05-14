@@ -1,4 +1,7 @@
-import { TRIBE_CHANNEL_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
+import {
+  TRIBE_CHANNEL_MUTATION_STATUS,
+  TRIBE_CHANNEL_NAME,
+} from "@/src/modules/messages/constants/message-round";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -24,7 +27,8 @@ const CHANNEL_ROUTE_RESPONSE = {
   duplicateSlugMessage: "Ya existe un canal con ese nombre.",
   forbiddenMessage: "No tenés permisos para gestionar canales.",
   invalidChannelMessage: "El canal destino no pertenece a esta tribu.",
-  invalidNameMessage: "Definí un nombre y un ícono para el canal.",
+  invalidNameMessage:
+    `Definí un nombre de hasta ${TRIBE_CHANNEL_NAME.maxLength} caracteres y elegí un ícono para el canal.`,
   invalidSortOrderMessage: "El orden del canal es inválido.",
   lastChannelMessage: "La tribu necesita al menos un canal.",
   movedAndDeletedMessage: "Canal eliminado y mensajes movidas.",

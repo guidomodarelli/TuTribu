@@ -91,7 +91,7 @@ export const TRIBE_CHANNEL_MUTATION_STATUS = {
 } as const;
 
 export const TRIBE_CHANNEL_NAME = {
-  maxLength: 80,
+  maxLength: 30,
   minLength: 1,
 } as const;
 

@@ -9,6 +9,7 @@ import { ChannelEmojiPicker } from "@/components/tribe-round/channel-emoji-picke
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { TribeChannelResult } from "@/src/modules/messages/application/results/tribe-round-result";
+import { TRIBE_CHANNEL_NAME } from "@/src/modules/messages/constants/message-round";
 import styles from "./styles.module.scss";
 
 const CHANNEL_MANAGEMENT_COPY = {
@@ -23,6 +24,8 @@ const CHANNEL_MANAGEMENT_COPY = {
   fallbackSaveError: "No pudimos guardar el canal.",
   fallbackUpdateError: "No pudimos actualizar el canal.",
   nameLabel: "Nombre",
+  nameLimitDescription: `Máximo ${TRIBE_CHANNEL_NAME.maxLength} caracteres.`,
+  nameTooLongError: `Usá ${TRIBE_CHANNEL_NAME.maxLength} caracteres o menos.`,
   namePlaceholder: "Nombre del canal",
   selectTargetPlaceholder: "Seleccionar destino",
   saveButton: "Guardar",
@@ -65,6 +68,13 @@ const CHANNEL_MANAGEMENT_FORM = {
   outlineVariant: "outline",
 } as const;
 
+const CHANNEL_MANAGEMENT_FIELD_ID = {
+  createNameHelp: "create-channel-name-help",
+  createNameInput: "create-channel-name",
+  editNameHelpPrefix: "edit-channel-name-help-",
+  editNameInputPrefix: "edit-channel-name-",
+} as const;
+
 type TribeChannelManagementProps = {
   channels: TribeChannelResult[];
   tribeSlug: string;
@@ -99,6 +109,15 @@ async function submitChannelRequest(
   return responseBody;
 }
 
+function isValidChannelName(channelName: string): boolean {
+  const normalizedChannelName = channelName.trim();
+
+  return (
+    normalizedChannelName.length >= TRIBE_CHANNEL_NAME.minLength &&
+    normalizedChannelName.length <= TRIBE_CHANNEL_NAME.maxLength
+  );
+}
+
 export function TribeChannelManagement({
   channels,
   tribeSlug,
@@ -110,6 +129,7 @@ export function TribeChannelManagement({
     {}
   );
   const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
+  const isCreateNameValid = isValidChannelName(name);
 
   const handleCreateChannel = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -253,17 +273,29 @@ export function TribeChannelManagement({
               {CHANNEL_MANAGEMENT_COPY.nameLabel}
             </span>
             <Input
+              aria-describedby={CHANNEL_MANAGEMENT_FIELD_ID.createNameHelp}
+              aria-label={CHANNEL_MANAGEMENT_COPY.nameLabel}
               className={styles.TribeChannelManagement__textInput}
+              id={CHANNEL_MANAGEMENT_FIELD_ID.createNameInput}
+              maxLength={TRIBE_CHANNEL_NAME.maxLength}
               onChange={(event) => {
                 setName(event.currentTarget.value);
               }}
               placeholder={CHANNEL_MANAGEMENT_COPY.namePlaceholder}
               value={name}
             />
+            <span
+              className={styles.TribeChannelManagement__fieldHelp}
+              id={CHANNEL_MANAGEMENT_FIELD_ID.createNameHelp}
+            >
+              {name.length > TRIBE_CHANNEL_NAME.maxLength
+                ? CHANNEL_MANAGEMENT_COPY.nameTooLongError
+                : CHANNEL_MANAGEMENT_COPY.nameLimitDescription}
+            </span>
           </label>
           <Button
             className={styles.TribeChannelManagement__createButton}
-            disabled={Boolean(pendingChannelId) || !name.trim() || !emoji.trim()}
+            disabled={Boolean(pendingChannelId) || !isCreateNameValid || !emoji.trim()}
             type={CHANNEL_MANAGEMENT_FORM.submitType}
           >
             <PlusIcon />
@@ -306,8 +338,12 @@ export function TribeChannelManagement({
                     {CHANNEL_MANAGEMENT_COPY.nameLabel}
                   </span>
                   <Input
+                    aria-describedby={`${CHANNEL_MANAGEMENT_FIELD_ID.editNameHelpPrefix}${channel.id}`}
+                    aria-label={CHANNEL_MANAGEMENT_COPY.nameLabel}
                     className={styles.TribeChannelManagement__textInput}
                     disabled={pendingChannelId === channel.id}
+                    id={`${CHANNEL_MANAGEMENT_FIELD_ID.editNameInputPrefix}${channel.id}`}
+                    maxLength={TRIBE_CHANNEL_NAME.maxLength}
                     onChange={(event) => {
                       const nextName = event.currentTarget.value;
 
@@ -321,6 +357,14 @@ export function TribeChannelManagement({
                     }}
                     value={channel.name}
                   />
+                  <span
+                    className={styles.TribeChannelManagement__fieldHelp}
+                    id={`${CHANNEL_MANAGEMENT_FIELD_ID.editNameHelpPrefix}${channel.id}`}
+                  >
+                    {channel.name.length > TRIBE_CHANNEL_NAME.maxLength
+                      ? CHANNEL_MANAGEMENT_COPY.nameTooLongError
+                      : CHANNEL_MANAGEMENT_COPY.nameLimitDescription}
+                  </span>
                 </label>
                 <label
                   className={`${styles.TribeChannelManagement__field} ${styles.TribeChannelManagement__targetField}`}
@@ -366,7 +410,10 @@ export function TribeChannelManagement({
                 >
                   <Button
                     className={styles.TribeChannelManagement__actionButton}
-                    disabled={pendingChannelId === channel.id}
+                    disabled={
+                      pendingChannelId === channel.id ||
+                      !isValidChannelName(channel.name)
+                    }
                     onClick={() => {
                       void handleUpdateChannel(channel);
                     }}
