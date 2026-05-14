@@ -259,6 +259,7 @@ const TRIBE_ROUND_POLL = {
   initialOptionCount: 3,
   minimumOptionCount: 2,
   multipleInputType: "checkbox",
+  percentageBase: 100,
   percentageStyleProperty: "--poll-result",
   percentageSuffix: "%",
   singleInputType: "radio",
@@ -398,13 +399,24 @@ type PendingPinIntent = {
   shouldFlushAfterRequest: boolean;
 };
 
+type PendingPollVoteIntent = {
+  baselinePoll: NonNullable<TribeRoundMessageResult["poll"]>;
+  intendedOptionIds: string[];
+  isRequestInFlight: boolean;
+  shouldFlushAfterRequest: boolean;
+};
+
 type LikeDebounceTimers = Record<string, ReturnType<typeof setTimeout>>;
 
 type PinDebounceTimers = Record<string, ReturnType<typeof setTimeout>>;
 
+type PollVoteDebounceTimers = Record<string, ReturnType<typeof setTimeout>>;
+
 type PendingLikeIntents = Record<string, PendingLikeIntent | undefined>;
 
 type PendingPinIntents = Record<string, PendingPinIntent | undefined>;
+
+type PendingPollVoteIntents = Record<string, PendingPollVoteIntent | undefined>;
 
 type ReplyLoadStatus =
   (typeof TRIBE_ROUND_REPLY_LOAD_STATUS)[keyof typeof TRIBE_ROUND_REPLY_LOAD_STATUS];
@@ -886,6 +898,8 @@ function TribeRoundContent({
   const pendingLikeIntentsRef = useRef<PendingLikeIntents>({});
   const pinDebounceTimersRef = useRef<PinDebounceTimers>({});
   const pendingPinIntentsRef = useRef<PendingPinIntents>({});
+  const pollVoteDebounceTimersRef = useRef<PollVoteDebounceTimers>({});
+  const pendingPollVoteIntentsRef = useRef<PendingPollVoteIntents>({});
   const [messages, setMessages] = useState<TribeRoundMessageResult[]>(round.messages);
   const [visiblePagination, setVisiblePagination] = useState(round.pagination);
   const [isMessageComposerOpen, setIsMessageComposerOpen] = useState(false);
@@ -944,10 +958,15 @@ function TribeRoundContent({
       Object.values(pinDebounceTimersRef.current).forEach((timer) => {
         clearTimeout(timer);
       });
+      Object.values(pollVoteDebounceTimersRef.current).forEach((timer) => {
+        clearTimeout(timer);
+      });
       likeDebounceTimersRef.current = {};
       pendingLikeIntentsRef.current = {};
       pinDebounceTimersRef.current = {};
       pendingPinIntentsRef.current = {};
+      pollVoteDebounceTimersRef.current = {};
+      pendingPollVoteIntentsRef.current = {};
     };
   }, []);
 
@@ -1641,71 +1660,243 @@ function TribeRoundContent({
     );
   };
 
-  const handlePollOptionSelection = ({
-    allowMultipleVotes,
-    baselineOptionIds,
-    messageId,
-    optionId,
-  }: {
-    allowMultipleVotes: boolean;
-    baselineOptionIds: string[];
-    messageId: string;
-    optionId: string;
-  }) => {
-    setSelectedPollOptionIds((currentSelections) => {
-      const currentOptionIds = currentSelections[messageId] ?? baselineOptionIds;
-
-      if (!allowMultipleVotes) {
-        return {
-          ...currentSelections,
-          [messageId]: [optionId],
-        };
-      }
+  const getOptimisticPollVote = (
+    poll: NonNullable<TribeRoundMessageResult["poll"]>,
+    optionIds: string[]
+  ): NonNullable<TribeRoundMessageResult["poll"]> => {
+    const baselineOptionIds = getPersistedPollSelection(poll);
+    const optimisticOptions = poll.options.map((option) => {
+      const wasSelected = baselineOptionIds.includes(option.id);
+      const isSelected = optionIds.includes(option.id);
+      const optimisticVoteCount = Math.max(
+        0,
+        option.voteCount + (isSelected ? 1 : 0) - (wasSelected ? 1 : 0)
+      );
 
       return {
-        ...currentSelections,
-        [messageId]: currentOptionIds.includes(optionId)
-          ? currentOptionIds.filter((currentOptionId) => currentOptionId !== optionId)
-          : [...currentOptionIds, optionId],
+        ...option,
+        percentage: 0,
+        selectedByViewer: isSelected,
+        voteCount: optimisticVoteCount,
       };
     });
+    const optimisticTotalVoteCount = Math.max(
+      0,
+      poll.totalVoteCount + optionIds.length - baselineOptionIds.length
+    );
+
+    return {
+      ...poll,
+      options: optimisticOptions.map((option) => ({
+        ...option,
+        percentage:
+          optimisticTotalVoteCount > 0
+            ? Math.round(
+                (option.voteCount / optimisticTotalVoteCount) *
+                  TRIBE_ROUND_POLL.percentageBase
+              )
+            : 0,
+      })),
+      totalVoteCount: optimisticTotalVoteCount,
+      viewerHasVoted: optionIds.length > 0 || poll.viewerHasVoted,
+    };
   };
 
-  const handleSubmitPollVote = async (message: TribeRoundMessageResult) => {
-    if (!round.viewerPermissions.canReact) {
+  const arePollOptionIdsEqual = (
+    firstOptionIds: string[],
+    secondOptionIds: string[]
+  ) => (
+    firstOptionIds.length === secondOptionIds.length &&
+    firstOptionIds.every((optionId) => secondOptionIds.includes(optionId))
+  );
+
+  const clearPollVoteDebounceTimer = (messageId: string) => {
+    const timer = pollVoteDebounceTimersRef.current[messageId];
+
+    if (!timer) {
       return;
     }
 
-    const optionIds =
-      selectedPollOptionIds[message.id] ?? getPersistedPollSelection(message.poll);
+    clearTimeout(timer);
+    delete pollVoteDebounceTimersRef.current[messageId];
+  };
 
-    if (optionIds.length === 0) {
+  const flushPendingPollVoteIntent = async (messageId: string) => {
+    clearPollVoteDebounceTimer(messageId);
+
+    const pendingPollVoteIntent = pendingPollVoteIntentsRef.current[messageId];
+
+    if (!pendingPollVoteIntent) {
+      return;
+    }
+
+    if (pendingPollVoteIntent.isRequestInFlight) {
+      pendingPollVoteIntentsRef.current[messageId] = {
+        ...pendingPollVoteIntent,
+        shouldFlushAfterRequest: true,
+      };
+      return;
+    }
+
+    const baselineOptionIds = getPersistedPollSelection(
+      pendingPollVoteIntent.baselinePoll
+    );
+
+    if (
+      arePollOptionIdsEqual(
+        pendingPollVoteIntent.intendedOptionIds,
+        baselineOptionIds
+      )
+    ) {
+      delete pendingPollVoteIntentsRef.current[messageId];
+      return;
+    }
+
+    if (pendingPollVoteIntent.intendedOptionIds.length === 0) {
+      updateMessagePoll(messageId, pendingPollVoteIntent.baselinePoll);
+      setSelectedPollOptionIds((currentSelections) => ({
+        ...currentSelections,
+        [messageId]: baselineOptionIds,
+      }));
+      delete pendingPollVoteIntentsRef.current[messageId];
       toast.warning(TRIBE_ROUND_COPY.pollSubmitButton);
       return;
     }
 
-    setPendingActionId(message.id);
+    const actionTribeSlug = tribeSlug;
+
+    pendingPollVoteIntentsRef.current[messageId] = {
+      ...pendingPollVoteIntent,
+      isRequestInFlight: true,
+      shouldFlushAfterRequest: false,
+    };
 
     try {
       const response = await submitJsonRequest<MessagePollResponse>(
-        TRIBE_ROUND_ENDPOINT.pollVotes(tribeSlug, message.id),
-        { optionIds }
+        TRIBE_ROUND_ENDPOINT.pollVotes(actionTribeSlug, messageId),
+        { optionIds: pendingPollVoteIntent.intendedOptionIds }
       );
+
+      if (currentTribeSlugRef.current !== actionTribeSlug) {
+        return;
+      }
 
       if (!response.poll) {
         throw new Error(TRIBE_ROUND_COPY.pollSubmitError);
       }
 
-      updateMessagePoll(message.id, response.poll);
-      toast.success(response.message ?? TRIBE_ROUND_COPY.pollSubmitSuccess);
+      const latestPendingPollVoteIntent =
+        pendingPollVoteIntentsRef.current[messageId];
+
+      if (!latestPendingPollVoteIntent) {
+        updateMessagePoll(messageId, response.poll);
+        return;
+      }
+
+      const responseOptionIds = getPersistedPollSelection(response.poll);
+
+      if (
+        arePollOptionIdsEqual(
+          latestPendingPollVoteIntent.intendedOptionIds,
+          responseOptionIds
+        )
+      ) {
+        updateMessagePoll(messageId, response.poll);
+        setSelectedPollOptionIds((currentSelections) => ({
+          ...currentSelections,
+          [messageId]: responseOptionIds,
+        }));
+        delete pendingPollVoteIntentsRef.current[messageId];
+        return;
+      }
+
+      pendingPollVoteIntentsRef.current[messageId] = {
+        baselinePoll: response.poll,
+        intendedOptionIds: latestPendingPollVoteIntent.intendedOptionIds,
+        isRequestInFlight: false,
+        shouldFlushAfterRequest:
+          latestPendingPollVoteIntent.shouldFlushAfterRequest,
+      };
+
+      updateMessagePoll(
+        messageId,
+        getOptimisticPollVote(
+          response.poll,
+          latestPendingPollVoteIntent.intendedOptionIds
+        )
+      );
+
+      void flushPendingPollVoteIntent(messageId);
     } catch (error) {
+      if (currentTribeSlugRef.current !== actionTribeSlug) {
+        return;
+      }
+
+      const latestPendingPollVoteIntent =
+        pendingPollVoteIntentsRef.current[messageId];
+
+      if (latestPendingPollVoteIntent) {
+        updateMessagePoll(messageId, latestPendingPollVoteIntent.baselinePoll);
+        setSelectedPollOptionIds((currentSelections) => ({
+          ...currentSelections,
+          [messageId]: getPersistedPollSelection(
+            latestPendingPollVoteIntent.baselinePoll
+          ),
+        }));
+        delete pendingPollVoteIntentsRef.current[messageId];
+      }
+
       toast.error(
         error instanceof Error ? error.message : TRIBE_ROUND_COPY.pollSubmitError
       );
-    } finally {
-      setPendingActionId(null);
     }
   };
+
+  const schedulePendingPollVoteIntentFlush = (messageId: string) => {
+    clearPollVoteDebounceTimer(messageId);
+    pollVoteDebounceTimersRef.current[messageId] = setTimeout(() => {
+      void flushPendingPollVoteIntent(messageId);
+    }, TRIBE_ROUND_LIMITS.toggleDebounceMs);
+  };
+
+  const handlePollOptionSelection = ({
+    message,
+    optionId,
+  }: {
+    message: TribeRoundMessageResult;
+    optionId: string;
+  }) => {
+    const poll = message.poll;
+
+    if (!poll || !round.viewerPermissions.canReact) {
+      return;
+    }
+
+    const pendingPollVoteIntent = pendingPollVoteIntentsRef.current[message.id];
+    const baselinePoll = pendingPollVoteIntent?.baselinePoll ?? poll;
+    const currentOptionIds =
+      selectedPollOptionIds[message.id] ?? getPersistedPollSelection(poll);
+    const intendedOptionIds = poll.allowMultipleVotes
+      ? currentOptionIds.includes(optionId)
+        ? currentOptionIds.filter((currentOptionId) => currentOptionId !== optionId)
+        : [...currentOptionIds, optionId]
+      : [optionId];
+
+    setSelectedPollOptionIds((currentSelections) => ({
+      ...currentSelections,
+      [message.id]: intendedOptionIds,
+    }));
+    pendingPollVoteIntentsRef.current[message.id] = {
+      baselinePoll,
+      intendedOptionIds,
+      isRequestInFlight: pendingPollVoteIntent?.isRequestInFlight ?? false,
+      shouldFlushAfterRequest:
+        pendingPollVoteIntent?.shouldFlushAfterRequest ?? false,
+    };
+    updateMessagePoll(message.id, getOptimisticPollVote(poll, intendedOptionIds));
+    schedulePendingPollVoteIntentFlush(message.id);
+  };
+
 
   const handleDeleteMessage = async (message: TribeRoundMessageResult) => {
     setPendingActionId(message.id);
@@ -1890,13 +2081,11 @@ function TribeRoundContent({
               >
                 <input
                   checked={isSelected}
-                  disabled={isBusy || !canVote}
+                  disabled={!canVote}
                   name={TRIBE_ROUND_ROUTE.pollSegment + poll.id}
                   onChange={() => {
                     handlePollOptionSelection({
-                      allowMultipleVotes: poll.allowMultipleVotes,
-                      baselineOptionIds: selectedOptionIds,
-                      messageId: message.id,
+                      message,
                       optionId: option.id,
                     });
                   }}
@@ -1930,18 +2119,6 @@ function TribeRoundContent({
         <p className={styles.TribeRound__pollHint}>
           {formatPollVoteCount(poll.totalVoteCount)}
         </p>
-        <div className={styles.TribeRound__pollActions}>
-          <Button
-            disabled={isBusy || !canVote || selectedOptionIds.length === 0}
-            onClick={() => {
-              void handleSubmitPollVote(message);
-            }}
-            type={TRIBE_ROUND_FORM.buttonType}
-            variant={TRIBE_ROUND_FORM.outlineVariant}
-          >
-            {TRIBE_ROUND_COPY.pollSubmitButton}
-          </Button>
-        </div>
       </section>
     );
   };

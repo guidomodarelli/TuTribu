@@ -805,8 +805,14 @@ describe("TribeRound", () => {
     expect(screen.queryByRole("button", { name: "Reabrir encuesta" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Eliminar encuesta" })).not.toBeInTheDocument();
 
+    expect(screen.queryByRole("button", { name: "Votar" })).not.toBeInTheDocument();
+
     await user.click(screen.getByLabelText("Álgebra"));
-    await user.click(screen.getAllByRole("button", { name: "Votar" })[0]);
+
+    expect(await screen.findByText("100% · 1")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("dialog", { name: "Mensaje" })).getByText("1 voto")
+    ).toBeInTheDocument();
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
@@ -819,7 +825,6 @@ describe("TribeRound", () => {
         })
       );
     });
-    expect(await screen.findByText("100% · 1")).toBeInTheDocument();
   });
 
   it("disables poll voting when the viewer cannot react", async () => {
@@ -844,15 +849,14 @@ describe("TribeRound", () => {
     );
 
     expect(screen.getByLabelText("Álgebra")).toBeDisabled();
-    expect(screen.getAllByRole("button", { name: "Votar" })[0]).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Votar" })).not.toBeInTheDocument();
 
     await user.click(screen.getByLabelText("Álgebra"));
-    await user.click(screen.getAllByRole("button", { name: "Votar" })[0]);
 
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("submits persisted poll selection when voting without changing options", async () => {
+  it("does not submit when a multiple-choice poll selection becomes empty", async () => {
     const user = userEvent.setup();
     const roundWithPersistedPollVote = {
       ...roundWithPoll,
@@ -861,6 +865,7 @@ describe("TribeRound", () => {
           ...roundWithPoll.messages[0],
           poll: {
             ...roundWithPoll.messages[0].poll,
+            allowMultipleVotes: true,
             options: [
               {
                 id: "option-1",
@@ -905,20 +910,12 @@ describe("TribeRound", () => {
       screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
     );
 
-    await user.click(screen.getAllByRole("button", { name: "Votar" })[0]);
+    await user.click(screen.getByRole("checkbox", { name: /Álgebra/ }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/messages/message-1/poll/votes",
-        expect.objectContaining({
-          body: JSON.stringify({
-            optionIds: ["option-1"],
-          }),
-          method: "POST",
-        })
-      );
+      expect(toast.warning).toHaveBeenCalledWith("Votar");
     });
-    expect(toast.warning).not.toHaveBeenCalledWith("Votar");
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("preserves persisted multiple poll selections when changing one vote", async () => {
@@ -996,7 +993,6 @@ describe("TribeRound", () => {
     );
 
     await user.click(screen.getByRole("checkbox", { name: /Álgebra/ }));
-    await user.click(screen.getAllByRole("button", { name: "Votar" })[0]);
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
