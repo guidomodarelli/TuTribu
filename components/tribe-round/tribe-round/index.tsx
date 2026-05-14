@@ -22,6 +22,7 @@ import {
   PinIcon,
   TrashIcon,
   SendIcon,
+  VoteIcon,
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -180,10 +181,10 @@ const TRIBE_ROUND_COPY = {
   messagePlaceholder: "Contá una novedad, hacé una pregunta o compartí un recurso",
   pollAddButton: "Agregar encuesta",
   pollAddOptionButton: "Agregar opción",
-  pollAllowMultipleVotesLabel: "Permitir varias opciones",
+  pollAllowMultipleVotesLabel: "Voto múltiple",
   pollOptionPlaceholder: "Opción",
   pollQuestionLabel: "Pregunta de la encuesta",
-  pollQuestionPlaceholder: "Pregunta de la encuesta",
+  pollQuestionPlaceholder: "¿Qué querés preguntar?",
   pollRemoveButton: "Quitar encuesta",
   pollRemoveOptionButton: "Quitar opción",
   pollSubmitButton: "Votar",
@@ -2146,16 +2147,15 @@ function TribeRoundContent({
                   </div>
                   <div className={styles.TribeRound__pollComposerOptions}>
                     {pollOptions.map((option, optionIndex) => (
-                      <label
+                      <div
                         className={styles.TribeRound__pollComposerLabel}
                         key={TRIBE_ROUND_POLL.draftKeyPrefix + String(optionIndex)}
                       >
-                        <span>
-                          {TRIBE_ROUND_COPY.pollOptionPlaceholder}{" "}
-                          {optionIndex + 1}
-                        </span>
                         <div className={styles.TribeRound__pollOptionDraft}>
                           <input
+                            aria-label={`${TRIBE_ROUND_COPY.pollOptionPlaceholder} ${
+                              optionIndex + 1
+                            }`}
                             className={styles.TribeRound__pollInput}
                             disabled={isBusy}
                             onChange={(event) => {
@@ -2170,7 +2170,9 @@ function TribeRoundContent({
                               );
                               setMessageComposerErrors([]);
                             }}
-                            placeholder={TRIBE_ROUND_COPY.pollOptionPlaceholder}
+                            placeholder={`${TRIBE_ROUND_COPY.pollOptionPlaceholder} ${
+                              optionIndex + 1
+                            }`}
                             value={option}
                           />
                           {pollOptions.length > TRIBE_ROUND_POLL.minimumOptionCount ? (
@@ -2193,7 +2195,7 @@ function TribeRoundContent({
                             </Button>
                           ) : null}
                         </div>
-                      </label>
+                      </div>
                     ))}
                   </div>
                   <div className={styles.TribeRound__pollComposerControls}>
@@ -2207,7 +2209,7 @@ function TribeRoundContent({
                         ]);
                       }}
                       type={TRIBE_ROUND_FORM.buttonType}
-                      variant={TRIBE_ROUND_FORM.outlineVariant}
+                      variant={TRIBE_ROUND_FORM.ghostVariant}
                     >
                       <ListPlusIcon />
                       {TRIBE_ROUND_COPY.pollAddOptionButton}
@@ -2225,21 +2227,24 @@ function TribeRoundContent({
                     </label>
                   </div>
                   </section>
-                ) : (
-                  <Button
-                    className={styles.TribeRound__pollAddButton}
-                    disabled={isBusy}
-                    onClick={() => {
-                      setIsPollComposerEnabled(true);
-                    }}
-                    type={TRIBE_ROUND_FORM.buttonType}
-                    variant={TRIBE_ROUND_FORM.outlineVariant}
-                  >
-                    <ListPlusIcon />
-                    {TRIBE_ROUND_COPY.pollAddButton}
-                  </Button>
-                )}
-                <div className={styles.TribeRound__channelPicker}>
+                ) : null}
+                <div className={styles.TribeRound__composerActions}>
+                  {!isPollComposerEnabled ? (
+                    <Button
+                      aria-label={TRIBE_ROUND_COPY.pollAddButton}
+                      className={styles.TribeRound__pollAddButton}
+                      disabled={isBusy}
+                      onClick={() => {
+                        setIsPollComposerEnabled(true);
+                      }}
+                      size={TRIBE_ROUND_FORM.iconSize}
+                      type={TRIBE_ROUND_FORM.buttonType}
+                      variant={TRIBE_ROUND_FORM.ghostVariant}
+                    >
+                      <VoteIcon />
+                    </Button>
+                  ) : null}
+                  <div className={styles.TribeRound__channelPicker}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
@@ -2270,6 +2275,7 @@ function TribeRoundContent({
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  </div>
                 </div>
                 {hasMessageComposerErrors ? (
                   <div

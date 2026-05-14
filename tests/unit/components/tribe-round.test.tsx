@@ -703,7 +703,7 @@ describe("TribeRound", () => {
 
     await user.type(optionInputs[0], "Álgebra");
     await user.type(optionInputs[1], "Geometría");
-    await user.click(screen.getByLabelText("Permitir varias opciones"));
+    await user.click(screen.getByLabelText("Voto múltiple"));
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
     await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Compartir" }));
@@ -744,9 +744,9 @@ describe("TribeRound", () => {
 
     expect(screen.getByLabelText("Quitar encuesta")).toBeInTheDocument();
     expect(screen.getAllByRole("textbox", { name: /Opción/ })).toHaveLength(3);
-    expect(screen.getByText("Opción 1")).toBeInTheDocument();
-    expect(screen.getByText("Opción 2")).toBeInTheDocument();
-    expect(screen.getByText("Opción 3")).toBeInTheDocument();
+    expect(screen.queryByText("Opción 1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Opción 2")).not.toBeInTheDocument();
+    expect(screen.queryByText("Opción 3")).not.toBeInTheDocument();
   });
 
   it("submits a poll vote and reveals percentages with counts", async () => {
