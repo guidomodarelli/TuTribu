@@ -186,7 +186,7 @@
 @media (min-width: 40rem) {
   .TribeChannelManagement {
     &__createForm {
-      grid-template-columns: minmax(5rem, 0.22fr) minmax(12rem, 1fr);
+      grid-template-columns: max-content minmax(12rem, 1fr);
     }
 
     &__createButton {
@@ -196,7 +196,7 @@
     }
 
     &__item {
-      grid-template-columns: minmax(4.5rem, 0.2fr) minmax(12rem, 1fr);
+      grid-template-columns: max-content minmax(12rem, 1fr);
     }
 
     &__targetField,
@@ -214,7 +214,7 @@
 @media (min-width: 56rem) {
   .TribeChannelManagement {
     &__createForm {
-      grid-template-columns: minmax(4.5rem, 0.18fr) minmax(12rem, 1fr) max-content;
+      grid-template-columns: max-content minmax(12rem, 1fr) max-content;
     }
 
     &__createButton {
@@ -222,7 +222,7 @@
     }
 
     &__item {
-      grid-template-columns: minmax(4.5rem, 0.16fr) minmax(10rem, 0.58fr) minmax(12rem, 1fr) max-content;
+      grid-template-columns: max-content minmax(10rem, 0.58fr) minmax(12rem, 1fr) max-content;
     }
 
     &__targetField,

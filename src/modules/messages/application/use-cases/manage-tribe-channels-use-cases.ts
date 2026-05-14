@@ -5,10 +5,10 @@ import type {
 } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type { TribeChannelListResult } from "@/src/modules/messages/application/results/tribe-channel-result";
 import {
-  TRIBE_CHANNEL_EMOJI,
   TRIBE_CHANNEL_NAME,
   TRIBE_CHANNEL_MUTATION_STATUS,
 } from "@/src/modules/messages/constants/message-round";
+import { isSingleEmoji } from "@/src/modules/messages/domain/value-objects/channel-emoji";
 import type {
   ListTribeChannelsQuery,
   TribeChannelRepository,
@@ -27,10 +27,7 @@ function isInvalidText(value: string, limits: { maxLength: number; minLength: nu
 }
 
 function isInvalidChannelInput(name: string, emoji: string): boolean {
-  return (
-    isInvalidText(name, TRIBE_CHANNEL_NAME) ||
-    isInvalidText(emoji, TRIBE_CHANNEL_EMOJI)
-  );
+  return isInvalidText(name, TRIBE_CHANNEL_NAME) || !isSingleEmoji(emoji);
 }
 
 export function listTribeChannels({

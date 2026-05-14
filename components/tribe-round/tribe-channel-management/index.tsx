@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
+import { ChannelEmojiPicker } from "@/components/tribe-round/channel-emoji-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { TribeChannelResult } from "@/src/modules/messages/application/results/tribe-round-result";
@@ -242,18 +243,11 @@ export function TribeChannelManagement({
           className={styles.TribeChannelManagement__createForm}
           onSubmit={handleCreateChannel}
         >
-          <label className={styles.TribeChannelManagement__field}>
-            <span className={styles.TribeChannelManagement__fieldLabel}>
-              {CHANNEL_MANAGEMENT_COPY.emojiLabel}
-            </span>
-            <Input
-              className={styles.TribeChannelManagement__emojiInput}
-              onChange={(event) => {
-                setEmoji(event.currentTarget.value);
-              }}
-              value={emoji}
-            />
-          </label>
+          <ChannelEmojiPicker
+            label={CHANNEL_MANAGEMENT_COPY.emojiLabel}
+            onChange={setEmoji}
+            value={emoji}
+          />
           <label className={styles.TribeChannelManagement__field}>
             <span className={styles.TribeChannelManagement__fieldLabel}>
               {CHANNEL_MANAGEMENT_COPY.nameLabel}
@@ -293,27 +287,20 @@ export function TribeChannelManagement({
           >
             {channelItems.map((channel) => (
               <li className={styles.TribeChannelManagement__item} key={channel.id}>
-                <label className={styles.TribeChannelManagement__field}>
-                  <span className={styles.TribeChannelManagement__fieldLabel}>
-                    {CHANNEL_MANAGEMENT_COPY.emojiLabel}
-                  </span>
-                  <Input
-                    className={styles.TribeChannelManagement__emojiInput}
-                    disabled={pendingChannelId === channel.id}
-                    onChange={(event) => {
-                      const nextEmoji = event.currentTarget.value;
-
-                      setChannelItems((currentItems) =>
-                        currentItems.map((currentChannel) =>
-                          currentChannel.id === channel.id
-                            ? { ...currentChannel, emoji: nextEmoji }
-                            : currentChannel
-                        )
-                      );
-                    }}
-                    value={channel.emoji}
-                  />
-                </label>
+                <ChannelEmojiPicker
+                  disabled={pendingChannelId === channel.id}
+                  label={CHANNEL_MANAGEMENT_COPY.emojiLabel}
+                  onChange={(nextEmoji) => {
+                    setChannelItems((currentItems) =>
+                      currentItems.map((currentChannel) =>
+                        currentChannel.id === channel.id
+                          ? { ...currentChannel, emoji: nextEmoji }
+                          : currentChannel
+                      )
+                    );
+                  }}
+                  value={channel.emoji}
+                />
                 <label className={styles.TribeChannelManagement__field}>
                   <span className={styles.TribeChannelManagement__fieldLabel}>
                     {CHANNEL_MANAGEMENT_COPY.nameLabel}

@@ -1,0 +1,54 @@
+.ChannelEmojiPicker {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  width: fit-content;
+
+  &__label {
+    color: var(--muted-foreground);
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  &__trigger {
+    min-height: 2.7rem;
+    min-width: 3.25rem;
+    width: fit-content;
+    justify-content: center;
+    gap: 0.55rem;
+    border-color: var(--border);
+    background: var(--background);
+    color: var(--foreground);
+    font-size: 0.95rem;
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease;
+
+    &:hover:not(:disabled) {
+      border-color: color-mix(in srgb, var(--background) 88%, var(--foreground) 12%);
+      background: var(--background);
+    }
+
+    &:focus-visible {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 24%, transparent);
+      outline: 0;
+    }
+  }
+
+  &__selectedEmoji {
+    display: inline-grid;
+    min-width: 1.25rem;
+    place-items: center;
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+
+  &__content {
+    width: min(20rem, calc(100vw - 2rem));
+    overflow: hidden;
+    padding: 0;
+  }
+}

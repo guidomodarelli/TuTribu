@@ -42,6 +42,121 @@ describe("channel use cases", () => {
     });
   });
 
+  it("creates a channel with a compound emoji", async () => {
+    const create = jest.fn(async () => ({
+      channel: {
+        ...channel,
+        emoji: "👨‍👩‍👧‍👦",
+      },
+      status: "created" as const,
+    }));
+    const execute = createTribeChannel({
+      tribeChannelRepository: {
+        create,
+        delete: jest.fn(),
+        listByTribeSlug: jest.fn(),
+        update: jest.fn(),
+      },
+    });
+
+    await expect(
+      execute({
+        tribeSlug: "matematica-pro",
+        emoji: " 👨‍👩‍👧‍👦 ",
+        name: "Familia",
+      })
+    ).resolves.toEqual({
+      channel: {
+        ...channel,
+        emoji: "👨‍👩‍👧‍👦",
+      },
+      status: "created",
+    });
+    expect(create).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+      emoji: "👨‍👩‍👧‍👦",
+      name: "Familia",
+    });
+  });
+
+  it("creates a channel with a keycap emoji selected from the picker", async () => {
+    const create = jest.fn(async () => ({
+      channel: {
+        ...channel,
+        emoji: "1️⃣",
+      },
+      status: "created" as const,
+    }));
+    const execute = createTribeChannel({
+      tribeChannelRepository: {
+        create,
+        delete: jest.fn(),
+        listByTribeSlug: jest.fn(),
+        update: jest.fn(),
+      },
+    });
+
+    await expect(
+      execute({
+        tribeSlug: "matematica-pro",
+        emoji: " 1️⃣ ",
+        name: "Numeros",
+      })
+    ).resolves.toEqual({
+      channel: {
+        ...channel,
+        emoji: "1️⃣",
+      },
+      status: "created",
+    });
+    expect(create).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+      emoji: "1️⃣",
+      name: "Numeros",
+    });
+  });
+
+  it("updates a channel with a symbol keycap emoji selected from the picker", async () => {
+    const update = jest.fn(async () => ({
+      channel: {
+        ...channel,
+        emoji: "#️⃣",
+      },
+      status: "updated" as const,
+    }));
+    const execute = updateTribeChannel({
+      tribeChannelRepository: {
+        create: jest.fn(),
+        delete: jest.fn(),
+        listByTribeSlug: jest.fn(),
+        update,
+      },
+    });
+
+    await expect(
+      execute({
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        emoji: " #️⃣ ",
+        name: "Ronda",
+        sortOrder: 20,
+      })
+    ).resolves.toEqual({
+      channel: {
+        ...channel,
+        emoji: "#️⃣",
+      },
+      status: "updated",
+    });
+    expect(update).toHaveBeenCalledWith({
+      channelId: "channel-ronda",
+      tribeSlug: "matematica-pro",
+      emoji: "#️⃣",
+      name: "Ronda",
+      sortOrder: 20,
+    });
+  });
+
   it("rejects a channel without name before calling the repository", async () => {
     const create = jest.fn();
     const execute = createTribeChannel({
@@ -61,6 +176,71 @@ describe("channel use cases", () => {
       })
     ).resolves.toEqual({ status: "invalid_name" });
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a channel with text as emoji before calling the repository", async () => {
+    const create = jest.fn();
+    const execute = createTribeChannel({
+      tribeChannelRepository: {
+        create,
+        delete: jest.fn(),
+        listByTribeSlug: jest.fn(),
+        update: jest.fn(),
+      },
+    });
+
+    await expect(
+      execute({
+        tribeSlug: "matematica-pro",
+        emoji: "fire",
+        name: "Ronda",
+      })
+    ).resolves.toEqual({ status: "invalid_name" });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a channel with multiple emojis before calling the repository", async () => {
+    const create = jest.fn();
+    const execute = createTribeChannel({
+      tribeChannelRepository: {
+        create,
+        delete: jest.fn(),
+        listByTribeSlug: jest.fn(),
+        update: jest.fn(),
+      },
+    });
+
+    await expect(
+      execute({
+        tribeSlug: "matematica-pro",
+        emoji: "🔥⭐",
+        name: "Ronda",
+      })
+    ).resolves.toEqual({ status: "invalid_name" });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a channel update with text as emoji before calling the repository", async () => {
+    const update = jest.fn();
+    const execute = updateTribeChannel({
+      tribeChannelRepository: {
+        create: jest.fn(),
+        delete: jest.fn(),
+        listByTribeSlug: jest.fn(),
+        update,
+      },
+    });
+
+    await expect(
+      execute({
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        emoji: "fire",
+        name: "Ronda",
+        sortOrder: 20,
+      })
+    ).resolves.toEqual({ status: "invalid_name" });
+    expect(update).not.toHaveBeenCalled();
   });
 
   it("updates a channel with normalized text", async () => {
