@@ -37,6 +37,7 @@ type TribeSwitcherProps = {
   className?: string;
   dropdownTrigger?: React.ReactNode;
   memberTribes: MemberTribeListItemResult[];
+  onNavigate?: () => void;
   showDropdownTrigger?: boolean;
   showPrivateBadge?: boolean;
 };
@@ -45,6 +46,7 @@ export function TribeSwitcher({
   className,
   dropdownTrigger,
   memberTribes,
+  onNavigate,
   showDropdownTrigger = true,
   showPrivateBadge = true,
 }: TribeSwitcherProps) {
@@ -61,10 +63,17 @@ export function TribeSwitcher({
 
   const navigateToCreateTribe = () => {
     push(ROUTES.tribes.create);
+    onNavigate?.();
   };
 
   const navigateToDiscovery = () => {
     push(ROUTES.home);
+    onNavigate?.();
+  };
+
+  const navigateToTribe = (tribePath: string) => {
+    push(tribePath);
+    onNavigate?.();
   };
 
   if (!activeTribe) {
@@ -118,7 +127,7 @@ export function TribeSwitcher({
                   key={tribe.tribeId}
                   className={styles.TribeSwitcher__item}
                   data-active={isActiveTribe}
-                  onClick={() => push(tribePath)}
+                  onClick={() => navigateToTribe(tribePath)}
                 >
                   <UsersIcon />
                   <span className={styles.TribeSwitcher__tribeName}>

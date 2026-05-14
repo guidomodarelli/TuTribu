@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 
 const pushMock = jest.fn();
 const prefetchMock = jest.fn();
+const setOpenMobileMock = jest.fn();
 const appSidebarStyles = readFileSync(
   join(process.cwd(), "components", "app-sidebar", "styles.module.scss"),
   "utf8"
@@ -64,12 +65,23 @@ jest.mock("@/components/ui/sidebar", () => ({
   SidebarSeparator: ({ className }: { className?: string }) => (
     <hr className={className} />
   ),
+  useSidebar: jest.fn(() => ({
+    isMobile: false,
+    setOpenMobile: setOpenMobileMock,
+  })),
 }));
 
 describe("AppSidebar", () => {
   beforeEach(() => {
+    const { useSidebar } = jest.requireMock("@/components/ui/sidebar");
+
     jest.clearAllMocks();
     pushMock.mockReset();
+    setOpenMobileMock.mockReset();
+    useSidebar.mockReturnValue({
+      isMobile: false,
+      setOpenMobile: setOpenMobileMock,
+    });
 
     (useRouter as jest.Mock).mockReturnValue({
       prefetch: prefetchMock,
@@ -313,6 +325,34 @@ describe("AppSidebar", () => {
     await user.click(screen.getByRole("button", { name: /alpha club/i }));
 
     expect(pushMock).toHaveBeenCalledWith("/tribu/alpha-club");
+  });
+
+  it("closes the mobile sidebar when a global navigation item is clicked", async () => {
+    const user = userEvent.setup();
+    const { useSidebar } = jest.requireMock("@/components/ui/sidebar");
+
+    useSidebar.mockReturnValue({
+      isMobile: true,
+      setOpenMobile: setOpenMobileMock,
+    });
+
+    render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
+
+    await user.click(screen.getByRole("button", { name: /descubrir tribus/i }));
+
+    expect(pushMock).toHaveBeenCalledWith("/");
+    expect(setOpenMobileMock).toHaveBeenCalledWith(false);
+  });
+
+  it("keeps the desktop sidebar open when a global navigation item is clicked", async () => {
+    const user = userEvent.setup();
+
+    render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
+
+    await user.click(screen.getByRole("button", { name: /descubrir tribus/i }));
+
+    expect(pushMock).toHaveBeenCalledWith("/");
+    expect(setOpenMobileMock).not.toHaveBeenCalled();
   });
 
   it("renders tribe sections when the member is inside one of their tribes", () => {
@@ -583,6 +623,77 @@ describe("AppSidebar", () => {
     await user.click(screen.getByRole("button", { name: /la tribu/i }));
 
     expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/tribu");
+  });
+
+  it("closes the mobile sidebar when a tribe section navigation item is clicked", async () => {
+    const user = userEvent.setup();
+    const { useSidebar } = jest.requireMock("@/components/ui/sidebar");
+
+    useSidebar.mockReturnValue({
+      isMobile: true,
+      setOpenMobile: setOpenMobileMock,
+    });
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro/eventos");
+
+    render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "leader@example.com",
+          name: "Grace Hopper",
+          role: "tribemate",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        memberTribes={[
+          {
+            tribeId: "tribe-1",
+            name: "Matematica Pro",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /la tribu/i }));
+
+    expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/tribu");
+    expect(setOpenMobileMock).toHaveBeenCalledWith(false);
+  });
+
+  it("closes the mobile sidebar when a tribe switcher dropdown item is clicked", async () => {
+    const user = userEvent.setup();
+    const { useSidebar } = jest.requireMock("@/components/ui/sidebar");
+
+    useSidebar.mockReturnValue({
+      isMobile: true,
+      setOpenMobile: setOpenMobileMock,
+    });
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
+
+    render(
+      <AppSidebar
+        authenticatedMember={null}
+        memberTribes={[
+          {
+            tribeId: "tribe-1",
+            name: "Matematica Pro",
+            slug: "matematica-pro",
+          },
+          {
+            tribeId: "tribe-2",
+            name: "Beta Club",
+            slug: "beta-club",
+          },
+        ]}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /matematica pro/i }));
+    await user.click(screen.getByRole("menuitem", { name: /beta club/i }));
+
+    expect(pushMock).toHaveBeenCalledWith("/tribu/beta-club");
+    expect(setOpenMobileMock).toHaveBeenCalledWith(false);
   });
 
   it("does not render tribe sections outside an active member tribe", () => {
