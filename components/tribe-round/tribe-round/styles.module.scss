@@ -319,8 +319,8 @@
   }
 
   &__channelMenuContent {
-    width: min(16rem, calc(100vw - 2rem));
-    max-width: min(16rem, calc(100vw - 2rem));
+    width: fit-content;
+    max-width: min(22rem, calc(100vw - 2rem));
   }
 
   &__channelMenuItem {
@@ -339,8 +339,8 @@
   &__channelMenuText {
     display: block;
     min-width: 0;
-    overflow-wrap: anywhere;
-    white-space: normal;
+    overflow-wrap: normal;
+    white-space: nowrap;
   }
 
   &__channelFilters {
@@ -392,7 +392,6 @@
     flex: 0 0 auto;
     justify-content: center;
     min-width: 0;
-    max-width: min(220px, 56vw);
     height: 36px;
     max-height: 36px;
     min-height: 36px;
@@ -400,9 +399,7 @@
     color: var(--muted-foreground);
     cursor: pointer;
     font-size: 15px;
-    overflow: hidden;
     text-decoration: none;
-    text-overflow: ellipsis;
     appearance: none;
     transition:
       background-color 160ms ease,
@@ -443,8 +440,8 @@
   &__channelFilterText {
     display: block;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   &__channelBadge {

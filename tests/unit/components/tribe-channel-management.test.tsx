@@ -237,6 +237,18 @@ describe("TribeChannelManagement", () => {
     expect(tribeChannelManagementStyles).toMatch(
       /&__item\s*{[^}]*grid-template-columns:\s*max-content\s*minmax\(10rem,\s*0\.58fr\)\s*minmax\(12rem,\s*1fr\)\s*max-content;/s
     );
+    expect(tribeChannelManagementStyles).toMatch(
+      /&__actions\s*{[^}]*align-self:\s*start;/s
+    );
+    expect(tribeChannelManagementStyles).toMatch(
+      /&__createButton\s*{[^}]*align-self:\s*start;/s
+    );
+    expect(tribeChannelManagementStyles).toMatch(
+      /&__createButton\s*{[^}]*margin-top:\s*calc\(\(0\.82rem\s*\*\s*1\.25\)\s*\+\s*0\.4rem\);/s
+    );
+    expect(tribeChannelManagementStyles).toMatch(
+      /&__actions\s*{[^}]*margin-top:\s*calc\(\(0\.82rem\s*\*\s*1\.25\)\s*\+\s*0\.4rem\);/s
+    );
   });
 
   it("cleans stale target channels after deleting a channel", async () => {

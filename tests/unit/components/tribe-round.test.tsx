@@ -7,10 +7,23 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { toast } from "sonner";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
+const tribeRoundStyles = readFileSync(
+  join(
+    process.cwd(),
+    "components",
+    "tribe-round",
+    "tribe-round",
+    "styles.module.scss"
+  ),
+  "utf8"
+);
 
 const refreshMock = jest.fn();
 const originalConsoleError = console.error;
@@ -448,6 +461,27 @@ describe("TribeRound", () => {
     await settleReactUpdates();
     expect(unexpectedConsoleErrors).toEqual([]);
     consoleErrorSpy.mockRestore();
+  });
+
+  it("keeps channel names readable without ellipsis in filters and menu items", () => {
+    expect(tribeRoundStyles).toMatch(
+      /&__channelMenuContent\s*{[^}]*width:\s*fit-content;/s
+    );
+    expect(tribeRoundStyles).toMatch(
+      /&__channelMenuContent\s*{[^}]*max-width:\s*min\(22rem,\s*calc\(100vw\s*-\s*2rem\)\);/s
+    );
+    expect(tribeRoundStyles).toMatch(
+      /&__channelMenuText\s*{[^}]*white-space:\s*nowrap;/s
+    );
+    expect(tribeRoundStyles).toMatch(
+      /&__channelMenuText\s*{[^}]*overflow-wrap:\s*normal;/s
+    );
+    expect(tribeRoundStyles).toMatch(
+      /&__channelFilterText\s*{[^}]*overflow:\s*visible;/s
+    );
+    expect(tribeRoundStyles).toMatch(
+      /&__channelFilterText\s*{[^}]*text-overflow:\s*clip;/s
+    );
   });
 
   it("opens a centered composer modal from the collapsed composer", async () => {

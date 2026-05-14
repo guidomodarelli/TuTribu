@@ -146,12 +146,12 @@
   }
 
   &__createButton {
-    align-self: end;
+    align-self: start;
     font-weight: 650;
   }
 
   &__actions {
-    align-self: end;
+    align-self: start;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.6rem;
@@ -227,6 +227,7 @@
 
     &__createButton {
       grid-column: auto;
+      margin-top: calc((0.82rem * 1.25) + 0.4rem);
     }
 
     &__item {
@@ -236,6 +237,10 @@
     &__targetField,
     &__actions {
       grid-column: auto;
+    }
+
+    &__actions {
+      margin-top: calc((0.82rem * 1.25) + 0.4rem);
     }
   }
 }
