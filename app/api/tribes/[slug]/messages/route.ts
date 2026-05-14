@@ -1,4 +1,9 @@
-import { MESSAGE_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
+import {
+  MESSAGE_MUTATION_STATUS,
+  MESSAGE_POLL_OPTION_TEXT,
+  MESSAGE_POLL_OPTIONS,
+  MESSAGE_POLL_QUESTION,
+} from "@/src/modules/messages/constants/message-round";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -25,7 +30,13 @@ const CREATE_MESSAGE_ROUTE_RESPONSE = {
   invalidContentMessage: "Completá el título y el contenido antes de publicar.",
   invalidChannelMessage: "Seleccioná un canal antes de publicar.",
   notFoundMessage: "No pudimos encontrar la tribu.",
-  invalidPollMessage: "Completá la pregunta y al menos dos opciones para publicar la encuesta.",
+  invalidPollDuplicateOptionsMessage: "Usá opciones distintas para publicar la encuesta.",
+  invalidPollMessage: "No pudimos publicar la encuesta. Revisá los datos.",
+  invalidPollMissingOptionsMessage: "Agregá al menos 2 opciones para publicar la encuesta.",
+  invalidPollMissingQuestionMessage: "Completá la pregunta para publicar la encuesta.",
+  invalidPollOptionTooLongMessage: "Acortá las opciones de la encuesta.",
+  invalidPollQuestionTooLongMessage: "Acortá la pregunta de la encuesta.",
+  invalidPollTooManyOptionsMessage: "Usá menos opciones para publicar la encuesta.",
   successMessage: "Mensaje creado.",
   unexpectedMessage: "No pudimos crear el mensaje. Intentalo de nuevo.",
   unauthorizedMessage: "Inicia sesion para publicar.",
@@ -100,6 +111,46 @@ function readPollFromBody(body: unknown) {
   };
 }
 
+function getInvalidPollMessage(poll: ReturnType<typeof readPollFromBody>): string {
+  if (!poll) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollMessage;
+  }
+
+  const trimmedQuestion = poll.question.trim();
+  const trimmedOptions = poll.options
+    .map((option) => option.trim())
+    .filter(Boolean);
+  const uniqueOptionTexts = new Set(
+    trimmedOptions.map((option) => option.toLocaleLowerCase())
+  );
+
+  if (!trimmedQuestion) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollMissingQuestionMessage;
+  }
+
+  if (trimmedQuestion.length > MESSAGE_POLL_QUESTION.maxLength) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollQuestionTooLongMessage;
+  }
+
+  if (trimmedOptions.length < MESSAGE_POLL_OPTIONS.minCount) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollMissingOptionsMessage;
+  }
+
+  if (trimmedOptions.length > MESSAGE_POLL_OPTIONS.maxCount) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollTooManyOptionsMessage;
+  }
+
+  if (trimmedOptions.some((option) => option.length > MESSAGE_POLL_OPTION_TEXT.maxLength)) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollOptionTooLongMessage;
+  }
+
+  if (uniqueOptionTexts.size !== trimmedOptions.length) {
+    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollDuplicateOptionsMessage;
+  }
+
+  return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollMessage;
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -160,7 +211,7 @@ export async function POST(
         );
       case MESSAGE_MUTATION_STATUS.invalidPoll:
         return createJsonResponse(
-          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollMessage },
+          { message: getInvalidPollMessage(poll) },
           HTTP_STATUS.badRequest
         );
       case MESSAGE_MUTATION_STATUS.notFound:

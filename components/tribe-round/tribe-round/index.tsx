@@ -69,6 +69,11 @@ import {
 } from "@/components/ui/pagination";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
+import {
+  MESSAGE_POLL_OPTION_TEXT,
+  MESSAGE_POLL_OPTIONS,
+  MESSAGE_POLL_QUESTION,
+} from "@/src/modules/messages/constants/message-round";
 import type {
   TribeRoundReplyResult,
   TribeRoundMessageResult,
@@ -169,9 +174,14 @@ const TRIBE_ROUND_COPY = {
   messageComposerDescription:
     "Completá el título y el contenido para compartir un mensaje en la tribu.",
   messageComposerDialogTitle: "Crear mensaje",
+  messageComposerDuplicatePollOptions: "Usar opciones distintas",
   messageComposerMissingChannel: "Seleccionar canal",
   messageComposerMissingContent: "Publicar el contenido",
-  messageComposerMissingPoll: "Completar la encuesta",
+  messageComposerPollOptionsLimit: "Usar menos opciones",
+  messageComposerPollOptionsRequired: "Agregar al menos 2 opciones",
+  messageComposerPollOptionTooLong: "Acortar las opciones",
+  messageComposerPollQuestionRequired: "Completar la pregunta",
+  messageComposerPollQuestionTooLong: "Acortar la pregunta",
   messageComposerMissingTitle: "Completar título",
   messageComposerRequirementsTitle: "Falta completar:",
   messageCreatedTooltipPrefix: "Mensaje creado:",
@@ -621,18 +631,50 @@ function getMissingMessageRequirements(input: {
     missingRequirements.push(TRIBE_ROUND_COPY.messageComposerMissingChannel);
   }
 
-  if (
-    input.poll?.enabled &&
-    (
-      !input.poll.question.trim() ||
-      input.poll.options.filter((option) => option.trim()).length <
-        TRIBE_ROUND_POLL.minimumOptionCount
-    )
-  ) {
-    missingRequirements.push(TRIBE_ROUND_COPY.messageComposerMissingPoll);
+  if (input.poll?.enabled) {
+    missingRequirements.push(...getPollDraftRequirements(input.poll));
   }
 
   return missingRequirements;
+}
+
+function getPollDraftRequirements(poll: {
+  options: string[];
+  question: string;
+}): string[] {
+  const trimmedQuestion = poll.question.trim();
+  const trimmedOptions = poll.options
+    .map((option) => option.trim())
+    .filter(Boolean);
+  const uniqueOptionTexts = new Set(
+    trimmedOptions.map((option) => option.toLocaleLowerCase())
+  );
+  const pollRequirements: string[] = [];
+
+  if (!trimmedQuestion) {
+    pollRequirements.push(TRIBE_ROUND_COPY.messageComposerPollQuestionRequired);
+  } else if (trimmedQuestion.length > MESSAGE_POLL_QUESTION.maxLength) {
+    pollRequirements.push(TRIBE_ROUND_COPY.messageComposerPollQuestionTooLong);
+  }
+
+  if (trimmedOptions.length < MESSAGE_POLL_OPTIONS.minCount) {
+    pollRequirements.push(TRIBE_ROUND_COPY.messageComposerPollOptionsRequired);
+  } else if (trimmedOptions.length > MESSAGE_POLL_OPTIONS.maxCount) {
+    pollRequirements.push(TRIBE_ROUND_COPY.messageComposerPollOptionsLimit);
+  }
+
+  if (trimmedOptions.some((option) => option.length > MESSAGE_POLL_OPTION_TEXT.maxLength)) {
+    pollRequirements.push(TRIBE_ROUND_COPY.messageComposerPollOptionTooLong);
+  }
+
+  if (
+    trimmedOptions.length >= MESSAGE_POLL_OPTIONS.minCount &&
+    uniqueOptionTexts.size !== trimmedOptions.length
+  ) {
+    pollRequirements.push(TRIBE_ROUND_COPY.messageComposerDuplicatePollOptions);
+  }
+
+  return pollRequirements;
 }
 
 function isLongMessageContent(content: string): boolean {

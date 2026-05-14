@@ -728,6 +728,47 @@ describe("TribeRound", () => {
     });
   });
 
+  it("shows duplicate poll option validation before submitting a message", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Nos vemos el viernes."
+    );
+    await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Pregunta de la encuesta" }),
+      "¿Qué tema seguimos?"
+    );
+    await user.type(screen.getByRole("textbox", { name: "Opción 1" }), "Álgebra");
+    await user.type(screen.getByRole("textbox", { name: "Opción 2" }), "álgebra");
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    const missingRequirements = screen.getByRole("list", {
+      name: "Requisitos pendientes",
+    });
+
+    expect(
+      within(missingRequirements).getByText("Usar opciones distintas")
+    ).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("shows three poll option fields when composing a survey", async () => {
     const user = userEvent.setup();
 

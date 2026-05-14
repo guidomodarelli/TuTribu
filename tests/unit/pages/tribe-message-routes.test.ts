@@ -288,6 +288,33 @@ describe("Tribe message routes", () => {
     );
   });
 
+  it("returns a specific validation message when poll options are duplicated", async () => {
+    createTribeMessage.mockResolvedValue({
+      status: "invalid_poll",
+    });
+
+    const response = await POST_CREATE(
+      buildJsonRequest({
+        content: "Primera mensaje",
+        channelId: "channel-ronda",
+        title: "Anuncio inicial",
+        poll: {
+          allowMultipleVotes: false,
+          options: ["Álgebra", "álgebra"],
+          question: "¿Qué vemos?",
+        },
+      } as never),
+      buildCreateRouteContext()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      message: "Usá opciones distintas para publicar la encuesta.",
+    });
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
+
   it("returns a safe validation message when channel is missing", async () => {
     createTribeMessage.mockResolvedValue({
       status: "invalid_channel",
