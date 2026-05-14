@@ -1,19 +1,25 @@
 import { sql } from "drizzle-orm";
 
 import type {
+  DeleteTribeMessageCommand,
   CreateTribeMessageCommand,
   CreateMessageReplyCommand,
   ToggleMessageLikeCommand,
   ToggleMessagePinCommand,
+  SubmitMessagePollVoteCommand,
 } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type {
+  MessageDeletionResult,
   MessageReplyCreationResult,
   MessageCreationResult,
   MessageLikeToggleResult,
+  MessagePollMutationResult,
   MessagePinToggleResult,
 } from "@/src/modules/messages/application/results/message-mutation-result";
+import type { MessagePollResult } from "@/src/modules/messages/application/results/tribe-round-result";
 import {
   MESSAGE_MUTATION_STATUS,
+  MESSAGE_POLL_STATUS,
   MESSAGE_REACTION_TYPE,
   PINNED_TRIBE_MESSAGES_LIMIT,
 } from "@/src/modules/messages/constants/message-round";
@@ -21,6 +27,8 @@ import type { MessageReplyRepository } from "@/src/modules/messages/domain/repos
 import type { MessageCreationRepository } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type { MessageReactionRepository } from "@/src/modules/messages/domain/repositories/message-reaction-repository";
 import type { MessagePinRepository } from "@/src/modules/messages/domain/repositories/message-pin-repository";
+import type { MessagePollRepository } from "@/src/modules/messages/domain/repositories/message-poll-repository";
+import type { MessageDeletionRepository } from "@/src/modules/messages/domain/repositories/message-deletion-repository";
 import {
   createTribeRoundReply,
   createTribeRoundMessage,
@@ -51,6 +59,25 @@ type CreatedMessageRow = MutationStatusRow & {
   message_created_at: Date | string | null;
   message_id: string | null;
   message_title: string | null;
+  poll_allow_multiple_votes: boolean | null;
+  poll_id: string | null;
+  poll_options: CreatedPollOptionRow[] | null;
+  poll_question: string | null;
+};
+
+type CreatedPollOptionRow = {
+  id: string | null;
+  text: string | null;
+};
+
+type InsertedPollRow = {
+  poll_allow_multiple_votes: boolean | null;
+  poll_id: string | null;
+  poll_question: string | null;
+};
+
+type InsertedPollOptionsRow = {
+  poll_options: CreatedPollOptionRow[] | null;
 };
 
 type CreatedReplyRow = MutationStatusRow & {
@@ -95,6 +122,25 @@ type ExistingPinRow = {
 type DeletedReactionRow = {
   id: string;
 };
+
+type PollTargetRow = {
+  allow_multiple_votes: boolean;
+  can_write: boolean;
+  poll_id: string;
+  tribe_id: string;
+};
+
+type PollOptionRow = {
+  option_id: string;
+  option_text: string;
+  selected_by_viewer: boolean;
+  vote_count: number | string | null;
+};
+
+const MESSAGE_CREATION_DATABASE_ERROR = {
+  pollOptionsNotInserted: "Message poll options were not inserted",
+  pollNotInserted: "Message poll was not inserted",
+} as const;
 
 function mapFallbackCreationStatus(status: string | null): MessageCreationResult {
   if (status === MESSAGE_MUTATION_STATUS.invalidChannel) {
@@ -152,6 +198,27 @@ function mapCreatedMessage(row: CreatedMessageRow | null): MessageCreationResult
         createdAt: row.message_created_at,
         likedByViewer: false,
         likeCount: 0,
+        poll: row.poll_id
+          ? {
+              allowMultipleVotes: Boolean(row.poll_allow_multiple_votes),
+              id: row.poll_id,
+              options: (row.poll_options ?? [])
+                .filter((option) => option.id && option.text)
+                .map((option) => ({
+                  id: option.id ?? "",
+                  percentage: 0,
+                  selectedByViewer: false,
+                  text: option.text ?? "",
+                  voteCount: 0,
+                })),
+              question: row.poll_question ?? "",
+              totalVoteCount: 0,
+              viewerHasVoted: false,
+            }
+          : null,
+        permissions: {
+          canDelete: true,
+        },
         title: row.message_title,
       }),
       status: row.status,
@@ -189,7 +256,7 @@ function mapCreatedReply(row: CreatedReplyRow | null): MessageReplyCreationResul
 }
 
 export class PostgresMessageMutationRepository
-  implements MessageCreationRepository, MessageReplyRepository, MessageReactionRepository, MessagePinRepository
+  implements MessageCreationRepository, MessageReplyRepository, MessageReactionRepository, MessagePinRepository, MessagePollRepository, MessageDeletionRepository
 {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
@@ -421,11 +488,129 @@ export class PostgresMessageMutationRepository
     });
   }
 
+  async vote(command: SubmitMessagePollVoteCommand): Promise<MessagePollMutationResult> {
+    return this.executeWithDatabase(async (database) => {
+      const targetPoll = await this.findPollTarget(database, command);
+
+      if (!targetPoll) {
+        return { status: MESSAGE_MUTATION_STATUS.notFound };
+      }
+
+      if (!targetPoll.can_write) {
+        return { status: MESSAGE_MUTATION_STATUS.forbidden };
+      }
+
+      const optionIds = targetPoll.allow_multiple_votes
+        ? command.optionIds
+        : command.optionIds.slice(0, 1);
+      const optionIdSqlArray = sql.join(
+        optionIds.map((optionId) => sql`${optionId}::uuid`),
+        sql`, `
+      );
+
+      const validOptionsResult = await database.execute(sql`
+        select message_poll_options.id::text as option_id
+        from public.message_poll_options
+        where message_poll_options.poll_id = ${targetPoll.poll_id}
+          and message_poll_options.id = any(array[${optionIdSqlArray}]::uuid[])
+      `);
+      const validOptionIds = ((validOptionsResult.rows ?? []) as { option_id: string }[])
+        .map((option) => option.option_id);
+
+      if (validOptionIds.length === 0) {
+        return { status: MESSAGE_MUTATION_STATUS.invalidPoll };
+      }
+
+      await database.execute(sql`
+        select pg_advisory_xact_lock(
+          hashtext(${targetPoll.poll_id}),
+          hashtext(${command.userId})
+        ) as lock_key
+      `);
+
+      await database.execute(sql`
+        delete from public.message_poll_votes
+        where poll_id = ${targetPoll.poll_id}
+          and user_id = ${command.userId}
+      `);
+
+      for (const optionId of validOptionIds) {
+        await database.execute(sql`
+          insert into public.message_poll_votes (poll_id, option_id, tribe_id, user_id, created_at)
+          values (
+            ${targetPoll.poll_id},
+            ${optionId},
+            ${targetPoll.tribe_id},
+            ${command.userId},
+            timezone('utc', now())
+          )
+          on conflict (poll_id, option_id, user_id) do nothing
+        `);
+      }
+
+      return {
+        poll: await this.readPoll(database, targetPoll.poll_id, command.userId),
+        status: MESSAGE_MUTATION_STATUS.voted,
+      };
+    });
+  }
+
+  async delete(command: DeleteTribeMessageCommand): Promise<MessageDeletionResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_message as (
+          select
+            messages.id as message_id,
+            (
+              (
+                messages.author_id = ${command.userId}
+                and public.is_active_tribe_member(messages.tribe_id)
+              )
+              or public.can_pin_tribe_messages(messages.tribe_id)
+            ) as can_delete
+          from public.messages
+          inner join public.tribes
+            on tribes.id = messages.tribe_id
+          where messages.id = ${command.messageId}
+            and tribes.slug = ${command.tribeSlug}
+          limit 1
+        ),
+        deleted_message as (
+          delete from public.messages
+          where messages.id = (select target_message.message_id from target_message)
+            and exists (
+              select 1
+              from target_message
+              where target_message.can_delete
+            )
+          returning messages.id
+        )
+        select
+          case
+            when exists (select 1 from deleted_message) then ${MESSAGE_MUTATION_STATUS.deleted}
+            when not exists (select 1 from target_message) then ${MESSAGE_MUTATION_STATUS.notFound}
+            else ${MESSAGE_MUTATION_STATUS.forbidden}
+          end as status
+      `);
+      const row = (result.rows?.[0] ?? null) as MutationStatusRow | null;
+
+      if (row?.status === MESSAGE_MUTATION_STATUS.deleted) {
+        return { status: MESSAGE_MUTATION_STATUS.deleted };
+      }
+
+      if (row?.status === MESSAGE_MUTATION_STATUS.notFound) {
+        return { status: MESSAGE_MUTATION_STATUS.notFound };
+      }
+
+      return { status: MESSAGE_MUTATION_STATUS.forbidden };
+    });
+  }
+
   private async createMessage(
     command: CreateTribeMessageCommand
   ): Promise<MessageCreationResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const messageResult = await database.execute(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -505,9 +690,171 @@ export class PostgresMessageMutationRepository
         left join created_message
           on true
       `);
+      const createdMessage = (messageResult.rows?.[0] ?? null) as CreatedMessageRow | null;
 
-      return mapCreatedMessage((result.rows?.[0] ?? null) as CreatedMessageRow | null);
+      if (
+        createdMessage?.status !== MESSAGE_MUTATION_STATUS.created ||
+        !command.poll ||
+        !createdMessage.message_id
+      ) {
+        return mapCreatedMessage(createdMessage);
+      }
+
+      const pollResult = await database.execute(sql`
+        insert into public.message_polls (message_id, tribe_id, question, allow_multiple_votes, status, created_at, updated_at)
+        select messages.id, messages.tribe_id, ${command.poll.question}, ${command.poll.allowMultipleVotes}, ${MESSAGE_POLL_STATUS.open}, timezone('utc', now()), timezone('utc', now())
+        from public.messages
+        inner join public.tribes
+          on tribes.id = messages.tribe_id
+        where messages.id = ${createdMessage.message_id}
+          and tribes.slug = ${command.tribeSlug}
+          and messages.author_id = ${command.authorId}
+        returning
+          id as poll_id,
+          question as poll_question,
+          allow_multiple_votes as poll_allow_multiple_votes
+      `);
+      const insertedPoll = (pollResult.rows?.[0] ?? null) as InsertedPollRow | null;
+
+      if (!insertedPoll?.poll_id) {
+        throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollNotInserted);
+      }
+
+      const pollOptionsResult = await database.execute(sql`
+        with inserted_poll_options as (
+          insert into public.message_poll_options (poll_id, tribe_id, text, sort_order, created_at)
+          select message_polls.id, message_polls.tribe_id, poll_option.text, poll_option.sort_order::integer, timezone('utc', now())
+          from public.message_polls
+          cross join unnest(${sql.param(command.poll.options)}::text[]) with ordinality as poll_option(text, sort_order)
+          where message_polls.id = ${insertedPoll.poll_id}
+          returning id, text, sort_order
+        )
+        select
+          coalesce(
+            json_agg(
+              json_build_object(
+                'id', inserted_poll_options.id,
+                'text', inserted_poll_options.text
+              )
+              order by inserted_poll_options.sort_order
+            ),
+            '[]'::json
+          ) as poll_options
+        from inserted_poll_options
+      `);
+      const insertedPollOptions = (pollOptionsResult.rows?.[0] ?? null) as
+        | InsertedPollOptionsRow
+        | null;
+      const pollOptions = insertedPollOptions?.poll_options ?? [];
+
+      if (pollOptions.length !== command.poll.options.length) {
+        throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollOptionsNotInserted);
+      }
+
+      return mapCreatedMessage({
+        ...createdMessage,
+        poll_allow_multiple_votes: insertedPoll.poll_allow_multiple_votes,
+        poll_id: insertedPoll.poll_id,
+        poll_options: pollOptions,
+        poll_question: insertedPoll.poll_question,
+      });
     });
+  }
+
+  private async findPollTarget(
+    database: RequestDatabase,
+    command: SubmitMessagePollVoteCommand
+  ): Promise<PollTargetRow | null> {
+    const targetResult = await database.execute(sql`
+      select
+        message_polls.id as poll_id,
+        message_polls.tribe_id,
+        message_polls.allow_multiple_votes,
+        public.is_active_tribe_member(message_polls.tribe_id) as can_write
+      from public.message_polls
+      inner join public.messages
+        on messages.id = message_polls.message_id
+      inner join public.tribes
+        on tribes.id = message_polls.tribe_id
+      left join public.message_poll_votes
+        on message_poll_votes.poll_id = message_polls.id
+      where messages.id = ${command.messageId}
+        and tribes.slug = ${command.tribeSlug}
+      limit 1
+    `);
+
+    return (targetResult.rows?.[0] ?? null) as PollTargetRow | null;
+  }
+
+  private async readPoll(
+    database: RequestDatabase,
+    pollId: string,
+    viewerId: string
+  ): Promise<MessagePollResult> {
+    const optionsResult = await database.execute(sql`
+      with option_vote_counts as (
+        select option_id, count(*) as vote_count
+        from public.message_poll_votes
+        where poll_id = ${pollId}
+        group by option_id
+      ),
+      total_votes as (
+        select count(*) as total_vote_count
+        from public.message_poll_votes
+        where poll_id = ${pollId}
+      )
+      select
+        message_polls.id as poll_id,
+        message_polls.question,
+        message_polls.allow_multiple_votes,
+        message_poll_options.id as option_id,
+        message_poll_options.text as option_text,
+        coalesce(option_vote_counts.vote_count, 0) as vote_count,
+        coalesce(total_votes.total_vote_count, 0) as total_vote_count,
+        exists (
+          select 1
+          from public.message_poll_votes viewer_votes
+          where viewer_votes.poll_id = message_polls.id
+            and viewer_votes.option_id = message_poll_options.id
+            and viewer_votes.user_id = ${viewerId}
+        ) as selected_by_viewer
+      from public.message_polls
+      inner join public.message_poll_options
+        on message_poll_options.poll_id = message_polls.id
+      left join option_vote_counts
+        on option_vote_counts.option_id = message_poll_options.id
+      cross join total_votes
+      where message_polls.id = ${pollId}
+      order by message_poll_options.sort_order asc
+    `);
+    const rows = (optionsResult.rows ?? []) as Array<PollOptionRow & {
+      allow_multiple_votes: boolean;
+      poll_id: string;
+      question: string;
+      total_vote_count: number | string | null;
+    }>;
+    const firstRow = rows[0];
+    const totalVoteCount = Number(firstRow?.total_vote_count ?? 0);
+
+    return {
+      allowMultipleVotes: Boolean(firstRow?.allow_multiple_votes),
+      id: firstRow?.poll_id ?? pollId,
+      options: rows.map((row) => {
+        const voteCount = Number(row.vote_count ?? 0);
+
+        return {
+          id: row.option_id,
+          percentage:
+            totalVoteCount > 0 ? Math.round((voteCount / totalVoteCount) * 100) : 0,
+          selectedByViewer: Boolean(row.selected_by_viewer),
+          text: row.option_text,
+          voteCount,
+        };
+      }),
+      question: firstRow?.question ?? "",
+      totalVoteCount,
+      viewerHasVoted: rows.some((row) => row.selected_by_viewer),
+    };
   }
 
   private async createReply(

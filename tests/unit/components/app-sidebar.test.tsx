@@ -395,7 +395,7 @@ describe("AppSidebar", () => {
     ).toBeInTheDocument();
   });
 
-  it("prefetches visible tribe section routes inside an active tribe", () => {
+  it("does not prefetch tribe section routes before navigation intent", () => {
     (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
 
     render(
@@ -419,13 +419,7 @@ describe("AppSidebar", () => {
       />
     );
 
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro");
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/invitaciones");
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/canales");
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/eventos");
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/tribu");
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/meritos");
-    expect(prefetchMock).toHaveBeenCalledWith("/tribu/matematica-pro/historia");
+    expect(prefetchMock).not.toHaveBeenCalled();
   });
 
   it("shows admin sections to tribe leaders and guardians below the round", () => {

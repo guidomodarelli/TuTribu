@@ -3,6 +3,7 @@ export type CreateTribeMessageCommand = {
   channelId: string;
   tribeSlug: string;
   content: string;
+  poll?: MessagePollDraftCommand | null;
   title: string;
 };
 
@@ -22,6 +23,25 @@ export type ToggleMessageLikeCommand = {
 export type ToggleMessagePinCommand = {
   tribeSlug: string;
   messageId: string;
+  userId: string;
+};
+
+export type DeleteTribeMessageCommand = {
+  tribeSlug: string;
+  messageId: string;
+  userId: string;
+};
+
+export type MessagePollDraftCommand = {
+  allowMultipleVotes: boolean;
+  options: string[];
+  question: string;
+};
+
+export type SubmitMessagePollVoteCommand = {
+  messageId: string;
+  optionIds: string[];
+  tribeSlug: string;
   userId: string;
 };
 

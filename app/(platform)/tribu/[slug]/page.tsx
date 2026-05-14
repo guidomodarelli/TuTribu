@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { SubscriptionReturnStatus } from "@/components/subscriptions/subscription-return-status";
 import { ROUTES } from "@/src/constants/routes";
@@ -10,6 +11,7 @@ import {
   TRIBE_PAGE_ACCESS_REASON,
   TRIBE_PAGE_ACCESS_STATUS,
 } from "@/src/modules/tribes/application/results/tribe-page-access-result";
+import TribeLoadingPage from "./loading";
 import { resolveTribePageAccess } from "./tribe-page-access";
 import styles from "./page.module.scss";
 
@@ -51,6 +53,13 @@ type TribePageSearchParams = {
   [TRIBE_PAGE_QUERY.page]?: string | string[];
 };
 
+type TribePageProps = {
+  params: Promise<{
+    slug: string;
+  }>;
+  searchParams?: Promise<TribePageSearchParams>;
+};
+
 function readFirstSearchParamValue(
   searchParamValue: string | string[] | undefined
 ): string | null {
@@ -86,15 +95,10 @@ function renderSubscriptionReturnStatus() {
   );
 }
 
-export default async function TribePage({
+export async function TribePageContent({
   params,
   searchParams = Promise.resolve({}),
-}: {
-  params: Promise<{
-    slug: string;
-  }>;
-  searchParams?: Promise<TribePageSearchParams>;
-}) {
+}: TribePageProps) {
   const [{ slug }, resolvedSearchParams] = await Promise.all([
     params,
     searchParams,
@@ -226,5 +230,13 @@ export default async function TribePage({
         round={round}
       />
     </main>
+  );
+}
+
+export default function TribePage(props: TribePageProps) {
+  return (
+    <Suspense fallback={<TribeLoadingPage />}>
+      <TribePageContent {...props} />
+    </Suspense>
   );
 }

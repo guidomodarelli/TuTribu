@@ -9,6 +9,7 @@ import type {
   TribeRoundSharedMessageResult,
   TribeRoundViewerStateResult,
   MessageMembershipStatus,
+  MessagePollResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
 import {
   MESSAGE_AUTHOR_ROLE,
@@ -46,6 +47,13 @@ type MessageRoundSharedRow = {
   channel_sort_order: number | string | null;
   like_count: number | string;
   message_pinned_at: Date | string | null;
+  poll_allow_multiple_votes: boolean | null;
+  poll_id: string | null;
+  poll_option_id: string | null;
+  poll_option_text: string | null;
+  poll_option_vote_count: number | string | null;
+  poll_question: string | null;
+  poll_total_vote_count: number | string | null;
   message_content: string | null;
   message_created_at: Date | string | null;
   message_id: string | null;
@@ -63,6 +71,7 @@ type TribeChannelRow = {
 
 type MessageRoundViewerStateRow = {
   liked_message_ids: string[] | null;
+  selected_poll_option_ids: string[] | null;
   viewer_membership_status: string | null;
   viewer_membership_role: string | null;
 };
@@ -137,16 +146,46 @@ function mapRowsToRound(
   viewerState: TribeRoundViewerStateResult
 ): TribeRoundResult {
   const likedMessageIds = new Set(viewerState.likedMessageIds);
+  const selectedPollOptionIds = new Set(viewerState.selectedPollOptionIds);
+  const canDeleteOwnMessages = Boolean(
+    viewerState.viewerPermissions.canCreateMessage
+  );
+  const canDeleteStaffMessages = Boolean(
+    viewerState.viewerPermissions.canPinMessages
+  );
 
   return {
     activeChannelId: sharedData.activeChannelId,
     channels: sharedData.channels,
-    messages: sharedData.messages.map((message) => ({
-      ...message,
-      hasLoadedReplies: false,
-      likedByViewer: likedMessageIds.has(message.id),
-      replies: [],
-    })),
+    messages: sharedData.messages.map((message) => {
+      const poll = message.poll
+        ? {
+            ...message.poll,
+            options: message.poll.options.map((option) => ({
+              ...option,
+              selectedByViewer: selectedPollOptionIds.has(option.id),
+            })),
+          }
+        : null;
+
+      return {
+        ...message,
+        hasLoadedReplies: false,
+        likedByViewer: likedMessageIds.has(message.id),
+        permissions: {
+          canDelete:
+            (message.author.id === viewerState.viewerId && canDeleteOwnMessages) ||
+            canDeleteStaffMessages,
+        },
+        poll: poll
+          ? {
+              ...poll,
+              viewerHasVoted: poll.options.some((option) => option.selectedByViewer),
+            }
+          : null,
+        replies: [],
+      };
+    }),
     pagination: sharedData.pagination,
     viewerPermissions: viewerState.viewerPermissions,
   };
@@ -178,6 +217,8 @@ function mapRowsToSharedData(
     const existingMessage = messagesById.get(row.message_id);
 
     if (!existingMessage && row.channel_id) {
+      const poll = createMessagePollFromRow(row);
+
       messagesById.set(row.message_id, {
         author: createTribeRoundAuthor({
           id: row.author_id,
@@ -201,8 +242,13 @@ function mapRowsToSharedData(
         pinnedAt: row.message_pinned_at
           ? formatMessageDateTimeValue(row.message_pinned_at)
           : null,
+        poll,
         title: row.message_title,
       });
+    } else if (existingMessage?.poll && row.poll_option_id && row.poll_option_text) {
+      existingMessage.poll.options.push(
+        createMessagePollOptionFromRow(row, existingMessage.poll.totalVoteCount)
+      );
     }
   });
 
@@ -214,8 +260,75 @@ function mapRowsToSharedData(
   };
 }
 
+function limitRowsToPageMessages(rows: MessageRoundSharedRow[]): MessageRoundSharedRow[] {
+  const visibleMessageIds = new Set<string>();
+
+  return rows.filter((row) => {
+    if (!row.message_id) {
+      return true;
+    }
+
+    if (!visibleMessageIds.has(row.message_id)) {
+      if (visibleMessageIds.size >= TRIBE_ROUND_PAGE_SIZE) {
+        return false;
+      }
+
+      visibleMessageIds.add(row.message_id);
+    }
+
+    return true;
+  });
+}
+
+function hasMoreMessagesThanPage(rows: MessageRoundSharedRow[]): boolean {
+  const messageIds = new Set(
+    rows.flatMap((row) => (row.message_id ? [row.message_id] : []))
+  );
+
+  return messageIds.size > TRIBE_ROUND_PAGE_SIZE;
+}
+
+function createMessagePollOptionFromRow(
+  row: MessageRoundSharedRow,
+  totalVoteCount: number
+): MessagePollResult["options"][number] {
+  const voteCount = Number(row.poll_option_vote_count ?? 0);
+
+  return {
+    id: row.poll_option_id ?? "",
+    percentage:
+      totalVoteCount > 0 ? Math.round((voteCount / totalVoteCount) * 100) : 0,
+    selectedByViewer: false,
+    text: row.poll_option_text ?? "",
+    voteCount,
+  };
+}
+
+function createMessagePollFromRow(row: MessageRoundSharedRow): MessagePollResult | null {
+  if (!row.poll_id || !row.poll_question) {
+    return null;
+  }
+
+  const totalVoteCount = Number(row.poll_total_vote_count ?? 0);
+  const poll: MessagePollResult = {
+    allowMultipleVotes: Boolean(row.poll_allow_multiple_votes),
+    id: row.poll_id,
+    options: [],
+    question: row.poll_question,
+    totalVoteCount,
+    viewerHasVoted: false,
+  };
+
+  if (row.poll_option_id && row.poll_option_text) {
+    poll.options.push(createMessagePollOptionFromRow(row, totalVoteCount));
+  }
+
+  return poll;
+}
+
 function mapViewerStateRow(
-  row: MessageRoundViewerStateRow | null
+  row: MessageRoundViewerStateRow | null,
+  viewerId: string
 ): TribeRoundViewerStateResult {
   const membershipStatus = normalizeMembershipStatus(
     row?.viewer_membership_status ?? null
@@ -223,6 +336,8 @@ function mapViewerStateRow(
 
   return {
     likedMessageIds: row?.liked_message_ids ?? [],
+    selectedPollOptionIds: row?.selected_poll_option_ids ?? [],
+    viewerId,
     viewerPermissions: {
       ...createPermissions(membershipStatus),
       canPinMessages: canViewerPinMessages({
@@ -362,6 +477,69 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
               on target_tribe.id = liked_messages.tribe_id
             where message_reactions.type = 'like'
             group by message_reactions.message_id
+          ),
+          poll_option_counts as (
+            select
+              message_poll_options.id as option_id,
+              count(message_poll_votes.id) as vote_count
+            from public.message_poll_options
+            inner join public.message_polls
+              on message_polls.id = message_poll_options.poll_id
+            inner join target_tribe
+              on target_tribe.id = message_polls.tribe_id
+            left join public.message_poll_votes
+              on message_poll_votes.option_id = message_poll_options.id
+            group by message_poll_options.id
+          ),
+          poll_total_counts as (
+            select
+              message_polls.id as poll_id,
+              count(message_poll_votes.id) as total_vote_count
+            from public.message_polls
+            inner join target_tribe
+              on target_tribe.id = message_polls.tribe_id
+            left join public.message_poll_votes
+              on message_poll_votes.poll_id = message_polls.id
+            group by message_polls.id
+          ),
+          filtered_messages as (
+            select
+              messages.id,
+              messages.title,
+              messages.content,
+              messages.created_at,
+              messages.channel_id,
+              messages.author_id,
+              messages.tribe_id,
+              coalesce(message_like_counts.like_count, 0) as like_count,
+              message_pins.pinned_at as pinned_at
+            from public.messages
+            inner join target_tribe
+              on target_tribe.id = messages.tribe_id
+            left join message_like_counts
+              on message_like_counts.message_id = messages.id
+            left join public.message_pins
+              on message_pins.message_id = messages.id
+            where messages.channel_id is not null
+              and (
+                ${activeChannel?.slug ?? null}::text is null
+                or exists (
+                  select 1
+                  from public.tribe_channels selected_channel
+                  where selected_channel.id = messages.channel_id
+                    and selected_channel.tribe_id = target_tribe.id
+                    and selected_channel.slug = ${activeChannel?.slug ?? null}
+                )
+              )
+              and exists (
+                select 1
+                from public.tribe_channels channel_matches
+                where channel_matches.id = messages.channel_id
+                  and channel_matches.tribe_id = target_tribe.id
+              )
+            order by message_pins.pinned_at desc nulls last, messages.created_at desc, messages.id desc
+            limit ${messageLimit}
+            offset ${messageOffset}
           )
           select
             messages.id as message_id,
@@ -378,66 +556,64 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             message_authors.name as author_name,
             message_authors.image as author_image,
             message_members.role as author_role,
-            coalesce(message_like_counts.like_count, 0) as like_count,
-            message_pins.pinned_at as message_pinned_at
-          from target_tribe
-          left join public.messages
-            on messages.tribe_id = target_tribe.id
-            and messages.channel_id is not null
-            and (
-              ${activeChannel?.slug ?? null}::text is null
-              or exists (
-                select 1
-                from public.tribe_channels selected_channel
-                where selected_channel.id = messages.channel_id
-                  and selected_channel.tribe_id = target_tribe.id
-                  and selected_channel.slug = ${activeChannel?.slug ?? null}
-              )
-            )
-            and exists (
-              select 1
-              from public.tribe_channels channel_matches
-              where channel_matches.id = messages.channel_id
-                and channel_matches.tribe_id = target_tribe.id
-            )
-          left join public.tribe_channels
+            messages.like_count as like_count,
+            messages.pinned_at as message_pinned_at,
+            message_polls.id as poll_id,
+            message_polls.question as poll_question,
+            message_polls.allow_multiple_votes as poll_allow_multiple_votes,
+            message_poll_options.id as poll_option_id,
+            message_poll_options.text as poll_option_text,
+            coalesce(poll_option_counts.vote_count, 0) as poll_option_vote_count,
+            coalesce(poll_total_counts.total_vote_count, 0) as poll_total_vote_count
+          from filtered_messages messages
+          inner join public.tribe_channels
             on tribe_channels.id = messages.channel_id
-          left join public."user" message_authors
+          inner join public."user" message_authors
             on message_authors.id = messages.author_id
           left join public.tribe_members message_members
             on message_members.tribe_id = messages.tribe_id
             and message_members.user_id = messages.author_id
-          left join message_like_counts
-            on message_like_counts.message_id = messages.id
-          left join public.message_pins
-            on message_pins.message_id = messages.id
+          left join public.message_polls
+            on message_polls.message_id = messages.id
+          left join public.message_poll_options
+            on message_poll_options.poll_id = message_polls.id
+          left join poll_option_counts
+            on poll_option_counts.option_id = message_poll_options.id
+          left join poll_total_counts
+            on poll_total_counts.poll_id = message_polls.id
           group by
             messages.id,
+            messages.title,
+            messages.content,
+            messages.created_at,
+            messages.channel_id,
+            messages.author_id,
+            messages.tribe_id,
             tribe_channels.id,
             tribe_channels.name,
             tribe_channels.slug,
             tribe_channels.emoji,
             tribe_channels.sort_order,
             tribe_channels.access_scope,
-            message_like_counts.like_count,
-            message_pins.pinned_at,
+            messages.like_count,
+            messages.pinned_at,
+            message_polls.id,
+            message_poll_options.id,
+            poll_option_counts.vote_count,
+            poll_total_counts.total_vote_count,
             message_authors.id,
             message_members.role
-          order by message_pins.pinned_at desc nulls last, messages.created_at desc, messages.id desc
-          limit ${messageLimit}
-          offset ${messageOffset}
+          order by messages.pinned_at desc nulls last, messages.created_at desc, messages.id desc, message_poll_options.sort_order asc
         `);
-      const rows = ((result.rows ?? []) as MessageRoundSharedRow[]).slice(
-        0,
-        TRIBE_ROUND_PAGE_SIZE
-      );
+      const resultRows = (result.rows ?? []) as MessageRoundSharedRow[];
+      const rows = limitRowsToPageMessages(resultRows);
 
       return mapRowsToSharedData(
         rows,
         channels,
         {
           currentPage,
-          hasNextPage: (result.rows ?? []).length > TRIBE_ROUND_PAGE_SIZE,
+          hasNextPage: hasMoreMessagesThanPage(resultRows),
           hasPreviousPage: currentPage > 1,
           pageSize: TRIBE_ROUND_PAGE_SIZE,
         },
@@ -552,23 +728,37 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             on target_tribe.id = messages.tribe_id
           where message_reactions.user_id = ${viewerId}
             and message_reactions.type = 'like'
+        ),
+        selected_poll_options as (
+          select message_poll_votes.option_id::text as option_id
+          from public.message_poll_votes
+          inner join public.message_polls
+            on message_polls.id = message_poll_votes.poll_id
+          inner join target_tribe
+            on target_tribe.id = message_polls.tribe_id
+          where message_poll_votes.user_id = ${viewerId}
+        ),
+        liked_message_state as (
+          select coalesce(array_agg(liked_messages.message_id), array[]::text[]) as liked_message_ids
+          from liked_messages
+        ),
+        selected_poll_option_state as (
+          select coalesce(array_agg(selected_poll_options.option_id), array[]::text[]) as selected_poll_option_ids
+          from selected_poll_options
         )
         select
           viewer_membership.status as viewer_membership_status,
           viewer_membership.role as viewer_membership_role,
-          coalesce(
-            array_agg(liked_messages.message_id)
-              filter (where liked_messages.message_id is not null),
-            array[]::text[]
-          ) as liked_message_ids
+          liked_message_state.liked_message_ids,
+          selected_poll_option_state.selected_poll_option_ids
         from viewer_membership
-        left join liked_messages
-          on true
-        group by viewer_membership.status, viewer_membership.role
+        cross join liked_message_state
+        cross join selected_poll_option_state
       `);
 
       return mapViewerStateRow(
-        (result.rows?.[0] ?? null) as MessageRoundViewerStateRow | null
+        (result.rows?.[0] ?? null) as MessageRoundViewerStateRow | null,
+        viewerId
       );
     });
   }

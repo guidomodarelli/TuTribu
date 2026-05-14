@@ -6,6 +6,10 @@ import {
 import type { CreateTribeMessageCommand } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type { MessageCreationResult } from "@/src/modules/messages/application/results/message-mutation-result";
 import type { MessageCreationRepository } from "@/src/modules/messages/domain/repositories/message-creation-repository";
+import {
+  isValidMessagePollDraft,
+  normalizeMessagePollDraft,
+} from "@/src/modules/messages/application/use-cases/manage-message-polls-use-cases";
 
 type CreateTribeMessageDependencies = {
   messageCreationRepository: MessageCreationRepository;
@@ -35,6 +39,7 @@ export function createTribeMessage({
     const content = normalizeMessageContent(command.content);
     const title = normalizeMessageTitle(command.title);
     const channelId = command.channelId.trim();
+    const poll = command.poll ? normalizeMessagePollDraft(command.poll) : null;
 
     if (
       isInvalidText(content, TRIBE_MESSAGE_CONTENT) ||
@@ -51,11 +56,18 @@ export function createTribeMessage({
       };
     }
 
+    if (poll && !isValidMessagePollDraft(poll)) {
+      return {
+        status: MESSAGE_MUTATION_STATUS.invalidPoll,
+      };
+    }
+
     return messageCreationRepository.create({
       ...command,
       channelId,
       tribeSlug: command.tribeSlug.trim(),
       content,
+      ...(poll ? { poll } : {}),
       title,
     });
   };

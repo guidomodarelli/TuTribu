@@ -5,8 +5,12 @@ import { resolveRequestContext } from "@/src/modules/shared/infrastructure/obser
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const CREATE_MESSAGE_ROUTE_FIELD = {
+  allowMultipleVotes: "allowMultipleVotes",
   channelId: "channelId",
   content: "content",
+  options: "options",
+  poll: "poll",
+  question: "question",
   title: "title",
 } as const;
 
@@ -21,6 +25,7 @@ const CREATE_MESSAGE_ROUTE_RESPONSE = {
   invalidContentMessage: "Completá el título y el contenido antes de publicar.",
   invalidChannelMessage: "Seleccioná un canal antes de publicar.",
   notFoundMessage: "No pudimos encontrar la tribu.",
+  invalidPollMessage: "Completá la pregunta y al menos dos opciones para publicar la encuesta.",
   successMessage: "Mensaje creado.",
   unexpectedMessage: "No pudimos crear el mensaje. Intentalo de nuevo.",
   unauthorizedMessage: "Inicia sesion para publicar.",
@@ -69,6 +74,32 @@ function readTitleFromBody(body: unknown): string {
   return typeof title === "string" ? title : "";
 }
 
+function readPollFromBody(body: unknown) {
+  if (!body || typeof body !== "object" || !(CREATE_MESSAGE_ROUTE_FIELD.poll in body)) {
+    return null;
+  }
+
+  const poll = (body as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.poll];
+
+  if (!poll || typeof poll !== "object") {
+    return null;
+  }
+
+  const pollRecord = poll as Record<string, unknown>;
+  const question = pollRecord[CREATE_MESSAGE_ROUTE_FIELD.question];
+  const options = pollRecord[CREATE_MESSAGE_ROUTE_FIELD.options];
+  const allowMultipleVotes =
+    pollRecord[CREATE_MESSAGE_ROUTE_FIELD.allowMultipleVotes];
+
+  return {
+    allowMultipleVotes: allowMultipleVotes === true,
+    options: Array.isArray(options)
+      ? options.filter((option): option is string => typeof option === "string")
+      : [],
+    question: typeof question === "string" ? question : "",
+  };
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -96,11 +127,13 @@ export async function POST(
 
   try {
     const body = await request.json().catch(() => null);
+    const poll = readPollFromBody(body);
     const result = await modules.messages.useCases.createTribeMessage({
       authorId: authenticatedMember.id,
       channelId: readChannelIdFromBody(body),
       tribeSlug: slug,
       content: readContentFromBody(body),
+      ...(poll ? { poll } : {}),
       title: readTitleFromBody(body),
     });
 
@@ -123,6 +156,11 @@ export async function POST(
       case MESSAGE_MUTATION_STATUS.invalidChannel:
         return createJsonResponse(
           { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidChannelMessage },
+          HTTP_STATUS.badRequest
+        );
+      case MESSAGE_MUTATION_STATUS.invalidPoll:
+        return createJsonResponse(
+          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollMessage },
           HTTP_STATUS.badRequest
         );
       case MESSAGE_MUTATION_STATUS.notFound:

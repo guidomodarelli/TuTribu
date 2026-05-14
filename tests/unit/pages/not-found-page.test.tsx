@@ -15,6 +15,23 @@ jest.mock("next/headers", () => ({
   headers: jest.fn(),
 }));
 
+jest.mock("next/link", () => ({
+  __esModule: true,
+  default: ({
+    children,
+    href,
+    prefetch,
+  }: {
+    children: React.ReactNode;
+    href: string;
+    prefetch?: boolean;
+  }) => (
+    <a href={href} data-prefetch={String(prefetch)}>
+      {children}
+    </a>
+  ),
+}));
+
 jest.mock("@/src/modules/auth/setup", () => ({
   createRequestAuthModule: jest.fn(),
 }));
@@ -62,8 +79,14 @@ describe("NotFoundPage", () => {
       screen.getByRole("link", { name: /volver al inicio/i })
     ).toHaveAttribute("href", "/");
     expect(
+      screen.getByRole("link", { name: /volver al inicio/i })
+    ).toHaveAttribute("data-prefetch", "false");
+    expect(
       screen.getByRole("link", { name: /iniciar sesion/i })
     ).toHaveAttribute("href", "/auth/signin");
+    expect(
+      screen.getByRole("link", { name: /iniciar sesion/i })
+    ).toHaveAttribute("data-prefetch", "false");
   });
 
   it("hides the sign in action when the user is already authenticated", async () => {

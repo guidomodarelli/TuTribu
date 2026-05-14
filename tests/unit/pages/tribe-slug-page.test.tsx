@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
-import TribePage from "@/app/(platform)/tribu/[slug]/page";
+import TribePage, { TribePageContent } from "@/app/(platform)/tribu/[slug]/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -103,6 +103,17 @@ describe("TribePage", () => {
     });
   });
 
+  it("returns a Suspense route shell before resolving runtime route data", () => {
+    const routeElement = TribePage({
+      params: Promise.resolve({
+        slug: "matematica-pro",
+      }),
+    });
+
+    expect(routeElement).not.toHaveProperty("then");
+    expect(createRequestModules).not.toHaveBeenCalled();
+  });
+
   it("renders the tribe operational home when access is visible", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
@@ -182,7 +193,7 @@ describe("TribePage", () => {
     });
 
     render(
-      await TribePage({
+      await TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -283,7 +294,7 @@ describe("TribePage", () => {
       });
 
     render(
-      await TribePage({
+      await TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -337,7 +348,7 @@ describe("TribePage", () => {
     });
 
     render(
-      await TribePage({
+      await TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -393,7 +404,7 @@ describe("TribePage", () => {
     });
 
     render(
-      await TribePage({
+      await TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -423,7 +434,7 @@ describe("TribePage", () => {
     });
 
     await expect(
-      TribePage({
+      TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -459,7 +470,7 @@ describe("TribePage", () => {
     });
 
     await expect(
-      TribePage({
+      TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -493,7 +504,7 @@ describe("TribePage", () => {
     validatePendingTribeMemberSubscriptionReturn.mockResolvedValue(true);
 
     render(
-      await TribePage({
+      await TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -577,7 +588,7 @@ describe("TribePage", () => {
       });
 
     render(
-      await TribePage({
+      await TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -658,7 +669,7 @@ describe("TribePage", () => {
     });
 
     render(
-      await TribePage({
+      await TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -737,7 +748,7 @@ describe("TribePage", () => {
     });
 
     await expect(
-      TribePage({
+      TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -775,7 +786,7 @@ describe("TribePage", () => {
     });
 
     await expect(
-      TribePage({
+      TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -811,7 +822,7 @@ describe("TribePage", () => {
     });
 
     await expect(
-      TribePage({
+      TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -843,7 +854,7 @@ describe("TribePage", () => {
     });
 
     await expect(
-      TribePage({
+      TribePageContent({
         params: Promise.resolve({
           slug: "missing-tribe",
         }),
@@ -875,7 +886,7 @@ describe("TribePage", () => {
     });
 
     await expect(
-      TribePage({
+      TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),

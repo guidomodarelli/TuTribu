@@ -5,6 +5,12 @@ import {
 } from "@/app/api/tribes/[slug]/messages/[messageId]/replies/route";
 import { POST as POST_LIKE } from "@/app/api/tribes/[slug]/messages/[messageId]/like/route";
 import { POST as POST_PIN } from "@/app/api/tribes/[slug]/messages/[messageId]/pin/route";
+import { DELETE as DELETE_MESSAGE } from "@/app/api/tribes/[slug]/messages/[messageId]/route";
+import {
+  DELETE as DELETE_POLL,
+  PATCH as PATCH_POLL,
+} from "@/app/api/tribes/[slug]/messages/[messageId]/poll/route";
+import { POST as POST_POLL_VOTE } from "@/app/api/tribes/[slug]/messages/[messageId]/poll/votes/route";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { revalidateTag } from "next/cache";
@@ -15,10 +21,13 @@ const createMessageReply = jest.fn();
 const listMessageReplies = jest.fn();
 const toggleMessageLike = jest.fn();
 const toggleMessagePin = jest.fn();
+const deleteTribeMessage = jest.fn();
+const submitMessagePollVote = jest.fn();
 const listTribeChannels = jest.fn();
 const createTribeChannel = jest.fn();
 const updateTribeChannel = jest.fn();
 const deleteTribeChannel = jest.fn();
+const loggerError = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -54,7 +63,7 @@ class MockJsonResponse {
   }
 }
 
-function buildJsonRequest(body: Record<string, string> = {}): Request {
+function buildJsonRequest(body: Record<string, unknown> = {}): Request {
   return {
     headers: new Headers({
       "Content-Type": "application/json",
@@ -91,6 +100,8 @@ describe("Tribe message routes", () => {
     listMessageReplies.mockReset();
     toggleMessageLike.mockReset();
     toggleMessagePin.mockReset();
+    deleteTribeMessage.mockReset();
+    submitMessagePollVote.mockReset();
     listTribeChannels.mockReset();
     createTribeChannel.mockReset();
     updateTribeChannel.mockReset();
@@ -122,14 +133,17 @@ describe("Tribe message routes", () => {
           listTribeChannels,
           toggleMessageLike,
           toggleMessagePin,
+          deleteTribeMessage,
+          submitMessagePollVote,
           updateTribeChannel,
         },
       },
     });
     (createServerLogger as jest.Mock).mockReturnValue({
-      error: jest.fn(),
+      error: loggerError,
       info: jest.fn(),
     });
+    loggerError.mockReset();
   });
 
   it("passes title and content to the tribe message use case", async () => {
@@ -209,6 +223,68 @@ describe("Tribe message routes", () => {
     expect(revalidateTag).toHaveBeenCalledWith(
       "tribe-round:matematica-pro",
       { expire: 0 }
+    );
+  });
+
+  it("passes optional poll data when creating a tribe message", async () => {
+    createTribeMessage.mockResolvedValue({
+      message: {
+        id: "message-1",
+        author: {
+          id: "member-1",
+          name: "Grace Hopper",
+          role: "tribemate",
+          avatarFallback: "GH",
+          image: null,
+        },
+        channel: {
+          accessScope: "tribemates",
+          emoji: "🔥",
+          id: "channel-ronda",
+          name: "Ronda",
+          slug: "ronda",
+          sortOrder: 20,
+        },
+        replies: [],
+        content: "Primera mensaje",
+        createdAt: "2026-04-26T12:00:00.000Z",
+        likedByViewer: false,
+        likeCount: 0,
+        poll: {
+          allowMultipleVotes: true,
+          id: "poll-1",
+          options: [],
+          question: "¿Qué vemos?",
+          totalVoteCount: 0,
+          viewerHasVoted: false,
+        },
+      },
+      status: "created",
+    });
+
+    const response = await POST_CREATE(
+      buildJsonRequest({
+        content: "Primera mensaje",
+        channelId: "channel-ronda",
+        title: "Anuncio inicial",
+        poll: {
+          allowMultipleVotes: true,
+          options: ["Álgebra", "Geometría"],
+          question: "¿Qué vemos?",
+        },
+      } as never),
+      buildCreateRouteContext()
+    );
+
+    expect(response.status).toBe(201);
+    expect(createTribeMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        poll: {
+          allowMultipleVotes: true,
+          options: ["Álgebra", "Geometría"],
+          question: "¿Qué vemos?",
+        },
+      })
     );
   });
 
@@ -476,5 +552,136 @@ describe("Tribe message routes", () => {
     expect(body).toEqual({
       message: "Solo podes pinear hasta 3 mensajes en el fogón.",
     });
+  });
+
+  it("keeps independent poll updates inaccessible", async () => {
+    const response = await PATCH_POLL(
+      buildJsonRequest({
+        allowMultipleVotes: false,
+        options: ["Álgebra", "Geometría"],
+        question: "¿Qué tema seguimos?",
+        resetVotes: true,
+      } as never),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      message: "La encuesta forma parte del mensaje.",
+    });
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
+
+  it("submits a poll vote and returns updated poll results", async () => {
+    submitMessagePollVote.mockResolvedValue({
+      poll: {
+        allowMultipleVotes: false,
+        id: "poll-1",
+        options: [
+          {
+            id: "option-1",
+            percentage: 100,
+            selectedByViewer: true,
+            text: "Álgebra",
+            voteCount: 1,
+          },
+        ],
+        question: "¿Qué vemos?",
+        totalVoteCount: 1,
+        viewerHasVoted: true,
+      },
+      status: "voted",
+    });
+
+    const response = await POST_POLL_VOTE(
+      buildJsonRequest({
+        optionIds: ["option-1"],
+      } as never),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      message: "Voto registrado.",
+      poll: {
+        id: "poll-1",
+        viewerHasVoted: true,
+      },
+    });
+    expect(submitMessagePollVote).toHaveBeenCalledWith({
+      messageId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
+      optionIds: ["option-1"],
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+  });
+
+  it("returns a safe poll voting message when the vote use case fails unexpectedly", async () => {
+    submitMessagePollVote.mockRejectedValue(new Error("database unavailable"));
+
+    const response = await POST_POLL_VOTE(
+      buildJsonRequest({
+        optionIds: ["option-1"],
+      } as never),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      message: "No pudimos registrar tu voto. Intentalo de nuevo.",
+    });
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Message poll vote failed",
+        metadata: {
+          messageId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
+          slug: "matematica-pro",
+          viewerId: "member-1",
+        },
+      })
+    );
+  });
+
+  it("deletes a full message and revalidates the round cache", async () => {
+    deleteTribeMessage.mockResolvedValue({
+      status: "deleted",
+    });
+
+    const response = await DELETE_MESSAGE(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      message: "Mensaje eliminado.",
+    });
+    expect(deleteTribeMessage).toHaveBeenCalledWith({
+      messageId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+    expect(revalidateTag).toHaveBeenCalledWith(
+      "tribe-round:matematica-pro",
+      { expire: 0 }
+    );
+  });
+
+  it("keeps independent poll deletion inaccessible", async () => {
+    const response = await DELETE_POLL(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      message: "La encuesta forma parte del mensaje.",
+    });
+    expect(deleteTribeMessage).not.toHaveBeenCalled();
   });
 });

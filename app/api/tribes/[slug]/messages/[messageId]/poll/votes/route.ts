@@ -1,0 +1,132 @@
+import { MESSAGE_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
+import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
+import { isUuidRouteParam } from "@/src/modules/messages/infrastructure/http/message-route-params";
+import { createRequestModules } from "@/src/modules/setup";
+import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+
+const MESSAGE_POLL_VOTE_LOG = {
+  feature: "messages",
+  operation: "submit-message-poll-vote",
+  voteFailureMessage: "Message poll vote failed",
+} as const;
+
+const MESSAGE_POLL_VOTE_FIELD = {
+  optionIds: "optionIds",
+} as const;
+
+const MESSAGE_POLL_VOTE_RESPONSE = {
+  forbiddenMessage: "No tenes permisos para votar esta encuesta.",
+  invalidPollMessage: "Elegí al menos una opción para votar.",
+  notFoundMessage: "No pudimos encontrar la encuesta.",
+  successMessage: "Voto registrado.",
+  unexpectedMessage: "No pudimos registrar tu voto. Intentalo de nuevo.",
+  unauthorizedMessage: "Inicia sesion para votar.",
+} as const;
+
+const HTTP_STATUS = {
+  badRequest: 400,
+  forbidden: 403,
+  notFound: 404,
+  ok: 200,
+  serverError: 500,
+  unauthorized: 401,
+} as const;
+
+function createJsonResponse(body: Record<string, unknown>, status: number): Response {
+  return Response.json(body, { status });
+}
+
+export async function POST(
+  request: Request,
+  context: {
+    params: Promise<{
+      messageId: string;
+      slug: string;
+    }>;
+  }
+) {
+  const { messageId, slug } = await context.params;
+  const { requestId } = resolveRequestContext(request.headers);
+  const logger = createServerLogger({
+    feature: MESSAGE_POLL_VOTE_LOG.feature,
+    operation: MESSAGE_POLL_VOTE_LOG.operation,
+    requestId,
+  });
+  const modules = await createRequestModules();
+  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
+
+  if (!authenticatedMember) {
+    return createJsonResponse(
+      { message: MESSAGE_POLL_VOTE_RESPONSE.unauthorizedMessage },
+      HTTP_STATUS.unauthorized
+    );
+  }
+
+  if (!isUuidRouteParam(messageId)) {
+    return createJsonResponse(
+      { message: MESSAGE_POLL_VOTE_RESPONSE.notFoundMessage },
+      HTTP_STATUS.notFound
+    );
+  }
+
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const rawOptionIds = body?.[MESSAGE_POLL_VOTE_FIELD.optionIds];
+  const optionIds = Array.isArray(rawOptionIds)
+    ? rawOptionIds.filter(
+        (optionId: unknown): optionId is string => typeof optionId === "string"
+      )
+    : [];
+  try {
+    const result = await modules.messages.useCases.submitMessagePollVote({
+      messageId,
+      optionIds,
+      tribeSlug: slug,
+      userId: authenticatedMember.id,
+    });
+
+    switch (result.status) {
+      case MESSAGE_MUTATION_STATUS.voted:
+        revalidateTribeRoundCache(slug);
+
+        return createJsonResponse(
+          {
+            message: MESSAGE_POLL_VOTE_RESPONSE.successMessage,
+            poll: result.poll,
+          },
+          HTTP_STATUS.ok
+        );
+      case MESSAGE_MUTATION_STATUS.invalidPoll:
+        return createJsonResponse(
+          { message: MESSAGE_POLL_VOTE_RESPONSE.invalidPollMessage },
+          HTTP_STATUS.badRequest
+        );
+      case MESSAGE_MUTATION_STATUS.notFound:
+        return createJsonResponse(
+          { message: MESSAGE_POLL_VOTE_RESPONSE.notFoundMessage },
+          HTTP_STATUS.notFound
+        );
+      case MESSAGE_MUTATION_STATUS.forbidden:
+      default:
+        return createJsonResponse(
+          { message: MESSAGE_POLL_VOTE_RESPONSE.forbiddenMessage },
+          HTTP_STATUS.forbidden
+        );
+    }
+  } catch (error) {
+    logger.error({
+      message: MESSAGE_POLL_VOTE_LOG.voteFailureMessage,
+      error,
+      metadata: {
+        messageId,
+        slug,
+        viewerId: authenticatedMember.id,
+      },
+    });
+
+    return createJsonResponse(
+      { message: MESSAGE_POLL_VOTE_RESPONSE.unexpectedMessage },
+      HTTP_STATUS.serverError
+    );
+  }
+}

@@ -1,4 +1,5 @@
 import type {
+  MessagePollResult,
   TribeRoundAuthorResult,
   TribeRoundReplyResult,
   TribeRoundMessageResult,
@@ -39,7 +40,9 @@ export type TribeRoundMessageProjection = {
   isPinned?: boolean;
   likedByViewer: boolean;
   likeCount: number;
+  permissions?: TribeRoundMessageResult["permissions"];
   pinnedAt?: Date | string | null;
+  poll?: MessagePollResult | null;
   title: string | null;
 };
 
@@ -140,7 +143,9 @@ export function createTribeRoundMessage({
   isPinned = false,
   likedByViewer,
   likeCount,
+  permissions,
   pinnedAt = null,
+  poll = null,
   title,
 }: TribeRoundMessageProjection): TribeRoundMessageResult {
   return {
@@ -154,7 +159,9 @@ export function createTribeRoundMessage({
     isPinned,
     likedByViewer,
     likeCount,
+    permissions,
     pinnedAt: pinnedAt ? formatMessageDateTimeValue(pinnedAt) : null,
+    poll,
     title,
   };
 }

@@ -1,9 +1,11 @@
 import { createTribeMessage } from "@/src/modules/messages/application/use-cases/create-tribe-message-use-case";
 import { createMessageReply } from "@/src/modules/messages/application/use-cases/create-message-reply-use-case";
+import { deleteTribeMessage } from "@/src/modules/messages/application/use-cases/delete-tribe-message-use-case";
 import {
   listMessageReplies,
   listTribeRound,
 } from "@/src/modules/messages/application/use-cases/list-tribe-round-use-case";
+import { submitMessagePollVote } from "@/src/modules/messages/application/use-cases/manage-message-polls-use-cases";
 import {
   createTribeChannel,
   deleteTribeChannel,
@@ -17,6 +19,8 @@ import type {
   CreateTribeChannelCommand,
   CreateMessageReplyCommand,
   DeleteTribeChannelCommand,
+  DeleteTribeMessageCommand,
+  SubmitMessagePollVoteCommand,
   ToggleMessageLikeCommand,
   ToggleMessagePinCommand,
   UpdateTribeChannelCommand,
@@ -35,7 +39,9 @@ import type {
 import type {
   MessageReplyCreationResult,
   MessageCreationResult,
+  MessageDeletionResult,
   MessageLikeToggleResult,
+  MessagePollMutationResult,
   MessagePinToggleResult,
 } from "@/src/modules/messages/application/results/message-mutation-result";
 import type { MessageReplyRepository } from "@/src/modules/messages/domain/repositories/message-reply-repository";
@@ -49,6 +55,8 @@ import type {
 } from "@/src/modules/messages/domain/repositories/message-round-read-repository";
 import type { MessageReactionRepository } from "@/src/modules/messages/domain/repositories/message-reaction-repository";
 import type { MessagePinRepository } from "@/src/modules/messages/domain/repositories/message-pin-repository";
+import type { MessagePollRepository } from "@/src/modules/messages/domain/repositories/message-poll-repository";
+import type { MessageDeletionRepository } from "@/src/modules/messages/domain/repositories/message-deletion-repository";
 
 type MessagesModuleDependencies = {
   tribeChannelRepository: TribeChannelRepository;
@@ -60,6 +68,8 @@ type MessagesModuleDependencies = {
   messageRoundReadRepository: MessageRoundReadRepository;
   messageReactionRepository: MessageReactionRepository;
   messagePinRepository: MessagePinRepository;
+  messagePollRepository: MessagePollRepository;
+  messageDeletionRepository: MessageDeletionRepository;
 };
 
 type MessagesModule = {
@@ -73,6 +83,9 @@ type MessagesModule = {
     deleteTribeChannel: (
       command: DeleteTribeChannelCommand
     ) => Promise<TribeChannelDeletionResult>;
+    deleteTribeMessage: (
+      command: DeleteTribeMessageCommand
+    ) => Promise<MessageDeletionResult>;
     createMessageReply: (
       command: CreateMessageReplyCommand
     ) => Promise<MessageReplyCreationResult>;
@@ -85,6 +98,9 @@ type MessagesModule = {
     ) => Promise<TribeChannelListResult>;
     toggleMessageLike: (command: ToggleMessageLikeCommand) => Promise<MessageLikeToggleResult>;
     toggleMessagePin: (command: ToggleMessagePinCommand) => Promise<MessagePinToggleResult>;
+    submitMessagePollVote: (
+      command: SubmitMessagePollVoteCommand
+    ) => Promise<MessagePollMutationResult>;
     updateTribeChannel: (
       command: UpdateTribeChannelCommand
     ) => Promise<TribeChannelUpdateResult>;
@@ -99,6 +115,8 @@ export function buildMessagesModule({
   messageRoundReadRepository,
   messageReactionRepository,
   messagePinRepository,
+  messagePollRepository,
+  messageDeletionRepository,
 }: MessagesModuleDependencies): MessagesModule {
   return {
     useCases: {
@@ -109,6 +127,7 @@ export function buildMessagesModule({
       deleteTribeChannel: deleteTribeChannel({
         tribeChannelRepository,
       }),
+      deleteTribeMessage: deleteTribeMessage({ messageDeletionRepository }),
       createMessageReply: createMessageReply({ messageReplyRepository }),
       listTribeRound: listTribeRound({
         listCachedTribeRoundSharedData,
@@ -122,6 +141,7 @@ export function buildMessagesModule({
       }),
       toggleMessageLike: toggleMessageLike({ messageReactionRepository }),
       toggleMessagePin: toggleMessagePin({ messagePinRepository }),
+      submitMessagePollVote: submitMessagePollVote({ messagePollRepository }),
       updateTribeChannel: updateTribeChannel({
         tribeChannelRepository,
       }),

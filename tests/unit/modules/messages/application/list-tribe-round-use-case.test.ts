@@ -101,6 +101,106 @@ describe("listTribeRound", () => {
     expect(messageRoundReadRepository.listByTribeSlug).not.toHaveBeenCalled();
   });
 
+  it("hides open poll results until the viewer has voted", async () => {
+    const listSharedDataByTribeSlug = jest.fn(async () => ({
+      activeChannelId: null,
+      channels: [channel],
+      messages: [
+        {
+          id: "message-1",
+          author: {
+            id: "leader-1",
+            name: "Ada Lovelace",
+            role: "leader" as const,
+            avatarFallback: "AL",
+            image: null,
+          },
+          channel,
+          content: "Elegimos tema",
+          createdAt: "2026-04-26T12:00:00.000Z",
+          likeCount: 0,
+          poll: {
+            allowMultipleVotes: false,
+            id: "poll-1",
+            options: [
+              {
+                id: "option-1",
+                percentage: 75,
+                selectedByViewer: false,
+                text: "Algebra",
+                voteCount: 3,
+              },
+              {
+                id: "option-2",
+                percentage: 25,
+                selectedByViewer: false,
+                text: "Geometria",
+                voteCount: 1,
+              },
+            ],
+            question: "Que repasamos?",
+            totalVoteCount: 4,
+            viewerHasVoted: false,
+          },
+          title: "Encuesta",
+        },
+      ],
+      pagination: {
+        currentPage: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        pageSize: 15,
+      },
+    }));
+    const execute = listTribeRound({
+      messageRoundReadRepository: {
+        listByTribeSlug: jest.fn(),
+        listRepliesByMessageId: jest.fn(),
+        listSharedDataByTribeSlug,
+        listViewerStateByTribeSlug: jest.fn(async () => ({
+          likedMessageIds: [],
+          selectedPollOptionIds: [],
+          viewerId: "member-1",
+          viewerPermissions: {
+            canReply: true,
+            canCreateMessage: true,
+            canReact: true,
+          },
+        })),
+      },
+    });
+
+    await expect(
+      execute({
+        tribeSlug: "matematica-pro",
+        viewerId: "member-1",
+      })
+    ).resolves.toMatchObject({
+      messages: [
+        {
+          poll: {
+            totalVoteCount: 4,
+            viewerHasVoted: false,
+            options: [
+              {
+                id: "option-1",
+                percentage: 0,
+                selectedByViewer: false,
+                voteCount: 0,
+              },
+              {
+                id: "option-2",
+                percentage: 0,
+                selectedByViewer: false,
+                voteCount: 0,
+              },
+            ],
+          },
+        },
+      ],
+    });
+  });
+
   it("returns a read-only round for muted members", async () => {
     const execute = listTribeRound({
       messageRoundReadRepository: {
@@ -148,6 +248,154 @@ describe("listTribeRound", () => {
         hasPreviousPage: false,
         pageSize: 15,
       },
+    });
+  });
+
+  it("exposes delete permission on the message instead of poll management permissions", async () => {
+    const execute = listTribeRound({
+      messageRoundReadRepository: {
+        listByTribeSlug: jest.fn(),
+        listRepliesByMessageId: jest.fn(),
+        listSharedDataByTribeSlug: jest.fn(async () => ({
+          activeChannelId: null,
+          channels: [channel],
+          messages: [
+            {
+              id: "message-1",
+              author: {
+                id: "author-1",
+                name: "Ada Lovelace",
+                role: "tribemate" as const,
+                avatarFallback: "AL",
+                image: null,
+              },
+              channel,
+              content: "Choose a topic",
+              createdAt: "2026-04-26T12:00:00.000Z",
+              likeCount: 0,
+              poll: {
+                allowMultipleVotes: false,
+                id: "poll-1",
+                options: [
+                  {
+                    id: "option-1",
+                    percentage: 0,
+                    selectedByViewer: false,
+                    text: "Algebra",
+                    voteCount: 0,
+                  },
+                  {
+                    id: "option-2",
+                    percentage: 0,
+                    selectedByViewer: false,
+                    text: "Geometry",
+                    voteCount: 0,
+                  },
+                ],
+                question: "What should we practice?",
+                totalVoteCount: 0,
+                viewerHasVoted: false,
+              },
+              title: "Poll",
+            },
+          ],
+          pagination: {
+            currentPage: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+            pageSize: 15,
+          },
+        })),
+        listViewerStateByTribeSlug: jest.fn(async () => ({
+          likedMessageIds: [],
+          selectedPollOptionIds: [],
+          viewerId: "author-1",
+          viewerPermissions: {
+            canReply: true,
+            canCreateMessage: true,
+            canReact: true,
+          },
+        })),
+      },
+    });
+
+    await expect(
+      execute({
+        tribeSlug: "matematica-pro",
+        viewerId: "author-1",
+      })
+    ).resolves.toMatchObject({
+      messages: [
+        {
+          permissions: {
+            canDelete: true,
+          },
+          poll: expect.not.objectContaining({
+            permissions: expect.anything(),
+          }),
+        },
+      ],
+    });
+  });
+
+  it("blocks own message deletion when the viewer has read-only permissions", async () => {
+    const execute = listTribeRound({
+      messageRoundReadRepository: {
+        listByTribeSlug: jest.fn(),
+        listRepliesByMessageId: jest.fn(),
+        listSharedDataByTribeSlug: jest.fn(async () => ({
+          activeChannelId: null,
+          channels: [channel],
+          messages: [
+            {
+              id: "message-1",
+              author: {
+                id: "author-1",
+                name: "Ada Lovelace",
+                role: "tribemate" as const,
+                avatarFallback: "AL",
+                image: null,
+              },
+              channel,
+              content: "Read-only update",
+              createdAt: "2026-04-26T12:00:00.000Z",
+              likeCount: 0,
+              title: "Read-only",
+            },
+          ],
+          pagination: {
+            currentPage: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+            pageSize: 15,
+          },
+        })),
+        listViewerStateByTribeSlug: jest.fn(async () => ({
+          likedMessageIds: [],
+          selectedPollOptionIds: [],
+          viewerId: "author-1",
+          viewerPermissions: {
+            canReply: false,
+            canCreateMessage: false,
+            canReact: false,
+          },
+        })),
+      },
+    });
+
+    await expect(
+      execute({
+        tribeSlug: "matematica-pro",
+        viewerId: "author-1",
+      })
+    ).resolves.toMatchObject({
+      messages: [
+        {
+          permissions: {
+            canDelete: false,
+          },
+        },
+      ],
     });
   });
 

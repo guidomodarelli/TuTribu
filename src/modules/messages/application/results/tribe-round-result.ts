@@ -37,6 +37,27 @@ export type TribeRoundReplyResult = {
   id: string;
 };
 
+export type MessagePollOptionResult = {
+  id: string;
+  percentage: number;
+  selectedByViewer: boolean;
+  text: string;
+  voteCount: number;
+};
+
+export type MessagePollResult = {
+  allowMultipleVotes: boolean;
+  id: string;
+  options: MessagePollOptionResult[];
+  question: string;
+  totalVoteCount: number;
+  viewerHasVoted: boolean;
+};
+
+export type TribeRoundMessagePermissionsResult = {
+  canDelete: boolean;
+};
+
 export type TribeRoundSharedMessageResult = {
   author: TribeRoundAuthorResult;
   channel: TribeChannelResult;
@@ -45,7 +66,9 @@ export type TribeRoundSharedMessageResult = {
   id: string;
   isPinned?: boolean;
   likeCount: number;
+  permissions?: TribeRoundMessagePermissionsResult;
   pinnedAt?: string | null;
+  poll?: MessagePollResult | null;
   title: string | null;
 };
 
@@ -71,6 +94,8 @@ export type TribeRoundSharedDataResult = {
 
 export type TribeRoundViewerStateResult = {
   likedMessageIds: string[];
+  selectedPollOptionIds: string[];
+  viewerId: string;
   viewerPermissions: TribeRoundPermissionsResult;
 };
 

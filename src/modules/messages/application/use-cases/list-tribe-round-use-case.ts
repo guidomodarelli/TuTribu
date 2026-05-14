@@ -1,4 +1,5 @@
 import type {
+  MessagePollResult,
   TribeRoundResult,
   TribeRoundRepliesResult,
   TribeRoundSharedDataResult,
@@ -18,6 +19,42 @@ type ListTribeRoundDependencies = {
   messageRoundReadRepository: MessageRoundReadRepository;
 };
 
+function hidePollResults(poll: MessagePollResult): MessagePollResult {
+  return {
+    ...poll,
+    options: poll.options.map((option) => ({
+      ...option,
+      percentage: 0,
+      voteCount: 0,
+    })),
+  };
+}
+
+function applyViewerPollState({
+  poll,
+  selectedPollOptionIds,
+}: {
+  poll: MessagePollResult;
+  selectedPollOptionIds: Set<string>;
+}): MessagePollResult {
+  const options = poll.options.map((option) => ({
+    ...option,
+    selectedByViewer: selectedPollOptionIds.has(option.id),
+  }));
+  const viewerHasVoted = options.some((option) => option.selectedByViewer);
+  const pollWithViewerState = {
+    ...poll,
+    options,
+    viewerHasVoted,
+  };
+
+  if (!viewerHasVoted) {
+    return hidePollResults(pollWithViewerState);
+  }
+
+  return pollWithViewerState;
+}
+
 function mergeTribeRoundWithViewerState({
   sharedData,
   viewerState,
@@ -28,16 +65,36 @@ function mergeTribeRoundWithViewerState({
   >;
 }): TribeRoundResult {
   const likedMessageIds = new Set(viewerState.likedMessageIds);
+  const selectedPollOptionIds = new Set(viewerState.selectedPollOptionIds);
+  const canDeleteOwnMessages = Boolean(
+    viewerState.viewerPermissions.canCreateMessage
+  );
+  const canDeleteStaffMessages = Boolean(
+    viewerState.viewerPermissions.canPinMessages
+  );
 
   return {
     activeChannelId: sharedData.activeChannelId,
     channels: sharedData.channels,
-    messages: sharedData.messages.map((message) => ({
-      ...message,
-      hasLoadedReplies: false,
-      likedByViewer: likedMessageIds.has(message.id),
-      replies: [],
-    })),
+    messages: sharedData.messages.map((message) => {
+      return {
+        ...message,
+        hasLoadedReplies: false,
+        likedByViewer: likedMessageIds.has(message.id),
+        permissions: {
+          canDelete:
+            (message.author.id === viewerState.viewerId && canDeleteOwnMessages) ||
+            canDeleteStaffMessages,
+        },
+        poll: message.poll
+          ? applyViewerPollState({
+              poll: message.poll,
+              selectedPollOptionIds,
+            })
+          : null,
+        replies: [],
+      };
+    }),
     pagination: sharedData.pagination,
     viewerPermissions: viewerState.viewerPermissions,
   };

@@ -1,7 +1,9 @@
 import { createTribeMessage } from "@/src/modules/messages/application/use-cases/create-tribe-message-use-case";
 import { createMessageReply } from "@/src/modules/messages/application/use-cases/create-message-reply-use-case";
+import { deleteTribeMessage } from "@/src/modules/messages/application/use-cases/delete-tribe-message-use-case";
 import { toggleMessageLike } from "@/src/modules/messages/application/use-cases/toggle-message-like-use-case";
 import { toggleMessagePin } from "@/src/modules/messages/application/use-cases/toggle-message-pin-use-case";
+import { submitMessagePollVote } from "@/src/modules/messages/application/use-cases/manage-message-polls-use-cases";
 
 describe("message mutation use cases", () => {
   const tribeChannel = {
@@ -165,6 +167,88 @@ describe("message mutation use cases", () => {
     });
   });
 
+  it("creates a tribe message with a normalized poll", async () => {
+    const createdMessage = {
+      id: "message-1",
+      author: {
+        id: "member-1",
+        name: "Grace Hopper",
+        role: "tribemate" as const,
+        avatarFallback: "GH",
+        image: null,
+      },
+      channel: tribeChannel,
+      replies: [],
+      content: "Primera mensaje",
+      createdAt: "2026-04-26T12:00:00.000Z",
+      likedByViewer: false,
+      likeCount: 0,
+      poll: {
+        allowMultipleVotes: true,
+        id: "poll-1",
+        options: [],
+        question: "¿Qué vemos?",
+        totalVoteCount: 0,
+        viewerHasVoted: false,
+      },
+      title: "Bienvenida",
+    };
+    const create = jest.fn(async () => ({
+      message: createdMessage,
+      status: "created" as const,
+    }));
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Primera mensaje",
+        poll: {
+          allowMultipleVotes: true,
+          options: [" Álgebra ", "   ", " Geometría "],
+          question: " ¿Qué vemos? ",
+        },
+        title: "Bienvenida",
+      })
+    ).resolves.toEqual({ message: createdMessage, status: "created" });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        poll: {
+          allowMultipleVotes: true,
+          options: ["Álgebra", "Geometría"],
+          question: "¿Qué vemos?",
+        },
+      })
+    );
+  });
+
+  it("rejects a poll with less than two options before creating a message", async () => {
+    const create = jest.fn();
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Primera mensaje",
+        poll: {
+          allowMultipleVotes: false,
+          options: ["Álgebra", " "],
+          question: "¿Qué vemos?",
+        },
+        title: "Bienvenida",
+      })
+    ).resolves.toEqual({ status: "invalid_poll" });
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("pins a message through the pin repository", async () => {
     const togglePin = jest.fn(async () => ({
       isPinned: true,
@@ -213,6 +297,63 @@ describe("message mutation use cases", () => {
       isPinned: false,
       pinnedAt: null,
       status: "pin_limit_reached",
+    });
+  });
+
+  it("deletes a tribe message after normalizing the command", async () => {
+    const deleteMessage = jest.fn(async () => ({
+      status: "deleted" as const,
+    }));
+    const execute = deleteTribeMessage({
+      messageDeletionRepository: { delete: deleteMessage },
+    });
+
+    await expect(
+      execute({
+        messageId: "message-1",
+        tribeSlug: " matematica-pro ",
+        userId: " member-1 ",
+      })
+    ).resolves.toEqual({ status: "deleted" });
+    expect(deleteMessage).toHaveBeenCalledWith({
+      messageId: "message-1",
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+  });
+
+  it("deduplicates selected poll options before voting", async () => {
+    const poll = {
+      allowMultipleVotes: false,
+      id: "poll-1",
+      options: [],
+      question: "¿Qué vemos?",
+      totalVoteCount: 0,
+      viewerHasVoted: false,
+    };
+    const vote = jest.fn(async () => ({
+      poll,
+      status: "voted" as const,
+    }));
+    const execute = submitMessagePollVote({
+      messagePollRepository: {
+        vote,
+      },
+    });
+
+    await expect(
+      execute({
+        messageId: "message-1",
+        optionIds: [" option-1 ", "option-1", "option-2"],
+        tribeSlug: "matematica-pro",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({ poll, status: "voted" });
+    expect(vote).toHaveBeenCalledWith({
+      messageId: "message-1",
+      optionIds: ["option-1", "option-2"],
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
     });
   });
 });

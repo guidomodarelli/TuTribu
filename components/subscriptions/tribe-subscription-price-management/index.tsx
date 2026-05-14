@@ -48,6 +48,7 @@ import type {
   TribeSubscriberDiagnosticsResult,
   TribeSubscriptionPriceResult,
 } from "@/src/modules/subscriptions/application/results/tribe-subscription-price-result";
+import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import styles from "./styles.module.scss";
 
 const PRICE_MANAGEMENT_COPY = {
@@ -185,6 +186,12 @@ const PRICE_AMOUNT_FORMATTER = new Intl.NumberFormat(
   {
     currency: PRICE_MANAGEMENT_FORMAT.currency,
     style: PRICE_MANAGEMENT_FORMAT.style,
+  }
+);
+const SUBSCRIBER_DIAGNOSTICS_RECONCILED_AT_FORMATTER = new Intl.DateTimeFormat(
+  PRICE_MANAGEMENT_FORMAT.locale,
+  {
+    timeZone: BUENOS_AIRES_TIME_ZONE,
   }
 );
 
@@ -1155,9 +1162,7 @@ export function TribeSubscriptionPriceManagement({
               {subscriberDiagnosticsResult.lastReconciledAt ? (
                 <p className={styles.TribeSubscriptionPriceManagement__meta}>
                   {PRICE_MANAGEMENT_COPY.subscriberDiagnosticsLastReconciledPrefix}{" "}
-                  {new Intl.DateTimeFormat(
-                    PRICE_MANAGEMENT_FORMAT.locale
-                  ).format(
+                  {SUBSCRIBER_DIAGNOSTICS_RECONCILED_AT_FORMATTER.format(
                     new Date(subscriberDiagnosticsResult.lastReconciledAt)
                   )}
                 </p>
