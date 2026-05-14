@@ -330,6 +330,73 @@ describe("TribeSubscriptionPriceManagement", () => {
     });
   });
 
+  it("should allow editing a price while preserving an existing long synchronized trial", async () => {
+    const user = userEvent.setup();
+    const longTrialPrice = {
+      ...activePrice,
+      trial: {
+        frequency: 21,
+        frequencyType: "days" as const,
+      },
+    };
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          canceledPriceIds: [],
+          message: "Planes verificados con Mercado Pago.",
+          prices: [longTrialPrice],
+          verifiedCount: 1,
+        }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          message: "Precio actualizado.",
+          price: {
+            ...longTrialPrice,
+            name: "Plan premium",
+          },
+        }),
+        ok: true,
+      }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[longTrialPrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    await user.clear(screen.getByLabelText("Nuevo nombre"));
+    await user.type(screen.getByLabelText("Nuevo nombre"), "Plan premium");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices/price-1",
+        expect.objectContaining({
+          body: JSON.stringify({
+            amount: "5000",
+            name: "Plan premium",
+            trialFrequency: "21",
+            trialFrequencyType: "days",
+          }),
+          method: "PATCH",
+        })
+      );
+      expect(screen.getByText("Plan premium")).toBeInTheDocument();
+      expect(screen.getByText("21 días")).toBeInTheDocument();
+    });
+  });
+
   it("should preserve an existing monthly trial unit when editing a price", async () => {
     const user = userEvent.setup();
     const monthlyTrialPrice = {
@@ -796,6 +863,186 @@ describe("TribeSubscriptionPriceManagement", () => {
       "El precio mensual mínimo es $ 15."
     );
     expect(amountError).toBeInTheDocument();
+  });
+
+  it("should create a price without a free trial when the trial checkbox is inactive", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        message: "Precio creado.",
+        price: {
+          ...activePrice,
+          trial: null,
+        },
+      }),
+      ok: true,
+    })) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.getByRole("checkbox", { name: "Agregar prueba gratis" })
+    ).not.toBeChecked();
+    expect(screen.getByLabelText("Días de prueba gratis")).toBeDisabled();
+
+    await user.type(screen.getByLabelText("Nombre"), "Plan mensual");
+    await user.type(screen.getByLabelText("Precio mensual"), "5000");
+    await user.click(screen.getByRole("button", { name: "Crear precio" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices",
+        expect.objectContaining({
+          body: JSON.stringify({
+            amount: "5000",
+            name: "Plan mensual",
+            trialFrequency: "",
+            trialFrequencyType: "days",
+          }),
+          method: "POST",
+        })
+      );
+      expect(screen.getByText("Sin prueba gratis")).toBeInTheDocument();
+    });
+  });
+
+  it("should enable trial days and create a price with a valid free trial", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        message: "Precio creado.",
+        price: {
+          ...activePrice,
+          trial: {
+            frequency: 2,
+            frequencyType: "days",
+          },
+        },
+      }),
+      ok: true,
+    })) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Agregar prueba gratis" })
+    );
+    expect(screen.getByLabelText("Días de prueba gratis")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Crear precio" })).toBeDisabled();
+
+    await user.type(screen.getByLabelText("Nombre"), "Plan mensual");
+    await user.type(screen.getByLabelText("Precio mensual"), "5000");
+    await user.type(screen.getByLabelText("Días de prueba gratis"), "2");
+    await user.click(screen.getByRole("button", { name: "Crear precio" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices",
+        expect.objectContaining({
+          body: JSON.stringify({
+            amount: "5000",
+            name: "Plan mensual",
+            trialFrequency: "2",
+            trialFrequencyType: "days",
+          }),
+          method: "POST",
+        })
+      );
+      expect(screen.getByText("2 días")).toBeInTheDocument();
+    });
+  });
+
+  it("should block creation and show inline feedback when trial days are outside the allowed range", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest.fn() as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Agregar prueba gratis" })
+    );
+    await user.type(screen.getByLabelText("Nombre"), "Plan mensual");
+    await user.type(screen.getByLabelText("Precio mensual"), "5000");
+    await user.type(screen.getByLabelText("Días de prueba gratis"), "15");
+
+    const trialInput = screen.getByLabelText("Días de prueba gratis");
+    const trialError = screen.getByText(
+      "La prueba gratis debe ser de entre 1 y 14 días."
+    );
+
+    expect(screen.getByRole("button", { name: "Crear precio" })).toBeDisabled();
+    expect(trialInput).toHaveAttribute("aria-invalid", "true");
+    expect(trialInput).toHaveAccessibleDescription(
+      "La prueba gratis debe ser de entre 1 y 14 días."
+    );
+    expect(trialError).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("shows the trial field error returned by the price creation endpoint", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        fieldErrors: {
+          trialFrequency: "La prueba gratis debe ser de entre 1 y 14 días.",
+        },
+        message: "Definí un nombre, un precio mensual y una prueba gratis válidos.",
+      }),
+      ok: false,
+    })) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Agregar prueba gratis" })
+    );
+    await user.type(screen.getByLabelText("Nombre"), "Plan mensual");
+    await user.type(screen.getByLabelText("Precio mensual"), "5000");
+    await user.type(screen.getByLabelText("Días de prueba gratis"), "2");
+    await user.click(screen.getByRole("button", { name: "Crear precio" }));
+
+    const trialInput = screen.getByLabelText("Días de prueba gratis");
+    const trialError = await screen.findByText(
+      "La prueba gratis debe ser de entre 1 y 14 días."
+    );
+
+    expect(trialInput).toHaveAttribute("aria-invalid", "true");
+    expect(trialInput).toHaveAccessibleDescription(
+      "La prueba gratis debe ser de entre 1 y 14 días."
+    );
+    expect(trialError).toBeInTheDocument();
   });
 
   it("should block price creation and start Mercado Pago connection automatically when reconnection is required", async () => {

@@ -23,6 +23,8 @@ import {
   TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON,
   TRIBE_SUBSCRIPTION_PRICE_LIMIT,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
+  TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
+  TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
   TribeProviderSubscriberReconciliationCommand,
@@ -35,6 +37,7 @@ import type {
   TribeSubscriptionPriceIdentity,
   TribeSubscriptionPriceListQuery,
   TribeSubscriptionPriceRepository,
+  TribeSubscriptionPriceUpdateTrialPolicy,
   UpdateTribeSubscriptionPriceCommand,
 } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
@@ -695,6 +698,22 @@ function resolveUpdateTrialPeriod(
   };
 }
 
+/**
+ * Determines whether a day-based trial must wait until the provider plan is persisted.
+ *
+ * @param command - Price creation command that may carry a provider-synchronized trial.
+ * @returns Whether the local reservation cannot store the trial before the provider plan exists.
+ */
+function shouldAttachTrialAfterProviderPlan(
+  command: CreateTribeSubscriptionPriceCommand
+): boolean {
+  return (
+    command.trialFrequencyType === TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days &&
+    typeof command.trialFrequency === "number" &&
+    command.trialFrequency > TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS
+  );
+}
+
 export class PostgresTribeSubscriptionPriceRepository
   implements
     TribeProviderSubscriberReconciliationRepository,
@@ -841,6 +860,31 @@ export class PostgresTribeSubscriptionPriceRepository
         canManagePrices: Boolean(rows[0]?.can_manage_prices),
         canViewPrices: Boolean(rows[0]?.can_view_prices),
       },
+    };
+  }
+
+  /**
+   * Reads the stored trial policy required to validate extended day trial preservation.
+   *
+   * @param command - Price identity for the update.
+   * @returns Existing trial policy, or null when the price is unavailable.
+   */
+  async getUpdateTrialPolicy(
+    command: TribeSubscriptionPriceIdentity
+  ): Promise<TribeSubscriptionPriceUpdateTrialPolicy | null> {
+    const updateContext = await this.resolvePriceUpdateContext(command);
+
+    if (!updateContext?.tribe_id || !updateContext.can_manage_prices) {
+      return null;
+    }
+
+    return {
+      amountCents: updateContext.amount_cents,
+      hasMercadoPagoPreapprovalPlan: Boolean(
+        updateContext.mercado_pago_preapproval_plan_id
+      ),
+      trialFrequency: updateContext.trial_frequency,
+      trialFrequencyType: updateContext.trial_frequency_type,
     };
   }
 
@@ -1038,7 +1082,15 @@ export class PostgresTribeSubscriptionPriceRepository
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
     }
 
-    const reservation = await this.reserveProviderPlanPrice(command);
+    const reservation = await this.reserveProviderPlanPrice(
+      shouldAttachTrialAfterProviderPlan(command)
+        ? {
+            ...command,
+            trialFrequency: null,
+            trialFrequencyType: null,
+          }
+        : command
+    );
 
     if (reservation.status_result !== TRIBE_SUBSCRIPTION_PRICE_STATUS.created) {
       return {
@@ -1092,6 +1144,8 @@ export class PostgresTribeSubscriptionPriceRepository
     return this.attachProviderPlanToReservedPrice({
       mercadoPagoPlanId,
       priceId: reservation.reserved_price_id,
+      trialFrequency: command.trialFrequency,
+      trialFrequencyType: command.trialFrequencyType,
     });
   }
 
@@ -1188,12 +1242,16 @@ export class PostgresTribeSubscriptionPriceRepository
   private async attachProviderPlanToReservedPrice(input: {
     mercadoPagoPlanId: string;
     priceId: string;
+    trialFrequency: CreateTribeSubscriptionPriceCommand["trialFrequency"];
+    trialFrequencyType: CreateTribeSubscriptionPriceCommand["trialFrequencyType"];
   }): Promise<TribeSubscriptionPriceMutationResult> {
     return this.executeWithDatabase(async (database) => {
       const activationResult = await database.execute(sql`
         update public.tribe_subscription_prices
         set
           mercado_pago_preapproval_plan_id = ${input.mercadoPagoPlanId},
+          trial_frequency = ${input.trialFrequency},
+          trial_frequency_type = ${input.trialFrequencyType},
           status = 'active'
         where tribe_subscription_prices.id = ${input.priceId}
           and tribe_subscription_prices.status = ${SUBSCRIPTION_PRICE_PROVIDER_PLAN_RESERVATION_STATUS}

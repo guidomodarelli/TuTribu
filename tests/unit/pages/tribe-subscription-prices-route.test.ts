@@ -130,6 +130,77 @@ describe("tribe subscription prices route", () => {
     });
   });
 
+  it("returns a trial field error when the free trial is outside the allowed range", async () => {
+    createTribeSubscriptionPrice.mockResolvedValue({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput,
+    });
+
+    const response = await POST(
+      buildRequest({
+        amount: "1500",
+        name: "Plan mensual",
+        trialFrequency: "15",
+        trialFrequencyType: "days",
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      fieldErrors: {
+        trialFrequency: "La prueba gratis debe ser de entre 1 y 14 días.",
+      },
+      message: "Definí un nombre, un precio mensual y una prueba gratis válidos.",
+    });
+  });
+
+  it("returns a trial field error when the free trial type is omitted from price creation", async () => {
+    createTribeSubscriptionPrice.mockResolvedValue({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput,
+    });
+
+    const response = await POST(
+      buildRequest({
+        amount: "1500",
+        name: "Plan mensual",
+        trialFrequency: "15",
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      fieldErrors: {
+        trialFrequency: "La prueba gratis debe ser de entre 1 y 14 días.",
+      },
+      message: "Definí un nombre, un precio mensual y una prueba gratis válidos.",
+    });
+  });
+
+  it("returns a trial field error when the free trial type is blank in price creation", async () => {
+    createTribeSubscriptionPrice.mockResolvedValue({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput,
+    });
+
+    const response = await POST(
+      buildRequest({
+        amount: "1500",
+        name: "Plan mensual",
+        trialFrequency: "15",
+        trialFrequencyType: "",
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      fieldErrors: {
+        trialFrequency: "La prueba gratis debe ser de entre 1 y 14 días.",
+      },
+      message: "Definí un nombre, un precio mensual y una prueba gratis válidos.",
+    });
+  });
+
   it("should preserve omitted trial frequency type in legacy price creation requests", async () => {
     createTribeSubscriptionPrice.mockResolvedValue({
       price: {
@@ -255,6 +326,63 @@ describe("tribe subscription prices route", () => {
       trialFrequency: undefined,
       trialFrequencyType: undefined,
       tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("returns a trial field error when the free trial type is omitted from price updates", async () => {
+    updateTribeSubscriptionPrice.mockResolvedValue({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput,
+    });
+
+    const response = await PATCH(
+      buildRequest({
+        amount: "5000",
+        name: "Plan actualizado",
+        trialFrequency: "21",
+      }),
+      {
+        params: Promise.resolve({
+          priceId: "price-1",
+          slug: "matematica-pro",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      fieldErrors: {
+        trialFrequency: "La prueba gratis debe ser de entre 1 y 14 días.",
+      },
+      message: "Definí un nombre, un precio mensual y una prueba gratis válidos.",
+    });
+  });
+
+  it("returns a trial field error when the free trial type is blank in price updates", async () => {
+    updateTribeSubscriptionPrice.mockResolvedValue({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput,
+    });
+
+    const response = await PATCH(
+      buildRequest({
+        amount: "5000",
+        name: "Plan actualizado",
+        trialFrequency: "21",
+        trialFrequencyType: "",
+      }),
+      {
+        params: Promise.resolve({
+          priceId: "price-1",
+          slug: "matematica-pro",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      fieldErrors: {
+        trialFrequency: "La prueba gratis debe ser de entre 1 y 14 días.",
+      },
+      message: "Definí un nombre, un precio mensual y una prueba gratis válidos.",
     });
   });
 

@@ -34,6 +34,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -112,7 +113,9 @@ const PRICE_MANAGEMENT_COPY = {
   tableTrialHeader: "Prueba gratis",
   title: "Precios",
   trialDaysLabel: "Días de prueba gratis",
+  trialDaysToggleLabel: "Agregar prueba gratis",
   trialDaysPlaceholder: "7",
+  trialDaysRangeError: "La prueba gratis debe ser de entre 1 y 14 días.",
   trialDaySuffix: "día",
   trialEmptyLabel: "Sin prueba gratis",
   trialDaysSuffix: "días",
@@ -178,8 +181,11 @@ const PRICE_MANAGEMENT_FORMAT = {
   locale: "es-AR",
   labelSeparator: " ",
   monthlyTrialFrequencyType: "months",
+  trialFrequencyMaximumDays: 14,
+  trialFrequencyMinimumDays: 1,
   style: "currency",
   trialFrequencyType: "days",
+  validTrialFrequencyPattern: /^\d+$/,
 } as const;
 const PRICE_AMOUNT_FORMATTER = new Intl.NumberFormat(
   PRICE_MANAGEMENT_FORMAT.locale,
@@ -224,12 +230,15 @@ type SubscriberDiagnosticsReconciliationResponse = {
 
 type PriceFieldErrors = {
   amount?: string;
+  trialFrequency?: string;
 };
 
 type EditingPrice = {
   amount: string;
   id: string;
   name: string;
+  originalTrialFrequency: string;
+  originalTrialFrequencyType: "days" | "months";
   trialFrequency: string;
   trialFrequencyType: "days" | "months";
 };
@@ -420,6 +429,90 @@ function formatTrialPeriod(price: TribeSubscriptionPriceResult): string {
 }
 
 /**
+ * Determines whether a day-based trial frequency is inside the supported range.
+ *
+ * @param trialFrequencyValue - Trial frequency typed by the user.
+ * @returns Whether the trial frequency can be submitted.
+ */
+function isValidDayTrialFrequency(trialFrequencyValue: string): boolean {
+  const normalizedTrialFrequency = trialFrequencyValue.trim();
+
+  if (
+    !PRICE_MANAGEMENT_FORMAT.validTrialFrequencyPattern.test(
+      normalizedTrialFrequency
+    )
+  ) {
+    return false;
+  }
+
+  const parsedTrialFrequency = Number(normalizedTrialFrequency);
+
+  return (
+    Number.isSafeInteger(parsedTrialFrequency) &&
+    parsedTrialFrequency >= PRICE_MANAGEMENT_FORMAT.trialFrequencyMinimumDays &&
+    parsedTrialFrequency <= PRICE_MANAGEMENT_FORMAT.trialFrequencyMaximumDays
+  );
+}
+
+/**
+ * Resolves inline validation feedback for the create-price trial field.
+ *
+ * @param input - Current trial field state.
+ * @returns Spanish field error text or undefined.
+ */
+function getCreateTrialFrequencyError(input: {
+  fieldError?: string;
+  isTrialEnabled: boolean;
+  trialFrequency: string;
+}): string | undefined {
+  if (input.fieldError) {
+    return input.fieldError;
+  }
+
+  if (!input.isTrialEnabled || !input.trialFrequency.trim()) {
+    return undefined;
+  }
+
+  return isValidDayTrialFrequency(input.trialFrequency)
+    ? undefined
+    : PRICE_MANAGEMENT_COPY.trialDaysRangeError;
+}
+
+/**
+ * Resolves inline validation feedback for the edit-price trial field.
+ *
+ * @param input - Current editing field state.
+ * @returns Spanish field error text or undefined.
+ */
+function getEditTrialFrequencyError(input: {
+  fieldError?: string;
+  originalTrialFrequency: string;
+  originalTrialFrequencyType: "days" | "months";
+  trialFrequency: string;
+  trialFrequencyType: "days" | "months";
+}): string | undefined {
+  if (input.fieldError) {
+    return input.fieldError;
+  }
+
+  if (!input.trialFrequency.trim()) {
+    return undefined;
+  }
+
+  if (
+    input.trialFrequency.trim() === input.originalTrialFrequency &&
+    input.trialFrequencyType === input.originalTrialFrequencyType
+  ) {
+    return undefined;
+  }
+
+  return input.trialFrequencyType === PRICE_MANAGEMENT_FORMAT.trialFrequencyType &&
+    !isValidDayTrialFrequency(input.trialFrequency)
+    ? PRICE_MANAGEMENT_COPY.trialDaysRangeError
+    : undefined;
+}
+
+/**
  * Sends a price mutation request and reads a safe JSON response.
  *
  * @param url - Request URL.
@@ -513,6 +606,7 @@ export function TribeSubscriptionPriceManagement({
   const [priceItems, setPriceItems] = useState(prices);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [isTrialEnabled, setIsTrialEnabled] = useState(false);
   const [trialFrequency, setTrialFrequency] = useState("");
   const [editingPrice, setEditingPrice] = useState<EditingPrice | null>(null);
   const [fieldErrors, setFieldErrors] = useState<PriceFieldErrors>({});
@@ -535,9 +629,12 @@ export function TribeSubscriptionPriceManagement({
   const hasStartedMercadoPagoConnection = useRef(false);
   const nameInputId = useId();
   const amountInputId = useId();
+  const trialFrequencyToggleId = useId();
   const trialFrequencyInputId = useId();
   const amountErrorId = useId();
+  const trialFrequencyErrorId = useId();
   const editAmountErrorId = useId();
+  const editTrialFrequencyErrorId = useId();
   const sortedPrices = useMemo(
     () =>
       priceItems.toSorted((firstPrice, secondPrice) =>
@@ -560,6 +657,32 @@ export function TribeSubscriptionPriceManagement({
   const mercadoPagoConnectionEndpoint = buildMercadoPagoConnectionEndpoint(
     tribeSlug
   );
+  const trialFrequencyError = getCreateTrialFrequencyError({
+    fieldError: fieldErrors.trialFrequency,
+    isTrialEnabled,
+    trialFrequency,
+  });
+  const isCreateTrialFrequencyValid =
+    !isTrialEnabled || isValidDayTrialFrequency(trialFrequency);
+  const editTrialFrequencyError = editingPrice
+    ? getEditTrialFrequencyError({
+        fieldError: fieldErrors.trialFrequency,
+        originalTrialFrequency: editingPrice.originalTrialFrequency,
+        originalTrialFrequencyType: editingPrice.originalTrialFrequencyType,
+        trialFrequency: editingPrice.trialFrequency,
+        trialFrequencyType: editingPrice.trialFrequencyType,
+      })
+    : undefined;
+  const isEditTrialFrequencyValid =
+    !editingPrice ||
+    !editingPrice.trialFrequency.trim() ||
+    editingPrice.trialFrequencyType !==
+      PRICE_MANAGEMENT_FORMAT.trialFrequencyType ||
+    isValidDayTrialFrequency(editingPrice.trialFrequency) ||
+    (editingPrice.trialFrequency.trim() ===
+      editingPrice.originalTrialFrequency &&
+      editingPrice.trialFrequencyType ===
+        editingPrice.originalTrialFrequencyType);
   const subscriberDiagnosticsItems = subscriberDiagnosticsResult
     ? [
         {
@@ -766,17 +889,27 @@ export function TribeSubscriptionPriceManagement({
       return;
     }
 
+    if (!isCreateTrialFrequencyValid) {
+      setFieldErrors((currentFieldErrors) => ({
+        ...currentFieldErrors,
+        trialFrequency: PRICE_MANAGEMENT_COPY.trialDaysRangeError,
+      }));
+
+      return;
+    }
+
     setPendingAction(PRICE_MANAGEMENT_COPY.createButton);
     setFieldErrors({});
 
     try {
+      const submittedTrialFrequency = isTrialEnabled ? trialFrequency : "";
       const response = await submitPriceRequest(
         buildPricesEndpoint(tribeSlug),
         PRICE_MANAGEMENT_REQUEST.postMethod,
         {
           amount,
           name,
-          trialFrequency,
+          trialFrequency: submittedTrialFrequency,
           trialFrequencyType: PRICE_MANAGEMENT_FORMAT.trialFrequencyType,
         }
       );
@@ -787,10 +920,14 @@ export function TribeSubscriptionPriceManagement({
 
       setAmount("");
       setName("");
+      setIsTrialEnabled(false);
       setTrialFrequency("");
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.createButton);
     } catch (error) {
-      if (error instanceof PriceRequestError && error.fieldErrors.amount) {
+      if (
+        error instanceof PriceRequestError &&
+        (error.fieldErrors.amount || error.fieldErrors.trialFrequency)
+      ) {
         setFieldErrors(error.fieldErrors);
 
         return;
@@ -813,13 +950,20 @@ export function TribeSubscriptionPriceManagement({
    * @returns Void.
    */
   const handleStartEditingPrice = (price: TribeSubscriptionPriceResult) => {
+    const originalTrialFrequency = price.trial
+      ? String(price.trial.frequency)
+      : "";
+    const originalTrialFrequencyType =
+      price.trial?.frequencyType ?? PRICE_MANAGEMENT_FORMAT.trialFrequencyType;
+
     setEditingPrice({
       amount: formatAmountInputValue(price.amountCents),
       id: price.id,
       name: price.name,
-      trialFrequency: price.trial ? String(price.trial.frequency) : "",
-      trialFrequencyType:
-        price.trial?.frequencyType ?? PRICE_MANAGEMENT_FORMAT.trialFrequencyType,
+      originalTrialFrequency,
+      originalTrialFrequencyType,
+      trialFrequency: originalTrialFrequency,
+      trialFrequencyType: originalTrialFrequencyType,
     });
     setFieldErrors({});
   };
@@ -842,6 +986,7 @@ export function TribeSubscriptionPriceManagement({
     setFieldErrors((currentFieldErrors) => ({
       ...currentFieldErrors,
       amount: undefined,
+      trialFrequency: undefined,
     }));
   };
 
@@ -855,6 +1000,15 @@ export function TribeSubscriptionPriceManagement({
     event.preventDefault();
 
     if (!editingPrice) {
+      return;
+    }
+
+    if (!isEditTrialFrequencyValid) {
+      setFieldErrors((currentFieldErrors) => ({
+        ...currentFieldErrors,
+        trialFrequency: PRICE_MANAGEMENT_COPY.trialDaysRangeError,
+      }));
+
       return;
     }
 
@@ -880,7 +1034,10 @@ export function TribeSubscriptionPriceManagement({
       setEditingPrice(null);
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.saveEditButton);
     } catch (error) {
-      if (error instanceof PriceRequestError && error.fieldErrors.amount) {
+      if (
+        error instanceof PriceRequestError &&
+        (error.fieldErrors.amount || error.fieldErrors.trialFrequency)
+      ) {
         setFieldErrors(error.fieldErrors);
 
         return;
@@ -1309,6 +1466,36 @@ export function TribeSubscriptionPriceManagement({
               ) : null}
             </div>
             <div className={styles.TribeSubscriptionPriceManagement__field}>
+              <div
+                className={
+                  styles.TribeSubscriptionPriceManagement__checkboxField
+                }
+              >
+                <Checkbox
+                  checked={isTrialEnabled}
+                  disabled={isMercadoPagoConnectionRequired}
+                  id={trialFrequencyToggleId}
+                  onCheckedChange={(checked) => {
+                    const nextIsTrialEnabled = checked === true;
+
+                    setIsTrialEnabled(nextIsTrialEnabled);
+                    setFieldErrors((currentFieldErrors) => ({
+                      ...currentFieldErrors,
+                      trialFrequency: undefined,
+                    }));
+
+                    if (!nextIsTrialEnabled) {
+                      setTrialFrequency("");
+                    }
+                  }}
+                />
+                <label
+                  className={styles.TribeSubscriptionPriceManagement__label}
+                  htmlFor={trialFrequencyToggleId}
+                >
+                  {PRICE_MANAGEMENT_COPY.trialDaysToggleLabel}
+                </label>
+              </div>
               <label
                 className={styles.TribeSubscriptionPriceManagement__label}
                 htmlFor={trialFrequencyInputId}
@@ -1316,21 +1503,40 @@ export function TribeSubscriptionPriceManagement({
                 {PRICE_MANAGEMENT_COPY.trialDaysLabel}
               </label>
               <Input
-                disabled={isMercadoPagoConnectionRequired}
+                aria-describedby={
+                  trialFrequencyError ? trialFrequencyErrorId : undefined
+                }
+                aria-invalid={trialFrequencyError ? true : undefined}
+                disabled={isMercadoPagoConnectionRequired || !isTrialEnabled}
                 id={trialFrequencyInputId}
                 inputMode={PRICE_MANAGEMENT_FORMAT.numericInputMode}
                 onChange={(event) => {
                   setTrialFrequency(event.currentTarget.value);
+                  setFieldErrors((currentFieldErrors) => ({
+                    ...currentFieldErrors,
+                    trialFrequency: undefined,
+                  }));
                 }}
                 placeholder={PRICE_MANAGEMENT_COPY.trialDaysPlaceholder}
                 value={trialFrequency}
               />
+              {trialFrequencyError ? (
+                <span
+                  className={
+                    styles.TribeSubscriptionPriceManagement__fieldError
+                  }
+                  id={trialFrequencyErrorId}
+                >
+                  {trialFrequencyError}
+                </span>
+              ) : null}
             </div>
             <Button
               disabled={
                 isPriceManagementDisabled ||
                 !name.trim() ||
-                !amount.trim()
+                !amount.trim() ||
+                !isCreateTrialFrequencyValid
               }
               type={PRICE_MANAGEMENT_REQUEST.submitType}
             >
@@ -1583,6 +1789,14 @@ export function TribeSubscriptionPriceManagement({
                             {PRICE_MANAGEMENT_COPY.trialDaysLabel}
                           </label>
                           <Input
+                            aria-describedby={
+                              editTrialFrequencyError
+                                ? editTrialFrequencyErrorId
+                                : undefined
+                            }
+                            aria-invalid={
+                              editTrialFrequencyError ? true : undefined
+                            }
                             id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.trialFrequency}`}
                             inputMode={PRICE_MANAGEMENT_FORMAT.numericInputMode}
                             onChange={(event) => {
@@ -1594,13 +1808,24 @@ export function TribeSubscriptionPriceManagement({
                             }}
                             value={editingPrice.trialFrequency}
                           />
+                          {editTrialFrequencyError ? (
+                            <span
+                              className={
+                                styles.TribeSubscriptionPriceManagement__fieldError
+                              }
+                              id={editTrialFrequencyErrorId}
+                            >
+                              {editTrialFrequencyError}
+                            </span>
+                          ) : null}
                         </div>
                         <div className={styles.TribeSubscriptionPriceManagement__actions}>
                           <Button
                             disabled={
                               isPriceManagementDisabled ||
                               !editingPrice.name.trim() ||
-                              !editingPrice.amount.trim()
+                              !editingPrice.amount.trim() ||
+                              !isEditTrialFrequencyValid
                             }
                             type={PRICE_MANAGEMENT_REQUEST.submitType}
                           >

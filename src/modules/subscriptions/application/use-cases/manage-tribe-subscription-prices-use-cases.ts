@@ -9,7 +9,9 @@ import {
   TRIBE_SUBSCRIPTION_FREQUENCY,
   TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
+  TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS,
   TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
+  TRIBE_SUBSCRIPTION_TRIAL_MINIMUM_DAYS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
   CreateTribeSubscriptionPriceCommand,
@@ -17,6 +19,7 @@ import type {
   TribeSubscriptionPriceIdentity,
   TribeSubscriptionPriceListQuery,
   TribeSubscriptionPriceRepository,
+  TribeSubscriptionPriceUpdateTrialPolicy,
   UpdateTribeSubscriptionPriceCommand,
 } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
 
@@ -62,6 +65,28 @@ type NormalizedUpdateTrialPeriod = {
   trialFrequencyType?: NormalizedTrialPeriod["trialFrequencyType"];
 };
 
+type ValidUpdateCommand = UpdateTribeSubscriptionPriceCommand & {
+  requiresExistingTrialPolicy: boolean;
+};
+
+/**
+ * Determines whether a parsed day-based trial length is inside the supported product range.
+ *
+ * @param parsedTrialFrequency - Trial length parsed from user input.
+ * @param trialFrequencyType - Trial period unit parsed from user input.
+ * @returns Whether the day-based trial period is valid.
+ */
+function isSupportedDayTrialFrequency(
+  parsedTrialFrequency: number,
+  trialFrequencyType: string
+): boolean {
+  return (
+    trialFrequencyType !== TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days ||
+    (parsedTrialFrequency >= TRIBE_SUBSCRIPTION_TRIAL_MINIMUM_DAYS &&
+      parsedTrialFrequency <= TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS)
+  );
+}
+
 /**
  * Normalizes text input by trimming surrounding whitespace.
  *
@@ -105,6 +130,7 @@ function parseAmountCents(amount: string): number | null {
  * @returns Normalized trial period, or null when the submitted value is invalid.
  */
 function parseTrialPeriod(input: {
+  allowExtendedDayTrial?: boolean;
   trialFrequency?: string;
   trialFrequencyType?: string;
 }): NormalizedTrialPeriod | null {
@@ -132,7 +158,9 @@ function parseTrialPeriod(input: {
   if (
     !Number.isSafeInteger(parsedTrialFrequency) ||
     parsedTrialFrequency <= 0 ||
-    parsedTrialFrequency > POSTGRES_INTEGER_MAX_VALUE
+    parsedTrialFrequency > POSTGRES_INTEGER_MAX_VALUE ||
+    (!input.allowExtendedDayTrial &&
+      !isSupportedDayTrialFrequency(parsedTrialFrequency, trialFrequencyType))
   ) {
     return null;
   }
@@ -160,7 +188,71 @@ function parseUpdateTrialPeriod(input: {
     return {};
   }
 
-  return parseTrialPeriod(input);
+  return parseTrialPeriod({
+    ...input,
+    allowExtendedDayTrial: true,
+  });
+}
+
+/**
+ * Determines whether the update carries a day-based trial beyond the current creation limit.
+ *
+ * @param command - Normalized update command.
+ * @returns Whether the command needs existing price policy validation.
+ */
+function requiresExistingTrialPolicy(
+  command: NormalizedUpdateTrialPeriod
+): boolean {
+  return (
+    command.trialFrequencyType === TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days &&
+    typeof command.trialFrequency === "number" &&
+    command.trialFrequency > TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS
+  );
+}
+
+/**
+ * Determines whether an extended day trial matches an existing synchronized provider plan.
+ *
+ * @param command - Normalized update command.
+ * @param trialPolicy - Stored trial policy for the target price.
+ * @returns Whether the submitted trial can be preserved.
+ */
+function isPreservedSynchronizedTrial(
+  command: UpdateTribeSubscriptionPriceCommand,
+  trialPolicy: TribeSubscriptionPriceUpdateTrialPolicy | null
+): boolean {
+  return Boolean(
+    trialPolicy &&
+      trialPolicy.amountCents === command.amountCents &&
+      trialPolicy.hasMercadoPagoPreapprovalPlan &&
+      trialPolicy.trialFrequency === command.trialFrequency &&
+      trialPolicy.trialFrequencyType === command.trialFrequencyType
+  );
+}
+
+/**
+ * Removes application-only validation metadata before sending an update to the repository.
+ *
+ * @param command - Validated update command with application metadata.
+ * @returns Repository update command.
+ */
+function toRepositoryUpdateCommand(
+  command: ValidUpdateCommand
+): UpdateTribeSubscriptionPriceCommand {
+  return {
+    amountCents: command.amountCents,
+    currency: command.currency,
+    frequency: command.frequency,
+    name: command.name,
+    priceId: command.priceId,
+    ...(command.trialFrequency !== undefined
+      ? { trialFrequency: command.trialFrequency }
+      : {}),
+    ...(command.trialFrequencyType !== undefined
+      ? { trialFrequencyType: command.trialFrequencyType }
+      : {}),
+    tribeSlug: command.tribeSlug,
+  };
 }
 
 /**
@@ -199,7 +291,7 @@ function buildCreateCommand(
  */
 function buildUpdateCommand(
   input: UpdateTribeSubscriptionPriceInput
-): UpdateTribeSubscriptionPriceCommand | null {
+): ValidUpdateCommand | null {
   const amountCents = parseAmountCents(input.amount);
   const name = normalizeText(input.name);
   const priceId = normalizeText(input.priceId);
@@ -216,6 +308,7 @@ function buildUpdateCommand(
     frequency: TRIBE_SUBSCRIPTION_FREQUENCY.monthly,
     name,
     priceId,
+    requiresExistingTrialPolicy: requiresExistingTrialPolicy(trialPeriod),
     ...trialPeriod,
     tribeSlug,
   };
@@ -272,7 +365,24 @@ export function updateTribeSubscriptionPrice({
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput };
     }
 
-    return tribeSubscriptionPriceRepository.update(command);
+    if (command.requiresExistingTrialPolicy) {
+      const trialPolicy =
+        await tribeSubscriptionPriceRepository.getUpdateTrialPolicy({
+          priceId: command.priceId,
+          tribeSlug: command.tribeSlug,
+        });
+
+      if (
+        trialPolicy &&
+        !isPreservedSynchronizedTrial(command, trialPolicy)
+      ) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput };
+      }
+    }
+
+    return tribeSubscriptionPriceRepository.update(
+      toRepositoryUpdateCommand(command)
+    );
   };
 }
 

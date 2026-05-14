@@ -24,6 +24,8 @@ Reglas:
 * cada tribu puede tener hasta 30 precios activos
 * el período de prueba gratuita es parte mutable del precio y se sincroniza
   sobre el mismo `preapproval_plan` de Mercado Pago
+* la app solo permite pruebas gratuitas expresadas en días al crear precios
+  desde la UI, con un rango de 1 a 14 días
 
 ## Estado de acceso
 

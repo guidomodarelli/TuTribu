@@ -7,6 +7,8 @@
 import {
   TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
+  TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS,
+  TRIBE_SUBSCRIPTION_TRIAL_MINIMUM_DAYS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -26,6 +28,11 @@ const PRICE_ROUTE_AMOUNT = {
   validPattern: /^\d+(\.\d{1,2})?$/,
 } as const;
 
+const PRICE_ROUTE_TRIAL = {
+  daysType: "days",
+  validPattern: /^\d+$/,
+} as const;
+
 const PRICE_ROUTE_LOG = {
   createFailureMessage: "Tribe subscription price creation failed",
   feature: "subscriptions",
@@ -38,6 +45,10 @@ const PRICE_ROUTE_RESPONSE = {
   createdMessage: "Precio creado.",
   forbiddenMessage: "No tenés permisos para gestionar precios.",
   invalidInputMessage: "Definí un nombre y un precio mensual válido.",
+  invalidTrialFieldMessage:
+    "La prueba gratis debe ser de entre 1 y 14 días.",
+  invalidTrialInputMessage:
+    "Definí un nombre, un precio mensual y una prueba gratis válidos.",
   limitReachedMessage: "La tribu ya tiene 30 precios. Eliminá uno sin miembros para crear otro.",
   missingIntegrationMessage: "Conectá Mercado Pago antes de crear precios.",
   notFoundMessage: "No pudimos encontrar la tribu.",
@@ -124,6 +135,21 @@ function createInvalidPriceAmountResponse(): Record<string, unknown> {
 }
 
 /**
+ * Creates the safe response used for trial validation failures.
+ *
+ * @returns JSON body with form field errors.
+ */
+function createInvalidTrialFrequencyResponse(): Record<string, unknown> {
+  return {
+    fieldErrors: {
+      [PRICE_ROUTE_FIELD.trialFrequency]:
+        PRICE_ROUTE_RESPONSE.invalidTrialFieldMessage,
+    },
+    message: PRICE_ROUTE_RESPONSE.invalidTrialInputMessage,
+  };
+}
+
+/**
  * Converts a submitted route amount into cents when it has a valid shape.
  *
  * @param amount - Raw amount submitted by the form.
@@ -163,6 +189,63 @@ function hasMinimumAmountValidationError(body: unknown): boolean {
     amountCents !== null &&
     amountCents < TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS
   );
+}
+
+/**
+ * Determines whether an invalid input response belongs to the free trial range.
+ *
+ * @param body - Parsed request body.
+ * @returns Whether the response should include a trial frequency field error.
+ */
+function hasTrialFrequencyValidationError(body: unknown): boolean {
+  const trialFrequency = readOptionalStringField(
+    body,
+    PRICE_ROUTE_FIELD.trialFrequency
+  )?.trim();
+  const trialFrequencyType = readOptionalStringField(
+    body,
+    PRICE_ROUTE_FIELD.trialFrequencyType
+  )?.trim();
+  const normalizedTrialFrequencyType =
+    trialFrequencyType || PRICE_ROUTE_TRIAL.daysType;
+
+  if (!trialFrequency) {
+    return false;
+  }
+
+  if (normalizedTrialFrequencyType !== PRICE_ROUTE_TRIAL.daysType) {
+    return false;
+  }
+
+  if (!PRICE_ROUTE_TRIAL.validPattern.test(trialFrequency)) {
+    return true;
+  }
+
+  const parsedTrialFrequency = Number(trialFrequency);
+
+  return (
+    !Number.isSafeInteger(parsedTrialFrequency) ||
+    parsedTrialFrequency < TRIBE_SUBSCRIPTION_TRIAL_MINIMUM_DAYS ||
+    parsedTrialFrequency > TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS
+  );
+}
+
+/**
+ * Creates the safe response used for invalid price creation input.
+ *
+ * @param body - Parsed request body.
+ * @returns JSON body with generic or field-specific validation feedback.
+ */
+function createInvalidPriceInputResponse(body: unknown): Record<string, unknown> {
+  if (hasMinimumAmountValidationError(body)) {
+    return createInvalidPriceAmountResponse();
+  }
+
+  if (hasTrialFrequencyValidationError(body)) {
+    return createInvalidTrialFrequencyResponse();
+  }
+
+  return { message: PRICE_ROUTE_RESPONSE.invalidInputMessage };
 }
 
 /**
@@ -279,9 +362,7 @@ export async function POST(
         );
       case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
         return createJsonResponse(
-          hasMinimumAmountValidationError(body)
-            ? createInvalidPriceAmountResponse()
-            : { message: PRICE_ROUTE_RESPONSE.invalidInputMessage },
+          createInvalidPriceInputResponse(body),
           HTTP_STATUS.badRequest
         );
       case TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached:

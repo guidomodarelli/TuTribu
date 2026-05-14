@@ -162,6 +162,13 @@
       "when": 1778677200000,
       "tag": "20260513130000_delete_messages_with_poll_blocks",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1778680800000,
+      "tag": "20260513140000_limit_subscription_price_trial_days",
+      "breakpoints": true
     }
   ]
 }

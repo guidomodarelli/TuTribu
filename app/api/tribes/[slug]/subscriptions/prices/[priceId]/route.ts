@@ -4,7 +4,11 @@
  * @module tribe-subscription-price-route
  */
 
-import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import {
+  TRIBE_SUBSCRIPTION_PRICE_STATUS,
+  TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS,
+  TRIBE_SUBSCRIPTION_TRIAL_MINIMUM_DAYS,
+} from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -23,6 +27,10 @@ const PRICE_ITEM_ROUTE_RESPONSE = {
   forbiddenMessage: "No tenés permisos para gestionar precios.",
   hasSubscribersMessage: "No podés eliminar un precio con miembros asociados.",
   invalidInputMessage: "Definí un nombre y un precio mensual válido.",
+  invalidTrialFieldMessage:
+    "La prueba gratis debe ser de entre 1 y 14 días.",
+  invalidTrialInputMessage:
+    "Definí un nombre, un precio mensual y una prueba gratis válidos.",
   limitReachedMessage: "La tribu ya tiene 30 precios. Eliminá uno sin miembros para crear otro.",
   missingIntegrationMessage: "Conectá Mercado Pago antes de gestionar precios.",
   notFoundMessage: "No pudimos encontrar el precio.",
@@ -47,6 +55,11 @@ const PRICE_ITEM_ROUTE_FIELD = {
   name: "name",
   trialFrequency: "trialFrequency",
   trialFrequencyType: "trialFrequencyType",
+} as const;
+
+const PRICE_ITEM_ROUTE_TRIAL = {
+  daysType: "days",
+  validPattern: /^\d+$/,
 } as const;
 
 /**
@@ -95,6 +108,60 @@ function readOptionalStringField(
   const value = (body as Record<string, unknown>)[field];
 
   return typeof value === "string" ? value : "";
+}
+
+/**
+ * Creates the safe response used for trial validation failures.
+ *
+ * @returns JSON body with form field errors.
+ */
+function createInvalidTrialFrequencyResponse(): Record<string, unknown> {
+  return {
+    fieldErrors: {
+      [PRICE_ITEM_ROUTE_FIELD.trialFrequency]:
+        PRICE_ITEM_ROUTE_RESPONSE.invalidTrialFieldMessage,
+    },
+    message: PRICE_ITEM_ROUTE_RESPONSE.invalidTrialInputMessage,
+  };
+}
+
+/**
+ * Determines whether an invalid input response belongs to the free trial range.
+ *
+ * @param body - Parsed request body.
+ * @returns Whether the response should include a trial frequency field error.
+ */
+function hasTrialFrequencyValidationError(body: unknown): boolean {
+  const trialFrequency = readOptionalStringField(
+    body,
+    PRICE_ITEM_ROUTE_FIELD.trialFrequency
+  )?.trim();
+  const trialFrequencyType = readOptionalStringField(
+    body,
+    PRICE_ITEM_ROUTE_FIELD.trialFrequencyType
+  )?.trim();
+  const normalizedTrialFrequencyType =
+    trialFrequencyType || PRICE_ITEM_ROUTE_TRIAL.daysType;
+
+  if (!trialFrequency) {
+    return false;
+  }
+
+  if (normalizedTrialFrequencyType !== PRICE_ITEM_ROUTE_TRIAL.daysType) {
+    return false;
+  }
+
+  if (!PRICE_ITEM_ROUTE_TRIAL.validPattern.test(trialFrequency)) {
+    return true;
+  }
+
+  const parsedTrialFrequency = Number(trialFrequency);
+
+  return (
+    !Number.isSafeInteger(parsedTrialFrequency) ||
+    parsedTrialFrequency < TRIBE_SUBSCRIPTION_TRIAL_MINIMUM_DAYS ||
+    parsedTrialFrequency > TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS
+  );
 }
 
 export async function PATCH(
@@ -154,7 +221,9 @@ export async function PATCH(
         );
       case TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput:
         return createJsonResponse(
-          { message: PRICE_ITEM_ROUTE_RESPONSE.invalidInputMessage },
+          hasTrialFrequencyValidationError(body)
+            ? createInvalidTrialFrequencyResponse()
+            : { message: PRICE_ITEM_ROUTE_RESPONSE.invalidInputMessage },
           HTTP_STATUS.badRequest
         );
       case TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached:

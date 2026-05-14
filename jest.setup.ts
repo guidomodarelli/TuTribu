@@ -2,6 +2,24 @@ import "@testing-library/jest-dom";
 
 const RELATIVE_TIME_ELEMENT_TAG = "relative-time";
 
+class ResizeObserverTestStub implements ResizeObserver {
+  observe() {
+    return undefined;
+  }
+
+  unobserve() {
+    return undefined;
+  }
+
+  disconnect() {
+    return undefined;
+  }
+}
+
+if (!globalThis.ResizeObserver) {
+  globalThis.ResizeObserver = ResizeObserverTestStub;
+}
+
 if (
   globalThis.customElements &&
   !globalThis.customElements.get(RELATIVE_TIME_ELEMENT_TAG)

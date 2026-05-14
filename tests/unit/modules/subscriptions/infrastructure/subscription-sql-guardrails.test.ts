@@ -9,6 +9,8 @@ const TRIAL_PERIOD_MIGRATION_PATH =
   "database/migrations/20260512120000_add_subscription_price_trial_period.sql";
 const TRIAL_PERIOD_CONSTRAINT_FIX_MIGRATION_PATH =
   "database/migrations/20260512130000_fix_subscription_price_trial_period_constraint.sql";
+const TRIAL_PERIOD_LIMIT_MIGRATION_PATH =
+  "database/migrations/20260513140000_limit_subscription_price_trial_days.sql";
 
 function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -108,6 +110,9 @@ describe("Subscription SQL guardrails", () => {
     const constraintFixMigration = readWorkspaceFile(
       TRIAL_PERIOD_CONSTRAINT_FIX_MIGRATION_PATH
     );
+    const constraintLimitMigration = readWorkspaceFile(
+      TRIAL_PERIOD_LIMIT_MIGRATION_PATH
+    );
 
     expect(migration).toContain(
       "ADD COLUMN IF NOT EXISTS trial_frequency integer"
@@ -126,6 +131,17 @@ describe("Subscription SQL guardrails", () => {
     );
     expect(constraintFixMigration).toContain(
       "trial_frequency_type IS NOT NULL"
+    );
+    expect(constraintLimitMigration).toContain(
+      "trial_frequency BETWEEN 1 AND 14"
+    );
+    expect(constraintLimitMigration).toContain(
+      "mercado_pago_preapproval_plan_id IS NOT NULL"
+    );
+    expect(constraintLimitMigration).toContain("SET trial_frequency = 1");
+    expect(constraintLimitMigration).toContain("SET trial_frequency = 14");
+    expect(constraintLimitMigration).toContain(
+      "trial_frequency_type = 'months'"
     );
   });
 });

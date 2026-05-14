@@ -37,6 +37,16 @@ export const TRIBE_SUBSCRIPTION_PRICE_LIMIT = 30;
 export const TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS = 1500;
 
 /**
+ * Defines the minimum free trial length accepted for Mercado Pago day-based plans.
+ */
+export const TRIBE_SUBSCRIPTION_TRIAL_MINIMUM_DAYS = 1;
+
+/**
+ * Defines the maximum free trial length accepted for Mercado Pago day-based plans.
+ */
+export const TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS = 14;
+
+/**
  * Defines Mercado Pago OAuth integration health states.
  */
 export const MERCADO_PAGO_CONNECTION_STATUS = {

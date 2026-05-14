@@ -182,6 +182,41 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     );
   });
 
+  it("should expose update trial policy for synchronized Mercado Pago prices", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          ...createSubscriptionPriceRow({
+            mercado_pago_preapproval_plan_id: "plan-1",
+            trial_frequency: 21,
+            trial_frequency_type: "days",
+            tribe_id: "tribe-1",
+          }),
+          access_token: "access-token",
+          can_manage_prices: true,
+          refresh_token: null,
+          token_expires_at: null,
+        },
+      ],
+    }));
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.getUpdateTrialPolicy({
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      amountCents: 500000,
+      hasMercadoPagoPreapprovalPlan: true,
+      trialFrequency: 21,
+      trialFrequencyType: "days",
+    });
+    expect(getSqlText(execute.mock.calls[0][0])).toContain(
+      "mercado_pago_preapproval_plan_id"
+    );
+  });
+
   it("should list Mercado Pago health as requiring reconnection when token refresh fails", async () => {
     const execute = jest.fn(async () => ({
       rows: [
@@ -522,6 +557,99 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         trialFrequency: 7,
         trialFrequencyType: "days",
       })
+    );
+  });
+
+  it("should attach extended synchronized trials after the provider plan exists", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...createSubscriptionPriceRow({
+              amount_cents: 500000,
+              is_current: false,
+              mercado_pago_preapproval_plan_id: "plan-1",
+              trial_frequency: 21,
+              trial_frequency_type: "days",
+              tribe_id: "tribe-1",
+            }),
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            can_manage_prices: true,
+            existing_price_count: 1,
+            refresh_token: null,
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            reserved_price_id: "price-2",
+            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            amount_cents: 600000,
+            id: "price-2",
+            is_current: false,
+            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+            trial_frequency: 21,
+            trial_frequency_type: "days",
+          }),
+        ],
+      });
+    const createMercadoPagoPlan = jest.fn(async () => "plan-2");
+    const repository = createRepository(execute, createMercadoPagoPlan);
+
+    await expect(
+      repository.update({
+        amountCents: 600000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan actualizado",
+        priceId: "price-1",
+        trialFrequency: 21,
+        trialFrequencyType: "days",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        id: "price-2",
+        trial: {
+          frequency: 21,
+          frequencyType: "days",
+        },
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+    });
+
+    expect(createMercadoPagoPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trialFrequency: 21,
+        trialFrequencyType: "days",
+      })
+    );
+    expect(getSqlText(execute.mock.calls[2][0])).not.toMatch(
+      /trial_frequency\s*=/
+    );
+    expect(getSqlText(execute.mock.calls[3][0])).toMatch(/trial_frequency\s*=/);
+    expect(getSqlText(execute.mock.calls[3][0])).toMatch(
+      /mercado_pago_preapproval_plan_id\s*=/
     );
   });
 

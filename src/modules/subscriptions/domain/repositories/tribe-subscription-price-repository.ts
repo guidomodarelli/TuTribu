@@ -39,6 +39,13 @@ export type UpdateTribeSubscriptionPriceCommand = Omit<
   trialFrequencyType?: CreateTribeSubscriptionPriceCommand["trialFrequencyType"];
 };
 
+export type TribeSubscriptionPriceUpdateTrialPolicy = {
+  amountCents: CreateTribeSubscriptionPriceCommand["amountCents"];
+  hasMercadoPagoPreapprovalPlan: boolean;
+  trialFrequency: CreateTribeSubscriptionPriceCommand["trialFrequency"];
+  trialFrequencyType: CreateTribeSubscriptionPriceCommand["trialFrequencyType"];
+};
+
 export type SyncTribeSubscriptionProviderPlanCommand = {
   eventId: string;
   resourceId: string;
@@ -64,6 +71,9 @@ export type TribeSubscriptionPriceRepository = {
   listByTribeSlug(
     query: TribeSubscriptionPriceListQuery
   ): Promise<TribeSubscriptionPriceListResult>;
+  getUpdateTrialPolicy(
+    command: TribeSubscriptionPriceIdentity
+  ): Promise<TribeSubscriptionPriceUpdateTrialPolicy | null>;
   makeCurrent(
     command: TribeSubscriptionPriceIdentity
   ): Promise<TribeSubscriptionPriceMutationResult>;

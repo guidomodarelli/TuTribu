@@ -165,6 +165,12 @@
     gap: 0.55rem;
   }
 
+  &__checkboxField {
+    align-items: center;
+    display: flex;
+    gap: 0.6rem;
+  }
+
   &__label {
     font-size: 0.95rem;
     font-weight: 500;

@@ -22,6 +22,7 @@ function createRepository(
   return {
     create: jest.fn(),
     delete: jest.fn(),
+    getUpdateTrialPolicy: jest.fn(),
     listByTribeSlug: jest.fn(),
     makeCurrent: jest.fn(),
     syncProviderPlan: jest.fn(),
@@ -102,6 +103,104 @@ describe("manage tribe subscription prices use cases", () => {
         amount: "5000",
         name: "Plan mensual",
         trialFrequency: "0",
+        trialFrequencyType: "days",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("should accept one-day trial periods", async () => {
+    const create = jest.fn(async () => ({
+      price: {
+        ...createdPrice,
+        trial: {
+          frequency: 1,
+          frequencyType: "days" as const,
+        },
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+    }));
+    const execute = createTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({ create }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: "Plan mensual",
+        trialFrequency: "1",
+        trialFrequencyType: "days",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        trial: {
+          frequency: 1,
+          frequencyType: "days",
+        },
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+    });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trialFrequency: 1,
+        trialFrequencyType: "days",
+      })
+    );
+  });
+
+  it("should accept two-day trial periods", async () => {
+    const create = jest.fn(async () => ({
+      price: {
+        ...createdPrice,
+        trial: {
+          frequency: 2,
+          frequencyType: "days" as const,
+        },
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+    }));
+    const execute = createTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({ create }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: "Plan mensual",
+        trialFrequency: "2",
+        trialFrequencyType: "days",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        trial: {
+          frequency: 2,
+          frequencyType: "days",
+        },
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+    });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trialFrequency: 2,
+        trialFrequencyType: "days",
+      })
+    );
+  });
+
+  it("should reject trial periods greater than fourteen days before calling the repository", async () => {
+    const create = jest.fn();
+    const execute = createTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({ create }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: "Plan mensual",
+        trialFrequency: "15",
         trialFrequencyType: "days",
         tribeSlug: "matematica-pro",
       })
@@ -287,6 +386,163 @@ describe("manage tribe subscription prices use cases", () => {
       name: "Plan actualizado",
       priceId: "price-1",
       trialFrequency: 14,
+      trialFrequencyType: "days",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should allow preserving existing synchronized day trials greater than fourteen days when updating", async () => {
+    const getUpdateTrialPolicy = jest.fn(async () => ({
+      amountCents: 500000,
+      hasMercadoPagoPreapprovalPlan: true,
+      trialFrequency: 21,
+      trialFrequencyType: "days" as const,
+    }));
+    const update = jest.fn(async () => ({
+      price: {
+        ...createdPrice,
+        name: "Plan actualizado",
+        trial: {
+          frequency: 21,
+          frequencyType: "days" as const,
+        },
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    }));
+    const execute = updateTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({
+        getUpdateTrialPolicy,
+        update,
+      }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: " Plan actualizado ",
+        priceId: " price-1 ",
+        trialFrequency: "21",
+        trialFrequencyType: "days",
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        trial: {
+          frequency: 21,
+          frequencyType: "days",
+        },
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    });
+    expect(update).toHaveBeenCalledWith({
+      amountCents: 500000,
+      currency: "ARS",
+      frequency: "monthly",
+      name: "Plan actualizado",
+      priceId: "price-1",
+      trialFrequency: 21,
+      trialFrequencyType: "days",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should reject preserved extended day trials when the amount changes", async () => {
+    const getUpdateTrialPolicy = jest.fn(async () => ({
+      amountCents: 400000,
+      hasMercadoPagoPreapprovalPlan: true,
+      trialFrequency: 21,
+      trialFrequencyType: "days" as const,
+    }));
+    const update = jest.fn();
+    const execute = updateTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({
+        getUpdateTrialPolicy,
+        update,
+      }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: "Plan actualizado",
+        priceId: "price-1",
+        trialFrequency: "21",
+        trialFrequencyType: "days",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput });
+    expect(getUpdateTrialPolicy).toHaveBeenCalledWith({
+      priceId: "price-1",
+      tribeSlug: "matematica-pro",
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("should reject new day trial values greater than fourteen days before updating", async () => {
+    const getUpdateTrialPolicy = jest.fn(async () => ({
+      amountCents: 500000,
+      hasMercadoPagoPreapprovalPlan: true,
+      trialFrequency: 21,
+      trialFrequencyType: "days" as const,
+    }));
+    const update = jest.fn();
+    const execute = updateTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({
+        getUpdateTrialPolicy,
+        update,
+      }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: "Plan actualizado",
+        priceId: "price-1",
+        trialFrequency: "22",
+        trialFrequencyType: "days",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput });
+    expect(getUpdateTrialPolicy).toHaveBeenCalledWith({
+      priceId: "price-1",
+      tribeSlug: "matematica-pro",
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("should preserve repository access status when validating extended day trials without a policy", async () => {
+    const getUpdateTrialPolicy = jest.fn(async () => null);
+    const update = jest.fn(async () => ({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden,
+    }));
+    const execute = updateTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({
+        getUpdateTrialPolicy,
+        update,
+      }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: "Plan actualizado",
+        priceId: "price-1",
+        trialFrequency: "21",
+        trialFrequencyType: "days",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden });
+    expect(getUpdateTrialPolicy).toHaveBeenCalledWith({
+      priceId: "price-1",
+      tribeSlug: "matematica-pro",
+    });
+    expect(update).toHaveBeenCalledWith({
+      amountCents: 500000,
+      currency: "ARS",
+      frequency: "monthly",
+      name: "Plan actualizado",
+      priceId: "price-1",
+      trialFrequency: 21,
       trialFrequencyType: "days",
       tribeSlug: "matematica-pro",
     });
