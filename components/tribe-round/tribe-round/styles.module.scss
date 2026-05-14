@@ -888,11 +888,8 @@
   &__poll {
     display: grid;
     gap: 0.75rem;
-    margin: 0.35rem 1rem 0;
-    border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
-    border-radius: 0.5rem;
-    background: color-mix(in oklch, var(--muted) 30%, transparent);
-    padding: 0.85rem;
+    margin: 0.35rem 0 0;
+    padding: 0.35rem 1rem 0;
   }
 
   &__pollHeader,
