@@ -503,12 +503,16 @@ export class PostgresMessageMutationRepository
       const optionIds = targetPoll.allow_multiple_votes
         ? command.optionIds
         : command.optionIds.slice(0, 1);
+      const optionIdSqlArray = sql.join(
+        optionIds.map((optionId) => sql`${optionId}::uuid`),
+        sql`, `
+      );
 
       const validOptionsResult = await database.execute(sql`
         select message_poll_options.id::text as option_id
         from public.message_poll_options
         where message_poll_options.poll_id = ${targetPoll.poll_id}
-          and message_poll_options.id::text = any(${optionIds})
+          and message_poll_options.id = any(array[${optionIdSqlArray}]::uuid[])
       `);
       const validOptionIds = ((validOptionsResult.rows ?? []) as { option_id: string }[])
         .map((option) => option.option_id);

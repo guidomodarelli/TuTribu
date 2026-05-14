@@ -514,6 +514,10 @@ describe("PostgresMessageMutationRepository", () => {
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
       "pg_advisory_xact_lock"
     );
+    expect(getSqlQuery(execute.mock.calls[1]?.[0])).toMatchObject({
+      params: ["poll-1", "option-2"],
+      sql: expect.stringContaining("any(array[$2::uuid]::uuid[])"),
+    });
     expect(getSqlText(execute.mock.calls[3]?.[0])).toContain(
       "delete from public.message_poll_votes"
     );
@@ -666,6 +670,10 @@ describe("PostgresMessageMutationRepository", () => {
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
       "pg_advisory_xact_lock"
     );
+    expect(getSqlQuery(execute.mock.calls[1]?.[0])).toMatchObject({
+      params: ["poll-1", "option-1", "option-2"],
+      sql: expect.stringContaining("any(array[$2::uuid, $3::uuid]::uuid[])"),
+    });
     expect(getSqlText(execute.mock.calls[3]?.[0])).toContain(
       "delete from public.message_poll_votes"
     );
