@@ -889,7 +889,38 @@
     display: grid;
     gap: 0.75rem;
     margin: 0.35rem 0 0;
-    padding: 0.35rem 1rem 0;
+    width: 100%;
+    padding: 0.35rem 0 0;
+  }
+
+  &__pollSummary {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+    margin: 0.85rem 1rem 0;
+    color: var(--muted-foreground);
+    font-weight: 400;
+    line-height: 1.25;
+  }
+
+  &__pollSummaryBadge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.35rem;
+    border: 1px solid color-mix(in oklch, var(--primary) 34%, var(--border));
+    border-radius: 999rem;
+    padding: 0 0.5rem;
+    color: color-mix(in oklch, var(--primary) 78%, var(--foreground));
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  &__pollSummaryText {
+    color: color-mix(in oklch, var(--primary) 78%, var(--foreground));
+    font-size: 0.82rem;
+    font-weight: 400;
+    overflow-wrap: anywhere;
   }
 
   &__pollHeader,

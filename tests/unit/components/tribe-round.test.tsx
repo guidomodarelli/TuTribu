@@ -789,7 +789,17 @@ describe("TribeRound", () => {
       />
     );
 
+    expect(screen.getByText("Votación")).toBeInTheDocument();
     expect(screen.getByText("0 votos")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Álgebra")).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
+    );
+
+    expect(
+      within(screen.getByRole("dialog", { name: "Mensaje" })).getByText("0 votos")
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Editar encuesta" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cerrar encuesta" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reabrir encuesta" })).not.toBeInTheDocument();
@@ -827,6 +837,10 @@ describe("TribeRound", () => {
           },
         }}
       />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
     );
 
     expect(screen.getByLabelText("Álgebra")).toBeDisabled();
@@ -885,6 +899,10 @@ describe("TribeRound", () => {
         tribeSlug="matematica-pro"
         round={roundWithPersistedPollVote}
       />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
     );
 
     await user.click(screen.getAllByRole("button", { name: "Votar" })[0]);
@@ -971,6 +989,10 @@ describe("TribeRound", () => {
         tribeSlug="matematica-pro"
         round={roundWithPersistedMultiplePollVotes}
       />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
     );
 
     await user.click(screen.getByRole("checkbox", { name: /Álgebra/ }));

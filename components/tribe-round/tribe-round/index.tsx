@@ -190,6 +190,7 @@ const TRIBE_ROUND_COPY = {
   pollSubmitButton: "Votar",
   pollSubmitError: "No pudimos registrar tu voto.",
   pollSubmitSuccess: "Voto registrado.",
+  pollSummaryLabel: "Votación",
   pollToggleMultipleVotesLabel: "Voto múltiple",
   pollVotePluralLabel: "votos",
   pollVoteSingularLabel: "voto",
@@ -537,6 +538,15 @@ function formatMessageCreatedTooltip(dateTime: string): string {
 }
 
 function formatPollVoteCount(voteCount: number): string {
+  return [
+    String(voteCount),
+    voteCount === 1
+      ? TRIBE_ROUND_COPY.pollVoteSingularLabel
+      : TRIBE_ROUND_COPY.pollVotePluralLabel,
+  ].join(TRIBE_ROUND_FORMAT.standardSpace);
+}
+
+function formatPollSummaryVoteCount(voteCount: number): string {
   return [
     String(voteCount),
     voteCount === 1
@@ -1826,6 +1836,22 @@ function TribeRoundContent({
 
     if (!poll) {
       return null;
+    }
+
+    if (shouldStopDetailsOpening) {
+      return (
+        <section
+          aria-label={poll.question}
+          className={styles.TribeRound__pollSummary}
+        >
+          <span className={styles.TribeRound__pollSummaryBadge}>
+            {TRIBE_ROUND_COPY.pollSummaryLabel}
+          </span>
+          <span className={styles.TribeRound__pollSummaryText}>
+            {formatPollSummaryVoteCount(poll.totalVoteCount)}
+          </span>
+        </section>
+      );
     }
 
     const selectedOptionIds =
