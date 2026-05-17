@@ -81,6 +81,7 @@ describe("TribeTribePage", () => {
     listVisibleTribeMembers.mockResolvedValue([
       {
         avatarFallback: "AL",
+        email: "ada.lovelace@example.com",
         id: "member-2",
         image: null,
         name: "Ada Lovelace",
@@ -88,6 +89,7 @@ describe("TribeTribePage", () => {
       },
       {
         avatarFallback: "GH",
+        email: "grace.hopper@example.com",
         id: "member-1",
         image: null,
         name: "Grace Hopper",
@@ -95,6 +97,7 @@ describe("TribeTribePage", () => {
       },
       {
         avatarFallback: "KJ",
+        email: "katherine.johnson@example.com",
         id: "member-3",
         image: null,
         name: "Katherine Johnson",
@@ -117,8 +120,11 @@ describe("TribeTribePage", () => {
       })
     ).toBeInTheDocument();
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(screen.getByText("ada.lovelace@example.com")).toBeInTheDocument();
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
+    expect(screen.getByText("grace.hopper@example.com")).toBeInTheDocument();
     expect(screen.getByText("Katherine Johnson")).toBeInTheDocument();
+    expect(screen.getByText("katherine.johnson@example.com")).toBeInTheDocument();
     expect(screen.getByText("Líder")).toBeInTheDocument();
     expect(screen.getByText("Guardián")).toBeInTheDocument();
     expect(screen.queryByText("Integrante")).not.toBeInTheDocument();

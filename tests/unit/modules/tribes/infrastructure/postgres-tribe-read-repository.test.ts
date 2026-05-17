@@ -215,12 +215,14 @@ describe("PostgresTribeReadRepository", () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
+          email: "ada.lovelace@example.com",
           image: null,
           member_id: "member-1",
           name: "Ada Lovelace",
           role: "leader",
         },
         {
+          email: "grace.hopper@example.com",
           image: "https://example.com/grace.png",
           member_id: "member-2",
           name: "Grace Hopper",
@@ -240,6 +242,7 @@ describe("PostgresTribeReadRepository", () => {
     ).resolves.toEqual([
       {
         avatarFallback: "AL",
+        email: "ada.lovelace@example.com",
         id: "member-1",
         image: null,
         name: "Ada Lovelace",
@@ -247,6 +250,7 @@ describe("PostgresTribeReadRepository", () => {
       },
       {
         avatarFallback: "GH",
+        email: "grace.hopper@example.com",
         id: "member-2",
         image: "https://example.com/grace.png",
         name: "Grace Hopper",
@@ -259,6 +263,7 @@ describe("PostgresTribeReadRepository", () => {
     expect(sqlText).toContain(
       "from public.list_visible_tribe_members_by_slug("
     );
+    expect(sqlText).toContain("select member_id, role, name, email, image");
     expect(sqlText).not.toContain("inner join public.tribe_members");
   });
 });

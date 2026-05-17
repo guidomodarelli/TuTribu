@@ -61,11 +61,25 @@
     min-width: 0;
   }
 
+  &__memberDetails {
+    display: grid;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
   &__name {
     margin: 0;
     color: var(--foreground);
     font-size: 0.95rem;
     font-weight: 600;
+    line-height: 1.4;
+  }
+
+  &__email {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
     line-height: 1.4;
   }
 

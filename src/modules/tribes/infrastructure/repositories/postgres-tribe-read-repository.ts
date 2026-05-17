@@ -41,6 +41,7 @@ type PostgresMembershipTribeRow = {
 };
 
 type PostgresTribeMemberRow = {
+  email: string;
   image: string | null;
   member_id: string;
   name: string | null;
@@ -124,6 +125,7 @@ function mapTribeMemberRow(row: PostgresTribeMemberRow): TribeMemberResult {
 
   return {
     avatarFallback: createTribeMemberAvatarFallback(name),
+    email: row.email,
     id: row.member_id,
     image: row.image,
     name,
@@ -290,7 +292,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
   async listVisibleTribeMembersBySlug(slug: string): Promise<TribeMemberResult[]> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        select member_id, role, name, image
+        select member_id, role, name, email, image
         from public.list_visible_tribe_members_by_slug(${slug})
       `);
 

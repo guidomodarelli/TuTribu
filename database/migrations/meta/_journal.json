@@ -169,6 +169,13 @@
       "when": 1778680800000,
       "tag": "20260513140000_limit_subscription_price_trial_days",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1778929200000,
+      "tag": "20260516120000_add_email_to_visible_tribe_members",
+      "breakpoints": true
     }
   ]
 }

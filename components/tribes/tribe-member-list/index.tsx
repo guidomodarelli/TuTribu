@@ -103,7 +103,10 @@ export function TribeMemberList({ members }: TribeMemberListProps) {
                 <AvatarFallback>{member.avatarFallback}</AvatarFallback>
               </Avatar>
               <div className={styles.TribeMemberList__identity}>
-                <p className={styles.TribeMemberList__name}>{member.name}</p>
+                <div className={styles.TribeMemberList__memberDetails}>
+                  <p className={styles.TribeMemberList__name}>{member.name}</p>
+                  <p className={styles.TribeMemberList__email}>{member.email}</p>
+                </div>
                 <TribeMemberRoleBadge role={member.role} />
               </div>
             </li>
