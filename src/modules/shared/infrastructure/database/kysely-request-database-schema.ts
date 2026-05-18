@@ -10,6 +10,16 @@ type TribeCreatorWhitelistTable = {
   notes: string | null;
 };
 
+type TribesTable = {
+  created_by: string;
+  created_at: TimestampColumn;
+  id: Generated<string>;
+  name: string;
+  slug: string;
+  visibility: string;
+};
+
 export type KyselyRequestDatabaseSchema = {
   tribe_creator_whitelist: TribeCreatorWhitelistTable;
+  tribes: TribesTable;
 };

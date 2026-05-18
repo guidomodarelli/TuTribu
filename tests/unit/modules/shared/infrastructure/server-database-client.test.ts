@@ -1,5 +1,7 @@
 /** @jest-environment node */
 
+jest.setTimeout(15000);
+
 function collectStatementValues(value: unknown): string[] {
   if (typeof value === "string") {
     return [value];

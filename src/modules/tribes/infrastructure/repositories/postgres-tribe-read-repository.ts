@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import type {
@@ -18,18 +18,10 @@ import {
   TRIBE_MEMBERSHIP_STATUS_REASON,
 } from "@/src/modules/tribes/constants/tribe-page-access";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-import { tribes } from "@/src/modules/shared/infrastructure/database/schema";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
-
-type PostgresTribeRow = {
-  id: string;
-  name: string;
-  slug: string;
-  visibility: "private";
-};
 
 type PostgresMembershipTribeRow = {
   name: string | null;
@@ -56,7 +48,7 @@ type PostgresMembershipAccessWithTribeRow = PostgresMembershipAccessRow & {
   id: string | null;
   name: string | null;
   slug: string | null;
-  visibility: "private" | null;
+  visibility: string | null;
 };
 
 const TRIBE_MEMBER_DEFAULTS = {
@@ -69,6 +61,10 @@ const TRIBE_MEMBER_ROLE = {
   guardian: "guardian",
   leader: "leader",
   tribemate: "tribemate",
+} as const;
+
+const TRIBE_VISIBILITY = {
+  private: "private",
 } as const;
 
 function createTribeMemberAvatarFallback(name: string): string {
@@ -133,28 +129,25 @@ function mapTribeMemberRow(row: PostgresTribeMemberRow): TribeMemberResult {
   };
 }
 
-function mapTribeRow(row: PostgresTribeRow): Tribe {
-  return {
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    visibility: row.visibility,
-  };
+function normalizeTribeVisibility(visibility: string | null): Tribe["visibility"] | null {
+  return visibility === TRIBE_VISIBILITY.private ? visibility : null;
 }
 
 function mapReadableTribeRow(
   row: PostgresMembershipAccessWithTribeRow
 ): Tribe | null {
-  if (!row.id || !row.name || !row.slug || !row.visibility) {
+  const visibility = normalizeTribeVisibility(row.visibility);
+
+  if (!row.id || !row.name || !row.slug || !visibility) {
     return null;
   }
 
-  return mapTribeRow({
+  return {
     id: row.id,
     name: row.name,
     slug: row.slug,
-    visibility: row.visibility,
-  });
+    visibility,
+  };
 }
 
 export class PostgresTribeReadRepository implements TribeReadRepository {
@@ -162,22 +155,29 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
 
   async findBySlug(slug: string): Promise<Tribe | null> {
     return this.executeWithDatabase(async (database) => {
-      const [data] = await database
-        .select({
-          id: tribes.id,
-          name: tribes.name,
-          slug: tribes.slug,
-          visibility: sql<"private">`${tribes.visibility}`,
-        })
-        .from(tribes)
-        .where(eq(tribes.slug, slug))
-        .limit(1);
+      const data = await database.kysely
+        .selectFrom("tribes")
+        .select(["id", "name", "slug", "visibility"])
+        .where("slug", "=", slug)
+        .limit(1)
+        .executeTakeFirst();
 
       if (!data) {
         return null;
       }
 
-      return mapTribeRow(data);
+      const visibility = normalizeTribeVisibility(data.visibility);
+
+      if (!visibility) {
+        return null;
+      }
+
+      return {
+        id: data.id,
+        name: data.name,
+        slug: data.slug,
+        visibility,
+      };
     });
   }
 

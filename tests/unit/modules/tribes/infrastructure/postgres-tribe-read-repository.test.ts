@@ -5,27 +5,33 @@ function createFindBySlugDatabase(
     id: string;
     name: string;
     slug: string;
-    visibility: "private";
+    visibility: string;
   }>
 ) {
-  const limit = jest.fn(async () => rows);
+  const executeTakeFirst = jest.fn(async () => rows[0]);
+  const limit = jest.fn(() => ({
+    executeTakeFirst,
+  }));
   const where = jest.fn(() => ({
     limit,
   }));
-  const from = jest.fn(() => ({
+  const select = jest.fn(() => ({
     where,
   }));
-  const select = jest.fn(() => ({
-    from,
+  const selectFrom = jest.fn(() => ({
+    select,
   }));
 
   return {
     database: {
-      select,
+      kysely: {
+        selectFrom,
+      },
     },
-    from,
+    executeTakeFirst,
     limit,
     select,
+    selectFrom,
     where,
   };
 }
@@ -52,10 +58,37 @@ describe("PostgresTribeReadRepository", () => {
       visibility: "private",
     });
 
-    expect(queryBuilder.select).toHaveBeenCalledTimes(1);
-    expect(queryBuilder.from).toHaveBeenCalledTimes(1);
-    expect(queryBuilder.where).toHaveBeenCalledTimes(1);
+    expect(queryBuilder.selectFrom).toHaveBeenCalledWith("tribes");
+    expect(queryBuilder.select).toHaveBeenCalledWith([
+      "id",
+      "name",
+      "slug",
+      "visibility",
+    ]);
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      "slug",
+      "=",
+      "matematica-pro"
+    );
     expect(queryBuilder.limit).toHaveBeenCalledWith(1);
+    expect(queryBuilder.executeTakeFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns null when a readable tribe has an unsupported visibility value", async () => {
+    const queryBuilder = createFindBySlugDatabase([
+      {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "public",
+      },
+    ]);
+
+    const repository = new PostgresTribeReadRepository(async (callback) =>
+      callback(queryBuilder.database as never)
+    );
+
+    await expect(repository.findBySlug("matematica-pro")).resolves.toBeNull();
   });
 
   it("returns the current membership access through the diagnostic function that preserves blocked-member detection", async () => {
