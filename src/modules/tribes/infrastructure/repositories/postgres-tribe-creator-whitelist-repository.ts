@@ -1,8 +1,5 @@
-import { eq } from "drizzle-orm";
-
 import type { TribeCreatorWhitelistRepository } from "@/src/modules/tribes/domain/repositories/tribe-creator-whitelist-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-import { tribeCreatorWhitelist } from "@/src/modules/shared/infrastructure/database/schema";
 
 type RecoverableDatabaseError = {
   code?: string;
@@ -35,13 +32,12 @@ export class PostgresTribeCreatorWhitelistRepository
 
     try {
       return await this.executeWithDatabase(async (database) => {
-        const [allowedEmail] = await database
-          .select({
-            email: tribeCreatorWhitelist.email,
-          })
-          .from(tribeCreatorWhitelist)
-          .where(eq(tribeCreatorWhitelist.email, normalizedEmail))
-          .limit(1);
+        const allowedEmail = await database.kysely
+          .selectFrom("tribe_creator_whitelist")
+          .select("email")
+          .where("email", "=", normalizedEmail)
+          .limit(1)
+          .executeTakeFirst();
 
         return Boolean(allowedEmail?.email);
       });

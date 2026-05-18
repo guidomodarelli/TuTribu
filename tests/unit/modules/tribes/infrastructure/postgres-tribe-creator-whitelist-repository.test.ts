@@ -1,24 +1,30 @@
 import { PostgresTribeCreatorWhitelistRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-creator-whitelist-repository";
 
 function createWhitelistDatabase(rows: Array<{ email: string }>) {
-  const limit = jest.fn(async () => rows);
+  const executeTakeFirst = jest.fn(async () => rows[0]);
+  const limit = jest.fn(() => ({
+    executeTakeFirst,
+  }));
   const where = jest.fn(() => ({
     limit,
   }));
-  const from = jest.fn(() => ({
+  const select = jest.fn(() => ({
     where,
   }));
-  const select = jest.fn(() => ({
-    from,
+  const selectFrom = jest.fn(() => ({
+    select,
   }));
 
   return {
     database: {
-      select,
+      kysely: {
+        selectFrom,
+      },
     },
-    from,
+    executeTakeFirst,
     limit,
     select,
+    selectFrom,
     where,
   };
 }
@@ -39,10 +45,15 @@ describe("PostgresTribeCreatorWhitelistRepository", () => {
       repository.isEmailAllowed("  PROMETIDO@Example.com ")
     ).resolves.toBe(true);
 
-    expect(queryBuilder.select).toHaveBeenCalledTimes(1);
-    expect(queryBuilder.from).toHaveBeenCalledTimes(1);
-    expect(queryBuilder.where).toHaveBeenCalledTimes(1);
+    expect(queryBuilder.selectFrom).toHaveBeenCalledWith("tribe_creator_whitelist");
+    expect(queryBuilder.select).toHaveBeenCalledWith("email");
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      "email",
+      "=",
+      "prometido@example.com"
+    );
     expect(queryBuilder.limit).toHaveBeenCalledWith(1);
+    expect(queryBuilder.executeTakeFirst).toHaveBeenCalledTimes(1);
   });
 
   it("returns false when the email is not present in the whitelist", async () => {

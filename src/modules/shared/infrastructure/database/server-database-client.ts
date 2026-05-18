@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, PoolClient } from "pg";
 
+import { createKyselyRequestDatabase } from "./kysely-request-database";
 import { getServerDatabaseEnvironment } from "./server-environment";
 
 const DATABASE_CONTEXT_SETTING = {
@@ -31,7 +32,9 @@ export type RequestDatabaseContext = {
 };
 
 function createRequestDatabase(client: PoolClient) {
-  return drizzle(client);
+  return Object.assign(drizzle(client), {
+    kysely: createKyselyRequestDatabase(client),
+  });
 }
 
 export type RequestDatabase = ReturnType<typeof createRequestDatabase>;
