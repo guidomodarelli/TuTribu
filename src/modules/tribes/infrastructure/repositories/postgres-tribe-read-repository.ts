@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import { sql as kyselySql } from "kysely";
 
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
