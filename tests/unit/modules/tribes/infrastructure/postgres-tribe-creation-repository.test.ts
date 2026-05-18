@@ -2,17 +2,19 @@ import { PostgresTribeCreationRepository } from "@/src/modules/tribes/infrastruc
 import { TribeSlugConflictError } from "@/src/modules/tribes/domain/errors/tribe-slug-conflict-error";
 
 function createSlugDiagnosticDatabase(rows: Array<{ slugTaken: boolean }>) {
-  const from = jest.fn(async () => rows);
-  const select = jest.fn(() => ({
-    from,
+  const executeTakeFirst = jest.fn(async () => rows[0]);
+  const selectNoFrom = jest.fn(() => ({
+    executeTakeFirst,
   }));
 
   return {
     database: {
-      select,
+      kysely: {
+        selectNoFrom,
+      },
     },
-    from,
-    select,
+    executeTakeFirst,
+    selectNoFrom,
   };
 }
 
@@ -92,7 +94,7 @@ describe("PostgresTribeCreationRepository", () => {
     );
 
     await expect(repository.isSlugTaken("matematica-pro")).resolves.toBe(true);
-    expect(queryBuilder.select).toHaveBeenCalledTimes(1);
-    expect(queryBuilder.from).toHaveBeenCalledTimes(1);
+    expect(queryBuilder.selectNoFrom).toHaveBeenCalledWith(expect.any(Function));
+    expect(queryBuilder.executeTakeFirst).toHaveBeenCalledTimes(1);
   });
 });

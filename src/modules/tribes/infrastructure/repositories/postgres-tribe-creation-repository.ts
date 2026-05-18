@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { sql as kyselySql } from "kysely";
 
 import type { Tribe } from "@/src/modules/tribes/domain/entities/tribe";
 import { TribeSlugConflictError } from "@/src/modules/tribes/domain/errors/tribe-slug-conflict-error";
@@ -141,11 +142,13 @@ export class PostgresTribeCreationRepository
 
   async isSlugTaken(slug: string): Promise<boolean> {
     return this.executeWithDatabase(async (database) => {
-      const [result] = await database
-        .select({
-          slugTaken: sql<boolean>`public.is_tribe_slug_taken(${slug})`,
-        })
-        .from(sql`(select 1) as slug_diagnostic`);
+      const result = await database.kysely
+        .selectNoFrom(() =>
+          kyselySql<boolean>`public.is_tribe_slug_taken(${slug})`.as(
+            "slugTaken"
+          )
+        )
+        .executeTakeFirst();
 
       return result?.slugTaken === true;
     });
