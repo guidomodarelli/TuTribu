@@ -24,13 +24,26 @@ type TribeMembersTable = {
   id: Generated<string>;
   role: string;
   status: string;
-  status_reason: string;
+  status_reason: ColumnType<string, string | undefined, string>;
   tribe_id: string;
   user_id: string;
 };
 
+type TribeChannelsTable = {
+  access_scope: string;
+  created_at: TimestampColumn;
+  emoji: string;
+  id: Generated<string>;
+  name: string;
+  slug: string;
+  sort_order: number;
+  tribe_id: string;
+  updated_at: TimestampColumn;
+};
+
 export type KyselyRequestDatabaseSchema = {
   tribe_creator_whitelist: TribeCreatorWhitelistTable;
+  tribe_channels: TribeChannelsTable;
   tribe_members: TribeMembersTable;
   tribes: TribesTable;
 };

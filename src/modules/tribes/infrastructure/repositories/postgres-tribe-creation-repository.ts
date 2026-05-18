@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import { sql as kyselySql } from "kysely";
 
 import type { Tribe } from "@/src/modules/tribes/domain/entities/tribe";
@@ -16,7 +15,7 @@ type PostgresTribeRow = {
   id: string;
   name: string;
   slug: string;
-  visibility: "private";
+  visibility: string;
 };
 
 type DatabaseExecutor = <T>(
@@ -24,18 +23,30 @@ type DatabaseExecutor = <T>(
 ) => Promise<T>;
 
 const TRIBE_CREATION_ERROR = {
+  missingDefaultChannelMessage: "Unable to create tribe without a default channel.",
   slugConflictCode: "23505",
   slugConstraintName: "tribes_slug_key",
+  unsupportedVisibilityMessage: "Created tribe has an unsupported visibility.",
   unavailableCreateMessage: "Unable to create tribe.",
 } as const;
 
 function mapTribeRowToEntity(row: PostgresTribeRow): Tribe {
+  const visibility = normalizeTribeVisibility(row.visibility);
+
+  if (!visibility) {
+    throw new Error(TRIBE_CREATION_ERROR.unsupportedVisibilityMessage);
+  }
+
   return {
     id: row.id,
     name: row.name,
     slug: row.slug,
-    visibility: row.visibility,
+    visibility,
   };
+}
+
+function normalizeTribeVisibility(visibility: string): Tribe["visibility"] | null {
+  return visibility === "private" ? visibility : null;
 }
 
 function isSlugConflictError(error: RecoverableDatabaseError | null): boolean {
@@ -52,8 +63,9 @@ function isSlugConflictError(error: RecoverableDatabaseError | null): boolean {
 }
 
 export class PostgresTribeCreationRepository
-  implements TribeCreationRepository {
-  constructor(private readonly executeWithDatabase: DatabaseExecutor) { }
+  implements TribeCreationRepository
+{
+  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
   async createTribeWithLeaderMembership(input: {
     name: string;
@@ -63,68 +75,54 @@ export class PostgresTribeCreationRepository
   }): Promise<Tribe> {
     try {
       return await this.executeWithDatabase(async (database) => {
-        const result = await database.execute<PostgresTribeRow>(sql`
-          with inserted_tribe as (
-            insert into public.tribes (
-              name,
-              slug,
-              visibility,
-              created_by
-            )
-            values (
-              ${input.name},
-              ${input.slug},
-              ${input.visibility},
-              ${input.leaderId}
-            )
-            returning id, name, slug, visibility
-          ), inserted_membership as (
-            insert into public.tribe_members (
-              tribe_id,
-              user_id,
-              role,
-              status
-            )
-            select
-              inserted_tribe.id,
-              ${input.leaderId},
-              'leader',
-              'active'
-            from inserted_tribe
-          ), inserted_channels as (
-            insert into public.tribe_channels (
-              tribe_id,
-              name,
-              slug,
-              emoji,
-              sort_order,
-              access_scope,
-              created_at,
-              updated_at
-            )
-            select
-              inserted_tribe.id,
-              channel_seed.name,
-              channel_seed.slug,
-              channel_seed.emoji,
-              channel_seed.sort_order::integer,
-              'tribemates',
-              timezone('utc', now()),
-              timezone('utc', now())
-            from inserted_tribe
-            cross join (
-              values
-                (${DEFAULT_TRIBE_CHANNELS[0].name}, ${DEFAULT_TRIBE_CHANNELS[0].slug}, ${DEFAULT_TRIBE_CHANNELS[0].emoji}, ${DEFAULT_TRIBE_CHANNELS[0].sortOrder})
-            ) as channel_seed(name, slug, emoji, sort_order)
-          )
-          select id, name, slug, visibility
-          from inserted_tribe
-        `);
-        const data = result.rows[0] ?? null;
+        const data = await database.kysely.transaction().execute(async (transaction) => {
+          const createdTribe = await transaction
+            .insertInto("tribes")
+            .values({
+              created_by: input.leaderId,
+              name: input.name,
+              slug: input.slug,
+              visibility: input.visibility,
+            })
+            .returning(["id", "name", "slug", "visibility"])
+            .executeTakeFirst();
 
-        if (!data) {
-          throw new Error(TRIBE_CREATION_ERROR.unavailableCreateMessage);
-        }
+          if (!createdTribe) {
+            throw new Error(TRIBE_CREATION_ERROR.unavailableCreateMessage);
+          }
+
+          await transaction
+            .insertInto("tribe_members")
+            .values({
+              role: "leader",
+              status: "active",
+              tribe_id: createdTribe.id,
+              user_id: input.leaderId,
+            })
+            .execute();
+
+          const defaultChannel = DEFAULT_TRIBE_CHANNELS[0];
+
+          if (!defaultChannel) {
+            throw new Error(TRIBE_CREATION_ERROR.missingDefaultChannelMessage);
+          }
+
+          await transaction
+            .insertInto("tribe_channels")
+            .values({
+              access_scope: "tribemates",
+              created_at: kyselySql<Date>`timezone('utc', now())`,
+              emoji: defaultChannel.emoji,
+              name: defaultChannel.name,
+              slug: defaultChannel.slug,
+              sort_order: defaultChannel.sortOrder,
+              tribe_id: createdTribe.id,
+              updated_at: kyselySql<Date>`timezone('utc', now())`,
+            })
+            .execute();
+
+          return createdTribe;
+        });
 
         return mapTribeRowToEntity(data);
       });

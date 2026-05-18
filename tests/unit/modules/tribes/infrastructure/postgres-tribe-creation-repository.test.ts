@@ -1,5 +1,29 @@
 import { PostgresTribeCreationRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-creation-repository";
 import { TribeSlugConflictError } from "@/src/modules/tribes/domain/errors/tribe-slug-conflict-error";
+import { createKyselyRequestDatabase } from "@/src/modules/shared/infrastructure/database/kysely-request-database";
+
+type KyselyQueryRow = {
+  id: string;
+  name: string;
+  slug: string;
+  visibility: string;
+};
+
+function createRequestKyselyDatabaseDouble(rows: KyselyQueryRow[]) {
+  const query = jest.fn(async () => ({
+    rowCount: rows.length,
+    rows,
+  }));
+
+  return {
+    database: {
+      kysely: createKyselyRequestDatabase({
+        query,
+      } as never),
+    },
+    query,
+  };
+}
 
 function createSlugDiagnosticDatabase(rows: Array<{ slugTaken: boolean }>) {
   const executeTakeFirst = jest.fn(async () => rows[0]);
@@ -19,21 +43,17 @@ function createSlugDiagnosticDatabase(rows: Array<{ slugTaken: boolean }>) {
 }
 
 describe("PostgresTribeCreationRepository", () => {
-  it("creates the tribe and leader membership through one database operation", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          id: "tribe-1",
-          name: "Matematica Pro",
-          slug: "matematica-pro",
-          visibility: "private",
-        },
-      ],
-    }));
+  it("creates the tribe and leader membership inside the request transaction", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    ]);
     const repository = new PostgresTribeCreationRepository(async (callback) =>
-      callback({
-        execute,
-      } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -50,7 +70,30 @@ describe("PostgresTribeCreationRepository", () => {
       visibility: "private",
     });
 
-    expect(execute).toHaveBeenCalledTimes(1);
+    expect(databaseDouble.query).toHaveBeenCalledTimes(5);
+  });
+
+  it("rejects unsupported visibility returned by the database", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "public",
+      },
+    ]);
+    const repository = new PostgresTribeCreationRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.createTribeWithLeaderMembership({
+        name: "Matematica Pro",
+        leaderId: "member-1",
+        slug: "matematica-pro",
+        visibility: "private",
+      })
+    ).rejects.toThrow("Created tribe has an unsupported visibility.");
   });
 
   it("surfaces SQL errors without splitting the create flow across statements", async () => {
