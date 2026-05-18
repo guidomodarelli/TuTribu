@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { sql as kyselySql } from "kysely";
 
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import type {
@@ -22,14 +23,6 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
-
-type PostgresMembershipTribeRow = {
-  name: string | null;
-  role: string | null;
-  slug: string | null;
-  tribe_id: string;
-  tribe_row_id: string | null;
-};
 
 type PostgresTribeMemberRow = {
   email: string;
@@ -251,29 +244,42 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
 
   async listVisibleMembershipTribes(): Promise<MemberTribeListItemResult[]> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute<PostgresMembershipTribeRow>(sql`
-        select
-          tribes.id as tribe_id,
-          case
-            when public.is_app_owner() then 'tribemate'
-            else tribe_members.role
-          end as role,
-          tribes.id as tribe_row_id,
-          tribes.name,
-          tribes.slug
-        from public.tribes
-        left join public.tribe_members
-          on tribe_members.tribe_id = tribes.id
-          and tribe_members.user_id = public.current_app_user_id()
-        where public.is_app_owner()
-          or tribe_members.status in (
-            ${TRIBE_MEMBERSHIP_STATUS.active},
-            ${TRIBE_MEMBERSHIP_STATUS.muted}
-          )
-        order by tribes.name asc
-      `);
+      const rows = await database.kysely
+        .selectFrom("tribes")
+        .leftJoin("tribe_members", (join) =>
+          join
+            .onRef("tribe_members.tribe_id", "=", "tribes.id")
+            .on(
+              "tribe_members.user_id",
+              "=",
+              kyselySql<string>`public.current_app_user_id()`
+            )
+        )
+        .select((expressionBuilder) => [
+          "tribes.id as tribe_id",
+          "tribes.id as tribe_row_id",
+          "tribes.name",
+          "tribes.slug",
+          kyselySql<string | null>`
+            case
+              when public.is_app_owner() then ${TRIBE_MEMBER_ROLE.tribemate}
+              else ${expressionBuilder.ref("tribe_members.role")}
+            end
+          `.as("role"),
+        ])
+        .where((expressionBuilder) =>
+          expressionBuilder.or([
+            kyselySql<boolean>`public.is_app_owner()`,
+            expressionBuilder("tribe_members.status", "in", [
+              TRIBE_MEMBERSHIP_STATUS.active,
+              TRIBE_MEMBERSHIP_STATUS.muted,
+            ]),
+          ])
+        )
+        .orderBy("tribes.name", "asc")
+        .execute();
 
-      return result.rows.reduce<MemberTribeListItemResult[]>((membershipTribes, row) => {
+      return rows.reduce<MemberTribeListItemResult[]>((membershipTribes, row) => {
         if (row.name && row.slug) {
           membershipTribes.push({
             tribeId: row.tribe_row_id ?? row.tribe_id,

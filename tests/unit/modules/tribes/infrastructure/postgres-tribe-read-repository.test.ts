@@ -36,6 +36,47 @@ function createFindBySlugDatabase(
   };
 }
 
+function createVisibleMembershipTribesDatabase(
+  rows: Array<{
+    name: string | null;
+    role: string | null;
+    slug: string | null;
+    tribe_id: string;
+    tribe_row_id: string | null;
+  }>
+) {
+  const execute = jest.fn(async () => rows);
+  const orderBy = jest.fn(() => ({
+    execute,
+  }));
+  const where = jest.fn(() => ({
+    orderBy,
+  }));
+  const select = jest.fn(() => ({
+    where,
+  }));
+  const leftJoin = jest.fn(() => ({
+    select,
+  }));
+  const selectFrom = jest.fn(() => ({
+    leftJoin,
+  }));
+
+  return {
+    database: {
+      kysely: {
+        selectFrom,
+      },
+    },
+    execute,
+    leftJoin,
+    orderBy,
+    select,
+    selectFrom,
+    where,
+  };
+}
+
 describe("PostgresTribeReadRepository", () => {
   it("returns a visible tribe when the row is readable through RLS", async () => {
     const queryBuilder = createFindBySlugDatabase([
@@ -201,29 +242,25 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("lists visible membership tribes for the current member", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          tribe_id: "tribe-1",
-          tribe_row_id: "tribe-1",
-          name: "Alpha Club",
-          role: "leader",
-          slug: "alpha-club",
-        },
-        {
-          tribe_id: "tribe-2",
-          tribe_row_id: "tribe-2",
-          name: "Beta Club",
-          role: "tribemate",
-          slug: "beta-club",
-        },
-      ],
-    }));
+    const queryBuilder = createVisibleMembershipTribesDatabase([
+      {
+        tribe_id: "tribe-1",
+        tribe_row_id: "tribe-1",
+        name: "Alpha Club",
+        role: "leader",
+        slug: "alpha-club",
+      },
+      {
+        tribe_id: "tribe-2",
+        tribe_row_id: "tribe-2",
+        name: "Beta Club",
+        role: "tribemate",
+        slug: "beta-club",
+      },
+    ]);
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
-      callback({
-        execute,
-      } as never)
+      callback(queryBuilder.database as never)
     );
 
     await expect(repository.listVisibleMembershipTribes()).resolves.toEqual([
@@ -241,33 +278,37 @@ describe("PostgresTribeReadRepository", () => {
       },
     ]);
 
-    expect(execute).toHaveBeenCalledTimes(1);
+    expect(queryBuilder.selectFrom).toHaveBeenCalledWith("tribes");
+    expect(queryBuilder.leftJoin).toHaveBeenCalledWith(
+      "tribe_members",
+      expect.any(Function)
+    );
+    expect(queryBuilder.select).toHaveBeenCalledWith(expect.any(Function));
+    expect(queryBuilder.where).toHaveBeenCalledWith(expect.any(Function));
+    expect(queryBuilder.orderBy).toHaveBeenCalledWith("tribes.name", "asc");
+    expect(queryBuilder.execute).toHaveBeenCalledTimes(1);
   });
 
   it("lists every readable tribe as read-only when the current viewer is the owner", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          tribe_id: "tribe-1",
-          tribe_row_id: "tribe-1",
-          name: "Alpha Club",
-          role: "tribemate",
-          slug: "alpha-club",
-        },
-        {
-          tribe_id: "tribe-2",
-          tribe_row_id: "tribe-2",
-          name: "Beta Club",
-          role: "tribemate",
-          slug: "beta-club",
-        },
-      ],
-    }));
+    const queryBuilder = createVisibleMembershipTribesDatabase([
+      {
+        tribe_id: "tribe-1",
+        tribe_row_id: "tribe-1",
+        name: "Alpha Club",
+        role: "tribemate",
+        slug: "alpha-club",
+      },
+      {
+        tribe_id: "tribe-2",
+        tribe_row_id: "tribe-2",
+        name: "Beta Club",
+        role: "tribemate",
+        slug: "beta-club",
+      },
+    ]);
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
-      callback({
-        execute,
-      } as never)
+      callback(queryBuilder.database as never)
     );
 
     await expect(repository.listVisibleMembershipTribes()).resolves.toEqual([
@@ -285,7 +326,7 @@ describe("PostgresTribeReadRepository", () => {
       },
     ]);
 
-    expect(execute).toHaveBeenCalledTimes(1);
+    expect(queryBuilder.execute).toHaveBeenCalledTimes(1);
   });
 
   it("lists visible members for a readable tribe", async () => {

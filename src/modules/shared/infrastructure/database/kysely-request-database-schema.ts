@@ -19,7 +19,18 @@ type TribesTable = {
   visibility: string;
 };
 
+type TribeMembersTable = {
+  created_at: TimestampColumn;
+  id: Generated<string>;
+  role: string;
+  status: string;
+  status_reason: string;
+  tribe_id: string;
+  user_id: string;
+};
+
 export type KyselyRequestDatabaseSchema = {
   tribe_creator_whitelist: TribeCreatorWhitelistTable;
+  tribe_members: TribeMembersTable;
   tribes: TribesTable;
 };
