@@ -298,12 +298,16 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
 
   async listVisibleTribeMembersBySlug(slug: string): Promise<TribeMemberResult[]> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute<PostgresTribeMemberRow>(sql`
-        select member_id, role, name, email, image
-        from public.list_visible_tribe_members_by_slug(${slug})
-      `);
+      const rows = await database.kysely
+        .selectFrom(
+          kyselySql<PostgresTribeMemberRow>`
+            public.list_visible_tribe_members_by_slug(${slug})
+          `.as("visible_tribe_members")
+        )
+        .select(["member_id", "role", "name", "email", "image"])
+        .execute();
 
-      return result.rows.map(mapTribeMemberRow);
+      return rows.map(mapTribeMemberRow);
     });
   }
 }

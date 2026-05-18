@@ -141,6 +141,35 @@ function createMembershipAccessWithTribeDatabase(
   };
 }
 
+function createVisibleTribeMembersDatabase(
+  rows: Array<{
+    email: string;
+    image: string | null;
+    member_id: string;
+    name: string | null;
+    role: string | null;
+  }>
+) {
+  const execute = jest.fn(async () => rows);
+  const select = jest.fn(() => ({
+    execute,
+  }));
+  const selectFrom = jest.fn(() => ({
+    select,
+  }));
+
+  return {
+    database: {
+      kysely: {
+        selectFrom,
+      },
+    },
+    execute,
+    select,
+    selectFrom,
+  };
+}
+
 describe("PostgresTribeReadRepository", () => {
   it("returns a visible tribe when the row is readable through RLS", async () => {
     const queryBuilder = createFindBySlugDatabase([
@@ -393,29 +422,25 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("lists visible members for a readable tribe", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          email: "ada.lovelace@example.com",
-          image: null,
-          member_id: "member-1",
-          name: "Ada Lovelace",
-          role: "leader",
-        },
-        {
-          email: "grace.hopper@example.com",
-          image: "https://example.com/grace.png",
-          member_id: "member-2",
-          name: "Grace Hopper",
-          role: "guardian",
-        },
-      ],
-    }));
+    const queryBuilder = createVisibleTribeMembersDatabase([
+      {
+        email: "ada.lovelace@example.com",
+        image: null,
+        member_id: "member-1",
+        name: "Ada Lovelace",
+        role: "leader",
+      },
+      {
+        email: "grace.hopper@example.com",
+        image: "https://example.com/grace.png",
+        member_id: "member-2",
+        name: "Grace Hopper",
+        role: "guardian",
+      },
+    ]);
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
-      callback({
-        execute,
-      } as never)
+      callback(queryBuilder.database as never)
     );
 
     await expect(
@@ -439,6 +464,14 @@ describe("PostgresTribeReadRepository", () => {
       },
     ]);
 
-    expect(execute).toHaveBeenCalledTimes(1);
+    expect(queryBuilder.selectFrom).toHaveBeenCalledWith(expect.anything());
+    expect(queryBuilder.select).toHaveBeenCalledWith([
+      "member_id",
+      "role",
+      "name",
+      "email",
+      "image",
+    ]);
+    expect(queryBuilder.execute).toHaveBeenCalledTimes(1);
   });
 });
