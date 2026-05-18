@@ -52,9 +52,8 @@ function isSlugConflictError(error: RecoverableDatabaseError | null): boolean {
 }
 
 export class PostgresTribeCreationRepository
-  implements TribeCreationRepository
-{
-  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
+  implements TribeCreationRepository {
+  constructor(private readonly executeWithDatabase: DatabaseExecutor) { }
 
   async createTribeWithLeaderMembership(input: {
     name: string;
