@@ -56,7 +56,7 @@ export class PostgresTribePaymentIntegrationRepository
     command: ConnectTribePaymentIntegrationCommand
   ): Promise<TribePaymentIntegrationResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<IntegrationMutationRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -108,9 +108,7 @@ export class PostgresTribePaymentIntegrationRepository
           end as status
       `);
 
-      return mapIntegrationResult(
-        (result.rows?.[0] ?? null) as IntegrationMutationRow | null
-      );
+      return mapIntegrationResult(result.rows[0] ?? null);
     });
   }
 }

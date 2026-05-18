@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import type {
@@ -18,6 +18,7 @@ import {
   TRIBE_MEMBERSHIP_STATUS_REASON,
 } from "@/src/modules/tribes/constants/tribe-page-access";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { tribes } from "@/src/modules/shared/infrastructure/database/schema";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -31,13 +32,11 @@ type PostgresTribeRow = {
 };
 
 type PostgresMembershipTribeRow = {
-  tribe_id: string;
+  name: string | null;
   role: string | null;
-  tribes: {
-    id: string;
-    name: string;
-    slug: string;
-  } | null;
+  slug: string | null;
+  tribe_id: string;
+  tribe_row_id: string | null;
 };
 
 type PostgresTribeMemberRow = {
@@ -163,13 +162,16 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
 
   async findBySlug(slug: string): Promise<Tribe | null> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
-        select id, name, slug, visibility
-        from public.tribes
-        where slug = ${slug}
-        limit 1
-      `);
-      const data = (result.rows?.[0] ?? null) as PostgresTribeRow | null;
+      const [data] = await database
+        .select({
+          id: tribes.id,
+          name: tribes.name,
+          slug: tribes.slug,
+          visibility: sql<"private">`${tribes.visibility}`,
+        })
+        .from(tribes)
+        .where(eq(tribes.slug, slug))
+        .limit(1);
 
       if (!data) {
         return null;
@@ -183,7 +185,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
     slug: string
   ): Promise<TribeMembershipAccessWithTribe | null> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<PostgresMembershipAccessWithTribeRow>(sql`
         with membership_access as (
           select status, status_reason
           from public.get_current_tribe_membership_by_slug(${slug})
@@ -200,9 +202,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           on tribes.slug = ${slug}
         limit 1
       `);
-      const data = (result.rows?.[0] ?? null) as
-        | PostgresMembershipAccessWithTribeRow
-        | null;
+      const data = result.rows[0] ?? null;
       const status = normalizeMembershipStatus(data?.status ?? null);
 
       if (!data || !status) {
@@ -223,11 +223,11 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
     slug: string
   ): Promise<TribeMembershipAccess | null> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<PostgresMembershipAccessRow>(sql`
         select status, status_reason
         from public.get_current_tribe_membership_by_slug(${slug})
       `);
-      const data = (result.rows?.[0] ?? null) as PostgresMembershipAccessRow | null;
+      const data = result.rows[0] ?? null;
       const status = normalizeMembershipStatus(data?.status ?? null);
 
       if (!status) {
@@ -251,7 +251,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
 
   async listVisibleMembershipTribes(): Promise<MemberTribeListItemResult[]> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<PostgresMembershipTribeRow>(sql`
         select
           tribes.id as tribe_id,
           case
@@ -273,13 +273,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
         order by tribes.name asc
       `);
 
-      return ((result.rows ?? []) as Array<
-        PostgresMembershipTribeRow & {
-          tribe_row_id?: string | null;
-          name?: string | null;
-          slug?: string | null;
-        }
-      >).reduce<MemberTribeListItemResult[]>((membershipTribes, row) => {
+      return result.rows.reduce<MemberTribeListItemResult[]>((membershipTribes, row) => {
         if (row.name && row.slug) {
           membershipTribes.push({
             tribeId: row.tribe_row_id ?? row.tribe_id,
@@ -296,14 +290,12 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
 
   async listVisibleTribeMembersBySlug(slug: string): Promise<TribeMemberResult[]> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<PostgresTribeMemberRow>(sql`
         select member_id, role, name, email, image
         from public.list_visible_tribe_members_by_slug(${slug})
       `);
 
-      return ((result.rows ?? []) as PostgresTribeMemberRow[]).map(
-        mapTribeMemberRow
-      );
+      return result.rows.map(mapTribeMemberRow);
     });
   }
 }

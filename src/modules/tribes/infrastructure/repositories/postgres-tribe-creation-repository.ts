@@ -63,7 +63,7 @@ export class PostgresTribeCreationRepository
   }): Promise<Tribe> {
     try {
       return await this.executeWithDatabase(async (database) => {
-        const result = await database.execute(sql`
+        const result = await database.execute<PostgresTribeRow>(sql`
           with inserted_tribe as (
             insert into public.tribes (
               name,
@@ -120,7 +120,7 @@ export class PostgresTribeCreationRepository
           select id, name, slug, visibility
           from inserted_tribe
         `);
-        const data = (result.rows?.[0] ?? null) as PostgresTribeRow | null;
+        const data = result.rows[0] ?? null;
 
         if (!data) {
           throw new Error(TRIBE_CREATION_ERROR.unavailableCreateMessage);
@@ -141,11 +141,13 @@ export class PostgresTribeCreationRepository
 
   async isSlugTaken(slug: string): Promise<boolean> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
-        select public.is_tribe_slug_taken(${slug}) as slug_taken
-      `);
+      const [result] = await database
+        .select({
+          slugTaken: sql<boolean>`public.is_tribe_slug_taken(${slug})`,
+        })
+        .from(sql`(select 1) as slug_diagnostic`);
 
-      return result.rows?.[0]?.slug_taken === true;
+      return result?.slugTaken === true;
     });
   }
 }

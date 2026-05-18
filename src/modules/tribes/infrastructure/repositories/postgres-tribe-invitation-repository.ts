@@ -187,7 +187,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     tribeSlug,
   }: ListTribeInvitationsQuery): Promise<TribeInvitationListItemResult[]> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<InvitationRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -208,9 +208,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         order by tribe_invitations.created_at desc
       `);
 
-      return ((result.rows ?? []) as InvitationRow[]).map((row) =>
-        mapInvitation(row)
-      );
+      return result.rows.map((row) => mapInvitation(row));
     }).catch((error: unknown) => {
       if (isMissingInvitationStorageError(error)) {
         return [];
@@ -230,7 +228,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         command.tribeSlug,
         command.token
       );
-      const result = await database.execute(sql`
+      const result = await database.execute<InvitationCreationRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -274,7 +272,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
       `);
 
       return mapCreationResult(
-        (result.rows?.[0] ?? null) as InvitationCreationRow | null,
+        result.rows[0] ?? null,
         invitationUrl
       );
     }).catch((error: unknown) => {
@@ -294,7 +292,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     }
 
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<InvitationStatusRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -329,7 +327,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           end as status
       `);
 
-      return mapRevocationResult((result.rows?.[0] ?? null) as InvitationStatusRow | null);
+      return mapRevocationResult(result.rows[0] ?? null);
     });
   }
 
@@ -344,7 +342,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
   ): Promise<TribeInvitationAcceptanceResult> {
     return this.executeWithDatabase(async (database) => {
       const tokenHash = hashInvitationToken(command.token);
-      const result = await database.execute(sql`
+      const result = await database.execute<InvitationStatusRow>(sql`
         with invitation_acceptance_context as (
           select
             set_config(
@@ -451,7 +449,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           end as status
       `);
 
-      return mapAcceptanceResult((result.rows?.[0] ?? null) as InvitationStatusRow | null);
+      return mapAcceptanceResult(result.rows[0] ?? null);
     });
   }
 
@@ -461,7 +459,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
   }): Promise<TribeInvitationSubscriptionOfferResult> {
     return this.executeWithDatabase(async (database) => {
       const tokenHash = hashInvitationToken(command.token);
-      const result = await database.execute(sql`
+      const result = await database.execute<InvitationSubscriptionOfferRow>(sql`
         with invitation_offer_context as (
           select
             set_config(
@@ -507,7 +505,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
       `);
 
       return mapSubscriptionOfferResult(
-        (result.rows?.[0] ?? null) as InvitationSubscriptionOfferRow | null
+        result.rows[0] ?? null
       );
     });
   }

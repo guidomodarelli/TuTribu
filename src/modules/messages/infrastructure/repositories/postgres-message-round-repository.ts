@@ -436,7 +436,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
       const currentPage = normalizePage(page);
       const messageOffset = (currentPage - 1) * TRIBE_ROUND_PAGE_SIZE;
       const messageLimit = TRIBE_ROUND_PAGE_SIZE + 1;
-      const channelsResult = await database.execute(sql`
+      const channelsResult = await database.execute<TribeChannelRow>(sql`
           with target_tribe as (
             select tribes.id
             from public.tribes
@@ -455,11 +455,11 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             on target_tribe.id = tribe_channels.tribe_id
           order by tribe_channels.sort_order asc, tribe_channels.name asc
         `);
-      const channels = mapRowsToChannels((channelsResult.rows ?? []) as TribeChannelRow[]);
+      const channels = mapRowsToChannels(channelsResult.rows);
       const selectedChannelSlug = normalizeChannelSlug(channelSlug);
       const activeChannel =
         channels.find((channel) => channel.slug === selectedChannelSlug) ?? null;
-      const result = await database.execute(sql`
+      const result = await database.execute<MessageRoundSharedRow>(sql`
           with target_tribe as (
             select tribes.id
             from public.tribes
@@ -605,7 +605,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             message_members.role
           order by messages.pinned_at desc nulls last, messages.created_at desc, messages.id desc, message_poll_options.sort_order asc
         `);
-      const resultRows = (result.rows ?? []) as MessageRoundSharedRow[];
+      const resultRows = result.rows;
       const rows = limitRowsToPageMessages(resultRows);
 
       return mapRowsToSharedData(
@@ -628,7 +628,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
     viewerId,
   }: ListMessageRepliesQuery): Promise<TribeRoundRepliesResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<MessageReplyRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -694,7 +694,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
           on true
       `);
 
-      return mapRowsToReplies((result.rows ?? []) as MessageReplyRow[]);
+      return mapRowsToReplies(result.rows);
     });
   }
 
@@ -703,7 +703,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
     viewerId,
   }: ListTribeRoundQuery): Promise<TribeRoundViewerStateResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<MessageRoundViewerStateRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -757,7 +757,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
       `);
 
       return mapViewerStateRow(
-        (result.rows?.[0] ?? null) as MessageRoundViewerStateRow | null,
+        result.rows[0] ?? null,
         viewerId
       );
     });

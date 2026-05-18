@@ -146,7 +146,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
     tribeSlug,
   }: ListTribeEventsByMonthQuery) {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<EventListRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -183,7 +183,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           on true
         order by event_rows.starts_at asc, event_rows.title asc
       `);
-      const rows = (result.rows ?? []) as EventListRow[];
+      const rows = result.rows;
 
       const events = rows.reduce<ReturnType<typeof mapEvent>[]>(
         (mappedEvents, row) => {
@@ -207,7 +207,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
 
   async create(command: NormalizedCreateCommand): Promise<TribeEventCreationResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<EventMutationRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -257,13 +257,13 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           on true
       `);
 
-      return mapCreationResult((result.rows?.[0] ?? null) as EventMutationRow | null);
+      return mapCreationResult(result.rows[0] ?? null);
     });
   }
 
   async update(command: NormalizedUpdateCommand): Promise<TribeEventUpdateResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<EventMutationRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -311,13 +311,13 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           on true
       `);
 
-      return mapUpdateResult((result.rows?.[0] ?? null) as EventMutationRow | null);
+      return mapUpdateResult(result.rows[0] ?? null);
     });
   }
 
   async delete(command: DeleteTribeEventCommand): Promise<TribeEventDeletionResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<EventDeletionRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -348,7 +348,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           end as status
       `);
 
-      return mapDeletionResult((result.rows?.[0] ?? null) as EventDeletionRow | null);
+      return mapDeletionResult(result.rows[0] ?? null);
     });
   }
 }

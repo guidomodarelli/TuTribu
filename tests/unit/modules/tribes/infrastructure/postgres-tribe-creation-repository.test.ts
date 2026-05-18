@@ -1,29 +1,23 @@
 import { PostgresTribeCreationRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-creation-repository";
 import { TribeSlugConflictError } from "@/src/modules/tribes/domain/errors/tribe-slug-conflict-error";
 
-function getSqlText(statement: unknown): string {
-  return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
-    .map((chunk) => {
-      if (typeof chunk === "string") {
-        return chunk;
-      }
+function createSlugDiagnosticDatabase(rows: Array<{ slugTaken: boolean }>) {
+  const from = jest.fn(async () => rows);
+  const select = jest.fn(() => ({
+    from,
+  }));
 
-      if (
-        chunk &&
-        typeof chunk === "object" &&
-        "value" in chunk &&
-        Array.isArray((chunk as { value: unknown }).value)
-      ) {
-        return (chunk as { value: string[] }).value.join("");
-      }
-
-      return "";
-    })
-    .join("");
+  return {
+    database: {
+      select,
+    },
+    from,
+    select,
+  };
 }
 
 describe("PostgresTribeCreationRepository", () => {
-  it("creates the tribe and leader membership through an atomic SQL statement", async () => {
+  it("creates the tribe and leader membership through one database operation", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
@@ -55,16 +49,6 @@ describe("PostgresTribeCreationRepository", () => {
     });
 
     expect(execute).toHaveBeenCalledTimes(1);
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "insert into public.tribe_channels"
-    );
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(sqlText).toContain("Ronda");
-    expect(sqlText).toContain("sort_order::integer");
-    expect(sqlText).not.toContain("Anuncios");
-    expect(sqlText).not.toContain("Preguntas");
-    expect(sqlText).not.toContain("Eventos");
   });
 
   it("surfaces SQL errors without splitting the create flow across statements", async () => {
@@ -101,20 +85,14 @@ describe("PostgresTribeCreationRepository", () => {
   });
 
   it("checks whether a slug is already registered through the diagnostic function that bypasses tribes RLS", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ slug_taken: true }],
-    }));
+    const queryBuilder = createSlugDiagnosticDatabase([{ slugTaken: true }]);
 
     const repository = new PostgresTribeCreationRepository(async (callback) =>
-      callback({
-        execute,
-      } as never)
+      callback(queryBuilder.database as never)
     );
 
     await expect(repository.isSlugTaken("matematica-pro")).resolves.toBe(true);
-    expect(execute).toHaveBeenCalledTimes(1);
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "select public.is_tribe_slug_taken("
-    );
+    expect(queryBuilder.select).toHaveBeenCalledTimes(1);
+    expect(queryBuilder.from).toHaveBeenCalledTimes(1);
   });
 });

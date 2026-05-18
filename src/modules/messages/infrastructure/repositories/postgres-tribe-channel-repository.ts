@@ -181,7 +181,7 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
     tribeSlug,
   }: ListTribeChannelsQuery): Promise<TribeChannelResult[]> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<ChannelRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -201,7 +201,7 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
         order by tribe_channels.sort_order asc, tribe_channels.name asc
       `);
 
-      return ((result.rows ?? []) as ChannelRow[]).map(mapChannel);
+      return result.rows.map(mapChannel);
     });
   }
 
@@ -210,7 +210,7 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
   ): Promise<TribeChannelCreationResult> {
     return this.executeWithDatabase(async (database) => {
       try {
-        const result = await database.execute(sql`
+        const result = await database.execute<ChannelMutationRow>(sql`
           with target_tribe as (
             select tribes.id
             from public.tribes
@@ -281,9 +281,7 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
             on true
         `);
 
-        return mapChannelCreation(
-          (result.rows?.[0] ?? null) as ChannelMutationRow | null
-        );
+        return mapChannelCreation(result.rows[0] ?? null);
       } catch (error) {
         if (isDuplicateChannelSlugError(error)) {
           return {
@@ -301,7 +299,7 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
   ): Promise<TribeChannelUpdateResult> {
     return this.executeWithDatabase(async (database) => {
       try {
-        const result = await database.execute(sql`
+        const result = await database.execute<ChannelMutationRow>(sql`
           with target_tribe as (
             select tribes.id
             from public.tribes
@@ -371,9 +369,7 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
             on true
         `);
 
-        return mapChannelUpdate(
-          (result.rows?.[0] ?? null) as ChannelMutationRow | null
-        );
+        return mapChannelUpdate(result.rows[0] ?? null);
       } catch (error) {
         if (isDuplicateChannelSlugError(error)) {
           return {
@@ -390,7 +386,7 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
     command: DeleteTribeChannelCommand
   ): Promise<TribeChannelDeletionResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<DeletionStatusRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -464,7 +460,7 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
           end as status
       `);
 
-      return mapDeletionStatus((result.rows?.[0] ?? null) as DeletionStatusRow | null);
+      return mapDeletionStatus(result.rows[0] ?? null);
     });
   }
 }

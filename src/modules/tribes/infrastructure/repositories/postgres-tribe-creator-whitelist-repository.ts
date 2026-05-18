@@ -1,7 +1,8 @@
-import { sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import type { TribeCreatorWhitelistRepository } from "@/src/modules/tribes/domain/repositories/tribe-creator-whitelist-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { tribeCreatorWhitelist } from "@/src/modules/shared/infrastructure/database/schema";
 
 type RecoverableDatabaseError = {
   code?: string;
@@ -13,7 +14,6 @@ type DatabaseExecutor = <T>(
 ) => Promise<T>;
 
 const TRIBE_CREATOR_WHITELIST = {
-  emailColumn: "email",
   missingTableCode: "42P01",
 } as const;
 
@@ -35,14 +35,15 @@ export class PostgresTribeCreatorWhitelistRepository
 
     try {
       return await this.executeWithDatabase(async (database) => {
-        const result = await database.execute(sql`
-          select email
-          from public.tribe_creator_whitelist
-          where email = ${normalizedEmail}
-          limit 1
-        `);
+        const [allowedEmail] = await database
+          .select({
+            email: tribeCreatorWhitelist.email,
+          })
+          .from(tribeCreatorWhitelist)
+          .where(eq(tribeCreatorWhitelist.email, normalizedEmail))
+          .limit(1);
 
-        return Boolean(result.rows?.[0]?.[TRIBE_CREATOR_WHITELIST.emailColumn]);
+        return Boolean(allowedEmail?.email);
       });
     } catch (error) {
       const recoverableError = error as RecoverableDatabaseError;

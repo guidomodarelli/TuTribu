@@ -137,6 +137,13 @@ type PollOptionRow = {
   vote_count: number | string | null;
 };
 
+type PollResultRow = PollOptionRow & {
+  allow_multiple_votes: boolean;
+  poll_id: string;
+  question: string;
+  total_vote_count: number | string | null;
+};
+
 const MESSAGE_CREATION_DATABASE_ERROR = {
   pollOptionsNotInserted: "Message poll options were not inserted",
   pollNotInserted: "Message poll was not inserted",
@@ -274,7 +281,7 @@ export class PostgresMessageMutationRepository
 
   async toggle(command: ToggleMessageLikeCommand): Promise<MessageLikeToggleResult> {
     return this.executeWithDatabase(async (database) => {
-      const targetMessageResult = await database.execute(sql`
+      const targetMessageResult = await database.execute<TargetMessageRow>(sql`
         select
           messages.id as message_id,
           messages.tribe_id,
@@ -286,7 +293,7 @@ export class PostgresMessageMutationRepository
           and tribes.slug = ${command.tribeSlug}
         limit 1
       `);
-      const targetMessage = (targetMessageResult.rows?.[0] ?? null) as TargetMessageRow | null;
+      const targetMessage = targetMessageResult.rows[0] ?? null;
 
       if (!targetMessage) {
         return {
@@ -304,16 +311,14 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      const deletedReactionResult = await database.execute(sql`
+      const deletedReactionResult = await database.execute<DeletedReactionRow>(sql`
         delete from public.message_reactions
         where message_reactions.message_id = ${targetMessage.message_id}
           and message_reactions.user_id = ${command.userId}
           and message_reactions.type = ${MESSAGE_REACTION_TYPE.like}
         returning message_reactions.id
       `);
-      const deletedReaction = (deletedReactionResult.rows?.[0] ?? null) as
-        | DeletedReactionRow
-        | null;
+      const deletedReaction = deletedReactionResult.rows[0] ?? null;
       let status: typeof MESSAGE_MUTATION_STATUS.liked | typeof MESSAGE_MUTATION_STATUS.unliked;
 
       if (deletedReaction) {
@@ -334,14 +339,14 @@ export class PostgresMessageMutationRepository
         status = MESSAGE_MUTATION_STATUS.liked;
       }
 
-      const likeCountResult = await database.execute(sql`
+      const likeCountResult = await database.execute<LikeCountRow>(sql`
         select count(*) as like_count
         from public.message_reactions
         where message_reactions.message_id = ${targetMessage.message_id}
           and message_reactions.type = ${MESSAGE_REACTION_TYPE.like}
       `);
       const likeCount = Number(
-        ((likeCountResult.rows?.[0] ?? null) as LikeCountRow | null)?.like_count ?? 0
+        likeCountResult.rows[0]?.like_count ?? 0
       );
 
       if (status === MESSAGE_MUTATION_STATUS.liked) {
@@ -370,7 +375,7 @@ export class PostgresMessageMutationRepository
 
   async togglePin(command: ToggleMessagePinCommand): Promise<MessagePinToggleResult> {
     return this.executeWithDatabase(async (database) => {
-      const targetMessageResult = await database.execute(sql`
+      const targetMessageResult = await database.execute<PinTargetMessageRow>(sql`
         select
           messages.id as message_id,
           messages.tribe_id,
@@ -387,9 +392,7 @@ export class PostgresMessageMutationRepository
           and tribes.slug = ${command.tribeSlug}
         limit 1
       `);
-      const targetMessage = (targetMessageResult.rows?.[0] ?? null) as
-        | PinTargetMessageRow
-        | null;
+      const targetMessage = targetMessageResult.rows[0] ?? null;
 
       if (!targetMessage) {
         return {
@@ -424,15 +427,13 @@ export class PostgresMessageMutationRepository
         select pg_advisory_xact_lock(hashtext(${targetMessage.tribe_id}))
       `);
 
-      const existingPinResult = await database.execute(sql`
+      const existingPinResult = await database.execute<ExistingPinRow>(sql`
         select message_pins.pinned_at
         from public.message_pins
         where message_pins.message_id = ${targetMessage.message_id}
         limit 1
       `);
-      const existingPin = (existingPinResult.rows?.[0] ?? null) as
-        | ExistingPinRow
-        | null;
+      const existingPin = existingPinResult.rows[0] ?? null;
 
       if (existingPin) {
         return {
@@ -444,13 +445,13 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      const pinnedCountResult = await database.execute(sql`
+      const pinnedCountResult = await database.execute<PinCountRow>(sql`
         select count(*) as pinned_count
         from public.message_pins
         where message_pins.tribe_id = ${targetMessage.tribe_id}
       `);
       const pinnedCount = Number(
-        ((pinnedCountResult.rows?.[0] ?? null) as PinCountRow | null)?.pinned_count ?? 0
+        pinnedCountResult.rows[0]?.pinned_count ?? 0
       );
 
       if (pinnedCount >= PINNED_TRIBE_MESSAGES_LIMIT) {
@@ -461,7 +462,7 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      const insertedPinResult = await database.execute(sql`
+      const insertedPinResult = await database.execute<InsertedPinRow>(sql`
         insert into public.message_pins (message_id, tribe_id, pinned_by, pinned_at)
         values (
           ${targetMessage.message_id},
@@ -474,9 +475,7 @@ export class PostgresMessageMutationRepository
             pinned_at = excluded.pinned_at
         returning pinned_at
       `);
-      const insertedPin = (insertedPinResult.rows?.[0] ?? null) as
-        | InsertedPinRow
-        | null;
+      const insertedPin = insertedPinResult.rows[0] ?? null;
 
       return {
         isPinned: true,
@@ -508,14 +507,13 @@ export class PostgresMessageMutationRepository
         sql`, `
       );
 
-      const validOptionsResult = await database.execute(sql`
+      const validOptionsResult = await database.execute<{ option_id: string }>(sql`
         select message_poll_options.id::text as option_id
         from public.message_poll_options
         where message_poll_options.poll_id = ${targetPoll.poll_id}
           and message_poll_options.id = any(array[${optionIdSqlArray}]::uuid[])
       `);
-      const validOptionIds = ((validOptionsResult.rows ?? []) as { option_id: string }[])
-        .map((option) => option.option_id);
+      const validOptionIds = validOptionsResult.rows.map((option) => option.option_id);
 
       if (validOptionIds.length === 0) {
         return { status: MESSAGE_MUTATION_STATUS.invalidPoll };
@@ -557,7 +555,7 @@ export class PostgresMessageMutationRepository
 
   async delete(command: DeleteTribeMessageCommand): Promise<MessageDeletionResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<MutationStatusRow>(sql`
         with target_message as (
           select
             messages.id as message_id,
@@ -592,7 +590,7 @@ export class PostgresMessageMutationRepository
             else ${MESSAGE_MUTATION_STATUS.forbidden}
           end as status
       `);
-      const row = (result.rows?.[0] ?? null) as MutationStatusRow | null;
+      const row = result.rows[0] ?? null;
 
       if (row?.status === MESSAGE_MUTATION_STATUS.deleted) {
         return { status: MESSAGE_MUTATION_STATUS.deleted };
@@ -610,7 +608,7 @@ export class PostgresMessageMutationRepository
     command: CreateTribeMessageCommand
   ): Promise<MessageCreationResult> {
     return this.executeWithDatabase(async (database) => {
-      const messageResult = await database.execute(sql`
+      const messageResult = await database.execute<CreatedMessageRow>(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -690,7 +688,7 @@ export class PostgresMessageMutationRepository
         left join created_message
           on true
       `);
-      const createdMessage = (messageResult.rows?.[0] ?? null) as CreatedMessageRow | null;
+      const createdMessage = messageResult.rows[0] ?? null;
 
       if (
         createdMessage?.status !== MESSAGE_MUTATION_STATUS.created ||
@@ -700,7 +698,7 @@ export class PostgresMessageMutationRepository
         return mapCreatedMessage(createdMessage);
       }
 
-      const pollResult = await database.execute(sql`
+      const pollResult = await database.execute<InsertedPollRow>(sql`
         insert into public.message_polls (message_id, tribe_id, question, allow_multiple_votes, status, created_at, updated_at)
         select messages.id, messages.tribe_id, ${command.poll.question}, ${command.poll.allowMultipleVotes}, ${MESSAGE_POLL_STATUS.open}, timezone('utc', now()), timezone('utc', now())
         from public.messages
@@ -714,13 +712,13 @@ export class PostgresMessageMutationRepository
           question as poll_question,
           allow_multiple_votes as poll_allow_multiple_votes
       `);
-      const insertedPoll = (pollResult.rows?.[0] ?? null) as InsertedPollRow | null;
+      const insertedPoll = pollResult.rows[0] ?? null;
 
       if (!insertedPoll?.poll_id) {
         throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollNotInserted);
       }
 
-      const pollOptionsResult = await database.execute(sql`
+      const pollOptionsResult = await database.execute<InsertedPollOptionsRow>(sql`
         with inserted_poll_options as (
           insert into public.message_poll_options (poll_id, tribe_id, text, sort_order, created_at)
           select message_polls.id, message_polls.tribe_id, poll_option.text, poll_option.sort_order::integer, timezone('utc', now())
@@ -742,9 +740,7 @@ export class PostgresMessageMutationRepository
           ) as poll_options
         from inserted_poll_options
       `);
-      const insertedPollOptions = (pollOptionsResult.rows?.[0] ?? null) as
-        | InsertedPollOptionsRow
-        | null;
+      const insertedPollOptions = pollOptionsResult.rows[0] ?? null;
       const pollOptions = insertedPollOptions?.poll_options ?? [];
 
       if (pollOptions.length !== command.poll.options.length) {
@@ -765,7 +761,7 @@ export class PostgresMessageMutationRepository
     database: RequestDatabase,
     command: SubmitMessagePollVoteCommand
   ): Promise<PollTargetRow | null> {
-    const targetResult = await database.execute(sql`
+    const targetResult = await database.execute<PollTargetRow>(sql`
       select
         message_polls.id as poll_id,
         message_polls.tribe_id,
@@ -783,7 +779,7 @@ export class PostgresMessageMutationRepository
       limit 1
     `);
 
-    return (targetResult.rows?.[0] ?? null) as PollTargetRow | null;
+    return targetResult.rows[0] ?? null;
   }
 
   private async readPoll(
@@ -791,7 +787,7 @@ export class PostgresMessageMutationRepository
     pollId: string,
     viewerId: string
   ): Promise<MessagePollResult> {
-    const optionsResult = await database.execute(sql`
+    const optionsResult = await database.execute<PollResultRow>(sql`
       with option_vote_counts as (
         select option_id, count(*) as vote_count
         from public.message_poll_votes
@@ -827,12 +823,7 @@ export class PostgresMessageMutationRepository
       where message_polls.id = ${pollId}
       order by message_poll_options.sort_order asc
     `);
-    const rows = (optionsResult.rows ?? []) as Array<PollOptionRow & {
-      allow_multiple_votes: boolean;
-      poll_id: string;
-      question: string;
-      total_vote_count: number | string | null;
-    }>;
+    const rows = optionsResult.rows;
     const firstRow = rows[0];
     const totalVoteCount = Number(firstRow?.total_vote_count ?? 0);
 
@@ -861,7 +852,7 @@ export class PostgresMessageMutationRepository
     command: CreateMessageReplyCommand
   ): Promise<MessageReplyCreationResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
+      const result = await database.execute<CreatedReplyRow>(sql`
         with target_message as (
           select messages.id, messages.tribe_id
           from public.messages
@@ -912,7 +903,7 @@ export class PostgresMessageMutationRepository
           on true
       `);
 
-      return mapCreatedReply((result.rows?.[0] ?? null) as CreatedReplyRow | null);
+      return mapCreatedReply(result.rows[0] ?? null);
     });
   }
 }
