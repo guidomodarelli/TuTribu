@@ -19,6 +19,16 @@ type TribesTable = {
   visibility: string;
 };
 
+type TribeInvitationsTable = {
+  created_at: TimestampColumn;
+  created_by: string;
+  id: string;
+  revoked_at: TimestampColumn | null;
+  status: string;
+  token_hash: string;
+  tribe_id: string;
+};
+
 type TribeMembersTable = {
   created_at: TimestampColumn;
   id: Generated<string>;
@@ -27,6 +37,18 @@ type TribeMembersTable = {
   status_reason: ColumnType<string, string | undefined, string>;
   tribe_id: string;
   user_id: string;
+};
+
+type TribeSubscriptionPricesTable = {
+  amount_cents: number;
+  currency: string;
+  frequency: string;
+  id: Generated<string>;
+  is_current: boolean;
+  mercado_pago_preapproval_plan_id: string | null;
+  name: string;
+  status: string;
+  tribe_id: string;
 };
 
 type TribeChannelsTable = {
@@ -41,9 +63,22 @@ type TribeChannelsTable = {
   updated_at: TimestampColumn;
 };
 
+type UsersTable = {
+  createdAt: TimestampColumn;
+  email: string;
+  emailVerified: boolean;
+  id: string;
+  image: string | null;
+  name: string;
+  updatedAt: TimestampColumn;
+};
+
 export type KyselyRequestDatabaseSchema = {
   tribe_creator_whitelist: TribeCreatorWhitelistTable;
   tribe_channels: TribeChannelsTable;
+  tribe_invitations: TribeInvitationsTable;
   tribe_members: TribeMembersTable;
+  tribe_subscription_prices: TribeSubscriptionPricesTable;
   tribes: TribesTable;
+  user: UsersTable;
 };

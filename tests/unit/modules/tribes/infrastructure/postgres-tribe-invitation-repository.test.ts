@@ -1,6 +1,11 @@
 import { PostgresTribeInvitationRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-invitation-repository";
+import { createKyselyRequestDatabase } from "@/src/modules/shared/infrastructure/database/kysely-request-database";
 
 function getSqlText(statement: unknown): string {
+  if (typeof statement === "string") {
+    return statement;
+  }
+
   return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
     .map((chunk) => {
       if (typeof chunk === "string") {
@@ -21,30 +26,95 @@ function getSqlText(statement: unknown): string {
     .join("");
 }
 
+function createRequestKyselyDatabaseDouble(
+  rowBatches: Array<Array<Record<string, unknown>>>
+) {
+  const query = jest.fn(async (statement: string) => {
+    if (isTransactionControlStatement(statement)) {
+      return {
+        rowCount: 0,
+        rows: [],
+      };
+    }
+
+    const rows = rowBatches.shift() ?? [];
+
+    return {
+      rowCount: rows.length,
+      rows,
+    };
+  });
+
+  return {
+    database: {
+      kysely: createKyselyRequestDatabase({
+        query,
+      } as never),
+    },
+    query,
+  };
+}
+
+function isTransactionControlStatement(statement: string): boolean {
+  return (
+    statement.startsWith("SAVEPOINT") ||
+    statement.startsWith("RELEASE SAVEPOINT") ||
+    statement.startsWith("ROLLBACK TO SAVEPOINT")
+  );
+}
+
+function getExecutedSqlText(databaseDouble: {
+  query: jest.Mock;
+}): string {
+  return databaseDouble.query.mock.calls
+    .map(([statement]) => getSqlText(statement))
+    .filter((statement) => !isTransactionControlStatement(statement))
+    .join("\n");
+}
+
+function getExecutedParameters(databaseDouble: {
+  query: jest.Mock;
+}): unknown[] {
+  return databaseDouble.query.mock.calls.flatMap(([, parameters]) =>
+    Array.isArray(parameters) ? parameters : []
+  );
+}
+
+function createFailingRequestKyselyDatabaseDouble(error: unknown) {
+  const query = jest.fn(async () => {
+    throw error;
+  });
+
+  return {
+    database: {
+      kysely: createKyselyRequestDatabase({
+        query,
+      } as never),
+    },
+    query,
+  };
+}
+
 const FORBIDDEN_INVITATION_TOKEN_CONTEXT_SETTING = [
   "current",
   "invitation",
   "token",
 ].join("_");
-const FORBIDDEN_TRIBE_INVITATION_ID_CAST = [
-  "tribe_invitations.id",
-  "text",
-].join("::");
 
 describe("PostgresTribeInvitationRepository", () => {
   it("creates invitations with a one-time visible token, token hash, and manager permission guard", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          created_at: "2026-04-26T07:00:00.000Z",
-          created_by_name: "Grace Hopper",
-          id: "invitation-1",
-          status: "created",
-        },
-      ],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ can_manage: true }],
+      [{
+        created_at: "2026-04-26T07:00:00.000Z",
+        created_by: "user-1",
+        id: "invitation-1",
+      }],
+      [{ name: "Grace Hopper" }],
+    ]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -59,25 +129,24 @@ describe("PostgresTribeInvitationRepository", () => {
       status: "created",
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const sqlText = getExecutedSqlText(databaseDouble);
+    const queryParameters = getExecutedParameters(databaseDouble);
 
-    expect(sqlText).toContain("insert into public.tribe_invitations");
     expect(sqlText).toContain("public.can_manage_tribe_invitations");
     expect(sqlText).toContain("token_hash");
-    expect(sqlText).not.toContain("token,");
     expect(sqlText).not.toContain("plain-token");
+    expect(sqlText).not.toContain("plain-token");
+    expect(queryParameters).not.toContain("plain-token");
   });
 
   it("maps missing invitation storage during creation to setup_required", async () => {
-    const execute = jest.fn(async () => {
-      throw {
+    const databaseDouble = createFailingRequestKyselyDatabaseDouble({
         cause: {
           code: "42P01",
         },
-      };
     });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -91,17 +160,15 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("lists active invitations without exposing acceptance links for managers", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          created_at: "2026-04-26T07:00:00.000Z",
-          created_by_name: "Grace Hopper",
-          id: "550e8400-e29b-41d4-a716-446655440000",
-        },
-      ],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{
+        created_at: "2026-04-26T07:00:00.000Z",
+        created_by_name: "Grace Hopper",
+        id: "550e8400-e29b-41d4-a716-446655440000",
+      }],
+    ]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -117,23 +184,21 @@ describe("PostgresTribeInvitationRepository", () => {
         },
       ]);
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const sqlText = getSqlText(databaseDouble.query.mock.calls[0]?.[0]);
 
-    expect(sqlText).toContain("tribe_invitations.status");
+    expect(sqlText).toContain("\"tribe_invitations\".\"status\"");
     expect(sqlText).not.toContain("tribe_invitations.token");
     expect(sqlText).toContain("public.can_manage_tribe_invitations");
   });
 
   it("returns an empty list when invitation storage has not been migrated yet", async () => {
-    const execute = jest.fn(async () => {
-      throw {
+    const databaseDouble = createFailingRequestKyselyDatabaseDouble({
         cause: {
           code: "42P01",
         },
-      };
     });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -144,11 +209,14 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("revokes active invitations with manager permission guard", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "revoked" }],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ can_manage: true }],
+      [{ id: "550e8400-e29b-41d4-a716-446655440000" }],
+      [{ id: "550e8400-e29b-41d4-a716-446655440000" }],
+    ]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -158,17 +226,17 @@ describe("PostgresTribeInvitationRepository", () => {
       })
     ).resolves.toEqual({ status: "revoked" });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const sqlText = getExecutedSqlText(databaseDouble);
 
-    expect(sqlText).toContain("update public.tribe_invitations");
-    expect(sqlText).toContain("status = ");
+    expect(sqlText).toContain("update \"tribe_invitations\"");
+    expect(sqlText).toContain("\"status\" =");
     expect(sqlText).toContain("revoked_at");
   });
 
   it("maps malformed invitation identifiers to not_found before querying Postgres", async () => {
-    const execute = jest.fn();
+    const databaseDouble = createRequestKyselyDatabaseDouble([]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -178,15 +246,26 @@ describe("PostgresTribeInvitationRepository", () => {
       })
     ).resolves.toEqual({ status: "not_found" });
 
-    expect(execute).not.toHaveBeenCalled();
+    expect(databaseDouble.query).not.toHaveBeenCalled();
   });
 
   it("accepts invitations idempotently without persisting the plain token", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "accepted" }],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ context: "" }],
+      [{
+        id: "invitation-1",
+        status: "active",
+        tribe_id: "tribe-1",
+      }],
+      [{ id: "tribe-1" }],
+      [{ id: "user-1" }],
+      [],
+      [],
+      [{ id: "membership-1" }],
+      [{ status: "active", status_reason: "none" }],
+    ]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -196,31 +275,33 @@ describe("PostgresTribeInvitationRepository", () => {
       })
     ).resolves.toEqual({ status: "accepted" });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const sqlText = getExecutedSqlText(databaseDouble);
+    const queryParameters = getExecutedParameters(databaseDouble);
 
-    expect(sqlText).toContain("on conflict (tribe_id, user_id) do nothing");
-    expect(sqlText).toContain("existing_membership");
-    expect(sqlText).toContain("app.current_invitation_hash");
+    expect(sqlText).toContain("on conflict (\"tribe_id\", \"user_id\") do nothing");
+    expect(queryParameters).toContain("app.current_invitation_hash");
     expect(sqlText).not.toContain(FORBIDDEN_INVITATION_TOKEN_CONTEXT_SETTING);
-    expect(sqlText).toMatch(
-      /target_invitation as \([\s\S]*cross join invitation_acceptance_context[\s\S]*where tribe_invitations\.token_hash/
-    );
-    expect(sqlText).toMatch(
-      /target_tribe as \([\s\S]*inner join target_invitation[\s\S]*where tribes\.slug/
-    );
-    expect(sqlText).not.toContain(FORBIDDEN_TRIBE_INVITATION_ID_CAST);
-    expect(sqlText).toContain("status = 'blocked'");
-    expect(sqlText).toContain("tribe_members.status_reason");
-    expect(sqlText).not.toContain("existing_subscription");
     expect(sqlText).not.toContain("plain-token");
+    expect(queryParameters).not.toContain("plain-token");
   });
 
   it("rechecks membership after insert conflicts so concurrent accepts stay idempotent", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "accepted" }],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ context: "" }],
+      [{
+        id: "invitation-1",
+        status: "active",
+        tribe_id: "tribe-1",
+      }],
+      [{ id: "tribe-1" }],
+      [{ id: "user-1" }],
+      [],
+      [],
+      [],
+      [{ status: "active", status_reason: "none" }],
+    ]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -230,30 +311,33 @@ describe("PostgresTribeInvitationRepository", () => {
       })
     ).resolves.toEqual({ status: "accepted" });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const sqlText = getExecutedSqlText(databaseDouble);
     const insertConflictPosition = sqlText.indexOf(
-      "on conflict (tribe_id, user_id) do nothing"
+      "on conflict (\"tribe_id\", \"user_id\") do nothing"
     );
-    const postInsertMembershipPosition = sqlText.indexOf(
-      "post_insert_membership"
+    const lastMembershipLookupPosition = sqlText.lastIndexOf(
+      "from \"tribe_members\""
     );
 
     expect(insertConflictPosition).toBeGreaterThan(-1);
-    expect(postInsertMembershipPosition).toBeGreaterThan(insertConflictPosition);
-    expect(sqlText).toMatch(
-      /post_insert_membership as \([\s\S]*from public\.tribe_members[\s\S]*where tribe_members\.user_id/
-    );
-    expect(sqlText).toMatch(
-      /post_insert_membership where status in \('active', 'muted'\)/
-    );
+    expect(lastMembershipLookupPosition).toBeGreaterThan(insertConflictPosition);
   });
 
   it("maps revoked invitation acceptance to a controlled result", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "revoked" }],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ context: "" }],
+      [{
+        id: "invitation-1",
+        status: "revoked",
+        tribe_id: "tribe-1",
+      }],
+      [{ id: "tribe-1" }],
+      [{ id: "user-1" }],
+      [],
+      [],
+    ]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -265,11 +349,20 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("does not require subscription checkout for revoked invitations", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "revoked" }],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ context: "" }],
+      [{
+        id: "invitation-1",
+        status: "revoked",
+        tribe_id: "tribe-1",
+      }],
+      [{ id: "tribe-1" }],
+      [{ id: "user-1" }],
+      [],
+      [],
+    ]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -279,19 +372,25 @@ describe("PostgresTribeInvitationRepository", () => {
       })
     ).resolves.toEqual({ status: "revoked" });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const sqlText = getExecutedSqlText(databaseDouble);
 
-    expect(sqlText).toMatch(
-      /when exists \(\s*select 1 from current_subscription_price\s*\)[\s\S]{0,250}target_invitation where status =[\s\S]{0,250}then/
-    );
+    expect(sqlText).toContain("from \"tribe_subscription_prices\"");
+    expect(sqlText).not.toContain("insert into \"tribe_members\"");
   });
 
   it("resolves revoked invitations before requiring visible tribe access", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "revoked" }],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ context: "" }],
+      [{
+        id: "invitation-1",
+        status: "revoked",
+        tribe_id: "tribe-1",
+      }],
+      [],
+      [{ id: "user-1" }],
+    ]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -301,33 +400,26 @@ describe("PostgresTribeInvitationRepository", () => {
       })
     ).resolves.toEqual({ status: "revoked" });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    const targetInvitationPosition = sqlText.indexOf("target_invitation as");
-    const targetTribePosition = sqlText.indexOf("target_tribe as");
-    const revokedStatusPosition = sqlText.indexOf("status = ");
-    const invalidFallbackPosition = sqlText.indexOf(
-      "not exists (select 1 from target_invitation)"
-    );
+    const sqlText = getExecutedSqlText(databaseDouble);
 
-    expect(targetInvitationPosition).toBeGreaterThan(-1);
-    expect(targetTribePosition).toBeGreaterThan(-1);
-    expect(targetInvitationPosition).toBeLessThan(targetTribePosition);
-    expect(revokedStatusPosition).toBeLessThan(invalidFallbackPosition);
+    expect(sqlText).toContain("from \"tribe_invitations\"");
+    expect(sqlText).toContain("from \"tribes\"");
+    expect(sqlText).not.toContain("from \"tribe_subscription_prices\"");
+    expect(sqlText).not.toContain("insert into \"tribe_members\"");
   });
 
   it("returns the current active subscription offer for an active invitation", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          amount_cents: 500000,
-          currency: "ARS",
-          frequency: "monthly",
-          name: "Plan mensual",
-        },
-      ],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ context: "" }],
+      [{
+        amount_cents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      }],
+    ]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -347,11 +439,12 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("returns unavailable when the invitation has no active current subscription offer", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ context: "" }],
+      [],
+    ]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
