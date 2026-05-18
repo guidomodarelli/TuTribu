@@ -178,24 +178,23 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
     slug: string
   ): Promise<TribeMembershipAccessWithTribe | null> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute<PostgresMembershipAccessWithTribeRow>(sql`
-        with membership_access as (
-          select status, status_reason
-          from public.get_current_tribe_membership_by_slug(${slug})
+      const data = await database.kysely
+        .selectFrom(
+          kyselySql<PostgresMembershipAccessRow>`
+            public.get_current_tribe_membership_by_slug(${slug})
+          `.as("membership_access")
         )
-        select
-          membership_access.status,
-          membership_access.status_reason,
-          tribes.id,
-          tribes.name,
-          tribes.slug,
-          tribes.visibility
-        from membership_access
-        left join public.tribes
-          on tribes.slug = ${slug}
-        limit 1
-      `);
-      const data = result.rows[0] ?? null;
+        .leftJoin("tribes", (join) => join.on("tribes.slug", "=", slug))
+        .select([
+          "membership_access.status",
+          "membership_access.status_reason",
+          "tribes.id",
+          "tribes.name",
+          "tribes.slug",
+          "tribes.visibility",
+        ])
+        .limit(1)
+        .executeTakeFirst();
       const status = normalizeMembershipStatus(data?.status ?? null);
 
       if (!data || !status) {

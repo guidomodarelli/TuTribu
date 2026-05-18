@@ -103,6 +103,44 @@ function createMembershipAccessDatabase(
   };
 }
 
+function createMembershipAccessWithTribeDatabase(
+  row: {
+    id: string | null;
+    name: string | null;
+    slug: string | null;
+    status: string | null;
+    status_reason: string | null;
+    visibility: string | null;
+  } | null
+) {
+  const executeTakeFirst = jest.fn(async () => row);
+  const limit = jest.fn(() => ({
+    executeTakeFirst,
+  }));
+  const select = jest.fn(() => ({
+    limit,
+  }));
+  const leftJoin = jest.fn(() => ({
+    select,
+  }));
+  const selectFrom = jest.fn(() => ({
+    leftJoin,
+  }));
+
+  return {
+    database: {
+      kysely: {
+        selectFrom,
+      },
+    },
+    executeTakeFirst,
+    leftJoin,
+    limit,
+    select,
+    selectFrom,
+  };
+}
+
 describe("PostgresTribeReadRepository", () => {
   it("returns a visible tribe when the row is readable through RLS", async () => {
     const queryBuilder = createFindBySlugDatabase([
@@ -199,23 +237,17 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("returns the current membership access and readable tribe in one database query", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          id: "tribe-1",
-          name: "Matematica Pro",
-          slug: "matematica-pro",
-          status: "active",
-          status_reason: "none",
-          visibility: "private",
-        },
-      ],
-    }));
+    const queryBuilder = createMembershipAccessWithTribeDatabase({
+      id: "tribe-1",
+      name: "Matematica Pro",
+      slug: "matematica-pro",
+      status: "active",
+      status_reason: "none",
+      visibility: "private",
+    });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
-      callback({
-        execute,
-      } as never)
+      callback(queryBuilder.database as never)
     );
 
     await expect(
@@ -233,27 +265,32 @@ describe("PostgresTribeReadRepository", () => {
       },
     });
 
-    expect(execute).toHaveBeenCalledTimes(1);
+    expect(queryBuilder.selectFrom).toHaveBeenCalledWith(expect.anything());
+    expect(queryBuilder.leftJoin).toHaveBeenCalledWith("tribes", expect.any(Function));
+    expect(queryBuilder.select).toHaveBeenCalledWith([
+      "membership_access.status",
+      "membership_access.status_reason",
+      "tribes.id",
+      "tribes.name",
+      "tribes.slug",
+      "tribes.visibility",
+    ]);
+    expect(queryBuilder.limit).toHaveBeenCalledWith(1);
+    expect(queryBuilder.executeTakeFirst).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the membership access when the tribe row is not readable", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          id: null,
-          name: null,
-          slug: null,
-          status: "active",
-          status_reason: "none",
-          visibility: null,
-        },
-      ],
-    }));
+    const queryBuilder = createMembershipAccessWithTribeDatabase({
+      id: null,
+      name: null,
+      slug: null,
+      status: "active",
+      status_reason: "none",
+      visibility: null,
+    });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
-      callback({
-        execute,
-      } as never)
+      callback(queryBuilder.database as never)
     );
 
     await expect(
