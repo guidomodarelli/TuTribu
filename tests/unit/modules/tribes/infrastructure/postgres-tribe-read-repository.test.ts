@@ -77,6 +77,32 @@ function createVisibleMembershipTribesDatabase(
   };
 }
 
+function createMembershipAccessDatabase(
+  row: {
+    status: string | null;
+    status_reason: string | null;
+  } | null
+) {
+  const executeTakeFirst = jest.fn(async () => row);
+  const select = jest.fn(() => ({
+    executeTakeFirst,
+  }));
+  const selectFrom = jest.fn(() => ({
+    select,
+  }));
+
+  return {
+    database: {
+      kysely: {
+        selectFrom,
+      },
+    },
+    executeTakeFirst,
+    select,
+    selectFrom,
+  };
+}
+
 describe("PostgresTribeReadRepository", () => {
   it("returns a visible tribe when the row is readable through RLS", async () => {
     const queryBuilder = createFindBySlugDatabase([
@@ -133,14 +159,13 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("returns the current membership access through the diagnostic function that preserves blocked-member detection", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "blocked", status_reason: "payment_blocked" }],
-    }));
+    const queryBuilder = createMembershipAccessDatabase({
+      status: "blocked",
+      status_reason: "payment_blocked",
+    });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
-      callback({
-        execute,
-      } as never)
+      callback(queryBuilder.database as never)
     );
 
     await expect(
@@ -150,18 +175,19 @@ describe("PostgresTribeReadRepository", () => {
       statusReason: "payment_blocked",
     });
 
-    expect(execute).toHaveBeenCalledTimes(1);
+    expect(queryBuilder.selectFrom).toHaveBeenCalledWith(expect.anything());
+    expect(queryBuilder.select).toHaveBeenCalledWith(["status", "status_reason"]);
+    expect(queryBuilder.executeTakeFirst).toHaveBeenCalledTimes(1);
   });
 
   it("returns owner read access through the diagnostic function", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "owner_read", status_reason: "none" }],
-    }));
+    const queryBuilder = createMembershipAccessDatabase({
+      status: "owner_read",
+      status_reason: "none",
+    });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
-      callback({
-        execute,
-      } as never)
+      callback(queryBuilder.database as never)
     );
 
     await expect(
