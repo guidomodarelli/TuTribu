@@ -10,6 +10,7 @@ const DATABASE_CONTEXT_SETTING = {
   currentUserEmail: "app.current_user_email",
   currentUserId: "app.current_user_id",
   mercadoPagoWebhookVerified: "app.mercado_pago_webhook_verified",
+  ownerEmail: "app.owner_email",
 } as const;
 const DATABASE_TRANSACTION = {
   begin: "BEGIN",
@@ -50,6 +51,7 @@ function getDatabasePool() {
 
 export async function createServerDatabaseClient() {
   const pool = getDatabasePool();
+  const { ownerEmail } = getServerDatabaseEnvironment();
 
   return {
     async withRequestContext<T>(
@@ -67,6 +69,9 @@ export async function createServerDatabaseClient() {
         );
         await database.execute(
           sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserEmail}, ${context.email ?? DATABASE_TRANSACTION.emptySettingValue}, true)`
+        );
+        await database.execute(
+          sql`select set_config(${DATABASE_CONTEXT_SETTING.ownerEmail}, ${ownerEmail}, true)`
         );
         await database.execute(
           sql`select set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : DATABASE_TRANSACTION.emptySettingValue}, true)`

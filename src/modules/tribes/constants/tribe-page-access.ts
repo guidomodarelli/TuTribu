@@ -2,6 +2,7 @@ export const TRIBE_MEMBERSHIP_STATUS = {
   active: "active",
   blocked: "blocked",
   muted: "muted",
+  ownerRead: "owner_read",
   removed: "removed",
 } as const;
 

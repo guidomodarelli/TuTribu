@@ -1,8 +1,13 @@
 import "server-only";
 
 const DATABASE_URL_ENV = "DATABASE_URL";
+const OWNER_EMAIL_ENV = "TUTRIBU_OWNER_EMAIL";
 const DATABASE_ENVIRONMENT_ERROR_MESSAGE =
   "Database environment is incomplete. Set DATABASE_URL.";
+
+function normalizeOwnerEmail(ownerEmail: string | undefined): string {
+  return ownerEmail?.trim().toLowerCase() ?? "";
+}
 
 export function getServerDatabaseEnvironment() {
   const connectionString = process.env[DATABASE_URL_ENV];
@@ -13,5 +18,6 @@ export function getServerDatabaseEnvironment() {
 
   return {
     connectionString,
+    ownerEmail: normalizeOwnerEmail(process.env[OWNER_EMAIL_ENV]),
   };
 }

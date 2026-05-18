@@ -37,6 +37,10 @@ describe("Tribe SQL guardrails", () => {
     "database/migrations/20260506110000_repair_invitation_acceptance_storage.sql";
   const removedSubscriptionMembershipStatusMigrationPath =
     "database/migrations/20260511120000_add_removed_subscription_membership_status.sql";
+  const ownerReadAccessMigrationPath =
+    "database/migrations/20260517120000_add_owner_read_access.sql";
+  const prioritizedOwnerReadAccessMigrationPath =
+    "database/migrations/20260518120000_prioritize_owner_read_access.sql";
   const drizzleMigrationJournalPath = "database/migrations/meta/_journal.json";
 
   it("enforces single-segment slugs in shared migrations", () => {
@@ -230,6 +234,70 @@ describe("Tribe SQL guardrails", () => {
     );
   });
 
+  it("allows the configured owner to read tribes without membership", () => {
+    const ownerReadAccessMigration = readWorkspaceFile(ownerReadAccessMigrationPath);
+
+    expect(ownerReadAccessMigration).toContain(
+      "CREATE OR REPLACE FUNCTION public.current_app_owner_email()"
+    );
+    expect(ownerReadAccessMigration).toContain(
+      "CREATE OR REPLACE FUNCTION public.is_app_owner()"
+    );
+    expect(ownerReadAccessMigration).toContain(
+      "public.is_app_owner()"
+    );
+    expect(ownerReadAccessMigration).toContain(
+      "CREATE POLICY \"Tribemates and owner can read tribes\""
+    );
+    expect(ownerReadAccessMigration).toContain(
+      "CREATE OR REPLACE FUNCTION public.can_read_tribe_content"
+    );
+    expect(ownerReadAccessMigration).toContain("'owner_read'");
+    expect(ownerReadAccessMigration).toContain(
+      "CREATE OR REPLACE FUNCTION public.list_visible_tribe_members_by_slug"
+    );
+  });
+
+  it("keeps owner read access out of tribe write and management helpers", () => {
+    const ownerReadAccessMigration = readWorkspaceFile(ownerReadAccessMigrationPath);
+    const activeMembershipFunctionStart = ownerReadAccessMigration.indexOf(
+      "CREATE OR REPLACE FUNCTION public.is_active_tribe_member"
+    );
+    const manageChannelFunctionStart = ownerReadAccessMigration.indexOf(
+      "CREATE OR REPLACE FUNCTION public.can_manage_tribe_channels"
+    );
+    const manageEventFunctionStart = ownerReadAccessMigration.indexOf(
+      "CREATE OR REPLACE FUNCTION public.can_manage_tribe_events"
+    );
+
+    expect(activeMembershipFunctionStart).toBe(-1);
+    expect(manageChannelFunctionStart).toBe(-1);
+    expect(manageEventFunctionStart).toBe(-1);
+  });
+
+  it("prioritizes owner read access over existing blocked memberships", () => {
+    const prioritizedOwnerReadAccessMigration = readWorkspaceFile(
+      prioritizedOwnerReadAccessMigrationPath
+    );
+    const ownerReadSelectionIndex = prioritizedOwnerReadAccessMigration.indexOf(
+      "SELECT 'owner_read', 'none'"
+    );
+    const currentMembershipSelectionIndex =
+      prioritizedOwnerReadAccessMigration.indexOf(
+        "SELECT current_membership.status, current_membership.status_reason"
+      );
+
+    expect(prioritizedOwnerReadAccessMigration).toContain(
+      "CREATE OR REPLACE FUNCTION public.get_current_tribe_membership_by_slug"
+    );
+    expect(ownerReadSelectionIndex).toBeGreaterThanOrEqual(0);
+    expect(currentMembershipSelectionIndex).toBeGreaterThanOrEqual(0);
+    expect(ownerReadSelectionIndex).toBeLessThan(currentMembershipSelectionIndex);
+    expect(prioritizedOwnerReadAccessMigration).toContain(
+      "WHERE NOT public.is_app_owner()"
+    );
+  });
+
   it("registers the visible tribe members function migration in the Drizzle journal", () => {
     const drizzleMigrationJournal = readWorkspaceFile(
       drizzleMigrationJournalPath
@@ -237,6 +305,26 @@ describe("Tribe SQL guardrails", () => {
 
     expect(drizzleMigrationJournal).toContain(
       "20260506090000_add_visible_tribe_members_function"
+    );
+  });
+
+  it("registers the owner read access migration in the Drizzle journal", () => {
+    const drizzleMigrationJournal = readWorkspaceFile(
+      drizzleMigrationJournalPath
+    );
+
+    expect(drizzleMigrationJournal).toContain(
+      "20260517120000_add_owner_read_access"
+    );
+  });
+
+  it("registers the prioritized owner read access migration in the Drizzle journal", () => {
+    const drizzleMigrationJournal = readWorkspaceFile(
+      drizzleMigrationJournalPath
+    );
+
+    expect(drizzleMigrationJournal).toContain(
+      "20260518120000_prioritize_owner_read_access"
     );
   });
 

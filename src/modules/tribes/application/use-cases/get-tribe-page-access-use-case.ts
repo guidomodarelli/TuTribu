@@ -109,7 +109,8 @@ export function getTribePageAccess({
 
     if (
       membershipStatus !== TRIBE_MEMBERSHIP_STATUS.active &&
-      membershipStatus !== TRIBE_MEMBERSHIP_STATUS.muted
+      membershipStatus !== TRIBE_MEMBERSHIP_STATUS.muted &&
+      membershipStatus !== TRIBE_MEMBERSHIP_STATUS.ownerRead
     ) {
       return {
         status: TRIBE_PAGE_ACCESS_STATUS.hidden,

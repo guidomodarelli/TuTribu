@@ -72,6 +72,25 @@ describe("PostgresTribeReadRepository", () => {
     );
   });
 
+  it("returns owner read access through the diagnostic function", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [{ status: "owner_read", status_reason: "none" }],
+    }));
+
+    const repository = new PostgresTribeReadRepository(async (callback) =>
+      callback({
+        execute,
+      } as never)
+    );
+
+    await expect(
+      repository.findCurrentMembershipAccessBySlug("matematica-pro")
+    ).resolves.toEqual({
+      status: "owner_read",
+      statusReason: "none",
+    });
+  });
+
   it("returns the current membership access and readable tribe in one database query", async () => {
     const execute = jest.fn(async () => ({
       rows: [
@@ -191,6 +210,53 @@ describe("PostgresTribeReadRepository", () => {
 
     expect(execute).toHaveBeenCalledTimes(1);
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("tribe_members.role");
+  });
+
+  it("lists every readable tribe as read-only when the current viewer is the owner", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          tribe_id: "tribe-1",
+          tribe_row_id: "tribe-1",
+          name: "Alpha Club",
+          role: "tribemate",
+          slug: "alpha-club",
+        },
+        {
+          tribe_id: "tribe-2",
+          tribe_row_id: "tribe-2",
+          name: "Beta Club",
+          role: "tribemate",
+          slug: "beta-club",
+        },
+      ],
+    }));
+
+    const repository = new PostgresTribeReadRepository(async (callback) =>
+      callback({
+        execute,
+      } as never)
+    );
+
+    await expect(repository.listVisibleMembershipTribes()).resolves.toEqual([
+      {
+        tribeId: "tribe-1",
+        name: "Alpha Club",
+        role: "tribemate",
+        slug: "alpha-club",
+      },
+      {
+        tribeId: "tribe-2",
+        name: "Beta Club",
+        role: "tribemate",
+        slug: "beta-club",
+      },
+    ]);
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain("public.is_app_owner()");
+    expect(sqlText).toContain("then 'tribemate'");
   });
 
   it("limits visible membership tribes to the current member", async () => {

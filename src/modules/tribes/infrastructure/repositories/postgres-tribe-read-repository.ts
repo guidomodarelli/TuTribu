@@ -32,7 +32,7 @@ type PostgresTribeRow = {
 
 type PostgresMembershipTribeRow = {
   tribe_id: string;
-  role: "guardian" | "tribemate" | "leader";
+  role: string | null;
   tribes: {
     id: string;
     name: string;
@@ -101,6 +101,7 @@ function normalizeMembershipStatus(
   return status === TRIBE_MEMBERSHIP_STATUS.active ||
     status === TRIBE_MEMBERSHIP_STATUS.muted ||
     status === TRIBE_MEMBERSHIP_STATUS.blocked ||
+    status === TRIBE_MEMBERSHIP_STATUS.ownerRead ||
     status === TRIBE_MEMBERSHIP_STATUS.removed
     ? status
     : null;
@@ -252,19 +253,23 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         select
-          tribe_members.tribe_id,
-          tribe_members.role,
+          tribes.id as tribe_id,
+          case
+            when public.is_app_owner() then 'tribemate'
+            else tribe_members.role
+          end as role,
           tribes.id as tribe_row_id,
           tribes.name,
           tribes.slug
-        from public.tribe_members
-        inner join public.tribes
-          on tribes.id = tribe_members.tribe_id
-        where tribe_members.status in (
-          ${TRIBE_MEMBERSHIP_STATUS.active},
-          ${TRIBE_MEMBERSHIP_STATUS.muted}
-        )
+        from public.tribes
+        left join public.tribe_members
+          on tribe_members.tribe_id = tribes.id
           and tribe_members.user_id = public.current_app_user_id()
+        where public.is_app_owner()
+          or tribe_members.status in (
+            ${TRIBE_MEMBERSHIP_STATUS.active},
+            ${TRIBE_MEMBERSHIP_STATUS.muted}
+          )
         order by tribes.name asc
       `);
 
@@ -279,7 +284,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           membershipTribes.push({
             tribeId: row.tribe_row_id ?? row.tribe_id,
             name: row.name,
-            role: row.role,
+            role: normalizeTribeMemberRole(row.role),
             slug: row.slug,
           });
         }

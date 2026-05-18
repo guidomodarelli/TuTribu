@@ -2,7 +2,12 @@ import type { Tribe } from "@/src/modules/tribes/domain/entities/tribe";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
 
-export type TribeMembershipStatus = "active" | "muted" | "blocked" | "removed";
+export type TribeMembershipStatus =
+  | "active"
+  | "muted"
+  | "blocked"
+  | "owner_read"
+  | "removed";
 export type TribeMembershipStatusReason =
   | "none"
   | "conduct_blocked"

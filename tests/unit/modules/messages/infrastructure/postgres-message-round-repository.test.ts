@@ -300,6 +300,76 @@ describe("PostgresMessageRoundRepository", () => {
     });
   });
 
+  it("keeps owner readers without membership in read-only mode", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: channelRows })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            channel_access_scope: "tribemates",
+            channel_emoji: "🔥",
+            channel_id: "channel-ronda",
+            channel_name: "Ronda",
+            channel_slug: "ronda",
+            channel_sort_order: 20,
+            message_id: "message-1",
+            message_content: "Read-only update",
+            message_created_at: "2026-04-26T12:00:00.000Z",
+            message_title: "Read-only",
+            author_id: "member-1",
+            author_name: "Grace Hopper",
+            author_image: null,
+            author_role: "tribemate",
+            like_count: "0",
+            message_pinned_at: null,
+            reply_id: null,
+            reply_content: null,
+            reply_created_at: null,
+            reply_author_id: null,
+            reply_author_name: null,
+            reply_author_image: null,
+            reply_author_role: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            liked_message_ids: [],
+            selected_poll_option_ids: [],
+            viewer_membership_role: null,
+            viewer_membership_status: null,
+          },
+        ],
+      });
+    const repository = new PostgresMessageRoundRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listByTribeSlug({
+        tribeSlug: "matematica-pro",
+        viewerId: "owner-1",
+      })
+    ).resolves.toMatchObject({
+      viewerPermissions: {
+        canCreateMessage: false,
+        canPinMessages: false,
+        canReact: false,
+        canReply: false,
+      },
+      messages: [
+        {
+          id: "message-1",
+          permissions: {
+            canDelete: false,
+          },
+        },
+      ],
+    });
+  });
+
   it("uses preaggregated like counts without joining replies", async () => {
     const execute = jest
       .fn()

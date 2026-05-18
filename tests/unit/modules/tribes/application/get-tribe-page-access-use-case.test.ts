@@ -158,6 +158,43 @@ describe("getTribePageAccess", () => {
     });
   });
 
+  it("returns the visible tribe for owner readers without membership", async () => {
+    const execute = getTribePageAccess({
+      tribeReadRepository: {
+        findBySlug: jest.fn(),
+        findCurrentMembershipAccessWithTribeBySlug: jest.fn(async () => ({
+          membershipAccess: {
+            status: "owner_read" as const,
+            statusReason: "none" as const,
+          },
+          tribe: {
+            id: "tribe-1",
+            name: "Matematica Pro",
+            slug: "matematica-pro",
+            visibility: "private" as const,
+          },
+        })),
+        findCurrentMembershipStatusBySlug: jest.fn(),
+        listVisibleMembershipTribes: jest.fn(),
+      },
+    });
+
+    await expect(
+      execute({
+        isAuthenticated: true,
+        slug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "visible",
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+  });
+
   it("hides private tribes when the authenticated viewer has no membership", async () => {
     const execute = getTribePageAccess({
       tribeReadRepository: {
