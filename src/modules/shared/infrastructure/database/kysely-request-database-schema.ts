@@ -41,14 +41,32 @@ type TribeMembersTable = {
 
 type TribeSubscriptionPricesTable = {
   amount_cents: number;
+  created_at: TimestampColumn;
+  created_by: string;
   currency: string;
+  deleted_at: TimestampColumn | null;
   frequency: string;
   id: Generated<string>;
   is_current: boolean;
   mercado_pago_preapproval_plan_id: string | null;
   name: string;
   status: string;
+  trial_frequency: number | null;
+  trial_frequency_type: string | null;
   tribe_id: string;
+};
+
+type TribeMemberSubscriptionsTable = {
+  created_at: TimestampColumn;
+  current_period_end: TimestampColumn | null;
+  id: Generated<string>;
+  mercado_pago_preapproval_id: string | null;
+  price_id: string;
+  status: string;
+  status_reason: string;
+  tribe_id: string;
+  updated_at: TimestampColumn;
+  user_id: string;
 };
 
 type TribePaymentIntegrationsTable = {
@@ -154,6 +172,17 @@ type EventsTable = {
   updated_at: TimestampColumn;
 };
 
+type SubscriptionIdempotencyOperationsTable = {
+  created_at: TimestampColumn;
+  id: Generated<string>;
+  operation_key: string;
+  operation_type: string;
+  payload_hash: string;
+  response_body: unknown;
+  tribe_id: string | null;
+  user_id: string | null;
+};
+
 type UsersTable = {
   createdAt: TimestampColumn;
   email: string;
@@ -173,9 +202,11 @@ export type KyselyRequestDatabaseSchema = {
   message_reactions: MessageReactionsTable;
   message_replies: MessageRepliesTable;
   messages: MessagesTable;
+  subscription_idempotency_operations: SubscriptionIdempotencyOperationsTable;
   tribe_creator_whitelist: TribeCreatorWhitelistTable;
   tribe_channels: TribeChannelsTable;
   tribe_invitations: TribeInvitationsTable;
+  tribe_member_subscriptions: TribeMemberSubscriptionsTable;
   tribe_members: TribeMembersTable;
   tribe_payment_integrations: TribePaymentIntegrationsTable;
   tribe_subscription_prices: TribeSubscriptionPricesTable;

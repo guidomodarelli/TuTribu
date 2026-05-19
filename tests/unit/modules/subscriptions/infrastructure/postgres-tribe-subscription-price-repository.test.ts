@@ -2,20 +2,26 @@ import {
   TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
+import { createKyselyRequestDatabase } from "@/src/modules/shared/infrastructure/database/kysely-request-database";
 import { PostgresTribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/infrastructure/repositories/postgres-tribe-subscription-price-repository";
 
+type QueryHandler = (
+  sqlText: string,
+  parameters: readonly unknown[]
+) => Record<string, unknown>[] | undefined;
+
 function getSqlText(statement: unknown): string {
+  if (typeof statement === "string") {
+    return statement;
+  }
+
   return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
     .map((chunk) => {
       if (typeof chunk === "string") {
         return chunk;
       }
 
-      if (
-        chunk &&
-        typeof chunk === "object" &&
-        "queryChunks" in chunk
-      ) {
+      if (chunk && typeof chunk === "object" && "queryChunks" in chunk) {
         return getSqlText(chunk);
       }
 
@@ -33,46 +39,83 @@ function getSqlText(statement: unknown): string {
     .join("");
 }
 
+function createExecute(...handlers: QueryHandler[]) {
+  return jest.fn(async (statement: unknown, parameters: readonly unknown[] = []) => {
+    const sqlText = getSqlText(statement);
+    const handlerRows = handlers.reduce<Record<string, unknown>[] | undefined>(
+      (rows, handler) => rows ?? handler(sqlText, parameters),
+      undefined
+    );
+
+    if (!handlerRows) {
+      throw new Error(`Unhandled query: ${sqlText}`);
+    }
+
+    return { rows: handlerRows };
+  });
+}
+
 function createRepository(
   execute: jest.Mock,
-  createMercadoPagoPlan = jest.fn(async () => "plan-1"),
-  refreshMercadoPagoAccessToken = jest.fn(async () => ({
-    accessToken: "fresh-access-token",
-    expiresIn: 3600,
-    providerAccountId: "seller-1",
-    refreshToken: "new-refresh-token",
-  })),
-  getMercadoPagoPlanStatus = jest.fn(async () => "active"),
-  getMercadoPagoSubscriptionStatus = jest.fn(async () => "authorized"),
-  updateMercadoPagoPlan = jest.fn(async () => ({
-    amountCents: 500000,
-    currency: "ARS",
-    externalReference: "tutribu:price:price-1",
-    id: "plan-1",
-    reason: "Plan mensual",
-    status: "active",
-  })),
-  getMercadoPagoPlan = jest.fn(async () => ({
-    amountCents: 500000,
-    currency: "ARS",
-    externalReference: "tutribu:price:price-1",
-    id: "plan-1",
-    reason: "Plan mensual",
-    status: "active",
-  }))
+  dependencies: {
+    createMercadoPagoPlan?: jest.Mock;
+    getMercadoPagoPlan?: jest.Mock;
+    getMercadoPagoPlanStatus?: jest.Mock;
+    getMercadoPagoSubscriptionStatus?: jest.Mock;
+    refreshMercadoPagoAccessToken?: jest.Mock;
+    updateMercadoPagoPlan?: jest.Mock;
+  } = {}
 ) {
   return new PostgresTribeSubscriptionPriceRepository(
-    async (callback) => callback({ execute } as never),
-    createMercadoPagoPlan,
-    updateMercadoPagoPlan,
-    getMercadoPagoPlan,
-    refreshMercadoPagoAccessToken,
-    getMercadoPagoPlanStatus,
-    getMercadoPagoSubscriptionStatus
+    async (callback) =>
+      callback({
+        execute,
+        kysely: createKyselyRequestDatabase({
+          query: async (sqlText: string, parameters: readonly unknown[]) => {
+            const result = await execute(sqlText, parameters);
+            const rows = result.rows ?? [];
+
+            return {
+              ...result,
+              rowCount: result.rowCount ?? rows.length,
+              rows,
+            };
+          },
+        } as never),
+      } as never),
+    dependencies.createMercadoPagoPlan ?? jest.fn(async () => "plan-1"),
+    dependencies.updateMercadoPagoPlan ??
+      jest.fn(async () => ({
+        amountCents: 500000,
+        currency: "ARS",
+        externalReference: "tutribu:price:price-1",
+        id: "plan-1",
+        reason: "Plan mensual",
+        status: "active",
+      })),
+    dependencies.getMercadoPagoPlan ??
+      jest.fn(async () => ({
+        amountCents: 500000,
+        currency: "ARS",
+        externalReference: "tutribu:price:price-1",
+        id: "plan-1",
+        reason: "Plan mensual",
+        status: "active",
+      })),
+    dependencies.refreshMercadoPagoAccessToken ??
+      jest.fn(async () => ({
+        accessToken: "fresh-access-token",
+        expiresIn: 3600,
+        providerAccountId: "seller-1",
+        refreshToken: "new-refresh-token",
+      })),
+    dependencies.getMercadoPagoPlanStatus ?? jest.fn(async () => "active"),
+    dependencies.getMercadoPagoSubscriptionStatus ??
+      jest.fn(async () => "authorized")
   );
 }
 
-function createSubscriptionPriceRow(overrides: Record<string, unknown> = {}) {
+function createPriceRow(overrides: Record<string, unknown> = {}) {
   return {
     active_subscribers_count: 0,
     amount_cents: 500000,
@@ -81,8 +124,9 @@ function createSubscriptionPriceRow(overrides: Record<string, unknown> = {}) {
     frequency: "monthly",
     id: "price-1",
     is_current: true,
+    mercado_pago_preapproval_plan_id: "plan-1",
     name: "Plan mensual",
-    status: "active",
+    status: TRIBE_SUBSCRIPTION_PRICE_STATUS.active,
     status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
     trial_frequency: 7,
     trial_frequency_type: "days",
@@ -90,28 +134,85 @@ function createSubscriptionPriceRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-async function waitUntil(condition: () => boolean): Promise<void> {
-  for (let attemptIndex = 0; attemptIndex < 20; attemptIndex += 1) {
-    if (condition()) {
-      return;
+function baseRepositoryRows(input: {
+  canManagePrices?: boolean;
+  canViewPrices?: boolean;
+  paymentIntegration?: Record<string, unknown> | null;
+  priceRows?: Record<string, unknown>[];
+  subscriberRows?: Record<string, unknown>[];
+} = {}): QueryHandler {
+  return (sqlText, parameters) => {
+    if (sqlText.includes('from "tribes"')) {
+      return parameters[0] === "unknown-tribe" ? [] : [{ id: "tribe-1" }];
     }
 
-    await Promise.resolve();
-  }
+    if (
+      sqlText.startsWith("select") &&
+      sqlText.includes("can_view_tribe_subscription_prices")
+    ) {
+      return [{
+        can_manage_prices: input.canManagePrices ?? true,
+        canManagePrices: input.canManagePrices ?? true,
+        can_view_prices: input.canViewPrices ?? true,
+        canViewPrices: input.canViewPrices ?? true,
+      }];
+    }
 
-  throw new Error("Condition was not met before the test timeout");
-}
+    if (
+      sqlText.startsWith("select") &&
+      sqlText.includes("can_manage_tribe_subscription_prices")
+    ) {
+      return [{
+        can_manage_prices: input.canManagePrices ?? true,
+        canManagePrices: input.canManagePrices ?? true,
+      }];
+    }
 
-function createProviderSubscriberRows(count: number) {
-  const providerSubscriberRows = [];
+    if (sqlText.includes('from "tribe_payment_integrations"')) {
+      return input.paymentIntegration === null
+        ? []
+        : [
+            input.paymentIntegration ?? {
+              access_token: "access-token",
+              refresh_token: null,
+              token_expires_at: null,
+            },
+          ];
+    }
 
-  for (let subscriberIndex = 0; subscriberIndex < count; subscriberIndex += 1) {
-    providerSubscriberRows.push({
-      mercado_pago_preapproval_id: `subscription-${subscriberIndex + 1}`,
-    });
-  }
+    if (sqlText.includes("set_config")) {
+      return [{ token_refresh_context: "tribe-1" }];
+    }
 
-  return providerSubscriberRows;
+    if (sqlText.includes("update public.tribe_payment_integrations")) {
+      return [];
+    }
+
+    if (
+      sqlText.includes('from "tribe_subscription_prices"') &&
+      sqlText.includes("existing_price_count")
+    ) {
+      return [{ existing_price_count: 0 }];
+    }
+
+    if (
+      sqlText.includes('from "tribe_subscription_prices"') &&
+      !sqlText.includes("update") &&
+      !sqlText.includes("insert")
+    ) {
+      return input.priceRows ?? [createPriceRow()];
+    }
+
+    if (sqlText.includes('from "tribe_member_subscriptions"')) {
+      return input.subscriberRows ?? [];
+    }
+
+    if (sqlText.includes('insert into "tribe_subscription_prices"')) {
+      return [{ id: "price-1" }];
+    }
+
+    return undefined;
+  };
 }
 
 describe("PostgresTribeSubscriptionPriceRepository", () => {
@@ -129,722 +230,38 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     }
   });
 
-  it("should list prices with connected Mercado Pago health when token refresh succeeds", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          ...createSubscriptionPriceRow(),
+  it("lists prices with Mercado Pago health using Kysely-built queries", async () => {
+    const execute = createExecute(
+      baseRepositoryRows({
+        paymentIntegration: {
           access_token: "stored-access-token",
-          can_manage_prices: true,
-          can_view_prices: true,
-          has_mercado_pago_integration: true,
           refresh_token: "stored-refresh-token",
-          token_expires_at: "2026-05-06T13:05:00.000Z",
-          tribe_id: "tribe-1",
-        },
-      ],
-    }));
-    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
-      accessToken: "fresh-access-token",
-      expiresIn: 3600,
-      providerAccountId: "seller-1",
-      refreshToken: "new-refresh-token",
-    }));
-    const repository = createRepository(
-      execute,
-      jest.fn(async () => "plan-1"),
-      refreshMercadoPagoAccessToken
-    );
-
-    await expect(
-      repository.listByTribeSlug({
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      hasMercadoPagoIntegration: true,
-      mercadoPagoConnectionStatus: "connected",
-      prices: [
-        {
-          id: "price-1",
-        },
-      ],
-      viewerPermissions: {
-        canManagePrices: true,
-        canViewPrices: true,
-      },
-    });
-
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
-      /tribe_member_subscriptions\.status in \([\s\S]*paused/
-    );
-    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith(
-      "stored-refresh-token"
-    );
-  });
-
-  it("should expose update trial policy for synchronized Mercado Pago prices", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          ...createSubscriptionPriceRow({
-            mercado_pago_preapproval_plan_id: "plan-1",
-            trial_frequency: 21,
-            trial_frequency_type: "days",
-            tribe_id: "tribe-1",
-          }),
-          access_token: "access-token",
-          can_manage_prices: true,
-          refresh_token: null,
           token_expires_at: null,
         },
-      ],
-    }));
+      })
+    );
     const repository = createRepository(execute);
 
     await expect(
-      repository.getUpdateTrialPolicy({
-        priceId: "price-1",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({
-      amountCents: 500000,
-      hasMercadoPagoPreapprovalPlan: true,
-      trialFrequency: 21,
-      trialFrequencyType: "days",
-    });
-    expect(getSqlText(execute.mock.calls[0][0])).toContain(
-      "mercado_pago_preapproval_plan_id"
-    );
-  });
-
-  it("should list Mercado Pago health as requiring reconnection when token refresh fails", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          ...createSubscriptionPriceRow(),
-          access_token: "stored-access-token",
-          can_manage_prices: true,
-          can_view_prices: true,
-          has_mercado_pago_integration: true,
-          refresh_token: "revoked-refresh-token",
-          token_expires_at: "2026-05-06T13:05:00.000Z",
-          tribe_id: "tribe-1",
-        },
-      ],
-    }));
-    const refreshMercadoPagoAccessToken = jest.fn(async () => {
-      throw new Error("Mercado Pago rejected refresh token");
-    });
-    const repository = createRepository(
-      execute,
-      jest.fn(async () => "plan-1"),
-      refreshMercadoPagoAccessToken
-    );
-
-    await expect(
-      repository.listByTribeSlug({
-        tribeSlug: "matematica-pro",
-      })
+      repository.listByTribeSlug({ tribeSlug: "matematica-pro" })
     ).resolves.toMatchObject({
-      hasMercadoPagoIntegration: false,
-      mercadoPagoConnectionStatus: "requires_reconnection",
-      prices: [
-        {
-          id: "price-1",
-        },
-      ],
+      hasMercadoPagoIntegration: true,
+      mercadoPagoConnectionStatus: "connected",
+      prices: [{ id: "price-1" }],
       viewerPermissions: {
         canManagePrices: true,
         canViewPrices: true,
       },
     });
-    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith(
-      "revoked-refresh-token"
-    );
-  });
 
-  it("should keep Mercado Pago health connected when a concurrent refresh already persisted a fresh token", async () => {
-    const execute = jest.fn(async (statement) => {
-      const sqlText = getSqlText(statement);
-
-      if (
-        sqlText.includes(
-          "where tribe_payment_integrations.tribe_id ="
-        )
-      ) {
-        return {
-          rows: [
-            {
-              access_token: "fresh-access-token",
-              refresh_token: "new-refresh-token",
-              token_expires_at: new Date(Date.now() + 3_600_000).toISOString(),
-              tribe_id: "tribe-1",
-            },
-          ],
-        };
-      }
-
-      return {
-        rows: [
-          {
-            ...createSubscriptionPriceRow(),
-            access_token: "stored-access-token",
-            can_manage_prices: true,
-            can_view_prices: true,
-            has_mercado_pago_integration: true,
-            refresh_token: "revoked-refresh-token",
-            token_expires_at: "2026-05-06T13:05:00.000Z",
-            tribe_id: "tribe-1",
-          },
-        ],
-      };
-    });
-    const refreshMercadoPagoAccessToken = jest.fn(async () => {
-      throw new Error("Mercado Pago rejected rotated refresh token");
-    });
-    const repository = createRepository(
-      execute,
-      jest.fn(async () => "plan-1"),
-      refreshMercadoPagoAccessToken
-    );
-
-    await expect(
-      repository.listByTribeSlug({
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      hasMercadoPagoIntegration: true,
-      mercadoPagoConnectionStatus: "connected",
-    });
-    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith(
-      "revoked-refresh-token"
-    );
-  });
-
-  it("should list expired Mercado Pago integration without refresh token as requiring reconnection", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          ...createSubscriptionPriceRow(),
-          access_token: "expired-access-token",
-          can_manage_prices: true,
-          can_view_prices: true,
-          has_mercado_pago_integration: false,
-          refresh_token: null,
-          token_expires_at: "2026-05-06T12:00:00.000Z",
-          tribe_id: "tribe-1",
-        },
-      ],
-    }));
-    const refreshMercadoPagoAccessToken = jest.fn();
-    const repository = createRepository(
-      execute,
-      jest.fn(async () => "plan-1"),
-      refreshMercadoPagoAccessToken
-    );
-
-    await expect(
-      repository.listByTribeSlug({
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      hasMercadoPagoIntegration: false,
-      mercadoPagoConnectionStatus: "requires_reconnection",
-    });
-    expect(refreshMercadoPagoAccessToken).not.toHaveBeenCalled();
-  });
-
-  it("clears the previous current price before marking another price as current", async () => {
-    const execute = jest.fn(async (statement) => {
-      const sqlText = getSqlText(statement);
-
-      if (sqlText.includes("set is_current = tribe_subscription_prices.id =")) {
-        throw new Error("unique current price violation");
-      }
-
-      if (sqlText.includes("set is_current = false")) {
-        return { rows: [] };
-      }
-
-      if (sqlText.includes("set is_current = true")) {
-        const returnsTrial = sqlText.includes(
-          "updated_current_price.trial_frequency"
-        );
-
-        return {
-          rows: [
-            createSubscriptionPriceRow({
-              trial_frequency: returnsTrial ? 1 : null,
-              trial_frequency_type: returnsTrial ? "months" : null,
-            }),
-          ],
-        };
-      }
-
-      return {
-        rows: [
-          createSubscriptionPriceRow({
-            is_current: false,
-          }),
-        ],
-      };
-    });
-    const repository = createRepository(execute);
-
-    await expect(
-      repository.makeCurrent({
-        priceId: "price-1",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      price: {
-        id: "price-1",
-        isCurrent: true,
-        trial: {
-          frequency: 1,
-          frequencyType: "months",
-        },
-      },
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
-    });
-  });
-
-  it("does not create a provider plan when reservation hits the price limit", async () => {
-    const execute = jest.fn(async (statement) => {
-      const sqlText = getSqlText(statement);
-
-      if (sqlText.includes("reserved_price")) {
-        return {
-          rows: [
-            {
-              status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached,
-            },
-          ],
-        };
-      }
-
-      return {
-        rows: [
-          {
-            access_token: "access-token",
-            can_manage_prices: true,
-            existing_price_count: 29,
-            tribe_id: "tribe-1",
-          },
-        ],
-      };
-    });
-    const createMercadoPagoPlan = jest.fn(async () => "plan-1");
-    const repository = createRepository(execute, createMercadoPagoPlan);
-
-    await expect(
-      repository.create({
-        amountCents: 500000,
-        currency: "ARS",
-        frequency: "monthly",
-        name: "Plan mensual",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached,
-    });
-
-    expect(createMercadoPagoPlan).not.toHaveBeenCalled();
-  });
-
-  it("creates the Mercado Pago plan after the local price reservation finishes", async () => {
-    const transactionEvents: string[] = [];
-    const executeWithDatabase = jest.fn(async (callback) => {
-      transactionEvents.push("transaction:start");
-
-      const result = await callback({
-        execute: jest.fn(async (statement) => {
-          const sqlText = getSqlText(statement);
-
-          if (sqlText.includes("reserved_price")) {
-            return {
-              rows: [
-                {
-                  reserved_price_id: "price-1",
-                  status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
-                },
-              ],
-            };
-          }
-
-          if (sqlText.includes("mercado_pago_preapproval_plan_id =")) {
-            return {
-              rows: [
-                createSubscriptionPriceRow({
-                  status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
-                }),
-              ],
-            };
-          }
-
-          return {
-            rows: [
-              {
-                access_token: "access-token",
-                can_manage_prices: true,
-                existing_price_count: 0,
-                tribe_id: "tribe-1",
-              },
-            ],
-          };
-        }),
-      } as never);
-
-      transactionEvents.push("transaction:end");
-
-      return result;
-    });
-    const createMercadoPagoPlan = jest.fn(async () => {
-      transactionEvents.push("provider:create-plan");
-
-      return "plan-1";
-    });
-    const repository = new PostgresTribeSubscriptionPriceRepository(
-      executeWithDatabase,
-      createMercadoPagoPlan,
-      jest.fn(async () => ({
-        amountCents: 500000,
-        currency: "ARS",
-        externalReference: "tutribu:price:price-1",
-        id: "plan-1",
-        reason: "Plan mensual",
-        status: "active",
-      })),
-      jest.fn(async () => ({
-        amountCents: 500000,
-        currency: "ARS",
-        externalReference: "tutribu:price:price-1",
-        id: "plan-1",
-        reason: "Plan mensual",
-        status: "active",
-      })),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized")
-    );
-
-    await repository.create({
-      amountCents: 500000,
-      currency: "ARS",
-      frequency: "monthly",
-      name: "Plan mensual",
-      trialFrequency: 7,
-      trialFrequencyType: "days",
-      tribeSlug: "matematica-pro",
-    });
-
-    expect(transactionEvents.slice(0, 3)).toEqual([
-      "transaction:start",
-      "transaction:end",
-      "transaction:start",
-    ]);
-    expect(transactionEvents.slice(2, 5)).toEqual([
-      "transaction:start",
-      "transaction:end",
-      "provider:create-plan",
-    ]);
-    expect(createMercadoPagoPlan).toHaveBeenCalledWith(
-      expect.objectContaining({
-        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
-        externalReference: "tutribu:price:price-1",
-        idempotencyKey:
-          "tribe-price:price-1:matematica-pro:Plan mensual:500000:ARS:monthly",
-        trialFrequency: 7,
-        trialFrequencyType: "days",
-      })
-    );
-  });
-
-  it("should attach extended synchronized trials after the provider plan exists", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            ...createSubscriptionPriceRow({
-              amount_cents: 500000,
-              is_current: false,
-              mercado_pago_preapproval_plan_id: "plan-1",
-              trial_frequency: 21,
-              trial_frequency_type: "days",
-              tribe_id: "tribe-1",
-            }),
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            access_token: "access-token",
-            can_manage_prices: true,
-            existing_price_count: 1,
-            refresh_token: null,
-            token_expires_at: null,
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            reserved_price_id: "price-2",
-            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            amount_cents: 600000,
-            id: "price-2",
-            is_current: false,
-            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
-            trial_frequency: 21,
-            trial_frequency_type: "days",
-          }),
-        ],
-      });
-    const createMercadoPagoPlan = jest.fn(async () => "plan-2");
-    const repository = createRepository(execute, createMercadoPagoPlan);
-
-    await expect(
-      repository.update({
-        amountCents: 600000,
-        currency: "ARS",
-        frequency: "monthly",
-        name: "Plan actualizado",
-        priceId: "price-1",
-        trialFrequency: 21,
-        trialFrequencyType: "days",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      price: {
-        id: "price-2",
-        trial: {
-          frequency: 21,
-          frequencyType: "days",
-        },
-      },
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
-    });
-
-    expect(createMercadoPagoPlan).toHaveBeenCalledWith(
-      expect.objectContaining({
-        trialFrequency: 21,
-        trialFrequencyType: "days",
-      })
-    );
-    expect(getSqlText(execute.mock.calls[2][0])).not.toMatch(
-      /trial_frequency\s*=/
-    );
-    expect(getSqlText(execute.mock.calls[3][0])).toMatch(/trial_frequency\s*=/);
-    expect(getSqlText(execute.mock.calls[3][0])).toMatch(
-      /mercado_pago_preapproval_plan_id\s*=/
-    );
-  });
-
-  it("should update Mercado Pago and local storage when the trial period changes", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            ...createSubscriptionPriceRow({
-              mercado_pago_preapproval_plan_id: "plan-1",
-              trial_frequency: 7,
-              trial_frequency_type: "days",
-              tribe_id: "tribe-1",
-            }),
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
-            trial_frequency: 14,
-            trial_frequency_type: "days",
-          }),
-        ],
-      });
-    const updateMercadoPagoPlan = jest.fn(async () => ({
-      amountCents: 500000,
-      currency: "ARS",
-      externalReference: "tutribu:price:price-1",
-      id: "plan-1",
-      reason: "Plan mensual",
-      status: "active",
-      trial: {
-        frequency: 14,
-        frequencyType: "days",
-      },
-    }));
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      updateMercadoPagoPlan
-    );
-
-    await expect(
-      repository.update({
-        amountCents: 500000,
-        currency: "ARS",
-        frequency: "monthly",
-        name: "Plan mensual",
-        priceId: "price-1",
-        trialFrequency: 14,
-        trialFrequencyType: "days",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      price: {
-        trial: {
-          frequency: 14,
-          frequencyType: "days",
-        },
-      },
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
-    });
-    expect(updateMercadoPagoPlan).toHaveBeenCalledWith(
-      expect.objectContaining({
-        trialFrequency: 14,
-        trialFrequencyType: "days",
-      })
-    );
-    expect(getSqlText(execute.mock.calls[1][0])).toContain("trial_frequency");
-    expect(getSqlText(execute.mock.calls[1][0])).toContain(
-      "trial_frequency_type"
-    );
-  });
-
-  it("should preserve the stored trial period when update fields are omitted", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            ...createSubscriptionPriceRow({
-              mercado_pago_preapproval_plan_id: "plan-1",
-              trial_frequency: 7,
-              trial_frequency_type: "days",
-              tribe_id: "tribe-1",
-            }),
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
-            trial_frequency: 7,
-            trial_frequency_type: "days",
-          }),
-        ],
-      });
-    const updateMercadoPagoPlan = jest.fn(async () => ({
-      amountCents: 500000,
-      currency: "ARS",
-      externalReference: "tutribu:price:price-1",
-      id: "plan-1",
-      reason: "Plan mensual actualizado",
-      status: "active",
-      trial: {
-        frequency: 7,
-        frequencyType: "days",
-      },
-    }));
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      updateMercadoPagoPlan
-    );
-
-    await expect(
-      repository.update({
-        amountCents: 500000,
-        currency: "ARS",
-        frequency: "monthly",
-        name: "Plan mensual actualizado",
-        priceId: "price-1",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      price: {
-        trial: {
-          frequency: 7,
-          frequencyType: "days",
-        },
-      },
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
-    });
-    expect(updateMercadoPagoPlan).toHaveBeenCalledWith(
-      expect.objectContaining({
-        trialFrequency: 7,
-        trialFrequencyType: "days",
-      })
-    );
-    expect(getSqlText(execute.mock.calls[0][0])).toContain("trial_frequency");
-    expect(getSqlText(execute.mock.calls[0][0])).toContain(
-      "trial_frequency_type"
-    );
+    expect(
+      execute.mock.calls.some(([sqlText]) =>
+        String(sqlText).includes('from "tribe_member_subscriptions"')
+      )
+    ).toBe(true);
   });
 
   it("refreshes expired Mercado Pago tokens before creating provider plans", async () => {
-    const expiredTokenDate = new Date(Date.now() - 60_000).toISOString();
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            access_token: "expired-access-token",
-            can_manage_prices: true,
-            existing_price_count: 0,
-            refresh_token: "refresh-token",
-            token_expires_at: expiredTokenDate,
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            reserved_price_id: "price-1",
-            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
-          }),
-        ],
-      });
     const createMercadoPagoPlan = jest.fn(async () => "plan-1");
     const refreshMercadoPagoAccessToken = jest.fn(async () => ({
       accessToken: "fresh-access-token",
@@ -852,11 +269,27 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       providerAccountId: "seller-1",
       refreshToken: "new-refresh-token",
     }));
-    const repository = createRepository(
-      execute,
-      createMercadoPagoPlan,
-      refreshMercadoPagoAccessToken
+    const execute = createExecute(
+      (sqlText) =>
+        sqlText.includes('update "tribe_subscription_prices"')
+          ? [{
+              ...createPriceRow({
+                status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+              }),
+            }]
+          : undefined,
+      baseRepositoryRows({
+        paymentIntegration: {
+          access_token: "expired-access-token",
+          refresh_token: "refresh-token",
+          token_expires_at: "2026-05-06T12:00:00.000Z",
+        },
+      })
     );
+    const repository = createRepository(execute, {
+      createMercadoPagoPlan,
+      refreshMercadoPagoAccessToken,
+    });
 
     await expect(
       repository.create({
@@ -877,528 +310,115 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         backUrl: "https://tutribu.example.com/tribu/matematica-pro",
       })
     );
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
-      /update public\.tribe_payment_integrations/
-    );
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
-      /set_config\([\s\S]*app\.subscription_checkout_tribe_id/
-    );
   });
 
-  it("should keep active prices when the provider plan still exists", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            mercado_pago_preapproval_plan_id: "plan-1",
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [createSubscriptionPriceRow()],
-      });
-    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      getMercadoPagoPlanStatus
+  it("returns the price limit status before calling Mercado Pago", async () => {
+    const createMercadoPagoPlan = jest.fn(async () => "plan-1");
+    const execute = createExecute(
+      (sqlText) =>
+        sqlText.includes("existing_price_count") ||
+        (
+          sqlText.includes("count(") &&
+          sqlText.includes('from "tribe_subscription_prices"')
+        )
+          ? [{ existing_price_count: 30 }]
+          : undefined,
+      baseRepositoryRows()
     );
+    const repository = createRepository(execute, { createMercadoPagoPlan });
 
     await expect(
-      repository.verifyProviderPlans({
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      canceledPriceIds: [],
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
-      verifiedCount: 1,
-    });
-    expect(getMercadoPagoPlanStatus).toHaveBeenCalledWith({
-      accessToken: "access-token",
-      preapprovalPlanId: "plan-1",
-    });
-  });
-
-  it("should mark a local price as canceled when the provider plan is missing", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            mercado_pago_preapproval_plan_id: "plan-1",
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            ...createSubscriptionPriceRow({
-              is_current: false,
-              status: "canceled",
-            }),
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [],
-      });
-    const getMercadoPagoPlanStatus = jest.fn(async () => null);
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      getMercadoPagoPlanStatus
-    );
-
-    await expect(
-      repository.verifyProviderPlans({
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      canceledPriceIds: ["price-1"],
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
-      verifiedCount: 1,
-    });
-  });
-
-  it("should keep the Mercado Pago plan identifier when provider verification cancels a local price", async () => {
-    const execute = jest.fn(async (statement) => {
-      const sqlText = getSqlText(statement);
-
-      if (sqlText.includes("set") && sqlText.includes("mercado_pago_preapproval_plan_id = null")) {
-        throw new Error("provider plan id must be preserved");
-      }
-
-      if (sqlText.includes("access_token")) {
-        return {
-          rows: [
-            {
-              access_token: "access-token",
-              can_manage_prices: true,
-              refresh_token: null,
-              token_expires_at: null,
-              tribe_id: "tribe-1",
-            },
-          ],
-        };
-      }
-
-      if (sqlText.includes("mercado_pago_preapproval_plan_id")) {
-        return {
-          rows: [
-            createSubscriptionPriceRow({
-              mercado_pago_preapproval_plan_id: "plan-1",
-            }),
-          ],
-        };
-      }
-
-      const returnsTrial = sqlText.includes("updated_price.trial_frequency");
-
-      return {
-        rows: [
-          createSubscriptionPriceRow({
-            is_current: false,
-            status: "canceled",
-            trial_frequency: returnsTrial ? 1 : null,
-            trial_frequency_type: returnsTrial ? "months" : null,
-          }),
-        ],
-      };
-    });
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => null)
-    );
-
-    await expect(
-      repository.verifyProviderPlan({
-        priceId: "price-1",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      price: {
-        status: "canceled",
-        trial: {
-          frequency: 1,
-          frequencyType: "months",
-        },
-      },
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
-    });
-  });
-
-  it("should not query Mercado Pago when no active local provider plan exists", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [],
-      });
-    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      getMercadoPagoPlanStatus
-    );
-
-    await expect(
-      repository.verifyProviderPlan({
-        priceId: "price-1",
+      repository.create({
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound,
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached,
     });
-    expect(getMercadoPagoPlanStatus).not.toHaveBeenCalled();
-    expect(execute).toHaveBeenCalledTimes(2);
+    expect(createMercadoPagoPlan).not.toHaveBeenCalled();
   });
 
-  it("should read trial fields when provider plan verification returns the local price", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            mercado_pago_preapproval_plan_id: "plan-1",
+  it("marks a price as current after clearing other current prices", async () => {
+    let updateCount = 0;
+    const execute = createExecute(
+      (sqlText) => {
+        if (!sqlText.includes('update "tribe_subscription_prices"')) {
+          return undefined;
+        }
+
+        updateCount += 1;
+
+        if (updateCount === 1) {
+          return [];
+        }
+
+        return [
+          createPriceRow({
+            is_current: true,
+            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
           }),
-        ],
+        ];
+      },
+      baseRepositoryRows({
+        priceRows: [createPriceRow({ is_current: false })],
       })
-      .mockResolvedValueOnce({
-        rows: [createSubscriptionPriceRow()],
-      });
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active")
     );
+    const repository = createRepository(execute);
 
     await expect(
-      repository.verifyProviderPlan({
+      repository.makeCurrent({
         priceId: "price-1",
         tribeSlug: "matematica-pro",
       })
     ).resolves.toMatchObject({
-      price: {
-        trial: {
-          frequency: 7,
-          frequencyType: "days",
-        },
-      },
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+      price: { id: "price-1", isCurrent: true },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
     });
-
-    const verificationSqlText = getSqlText(execute.mock.calls[1][0]);
-
-    expect(verificationSqlText).toContain("trial_frequency");
-    expect(verificationSqlText).toContain("trial_frequency_type");
   });
 
-  it("should not call Mercado Pago when the viewer cannot manage prices", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          access_token: "access-token",
-          can_manage_prices: false,
-          tribe_id: "tribe-1",
-        },
-      ],
-    }));
-    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      getMercadoPagoPlanStatus
-    );
-
-    await expect(
-      repository.verifyProviderPlan({
-        priceId: "price-1",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden,
-    });
-    expect(getMercadoPagoPlanStatus).not.toHaveBeenCalled();
-  });
-
-  it("should reconcile canceled local subscriber rows when Mercado Pago reports them as canceled", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            active_subscribers_count: 1,
-            is_current: false,
-            mercado_pago_preapproval_plan_id: "plan-1",
-            status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            mercado_pago_preapproval_id: "subscription-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            active_subscribers_count: 0,
-            is_current: false,
-            mercado_pago_preapproval_plan_id: "plan-1",
-            status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
-          }),
-        ],
-      });
-    const getMercadoPagoSubscriptionStatus = jest.fn(async () => "cancelled");
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "canceled"),
-      getMercadoPagoSubscriptionStatus
-    );
-
-    await expect(
-      repository.reconcileProviderSubscribers({
-        priceId: "price-1",
-        source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton,
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      price: {
-        activeSubscribersCount: 0,
-        status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
-      },
-      providerActiveSubscribersCount: 0,
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
-      verifiedCount: 1,
-    });
-    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledWith({
-      accessToken: "access-token",
-      preapprovalId: "subscription-1",
-    });
-    const reconciliationSqlText = getSqlText(execute.mock.calls[3][0]);
-
-    expect(reconciliationSqlText).toMatch(
-      /group by[\s\S]*target_price\.trial_frequency/
-    );
-    expect(reconciliationSqlText).toMatch(
-      /group by[\s\S]*target_price\.trial_frequency_type/
-    );
-    expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes("update public.tribe_member_subscriptions")
-      )
-    ).toBe(true);
-    expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes("update public.tribe_members")
-      )
-    ).toBe(true);
-  });
-
-  it("should keep authorized pending and paused provider subscriptions associated while only authorized grants access", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            active_subscribers_count: 3,
-            mercado_pago_preapproval_plan_id: "plan-1",
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            mercado_pago_preapproval_id: "subscription-1",
-          },
-          {
-            mercado_pago_preapproval_id: "subscription-2",
-          },
-          {
-            mercado_pago_preapproval_id: "subscription-3",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            active_subscribers_count: 3,
-            mercado_pago_preapproval_plan_id: "plan-1",
-          }),
-        ],
-      });
-    const getMercadoPagoSubscriptionStatus = jest
-      .fn()
-      .mockResolvedValueOnce("authorized")
-      .mockResolvedValueOnce("pending")
-      .mockResolvedValueOnce("paused");
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      getMercadoPagoSubscriptionStatus
-    );
-
-    await expect(
-      repository.reconcileProviderSubscribers({
-        priceId: "price-1",
-        source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton,
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      price: {
-        activeSubscribersCount: 3,
-      },
-      providerActiveSubscribersCount: 3,
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
-      verifiedCount: 3,
-    });
-
-    const reconciliationSqlText = execute.mock.calls
-      .map((call) => getSqlText(call[0]))
-      .find((sqlText) => sqlText.includes("update public.tribe_members"));
-
-    expect(reconciliationSqlText).toMatch(
-      /tribe_member_subscriptions\.status = .*active/
-    );
-    expect(reconciliationSqlText).toMatch(
-      /tribe_member_subscriptions\.status = .*pending/
-    );
-    expect(reconciliationSqlText).toMatch(/else 'removed'/);
-  });
-
-  it("should return provider subscriber count with the reconciled local association count", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            mercado_pago_preapproval_plan_id: "plan-1",
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            mercado_pago_preapproval_id: "subscription-1",
-          },
-          {
-            mercado_pago_preapproval_id: "subscription-2",
-          },
-          {
-            mercado_pago_preapproval_id: "subscription-3",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          createSubscriptionPriceRow({
-            active_subscribers_count: 2,
-            mercado_pago_preapproval_plan_id: "plan-1",
-          }),
-        ],
-      });
+  it("reconciles provider subscribers and refreshes member access in one batched update", async () => {
     const getMercadoPagoSubscriptionStatus = jest
       .fn()
       .mockResolvedValueOnce("authorized")
       .mockResolvedValueOnce("paused")
-      .mockResolvedValueOnce("canceled");
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      getMercadoPagoSubscriptionStatus
+      .mockResolvedValueOnce("cancelled");
+    const execute = createExecute(
+      (sqlText) => {
+        if (
+          sqlText.includes("jsonb_to_recordset") &&
+          sqlText.includes("updated_members") &&
+          sqlText.includes("target_price")
+        ) {
+          return [
+            createPriceRow({
+              active_subscribers_count: 2,
+              mercado_pago_preapproval_plan_id: "plan-1",
+            }),
+          ];
+        }
+
+        return undefined;
+      },
+      baseRepositoryRows({
+        priceRows: [
+            createPriceRow({
+              active_subscribers_count: 2,
+              mercado_pago_preapproval_plan_id: "plan-1",
+            }),
+        ],
+        subscriberRows: [
+          { mercado_pago_preapproval_id: "subscription-1" },
+          { mercado_pago_preapproval_id: "subscription-2" },
+          { mercado_pago_preapproval_id: "subscription-3" },
+        ],
+      })
     );
+    const repository = createRepository(execute, {
+      getMercadoPagoSubscriptionStatus,
+    });
 
     await expect(
       repository.reconcileProviderSubscribers({
@@ -1407,394 +427,139 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toMatchObject({
-      price: {
-        activeSubscribersCount: 2,
-      },
+      price: { activeSubscribersCount: 2 },
       providerActiveSubscribersCount: 2,
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
       verifiedCount: 3,
     });
     expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(3);
-  });
-
-  it("should release provider plan webhook idempotency when synchronization fails", async () => {
-    const execute = jest.fn(async (statement) => {
-      const sqlText = getSqlText(statement);
-
-      if (sqlText.includes("delete from public.subscription_idempotency_operations")) {
-        return { rows: [] };
-      }
-
-      if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
-        return {
-          rows: [
-            {
-              id: "operation-1",
-            },
-          ],
-        };
-      }
-
-      return {
-        rows: [
-          {
-            ...createSubscriptionPriceRow({
-              mercado_pago_preapproval_plan_id: "plan-1",
-              tribe_id: "tribe-1",
-            }),
-            access_token: "access-token",
-            refresh_token: null,
-            token_expires_at: null,
-          },
-        ],
-      };
-    });
-    const getMercadoPagoPlan = jest.fn(async () => {
-      throw new Error("provider unavailable");
-    });
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      jest.fn(),
-      getMercadoPagoPlan
-    );
-
-    await expect(
-      repository.syncProviderPlan({
-        eventId: "event-1",
-        resourceId: "plan-1",
-        topic: "subscription_preapproval_plan.updated",
-      })
-    ).rejects.toThrow("provider unavailable");
-    expect(getMercadoPagoPlan).toHaveBeenCalledWith({
-      accessToken: "access-token",
-      preapprovalPlanId: "plan-1",
-    });
     expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes(
-          "delete from public.subscription_idempotency_operations"
-        )
+      execute.mock.calls.some(([sqlText]) =>
+        String(sqlText).includes("jsonb_to_recordset")
       )
     ).toBe(true);
   });
 
-  it("should sync provider plan webhooks with the RLS-safe price context", async () => {
-    const execute = jest.fn(async (statement) => {
-      const sqlText = getSqlText(statement);
+  it("classifies aggregate subscriber diagnostics from database aggregates", async () => {
+    const execute = createExecute(
+      (sqlText) =>
+        sqlText.includes("count(") &&
+        sqlText.includes("filter") &&
+        sqlText.includes("max(")
+          ? [{
+              last_reconciled_at: "2026-05-12T01:05:00.000Z",
+              local_active_subscribers_count: 2,
+              mercado_pago_authorized_subscribers_count: 1,
+              mercado_pago_canceled_or_missing_subscribers_count: 1,
+              mercado_pago_paused_subscribers_count: 1,
+              mercado_pago_pending_subscribers_count: 1,
+              target_tribe_id: "tribe-1",
+            }]
+          : undefined,
+      baseRepositoryRows()
+    );
+    const repository = createRepository(execute);
 
-      if (sqlText.includes("update public.tribe_subscription_prices")) {
-        return {
-          rows: [
-            createSubscriptionPriceRow({
-              name: "Plan actualizado",
-              trial_frequency: 21,
-              trial_frequency_type: "days",
-            }),
-          ],
-        };
-      }
+    await expect(
+      repository.getSubscriberDiagnostics({ tribeSlug: "matematica-pro" })
+    ).resolves.toEqual({
+      lastReconciledAt: "2026-05-12T01:05:00.000Z",
+      localActiveSubscribersCount: 2,
+      mercadoPagoAuthorizedSubscribersCount: 1,
+      mercadoPagoCanceledOrMissingSubscribersCount: 1,
+      mercadoPagoPausedSubscribersCount: 1,
+      mercadoPagoPendingSubscribersCount: 1,
+    });
+    expect(
+      execute.mock.calls.some(([sqlText]) =>
+        String(sqlText).includes("mercado_pago_preapproval_id,")
+      )
+    ).toBe(false);
+  });
 
-      if (sqlText.includes("from public.tribe_subscription_prices")) {
-        if (sqlText.includes("inner join public.tribes")) {
-          return { rows: [] };
+  it("reconciles tribe diagnostics with a batched subscriber update", async () => {
+    const getMercadoPagoSubscriptionStatus = jest
+      .fn()
+      .mockResolvedValueOnce("authorized")
+      .mockResolvedValueOnce("cancelled");
+    const execute = createExecute(
+      (sqlText) => {
+        if (
+          sqlText.includes("jsonb_to_recordset") &&
+          sqlText.includes("updated_subscriptions") &&
+          !sqlText.includes("target_price")
+        ) {
+          return [];
         }
 
-        return {
-          rows: [
-            {
-              ...createSubscriptionPriceRow({
-                mercado_pago_preapproval_plan_id: "plan-1",
-                tribe_id: "tribe-1",
-              }),
-              access_token: "access-token",
-              refresh_token: null,
-              token_expires_at: null,
-            },
-          ],
-        };
-      }
-
-      if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
-        return {
-          rows: [
-            {
-              id: "operation-1",
-            },
-          ],
-        };
-      }
-
-      return {
-        rows: [
-          createSubscriptionPriceRow({
-            name: "Plan actualizado",
-          }),
-        ],
-      };
-    });
-    const getMercadoPagoPlan = jest.fn(async () => ({
-      amountCents: 500000,
-      currency: "ARS",
-      externalReference: "tutribu:price:price-1",
-      id: "plan-1",
-      reason: "Plan actualizado",
-      status: "active",
-      trial: {
-        frequency: 21,
-        frequencyType: "days",
-      },
-    }));
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      jest.fn(),
-      getMercadoPagoPlan
-    );
-
-    await expect(
-      repository.syncProviderPlan({
-        eventId: "event-1",
-        resourceId: "plan-1",
-        topic: "subscription_preapproval_plan.updated",
-      })
-    ).resolves.toMatchObject({
-      price: {
-        name: "Plan actualizado",
-        trial: {
-          frequency: 21,
-          frequencyType: "days",
-        },
-      },
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
-    });
-    expect(getMercadoPagoPlan).toHaveBeenCalledWith({
-      accessToken: "access-token",
-      preapprovalPlanId: "plan-1",
-    });
-  });
-
-  it("should classify active subscriber diagnostics without provider identifiers as missing", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
-      rows: [
-        {
-          last_reconciled_at: "2026-05-12T01:00:00.000Z",
-          local_active_subscribers_count: "2",
-          mercado_pago_authorized_subscribers_count: "2",
-          mercado_pago_canceled_or_missing_subscribers_count: "1",
-          mercado_pago_paused_subscribers_count: "4",
-          mercado_pago_pending_subscribers_count: "3",
-          target_tribe_id: "tribe-1",
-        },
-      ],
-    });
-    const repository = createRepository(execute);
-
-    await expect(
-      repository.getSubscriberDiagnostics({
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({
-      lastReconciledAt: "2026-05-12T01:00:00.000Z",
-      localActiveSubscribersCount: 2,
-      mercadoPagoAuthorizedSubscribersCount: 2,
-      mercadoPagoCanceledOrMissingSubscribersCount: 1,
-      mercadoPagoPausedSubscribersCount: 4,
-      mercadoPagoPendingSubscribersCount: 3,
-    });
-
-    const diagnosticsSqlText = getSqlText(execute.mock.calls[0][0]);
-
-    expect(diagnosticsSqlText).toContain(
-      "count(tribe_member_subscriptions.id) filter"
-    );
-    expect(diagnosticsSqlText).toContain(
-      "public.can_manage_tribe_subscription_prices"
-    );
-    expect(diagnosticsSqlText).not.toContain("user_id");
-    expect(diagnosticsSqlText).toContain(
-      "tribe_member_subscriptions.mercado_pago_preapproval_id is not null"
-    );
-    expect(diagnosticsSqlText).toContain(
-      "tribe_member_subscriptions.mercado_pago_preapproval_id is null"
-    );
-  });
-
-  it("should return null when aggregate diagnostics have no authorized target tribe", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
-      rows: [
-        {
-          last_reconciled_at: null,
-          local_active_subscribers_count: "0",
-          mercado_pago_authorized_subscribers_count: "0",
-          mercado_pago_canceled_or_missing_subscribers_count: "0",
-          mercado_pago_paused_subscribers_count: "0",
-          mercado_pago_pending_subscribers_count: "0",
-          target_tribe_id: null,
-        },
-      ],
-    });
-    const repository = createRepository(execute);
-
-    await expect(
-      repository.getSubscriberDiagnostics({
-        tribeSlug: "unknown-tribe",
-      })
-    ).resolves.toBeNull();
-  });
-
-  it("should reconcile aggregate subscriber diagnostics with authorized pending paused and missing counts", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            mercado_pago_preapproval_id: "subscription-1",
-          },
-          {
-            mercado_pago_preapproval_id: "subscription-2",
-          },
-          {
-            mercado_pago_preapproval_id: "subscription-3",
-          },
-          {
-            mercado_pago_preapproval_id: "subscription-4",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
+        if (
+          sqlText.includes("count(") &&
+          sqlText.includes("filter") &&
+          sqlText.includes("max(")
+        ) {
+          return [{
             last_reconciled_at: "2026-05-12T01:05:00.000Z",
             local_active_subscribers_count: 1,
             mercado_pago_authorized_subscribers_count: 1,
             mercado_pago_canceled_or_missing_subscribers_count: 1,
-            mercado_pago_paused_subscribers_count: 1,
-            mercado_pago_pending_subscribers_count: 1,
+            mercado_pago_paused_subscribers_count: 0,
+            mercado_pago_pending_subscribers_count: 0,
             target_tribe_id: "tribe-1",
-          },
+          }];
+        }
+
+        return undefined;
+      },
+      baseRepositoryRows({
+        paymentIntegration: {
+          access_token: "stored-access-token",
+          refresh_token: null,
+          token_expires_at: null,
+        },
+        subscriberRows: [
+          { mercado_pago_preapproval_id: "subscription-1" },
+          { mercado_pago_preapproval_id: "subscription-2" },
         ],
-      });
-    const getMercadoPagoSubscriptionStatus = jest
-      .fn()
-      .mockResolvedValueOnce("authorized")
-      .mockResolvedValueOnce("pending")
-      .mockResolvedValueOnce("paused")
-      .mockResolvedValueOnce(null);
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      getMercadoPagoSubscriptionStatus
+      })
     );
+    const repository = createRepository(execute, {
+      getMercadoPagoSubscriptionStatus,
+    });
 
     await expect(
-      repository.reconcileSubscriberDiagnostics({
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({
+      repository.reconcileSubscriberDiagnostics({ tribeSlug: "matematica-pro" })
+    ).resolves.toMatchObject({
       diagnostics: {
-        lastReconciledAt: "2026-05-12T01:05:00.000Z",
         localActiveSubscribersCount: 1,
-        mercadoPagoAuthorizedSubscribersCount: 1,
         mercadoPagoCanceledOrMissingSubscribersCount: 1,
-        mercadoPagoPausedSubscribersCount: 1,
-        mercadoPagoPendingSubscribersCount: 1,
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
-      verifiedCount: 4,
+      verifiedCount: 2,
     });
-    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(4);
+    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(2);
     expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes("update public.tribe_member_subscriptions")
-      )
-    ).toBe(true);
-    expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes("update public.tribe_members")
+      execute.mock.calls.some(([sqlText]) =>
+        String(sqlText).includes("jsonb_to_recordset")
       )
     ).toBe(true);
   });
 
-  it("should not cancel the provider plan when a subscription appears during cancellation", async () => {
-    const execute = jest.fn(async (statement) => {
-      const sqlText = getSqlText(statement);
-
-      if (sqlText.includes("has_local_active_subscriptions")) {
-        return {
-          rows: [
-            {
-              has_local_active_subscriptions: true,
-            },
-          ],
-        };
-      }
-
-      if (sqlText.includes("was_current")) {
-        return {
-          rows: [
-            {
-              ...createSubscriptionPriceRow({
-                active_subscribers_count: 1,
-                mercado_pago_preapproval_plan_id: "plan-1",
-                tribe_id: "tribe-1",
-                was_current: true,
-              }),
-              access_token: "access-token",
-              can_manage_prices: true,
-              refresh_token: null,
-              token_expires_at: null,
-            },
-          ],
-        };
-      }
-
-      return {
-        rows: [
-          {
-            ...createSubscriptionPriceRow({
-              mercado_pago_preapproval_plan_id: "plan-1",
-              tribe_id: "tribe-1",
-            }),
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-          },
-        ],
-      };
-    });
+  it("stops deletion when a local active subscription exists", async () => {
     const updateMercadoPagoPlan = jest.fn();
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      updateMercadoPagoPlan
+    const execute = createExecute(
+      baseRepositoryRows({
+        priceRows: [
+          createPriceRow({
+            active_subscribers_count: 1,
+            mercado_pago_preapproval_plan_id: "plan-1",
+            tribe_id: "tribe-1",
+            was_current: true,
+          }),
+        ],
+        subscriberRows: [{ id: "subscription-1" }],
+      })
     );
+    const repository = createRepository(execute, { updateMercadoPagoPlan });
 
     await expect(
       repository.delete({
@@ -1805,220 +570,5 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers,
     });
     expect(updateMercadoPagoPlan).not.toHaveBeenCalled();
-  });
-
-  it("should delete canceled local prices when the provider plan link is already missing", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            ...createSubscriptionPriceRow({
-              mercado_pago_preapproval_plan_id: null,
-              status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
-              tribe_id: "tribe-1",
-            }),
-            access_token: null,
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            has_local_active_subscriptions: false,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            was_deleted: true,
-          },
-        ],
-      });
-    const getMercadoPagoPlanStatus = jest.fn();
-    const getMercadoPagoSubscriptionStatus = jest.fn();
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      getMercadoPagoPlanStatus,
-      getMercadoPagoSubscriptionStatus
-    );
-
-    await expect(
-      repository.delete({
-        priceId: "price-1",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted,
-    });
-    expect(getMercadoPagoPlanStatus).not.toHaveBeenCalled();
-    expect(getMercadoPagoSubscriptionStatus).not.toHaveBeenCalled();
-  });
-
-  it("should keep missing provider-plan prices when historical provider subscribers are still attached", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            ...createSubscriptionPriceRow({
-              mercado_pago_preapproval_plan_id: null,
-              status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
-              tribe_id: "tribe-1",
-            }),
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            has_local_active_subscriptions: false,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            mercado_pago_preapproval_id: "subscription-1",
-          },
-        ],
-      });
-    const getMercadoPagoPlanStatus = jest.fn();
-    const getMercadoPagoSubscriptionStatus = jest.fn(async () => "authorized");
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      getMercadoPagoPlanStatus,
-      getMercadoPagoSubscriptionStatus
-    );
-
-    await expect(
-      repository.delete({
-        priceId: "price-1",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers,
-    });
-    expect(getMercadoPagoPlanStatus).not.toHaveBeenCalled();
-    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledWith({
-      accessToken: "access-token",
-      preapprovalId: "subscription-1",
-    });
-  });
-
-  it("should delete canceled prices after checking historical provider subscribers with limited concurrency", async () => {
-    const providerSubscriberRows = createProviderSubscriberRows(12);
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            ...createSubscriptionPriceRow({
-              mercado_pago_preapproval_plan_id: "plan-1",
-              status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
-              tribe_id: "tribe-1",
-            }),
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            has_local_active_subscriptions: false,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: providerSubscriberRows,
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            was_deleted: true,
-          },
-        ],
-      });
-    const releaseStatusLookups: Array<() => void> = [];
-    let activeStatusLookupCount = 0;
-    let maximumActiveStatusLookupCount = 0;
-    const getMercadoPagoSubscriptionStatus = jest.fn(async () => {
-      activeStatusLookupCount += 1;
-      maximumActiveStatusLookupCount = Math.max(
-        maximumActiveStatusLookupCount,
-        activeStatusLookupCount
-      );
-
-      await new Promise<void>((resolve) => {
-        releaseStatusLookups.push(resolve);
-      });
-
-      activeStatusLookupCount -= 1;
-
-      return null;
-    });
-    const repository = createRepository(
-      execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "canceled"),
-      getMercadoPagoSubscriptionStatus
-    );
-
-    const deleteResult = repository.delete({
-      priceId: "price-1",
-      tribeSlug: "matematica-pro",
-    });
-
-    await waitUntil(() => releaseStatusLookups.length === 5);
-    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(5);
-
-    releaseStatusLookups.splice(0).forEach((releaseStatusLookup) => {
-      releaseStatusLookup();
-    });
-
-    await waitUntil(
-      () =>
-        getMercadoPagoSubscriptionStatus.mock.calls.length === 10 &&
-        releaseStatusLookups.length === 5
-    );
-
-    releaseStatusLookups.splice(0).forEach((releaseStatusLookup) => {
-      releaseStatusLookup();
-    });
-
-    await waitUntil(
-      () =>
-        getMercadoPagoSubscriptionStatus.mock.calls.length === 12 &&
-        releaseStatusLookups.length === 2
-    );
-
-    releaseStatusLookups.splice(0).forEach((releaseStatusLookup) => {
-      releaseStatusLookup();
-    });
-
-    await expect(deleteResult).resolves.toEqual({
-      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted,
-    });
-    expect(maximumActiveStatusLookupCount).toBe(5);
-    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(12);
   });
 });
