@@ -96,8 +96,49 @@ describe("createServerDatabaseClient", () => {
     );
 
     expect(detectedOverlappingQuery).toBe(false);
-    expect(query).toHaveBeenCalledTimes(6);
+    expect(query).toHaveBeenCalledTimes(7);
     expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the RLS runtime role before setting request context", async () => {
+    const query = jest.fn(async () => ({
+      rows: [],
+    }));
+    const release = jest.fn();
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn(() => ({
+        connect: jest.fn(async () => ({
+          query,
+          release,
+        })),
+      })),
+    }));
+    jest.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: (client: { query: (statement: unknown) => Promise<unknown> }) => ({
+        execute: (statement: unknown) => client.query(statement),
+      }),
+    }));
+
+    const { createServerDatabaseClient } = await import(
+      "@/src/modules/shared/infrastructure/database/server-database-client"
+    );
+
+    const databaseClient = await createServerDatabaseClient();
+
+    await databaseClient.withRequestContext(
+      {
+        email: "leader@example.com",
+        userId: "member-1",
+      },
+      async () => "ok"
+    );
+
+    expect(query.mock.calls[0]?.[0]).toBe("BEGIN");
+    expect(query.mock.calls[1]?.[0]).toBe("SET LOCAL ROLE tutribu_rls_app");
+    expect(collectStatementValues(query.mock.calls[2]?.[0])).toContain(
+      "app.current_user_id"
+    );
   });
 
   it("sets the normalized owner email as a request database setting", async () => {
@@ -256,6 +297,7 @@ describe("createServerDatabaseClient", () => {
 
     expect(query.mock.calls.map(([statement]) => statement)).toEqual([
       "BEGIN",
+      "SET LOCAL ROLE tutribu_rls_app",
       expect.anything(),
       expect.anything(),
       expect.anything(),

@@ -19,6 +19,14 @@ const FORCE_FLAG = "--force";
  * Stores the local Drizzle Kit CLI entrypoint resolved from the workspace.
  */
 const DRIZZLE_KIT_CLI_PATH = "node_modules/drizzle-kit/bin.cjs";
+const DATABASE_MIGRATION_URL_ENV = "DATABASE_MIGRATION_URL";
+const DATABASE_URL_ENV = "DATABASE_URL";
+const FORCE_ENVIRONMENT_RELOAD = true;
+const FORCE_PUSH_OVERRIDE_ENV = "ALLOW_UNSAFE_DRIZZLE_FORCE_PUSH";
+const LOAD_DEVELOPMENT_ENVIRONMENT_FILES = true;
+const RLS_RUNTIME_ROLE_NAME = "tutribu_rls_app";
+const UNSAFE_FORCE_PUSH_BLOCK_MESSAGE =
+  "Refusing to run drizzle-kit push --force because RLS policies are managed by versioned SQL migrations. Run db:migrate, or set ALLOW_UNSAFE_DRIZZLE_FORCE_PUSH=true only for an intentional local schema reset.";
 
 /**
  * Splits script-owned flags from arguments passed through to Drizzle Kit.
@@ -91,6 +99,122 @@ function buildDrizzleKitCommand(scriptArguments = process.argv.slice(2)) {
 }
 
 /**
+ * Detects whether the destructive Drizzle push mode should be blocked.
+ *
+ * @param {NodeJS.ProcessEnv} [environment] Environment variables.
+ * @returns {boolean} Whether force push must be rejected.
+ */
+function shouldBlockForcePush(environment = process.env) {
+  return environment[FORCE_PUSH_OVERRIDE_ENV] !== "true";
+}
+
+/**
+ * Reads the database user used by the application runtime.
+ *
+ * @param {NodeJS.ProcessEnv} [environment] Environment variables.
+ * @returns {string | undefined} Runtime database user, when DATABASE_URL is valid.
+ */
+function getDatabaseUrlRuntimeRoleName(environment = process.env) {
+  const databaseUrl = environment[DATABASE_URL_ENV];
+
+  if (!databaseUrl) {
+    return undefined;
+  }
+
+  try {
+    const parsedDatabaseUrl = new URL(databaseUrl);
+
+    return parsedDatabaseUrl.username
+      ? decodeURIComponent(parsedDatabaseUrl.username)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Escapes a PostgreSQL identifier for SQL statements that cannot parameterize it.
+ *
+ * @param {string} identifier PostgreSQL identifier.
+ * @returns {string} Quoted PostgreSQL identifier.
+ */
+function quotePostgresIdentifier(identifier) {
+  return `"${identifier.replaceAll('"', '""')}"`;
+}
+
+/**
+ * Builds the grant that lets the runtime database user assume the RLS role.
+ *
+ * @param {string | undefined} runtimeDatabaseUser Runtime database user.
+ * @returns {string | undefined} Grant SQL, when a runtime user is available.
+ */
+function buildGrantRuntimeRoleSql(runtimeDatabaseUser) {
+  if (!runtimeDatabaseUser) {
+    return undefined;
+  }
+
+  return `GRANT ${RLS_RUNTIME_ROLE_NAME} TO ${quotePostgresIdentifier(runtimeDatabaseUser)}`;
+}
+
+/**
+ * Loads the same local environment files used by Drizzle config.
+ *
+ * @returns {Promise<void>} Resolves after environment files have been loaded.
+ */
+async function loadDatabaseEnvironmentFiles() {
+  const nextEnvironment = await import("@next/env");
+  const loadEnvConfig =
+    nextEnvironment.loadEnvConfig ?? nextEnvironment.default?.loadEnvConfig;
+
+  if (!loadEnvConfig) {
+    throw new Error("Unable to load Next.js environment configuration helper.");
+  }
+
+  loadEnvConfig(
+    process.cwd(),
+    LOAD_DEVELOPMENT_ENVIRONMENT_FILES,
+    undefined,
+    FORCE_ENVIRONMENT_RELOAD
+  );
+}
+
+/**
+ * Grants the RLS role to the application runtime database user.
+ *
+ * @returns {Promise<number>} Process exit code.
+ */
+async function grantRuntimeRoleToRuntimeDatabaseUser() {
+  await loadDatabaseEnvironmentFiles();
+
+  const grantRuntimeRoleSql = buildGrantRuntimeRoleSql(
+    getDatabaseUrlRuntimeRoleName()
+  );
+  const connectionString =
+    process.env[DATABASE_MIGRATION_URL_ENV] ?? process.env[DATABASE_URL_ENV];
+
+  if (!grantRuntimeRoleSql || !connectionString) {
+    return 0;
+  }
+
+  const { Client } = await import("pg");
+  const client = new Client({ connectionString });
+
+  try {
+    await client.connect();
+    await client.query(grantRuntimeRoleSql);
+    return 0;
+  } catch (error) {
+    console.error(
+      `Failed to grant ${RLS_RUNTIME_ROLE_NAME} to the DATABASE_URL user.`
+    );
+    console.error(error instanceof Error ? error.message : String(error));
+    return 1;
+  } finally {
+    await client.end();
+  }
+}
+
+/**
  * Runs the selected Drizzle Kit migration command.
  *
  * @param {string[]} [scriptArguments] Arguments received by this script.
@@ -98,6 +222,13 @@ function buildDrizzleKitCommand(scriptArguments = process.argv.slice(2)) {
  */
 async function runPushMigrations(scriptArguments = process.argv.slice(2)) {
   const { spawnSync } = await import("node:child_process");
+  const { shouldForcePush } = normalizeScriptArguments(scriptArguments);
+
+  if (shouldForcePush && shouldBlockForcePush()) {
+    console.error(UNSAFE_FORCE_PUSH_BLOCK_MESSAGE);
+    return 1;
+  }
+
   const { command, commandArguments } = buildDrizzleKitCommand(scriptArguments);
   const result = spawnSync(command, commandArguments, {
     stdio: "inherit",
@@ -108,7 +239,15 @@ async function runPushMigrations(scriptArguments = process.argv.slice(2)) {
     return 1;
   }
 
-  return result.status ?? 1;
+  if (result.status !== 0) {
+    return result.status ?? 1;
+  }
+
+  if (shouldForcePush) {
+    return 0;
+  }
+
+  return grantRuntimeRoleToRuntimeDatabaseUser();
 }
 
 if ((process.argv[1] ?? "").endsWith("push-migrations.js")) {
@@ -118,8 +257,12 @@ if ((process.argv[1] ?? "").endsWith("push-migrations.js")) {
 }
 
 module.exports = {
+  buildGrantRuntimeRoleSql,
   buildDrizzleKitCommand,
   buildDrizzleKitArguments,
+  getDatabaseUrlRuntimeRoleName,
+  loadDatabaseEnvironmentFiles,
   normalizeScriptArguments,
   runPushMigrations,
+  shouldBlockForcePush,
 };

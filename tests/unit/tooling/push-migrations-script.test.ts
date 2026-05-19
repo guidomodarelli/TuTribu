@@ -1,18 +1,25 @@
 /** @jest-environment node */
 
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 type PushMigrationsScript = {
+  buildGrantRuntimeRoleSql: (runtimeDatabaseUser: string | undefined) => string | undefined;
   buildDrizzleKitCommand: (scriptArguments?: string[]) => {
     command: string;
     commandArguments: string[];
   };
   buildDrizzleKitArguments: (scriptArguments?: string[]) => string[];
+  getDatabaseUrlRuntimeRoleName: (
+    environment?: NodeJS.ProcessEnv
+  ) => string | undefined;
+  loadDatabaseEnvironmentFiles: () => Promise<void>;
   normalizeScriptArguments: (scriptArguments?: string[]) => {
     passthroughArguments: string[];
     shouldForcePush: boolean;
   };
+  shouldBlockForcePush: (environment?: NodeJS.ProcessEnv) => boolean;
 };
 
 let pushMigrationsScript: PushMigrationsScript;
@@ -67,6 +74,85 @@ describe("push migrations script", () => {
       passthroughArguments: ["--verbose"],
       shouldForcePush: true,
     });
+  });
+
+  it("should block forced schema pushes unless explicitly allowed", () => {
+    expect(pushMigrationsScript.shouldBlockForcePush({})).toBe(true);
+    expect(
+      pushMigrationsScript.shouldBlockForcePush({
+        ALLOW_UNSAFE_DRIZZLE_FORCE_PUSH: "true",
+      })
+    ).toBe(false);
+  });
+
+  it("should read the runtime database user from DATABASE_URL", () => {
+    expect(
+      pushMigrationsScript.getDatabaseUrlRuntimeRoleName({
+        DATABASE_URL:
+          "postgresql://runtime-user:password@example.test/runtime?sslmode=require",
+      })
+    ).toBe("runtime-user");
+  });
+
+  it("should build an escaped grant for the runtime database user", () => {
+    expect(
+      pushMigrationsScript.buildGrantRuntimeRoleSql('runtime"user')
+    ).toBe('GRANT tutribu_rls_app TO "runtime""user"');
+  });
+
+  it("should load database URLs from local environment files", async () => {
+    const previousDatabaseUrl = process.env.DATABASE_URL;
+    const previousDatabaseMigrationUrl = process.env.DATABASE_MIGRATION_URL;
+    const previousNodeEnvironment = process.env.NODE_ENV;
+    const previousWorkingDirectory = process.cwd();
+    const temporaryWorkspace = mkdtempSync(path.join(os.tmpdir(), "tutribu-migrations-"));
+
+    delete process.env.DATABASE_URL;
+    delete process.env.DATABASE_MIGRATION_URL;
+    process.env.NODE_ENV = "development";
+    writeFileSync(
+      path.join(temporaryWorkspace, ".env.local"),
+      [
+        "DATABASE_URL=postgresql://runtime-user:password@example.test/runtime",
+        "DATABASE_MIGRATION_URL=postgresql://migration-user:password@example.test/migration",
+      ].join("\n"),
+      "utf8"
+    );
+
+    process.chdir(temporaryWorkspace);
+
+    try {
+      await pushMigrationsScript.loadDatabaseEnvironmentFiles();
+
+      expect(process.env.DATABASE_URL).toBe(
+        "postgresql://runtime-user:password@example.test/runtime"
+      );
+      expect(process.env.DATABASE_MIGRATION_URL).toBe(
+        "postgresql://migration-user:password@example.test/migration"
+      );
+    } finally {
+      process.chdir(previousWorkingDirectory);
+
+      if (previousDatabaseUrl === undefined) {
+        delete process.env.DATABASE_URL;
+      } else {
+        process.env.DATABASE_URL = previousDatabaseUrl;
+      }
+
+      if (previousDatabaseMigrationUrl === undefined) {
+        delete process.env.DATABASE_MIGRATION_URL;
+      } else {
+        process.env.DATABASE_MIGRATION_URL = previousDatabaseMigrationUrl;
+      }
+
+      if (previousNodeEnvironment === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = previousNodeEnvironment;
+      }
+
+      rmSync(temporaryWorkspace, { force: true, recursive: true });
+    }
   });
 
   it("should expose migration commands from package scripts", () => {

@@ -152,6 +152,59 @@ describe("Message SQL guardrails", () => {
     expect(optionPolicy).not.toMatch(/public\.is_active_tribe_member\(tribe_id\)/);
   });
 
+  it("restores message poll RLS policies after unsafe schema pushes", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260519033000_restore_message_poll_rls_policies.sql"
+    );
+    const migrationJournal = JSON.parse(
+      readWorkspaceFile("database/migrations/meta/_journal.json")
+    ) as { entries: Array<{ tag: string }> };
+    const pollPolicy = readPolicyBlock(
+      migration,
+      "Authors leaders and guardians can manage message polls"
+    );
+    const optionPolicy = readPolicyBlock(
+      migration,
+      "Authors leaders and guardians can manage message poll options"
+    );
+
+    expect(migration).toContain(
+      "CREATE TABLE IF NOT EXISTS public.message_polls"
+    );
+    expect(migration).toContain(
+      "CREATE TABLE IF NOT EXISTS public.message_poll_options"
+    );
+    expect(migration).toContain(
+      "CREATE TABLE IF NOT EXISTS public.message_poll_votes"
+    );
+    expect(migration).toContain(
+      "ADD CONSTRAINT message_poll_options_poll_id_fkey"
+    );
+    expect(migration).toContain(
+      "ADD CONSTRAINT message_poll_votes_poll_id_fkey"
+    );
+    expect(migration).toContain(
+      "NOT VALID"
+    );
+    expect(migration).toContain(
+      "ALTER TABLE public.message_poll_options FORCE ROW LEVEL SECURITY"
+    );
+    expect(migration).toContain(
+      'DROP POLICY IF EXISTS "Authors leaders and guardians can manage message poll options"'
+    );
+    expect(pollPolicy).toMatch(/public\.can_pin_tribe_messages\(tribe_id\)/);
+    expect(pollPolicy).toMatch(/messages\.author_id = public\.current_app_user_id\(\)/);
+    expect(optionPolicy).toMatch(/public\.can_pin_tribe_messages\(tribe_id\)/);
+    expect(optionPolicy).toMatch(/messages\.author_id = public\.current_app_user_id\(\)/);
+    expect(migrationJournal.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "20260519033000_restore_message_poll_rls_policies",
+        }),
+      ])
+    );
+  });
+
   it("allows deleting complete messages through author or staff RLS and keeps polls open", () => {
     const migration = readWorkspaceFile(
       "database/migrations/20260513130000_delete_messages_with_poll_blocks.sql"

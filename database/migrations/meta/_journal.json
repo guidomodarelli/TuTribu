@@ -190,6 +190,34 @@
       "when": 1779105600000,
       "tag": "20260518120000_prioritize_owner_read_access",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1779159600000,
+      "tag": "20260519030000_restore_rls_enforcement",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1779160200000,
+      "tag": "20260519031000_create_rls_runtime_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1779160800000,
+      "tag": "20260519032000_preserve_owner_active_membership_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1779161400000,
+      "tag": "20260519033000_restore_message_poll_rls_policies",
+      "breakpoints": true
     }
   ]
 }

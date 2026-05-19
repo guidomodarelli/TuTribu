@@ -264,7 +264,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           "tribes.slug",
           expressionBuilder
             .case()
-            .when(expressionBuilder.fn<boolean>("public.is_app_owner"))
+            .when(expressionBuilder("tribe_members.role", "is", null))
             .then(TRIBE_MEMBER_ROLE.tribemate)
             .else(expressionBuilder.ref("tribe_members.role"))
             .end()

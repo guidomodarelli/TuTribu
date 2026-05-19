@@ -41,6 +41,12 @@ describe("Tribe SQL guardrails", () => {
     "database/migrations/20260517120000_add_owner_read_access.sql";
   const prioritizedOwnerReadAccessMigrationPath =
     "database/migrations/20260518120000_prioritize_owner_read_access.sql";
+  const activeOwnerMembershipAccessMigrationPath =
+    "database/migrations/20260519032000_preserve_owner_active_membership_access.sql";
+  const restoredRlsEnforcementMigrationPath =
+    "database/migrations/20260519030000_restore_rls_enforcement.sql";
+  const rlsRuntimeRoleMigrationPath =
+    "database/migrations/20260519031000_create_rls_runtime_role.sql";
   const drizzleMigrationJournalPath = "database/migrations/meta/_journal.json";
 
   it("enforces single-segment slugs in shared migrations", () => {
@@ -107,6 +113,60 @@ describe("Tribe SQL guardrails", () => {
     );
     expect(neonBaselineMigration).toContain(
       "ALTER TABLE public.tribe_members FORCE ROW LEVEL SECURITY"
+    );
+  });
+
+  it("restores enabled and forced RLS on every app-protected table", () => {
+    const restoredRlsEnforcementMigration = readWorkspaceFile(
+      restoredRlsEnforcementMigrationPath
+    );
+    const rlsProtectedTables = [
+      "tribe_creator_whitelist",
+      "tribes",
+      "tribe_members",
+      "tribe_channels",
+      "tribe_invitations",
+      "messages",
+      "message_replies",
+      "message_reactions",
+      "message_pins",
+      "message_polls",
+      "message_poll_options",
+      "message_poll_votes",
+      "events",
+      "tribe_payment_integrations",
+      "tribe_subscription_prices",
+      "tribe_member_subscriptions",
+      "subscription_idempotency_operations",
+    ];
+
+    for (const tableName of rlsProtectedTables) {
+      expect(restoredRlsEnforcementMigration).toContain(`public.${tableName}`);
+    }
+
+    expect(restoredRlsEnforcementMigration).toContain(
+      "protected_table := to_regclass(protected_table_name)"
+    );
+    expect(restoredRlsEnforcementMigration).toContain("ENABLE ROW LEVEL SECURITY");
+    expect(restoredRlsEnforcementMigration).toContain("FORCE ROW LEVEL SECURITY");
+  });
+
+  it("creates a runtime database role that cannot bypass RLS", () => {
+    const rlsRuntimeRoleMigration = readWorkspaceFile(
+      rlsRuntimeRoleMigrationPath
+    );
+
+    expect(rlsRuntimeRoleMigration).toContain(
+      "CREATE ROLE tutribu_rls_app NOLOGIN NOBYPASSRLS"
+    );
+    expect(rlsRuntimeRoleMigration).toContain(
+      "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO tutribu_rls_app"
+    );
+    expect(rlsRuntimeRoleMigration).toContain(
+      "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO tutribu_rls_app"
+    );
+    expect(rlsRuntimeRoleMigration).toContain(
+      "GRANT tutribu_rls_app TO %I"
     );
   });
 
@@ -298,6 +358,30 @@ describe("Tribe SQL guardrails", () => {
     );
   });
 
+  it("uses owner read access only as the last membership fallback", () => {
+    const activeOwnerMembershipAccessMigration = readWorkspaceFile(
+      activeOwnerMembershipAccessMigrationPath
+    );
+    const currentMembershipSelectionIndex =
+      activeOwnerMembershipAccessMigration.indexOf(
+        "SELECT current_membership.status, current_membership.status_reason"
+      );
+    const ownerReadSelectionIndex =
+      activeOwnerMembershipAccessMigration.indexOf(
+        "SELECT 'owner_read', 'none'"
+      );
+
+    expect(activeOwnerMembershipAccessMigration).toContain(
+      "CREATE OR REPLACE FUNCTION public.get_current_tribe_membership_by_slug"
+    );
+    expect(currentMembershipSelectionIndex).toBeGreaterThanOrEqual(0);
+    expect(ownerReadSelectionIndex).toBeGreaterThanOrEqual(0);
+    expect(currentMembershipSelectionIndex).toBeLessThan(ownerReadSelectionIndex);
+    expect(activeOwnerMembershipAccessMigration).toContain(
+      "AND NOT EXISTS (SELECT 1 FROM current_membership)"
+    );
+  });
+
   it("registers the visible tribe members function migration in the Drizzle journal", () => {
     const drizzleMigrationJournal = readWorkspaceFile(
       drizzleMigrationJournalPath
@@ -325,6 +409,16 @@ describe("Tribe SQL guardrails", () => {
 
     expect(drizzleMigrationJournal).toContain(
       "20260518120000_prioritize_owner_read_access"
+    );
+  });
+
+  it("registers the active owner membership access migration in the Drizzle journal", () => {
+    const drizzleMigrationJournal = readWorkspaceFile(
+      drizzleMigrationJournalPath
+    );
+
+    expect(drizzleMigrationJournal).toContain(
+      "20260519032000_preserve_owner_active_membership_access"
     );
   });
 
