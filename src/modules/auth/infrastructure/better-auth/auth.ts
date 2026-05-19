@@ -18,6 +18,7 @@ const BETTER_AUTH_ENV = {
   googleClientId: "GOOGLE_CLIENT_ID",
   googleClientSecret: "GOOGLE_CLIENT_SECRET",
   secret: "BETTER_AUTH_SECRET",
+  trustedOrigins: "BETTER_AUTH_TRUSTED_ORIGINS",
   url: "BETTER_AUTH_URL",
 } as const;
 
@@ -57,6 +58,47 @@ function getBetterAuthPool() {
   return globalDatabase.__tuTribuBetterAuthPool;
 }
 
+function normalizeTrustedOrigin(rawOrigin: string | undefined) {
+  const trimmedOrigin = rawOrigin?.trim();
+
+  if (!trimmedOrigin) {
+    return null;
+  }
+
+  const candidateOrigin = trimmedOrigin.includes("://")
+    ? trimmedOrigin
+    : `https://${trimmedOrigin}`;
+
+  try {
+    return new URL(candidateOrigin).origin;
+  } catch {
+    return null;
+  }
+}
+
+function readTrustedOrigins() {
+  const configuredTrustedOrigins =
+    process.env[BETTER_AUTH_ENV.trustedOrigins]?.split(",") ?? [];
+  const originCandidates = [
+    process.env[BETTER_AUTH_ENV.url],
+    ...configuredTrustedOrigins,
+  ];
+
+  return Array.from(
+    new Set(
+      originCandidates
+        .map((originCandidate) => normalizeTrustedOrigin(originCandidate))
+        .filter((origin): origin is string => Boolean(origin))
+    )
+  );
+}
+
+function readAllowedHosts(trustedOrigins: string[]) {
+  return trustedOrigins
+    .map((trustedOrigin) => new URL(trustedOrigin).host)
+    .filter((host) => host.length > 0);
+}
+
 function getBetterAuthEnvironment() {
   const secret = process.env[BETTER_AUTH_ENV.secret];
   const url = process.env[BETTER_AUTH_ENV.url];
@@ -71,10 +113,14 @@ function getBetterAuthEnvironment() {
     throw new Error(BETTER_AUTH_ERROR_MESSAGE.googleProvider);
   }
 
+  const trustedOrigins = readTrustedOrigins();
+
   return {
+    allowedHosts: readAllowedHosts(trustedOrigins),
     googleClientId,
     googleClientSecret,
     secret,
+    trustedOrigins,
     url,
   };
 }
@@ -85,7 +131,10 @@ const database = drizzle(getBetterAuthPool(), {
 });
 
 export const auth = betterAuth({
-  baseURL: betterAuthEnvironment.url,
+  baseURL: {
+    allowedHosts: betterAuthEnvironment.allowedHosts,
+    fallback: betterAuthEnvironment.url,
+  },
   database: drizzleAdapter(database, {
     provider: BETTER_AUTH_PROVIDER.database,
     schema: BETTER_AUTH_SCHEMA,
@@ -99,4 +148,5 @@ export const auth = betterAuth({
       overrideUserInfoOnSignIn: true,
     },
   },
+  trustedOrigins: betterAuthEnvironment.trustedOrigins,
 });

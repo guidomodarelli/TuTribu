@@ -70,12 +70,75 @@ describe("Better Auth configuration", () => {
     );
     expect(mockBetterAuth).toHaveBeenCalledWith(
       expect.objectContaining({
+        baseURL: {
+          allowedHosts: ["tutribu.example.com"],
+          fallback: "https://tutribu.example.com",
+        },
         database: adapterInstance,
         socialProviders: {
           google: expect.objectContaining({
             overrideUserInfoOnSignIn: true,
           }),
         },
+        trustedOrigins: ["https://tutribu.example.com"],
+      })
+    );
+  });
+
+  it("trusts configured and deployment preview origins for OAuth requests", async () => {
+    const adapterInstance = { id: "adapter" };
+    const databaseInstance = { id: "database" };
+    const mockBetterAuth = jest.fn(() => ({ handler: {} }));
+    const mockDrizzle = jest.fn(() => databaseInstance);
+    const mockDrizzleAdapter = jest.fn(() => adapterInstance);
+    const mockNextCookies = jest.fn(() => ({ id: "next-cookies-plugin" }));
+
+    process.env.BETTER_AUTH_URL = "https://tutribu.example.com";
+    process.env.BETTER_AUTH_TRUSTED_ORIGINS =
+      "https://custom-preview.example.com/auth/signin";
+
+    jest.doMock("better-auth", () => ({
+      betterAuth: (...args: unknown[]) => mockBetterAuth(...args),
+    }));
+    jest.doMock("@better-auth/drizzle-adapter", () => ({
+      drizzleAdapter: (...args: unknown[]) => mockDrizzleAdapter(...args),
+    }));
+    jest.doMock("better-auth/next-js", () => ({
+      nextCookies: (...args: unknown[]) => mockNextCookies(...args),
+    }));
+    jest.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: (...args: unknown[]) => mockDrizzle(...args),
+    }));
+    jest.doMock("pg", () => ({
+      Pool: jest.fn(() => ({ id: "pool" })),
+    }));
+    jest.doMock("@/src/modules/shared/infrastructure/database/server-environment", () => ({
+      getServerDatabaseEnvironment: () => ({
+        connectionString: "postgres://tutribu.example.com/db",
+      }),
+    }));
+    jest.doMock("@/src/modules/shared/infrastructure/database/schema", () => ({
+      accounts: { name: "account-table" },
+      sessions: { name: "session-table" },
+      users: { name: "user-table" },
+      verifications: { name: "verification-table" },
+    }));
+
+    await import("@/src/modules/auth/infrastructure/better-auth/auth");
+
+    expect(mockBetterAuth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: {
+          allowedHosts: [
+            "tutribu.example.com",
+            "custom-preview.example.com",
+          ],
+          fallback: "https://tutribu.example.com",
+        },
+        trustedOrigins: [
+          "https://tutribu.example.com",
+          "https://custom-preview.example.com",
+        ],
       })
     );
   });

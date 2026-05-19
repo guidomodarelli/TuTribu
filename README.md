@@ -26,6 +26,7 @@ Create `.env.local` from `.env.example` and provide:
 - `DATABASE_URL`: runtime Postgres connection string. Use the direct Neon URL for warm runtime environments. Do not use the `-pooler` host here unless the deployment explicitly needs PgBouncer-style transaction pooling.
 - `DATABASE_MIGRATION_URL`: optional direct Postgres connection string for migrations and tooling.
 - `BETTER_AUTH_URL`
+- `BETTER_AUTH_TRUSTED_ORIGINS`: optional comma-separated additional origins for preview aliases.
 - `BETTER_AUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
@@ -44,6 +45,7 @@ Local example:
 DATABASE_URL=postgresql://user:password@host.region.aws.neon.tech/database?sslmode=verify-full&channel_binding=require
 DATABASE_MIGRATION_URL=postgresql://user:password@host.region.aws.neon.tech/database?sslmode=verify-full&channel_binding=require
 BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_TRUSTED_ORIGINS=
 BETTER_AUTH_SECRET=replace-with-a-strong-random-secret
 GOOGLE_CLIENT_ID=replace-with-google-client-id
 GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
@@ -68,6 +70,7 @@ Before testing sign-in locally:
 1. Configure Google OAuth credentials in Google Cloud Console.
 2. Add the credentials to `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
 3. Add `http://localhost:3000` to the allowed app origin for local testing.
+4. Add every deployed callback origin used for sign-in, including preview aliases, to Google OAuth authorized redirect URIs.
 
 Security notes:
 
