@@ -56,10 +56,15 @@ function isTransactionControlStatement(statement: string): boolean {
 function getExecutedSqlText(databaseDouble: {
   query: jest.Mock;
 }): string {
+  return getExecutedSqlStatements(databaseDouble).join("\n");
+}
+
+function getExecutedSqlStatements(databaseDouble: {
+  query: jest.Mock;
+}): string[] {
   return databaseDouble.query.mock.calls
     .map(([statement]) => String(statement))
-    .filter((statement) => !isTransactionControlStatement(statement))
-    .join("\n");
+    .filter((statement) => !isTransactionControlStatement(statement));
 }
 
 describe("PostgresTribeChannelRepository", () => {
@@ -138,6 +143,40 @@ describe("PostgresTribeChannelRepository", () => {
     expect(sqlText).toContain("public.can_manage_tribe_channels");
     expect(sqlText).toContain('insert into "tribe_channels"');
     expect(sqlText).toContain('"slug" = $');
+  });
+
+  it("keeps channel creation guarded by mutation-time management permission", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ can_manage: true }],
+      [],
+      [{ sort_order: 20 }],
+      [
+        {
+          access_scope: "tribemates",
+          emoji: "❓",
+          id: "channel-questions",
+          name: "Preguntas",
+          slug: "preguntas",
+          sort_order: 30,
+        },
+      ],
+    ]);
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await repository.create({
+      tribeSlug: "matematica-pro",
+      emoji: "❓",
+      name: "Preguntas",
+    });
+
+    const insertStatement = getExecutedSqlStatements(databaseDouble).find(
+      (statement) => statement.includes('insert into "tribe_channels"')
+    );
+
+    expect(insertStatement).toContain("public.can_manage_tribe_channels");
   });
 
   it("maps duplicate channel slugs to a controlled creation status", async () => {

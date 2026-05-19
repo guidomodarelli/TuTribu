@@ -234,22 +234,43 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
 
           const insertedChannel = await transaction
             .insertInto("tribe_channels")
-            .values((expressionBuilder) => ({
-              access_scope: "tribemates",
-              created_at: expressionBuilder.fn<Date>("timezone", [
-                expressionBuilder.val("utc"),
-                expressionBuilder.fn<Date>("now"),
-              ]),
-              emoji: command.emoji,
-              name: command.name,
-              slug: channelSlug,
-              sort_order: nextSortOrder,
-              tribe_id: targetTribe.id,
-              updated_at: expressionBuilder.fn<Date>("timezone", [
-                expressionBuilder.val("utc"),
-                expressionBuilder.fn<Date>("now"),
-              ]),
-            }))
+            .columns([
+              "access_scope",
+              "created_at",
+              "emoji",
+              "name",
+              "slug",
+              "sort_order",
+              "tribe_id",
+              "updated_at",
+            ])
+            .expression((expressionBuilder) =>
+              expressionBuilder
+                .selectFrom("tribes")
+                .select([
+                  expressionBuilder.val("tribemates").as("access_scope"),
+                  expressionBuilder.fn<Date>("timezone", [
+                    expressionBuilder.val("utc"),
+                    expressionBuilder.fn<Date>("now"),
+                  ]).as("created_at"),
+                  expressionBuilder.val(command.emoji).as("emoji"),
+                  expressionBuilder.val(command.name).as("name"),
+                  expressionBuilder.val(channelSlug).as("slug"),
+                  expressionBuilder.val(nextSortOrder).as("sort_order"),
+                  "tribes.id as tribe_id",
+                  expressionBuilder.fn<Date>("timezone", [
+                    expressionBuilder.val("utc"),
+                    expressionBuilder.fn<Date>("now"),
+                  ]).as("updated_at"),
+                ])
+                .where("tribes.id", "=", targetTribe.id)
+                .where((permissionExpressionBuilder) =>
+                  permissionExpressionBuilder.fn<boolean>(
+                    "public.can_manage_tribe_channels",
+                    ["tribes.id"]
+                  )
+                )
+            )
             .returning(["id", "name", "slug", "emoji", "sort_order", "access_scope"])
             .executeTakeFirst();
 
