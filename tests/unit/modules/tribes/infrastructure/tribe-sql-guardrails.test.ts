@@ -116,14 +116,13 @@ describe("Tribe SQL guardrails", () => {
     );
   });
 
-  it("restores enabled and forced RLS on every app-protected table", () => {
+  it("restores RLS without forcing definer-backed tribe member reads", () => {
     const restoredRlsEnforcementMigration = readWorkspaceFile(
       restoredRlsEnforcementMigrationPath
     );
-    const rlsProtectedTables = [
+    const forcedRlsProtectedTables = [
       "tribe_creator_whitelist",
       "tribes",
-      "tribe_members",
       "tribe_channels",
       "tribe_invitations",
       "messages",
@@ -140,15 +139,22 @@ describe("Tribe SQL guardrails", () => {
       "subscription_idempotency_operations",
     ];
 
-    for (const tableName of rlsProtectedTables) {
+    for (const tableName of forcedRlsProtectedTables) {
       expect(restoredRlsEnforcementMigration).toContain(`public.${tableName}`);
     }
 
+    expect(restoredRlsEnforcementMigration).toContain("public.tribe_members");
     expect(restoredRlsEnforcementMigration).toContain(
-      "protected_table := to_regclass(protected_table_name)"
+      "protected_table := to_regclass(forced_rls_table_name)"
+    );
+    expect(restoredRlsEnforcementMigration).toContain(
+      "protected_table := to_regclass(enabled_rls_table_name)"
     );
     expect(restoredRlsEnforcementMigration).toContain("ENABLE ROW LEVEL SECURITY");
     expect(restoredRlsEnforcementMigration).toContain("FORCE ROW LEVEL SECURITY");
+    expect(restoredRlsEnforcementMigration).toContain(
+      "NO FORCE ROW LEVEL SECURITY"
+    );
   });
 
   it("creates a runtime database role that cannot bypass RLS", () => {

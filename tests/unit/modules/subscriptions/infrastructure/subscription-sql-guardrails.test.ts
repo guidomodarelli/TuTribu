@@ -11,6 +11,8 @@ const TRIAL_PERIOD_CONSTRAINT_FIX_MIGRATION_PATH =
   "database/migrations/20260512130000_fix_subscription_price_trial_period_constraint.sql";
 const TRIAL_PERIOD_LIMIT_MIGRATION_PATH =
   "database/migrations/20260513140000_limit_subscription_price_trial_days.sql";
+const RESTORED_RLS_ENFORCEMENT_MIGRATION_PATH =
+  "database/migrations/20260519030000_restore_rls_enforcement.sql";
 
 function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -103,6 +105,23 @@ describe("Subscription SQL guardrails", () => {
     expect(migration).toContain(
       "WHERE status IN ('active', 'pending', 'grace_period', 'past_due', 'payment_blocked', 'paused')"
     );
+  });
+
+  it("allows recoverable payment retry members to resolve their checkout tribe", () => {
+    const migration = readWorkspaceFile(RESTORED_RLS_ENFORCEMENT_MIGRATION_PATH);
+    const policy = readPolicyBlock(
+      migration,
+      "Recoverable subscription members can read retry tribes"
+    );
+
+    expect(policy).toContain("ON public.tribes");
+    expect(policy).toContain("FOR SELECT");
+    expect(policy).toMatch(/tribe_members\.tribe_id = tribes\.id/);
+    expect(policy).toMatch(/tribe_members\.user_id = public\.current_app_user_id\(\)/);
+    expect(policy).toMatch(/tribe_members\.status = 'blocked'/);
+    expect(policy).toMatch(/tribe_members\.status_reason = 'payment_blocked'/);
+    expect(policy).toMatch(/tribe_members\.status = 'removed'/);
+    expect(policy).toMatch(/tribe_members\.status_reason = 'subscription_inactive'/);
   });
 
   it("persists optional Mercado Pago trial periods on subscription prices", () => {

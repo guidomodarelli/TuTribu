@@ -1109,6 +1109,13 @@ export class PostgresTribeMemberSubscriptionRepository
     ].join(MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.separator);
 
     const context = await this.executeWithDatabase(async (database) => {
+      if (input.requiresActiveInvitation) {
+        await this.setCurrentInvitationContext(
+          database.kysely,
+          input.invitationTokenHash
+        );
+      }
+
       const targetTribe = await this.findTargetTribe(
         database.kysely,
         input.tribeSlug

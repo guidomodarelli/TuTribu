@@ -234,6 +234,50 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
   });
 
+  it("sets invitation RLS context before resolving the checkout tribe", async () => {
+    let invitationContextWasSet = false;
+    const execute = createExecute(
+      (sqlText, parameters) => {
+        if (
+          sqlText.startsWith("select") &&
+          sqlText.includes("set_config") &&
+          parameters.includes("app.current_invitation_hash")
+        ) {
+          invitationContextWasSet = true;
+
+          return [{}];
+        }
+
+        if (sqlText.includes('from "tribes"') && !invitationContextWasSet) {
+          return [];
+        }
+
+        return undefined;
+      },
+      baseRows({
+        idempotencyRows: [{ response_body: { checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL } }],
+        subscriptionRows: [
+          {
+            id: "subscription-1",
+            mercado_pago_preapproval_id: null,
+          },
+        ],
+      })
+    );
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "new-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+    });
+  });
+
   it("replaces stale checkout URLs that point to another provider plan", async () => {
     const buildMercadoPagoPlanCheckoutUrl = jest.fn(
       () => PROVIDER_PLAN_CHECKOUT_URL

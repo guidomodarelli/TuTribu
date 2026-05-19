@@ -34,6 +34,7 @@ En este repo, la identidad para RLS entra desde:
 * `current_setting('app.current_user_id', true)`
 * `current_setting('app.current_user_email', true)`
 * tablas protegidas con `FORCE ROW LEVEL SECURITY` cuando la app usa una conexion compartida por `DATABASE_URL`
+* la excepcion explicita de `tribe_members`, que mantiene RLS habilitado pero no forzado para preservar funciones `SECURITY DEFINER` que leen membresias visibles despues de validar el contexto de request
 
 Ese acople es aceptable porque:
 
@@ -58,12 +59,15 @@ La regla importante es:
 * la sesion identifica al usuario
 * `tribe_members` resuelve pertenencia y rol
 * RLS usa el contexto `app.current_user_*`
+* las lecturas amplias de membresias deben pasar por funciones `SECURITY DEFINER` acotadas, como `list_visible_tribe_members_by_slug`, y no por queries directas desde la app
 
 ## Ejemplos
 
 * un usuario solo ve tribus a las que pertenece
 * un miembro solo ve datos de tribus donde tiene membresia
 * un usuario solo puede insertar la membership inicial de leader de la tribu que acaba de crear
+* un usuario invitado puede leer la tribu de checkout solo despues de setear `app.current_invitation_hash`
+* un miembro con pago recuperable puede leer la tribu necesaria para reintentar checkout, mientras la app decide si el retry aplica
 
 ---
 

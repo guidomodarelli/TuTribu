@@ -13,12 +13,25 @@ jest.mock("@/src/modules/auth/infrastructure/better-auth/server-auth-context", (
 
 describe("createRequestModules", () => {
   it("creates a single request-scoped database client and shares it across modules", async () => {
+    const executeTakeFirst = jest.fn(async () => ({
+      email: "leader@example.com",
+    }));
+    const queryBuilder = {
+      executeTakeFirst,
+      limit: jest.fn(() => queryBuilder),
+      select: jest.fn(() => queryBuilder),
+      where: jest.fn(() => queryBuilder),
+    };
+    const kysely = {
+      selectFrom: jest.fn(() => queryBuilder),
+    };
     const databaseClient = {
       withRequestContext: jest.fn(async (_context, callback) =>
         callback({
           execute: jest.fn(async () => ({
             rows: [],
           })),
+          kysely,
           one: jest.fn(),
           query: jest.fn(),
           transaction: jest.fn(),
