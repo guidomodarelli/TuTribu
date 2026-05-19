@@ -1,30 +1,71 @@
+import { createKyselyRequestDatabase } from "@/src/modules/shared/infrastructure/database/kysely-request-database";
 import { PostgresTribeChannelRepository } from "@/src/modules/messages/infrastructure/repositories/postgres-tribe-channel-repository";
 
-function getSqlText(statement: unknown): string {
-  return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
-    .map((chunk) => {
-      if (typeof chunk === "string") {
-        return chunk;
-      }
+function createRequestKyselyDatabaseDouble(
+  rowBatches: Array<Array<Record<string, unknown>>>
+) {
+  const query = jest.fn(async (statement: string) => {
+    if (isTransactionControlStatement(statement)) {
+      return {
+        rowCount: 0,
+        rows: [],
+      };
+    }
 
-      if (
-        chunk &&
-        typeof chunk === "object" &&
-        "value" in chunk &&
-        Array.isArray((chunk as { value: unknown }).value)
-      ) {
-        return (chunk as { value: string[] }).value.join("");
-      }
+    const rows = rowBatches.shift() ?? [];
 
-      return "";
-    })
-    .join("");
+    return {
+      rowCount: rows.length,
+      rows,
+    };
+  });
+
+  return {
+    database: {
+      kysely: createKyselyRequestDatabase({
+        query,
+      } as never),
+    },
+    query,
+  };
+}
+
+function createFailingRequestKyselyDatabaseDouble(error: unknown) {
+  const query = jest.fn(async () => {
+    throw error;
+  });
+
+  return {
+    database: {
+      kysely: createKyselyRequestDatabase({
+        query,
+      } as never),
+    },
+    query,
+  };
+}
+
+function isTransactionControlStatement(statement: string): boolean {
+  return (
+    statement.startsWith("SAVEPOINT") ||
+    statement.startsWith("RELEASE SAVEPOINT") ||
+    statement.startsWith("ROLLBACK TO SAVEPOINT")
+  );
+}
+
+function getExecutedSqlText(databaseDouble: {
+  query: jest.Mock;
+}): string {
+  return databaseDouble.query.mock.calls
+    .map(([statement]) => String(statement))
+    .filter((statement) => !isTransactionControlStatement(statement))
+    .join("\n");
 }
 
 describe("PostgresTribeChannelRepository", () => {
   it("lists tribe channels ordered for the round", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [
         {
           access_scope: "tribemates",
           emoji: "🔥",
@@ -34,9 +75,9 @@ describe("PostgresTribeChannelRepository", () => {
           sort_order: "20",
         },
       ],
-    }));
+    ]);
     const repository = new PostgresTribeChannelRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -52,14 +93,18 @@ describe("PostgresTribeChannelRepository", () => {
       },
     ]);
 
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "order by tribe_channels.sort_order asc"
+    expect(getExecutedSqlText(databaseDouble)).toContain(
+      'order by "tribe_channels"."sort_order" asc'
     );
   });
 
   it("creates channels guarded by leader or guardian membership", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ can_manage: true }],
+      [],
+      [{ sort_order: 20 }],
+      [
         {
           access_scope: "tribemates",
           emoji: "❓",
@@ -67,12 +112,11 @@ describe("PostgresTribeChannelRepository", () => {
           name: "Preguntas",
           slug: "preguntas",
           sort_order: 30,
-          status: "created",
         },
       ],
-    }));
+    ]);
     const repository = new PostgresTribeChannelRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -89,23 +133,21 @@ describe("PostgresTribeChannelRepository", () => {
       status: "created",
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const sqlText = getExecutedSqlText(databaseDouble);
 
     expect(sqlText).toContain("public.can_manage_tribe_channels");
-    expect(sqlText).toContain("insert into public.tribe_channels");
-    expect(sqlText).toContain("existing_channel");
+    expect(sqlText).toContain('insert into "tribe_channels"');
+    expect(sqlText).toContain('"slug" = $');
   });
 
   it("maps duplicate channel slugs to a controlled creation status", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          status: "duplicate_slug",
-        },
-      ],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ can_manage: true }],
+      [{ id: "channel-ronda" }],
+    ]);
     const repository = new PostgresTribeChannelRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -118,14 +160,12 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("maps unique violations to duplicate_slug during channel creation", async () => {
-    const execute = jest.fn(async () => {
-      throw {
-        code: "23505",
-        constraint: "tribe_channels_tribe_id_slug_key",
-      };
+    const databaseDouble = createFailingRequestKyselyDatabaseDouble({
+      code: "23505",
+      constraint: "tribe_channels_tribe_id_slug_key",
     });
     const repository = new PostgresTribeChannelRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -138,15 +178,14 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("maps duplicate channel slugs to a controlled update status", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          status: "duplicate_slug",
-        },
-      ],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ can_manage: true }],
+      [{ id: "channel-questions" }],
+      [{ id: "channel-ronda" }],
+    ]);
     const repository = new PostgresTribeChannelRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -159,18 +198,16 @@ describe("PostgresTribeChannelRepository", () => {
       })
     ).resolves.toEqual({ status: "duplicate_slug" });
 
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("existing_channel");
+    expect(getExecutedSqlText(databaseDouble)).toContain('"id" <> $');
   });
 
   it("maps unique violations to duplicate_slug during channel updates", async () => {
-    const execute = jest.fn(async () => {
-      throw {
-        code: "23505",
-        constraint: "tribe_channels_tribe_id_slug_key",
-      };
+    const databaseDouble = createFailingRequestKyselyDatabaseDouble({
+      code: "23505",
+      constraint: "tribe_channels_tribe_id_slug_key",
     });
     const repository = new PostgresTribeChannelRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -185,15 +222,13 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("returns not_found when updating a channel that does not exist", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          status: "not_found",
-        },
-      ],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ can_manage: true }],
+      [],
+    ]);
     const repository = new PostgresTribeChannelRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -206,22 +241,25 @@ describe("PostgresTribeChannelRepository", () => {
       })
     ).resolves.toEqual({ status: "not_found" });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const sqlText = getExecutedSqlText(databaseDouble);
 
-    expect(sqlText).toContain("target_channel");
-    expect(sqlText).toContain("when not exists (select 1 from target_channel)");
+    expect(sqlText).toContain('from "tribe_channels"');
+    expect(sqlText).toContain('"id" = $');
   });
 
   it("moves messages before deleting a channel when a target is provided", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          status: "moved_and_deleted",
-        },
-      ],
-    }));
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ id: "channel-questions", tribe_id: "tribe-1" }],
+      [{ can_manage: true }],
+      [{ channel_count: "2" }],
+      [{ message_count: "1" }],
+      [{ id: "channel-ronda", tribe_id: "tribe-1" }],
+      [{ id: "message-1" }],
+      [{ id: "channel-questions" }],
+    ]);
     const repository = new PostgresTribeChannelRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -232,10 +270,10 @@ describe("PostgresTribeChannelRepository", () => {
       })
     ).resolves.toEqual({ status: "moved_and_deleted" });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const sqlText = getExecutedSqlText(databaseDouble);
 
-    expect(sqlText).toContain("update public.messages");
-    expect(sqlText).toContain("delete from public.tribe_channels");
+    expect(sqlText).toContain('update "messages"');
+    expect(sqlText).toContain('delete from "tribe_channels"');
     expect(sqlText).toContain("channel_count");
   });
 });

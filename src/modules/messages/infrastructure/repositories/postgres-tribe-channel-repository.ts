@@ -1,5 +1,3 @@
-import { sql } from "drizzle-orm";
-
 import type {
   CreateTribeChannelCommand,
   DeleteTribeChannelCommand,
@@ -36,8 +34,13 @@ type ChannelMutationRow = ChannelRow & {
   status: string | null;
 };
 
-type DeletionStatusRow = {
-  status: string | null;
+type TargetTribeRow = {
+  id: string;
+};
+
+type TargetChannelRow = {
+  id: string;
+  tribe_id: string;
 };
 
 type PostgresError = {
@@ -140,25 +143,8 @@ function mapChannelUpdate(row: ChannelMutationRow | null): TribeChannelUpdateRes
   return mapFallbackUpdateStatus(row?.status);
 }
 
-function mapDeletionStatus(row: DeletionStatusRow | null): TribeChannelDeletionResult {
-  const status = row?.status;
-
-  if (
-    status === TRIBE_CHANNEL_MUTATION_STATUS.deleted ||
-    status === TRIBE_CHANNEL_MUTATION_STATUS.movedAndDeleted ||
-    status === TRIBE_CHANNEL_MUTATION_STATUS.lastChannel ||
-    status === TRIBE_CHANNEL_MUTATION_STATUS.channelHasMessages ||
-    status === TRIBE_CHANNEL_MUTATION_STATUS.invalidChannel ||
-    status === TRIBE_CHANNEL_MUTATION_STATUS.notFound
-  ) {
-    return {
-      status,
-    };
-  }
-
-  return {
-    status: TRIBE_CHANNEL_MUTATION_STATUS.forbidden,
-  };
+function mapCount(value: number | string | bigint | null | undefined): number {
+  return Number(value ?? 0);
 }
 
 function isDuplicateChannelSlugError(error: unknown): boolean {
@@ -181,27 +167,23 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
     tribeSlug,
   }: ListTribeChannelsQuery): Promise<TribeChannelResult[]> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute<ChannelRow>(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${tribeSlug}
-          limit 1
-        )
-        select
-          tribe_channels.id,
-          tribe_channels.name,
-          tribe_channels.slug,
-          tribe_channels.emoji,
-          tribe_channels.sort_order,
-          tribe_channels.access_scope
-        from public.tribe_channels
-        inner join target_tribe
-          on target_tribe.id = tribe_channels.tribe_id
-        order by tribe_channels.sort_order asc, tribe_channels.name asc
-      `);
+      const rows = await database.kysely
+        .selectFrom("tribes")
+        .innerJoin("tribe_channels", "tribe_channels.tribe_id", "tribes.id")
+        .select([
+          "tribe_channels.id",
+          "tribe_channels.name",
+          "tribe_channels.slug",
+          "tribe_channels.emoji",
+          "tribe_channels.sort_order",
+          "tribe_channels.access_scope",
+        ])
+        .where("tribes.slug", "=", tribeSlug)
+        .orderBy("tribe_channels.sort_order", "asc")
+        .orderBy("tribe_channels.name", "asc")
+        .execute();
 
-      return result.rows.map(mapChannel);
+      return rows.map(mapChannel);
     });
   }
 
@@ -210,78 +192,76 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
   ): Promise<TribeChannelCreationResult> {
     return this.executeWithDatabase(async (database) => {
       try {
-        const result = await database.execute<ChannelMutationRow>(sql`
-          with target_tribe as (
-            select tribes.id
-            from public.tribes
-            where tribes.slug = ${command.tribeSlug}
-            limit 1
-          ),
-          next_sort_order as (
-            select coalesce(max(sort_order), 0) + 10 as value
-            from public.tribe_channels
-            inner join target_tribe
-              on target_tribe.id = tribe_channels.tribe_id
-          ),
-          channel_input as (
-            select ${createChannelSlug(command.name)} as slug
-          ),
-          existing_channel as (
-            select tribe_channels.id
-            from public.tribe_channels
-            inner join target_tribe
-              on target_tribe.id = tribe_channels.tribe_id
-            inner join channel_input
-              on channel_input.slug = tribe_channels.slug
-            limit 1
-          ),
-          inserted_channel as (
-            insert into public.tribe_channels (
-              tribe_id,
-              name,
-              slug,
-              emoji,
-              sort_order,
-              access_scope,
-              created_at,
-              updated_at
-            )
-            select
-              target_tribe.id,
-              ${command.name},
-              channel_input.slug,
-              ${command.emoji},
-              next_sort_order.value,
-              'tribemates',
-              timezone('utc', now()),
-              timezone('utc', now())
-            from target_tribe
-            cross join channel_input
-            cross join next_sort_order
-            where public.can_manage_tribe_channels(target_tribe.id)
-              and not exists (select 1 from existing_channel)
-            returning id, name, slug, emoji, sort_order, access_scope
-          )
-          select
-            case
-              when exists (select 1 from inserted_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.created}
-              when not exists (select 1 from target_tribe) then ${TRIBE_CHANNEL_MUTATION_STATUS.notFound}
-              when not public.can_manage_tribe_channels((select id from target_tribe)) then ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
-              when exists (select 1 from existing_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug}
-              else ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
-            end as status,
-            inserted_channel.id,
-            inserted_channel.name,
-            inserted_channel.slug,
-            inserted_channel.emoji,
-            inserted_channel.sort_order,
-            inserted_channel.access_scope
-          from (select 1) result
-          left join inserted_channel
-            on true
-        `);
+        return await database.kysely.transaction().execute(async (transaction) => {
+          const targetTribe = await this.findTargetTribe(
+            transaction,
+            command.tribeSlug
+          );
 
-        return mapChannelCreation(result.rows[0] ?? null);
+          if (!targetTribe) {
+            return { status: TRIBE_CHANNEL_MUTATION_STATUS.notFound };
+          }
+
+          const canManage = await this.canManageTribeChannels(
+            transaction,
+            targetTribe.id
+          );
+
+          if (!canManage) {
+            return { status: TRIBE_CHANNEL_MUTATION_STATUS.forbidden };
+          }
+
+          const channelSlug = createChannelSlug(command.name);
+          const existingChannel = await transaction
+            .selectFrom("tribe_channels")
+            .select("id")
+            .where("tribe_id", "=", targetTribe.id)
+            .where("slug", "=", channelSlug)
+            .executeTakeFirst();
+
+          if (existingChannel) {
+            return { status: TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug };
+          }
+
+          const lastChannel = await transaction
+            .selectFrom("tribe_channels")
+            .select("sort_order")
+            .where("tribe_id", "=", targetTribe.id)
+            .orderBy("sort_order", "desc")
+            .limit(1)
+            .executeTakeFirst();
+          const nextSortOrder = mapCount(lastChannel?.sort_order) + 10;
+
+          const insertedChannel = await transaction
+            .insertInto("tribe_channels")
+            .values((expressionBuilder) => ({
+              access_scope: "tribemates",
+              created_at: expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]),
+              emoji: command.emoji,
+              name: command.name,
+              slug: channelSlug,
+              sort_order: nextSortOrder,
+              tribe_id: targetTribe.id,
+              updated_at: expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]),
+            }))
+            .returning(["id", "name", "slug", "emoji", "sort_order", "access_scope"])
+            .executeTakeFirst();
+
+          return mapChannelCreation(
+            insertedChannel
+              ? {
+                  ...insertedChannel,
+                  status: TRIBE_CHANNEL_MUTATION_STATUS.created,
+                }
+              : null
+          );
+        });
       } catch (error) {
         if (isDuplicateChannelSlugError(error)) {
           return {
@@ -299,77 +279,80 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
   ): Promise<TribeChannelUpdateResult> {
     return this.executeWithDatabase(async (database) => {
       try {
-        const result = await database.execute<ChannelMutationRow>(sql`
-          with target_tribe as (
-            select tribes.id
-            from public.tribes
-            where tribes.slug = ${command.tribeSlug}
-            limit 1
-          ),
-          target_channel as (
-            select tribe_channels.id
-            from public.tribe_channels
-            inner join target_tribe
-              on target_tribe.id = tribe_channels.tribe_id
-            where tribe_channels.id = ${command.channelId}
-            limit 1
-          ),
-          channel_input as (
-            select ${createChannelSlug(command.name)} as slug
-          ),
-          existing_channel as (
-            select tribe_channels.id
-            from public.tribe_channels
-            inner join target_tribe
-              on target_tribe.id = tribe_channels.tribe_id
-            inner join channel_input
-              on channel_input.slug = tribe_channels.slug
-            where tribe_channels.id <> ${command.channelId}
-            limit 1
-          ),
-          updated_channel as (
-            update public.tribe_channels
-            set
-              name = ${command.name},
-              slug = (select slug from channel_input),
-              emoji = ${command.emoji},
-              sort_order = ${command.sortOrder},
-              updated_at = timezone('utc', now())
-            from target_tribe
-            where tribe_channels.id = ${command.channelId}
-              and tribe_channels.tribe_id = target_tribe.id
-              and public.can_manage_tribe_channels(target_tribe.id)
-              and exists (select 1 from target_channel)
-              and not exists (select 1 from existing_channel)
-            returning
-              tribe_channels.id,
-              tribe_channels.name,
-              tribe_channels.slug,
-              tribe_channels.emoji,
-              tribe_channels.sort_order,
-              tribe_channels.access_scope
-          )
-          select
-            case
-              when exists (select 1 from updated_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.updated}
-              when not exists (select 1 from target_tribe) then ${TRIBE_CHANNEL_MUTATION_STATUS.notFound}
-              when not public.can_manage_tribe_channels((select id from target_tribe)) then ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
-              when not exists (select 1 from target_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.notFound}
-              when exists (select 1 from existing_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug}
-              else ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
-            end as status,
-            updated_channel.id,
-            updated_channel.name,
-            updated_channel.slug,
-            updated_channel.emoji,
-            updated_channel.sort_order,
-            updated_channel.access_scope
-          from (select 1) result
-          left join updated_channel
-            on true
-        `);
+        return await database.kysely.transaction().execute(async (transaction) => {
+          const targetTribe = await this.findTargetTribe(
+            transaction,
+            command.tribeSlug
+          );
 
-        return mapChannelUpdate(result.rows[0] ?? null);
+          if (!targetTribe) {
+            return { status: TRIBE_CHANNEL_MUTATION_STATUS.notFound };
+          }
+
+          const canManage = await this.canManageTribeChannels(
+            transaction,
+            targetTribe.id
+          );
+
+          if (!canManage) {
+            return { status: TRIBE_CHANNEL_MUTATION_STATUS.forbidden };
+          }
+
+          const targetChannel = await transaction
+            .selectFrom("tribe_channels")
+            .select("id")
+            .where("id", "=", command.channelId)
+            .where("tribe_id", "=", targetTribe.id)
+            .executeTakeFirst();
+
+          if (!targetChannel) {
+            return { status: TRIBE_CHANNEL_MUTATION_STATUS.notFound };
+          }
+
+          const channelSlug = createChannelSlug(command.name);
+          const existingChannel = await transaction
+            .selectFrom("tribe_channels")
+            .select("id")
+            .where("tribe_id", "=", targetTribe.id)
+            .where("slug", "=", channelSlug)
+            .where("id", "<>", command.channelId)
+            .executeTakeFirst();
+
+          if (existingChannel) {
+            return { status: TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug };
+          }
+
+          const updatedChannel = await transaction
+            .updateTable("tribe_channels")
+            .set((expressionBuilder) => ({
+              emoji: command.emoji,
+              name: command.name,
+              slug: channelSlug,
+              sort_order: command.sortOrder,
+              updated_at: expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]),
+            }))
+            .where("id", "=", command.channelId)
+            .where("tribe_id", "=", targetTribe.id)
+            .where((expressionBuilder) =>
+              expressionBuilder.fn<boolean>("public.can_manage_tribe_channels", [
+                "tribe_channels.tribe_id",
+              ])
+            )
+            .returning(["id", "name", "slug", "emoji", "sort_order", "access_scope"])
+            .executeTakeFirst();
+
+          return mapChannelUpdate(
+            updatedChannel
+              ? {
+                  ...updatedChannel,
+                  status: TRIBE_CHANNEL_MUTATION_STATUS.updated,
+                }
+              : null
+          );
+        });
       } catch (error) {
         if (isDuplicateChannelSlugError(error)) {
           return {
@@ -386,81 +369,180 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
     command: DeleteTribeChannelCommand
   ): Promise<TribeChannelDeletionResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute<DeletionStatusRow>(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${command.tribeSlug}
-          limit 1
-        ),
-        target_channel as (
-          select tribe_channels.id, tribe_channels.tribe_id
-          from public.tribe_channels
-          inner join target_tribe
-            on target_tribe.id = tribe_channels.tribe_id
-          where tribe_channels.id = ${command.channelId}
-          limit 1
-        ),
-        target_replacement as (
-          select tribe_channels.id
-          from public.tribe_channels
-          inner join target_tribe
-            on target_tribe.id = tribe_channels.tribe_id
-          where tribe_channels.id = ${command.targetChannelId || null}
-            and tribe_channels.id <> ${command.channelId}
-          limit 1
-        ),
-        channel_counts as (
-          select
-            count(*) as channel_count,
-            (
-              select count(*)
-              from public.messages
-              inner join target_channel
-                on target_channel.id = messages.channel_id
-            ) as message_count
-          from public.tribe_channels
-          inner join target_tribe
-            on target_tribe.id = tribe_channels.tribe_id
-        ),
-        moved_messages as (
-          update public.messages
-          set
-            channel_id = (select id from target_replacement),
-            updated_at = timezone('utc', now())
-          where messages.channel_id = (select id from target_channel)
-            and public.can_manage_tribe_channels(messages.tribe_id)
-            and (select message_count from channel_counts) > 0
-            and exists (select 1 from target_replacement)
-          returning messages.id
-        ),
-        deleted_channel as (
-          delete from public.tribe_channels
-          where tribe_channels.id = (select id from target_channel)
-            and public.can_manage_tribe_channels(tribe_channels.tribe_id)
-            and (select channel_count from channel_counts) > 1
-            and (
-              (select message_count from channel_counts) = 0
-              or exists (select 1 from target_replacement)
-            )
-          returning tribe_channels.id
-        )
-        select
-          case
-            when not exists (select 1 from target_tribe) then ${TRIBE_CHANNEL_MUTATION_STATUS.notFound}
-            when not exists (select 1 from target_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.notFound}
-            when not public.can_manage_tribe_channels((select id from target_tribe)) then ${TRIBE_CHANNEL_MUTATION_STATUS.forbidden}
-            when (select channel_count from channel_counts) <= 1 then ${TRIBE_CHANNEL_MUTATION_STATUS.lastChannel}
-            when (select message_count from channel_counts) > 0
-              and not exists (select 1 from target_replacement) then ${TRIBE_CHANNEL_MUTATION_STATUS.channelHasMessages}
-            when exists (select 1 from deleted_channel)
-              and exists (select 1 from moved_messages) then ${TRIBE_CHANNEL_MUTATION_STATUS.movedAndDeleted}
-            when exists (select 1 from deleted_channel) then ${TRIBE_CHANNEL_MUTATION_STATUS.deleted}
-            else ${TRIBE_CHANNEL_MUTATION_STATUS.invalidChannel}
-          end as status
-      `);
+      return database.kysely.transaction().execute(async (transaction) => {
+        const targetTribe = await this.findTargetTribe(
+          transaction,
+          command.tribeSlug
+        );
 
-      return mapDeletionStatus(result.rows[0] ?? null);
+        if (!targetTribe) {
+          return { status: TRIBE_CHANNEL_MUTATION_STATUS.notFound };
+        }
+
+        const targetChannel = await transaction
+          .selectFrom("tribe_channels")
+          .select(["id", "tribe_id"])
+          .where("id", "=", command.channelId)
+          .where("tribe_id", "=", targetTribe.id)
+          .executeTakeFirst();
+
+        if (!targetChannel) {
+          return { status: TRIBE_CHANNEL_MUTATION_STATUS.notFound };
+        }
+
+        const canManage = await this.canManageTribeChannels(
+          transaction,
+          targetTribe.id
+        );
+
+        if (!canManage) {
+          return { status: TRIBE_CHANNEL_MUTATION_STATUS.forbidden };
+        }
+
+        const channelCount = await this.countTribeChannels(
+          transaction,
+          targetTribe.id
+        );
+
+        if (channelCount <= 1) {
+          return { status: TRIBE_CHANNEL_MUTATION_STATUS.lastChannel };
+        }
+
+        const messageCount = await this.countChannelMessages(
+          transaction,
+          targetChannel.id
+        );
+        const targetReplacement = command.targetChannelId
+          ? await this.findTargetReplacement(
+              transaction,
+              targetTribe.id,
+              command.channelId,
+              command.targetChannelId
+            )
+          : null;
+
+        if (messageCount > 0 && !targetReplacement) {
+          return { status: TRIBE_CHANNEL_MUTATION_STATUS.channelHasMessages };
+        }
+
+        const movedMessages = messageCount > 0 && targetReplacement
+          ? await transaction
+              .updateTable("messages")
+              .set((expressionBuilder) => ({
+                channel_id: targetReplacement.id,
+                updated_at: expressionBuilder.fn<Date>("timezone", [
+                  expressionBuilder.val("utc"),
+                  expressionBuilder.fn<Date>("now"),
+                ]),
+              }))
+              .where("channel_id", "=", targetChannel.id)
+              .where((expressionBuilder) =>
+                expressionBuilder.fn<boolean>("public.can_manage_tribe_channels", [
+                  "messages.tribe_id",
+                ])
+              )
+              .returning("id")
+              .execute()
+          : [];
+
+        const deletedChannel = await transaction
+          .deleteFrom("tribe_channels")
+          .where("id", "=", targetChannel.id)
+          .where((expressionBuilder) =>
+            expressionBuilder.fn<boolean>("public.can_manage_tribe_channels", [
+              "tribe_channels.tribe_id",
+            ])
+          )
+          .returning("id")
+          .executeTakeFirst();
+
+        if (!deletedChannel) {
+          return { status: TRIBE_CHANNEL_MUTATION_STATUS.invalidChannel };
+        }
+
+        return {
+          status:
+            movedMessages.length > 0
+              ? TRIBE_CHANNEL_MUTATION_STATUS.movedAndDeleted
+              : TRIBE_CHANNEL_MUTATION_STATUS.deleted,
+        };
+      });
     });
   }
+
+  private async findTargetTribe(
+    database: RequestDatabase["kysely"],
+    tribeSlug: string
+  ): Promise<TargetTribeRow | null> {
+    return (
+      (await database
+        .selectFrom("tribes")
+        .select("id")
+        .where("slug", "=", tribeSlug)
+        .executeTakeFirst()) ?? null
+    );
+  }
+
+  private async canManageTribeChannels(
+    database: RequestDatabase["kysely"],
+    tribeId: string
+  ): Promise<boolean> {
+    const permission = await database
+      .selectNoFrom((expressionBuilder) => [
+        expressionBuilder.fn<boolean>("public.can_manage_tribe_channels", [
+          expressionBuilder.val(tribeId),
+        ]).as("can_manage"),
+      ])
+      .executeTakeFirst();
+
+    return permission?.can_manage === true;
+  }
+
+  private async countTribeChannels(
+    database: RequestDatabase["kysely"],
+    tribeId: string
+  ): Promise<number> {
+    const result = await database
+      .selectFrom("tribe_channels")
+      .select((expressionBuilder) =>
+        expressionBuilder.fn.count("id").as("channel_count")
+      )
+      .where("tribe_id", "=", tribeId)
+      .executeTakeFirst();
+
+    return mapCount(result?.channel_count);
+  }
+
+  private async countChannelMessages(
+    database: RequestDatabase["kysely"],
+    channelId: string
+  ): Promise<number> {
+    const result = await database
+      .selectFrom("messages")
+      .select((expressionBuilder) =>
+        expressionBuilder.fn.count("id").as("message_count")
+      )
+      .where("channel_id", "=", channelId)
+      .executeTakeFirst();
+
+    return mapCount(result?.message_count);
+  }
+
+  private async findTargetReplacement(
+    database: RequestDatabase["kysely"],
+    tribeId: string,
+    channelId: string,
+    targetChannelId: string
+  ): Promise<TargetChannelRow | null> {
+    return (
+      (await database
+        .selectFrom("tribe_channels")
+        .select(["id", "tribe_id"])
+        .where("tribe_id", "=", tribeId)
+        .where("id", "=", targetChannelId)
+        .where("id", "<>", channelId)
+        .executeTakeFirst()) ?? null
+    );
+  }
+
 }

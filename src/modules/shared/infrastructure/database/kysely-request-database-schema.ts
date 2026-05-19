@@ -63,6 +63,17 @@ type TribeChannelsTable = {
   updated_at: TimestampColumn;
 };
 
+type MessagesTable = {
+  author_id: string;
+  channel_id: string;
+  content: string;
+  created_at: TimestampColumn;
+  id: Generated<string>;
+  title: string | null;
+  tribe_id: string;
+  updated_at: TimestampColumn;
+};
+
 type UsersTable = {
   createdAt: TimestampColumn;
   email: string;
@@ -74,6 +85,7 @@ type UsersTable = {
 };
 
 export type KyselyRequestDatabaseSchema = {
+  messages: MessagesTable;
   tribe_creator_whitelist: TribeCreatorWhitelistTable;
   tribe_channels: TribeChannelsTable;
   tribe_invitations: TribeInvitationsTable;
