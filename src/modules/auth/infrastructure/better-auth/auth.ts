@@ -34,6 +34,11 @@ const BETTER_AUTH_PROVIDER = {
   google: "google",
 } as const;
 
+const TRUSTED_ORIGIN_PATTERN_PROTOCOL = {
+  local: "http",
+  remote: "https",
+} as const;
+
 const BETTER_AUTH_SCHEMA = {
   account: accounts,
   session: sessions,
@@ -41,8 +46,18 @@ const BETTER_AUTH_SCHEMA = {
   verification: verifications,
 } as const;
 
+const ABSOLUTE_ORIGIN_PATTERN = /^(https?):\/\/(.+)$/i;
+const LOCALHOST_WILDCARD_PORT_PATTERN = /^localhost:\*$/i;
+const REMOTE_WILDCARD_HOST_PATTERN =
+  /^\*\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+(?:\:\*)?$/i;
+
 type GlobalBetterAuthDatabase = typeof globalThis & {
   __tuTribuBetterAuthPool?: Pool;
+};
+
+type TrustedOriginHostPattern = {
+  host: string;
+  protocol: string;
 };
 
 function getBetterAuthPool() {
@@ -72,7 +87,13 @@ function normalizeTrustedOrigin(rawOrigin: string | undefined) {
   try {
     return new URL(candidateOrigin).origin;
   } catch {
-    return null;
+    const trustedOriginPattern = parseTrustedOriginHostPattern(trimmedOrigin);
+
+    if (!trustedOriginPattern) {
+      return null;
+    }
+
+    return `${trustedOriginPattern.protocol}://${trustedOriginPattern.host}`;
   }
 }
 
@@ -93,9 +114,39 @@ function readTrustedOrigins() {
   );
 }
 
+function parseTrustedOriginHostPattern(
+  rawOrigin: string
+): TrustedOriginHostPattern | null {
+  const absoluteOriginMatch = rawOrigin.match(ABSOLUTE_ORIGIN_PATTERN);
+  const protocol =
+    absoluteOriginMatch?.[1] ??
+    (LOCALHOST_WILDCARD_PORT_PATTERN.test(rawOrigin)
+      ? TRUSTED_ORIGIN_PATTERN_PROTOCOL.local
+      : TRUSTED_ORIGIN_PATTERN_PROTOCOL.remote);
+  const host = absoluteOriginMatch?.[2] ?? rawOrigin;
+
+  if (
+    !LOCALHOST_WILDCARD_PORT_PATTERN.test(host) &&
+    !REMOTE_WILDCARD_HOST_PATTERN.test(host)
+  ) {
+    return null;
+  }
+
+  return {
+    host,
+    protocol,
+  };
+}
+
 function readAllowedHosts(trustedOrigins: string[]) {
   return trustedOrigins
-    .map((trustedOrigin) => new URL(trustedOrigin).host)
+    .map((trustedOrigin) => {
+      try {
+        return new URL(trustedOrigin).host;
+      } catch {
+        return parseTrustedOriginHostPattern(trustedOrigin)?.host ?? "";
+      }
+    })
     .filter((host) => host.length > 0);
 }
 
