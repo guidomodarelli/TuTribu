@@ -36,7 +36,7 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import { sql } from "kysely";
 
 type DatabaseExecutor = <T>(
-  callback: (database: RequestDatabase) => Promise<T>
+  callback: (database: RequestDatabase) => Promise<T>,
 ) => Promise<T>;
 
 type MutationStatusRow = {
@@ -109,7 +109,9 @@ const MESSAGE_CREATION_DATABASE_ERROR = {
   pollNotInserted: "Message poll was not inserted",
 } as const;
 
-function mapFallbackCreationStatus(status: string | null): MessageCreationResult {
+function mapFallbackCreationStatus(
+  status: string | null,
+): MessageCreationResult {
   if (status === MESSAGE_MUTATION_STATUS.invalidChannel) {
     return {
       status,
@@ -125,7 +127,7 @@ function mapFallbackCreationStatus(status: string | null): MessageCreationResult
 }
 
 function mapFallbackReplyCreationStatus(
-  status: string | null
+  status: string | null,
 ): MessageReplyCreationResult {
   return {
     status:
@@ -135,7 +137,9 @@ function mapFallbackReplyCreationStatus(
   };
 }
 
-function mapCreatedMessage(row: CreatedMessageRow | null): MessageCreationResult {
+function mapCreatedMessage(
+  row: CreatedMessageRow | null,
+): MessageCreationResult {
   if (
     row?.status === MESSAGE_MUTATION_STATUS.created &&
     row.message_id &&
@@ -195,7 +199,9 @@ function mapCreatedMessage(row: CreatedMessageRow | null): MessageCreationResult
   return mapFallbackCreationStatus(row?.status ?? null);
 }
 
-function mapCreatedReply(row: CreatedReplyRow | null): MessageReplyCreationResult {
+function mapCreatedReply(
+  row: CreatedReplyRow | null,
+): MessageReplyCreationResult {
   if (
     row?.status === MESSAGE_MUTATION_STATUS.created &&
     row.reply_id &&
@@ -223,14 +229,24 @@ function mapCreatedReply(row: CreatedReplyRow | null): MessageReplyCreationResul
 }
 
 export class PostgresMessageMutationRepository
-  implements MessageCreationRepository, MessageReplyRepository, MessageReactionRepository, MessagePinRepository, MessagePollRepository, MessageDeletionRepository
+  implements
+    MessageCreationRepository,
+    MessageReplyRepository,
+    MessageReactionRepository,
+    MessagePinRepository,
+    MessagePollRepository,
+    MessageDeletionRepository
 {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
-  async create(command: CreateTribeMessageCommand): Promise<MessageCreationResult>;
-  async create(command: CreateMessageReplyCommand): Promise<MessageReplyCreationResult>;
   async create(
-    command: CreateTribeMessageCommand | CreateMessageReplyCommand
+    command: CreateTribeMessageCommand,
+  ): Promise<MessageCreationResult>;
+  async create(
+    command: CreateMessageReplyCommand,
+  ): Promise<MessageReplyCreationResult>;
+  async create(
+    command: CreateTribeMessageCommand | CreateMessageReplyCommand,
   ): Promise<MessageCreationResult | MessageReplyCreationResult> {
     if ("messageId" in command) {
       return this.createReply(command);
@@ -239,12 +255,14 @@ export class PostgresMessageMutationRepository
     return this.createMessage(command);
   }
 
-  async toggle(command: ToggleMessageLikeCommand): Promise<MessageLikeToggleResult> {
+  async toggle(
+    command: ToggleMessageLikeCommand,
+  ): Promise<MessageLikeToggleResult> {
     return this.executeWithDatabase(async (database) => {
       const targetMessage = await this.findTargetMessagePermission(
         database.kysely,
         command.messageId,
-        command.tribeSlug
+        command.tribeSlug,
       );
 
       if (!targetMessage) {
@@ -270,7 +288,9 @@ export class PostgresMessageMutationRepository
         .where("type", "=", MESSAGE_REACTION_TYPE.like)
         .returning("id")
         .executeTakeFirst();
-      let status: typeof MESSAGE_MUTATION_STATUS.liked | typeof MESSAGE_MUTATION_STATUS.unliked;
+      let status:
+        | typeof MESSAGE_MUTATION_STATUS.liked
+        | typeof MESSAGE_MUTATION_STATUS.unliked;
 
       if (deletedReaction) {
         status = MESSAGE_MUTATION_STATUS.unliked;
@@ -288,7 +308,7 @@ export class PostgresMessageMutationRepository
             user_id: command.userId,
           }))
           .onConflict((conflictBuilder) =>
-            conflictBuilder.columns(["message_id", "user_id"]).doNothing()
+            conflictBuilder.columns(["message_id", "user_id"]).doNothing(),
           )
           .execute();
         status = MESSAGE_MUTATION_STATUS.liked;
@@ -297,14 +317,12 @@ export class PostgresMessageMutationRepository
       const likeCountResult = await database.kysely
         .selectFrom("message_reactions")
         .select((expressionBuilder) =>
-          expressionBuilder.fn.count("id").as("like_count")
+          expressionBuilder.fn.count("id").as("like_count"),
         )
         .where("message_id", "=", targetMessage.messageId)
         .where("type", "=", MESSAGE_REACTION_TYPE.like)
         .executeTakeFirst();
-      const likeCount = Number(
-        likeCountResult?.like_count ?? 0
-      );
+      const likeCount = Number(likeCountResult?.like_count ?? 0);
 
       if (status === MESSAGE_MUTATION_STATUS.liked) {
         return {
@@ -330,12 +348,14 @@ export class PostgresMessageMutationRepository
     });
   }
 
-  async togglePin(command: ToggleMessagePinCommand): Promise<MessagePinToggleResult> {
+  async togglePin(
+    command: ToggleMessagePinCommand,
+  ): Promise<MessagePinToggleResult> {
     return this.executeWithDatabase(async (database) => {
       const targetMessage = await this.findPinTargetMessage(
         database.kysely,
         command.messageId,
-        command.tribeSlug
+        command.tribeSlug,
       );
 
       if (!targetMessage) {
@@ -369,11 +389,13 @@ export class PostgresMessageMutationRepository
 
       await database.kysely
         .selectNoFrom((expressionBuilder) => [
-          expressionBuilder.fn<void>("pg_advisory_xact_lock", [
-            expressionBuilder.fn<number>("hashtext", [
-              expressionBuilder.val(targetMessage.tribeId),
-            ]),
-          ]).as("lock_key"),
+          expressionBuilder
+            .fn<void>("pg_advisory_xact_lock", [
+              expressionBuilder.fn<number>("hashtext", [
+                expressionBuilder.val(targetMessage.tribeId),
+              ]),
+            ])
+            .as("lock_key"),
         ])
         .executeTakeFirst();
 
@@ -397,13 +419,11 @@ export class PostgresMessageMutationRepository
       const pinnedCountResult = await database.kysely
         .selectFrom("message_pins")
         .select((expressionBuilder) =>
-          expressionBuilder.fn.count("message_id").as("pinned_count")
+          expressionBuilder.fn.count("message_id").as("pinned_count"),
         )
         .where("tribe_id", "=", targetMessage.tribeId)
         .executeTakeFirst();
-      const pinnedCount = Number(
-        pinnedCountResult?.pinned_count ?? 0
-      );
+      const pinnedCount = Number(pinnedCountResult?.pinned_count ?? 0);
 
       if (pinnedCount >= PINNED_TRIBE_MESSAGES_LIMIT) {
         return {
@@ -425,10 +445,12 @@ export class PostgresMessageMutationRepository
           tribe_id: targetMessage.tribeId,
         }))
         .onConflict((conflictBuilder) =>
-          conflictBuilder.column("message_id").doUpdateSet((expressionBuilder) => ({
-            pinned_at: expressionBuilder.ref("excluded.pinned_at"),
-            pinned_by: expressionBuilder.ref("excluded.pinned_by"),
-          }))
+          conflictBuilder
+            .column("message_id")
+            .doUpdateSet((expressionBuilder) => ({
+              pinned_at: expressionBuilder.ref("excluded.pinned_at"),
+              pinned_by: expressionBuilder.ref("excluded.pinned_by"),
+            })),
         )
         .returning("pinned_at")
         .executeTakeFirst();
@@ -443,7 +465,9 @@ export class PostgresMessageMutationRepository
     });
   }
 
-  async vote(command: SubmitMessagePollVoteCommand): Promise<MessagePollMutationResult> {
+  async vote(
+    command: SubmitMessagePollVoteCommand,
+  ): Promise<MessagePollMutationResult> {
     return this.executeWithDatabase(async (database) => {
       const targetPoll = await this.findPollTarget(database.kysely, command);
 
@@ -472,14 +496,16 @@ export class PostgresMessageMutationRepository
 
       await database.kysely
         .selectNoFrom((expressionBuilder) => [
-          expressionBuilder.fn<void>("pg_advisory_xact_lock", [
-            expressionBuilder.fn<number>("hashtext", [
-              expressionBuilder.val(targetPoll.poll_id),
-            ]),
-            expressionBuilder.fn<number>("hashtext", [
-              expressionBuilder.val(command.userId),
-            ]),
-          ]).as("lock_key"),
+          expressionBuilder
+            .fn<void>("pg_advisory_xact_lock", [
+              expressionBuilder.fn<number>("hashtext", [
+                expressionBuilder.val(targetPoll.poll_id),
+              ]),
+              expressionBuilder.fn<number>("hashtext", [
+                expressionBuilder.val(command.userId),
+              ]),
+            ])
+            .as("lock_key"),
         ])
         .executeTakeFirst();
 
@@ -503,59 +529,87 @@ export class PostgresMessageMutationRepository
             user_id: command.userId,
           }))
           .onConflict((conflictBuilder) =>
-            conflictBuilder.columns(["poll_id", "option_id", "user_id"]).doNothing()
+            conflictBuilder
+              .columns(["poll_id", "option_id", "user_id"])
+              .doNothing(),
           )
           .execute();
       }
 
       return {
-        poll: await this.readPoll(database.kysely, targetPoll.poll_id, command.userId),
+        poll: await this.readPoll(
+          database.kysely,
+          targetPoll.poll_id,
+          command.userId,
+        ),
         status: MESSAGE_MUTATION_STATUS.voted,
       };
     });
   }
 
-  async delete(command: DeleteTribeMessageCommand): Promise<MessageDeletionResult> {
+  async delete(
+    command: DeleteTribeMessageCommand,
+  ): Promise<MessageDeletionResult> {
     return this.executeWithDatabase(async (database) => {
-      const deletedMessageResult = await sql<MutationStatusRow>`
-        with target_message as (
-          select messages.id
-          from messages
-          inner join tribes on tribes.id = messages.tribe_id
-          where messages.id = ${command.messageId}
-            and tribes.slug = ${command.tribeSlug}
-          limit 1
-        ),
-        deleted_message as (
-          delete from messages
-          using target_message
-          where messages.id = target_message.id
-            and (
-              (
-                messages.author_id = ${command.userId}
-                and public.is_active_tribe_member(messages.tribe_id)
-              )
-              or public.can_pin_tribe_messages(messages.tribe_id)
-            )
-          returning messages.id
-        )
-        select
-          case
-            when exists (select 1 from deleted_message)
-              then ${MESSAGE_MUTATION_STATUS.deleted}
-            when not exists (select 1 from target_message)
-              then ${MESSAGE_MUTATION_STATUS.notFound}
-            else ${MESSAGE_MUTATION_STATUS.forbidden}
-          end as status
-      `.execute(database.kysely);
-      const deletedMessageStatus = deletedMessageResult.rows[0]?.status;
+      const targetMessage = await database.kysely
+        .selectFrom("messages")
+        .innerJoin("tribes", "tribes.id", "messages.tribe_id")
+        .select((expressionBuilder) => [
+          "messages.author_id as authorId",
+          "messages.id as messageId",
+          "messages.tribe_id as tribeId",
+          expressionBuilder
+            .fn<boolean>("public.can_pin_tribe_messages", [
+              expressionBuilder.ref("messages.tribe_id"),
+            ])
+            .as("canManage"),
+          expressionBuilder
+            .fn<boolean>("public.is_active_tribe_member", [
+              expressionBuilder.ref("messages.tribe_id"),
+            ])
+            .as("canWrite"),
+        ])
+        .where("messages.id", "=", command.messageId)
+        .where("tribes.slug", "=", command.tribeSlug)
+        .limit(1)
+        .executeTakeFirst();
+
+      if (!targetMessage) {
+        return { status: MESSAGE_MUTATION_STATUS.notFound };
+      }
+
+      const canDeleteAsAuthor =
+        targetMessage.authorId === command.userId &&
+        targetMessage.canWrite === true;
+      const canDeleteAsManager = targetMessage.canManage === true;
+
+      if (!canDeleteAsAuthor && !canDeleteAsManager) {
+        return { status: MESSAGE_MUTATION_STATUS.forbidden };
+      }
+
+      const deletedMessage = await database.kysely
+        .deleteFrom("messages")
+        .where("id", "=", targetMessage.messageId)
+        .returning("id")
+        .executeTakeFirst();
+
+      if (deletedMessage) {
+        return { status: MESSAGE_MUTATION_STATUS.deleted };
+      }
+
+      const existingMessage = await database.kysely
+        .selectFrom("messages")
+        .innerJoin("tribes", "tribes.id", "messages.tribe_id")
+        .select("messages.id")
+        .where("messages.id", "=", command.messageId)
+        .where("tribes.slug", "=", command.tribeSlug)
+        .limit(1)
+        .executeTakeFirst();
 
       return {
-        status:
-          deletedMessageStatus === MESSAGE_MUTATION_STATUS.deleted ||
-          deletedMessageStatus === MESSAGE_MUTATION_STATUS.notFound
-            ? deletedMessageStatus
-            : MESSAGE_MUTATION_STATUS.forbidden,
+        status: existingMessage
+          ? MESSAGE_MUTATION_STATUS.forbidden
+          : MESSAGE_MUTATION_STATUS.notFound,
       };
     });
   }
@@ -563,7 +617,7 @@ export class PostgresMessageMutationRepository
   private async findTargetMessagePermission(
     database: RequestDatabase["kysely"],
     messageId: string,
-    tribeSlug: string
+    tribeSlug: string,
   ): Promise<TargetMessagePermission | null> {
     const targetMessage = await database
       .selectFrom("messages")
@@ -580,9 +634,11 @@ export class PostgresMessageMutationRepository
 
     const permission = await database
       .selectNoFrom((expressionBuilder) => [
-        expressionBuilder.fn<boolean>("public.is_active_tribe_member", [
-          expressionBuilder.val(targetMessage.tribeId),
-        ]).as("canWrite"),
+        expressionBuilder
+          .fn<boolean>("public.is_active_tribe_member", [
+            expressionBuilder.val(targetMessage.tribeId),
+          ])
+          .as("canWrite"),
       ])
       .executeTakeFirst();
 
@@ -595,7 +651,7 @@ export class PostgresMessageMutationRepository
   private async findPinTargetMessage(
     database: RequestDatabase["kysely"],
     messageId: string,
-    tribeSlug: string
+    tribeSlug: string,
   ): Promise<PinTargetMessage | null> {
     const targetMessage = await database
       .selectFrom("messages")
@@ -613,9 +669,11 @@ export class PostgresMessageMutationRepository
     const [permission, existingPin] = await Promise.all([
       database
         .selectNoFrom((expressionBuilder) => [
-          expressionBuilder.fn<boolean>("public.can_pin_tribe_messages", [
-            expressionBuilder.val(targetMessage.tribeId),
-          ]).as("canPin"),
+          expressionBuilder
+            .fn<boolean>("public.can_pin_tribe_messages", [
+              expressionBuilder.val(targetMessage.tribeId),
+            ])
+            .as("canPin"),
         ])
         .executeTakeFirst(),
       database
@@ -633,7 +691,7 @@ export class PostgresMessageMutationRepository
   }
 
   private async createMessage(
-    command: CreateTribeMessageCommand
+    command: CreateTribeMessageCommand,
   ): Promise<MessageCreationResult> {
     return this.executeWithDatabase(async (database) => {
       const targetTribe = await database.kysely
@@ -678,16 +736,20 @@ export class PostgresMessageMutationRepository
               expressionBuilder.val(command.authorId).as("author_id"),
               "tribe_channels.id as channel_id",
               expressionBuilder.val(command.content).as("content"),
-              expressionBuilder.fn<Date>("timezone", [
-                expressionBuilder.val("utc"),
-                expressionBuilder.fn<Date>("now"),
-              ]).as("created_at"),
+              expressionBuilder
+                .fn<Date>("timezone", [
+                  expressionBuilder.val("utc"),
+                  expressionBuilder.fn<Date>("now"),
+                ])
+                .as("created_at"),
               expressionBuilder.val(command.title).as("title"),
               "tribe_channels.tribe_id as tribe_id",
-              expressionBuilder.fn<Date>("timezone", [
-                expressionBuilder.val("utc"),
-                expressionBuilder.fn<Date>("now"),
-              ]).as("updated_at"),
+              expressionBuilder
+                .fn<Date>("timezone", [
+                  expressionBuilder.val("utc"),
+                  expressionBuilder.fn<Date>("now"),
+                ])
+                .as("updated_at"),
             ])
             .where("tribes.id", "=", targetTribe.id)
             .where("tribe_channels.id", "=", command.channelId)
@@ -696,10 +758,18 @@ export class PostgresMessageMutationRepository
                 expressionBuilder.val(targetTribe.id),
               ]),
               "=",
-              true
-            )
+              true,
+            ),
         )
-        .returning(["id", "tribe_id", "channel_id", "author_id", "title", "content", "created_at"])
+        .returning([
+          "id",
+          "tribe_id",
+          "channel_id",
+          "author_id",
+          "title",
+          "content",
+          "created_at",
+        ])
         .executeTakeFirst();
 
       if (!insertedMessage) {
@@ -721,11 +791,15 @@ export class PostgresMessageMutationRepository
       const createdMessage = await database.kysely
         .selectFrom("messages")
         .innerJoin("tribe_channels", "tribe_channels.id", "messages.channel_id")
-        .innerJoin("user as message_authors", "message_authors.id", "messages.author_id")
+        .innerJoin(
+          "user as message_authors",
+          "message_authors.id",
+          "messages.author_id",
+        )
         .leftJoin("tribe_members as message_members", (join) =>
           join
             .onRef("message_members.tribe_id", "=", "messages.tribe_id")
-            .onRef("message_members.user_id", "=", "messages.author_id")
+            .onRef("message_members.user_id", "=", "messages.author_id"),
         )
         .select([
           "messages.id as message_id",
@@ -755,7 +829,7 @@ export class PostgresMessageMutationRepository
             poll_question: null,
             status: MESSAGE_MUTATION_STATUS.created,
           }
-        : { status: MESSAGE_MUTATION_STATUS.forbidden } as CreatedMessageRow;
+        : ({ status: MESSAGE_MUTATION_STATUS.forbidden } as CreatedMessageRow);
 
       if (
         createdMessageResult?.status !== MESSAGE_MUTATION_STATUS.created ||
@@ -807,13 +881,15 @@ export class PostgresMessageMutationRepository
             sort_order: optionIndex + 1,
             text: optionText,
             tribe_id: targetTribe.id,
-          }))
+          })),
         )
         .returning(["id", "text", "sort_order"])
         .execute();
       const pollOptions = insertedPollOptions
-        .sort((firstOption, secondOption) =>
-          Number(firstOption.sort_order ?? 0) - Number(secondOption.sort_order ?? 0)
+        .sort(
+          (firstOption, secondOption) =>
+            Number(firstOption.sort_order ?? 0) -
+            Number(secondOption.sort_order ?? 0),
         )
         .map((option) => ({
           id: option.id,
@@ -836,7 +912,7 @@ export class PostgresMessageMutationRepository
 
   private async findPollTarget(
     database: RequestDatabase["kysely"],
-    command: SubmitMessagePollVoteCommand
+    command: SubmitMessagePollVoteCommand,
   ): Promise<PollTargetRow | null> {
     return (
       (await database
@@ -847,9 +923,11 @@ export class PostgresMessageMutationRepository
           "message_polls.id as poll_id",
           "message_polls.tribe_id",
           "message_polls.allow_multiple_votes",
-          expressionBuilder.fn<boolean>("public.is_active_tribe_member", [
-            "message_polls.tribe_id",
-          ]).as("can_write"),
+          expressionBuilder
+            .fn<boolean>("public.is_active_tribe_member", [
+              "message_polls.tribe_id",
+            ])
+            .as("can_write"),
         ])
         .where("messages.id", "=", command.messageId)
         .where("tribes.slug", "=", command.tribeSlug)
@@ -861,11 +939,15 @@ export class PostgresMessageMutationRepository
   private async readPoll(
     database: RequestDatabase["kysely"],
     pollId: string,
-    viewerId: string
+    viewerId: string,
   ): Promise<MessagePollResult> {
     const rows = await database
       .selectFrom("message_polls")
-      .innerJoin("message_poll_options", "message_poll_options.poll_id", "message_polls.id")
+      .innerJoin(
+        "message_poll_options",
+        "message_poll_options.poll_id",
+        "message_polls.id",
+      )
       .select((expressionBuilder) => [
         "message_polls.id as poll_id",
         "message_polls.question",
@@ -875,21 +957,31 @@ export class PostgresMessageMutationRepository
         expressionBuilder
           .selectFrom("message_poll_votes")
           .select((voteCountExpressionBuilder) =>
-            voteCountExpressionBuilder.fn.count("message_poll_votes.id").as("vote_count")
+            voteCountExpressionBuilder.fn
+              .count("message_poll_votes.id")
+              .as("vote_count"),
           )
-          .whereRef("message_poll_votes.option_id", "=", "message_poll_options.id")
+          .whereRef(
+            "message_poll_votes.option_id",
+            "=",
+            "message_poll_options.id",
+          )
           .as("vote_count"),
         expressionBuilder
           .selectFrom("message_poll_votes")
           .select((totalVoteCountExpressionBuilder) =>
-            totalVoteCountExpressionBuilder.fn.count("message_poll_votes.id").as("total_vote_count")
+            totalVoteCountExpressionBuilder.fn
+              .count("message_poll_votes.id")
+              .as("total_vote_count"),
           )
           .whereRef("message_poll_votes.poll_id", "=", "message_polls.id")
           .as("total_vote_count"),
         expressionBuilder
           .selectFrom("message_poll_votes as viewer_votes")
           .select((viewerVoteExpressionBuilder) =>
-            viewerVoteExpressionBuilder.fn.count("viewer_votes.id").as("viewer_vote_count")
+            viewerVoteExpressionBuilder.fn
+              .count("viewer_votes.id")
+              .as("viewer_vote_count"),
           )
           .whereRef("viewer_votes.poll_id", "=", "message_polls.id")
           .whereRef("viewer_votes.option_id", "=", "message_poll_options.id")
@@ -911,7 +1003,9 @@ export class PostgresMessageMutationRepository
         return {
           id: row.option_id,
           percentage:
-            totalVoteCount > 0 ? Math.round((voteCount / totalVoteCount) * 100) : 0,
+            totalVoteCount > 0
+              ? Math.round((voteCount / totalVoteCount) * 100)
+              : 0,
           selectedByViewer: Number(row.selected_by_viewer ?? 0) > 0,
           text: row.option_text,
           voteCount,
@@ -919,18 +1013,20 @@ export class PostgresMessageMutationRepository
       }),
       question: firstRow?.question ?? "",
       totalVoteCount,
-      viewerHasVoted: rows.some((row) => Number(row.selected_by_viewer ?? 0) > 0),
+      viewerHasVoted: rows.some(
+        (row) => Number(row.selected_by_viewer ?? 0) > 0,
+      ),
     };
   }
 
   private async createReply(
-    command: CreateMessageReplyCommand
+    command: CreateMessageReplyCommand,
   ): Promise<MessageReplyCreationResult> {
     return this.executeWithDatabase(async (database) => {
       const targetMessage = await this.findTargetMessagePermission(
         database.kysely,
         command.messageId,
-        command.tribeSlug
+        command.tribeSlug,
       );
 
       if (!targetMessage) {
@@ -949,12 +1045,18 @@ export class PostgresMessageMutationRepository
             .select(["messages.id", "messages.tribe_id"])
             .where("messages.id", "=", targetMessage.messageId)
             .where("tribes.slug", "=", command.tribeSlug)
-            .limit(1)
+            .limit(1),
         )
         .with("inserted_reply", (queryBuilder) =>
           queryBuilder
             .insertInto("message_replies")
-            .columns(["author_id", "content", "created_at", "message_id", "tribe_id"])
+            .columns([
+              "author_id",
+              "content",
+              "created_at",
+              "message_id",
+              "tribe_id",
+            ])
             .expression((expressionBuilder) =>
               expressionBuilder
                 .selectFrom("target_message")
@@ -966,10 +1068,16 @@ export class PostgresMessageMutationRepository
                   "target_message.tribe_id as tribe_id",
                 ])
                 .where(
-                  sql<boolean>`public.is_active_tribe_member(target_message.tribe_id)`
-                )
+                  sql<boolean>`public.is_active_tribe_member(target_message.tribe_id)`,
+                ),
             )
-            .returning(["id", "tribe_id", "author_id", "content", "created_at"])
+            .returning([
+              "id",
+              "tribe_id",
+              "author_id",
+              "content",
+              "created_at",
+            ]),
         )
         .selectFrom("inserted_reply")
         .select([
@@ -1000,7 +1108,7 @@ export class PostgresMessageMutationRepository
                 else ${MESSAGE_MUTATION_STATUS.forbidden}
               end`.as("status"),
             ])
-            .where(sql<boolean>`not exists (select 1 from inserted_reply)`)
+            .where(sql<boolean>`not exists (select 1 from inserted_reply)`),
         )
         .limit(1)
         .executeTakeFirst();
@@ -1011,11 +1119,15 @@ export class PostgresMessageMutationRepository
 
       const createdReply = await database.kysely
         .selectFrom("message_replies")
-        .innerJoin("user as reply_authors", "reply_authors.id", "message_replies.author_id")
+        .innerJoin(
+          "user as reply_authors",
+          "reply_authors.id",
+          "message_replies.author_id",
+        )
         .leftJoin("tribe_members as reply_members", (join) =>
           join
             .onRef("reply_members.tribe_id", "=", "message_replies.tribe_id")
-            .onRef("reply_members.user_id", "=", "message_replies.author_id")
+            .onRef("reply_members.user_id", "=", "message_replies.author_id"),
         )
         .select([
           "message_replies.id as reply_id",
@@ -1035,7 +1147,7 @@ export class PostgresMessageMutationRepository
               ...createdReply,
               status: MESSAGE_MUTATION_STATUS.created,
             }
-          : null
+          : null,
       );
     });
   }

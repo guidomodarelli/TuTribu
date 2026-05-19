@@ -5,9 +5,7 @@ type QueryRowBatch =
   | Array<Record<string, unknown>>
   | ((statement: string) => Array<Record<string, unknown>>);
 
-function createRequestKyselyDatabaseDouble(
-  rowBatches: QueryRowBatch[]
-) {
+function createRequestKyselyDatabaseDouble(rowBatches: QueryRowBatch[]) {
   const query = jest.fn(async (statement: string) => {
     const rowBatch = rowBatches.shift() ?? [];
     const rows =
@@ -29,21 +27,17 @@ function createRequestKyselyDatabaseDouble(
   };
 }
 
-function getExecutedSqlText(databaseDouble: {
-  query: jest.Mock;
-}): string {
+function getExecutedSqlText(databaseDouble: { query: jest.Mock }): string {
   return databaseDouble.query.mock.calls
     .map(([statement]) => String(statement))
     .join("\n");
 }
 
-function getMessageInsertSqlText(databaseDouble: {
-  query: jest.Mock;
-}): string {
+function getMessageInsertSqlText(databaseDouble: { query: jest.Mock }): string {
   return String(
     databaseDouble.query.mock.calls.find(([statement]) =>
-      String(statement).startsWith('insert into "messages"')
-    )?.[0] ?? ""
+      String(statement).startsWith('insert into "messages"'),
+    )?.[0] ?? "",
   );
 }
 
@@ -93,7 +87,7 @@ describe("PostgresMessageMutationRepository", () => {
       ],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -103,7 +97,7 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         content: "Primera mensaje",
         title: "Anuncio inicial",
-      })
+      }),
     ).resolves.toEqual({
       message: {
         id: "message-1",
@@ -143,20 +137,16 @@ describe("PostgresMessageMutationRepository", () => {
 
     expect(sqlText).toContain('insert into "messages"');
     expect(sqlText).toContain(
-      '("author_id", "channel_id", "content", "created_at", "title", "tribe_id", "updated_at")'
+      '("author_id", "channel_id", "content", "created_at", "title", "tribe_id", "updated_at")',
     );
-    expect(sqlText).toContain(
-      "public.is_active_tribe_member"
-    );
+    expect(sqlText).toContain("public.is_active_tribe_member");
     expect(sqlText).toContain("returning");
     expect(sqlText).toContain('"message_authors"."name" as "author_name"');
 
     const insertSqlText = getMessageInsertSqlText(databaseDouble);
 
     expect(insertSqlText).toContain('from "tribe_channels"');
-    expect(insertSqlText).toContain(
-      '"tribe_channels"."id" as "channel_id"'
-    );
+    expect(insertSqlText).toContain('"tribe_channels"."id" as "channel_id"');
   });
 
   it("returns forbidden when message insertion is blocked by the write guard", async () => {
@@ -176,7 +166,7 @@ describe("PostgresMessageMutationRepository", () => {
       [{ id: "channel-ronda" }],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -186,7 +176,7 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         content: "Primera mensaje",
         title: "Anuncio inicial",
-      })
+      }),
     ).resolves.toEqual({ status: "forbidden" });
 
     const sqlText = getExecutedSqlText(databaseDouble);
@@ -213,7 +203,7 @@ describe("PostgresMessageMutationRepository", () => {
       [],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -223,15 +213,13 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         content: "Primera mensaje",
         title: "Anuncio inicial",
-      })
+      }),
     ).resolves.toEqual({ status: "invalid_channel" });
 
     const insertSqlText = getMessageInsertSqlText(databaseDouble);
 
     expect(insertSqlText).toContain('from "tribe_channels"');
-    expect(insertSqlText).toContain(
-      '"tribe_channels"."id" as "channel_id"'
-    );
+    expect(insertSqlText).toContain('"tribe_channels"."id" as "channel_id"');
   });
 
   it("returns inserted poll options when creating a message with a poll", async () => {
@@ -290,7 +278,7 @@ describe("PostgresMessageMutationRepository", () => {
       ],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -305,7 +293,7 @@ describe("PostgresMessageMutationRepository", () => {
           question: "¿Qué practicamos?",
         },
         title: "Encuesta",
-      })
+      }),
     ).resolves.toMatchObject({
       message: {
         poll: {
@@ -352,7 +340,7 @@ describe("PostgresMessageMutationRepository", () => {
       [{ like_count: "3" }],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -360,7 +348,7 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         messageId: "message-1",
         userId: "member-1",
-      })
+      }),
     ).resolves.toEqual({
       likedByViewer: true,
       likeCount: 3,
@@ -372,7 +360,9 @@ describe("PostgresMessageMutationRepository", () => {
     expect(sqlText).toContain("public.is_active_tribe_member");
     expect(sqlText).toContain('delete from "message_reactions"');
     expect(sqlText).toContain('insert into "message_reactions"');
-    expect(sqlText).toContain('on conflict ("message_id", "user_id") do nothing');
+    expect(sqlText).toContain(
+      'on conflict ("message_id", "user_id") do nothing',
+    );
     expect(sqlText).toContain("count(");
   });
 
@@ -387,7 +377,7 @@ describe("PostgresMessageMutationRepository", () => {
       [{ pinned_at: "2026-04-26T13:00:00.000Z" }],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -395,7 +385,7 @@ describe("PostgresMessageMutationRepository", () => {
         messageId: "message-1",
         tribeSlug: "matematica-pro",
         userId: "leader-1",
-      })
+      }),
     ).resolves.toEqual({
       isPinned: true,
       pinnedAt: "2026-04-26T13:00:00.000Z",
@@ -421,7 +411,7 @@ describe("PostgresMessageMutationRepository", () => {
       [{ pinned_count: "3" }],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -429,7 +419,7 @@ describe("PostgresMessageMutationRepository", () => {
         messageId: "message-4",
         tribeSlug: "matematica-pro",
         userId: "leader-1",
-      })
+      }),
     ).resolves.toEqual({
       isPinned: false,
       pinnedAt: null,
@@ -447,7 +437,7 @@ describe("PostgresMessageMutationRepository", () => {
       [{ pinned_at: "2026-04-26T13:00:00.000Z" }],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -455,7 +445,7 @@ describe("PostgresMessageMutationRepository", () => {
         messageId: "message-1",
         tribeSlug: "matematica-pro",
         userId: "leader-2",
-      })
+      }),
     ).resolves.toEqual({
       isPinned: true,
       pinnedAt: "2026-04-26T13:00:00.000Z",
@@ -463,7 +453,7 @@ describe("PostgresMessageMutationRepository", () => {
     });
 
     expect(getExecutedSqlText(databaseDouble)).toContain(
-      'where "message_id" = $1'
+      'where "message_id" = $1',
     );
     expect(databaseDouble.query).toHaveBeenCalledTimes(5);
   });
@@ -476,7 +466,7 @@ describe("PostgresMessageMutationRepository", () => {
       [{ id: "message-1" }],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -484,14 +474,14 @@ describe("PostgresMessageMutationRepository", () => {
         messageId: "message-1",
         tribeSlug: "matematica-pro",
         userId: "guardian-1",
-      })
+      }),
     ).resolves.toEqual({
       isPinned: false,
       pinnedAt: null,
       status: "unpinned",
     });
     expect(getExecutedSqlText(databaseDouble)).toContain(
-      'delete from "message_pins"'
+      'delete from "message_pins"',
     );
   });
 
@@ -533,7 +523,7 @@ describe("PostgresMessageMutationRepository", () => {
       ],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -542,7 +532,7 @@ describe("PostgresMessageMutationRepository", () => {
         optionIds: ["option-2"],
         tribeSlug: "matematica-pro",
         userId: "member-1",
-      })
+      }),
     ).resolves.toMatchObject({
       poll: {
         totalVoteCount: 1,
@@ -560,7 +550,7 @@ describe("PostgresMessageMutationRepository", () => {
     expect(sqlText).toContain('delete from "message_poll_votes"');
     expect(sqlText).toContain('insert into "message_poll_votes"');
     expect(sqlText).toContain(
-      'on conflict ("poll_id", "option_id", "user_id") do nothing'
+      'on conflict ("poll_id", "option_id", "user_id") do nothing',
     );
   });
 
@@ -576,7 +566,7 @@ describe("PostgresMessageMutationRepository", () => {
       ],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -585,23 +575,32 @@ describe("PostgresMessageMutationRepository", () => {
         optionIds: ["option-2"],
         tribeSlug: "matematica-pro",
         userId: "muted-member-1",
-      })
+      }),
     ).resolves.toEqual({
       status: "forbidden",
     });
 
     expect(databaseDouble.query).toHaveBeenCalledTimes(1);
     expect(getExecutedSqlText(databaseDouble)).toContain(
-      'public.is_active_tribe_member("message_polls"."tribe_id")'
+      'public.is_active_tribe_member("message_polls"."tribe_id")',
     );
   });
 
   it("deletes a full message through author or staff permissions", async () => {
     const databaseDouble = createRequestKyselyDatabaseDouble([
-      [{ status: "deleted" }],
+      [
+        {
+          authorId: "author-1",
+          canManage: false,
+          canWrite: true,
+          messageId: "message-1",
+          tribeId: "tribe-1",
+        },
+      ],
+      [{ id: "message-1" }],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -609,29 +608,37 @@ describe("PostgresMessageMutationRepository", () => {
         messageId: "message-1",
         tribeSlug: "matematica-pro",
         userId: "author-1",
-      })
+      }),
     ).resolves.toEqual({ status: "deleted" });
 
     const sqlText = getExecutedSqlText(databaseDouble);
 
-    expect(sqlText).toContain("delete from messages");
-    expect(sqlText).toContain("messages.author_id =");
+    expect(sqlText).toContain('delete from "messages"');
+    expect(sqlText).toContain('"messages"."author_id"');
     expect(sqlText).toContain(
-      "public.is_active_tribe_member(messages.tribe_id)"
+      'public.is_active_tribe_member("messages"."tribe_id")',
     );
     expect(sqlText).toContain(
-      "public.can_pin_tribe_messages(messages.tribe_id)"
+      'public.can_pin_tribe_messages("messages"."tribe_id")',
     );
     expect(sqlText).not.toContain("message_polls");
   });
 
   it("maps missing and unauthorized message deletion outcomes", async () => {
     const databaseDouble = createRequestKyselyDatabaseDouble([
-      [{ status: "not_found" }],
-      [{ status: "forbidden" }],
+      [],
+      [
+        {
+          authorId: "author-1",
+          canManage: false,
+          canWrite: false,
+          messageId: "message-1",
+          tribeId: "tribe-1",
+        },
+      ],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -639,27 +646,33 @@ describe("PostgresMessageMutationRepository", () => {
         messageId: "missing-message",
         tribeSlug: "matematica-pro",
         userId: "member-1",
-      })
+      }),
     ).resolves.toEqual({ status: "not_found" });
     await expect(
       repository.delete({
         messageId: "message-1",
         tribeSlug: "matematica-pro",
         userId: "member-2",
-      })
+      }),
     ).resolves.toEqual({ status: "forbidden" });
   });
 
   it("maps a message deleted by another request before deletion as not found", async () => {
     const databaseDouble = createRequestKyselyDatabaseDouble([
-      (statement) =>
-        statement.includes("target_message")
-          ? [{ status: "not_found" }]
-          : [{ messageId: "message-1" }],
+      [
+        {
+          authorId: "member-1",
+          canManage: false,
+          canWrite: true,
+          messageId: "message-1",
+          tribeId: "tribe-1",
+        },
+      ],
+      [],
       [],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -667,10 +680,10 @@ describe("PostgresMessageMutationRepository", () => {
         messageId: "message-1",
         tribeSlug: "matematica-pro",
         userId: "member-1",
-      })
+      }),
     ).resolves.toEqual({ status: "not_found" });
 
-    expect(databaseDouble.query).toHaveBeenCalledTimes(1);
+    expect(databaseDouble.query).toHaveBeenCalledTimes(3);
   });
 
   it("serializes multiple-choice poll votes before replacing the viewer selections", async () => {
@@ -712,7 +725,7 @@ describe("PostgresMessageMutationRepository", () => {
       ],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -721,7 +734,7 @@ describe("PostgresMessageMutationRepository", () => {
         optionIds: ["option-1", "option-2"],
         tribeSlug: "matematica-pro",
         userId: "member-1",
-      })
+      }),
     ).resolves.toMatchObject({
       status: "voted",
     });
@@ -762,7 +775,7 @@ describe("PostgresMessageMutationRepository", () => {
       ],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -771,7 +784,7 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         content: "Excelente clase",
         messageId: "message-1",
-      })
+      }),
     ).resolves.toEqual({
       reply: {
         id: "reply-1",
@@ -792,7 +805,7 @@ describe("PostgresMessageMutationRepository", () => {
 
     expect(sqlText).toContain('insert into "message_replies"');
     expect(sqlText).toContain(
-      '("author_id", "content", "created_at", "message_id", "tribe_id")'
+      '("author_id", "content", "created_at", "message_id", "tribe_id")',
     );
     expect(sqlText).toContain('with "target_message" as');
     expect(sqlText).toContain('"reply_authors"."name" as "reply_author_name"');
@@ -805,7 +818,7 @@ describe("PostgresMessageMutationRepository", () => {
       [],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -814,7 +827,7 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         content: "Excelente clase",
         messageId: "message-1",
-      })
+      }),
     ).resolves.toEqual({ status: "forbidden" });
 
     const sqlText = getExecutedSqlText(databaseDouble);
@@ -832,7 +845,7 @@ describe("PostgresMessageMutationRepository", () => {
       [{ status: "not_found" }],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback(databaseDouble.database as never)
+      callback(databaseDouble.database as never),
     );
 
     await expect(
@@ -841,7 +854,7 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         content: "Excelente clase",
         messageId: "message-1",
-      })
+      }),
     ).resolves.toEqual({ status: "not_found" });
 
     const sqlText = getExecutedSqlText(databaseDouble);
