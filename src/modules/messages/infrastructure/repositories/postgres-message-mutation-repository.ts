@@ -33,7 +33,6 @@ import {
   formatMessageDateTimeValue,
 } from "@/src/modules/messages/infrastructure/mappers/tribe-round-view-model-mapper";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-import { sql } from "kysely";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>,
@@ -1038,83 +1037,58 @@ export class PostgresMessageMutationRepository
       }
 
       const insertedReply = await database.kysely
-        .with("target_message", (queryBuilder) =>
-          queryBuilder
+        .insertInto("message_replies")
+        .columns([
+          "author_id",
+          "content",
+          "created_at",
+          "message_id",
+          "tribe_id",
+        ])
+        .expression((expressionBuilder) =>
+          expressionBuilder
             .selectFrom("messages")
             .innerJoin("tribes", "tribes.id", "messages.tribe_id")
-            .select(["messages.id", "messages.tribe_id"])
+            .select([
+              expressionBuilder.val(command.authorId).as("author_id"),
+              expressionBuilder.val(command.content).as("content"),
+              expressionBuilder
+                .fn<Date>("timezone", [
+                  expressionBuilder.val("utc"),
+                  expressionBuilder.fn<Date>("now"),
+                ])
+                .as("created_at"),
+              "messages.id as message_id",
+              "messages.tribe_id as tribe_id",
+            ])
             .where("messages.id", "=", targetMessage.messageId)
             .where("tribes.slug", "=", command.tribeSlug)
-            .limit(1),
+            .where(
+              expressionBuilder.fn<boolean>("public.is_active_tribe_member", [
+                expressionBuilder.val(targetMessage.tribeId),
+              ]),
+              "=",
+              true,
+            ),
         )
-        .with("inserted_reply", (queryBuilder) =>
-          queryBuilder
-            .insertInto("message_replies")
-            .columns([
-              "author_id",
-              "content",
-              "created_at",
-              "message_id",
-              "tribe_id",
-            ])
-            .expression((expressionBuilder) =>
-              expressionBuilder
-                .selectFrom("target_message")
-                .select([
-                  expressionBuilder.val(command.authorId).as("author_id"),
-                  expressionBuilder.val(command.content).as("content"),
-                  sql<Date>`timezone('utc', now())`.as("created_at"),
-                  "target_message.id as message_id",
-                  "target_message.tribe_id as tribe_id",
-                ])
-                .where(
-                  sql<boolean>`public.is_active_tribe_member(target_message.tribe_id)`,
-                ),
-            )
-            .returning([
-              "id",
-              "tribe_id",
-              "author_id",
-              "content",
-              "created_at",
-            ]),
-        )
-        .selectFrom("inserted_reply")
-        .select([
-          sql<string | null>`inserted_reply.id`.as("id"),
-          sql<string | null>`inserted_reply.tribe_id`.as("tribe_id"),
-          sql<string | null>`inserted_reply.author_id`.as("author_id"),
-          sql<string | null>`inserted_reply.content`.as("content"),
-          sql<Date | string | null>`inserted_reply.created_at`.as("created_at"),
-          sql<string>`case
-            when exists (select 1 from inserted_reply)
-              then ${MESSAGE_MUTATION_STATUS.created}
-            when not exists (select 1 from target_message)
-              then ${MESSAGE_MUTATION_STATUS.notFound}
-            else ${MESSAGE_MUTATION_STATUS.forbidden}
-          end`.as("status"),
-        ])
-        .unionAll(
-          database.kysely
-            .selectNoFrom([
-              sql<string | null>`null`.as("id"),
-              sql<string | null>`null`.as("tribe_id"),
-              sql<string | null>`null`.as("author_id"),
-              sql<string | null>`null`.as("content"),
-              sql<Date | string | null>`null`.as("created_at"),
-              sql<string>`case
-                when not exists (select 1 from target_message)
-                  then ${MESSAGE_MUTATION_STATUS.notFound}
-                else ${MESSAGE_MUTATION_STATUS.forbidden}
-              end`.as("status"),
-            ])
-            .where(sql<boolean>`not exists (select 1 from inserted_reply)`),
-        )
-        .limit(1)
+        .returning(["id", "tribe_id", "author_id", "content", "created_at"])
         .executeTakeFirst();
 
       if (!insertedReply?.id) {
-        return mapFallbackReplyCreationStatus(insertedReply?.status ?? null);
+        const currentTargetMessage = await database.kysely
+          .selectFrom("messages")
+          .innerJoin("tribes", "tribes.id", "messages.tribe_id")
+          .select("messages.id")
+          .where("messages.id", "=", command.messageId)
+          .where("tribes.slug", "=", command.tribeSlug)
+          .limit(1)
+          .executeTakeFirst();
+
+        return {
+          status: currentTargetMessage
+            ? MESSAGE_MUTATION_STATUS.forbidden
+            : MESSAGE_MUTATION_STATUS.notFound,
+        };
       }
 
       const createdReply = await database.kysely

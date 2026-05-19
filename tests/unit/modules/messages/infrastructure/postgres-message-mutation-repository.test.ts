@@ -807,7 +807,7 @@ describe("PostgresMessageMutationRepository", () => {
     expect(sqlText).toContain(
       '("author_id", "content", "created_at", "message_id", "tribe_id")',
     );
-    expect(sqlText).toContain('with "target_message" as');
+    expect(sqlText).toContain('from "messages"');
     expect(sqlText).toContain("public.is_active_tribe_member");
     expect(sqlText).toContain('"reply_authors"."name" as "reply_author_name"');
   });
@@ -817,6 +817,7 @@ describe("PostgresMessageMutationRepository", () => {
       [{ messageId: "message-1", tribeId: "tribe-1" }],
       [{ canWrite: true }],
       [],
+      [{ id: "message-1" }],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
       callback(databaseDouble.database as never),
@@ -833,9 +834,9 @@ describe("PostgresMessageMutationRepository", () => {
 
     const sqlText = getExecutedSqlText(databaseDouble);
 
-    expect(databaseDouble.query).toHaveBeenCalledTimes(3);
+    expect(databaseDouble.query).toHaveBeenCalledTimes(4);
     expect(sqlText).toContain('insert into "message_replies"');
-    expect(sqlText).toContain('with "target_message" as');
+    expect(sqlText).toContain('from "messages"');
     expect(sqlText).toContain("public.is_active_tribe_member");
   });
 
@@ -843,7 +844,8 @@ describe("PostgresMessageMutationRepository", () => {
     const databaseDouble = createRequestKyselyDatabaseDouble([
       [{ messageId: "message-1", tribeId: "tribe-1" }],
       [{ canWrite: true }],
-      [{ status: "not_found" }],
+      [],
+      [],
     ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
       callback(databaseDouble.database as never),
@@ -860,8 +862,8 @@ describe("PostgresMessageMutationRepository", () => {
 
     const sqlText = getExecutedSqlText(databaseDouble);
 
-    expect(databaseDouble.query).toHaveBeenCalledTimes(3);
-    expect(sqlText).toContain('with "target_message" as');
-    expect(sqlText).toContain("when not exists (select 1 from target_message)");
+    expect(databaseDouble.query).toHaveBeenCalledTimes(4);
+    expect(sqlText).toContain('insert into "message_replies"');
+    expect(sqlText).toContain('from "messages"');
   });
 });
