@@ -21,9 +21,9 @@ const FORCE_FLAG = "--force";
 const DRIZZLE_KIT_CLI_PATH = "node_modules/drizzle-kit/bin.cjs";
 const DATABASE_MIGRATION_URL_ENV = "DATABASE_MIGRATION_URL";
 const DATABASE_URL_ENV = "DATABASE_URL";
+const DEVELOPMENT_NODE_ENV = "development";
 const FORCE_ENVIRONMENT_RELOAD = true;
 const FORCE_PUSH_OVERRIDE_ENV = "ALLOW_UNSAFE_DRIZZLE_FORCE_PUSH";
-const LOAD_DEVELOPMENT_ENVIRONMENT_FILES = true;
 const RLS_RUNTIME_ROLE_NAME = "tutribu_rls_app";
 const UNSAFE_FORCE_PUSH_BLOCK_MESSAGE =
   "Refusing to run drizzle-kit push --force because RLS policies are managed by versioned SQL migrations. Run db:migrate, or set ALLOW_UNSAFE_DRIZZLE_FORCE_PUSH=true only for an intentional local schema reset.";
@@ -157,6 +157,16 @@ function buildGrantRuntimeRoleSql(runtimeDatabaseUser) {
 }
 
 /**
+ * Detects whether Next.js should load the development environment file chain.
+ *
+ * @param {NodeJS.ProcessEnv} [environment] Environment variables.
+ * @returns {boolean} Whether `.env.development*` files should be loaded.
+ */
+function shouldLoadDevelopmentEnvironmentFiles(environment = process.env) {
+  return environment.NODE_ENV === DEVELOPMENT_NODE_ENV;
+}
+
+/**
  * Loads the same local environment files used by Drizzle config.
  *
  * @returns {Promise<void>} Resolves after environment files have been loaded.
@@ -172,7 +182,7 @@ async function loadDatabaseEnvironmentFiles() {
 
   loadEnvConfig(
     process.cwd(),
-    LOAD_DEVELOPMENT_ENVIRONMENT_FILES,
+    shouldLoadDevelopmentEnvironmentFiles(),
     undefined,
     FORCE_ENVIRONMENT_RELOAD
   );
@@ -265,4 +275,5 @@ module.exports = {
   normalizeScriptArguments,
   runPushMigrations,
   shouldBlockForcePush,
+  shouldLoadDevelopmentEnvironmentFiles,
 };

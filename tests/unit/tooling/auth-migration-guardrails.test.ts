@@ -50,7 +50,7 @@ async function loadDrizzleConfigWithEnvironment(environment: {
 }
 
 async function loadDrizzleConfigFromTemporaryEnvironmentFile(
-  environmentFileName: ".env" | ".env.local",
+  environmentFileName: ".env" | ".env.local" | ".env.production",
   environmentFileContent: string
 ) {
   const previousNodeEnvironment = process.env.NODE_ENV;
@@ -208,5 +208,45 @@ describe("Auth migration guardrails", () => {
         url: databaseMigrationUrl,
       },
     });
+  });
+
+  it("loads production migration credentials from the production env file outside development", async () => {
+    const databaseMigrationUrl =
+      "postgresql://production-migration-user:password@example.test/migration";
+
+    const previousNodeEnvironment = process.env.NODE_ENV;
+    const previousWorkingDirectory = process.cwd();
+    const temporaryWorkspace = mkdtempSync(path.join(os.tmpdir(), "tutribu-env-"));
+
+    writeFileSync(
+      path.join(temporaryWorkspace, ".env.development"),
+      "DATABASE_MIGRATION_URL=postgresql://development-migration-user:password@example.test/migration",
+      "utf8"
+    );
+    writeFileSync(
+      path.join(temporaryWorkspace, ".env.production"),
+      `DATABASE_MIGRATION_URL=${databaseMigrationUrl}`,
+      "utf8"
+    );
+
+    process.chdir(temporaryWorkspace);
+    process.env.NODE_ENV = "production";
+
+    try {
+      await expect(loadDrizzleConfigWithEnvironment({})).resolves.toMatchObject({
+        dbCredentials: {
+          url: databaseMigrationUrl,
+        },
+      });
+    } finally {
+      if (previousNodeEnvironment === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = previousNodeEnvironment;
+      }
+
+      process.chdir(previousWorkingDirectory);
+      rmSync(temporaryWorkspace, { force: true, recursive: true });
+    }
   });
 });

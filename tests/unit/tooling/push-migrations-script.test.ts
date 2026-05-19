@@ -20,6 +20,9 @@ type PushMigrationsScript = {
     shouldForcePush: boolean;
   };
   shouldBlockForcePush: (environment?: NodeJS.ProcessEnv) => boolean;
+  shouldLoadDevelopmentEnvironmentFiles: (
+    environment?: NodeJS.ProcessEnv
+  ) => boolean;
 };
 
 let pushMigrationsScript: PushMigrationsScript;
@@ -153,6 +156,83 @@ describe("push migrations script", () => {
 
       rmSync(temporaryWorkspace, { force: true, recursive: true });
     }
+  });
+
+  it("should load production database URLs when migrations run outside development", async () => {
+    const previousDatabaseUrl = process.env.DATABASE_URL;
+    const previousDatabaseMigrationUrl = process.env.DATABASE_MIGRATION_URL;
+    const previousNodeEnvironment = process.env.NODE_ENV;
+    const previousWorkingDirectory = process.cwd();
+    const temporaryWorkspace = mkdtempSync(path.join(os.tmpdir(), "tutribu-migrations-"));
+
+    delete process.env.DATABASE_URL;
+    delete process.env.DATABASE_MIGRATION_URL;
+    process.env.NODE_ENV = "production";
+    writeFileSync(
+      path.join(temporaryWorkspace, ".env.development"),
+      [
+        "DATABASE_URL=postgresql://development-runtime:password@example.test/runtime",
+        "DATABASE_MIGRATION_URL=postgresql://development-migration:password@example.test/migration",
+      ].join("\n"),
+      "utf8"
+    );
+    writeFileSync(
+      path.join(temporaryWorkspace, ".env.production"),
+      [
+        "DATABASE_URL=postgresql://production-runtime:password@example.test/runtime",
+        "DATABASE_MIGRATION_URL=postgresql://production-migration:password@example.test/migration",
+      ].join("\n"),
+      "utf8"
+    );
+
+    process.chdir(temporaryWorkspace);
+
+    try {
+      await pushMigrationsScript.loadDatabaseEnvironmentFiles();
+
+      expect(process.env.DATABASE_URL).toBe(
+        "postgresql://production-runtime:password@example.test/runtime"
+      );
+      expect(process.env.DATABASE_MIGRATION_URL).toBe(
+        "postgresql://production-migration:password@example.test/migration"
+      );
+    } finally {
+      process.chdir(previousWorkingDirectory);
+
+      if (previousDatabaseUrl === undefined) {
+        delete process.env.DATABASE_URL;
+      } else {
+        process.env.DATABASE_URL = previousDatabaseUrl;
+      }
+
+      if (previousDatabaseMigrationUrl === undefined) {
+        delete process.env.DATABASE_MIGRATION_URL;
+      } else {
+        process.env.DATABASE_MIGRATION_URL = previousDatabaseMigrationUrl;
+      }
+
+      if (previousNodeEnvironment === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = previousNodeEnvironment;
+      }
+
+      rmSync(temporaryWorkspace, { force: true, recursive: true });
+    }
+  });
+
+  it("should only force the development environment file chain in development", () => {
+    expect(
+      pushMigrationsScript.shouldLoadDevelopmentEnvironmentFiles({
+        NODE_ENV: "development",
+      })
+    ).toBe(true);
+    expect(
+      pushMigrationsScript.shouldLoadDevelopmentEnvironmentFiles({
+        NODE_ENV: "production",
+      })
+    ).toBe(false);
+    expect(pushMigrationsScript.shouldLoadDevelopmentEnvironmentFiles({})).toBe(false);
   });
 
   it("should expose migration commands from package scripts", () => {
