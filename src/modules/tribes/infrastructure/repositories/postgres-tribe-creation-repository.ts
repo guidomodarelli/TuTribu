@@ -1,5 +1,3 @@
-import { sql as kyselySql } from "kysely";
-
 import type { Tribe } from "@/src/modules/tribes/domain/entities/tribe";
 import { TribeSlugConflictError } from "@/src/modules/tribes/domain/errors/tribe-slug-conflict-error";
 import { DEFAULT_TRIBE_CHANNELS } from "@/src/modules/messages/constants/message-round";
@@ -109,16 +107,22 @@ export class PostgresTribeCreationRepository
 
           await transaction
             .insertInto("tribe_channels")
-            .values({
+            .values((expressionBuilder) => ({
               access_scope: "tribemates",
-              created_at: kyselySql<Date>`timezone('utc', now())`,
+              created_at: expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]),
               emoji: defaultChannel.emoji,
               name: defaultChannel.name,
               slug: defaultChannel.slug,
               sort_order: defaultChannel.sortOrder,
               tribe_id: createdTribe.id,
-              updated_at: kyselySql<Date>`timezone('utc', now())`,
-            })
+              updated_at: expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]),
+            }))
             .execute();
 
           return createdTribe;
@@ -140,10 +144,10 @@ export class PostgresTribeCreationRepository
   async isSlugTaken(slug: string): Promise<boolean> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.kysely
-        .selectNoFrom(() =>
-          kyselySql<boolean>`public.is_tribe_slug_taken(${slug})`.as(
-            "slugTaken"
-          )
+        .selectNoFrom((expressionBuilder) =>
+          expressionBuilder.fn<boolean>("public.is_tribe_slug_taken", [
+            expressionBuilder.val(slug),
+          ]).as("slugTaken")
         )
         .executeTakeFirst();
 

@@ -1,5 +1,3 @@
-import { sql as kyselySql } from "kysely";
-
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import type {
   TribeMemberResult,
@@ -178,10 +176,11 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
   ): Promise<TribeMembershipAccessWithTribe | null> {
     return this.executeWithDatabase(async (database) => {
       const data = await database.kysely
-        .selectFrom(
-          kyselySql<PostgresMembershipAccessRow>`
-            public.get_current_tribe_membership_by_slug(${slug})
-          `.as("membership_access")
+        .selectFrom((expressionBuilder) =>
+          expressionBuilder.fn<PostgresMembershipAccessRow>(
+            "public.get_current_tribe_membership_by_slug",
+            [expressionBuilder.val(slug)]
+          ).as("membership_access")
         )
         .leftJoin("tribes", (join) => join.on("tribes.slug", "=", slug))
         .select([
@@ -215,10 +214,11 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
   ): Promise<TribeMembershipAccess | null> {
     return this.executeWithDatabase(async (database) => {
       const data = await database.kysely
-        .selectFrom(
-          kyselySql<PostgresMembershipAccessRow>`
-            public.get_current_tribe_membership_by_slug(${slug})
-          `.as("membership_access")
+        .selectFrom((expressionBuilder) =>
+          expressionBuilder.fn<PostgresMembershipAccessRow>(
+            "public.get_current_tribe_membership_by_slug",
+            [expressionBuilder.val(slug)]
+          ).as("membership_access")
         )
         .select(["status", "status_reason"])
         .executeTakeFirst();
@@ -253,7 +253,8 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
             .on(
               "tribe_members.user_id",
               "=",
-              kyselySql<string>`public.current_app_user_id()`
+              (expressionBuilder) =>
+                expressionBuilder.fn<string>("public.current_app_user_id")
             )
         )
         .select((expressionBuilder) => [
@@ -261,16 +262,17 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           "tribes.id as tribe_row_id",
           "tribes.name",
           "tribes.slug",
-          kyselySql<string | null>`
-            case
-              when public.is_app_owner() then ${TRIBE_MEMBER_ROLE.tribemate}
-              else ${expressionBuilder.ref("tribe_members.role")}
-            end
-          `.as("role"),
+          expressionBuilder
+            .case()
+            .when(expressionBuilder.fn<boolean>("public.is_app_owner"))
+            .then(TRIBE_MEMBER_ROLE.tribemate)
+            .else(expressionBuilder.ref("tribe_members.role"))
+            .end()
+            .as("role"),
         ])
         .where((expressionBuilder) =>
           expressionBuilder.or([
-            kyselySql<boolean>`public.is_app_owner()`,
+            expressionBuilder.fn<boolean>("public.is_app_owner"),
             expressionBuilder("tribe_members.status", "in", [
               TRIBE_MEMBERSHIP_STATUS.active,
               TRIBE_MEMBERSHIP_STATUS.muted,
@@ -298,10 +300,11 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
   async listVisibleTribeMembersBySlug(slug: string): Promise<TribeMemberResult[]> {
     return this.executeWithDatabase(async (database) => {
       const rows = await database.kysely
-        .selectFrom(
-          kyselySql<PostgresTribeMemberRow>`
-            public.list_visible_tribe_members_by_slug(${slug})
-          `.as("visible_tribe_members")
+        .selectFrom((expressionBuilder) =>
+          expressionBuilder.fn<PostgresTribeMemberRow>(
+            "public.list_visible_tribe_members_by_slug",
+            [expressionBuilder.val(slug)]
+          ).as("visible_tribe_members")
         )
         .select(["member_id", "role", "name", "email", "image"])
         .execute();
