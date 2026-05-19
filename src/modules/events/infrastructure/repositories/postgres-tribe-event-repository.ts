@@ -164,23 +164,46 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
 
       const insertedEvent = await database.kysely
         .insertInto("events")
-        .values((expressionBuilder) => ({
-          created_at: expressionBuilder.fn<Date>("timezone", [
-            expressionBuilder.val("utc"),
-            expressionBuilder.fn<Date>("now"),
-          ]),
-          created_by: expressionBuilder.fn<string>("public.current_app_user_id"),
-          description: command.description,
-          ends_at: command.endsAt,
-          meeting_url: command.meetingUrl,
-          starts_at: command.startsAt,
-          title: command.title,
-          tribe_id: targetTribe.id,
-          updated_at: expressionBuilder.fn<Date>("timezone", [
-            expressionBuilder.val("utc"),
-            expressionBuilder.fn<Date>("now"),
-          ]),
-        }))
+        .columns([
+          "created_at",
+          "created_by",
+          "description",
+          "ends_at",
+          "meeting_url",
+          "starts_at",
+          "title",
+          "tribe_id",
+          "updated_at",
+        ])
+        .expression((expressionBuilder) =>
+          expressionBuilder
+            .selectFrom("tribes")
+            .select([
+              expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]).as("created_at"),
+              expressionBuilder.fn<string>("public.current_app_user_id").as("created_by"),
+              expressionBuilder.val(command.description).as("description"),
+              expressionBuilder.val(command.endsAt).as("ends_at"),
+              expressionBuilder.val(command.meetingUrl).as("meeting_url"),
+              expressionBuilder.val(command.startsAt).as("starts_at"),
+              expressionBuilder.val(command.title).as("title"),
+              expressionBuilder.val(targetTribe.id).as("tribe_id"),
+              expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]).as("updated_at"),
+            ])
+            .where("tribes.id", "=", targetTribe.id)
+            .where(
+              expressionBuilder.fn<boolean>("public.can_manage_tribe_events", [
+                expressionBuilder.val(targetTribe.id),
+              ]),
+              "=",
+              true
+            )
+        )
         .returning(["id", "title", "description", "meeting_url", "starts_at", "ends_at"])
         .executeTakeFirst();
 
@@ -240,17 +263,35 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         }))
         .where("id", "=", targetEvent.id)
         .where("tribe_id", "=", targetTribe.id)
+        .where(
+          (expressionBuilder) =>
+            expressionBuilder.fn<boolean>("public.can_manage_tribe_events", [
+              expressionBuilder.val(targetTribe.id),
+            ]),
+          "=",
+          true
+        )
         .returning(["id", "title", "description", "meeting_url", "starts_at", "ends_at"])
         .executeTakeFirst();
 
-      return mapUpdateResult(
-        updatedEvent
-          ? {
-              ...updatedEvent,
-              status: TRIBE_EVENT_MUTATION_STATUS.updated,
-            }
-          : null
-      );
+      if (!updatedEvent) {
+        const eventStillExists = await this.findTargetEvent(
+          database.kysely,
+          targetTribe.id,
+          targetEvent.id
+        );
+
+        return {
+          status: eventStillExists
+            ? TRIBE_EVENT_MUTATION_STATUS.forbidden
+            : TRIBE_EVENT_MUTATION_STATUS.notFound,
+        };
+      }
+
+      return mapUpdateResult({
+        ...updatedEvent,
+        status: TRIBE_EVENT_MUTATION_STATUS.updated,
+      });
     });
   }
 
@@ -288,13 +329,33 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         .deleteFrom("events")
         .where("id", "=", targetEvent.id)
         .where("tribe_id", "=", targetTribe.id)
+        .where(
+          (expressionBuilder) =>
+            expressionBuilder.fn<boolean>("public.can_manage_tribe_events", [
+              expressionBuilder.val(targetTribe.id),
+            ]),
+          "=",
+          true
+        )
         .returning("id")
         .executeTakeFirst();
 
+      if (!deletedEvent) {
+        const eventStillExists = await this.findTargetEvent(
+          database.kysely,
+          targetTribe.id,
+          targetEvent.id
+        );
+
+        return {
+          status: eventStillExists
+            ? TRIBE_EVENT_MUTATION_STATUS.forbidden
+            : TRIBE_EVENT_MUTATION_STATUS.notFound,
+        };
+      }
+
       return {
-        status: deletedEvent
-          ? TRIBE_EVENT_MUTATION_STATUS.deleted
-          : TRIBE_EVENT_MUTATION_STATUS.forbidden,
+        status: TRIBE_EVENT_MUTATION_STATUS.deleted,
       };
     });
   }

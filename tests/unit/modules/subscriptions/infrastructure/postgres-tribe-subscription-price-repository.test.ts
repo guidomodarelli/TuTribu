@@ -42,6 +42,15 @@ function getSqlText(statement: unknown): string {
 function createExecute(...handlers: QueryHandler[]) {
   return jest.fn(async (statement: unknown, parameters: readonly unknown[] = []) => {
     const sqlText = getSqlText(statement);
+
+    if (
+      sqlText.startsWith("SAVEPOINT") ||
+      sqlText.startsWith("RELEASE SAVEPOINT") ||
+      sqlText.startsWith("ROLLBACK TO SAVEPOINT")
+    ) {
+      return { rows: [] };
+    }
+
     const handlerRows = handlers.reduce<Record<string, unknown>[] | undefined>(
       (rows, handler) => rows ?? handler(sqlText, parameters),
       undefined
@@ -135,6 +144,7 @@ function createPriceRow(overrides: Record<string, unknown> = {}) {
 }
 
 function baseRepositoryRows(input: {
+  activeSubscribersCount?: number;
   canManagePrices?: boolean;
   canViewPrices?: boolean;
   paymentIntegration?: Record<string, unknown> | null;
@@ -186,6 +196,30 @@ function baseRepositoryRows(input: {
 
     if (sqlText.includes("update public.tribe_payment_integrations")) {
       return [];
+    }
+
+    if (
+      sqlText.includes('update "tribe_member_subscriptions"') &&
+      sqlText.includes('returning "tribe_id", "user_id"')
+    ) {
+      return [{
+        tribe_id: "tribe-1",
+        user_id: `user-${String(parameters[2] ?? "").split("-").at(-1)}`,
+      }];
+    }
+
+    if (sqlText.includes('update "tribe_members"')) {
+      return [];
+    }
+
+    if (
+      sqlText.includes("count(") &&
+      sqlText.includes('from "tribe_member_subscriptions"') &&
+      sqlText.includes('where "price_id"')
+    ) {
+      return [{
+        active_subscribers_count: input.activeSubscribersCount ?? 0,
+      }];
     }
 
     if (
@@ -379,7 +413,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     });
   });
 
-  it("reconciles provider subscribers and refreshes member access in one batched update", async () => {
+  it("reconciles provider subscribers and refreshes member access transactionally", async () => {
     const getMercadoPagoSubscriptionStatus = jest
       .fn()
       .mockResolvedValueOnce("authorized")
@@ -403,6 +437,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         return undefined;
       },
       baseRepositoryRows({
+        activeSubscribersCount: 2,
         priceRows: [
             createPriceRow({
               active_subscribers_count: 2,
@@ -435,7 +470,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(3);
     expect(
       execute.mock.calls.some(([sqlText]) =>
-        String(sqlText).includes("jsonb_to_recordset")
+        String(sqlText).includes('update "tribe_member_subscriptions"')
       )
     ).toBe(true);
   });
@@ -477,7 +512,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ).toBe(false);
   });
 
-  it("reconciles tribe diagnostics with a batched subscriber update", async () => {
+  it("reconciles tribe diagnostics with transactional subscriber updates", async () => {
     const getMercadoPagoSubscriptionStatus = jest
       .fn()
       .mockResolvedValueOnce("authorized")
@@ -511,6 +546,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         return undefined;
       },
       baseRepositoryRows({
+        activeSubscribersCount: 1,
         paymentIntegration: {
           access_token: "stored-access-token",
           refresh_token: null,
@@ -539,7 +575,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(2);
     expect(
       execute.mock.calls.some(([sqlText]) =>
-        String(sqlText).includes("jsonb_to_recordset")
+        String(sqlText).includes('update "tribe_member_subscriptions"')
       )
     ).toBe(true);
   });

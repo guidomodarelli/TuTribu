@@ -31,6 +31,17 @@ function getExecutedSqlText(databaseDouble: {
     .join("\n");
 }
 
+function getExecutedSqlStatement(
+  databaseDouble: { query: jest.Mock },
+  statementSnippet: string
+): string {
+  const statement = databaseDouble.query.mock.calls.find(([executedStatement]) =>
+    String(executedStatement).includes(statementSnippet)
+  )?.[0];
+
+  return String(statement ?? "");
+}
+
 describe("PostgresTribeEventRepository", () => {
   it("lists tribe events with viewer management permissions", async () => {
     const databaseDouble = createRequestKyselyDatabaseDouble([
@@ -141,10 +152,14 @@ describe("PostgresTribeEventRepository", () => {
     });
 
     const sqlText = getExecutedSqlText(databaseDouble);
+    const insertSqlText = getExecutedSqlStatement(
+      databaseDouble,
+      'insert into "events"'
+    );
 
     expect(sqlText).toContain('insert into "events"');
     expect(sqlText).toContain("public.current_app_user_id");
-    expect(sqlText).toContain("public.can_manage_tribe_events");
+    expect(insertSqlText).toContain("public.can_manage_tribe_events");
   });
 
   it("updates events guarded by tribe event management permissions", async () => {
@@ -185,7 +200,69 @@ describe("PostgresTribeEventRepository", () => {
       status: "updated",
     });
 
+    const updateSqlText = getExecutedSqlStatement(
+      databaseDouble,
+      'update "events"'
+    );
+
+    expect(updateSqlText).toContain("public.can_manage_tribe_events");
+  });
+
+  it("returns not_found when an event disappears before the guarded update runs", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ id: "event-1" }],
+      [{ canManageEvents: true }],
+      [],
+      [],
+    ]);
+    const repository = new PostgresTribeEventRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.update({
+        description: "Repaso actualizado",
+        endsAt: "2026-05-06T20:00:00.000Z",
+        eventId: "event-1",
+        meetingUrl: "https://meet.google.com/updated",
+        startsAt: "2026-05-06T18:30:00.000Z",
+        title: "Clase actualizada",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "not_found",
+    });
+
     expect(getExecutedSqlText(databaseDouble)).toContain('update "events"');
+    expect(databaseDouble.query).toHaveBeenCalledTimes(5);
+  });
+
+  it("returns forbidden when a guarded update writes no rows but the event still exists", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ id: "event-1" }],
+      [{ canManageEvents: true }],
+      [],
+      [{ id: "event-1" }],
+    ]);
+    const repository = new PostgresTribeEventRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.update({
+        description: "Repaso actualizado",
+        endsAt: "2026-05-06T20:00:00.000Z",
+        eventId: "event-1",
+        meetingUrl: "https://meet.google.com/updated",
+        startsAt: "2026-05-06T18:30:00.000Z",
+        title: "Clase actualizada",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "forbidden",
+    });
   });
 
   it("deletes events guarded by tribe event management permissions", async () => {
@@ -209,5 +286,59 @@ describe("PostgresTribeEventRepository", () => {
     });
 
     expect(getExecutedSqlText(databaseDouble)).toContain('delete from "events"');
+  });
+
+  it("keeps delete permission enforcement inside the delete statement", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ id: "event-1" }],
+      [{ canManageEvents: true }],
+      [],
+      [{ id: "event-1" }],
+    ]);
+    const repository = new PostgresTribeEventRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.delete({
+        eventId: "event-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "forbidden",
+    });
+
+    const deleteSqlText = getExecutedSqlStatement(
+      databaseDouble,
+      'delete from "events"'
+    );
+
+    expect(deleteSqlText).toContain("public.can_manage_tribe_events");
+  });
+
+  it("returns not_found when an event disappears before the guarded delete runs", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ id: "event-1" }],
+      [{ canManageEvents: true }],
+      [],
+      [],
+    ]);
+    const repository = new PostgresTribeEventRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.delete({
+        eventId: "event-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "not_found",
+    });
+
+    expect(getExecutedSqlText(databaseDouble)).toContain('delete from "events"');
+    expect(databaseDouble.query).toHaveBeenCalledTimes(5);
   });
 });
