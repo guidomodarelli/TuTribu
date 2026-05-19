@@ -286,6 +286,59 @@ describe("PostgresTribeChannelRepository", () => {
     expect(sqlText).toContain('"id" = $');
   });
 
+  it("returns not_found when the target channel is deleted before the update runs", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ can_manage: true }],
+      [{ id: "channel-questions" }],
+      [],
+      [],
+      [],
+    ]);
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.update({
+        channelId: "channel-questions",
+        tribeSlug: "matematica-pro",
+        emoji: "🔥",
+        name: "Preguntas",
+        sortOrder: 30,
+      })
+    ).resolves.toEqual({ status: "not_found" });
+
+    const sqlStatements = getExecutedSqlStatements(databaseDouble);
+
+    expect(sqlStatements.at(-1)).toContain('from "tribe_channels"');
+    expect(sqlStatements.at(-1)).toContain('"id" = $');
+  });
+
+  it("keeps forbidden when an empty update still has an existing target channel", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ can_manage: true }],
+      [{ id: "channel-questions" }],
+      [],
+      [],
+      [{ id: "channel-questions" }],
+    ]);
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.update({
+        channelId: "channel-questions",
+        tribeSlug: "matematica-pro",
+        emoji: "🔥",
+        name: "Preguntas",
+        sortOrder: 30,
+      })
+    ).resolves.toEqual({ status: "forbidden" });
+  });
+
   it("moves messages before deleting a channel when a target is provided", async () => {
     const databaseDouble = createRequestKyselyDatabaseDouble([
       [{ id: "tribe-1" }],

@@ -365,14 +365,18 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
             .returning(["id", "name", "slug", "emoji", "sort_order", "access_scope"])
             .executeTakeFirst();
 
-          return mapChannelUpdate(
-            updatedChannel
-              ? {
-                  ...updatedChannel,
-                  status: TRIBE_CHANNEL_MUTATION_STATUS.updated,
-                }
-              : null
-          );
+          if (!updatedChannel) {
+            return this.resolveEmptyChannelUpdateStatus(
+              transaction,
+              targetTribe.id,
+              command.channelId
+            );
+          }
+
+          return mapChannelUpdate({
+            ...updatedChannel,
+            status: TRIBE_CHANNEL_MUTATION_STATUS.updated,
+          });
         });
       } catch (error) {
         if (isDuplicateChannelSlugError(error)) {
@@ -517,6 +521,25 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
       .executeTakeFirst();
 
     return permission?.can_manage === true;
+  }
+
+  private async resolveEmptyChannelUpdateStatus(
+    database: RequestDatabase["kysely"],
+    tribeId: string,
+    channelId: string
+  ): Promise<TribeChannelUpdateResult> {
+    const channel = await database
+      .selectFrom("tribe_channels")
+      .select("id")
+      .where("id", "=", channelId)
+      .where("tribe_id", "=", tribeId)
+      .executeTakeFirst();
+
+    return {
+      status: channel
+        ? TRIBE_CHANNEL_MUTATION_STATUS.forbidden
+        : TRIBE_CHANNEL_MUTATION_STATUS.notFound,
+    };
   }
 
   private async countTribeChannels(
