@@ -1,4 +1,5 @@
 import { PostgresMessageMutationRepository } from "@/src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository";
+import { createKyselyRequestDatabase } from "@/src/modules/shared/infrastructure/database/kysely-request-database";
 
 function getSqlText(statement: unknown): string {
   return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
@@ -37,6 +38,36 @@ function getSqlQuery(statement: unknown): { params: unknown[]; sql: string } {
     escapeParam: (index) => `$${index + 1}`,
     escapeString: (value) => `'${value.replaceAll("'", "''")}'`,
   });
+}
+
+function createRequestKyselyDatabaseDouble(
+  rowBatches: Array<Array<Record<string, unknown>>>
+) {
+  const query = jest.fn(async () => {
+    const rows = rowBatches.shift() ?? [];
+
+    return {
+      rowCount: rows.length,
+      rows,
+    };
+  });
+
+  return {
+    database: {
+      kysely: createKyselyRequestDatabase({
+        query,
+      } as never),
+    },
+    query,
+  };
+}
+
+function getExecutedSqlText(databaseDouble: {
+  query: jest.Mock;
+}): string {
+  return databaseDouble.query.mock.calls
+    .map(([statement]) => String(statement))
+    .join("\n");
 }
 
 describe("PostgresMessageMutationRepository", () => {
@@ -232,36 +263,15 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("toggles likes with an active-member write guard and idempotent upsert", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            can_write: true,
-            tribe_id: "tribe-1",
-            message_id: "message-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            id: "reaction-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            like_count: "3",
-          },
-        ],
-      });
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ messageId: "message-1", tribeId: "tribe-1" }],
+      [{ canWrite: true }],
+      [],
+      [{ id: "reaction-1" }],
+      [{ like_count: "3" }],
+    ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -276,47 +286,27 @@ describe("PostgresMessageMutationRepository", () => {
       status: "liked",
     });
 
-    const targetMessageSqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    const deleteSqlText = getSqlText(execute.mock.calls[1]?.[0]);
-    const insertSqlText = getSqlText(execute.mock.calls[2]?.[0]);
-    const countSqlText = getSqlText(execute.mock.calls[3]?.[0]);
+    const sqlText = getExecutedSqlText(databaseDouble);
 
-    expect(targetMessageSqlText).toContain(
-      "public.is_active_tribe_member(messages.tribe_id) as can_write"
-    );
-    expect(deleteSqlText).toContain("delete from public.message_reactions");
-    expect(insertSqlText).toContain(
-      "(message_id, tribe_id, user_id, type, created_at)"
-    );
-    expect(insertSqlText).toContain("on conflict (message_id, user_id) do nothing");
-    expect(countSqlText).toContain("count(*) as like_count");
+    expect(sqlText).toContain("public.is_active_tribe_member");
+    expect(sqlText).toContain('delete from "message_reactions"');
+    expect(sqlText).toContain('insert into "message_reactions"');
+    expect(sqlText).toContain('on conflict ("message_id", "user_id") do nothing');
+    expect(sqlText).toContain("count(");
   });
 
   it("pins messages through a limit-guarded transaction", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            can_pin: true,
-            is_pinned: false,
-            message_id: "message-1",
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ pinned_count: "2" }] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            pinned_at: "2026-04-26T13:00:00.000Z",
-          },
-        ],
-      });
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ messageId: "message-1", tribeId: "tribe-1" }],
+      [{ canPin: true }],
+      [],
+      [{ lock_key: "1" }],
+      [],
+      [{ pinned_count: "2" }],
+      [{ pinned_at: "2026-04-26T13:00:00.000Z" }],
+    ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -331,33 +321,26 @@ describe("PostgresMessageMutationRepository", () => {
       status: "pinned",
     });
 
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "public.can_pin_tribe_messages(messages.tribe_id) as can_pin"
-    );
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("pg_advisory_xact_lock");
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("select message_pins.pinned_at");
-    expect(getSqlText(execute.mock.calls[3]?.[0])).toContain("count(*) as pinned_count");
-    expect(getSqlText(execute.mock.calls[4]?.[0])).toContain("insert into public.message_pins");
+    const sqlText = getExecutedSqlText(databaseDouble);
+
+    expect(sqlText).toContain("public.can_pin_tribe_messages");
+    expect(sqlText).toContain("pg_advisory_xact_lock");
+    expect(sqlText).toContain('select "pinned_at" from "message_pins"');
+    expect(sqlText).toContain("count(");
+    expect(sqlText).toContain('insert into "message_pins"');
   });
 
   it("blocks pinning when the tribe pin limit is reached", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            can_pin: true,
-            is_pinned: false,
-            message_id: "message-4",
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ pinned_count: "3" }] });
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ messageId: "message-4", tribeId: "tribe-1" }],
+      [{ canPin: true }],
+      [],
+      [{ lock_key: "1" }],
+      [],
+      [{ pinned_count: "3" }],
+    ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -371,32 +354,19 @@ describe("PostgresMessageMutationRepository", () => {
       pinnedAt: null,
       status: "pin_limit_reached",
     });
-    expect(execute).toHaveBeenCalledTimes(4);
+    expect(databaseDouble.query).toHaveBeenCalledTimes(6);
   });
 
   it("returns the concurrent pin state when another request pinned the same message after locking", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            can_pin: true,
-            is_pinned: false,
-            message_id: "message-1",
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            pinned_at: "2026-04-26T13:00:00.000Z",
-          },
-        ],
-      });
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ messageId: "message-1", tribeId: "tribe-1" }],
+      [{ canPin: true }],
+      [],
+      [{ lock_key: "1" }],
+      [{ pinned_at: "2026-04-26T13:00:00.000Z" }],
+    ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -411,28 +381,21 @@ describe("PostgresMessageMutationRepository", () => {
       status: "pinned",
     });
 
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
-      "where message_pins.message_id ="
+    expect(getExecutedSqlText(databaseDouble)).toContain(
+      'where "message_id" = $1'
     );
-    expect(execute).toHaveBeenCalledTimes(3);
+    expect(databaseDouble.query).toHaveBeenCalledTimes(5);
   });
 
   it("unpins an already pinned message", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            can_pin: true,
-            is_pinned: true,
-            message_id: "message-1",
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({ rows: [{ id: "message-1" }] });
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ messageId: "message-1", tribeId: "tribe-1" }],
+      [{ canPin: true }],
+      [{ message_id: "message-1" }],
+      [{ id: "message-1" }],
+    ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -446,54 +409,50 @@ describe("PostgresMessageMutationRepository", () => {
       pinnedAt: null,
       status: "unpinned",
     });
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
-      "delete from public.message_pins"
+    expect(getExecutedSqlText(databaseDouble)).toContain(
+      'delete from "message_pins"'
     );
   });
 
   it("serializes single-choice poll votes and returns compact poll results", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            allow_multiple_votes: false,
-            can_write: true,
-            poll_id: "poll-1",
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({ rows: [{ option_id: "option-2" }] })
-      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ id: "vote-1" }] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            allow_multiple_votes: false,
-            option_id: "option-1",
-            option_text: "Álgebra",
-            poll_id: "poll-1",
-            question: "¿Qué practicamos?",
-            selected_by_viewer: false,
-            total_vote_count: "1",
-            vote_count: "0",
-          },
-          {
-            allow_multiple_votes: false,
-            option_id: "option-2",
-            option_text: "Geometría",
-            poll_id: "poll-1",
-            question: "¿Qué practicamos?",
-            selected_by_viewer: true,
-            total_vote_count: "1",
-            vote_count: "1",
-          },
-        ],
-      });
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [
+        {
+          allow_multiple_votes: false,
+          can_write: true,
+          poll_id: "poll-1",
+          tribe_id: "tribe-1",
+        },
+      ],
+      [{ option_id: "option-2" }],
+      [{ lock_key: "1" }],
+      [],
+      [{ id: "vote-1" }],
+      [
+        {
+          allow_multiple_votes: false,
+          option_id: "option-1",
+          option_text: "Álgebra",
+          poll_id: "poll-1",
+          question: "¿Qué practicamos?",
+          selected_by_viewer: "0",
+          total_vote_count: "1",
+          vote_count: "0",
+        },
+        {
+          allow_multiple_votes: false,
+          option_id: "option-2",
+          option_text: "Geometría",
+          poll_id: "poll-1",
+          question: "¿Qué practicamos?",
+          selected_by_viewer: "1",
+          total_vote_count: "1",
+          vote_count: "1",
+        },
+      ],
+    ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -511,24 +470,22 @@ describe("PostgresMessageMutationRepository", () => {
       status: "voted",
     });
 
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
-      "pg_advisory_xact_lock"
-    );
-    expect(getSqlQuery(execute.mock.calls[1]?.[0])).toMatchObject({
-      params: ["poll-1", "option-2"],
-      sql: expect.stringContaining("any(array[$2::uuid]::uuid[])"),
-    });
-    expect(getSqlText(execute.mock.calls[3]?.[0])).toContain(
-      "delete from public.message_poll_votes"
-    );
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
-      "hashtext"
+    const sqlText = getExecutedSqlText(databaseDouble);
+
+    expect(sqlText).toContain("public.is_active_tribe_member");
+    expect(sqlText).toContain('"id" in');
+    expect(sqlText).toContain("pg_advisory_xact_lock");
+    expect(sqlText).toContain("hashtext");
+    expect(sqlText).toContain('delete from "message_poll_votes"');
+    expect(sqlText).toContain('insert into "message_poll_votes"');
+    expect(sqlText).toContain(
+      'on conflict ("poll_id", "option_id", "user_id") do nothing'
     );
   });
 
   it("returns forbidden before validating options when the viewer cannot write poll votes", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
-      rows: [
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [
         {
           allow_multiple_votes: false,
           can_write: false,
@@ -536,9 +493,9 @@ describe("PostgresMessageMutationRepository", () => {
           tribe_id: "tribe-1",
         },
       ],
-    });
+    ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -552,18 +509,19 @@ describe("PostgresMessageMutationRepository", () => {
       status: "forbidden",
     });
 
-    expect(execute).toHaveBeenCalledTimes(1);
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "public.is_active_tribe_member(message_polls.tribe_id) as can_write"
+    expect(databaseDouble.query).toHaveBeenCalledTimes(1);
+    expect(getExecutedSqlText(databaseDouble)).toContain(
+      'public.is_active_tribe_member("message_polls"."tribe_id")'
     );
   });
 
   it("deletes a full message through author or staff permissions", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
-      rows: [{ status: "deleted" }],
-    });
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ messageId: "message-1" }],
+      [{ id: "message-1" }],
+    ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -574,22 +532,27 @@ describe("PostgresMessageMutationRepository", () => {
       })
     ).resolves.toEqual({ status: "deleted" });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const sqlText = getExecutedSqlText(databaseDouble);
 
-    expect(sqlText).toContain("delete from public.messages");
-    expect(sqlText).toContain("messages.author_id =");
-    expect(sqlText).toContain("public.is_active_tribe_member(messages.tribe_id)");
-    expect(sqlText).toContain("public.can_pin_tribe_messages(messages.tribe_id)");
-    expect(sqlText).not.toContain("delete from public.message_polls");
+    expect(sqlText).toContain('delete from "messages"');
+    expect(sqlText).toContain('"author_id" =');
+    expect(sqlText).toContain(
+      'public.is_active_tribe_member("messages"."tribe_id")'
+    );
+    expect(sqlText).toContain(
+      'public.can_pin_tribe_messages("messages"."tribe_id")'
+    );
+    expect(sqlText).not.toContain("message_polls");
   });
 
   it("maps missing and unauthorized message deletion outcomes", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({ rows: [{ status: "not_found" }] })
-      .mockResolvedValueOnce({ rows: [{ status: "forbidden" }] });
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [],
+      [{ messageId: "message-1" }],
+      [],
+    ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -609,51 +572,45 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("serializes multiple-choice poll votes before replacing the viewer selections", async () => {
-    const execute = jest
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            allow_multiple_votes: true,
-            can_write: true,
-            poll_id: "poll-1",
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [{ option_id: "option-1" }, { option_id: "option-2" }],
-      })
-      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ id: "vote-1" }] })
-      .mockResolvedValueOnce({ rows: [{ id: "vote-2" }] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            allow_multiple_votes: true,
-            option_id: "option-1",
-            option_text: "Álgebra",
-            poll_id: "poll-1",
-            question: "¿Qué practicamos?",
-            selected_by_viewer: true,
-            total_vote_count: "2",
-            vote_count: "1",
-          },
-          {
-            allow_multiple_votes: true,
-            option_id: "option-2",
-            option_text: "Geometría",
-            poll_id: "poll-1",
-            question: "¿Qué practicamos?",
-            selected_by_viewer: true,
-            total_vote_count: "2",
-            vote_count: "1",
-          },
-        ],
-      });
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [
+        {
+          allow_multiple_votes: true,
+          can_write: true,
+          poll_id: "poll-1",
+          tribe_id: "tribe-1",
+        },
+      ],
+      [{ option_id: "option-1" }, { option_id: "option-2" }],
+      [{ lock_key: "1" }],
+      [],
+      [{ id: "vote-1" }],
+      [{ id: "vote-2" }],
+      [
+        {
+          allow_multiple_votes: true,
+          option_id: "option-1",
+          option_text: "Álgebra",
+          poll_id: "poll-1",
+          question: "¿Qué practicamos?",
+          selected_by_viewer: "1",
+          total_vote_count: "2",
+          vote_count: "1",
+        },
+        {
+          allow_multiple_votes: true,
+          option_id: "option-2",
+          option_text: "Geometría",
+          poll_id: "poll-1",
+          question: "¿Qué practicamos?",
+          selected_by_viewer: "1",
+          total_vote_count: "2",
+          vote_count: "1",
+        },
+      ],
+    ]);
     const repository = new PostgresMessageMutationRepository(async (callback) =>
-      callback({ execute } as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(
@@ -667,19 +624,12 @@ describe("PostgresMessageMutationRepository", () => {
       status: "voted",
     });
 
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
-      "pg_advisory_xact_lock"
-    );
-    expect(getSqlQuery(execute.mock.calls[1]?.[0])).toMatchObject({
-      params: ["poll-1", "option-1", "option-2"],
-      sql: expect.stringContaining("any(array[$2::uuid, $3::uuid]::uuid[])"),
-    });
-    expect(getSqlText(execute.mock.calls[3]?.[0])).toContain(
-      "delete from public.message_poll_votes"
-    );
-    expect(getSqlText(execute.mock.calls[4]?.[0])).toContain(
-      "insert into public.message_poll_votes"
-    );
+    const sqlText = getExecutedSqlText(databaseDouble);
+
+    expect(sqlText).toContain("pg_advisory_xact_lock");
+    expect(sqlText).toContain('"id" in');
+    expect(sqlText).toContain('delete from "message_poll_votes"');
+    expect(sqlText.match(/insert into "message_poll_votes"/g)).toHaveLength(2);
   });
 
   it("creates replies with the returned reply view model", async () => {

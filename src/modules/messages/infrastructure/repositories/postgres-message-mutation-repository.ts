@@ -90,39 +90,6 @@ type CreatedReplyRow = MutationStatusRow & {
   reply_id: string | null;
 };
 
-type LikeCountRow = {
-  like_count: number | string | null;
-};
-
-type TargetMessageRow = {
-  can_write: boolean;
-  tribe_id: string;
-  message_id: string;
-};
-
-type PinTargetMessageRow = {
-  can_pin: boolean;
-  is_pinned: boolean;
-  message_id: string;
-  tribe_id: string;
-};
-
-type PinCountRow = {
-  pinned_count: number | string | null;
-};
-
-type InsertedPinRow = {
-  pinned_at: Date | string | null;
-};
-
-type ExistingPinRow = {
-  pinned_at: Date | string | null;
-};
-
-type DeletedReactionRow = {
-  id: string;
-};
-
 type PollTargetRow = {
   allow_multiple_votes: boolean;
   can_write: boolean;
@@ -130,18 +97,17 @@ type PollTargetRow = {
   tribe_id: string;
 };
 
-type PollOptionRow = {
-  option_id: string;
-  option_text: string;
-  selected_by_viewer: boolean;
-  vote_count: number | string | null;
+type TargetMessagePermission = {
+  canWrite: boolean;
+  messageId: string;
+  tribeId: string;
 };
 
-type PollResultRow = PollOptionRow & {
-  allow_multiple_votes: boolean;
-  poll_id: string;
-  question: string;
-  total_vote_count: number | string | null;
+type PinTargetMessage = {
+  canPin: boolean;
+  isPinned: boolean;
+  messageId: string;
+  tribeId: string;
 };
 
 const MESSAGE_CREATION_DATABASE_ERROR = {
@@ -281,19 +247,11 @@ export class PostgresMessageMutationRepository
 
   async toggle(command: ToggleMessageLikeCommand): Promise<MessageLikeToggleResult> {
     return this.executeWithDatabase(async (database) => {
-      const targetMessageResult = await database.execute<TargetMessageRow>(sql`
-        select
-          messages.id as message_id,
-          messages.tribe_id,
-          public.is_active_tribe_member(messages.tribe_id) as can_write
-        from public.messages
-        inner join public.tribes
-          on tribes.id = messages.tribe_id
-        where messages.id = ${command.messageId}
-          and tribes.slug = ${command.tribeSlug}
-        limit 1
-      `);
-      const targetMessage = targetMessageResult.rows[0] ?? null;
+      const targetMessage = await this.findTargetMessagePermission(
+        database.kysely,
+        command.messageId,
+        command.tribeSlug
+      );
 
       if (!targetMessage) {
         return {
@@ -303,7 +261,7 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      if (!targetMessage.can_write) {
+      if (!targetMessage.canWrite) {
         return {
           likedByViewer: false,
           likeCount: 0,
@@ -311,42 +269,47 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      const deletedReactionResult = await database.execute<DeletedReactionRow>(sql`
-        delete from public.message_reactions
-        where message_reactions.message_id = ${targetMessage.message_id}
-          and message_reactions.user_id = ${command.userId}
-          and message_reactions.type = ${MESSAGE_REACTION_TYPE.like}
-        returning message_reactions.id
-      `);
-      const deletedReaction = deletedReactionResult.rows[0] ?? null;
+      const deletedReaction = await database.kysely
+        .deleteFrom("message_reactions")
+        .where("message_id", "=", targetMessage.messageId)
+        .where("user_id", "=", command.userId)
+        .where("type", "=", MESSAGE_REACTION_TYPE.like)
+        .returning("id")
+        .executeTakeFirst();
       let status: typeof MESSAGE_MUTATION_STATUS.liked | typeof MESSAGE_MUTATION_STATUS.unliked;
 
       if (deletedReaction) {
         status = MESSAGE_MUTATION_STATUS.unliked;
       } else {
-        await database.execute(sql`
-          insert into public.message_reactions (message_id, tribe_id, user_id, type, created_at)
-          values (
-            ${targetMessage.message_id},
-            ${targetMessage.tribe_id},
-            ${command.userId},
-            ${MESSAGE_REACTION_TYPE.like},
-            timezone('utc', now())
+        await database.kysely
+          .insertInto("message_reactions")
+          .values((expressionBuilder) => ({
+            created_at: expressionBuilder.fn<Date>("timezone", [
+              expressionBuilder.val("utc"),
+              expressionBuilder.fn<Date>("now"),
+            ]),
+            message_id: targetMessage.messageId,
+            tribe_id: targetMessage.tribeId,
+            type: MESSAGE_REACTION_TYPE.like,
+            user_id: command.userId,
+          }))
+          .onConflict((conflictBuilder) =>
+            conflictBuilder.columns(["message_id", "user_id"]).doNothing()
           )
-          on conflict (message_id, user_id) do nothing
-          returning id
-        `);
+          .execute();
         status = MESSAGE_MUTATION_STATUS.liked;
       }
 
-      const likeCountResult = await database.execute<LikeCountRow>(sql`
-        select count(*) as like_count
-        from public.message_reactions
-        where message_reactions.message_id = ${targetMessage.message_id}
-          and message_reactions.type = ${MESSAGE_REACTION_TYPE.like}
-      `);
+      const likeCountResult = await database.kysely
+        .selectFrom("message_reactions")
+        .select((expressionBuilder) =>
+          expressionBuilder.fn.count("id").as("like_count")
+        )
+        .where("message_id", "=", targetMessage.messageId)
+        .where("type", "=", MESSAGE_REACTION_TYPE.like)
+        .executeTakeFirst();
       const likeCount = Number(
-        likeCountResult.rows[0]?.like_count ?? 0
+        likeCountResult?.like_count ?? 0
       );
 
       if (status === MESSAGE_MUTATION_STATUS.liked) {
@@ -375,24 +338,11 @@ export class PostgresMessageMutationRepository
 
   async togglePin(command: ToggleMessagePinCommand): Promise<MessagePinToggleResult> {
     return this.executeWithDatabase(async (database) => {
-      const targetMessageResult = await database.execute<PinTargetMessageRow>(sql`
-        select
-          messages.id as message_id,
-          messages.tribe_id,
-          public.can_pin_tribe_messages(messages.tribe_id) as can_pin,
-          exists (
-            select 1
-            from public.message_pins
-            where message_pins.message_id = messages.id
-          ) as is_pinned
-        from public.messages
-        inner join public.tribes
-          on tribes.id = messages.tribe_id
-        where messages.id = ${command.messageId}
-          and tribes.slug = ${command.tribeSlug}
-        limit 1
-      `);
-      const targetMessage = targetMessageResult.rows[0] ?? null;
+      const targetMessage = await this.findPinTargetMessage(
+        database.kysely,
+        command.messageId,
+        command.tribeSlug
+      );
 
       if (!targetMessage) {
         return {
@@ -402,19 +352,19 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      if (!targetMessage.can_pin) {
+      if (!targetMessage.canPin) {
         return {
-          isPinned: targetMessage.is_pinned,
+          isPinned: targetMessage.isPinned,
           pinnedAt: null,
           status: MESSAGE_MUTATION_STATUS.forbidden,
         };
       }
 
-      if (targetMessage.is_pinned) {
-        await database.execute(sql`
-          delete from public.message_pins
-          where message_pins.message_id = ${targetMessage.message_id}
-        `);
+      if (targetMessage.isPinned) {
+        await database.kysely
+          .deleteFrom("message_pins")
+          .where("message_id", "=", targetMessage.messageId)
+          .execute();
 
         return {
           isPinned: false,
@@ -423,17 +373,22 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      await database.execute(sql`
-        select pg_advisory_xact_lock(hashtext(${targetMessage.tribe_id}))
-      `);
+      await database.kysely
+        .selectNoFrom((expressionBuilder) => [
+          expressionBuilder.fn<void>("pg_advisory_xact_lock", [
+            expressionBuilder.fn<number>("hashtext", [
+              expressionBuilder.val(targetMessage.tribeId),
+            ]),
+          ]).as("lock_key"),
+        ])
+        .executeTakeFirst();
 
-      const existingPinResult = await database.execute<ExistingPinRow>(sql`
-        select message_pins.pinned_at
-        from public.message_pins
-        where message_pins.message_id = ${targetMessage.message_id}
-        limit 1
-      `);
-      const existingPin = existingPinResult.rows[0] ?? null;
+      const existingPin = await database.kysely
+        .selectFrom("message_pins")
+        .select("pinned_at")
+        .where("message_id", "=", targetMessage.messageId)
+        .limit(1)
+        .executeTakeFirst();
 
       if (existingPin) {
         return {
@@ -445,13 +400,15 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      const pinnedCountResult = await database.execute<PinCountRow>(sql`
-        select count(*) as pinned_count
-        from public.message_pins
-        where message_pins.tribe_id = ${targetMessage.tribe_id}
-      `);
+      const pinnedCountResult = await database.kysely
+        .selectFrom("message_pins")
+        .select((expressionBuilder) =>
+          expressionBuilder.fn.count("message_id").as("pinned_count")
+        )
+        .where("tribe_id", "=", targetMessage.tribeId)
+        .executeTakeFirst();
       const pinnedCount = Number(
-        pinnedCountResult.rows[0]?.pinned_count ?? 0
+        pinnedCountResult?.pinned_count ?? 0
       );
 
       if (pinnedCount >= PINNED_TRIBE_MESSAGES_LIMIT) {
@@ -462,20 +419,25 @@ export class PostgresMessageMutationRepository
         };
       }
 
-      const insertedPinResult = await database.execute<InsertedPinRow>(sql`
-        insert into public.message_pins (message_id, tribe_id, pinned_by, pinned_at)
-        values (
-          ${targetMessage.message_id},
-          ${targetMessage.tribe_id},
-          ${command.userId},
-          timezone('utc', now())
+      const insertedPin = await database.kysely
+        .insertInto("message_pins")
+        .values((expressionBuilder) => ({
+          message_id: targetMessage.messageId,
+          pinned_at: expressionBuilder.fn<Date>("timezone", [
+            expressionBuilder.val("utc"),
+            expressionBuilder.fn<Date>("now"),
+          ]),
+          pinned_by: command.userId,
+          tribe_id: targetMessage.tribeId,
+        }))
+        .onConflict((conflictBuilder) =>
+          conflictBuilder.column("message_id").doUpdateSet((expressionBuilder) => ({
+            pinned_at: expressionBuilder.ref("excluded.pinned_at"),
+            pinned_by: expressionBuilder.ref("excluded.pinned_by"),
+          }))
         )
-        on conflict (message_id) do update
-        set pinned_by = excluded.pinned_by,
-            pinned_at = excluded.pinned_at
-        returning pinned_at
-      `);
-      const insertedPin = insertedPinResult.rows[0] ?? null;
+        .returning("pinned_at")
+        .executeTakeFirst();
 
       return {
         isPinned: true,
@@ -489,7 +451,7 @@ export class PostgresMessageMutationRepository
 
   async vote(command: SubmitMessagePollVoteCommand): Promise<MessagePollMutationResult> {
     return this.executeWithDatabase(async (database) => {
-      const targetPoll = await this.findPollTarget(database, command);
+      const targetPoll = await this.findPollTarget(database.kysely, command);
 
       if (!targetPoll) {
         return { status: MESSAGE_MUTATION_STATUS.notFound };
@@ -502,52 +464,58 @@ export class PostgresMessageMutationRepository
       const optionIds = targetPoll.allow_multiple_votes
         ? command.optionIds
         : command.optionIds.slice(0, 1);
-      const optionIdSqlArray = sql.join(
-        optionIds.map((optionId) => sql`${optionId}::uuid`),
-        sql`, `
-      );
-
-      const validOptionsResult = await database.execute<{ option_id: string }>(sql`
-        select message_poll_options.id::text as option_id
-        from public.message_poll_options
-        where message_poll_options.poll_id = ${targetPoll.poll_id}
-          and message_poll_options.id = any(array[${optionIdSqlArray}]::uuid[])
-      `);
-      const validOptionIds = validOptionsResult.rows.map((option) => option.option_id);
+      const validOptions = await database.kysely
+        .selectFrom("message_poll_options")
+        .select("id as option_id")
+        .where("poll_id", "=", targetPoll.poll_id)
+        .where("id", "in", optionIds)
+        .execute();
+      const validOptionIds = validOptions.map((option) => option.option_id);
 
       if (validOptionIds.length === 0) {
         return { status: MESSAGE_MUTATION_STATUS.invalidPoll };
       }
 
-      await database.execute(sql`
-        select pg_advisory_xact_lock(
-          hashtext(${targetPoll.poll_id}),
-          hashtext(${command.userId})
-        ) as lock_key
-      `);
+      await database.kysely
+        .selectNoFrom((expressionBuilder) => [
+          expressionBuilder.fn<void>("pg_advisory_xact_lock", [
+            expressionBuilder.fn<number>("hashtext", [
+              expressionBuilder.val(targetPoll.poll_id),
+            ]),
+            expressionBuilder.fn<number>("hashtext", [
+              expressionBuilder.val(command.userId),
+            ]),
+          ]).as("lock_key"),
+        ])
+        .executeTakeFirst();
 
-      await database.execute(sql`
-        delete from public.message_poll_votes
-        where poll_id = ${targetPoll.poll_id}
-          and user_id = ${command.userId}
-      `);
+      await database.kysely
+        .deleteFrom("message_poll_votes")
+        .where("poll_id", "=", targetPoll.poll_id)
+        .where("user_id", "=", command.userId)
+        .execute();
 
       for (const optionId of validOptionIds) {
-        await database.execute(sql`
-          insert into public.message_poll_votes (poll_id, option_id, tribe_id, user_id, created_at)
-          values (
-            ${targetPoll.poll_id},
-            ${optionId},
-            ${targetPoll.tribe_id},
-            ${command.userId},
-            timezone('utc', now())
+        await database.kysely
+          .insertInto("message_poll_votes")
+          .values((expressionBuilder) => ({
+            created_at: expressionBuilder.fn<Date>("timezone", [
+              expressionBuilder.val("utc"),
+              expressionBuilder.fn<Date>("now"),
+            ]),
+            option_id: optionId,
+            poll_id: targetPoll.poll_id,
+            tribe_id: targetPoll.tribe_id,
+            user_id: command.userId,
+          }))
+          .onConflict((conflictBuilder) =>
+            conflictBuilder.columns(["poll_id", "option_id", "user_id"]).doNothing()
           )
-          on conflict (poll_id, option_id, user_id) do nothing
-        `);
+          .execute();
       }
 
       return {
-        poll: await this.readPoll(database, targetPoll.poll_id, command.userId),
+        poll: await this.readPoll(database.kysely, targetPoll.poll_id, command.userId),
         status: MESSAGE_MUTATION_STATUS.voted,
       };
     });
@@ -555,53 +523,117 @@ export class PostgresMessageMutationRepository
 
   async delete(command: DeleteTribeMessageCommand): Promise<MessageDeletionResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute<MutationStatusRow>(sql`
-        with target_message as (
-          select
-            messages.id as message_id,
-            (
-              (
-                messages.author_id = ${command.userId}
-                and public.is_active_tribe_member(messages.tribe_id)
-              )
-              or public.can_pin_tribe_messages(messages.tribe_id)
-            ) as can_delete
-          from public.messages
-          inner join public.tribes
-            on tribes.id = messages.tribe_id
-          where messages.id = ${command.messageId}
-            and tribes.slug = ${command.tribeSlug}
-          limit 1
-        ),
-        deleted_message as (
-          delete from public.messages
-          where messages.id = (select target_message.message_id from target_message)
-            and exists (
-              select 1
-              from target_message
-              where target_message.can_delete
-            )
-          returning messages.id
-        )
-        select
-          case
-            when exists (select 1 from deleted_message) then ${MESSAGE_MUTATION_STATUS.deleted}
-            when not exists (select 1 from target_message) then ${MESSAGE_MUTATION_STATUS.notFound}
-            else ${MESSAGE_MUTATION_STATUS.forbidden}
-          end as status
-      `);
-      const row = result.rows[0] ?? null;
+      const targetMessage = await database.kysely
+        .selectFrom("messages")
+        .innerJoin("tribes", "tribes.id", "messages.tribe_id")
+        .select("messages.id as messageId")
+        .where("messages.id", "=", command.messageId)
+        .where("tribes.slug", "=", command.tribeSlug)
+        .limit(1)
+        .executeTakeFirst();
 
-      if (row?.status === MESSAGE_MUTATION_STATUS.deleted) {
-        return { status: MESSAGE_MUTATION_STATUS.deleted };
-      }
-
-      if (row?.status === MESSAGE_MUTATION_STATUS.notFound) {
+      if (!targetMessage) {
         return { status: MESSAGE_MUTATION_STATUS.notFound };
       }
 
-      return { status: MESSAGE_MUTATION_STATUS.forbidden };
+      const deletedMessage = await database.kysely
+        .deleteFrom("messages")
+        .where("id", "=", targetMessage.messageId)
+        .where((expressionBuilder) =>
+          expressionBuilder.or([
+            expressionBuilder.and([
+              expressionBuilder("author_id", "=", command.userId),
+              expressionBuilder.fn<boolean>(
+                "public.is_active_tribe_member",
+                ["messages.tribe_id"]
+              ),
+            ]),
+            expressionBuilder.fn<boolean>("public.can_pin_tribe_messages", [
+              "messages.tribe_id",
+            ]),
+          ])
+        )
+        .returning("id")
+        .executeTakeFirst();
+
+      return {
+        status: deletedMessage
+          ? MESSAGE_MUTATION_STATUS.deleted
+          : MESSAGE_MUTATION_STATUS.forbidden,
+      };
     });
+  }
+
+  private async findTargetMessagePermission(
+    database: RequestDatabase["kysely"],
+    messageId: string,
+    tribeSlug: string
+  ): Promise<TargetMessagePermission | null> {
+    const targetMessage = await database
+      .selectFrom("messages")
+      .innerJoin("tribes", "tribes.id", "messages.tribe_id")
+      .select(["messages.id as messageId", "messages.tribe_id as tribeId"])
+      .where("messages.id", "=", messageId)
+      .where("tribes.slug", "=", tribeSlug)
+      .limit(1)
+      .executeTakeFirst();
+
+    if (!targetMessage) {
+      return null;
+    }
+
+    const permission = await database
+      .selectNoFrom((expressionBuilder) => [
+        expressionBuilder.fn<boolean>("public.is_active_tribe_member", [
+          expressionBuilder.val(targetMessage.tribeId),
+        ]).as("canWrite"),
+      ])
+      .executeTakeFirst();
+
+    return {
+      ...targetMessage,
+      canWrite: permission?.canWrite === true,
+    };
+  }
+
+  private async findPinTargetMessage(
+    database: RequestDatabase["kysely"],
+    messageId: string,
+    tribeSlug: string
+  ): Promise<PinTargetMessage | null> {
+    const targetMessage = await database
+      .selectFrom("messages")
+      .innerJoin("tribes", "tribes.id", "messages.tribe_id")
+      .select(["messages.id as messageId", "messages.tribe_id as tribeId"])
+      .where("messages.id", "=", messageId)
+      .where("tribes.slug", "=", tribeSlug)
+      .limit(1)
+      .executeTakeFirst();
+
+    if (!targetMessage) {
+      return null;
+    }
+
+    const [permission, existingPin] = await Promise.all([
+      database
+        .selectNoFrom((expressionBuilder) => [
+          expressionBuilder.fn<boolean>("public.can_pin_tribe_messages", [
+            expressionBuilder.val(targetMessage.tribeId),
+          ]).as("canPin"),
+        ])
+        .executeTakeFirst(),
+      database
+        .selectFrom("message_pins")
+        .select("message_id")
+        .where("message_id", "=", targetMessage.messageId)
+        .executeTakeFirst(),
+    ]);
+
+    return {
+      ...targetMessage,
+      canPin: permission?.canPin === true,
+      isPinned: Boolean(existingPin),
+    };
   }
 
   private async createMessage(
@@ -758,72 +790,70 @@ export class PostgresMessageMutationRepository
   }
 
   private async findPollTarget(
-    database: RequestDatabase,
+    database: RequestDatabase["kysely"],
     command: SubmitMessagePollVoteCommand
   ): Promise<PollTargetRow | null> {
-    const targetResult = await database.execute<PollTargetRow>(sql`
-      select
-        message_polls.id as poll_id,
-        message_polls.tribe_id,
-        message_polls.allow_multiple_votes,
-        public.is_active_tribe_member(message_polls.tribe_id) as can_write
-      from public.message_polls
-      inner join public.messages
-        on messages.id = message_polls.message_id
-      inner join public.tribes
-        on tribes.id = message_polls.tribe_id
-      left join public.message_poll_votes
-        on message_poll_votes.poll_id = message_polls.id
-      where messages.id = ${command.messageId}
-        and tribes.slug = ${command.tribeSlug}
-      limit 1
-    `);
-
-    return targetResult.rows[0] ?? null;
+    return (
+      (await database
+        .selectFrom("message_polls")
+        .innerJoin("messages", "messages.id", "message_polls.message_id")
+        .innerJoin("tribes", "tribes.id", "message_polls.tribe_id")
+        .select((expressionBuilder) => [
+          "message_polls.id as poll_id",
+          "message_polls.tribe_id",
+          "message_polls.allow_multiple_votes",
+          expressionBuilder.fn<boolean>("public.is_active_tribe_member", [
+            "message_polls.tribe_id",
+          ]).as("can_write"),
+        ])
+        .where("messages.id", "=", command.messageId)
+        .where("tribes.slug", "=", command.tribeSlug)
+        .limit(1)
+        .executeTakeFirst()) ?? null
+    );
   }
 
   private async readPoll(
-    database: RequestDatabase,
+    database: RequestDatabase["kysely"],
     pollId: string,
     viewerId: string
   ): Promise<MessagePollResult> {
-    const optionsResult = await database.execute<PollResultRow>(sql`
-      with option_vote_counts as (
-        select option_id, count(*) as vote_count
-        from public.message_poll_votes
-        where poll_id = ${pollId}
-        group by option_id
-      ),
-      total_votes as (
-        select count(*) as total_vote_count
-        from public.message_poll_votes
-        where poll_id = ${pollId}
-      )
-      select
-        message_polls.id as poll_id,
-        message_polls.question,
-        message_polls.allow_multiple_votes,
-        message_poll_options.id as option_id,
-        message_poll_options.text as option_text,
-        coalesce(option_vote_counts.vote_count, 0) as vote_count,
-        coalesce(total_votes.total_vote_count, 0) as total_vote_count,
-        exists (
-          select 1
-          from public.message_poll_votes viewer_votes
-          where viewer_votes.poll_id = message_polls.id
-            and viewer_votes.option_id = message_poll_options.id
-            and viewer_votes.user_id = ${viewerId}
-        ) as selected_by_viewer
-      from public.message_polls
-      inner join public.message_poll_options
-        on message_poll_options.poll_id = message_polls.id
-      left join option_vote_counts
-        on option_vote_counts.option_id = message_poll_options.id
-      cross join total_votes
-      where message_polls.id = ${pollId}
-      order by message_poll_options.sort_order asc
-    `);
-    const rows = optionsResult.rows;
+    const rows = await database
+      .selectFrom("message_polls")
+      .innerJoin("message_poll_options", "message_poll_options.poll_id", "message_polls.id")
+      .select((expressionBuilder) => [
+        "message_polls.id as poll_id",
+        "message_polls.question",
+        "message_polls.allow_multiple_votes",
+        "message_poll_options.id as option_id",
+        "message_poll_options.text as option_text",
+        expressionBuilder
+          .selectFrom("message_poll_votes")
+          .select((voteCountExpressionBuilder) =>
+            voteCountExpressionBuilder.fn.count("message_poll_votes.id").as("vote_count")
+          )
+          .whereRef("message_poll_votes.option_id", "=", "message_poll_options.id")
+          .as("vote_count"),
+        expressionBuilder
+          .selectFrom("message_poll_votes")
+          .select((totalVoteCountExpressionBuilder) =>
+            totalVoteCountExpressionBuilder.fn.count("message_poll_votes.id").as("total_vote_count")
+          )
+          .whereRef("message_poll_votes.poll_id", "=", "message_polls.id")
+          .as("total_vote_count"),
+        expressionBuilder
+          .selectFrom("message_poll_votes as viewer_votes")
+          .select((viewerVoteExpressionBuilder) =>
+            viewerVoteExpressionBuilder.fn.count("viewer_votes.id").as("viewer_vote_count")
+          )
+          .whereRef("viewer_votes.poll_id", "=", "message_polls.id")
+          .whereRef("viewer_votes.option_id", "=", "message_poll_options.id")
+          .where("viewer_votes.user_id", "=", viewerId)
+          .as("selected_by_viewer"),
+      ])
+      .where("message_polls.id", "=", pollId)
+      .orderBy("message_poll_options.sort_order", "asc")
+      .execute();
     const firstRow = rows[0];
     const totalVoteCount = Number(firstRow?.total_vote_count ?? 0);
 
@@ -837,14 +867,14 @@ export class PostgresMessageMutationRepository
           id: row.option_id,
           percentage:
             totalVoteCount > 0 ? Math.round((voteCount / totalVoteCount) * 100) : 0,
-          selectedByViewer: Boolean(row.selected_by_viewer),
+          selectedByViewer: Number(row.selected_by_viewer ?? 0) > 0,
           text: row.option_text,
           voteCount,
         };
       }),
       question: firstRow?.question ?? "",
       totalVoteCount,
-      viewerHasVoted: rows.some((row) => row.selected_by_viewer),
+      viewerHasVoted: rows.some((row) => Number(row.selected_by_viewer ?? 0) > 0),
     };
   }
 
