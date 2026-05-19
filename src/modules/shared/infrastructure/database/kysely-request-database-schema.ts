@@ -128,6 +128,19 @@ type MessagePollVotesTable = {
   user_id: string;
 };
 
+type EventsTable = {
+  created_at: TimestampColumn;
+  created_by: string;
+  description: string | null;
+  ends_at: TimestampColumn | null;
+  id: Generated<string>;
+  meeting_url: string | null;
+  starts_at: TimestampColumn;
+  title: string;
+  tribe_id: string;
+  updated_at: TimestampColumn;
+};
+
 type UsersTable = {
   createdAt: TimestampColumn;
   email: string;
@@ -139,6 +152,7 @@ type UsersTable = {
 };
 
 export type KyselyRequestDatabaseSchema = {
+  events: EventsTable;
   message_pins: MessagePinsTable;
   message_poll_options: MessagePollOptionsTable;
   message_poll_votes: MessagePollVotesTable;
