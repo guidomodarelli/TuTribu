@@ -16,6 +16,7 @@ import type {
 } from "@/src/modules/messages/domain/repositories/tribe-channel-repository";
 import { createTribeChannel } from "@/src/modules/messages/infrastructure/mappers/tribe-round-view-model-mapper";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { sql } from "kysely";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -41,6 +42,11 @@ type TargetTribeRow = {
 type TargetChannelRow = {
   id: string;
   tribe_id: string;
+};
+
+type DeletedChannelMutationRow = {
+  id: string;
+  moved_message_count: number | string | bigint | null;
 };
 
 type PostgresError = {
@@ -450,36 +456,11 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
           return { status: TRIBE_CHANNEL_MUTATION_STATUS.channelHasMessages };
         }
 
-        const movedMessages = messageCount > 0 && targetReplacement
-          ? await transaction
-              .updateTable("messages")
-              .set((expressionBuilder) => ({
-                channel_id: targetReplacement.id,
-                updated_at: expressionBuilder.fn<Date>("timezone", [
-                  expressionBuilder.val("utc"),
-                  expressionBuilder.fn<Date>("now"),
-                ]),
-              }))
-              .where("channel_id", "=", targetChannel.id)
-              .where((expressionBuilder) =>
-                expressionBuilder.fn<boolean>("public.can_manage_tribe_channels", [
-                  "messages.tribe_id",
-                ])
-              )
-              .returning("id")
-              .execute()
-          : [];
-
-        const deletedChannel = await transaction
-          .deleteFrom("tribe_channels")
-          .where("id", "=", targetChannel.id)
-          .where((expressionBuilder) =>
-            expressionBuilder.fn<boolean>("public.can_manage_tribe_channels", [
-              "tribe_channels.tribe_id",
-            ])
-          )
-          .returning("id")
-          .executeTakeFirst();
+        const deletedChannel = await this.deleteChannelWithOptionalMessageMove(
+          transaction,
+          targetChannel,
+          targetReplacement
+        );
 
         if (!deletedChannel) {
           return { status: TRIBE_CHANNEL_MUTATION_STATUS.invalidChannel };
@@ -487,7 +468,7 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
 
         return {
           status:
-            movedMessages.length > 0
+            Number(deletedChannel.moved_message_count ?? 0) > 0
               ? TRIBE_CHANNEL_MUTATION_STATUS.movedAndDeleted
               : TRIBE_CHANNEL_MUTATION_STATUS.deleted,
         };
@@ -504,6 +485,74 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
         .selectFrom("tribes")
         .select("id")
         .where("slug", "=", tribeSlug)
+        .executeTakeFirst()) ?? null
+    );
+  }
+
+  private async deleteChannelWithOptionalMessageMove(
+    database: RequestDatabase["kysely"],
+    targetChannel: TargetChannelRow,
+    targetReplacement: TargetChannelRow | null
+  ): Promise<DeletedChannelMutationRow | null> {
+    if (!targetReplacement) {
+      const deletedChannel = await database
+        .deleteFrom("tribe_channels")
+        .where("id", "=", targetChannel.id)
+        .where((expressionBuilder) =>
+          expressionBuilder.fn<boolean>("public.can_manage_tribe_channels", [
+            "tribe_channels.tribe_id",
+          ])
+        )
+        .returning("id")
+        .executeTakeFirst();
+
+      return deletedChannel
+        ? {
+            id: deletedChannel.id,
+            moved_message_count: 0,
+          }
+        : null;
+    }
+
+    return (
+      (await database
+        .with("deleted_channel", (queryBuilder) =>
+          queryBuilder
+            .deleteFrom("tribe_channels")
+            .where("id", "=", targetChannel.id)
+            .where((expressionBuilder) =>
+              expressionBuilder.fn<boolean>("public.can_manage_tribe_channels", [
+                "tribe_channels.tribe_id",
+              ])
+            )
+            .returning("id")
+        )
+        .with("moved_messages", (queryBuilder) =>
+          queryBuilder
+            .updateTable("messages")
+            .set((expressionBuilder) => ({
+              channel_id: targetReplacement.id,
+              updated_at: expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]),
+            }))
+            .where("channel_id", "=", targetChannel.id)
+            .where(sql<boolean>`exists (select 1 from deleted_channel)`)
+            .where((expressionBuilder) =>
+              expressionBuilder.fn<boolean>("public.can_manage_tribe_channels", [
+                "messages.tribe_id",
+              ])
+            )
+            .returning("id")
+        )
+        .selectFrom("deleted_channel")
+        .select([
+          "deleted_channel.id",
+          sql<number | string | bigint>`(select count(*) from moved_messages)`.as(
+            "moved_message_count"
+          ),
+        ])
         .executeTakeFirst()) ?? null
     );
   }

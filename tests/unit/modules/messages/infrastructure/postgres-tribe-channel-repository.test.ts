@@ -347,8 +347,7 @@ describe("PostgresTribeChannelRepository", () => {
       [{ channel_count: "2" }],
       [{ message_count: "1" }],
       [{ id: "channel-ronda", tribe_id: "tribe-1" }],
-      [{ id: "message-1" }],
-      [{ id: "channel-questions" }],
+      [{ id: "channel-questions", moved_message_count: "1" }],
     ]);
     const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback(databaseDouble.database as never)
@@ -367,5 +366,37 @@ describe("PostgresTribeChannelRepository", () => {
     expect(sqlText).toContain('update "messages"');
     expect(sqlText).toContain('delete from "tribe_channels"');
     expect(sqlText).toContain("channel_count");
+  });
+
+  it("keeps the message move and channel deletion in one mutation snapshot", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ id: "channel-questions", tribe_id: "tribe-1" }],
+      [{ can_manage: true }],
+      [{ channel_count: "2" }],
+      [{ message_count: "1" }],
+      [{ id: "channel-ronda", tribe_id: "tribe-1" }],
+      [{ id: "channel-questions", moved_message_count: "1" }],
+    ]);
+    const repository = new PostgresTribeChannelRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await repository.delete({
+      channelId: "channel-questions",
+      tribeSlug: "matematica-pro",
+      targetChannelId: "channel-ronda",
+    });
+
+    const mutationStatements = getExecutedSqlStatements(databaseDouble).filter(
+      (statement) =>
+        statement.includes('update "messages"') ||
+        statement.includes('delete from "tribe_channels"')
+    );
+
+    expect(mutationStatements).toHaveLength(1);
+    expect(mutationStatements[0]).toContain('update "messages"');
+    expect(mutationStatements[0]).toContain('delete from "tribe_channels"');
+    expect(mutationStatements[0]).toContain("moved_message_count");
   });
 });
