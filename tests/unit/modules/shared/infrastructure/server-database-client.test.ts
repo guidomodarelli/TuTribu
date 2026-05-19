@@ -385,4 +385,74 @@ describe("createServerDatabaseClient", () => {
     ]);
     expect(release).toHaveBeenCalledTimes(1);
   });
+
+  it("allows nested Kysely transactions to create savepoints without waiting on the outer transaction", async () => {
+    const query = jest.fn(async (statement: unknown) => ({
+      rows:
+        typeof statement === "string" &&
+        statement.includes("tribe_creator_whitelist")
+          ? [{ email: "nested@example.com" }]
+          : [],
+      rowCount: 1,
+    }));
+    const release = jest.fn();
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn(() => ({
+        connect: jest.fn(async () => ({
+          query,
+          release,
+        })),
+      })),
+    }));
+    jest.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: (client: { query: (statement: unknown) => Promise<unknown> }) => ({
+        execute: (statement: unknown) => client.query(statement),
+      }),
+    }));
+
+    const { createServerDatabaseClient } = await import(
+      "@/src/modules/shared/infrastructure/database/server-database-client"
+    );
+
+    const databaseClient = await createServerDatabaseClient();
+
+    const nestedResult = await databaseClient.withRequestContext(
+      {
+        email: "leader@example.com",
+        userId: "member-1",
+      },
+      (database) =>
+        database.kysely.transaction().execute(() =>
+          database.kysely.transaction().execute((nestedTransaction) =>
+            nestedTransaction
+              .selectFrom("tribe_creator_whitelist")
+              .select("email")
+              .where("email", "=", "nested@example.com")
+              .executeTakeFirst()
+          )
+        )
+    );
+
+    const transactionCalls = query.mock.calls
+      .filter(([statement]) =>
+        typeof statement === "string" &&
+        (statement.includes("SAVEPOINT") ||
+          statement.includes("tribe_creator_whitelist"))
+      )
+      .map(([statement, parameters]) => [statement, parameters]);
+
+    expect(nestedResult).toEqual({ email: "nested@example.com" });
+    expect(transactionCalls).toEqual([
+      ["SAVEPOINT kysely_request_transaction_1", undefined],
+      ["SAVEPOINT kysely_request_transaction_2", undefined],
+      [
+        expect.stringContaining("tribe_creator_whitelist"),
+        ["nested@example.com"],
+      ],
+      ["RELEASE SAVEPOINT kysely_request_transaction_2", undefined],
+      ["RELEASE SAVEPOINT kysely_request_transaction_1", undefined],
+    ]);
+    expect(release).toHaveBeenCalledTimes(1);
+  });
 });

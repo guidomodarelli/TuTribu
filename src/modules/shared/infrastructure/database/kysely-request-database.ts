@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
   Kysely,
   PostgresAdapter,
@@ -11,6 +12,7 @@ import {
   type Driver,
   type QueryCompiler,
   type QueryResult,
+  type Transaction,
   type TransactionSettings,
 } from "kysely";
 import type { PoolClient } from "pg";
@@ -23,6 +25,64 @@ const KYSELY_REQUEST_DATABASE_ERROR = {
   streamUnsupported: "Kysely request database does not support streaming queries.",
 } as const;
 const KYSELY_TRANSACTION_SAVEPOINT = "kysely_request_transaction";
+
+type RequestKyselyTransaction = {
+  releaseLock: (() => void) | null;
+  savepointName: string;
+};
+
+type RequestKyselyTransactionContext = {
+  isInsideTransaction: boolean;
+};
+type KyselyTransactionBuilder = ReturnType<
+  Kysely<KyselyRequestDatabaseSchema>["transaction"]
+>;
+type KyselyTransactionCallback<Result> = (
+  transaction: Transaction<KyselyRequestDatabaseSchema>
+) => Promise<Result>;
+type KyselyTransactionExecute<Result> = (
+  callback: KyselyTransactionCallback<Result>
+) => Promise<Result>;
+
+function isKyselyTransactionBuilder(
+  value: unknown
+): value is KyselyTransactionBuilder {
+  return typeof value === "object" && value !== null && "execute" in value;
+}
+
+function wrapKyselyTransactionBuilder(
+  builder: KyselyTransactionBuilder,
+  driver: RequestPostgresDriver
+): KyselyTransactionBuilder {
+  return new Proxy(builder, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver) as unknown;
+
+      if (property === "execute" && typeof value === "function") {
+        return <Result>(callback: KyselyTransactionCallback<Result>) =>
+          (value as KyselyTransactionExecute<Result>).call(
+            target,
+            (transaction) =>
+              driver.executeTransactionCallback(() => callback(transaction))
+          );
+      }
+
+      if (typeof value === "function") {
+        return (...args: unknown[]) => {
+          const result = value.apply(target, args) as unknown;
+
+          if (isKyselyTransactionBuilder(result)) {
+            return wrapKyselyTransactionBuilder(result, driver);
+          }
+
+          return result;
+        };
+      }
+
+      return value;
+    },
+  });
+}
 
 class RequestPostgresConnection implements DatabaseConnection {
   constructor(private readonly client: PoolClient) {}
@@ -53,10 +113,9 @@ class RequestPostgresConnection implements DatabaseConnection {
 
 class RequestPostgresDriver implements Driver {
   private readonly connection: DatabaseConnection;
-  private activeTransaction: {
-    releaseLock: () => void;
-    savepointName: string;
-  } | null = null;
+  private readonly activeTransactions: RequestKyselyTransaction[] = [];
+  private readonly transactionContext =
+    new AsyncLocalStorage<RequestKyselyTransactionContext>();
   private nextTransactionId = 1;
   private transactionLock = Promise.resolve();
 
@@ -74,10 +133,13 @@ class RequestPostgresDriver implements Driver {
     connection: DatabaseConnection,
     settings: TransactionSettings
   ): Promise<void> {
-    const releaseLock = await this.acquireTransactionLock();
+    const isNestedTransaction = this.isNestedTransaction();
+    const releaseLock = isNestedTransaction
+      ? null
+      : await this.acquireTransactionLock();
 
     if (settings.accessMode || settings.isolationLevel) {
-      releaseLock();
+      releaseLock?.();
       throw new Error(
         KYSELY_REQUEST_DATABASE_ERROR.unsupportedTransactionSettings
       );
@@ -89,31 +151,30 @@ class RequestPostgresDriver implements Driver {
       await this.getRequestConnection(connection).executeRawSql(
         `SAVEPOINT ${savepointName}`
       );
-      this.activeTransaction = {
+      this.activeTransactions.push({
         releaseLock,
         savepointName,
-      };
+      });
     } catch (error) {
-      releaseLock();
+      releaseLock?.();
       throw error;
     }
   }
 
   async commitTransaction(connection: DatabaseConnection): Promise<void> {
-    const { releaseLock, savepointName } = this.getActiveTransaction();
+    const { releaseLock, savepointName } = this.removeActiveTransaction();
 
     try {
       await this.getRequestConnection(connection).executeRawSql(
         `RELEASE SAVEPOINT ${savepointName}`
       );
     } finally {
-      this.activeTransaction = null;
-      releaseLock();
+      releaseLock?.();
     }
   }
 
   async rollbackTransaction(connection: DatabaseConnection): Promise<void> {
-    const { releaseLock, savepointName } = this.getActiveTransaction();
+    const { releaseLock, savepointName } = this.removeActiveTransaction();
     const requestConnection = this.getRequestConnection(connection);
 
     try {
@@ -124,14 +185,20 @@ class RequestPostgresDriver implements Driver {
         `RELEASE SAVEPOINT ${savepointName}`
       );
     } finally {
-      this.activeTransaction = null;
-      releaseLock();
+      releaseLock?.();
     }
   }
 
   async releaseConnection(): Promise<void> {}
 
   async destroy(): Promise<void> {}
+
+  async executeTransactionCallback<Result>(callback: () => Promise<Result>) {
+    return this.transactionContext.run(
+      { isInsideTransaction: true },
+      callback
+    );
+  }
 
   private async acquireTransactionLock() {
     const previousTransaction = this.transactionLock;
@@ -153,12 +220,21 @@ class RequestPostgresDriver implements Driver {
     return savepointName;
   }
 
-  private getActiveTransaction() {
-    if (!this.activeTransaction) {
+  private isNestedTransaction() {
+    return (
+      this.activeTransactions.length > 0 &&
+      this.transactionContext.getStore()?.isInsideTransaction === true
+    );
+  }
+
+  private removeActiveTransaction() {
+    const activeTransaction = this.activeTransactions.pop();
+
+    if (!activeTransaction) {
       throw new Error("Kysely request database transaction was not started.");
     }
 
-    return this.activeTransaction;
+    return activeTransaction;
   }
 
   private getRequestConnection(connection: DatabaseConnection) {
@@ -167,14 +243,14 @@ class RequestPostgresDriver implements Driver {
 }
 
 class RequestPostgresDialect implements Dialect {
-  constructor(private readonly client: PoolClient) {}
+  constructor(private readonly driver: RequestPostgresDriver) {}
 
   createAdapter(): DialectAdapter {
     return new PostgresAdapter();
   }
 
   createDriver(): Driver {
-    return new RequestPostgresDriver(this.client);
+    return this.driver;
   }
 
   createQueryCompiler(): QueryCompiler {
@@ -188,8 +264,24 @@ class RequestPostgresDialect implements Dialect {
   }
 }
 
-export function createKyselyRequestDatabase(client: PoolClient) {
-  return new Kysely<KyselyRequestDatabaseSchema>({
-    dialect: new RequestPostgresDialect(client),
-  });
+class RequestKyselyDatabase extends Kysely<KyselyRequestDatabaseSchema> {
+  constructor(
+    dialect: Dialect,
+    private readonly driver: RequestPostgresDriver
+  ) {
+    super({ dialect });
+  }
+
+  override transaction(): KyselyTransactionBuilder {
+    return wrapKyselyTransactionBuilder(super.transaction(), this.driver);
+  }
+}
+
+export function createKyselyRequestDatabase(
+  client: PoolClient
+): Kysely<KyselyRequestDatabaseSchema> {
+  const driver = new RequestPostgresDriver(client);
+  const dialect = new RequestPostgresDialect(driver);
+
+  return new RequestKyselyDatabase(dialect, driver);
 }
