@@ -51,6 +51,19 @@ type TribeSubscriptionPricesTable = {
   tribe_id: string;
 };
 
+type TribePaymentIntegrationsTable = {
+  access_token: string;
+  connected_by: string;
+  created_at: TimestampColumn;
+  id: Generated<string>;
+  provider: string;
+  provider_account_id: string | null;
+  refresh_token: string | null;
+  token_expires_at: TimestampColumn | null;
+  tribe_id: string;
+  updated_at: TimestampColumn;
+};
+
 type TribeChannelsTable = {
   access_scope: string;
   created_at: TimestampColumn;
@@ -164,6 +177,7 @@ export type KyselyRequestDatabaseSchema = {
   tribe_channels: TribeChannelsTable;
   tribe_invitations: TribeInvitationsTable;
   tribe_members: TribeMembersTable;
+  tribe_payment_integrations: TribePaymentIntegrationsTable;
   tribe_subscription_prices: TribeSubscriptionPricesTable;
   tribes: TribesTable;
   user: UsersTable;

@@ -4,8 +4,6 @@
  * @module postgres-tribe-payment-integration-repository
  */
 
-import { sql } from "drizzle-orm";
-
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
   ConnectTribePaymentIntegrationCommand,
@@ -18,9 +16,11 @@ type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
 
-type IntegrationMutationRow = {
-  status: string | null;
+type TargetTribeRow = {
+  id: string;
 };
+
+const MERCADO_PAGO_PAYMENT_PROVIDER = "mercado_pago";
 
 /**
  * Maps a database integration mutation row to the application contract.
@@ -28,17 +28,12 @@ type IntegrationMutationRow = {
  * @param row - Database mutation row.
  * @returns Integration mutation result.
  */
-function mapIntegrationResult(
-  row: IntegrationMutationRow | null
-): TribePaymentIntegrationResult {
-  if (
-    row?.status === TRIBE_SUBSCRIPTION_PRICE_STATUS.connected ||
-    row?.status === TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound
-  ) {
-    return { status: row.status };
+function createTokenExpirationDate(expiresInSeconds: number | null): Date | null {
+  if (expiresInSeconds === null) {
+    return null;
   }
 
-  return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
+  return new Date(Date.now() + expiresInSeconds * 1000);
 }
 
 export class PostgresTribePaymentIntegrationRepository
@@ -56,59 +51,98 @@ export class PostgresTribePaymentIntegrationRepository
     command: ConnectTribePaymentIntegrationCommand
   ): Promise<TribePaymentIntegrationResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute<IntegrationMutationRow>(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${command.tribeSlug}
-          limit 1
-        ),
-        upserted_integration as (
-          insert into public.tribe_payment_integrations (
-            tribe_id,
-            provider,
-            provider_account_id,
-            access_token,
-            refresh_token,
-            token_expires_at,
-            connected_by,
-            created_at,
-            updated_at
-          )
-          select
-            target_tribe.id,
-            'mercado_pago',
-            ${command.providerAccountId},
-            ${command.accessToken},
-            ${command.refreshToken},
-            case
-              when ${command.expiresIn}::integer is null then null
-              else timezone('utc', now()) + (${command.expiresIn}::integer || ' seconds')::interval
-            end,
-            public.current_app_user_id(),
-            timezone('utc', now()),
-            timezone('utc', now())
-          from target_tribe
-          where public.can_manage_tribe_subscription_prices(target_tribe.id)
-          on conflict (tribe_id, provider) do update
-          set
-            provider_account_id = excluded.provider_account_id,
-            access_token = excluded.access_token,
-            refresh_token = excluded.refresh_token,
-            token_expires_at = excluded.token_expires_at,
-            connected_by = excluded.connected_by,
-            updated_at = timezone('utc', now())
-          returning id
-        )
-        select
-          case
-            when exists (select 1 from upserted_integration) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.connected}
-            when not exists (select 1 from target_tribe) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound}
-            else ${TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden}
-          end as status
-      `);
+      const targetTribe = await this.findTargetTribe(
+        database.kysely,
+        command.tribeSlug
+      );
 
-      return mapIntegrationResult(result.rows[0] ?? null);
+      if (!targetTribe) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
+      }
+
+      const canManageSubscriptionPrices =
+        await this.canManageTribeSubscriptionPrices(
+          database.kysely,
+          targetTribe.id
+        );
+
+      if (!canManageSubscriptionPrices) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
+      }
+
+      const upsertedIntegration = await database.kysely
+        .insertInto("tribe_payment_integrations")
+        .values((expressionBuilder) => ({
+          access_token: command.accessToken,
+          connected_by: expressionBuilder.fn<string>("public.current_app_user_id"),
+          created_at: expressionBuilder.fn<Date>("timezone", [
+            expressionBuilder.val("utc"),
+            expressionBuilder.fn<Date>("now"),
+          ]),
+          provider: MERCADO_PAGO_PAYMENT_PROVIDER,
+          provider_account_id: command.providerAccountId,
+          refresh_token: command.refreshToken,
+          token_expires_at: createTokenExpirationDate(command.expiresIn),
+          tribe_id: targetTribe.id,
+          updated_at: expressionBuilder.fn<Date>("timezone", [
+            expressionBuilder.val("utc"),
+            expressionBuilder.fn<Date>("now"),
+          ]),
+        }))
+        .onConflict((conflictBuilder) =>
+          conflictBuilder.columns(["tribe_id", "provider"]).doUpdateSet(
+            (expressionBuilder) => ({
+              access_token: expressionBuilder.ref("excluded.access_token"),
+              connected_by: expressionBuilder.ref("excluded.connected_by"),
+              provider_account_id: expressionBuilder.ref(
+                "excluded.provider_account_id"
+              ),
+              refresh_token: expressionBuilder.ref("excluded.refresh_token"),
+              token_expires_at: expressionBuilder.ref("excluded.token_expires_at"),
+              updated_at: expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]),
+            })
+          )
+        )
+        .returning("id")
+        .executeTakeFirst();
+
+      return {
+        status: upsertedIntegration
+          ? TRIBE_SUBSCRIPTION_PRICE_STATUS.connected
+          : TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden,
+      };
     });
+  }
+
+  private async findTargetTribe(
+    database: RequestDatabase["kysely"],
+    tribeSlug: string
+  ): Promise<TargetTribeRow | null> {
+    return (
+      (await database
+        .selectFrom("tribes")
+        .select("id")
+        .where("slug", "=", tribeSlug)
+        .limit(1)
+        .executeTakeFirst()) ?? null
+    );
+  }
+
+  private async canManageTribeSubscriptionPrices(
+    database: RequestDatabase["kysely"],
+    tribeId: string
+  ): Promise<boolean> {
+    const permission = await database
+      .selectNoFrom((expressionBuilder) => [
+        expressionBuilder.fn<boolean>("public.can_manage_tribe_subscription_prices", [
+          expressionBuilder.val(tribeId),
+        ]).as("canManageSubscriptionPrices"),
+      ])
+      .executeTakeFirst();
+
+    return permission?.canManageSubscriptionPrices === true;
   }
 }
