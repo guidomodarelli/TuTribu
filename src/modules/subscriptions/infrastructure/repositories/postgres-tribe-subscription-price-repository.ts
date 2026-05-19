@@ -943,48 +943,92 @@ export class PostgresTribeSubscriptionPriceRepository
     database: RequestKyselyDatabase,
     tribeId: string
   ): Promise<TribeSubscriberDiagnosticsRow> {
-    const result = await kyselySql<TribeSubscriberDiagnosticsRow>`
-      select
-        ${tribeId} as target_tribe_id,
-        count(tribe_member_subscriptions.id) filter (
-          where tribe_member_subscriptions.status =
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
-        ) as local_active_subscribers_count,
-        count(tribe_member_subscriptions.id) filter (
-          where tribe_member_subscriptions.status =
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
-            and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
-        ) as mercado_pago_authorized_subscribers_count,
-        count(tribe_member_subscriptions.id) filter (
-          where tribe_member_subscriptions.status =
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-        ) as mercado_pago_pending_subscribers_count,
-        count(tribe_member_subscriptions.id) filter (
-          where tribe_member_subscriptions.status =
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused}
-        ) as mercado_pago_paused_subscribers_count,
-        count(tribe_member_subscriptions.id) filter (
-          where tribe_member_subscriptions.status =
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled}
-            or (
-              tribe_member_subscriptions.status =
-                ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
-              and tribe_member_subscriptions.mercado_pago_preapproval_id is null
-            )
-        ) as mercado_pago_canceled_or_missing_subscribers_count,
-        max(tribe_member_subscriptions.updated_at) as last_reconciled_at
-      from public.tribe_subscription_prices
-      left join public.tribe_member_subscriptions
-        on tribe_member_subscriptions.price_id = tribe_subscription_prices.id
-        and tribe_member_subscriptions.tribe_id = ${tribeId}
-      where tribe_subscription_prices.tribe_id = ${tribeId}
-        and tribe_subscription_prices.status in (
-          ${TRIBE_SUBSCRIPTION_PRICE_STATUS.active},
-          ${TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled}
-        )
-    `.execute(database);
+    const row = await database
+      .selectFrom("tribe_subscription_prices")
+      .leftJoin("tribe_member_subscriptions", (join) =>
+        join
+          .onRef(
+            "tribe_member_subscriptions.price_id",
+            "=",
+            "tribe_subscription_prices.id"
+          )
+          .on("tribe_member_subscriptions.tribe_id", "=", tribeId)
+      )
+      .select((expressionBuilder) => [
+        expressionBuilder.val(tribeId).as("target_tribe_id"),
+        expressionBuilder.fn
+          .count<number | string>("tribe_member_subscriptions.id")
+          .filterWhere(
+            "tribe_member_subscriptions.status",
+            "=",
+            TRIBE_MEMBER_SUBSCRIPTION_STATUS.active
+          )
+          .as("local_active_subscribers_count"),
+        expressionBuilder.fn
+          .count<number | string>("tribe_member_subscriptions.id")
+          .filterWhere(
+            "tribe_member_subscriptions.status",
+            "=",
+            TRIBE_MEMBER_SUBSCRIPTION_STATUS.active
+          )
+          .filterWhere(
+            "tribe_member_subscriptions.mercado_pago_preapproval_id",
+            "is not",
+            null
+          )
+          .as("mercado_pago_authorized_subscribers_count"),
+        expressionBuilder.fn
+          .count<number | string>("tribe_member_subscriptions.id")
+          .filterWhere(
+            "tribe_member_subscriptions.status",
+            "=",
+            TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending
+          )
+          .as("mercado_pago_pending_subscribers_count"),
+        expressionBuilder.fn
+          .count<number | string>("tribe_member_subscriptions.id")
+          .filterWhere(
+            "tribe_member_subscriptions.status",
+            "=",
+            TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused
+          )
+          .as("mercado_pago_paused_subscribers_count"),
+        expressionBuilder.fn
+          .count<number | string>("tribe_member_subscriptions.id")
+          .filterWhere((filterExpressionBuilder) =>
+            filterExpressionBuilder.or([
+              filterExpressionBuilder(
+                "tribe_member_subscriptions.status",
+                "=",
+                TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled
+              ),
+              filterExpressionBuilder.and([
+                filterExpressionBuilder(
+                  "tribe_member_subscriptions.status",
+                  "=",
+                  TRIBE_MEMBER_SUBSCRIPTION_STATUS.active
+                ),
+                filterExpressionBuilder(
+                  "tribe_member_subscriptions.mercado_pago_preapproval_id",
+                  "is",
+                  null
+                ),
+              ]),
+            ])
+          )
+          .as("mercado_pago_canceled_or_missing_subscribers_count"),
+        expressionBuilder.fn
+          .max("tribe_member_subscriptions.updated_at")
+          .as("last_reconciled_at"),
+      ])
+      .where("tribe_subscription_prices.tribe_id", "=", tribeId)
+      .where("tribe_subscription_prices.status", "in", [
+        TRIBE_SUBSCRIPTION_PRICE_STATUS.active,
+        TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+      ])
+      .executeTakeFirst();
 
-    return result.rows[0] ?? {
+    return row ?? {
       last_reconciled_at: null,
       local_active_subscribers_count: 0,
       mercado_pago_authorized_subscribers_count: 0,
@@ -2459,148 +2503,180 @@ export class PostgresTribeSubscriptionPriceRepository
     const statusUpdatesJson = JSON.stringify(
       input.providerSubscriberStatusUpdates
     );
-    const result = await kyselySql<SubscriptionPriceRow>`
-      with target_price as (
-        select
-          tribe_subscription_prices.id,
-          tribe_subscription_prices.name,
-          tribe_subscription_prices.amount_cents,
-          tribe_subscription_prices.currency,
-          tribe_subscription_prices.frequency,
-          tribe_subscription_prices.status,
-          tribe_subscription_prices.is_current,
-          tribe_subscription_prices.trial_frequency,
-          tribe_subscription_prices.trial_frequency_type,
-          tribe_subscription_prices.created_at
-        from public.tribe_subscription_prices
-        where tribe_subscription_prices.id = ${input.priceId}
-          and tribe_subscription_prices.status in (
-            ${TRIBE_SUBSCRIPTION_PRICE_STATUS.active},
-            ${TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled}
-          )
-        limit 1
-      ),
-      provider_statuses as (
-        select
-          provider_statuses.provider_subscription_id,
-          provider_statuses.subscription_status,
-          provider_statuses.status_reason
-        from jsonb_to_recordset(${statusUpdatesJson}::jsonb) as provider_statuses(
-          provider_subscription_id text,
-          subscription_status text,
-          status_reason text
-        )
-      ),
-      updated_subscriptions as (
-        update public.tribe_member_subscriptions
-        set
-          status = provider_statuses.subscription_status,
-          status_reason = provider_statuses.status_reason,
-          updated_at = timezone('utc', now())
-        from provider_statuses,
-          target_price
-        where tribe_member_subscriptions.price_id = target_price.id
-          and tribe_member_subscriptions.mercado_pago_preapproval_id =
-            provider_statuses.provider_subscription_id
-        returning
-          tribe_member_subscriptions.tribe_id,
-          tribe_member_subscriptions.user_id
-      ),
-      affected_members as (
-        select distinct
-          updated_subscriptions.tribe_id,
-          updated_subscriptions.user_id
-        from updated_subscriptions
-      ),
-      updated_members as (
-        update public.tribe_members
-        set
-          status = case
-            when exists (
-              select 1
-              from public.tribe_member_subscriptions
-              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                and tribe_member_subscriptions.user_id = tribe_members.user_id
-                and tribe_member_subscriptions.status =
-                  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
-            ) then 'active'
-            when exists (
-              select 1
-              from public.tribe_member_subscriptions
-              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                and tribe_member_subscriptions.user_id = tribe_members.user_id
-                and tribe_member_subscriptions.status =
-                  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-            ) then 'blocked'
-            else 'removed'
-          end,
-          status_reason = case
-            when exists (
-              select 1
-              from public.tribe_member_subscriptions
-              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                and tribe_member_subscriptions.user_id = tribe_members.user_id
-                and tribe_member_subscriptions.status =
-                  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
-            ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none}
-            when exists (
-              select 1
-              from public.tribe_member_subscriptions
-              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                and tribe_member_subscriptions.user_id = tribe_members.user_id
-                and tribe_member_subscriptions.status =
-                  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-            ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-            else ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
-          end
-        from affected_members
-        where tribe_members.tribe_id = affected_members.tribe_id
-          and tribe_members.user_id = affected_members.user_id
-          and not (
-            tribe_members.status = 'blocked'
-            and tribe_members.status_reason <>
-              ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-          )
-        returning tribe_members.user_id
-      )
-      select
-        target_price.id,
-        target_price.name,
-        target_price.amount_cents,
-        target_price.currency,
-        target_price.frequency,
-        target_price.status,
-        target_price.is_current,
-        target_price.trial_frequency,
-        target_price.trial_frequency_type,
-        target_price.created_at,
-        count(tribe_member_subscriptions.id) filter (
-          where tribe_member_subscriptions.status in (
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pastDue},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked},
-            ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused}
-          )
-        ) as active_subscribers_count
-      from target_price
-      left join public.tribe_member_subscriptions
-        on tribe_member_subscriptions.price_id = target_price.id
-      group by
-        target_price.id,
-        target_price.name,
-        target_price.amount_cents,
-        target_price.currency,
-        target_price.frequency,
-        target_price.status,
-        target_price.is_current,
-        target_price.trial_frequency,
-        target_price.trial_frequency_type,
-        target_price.created_at
-    `.execute(database);
 
-    return result.rows[0] ?? null;
+    const row = await database
+        .with("target_price", (expressionBuilder) =>
+          expressionBuilder
+            .selectFrom("tribe_subscription_prices")
+            .select([
+              "id",
+              "name",
+              "amount_cents",
+              "currency",
+              "frequency",
+              "status",
+              "is_current",
+              "trial_frequency",
+              "trial_frequency_type",
+              "created_at",
+            ])
+            .where("id", "=", input.priceId)
+            .where("status", "in", [
+              TRIBE_SUBSCRIPTION_PRICE_STATUS.active,
+              TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+            ])
+            .limit(1)
+        )
+        .with("provider_statuses", () =>
+          kyselySql<{
+            provider_subscription_id: string;
+            status_reason: string;
+            subscription_status: string;
+          }>`
+            select
+              provider_statuses.provider_subscription_id,
+              provider_statuses.subscription_status,
+              provider_statuses.status_reason
+            from jsonb_to_recordset(${statusUpdatesJson}::jsonb) as provider_statuses(
+              provider_subscription_id text,
+              subscription_status text,
+              status_reason text
+            )
+          `
+        )
+        .with("updated_subscriptions", (expressionBuilder) =>
+          expressionBuilder
+            .updateTable("tribe_member_subscriptions")
+            .set({
+              status: kyselySql`provider_statuses.subscription_status`,
+              status_reason: kyselySql`provider_statuses.status_reason`,
+              updated_at: kyselySql`timezone('utc', now())`,
+            })
+            .from(["provider_statuses", "target_price"])
+            .whereRef("tribe_member_subscriptions.price_id", "=", "target_price.id")
+            .whereRef(
+              "tribe_member_subscriptions.mercado_pago_preapproval_id",
+              "=",
+              "provider_statuses.provider_subscription_id"
+            )
+            .returning([
+              "tribe_member_subscriptions.tribe_id",
+              "tribe_member_subscriptions.user_id",
+            ])
+        )
+        .with("affected_members", (expressionBuilder) =>
+          expressionBuilder
+            .selectFrom("updated_subscriptions")
+            .select(["tribe_id", "user_id"])
+            .distinct()
+        )
+        .with("updated_members", (expressionBuilder) =>
+          expressionBuilder
+            .updateTable("tribe_members")
+            .set({
+              status: kyselySql`
+                case
+                  when exists (
+                    select 1
+                    from public.tribe_member_subscriptions
+                    where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                      and tribe_member_subscriptions.user_id = tribe_members.user_id
+                      and tribe_member_subscriptions.status =
+                        ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+                  ) then 'active'
+                  when exists (
+                    select 1
+                    from public.tribe_member_subscriptions
+                    where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                      and tribe_member_subscriptions.user_id = tribe_members.user_id
+                      and tribe_member_subscriptions.status =
+                        ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+                  ) then 'blocked'
+                  else 'removed'
+                end
+              `,
+              status_reason: kyselySql`
+                case
+                  when exists (
+                    select 1
+                    from public.tribe_member_subscriptions
+                    where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                      and tribe_member_subscriptions.user_id = tribe_members.user_id
+                      and tribe_member_subscriptions.status =
+                        ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+                  ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none}
+                  when exists (
+                    select 1
+                    from public.tribe_member_subscriptions
+                    where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
+                      and tribe_member_subscriptions.user_id = tribe_members.user_id
+                      and tribe_member_subscriptions.status =
+                        ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+                  ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+                  else ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
+                end
+              `,
+            })
+            .from("affected_members")
+            .whereRef("tribe_members.tribe_id", "=", "affected_members.tribe_id")
+            .whereRef("tribe_members.user_id", "=", "affected_members.user_id")
+            .where(({ eb, not }) =>
+              not(
+                eb.and([
+                  eb("tribe_members.status", "=", "blocked"),
+                  eb(
+                    "tribe_members.status_reason",
+                    "<>",
+                    TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked
+                  ),
+                ])
+              )
+            )
+            .returning("tribe_members.user_id")
+        )
+        .selectFrom("target_price")
+        .leftJoin(
+          "tribe_member_subscriptions",
+          "tribe_member_subscriptions.price_id",
+          "target_price.id"
+        )
+        .select([
+          "target_price.id",
+          "target_price.name",
+          "target_price.amount_cents",
+          "target_price.currency",
+          "target_price.frequency",
+          "target_price.status",
+          "target_price.is_current",
+          "target_price.trial_frequency",
+          "target_price.trial_frequency_type",
+          "target_price.created_at",
+        ])
+        .select((expressionBuilder) =>
+          expressionBuilder.fn
+            .count<number | string>("tribe_member_subscriptions.id")
+            .filterWhere(
+              "tribe_member_subscriptions.status",
+              "in",
+              CURRENT_MEMBER_SUBSCRIPTION_STATUS_VALUES
+            )
+            .as("active_subscribers_count")
+        )
+        .groupBy([
+          "target_price.id",
+          "target_price.name",
+          "target_price.amount_cents",
+          "target_price.currency",
+          "target_price.frequency",
+          "target_price.status",
+          "target_price.is_current",
+          "target_price.trial_frequency",
+          "target_price.trial_frequency_type",
+          "target_price.created_at",
+        ])
+        .executeTakeFirst();
+
+    return row ? (row as SubscriptionPriceRow) : null;
   }
 
   /**
