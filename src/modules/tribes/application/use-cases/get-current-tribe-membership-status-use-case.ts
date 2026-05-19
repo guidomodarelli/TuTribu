@@ -23,7 +23,8 @@ export function getCurrentTribeMembershipStatus({
     if (
       membershipStatus === TRIBE_MEMBERSHIP_STATUS.active ||
       membershipStatus === TRIBE_MEMBERSHIP_STATUS.muted ||
-      membershipStatus === TRIBE_MEMBERSHIP_STATUS.blocked
+      membershipStatus === TRIBE_MEMBERSHIP_STATUS.blocked ||
+      membershipStatus === TRIBE_MEMBERSHIP_STATUS.ownerRead
     ) {
       return membershipStatus;
     }

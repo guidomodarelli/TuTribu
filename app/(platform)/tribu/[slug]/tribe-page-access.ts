@@ -2,7 +2,10 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
-import { TRIBE_PAGE_ACCESS_STATUS } from "@/src/modules/tribes/application/results/tribe-page-access-result";
+import {
+  TRIBE_MEMBERSHIP_STATUS,
+  TRIBE_PAGE_ACCESS_STATUS,
+} from "@/src/modules/tribes/application/results/tribe-page-access-result";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -19,11 +22,13 @@ const TRIBE_PAGE_ACCESS_LOG = {
 
 type ResolveVisibleTribePageAccessOptions = {
   operation: string;
+  reconcileSubscription?: boolean;
   slug: string;
 };
 
 export async function resolveTribePageAccess({
   operation,
+  reconcileSubscription = true,
   slug,
 }: ResolveVisibleTribePageAccessOptions) {
   const requestHeaders = await headers();
@@ -35,9 +40,17 @@ export async function resolveTribePageAccess({
   });
   const modules = await createRequestModules({ requestId });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
+  const currentMembershipStatus =
+    reconcileSubscription && authenticatedMember
+      ? await modules.tribes.useCases.getCurrentTribeMembershipStatus?.(slug)
+      : null;
+  const shouldReconcileSubscription =
+    reconcileSubscription &&
+    authenticatedMember &&
+    currentMembershipStatus !== TRIBE_MEMBERSHIP_STATUS.ownerRead;
 
   const subscriptionReconciliationModules =
-    authenticatedMember
+    shouldReconcileSubscription
       ? await createRequestModules({
           mercadoPagoWebhookVerified: true,
           requestId,
@@ -47,7 +60,7 @@ export async function resolveTribePageAccess({
     subscriptionReconciliationModules?.subscriptions?.useCases
       ?.reconcileCurrentTribeMemberSubscription;
   const subscriptionReconciliationResult =
-    authenticatedMember && reconcileCurrentTribeMemberSubscription
+    reconcileCurrentTribeMemberSubscription
       ? await reconcileCurrentTribeMemberSubscription({
           tribeSlug: slug,
         }).catch((error: unknown) => {
@@ -57,14 +70,13 @@ export async function resolveTribePageAccess({
             metadata: {
               reason: TRIBE_PAGE_ACCESS_LOG_REASON.unexpectedRepositoryError,
               slug,
-              viewerId: authenticatedMember.id,
+              viewerId: authenticatedMember?.id ?? null,
             },
           });
 
           return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
         })
       : null;
-
   const accessResult = await modules.tribes.useCases
     .getTribePageAccess({
       isAuthenticated: Boolean(authenticatedMember),
@@ -96,7 +108,10 @@ export async function resolveTribePageAccess({
 export async function resolveVisibleTribePageAccess(
   options: ResolveVisibleTribePageAccessOptions
 ) {
-  const access = await resolveTribePageAccess(options).catch(() => {
+  const access = await resolveTribePageAccess({
+    ...options,
+    reconcileSubscription: options.reconcileSubscription ?? true,
+  }).catch(() => {
     notFound();
   });
 

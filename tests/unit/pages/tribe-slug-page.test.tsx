@@ -7,6 +7,7 @@ import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const getAuthenticatedMember = jest.fn();
+const getCurrentTribeMembershipStatus = jest.fn();
 const getTribePageAccess = jest.fn();
 const listTribeRound = jest.fn();
 const resolveTribeMemberSubscriptionReturn = jest.fn();
@@ -64,6 +65,7 @@ describe("TribePage", () => {
     });
     (createRequestModules as jest.Mock).mockReset();
     getAuthenticatedMember.mockReset();
+    getCurrentTribeMembershipStatus.mockReset();
     getTribePageAccess.mockReset();
     listTribeRound.mockReset();
     resolveTribeMemberSubscriptionReturn.mockReset();
@@ -80,6 +82,7 @@ describe("TribePage", () => {
       },
       tribes: {
         useCases: {
+          getCurrentTribeMembershipStatus,
           getTribePageAccess,
         },
       },
@@ -245,9 +248,6 @@ describe("TribePage", () => {
         visibility: "private",
       },
     });
-    reconcileCurrentTribeMemberSubscription.mockResolvedValue({
-      status: "provider_unavailable",
-    });
     listTribeRound.mockResolvedValue({
       activeChannelId: null,
       channels: [tribeChannel],
@@ -259,39 +259,34 @@ describe("TribePage", () => {
       pagination: tribeRoundPagination,
       messages: [],
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
-      throw new Error("NEXT_NOT_FOUND");
+    (createRequestModules as jest.Mock).mockResolvedValue({
+      auth: {
+        useCases: {
+          getAuthenticatedMember,
+        },
+      },
+      tribes: {
+        useCases: {
+          getCurrentTribeMembershipStatus,
+          getTribePageAccess,
+        },
+      },
+      messages: {
+        useCases: {
+          listTribeRound,
+        },
+      },
+      subscriptions: {
+        useCases: {
+          reconcileCurrentTribeMemberSubscription,
+          resolveTribeMemberSubscriptionReturn: undefined,
+          validatePendingTribeMemberSubscriptionReturn,
+        },
+      },
     });
-    (createRequestModules as jest.Mock)
-      .mockResolvedValueOnce({
-        auth: {
-          useCases: {
-            getAuthenticatedMember,
-          },
-        },
-        tribes: {
-          useCases: {
-            getTribePageAccess,
-          },
-        },
-        messages: {
-          useCases: {
-            listTribeRound,
-          },
-        },
-        subscriptions: {
-          useCases: {
-            validatePendingTribeMemberSubscriptionReturn,
-          },
-        },
-      })
-      .mockResolvedValueOnce({
-        subscriptions: {
-          useCases: {
-            reconcileCurrentTribeMemberSubscription,
-          },
-        },
-      });
+    reconcileCurrentTribeMemberSubscription.mockResolvedValue({
+      status: "provider_unavailable",
+    });
 
     render(
       await TribePageContent({
@@ -315,6 +310,93 @@ describe("TribePage", () => {
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
+    expect(
+      screen.getByText("Compartí el primer mensaje de la ronda")
+    ).toBeInTheDocument();
+  });
+
+  it("renders platform owner read access without waiting for subscription reconciliation", async () => {
+    const hangingReconciliation = jest.fn(
+      () => new Promise(() => undefined)
+    );
+
+    getAuthenticatedMember.mockResolvedValue({
+      id: "owner-1",
+      email: "owner@example.com",
+      name: "Platform Owner",
+      role: "tribemate",
+      avatarFallback: "PO",
+      image: null,
+    });
+    getCurrentTribeMembershipStatus.mockResolvedValue("owner_read");
+    getTribePageAccess.mockResolvedValue({
+      status: "visible",
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+    listTribeRound.mockResolvedValue({
+      activeChannelId: null,
+      channels: [tribeChannel],
+      viewerPermissions: {
+        canReply: false,
+        canCreateMessage: false,
+        canReact: false,
+      },
+      pagination: tribeRoundPagination,
+      messages: [],
+    });
+    (createRequestModules as jest.Mock).mockResolvedValue({
+      auth: {
+        useCases: {
+          getAuthenticatedMember,
+        },
+      },
+      tribes: {
+        useCases: {
+          getCurrentTribeMembershipStatus,
+          getTribePageAccess,
+        },
+      },
+      messages: {
+        useCases: {
+          listTribeRound,
+        },
+      },
+      subscriptions: {
+        useCases: {
+          reconcileCurrentTribeMemberSubscription: hangingReconciliation,
+          resolveTribeMemberSubscriptionReturn: undefined,
+          validatePendingTribeMemberSubscriptionReturn,
+        },
+      },
+    });
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      })
+    );
+
+    expect(hangingReconciliation).not.toHaveBeenCalled();
+    expect(getTribePageAccess).toHaveBeenCalledWith({
+      isAuthenticated: true,
+      slug: "matematica-pro",
+    });
+    expect(listTribeRound).toHaveBeenCalledWith({
+      channelSlug: null,
+      page: 1,
+      tribeSlug: "matematica-pro",
+      viewerId: "owner-1",
+    });
+    expect(
+      screen.getByText("Compartí el primer mensaje de la ronda")
+    ).toBeInTheDocument();
   });
 
   it("renders a read-only empty round for muted members", async () => {

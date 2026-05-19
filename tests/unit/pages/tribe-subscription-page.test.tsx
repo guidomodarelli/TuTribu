@@ -127,6 +127,12 @@ describe("TribeSubscriptionPage", () => {
   it("renders active subscription self-management", async () => {
     render(await TribeSubscriptionPage(buildPageProps()));
 
+    expect(reconcileCurrentTribeMemberSubscription).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+    expect(
+      reconcileCurrentTribeMemberSubscription.mock.invocationCallOrder[0]
+    ).toBeLessThan(getTribePageAccess.mock.invocationCallOrder[0]);
     expect(
       screen.getByRole("heading", { name: "Gestión de suscripción" })
     ).toBeInTheDocument();

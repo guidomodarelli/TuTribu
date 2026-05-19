@@ -9,6 +9,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 const getAuthenticatedMember = jest.fn();
 const getTribePageAccess = jest.fn();
 const listVisibleTribeMembers = jest.fn();
+const reconcileCurrentTribeMemberSubscription = jest.fn();
 const infoMock = jest.fn();
 const errorMock = jest.fn();
 
@@ -37,6 +38,10 @@ describe("TribeTribePage", () => {
     getAuthenticatedMember.mockReset();
     getTribePageAccess.mockReset();
     listVisibleTribeMembers.mockReset();
+    reconcileCurrentTribeMemberSubscription.mockReset();
+    reconcileCurrentTribeMemberSubscription.mockResolvedValue({
+      status: "active",
+    });
     infoMock.mockReset();
     errorMock.mockReset();
 
@@ -50,6 +55,11 @@ describe("TribeTribePage", () => {
         useCases: {
           getTribePageAccess,
           listVisibleTribeMembers,
+        },
+      },
+      subscriptions: {
+        useCases: {
+          reconcileCurrentTribeMemberSubscription,
         },
       },
     });
@@ -104,7 +114,6 @@ describe("TribeTribePage", () => {
         role: "tribemate",
       },
     ]);
-
     render(
       await TribeTribePage({
         params: Promise.resolve({
@@ -131,6 +140,12 @@ describe("TribeTribePage", () => {
     expect(listVisibleTribeMembers).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
     });
+    expect(reconcileCurrentTribeMemberSubscription).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+    expect(
+      reconcileCurrentTribeMemberSubscription.mock.invocationCallOrder[0]
+    ).toBeLessThan(getTribePageAccess.mock.invocationCallOrder[0]);
   });
 
   it("returns 404 when visible member loading fails", async () => {

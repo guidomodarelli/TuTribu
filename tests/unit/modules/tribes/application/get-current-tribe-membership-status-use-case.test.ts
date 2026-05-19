@@ -30,4 +30,20 @@ describe("getCurrentTribeMembershipStatus", () => {
     await expect(execute("  Matematica-Pro  ")).resolves.toBe("active");
     expect(findCurrentMembershipStatusBySlug).toHaveBeenCalledWith("matematica-pro");
   });
+
+  it("returns owner read status for the configured platform owner", async () => {
+    const findCurrentMembershipStatusBySlug = jest.fn(
+      async () => "owner_read" as const
+    );
+    const execute = getCurrentTribeMembershipStatus({
+      tribeReadRepository: {
+        findBySlug: jest.fn(),
+        findCurrentMembershipAccessBySlug: jest.fn(),
+        findCurrentMembershipStatusBySlug,
+        listVisibleMembershipTribes: jest.fn(),
+      },
+    });
+
+    await expect(execute("matematica-pro")).resolves.toBe("owner_read");
+  });
 });

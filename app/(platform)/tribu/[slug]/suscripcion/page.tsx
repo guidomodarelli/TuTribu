@@ -82,6 +82,7 @@ export default async function TribeSubscriptionPage({
   const { slug } = await params;
   const access = await resolveTribePageAccess({
     operation: SUBSCRIPTION_PAGE_LOG.operation,
+    reconcileSubscription: true,
     slug,
   }).catch(() => {
     notFound();

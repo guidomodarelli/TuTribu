@@ -43,6 +43,8 @@ describe("Tribe SQL guardrails", () => {
     "database/migrations/20260518120000_prioritize_owner_read_access.sql";
   const activeOwnerMembershipAccessMigrationPath =
     "database/migrations/20260519032000_preserve_owner_active_membership_access.sql";
+  const inactiveOwnerMembershipAccessMigrationPath =
+    "database/migrations/20260519034000_allow_owner_read_for_inactive_memberships.sql";
   const restoredRlsEnforcementMigrationPath =
     "database/migrations/20260519030000_restore_rls_enforcement.sql";
   const rlsRuntimeRoleMigrationPath =
@@ -388,6 +390,36 @@ describe("Tribe SQL guardrails", () => {
     );
   });
 
+  it("uses owner read access when the configured owner only has inactive membership", () => {
+    const inactiveOwnerMembershipAccessMigration = readWorkspaceFile(
+      inactiveOwnerMembershipAccessMigrationPath
+    );
+    const activeMembershipSelectionIndex =
+      inactiveOwnerMembershipAccessMigration.indexOf(
+        "SELECT current_membership.status, current_membership.status_reason"
+      );
+    const ownerReadSelectionIndex =
+      inactiveOwnerMembershipAccessMigration.indexOf(
+        "SELECT 'owner_read', 'none'"
+      );
+
+    expect(inactiveOwnerMembershipAccessMigration).toContain(
+      "CREATE OR REPLACE FUNCTION public.get_current_tribe_membership_by_slug"
+    );
+    expect(activeMembershipSelectionIndex).toBeGreaterThanOrEqual(0);
+    expect(ownerReadSelectionIndex).toBeGreaterThanOrEqual(0);
+    expect(activeMembershipSelectionIndex).toBeLessThan(ownerReadSelectionIndex);
+    expect(inactiveOwnerMembershipAccessMigration).toContain(
+      "WHERE current_membership.status IN ('active', 'muted')"
+    );
+    expect(inactiveOwnerMembershipAccessMigration).toContain(
+      "AND NOT EXISTS ("
+    );
+    expect(inactiveOwnerMembershipAccessMigration).toContain(
+      "WHERE current_membership.status IN ('active', 'muted')"
+    );
+  });
+
   it("registers the visible tribe members function migration in the Drizzle journal", () => {
     const drizzleMigrationJournal = readWorkspaceFile(
       drizzleMigrationJournalPath
@@ -425,6 +457,16 @@ describe("Tribe SQL guardrails", () => {
 
     expect(drizzleMigrationJournal).toContain(
       "20260519032000_preserve_owner_active_membership_access"
+    );
+  });
+
+  it("registers the inactive owner membership access migration in the Drizzle journal", () => {
+    const drizzleMigrationJournal = readWorkspaceFile(
+      drizzleMigrationJournalPath
+    );
+
+    expect(drizzleMigrationJournal).toContain(
+      "20260519034000_allow_owner_read_for_inactive_memberships"
     );
   });
 

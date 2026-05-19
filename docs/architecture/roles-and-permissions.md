@@ -100,6 +100,19 @@ En este MVP, crear tribu se resuelve con una whitelist global:
 * la whitelist no reemplaza `leader/guardian/tribemate`
 * una vez creada la tribu, la autorizacion vuelve al modelo por `tribe_members`
 
+## Lectura global del platform owner
+
+La configuracion `TUTRIBU_OWNER_EMAIL` habilita lectura global de tribus para
+operacion y soporte. Ese acceso se modela como `owner_read` y no reemplaza los
+roles por tribu:
+
+* si el owner tiene una membresia `active` o `muted`, la app conserva ese estado
+  real
+* si el owner no tiene membresia activa, aunque exista una fila historica
+  `blocked` o `removed`, la app debe devolver `owner_read` para lectura
+* `owner_read` no concede permisos de escritura, gestion, moderacion ni
+  participacion
+
 ---
 
 # Matriz base
