@@ -74,6 +74,60 @@ type MessagesTable = {
   updated_at: TimestampColumn;
 };
 
+type MessageRepliesTable = {
+  author_id: string;
+  content: string;
+  created_at: TimestampColumn;
+  id: Generated<string>;
+  message_id: string;
+  tribe_id: string;
+};
+
+type MessageReactionsTable = {
+  created_at: TimestampColumn;
+  id: Generated<string>;
+  message_id: string;
+  tribe_id: string;
+  type: string;
+  user_id: string;
+};
+
+type MessagePinsTable = {
+  message_id: string;
+  pinned_at: TimestampColumn;
+  pinned_by: string;
+  tribe_id: string;
+};
+
+type MessagePollsTable = {
+  allow_multiple_votes: boolean;
+  created_at: TimestampColumn;
+  id: Generated<string>;
+  message_id: string;
+  question: string;
+  status: string;
+  tribe_id: string;
+  updated_at: TimestampColumn;
+};
+
+type MessagePollOptionsTable = {
+  created_at: TimestampColumn;
+  id: Generated<string>;
+  poll_id: string;
+  sort_order: number;
+  text: string;
+  tribe_id: string;
+};
+
+type MessagePollVotesTable = {
+  created_at: TimestampColumn;
+  id: Generated<string>;
+  option_id: string;
+  poll_id: string;
+  tribe_id: string;
+  user_id: string;
+};
+
 type UsersTable = {
   createdAt: TimestampColumn;
   email: string;
@@ -85,6 +139,12 @@ type UsersTable = {
 };
 
 export type KyselyRequestDatabaseSchema = {
+  message_pins: MessagePinsTable;
+  message_poll_options: MessagePollOptionsTable;
+  message_poll_votes: MessagePollVotesTable;
+  message_polls: MessagePollsTable;
+  message_reactions: MessageReactionsTable;
+  message_replies: MessageRepliesTable;
   messages: MessagesTable;
   tribe_creator_whitelist: TribeCreatorWhitelistTable;
   tribe_channels: TribeChannelsTable;

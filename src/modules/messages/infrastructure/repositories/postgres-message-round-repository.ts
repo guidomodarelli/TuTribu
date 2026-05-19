@@ -1,5 +1,3 @@
-import { sql } from "drizzle-orm";
-
 import type {
   TribeRoundRepliesResult,
   TribeRoundResult,
@@ -45,15 +43,15 @@ type MessageRoundSharedRow = {
   channel_name: string | null;
   channel_slug: string | null;
   channel_sort_order: number | string | null;
-  like_count: number | string;
+  like_count: bigint | number | string | null;
   message_pinned_at: Date | string | null;
   poll_allow_multiple_votes: boolean | null;
   poll_id: string | null;
   poll_option_id: string | null;
   poll_option_text: string | null;
-  poll_option_vote_count: number | string | null;
+  poll_option_vote_count: bigint | number | string | null;
   poll_question: string | null;
-  poll_total_vote_count: number | string | null;
+  poll_total_vote_count: bigint | number | string | null;
   message_content: string | null;
   message_created_at: Date | string | null;
   message_id: string | null;
@@ -85,6 +83,40 @@ type MessageReplyRow = {
   reply_created_at: Date | string | null;
   reply_id: string | null;
   status_result: string;
+};
+
+type TargetTribeRow = {
+  id: string;
+};
+
+type MessageBaseRow = {
+  author_id: string | null;
+  author_image: string | null;
+  author_name: string | null;
+  author_role: string | null;
+  channel_access_scope: string | null;
+  channel_emoji: string | null;
+  channel_id: string | null;
+  channel_name: string | null;
+  channel_slug: string | null;
+  channel_sort_order: number | string | null;
+  like_count: bigint | number | string | null;
+  message_content: string | null;
+  message_created_at: Date | string | null;
+  message_id: string | null;
+  message_pinned_at: Date | string | null;
+  message_title: string | null;
+}
+
+type PollOptionRow = {
+  poll_allow_multiple_votes: boolean | null;
+  poll_id: string | null;
+  poll_option_id: string | null;
+  poll_option_text: string | null;
+  poll_option_vote_count: bigint | number | string | null;
+  poll_question: string | null;
+  poll_total_vote_count: bigint | number | string | null;
+  message_id: string | null;
 };
 
 function normalizeMembershipStatus(
@@ -436,176 +468,27 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
       const currentPage = normalizePage(page);
       const messageOffset = (currentPage - 1) * TRIBE_ROUND_PAGE_SIZE;
       const messageLimit = TRIBE_ROUND_PAGE_SIZE + 1;
-      const channelsResult = await database.execute<TribeChannelRow>(sql`
-          with target_tribe as (
-            select tribes.id
-            from public.tribes
-            where tribes.slug = ${tribeSlug}
-            limit 1
-          )
-          select
-            tribe_channels.id,
-            tribe_channels.name,
-            tribe_channels.slug,
-            tribe_channels.emoji,
-            tribe_channels.sort_order,
-            tribe_channels.access_scope
-          from public.tribe_channels
-          inner join target_tribe
-            on target_tribe.id = tribe_channels.tribe_id
-          order by tribe_channels.sort_order asc, tribe_channels.name asc
-        `);
-      const channels = mapRowsToChannels(channelsResult.rows);
+      const targetTribe = await this.findTargetTribe(database.kysely, tribeSlug);
+      const channels = targetTribe
+        ? mapRowsToChannels(await this.listChannels(database.kysely, targetTribe.id))
+        : [];
       const selectedChannelSlug = normalizeChannelSlug(channelSlug);
       const activeChannel =
         channels.find((channel) => channel.slug === selectedChannelSlug) ?? null;
-      const result = await database.execute<MessageRoundSharedRow>(sql`
-          with target_tribe as (
-            select tribes.id
-            from public.tribes
-            where tribes.slug = ${tribeSlug}
-            limit 1
-          ),
-          message_like_counts as (
-            select
-              message_reactions.message_id,
-              count(*) as like_count
-            from public.message_reactions
-            inner join public.messages liked_messages
-              on liked_messages.id = message_reactions.message_id
-            inner join target_tribe
-              on target_tribe.id = liked_messages.tribe_id
-            where message_reactions.type = 'like'
-            group by message_reactions.message_id
-          ),
-          poll_option_counts as (
-            select
-              message_poll_options.id as option_id,
-              count(message_poll_votes.id) as vote_count
-            from public.message_poll_options
-            inner join public.message_polls
-              on message_polls.id = message_poll_options.poll_id
-            inner join target_tribe
-              on target_tribe.id = message_polls.tribe_id
-            left join public.message_poll_votes
-              on message_poll_votes.option_id = message_poll_options.id
-            group by message_poll_options.id
-          ),
-          poll_total_counts as (
-            select
-              message_polls.id as poll_id,
-              count(message_poll_votes.id) as total_vote_count
-            from public.message_polls
-            inner join target_tribe
-              on target_tribe.id = message_polls.tribe_id
-            left join public.message_poll_votes
-              on message_poll_votes.poll_id = message_polls.id
-            group by message_polls.id
-          ),
-          filtered_messages as (
-            select
-              messages.id,
-              messages.title,
-              messages.content,
-              messages.created_at,
-              messages.channel_id,
-              messages.author_id,
-              messages.tribe_id,
-              coalesce(message_like_counts.like_count, 0) as like_count,
-              message_pins.pinned_at as pinned_at
-            from public.messages
-            inner join target_tribe
-              on target_tribe.id = messages.tribe_id
-            left join message_like_counts
-              on message_like_counts.message_id = messages.id
-            left join public.message_pins
-              on message_pins.message_id = messages.id
-            where messages.channel_id is not null
-              and (
-                ${activeChannel?.slug ?? null}::text is null
-                or exists (
-                  select 1
-                  from public.tribe_channels selected_channel
-                  where selected_channel.id = messages.channel_id
-                    and selected_channel.tribe_id = target_tribe.id
-                    and selected_channel.slug = ${activeChannel?.slug ?? null}
-                )
-              )
-              and exists (
-                select 1
-                from public.tribe_channels channel_matches
-                where channel_matches.id = messages.channel_id
-                  and channel_matches.tribe_id = target_tribe.id
-              )
-            order by message_pins.pinned_at desc nulls last, messages.created_at desc, messages.id desc
-            limit ${messageLimit}
-            offset ${messageOffset}
-          )
-          select
-            messages.id as message_id,
-            messages.title as message_title,
-            messages.content as message_content,
-            messages.created_at as message_created_at,
-            tribe_channels.id as channel_id,
-            tribe_channels.name as channel_name,
-            tribe_channels.slug as channel_slug,
-            tribe_channels.emoji as channel_emoji,
-            tribe_channels.sort_order as channel_sort_order,
-            tribe_channels.access_scope as channel_access_scope,
-            message_authors.id as author_id,
-            message_authors.name as author_name,
-            message_authors.image as author_image,
-            message_members.role as author_role,
-            messages.like_count as like_count,
-            messages.pinned_at as message_pinned_at,
-            message_polls.id as poll_id,
-            message_polls.question as poll_question,
-            message_polls.allow_multiple_votes as poll_allow_multiple_votes,
-            message_poll_options.id as poll_option_id,
-            message_poll_options.text as poll_option_text,
-            coalesce(poll_option_counts.vote_count, 0) as poll_option_vote_count,
-            coalesce(poll_total_counts.total_vote_count, 0) as poll_total_vote_count
-          from filtered_messages messages
-          inner join public.tribe_channels
-            on tribe_channels.id = messages.channel_id
-          inner join public."user" message_authors
-            on message_authors.id = messages.author_id
-          left join public.tribe_members message_members
-            on message_members.tribe_id = messages.tribe_id
-            and message_members.user_id = messages.author_id
-          left join public.message_polls
-            on message_polls.message_id = messages.id
-          left join public.message_poll_options
-            on message_poll_options.poll_id = message_polls.id
-          left join poll_option_counts
-            on poll_option_counts.option_id = message_poll_options.id
-          left join poll_total_counts
-            on poll_total_counts.poll_id = message_polls.id
-          group by
-            messages.id,
-            messages.title,
-            messages.content,
-            messages.created_at,
-            messages.channel_id,
-            messages.author_id,
-            messages.tribe_id,
-            tribe_channels.id,
-            tribe_channels.name,
-            tribe_channels.slug,
-            tribe_channels.emoji,
-            tribe_channels.sort_order,
-            tribe_channels.access_scope,
-            messages.like_count,
-            messages.pinned_at,
-            message_polls.id,
-            message_poll_options.id,
-            poll_option_counts.vote_count,
-            poll_total_counts.total_vote_count,
-            message_authors.id,
-            message_members.role
-          order by messages.pinned_at desc nulls last, messages.created_at desc, messages.id desc, message_poll_options.sort_order asc
-        `);
-      const resultRows = result.rows;
+      const messageRows = targetTribe
+        ? await this.listMessageRows({
+            activeChannelId: activeChannel?.id ?? null,
+            database: database.kysely,
+            messageLimit,
+            messageOffset,
+            tribeId: targetTribe.id,
+          })
+        : [];
+      const pollRows = await this.listPollRows(
+        database.kysely,
+        messageRows.flatMap((row) => (row.message_id ? [row.message_id] : []))
+      );
+      const resultRows = this.mergeMessageAndPollRows(messageRows, pollRows);
       const rows = limitRowsToPageMessages(resultRows);
 
       return mapRowsToSharedData(
@@ -628,73 +511,70 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
     viewerId,
   }: ListMessageRepliesQuery): Promise<TribeRoundRepliesResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute<MessageReplyRow>(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${tribeSlug}
-          limit 1
-        ),
-        viewer_membership as (
-          select 1
-          from public.tribe_members
-          inner join target_tribe
-            on target_tribe.id = tribe_members.tribe_id
-          where tribe_members.user_id = ${viewerId}
-            and tribe_members.status in ('active', 'muted')
-          limit 1
-        ),
-        target_message as (
-          select messages.id, messages.tribe_id
-          from public.messages
-          inner join target_tribe
-            on target_tribe.id = messages.tribe_id
-          where messages.id = ${messageId}
-          limit 1
-        ),
-        visible_message as (
-          select target_message.id, target_message.tribe_id
-          from target_message
-          where exists (select 1 from viewer_membership)
-        ),
-        reply_rows as (
-          select
-            message_replies.id as reply_id,
-            message_replies.content as reply_content,
-            message_replies.created_at as reply_created_at,
-            reply_authors.id as reply_author_id,
-            reply_authors.name as reply_author_name,
-            reply_authors.image as reply_author_image,
-            reply_members.role as reply_author_role
-          from visible_message
-          inner join public.message_replies
-            on message_replies.message_id = visible_message.id
-          inner join public."user" reply_authors
-            on reply_authors.id = message_replies.author_id
-          left join public.tribe_members reply_members
-            on reply_members.tribe_id = visible_message.tribe_id
-            and reply_members.user_id = message_replies.author_id
-          order by message_replies.created_at asc
-        )
-        select
-          case
-            when not exists (select 1 from target_message) then ${MESSAGE_MUTATION_STATUS.notFound}
-            when not exists (select 1 from visible_message) then ${MESSAGE_MUTATION_STATUS.forbidden}
-            else 'found'
-          end as status_result,
-          reply_rows.reply_id,
-          reply_rows.reply_content,
-          reply_rows.reply_created_at,
-          reply_rows.reply_author_id,
-          reply_rows.reply_author_name,
-          reply_rows.reply_author_image,
-          reply_rows.reply_author_role
-        from (select 1) status_anchor
-        left join reply_rows
-          on true
-      `);
+      const targetTribe = await this.findTargetTribe(database.kysely, tribeSlug);
 
-      return mapRowsToReplies(result.rows);
+      if (!targetTribe) {
+        return { status: MESSAGE_MUTATION_STATUS.notFound };
+      }
+
+      const targetMessage = await database.kysely
+        .selectFrom("messages")
+        .select(["id", "tribe_id"])
+        .where("id", "=", messageId)
+        .where("tribe_id", "=", targetTribe.id)
+        .executeTakeFirst();
+
+      if (!targetMessage) {
+        return { status: MESSAGE_MUTATION_STATUS.notFound };
+      }
+
+      const viewerMembership = await this.findVisibleViewerMembership(
+        database.kysely,
+        targetTribe.id,
+        viewerId
+      );
+
+      if (!viewerMembership) {
+        return { status: MESSAGE_MUTATION_STATUS.forbidden };
+      }
+
+      const rows = await database.kysely
+        .selectFrom("message_replies")
+        .innerJoin("user as reply_authors", "reply_authors.id", "message_replies.author_id")
+        .leftJoin("tribe_members as reply_members", (join) =>
+          join
+            .onRef("reply_members.tribe_id", "=", "message_replies.tribe_id")
+            .onRef("reply_members.user_id", "=", "message_replies.author_id")
+        )
+        .select([
+          "message_replies.id as reply_id",
+          "message_replies.content as reply_content",
+          "message_replies.created_at as reply_created_at",
+          "reply_authors.id as reply_author_id",
+          "reply_authors.name as reply_author_name",
+          "reply_authors.image as reply_author_image",
+          "reply_members.role as reply_author_role",
+        ])
+        .where("message_replies.message_id", "=", targetMessage.id)
+        .orderBy("message_replies.created_at", "asc")
+        .execute();
+
+      return mapRowsToReplies([
+        {
+          status_result: "found",
+          reply_author_id: null,
+          reply_author_image: null,
+          reply_author_name: null,
+          reply_author_role: null,
+          reply_content: null,
+          reply_created_at: null,
+          reply_id: null,
+        },
+        ...rows.map((row) => ({
+          ...row,
+          status_result: "found",
+        })),
+      ]);
     });
   }
 
@@ -703,63 +583,242 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
     viewerId,
   }: ListTribeRoundQuery): Promise<TribeRoundViewerStateResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute<MessageRoundViewerStateRow>(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${tribeSlug}
-          limit 1
-        ),
-        viewer_membership as (
-          select tribe_members.status, tribe_members.role
-          from public.tribe_members
-          inner join target_tribe
-            on target_tribe.id = tribe_members.tribe_id
-          where tribe_members.user_id = ${viewerId}
-            and tribe_members.status in ('active', 'muted')
-          limit 1
-        ),
-        liked_messages as (
-          select message_reactions.message_id::text as message_id
-          from public.message_reactions
-          inner join public.messages
-            on messages.id = message_reactions.message_id
-          inner join target_tribe
-            on target_tribe.id = messages.tribe_id
-          where message_reactions.user_id = ${viewerId}
-            and message_reactions.type = 'like'
-        ),
-        selected_poll_options as (
-          select message_poll_votes.option_id::text as option_id
-          from public.message_poll_votes
-          inner join public.message_polls
-            on message_polls.id = message_poll_votes.poll_id
-          inner join target_tribe
-            on target_tribe.id = message_polls.tribe_id
-          where message_poll_votes.user_id = ${viewerId}
-        ),
-        liked_message_state as (
-          select coalesce(array_agg(liked_messages.message_id), array[]::text[]) as liked_message_ids
-          from liked_messages
-        ),
-        selected_poll_option_state as (
-          select coalesce(array_agg(selected_poll_options.option_id), array[]::text[]) as selected_poll_option_ids
-          from selected_poll_options
-        )
-        select
-          viewer_membership.status as viewer_membership_status,
-          viewer_membership.role as viewer_membership_role,
-          liked_message_state.liked_message_ids,
-          selected_poll_option_state.selected_poll_option_ids
-        from viewer_membership
-        cross join liked_message_state
-        cross join selected_poll_option_state
-      `);
+      const targetTribe = await this.findTargetTribe(database.kysely, tribeSlug);
+
+      if (!targetTribe) {
+        return mapViewerStateRow(null, viewerId);
+      }
+
+      const viewerMembership = await this.findVisibleViewerMembership(
+        database.kysely,
+        targetTribe.id,
+        viewerId
+      );
+
+      if (!viewerMembership) {
+        return mapViewerStateRow(null, viewerId);
+      }
+
+      const likedMessages = await database.kysely
+        .selectFrom("message_reactions")
+        .innerJoin("messages", "messages.id", "message_reactions.message_id")
+        .select("message_reactions.message_id")
+        .where("messages.tribe_id", "=", targetTribe.id)
+        .where("message_reactions.user_id", "=", viewerId)
+        .where("message_reactions.type", "=", "like")
+        .execute();
+      const selectedPollOptions = await database.kysely
+        .selectFrom("message_poll_votes")
+        .innerJoin("message_polls", "message_polls.id", "message_poll_votes.poll_id")
+        .select("message_poll_votes.option_id")
+        .where("message_polls.tribe_id", "=", targetTribe.id)
+        .where("message_poll_votes.user_id", "=", viewerId)
+        .execute();
 
       return mapViewerStateRow(
-        result.rows[0] ?? null,
+        {
+          liked_message_ids: likedMessages.map((row) => row.message_id),
+          selected_poll_option_ids: selectedPollOptions.map((row) => row.option_id),
+          viewer_membership_role: viewerMembership?.role ?? null,
+          viewer_membership_status: viewerMembership?.status ?? null,
+        },
         viewerId
       );
     });
+  }
+
+  private async findTargetTribe(
+    database: RequestDatabase["kysely"],
+    tribeSlug: string
+  ): Promise<TargetTribeRow | null> {
+    return (
+      (await database
+        .selectFrom("tribes")
+        .select("id")
+        .where("slug", "=", tribeSlug)
+        .executeTakeFirst()) ?? null
+    );
+  }
+
+  private async listChannels(
+    database: RequestDatabase["kysely"],
+    tribeId: string
+  ): Promise<TribeChannelRow[]> {
+    return database
+      .selectFrom("tribe_channels")
+      .select(["id", "name", "slug", "emoji", "sort_order", "access_scope"])
+      .where("tribe_id", "=", tribeId)
+      .orderBy("sort_order", "asc")
+      .orderBy("name", "asc")
+      .execute();
+  }
+
+  private async listMessageRows({
+    activeChannelId,
+    database,
+    messageLimit,
+    messageOffset,
+    tribeId,
+  }: {
+    activeChannelId: string | null;
+    database: RequestDatabase["kysely"];
+    messageLimit: number;
+    messageOffset: number;
+    tribeId: string;
+  }): Promise<MessageBaseRow[]> {
+    let query = database
+      .selectFrom("messages")
+      .innerJoin("tribe_channels", "tribe_channels.id", "messages.channel_id")
+      .innerJoin("user as message_authors", "message_authors.id", "messages.author_id")
+      .leftJoin("tribe_members as message_members", (join) =>
+        join
+          .onRef("message_members.tribe_id", "=", "messages.tribe_id")
+          .onRef("message_members.user_id", "=", "messages.author_id")
+      )
+      .leftJoin("message_pins", "message_pins.message_id", "messages.id")
+      .select((expressionBuilder) => [
+        "messages.id as message_id",
+        "messages.title as message_title",
+        "messages.content as message_content",
+        "messages.created_at as message_created_at",
+        "tribe_channels.id as channel_id",
+        "tribe_channels.name as channel_name",
+        "tribe_channels.slug as channel_slug",
+        "tribe_channels.emoji as channel_emoji",
+        "tribe_channels.sort_order as channel_sort_order",
+        "tribe_channels.access_scope as channel_access_scope",
+        "message_authors.id as author_id",
+        "message_authors.name as author_name",
+        "message_authors.image as author_image",
+        "message_members.role as author_role",
+        "message_pins.pinned_at as message_pinned_at",
+        expressionBuilder
+          .selectFrom("message_reactions")
+          .select((likeCountExpressionBuilder) =>
+            likeCountExpressionBuilder.fn.count("message_reactions.id").as("like_count")
+          )
+          .whereRef("message_reactions.message_id", "=", "messages.id")
+          .where("message_reactions.type", "=", "like")
+          .as("like_count"),
+      ])
+      .where("messages.tribe_id", "=", tribeId)
+      .whereRef("tribe_channels.tribe_id", "=", "messages.tribe_id");
+
+    if (activeChannelId) {
+      query = query.where("messages.channel_id", "=", activeChannelId);
+    }
+
+    return query
+      .orderBy((expressionBuilder) =>
+        expressionBuilder
+          .case()
+          .when("message_pins.pinned_at", "is", null)
+          .then(1)
+          .else(0)
+          .end(),
+        "asc"
+      )
+      .orderBy("message_pins.pinned_at", "desc")
+      .orderBy("messages.created_at", "desc")
+      .orderBy("messages.id", "desc")
+      .limit(messageLimit)
+      .offset(messageOffset)
+      .execute();
+  }
+
+  private async listPollRows(
+    database: RequestDatabase["kysely"],
+    messageIds: string[]
+  ): Promise<PollOptionRow[]> {
+    if (messageIds.length === 0) {
+      return [];
+    }
+
+    return database
+      .selectFrom("message_polls")
+      .leftJoin("message_poll_options", "message_poll_options.poll_id", "message_polls.id")
+      .select((expressionBuilder) => [
+        "message_polls.message_id",
+        "message_polls.id as poll_id",
+        "message_polls.question as poll_question",
+        "message_polls.allow_multiple_votes as poll_allow_multiple_votes",
+        "message_poll_options.id as poll_option_id",
+        "message_poll_options.text as poll_option_text",
+        expressionBuilder
+          .selectFrom("message_poll_votes")
+          .select((voteCountExpressionBuilder) =>
+            voteCountExpressionBuilder.fn.count("message_poll_votes.id").as("vote_count")
+          )
+          .whereRef("message_poll_votes.option_id", "=", "message_poll_options.id")
+          .as("poll_option_vote_count"),
+        expressionBuilder
+          .selectFrom("message_poll_votes")
+          .select((voteCountExpressionBuilder) =>
+            voteCountExpressionBuilder.fn.count("message_poll_votes.id").as("vote_count")
+          )
+          .whereRef("message_poll_votes.poll_id", "=", "message_polls.id")
+          .as("poll_total_vote_count"),
+      ])
+      .where("message_polls.message_id", "in", messageIds)
+      .orderBy("message_poll_options.sort_order", "asc")
+      .execute();
+  }
+
+  private mergeMessageAndPollRows(
+    messageRows: MessageBaseRow[],
+    pollRows: PollOptionRow[]
+  ): MessageRoundSharedRow[] {
+    const pollRowsByMessageId = new Map<string, PollOptionRow[]>();
+
+    pollRows.forEach((pollRow) => {
+      if (!pollRow.message_id) {
+        return;
+      }
+
+      const messagePollRows = pollRowsByMessageId.get(pollRow.message_id) ?? [];
+      messagePollRows.push(pollRow);
+      pollRowsByMessageId.set(pollRow.message_id, messagePollRows);
+    });
+
+    return messageRows.flatMap((messageRow) => {
+      const messagePollRows = messageRow.message_id
+        ? pollRowsByMessageId.get(messageRow.message_id) ?? []
+        : [];
+
+      if (messagePollRows.length === 0) {
+        return [{
+          ...messageRow,
+          poll_allow_multiple_votes: null,
+          poll_id: null,
+          poll_option_id: null,
+          poll_option_text: null,
+          poll_option_vote_count: null,
+          poll_question: null,
+          poll_total_vote_count: null,
+        }];
+      }
+
+      return messagePollRows.map((pollRow) => ({
+        ...messageRow,
+        ...pollRow,
+      }));
+    });
+  }
+
+  private async findVisibleViewerMembership(
+    database: RequestDatabase["kysely"],
+    tribeId: string,
+    viewerId: string
+  ) {
+    return database
+      .selectFrom("tribe_members")
+      .select(["status", "role"])
+      .where("tribe_id", "=", tribeId)
+      .where("user_id", "=", viewerId)
+      .where("status", "in", [
+        MESSAGE_MEMBERSHIP_STATUS.active,
+        MESSAGE_MEMBERSHIP_STATUS.muted,
+      ])
+      .executeTakeFirst();
   }
 }
