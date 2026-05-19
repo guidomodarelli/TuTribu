@@ -139,6 +139,36 @@ describe("PostgresTribeInvitationRepository", () => {
     expect(queryParameters).not.toContain("plain-token");
   });
 
+  it("returns forbidden when invitation creation permission is lost before insert", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ can_manage: true }],
+      [],
+    ]);
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.create({
+        baseUrl: "https://tutribu.example.com",
+        invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        token: "plain-token",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "forbidden" });
+
+    const sqlText = getExecutedSqlText(databaseDouble);
+    const insertPosition = sqlText.indexOf("insert into \"tribe_invitations\"");
+    const insertPermissionGuardPosition = sqlText.indexOf(
+      "public.can_manage_tribe_invitations",
+      insertPosition
+    );
+
+    expect(insertPosition).toBeGreaterThan(-1);
+    expect(insertPermissionGuardPosition).toBeGreaterThan(insertPosition);
+  });
+
   it("maps missing invitation storage during creation to setup_required", async () => {
     const databaseDouble = createFailingRequestKyselyDatabaseDouble({
         cause: {
@@ -233,6 +263,33 @@ describe("PostgresTribeInvitationRepository", () => {
     expect(sqlText).toContain("revoked_at");
   });
 
+  it("returns not_found when the invitation is revoked before the revoke update", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ can_manage: true }],
+      [{ id: "550e8400-e29b-41d4-a716-446655440000" }],
+      [],
+      [{ can_manage: true }],
+    ]);
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.revoke({
+        invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "not_found" });
+
+    const sqlText = getExecutedSqlText(databaseDouble);
+    const updatePosition = sqlText.indexOf("update \"tribe_invitations\"");
+    const activeStatusGuardPosition = sqlText.indexOf("\"status\" =", updatePosition);
+
+    expect(updatePosition).toBeGreaterThan(-1);
+    expect(activeStatusGuardPosition).toBeGreaterThan(updatePosition);
+  });
+
   it("maps malformed invitation identifiers to not_found before querying Postgres", async () => {
     const databaseDouble = createRequestKyselyDatabaseDouble([]);
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
@@ -321,6 +378,44 @@ describe("PostgresTribeInvitationRepository", () => {
 
     expect(insertConflictPosition).toBeGreaterThan(-1);
     expect(lastMembershipLookupPosition).toBeGreaterThan(insertConflictPosition);
+  });
+
+  it("returns revoked when an active invitation is revoked before acceptance insert", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ context: "" }],
+      [{
+        id: "invitation-1",
+        status: "active",
+        tribe_id: "tribe-1",
+      }],
+      [{ id: "tribe-1" }],
+      [{ id: "user-1" }],
+      [],
+      [],
+      [],
+      [],
+      [{ status: "revoked" }],
+    ]);
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.accept({
+        token: "plain-token",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "revoked" });
+
+    const sqlText = getExecutedSqlText(databaseDouble);
+    const insertPosition = sqlText.indexOf("insert into \"tribe_members\"");
+    const activeInvitationGuardPosition = sqlText.indexOf(
+      "\"tribe_invitations\".\"status\" =",
+      insertPosition
+    );
+
+    expect(insertPosition).toBeGreaterThan(-1);
+    expect(activeInvitationGuardPosition).toBeGreaterThan(insertPosition);
   });
 
   it("maps revoked invitation acceptance to a controlled result", async () => {

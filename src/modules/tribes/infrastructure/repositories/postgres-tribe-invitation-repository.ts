@@ -258,17 +258,37 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
 
         const insertedInvitation = await transaction
           .insertInto("tribe_invitations")
-          .values((expressionBuilder) => ({
-            created_at: expressionBuilder.fn<Date>("timezone", [
-              expressionBuilder.val("utc"),
-              expressionBuilder.fn<Date>("now"),
-            ]),
-            created_by: expressionBuilder.fn<string>("public.current_app_user_id"),
-            id: command.invitationId,
-            status: TRIBE_INVITATION_STATUS.active,
-            token_hash: tokenHash,
-            tribe_id: targetTribe.id,
-          }))
+          .columns([
+            "created_at",
+            "created_by",
+            "id",
+            "status",
+            "token_hash",
+            "tribe_id",
+          ])
+          .expression((expressionBuilder) =>
+            expressionBuilder
+              .selectFrom("tribes")
+              .select([
+                expressionBuilder.fn<Date>("timezone", [
+                  expressionBuilder.val("utc"),
+                  expressionBuilder.fn<Date>("now"),
+                ]).as("created_at"),
+                expressionBuilder.fn<string>("public.current_app_user_id").as("created_by"),
+                expressionBuilder.val(command.invitationId).as("id"),
+                expressionBuilder.val(TRIBE_INVITATION_STATUS.active).as("status"),
+                expressionBuilder.val(tokenHash).as("token_hash"),
+                expressionBuilder.val(targetTribe.id).as("tribe_id"),
+              ])
+              .where("tribes.id", "=", targetTribe.id)
+              .where(
+                expressionBuilder.fn<boolean>("public.can_manage_tribe_invitations", [
+                  expressionBuilder.val(targetTribe.id),
+                ]),
+                "=",
+                true
+              )
+          )
           .returning(["id", "created_at", "created_by"])
           .executeTakeFirst();
 
@@ -354,6 +374,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             status: TRIBE_INVITATION_STATUS.revoked,
           }))
           .where("id", "=", targetInvitation.id)
+          .where("status", "=", TRIBE_INVITATION_STATUS.active)
           .where((expressionBuilder) =>
             expressionBuilder.fn<boolean>("public.can_manage_tribe_invitations", [
               "tribe_invitations.tribe_id",
@@ -362,9 +383,21 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           .returning("id")
           .executeTakeFirst();
 
+        if (revokedInvitation) {
+          return { status: TRIBE_INVITATION_STATUS.revoked };
+        }
+
+        const currentPermission = await transaction
+          .selectNoFrom((expressionBuilder) => [
+            expressionBuilder.fn<boolean>("public.can_manage_tribe_invitations", [
+              expressionBuilder.val(targetTribe.id),
+            ]).as("can_manage"),
+          ])
+          .executeTakeFirst();
+
         return mapRevocationResult({
-          status: revokedInvitation
-            ? TRIBE_INVITATION_STATUS.revoked
+          status: currentPermission?.can_manage
+            ? TRIBE_INVITATION_STATUS.notFound
             : TRIBE_INVITATION_STATUS.forbidden,
         });
       });
@@ -466,16 +499,27 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
 
         await transaction
           .insertInto("tribe_members")
-          .values((expressionBuilder) => ({
-            created_at: expressionBuilder.fn<Date>("timezone", [
-              expressionBuilder.val("utc"),
-              expressionBuilder.fn<Date>("now"),
-            ]),
-            role: "tribemate",
-            status: "active",
-            tribe_id: targetTribe.id,
-            user_id: currentUserId,
-          }))
+          .columns(["created_at", "role", "status", "tribe_id", "user_id"])
+          .expression((expressionBuilder) =>
+            expressionBuilder
+              .selectFrom("tribe_invitations")
+              .innerJoin("tribes", "tribes.id", "tribe_invitations.tribe_id")
+              .select([
+                expressionBuilder.fn<Date>("timezone", [
+                  expressionBuilder.val("utc"),
+                  expressionBuilder.fn<Date>("now"),
+                ]).as("created_at"),
+                expressionBuilder.val("tribemate").as("role"),
+                expressionBuilder.val("active").as("status"),
+                expressionBuilder.val(targetTribe.id).as("tribe_id"),
+                expressionBuilder.val(currentUserId).as("user_id"),
+              ])
+              .where("tribe_invitations.id", "=", targetInvitation.id)
+              .where("tribe_invitations.token_hash", "=", tokenHash)
+              .where("tribe_invitations.status", "=", TRIBE_INVITATION_STATUS.active)
+              .where("tribes.id", "=", targetTribe.id)
+              .where("tribes.slug", "=", command.tribeSlug)
+          )
           .onConflict((conflictBuilder) =>
             conflictBuilder.columns(["tribe_id", "user_id"]).doNothing()
           )
@@ -487,9 +531,11 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         );
 
         return {
-          status: isActiveMembership(postInsertMembership?.status)
-            ? TRIBE_INVITATION_STATUS.accepted
-            : TRIBE_INVITATION_STATUS.invalid,
+          status: await this.resolvePostAcceptanceStatus(
+            transaction,
+            tokenHash,
+            postInsertMembership
+          ),
         };
       });
     });
@@ -562,5 +608,25 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         )
         .executeTakeFirst()) ?? null
     );
+  }
+
+  private async resolvePostAcceptanceStatus(
+    database: RequestDatabase["kysely"],
+    tokenHash: string,
+    postInsertMembership: ExistingMembershipRow | null
+  ): Promise<TribeInvitationAcceptanceResult["status"]> {
+    if (isActiveMembership(postInsertMembership?.status)) {
+      return TRIBE_INVITATION_STATUS.accepted;
+    }
+
+    const latestInvitation = await database
+      .selectFrom("tribe_invitations")
+      .select("status")
+      .where("token_hash", "=", tokenHash)
+      .executeTakeFirst();
+
+    return latestInvitation?.status === TRIBE_INVITATION_STATUS.revoked
+      ? TRIBE_INVITATION_STATUS.revoked
+      : TRIBE_INVITATION_STATUS.invalid;
   }
 }
