@@ -11,6 +11,7 @@ import type {
   TribePaymentIntegrationResult,
 } from "@/src/modules/subscriptions/domain/repositories/tribe-payment-integration-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { sql } from "kysely";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -21,20 +22,6 @@ type TargetTribeRow = {
 };
 
 const MERCADO_PAGO_PAYMENT_PROVIDER = "mercado_pago";
-
-/**
- * Maps a database integration mutation row to the application contract.
- *
- * @param row - Database mutation row.
- * @returns Integration mutation result.
- */
-function createTokenExpirationDate(expiresInSeconds: number | null): Date | null {
-  if (expiresInSeconds === null) {
-    return null;
-  }
-
-  return new Date(Date.now() + expiresInSeconds * 1000);
-}
 
 export class PostgresTribePaymentIntegrationRepository
   implements TribePaymentIntegrationRepository
@@ -101,9 +88,11 @@ export class PostgresTribePaymentIntegrationRepository
                 .val(command.providerAccountId)
                 .as("provider_account_id"),
               expressionBuilder.val(command.refreshToken).as("refresh_token"),
-              expressionBuilder
-                .val(createTokenExpirationDate(command.expiresIn))
-                .as("token_expires_at"),
+              command.expiresIn === null
+                ? expressionBuilder.val(null).as("token_expires_at")
+                : sql<Date>`timezone('utc', now()) + (${command.expiresIn} * interval '1 second')`.as(
+                    "token_expires_at"
+                  ),
               expressionBuilder.val(targetTribe.id).as("tribe_id"),
               expressionBuilder
                 .fn<Date>("timezone", [

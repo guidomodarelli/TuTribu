@@ -97,7 +97,9 @@ class RequestPostgresConnection implements DatabaseConnection {
 
     return {
       numAffectedRows:
-        result.rowCount === null ? undefined : BigInt(result.rowCount),
+        result.rowCount === null || result.rowCount === undefined
+          ? undefined
+          : BigInt(result.rowCount),
       rows: result.rows as Row[],
     };
   }

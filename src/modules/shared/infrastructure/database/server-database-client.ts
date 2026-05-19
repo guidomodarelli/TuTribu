@@ -1,6 +1,5 @@
 import "server-only";
 
-import { sql } from "drizzle-orm";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { Kysely } from "kysely";
 import { Pool, PoolClient } from "pg";
@@ -51,6 +50,24 @@ function createRequestDatabase(client: PoolClient): RequestDatabase {
   });
 }
 
+async function setRequestDatabaseConfig(
+  database: RequestDatabase,
+  name: string,
+  value: string
+): Promise<void> {
+  await database.kysely
+    .selectNoFrom((expressionBuilder) =>
+      expressionBuilder
+        .fn("set_config", [
+          expressionBuilder.val(name),
+          expressionBuilder.val(value),
+          expressionBuilder.val(true),
+        ])
+        .as("setting")
+    )
+    .executeTakeFirst();
+}
+
 function getDatabasePool() {
   const globalDatabase = globalThis as GlobalDatabase;
 
@@ -80,17 +97,27 @@ export async function createServerDatabaseClient() {
         await client.query(DATABASE_TRANSACTION.setLocalRuntimeRole);
 
         const database = createRequestDatabase(client);
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserId}, ${context.userId ?? DATABASE_TRANSACTION.emptySettingValue}, true)`
+        await setRequestDatabaseConfig(
+          database,
+          DATABASE_CONTEXT_SETTING.currentUserId,
+          context.userId ?? DATABASE_TRANSACTION.emptySettingValue
         );
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserEmail}, ${context.email ?? DATABASE_TRANSACTION.emptySettingValue}, true)`
+        await setRequestDatabaseConfig(
+          database,
+          DATABASE_CONTEXT_SETTING.currentUserEmail,
+          context.email ?? DATABASE_TRANSACTION.emptySettingValue
         );
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.ownerEmail}, ${ownerEmail}, true)`
+        await setRequestDatabaseConfig(
+          database,
+          DATABASE_CONTEXT_SETTING.ownerEmail,
+          ownerEmail
         );
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : DATABASE_TRANSACTION.emptySettingValue}, true)`
+        await setRequestDatabaseConfig(
+          database,
+          DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified,
+          context.mercadoPagoWebhookVerified
+            ? DATABASE_TRANSACTION.verifiedSettingValue
+            : DATABASE_TRANSACTION.emptySettingValue
         );
 
         const result = await callback(database);

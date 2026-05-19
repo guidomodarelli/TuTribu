@@ -136,7 +136,7 @@ describe("createServerDatabaseClient", () => {
 
     expect(query.mock.calls[0]?.[0]).toBe("BEGIN");
     expect(query.mock.calls[1]?.[0]).toBe("SET LOCAL ROLE tutribu_rls_app");
-    expect(collectStatementValues(query.mock.calls[2]?.[0])).toContain(
+    expect(collectStatementValues(query.mock.calls[2])).toContain(
       "app.current_user_id"
     );
   });
@@ -177,8 +177,8 @@ describe("createServerDatabaseClient", () => {
     );
 
     const ownerEmailStatement = query.mock.calls.find((call) =>
-      collectStatementValues(call[0]).includes("app.owner_email")
-    )?.[0];
+      collectStatementValues(call).includes("app.owner_email")
+    );
 
     expect(ownerEmailStatement).toBeDefined();
     expect(collectStatementValues(ownerEmailStatement)).toContain(

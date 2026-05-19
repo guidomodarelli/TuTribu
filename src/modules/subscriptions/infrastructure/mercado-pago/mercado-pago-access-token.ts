@@ -4,10 +4,9 @@
  * @module mercado-pago-access-token
  */
 
-import { sql } from "drizzle-orm";
-
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MercadoPagoOAuthTokenResult } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
+import { sql } from "kysely";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -120,33 +119,45 @@ async function persistMercadoPagoAccessToken(input: {
   tribeId: string;
 }): Promise<void> {
   await input.executeWithDatabase(async (database) => {
-    await database.execute(sql`
-      with token_refresh_context as (
-        select set_config(
-          ${MERCADO_PAGO_TOKEN_REFRESH_CONTEXT.checkoutTribeSettingName},
-          ${input.tribeId},
-          true
-        )
+    await database.kysely
+      .selectNoFrom((expressionBuilder) =>
+        expressionBuilder
+          .fn("set_config", [
+            expressionBuilder.val(
+              MERCADO_PAGO_TOKEN_REFRESH_CONTEXT.checkoutTribeSettingName
+            ),
+            expressionBuilder.val(input.tribeId),
+            expressionBuilder.val(true),
+          ])
+          .as("token_refresh_context")
       )
-      update public.tribe_payment_integrations
-      set
-        access_token = ${input.refreshedToken.accessToken},
-        provider_account_id = coalesce(
-          ${input.refreshedToken.providerAccountId},
-          provider_account_id
+      .executeTakeFirst();
+
+    await database.kysely
+      .updateTable("tribe_payment_integrations")
+      .set((expressionBuilder) => ({
+        access_token: input.refreshedToken.accessToken,
+        provider_account_id: expressionBuilder.fn.coalesce(
+          expressionBuilder.val(input.refreshedToken.providerAccountId),
+          expressionBuilder.ref("provider_account_id")
         ),
-        refresh_token = coalesce(
-          ${input.refreshedToken.refreshToken ?? input.storedRefreshToken},
-          refresh_token
+        refresh_token: expressionBuilder.fn.coalesce(
+          expressionBuilder.val(
+            input.refreshedToken.refreshToken ?? input.storedRefreshToken
+          ),
+          expressionBuilder.ref("refresh_token")
         ),
-        token_expires_at = case
-          when ${input.refreshedToken.expiresIn}::integer is null then token_expires_at
-          else timezone('utc', now()) + (${input.refreshedToken.expiresIn}::integer || ' seconds')::interval
-        end,
-        updated_at = timezone('utc', now())
-      from token_refresh_context
-      where tribe_id = ${input.tribeId}
-        and provider = ${MERCADO_PAGO_TOKEN_REFRESH_CONTEXT.provider}
-    `);
+        token_expires_at:
+          input.refreshedToken.expiresIn === null
+            ? expressionBuilder.ref("token_expires_at")
+            : sql<Date>`timezone('utc', now()) + (${input.refreshedToken.expiresIn} * interval '1 second')`,
+        updated_at: expressionBuilder.fn<Date>("timezone", [
+          expressionBuilder.val("utc"),
+          expressionBuilder.fn<Date>("now"),
+        ]),
+      }))
+      .where("tribe_id", "=", input.tribeId)
+      .where("provider", "=", MERCADO_PAGO_TOKEN_REFRESH_CONTEXT.provider)
+      .execute();
   });
 }

@@ -808,6 +808,7 @@ describe("PostgresMessageMutationRepository", () => {
       '("author_id", "content", "created_at", "message_id", "tribe_id")',
     );
     expect(sqlText).toContain('with "target_message" as');
+    expect(sqlText).toContain("public.is_active_tribe_member");
     expect(sqlText).toContain('"reply_authors"."name" as "reply_author_name"');
   });
 
