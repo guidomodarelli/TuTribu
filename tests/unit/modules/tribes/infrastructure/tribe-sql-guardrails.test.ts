@@ -47,6 +47,8 @@ describe("Tribe SQL guardrails", () => {
     "database/migrations/20260519034000_allow_owner_read_for_inactive_memberships.sql";
   const restoredRlsEnforcementMigrationPath =
     "database/migrations/20260519030000_restore_rls_enforcement.sql";
+  const reenableRlsProtectedTablesMigrationPath =
+    "database/migrations/20260519120000_reenable_rls_on_protected_tables.sql";
   const rlsRuntimeRoleMigrationPath =
     "database/migrations/20260519031000_create_rls_runtime_role.sql";
   const drizzleMigrationJournalPath = "database/migrations/meta/_journal.json";
@@ -156,6 +158,31 @@ describe("Tribe SQL guardrails", () => {
     expect(restoredRlsEnforcementMigration).toContain("FORCE ROW LEVEL SECURITY");
     expect(restoredRlsEnforcementMigration).toContain(
       "NO FORCE ROW LEVEL SECURITY"
+    );
+  });
+
+  it("re-enables RLS on protected tables after schema drift", () => {
+    const reenableRlsProtectedTablesMigration = readWorkspaceFile(
+      reenableRlsProtectedTablesMigrationPath
+    );
+
+    expect(reenableRlsProtectedTablesMigration).toContain(
+      "ALTER TABLE %s ENABLE ROW LEVEL SECURITY"
+    );
+    expect(reenableRlsProtectedTablesMigration).toContain(
+      "ALTER TABLE %s FORCE ROW LEVEL SECURITY"
+    );
+    expect(reenableRlsProtectedTablesMigration).toContain(
+      "public.tribe_invitations"
+    );
+    expect(reenableRlsProtectedTablesMigration).toContain(
+      "public.tribe_subscription_prices"
+    );
+    expect(reenableRlsProtectedTablesMigration).toContain(
+      "public.tribe_members"
+    );
+    expect(reenableRlsProtectedTablesMigration).toContain(
+      "ALTER TABLE %s NO FORCE ROW LEVEL SECURITY"
     );
   });
 

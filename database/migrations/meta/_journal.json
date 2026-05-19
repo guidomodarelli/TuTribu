@@ -225,6 +225,13 @@
       "when": 1779162000000,
       "tag": "20260519034000_allow_owner_read_for_inactive_memberships",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1779192000000,
+      "tag": "20260519120000_reenable_rls_on_protected_tables",
+      "breakpoints": true
     }
   ]
 }

@@ -256,6 +256,10 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
               (expressionBuilder) =>
                 expressionBuilder.fn<string>("public.current_app_user_id")
             )
+            .on("tribe_members.status", "in", [
+              TRIBE_MEMBERSHIP_STATUS.active,
+              TRIBE_MEMBERSHIP_STATUS.muted,
+            ])
         )
         .select((expressionBuilder) => [
           "tribes.id as tribe_id",
@@ -264,8 +268,6 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           "tribes.slug",
           expressionBuilder
             .case()
-            .when(expressionBuilder.fn<boolean>("public.is_app_owner"))
-            .then(TRIBE_MEMBER_ROLE.tribemate)
             .when(expressionBuilder("tribe_members.role", "is", null))
             .then(TRIBE_MEMBER_ROLE.tribemate)
             .else(expressionBuilder.ref("tribe_members.role"))

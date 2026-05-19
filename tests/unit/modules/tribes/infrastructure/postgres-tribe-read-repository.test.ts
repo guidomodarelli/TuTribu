@@ -406,7 +406,7 @@ describe("PostgresTribeReadRepository", () => {
     expect(queryBuilder.execute).toHaveBeenCalledTimes(1);
   });
 
-  it("lists every readable tribe as read-only when the current viewer is the owner", async () => {
+  it("lists every readable owner-only tribe as read-only", async () => {
     const databaseDouble = createRequestKyselyVisibleMembershipTribesDatabase([
       {
         tribe_id: "tribe-1",
@@ -445,6 +445,40 @@ describe("PostgresTribeReadRepository", () => {
 
     expect(databaseDouble.query).toHaveBeenCalledTimes(1);
     expect(databaseDouble.query.mock.calls[0]?.[0]).toMatch(
+      /case\s+when\s+"tribe_members"\."role"\s+is\s+null\s+then/i
+    );
+  });
+
+  it("preserves the real active membership role when the current owner is also a tribe leader", async () => {
+    const databaseDouble = createRequestKyselyVisibleMembershipTribesDatabase([
+      {
+        tribe_id: "tribe-1",
+        tribe_row_id: "tribe-1",
+        name: "Alpha Club",
+        role: "leader",
+        slug: "alpha-club",
+      },
+    ]);
+
+    const repository = new PostgresTribeReadRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(repository.listVisibleMembershipTribes()).resolves.toEqual([
+      {
+        tribeId: "tribe-1",
+        name: "Alpha Club",
+        role: "leader",
+        slug: "alpha-club",
+      },
+    ]);
+
+    const sqlText = databaseDouble.query.mock.calls[0]?.[0];
+
+    expect(sqlText).toMatch(
+      /left\s+join\s+"tribe_members".*"tribe_members"\."status"\s+in/i
+    );
+    expect(sqlText).not.toMatch(
       /case\s+when\s+public\.is_app_owner\(\)\s+then/i
     );
   });
