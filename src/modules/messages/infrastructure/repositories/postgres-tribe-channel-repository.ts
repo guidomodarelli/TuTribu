@@ -16,7 +16,6 @@ import type {
 } from "@/src/modules/messages/domain/repositories/tribe-channel-repository";
 import { createTribeChannel } from "@/src/modules/messages/infrastructure/mappers/tribe-round-view-model-mapper";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-import { sql } from "kysely";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -538,7 +537,13 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
               ]),
             }))
             .where("channel_id", "=", targetChannel.id)
-            .where(sql<boolean>`exists (select 1 from deleted_channel)`)
+            .where((expressionBuilder) =>
+              expressionBuilder.exists(
+                expressionBuilder
+                  .selectFrom("deleted_channel")
+                  .select("deleted_channel.id")
+              )
+            )
             .where((expressionBuilder) =>
               expressionBuilder.fn<boolean>("public.can_manage_tribe_channels", [
                 "messages.tribe_id",
@@ -547,11 +552,14 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
             .returning("id")
         )
         .selectFrom("deleted_channel")
-        .select([
+        .select((expressionBuilder) => [
           "deleted_channel.id",
-          sql<number | string | bigint>`(select count(*) from moved_messages)`.as(
-            "moved_message_count"
-          ),
+          expressionBuilder
+            .selectFrom("moved_messages")
+            .select((subqueryExpressionBuilder) =>
+              subqueryExpressionBuilder.fn.count("moved_messages.id").as("count")
+            )
+            .as("moved_message_count"),
         ])
         .executeTakeFirst()) ?? null
     );
