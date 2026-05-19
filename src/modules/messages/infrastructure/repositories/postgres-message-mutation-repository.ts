@@ -1,5 +1,3 @@
-import { sql } from "drizzle-orm";
-
 import type {
   DeleteTribeMessageCommand,
   CreateTribeMessageCommand,
@@ -68,16 +66,6 @@ type CreatedMessageRow = MutationStatusRow & {
 type CreatedPollOptionRow = {
   id: string | null;
   text: string | null;
-};
-
-type InsertedPollRow = {
-  poll_allow_multiple_votes: boolean | null;
-  poll_id: string | null;
-  poll_question: string | null;
-};
-
-type InsertedPollOptionsRow = {
-  poll_options: CreatedPollOptionRow[] | null;
 };
 
 type CreatedReplyRow = MutationStatusRow & {
@@ -640,147 +628,180 @@ export class PostgresMessageMutationRepository
     command: CreateTribeMessageCommand
   ): Promise<MessageCreationResult> {
     return this.executeWithDatabase(async (database) => {
-      const messageResult = await database.execute<CreatedMessageRow>(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${command.tribeSlug}
-          limit 1
-        ),
-        target_channel as (
-          select
-            tribe_channels.id,
-            tribe_channels.name,
-            tribe_channels.slug,
-            tribe_channels.emoji,
-            tribe_channels.sort_order,
-            tribe_channels.access_scope
-          from public.tribe_channels
-          inner join target_tribe
-            on target_tribe.id = tribe_channels.tribe_id
-          where tribe_channels.id = ${command.channelId}
-          limit 1
-        ),
-        inserted_message as (
-          insert into public.messages (tribe_id, channel_id, author_id, title, content, created_at, updated_at)
-          select target_tribe.id, target_channel.id, ${command.authorId}, ${command.title}, ${command.content}, timezone('utc', now()), timezone('utc', now())
-          from target_tribe
-          inner join target_channel
-            on true
-          where public.is_active_tribe_member(target_tribe.id)
-          returning id, tribe_id, channel_id, author_id, title, content, created_at
-        ),
-        created_message as (
-          select
-            inserted_message.id as message_id,
-            target_channel.id as channel_id,
-            target_channel.name as channel_name,
-            target_channel.slug as channel_slug,
-            target_channel.emoji as channel_emoji,
-            target_channel.sort_order as channel_sort_order,
-            target_channel.access_scope as channel_access_scope,
-            inserted_message.title as message_title,
-            inserted_message.content as message_content,
-            inserted_message.created_at as message_created_at,
-            message_authors.id as author_id,
-            message_authors.name as author_name,
-            message_authors.image as author_image,
-            message_members.role as author_role
-          from inserted_message
-          inner join target_channel
-            on target_channel.id = inserted_message.channel_id
-          inner join public."user" message_authors
-            on message_authors.id = inserted_message.author_id
-          left join public.tribe_members message_members
-            on message_members.tribe_id = inserted_message.tribe_id
-            and message_members.user_id = inserted_message.author_id
-        )
-        select
-          case
-            when exists (select 1 from inserted_message) then ${MESSAGE_MUTATION_STATUS.created}
-            when not exists (select 1 from target_tribe) then ${MESSAGE_MUTATION_STATUS.notFound}
-            when not exists (select 1 from target_channel) then ${MESSAGE_MUTATION_STATUS.invalidChannel}
-            else ${MESSAGE_MUTATION_STATUS.forbidden}
-          end as status,
-          created_message.message_id,
-          created_message.channel_id,
-          created_message.channel_name,
-          created_message.channel_slug,
-          created_message.channel_emoji,
-          created_message.channel_sort_order,
-          created_message.channel_access_scope,
-          created_message.message_title,
-          created_message.message_content,
-          created_message.message_created_at,
-          created_message.author_id,
-          created_message.author_name,
-          created_message.author_image,
-          created_message.author_role
-        from (select 1) result
-        left join created_message
-          on true
-      `);
-      const createdMessage = messageResult.rows[0] ?? null;
+      const targetTribe = await database.kysely
+        .selectFrom("tribes")
+        .select("id")
+        .where("slug", "=", command.tribeSlug)
+        .limit(1)
+        .executeTakeFirst();
 
-      if (
-        createdMessage?.status !== MESSAGE_MUTATION_STATUS.created ||
-        !command.poll ||
-        !createdMessage.message_id
-      ) {
-        return mapCreatedMessage(createdMessage);
+      if (!targetTribe) {
+        return { status: MESSAGE_MUTATION_STATUS.notFound };
       }
 
-      const pollResult = await database.execute<InsertedPollRow>(sql`
-        insert into public.message_polls (message_id, tribe_id, question, allow_multiple_votes, status, created_at, updated_at)
-        select messages.id, messages.tribe_id, ${command.poll.question}, ${command.poll.allowMultipleVotes}, ${MESSAGE_POLL_STATUS.open}, timezone('utc', now()), timezone('utc', now())
-        from public.messages
-        inner join public.tribes
-          on tribes.id = messages.tribe_id
-        where messages.id = ${createdMessage.message_id}
-          and tribes.slug = ${command.tribeSlug}
-          and messages.author_id = ${command.authorId}
-        returning
-          id as poll_id,
-          question as poll_question,
-          allow_multiple_votes as poll_allow_multiple_votes
-      `);
-      const insertedPoll = pollResult.rows[0] ?? null;
+      const targetChannel = await database.kysely
+        .selectFrom("tribe_channels")
+        .select(["id", "name", "slug", "emoji", "sort_order", "access_scope"])
+        .where("id", "=", command.channelId)
+        .where("tribe_id", "=", targetTribe.id)
+        .limit(1)
+        .executeTakeFirst();
+
+      if (!targetChannel) {
+        return { status: MESSAGE_MUTATION_STATUS.invalidChannel };
+      }
+
+      const insertedMessage = await database.kysely
+        .insertInto("messages")
+        .columns([
+          "author_id",
+          "channel_id",
+          "content",
+          "created_at",
+          "title",
+          "tribe_id",
+          "updated_at",
+        ])
+        .expression((expressionBuilder) =>
+          expressionBuilder
+            .selectFrom("tribes")
+            .select([
+              expressionBuilder.val(command.authorId).as("author_id"),
+              expressionBuilder.val(targetChannel.id).as("channel_id"),
+              expressionBuilder.val(command.content).as("content"),
+              expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]).as("created_at"),
+              expressionBuilder.val(command.title).as("title"),
+              expressionBuilder.val(targetTribe.id).as("tribe_id"),
+              expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]).as("updated_at"),
+            ])
+            .where("tribes.id", "=", targetTribe.id)
+            .where(
+              expressionBuilder.fn<boolean>("public.is_active_tribe_member", [
+                expressionBuilder.val(targetTribe.id),
+              ]),
+              "=",
+              true
+            )
+        )
+        .returning(["id", "tribe_id", "channel_id", "author_id", "title", "content", "created_at"])
+        .executeTakeFirst();
+
+      const createdMessage = insertedMessage
+        ? await database.kysely
+            .selectFrom("messages")
+            .innerJoin("tribe_channels", "tribe_channels.id", "messages.channel_id")
+            .innerJoin("user as message_authors", "message_authors.id", "messages.author_id")
+            .leftJoin("tribe_members as message_members", (join) =>
+              join
+                .onRef("message_members.tribe_id", "=", "messages.tribe_id")
+                .onRef("message_members.user_id", "=", "messages.author_id")
+            )
+            .select([
+              "messages.id as message_id",
+              "tribe_channels.id as channel_id",
+              "tribe_channels.name as channel_name",
+              "tribe_channels.slug as channel_slug",
+              "tribe_channels.emoji as channel_emoji",
+              "tribe_channels.sort_order as channel_sort_order",
+              "tribe_channels.access_scope as channel_access_scope",
+              "messages.title as message_title",
+              "messages.content as message_content",
+              "messages.created_at as message_created_at",
+              "message_authors.id as author_id",
+              "message_authors.name as author_name",
+              "message_authors.image as author_image",
+              "message_members.role as author_role",
+            ])
+            .where("messages.id", "=", insertedMessage.id)
+            .executeTakeFirst()
+        : null;
+
+      const createdMessageResult: CreatedMessageRow | null = createdMessage
+        ? {
+            ...createdMessage,
+            poll_allow_multiple_votes: null,
+            poll_id: null,
+            poll_options: null,
+            poll_question: null,
+            status: MESSAGE_MUTATION_STATUS.created,
+          }
+        : { status: MESSAGE_MUTATION_STATUS.forbidden } as CreatedMessageRow;
+
+      if (
+        createdMessageResult?.status !== MESSAGE_MUTATION_STATUS.created ||
+        !command.poll ||
+        !createdMessageResult.message_id
+      ) {
+        return mapCreatedMessage(createdMessageResult);
+      }
+      const messagePoll = command.poll;
+      const createdMessageId = createdMessageResult.message_id;
+
+      const insertedPoll = await database.kysely
+        .insertInto("message_polls")
+        .values((expressionBuilder) => ({
+          allow_multiple_votes: messagePoll.allowMultipleVotes,
+          created_at: expressionBuilder.fn<Date>("timezone", [
+            expressionBuilder.val("utc"),
+            expressionBuilder.fn<Date>("now"),
+          ]),
+          message_id: createdMessageId,
+          question: messagePoll.question,
+          status: MESSAGE_POLL_STATUS.open,
+          tribe_id: targetTribe.id,
+          updated_at: expressionBuilder.fn<Date>("timezone", [
+            expressionBuilder.val("utc"),
+            expressionBuilder.fn<Date>("now"),
+          ]),
+        }))
+        .returning([
+          "id as poll_id",
+          "question as poll_question",
+          "allow_multiple_votes as poll_allow_multiple_votes",
+        ])
+        .executeTakeFirst();
 
       if (!insertedPoll?.poll_id) {
         throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollNotInserted);
       }
 
-      const pollOptionsResult = await database.execute<InsertedPollOptionsRow>(sql`
-        with inserted_poll_options as (
-          insert into public.message_poll_options (poll_id, tribe_id, text, sort_order, created_at)
-          select message_polls.id, message_polls.tribe_id, poll_option.text, poll_option.sort_order::integer, timezone('utc', now())
-          from public.message_polls
-          cross join unnest(${sql.param(command.poll.options)}::text[]) with ordinality as poll_option(text, sort_order)
-          where message_polls.id = ${insertedPoll.poll_id}
-          returning id, text, sort_order
+      const insertedPollOptions = await database.kysely
+        .insertInto("message_poll_options")
+        .values((expressionBuilder) =>
+          messagePoll.options.map((optionText, optionIndex) => ({
+            created_at: expressionBuilder.fn<Date>("timezone", [
+              expressionBuilder.val("utc"),
+              expressionBuilder.fn<Date>("now"),
+            ]),
+            poll_id: insertedPoll.poll_id,
+            sort_order: optionIndex + 1,
+            text: optionText,
+            tribe_id: targetTribe.id,
+          }))
         )
-        select
-          coalesce(
-            json_agg(
-              json_build_object(
-                'id', inserted_poll_options.id,
-                'text', inserted_poll_options.text
-              )
-              order by inserted_poll_options.sort_order
-            ),
-            '[]'::json
-          ) as poll_options
-        from inserted_poll_options
-      `);
-      const insertedPollOptions = pollOptionsResult.rows[0] ?? null;
-      const pollOptions = insertedPollOptions?.poll_options ?? [];
+        .returning(["id", "text", "sort_order"])
+        .execute();
+      const pollOptions = insertedPollOptions
+        .sort((firstOption, secondOption) =>
+          Number(firstOption.sort_order ?? 0) - Number(secondOption.sort_order ?? 0)
+        )
+        .map((option) => ({
+          id: option.id,
+          text: option.text,
+        }));
 
-      if (pollOptions.length !== command.poll.options.length) {
+      if (pollOptions.length !== messagePoll.options.length) {
         throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollOptionsNotInserted);
       }
 
       return mapCreatedMessage({
-        ...createdMessage,
+        ...createdMessageResult,
         poll_allow_multiple_votes: insertedPoll.poll_allow_multiple_votes,
         poll_id: insertedPoll.poll_id,
         poll_options: pollOptions,
@@ -882,58 +903,80 @@ export class PostgresMessageMutationRepository
     command: CreateMessageReplyCommand
   ): Promise<MessageReplyCreationResult> {
     return this.executeWithDatabase(async (database) => {
-      const result = await database.execute<CreatedReplyRow>(sql`
-        with target_message as (
-          select messages.id, messages.tribe_id
-          from public.messages
-          inner join public.tribes
-            on tribes.id = messages.tribe_id
-          where messages.id = ${command.messageId}
-            and tribes.slug = ${command.tribeSlug}
-          limit 1
-        ),
-        inserted_reply as (
-          insert into public.message_replies (message_id, tribe_id, author_id, content, created_at)
-          select target_message.id, target_message.tribe_id, ${command.authorId}, ${command.content}, timezone('utc', now())
-          from target_message
-          where public.is_active_tribe_member(target_message.tribe_id)
-          returning id, tribe_id, author_id, content, created_at
-        ),
-        created_reply as (
-          select
-            inserted_reply.id as reply_id,
-            inserted_reply.content as reply_content,
-            inserted_reply.created_at as reply_created_at,
-            reply_authors.id as reply_author_id,
-            reply_authors.name as reply_author_name,
-            reply_authors.image as reply_author_image,
-            reply_members.role as reply_author_role
-          from inserted_reply
-          inner join public."user" reply_authors
-            on reply_authors.id = inserted_reply.author_id
-          left join public.tribe_members reply_members
-            on reply_members.tribe_id = inserted_reply.tribe_id
-            and reply_members.user_id = inserted_reply.author_id
-        )
-        select
-          case
-            when exists (select 1 from inserted_reply) then ${MESSAGE_MUTATION_STATUS.created}
-            when not exists (select 1 from target_message) then ${MESSAGE_MUTATION_STATUS.notFound}
-            else ${MESSAGE_MUTATION_STATUS.forbidden}
-          end as status,
-          created_reply.reply_id,
-          created_reply.reply_content,
-          created_reply.reply_created_at,
-          created_reply.reply_author_id,
-          created_reply.reply_author_name,
-          created_reply.reply_author_image,
-          created_reply.reply_author_role
-        from (select 1) result
-        left join created_reply
-          on true
-      `);
+      const targetMessage = await this.findTargetMessagePermission(
+        database.kysely,
+        command.messageId,
+        command.tribeSlug
+      );
 
-      return mapCreatedReply(result.rows[0] ?? null);
+      if (!targetMessage) {
+        return { status: MESSAGE_MUTATION_STATUS.notFound };
+      }
+
+      if (!targetMessage.canWrite) {
+        return { status: MESSAGE_MUTATION_STATUS.forbidden };
+      }
+
+      const insertedReply = await database.kysely
+        .insertInto("message_replies")
+        .columns(["author_id", "content", "created_at", "message_id", "tribe_id"])
+        .expression((expressionBuilder) =>
+          expressionBuilder
+            .selectFrom("messages")
+            .select([
+              expressionBuilder.val(command.authorId).as("author_id"),
+              expressionBuilder.val(command.content).as("content"),
+              expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]).as("created_at"),
+              expressionBuilder.val(targetMessage.messageId).as("message_id"),
+              expressionBuilder.val(targetMessage.tribeId).as("tribe_id"),
+            ])
+            .where("messages.id", "=", targetMessage.messageId)
+            .where(
+              expressionBuilder.fn<boolean>("public.is_active_tribe_member", [
+                expressionBuilder.val(targetMessage.tribeId),
+              ]),
+              "=",
+              true
+            )
+        )
+        .returning(["id", "tribe_id", "author_id", "content", "created_at"])
+        .executeTakeFirst();
+
+      if (!insertedReply) {
+        return { status: MESSAGE_MUTATION_STATUS.forbidden };
+      }
+
+      const createdReply = await database.kysely
+        .selectFrom("message_replies")
+        .innerJoin("user as reply_authors", "reply_authors.id", "message_replies.author_id")
+        .leftJoin("tribe_members as reply_members", (join) =>
+          join
+            .onRef("reply_members.tribe_id", "=", "message_replies.tribe_id")
+            .onRef("reply_members.user_id", "=", "message_replies.author_id")
+        )
+        .select([
+          "message_replies.id as reply_id",
+          "message_replies.content as reply_content",
+          "message_replies.created_at as reply_created_at",
+          "reply_authors.id as reply_author_id",
+          "reply_authors.name as reply_author_name",
+          "reply_authors.image as reply_author_image",
+          "reply_members.role as reply_author_role",
+        ])
+        .where("message_replies.id", "=", insertedReply.id)
+        .executeTakeFirst();
+
+      return mapCreatedReply(
+        createdReply
+          ? {
+              ...createdReply,
+              status: MESSAGE_MUTATION_STATUS.created,
+            }
+          : null
+      );
     });
   }
 }
