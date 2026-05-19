@@ -744,6 +744,7 @@ describe("PostgresMessageMutationRepository", () => {
           content: "Excelente clase",
           created_at: "2026-04-26T12:05:00.000Z",
           id: "reply-1",
+          status: "created",
           tribe_id: "tribe-1",
         },
       ],
@@ -793,6 +794,7 @@ describe("PostgresMessageMutationRepository", () => {
     expect(sqlText).toContain(
       '("author_id", "content", "created_at", "message_id", "tribe_id")'
     );
+    expect(sqlText).toContain('with "target_message" as');
     expect(sqlText).toContain('"reply_authors"."name" as "reply_author_name"');
   });
 
@@ -819,6 +821,33 @@ describe("PostgresMessageMutationRepository", () => {
 
     expect(databaseDouble.query).toHaveBeenCalledTimes(3);
     expect(sqlText).toContain('insert into "message_replies"');
+    expect(sqlText).toContain('with "target_message" as');
     expect(sqlText).toContain("public.is_active_tribe_member");
+  });
+
+  it("returns not found when the reply target is deleted before insertion", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ messageId: "message-1", tribeId: "tribe-1" }],
+      [{ canWrite: true }],
+      [{ status: "not_found" }],
+    ]);
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.create({
+        authorId: "member-1",
+        tribeSlug: "matematica-pro",
+        content: "Excelente clase",
+        messageId: "message-1",
+      })
+    ).resolves.toEqual({ status: "not_found" });
+
+    const sqlText = getExecutedSqlText(databaseDouble);
+
+    expect(databaseDouble.query).toHaveBeenCalledTimes(3);
+    expect(sqlText).toContain('with "target_message" as');
+    expect(sqlText).toContain("when not exists (select 1 from target_message)");
   });
 });

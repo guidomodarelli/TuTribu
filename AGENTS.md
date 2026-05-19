@@ -366,7 +366,9 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 
 - Do not use magic strings or magic numbers in domain, application, infrastructure, route handlers, or behavior-bearing components.
 - Replace hardcoded behavior values with named constants or configuration variables to improve maintainability and readability.
-- For review findings involving raw SQL template strings such as `sql\`...\``, first evaluate whether the finding can be fixed safely with the typed query builder. Use the query-builder solution only when it is feasible and actually resolves the finding. If it is not feasible, does not resolve the finding, or would only be a style refactor, keep the raw SQL and explain why.
+- For review findings involving raw SQL template strings such as `sql\`...\``, first evaluate whether the finding can be fixed safely with the typed query builder. Use the query-builder solution when it is feasible and actually resolves the finding.
+- When a mutation needs CTEs, `insert ... select`, `returning`, or race-safe status classification, prefer a Kysely query-builder structure (`with`, `selectFrom`, `insertInto`, `expression`, `returning`, `unionAll`) and keep raw `sql` only for SQL functions, predicates, `case/exists`, casts, or expressions that Kysely cannot model cleanly.
+- Do not keep a whole raw SQL statement when a builder-hybrid version can preserve the same single-statement snapshot, authorization semantics, and result classification. If the builder version would lose atomicity, weaken type safety, or become less clear than the raw statement, keep the raw SQL and explain the tradeoff.
 - Organize constants by scope:
   - global constants reused across multiple modules or across the application belong in `src/constants/`
   - module-scoped constants belong in `src/modules/<module>/constants/`
