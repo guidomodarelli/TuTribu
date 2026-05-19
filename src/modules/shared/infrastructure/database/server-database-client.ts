@@ -1,10 +1,12 @@
 import "server-only";
 
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import type { Kysely } from "kysely";
 import { Pool, PoolClient } from "pg";
 
 import { createKyselyRequestDatabase } from "./kysely-request-database";
+import type { KyselyRequestDatabaseSchema } from "./kysely-request-database-schema";
 import { getServerDatabaseEnvironment } from "./server-environment";
 
 const DATABASE_CONTEXT_SETTING = {
@@ -33,13 +35,21 @@ export type RequestDatabaseContext = {
   userId: string | null;
 };
 
-function createRequestDatabase(client: PoolClient) {
-  return Object.assign(drizzle(client), {
+type RequestDrizzleDatabase = NodePgDatabase<Record<string, never>> & {
+  $client: PoolClient;
+};
+
+export type RequestDatabase = RequestDrizzleDatabase & {
+  kysely: Kysely<KyselyRequestDatabaseSchema>;
+};
+
+function createRequestDatabase(client: PoolClient): RequestDatabase {
+  const database: RequestDrizzleDatabase = drizzle(client);
+
+  return Object.assign(database, {
     kysely: createKyselyRequestDatabase(client),
   });
 }
-
-export type RequestDatabase = ReturnType<typeof createRequestDatabase>;
 
 function getDatabasePool() {
   const globalDatabase = globalThis as GlobalDatabase;
