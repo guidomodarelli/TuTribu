@@ -72,26 +72,56 @@ export class PostgresTribePaymentIntegrationRepository
 
       const upsertedIntegration = await database.kysely
         .insertInto("tribe_payment_integrations")
-        .values((expressionBuilder) => ({
-          access_token: command.accessToken,
-          connected_by: expressionBuilder.fn<string>("public.current_app_user_id"),
-          created_at: expressionBuilder.fn<Date>("timezone", [
-            expressionBuilder.val("utc"),
-            expressionBuilder.fn<Date>("now"),
-          ]),
-          provider: MERCADO_PAGO_PAYMENT_PROVIDER,
-          provider_account_id: command.providerAccountId,
-          refresh_token: command.refreshToken,
-          token_expires_at: createTokenExpirationDate(command.expiresIn),
-          tribe_id: targetTribe.id,
-          updated_at: expressionBuilder.fn<Date>("timezone", [
-            expressionBuilder.val("utc"),
-            expressionBuilder.fn<Date>("now"),
-          ]),
-        }))
+        .columns([
+          "access_token",
+          "connected_by",
+          "created_at",
+          "provider",
+          "provider_account_id",
+          "refresh_token",
+          "token_expires_at",
+          "tribe_id",
+          "updated_at",
+        ])
+        .expression(
+          database.kysely
+            .selectNoFrom((expressionBuilder) => [
+              expressionBuilder.val(command.accessToken).as("access_token"),
+              expressionBuilder
+                .fn<string>("public.current_app_user_id")
+                .as("connected_by"),
+              expressionBuilder
+                .fn<Date>("timezone", [
+                  expressionBuilder.val("utc"),
+                  expressionBuilder.fn<Date>("now"),
+                ])
+                .as("created_at"),
+              expressionBuilder.val(MERCADO_PAGO_PAYMENT_PROVIDER).as("provider"),
+              expressionBuilder
+                .val(command.providerAccountId)
+                .as("provider_account_id"),
+              expressionBuilder.val(command.refreshToken).as("refresh_token"),
+              expressionBuilder
+                .val(createTokenExpirationDate(command.expiresIn))
+                .as("token_expires_at"),
+              expressionBuilder.val(targetTribe.id).as("tribe_id"),
+              expressionBuilder
+                .fn<Date>("timezone", [
+                  expressionBuilder.val("utc"),
+                  expressionBuilder.fn<Date>("now"),
+                ])
+                .as("updated_at"),
+            ])
+            .where((whereBuilder) =>
+              whereBuilder.fn<boolean>("public.can_manage_tribe_subscription_prices", [
+                whereBuilder.val(targetTribe.id),
+              ])
+            )
+        )
         .onConflict((conflictBuilder) =>
-          conflictBuilder.columns(["tribe_id", "provider"]).doUpdateSet(
-            (expressionBuilder) => ({
+          conflictBuilder
+            .columns(["tribe_id", "provider"])
+            .doUpdateSet((expressionBuilder) => ({
               access_token: expressionBuilder.ref("excluded.access_token"),
               connected_by: expressionBuilder.ref("excluded.connected_by"),
               provider_account_id: expressionBuilder.ref(
@@ -103,8 +133,12 @@ export class PostgresTribePaymentIntegrationRepository
                 expressionBuilder.val("utc"),
                 expressionBuilder.fn<Date>("now"),
               ]),
-            })
-          )
+            }))
+            .where((whereBuilder) =>
+              whereBuilder.fn<boolean>("public.can_manage_tribe_subscription_prices", [
+                "tribe_payment_integrations.tribe_id",
+              ])
+            )
         )
         .returning("id")
         .executeTakeFirst();

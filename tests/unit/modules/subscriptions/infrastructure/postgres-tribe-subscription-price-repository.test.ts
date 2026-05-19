@@ -375,6 +375,38 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(createMercadoPagoPlan).not.toHaveBeenCalled();
   });
 
+  it("returns forbidden when price management permission is lost before reserving the provider plan price", async () => {
+    const createMercadoPagoPlan = jest.fn(async () => "plan-1");
+    const execute = createExecute(
+      (sqlText) => {
+        if (!sqlText.includes('insert into "tribe_subscription_prices"')) {
+          return undefined;
+        }
+
+        if (sqlText.includes("public.can_manage_tribe_subscription_prices")) {
+          return [];
+        }
+
+        throw new Error("new row violates row-level security policy");
+      },
+      baseRepositoryRows()
+    );
+    const repository = createRepository(execute, { createMercadoPagoPlan });
+
+    await expect(
+      repository.create({
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden,
+    });
+    expect(createMercadoPagoPlan).not.toHaveBeenCalled();
+  });
+
   it("marks a price as current after clearing other current prices", async () => {
     let updateCount = 0;
     const execute = createExecute(

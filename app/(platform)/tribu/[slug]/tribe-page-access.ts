@@ -26,6 +26,30 @@ type ResolveVisibleTribePageAccessOptions = {
   slug: string;
 };
 
+type TribePageAccessLogger = ReturnType<typeof createServerLogger>;
+
+function logUnexpectedTribeAccessFailure({
+  authenticatedMemberId,
+  error,
+  logger,
+  slug,
+}: {
+  authenticatedMemberId: string | null;
+  error: unknown;
+  logger: TribePageAccessLogger;
+  slug: string;
+}) {
+  logger.error({
+    message: TRIBE_PAGE_ACCESS_LOG.resolveAccessFailureMessage,
+    error,
+    metadata: {
+      reason: TRIBE_PAGE_ACCESS_LOG_REASON.unexpectedRepositoryError,
+      slug,
+      viewerId: authenticatedMemberId,
+    },
+  });
+}
+
 export async function resolveTribePageAccess({
   operation,
   reconcileSubscription = true,
@@ -42,7 +66,17 @@ export async function resolveTribePageAccess({
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
   const currentMembershipStatus =
     reconcileSubscription && authenticatedMember
-      ? await modules.tribes.useCases.getCurrentTribeMembershipStatus?.(slug)
+      ? await modules.tribes.useCases
+          .getCurrentTribeMembershipStatus?.(slug)
+          ?.catch((error: unknown) => {
+            logUnexpectedTribeAccessFailure({
+              authenticatedMemberId: authenticatedMember.id,
+              error,
+              logger,
+              slug,
+            });
+            throw error;
+          })
       : null;
   const shouldReconcileSubscription =
     reconcileSubscription &&
@@ -64,14 +98,11 @@ export async function resolveTribePageAccess({
       ? await reconcileCurrentTribeMemberSubscription({
           tribeSlug: slug,
         }).catch((error: unknown) => {
-          logger.error({
-            message: TRIBE_PAGE_ACCESS_LOG.resolveAccessFailureMessage,
+          logUnexpectedTribeAccessFailure({
+            authenticatedMemberId: authenticatedMember?.id ?? null,
             error,
-            metadata: {
-              reason: TRIBE_PAGE_ACCESS_LOG_REASON.unexpectedRepositoryError,
-              slug,
-              viewerId: authenticatedMember?.id ?? null,
-            },
+            logger,
+            slug,
           });
 
           return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
@@ -83,14 +114,11 @@ export async function resolveTribePageAccess({
       slug,
     })
     .catch((error: unknown) => {
-      logger.error({
-        message: TRIBE_PAGE_ACCESS_LOG.resolveAccessFailureMessage,
+      logUnexpectedTribeAccessFailure({
+        authenticatedMemberId: authenticatedMember?.id ?? null,
         error,
-        metadata: {
-          reason: TRIBE_PAGE_ACCESS_LOG_REASON.unexpectedRepositoryError,
-          slug,
-          viewerId: authenticatedMember?.id ?? null,
-        },
+        logger,
+        slug,
       });
       throw error;
     });

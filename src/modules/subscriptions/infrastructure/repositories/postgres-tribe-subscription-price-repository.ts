@@ -1323,23 +1323,51 @@ export class PostgresTribeSubscriptionPriceRepository
 
       const reservedPrice = await database.kysely
         .insertInto("tribe_subscription_prices")
-        .values((expressionBuilder) => ({
-          amount_cents: command.amountCents,
-          created_at: expressionBuilder.fn<Date>("timezone", [
-            expressionBuilder.val("utc"),
-            expressionBuilder.fn<Date>("now"),
-          ]),
-          created_by: expressionBuilder.fn<string>("public.current_app_user_id"),
-          currency: command.currency,
-          frequency: command.frequency,
-          is_current: false,
-          mercado_pago_preapproval_plan_id: null,
-          name: command.name,
-          status: SUBSCRIPTION_PRICE_PROVIDER_PLAN_RESERVATION_STATUS,
-          trial_frequency: command.trialFrequency,
-          trial_frequency_type: command.trialFrequencyType,
-          tribe_id: targetTribe.id,
-        }))
+        .columns([
+          "amount_cents",
+          "created_at",
+          "created_by",
+          "currency",
+          "frequency",
+          "is_current",
+          "mercado_pago_preapproval_plan_id",
+          "name",
+          "status",
+          "trial_frequency",
+          "trial_frequency_type",
+          "tribe_id",
+        ])
+        .expression((expressionBuilder) =>
+          expressionBuilder
+            .selectFrom("tribes")
+            .select([
+              expressionBuilder.val(command.amountCents).as("amount_cents"),
+              expressionBuilder.fn<Date>("timezone", [
+                expressionBuilder.val("utc"),
+                expressionBuilder.fn<Date>("now"),
+              ]).as("created_at"),
+              expressionBuilder.fn<string>("public.current_app_user_id").as("created_by"),
+              expressionBuilder.val(command.currency).as("currency"),
+              expressionBuilder.val(command.frequency).as("frequency"),
+              expressionBuilder.val(false).as("is_current"),
+              expressionBuilder.val(null).as("mercado_pago_preapproval_plan_id"),
+              expressionBuilder.val(command.name).as("name"),
+              expressionBuilder
+                .val(SUBSCRIPTION_PRICE_PROVIDER_PLAN_RESERVATION_STATUS)
+                .as("status"),
+              expressionBuilder.val(command.trialFrequency).as("trial_frequency"),
+              expressionBuilder.val(command.trialFrequencyType).as("trial_frequency_type"),
+              expressionBuilder.val(targetTribe.id).as("tribe_id"),
+            ])
+            .where("tribes.id", "=", targetTribe.id)
+            .where(
+              expressionBuilder.fn<boolean>("public.can_manage_tribe_subscription_prices", [
+                expressionBuilder.val(targetTribe.id),
+              ]),
+              "=",
+              true
+            )
+        )
         .returning("id")
         .executeTakeFirst();
 

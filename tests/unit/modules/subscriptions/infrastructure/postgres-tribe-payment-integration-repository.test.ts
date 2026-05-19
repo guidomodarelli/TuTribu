@@ -31,6 +31,15 @@ function getExecutedSqlText(databaseDouble: {
     .join("\n");
 }
 
+function getExecutedStatementText(
+  databaseDouble: {
+    query: jest.Mock;
+  },
+  statementIndex: number
+): string {
+  return String(databaseDouble.query.mock.calls[statementIndex]?.[0] ?? "");
+}
+
 describe("PostgresTribePaymentIntegrationRepository", () => {
   it("connects Mercado Pago integrations with tribe subscription management permissions", async () => {
     const databaseDouble = createRequestKyselyDatabaseDouble([
@@ -60,6 +69,37 @@ describe("PostgresTribePaymentIntegrationRepository", () => {
     expect(sqlText).toContain('insert into "tribe_payment_integrations"');
     expect(sqlText).toContain('on conflict ("tribe_id", "provider") do update');
     expect(sqlText).toContain("public.current_app_user_id");
+  });
+
+  it("returns forbidden when permission is revoked before the guarded upsert completes", async () => {
+    const databaseDouble = createRequestKyselyDatabaseDouble([
+      [{ id: "tribe-1" }],
+      [{ canManageSubscriptionPrices: true }],
+      [],
+    ]);
+    const repository = new PostgresTribePaymentIntegrationRepository(async (callback) =>
+      callback(databaseDouble.database as never)
+    );
+
+    await expect(
+      repository.connect({
+        accessToken: "access-token",
+        expiresIn: 3600,
+        providerAccountId: "account-1",
+        refreshToken: "refresh-token",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "forbidden",
+    });
+
+    const upsertSqlText = getExecutedStatementText(databaseDouble, 2);
+
+    expect(upsertSqlText).toContain("public.can_manage_tribe_subscription_prices");
+    expect(upsertSqlText).toContain('insert into "tribe_payment_integrations"');
+    expect(upsertSqlText).toContain("select");
+    expect(upsertSqlText).toContain("where public.can_manage_tribe_subscription_prices");
+    expect(upsertSqlText).toContain("do update");
   });
 
   it("returns not found when the tribe does not exist", async () => {

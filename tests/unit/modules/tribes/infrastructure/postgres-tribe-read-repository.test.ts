@@ -1,4 +1,5 @@
 import { PostgresTribeReadRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-read-repository";
+import { createKyselyRequestDatabase } from "@/src/modules/shared/infrastructure/database/kysely-request-database";
 
 function createFindBySlugDatabase(
   rows: Array<{
@@ -74,6 +75,30 @@ function createVisibleMembershipTribesDatabase(
     select,
     selectFrom,
     where,
+  };
+}
+
+function createRequestKyselyVisibleMembershipTribesDatabase(
+  rows: Array<{
+    name: string | null;
+    role: string | null;
+    slug: string | null;
+    tribe_id: string;
+    tribe_row_id: string | null;
+  }>
+) {
+  const query = jest.fn(async () => ({
+    rowCount: rows.length,
+    rows,
+  }));
+
+  return {
+    database: {
+      kysely: createKyselyRequestDatabase({
+        query,
+      } as never),
+    },
+    query,
   };
 }
 
@@ -382,7 +407,7 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("lists every readable tribe as read-only when the current viewer is the owner", async () => {
-    const queryBuilder = createVisibleMembershipTribesDatabase([
+    const databaseDouble = createRequestKyselyVisibleMembershipTribesDatabase([
       {
         tribe_id: "tribe-1",
         tribe_row_id: "tribe-1",
@@ -400,7 +425,7 @@ describe("PostgresTribeReadRepository", () => {
     ]);
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
-      callback(queryBuilder.database as never)
+      callback(databaseDouble.database as never)
     );
 
     await expect(repository.listVisibleMembershipTribes()).resolves.toEqual([
@@ -418,7 +443,10 @@ describe("PostgresTribeReadRepository", () => {
       },
     ]);
 
-    expect(queryBuilder.execute).toHaveBeenCalledTimes(1);
+    expect(databaseDouble.query).toHaveBeenCalledTimes(1);
+    expect(databaseDouble.query.mock.calls[0]?.[0]).toMatch(
+      /case\s+when\s+public\.is_app_owner\(\)\s+then/i
+    );
   });
 
   it("lists visible members for a readable tribe", async () => {

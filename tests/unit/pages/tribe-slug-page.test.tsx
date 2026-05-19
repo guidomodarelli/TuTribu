@@ -953,6 +953,42 @@ describe("TribePage", () => {
     });
   });
 
+  it("returns 404 and logs unexpected membership status repository failures", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "leader@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getCurrentTribeMembershipStatus.mockRejectedValue(
+      new Error("Membership status lookup failed")
+    );
+    (notFound as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(
+      TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      })
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(errorMock).toHaveBeenCalledWith({
+      message: "Failed to resolve tribe access",
+      error: expect.any(Error),
+      metadata: expect.objectContaining({
+        reason: "unexpected_repository_error",
+        slug: "matematica-pro",
+        viewerId: "member-1",
+      }),
+    });
+    expect(getTribePageAccess).not.toHaveBeenCalled();
+  });
+
   it("returns 404 and logs unexpected repository failures", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
