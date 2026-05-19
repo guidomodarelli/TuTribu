@@ -33,6 +33,7 @@ import {
   formatMessageDateTimeValue,
 } from "@/src/modules/messages/infrastructure/mappers/tribe-round-view-model-mapper";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { sql } from "kysely";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -511,43 +512,45 @@ export class PostgresMessageMutationRepository
 
   async delete(command: DeleteTribeMessageCommand): Promise<MessageDeletionResult> {
     return this.executeWithDatabase(async (database) => {
-      const targetMessage = await database.kysely
-        .selectFrom("messages")
-        .innerJoin("tribes", "tribes.id", "messages.tribe_id")
-        .select("messages.id as messageId")
-        .where("messages.id", "=", command.messageId)
-        .where("tribes.slug", "=", command.tribeSlug)
-        .limit(1)
-        .executeTakeFirst();
-
-      if (!targetMessage) {
-        return { status: MESSAGE_MUTATION_STATUS.notFound };
-      }
-
-      const deletedMessage = await database.kysely
-        .deleteFrom("messages")
-        .where("id", "=", targetMessage.messageId)
-        .where((expressionBuilder) =>
-          expressionBuilder.or([
-            expressionBuilder.and([
-              expressionBuilder("author_id", "=", command.userId),
-              expressionBuilder.fn<boolean>(
-                "public.is_active_tribe_member",
-                ["messages.tribe_id"]
-              ),
-            ]),
-            expressionBuilder.fn<boolean>("public.can_pin_tribe_messages", [
-              "messages.tribe_id",
-            ]),
-          ])
+      const deletedMessageResult = await sql<MutationStatusRow>`
+        with target_message as (
+          select messages.id
+          from messages
+          inner join tribes on tribes.id = messages.tribe_id
+          where messages.id = ${command.messageId}
+            and tribes.slug = ${command.tribeSlug}
+          limit 1
+        ),
+        deleted_message as (
+          delete from messages
+          using target_message
+          where messages.id = target_message.id
+            and (
+              (
+                messages.author_id = ${command.userId}
+                and public.is_active_tribe_member(messages.tribe_id)
+              )
+              or public.can_pin_tribe_messages(messages.tribe_id)
+            )
+          returning messages.id
         )
-        .returning("id")
-        .executeTakeFirst();
+        select
+          case
+            when exists (select 1 from deleted_message)
+              then ${MESSAGE_MUTATION_STATUS.deleted}
+            when not exists (select 1 from target_message)
+              then ${MESSAGE_MUTATION_STATUS.notFound}
+            else ${MESSAGE_MUTATION_STATUS.forbidden}
+          end as status
+      `.execute(database.kysely);
+      const deletedMessageStatus = deletedMessageResult.rows[0]?.status;
 
       return {
-        status: deletedMessage
-          ? MESSAGE_MUTATION_STATUS.deleted
-          : MESSAGE_MUTATION_STATUS.forbidden,
+        status:
+          deletedMessageStatus === MESSAGE_MUTATION_STATUS.deleted ||
+          deletedMessageStatus === MESSAGE_MUTATION_STATUS.notFound
+            ? deletedMessageStatus
+            : MESSAGE_MUTATION_STATUS.forbidden,
       };
     });
   }
@@ -664,23 +667,25 @@ export class PostgresMessageMutationRepository
         ])
         .expression((expressionBuilder) =>
           expressionBuilder
-            .selectFrom("tribes")
+            .selectFrom("tribe_channels")
+            .innerJoin("tribes", "tribes.id", "tribe_channels.tribe_id")
             .select([
               expressionBuilder.val(command.authorId).as("author_id"),
-              expressionBuilder.val(targetChannel.id).as("channel_id"),
+              "tribe_channels.id as channel_id",
               expressionBuilder.val(command.content).as("content"),
               expressionBuilder.fn<Date>("timezone", [
                 expressionBuilder.val("utc"),
                 expressionBuilder.fn<Date>("now"),
               ]).as("created_at"),
               expressionBuilder.val(command.title).as("title"),
-              expressionBuilder.val(targetTribe.id).as("tribe_id"),
+              "tribe_channels.tribe_id as tribe_id",
               expressionBuilder.fn<Date>("timezone", [
                 expressionBuilder.val("utc"),
                 expressionBuilder.fn<Date>("now"),
               ]).as("updated_at"),
             ])
             .where("tribes.id", "=", targetTribe.id)
+            .where("tribe_channels.id", "=", command.channelId)
             .where(
               expressionBuilder.fn<boolean>("public.is_active_tribe_member", [
                 expressionBuilder.val(targetTribe.id),
@@ -692,35 +697,49 @@ export class PostgresMessageMutationRepository
         .returning(["id", "tribe_id", "channel_id", "author_id", "title", "content", "created_at"])
         .executeTakeFirst();
 
-      const createdMessage = insertedMessage
-        ? await database.kysely
-            .selectFrom("messages")
-            .innerJoin("tribe_channels", "tribe_channels.id", "messages.channel_id")
-            .innerJoin("user as message_authors", "message_authors.id", "messages.author_id")
-            .leftJoin("tribe_members as message_members", (join) =>
-              join
-                .onRef("message_members.tribe_id", "=", "messages.tribe_id")
-                .onRef("message_members.user_id", "=", "messages.author_id")
-            )
-            .select([
-              "messages.id as message_id",
-              "tribe_channels.id as channel_id",
-              "tribe_channels.name as channel_name",
-              "tribe_channels.slug as channel_slug",
-              "tribe_channels.emoji as channel_emoji",
-              "tribe_channels.sort_order as channel_sort_order",
-              "tribe_channels.access_scope as channel_access_scope",
-              "messages.title as message_title",
-              "messages.content as message_content",
-              "messages.created_at as message_created_at",
-              "message_authors.id as author_id",
-              "message_authors.name as author_name",
-              "message_authors.image as author_image",
-              "message_members.role as author_role",
-            ])
-            .where("messages.id", "=", insertedMessage.id)
-            .executeTakeFirst()
-        : null;
+      if (!insertedMessage) {
+        const currentTargetChannel = await database.kysely
+          .selectFrom("tribe_channels")
+          .select("id")
+          .where("id", "=", command.channelId)
+          .where("tribe_id", "=", targetTribe.id)
+          .limit(1)
+          .executeTakeFirst();
+
+        return {
+          status: currentTargetChannel
+            ? MESSAGE_MUTATION_STATUS.forbidden
+            : MESSAGE_MUTATION_STATUS.invalidChannel,
+        };
+      }
+
+      const createdMessage = await database.kysely
+        .selectFrom("messages")
+        .innerJoin("tribe_channels", "tribe_channels.id", "messages.channel_id")
+        .innerJoin("user as message_authors", "message_authors.id", "messages.author_id")
+        .leftJoin("tribe_members as message_members", (join) =>
+          join
+            .onRef("message_members.tribe_id", "=", "messages.tribe_id")
+            .onRef("message_members.user_id", "=", "messages.author_id")
+        )
+        .select([
+          "messages.id as message_id",
+          "tribe_channels.id as channel_id",
+          "tribe_channels.name as channel_name",
+          "tribe_channels.slug as channel_slug",
+          "tribe_channels.emoji as channel_emoji",
+          "tribe_channels.sort_order as channel_sort_order",
+          "tribe_channels.access_scope as channel_access_scope",
+          "messages.title as message_title",
+          "messages.content as message_content",
+          "messages.created_at as message_created_at",
+          "message_authors.id as author_id",
+          "message_authors.name as author_name",
+          "message_authors.image as author_image",
+          "message_members.role as author_role",
+        ])
+        .where("messages.id", "=", insertedMessage.id)
+        .executeTakeFirst();
 
       const createdMessageResult: CreatedMessageRow | null = createdMessage
         ? {
