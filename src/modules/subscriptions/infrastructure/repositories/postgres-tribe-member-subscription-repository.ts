@@ -1501,15 +1501,15 @@ export class PostgresTribeMemberSubscriptionRepository
       const claimedReservation = reservedSubscription
         ? null
         : await this.claimRecoverableReservation(database.kysely, tribeId);
-      const pendingCheckout = await this.findLatestPendingCheckoutUrl(
-        database.kysely,
-        tribeId
-      );
+      const reservedSubscriptionId =
+        reservedSubscription?.id ?? claimedReservation?.id ?? null;
+      const pendingCheckout = reservedSubscriptionId
+        ? await this.findLatestPendingCheckoutUrl(database.kysely, tribeId)
+        : null;
 
       return {
         checkout_url: pendingCheckout?.checkout_url ?? null,
-        reserved_subscription_id:
-          reservedSubscription?.id ?? claimedReservation?.id ?? null,
+        reserved_subscription_id: reservedSubscriptionId,
       };
     });
   }

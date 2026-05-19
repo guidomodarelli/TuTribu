@@ -314,6 +314,54 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
   });
 
+  it("does not reuse a checkout operation when the active subscription slot blocks a new reservation", async () => {
+    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const execute = createExecute(
+      (sqlText) => {
+        if (
+          sqlText.startsWith('insert into "tribe_member_subscriptions"') ||
+          (sqlText.startsWith("update") &&
+            sqlText.includes('"tribe_member_subscriptions"'))
+        ) {
+          return [];
+        }
+
+        if (
+          sqlText.includes('from "tribe_member_subscriptions"') &&
+          sqlText.includes('"status" in')
+        ) {
+          return [{ id: "active-subscription-1" }];
+        }
+
+        if (
+          sqlText.includes('from "tribe_member_subscriptions"') &&
+          sqlText.includes('"status" =')
+        ) {
+          return [];
+        }
+
+        return undefined;
+      },
+      baseRows({
+        idempotencyRows: [{ response_body: { checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL } }],
+      })
+    );
+    const repository = createRepository(execute, {
+      buildMercadoPagoPlanCheckoutUrl,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "new-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
+    });
+    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+  });
+
   it("does not recover returns from historical provider-plan checkouts", async () => {
     const getMercadoPagoPreapprovalDetails = jest.fn(async () => ({
       externalReference: "price:price-1",
