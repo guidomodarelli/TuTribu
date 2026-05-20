@@ -176,6 +176,13 @@
       "when": 1778929200000,
       "tag": "20260516120000_add_email_to_visible_tribe_members",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1779253200000,
+      "tag": "20260520090000_create_tribe_welcome",
+      "breakpoints": true
     }
   ]
 }

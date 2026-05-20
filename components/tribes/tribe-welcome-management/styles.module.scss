@@ -1,0 +1,96 @@
+.TribeWelcomeManagement {
+  display: grid;
+  gap: 1.5rem;
+  margin: 0 auto;
+  max-width: min(100%, 980px);
+  padding: 0.25rem 0;
+  width: 100%;
+
+  &__header,
+  &__form,
+  &__collection {
+    display: grid;
+    gap: 1rem;
+  }
+
+  &__title,
+  &__description,
+  &__subtitle,
+  &__error {
+    margin: 0;
+  }
+
+  &__title {
+    font-size: clamp(2rem, 6vw, 4rem);
+    line-height: 0.98;
+  }
+
+  &__description {
+    color: var(--muted-foreground);
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+
+  &__subtitle {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  &__checkLabel,
+  &__field {
+    color: var(--foreground);
+    font-size: 0.95rem;
+  }
+
+  &__checkLabel {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  &__field {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  &__collectionHeader {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+  }
+
+  &__row {
+    align-items: end;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr);
+    padding-bottom: 0.85rem;
+  }
+
+  &__select {
+    background: var(--background);
+    border: 1px solid var(--input);
+    border-radius: calc(var(--radius) - 2px);
+    color: var(--foreground);
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+  }
+
+  &__error {
+    color: var(--destructive);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+}
+
+@media (min-width: 48rem) {
+  .TribeWelcomeManagement {
+    &__row {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) auto auto;
+    }
+  }
+}

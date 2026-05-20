@@ -1,0 +1,223 @@
+import { render, screen } from "@testing-library/react";
+import { headers } from "next/headers";
+import { notFound } from "next/navigation";
+
+import TribeWelcomePage from "@/app/(platform)/tribu/[slug]/bienvenida/page";
+import { createRequestModules } from "@/src/modules/setup";
+import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
+
+const getTribePageAccess = jest.fn();
+const getCurrentTribeMembershipStatus = jest.fn();
+const getMemberTribes = jest.fn();
+const getTribeWelcome = jest.fn();
+const getEditableTribeWelcome = jest.fn();
+
+jest.mock("next/navigation", () => ({
+  notFound: jest.fn(),
+}));
+
+jest.mock("next/headers", () => ({
+  headers: jest.fn(),
+}));
+
+jest.mock("@/components/tribes/tribe-welcome-management", () => ({
+  TribeWelcomeManagement: ({
+    canEdit,
+    welcome,
+  }: {
+    canEdit: boolean;
+    welcome: { welcomeMessage: string };
+  }) => (
+    <section>
+      <h1>Bienvenida</h1>
+      <p>{welcome.welcomeMessage}</p>
+      <p>{canEdit ? "Modo edición" : "Solo lectura"}</p>
+    </section>
+  ),
+}));
+
+jest.mock("@/src/modules/setup", () => ({
+  createRequestModules: jest.fn(),
+}));
+
+jest.mock(
+  "@/src/modules/shared/infrastructure/observability/server-logger",
+  () => ({
+    createServerLogger: jest.fn(() => ({
+      error: jest.fn(),
+      info: jest.fn(),
+    })),
+  })
+);
+
+function buildPageProps() {
+  return {
+    params: Promise.resolve({
+      slug: "matematica-pro",
+    }),
+  };
+}
+
+describe("TribeWelcomePage", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getTribePageAccess.mockResolvedValue({
+      status: "visible",
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+    getCurrentTribeMembershipStatus.mockResolvedValue("active");
+    getMemberTribes.mockResolvedValue([
+      {
+        name: "Matematica Pro",
+        role: "leader",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
+    getTribeWelcome.mockResolvedValue({
+      links: [
+        {
+          id: "link-1",
+          isActive: true,
+          label: "Instagram",
+          message: null,
+          phoneNumber: null,
+          sortOrder: 1,
+          type: TRIBE_WELCOME_LINK_TYPE.customButton,
+          url: "https://instagram.example.com",
+        },
+      ],
+      rules: [
+        {
+          id: "rule-1",
+          isActive: true,
+          label: "Presentate al entrar",
+          sortOrder: 1,
+        },
+      ],
+      welcomeMessage: "Bienvenido/a a Matematica Pro",
+    });
+    getEditableTribeWelcome.mockResolvedValue({
+      links: [],
+      rules: [],
+      welcomeMessage: "Bienvenido/a a Matematica Pro",
+    });
+    (headers as jest.Mock).mockResolvedValue(
+      new Headers({
+        host: "tutribu.example.com",
+        "x-forwarded-proto": "https",
+      })
+    );
+    (createRequestModules as jest.Mock).mockResolvedValue({
+      auth: {
+        useCases: {
+          getAuthenticatedMember: jest.fn(async () => ({
+            avatarFallback: "GH",
+            email: "leader@example.com",
+            id: "member-1",
+            image: null,
+            name: "Grace Hopper",
+            role: "tribemate",
+          })),
+        },
+      },
+      tribes: {
+        useCases: {
+          getCurrentTribeMembershipStatus,
+          getEditableTribeWelcome,
+          getMemberTribes,
+          getTribePageAccess,
+          getTribeWelcome,
+        },
+      },
+    });
+  });
+
+  it("renders the internal welcome page in edit mode for leaders", async () => {
+    render(await TribeWelcomePage(buildPageProps()));
+
+    expect(screen.getByRole("heading", { name: "Bienvenida" })).toBeInTheDocument();
+    expect(screen.getByText("Bienvenido/a a Matematica Pro")).toBeInTheDocument();
+    expect(screen.getByText("Modo edición")).toBeInTheDocument();
+    expect(getEditableTribeWelcome).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+    expect(getTribeWelcome).not.toHaveBeenCalled();
+  });
+
+  it("renders the internal welcome page as read-only for tribemates", async () => {
+    getMemberTribes.mockResolvedValue([
+      {
+        name: "Matematica Pro",
+        role: "tribemate",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
+
+    render(await TribeWelcomePage(buildPageProps()));
+
+    expect(screen.getByText("Solo lectura")).toBeInTheDocument();
+    expect(getTribeWelcome).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+    expect(getEditableTribeWelcome).not.toHaveBeenCalled();
+  });
+
+  it("renders muted leaders in read-only mode", async () => {
+    getCurrentTribeMembershipStatus.mockResolvedValue("muted");
+    getMemberTribes.mockResolvedValue([
+      {
+        name: "Matematica Pro",
+        role: "leader",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
+
+    render(await TribeWelcomePage(buildPageProps()));
+
+    expect(screen.getByText("Solo lectura")).toBeInTheDocument();
+    expect(getTribeWelcome).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+    expect(getEditableTribeWelcome).not.toHaveBeenCalled();
+  });
+
+  it("renders the internal welcome page as read-only for muted members", async () => {
+    getCurrentTribeMembershipStatus.mockResolvedValue("muted");
+    getMemberTribes.mockResolvedValue([
+      {
+        name: "Matematica Pro",
+        role: "tribemate",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
+
+    render(await TribeWelcomePage(buildPageProps()));
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(screen.getByText("Solo lectura")).toBeInTheDocument();
+    expect(getTribeWelcome).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("returns 404 when the current member cannot access the tribe", async () => {
+    getCurrentTribeMembershipStatus.mockResolvedValue("blocked");
+    (notFound as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(TribeWelcomePage(buildPageProps())).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(notFound).toHaveBeenCalled();
+    expect(getTribeWelcome).not.toHaveBeenCalled();
+  });
+});

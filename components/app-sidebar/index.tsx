@@ -7,6 +7,7 @@ import {
   ChevronDownIcon,
   CompassIcon,
   FlameKindlingIcon,
+  HandHeartIcon,
   MailPlusIcon,
   MedalIcon,
   ReceiptTextIcon,
@@ -57,6 +58,13 @@ const tribeSectionNavigation = [
     label: "Invitaciones",
     matchPath: (pathname: string, tribeSlug: string) =>
       isSameOrNestedPath(pathname, ROUTES.tribes.invitations(tribeSlug)),
+  },
+  {
+    hrefBuilder: ROUTES.tribes.welcome,
+    icon: HandHeartIcon,
+    label: "Bienvenida",
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.welcome(tribeSlug)),
   },
   {
     hrefBuilder: ROUTES.tribes.prices,

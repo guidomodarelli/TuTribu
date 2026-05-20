@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { TribeWelcomeDisplay } from "@/components/tribes/tribe-welcome-display";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
@@ -23,6 +24,7 @@ const INVITATION_PAGE_COPY = {
   confirmationDescription:
     "Confirmá que querés entrar con tu cuenta actual. Después vas a poder acceder al espacio de la tribu.",
   confirmationTitle: "Sumarte a esta tribu",
+  continueButton: "Comenzar",
   eyebrow: "Invitación a una tribu",
   invalidDescription:
     "El link no existe o ya no está disponible. Pedí una invitación nueva para continuar.",
@@ -392,27 +394,26 @@ export default async function TribeInvitationPage({
     token,
   });
 
+  const welcome = await modules.tribes.useCases.getTribeWelcomeByInvitation({
+    token,
+    tribeSlug: slug,
+  });
+
   return (
     <main className={styles.TribeInvitationPage}>
-      <section className={styles.TribeInvitationPage__content}>
-        <p className={styles.TribeInvitationPage__eyebrow}>
-          {INVITATION_PAGE_COPY.eyebrow}
-        </p>
-        <h1 className={styles.TribeInvitationPage__title}>
-          {INVITATION_PAGE_COPY.confirmationTitle}
-        </h1>
-        <p className={styles.TribeInvitationPage__description}>
-          {INVITATION_PAGE_COPY.confirmationDescription}
-        </p>
-        <form
-          action={acceptInvitationWithToken}
-          className={styles.TribeInvitationPage__form}
-        >
-          <Button type={INVITATION_PAGE_FORM.submitButtonType}>
-            {INVITATION_PAGE_COPY.acceptButton}
-          </Button>
-        </form>
-      </section>
+      <TribeWelcomeDisplay
+        welcome={welcome}
+        action={
+          <form
+            action={acceptInvitationWithToken}
+            className={styles.TribeInvitationPage__form}
+          >
+            <Button type={INVITATION_PAGE_FORM.submitButtonType}>
+              {INVITATION_PAGE_COPY.continueButton}
+            </Button>
+          </form>
+        }
+      />
     </main>
   );
 }
