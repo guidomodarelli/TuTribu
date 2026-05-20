@@ -45,15 +45,23 @@
     max-width: 62ch;
   }
 
-  &__ruleList,
+  &__ruleList {
+    display: grid;
+    gap: 0.6rem;
+    list-style: decimal outside;
+    padding-left: 1.5rem;
+  }
+
   &__linkList {
     display: grid;
     gap: 0.6rem;
-    padding-left: 1.25rem;
+    list-style: none;
+    padding-left: 0;
   }
 
   &__ruleItem {
     line-height: 1.55;
+    padding-left: 0.5rem;
   }
 
   &__linkList {

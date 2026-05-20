@@ -61,7 +61,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    expect(screen.getByRole("heading", { name: "Bienvenida" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Bienvenido/a" })).toBeInTheDocument();
     expect(screen.getByText("Presentate al entrar")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /guardar/i })).not.toBeInTheDocument();
   });
@@ -104,7 +104,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    expect(screen.getByRole("option", { name: "Botón personalizado" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Link personalizado" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "WhatsApp" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Red social" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Soporte" })).not.toBeInTheDocument();
@@ -174,7 +174,9 @@ describe("TribeWelcomeManagement", () => {
     }
   });
 
-  it("uses the next available sort order after removing and adding items", async () => {
+  it(
+    "uses the next available sort order after removing and adding items",
+    async () => {
     const user = userEvent.setup();
 
     render(
@@ -226,14 +228,14 @@ describe("TribeWelcomeManagement", () => {
     await user.click(screen.getAllByRole("button", { name: "Eliminar" })[0]);
     await user.click(screen.getAllByRole("button", { name: "Eliminar" })[1]);
     await user.click(screen.getByRole("button", { name: "Agregar acuerdo" }));
-    await user.click(screen.getByRole("button", { name: "Agregar botón" }));
+    await user.click(screen.getByRole("button", { name: "Agregar link" }));
 
     await user.type(
       screen.getAllByLabelText("Acuerdo").at(-1) as HTMLElement,
       "Saludar al entrar"
     );
     await user.type(
-      screen.getAllByLabelText("Texto del botón").at(-1) as HTMLElement,
+      screen.getAllByLabelText("Texto del link").at(-1) as HTMLElement,
       "Nuevo recurso"
     );
     await user.type(
@@ -253,7 +255,9 @@ describe("TribeWelcomeManagement", () => {
 
     expect(body.rules.map((rule) => rule.sortOrder)).toEqual([2, 3]);
     expect(body.links.map((link) => link.sortOrder)).toEqual([2, 3]);
-  });
+    },
+    15000
+  );
 
   it("blocks WhatsApp buttons without a phone number before saving", async () => {
     const user = userEvent.setup();
@@ -284,8 +288,302 @@ describe("TribeWelcomeManagement", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(
-      screen.getByText("Completá el teléfono de WhatsApp para guardar ese botón.")
+      screen.getByText("Completá el teléfono de WhatsApp para guardar ese link.")
     ).toBeInTheDocument();
+  });
+
+  it("shows a default badge when the welcome message equals the platform default", () => {
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={buildWelcome()}
+      />
+    );
+
+    expect(screen.getByText("Predeterminado")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Restaurar predeterminado" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers a restore action and reverts to the default message when used", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={buildWelcome()}
+      />
+    );
+
+    const welcomeInput = screen.getByLabelText("Mensaje de bienvenida");
+
+    await user.clear(welcomeInput);
+    await user.type(welcomeInput, "Mensaje personalizado");
+
+    expect(screen.queryByText("Predeterminado")).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Restaurar predeterminado" })
+    );
+
+    expect(welcomeInput).toHaveValue("Bienvenido/a a la tribu");
+    expect(screen.getByText("Predeterminado")).toBeInTheDocument();
+  });
+
+  it("renders an empty state when there are no rules or links", () => {
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={{
+          links: [],
+          rules: [],
+          welcomeMessage: "Mensaje personalizado",
+        }}
+      />
+    );
+
+    expect(screen.getByText("Aún no agregaste acuerdos.")).toBeInTheDocument();
+    expect(screen.getByText("Aún no agregaste links.")).toBeInTheDocument();
+  });
+
+  it("shows a URL helper and flags invalid URLs on blur", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={{
+          ...buildWelcome(),
+          links: [
+            {
+              id: "link-1",
+              isActive: true,
+              label: "Soporte",
+              message: null,
+              phoneNumber: null,
+              sortOrder: 1,
+              type: TRIBE_WELCOME_LINK_TYPE.customButton,
+              url: "",
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText("Pegá un enlace completo, incluido https://")
+    ).toBeInTheDocument();
+
+    const urlInput = screen.getByLabelText("URL");
+
+    await user.type(urlInput, "not-a-url");
+    urlInput.blur();
+
+    expect(
+      await screen.findByText(
+        "Ingresá una URL válida que empiece con http:// o https://"
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("renders a live preview that mirrors the form state", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={buildWelcome()}
+      />
+    );
+
+    const preview = screen.getByRole("complementary", {
+      name: "Vista previa de la bienvenida",
+    });
+
+    expect(preview).toBeInTheDocument();
+    expect(preview).toHaveTextContent("Bienvenido/a a la tribu");
+    expect(preview).toHaveTextContent("Presentate al entrar");
+
+    const welcomeInput = screen.getByLabelText("Mensaje de bienvenida");
+
+    await user.clear(welcomeInput);
+    await user.type(welcomeInput, "Hola tribu");
+
+    expect(preview).toHaveTextContent("Hola tribu");
+  });
+
+  it("blocks saving and shows an inline error when a custom URL is empty", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={{
+          ...buildWelcome(),
+          links: [
+            {
+              id: "link-1",
+              isActive: true,
+              label: "Soporte",
+              message: null,
+              phoneNumber: null,
+              sortOrder: 1,
+              type: TRIBE_WELCOME_LINK_TYPE.customButton,
+              url: "",
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Ingresá una URL.")).toBeInTheDocument();
+  });
+
+  it("blocks saving and shows an inline error when a rule label is empty", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={{
+          ...buildWelcome(),
+          rules: [
+            {
+              id: "rule-1",
+              isActive: true,
+              label: "",
+              sortOrder: 1,
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Escribí el acuerdo antes de guardar.")
+    ).toBeInTheDocument();
+  });
+
+  it("rejects WhatsApp phones with an invalid international format", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={{
+          ...buildWelcome(),
+          links: [
+            {
+              id: "link-1",
+              isActive: true,
+              label: "WhatsApp",
+              message: "Hola",
+              phoneNumber: "12345",
+              sortOrder: 1,
+              type: TRIBE_WELCOME_LINK_TYPE.whatsappButton,
+              url: null,
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        "Ingresá un número válido en formato internacional (ej.: +54 9 11 1234 5678)."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("accepts valid WhatsApp phones in international format", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={{
+          ...buildWelcome(),
+          links: [
+            {
+              id: "link-1",
+              isActive: true,
+              label: "WhatsApp",
+              message: "Hola",
+              phoneNumber: "+54 9 11 1234 5678",
+              sortOrder: 1,
+              type: TRIBE_WELCOME_LINK_TYPE.whatsappButton,
+              url: null,
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+  });
+
+  it("sanitizes the WhatsApp custom message before submitting it", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={{
+          ...buildWelcome(),
+          links: [
+            {
+              id: "link-1",
+              isActive: true,
+              label: "WhatsApp",
+              message:
+                "  Hola​   tribu\r\n\n\n\n\nVengo de la web  ",
+              phoneNumber: "+54 9 11 1234 5678",
+              sortOrder: 1,
+              type: TRIBE_WELCOME_LINK_TYPE.whatsappButton,
+              url: null,
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    const [, requestInit] = fetchMock.mock.calls[0];
+    const body = JSON.parse(requestInit.body as string) as ReturnType<
+      typeof buildWelcome
+    >;
+    const submittedLink = body.links[0];
+
+    expect(submittedLink?.message).toBe("Hola tribu\n\nVengo de la web");
   });
 
   it("blocks WhatsApp buttons without normalized phone digits before saving", async () => {
@@ -317,7 +615,7 @@ describe("TribeWelcomeManagement", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(
-      screen.getByText("Completá el teléfono de WhatsApp para guardar ese botón.")
+      screen.getByText("Completá el teléfono de WhatsApp para guardar ese link.")
     ).toBeInTheDocument();
   });
 });

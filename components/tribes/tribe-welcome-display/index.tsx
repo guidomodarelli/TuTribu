@@ -10,7 +10,7 @@ import styles from "./styles.module.scss";
 
 const TRIBE_WELCOME_DISPLAY_COPY = {
   agreementsHeading: "Acuerdos de convivencia",
-  defaultHeading: "Bienvenida",
+  defaultHeading: "Bienvenido/a",
   linksHeading: "Recursos para empezar",
 } as const;
 
