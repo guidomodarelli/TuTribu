@@ -547,4 +547,54 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       )
     ).toBe(true);
   });
+
+  it("limits provider-driven membership access refreshes to tribemates", async () => {
+    const getMercadoPagoPreapprovalStatus = jest.fn(async () => "cancelled");
+    const execute = createExecute(
+      (sqlText) =>
+        sqlText.includes('inner join "tribe_payment_integrations"')
+          ? [{
+              access_token: "access-token",
+              price_id: "price-1",
+              refresh_token: null,
+              token_expires_at: null,
+              tribe_id: "tribe-1",
+            }]
+          : undefined,
+      baseRows({
+        subscriptionRows: [
+          {
+            id: "subscription-1",
+            tribe_id: "tribe-1",
+            user_id: "user-1",
+          },
+        ],
+      })
+    );
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
+
+    await expect(
+      repository.handleWebhook({
+        eventId: "event-1",
+        resourceId: "preapproval-1",
+        topic: "subscription_preapproval.updated",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed,
+    });
+
+    const membershipAccessUpdate = execute.mock.calls.find(([sqlText]) =>
+      String(sqlText).startsWith('update "tribe_members"')
+    )?.[0];
+
+    expect(membershipAccessUpdate).toEqual(expect.any(String));
+    expect(String(membershipAccessUpdate)).toContain('"role" =');
+    expect(
+      execute.mock.calls.some(([, parameters]) =>
+        parameters.includes("tribemate")
+      )
+    ).toBe(true);
+  });
 });

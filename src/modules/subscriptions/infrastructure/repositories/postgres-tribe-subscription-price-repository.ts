@@ -206,6 +206,10 @@ const CURRENT_MEMBER_SUBSCRIPTION_STATUS_VALUES = [
   TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused,
 ] as const;
 
+const TRIBE_SUBSCRIPTION_MEMBER_ROLE = {
+  tribemate: "tribemate",
+} as const;
+
 const MERCADO_PAGO_PROVIDER_PLAN_STATUS = {
   active: "active",
   canceled: "canceled",
@@ -2865,6 +2869,7 @@ export class PostgresTribeSubscriptionPriceRepository
         )
         .where("tribe_id", "=", affectedMember.tribe_id)
         .where("user_id", "=", affectedMember.user_id)
+        .where("role", "=", TRIBE_SUBSCRIPTION_MEMBER_ROLE.tribemate)
         .where((expressionBuilder) =>
           expressionBuilder.not(
             expressionBuilder.and([

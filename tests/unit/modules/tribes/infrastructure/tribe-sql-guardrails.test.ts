@@ -467,6 +467,63 @@ describe("Tribe SQL guardrails", () => {
     );
   });
 
+  it("restores tribe invitation RLS policies after unsafe schema pushes", () => {
+    const invitationPoliciesMigration = readWorkspaceFile(
+      "database/migrations/20260519160000_restore_tribe_invitation_rls_policies.sql"
+    );
+    const drizzleMigrationJournal = readWorkspaceFile(
+      drizzleMigrationJournalPath
+    );
+
+    expect(invitationPoliciesMigration).toContain(
+      "ALTER TABLE public.tribe_invitations FORCE ROW LEVEL SECURITY"
+    );
+    expect(invitationPoliciesMigration).toContain(
+      "CREATE OR REPLACE FUNCTION public.can_manage_tribe_invitations"
+    );
+    expect(invitationPoliciesMigration).toContain(
+      "CREATE POLICY \"Invitation managers can create invitations\""
+    );
+    expect(invitationPoliciesMigration).toContain(
+      "created_by = public.current_app_user_id()"
+    );
+    expect(invitationPoliciesMigration).toContain(
+      "public.can_manage_tribe_invitations(tribe_id)"
+    );
+    expect(invitationPoliciesMigration).toContain(
+      "CREATE POLICY \"Invitation managers can revoke invitations\""
+    );
+    expect(invitationPoliciesMigration).toContain(
+      "CREATE POLICY \"Authenticated users can accept active invitations\""
+    );
+    expect(drizzleMigrationJournal).toContain(
+      "20260519160000_restore_tribe_invitation_rls_policies"
+    );
+  });
+
+  it("allows invitation managers to read revoked invitations after revocation", () => {
+    const managerReadMigration = readWorkspaceFile(
+      "database/migrations/20260519170000_allow_managers_to_read_revoked_invitations.sql"
+    );
+    const drizzleMigrationJournal = readWorkspaceFile(
+      drizzleMigrationJournalPath
+    );
+
+    expect(managerReadMigration).toContain(
+      "DROP POLICY IF EXISTS \"Invitation managers can read active invitations\""
+    );
+    expect(managerReadMigration).toContain(
+      "CREATE POLICY \"Invitation managers can read managed invitations\""
+    );
+    expect(managerReadMigration).toContain("status IN ('active', 'revoked')");
+    expect(managerReadMigration).toContain(
+      "public.can_manage_tribe_invitations(tribe_id)"
+    );
+    expect(drizzleMigrationJournal).toContain(
+      "20260519170000_allow_managers_to_read_revoked_invitations"
+    );
+  });
+
   it("registers the prioritized owner read access migration in the Drizzle journal", () => {
     const drizzleMigrationJournal = readWorkspaceFile(
       drizzleMigrationJournalPath

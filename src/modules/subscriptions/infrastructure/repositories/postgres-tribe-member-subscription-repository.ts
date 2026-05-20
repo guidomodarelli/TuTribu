@@ -137,6 +137,10 @@ const SUBSCRIPTION_RESERVATION = {
   staleReservationWindowMilliseconds: 5 * 60 * 1000,
 } as const;
 
+const MEMBER_SUBSCRIPTION_ACCESS_ROLE = {
+  tribemate: "tribemate",
+} as const;
+
 /**
  * Local statuses that represent a live provider preapproval blocking another checkout.
  */
@@ -1921,7 +1925,7 @@ export class PostgresTribeMemberSubscriptionRepository
           expressionBuilder.val("utc"),
           expressionBuilder.fn<Date>("now"),
         ]),
-        role: "tribemate",
+        role: MEMBER_SUBSCRIPTION_ACCESS_ROLE.tribemate,
         status: "blocked",
         status_reason: TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked,
         tribe_id: tribeId,
@@ -1950,6 +1954,7 @@ export class PostgresTribeMemberSubscriptionRepository
         "=",
         TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive
       )
+      .where("role", "=", MEMBER_SUBSCRIPTION_ACCESS_ROLE.tribemate)
       .execute();
   }
 
@@ -2053,6 +2058,7 @@ export class PostgresTribeMemberSubscriptionRepository
       })
       .where("tribe_id", "=", targetSubscription.tribe_id)
       .where("user_id", "=", targetSubscription.user_id)
+      .where("role", "=", MEMBER_SUBSCRIPTION_ACCESS_ROLE.tribemate)
       .where((expressionBuilder) =>
         expressionBuilder.or([
           expressionBuilder("status", "<>", "blocked"),

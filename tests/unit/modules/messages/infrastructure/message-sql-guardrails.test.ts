@@ -82,6 +82,9 @@ describe("Message SQL guardrails", () => {
     const incrementalMigration = readWorkspaceFile(
       "database/migrations/20260426060000_limit_channel_management_to_leaders_and_guardians.sql"
     );
+    const restoredStaffHelpersMigration = readWorkspaceFile(
+      "database/migrations/20260519150000_restore_staff_management_role_helpers.sql"
+    );
 
     expect(migration).toContain("public.can_manage_tribe_channels");
     expect(migration).toContain("tribe_members.role IN ('leader', 'guardian')");
@@ -93,6 +96,13 @@ describe("Message SQL guardrails", () => {
     expect(incrementalMigration).toContain("Leaders and guardians can move messages between channels");
     expect(incrementalMigration).toContain("ON public.messages");
     expect(incrementalMigration).toContain("FOR UPDATE");
+    expect(restoredStaffHelpersMigration).toContain(
+      "CREATE OR REPLACE FUNCTION public.can_manage_tribe_channels"
+    );
+    expect(restoredStaffHelpersMigration).toContain("SECURITY DEFINER");
+    expect(restoredStaffHelpersMigration).toContain(
+      "tribe_members.role IN ('leader', 'guardian')"
+    );
   });
 
   it("forces RLS and limits write participation to active members", () => {

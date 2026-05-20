@@ -178,7 +178,7 @@ function baseRepositoryRows(input: {
       }];
     }
 
-    if (sqlText.includes('from "tribe_payment_integrations"')) {
+    if (sqlText.includes("tribe_payment_integrations")) {
       return input.paymentIntegration === null
         ? []
         : [
@@ -503,6 +503,21 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(
       execute.mock.calls.some(([sqlText]) =>
         String(sqlText).includes('update "tribe_member_subscriptions"')
+      )
+    ).toBe(true);
+    const membershipAccessUpdates = execute.mock.calls.filter(([sqlText]) =>
+      String(sqlText).includes('update "tribe_members"')
+    );
+
+    expect(membershipAccessUpdates.length).toBeGreaterThan(0);
+    expect(
+      membershipAccessUpdates.every(([sqlText]) =>
+        String(sqlText).includes('"role" =')
+      )
+    ).toBe(true);
+    expect(
+      membershipAccessUpdates.some(([, parameters]) =>
+        parameters.includes("tribemate")
       )
     ).toBe(true);
   });

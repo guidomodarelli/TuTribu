@@ -232,6 +232,41 @@
       "when": 1779192000000,
       "tag": "20260519120000_reenable_rls_on_protected_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1779195600000,
+      "tag": "20260519130000_restore_subscription_admin_memberships",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1779199200000,
+      "tag": "20260519140000_add_visible_membership_tribes_function",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1779202800000,
+      "tag": "20260519150000_restore_staff_management_role_helpers",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1779206400000,
+      "tag": "20260519160000_restore_tribe_invitation_rls_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1779210000000,
+      "tag": "20260519170000_allow_managers_to_read_revoked_invitations",
+      "breakpoints": true
     }
   ]
 }

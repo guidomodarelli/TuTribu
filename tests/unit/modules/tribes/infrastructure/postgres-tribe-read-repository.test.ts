@@ -43,24 +43,17 @@ function createVisibleMembershipTribesDatabase(
     role: string | null;
     slug: string | null;
     tribe_id: string;
-    tribe_row_id: string | null;
   }>
 ) {
   const execute = jest.fn(async () => rows);
   const orderBy = jest.fn(() => ({
     execute,
   }));
-  const where = jest.fn(() => ({
+  const select = jest.fn(() => ({
     orderBy,
   }));
-  const select = jest.fn(() => ({
-    where,
-  }));
-  const leftJoin = jest.fn(() => ({
-    select,
-  }));
   const selectFrom = jest.fn(() => ({
-    leftJoin,
+    select,
   }));
 
   return {
@@ -70,11 +63,9 @@ function createVisibleMembershipTribesDatabase(
       },
     },
     execute,
-    leftJoin,
     orderBy,
     select,
     selectFrom,
-    where,
   };
 }
 
@@ -84,7 +75,6 @@ function createRequestKyselyVisibleMembershipTribesDatabase(
     role: string | null;
     slug: string | null;
     tribe_id: string;
-    tribe_row_id: string | null;
   }>
 ) {
   const query = jest.fn(async () => ({
@@ -362,14 +352,12 @@ describe("PostgresTribeReadRepository", () => {
     const queryBuilder = createVisibleMembershipTribesDatabase([
       {
         tribe_id: "tribe-1",
-        tribe_row_id: "tribe-1",
         name: "Alpha Club",
         role: "leader",
         slug: "alpha-club",
       },
       {
         tribe_id: "tribe-2",
-        tribe_row_id: "tribe-2",
         name: "Beta Club",
         role: "tribemate",
         slug: "beta-club",
@@ -395,14 +383,14 @@ describe("PostgresTribeReadRepository", () => {
       },
     ]);
 
-    expect(queryBuilder.selectFrom).toHaveBeenCalledWith("tribes");
-    expect(queryBuilder.leftJoin).toHaveBeenCalledWith(
-      "tribe_members",
-      expect.any(Function)
-    );
-    expect(queryBuilder.select).toHaveBeenCalledWith(expect.any(Function));
-    expect(queryBuilder.where).toHaveBeenCalledWith(expect.any(Function));
-    expect(queryBuilder.orderBy).toHaveBeenCalledWith("tribes.name", "asc");
+    expect(queryBuilder.selectFrom).toHaveBeenCalledWith(expect.anything());
+    expect(queryBuilder.select).toHaveBeenCalledWith([
+      "tribe_id",
+      "name",
+      "role",
+      "slug",
+    ]);
+    expect(queryBuilder.orderBy).toHaveBeenCalledWith("name", "asc");
     expect(queryBuilder.execute).toHaveBeenCalledTimes(1);
   });
 
@@ -410,14 +398,12 @@ describe("PostgresTribeReadRepository", () => {
     const databaseDouble = createRequestKyselyVisibleMembershipTribesDatabase([
       {
         tribe_id: "tribe-1",
-        tribe_row_id: "tribe-1",
         name: "Alpha Club",
         role: "tribemate",
         slug: "alpha-club",
       },
       {
         tribe_id: "tribe-2",
-        tribe_row_id: "tribe-2",
         name: "Beta Club",
         role: "tribemate",
         slug: "beta-club",
@@ -445,7 +431,7 @@ describe("PostgresTribeReadRepository", () => {
 
     expect(databaseDouble.query).toHaveBeenCalledTimes(1);
     expect(databaseDouble.query.mock.calls[0]?.[0]).toMatch(
-      /case\s+when\s+"tribe_members"\."role"\s+is\s+null\s+then/i
+      /public\.list_visible_membership_tribes/i
     );
   });
 
@@ -453,7 +439,6 @@ describe("PostgresTribeReadRepository", () => {
     const databaseDouble = createRequestKyselyVisibleMembershipTribesDatabase([
       {
         tribe_id: "tribe-1",
-        tribe_row_id: "tribe-1",
         name: "Alpha Club",
         role: "leader",
         slug: "alpha-club",
@@ -475,12 +460,8 @@ describe("PostgresTribeReadRepository", () => {
 
     const sqlText = databaseDouble.query.mock.calls[0]?.[0];
 
-    expect(sqlText).toMatch(
-      /left\s+join\s+"tribe_members".*"tribe_members"\."status"\s+in/i
-    );
-    expect(sqlText).not.toMatch(
-      /case\s+when\s+public\.is_app_owner\(\)\s+then/i
-    );
+    expect(sqlText).toMatch(/public\.list_visible_membership_tribes/i);
+    expect(sqlText).not.toMatch(/left\s+join\s+"tribe_members"/i);
   });
 
   it("lists visible members for a readable tribe", async () => {

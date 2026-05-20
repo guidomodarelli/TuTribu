@@ -41,6 +41,13 @@ type PostgresMembershipAccessWithTribeRow = PostgresMembershipAccessRow & {
   visibility: string | null;
 };
 
+type PostgresVisibleMembershipTribeRow = {
+  name: string | null;
+  role: string | null;
+  slug: string | null;
+  tribe_id: string | null;
+};
+
 const TRIBE_MEMBER_DEFAULTS = {
   fallbackPartCount: 2,
   unknownFallback: "??",
@@ -246,50 +253,19 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
   async listVisibleMembershipTribes(): Promise<MemberTribeListItemResult[]> {
     return this.executeWithDatabase(async (database) => {
       const rows = await database.kysely
-        .selectFrom("tribes")
-        .leftJoin("tribe_members", (join) =>
-          join
-            .onRef("tribe_members.tribe_id", "=", "tribes.id")
-            .on(
-              "tribe_members.user_id",
-              "=",
-              (expressionBuilder) =>
-                expressionBuilder.fn<string>("public.current_app_user_id")
-            )
-            .on("tribe_members.status", "in", [
-              TRIBE_MEMBERSHIP_STATUS.active,
-              TRIBE_MEMBERSHIP_STATUS.muted,
-            ])
+        .selectFrom((expressionBuilder) =>
+          expressionBuilder.fn<PostgresVisibleMembershipTribeRow>(
+            "public.list_visible_membership_tribes"
+          ).as("visible_membership_tribes")
         )
-        .select((expressionBuilder) => [
-          "tribes.id as tribe_id",
-          "tribes.id as tribe_row_id",
-          "tribes.name",
-          "tribes.slug",
-          expressionBuilder
-            .case()
-            .when(expressionBuilder("tribe_members.role", "is", null))
-            .then(TRIBE_MEMBER_ROLE.tribemate)
-            .else(expressionBuilder.ref("tribe_members.role"))
-            .end()
-            .as("role"),
-        ])
-        .where((expressionBuilder) =>
-          expressionBuilder.or([
-            expressionBuilder.fn<boolean>("public.is_app_owner"),
-            expressionBuilder("tribe_members.status", "in", [
-              TRIBE_MEMBERSHIP_STATUS.active,
-              TRIBE_MEMBERSHIP_STATUS.muted,
-            ]),
-          ])
-        )
-        .orderBy("tribes.name", "asc")
+        .select(["tribe_id", "name", "role", "slug"])
+        .orderBy("name", "asc")
         .execute();
 
       return rows.reduce<MemberTribeListItemResult[]>((membershipTribes, row) => {
-        if (row.name && row.slug) {
+        if (row.tribe_id && row.name && row.slug) {
           membershipTribes.push({
-            tribeId: row.tribe_row_id ?? row.tribe_id,
+            tribeId: row.tribe_id,
             name: row.name,
             role: normalizeTribeMemberRole(row.role),
             slug: row.slug,
