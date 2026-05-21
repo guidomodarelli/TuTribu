@@ -452,6 +452,31 @@ describe("TribePage", () => {
     });
   });
 
+  it("redirects unauthenticated Mercado Pago returns to sign-in with the tribe URL as callback", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      reason: "unauthenticated_hidden",
+    });
+
+    await expect(
+      TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-1",
+        }),
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith(
+      "/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
+    );
+    expect(listTribeRound).not.toHaveBeenCalled();
+  });
+
   it("returns 404 and logs blocked hidden access", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",

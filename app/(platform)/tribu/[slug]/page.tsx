@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { SubscriptionReturnStatus } from "@/components/subscriptions/subscription-return-status";
+import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
@@ -95,6 +96,23 @@ function renderSubscriptionReturnStatus() {
   );
 }
 
+function buildSubscriptionReturnSignInRedirect(
+  slug: string,
+  mercadoPagoPreapprovalId: string
+): string {
+  const callbackPath =
+    ROUTES.tribes.bySlug(slug) +
+    "?" +
+    TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId +
+    "=" +
+    encodeURIComponent(mercadoPagoPreapprovalId);
+  const signInSearchParams = new URLSearchParams({
+    [QUERY_PARAMS.auth.callbackUrl]: callbackPath,
+  });
+
+  return ROUTES.auth.signIn + "?" + signInSearchParams.toString();
+}
+
 export async function TribePageContent({
   params,
   searchParams = Promise.resolve({}),
@@ -140,6 +158,15 @@ export async function TribePageContent({
         viewerId: authenticatedMember?.id ?? null,
       },
     });
+
+    if (
+      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.unauthenticatedHidden &&
+      mercadoPagoPreapprovalId
+    ) {
+      redirect(
+        buildSubscriptionReturnSignInRedirect(slug, mercadoPagoPreapprovalId)
+      );
+    }
 
     if (
       accessResult.reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden &&
