@@ -142,7 +142,7 @@ describe("TribeInvitationPage", () => {
     render(await TribeInvitationPage(buildPageProps()));
 
     expect(
-      screen.getByRole("heading", { name: "Bienvenida" })
+      screen.getByRole("heading", { name: "Bienvenido/a" })
     ).toBeInTheDocument();
     expect(
       screen.getByText("Acuerdos de convivencia")
