@@ -19,7 +19,7 @@ const SUBSCRIPTION_PAYMENT_STATUS_COPY = {
   canceledTitle: "Tu suscripción fue cancelada",
   errorFallback: "No pudimos iniciar el pago. Intentá de nuevo.",
   eyebrow: "Suscripción",
-  loadingPayment: "Estamos preparando el pago.",
+  loadingAction: "Un momento, te llevamos al siguiente paso.",
   paymentBlockedDescription:
     "No pudimos confirmar tu pago. Podés volver a pagar con el precio actual.",
   paymentBlockedTitle: "Volvé a activar tu suscripción",
@@ -77,6 +77,7 @@ type TribeSubscriptionPaymentStatusProps = {
 type SubscriptionStartResponse = {
   checkoutUrl?: string;
   message?: string;
+  subscriptionUrl?: string;
 };
 
 function resolveSubscriptionStartErrorMessage(
@@ -105,7 +106,7 @@ export function TribeSubscriptionPaymentStatus({
 
   const handleRetryPayment = async () => {
     setIsStartingPayment(true);
-    setFeedbackMessage(SUBSCRIPTION_PAYMENT_STATUS_COPY.loadingPayment);
+    setFeedbackMessage(SUBSCRIPTION_PAYMENT_STATUS_COPY.loadingAction);
 
     try {
       const response = await fetch(buildStartSubscriptionEndpoint(tribeSlug), {
@@ -117,6 +118,12 @@ export function TribeSubscriptionPaymentStatus({
       });
       const body = (await response.json().catch(() => ({}))) as
         SubscriptionStartResponse;
+
+      if (response.ok && body.subscriptionUrl) {
+        window.location.assign(body.subscriptionUrl);
+
+        return;
+      }
 
       if (!response.ok || !body.checkoutUrl) {
         setFeedbackMessage(resolveSubscriptionStartErrorMessage(body));

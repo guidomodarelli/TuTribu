@@ -529,6 +529,147 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
   });
 
+  it("short-circuits with alreadySubscribed and reconciles membership when the member already has a live provider subscription", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_live_provider_subscription_id: "preapproval-live-1",
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            has_retry_blocking_member_subscription: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const repository = createRepository(execute, {
+      buildMercadoPagoPlanCheckoutUrl,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "new-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "already_subscribed",
+    });
+
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+
+    const contextSql = getSqlText(execute.mock.calls[0]?.[0]);
+    const reconcileSql = getSqlText(execute.mock.calls[1]?.[0]);
+
+    expect(contextSql).toMatch(/existing_live_subscription/);
+    expect(contextSql).toMatch(/tribe_member_subscriptions\.status in \([\s\S]*active/);
+    expect(contextSql).not.toMatch(/existing_live_subscription[\s\S]*grace_period/);
+    expect(contextSql).not.toMatch(/existing_live_subscription[\s\S]*past_due/);
+    expect(contextSql).not.toMatch(/existing_live_subscription[\s\S]*paused/);
+    expect(reconcileSql).toMatch(/update public\.tribe_members/);
+    expect(reconcileSql).toMatch(
+      /mercado_pago_preapproval_id = .*preapproval-live-1/
+    );
+  });
+
+  it("short-circuits direct retries with alreadySubscribed when the member already has a live provider subscription", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_live_provider_subscription_id: "preapproval-live-1",
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: false,
+            has_retry_blocking_member_subscription: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const repository = createRepository(execute, {
+      buildMercadoPagoPlanCheckoutUrl,
+    });
+
+    await expect(
+      repository.retryCurrentPriceSubscriptionPayment({
+        idempotencyKey: "retry-attempt",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "already_subscribed",
+    });
+
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
+      /mercado_pago_preapproval_id = .*preapproval-live-1/
+    );
+  });
+
+  it("keeps conduct_blocked precedence over alreadySubscribed when the member is banned", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          access_token: "access-token",
+          current_price_amount_cents: 1500,
+          current_price_currency: "ARS",
+          current_price_id: "price-1",
+          current_price_name: "Plan mensual",
+          current_price_provider_plan_id: "provider-plan-1",
+          current_user_email: "member@example.com",
+          existing_checkout_url: null,
+          existing_live_provider_subscription_id: "preapproval-live-1",
+          existing_membership_status: "blocked",
+          existing_membership_status_reason: "conduct_blocked",
+          has_active_invitation: true,
+          has_retry_blocking_member_subscription: true,
+          tribe_id: "tribe-1",
+        },
+      ],
+    });
+    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const repository = createRepository(execute, {
+      buildMercadoPagoPlanCheckoutUrl,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "banned-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "conduct_blocked",
+    });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+  });
+
   it("starts direct payment retry for payment-blocked members", async () => {
     const execute = jest
       .fn()

@@ -12,16 +12,24 @@ import {
   listTribeInvitations,
   revokeTribeInvitation,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-invitations-use-cases";
+import {
+  getEditableTribeWelcome,
+  getTribeWelcome,
+  getTribeWelcomeByInvitation,
+  saveTribeWelcome,
+} from "@/src/modules/tribes/application/use-cases/manage-tribe-welcome-use-cases";
 import type { TribeCreationRepository } from "@/src/modules/tribes/domain/repositories/tribe-creation-repository";
 import type { TribeCreatorWhitelistRepository } from "@/src/modules/tribes/domain/repositories/tribe-creator-whitelist-repository";
 import type { TribeInvitationRepository } from "@/src/modules/tribes/domain/repositories/tribe-invitation-repository";
 import type { TribeReadRepository } from "@/src/modules/tribes/domain/repositories/tribe-read-repository";
+import type { TribeWelcomeRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-repository";
 
 type TribesModuleDependencies = {
   tribeReadRepository: TribeReadRepository;
   tribeCreationRepository: TribeCreationRepository;
   tribeCreatorWhitelistRepository: TribeCreatorWhitelistRepository;
   tribeInvitationRepository: TribeInvitationRepository;
+  tribeWelcomeRepository: TribeWelcomeRepository;
 };
 
 export function buildTribesModule({
@@ -29,6 +37,7 @@ export function buildTribesModule({
   tribeCreationRepository,
   tribeCreatorWhitelistRepository,
   tribeInvitationRepository,
+  tribeWelcomeRepository,
 }: TribesModuleDependencies) {
   return {
     useCases: {
@@ -68,6 +77,18 @@ export function buildTribesModule({
       }),
       getTribeInvitationSubscriptionOffer: getTribeInvitationSubscriptionOffer({
         tribeInvitationRepository,
+      }),
+      getEditableTribeWelcome: getEditableTribeWelcome({
+        tribeWelcomeRepository,
+      }),
+      getTribeWelcome: getTribeWelcome({
+        tribeWelcomeRepository,
+      }),
+      getTribeWelcomeByInvitation: getTribeWelcomeByInvitation({
+        tribeWelcomeRepository,
+      }),
+      saveTribeWelcome: saveTribeWelcome({
+        tribeWelcomeRepository,
       }),
     },
   };

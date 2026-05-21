@@ -625,6 +625,36 @@ describe("AppSidebar", () => {
     expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/tribu");
   });
 
+  it("shows the welcome section for every member role inside a tribe", () => {
+    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro/bienvenida");
+
+    render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "member@example.com",
+          name: "Ada Lovelace",
+          role: "tribemate",
+          avatarFallback: "AL",
+          image: null,
+        }}
+        memberTribes={[
+          {
+            tribeId: "tribe-1",
+            name: "Matematica Pro",
+            role: "tribemate",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /bienvenida/i })).toHaveAttribute(
+      "data-active",
+      "true"
+    );
+  });
+
   it("closes the mobile sidebar when a tribe section navigation item is clicked", async () => {
     const user = userEvent.setup();
     const { useSidebar } = jest.requireMock("@/components/ui/sidebar");

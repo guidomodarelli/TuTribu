@@ -6,6 +6,7 @@
 
 import { createHash } from "crypto";
 
+import { ROUTES } from "@/src/constants/routes";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -132,6 +133,11 @@ export async function POST(
     case TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending:
       return Response.json(
         { checkoutUrl: result.checkoutUrl },
+        { status: HTTP_STATUS.ok }
+      );
+    case TRIBE_MEMBER_SUBSCRIPTION_STATUS.alreadySubscribed:
+      return Response.json(
+        { subscriptionUrl: ROUTES.tribes.subscription(slug) },
         { status: HTTP_STATUS.ok }
       );
     case TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked:

@@ -1,0 +1,392 @@
+$tribe-welcome-mobile-max: 1023px;
+$tribe-welcome-row-actions-reserve: 12rem;
+$tribe-welcome-row-actions-gap: 1rem;
+$tribe-welcome-row-actions-offset: 0.5rem;
+$tribe-welcome-touch-target: 2.75rem;
+
+.TribeWelcomeManagement {
+  --tribe-welcome-accent: var(--primary);
+  --tribe-welcome-required: color-mix(in srgb, var(--destructive) 75%, var(--foreground));
+
+  display: grid;
+  gap: 1.5rem;
+  margin: 0 auto;
+  max-width: min(100%, 980px);
+  padding: 0.25rem 0;
+  width: 100%;
+
+  &__header,
+  &__form,
+  &__collection {
+    display: grid;
+    gap: 1rem;
+  }
+
+  &__title,
+  &__description,
+  &__subtitle,
+  &__error {
+    margin: 0;
+  }
+
+  &__title {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+
+  &__description {
+    color: var(--muted-foreground);
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+
+  &__requiredHint {
+    align-items: center;
+    color: var(--muted-foreground);
+    display: inline-flex;
+    font-size: 0.8rem;
+    gap: 0.25rem;
+    margin: 0;
+  }
+
+  &__requiredAsterisk {
+    color: var(--tribe-welcome-required);
+    display: inline-block;
+    font-size: 1em;
+    font-weight: 700;
+    line-height: 1;
+    margin-left: 0.15rem;
+  }
+
+  &__subtitle {
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  &__sectionTitleGroup {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.6rem;
+  }
+
+  &__count {
+    background: color-mix(in srgb, var(--muted) 70%, transparent);
+    border-radius: 999px;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    min-width: 1.5rem;
+    padding: 0.2rem 0.5rem;
+    text-align: center;
+  }
+
+  &__emptyState {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    font-style: italic;
+    margin: 0;
+  }
+
+  &__field {
+    color: var(--foreground);
+    display: grid;
+    font-size: 0.95rem;
+    gap: 0.4rem;
+    min-width: 0;
+
+    &--full {
+      grid-column: 1 / -1;
+    }
+  }
+
+  &__fieldGroup {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  &__textarea {
+    min-height: 5rem;
+    resize: vertical;
+  }
+
+  &__fieldLabel {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.15rem;
+
+    &--required::after {
+      color: var(--tribe-welcome-required);
+      content: "*";
+      font-weight: 700;
+      margin-left: 0.15rem;
+    }
+  }
+
+  &__fieldHelper {
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  &__fieldError {
+    color: var(--destructive);
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
+  &__defaultHint {
+    align-items: center;
+    color: var(--muted-foreground);
+    display: inline-flex;
+    font-size: 0.8rem;
+    gap: 0.5rem;
+    min-height: 1.25rem;
+  }
+
+  &__defaultBadge {
+    background: color-mix(in srgb, var(--muted) 90%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted-foreground);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.1rem 0.55rem;
+    text-transform: uppercase;
+  }
+
+  &__resetButton {
+    background: none;
+    border: 0;
+    border-radius: 4px;
+    color: var(--tribe-welcome-accent);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8rem;
+    padding: 0;
+    text-decoration: underline;
+
+    &:hover {
+      text-decoration: none;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--tribe-welcome-accent);
+      outline-offset: 2px;
+    }
+  }
+
+  &__checkLabel {
+    align-items: center;
+    color: var(--foreground);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 0.95rem;
+    gap: 0.5rem;
+    justify-self: end;
+    min-height: $tribe-welcome-touch-target;
+    min-width: $tribe-welcome-touch-target;
+    padding: 0 0.5rem;
+  }
+
+  &__collectionHeader {
+    align-items: center;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+    padding-top: 1rem;
+  }
+
+  &__row {
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    gap: 0.5rem 0.75rem;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0;
+    padding: 0 0 0.85rem;
+    padding-top: 0.5rem;
+    position: relative;
+
+    &--withHeader {
+      align-items: stretch;
+      grid-template-areas:
+        "label"
+        "field";
+      grid-template-rows: auto auto;
+      padding-right: $tribe-welcome-row-actions-reserve;
+      row-gap: 0.4rem;
+    }
+  }
+
+  &__rowLabel {
+    align-self: end;
+    grid-area: label;
+    justify-self: start;
+    margin: 0;
+  }
+
+  &__rowField {
+    grid-area: field;
+  }
+
+  &__rowActions {
+    align-items: center;
+    display: inline-flex;
+    gap: $tribe-welcome-row-actions-gap;
+    position: absolute;
+    right: $tribe-welcome-row-actions-offset;
+    top: $tribe-welcome-row-actions-offset;
+    z-index: 1;
+  }
+
+  &__removeButton {
+    background: transparent;
+    color: var(--destructive);
+
+    &:hover {
+      background: color-mix(in srgb, var(--destructive) 12%, transparent);
+    }
+  }
+
+  &__row--withHeader &__rowFields {
+    grid-area: field;
+    grid-column: auto;
+  }
+
+  &__legend {
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+
+  &__rowFields {
+    display: grid;
+    gap: 0.75rem;
+    grid-column: 1;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  &__select {
+    background: var(--background);
+    border: 1px solid var(--input);
+    border-radius: var(--radius);
+    color: var(--foreground);
+    max-width: 18rem;
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:focus-visible {
+      border-color: var(--tribe-welcome-accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--tribe-welcome-accent) 30%, transparent);
+      outline: none;
+    }
+  }
+
+  &__error {
+    color: var(--destructive);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  &__submit {
+    justify-self: start;
+  }
+
+  &__preview {
+    background: color-mix(in srgb, var(--muted) 35%, var(--background));
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 4px);
+    display: grid;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    padding: 1.5rem;
+  }
+
+  &__previewEyebrow {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  &__previewSurface {
+    background: var(--background);
+    border-radius: var(--radius);
+    overflow: hidden;
+    padding: 1.25rem;
+  }
+}
+@media (max-width: $tribe-welcome-mobile-max) {
+  .TribeWelcomeManagement {
+    gap: 1.25rem;
+
+    &__title {
+      font-size: clamp(1.35rem, 5vw, 1.75rem);
+    }
+
+    &__collectionHeader {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    &__row {
+      padding-top: 0.75rem;
+      position: static;
+
+      &--withHeader {
+        grid-template-areas:
+          "actions"
+          "label"
+          "field";
+        grid-template-rows: auto auto auto;
+        padding-right: 0;
+        row-gap: 0.5rem;
+      }
+    }
+
+    &__rowActions {
+      grid-area: actions;
+      gap: 0.75rem;
+      justify-content: space-between;
+      position: static;
+      width: 100%;
+    }
+
+    &__rowLabel {
+      align-self: start;
+    }
+
+    &__preview {
+      padding: 1rem;
+    }
+
+    &__previewSurface {
+      padding: 1rem;
+    }
+
+    &__select {
+      max-width: 100%;
+    }
+
+    &__submit {
+      width: 100%;
+    }
+  }
+}

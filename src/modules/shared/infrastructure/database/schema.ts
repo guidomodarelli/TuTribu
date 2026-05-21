@@ -138,6 +138,69 @@ export const tribeInvitations = pgTable("tribe_invitations", {
   ),
 }));
 
+export const tribeWelcomeSettings = pgTable("tribe_welcome_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  welcomeMessage: text("welcome_message").notNull().default("Bienvenido/a a la tribu"),
+  updatedBy: text("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  tribeKey: uniqueIndex("tribe_welcome_settings_tribe_key").on(table.tribeId),
+}));
+
+export const tribeWelcomeRules = pgTable("tribe_welcome_rules", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  tribeSortIndex: index("idx_tribe_welcome_rules_tribe_sort").on(
+    table.tribeId,
+    table.sortOrder
+  ),
+}));
+
+export const tribeWelcomeLinks = pgTable("tribe_welcome_links", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  label: text("label").notNull(),
+  url: text("url"),
+  phoneNumber: text("phone_number"),
+  message: text("message"),
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  tribeSortIndex: index("idx_tribe_welcome_links_tribe_sort").on(
+    table.tribeId,
+    table.sortOrder
+  ),
+}));
+
 export const tribeChannels = pgTable("tribe_channels", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")

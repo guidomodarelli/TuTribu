@@ -4,6 +4,7 @@ const TRIBE_ROUTE_SEGMENTS = {
   history: "historia",
   channels: "canales",
   events: "eventos",
+  welcome: "bienvenida",
   invitations: "invitaciones",
   invitation: "invitar",
   prices: "precios",
@@ -33,6 +34,8 @@ export const ROUTES = {
     create: "/tribu/crear",
     events: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.events),
+    welcome: (slug: string) =>
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.welcome),
     invitations: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.invitations),
     prices: (slug: string) =>

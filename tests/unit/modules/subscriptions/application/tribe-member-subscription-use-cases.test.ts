@@ -56,6 +56,27 @@ describe("tribe member subscription use cases", () => {
     });
   });
 
+  it("forwards alreadySubscribed unchanged when the member already has a live subscription", async () => {
+    const startCurrentPriceSubscription = jest.fn(async () => ({
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.alreadySubscribed,
+    }));
+    const execute = startTribeMemberSubscription({
+      tribeMemberSubscriptionRepository: createRepository({
+        startCurrentPriceSubscription,
+      }),
+    });
+
+    await expect(
+      execute({
+        idempotencyKey: "already-subscribed-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.alreadySubscribed,
+    });
+  });
+
   it("keeps conduct-blocked members out of the paid reentry flow", async () => {
     const startCurrentPriceSubscription = jest.fn(async () => ({
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked,

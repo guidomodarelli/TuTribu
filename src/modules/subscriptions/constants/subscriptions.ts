@@ -91,6 +91,7 @@ export const TRIBE_SUBSCRIPTION_PRICE_STATUS = {
  */
 export const TRIBE_MEMBER_SUBSCRIPTION_STATUS = {
   active: "active",
+  alreadySubscribed: "already_subscribed",
   canceled: "canceled",
   conductBlocked: "conduct_blocked",
   duplicateWebhook: "duplicate_webhook",

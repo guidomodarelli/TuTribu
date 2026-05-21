@@ -152,6 +152,19 @@ describe("tribe subscription start route", () => {
     });
   });
 
+  it("redirects the retry button to the subscription page when the member already has a live subscription", async () => {
+    retryTribeMemberSubscriptionPayment.mockResolvedValue({
+      status: "already_subscribed",
+    });
+
+    const response = await POST(buildRequest({}), buildContext());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      subscriptionUrl: "/tribu/matematica-pro/suscripcion",
+    });
+  });
+
   it("starts a direct payment retry when no invitation token is provided", async () => {
     retryTribeMemberSubscriptionPayment.mockResolvedValue({
       checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
