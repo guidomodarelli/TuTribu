@@ -571,8 +571,14 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(execute).toHaveBeenCalledTimes(2);
     expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
 
+    const contextSql = getSqlText(execute.mock.calls[0]?.[0]);
     const reconcileSql = getSqlText(execute.mock.calls[1]?.[0]);
 
+    expect(contextSql).toMatch(/existing_live_subscription/);
+    expect(contextSql).toMatch(/tribe_member_subscriptions\.status in \([\s\S]*active/);
+    expect(contextSql).not.toMatch(/existing_live_subscription[\s\S]*grace_period/);
+    expect(contextSql).not.toMatch(/existing_live_subscription[\s\S]*past_due/);
+    expect(contextSql).not.toMatch(/existing_live_subscription[\s\S]*paused/);
     expect(reconcileSql).toMatch(/update public\.tribe_members/);
     expect(reconcileSql).toMatch(
       /mercado_pago_preapproval_id = .*preapproval-live-1/

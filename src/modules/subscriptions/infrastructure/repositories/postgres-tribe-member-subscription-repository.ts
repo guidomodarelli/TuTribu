@@ -185,15 +185,11 @@ const CURRENT_MEMBER_SUBSCRIPTION_STATUSES = sql`(
 )`;
 
 /**
- * Statuses that mean the member already has a confirmed provider subscription
- * and should not start a new checkout. Excludes `pending` (handled by
- * existing_pending_checkout) and `payment_blocked` (recoverable through retry).
+ * Statuses that mean the member already has current tribe access through a
+ * confirmed provider subscription and should not start a new checkout.
  */
 const LIVE_PROVIDER_SUBSCRIPTION_STATUSES = sql`(
-  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
-  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod},
-  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pastDue},
-  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused}
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
 )`;
 
 /**
