@@ -36,6 +36,11 @@ const TRIBE_PAGE_QUERY = {
   page: "page",
 } as const;
 
+const SIGN_IN_REDIRECT_URL_TOKEN = {
+  querySeparator: "?",
+  valueSeparator: "=",
+} as const;
+
 const SUBSCRIPTION_RETURN_BLOCKED_REASONS: ReadonlySet<string> = new Set([
   TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked,
   TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive,
@@ -102,15 +107,19 @@ function buildSubscriptionReturnSignInRedirect(
 ): string {
   const callbackPath =
     ROUTES.tribes.bySlug(slug) +
-    "?" +
+    SIGN_IN_REDIRECT_URL_TOKEN.querySeparator +
     TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId +
-    "=" +
+    SIGN_IN_REDIRECT_URL_TOKEN.valueSeparator +
     encodeURIComponent(mercadoPagoPreapprovalId);
   const signInSearchParams = new URLSearchParams({
     [QUERY_PARAMS.auth.callbackUrl]: callbackPath,
   });
 
-  return ROUTES.auth.signIn + "?" + signInSearchParams.toString();
+  return (
+    ROUTES.auth.signIn +
+    SIGN_IN_REDIRECT_URL_TOKEN.querySeparator +
+    signInSearchParams.toString()
+  );
 }
 
 export async function TribePageContent({

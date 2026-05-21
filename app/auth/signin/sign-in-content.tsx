@@ -1,10 +1,14 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google";
+import { OpenInBrowserCta } from "@/components/auth/open-in-browser-cta";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { siteConfig } from "@/lib/site-config";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
+import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
+import { detectInAppBrowser } from "@/src/modules/shared/infrastructure/http/in-app-browser-detection";
 import { createRequestModules } from "@/src/modules/setup";
 import styles from "./page.module.scss";
 
@@ -20,8 +24,20 @@ const AUTH_SIGN_IN_UI = {
   ariaHidden: "true",
 } as const;
 const SIGN_IN_PAGE_COPY = {
+  defaultDescription:
+    "Inicia sesion con tu cuenta de Google para acceder a tu plataforma privada.",
+  defaultTitle: "Continuar con Google",
+  eyebrowAccessPrefix: "Acceso a ",
+  inAppBrowserDescription:
+    "Para iniciar sesión necesitamos abrir TuTribu en tu navegador habitual.",
+  inAppBrowserEyebrow: "Continuar en tu navegador",
+  inAppBrowserTitle: "Casi listo",
   pendingDescription: "Preparando acceso...",
 } as const;
+const SIGN_IN_URL_TOKEN = {
+  querySeparator: "?",
+} as const;
+const USER_AGENT_HEADER = "user-agent";
 
 function resolveSafeCallbackUrl(
   rawCallbackUrl: string | null,
@@ -61,7 +77,19 @@ function readFirstSearchParamValue(
   return null;
 }
 
-function SignInShell({ children }: { children: React.ReactNode }) {
+type SignInShellProps = {
+  children: React.ReactNode;
+  description?: string;
+  eyebrow?: string;
+  title?: string;
+};
+
+function SignInShell({
+  children,
+  description = SIGN_IN_PAGE_COPY.defaultDescription,
+  eyebrow,
+  title = SIGN_IN_PAGE_COPY.defaultTitle,
+}: SignInShellProps) {
   return (
     <main className={styles.SignInPage}>
       <Card className={styles.SignInPage__card}>
@@ -71,12 +99,10 @@ function SignInShell({ children }: { children: React.ReactNode }) {
         />
         <CardHeader className={styles.SignInPage__cardHeader}>
           <p className={styles.SignInPage__eyebrow}>
-            Acceso a {siteConfig.name}
+            {eyebrow ?? SIGN_IN_PAGE_COPY.eyebrowAccessPrefix + siteConfig.name}
           </p>
-          <h1 className={styles.SignInPage__title}>Continuar con Google</h1>
-          <p className={styles.SignInPage__description}>
-            Inicia sesion con tu cuenta de Google para acceder a tu plataforma privada.
-          </p>
+          <h1 className={styles.SignInPage__title}>{title}</h1>
+          <p className={styles.SignInPage__description}>{description}</p>
         </CardHeader>
         <CardContent className={styles.SignInPage__cardContent}>
           {children}
@@ -104,6 +130,37 @@ export function SignInView({ callbackUrl }: { callbackUrl: string }) {
   );
 }
 
+export function OpenInBrowserView({
+  isIos,
+  signInUrl,
+}: {
+  isIos: boolean;
+  signInUrl: string;
+}) {
+  return (
+    <SignInShell
+      description={SIGN_IN_PAGE_COPY.inAppBrowserDescription}
+      eyebrow={SIGN_IN_PAGE_COPY.inAppBrowserEyebrow}
+      title={SIGN_IN_PAGE_COPY.inAppBrowserTitle}
+    >
+      <OpenInBrowserCta isIos={isIos} signInUrl={signInUrl} />
+    </SignInShell>
+  );
+}
+
+function buildAbsoluteSignInUrl(callbackUrl: string): string {
+  const callbackSearchParams = new URLSearchParams({
+    [QUERY_PARAMS.auth.callbackUrl]: callbackUrl,
+  });
+
+  return (
+    resolvePublicAppBaseUrl() +
+    ROUTES.auth.signIn +
+    SIGN_IN_URL_TOKEN.querySeparator +
+    callbackSearchParams.toString()
+  );
+}
+
 export async function SignInContent({
   searchParams = Promise.resolve({}),
 }: {
@@ -126,6 +183,20 @@ export async function SignInContent({
 
   if (authenticatedMember) {
     redirect(callbackUrlForAuthenticatedMember);
+  }
+
+  const requestHeaders = await headers();
+  const inAppBrowser = detectInAppBrowser(
+    requestHeaders.get(USER_AGENT_HEADER)
+  );
+
+  if (inAppBrowser.isInAppBrowser) {
+    return (
+      <OpenInBrowserView
+        isIos={inAppBrowser.isIos}
+        signInUrl={buildAbsoluteSignInUrl(callbackUrlForSignIn)}
+      />
+    );
   }
 
   return <SignInView callbackUrl={callbackUrlForSignIn} />;

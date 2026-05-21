@@ -1,0 +1,57 @@
+.OpenInBrowserCta {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+
+  &__title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
+  }
+
+  &__description {
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+    color: var(--muted-foreground);
+  }
+
+  &__primaryAction {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    height: 2.5rem;
+    padding-inline: 1rem;
+    border-radius: 0.5rem;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: color-mix(in oklch, var(--primary) 80%, transparent);
+    }
+  }
+
+  &__hint {
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    color: var(--muted-foreground);
+  }
+
+  &__url {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border);
+    background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+    color: var(--muted-foreground);
+    word-break: break-all;
+  }
+}

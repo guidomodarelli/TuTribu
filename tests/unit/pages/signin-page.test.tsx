@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import { headers } from "next/headers";
 import { redirect, useRouter } from "next/navigation";
 
 import {
@@ -11,8 +12,17 @@ const getAuthenticatedMember = jest.fn();
 const startGoogleSignInMock = jest.fn();
 const pushMock = jest.fn();
 
+const SAFARI_IOS_USER_AGENT =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
+const MERCADO_PAGO_IOS_WEBVIEW_USER_AGENT =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MercadoPago/12.34.5";
+
 jest.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
   startGoogleSignIn: (...args: unknown[]) => startGoogleSignInMock(...args),
+}));
+
+jest.mock("next/headers", () => ({
+  headers: jest.fn(),
 }));
 
 jest.mock("next/navigation", () => ({
@@ -26,6 +36,12 @@ jest.mock(
     createRequestModules: jest.fn(),
   })
 );
+
+function mockUserAgentHeader(userAgent: string) {
+  (headers as jest.Mock).mockResolvedValue(
+    new Headers({ "user-agent": userAgent })
+  );
+}
 
 type SignInSearchParams = Promise<{
   [key: string]: string | string[] | undefined;
@@ -44,12 +60,16 @@ function createSearchParams(
 }
 
 describe("SignInPage", () => {
+  const originalBetterAuthUrl = process.env.BETTER_AUTH_URL;
+
   beforeEach(() => {
     jest.clearAllMocks();
     getAuthenticatedMember.mockReset();
     startGoogleSignInMock.mockReset();
     pushMock.mockReset();
     startGoogleSignInMock.mockResolvedValue(undefined);
+
+    process.env.BETTER_AUTH_URL = "https://tutribu.example.com";
 
     (createRequestModules as jest.Mock).mockResolvedValue({
       auth: {
@@ -64,6 +84,16 @@ describe("SignInPage", () => {
     (useRouter as jest.Mock).mockReturnValue({
       push: pushMock,
     });
+    mockUserAgentHeader(SAFARI_IOS_USER_AGENT);
+  });
+
+  afterAll(() => {
+    if (originalBetterAuthUrl === undefined) {
+      delete process.env.BETTER_AUTH_URL;
+      return;
+    }
+
+    process.env.BETTER_AUTH_URL = originalBetterAuthUrl;
   });
 
   it("redirects authenticated users to a safe callback path", async () => {
@@ -187,6 +217,49 @@ describe("SignInPage", () => {
       })
     );
 
+    await waitFor(() => {
+      expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
+    });
+  });
+
+  it("renders the open-in-browser CTA when the request comes from the Mercado Pago in-app browser", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+    mockUserAgentHeader(MERCADO_PAGO_IOS_WEBVIEW_USER_AGENT);
+
+    render(
+      await SignInContent({
+        searchParams: createSearchParams(
+          "/tribu/matematica-pro?preapproval_id=preapproval-1"
+        ),
+      })
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Abrí TuTribu en tu navegador" })
+    ).toBeInTheDocument();
+    const openInSafariLink = screen.getByRole("link", {
+      name: "Abrir en Safari",
+    });
+    expect(openInSafariLink).toHaveAttribute(
+      "href",
+      "x-safari-https://tutribu.example.com/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
+    );
+    expect(startGoogleSignInMock).not.toHaveBeenCalled();
+  });
+
+  it("does not switch to the in-app CTA for regular Safari on iOS", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+    mockUserAgentHeader(SAFARI_IOS_USER_AGENT);
+
+    render(
+      await SignInContent({
+        searchParams: createSearchParams(),
+      })
+    );
+
+    expect(
+      screen.queryByRole("heading", { name: "Abrí TuTribu en tu navegador" })
+    ).not.toBeInTheDocument();
     await waitFor(() => {
       expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
     });
