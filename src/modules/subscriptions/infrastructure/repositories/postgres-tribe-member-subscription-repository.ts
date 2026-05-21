@@ -77,6 +77,7 @@ type SubscriptionStartContextRow = {
   current_user_email: string | null;
   existing_checkout_subscription_id: string | null;
   existing_checkout_url: string | null;
+  existing_live_provider_subscription_id: string | null;
   existing_provider_subscription_id: string | null;
   existing_membership_status: string | null;
   existing_membership_status_reason: string | null;
@@ -183,20 +184,46 @@ const CURRENT_MEMBER_SUBSCRIPTION_STATUSES = sql`(
   ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused}
 )`;
 
+/**
+ * Statuses that mean the member already has a confirmed provider subscription
+ * and should not start a new checkout. Excludes `pending` (handled by
+ * existing_pending_checkout) and `payment_blocked` (recoverable through retry).
+ */
+const LIVE_PROVIDER_SUBSCRIPTION_STATUSES = sql`(
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.gracePeriod},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pastDue},
+  ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused}
+)`;
+
+/**
+ * Human-readable operation names recorded in payment lifecycle logs (the
+ * `operation` field). Companion to MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY,
+ * which builds the trace `operation_key` prefix used to correlate retries.
+ */
 const MEMBER_SUBSCRIPTION_PAYMENT_OPERATION = {
   cancelSubscription: "cancel-member-subscription",
   confirmReturn: "confirm-member-subscription-return",
   reconcileSubscription: "reconcile-member-subscription",
   startCheckout: "start-member-subscription-checkout",
+  startCheckoutAlreadyActive: "start-member-subscription-already-active",
   webhook: "mercado-pago-webhook",
 } as const;
 
+/**
+ * Trace `operation_key` prefixes joined with `separator` + identifiers to
+ * correlate retries and outcomes. Values intentionally differ from
+ * MEMBER_SUBSCRIPTION_PAYMENT_OPERATION (notably `startSubscription` uses the
+ * `member-plan-subscription` prefix) to keep the trace key stable across
+ * checkout retries while the human-readable operation name evolves.
+ */
 const MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY = {
   cancelSubscription: "cancel-member-subscription",
   confirmReturn: "confirm-member-subscription-return",
   reconcileSubscription: "reconcile-member-subscription",
   separator: ":",
   startSubscription: "member-plan-subscription",
+  startSubscriptionAlreadyActive: "member-plan-subscription-already-active",
   webhook: "mercado-pago-webhook",
 } as const;
 
@@ -1206,6 +1233,17 @@ export class PostgresTribeMemberSubscriptionRepository
             and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
           order by subscription_idempotency_operations.created_at desc
           limit 1
+        ),
+        existing_live_subscription as (
+          select tribe_member_subscriptions.mercado_pago_preapproval_id as provider_subscription_id
+          from public.tribe_member_subscriptions
+          inner join target_tribe
+            on target_tribe.id = tribe_member_subscriptions.tribe_id
+          where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
+            and tribe_member_subscriptions.status in ${LIVE_PROVIDER_SUBSCRIPTION_STATUSES}
+          order by tribe_member_subscriptions.updated_at desc
+          limit 1
         )
         select
           (select id from target_tribe) as tribe_id,
@@ -1221,6 +1259,7 @@ export class PostgresTribeMemberSubscriptionRepository
           (select subscription_id from existing_pending_checkout) as existing_checkout_subscription_id,
           (select checkout_url from existing_pending_checkout) as existing_checkout_url,
           (select provider_subscription_id from existing_pending_checkout) as existing_provider_subscription_id,
+          (select provider_subscription_id from existing_live_subscription) as existing_live_provider_subscription_id,
           public.current_app_user_email() as current_user_email,
           tribe_payment_integrations.access_token,
           tribe_payment_integrations.refresh_token,
@@ -1339,6 +1378,35 @@ export class PostgresTribeMemberSubscriptionRepository
       });
 
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked };
+    }
+
+    if (context.existing_live_provider_subscription_id) {
+      const alreadyActiveOperationKey = buildMemberSubscriptionOperationKey({
+        operation:
+          MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.startSubscriptionAlreadyActive,
+        providerSubscriptionId: context.existing_live_provider_subscription_id,
+        tribeSlug: input.tribeSlug,
+      });
+
+      await this.reconcileMembershipForExistingLiveSubscription(
+        context.existing_live_provider_subscription_id
+      );
+
+      logMemberSubscriptionPaymentResult({
+        operation:
+          MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckoutAlreadyActive,
+        result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.alreadySubscribed,
+        traceContext: buildMemberSubscriptionPaymentTraceContext({
+          operationKey: alreadyActiveOperationKey,
+          preapprovalId: context.existing_live_provider_subscription_id,
+          priceId: context.current_price_id,
+          providerPlanId: context.current_price_provider_plan_id,
+          requestId: this.requestId,
+          tribeSlug: input.tribeSlug,
+        }),
+      });
+
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.alreadySubscribed };
     }
 
     const existingCheckoutProviderPlanId = context.existing_checkout_url
@@ -1802,6 +1870,17 @@ export class PostgresTribeMemberSubscriptionRepository
 
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed };
     });
+  }
+
+  private async reconcileMembershipForExistingLiveSubscription(
+    providerSubscriptionId: string
+  ): Promise<void> {
+    await this.executeWithDatabase((database) =>
+      this.updateMembershipAccessForProviderSubscription(
+        database,
+        providerSubscriptionId
+      )
+    );
   }
 
   private async updateMembershipAccessForProviderSubscription(

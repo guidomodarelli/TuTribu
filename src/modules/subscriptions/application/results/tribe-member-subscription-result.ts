@@ -13,6 +13,7 @@ export type TribeMemberSubscriptionStartResult =
     }
   | {
       status:
+        | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.alreadySubscribed
         | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked
         | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.invalidInvitation
         | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice

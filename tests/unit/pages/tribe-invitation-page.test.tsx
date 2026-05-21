@@ -302,6 +302,18 @@ describe("TribeInvitationPage", () => {
     );
   });
 
+  it("renders an already-subscribed status with a link back to the tribe", async () => {
+    render(await TribeInvitationPage(buildPagePropsWithStatus("already_subscribed")));
+
+    expect(
+      screen.getByRole("heading", { name: "Ya estás suscripto a esta tribu" })
+    ).toBeInTheDocument();
+    const tribeLink = screen.getByRole("link", { name: "Ir a la tribu" });
+
+    expect(tribeLink).toBeInTheDocument();
+    expect(tribeLink).toHaveAttribute("href", "/tribu/matematica-pro");
+  });
+
   it("renders a safe Spanish message when payment cannot start", async () => {
     render(await TribeInvitationPage(buildPagePropsWithStatus("missing_current_price")));
 
