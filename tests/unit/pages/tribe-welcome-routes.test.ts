@@ -278,6 +278,32 @@ describe("Tribe welcome routes", () => {
     });
   });
 
+  it("rejects WhatsApp links with invalid international phone format", async () => {
+    const response = await PUT(
+      buildRequest({
+        links: [
+          {
+            isActive: true,
+            label: "WhatsApp",
+            phoneNumber: "123",
+            sortOrder: 1,
+            type: TRIBE_WELCOME_LINK_TYPE.whatsappButton,
+          },
+        ],
+        rules: [],
+        welcomeMessage: "Bienvenido/a",
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(400);
+    expect(saveTribeWelcome).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      message:
+        "Ingresá un número válido en formato internacional (ej.: +54 9 11 1234 5678).",
+    });
+  });
+
   it("rejects null welcome collection items before saving", async () => {
     const response = await PUT(
       buildRequest({

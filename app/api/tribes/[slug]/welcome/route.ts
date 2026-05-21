@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { isValidPhoneNumber } from "libphonenumber-js";
 
 import {
   TRIBE_WELCOME_LINK_TYPE,
@@ -28,6 +29,8 @@ const WELCOME_ROUTE_RESPONSE = {
   forbiddenMessage: "Solo el líder puede editar la bienvenida.",
   invalidBodyMessage: "Revisá los campos de la bienvenida antes de guardar.",
   invalidUrlMessage: "Usá una URL válida para guardar ese botón.",
+  invalidWhatsappPhoneMessage:
+    "Ingresá un número válido en formato internacional (ej.: +54 9 11 1234 5678).",
   missingWhatsappPhoneMessage:
     "Completá el teléfono de WhatsApp para guardar ese botón.",
   notFoundMessage: "No pudimos encontrar la tribu.",
@@ -124,6 +127,10 @@ function hasPhoneNumberDigits(value: string | null): boolean {
   return Boolean(value?.replace(PHONE_NUMBER_NON_DIGIT_PATTERN, ""));
 }
 
+function hasValidWhatsappPhoneFormat(value: string | null): boolean {
+  return Boolean(value && isValidPhoneNumber(value));
+}
+
 function isPayloadObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -213,6 +220,10 @@ function validateWelcomePayload(input: {
     if (link.type === TRIBE_WELCOME_LINK_TYPE.whatsappButton) {
       if (!hasPhoneNumberDigits(link.phoneNumber)) {
         return WELCOME_ROUTE_RESPONSE.missingWhatsappPhoneMessage;
+      }
+
+      if (!hasValidWhatsappPhoneFormat(link.phoneNumber)) {
+        return WELCOME_ROUTE_RESPONSE.invalidWhatsappPhoneMessage;
       }
 
       continue;
