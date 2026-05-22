@@ -23,14 +23,14 @@ const TRIBE_TRIBE_PAGE_LOG_REASON = {
     "unexpected_welcome_selections_repository_error",
 } as const;
 
-const TRIBE_INVITE_MANAGER_ROLE = {
+const TRIBE_MANAGER_ROLE = {
   guardian: "guardian",
   leader: "leader",
 } as const;
 
-const TRIBE_INVITE_MANAGER_ROLES = new Set<string>([
-  TRIBE_INVITE_MANAGER_ROLE.guardian,
-  TRIBE_INVITE_MANAGER_ROLE.leader,
+const TRIBE_MANAGER_ROLES = new Set<string>([
+  TRIBE_MANAGER_ROLE.guardian,
+  TRIBE_MANAGER_ROLE.leader,
 ]);
 
 export default async function TribeTribePage({
@@ -114,56 +114,62 @@ export default async function TribeTribePage({
   const viewerMembership = memberTribes.find(
     (tribeListItem) => tribeListItem.slug === tribe.slug
   );
-  const canInviteMembers = viewerMembership
-    ? TRIBE_INVITE_MANAGER_ROLES.has(viewerMembership.role)
+  const isTribeManager = viewerMembership
+    ? TRIBE_MANAGER_ROLES.has(viewerMembership.role)
     : false;
 
-  const activeLinkLabelById = new Map<string, string>();
-  welcome.links
-    .filter((link) => link.isActive)
-    .forEach((link) => {
-      activeLinkLabelById.set(link.id, link.badgeLabel);
+  let filterOptions: { id: string; label: string }[] = [];
+  let selectionsByMemberId: Record<string, TribeMemberSelectionBadge[]> = {};
+
+  if (isTribeManager) {
+    const activeLinkLabelById = new Map<string, string>();
+    welcome.links
+      .filter((link) => link.isActive)
+      .forEach((link) => {
+        activeLinkLabelById.set(link.id, link.badgeLabel);
+      });
+
+    filterOptions = welcome.links
+      .filter((link) => link.isActive)
+      .toSorted((left, right) => left.sortOrder - right.sortOrder)
+      .map((link) => ({ id: link.id, label: link.badgeLabel }));
+
+    const visibleMemberIds = new Set(members.map((member) => member.id));
+    const selectionCountsByMember = new Map<string, Map<string, number>>();
+    selections.forEach((selection) => {
+      if (!visibleMemberIds.has(selection.userId)) {
+        return;
+      }
+
+      if (!activeLinkLabelById.has(selection.welcomeLinkId)) {
+        return;
+      }
+
+      const linkCounts =
+        selectionCountsByMember.get(selection.userId) ??
+        new Map<string, number>();
+      const previousCount = linkCounts.get(selection.welcomeLinkId) ?? 0;
+
+      linkCounts.set(selection.welcomeLinkId, previousCount + 1);
+      selectionCountsByMember.set(selection.userId, linkCounts);
     });
 
-  const filterOptions = welcome.links
-    .filter((link) => link.isActive)
-    .toSorted((left, right) => left.sortOrder - right.sortOrder)
-    .map((link) => ({ id: link.id, label: link.badgeLabel }));
-
-  const visibleMemberIds = new Set(members.map((member) => member.id));
-  const selectionCountsByMember = new Map<string, Map<string, number>>();
-  selections.forEach((selection) => {
-    if (!visibleMemberIds.has(selection.userId)) {
-      return;
-    }
-
-    if (!activeLinkLabelById.has(selection.welcomeLinkId)) {
-      return;
-    }
-
-    const linkCounts =
-      selectionCountsByMember.get(selection.userId) ?? new Map<string, number>();
-    const previousCount = linkCounts.get(selection.welcomeLinkId) ?? 0;
-
-    linkCounts.set(selection.welcomeLinkId, previousCount + 1);
-    selectionCountsByMember.set(selection.userId, linkCounts);
-  });
-
-  const selectionsByMemberId: Record<string, TribeMemberSelectionBadge[]> = {};
-  selectionCountsByMember.forEach((linkCounts, memberId) => {
-    selectionsByMemberId[memberId] = Array.from(linkCounts.entries()).map(
-      ([welcomeLinkId, count]) => ({
-        count,
-        id: welcomeLinkId,
-        label: activeLinkLabelById.get(welcomeLinkId) ?? "",
-      })
-    );
-  });
+    selectionsByMemberId = {};
+    selectionCountsByMember.forEach((linkCounts, memberId) => {
+      selectionsByMemberId[memberId] = Array.from(linkCounts.entries()).map(
+        ([welcomeLinkId, count]) => ({
+          count,
+          id: welcomeLinkId,
+          label: activeLinkLabelById.get(welcomeLinkId) ?? "",
+        })
+      );
+    });
+  }
 
   return (
     <main className={styles.TribeTribePage}>
       <TribeMemberDirectory
-        canInviteMembers={canInviteMembers}
+        canInviteMembers={isTribeManager}
         filterOptions={filterOptions}
         members={members}
         selectionsByMemberId={selectionsByMemberId}
