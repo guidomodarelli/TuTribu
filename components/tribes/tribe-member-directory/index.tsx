@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import {
   TribeMemberList,
   type TribeMemberSelectionBadge,
 } from "@/components/tribes/tribe-member-list";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
 import styles from "./styles.module.scss";
 
@@ -17,9 +18,13 @@ const TRIBE_MEMBER_DIRECTORY_COPY = {
   headingId: "tribe-member-directory-title",
   inviteCtaLabel: "Invitar miembro",
   pendingFilterLabel: "Sin elegir",
+  searchLabel: "Buscar miembro",
+  searchPlaceholder: "Buscar por nombre o email",
   subtitle: "Personas que forman parte de esta tribu.",
   title: "Miembros",
 } as const;
+
+const SEARCH_INPUT_TYPE = "search";
 
 const FILTER_ID = {
   all: "all",
@@ -99,6 +104,24 @@ function filterMembers(
   );
 }
 
+function searchMembers(
+  members: TribeMemberResult[],
+  query: string
+): TribeMemberResult[] {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (normalizedQuery.length === 0) {
+    return members;
+  }
+
+  return members.filter((member) => {
+    const nameMatch = member.name.toLowerCase().includes(normalizedQuery);
+    const emailMatch = member.email.toLowerCase().includes(normalizedQuery);
+
+    return nameMatch || emailMatch;
+  });
+}
+
 export function TribeMemberDirectory({
   canInviteMembers,
   filterOptions,
@@ -107,6 +130,8 @@ export function TribeMemberDirectory({
   tribeSlug,
 }: TribeMemberDirectoryProps) {
   const [activeFilterId, setActiveFilterId] = useState<string>(FILTER_ID.all);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const searchInputId = useId();
   const availableFilters = useMemo<TribeMemberFilterOption[]>(
     () => [
       { id: FILTER_ID.all, label: TRIBE_MEMBER_DIRECTORY_COPY.allFilterLabel },
@@ -118,10 +143,15 @@ export function TribeMemberDirectory({
     ],
     [filterOptions]
   );
-  const filteredMembers = useMemo(
-    () => filterMembers(members, selectionsByMemberId, activeFilterId),
-    [activeFilterId, members, selectionsByMemberId]
-  );
+  const filteredMembers = useMemo(() => {
+    const matchingSearchMembers = searchMembers(members, searchQuery);
+
+    return filterMembers(
+      matchingSearchMembers,
+      selectionsByMemberId,
+      activeFilterId
+    );
+  }, [activeFilterId, members, searchQuery, selectionsByMemberId]);
   const showFilters = filterOptions.length > 0;
   const invitationsHref = `${INVITATIONS_PATH_PREFIX}${tribeSlug}${INVITATIONS_PATH_SUFFIX}`;
 
@@ -154,6 +184,16 @@ export function TribeMemberDirectory({
           </Button>
         ) : null}
       </header>
+
+      <Input
+        aria-label={TRIBE_MEMBER_DIRECTORY_COPY.searchLabel}
+        className={styles.TribeMemberDirectory__searchInput}
+        id={searchInputId}
+        onChange={(event) => setSearchQuery(event.target.value)}
+        placeholder={TRIBE_MEMBER_DIRECTORY_COPY.searchPlaceholder}
+        type={SEARCH_INPUT_TYPE}
+        value={searchQuery}
+      />
 
       {showFilters ? (
         <ul

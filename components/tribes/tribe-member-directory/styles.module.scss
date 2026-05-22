@@ -35,6 +35,11 @@
     flex: 0 0 auto;
   }
 
+  &__searchInput {
+    width: 100%;
+    max-width: 24rem;
+  }
+
   &__filterList {
     display: flex;
     flex-wrap: wrap;

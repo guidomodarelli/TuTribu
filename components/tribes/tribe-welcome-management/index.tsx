@@ -32,8 +32,10 @@ const TRIBE_WELCOME_MANAGEMENT_COPY = {
   badgeLabelCharCount: "caracteres",
   badgeLabelHelper: (current: number, max: number) =>
     `${current}${BADGE_LABEL_COUNTER_SEPARATOR}${max}`,
+  badgeLabelHint:
+    "Aparece como chip junto a cada miembro que lo elige. Usá un texto breve y claro, en oraciones.",
   badgeLabelLabel: "Texto del badge",
-  badgeLabelPlaceholder: "Ej.: IOL — cambio asesor",
+  badgeLabelPlaceholder: "Ej.: Cambiar asesor",
   linkDescriptionLabel: "Descripción",
   linkDescriptionPlaceholder: "Ej.: Para cambiar tu asesor en IOL",
   defaultBadge: "Predeterminado",
@@ -1116,6 +1118,13 @@ export function TribeWelcomeManagement({
                           value={link.badgeLabel}
                         />
                       </label>
+                      <span
+                        className={
+                          styles.TribeWelcomeManagement__fieldHelper
+                        }
+                      >
+                        {TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelHint}
+                      </span>
                       {showBadgeLabelError ? (
                         <span
                           className={
