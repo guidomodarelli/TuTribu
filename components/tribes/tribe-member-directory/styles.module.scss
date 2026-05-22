@@ -1,7 +1,39 @@
 .TribeMemberDirectory {
   display: grid;
-  gap: clamp(1rem, 2.5vw, 1.5rem);
+  gap: 1.5rem;
   width: min(100%, 42rem);
+
+  &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  &__headingGroup {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  &__title {
+    margin: 0;
+    color: var(--foreground);
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    line-height: 1.1;
+  }
+
+  &__subtitle {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  &__inviteCta {
+    flex: 0 0 auto;
+  }
 
   &__filterList {
     display: flex;
@@ -18,5 +50,9 @@
 
   &__filterButton {
     border-radius: 999rem;
+
+    &--empty {
+      opacity: 0.5;
+    }
   }
 }

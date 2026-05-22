@@ -6,6 +6,7 @@ import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 import styles from "./page.module.scss";
 
 const TRIBE_TRIBE_PAGE = {
+  resolveMemberTribesFailureMessage: "Failed to resolve viewer tribe role",
   resolveMembersFailureMessage: "Failed to resolve tribe members",
   resolveWelcomeFailureMessage: "Failed to resolve tribe welcome",
   resolveWelcomeSelectionsFailureMessage:
@@ -14,11 +15,23 @@ const TRIBE_TRIBE_PAGE = {
 } as const;
 
 const TRIBE_TRIBE_PAGE_LOG_REASON = {
+  unexpectedMemberTribesRepositoryError:
+    "unexpected_member_tribes_repository_error",
   unexpectedMembersRepositoryError: "unexpected_members_repository_error",
   unexpectedWelcomeRepositoryError: "unexpected_welcome_repository_error",
   unexpectedWelcomeSelectionsRepositoryError:
     "unexpected_welcome_selections_repository_error",
 } as const;
+
+const TRIBE_INVITE_MANAGER_ROLE = {
+  guardian: "guardian",
+  leader: "leader",
+} as const;
+
+const TRIBE_INVITE_MANAGER_ROLES = new Set<string>([
+  TRIBE_INVITE_MANAGER_ROLE.guardian,
+  TRIBE_INVITE_MANAGER_ROLE.leader,
+]);
 
 export default async function TribeTribePage({
   params,
@@ -34,7 +47,7 @@ export default async function TribeTribePage({
       slug,
     });
 
-  const [members, welcome, selections] = await Promise.all([
+  const [members, welcome, selections, memberTribes] = await Promise.all([
     modules.tribes.useCases
       .listVisibleTribeMembers({ tribeSlug: tribe.slug })
       .catch((error: unknown) => {
@@ -82,7 +95,28 @@ export default async function TribeTribePage({
 
         return [];
       }),
+    modules.tribes.useCases.getMemberTribes().catch((error: unknown) => {
+      logger.error({
+        error,
+        message: TRIBE_TRIBE_PAGE.resolveMemberTribesFailureMessage,
+        metadata: {
+          reason:
+            TRIBE_TRIBE_PAGE_LOG_REASON.unexpectedMemberTribesRepositoryError,
+          slug,
+          viewerId: authenticatedMember.id,
+        },
+      });
+
+      return [];
+    }),
   ]);
+
+  const viewerMembership = memberTribes.find(
+    (tribeListItem) => tribeListItem.slug === tribe.slug
+  );
+  const canInviteMembers = viewerMembership
+    ? TRIBE_INVITE_MANAGER_ROLES.has(viewerMembership.role)
+    : false;
 
   const activeLinkLabelById = new Map<string, string>();
   welcome.links
@@ -129,9 +163,11 @@ export default async function TribeTribePage({
   return (
     <main className={styles.TribeTribePage}>
       <TribeMemberDirectory
+        canInviteMembers={canInviteMembers}
         filterOptions={filterOptions}
         members={members}
         selectionsByMemberId={selectionsByMemberId}
+        tribeSlug={tribe.slug}
       />
     </main>
   );

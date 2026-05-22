@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import {
@@ -13,7 +14,11 @@ import styles from "./styles.module.scss";
 const TRIBE_MEMBER_DIRECTORY_COPY = {
   allFilterLabel: "Todos",
   filterListLabel: "Filtrar miembros por elección",
+  headingId: "tribe-member-directory-title",
+  inviteCtaLabel: "Invitar miembro",
   pendingFilterLabel: "Sin elegir",
+  subtitle: "Personas que forman parte de esta tribu.",
+  title: "Miembros",
 } as const;
 
 const FILTER_ID = {
@@ -21,12 +26,21 @@ const FILTER_ID = {
   pending: "pending",
 } as const;
 
+const BUTTON_SIZE = {
+  small: "sm",
+} as const;
+
 const FILTER_BUTTON = {
   activeVariant: "default",
   buttonType: "button",
   inactiveVariant: "outline",
-  size: "sm",
+  size: BUTTON_SIZE.small,
 } as const;
+
+const EMPTY_FILTER_COUNT = 0;
+
+const INVITATIONS_PATH_PREFIX = "/tribu/";
+const INVITATIONS_PATH_SUFFIX = "/invitaciones";
 
 type TribeMemberFilterOption = {
   id: string;
@@ -34,9 +48,11 @@ type TribeMemberFilterOption = {
 };
 
 type TribeMemberDirectoryProps = {
+  canInviteMembers: boolean;
   filterOptions: TribeMemberFilterOption[];
   members: TribeMemberResult[];
   selectionsByMemberId: Record<string, TribeMemberSelectionBadge[]>;
+  tribeSlug: string;
 };
 
 function countMembersForFilter(
@@ -84,9 +100,11 @@ function filterMembers(
 }
 
 export function TribeMemberDirectory({
+  canInviteMembers,
   filterOptions,
   members,
   selectionsByMemberId,
+  tribeSlug,
 }: TribeMemberDirectoryProps) {
   const [activeFilterId, setActiveFilterId] = useState<string>(FILTER_ID.all);
   const availableFilters = useMemo<TribeMemberFilterOption[]>(
@@ -105,9 +123,38 @@ export function TribeMemberDirectory({
     [activeFilterId, members, selectionsByMemberId]
   );
   const showFilters = filterOptions.length > 0;
+  const invitationsHref = `${INVITATIONS_PATH_PREFIX}${tribeSlug}${INVITATIONS_PATH_SUFFIX}`;
 
   return (
-    <div className={styles.TribeMemberDirectory}>
+    <section
+      aria-labelledby={TRIBE_MEMBER_DIRECTORY_COPY.headingId}
+      className={styles.TribeMemberDirectory}
+    >
+      <header className={styles.TribeMemberDirectory__header}>
+        <div className={styles.TribeMemberDirectory__headingGroup}>
+          <h1
+            className={styles.TribeMemberDirectory__title}
+            id={TRIBE_MEMBER_DIRECTORY_COPY.headingId}
+          >
+            {TRIBE_MEMBER_DIRECTORY_COPY.title}
+          </h1>
+          <p className={styles.TribeMemberDirectory__subtitle}>
+            {TRIBE_MEMBER_DIRECTORY_COPY.subtitle}
+          </p>
+        </div>
+        {canInviteMembers ? (
+          <Button
+            asChild
+            className={styles.TribeMemberDirectory__inviteCta}
+            size={BUTTON_SIZE.small}
+          >
+            <Link href={invitationsHref}>
+              {TRIBE_MEMBER_DIRECTORY_COPY.inviteCtaLabel}
+            </Link>
+          </Button>
+        ) : null}
+      </header>
+
       {showFilters ? (
         <ul
           aria-label={TRIBE_MEMBER_DIRECTORY_COPY.filterListLabel}
@@ -120,6 +167,15 @@ export function TribeMemberDirectory({
               selectionsByMemberId,
               filter.id
             );
+            const isEmptyCount = count === EMPTY_FILTER_COUNT && !isActive;
+            const filterButtonClasses = [
+              styles.TribeMemberDirectory__filterButton,
+              isEmptyCount
+                ? styles["TribeMemberDirectory__filterButton--empty"]
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" ");
 
             return (
               <li
@@ -127,7 +183,7 @@ export function TribeMemberDirectory({
                 key={filter.id}
               >
                 <Button
-                  className={styles.TribeMemberDirectory__filterButton}
+                  className={filterButtonClasses}
                   onClick={() => setActiveFilterId(filter.id)}
                   size={FILTER_BUTTON.size}
                   type={FILTER_BUTTON.buttonType}
@@ -149,6 +205,6 @@ export function TribeMemberDirectory({
         members={filteredMembers}
         selectionsByMemberId={selectionsByMemberId}
       />
-    </div>
+    </section>
   );
 }

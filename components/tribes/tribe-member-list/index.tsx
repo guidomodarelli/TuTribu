@@ -12,7 +12,6 @@ import styles from "./styles.module.scss";
 
 const TRIBE_MEMBER_LIST_COPY = {
   emptyDescription: "Todavía no hay miembros visibles en esta tribu.",
-  heading: "Miembros",
   listLabel: "Lista de miembros",
   roleLabel: {
     guardian: "Guardián",
@@ -21,7 +20,6 @@ const TRIBE_MEMBER_LIST_COPY = {
   selectionCountAriaLabel: (count: number) =>
     `Accedido ${count} ${count === 1 ? "vez" : "veces"}`,
   selectionListLabel: "Opciones elegidas por el miembro",
-  subtitle: "Personas que forman parte de esta tribu.",
 } as const;
 
 const TRIBE_MEMBER_LIST_ROLE = {
@@ -30,7 +28,6 @@ const TRIBE_MEMBER_LIST_ROLE = {
 } as const;
 
 const TRIBE_MEMBER_LIST_ATTRIBUTES = {
-  headingId: "tribe-member-list-title",
   outlineBadgeVariant: "outline",
 } as const;
 
@@ -117,61 +114,43 @@ export function TribeMemberList({
   members,
   selectionsByMemberId,
 }: TribeMemberListProps) {
+  if (members.length === 0) {
+    return (
+      <p className={styles.TribeMemberList__empty}>
+        {TRIBE_MEMBER_LIST_COPY.emptyDescription}
+      </p>
+    );
+  }
+
   return (
-    <section
-      aria-labelledby={TRIBE_MEMBER_LIST_ATTRIBUTES.headingId}
-      className={styles.TribeMemberList}
+    <ul
+      aria-label={TRIBE_MEMBER_LIST_COPY.listLabel}
+      className={styles.TribeMemberList__list}
     >
-      <header className={styles.TribeMemberList__header}>
-        <div className={styles.TribeMemberList__headingGroup}>
-          <h1
-            className={styles.TribeMemberList__title}
-            id={TRIBE_MEMBER_LIST_ATTRIBUTES.headingId}
-          >
-            {TRIBE_MEMBER_LIST_COPY.heading}
-          </h1>
-          <p className={styles.TribeMemberList__subtitle}>
-            {TRIBE_MEMBER_LIST_COPY.subtitle}
-          </p>
-        </div>
-      </header>
+      {members.map((member) => {
+        const memberSelections = selectionsByMemberId?.[member.id] ?? [];
 
-      {members.length === 0 ? (
-        <p className={styles.TribeMemberList__empty}>
-          {TRIBE_MEMBER_LIST_COPY.emptyDescription}
-        </p>
-      ) : (
-        <ul
-          aria-label={TRIBE_MEMBER_LIST_COPY.listLabel}
-          className={styles.TribeMemberList__list}
-        >
-          {members.map((member) => {
-            const memberSelections =
-              selectionsByMemberId?.[member.id] ?? [];
-
-            return (
-              <li className={styles.TribeMemberList__item} key={member.id}>
-                <Avatar className={styles.TribeMemberList__avatar}>
-                  {member.image ? (
-                    <AvatarImage alt={member.name} src={member.image} />
-                  ) : null}
-                  <AvatarFallback>{member.avatarFallback}</AvatarFallback>
-                </Avatar>
-                <div className={styles.TribeMemberList__identity}>
-                  <div className={styles.TribeMemberList__memberDetails}>
-                    <p className={styles.TribeMemberList__name}>{member.name}</p>
-                    <p className={styles.TribeMemberList__email}>{member.email}</p>
-                  </div>
-                  <div className={styles.TribeMemberList__badges}>
-                    <TribeMemberRoleBadge role={member.role} />
-                    <TribeMemberSelectionBadges selections={memberSelections} />
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
+        return (
+          <li className={styles.TribeMemberList__item} key={member.id}>
+            <Avatar className={styles.TribeMemberList__avatar}>
+              {member.image ? (
+                <AvatarImage alt={member.name} src={member.image} />
+              ) : null}
+              <AvatarFallback>{member.avatarFallback}</AvatarFallback>
+            </Avatar>
+            <div className={styles.TribeMemberList__identity}>
+              <div className={styles.TribeMemberList__memberDetails}>
+                <p className={styles.TribeMemberList__name}>{member.name}</p>
+                <p className={styles.TribeMemberList__email}>{member.email}</p>
+              </div>
+              <div className={styles.TribeMemberList__badges}>
+                <TribeMemberRoleBadge role={member.role} />
+                <TribeMemberSelectionBadges selections={memberSelections} />
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
