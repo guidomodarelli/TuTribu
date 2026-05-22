@@ -594,14 +594,21 @@ function buildPriceExternalReference(priceId: string): string {
   return `tutribu:price:${priceId}`;
 }
 
+const MERCADO_PAGO_BACK_URL_ENV = "MERCADO_PAGO_BACK_URL";
+
 /**
  * Builds the successful return URL stored in Mercado Pago plans.
+ * Uses MERCADO_PAGO_BACK_URL when set (required in local dev with a tunnel URL),
+ * otherwise falls back to the public app base URL (works in production).
  *
  * @param tribeSlug - Current tribe slug.
  * @returns Public tribe URL used as Mercado Pago back URL.
  */
 function buildProviderPlanBackUrl(tribeSlug: string): string {
-  return resolvePublicAppBaseUrl() + ROUTES.tribes.bySlug(tribeSlug);
+  const override = process.env[MERCADO_PAGO_BACK_URL_ENV]?.trim();
+  const baseUrl = override || resolvePublicAppBaseUrl();
+
+  return baseUrl.replace(/\/$/, "") + ROUTES.tribes.bySlug(tribeSlug);
 }
 
 /**

@@ -31,6 +31,7 @@ type PostgresTribeRow = {
 };
 
 type PostgresMembershipTribeRow = {
+  membership_status: "active" | "muted";
   tribe_id: string;
   role: "guardian" | "tribemate" | "leader";
   tribes: {
@@ -252,6 +253,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         select
+          tribe_members.status as membership_status,
           tribe_members.tribe_id,
           tribe_members.role,
           tribes.id as tribe_row_id,
@@ -278,6 +280,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
         if (row.name && row.slug) {
           membershipTribes.push({
             tribeId: row.tribe_row_id ?? row.tribe_id,
+            membershipStatus: row.membership_status,
             name: row.name,
             role: row.role,
             slug: row.slug,

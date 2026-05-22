@@ -11,6 +11,9 @@ const getCurrentTribeMembershipStatus = jest.fn();
 const getMemberTribes = jest.fn();
 const getTribeWelcome = jest.fn();
 const getEditableTribeWelcome = jest.fn();
+const listTribeWelcomeSelections = jest.fn();
+const listCurrentMemberTribeWelcomeSelections = jest.fn();
+const mockLoggerError = jest.fn();
 
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(),
@@ -22,9 +25,11 @@ jest.mock("next/headers", () => ({
 
 jest.mock("@/components/tribes/tribe-welcome-management", () => ({
   TribeWelcomeManagement: ({
+    canRecordSelections,
     canEdit,
     welcome,
   }: {
+    canRecordSelections: boolean;
     canEdit: boolean;
     welcome: { welcomeMessage: string };
   }) => (
@@ -32,7 +37,27 @@ jest.mock("@/components/tribes/tribe-welcome-management", () => ({
       <h1>Bienvenida</h1>
       <p>{welcome.welcomeMessage}</p>
       <p>{canEdit ? "Modo edición" : "Solo lectura"}</p>
+      <p>{canRecordSelections ? "Registra selecciones" : "No registra selecciones"}</p>
     </section>
+  ),
+}));
+
+jest.mock("@/components/tribes/tribe-welcome-selection-modal", () => ({
+  TribeWelcomeSelectionModal: ({
+    links,
+    open,
+  }: {
+    links: Array<{ id: string; label: string }>;
+    open: boolean;
+  }) => (
+    <div>
+      <p>{open ? "Modal abierta" : "Modal cerrada"}</p>
+      <ul>
+        {links.map((link) => (
+          <li key={link.id}>{link.label}</li>
+        ))}
+      </ul>
+    </div>
   ),
 }));
 
@@ -44,7 +69,7 @@ jest.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
     createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
+      error: mockLoggerError,
       info: jest.fn(),
     })),
   })
@@ -82,6 +107,8 @@ describe("TribeWelcomePage", () => {
     getTribeWelcome.mockResolvedValue({
       links: [
         {
+          badgeLabel: "Instagram",
+          description: null,
           id: "link-1",
           isActive: true,
           label: "Instagram",
@@ -107,6 +134,8 @@ describe("TribeWelcomePage", () => {
       rules: [],
       welcomeMessage: "Bienvenido/a a Matematica Pro",
     });
+    listTribeWelcomeSelections.mockResolvedValue([]);
+    listCurrentMemberTribeWelcomeSelections.mockResolvedValue([]);
     (headers as jest.Mock).mockResolvedValue(
       new Headers({
         host: "tutribu.example.com",
@@ -133,6 +162,8 @@ describe("TribeWelcomePage", () => {
           getMemberTribes,
           getTribePageAccess,
           getTribeWelcome,
+          listCurrentMemberTribeWelcomeSelections,
+          listTribeWelcomeSelections,
         },
       },
     });
@@ -148,6 +179,25 @@ describe("TribeWelcomePage", () => {
       tribeSlug: "matematica-pro",
     });
     expect(getTribeWelcome).not.toHaveBeenCalled();
+    expect(listCurrentMemberTribeWelcomeSelections).not.toHaveBeenCalled();
+  });
+
+  it("loads only current member welcome selections for the selection modal", async () => {
+    getMemberTribes.mockResolvedValue([
+      {
+        name: "Matematica Pro",
+        role: "tribemate",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
+
+    render(await TribeWelcomePage(buildPageProps()));
+
+    expect(listCurrentMemberTribeWelcomeSelections).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+    expect(listTribeWelcomeSelections).not.toHaveBeenCalled();
   });
 
   it("renders the internal welcome page as read-only for tribemates", async () => {
@@ -167,6 +217,114 @@ describe("TribeWelcomePage", () => {
       tribeSlug: "matematica-pro",
     });
     expect(getEditableTribeWelcome).not.toHaveBeenCalled();
+  });
+
+  it("keeps the selection modal open with every active link even when the viewer already accessed some", async () => {
+    getMemberTribes.mockResolvedValue([
+      {
+        name: "Matematica Pro",
+        role: "tribemate",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
+    getTribeWelcome.mockResolvedValueOnce({
+      links: [
+        {
+          badgeLabel: "Instagram",
+          description: null,
+          id: "link-1",
+          isActive: true,
+          label: "Instagram",
+          message: null,
+          phoneNumber: null,
+          sortOrder: 1,
+          type: TRIBE_WELCOME_LINK_TYPE.customButton,
+          url: "https://instagram.example.com",
+        },
+        {
+          badgeLabel: "WhatsApp",
+          description: null,
+          id: "link-2",
+          isActive: true,
+          label: "WhatsApp",
+          message: null,
+          phoneNumber: "+5491155555555",
+          sortOrder: 2,
+          type: TRIBE_WELCOME_LINK_TYPE.whatsappButton,
+          url: null,
+        },
+      ],
+      rules: [],
+      welcomeMessage: "Bienvenido/a a Matematica Pro",
+    });
+    listCurrentMemberTribeWelcomeSelections.mockResolvedValue([
+      {
+        selectedAt: new Date("2026-05-22T12:00:00.000Z"),
+        userId: "member-1",
+        welcomeLinkId: "link-1",
+      },
+      {
+        selectedAt: new Date("2026-05-22T13:00:00.000Z"),
+        userId: "member-1",
+        welcomeLinkId: "link-1",
+      },
+    ]);
+
+    render(await TribeWelcomePage(buildPageProps()));
+
+    expect(screen.getByText("Modal abierta")).toBeInTheDocument();
+    expect(screen.getByText("Instagram")).toBeInTheDocument();
+    expect(screen.getByText("WhatsApp")).toBeInTheDocument();
+  });
+
+  it("opens the selection modal when previous selections belong to inactive links", async () => {
+    getMemberTribes.mockResolvedValue([
+      {
+        name: "Matematica Pro",
+        role: "tribemate",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
+    listCurrentMemberTribeWelcomeSelections.mockResolvedValue([
+      {
+        selectedAt: new Date("2026-05-22T12:00:00.000Z"),
+        userId: "member-1",
+        welcomeLinkId: "inactive-link",
+      },
+    ]);
+
+    render(await TribeWelcomePage(buildPageProps()));
+
+    expect(screen.getByText("Modal abierta")).toBeInTheDocument();
+  });
+
+  it("keeps the selection modal closed when selection lookup fails", async () => {
+    getMemberTribes.mockResolvedValue([
+      {
+        name: "Matematica Pro",
+        role: "tribemate",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
+    listCurrentMemberTribeWelcomeSelections.mockRejectedValue(
+      new Error("Connection lost")
+    );
+
+    render(await TribeWelcomePage(buildPageProps()));
+
+    expect(screen.getByText("Modal cerrada")).toBeInTheDocument();
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Failed to resolve tribe welcome selections",
+        metadata: expect.objectContaining({
+          slug: "matematica-pro",
+          viewerId: "member-1",
+        }),
+      })
+    );
   });
 
   it("renders muted leaders in read-only mode", async () => {
@@ -204,6 +362,8 @@ describe("TribeWelcomePage", () => {
 
     expect(notFound).not.toHaveBeenCalled();
     expect(screen.getByText("Solo lectura")).toBeInTheDocument();
+    expect(screen.getByText("No registra selecciones")).toBeInTheDocument();
+    expect(screen.getByText("Modal cerrada")).toBeInTheDocument();
     expect(getTribeWelcome).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
     });

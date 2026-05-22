@@ -30,6 +30,8 @@ function normalizeRule(rule: SaveTribeWelcomeCommand["rules"][number]) {
 
 function normalizeLink(link: SaveTribeWelcomeCommand["links"][number]) {
   return {
+    badgeLabel: normalizeText(link.badgeLabel),
+    description: normalizeNullableText(link.description),
     id: normalizeText(link.id),
     isActive: link.isActive,
     label: normalizeText(link.label),

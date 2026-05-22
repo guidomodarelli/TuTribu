@@ -32,6 +32,8 @@ type WelcomeRuleRow = {
 };
 
 type WelcomeLinkRow = {
+  badge_label: string;
+  description: string | null;
   id: string;
   is_active: boolean;
   label: string;
@@ -54,6 +56,8 @@ type SerializedWelcomeRule = {
 };
 
 type SerializedWelcomeLink = {
+  badge_label: string;
+  description: string | null;
   id: string;
   is_active: boolean;
   label: string;
@@ -97,6 +101,8 @@ function mapRule(row: WelcomeRuleRow): TribeWelcomeRule {
 
 function mapLink(row: WelcomeLinkRow): TribeWelcomeLink {
   return {
+    badgeLabel: row.badge_label,
+    description: row.description,
     id: row.id,
     isActive: row.is_active,
     label: row.label,
@@ -129,6 +135,8 @@ function serializeWelcomeLinks(
   return JSON.stringify(
     links.map(
       (link): SerializedWelcomeLink => ({
+        badge_label: link.badgeLabel,
+        description: link.description ?? null,
         id: link.id,
         is_active: link.isActive,
         label: link.label,
@@ -325,10 +333,76 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
           select target_tribe.id
           from target_tribe
           where public.can_manage_tribe_welcome(target_tribe.id)
+        ),
+        submitted_links as (
+          select
+            links.id::uuid as id,
+            links.type,
+            links.label,
+            links.badge_label,
+            links.description,
+            links.url,
+            links.phone_number,
+            links.message,
+            links.sort_order,
+            links.is_active
+          from jsonb_to_recordset(${linksJson}::jsonb) as links(
+            id text,
+            type text,
+            label text,
+            badge_label text,
+            description text,
+            url text,
+            phone_number text,
+            message text,
+            sort_order integer,
+            is_active boolean
+          )
         )
-        delete from public.tribe_welcome_links
-        using editable_tribe
-        where tribe_welcome_links.tribe_id = editable_tribe.id
+        insert into public.tribe_welcome_links (
+          id,
+          tribe_id,
+          type,
+          label,
+          badge_label,
+          description,
+          url,
+          phone_number,
+          message,
+          sort_order,
+          is_active,
+          created_at,
+          updated_at
+        )
+        select
+          submitted_links.id,
+          editable_tribe.id,
+          submitted_links.type,
+          submitted_links.label,
+          submitted_links.badge_label,
+          submitted_links.description,
+          submitted_links.url,
+          submitted_links.phone_number,
+          submitted_links.message,
+          submitted_links.sort_order,
+          submitted_links.is_active,
+          timezone('utc', now()),
+          timezone('utc', now())
+        from editable_tribe,
+          submitted_links
+        on conflict (id) do update
+        set
+          type = excluded.type,
+          label = excluded.label,
+          badge_label = excluded.badge_label,
+          description = excluded.description,
+          url = excluded.url,
+          phone_number = excluded.phone_number,
+          message = excluded.message,
+          sort_order = excluded.sort_order,
+          is_active = excluded.is_active,
+          updated_at = excluded.updated_at
+        where tribe_welcome_links.tribe_id = excluded.tribe_id
       `);
       await database.execute(sql`
         with target_tribe as (
@@ -341,34 +415,10 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
           select target_tribe.id
           from target_tribe
           where public.can_manage_tribe_welcome(target_tribe.id)
-        )
-        insert into public.tribe_welcome_links (
-          id,
-          tribe_id,
-          type,
-          label,
-          url,
-          phone_number,
-          message,
-          sort_order,
-          is_active,
-          created_at,
-          updated_at
-        )
-        select
-          links.id::uuid,
-          editable_tribe.id,
-          links.type,
-          links.label,
-          links.url,
-          links.phone_number,
-          links.message,
-          links.sort_order,
-          links.is_active,
-          timezone('utc', now()),
-          timezone('utc', now())
-        from editable_tribe,
-          jsonb_to_recordset(${linksJson}::jsonb) as links(
+        ),
+        submitted_links as (
+          select links.id::uuid as id
+          from jsonb_to_recordset(${linksJson}::jsonb) as links(
             id text,
             type text,
             label text,
@@ -377,6 +427,15 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
             message text,
             sort_order integer,
             is_active boolean
+          )
+        )
+        delete from public.tribe_welcome_links
+        using editable_tribe
+        where tribe_welcome_links.tribe_id = editable_tribe.id
+          and not exists (
+            select 1
+            from submitted_links
+            where submitted_links.id = tribe_welcome_links.id
           )
       `);
 
@@ -443,6 +502,8 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
           tribe_welcome_links.id,
           tribe_welcome_links.type,
           tribe_welcome_links.label,
+          tribe_welcome_links.badge_label,
+          tribe_welcome_links.description,
           tribe_welcome_links.url,
           tribe_welcome_links.phone_number,
           tribe_welcome_links.message,

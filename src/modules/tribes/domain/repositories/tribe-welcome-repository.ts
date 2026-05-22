@@ -14,6 +14,8 @@ export type TribeWelcomeRule = {
 };
 
 export type TribeWelcomeLink = {
+  badgeLabel: string;
+  description: string | null;
   id: string;
   isActive: boolean;
   label: string;

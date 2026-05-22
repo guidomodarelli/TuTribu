@@ -714,6 +714,40 @@ describe("TribePage", () => {
     ).toBeInTheDocument();
   });
 
+  it("redirects to the welcome page when a member with active access returns from Mercado Pago", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "member@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "visible",
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+
+    await expect(
+      TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-1",
+        }),
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro/bienvenida");
+    expect(listTribeRound).not.toHaveBeenCalled();
+  });
+
   it("redirects active Mercado Pago returns to the tribe welcome page", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",

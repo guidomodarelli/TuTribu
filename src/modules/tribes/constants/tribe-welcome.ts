@@ -10,3 +10,9 @@ export const TRIBE_WELCOME_SAVE_STATUS = {
 } as const;
 
 export const DEFAULT_TRIBE_WELCOME_MESSAGE = "Bienvenido/a a la tribu";
+
+export const TRIBE_WELCOME_SELECTION_STATUS = {
+  forbidden: "forbidden",
+  invalidLink: "invalid_link",
+  recorded: "recorded",
+} as const;

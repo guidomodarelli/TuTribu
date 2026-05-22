@@ -6,6 +6,7 @@ import { PostgresTribeCreatorWhitelistRepository } from "./tribes/infrastructure
 import { PostgresTribeInvitationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-invitation-repository";
 import { PostgresTribeReadRepository } from "./tribes/infrastructure/repositories/postgres-tribe-read-repository";
 import { PostgresTribeWelcomeRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-repository";
+import { PostgresTribeWelcomeSelectionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository";
 import { PostgresMessageRoundRepository } from "./messages/infrastructure/repositories/postgres-message-round-repository";
 import { PostgresTribeChannelRepository } from "./messages/infrastructure/repositories/postgres-tribe-channel-repository";
 import { PostgresMessageMutationRepository } from "./messages/infrastructure/repositories/postgres-message-mutation-repository";
@@ -92,6 +93,8 @@ export async function createRequestModules(
       tribeWelcomeRepository: new PostgresTribeWelcomeRepository(
         executeWithRequestContext
       ),
+      tribeWelcomeSelectionRepository:
+        new PostgresTribeWelcomeSelectionRepository(executeWithRequestContext),
     }),
     messages: buildMessagesModule({
       tribeChannelRepository: new PostgresTribeChannelRepository(

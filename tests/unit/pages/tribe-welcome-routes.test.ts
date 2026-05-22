@@ -68,6 +68,7 @@ describe("Tribe welcome routes", () => {
   const welcome = {
     links: [
       {
+        badgeLabel: "Soporte",
         id: "link-1",
         isActive: true,
         label: "Grupo de soporte",
@@ -201,6 +202,7 @@ describe("Tribe welcome routes", () => {
       buildRequest({
         links: [
           {
+            badgeLabel: "Soporte",
             id: "11111111-1111-4111-8111-111111111111",
             isActive: true,
             label: "Soporte",
@@ -233,6 +235,7 @@ describe("Tribe welcome routes", () => {
       buildRequest({
         links: [
           {
+            badgeLabel: "WhatsApp",
             isActive: true,
             label: "WhatsApp",
             phoneNumber: "",
@@ -253,11 +256,66 @@ describe("Tribe welcome routes", () => {
     });
   });
 
+  it("rejects links without a badge label before saving", async () => {
+    const response = await PUT(
+      buildRequest({
+        links: [
+          {
+            badgeLabel: " ",
+            id: "11111111-1111-4111-8111-111111111111",
+            isActive: true,
+            label: "Soporte",
+            sortOrder: 1,
+            type: TRIBE_WELCOME_LINK_TYPE.customButton,
+            url: "https://soporte.example.com",
+          },
+        ],
+        rules: [],
+        welcomeMessage: "Bienvenido/a",
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(400);
+    expect(saveTribeWelcome).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      message: "Revisá los campos de la bienvenida antes de guardar.",
+    });
+  });
+
+  it("rejects links with badge labels that exceed the database limit", async () => {
+    const response = await PUT(
+      buildRequest({
+        links: [
+          {
+            badgeLabel: "Un badge demasiado largo para guardar",
+            id: "11111111-1111-4111-8111-111111111111",
+            isActive: true,
+            label: "Soporte",
+            sortOrder: 1,
+            type: TRIBE_WELCOME_LINK_TYPE.customButton,
+            url: "https://soporte.example.com",
+          },
+        ],
+        rules: [],
+        welcomeMessage: "Bienvenido/a",
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(400);
+    expect(saveTribeWelcome).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      message: "Revisá los campos de la bienvenida antes de guardar.",
+    });
+  });
+
   it("rejects WhatsApp links without normalized phone digits", async () => {
     const response = await PUT(
       buildRequest({
         links: [
           {
+            badgeLabel: "WhatsApp",
             isActive: true,
             label: "WhatsApp",
             phoneNumber: "sin digitos",
@@ -283,6 +341,7 @@ describe("Tribe welcome routes", () => {
       buildRequest({
         links: [
           {
+            badgeLabel: "WhatsApp",
             isActive: true,
             label: "WhatsApp",
             phoneNumber: "123",
