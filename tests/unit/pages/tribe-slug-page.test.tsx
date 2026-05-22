@@ -714,6 +714,83 @@ describe("TribePage", () => {
     ).toBeInTheDocument();
   });
 
+  it("redirects active Mercado Pago returns to the tribe welcome page", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "blocked@example.com",
+      name: "Blocked User",
+      role: "tribemate",
+      avatarFallback: "BU",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      blockedReason: "subscription_inactive",
+      reason: "blocked_hidden",
+    });
+    resolveTribeMemberSubscriptionReturn.mockResolvedValue({
+      status: "active",
+    });
+    let createModulesCallCount = 0;
+
+    (createRequestModules as jest.Mock).mockImplementation(async () => {
+      createModulesCallCount += 1;
+
+      if (createModulesCallCount === 3) {
+        return {
+          subscriptions: {
+            useCases: {
+              resolveTribeMemberSubscriptionReturn,
+            },
+          },
+        };
+      }
+
+      return {
+        auth: {
+          useCases: {
+            getAuthenticatedMember,
+          },
+        },
+        tribes: {
+          useCases: {
+            getTribePageAccess,
+          },
+        },
+        messages: {
+          useCases: {
+            listTribeRound,
+          },
+        },
+        subscriptions: {
+          useCases: {
+            resolveTribeMemberSubscriptionReturn: undefined,
+            reconcileCurrentTribeMemberSubscription: undefined,
+            validatePendingTribeMemberSubscriptionReturn,
+          },
+        },
+      };
+    });
+
+    await expect(
+      TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-1",
+        }),
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro/bienvenida");
+    expect(resolveTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
+      providerSubscriptionId: "preapproval-1",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
   it("redirects paused Mercado Pago returns to the subscription status page", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",

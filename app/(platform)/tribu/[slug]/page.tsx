@@ -218,7 +218,7 @@ export async function TribePageContent({
           : null;
 
       if (subscriptionReturn?.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.active) {
-        redirect(ROUTES.tribes.bySlug(slug));
+        redirect(ROUTES.tribes.welcome(slug));
       }
 
       if (subscriptionReturn?.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused) {
