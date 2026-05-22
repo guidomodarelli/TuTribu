@@ -1,3 +1,8 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+
 import type {
   TribeWelcomeLinkResult,
   TribeWelcomeResult,
@@ -11,6 +16,8 @@ import styles from "./styles.module.scss";
 const TRIBE_WELCOME_DISPLAY_COPY = {
   agreementsHeading: "Acuerdos de convivencia",
   defaultHeading: "Bienvenido/a",
+  fallbackError:
+    "No pudimos registrar tu elección. Probá de nuevo en unos minutos.",
   linksHeading: "Recursos para empezar",
 } as const;
 
@@ -24,12 +31,29 @@ const WHATSAPP_LINK = {
 const TRIBE_WELCOME_DISPLAY_ATTRIBUTES = {
   agreementsTitleId: "tribe-welcome-agreements-title",
   blankTarget: "_blank",
+  buttonType: "button",
   linksTitleId: "tribe-welcome-links-title",
   noreferrerRel: "noreferrer",
 } as const;
 
+const SELECTION_REQUEST = {
+  apiPrefix: "/api/tribes/",
+  contentTypeHeader: "Content-Type",
+  jsonContentType: "application/json",
+  postMethod: "POST",
+  selectionsSegment: "/welcome/selections",
+} as const;
+
+const SELECTION_WINDOW_OPEN = {
+  blankUrl: "about:blank",
+  target: "_blank",
+} as const;
+
+const PHONE_NUMBER_NON_DIGIT_PATTERN = /\D/g;
+
 type TribeWelcomeDisplayProps = {
   action?: React.ReactNode;
+  tribeSlug?: string;
   welcome: TribeWelcomeResult;
 };
 
@@ -49,7 +73,10 @@ function buildWhatsappUrl(link: TribeWelcomeLinkResult): string | null {
     return null;
   }
 
-  const normalizedPhoneNumber = link.phoneNumber.replace(/\D/g, "");
+  const normalizedPhoneNumber = link.phoneNumber.replace(
+    PHONE_NUMBER_NON_DIGIT_PATTERN,
+    ""
+  );
   const messageQuery = link.message
     ? WHATSAPP_LINK.querySeparator +
       WHATSAPP_LINK.messageQueryName +
@@ -66,12 +93,123 @@ function getLinkHref(link: TribeWelcomeLinkResult): string | null {
     : link.url;
 }
 
+function openDestinationWindow(): Window | null {
+  const openedWindow = window.open(
+    SELECTION_WINDOW_OPEN.blankUrl,
+    SELECTION_WINDOW_OPEN.target
+  );
+
+  if (openedWindow) {
+    openedWindow.opener = null;
+  }
+
+  return openedWindow;
+}
+
 export function TribeWelcomeDisplay({
   action,
+  tribeSlug,
   welcome,
 }: TribeWelcomeDisplayProps) {
   const activeRules = getActiveRules(welcome.rules);
   const activeLinks = getActiveLinks(welcome.links);
+  const [pendingLinkId, setPendingLinkId] = useState<string | null>(null);
+  const pendingSelectionRef = useRef(false);
+
+  const handleSelect = async (
+    link: TribeWelcomeLinkResult,
+    href: string
+  ): Promise<void> => {
+    if (!tribeSlug || pendingSelectionRef.current) {
+      return;
+    }
+
+    const destinationWindow = openDestinationWindow();
+
+    pendingSelectionRef.current = true;
+    setPendingLinkId(link.id);
+
+    try {
+      const response = await fetch(
+        SELECTION_REQUEST.apiPrefix +
+          encodeURIComponent(tribeSlug) +
+          SELECTION_REQUEST.selectionsSegment,
+        {
+          body: JSON.stringify({ welcomeLinkId: link.id }),
+          headers: {
+            [SELECTION_REQUEST.contentTypeHeader]:
+              SELECTION_REQUEST.jsonContentType,
+          },
+          method: SELECTION_REQUEST.postMethod,
+        }
+      );
+
+      if (!response.ok) {
+        const errorPayload = (await response.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+
+        toast.error(
+          errorPayload?.message || TRIBE_WELCOME_DISPLAY_COPY.fallbackError
+        );
+        destinationWindow?.close();
+        return;
+      }
+
+      if (destinationWindow) {
+        destinationWindow.location.href = href;
+      } else {
+        window.location.assign(href);
+      }
+    } catch {
+      destinationWindow?.close();
+      toast.error(TRIBE_WELCOME_DISPLAY_COPY.fallbackError);
+    } finally {
+      pendingSelectionRef.current = false;
+      setPendingLinkId(null);
+    }
+  };
+
+  const renderLinkCard = (link: TribeWelcomeLinkResult, href: string) => {
+    const content = (
+      <>
+        <span className={styles.TribeWelcomeDisplay__linkCardTitle}>
+          {link.label}
+        </span>
+        {link.description ? (
+          <p className={styles.TribeWelcomeDisplay__linkCardDescription}>
+            {link.description}
+          </p>
+        ) : null}
+      </>
+    );
+
+    if (!tribeSlug) {
+      return (
+        <a
+          className={styles.TribeWelcomeDisplay__linkCard}
+          href={href}
+          rel={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.noreferrerRel}
+          target={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.blankTarget}
+        >
+          {content}
+        </a>
+      );
+    }
+
+    return (
+      <button
+        className={styles.TribeWelcomeDisplay__linkCard}
+        disabled={pendingLinkId !== null}
+        onClick={() => {
+          void handleSelect(link, href);
+        }}
+        type={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.buttonType}
+      >
+        {content}
+      </button>
+    );
+  };
 
   return (
     <section className={styles.TribeWelcomeDisplay}>
@@ -131,21 +269,7 @@ export function TribeWelcomeDisplay({
                   className={styles.TribeWelcomeDisplay__linkItem}
                   key={link.id}
                 >
-                  <a
-                    className={styles.TribeWelcomeDisplay__linkCard}
-                    href={href}
-                    rel={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.noreferrerRel}
-                    target={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.blankTarget}
-                  >
-                    <span className={styles.TribeWelcomeDisplay__linkCardTitle}>
-                      {link.label}
-                    </span>
-                    {link.description ? (
-                      <p className={styles.TribeWelcomeDisplay__linkCardDescription}>
-                        {link.description}
-                      </p>
-                    ) : null}
-                  </a>
+                  {renderLinkCard(link, href)}
                 </li>
               ) : null;
             })}

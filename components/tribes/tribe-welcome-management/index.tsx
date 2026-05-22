@@ -469,7 +469,7 @@ export function TribeWelcomeManagement({
     welcomeMessage.trim() === DEFAULT_TRIBE_WELCOME_MESSAGE;
 
   if (!canEdit) {
-    return <TribeWelcomeDisplay welcome={welcome} />;
+    return <TribeWelcomeDisplay tribeSlug={tribeSlug} welcome={welcome} />;
   }
 
   const markUrlValidity = (linkId: string, isValid: boolean) => {
