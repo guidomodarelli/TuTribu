@@ -126,4 +126,41 @@ describe("TribeWelcomeSelectionModal", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(openMock).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps tab navigation trapped inside the open modal", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <>
+        <TribeWelcomeSelectionModal
+          links={buildLinks()}
+          open
+          tribeSlug="matematica-pro"
+        />
+        <button type="button">Acción de fondo</button>
+      </>
+    );
+
+    const closeButton = screen.getByRole("button", { name: "Cerrar" });
+    const optionButton = screen.getByRole("button", { name: "Soporte" });
+    const backgroundButton = screen.getByRole("button", {
+      name: "Acción de fondo",
+    });
+
+    expect(closeButton).toHaveFocus();
+
+    await user.tab();
+
+    expect(optionButton).toHaveFocus();
+
+    await user.tab();
+
+    expect(closeButton).toHaveFocus();
+    expect(backgroundButton).not.toHaveFocus();
+
+    await user.tab({ shift: true });
+
+    expect(optionButton).toHaveFocus();
+    expect(backgroundButton).not.toHaveFocus();
+  });
 });

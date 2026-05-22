@@ -39,6 +39,10 @@ describe("Tribe SQL guardrails", () => {
     "database/migrations/20260511120000_add_removed_subscription_membership_status.sql";
   const tribeWelcomeSelectionsMigrationPath =
     "database/migrations/20260522090000_create_tribe_welcome_selections.sql";
+  const repeatedTribeWelcomeSelectionsMigrationPath =
+    "database/migrations/20260522120000_allow_repeated_tribe_welcome_selections.sql";
+  const databaseSchemaPath =
+    "src/modules/shared/infrastructure/database/schema.ts";
   const drizzleMigrationJournalPath = "database/migrations/meta/_journal.json";
 
   it("enforces single-segment slugs in shared migrations", () => {
@@ -248,6 +252,26 @@ describe("Tribe SQL guardrails", () => {
     expect(recordSelectionPolicy).toContain("tribe_members.status = 'active'");
     expect(recordSelectionPolicy).not.toContain(
       "tribe_members.status IN ('active', 'muted')"
+    );
+  });
+
+  it("keeps repeated welcome selections non-unique in migrations and Drizzle schema", () => {
+    const repeatedTribeWelcomeSelectionsMigration = readWorkspaceFile(
+      repeatedTribeWelcomeSelectionsMigrationPath
+    );
+    const databaseSchema = readWorkspaceFile(databaseSchemaPath);
+
+    expect(repeatedTribeWelcomeSelectionsMigration).toContain(
+      "DROP INDEX IF EXISTS public.tribe_welcome_selections_link_user_key"
+    );
+    expect(repeatedTribeWelcomeSelectionsMigration).toContain(
+      "CREATE INDEX IF NOT EXISTS idx_tribe_welcome_selections_link_user"
+    );
+    expect(databaseSchema).toContain(
+      'index("idx_tribe_welcome_selections_link_user")'
+    );
+    expect(databaseSchema).not.toContain(
+      'uniqueIndex("tribe_welcome_selections_link_user_key")'
     );
   });
 

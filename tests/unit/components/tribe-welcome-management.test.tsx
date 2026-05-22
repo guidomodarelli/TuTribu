@@ -68,6 +68,37 @@ describe("TribeWelcomeManagement", () => {
     expect(screen.queryByRole("button", { name: /guardar/i })).not.toBeInTheDocument();
   });
 
+  it("renders read-only resource links as plain anchors when selections cannot be recorded", () => {
+    render(
+      <TribeWelcomeManagement
+        canEdit={false}
+        canRecordSelections={false}
+        tribeSlug="matematica-pro"
+        welcome={buildWelcome()}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: /Soporte/ })).toHaveAttribute(
+      "href",
+      "https://soporte.example.com"
+    );
+    expect(screen.queryByRole("button", { name: /Soporte/ })).not.toBeInTheDocument();
+  });
+
+  it("renders read-only resource links as recording buttons when selections can be recorded", () => {
+    render(
+      <TribeWelcomeManagement
+        canEdit={false}
+        canRecordSelections
+        tribeSlug="matematica-pro"
+        welcome={buildWelcome()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /Soporte/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Soporte/ })).not.toBeInTheDocument();
+  });
+
   it("saves leader edits with visible feedback", async () => {
     const user = userEvent.setup();
 
@@ -392,7 +423,7 @@ describe("TribeWelcomeManagement", () => {
     const urlInput = screen.getByLabelText("URL");
 
     await user.type(urlInput, "not-a-url");
-    urlInput.blur();
+    await user.tab();
 
     expect(
       await screen.findByText(

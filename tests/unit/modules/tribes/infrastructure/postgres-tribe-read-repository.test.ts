@@ -154,6 +154,7 @@ describe("PostgresTribeReadRepository", () => {
         {
           tribe_id: "tribe-1",
           tribe_row_id: "tribe-1",
+          membership_status: "active",
           name: "Alpha Club",
           role: "leader",
           slug: "alpha-club",
@@ -161,6 +162,7 @@ describe("PostgresTribeReadRepository", () => {
         {
           tribe_id: "tribe-2",
           tribe_row_id: "tribe-2",
+          membership_status: "muted",
           name: "Beta Club",
           role: "tribemate",
           slug: "beta-club",
@@ -177,12 +179,14 @@ describe("PostgresTribeReadRepository", () => {
     await expect(repository.listVisibleMembershipTribes()).resolves.toEqual([
       {
         tribeId: "tribe-1",
+        membershipStatus: "active",
         name: "Alpha Club",
         role: "leader",
         slug: "alpha-club",
       },
       {
         tribeId: "tribe-2",
+        membershipStatus: "muted",
         name: "Beta Club",
         role: "tribemate",
         slug: "beta-club",
@@ -191,6 +195,9 @@ describe("PostgresTribeReadRepository", () => {
 
     expect(execute).toHaveBeenCalledTimes(1);
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("tribe_members.role");
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
+      "tribe_members.status as membership_status"
+    );
   });
 
   it("limits visible membership tribes to the current member", async () => {

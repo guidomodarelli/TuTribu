@@ -48,11 +48,27 @@ const MODAL_BUTTON = {
 
 const MODAL_KEY = {
   escape: "Escape",
+  tab: "Tab",
 } as const;
 
 const MODAL_EVENT = {
   keydown: "keydown",
 } as const;
+
+const MODAL_FOCUSABLE_ELEMENT_SELECTOR = {
+  anchor: "a[href]",
+  button: "button:not(:disabled)",
+  input: "input:not(:disabled)",
+  select: "select:not(:disabled)",
+  tabIndex: '[tabindex]:not([tabindex="-1"])',
+  textarea: "textarea:not(:disabled)",
+} as const;
+
+const MODAL_FOCUSABLE_SELECTOR_SEPARATOR = ", ";
+
+const MODAL_FOCUSABLE_SELECTOR = Object.values(
+  MODAL_FOCUSABLE_ELEMENT_SELECTOR
+).join(MODAL_FOCUSABLE_SELECTOR_SEPARATOR);
 
 const SELECTION_WINDOW_OPEN = {
   blankUrl: "about:blank",
@@ -116,6 +132,12 @@ function openDestinationWindow(): Window | null {
   return openedWindow;
 }
 
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(MODAL_FOCUSABLE_SELECTOR)
+  );
+}
+
 export function TribeWelcomeSelectionModal({
   links,
   onClose,
@@ -128,6 +150,7 @@ export function TribeWelcomeSelectionModal({
   const [isOpen, setIsOpen] = useState(initiallyOpen && hasActiveLinks);
   const [pendingLinkId, setPendingLinkId] = useState<string | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
   const pendingSelectionRef = useRef(false);
 
   const closeModal = useCallback(() => {
@@ -143,6 +166,39 @@ export function TribeWelcomeSelectionModal({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === MODAL_KEY.escape) {
         closeModal();
+        return;
+      }
+
+      if (event.key !== MODAL_KEY.tab || !modalRef.current) {
+        return;
+      }
+
+      const focusableElements = getFocusableElements(modalRef.current);
+      const firstFocusableElement = focusableElements.at(0);
+      const lastFocusableElement = focusableElements.at(-1);
+
+      if (!firstFocusableElement || !lastFocusableElement) {
+        event.preventDefault();
+        return;
+      }
+
+      const activeElement = document.activeElement;
+
+      if (!modalRef.current.contains(activeElement)) {
+        event.preventDefault();
+        firstFocusableElement.focus();
+        return;
+      }
+
+      if (event.shiftKey && activeElement === firstFocusableElement) {
+        event.preventDefault();
+        lastFocusableElement.focus();
+        return;
+      }
+
+      if (!event.shiftKey && activeElement === lastFocusableElement) {
+        event.preventDefault();
+        firstFocusableElement.focus();
       }
     };
 
@@ -233,6 +289,7 @@ export function TribeWelcomeSelectionModal({
           closeModal();
         }
       }}
+      ref={modalRef}
       role={MODAL_ARIA.role}
     >
       <div className={styles.TribeWelcomeSelectionModal__dialog}>

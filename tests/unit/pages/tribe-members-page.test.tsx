@@ -89,6 +89,7 @@ describe("TribeTribePage", () => {
     getMemberTribes.mockReset();
     getMemberTribes.mockResolvedValue([
       {
+        membershipStatus: "active",
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
@@ -255,6 +256,15 @@ describe("TribeTribePage", () => {
         visibility: "private",
       },
     });
+    getMemberTribes.mockResolvedValue([
+      {
+        membershipStatus: "active",
+        name: "Matematica Pro",
+        role: "leader",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
     listVisibleTribeMembers.mockResolvedValue([
       {
         avatarFallback: "GH",
@@ -305,6 +315,15 @@ describe("TribeTribePage", () => {
         visibility: "private",
       },
     });
+    getMemberTribes.mockResolvedValue([
+      {
+        membershipStatus: "active",
+        name: "Matematica Pro",
+        role: "guardian",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
     listVisibleTribeMembers.mockResolvedValue([
       {
         avatarFallback: "GH",
@@ -359,6 +378,7 @@ describe("TribeTribePage", () => {
     });
     getMemberTribes.mockResolvedValue([
       {
+        membershipStatus: "active",
         name: "Matematica Pro",
         role: "leader",
         slug: "matematica-pro",
@@ -442,6 +462,7 @@ describe("TribeTribePage", () => {
     });
     getMemberTribes.mockResolvedValue([
       {
+        membershipStatus: "active",
         name: "Matematica Pro",
         role: "guardian",
         slug: "matematica-pro",
@@ -537,6 +558,7 @@ describe("TribeTribePage", () => {
       });
       getMemberTribes.mockResolvedValue([
         {
+          membershipStatus: "active",
           name: "Matematica Pro",
           role,
           slug: "matematica-pro",
@@ -585,6 +607,7 @@ describe("TribeTribePage", () => {
     });
     getMemberTribes.mockResolvedValue([
       {
+        membershipStatus: "active",
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
@@ -611,6 +634,90 @@ describe("TribeTribePage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("passes canInviteMembers false and hides manager-only filters when the viewer is a muted manager", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      avatarFallback: "GH",
+      email: "leader@example.com",
+      id: "member-1",
+      image: null,
+      name: "Grace Hopper",
+      role: "tribemate",
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "visible",
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+    getMemberTribes.mockResolvedValue([
+      {
+        membershipStatus: "muted",
+        name: "Matematica Pro",
+        role: "guardian",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
+    listVisibleTribeMembers.mockResolvedValue([
+      {
+        avatarFallback: "CM",
+        email: "cami@example.com",
+        id: "member-2",
+        image: null,
+        name: "Camila Morales",
+        role: "tribemate",
+      },
+    ]);
+    getTribeWelcome.mockResolvedValue({
+      links: [
+        {
+          badgeLabel: "Soporte",
+          id: "link-1",
+          isActive: true,
+          label: "Soporte",
+          message: null,
+          phoneNumber: null,
+          sortOrder: 1,
+          type: "custom_button",
+          url: "https://soporte.example.com",
+        },
+      ],
+      rules: [],
+      welcomeMessage: "Bienvenido/a",
+    });
+    listTribeWelcomeSelections.mockResolvedValue([
+      {
+        selectedAt: new Date("2026-05-22T12:00:00.000Z"),
+        userId: "member-2",
+        welcomeLinkId: "link-1",
+      },
+    ]);
+
+    render(
+      await TribeTribePage({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      })
+    );
+
+    expect(mockTribeMemberDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        canInviteMembers: false,
+        filterOptions: [],
+        selectionsByMemberId: {},
+      })
+    );
+    expect(getTribeWelcome).not.toHaveBeenCalled();
+    expect(listTribeWelcomeSelections).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("link", { name: "Invitar miembro" })
+    ).not.toBeInTheDocument();
+  });
+
   it("hides selection badges and filter options when the viewer is a tribemate", async () => {
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -631,6 +738,7 @@ describe("TribeTribePage", () => {
     });
     getMemberTribes.mockResolvedValue([
       {
+        membershipStatus: "active",
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
@@ -686,6 +794,8 @@ describe("TribeTribePage", () => {
         selectionsByMemberId: {},
       })
     );
+    expect(getTribeWelcome).not.toHaveBeenCalled();
+    expect(listTribeWelcomeSelections).not.toHaveBeenCalled();
   });
 
   it("passes canInviteMembers false when the viewer has no membership in this tribe", async () => {

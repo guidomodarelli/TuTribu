@@ -5,18 +5,21 @@ describe("getMemberTribes", () => {
     const listVisibleMembershipTribes = jest.fn(async () => [
       {
         tribeId: "tribe-2",
+        membershipStatus: "muted" as const,
         name: "Zeta Club",
         role: "tribemate" as const,
         slug: "zeta-club",
       },
       {
         tribeId: "tribe-1",
+        membershipStatus: "active" as const,
         name: "Alpha Club",
         role: "leader" as const,
         slug: "alpha-club",
       },
       {
         tribeId: "tribe-3",
+        membershipStatus: "active" as const,
         name: "Beta Club",
         role: "guardian" as const,
         slug: "beta-club",
@@ -33,18 +36,21 @@ describe("getMemberTribes", () => {
     await expect(execute()).resolves.toEqual([
       {
         tribeId: "tribe-1",
+        membershipStatus: "active",
         name: "Alpha Club",
         role: "leader",
         slug: "alpha-club",
       },
       {
         tribeId: "tribe-3",
+        membershipStatus: "active",
         name: "Beta Club",
         role: "guardian",
         slug: "beta-club",
       },
       {
         tribeId: "tribe-2",
+        membershipStatus: "muted",
         name: "Zeta Club",
         role: "tribemate",
         slug: "zeta-club",
@@ -56,18 +62,21 @@ describe("getMemberTribes", () => {
     const listVisibleMembershipTribes = jest.fn(async () => [
       {
         tribeId: "tribe-1",
+        membershipStatus: "active" as const,
         name: "Leaders",
         role: "leader" as const,
         slug: "leaders",
       },
       {
         tribeId: "tribe-2",
+        membershipStatus: "muted" as const,
         name: "Guardiáns",
         role: "guardian" as const,
         slug: "guardians",
       },
       {
         tribeId: "tribe-3",
+        membershipStatus: "active" as const,
         name: "Members",
         role: "tribemate" as const,
         slug: "tribemates",
@@ -88,18 +97,21 @@ describe("getMemberTribes", () => {
     const listVisibleMembershipTribes = jest.fn(async () => [
       {
         tribeId: "tribe-1",
+        membershipStatus: "active" as const,
         name: "Alpha Club",
         role: "tribemate" as const,
         slug: "alpha-club",
       },
       {
         tribeId: "tribe-1",
+        membershipStatus: "muted" as const,
         name: "Alpha Club",
         role: "leader" as const,
         slug: "alpha-club",
       },
       {
         tribeId: "tribe-2",
+        membershipStatus: "active" as const,
         name: "Beta Club",
         role: "guardian" as const,
         slug: "beta-club",
@@ -116,12 +128,14 @@ describe("getMemberTribes", () => {
     await expect(execute()).resolves.toEqual([
       {
         tribeId: "tribe-1",
+        membershipStatus: "active",
         name: "Alpha Club",
         role: "tribemate",
         slug: "alpha-club",
       },
       {
         tribeId: "tribe-2",
+        membershipStatus: "active",
         name: "Beta Club",
         role: "guardian",
         slug: "beta-club",

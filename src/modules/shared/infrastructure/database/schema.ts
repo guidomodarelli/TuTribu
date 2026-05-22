@@ -218,7 +218,7 @@ export const tribeWelcomeSelections = pgTable("tribe_welcome_selections", {
     .notNull()
     .default(UTC_NOW_SQL),
 }, (table) => ({
-  linkUserKey: uniqueIndex("tribe_welcome_selections_link_user_key").on(
+  linkUserIndex: index("idx_tribe_welcome_selections_link_user").on(
     table.welcomeLinkId,
     table.userId
   ),

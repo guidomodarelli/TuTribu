@@ -139,6 +139,43 @@ describe("TribeMemberDirectory", () => {
     expect(screen.queryByText("Katherine Johnson")).not.toBeInTheDocument();
   });
 
+  it("falls back to every member when the active filter is no longer available", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <TribeMemberDirectory
+        canInviteMembers={false}
+        filterOptions={[{ id: "link-1", label: "Soporte" }]}
+        members={baseMembers}
+        selectionsByMemberId={{
+          "member-1": [{ count: 1, id: "link-1", label: "Soporte" }],
+        }}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Soporte (1)" }));
+
+    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument();
+
+    rerender(
+      <TribeMemberDirectory
+        canInviteMembers={false}
+        filterOptions={[{ id: "link-2", label: "Mentoría" }]}
+        members={baseMembers}
+        selectionsByMemberId={{
+          "member-2": [{ count: 1, id: "link-2", label: "Mentoría" }],
+        }}
+        tribeSlug="matematica-avanzada"
+      />
+    );
+
+    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
+    expect(screen.getByText("Katherine Johnson")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Todos (3)" })).toBeInTheDocument();
+  });
+
   it("renders the invite CTA only when the viewer can invite", () => {
     const { rerender } = render(
       <TribeMemberDirectory

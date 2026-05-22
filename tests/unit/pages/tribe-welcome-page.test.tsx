@@ -12,6 +12,7 @@ const getMemberTribes = jest.fn();
 const getTribeWelcome = jest.fn();
 const getEditableTribeWelcome = jest.fn();
 const listTribeWelcomeSelections = jest.fn();
+const listCurrentMemberTribeWelcomeSelections = jest.fn();
 const mockLoggerError = jest.fn();
 
 jest.mock("next/navigation", () => ({
@@ -24,9 +25,11 @@ jest.mock("next/headers", () => ({
 
 jest.mock("@/components/tribes/tribe-welcome-management", () => ({
   TribeWelcomeManagement: ({
+    canRecordSelections,
     canEdit,
     welcome,
   }: {
+    canRecordSelections: boolean;
     canEdit: boolean;
     welcome: { welcomeMessage: string };
   }) => (
@@ -34,6 +37,7 @@ jest.mock("@/components/tribes/tribe-welcome-management", () => ({
       <h1>Bienvenida</h1>
       <p>{welcome.welcomeMessage}</p>
       <p>{canEdit ? "Modo edición" : "Solo lectura"}</p>
+      <p>{canRecordSelections ? "Registra selecciones" : "No registra selecciones"}</p>
     </section>
   ),
 }));
@@ -131,6 +135,7 @@ describe("TribeWelcomePage", () => {
       welcomeMessage: "Bienvenido/a a Matematica Pro",
     });
     listTribeWelcomeSelections.mockResolvedValue([]);
+    listCurrentMemberTribeWelcomeSelections.mockResolvedValue([]);
     (headers as jest.Mock).mockResolvedValue(
       new Headers({
         host: "tutribu.example.com",
@@ -157,6 +162,7 @@ describe("TribeWelcomePage", () => {
           getMemberTribes,
           getTribePageAccess,
           getTribeWelcome,
+          listCurrentMemberTribeWelcomeSelections,
           listTribeWelcomeSelections,
         },
       },
@@ -173,6 +179,25 @@ describe("TribeWelcomePage", () => {
       tribeSlug: "matematica-pro",
     });
     expect(getTribeWelcome).not.toHaveBeenCalled();
+    expect(listCurrentMemberTribeWelcomeSelections).not.toHaveBeenCalled();
+  });
+
+  it("loads only current member welcome selections for the selection modal", async () => {
+    getMemberTribes.mockResolvedValue([
+      {
+        name: "Matematica Pro",
+        role: "tribemate",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
+
+    render(await TribeWelcomePage(buildPageProps()));
+
+    expect(listCurrentMemberTribeWelcomeSelections).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+    expect(listTribeWelcomeSelections).not.toHaveBeenCalled();
   });
 
   it("renders the internal welcome page as read-only for tribemates", async () => {
@@ -233,7 +258,7 @@ describe("TribeWelcomePage", () => {
       rules: [],
       welcomeMessage: "Bienvenido/a a Matematica Pro",
     });
-    listTribeWelcomeSelections.mockResolvedValue([
+    listCurrentMemberTribeWelcomeSelections.mockResolvedValue([
       {
         selectedAt: new Date("2026-05-22T12:00:00.000Z"),
         userId: "member-1",
@@ -262,7 +287,7 @@ describe("TribeWelcomePage", () => {
         tribeId: "tribe-1",
       },
     ]);
-    listTribeWelcomeSelections.mockResolvedValue([
+    listCurrentMemberTribeWelcomeSelections.mockResolvedValue([
       {
         selectedAt: new Date("2026-05-22T12:00:00.000Z"),
         userId: "member-1",
@@ -284,7 +309,9 @@ describe("TribeWelcomePage", () => {
         tribeId: "tribe-1",
       },
     ]);
-    listTribeWelcomeSelections.mockRejectedValue(new Error("Connection lost"));
+    listCurrentMemberTribeWelcomeSelections.mockRejectedValue(
+      new Error("Connection lost")
+    );
 
     render(await TribeWelcomePage(buildPageProps()));
 
@@ -335,6 +362,7 @@ describe("TribeWelcomePage", () => {
 
     expect(notFound).not.toHaveBeenCalled();
     expect(screen.getByText("Solo lectura")).toBeInTheDocument();
+    expect(screen.getByText("No registra selecciones")).toBeInTheDocument();
     expect(screen.getByText("Modal cerrada")).toBeInTheDocument();
     expect(getTribeWelcome).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",

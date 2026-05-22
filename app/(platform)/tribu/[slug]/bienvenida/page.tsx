@@ -71,39 +71,38 @@ export default async function TribeWelcomePage({
       });
       notFound();
     });
-  const viewerSelections = await modules.tribes.useCases
-    .listTribeWelcomeSelections({
-      tribeSlug: tribe.slug,
-    })
-    .catch((error: unknown) => {
-      logger.error({
-        error,
-        message: TRIBE_WELCOME_PAGE.resolveWelcomeSelectionsFailureMessage,
-        metadata: {
-          slug,
-          viewerId: authenticatedMember.id,
-        },
-      });
-
-      return null;
-    })
-    .then((selections) =>
-      selections?.filter(
-        (selection) => selection.userId === authenticatedMember.id
-      ) ?? null
-    );
   const hasActiveWelcomeLinks = welcome.links.some((link) => link.isActive);
+  const shouldResolveViewerSelections =
+    canRecordWelcomeSelection && !canEdit && hasActiveWelcomeLinks;
+  const viewerSelections = shouldResolveViewerSelections
+    ? await modules.tribes.useCases
+        .listCurrentMemberTribeWelcomeSelections({
+          tribeSlug: tribe.slug,
+        })
+        .catch((error: unknown) => {
+          logger.error({
+            error,
+            message: TRIBE_WELCOME_PAGE.resolveWelcomeSelectionsFailureMessage,
+            metadata: {
+              slug,
+              viewerId: authenticatedMember.id,
+            },
+          });
+
+          return null;
+        })
+        .then((selections) => selections ?? null)
+    : null;
   const viewerSelectionsAreUnavailable = viewerSelections === null;
   const shouldOpenSelectionModal =
-    canRecordWelcomeSelection &&
-    !canEdit &&
-    hasActiveWelcomeLinks &&
+    shouldResolveViewerSelections &&
     !viewerSelectionsAreUnavailable;
 
   return (
     <main className={styles.TribeWelcomePage}>
       <TribeWelcomeManagement
         canEdit={canEdit}
+        canRecordSelections={canRecordWelcomeSelection}
         tribeSlug={tribe.slug}
         welcome={welcome}
       />

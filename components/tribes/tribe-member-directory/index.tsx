@@ -143,15 +143,22 @@ export function TribeMemberDirectory({
     ],
     [filterOptions]
   );
+  const isActiveFilterAvailable = availableFilters.some(
+    (filter) => filter.id === activeFilterId
+  );
+  const resolvedActiveFilterId = isActiveFilterAvailable
+    ? activeFilterId
+    : FILTER_ID.all;
+
   const filteredMembers = useMemo(() => {
     const matchingSearchMembers = searchMembers(members, searchQuery);
 
     return filterMembers(
       matchingSearchMembers,
       selectionsByMemberId,
-      activeFilterId
+      resolvedActiveFilterId
     );
-  }, [activeFilterId, members, searchQuery, selectionsByMemberId]);
+  }, [members, resolvedActiveFilterId, searchQuery, selectionsByMemberId]);
   const showFilters = filterOptions.length > 0;
   const invitationsHref = `${INVITATIONS_PATH_PREFIX}${tribeSlug}${INVITATIONS_PATH_SUFFIX}`;
 
@@ -201,7 +208,7 @@ export function TribeMemberDirectory({
           className={styles.TribeMemberDirectory__filterList}
         >
           {availableFilters.map((filter) => {
-            const isActive = filter.id === activeFilterId;
+            const isActive = filter.id === resolvedActiveFilterId;
             const count = countMembersForFilter(
               members,
               selectionsByMemberId,

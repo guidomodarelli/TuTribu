@@ -23,6 +23,9 @@ export type ListTribeWelcomeSelectionsQuery = {
 };
 
 export type TribeWelcomeSelectionRepository = {
+  listByTribeSlugForCurrentMember(
+    query: ListTribeWelcomeSelectionsQuery
+  ): Promise<TribeWelcomeSelection[]>;
   listByTribeSlug(
     query: ListTribeWelcomeSelectionsQuery
   ): Promise<TribeWelcomeSelection[]>;

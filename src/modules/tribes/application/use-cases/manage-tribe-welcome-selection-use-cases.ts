@@ -30,3 +30,12 @@ export function listTribeWelcomeSelections({
       tribeSlug: normalizeText(query.tribeSlug),
     });
 }
+
+export function listCurrentMemberTribeWelcomeSelections({
+  tribeWelcomeSelectionRepository,
+}: TribeWelcomeSelectionDependencies) {
+  return async (query: ListTribeWelcomeSelectionsQuery) =>
+    tribeWelcomeSelectionRepository.listByTribeSlugForCurrentMember({
+      tribeSlug: normalizeText(query.tribeSlug),
+    });
+}

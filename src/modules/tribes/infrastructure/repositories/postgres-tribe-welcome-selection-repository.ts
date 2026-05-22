@@ -23,11 +23,6 @@ type SelectionRow = {
   welcome_link_id: string;
 };
 
-const POSTGRES_ERROR_CODE = {
-  undefinedFunction: "42883",
-  undefinedTable: "42P01",
-} as const;
-
 function mapSelection(row: SelectionRow): TribeWelcomeSelection {
   return {
     selectedAt:
@@ -37,27 +32,6 @@ function mapSelection(row: SelectionRow): TribeWelcomeSelection {
     userId: row.user_id,
     welcomeLinkId: row.welcome_link_id,
   };
-}
-
-function isMissingSelectionStorageError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const postgresError = error as { cause?: unknown; code?: string };
-  const causeCode =
-    postgresError.cause &&
-    typeof postgresError.cause === "object" &&
-    "code" in postgresError.cause
-      ? (postgresError.cause as { code?: string }).code
-      : undefined;
-
-  return (
-    postgresError.code === POSTGRES_ERROR_CODE.undefinedTable ||
-    postgresError.code === POSTGRES_ERROR_CODE.undefinedFunction ||
-    causeCode === POSTGRES_ERROR_CODE.undefinedTable ||
-    causeCode === POSTGRES_ERROR_CODE.undefinedFunction
-  );
 }
 
 export class PostgresTribeWelcomeSelectionRepository
@@ -152,12 +126,32 @@ export class PostgresTribeWelcomeSelectionRepository
       `);
 
       return ((result.rows ?? []) as SelectionRow[]).map(mapSelection);
-    }).catch((error: unknown) => {
-      if (isMissingSelectionStorageError(error)) {
-        return [];
-      }
+    });
+  }
 
-      throw error;
+  async listByTribeSlugForCurrentMember({
+    tribeSlug,
+  }: ListTribeWelcomeSelectionsQuery) {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
+          limit 1
+        )
+        select
+          tribe_welcome_selections.user_id,
+          tribe_welcome_selections.welcome_link_id,
+          tribe_welcome_selections.selected_at
+        from public.tribe_welcome_selections
+        inner join target_tribe
+          on target_tribe.id = tribe_welcome_selections.tribe_id
+        where tribe_welcome_selections.user_id = public.current_app_user_id()
+        order by tribe_welcome_selections.selected_at desc
+      `);
+
+      return ((result.rows ?? []) as SelectionRow[]).map(mapSelection);
     });
   }
 }

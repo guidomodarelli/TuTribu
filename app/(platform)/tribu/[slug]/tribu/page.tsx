@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { TribeMemberDirectory } from "@/components/tribes/tribe-member-directory";
 import type { TribeMemberSelectionBadge } from "@/components/tribes/tribe-member-list";
+import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 import styles from "./page.module.scss";
 
@@ -47,55 +48,9 @@ export default async function TribeTribePage({
       slug,
     });
 
-  const [members, welcome, selections, memberTribes] = await Promise.all([
-    modules.tribes.useCases
-      .listVisibleTribeMembers({ tribeSlug: tribe.slug })
-      .catch((error: unknown) => {
-        logger.error({
-          error,
-          message: TRIBE_TRIBE_PAGE.resolveMembersFailureMessage,
-          metadata: {
-            reason:
-              TRIBE_TRIBE_PAGE_LOG_REASON.unexpectedMembersRepositoryError,
-            slug,
-            viewerId: authenticatedMember.id,
-          },
-        });
-        notFound();
-      }),
-    modules.tribes.useCases
-      .getTribeWelcome({ tribeSlug: tribe.slug })
-      .catch((error: unknown) => {
-        logger.error({
-          error,
-          message: TRIBE_TRIBE_PAGE.resolveWelcomeFailureMessage,
-          metadata: {
-            reason:
-              TRIBE_TRIBE_PAGE_LOG_REASON.unexpectedWelcomeRepositoryError,
-            slug,
-            viewerId: authenticatedMember.id,
-          },
-        });
-
-        return { links: [], rules: [], welcomeMessage: "" };
-      }),
-    modules.tribes.useCases
-      .listTribeWelcomeSelections({ tribeSlug: tribe.slug })
-      .catch((error: unknown) => {
-        logger.error({
-          error,
-          message: TRIBE_TRIBE_PAGE.resolveWelcomeSelectionsFailureMessage,
-          metadata: {
-            reason:
-              TRIBE_TRIBE_PAGE_LOG_REASON.unexpectedWelcomeSelectionsRepositoryError,
-            slug,
-            viewerId: authenticatedMember.id,
-          },
-        });
-
-        return [];
-      }),
-    modules.tribes.useCases.getMemberTribes().catch((error: unknown) => {
+  const memberTribes = await modules.tribes.useCases
+    .getMemberTribes()
+    .catch((error: unknown) => {
       logger.error({
         error,
         message: TRIBE_TRIBE_PAGE.resolveMemberTribesFailureMessage,
@@ -108,20 +63,68 @@ export default async function TribeTribePage({
       });
 
       return [];
-    }),
-  ]);
+    });
 
   const viewerMembership = memberTribes.find(
     (tribeListItem) => tribeListItem.slug === tribe.slug
   );
-  const isTribeManager = viewerMembership
-    ? TRIBE_MANAGER_ROLES.has(viewerMembership.role)
+  const canManageTribeMembers = viewerMembership
+    ? viewerMembership.membershipStatus === TRIBE_MEMBERSHIP_STATUS.active &&
+      TRIBE_MANAGER_ROLES.has(viewerMembership.role)
     : false;
+  const members = await modules.tribes.useCases
+    .listVisibleTribeMembers({ tribeSlug: tribe.slug })
+    .catch((error: unknown) => {
+      logger.error({
+        error,
+        message: TRIBE_TRIBE_PAGE.resolveMembersFailureMessage,
+        metadata: {
+          reason: TRIBE_TRIBE_PAGE_LOG_REASON.unexpectedMembersRepositoryError,
+          slug,
+          viewerId: authenticatedMember.id,
+        },
+      });
+      notFound();
+    });
 
   let filterOptions: { id: string; label: string }[] = [];
   let selectionsByMemberId: Record<string, TribeMemberSelectionBadge[]> = {};
 
-  if (isTribeManager) {
+  if (canManageTribeMembers) {
+    const [welcome, selections] = await Promise.all([
+      modules.tribes.useCases
+        .getTribeWelcome({ tribeSlug: tribe.slug })
+        .catch((error: unknown) => {
+          logger.error({
+            error,
+            message: TRIBE_TRIBE_PAGE.resolveWelcomeFailureMessage,
+            metadata: {
+              reason:
+                TRIBE_TRIBE_PAGE_LOG_REASON.unexpectedWelcomeRepositoryError,
+              slug,
+              viewerId: authenticatedMember.id,
+            },
+          });
+
+          return { links: [], rules: [], welcomeMessage: "" };
+        }),
+      modules.tribes.useCases
+        .listTribeWelcomeSelections({ tribeSlug: tribe.slug })
+        .catch((error: unknown) => {
+          logger.error({
+            error,
+            message: TRIBE_TRIBE_PAGE.resolveWelcomeSelectionsFailureMessage,
+            metadata: {
+              reason:
+                TRIBE_TRIBE_PAGE_LOG_REASON.unexpectedWelcomeSelectionsRepositoryError,
+              slug,
+              viewerId: authenticatedMember.id,
+            },
+          });
+
+          return [];
+        }),
+    ]);
     const activeLinkLabelById = new Map<string, string>();
     welcome.links
       .filter((link) => link.isActive)
@@ -169,7 +172,7 @@ export default async function TribeTribePage({
   return (
     <main className={styles.TribeTribePage}>
       <TribeMemberDirectory
-        canInviteMembers={isTribeManager}
+        canInviteMembers={canManageTribeMembers}
         filterOptions={filterOptions}
         members={members}
         selectionsByMemberId={selectionsByMemberId}

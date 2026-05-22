@@ -1,4 +1,5 @@
 import {
+  listCurrentMemberTribeWelcomeSelections,
   listTribeWelcomeSelections,
   recordTribeWelcomeSelection,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-welcome-selection-use-cases";
@@ -9,6 +10,7 @@ function buildRepository(
   overrides: Partial<TribeWelcomeSelectionRepository> = {}
 ): TribeWelcomeSelectionRepository {
   return {
+    listByTribeSlugForCurrentMember: jest.fn(async () => []),
     listByTribeSlug: jest.fn(async () => []),
     record: jest.fn(async () => ({
       status: TRIBE_WELCOME_SELECTION_STATUS.recorded,
@@ -48,5 +50,21 @@ describe("manage tribe welcome selection use cases", () => {
     expect(repository.listByTribeSlug).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
     });
+  });
+
+  it("lists current member selections with a normalized tribe slug", async () => {
+    const repository = buildRepository();
+    const useCase = listCurrentMemberTribeWelcomeSelections({
+      tribeWelcomeSelectionRepository: repository,
+    });
+
+    await useCase({
+      tribeSlug: " matematica-pro ",
+    });
+
+    expect(repository.listByTribeSlugForCurrentMember).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+    expect(repository.listByTribeSlug).not.toHaveBeenCalled();
   });
 });

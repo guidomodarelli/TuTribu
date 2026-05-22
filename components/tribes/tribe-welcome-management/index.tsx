@@ -176,6 +176,7 @@ const WELCOME_LINK_TYPE_LABEL = {
 
 type TribeWelcomeManagementProps = {
   canEdit: boolean;
+  canRecordSelections?: boolean;
   tribeSlug: string;
   welcome: TribeWelcomeResult;
 };
@@ -420,6 +421,7 @@ async function submitWelcomeUpdate(
 
 export function TribeWelcomeManagement({
   canEdit,
+  canRecordSelections = false,
   tribeSlug,
   welcome,
 }: TribeWelcomeManagementProps) {
@@ -469,7 +471,12 @@ export function TribeWelcomeManagement({
     welcomeMessage.trim() === DEFAULT_TRIBE_WELCOME_MESSAGE;
 
   if (!canEdit) {
-    return <TribeWelcomeDisplay tribeSlug={tribeSlug} welcome={welcome} />;
+    return (
+      <TribeWelcomeDisplay
+        tribeSlug={canRecordSelections ? tribeSlug : undefined}
+        welcome={welcome}
+      />
+    );
   }
 
   const markUrlValidity = (linkId: string, isValid: boolean) => {

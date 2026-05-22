@@ -10,6 +10,17 @@ import type {
 } from "@/src/modules/tribes/application/results/tribe-member-result";
 import styles from "./styles.module.scss";
 
+const TRIBE_MEMBER_SELECTION_COUNT_COPY = {
+  accessedPrefix: "Accedido",
+  labelSeparator: " ",
+  pluralUnit: "veces",
+  singularUnit: "vez",
+} as const;
+
+const TRIBE_MEMBER_SELECTION_COUNT = {
+  singular: 1,
+} as const;
+
 const TRIBE_MEMBER_LIST_COPY = {
   emptyDescription: "Todavía no hay miembros visibles en esta tribu.",
   listLabel: "Lista de miembros",
@@ -17,8 +28,18 @@ const TRIBE_MEMBER_LIST_COPY = {
     guardian: "Guardián",
     leader: "Líder",
   },
-  selectionCountAriaLabel: (count: number) =>
-    `Accedido ${count} ${count === 1 ? "vez" : "veces"}`,
+  selectionCountAriaLabel: (count: number) => {
+    const unitLabel =
+      count === TRIBE_MEMBER_SELECTION_COUNT.singular
+        ? TRIBE_MEMBER_SELECTION_COUNT_COPY.singularUnit
+        : TRIBE_MEMBER_SELECTION_COUNT_COPY.pluralUnit;
+
+    return [
+      TRIBE_MEMBER_SELECTION_COUNT_COPY.accessedPrefix,
+      count,
+      unitLabel,
+    ].join(TRIBE_MEMBER_SELECTION_COUNT_COPY.labelSeparator);
+  },
   selectionListLabel: "Opciones elegidas por el miembro",
 } as const;
 

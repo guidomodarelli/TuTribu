@@ -19,6 +19,7 @@ import {
   saveTribeWelcome,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-welcome-use-cases";
 import {
+  listCurrentMemberTribeWelcomeSelections,
   listTribeWelcomeSelections,
   recordTribeWelcomeSelection,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-welcome-selection-use-cases";
@@ -100,6 +101,10 @@ export function buildTribesModule({
       recordTribeWelcomeSelection: recordTribeWelcomeSelection({
         tribeWelcomeSelectionRepository,
       }),
+      listCurrentMemberTribeWelcomeSelections:
+        listCurrentMemberTribeWelcomeSelections({
+          tribeWelcomeSelectionRepository,
+        }),
       listTribeWelcomeSelections: listTribeWelcomeSelections({
         tribeWelcomeSelectionRepository,
       }),
