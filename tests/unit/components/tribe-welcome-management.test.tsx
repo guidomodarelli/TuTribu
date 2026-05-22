@@ -20,6 +20,8 @@ function buildWelcome() {
   return {
     links: [
       {
+        badgeLabel: "Soporte",
+        description: null,
         id: "11111111-1111-4111-8111-111111111111",
         isActive: true,
         label: "Soporte",
@@ -187,6 +189,7 @@ describe("TribeWelcomeManagement", () => {
           ...buildWelcome(),
           links: [
             {
+              badgeLabel: "Soporte",
               id: "11111111-1111-4111-8111-111111111111",
               isActive: true,
               label: "Soporte",
@@ -197,6 +200,7 @@ describe("TribeWelcomeManagement", () => {
               url: "https://soporte.example.com",
             },
             {
+              badgeLabel: "Canal",
               id: "33333333-3333-4333-8333-333333333333",
               isActive: true,
               label: "Canal",
@@ -242,6 +246,10 @@ describe("TribeWelcomeManagement", () => {
       screen.getAllByLabelText("URL").at(-1) as HTMLElement,
       "https://nuevo.example.com"
     );
+    await user.type(
+      screen.getAllByLabelText("Texto del badge").at(-1) as HTMLElement,
+      "Nuevo badge"
+    );
     await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
 
     await waitFor(() => {
@@ -270,6 +278,7 @@ describe("TribeWelcomeManagement", () => {
           ...buildWelcome(),
           links: [
             {
+              badgeLabel: "Badge WA",
               id: "link-1",
               isActive: true,
               label: "WhatsApp",
@@ -361,6 +370,7 @@ describe("TribeWelcomeManagement", () => {
           ...buildWelcome(),
           links: [
             {
+              badgeLabel: "Soporte",
               id: "link-1",
               isActive: true,
               label: "Soporte",
@@ -418,6 +428,68 @@ describe("TribeWelcomeManagement", () => {
     expect(preview).toHaveTextContent("Hola tribu");
   });
 
+  it("opens a preview of the member selection modal without triggering network or navigation", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={buildWelcome()}
+      />
+    );
+
+    const openModalButton = screen.getByRole("button", {
+      name: "Ver modal de selección",
+    });
+
+    await user.click(openModalButton);
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Elegí una opción para empezar",
+    });
+
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveTextContent("Soporte");
+
+    const optionButton = screen.getByRole("button", { name: /Soporte/ });
+
+    await user.click(optionButton);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const closeButton = screen.getByRole("button", { name: "Cerrar" });
+
+    await user.click(closeButton);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", {
+          name: "Elegí una opción para empezar",
+        })
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("disables the modal preview button when no link is active", async () => {
+    const welcome = buildWelcome();
+    welcome.links[0].isActive = false;
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={welcome}
+      />
+    );
+
+    const openModalButton = screen.getByRole("button", {
+      name: "Ver modal de selección",
+    });
+
+    expect(openModalButton).toBeDisabled();
+  });
+
   it("blocks saving and shows an inline error when a custom URL is empty", async () => {
     const user = userEvent.setup();
 
@@ -429,6 +501,7 @@ describe("TribeWelcomeManagement", () => {
           ...buildWelcome(),
           links: [
             {
+              badgeLabel: "Soporte",
               id: "link-1",
               isActive: true,
               label: "Soporte",
@@ -478,6 +551,40 @@ describe("TribeWelcomeManagement", () => {
     ).toBeInTheDocument();
   });
 
+  it("blocks saving and shows an inline error when a link badge label is empty", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={{
+          ...buildWelcome(),
+          links: [
+            {
+              badgeLabel: "",
+              id: "link-1",
+              isActive: true,
+              label: "Soporte",
+              message: null,
+              phoneNumber: null,
+              sortOrder: 1,
+              type: TRIBE_WELCOME_LINK_TYPE.customButton,
+              url: "https://soporte.example.com",
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Ingresá un texto para el badge.")
+    ).toBeInTheDocument();
+  });
+
   it("rejects WhatsApp phones with an invalid international format", async () => {
     const user = userEvent.setup();
 
@@ -489,6 +596,7 @@ describe("TribeWelcomeManagement", () => {
           ...buildWelcome(),
           links: [
             {
+              badgeLabel: "Badge WA",
               id: "link-1",
               isActive: true,
               label: "WhatsApp",
@@ -524,6 +632,7 @@ describe("TribeWelcomeManagement", () => {
           ...buildWelcome(),
           links: [
             {
+              badgeLabel: "Badge WA",
               id: "link-1",
               isActive: true,
               label: "WhatsApp",
@@ -556,6 +665,7 @@ describe("TribeWelcomeManagement", () => {
           ...buildWelcome(),
           links: [
             {
+              badgeLabel: "Badge WA",
               id: "link-1",
               isActive: true,
               label: "WhatsApp",
@@ -597,6 +707,7 @@ describe("TribeWelcomeManagement", () => {
           ...buildWelcome(),
           links: [
             {
+              badgeLabel: "Badge WA",
               id: "link-1",
               isActive: true,
               label: "WhatsApp",

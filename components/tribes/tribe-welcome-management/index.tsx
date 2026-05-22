@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { TribeWelcomeDisplay } from "@/components/tribes/tribe-welcome-display";
+import { TribeWelcomeSelectionModal } from "@/components/tribes/tribe-welcome-selection-modal";
 import type {
   TribeWelcomeLinkResult,
   TribeWelcomeResult,
@@ -21,11 +22,20 @@ import {
 } from "@/src/modules/tribes/constants/tribe-welcome";
 import styles from "./styles.module.scss";
 
+const BADGE_LABEL_COUNTER_SEPARATOR = "/";
+
 const TRIBE_WELCOME_MANAGEMENT_COPY = {
   activeLabel: "Activo",
   inactiveLabel: "Inactivo",
   addLinkButton: "Agregar link",
   addRuleButton: "Agregar acuerdo",
+  badgeLabelCharCount: "caracteres",
+  badgeLabelHelper: (current: number, max: number) =>
+    `${current}${BADGE_LABEL_COUNTER_SEPARATOR}${max}`,
+  badgeLabelLabel: "Texto del badge",
+  badgeLabelPlaceholder: "Ej.: IOL — cambio asesor",
+  linkDescriptionLabel: "Descripción",
+  linkDescriptionPlaceholder: "Ej.: Para cambiar tu asesor en IOL",
   defaultBadge: "Predeterminado",
   editDescriptionPrimary:
     "Definí la pantalla que ven las personas antes de entrar.",
@@ -49,10 +59,13 @@ const TRIBE_WELCOME_MANAGEMENT_COPY = {
   linkUrlLabel: "URL",
   linkUrlPlaceholder: "https://...",
   previewEyebrow: "Vista previa",
+  previewModalButton: "Ver modal de selección",
+  previewModalEmpty: "Activá al menos un link para previsualizar el modal.",
   previewSrLabel: "Vista previa de la bienvenida",
   removeItemLabel: "Eliminar",
   removeLinkTitle: "Eliminar link",
   removeRuleTitle: "Eliminar acuerdo",
+  requiredBadgeLabel: "Ingresá un texto para el badge.",
   requiredHelper: "Obligatorio",
   resetDefaultLabel: "Restaurar predeterminado",
   resourcesHeading: "Recursos y links",
@@ -100,7 +113,11 @@ const WELCOME_MANAGEMENT_ARIA = {
   roleAlert: "alert",
 } as const;
 
+const BADGE_LABEL_MAX_LENGTH = 30;
+
 const WELCOME_LINK_PATCH_KEY = {
+  badgeLabel: "badgeLabel",
+  description: "description",
   label: "label",
   phoneNumber: "phoneNumber",
   url: "url",
@@ -215,6 +232,8 @@ function createEmptyRule(sortOrder: number): TribeWelcomeRuleResult {
 
 function createEmptyLink(sortOrder: number): TribeWelcomeLinkResult {
   return {
+    badgeLabel: "",
+    description: null,
     id: createClientId(),
     isActive: true,
     label: "",
@@ -418,12 +437,18 @@ export function TribeWelcomeManagement({
   const [missingPhoneLinkIds, setMissingPhoneLinkIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
+  const [missingBadgeLabelLinkIds, setMissingBadgeLabelLinkIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const [isSaving, setIsSaving] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const phoneErrorIdPrefix = useId();
   const urlErrorIdPrefix = useId();
   const urlHelperIdPrefix = useId();
   const ruleLabelErrorIdPrefix = useId();
   const linkLabelErrorIdPrefix = useId();
+  const badgeLabelErrorIdPrefix = useId();
+  const badgeLabelHelperIdPrefix = useId();
   const welcomeMessageId = useId();
   const pendingFocusIdRef = useRef<string | null>(null);
   const currentWelcome = useMemo(
@@ -433,6 +458,10 @@ export function TribeWelcomeManagement({
       welcomeMessage,
     }),
     [links, rules, welcomeMessage]
+  );
+  const hasActivePreviewLinks = useMemo(
+    () => links.some((link) => link.isActive),
+    [links]
   );
   const isWelcomeMessageDefault =
     welcomeMessage.trim() === DEFAULT_TRIBE_WELCOME_MESSAGE;
@@ -472,6 +501,7 @@ export function TribeWelcomeManagement({
   const clearMissingLabelRule = clearIdFromSet(setMissingLabelRuleIds);
   const clearMissingLabelLink = clearIdFromSet(setMissingLabelLinkIds);
   const clearMissingPhoneLink = clearIdFromSet(setMissingPhoneLinkIds);
+  const clearMissingBadgeLabelLink = clearIdFromSet(setMissingBadgeLabelLinkIds);
   const updateRule = (
     ruleId: string,
     patch: Partial<TribeWelcomeRuleResult>
@@ -516,6 +546,14 @@ export function TribeWelcomeManagement({
     ) {
       clearMissingPhoneLink(linkId);
     }
+    if (
+      Object.prototype.hasOwnProperty.call(
+        patch,
+        WELCOME_LINK_PATCH_KEY.badgeLabel
+      )
+    ) {
+      clearMissingBadgeLabelLink(linkId);
+    }
   };
   const handleAddRule = () => {
     setRules((currentRules) => {
@@ -544,17 +582,24 @@ export function TribeWelcomeManagement({
     const nextMissingPhones = new Set(
       links.filter(isWhatsappLinkPhoneInvalid).map((link) => link.id)
     );
+    const nextMissingBadgeLabels = new Set(
+      links
+        .filter((link) => isRequiredTextMissing(link.badgeLabel))
+        .map((link) => link.id)
+    );
 
     setInvalidUrlLinkIds(nextInvalidUrls);
     setMissingLabelRuleIds(nextMissingRuleLabels);
     setMissingLabelLinkIds(nextMissingLinkLabels);
     setMissingPhoneLinkIds(nextMissingPhones);
+    setMissingBadgeLabelLinkIds(nextMissingBadgeLabels);
 
     const hasClientSideErrors =
       nextInvalidUrls.size > 0 ||
       nextMissingRuleLabels.size > 0 ||
       nextMissingLinkLabels.size > 0 ||
-      nextMissingPhones.size > 0;
+      nextMissingPhones.size > 0 ||
+      nextMissingBadgeLabels.size > 0;
 
     if (hasClientSideErrors) {
       setValidationMessage(TRIBE_WELCOME_MANAGEMENT_COPY.validationSummary);
@@ -827,10 +872,13 @@ export function TribeWelcomeManagement({
               const urlErrorId = urlErrorIdPrefix + link.id;
               const urlHelperId = urlHelperIdPrefix + link.id;
               const linkLabelErrorId = linkLabelErrorIdPrefix + link.id;
+              const badgeLabelErrorId = badgeLabelErrorIdPrefix + link.id;
+              const badgeLabelHelperId = badgeLabelHelperIdPrefix + link.id;
               const linkTypeSelectId = "link-type-" + link.id;
               const showPhoneError = missingPhoneLinkIds.has(link.id);
               const showUrlError = invalidUrlLinkIds.has(link.id);
               const showLinkLabelError = missingLabelLinkIds.has(link.id);
+              const showBadgeLabelError = missingBadgeLabelLinkIds.has(link.id);
 
               return (
                 <fieldset
@@ -1021,6 +1069,76 @@ export function TribeWelcomeManagement({
                         </span>
                       ) : null}
                     </div>
+                    <label className={styles.TribeWelcomeManagement__field}>
+                      <span
+                        className={styles.TribeWelcomeManagement__fieldLabel}
+                      >
+                        {TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionLabel}
+                      </span>
+                      <Textarea
+                        className={styles.TribeWelcomeManagement__textarea}
+                        onChange={(event) =>
+                          updateLink(link.id, {
+                            description: event.target.value || null,
+                          })
+                        }
+                        placeholder={
+                          TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionPlaceholder
+                        }
+                        rows={2}
+                        value={link.description ?? ""}
+                      />
+                    </label>
+                    <div
+                      className={styles.TribeWelcomeManagement__fieldGroup}
+                    >
+                      <label className={styles.TribeWelcomeManagement__field}>
+                        {renderRequiredLabel(
+                          TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelLabel
+                        )}
+                        <Input
+                          aria-describedby={
+                            showBadgeLabelError
+                              ? badgeLabelErrorId
+                              : badgeLabelHelperId
+                          }
+                          aria-invalid={showBadgeLabelError}
+                          aria-required
+                          maxLength={BADGE_LABEL_MAX_LENGTH}
+                          onChange={(event) =>
+                            updateLink(link.id, {
+                              badgeLabel: event.target.value,
+                            })
+                          }
+                          placeholder={
+                            TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelPlaceholder
+                          }
+                          value={link.badgeLabel}
+                        />
+                      </label>
+                      {showBadgeLabelError ? (
+                        <span
+                          className={
+                            styles.TribeWelcomeManagement__fieldError
+                          }
+                          id={badgeLabelErrorId}
+                        >
+                          {TRIBE_WELCOME_MANAGEMENT_COPY.requiredBadgeLabel}
+                        </span>
+                      ) : (
+                        <span
+                          className={
+                            styles.TribeWelcomeManagement__fieldHelper
+                          }
+                          id={badgeLabelHelperId}
+                        >
+                          {TRIBE_WELCOME_MANAGEMENT_COPY.badgeLabelHelper(
+                            link.badgeLabel.length,
+                            BADGE_LABEL_MAX_LENGTH
+                          )}
+                        </span>
+                      )}
+                    </div>
                     {link.type === TRIBE_WELCOME_LINK_TYPE.whatsappButton ? (
                       <label
                         className={styles.TribeWelcomeManagement__field}
@@ -1089,16 +1207,41 @@ export function TribeWelcomeManagement({
           aria-label={TRIBE_WELCOME_MANAGEMENT_COPY.previewSrLabel}
           className={styles.TribeWelcomeManagement__preview}
         >
-          <p className={styles.TribeWelcomeManagement__previewEyebrow}>
-            {TRIBE_WELCOME_MANAGEMENT_COPY.previewEyebrow}
-          </p>
+          <div className={styles.TribeWelcomeManagement__previewHeader}>
+            <p className={styles.TribeWelcomeManagement__previewEyebrow}>
+              {TRIBE_WELCOME_MANAGEMENT_COPY.previewEyebrow}
+            </p>
+            <Button
+              disabled={!hasActivePreviewLinks}
+              onClick={() => setIsPreviewModalOpen(true)}
+              type={WELCOME_MANAGEMENT_REQUEST.buttonType}
+              variant={WELCOME_MANAGEMENT_REQUEST.outlineVariant}
+            >
+              {TRIBE_WELCOME_MANAGEMENT_COPY.previewModalButton}
+            </Button>
+          </div>
           <div
             aria-live={WELCOME_MANAGEMENT_ARIA.ariaLivePolite}
             className={styles.TribeWelcomeManagement__previewSurface}
           >
             <TribeWelcomeDisplay welcome={currentWelcome} />
           </div>
+          {!hasActivePreviewLinks ? (
+            <p className={styles.TribeWelcomeManagement__previewHint}>
+              {TRIBE_WELCOME_MANAGEMENT_COPY.previewModalEmpty}
+            </p>
+          ) : null}
         </aside>
+
+        {isPreviewModalOpen ? (
+          <TribeWelcomeSelectionModal
+            links={links}
+            onClose={() => setIsPreviewModalOpen(false)}
+            open
+            previewOnly
+            tribeSlug={tribeSlug}
+          />
+        ) : null}
 
         {validationMessage ? (
           <p

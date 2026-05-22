@@ -18,11 +18,16 @@ import {
   getTribeWelcomeByInvitation,
   saveTribeWelcome,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-welcome-use-cases";
+import {
+  listTribeWelcomeSelections,
+  recordTribeWelcomeSelection,
+} from "@/src/modules/tribes/application/use-cases/manage-tribe-welcome-selection-use-cases";
 import type { TribeCreationRepository } from "@/src/modules/tribes/domain/repositories/tribe-creation-repository";
 import type { TribeCreatorWhitelistRepository } from "@/src/modules/tribes/domain/repositories/tribe-creator-whitelist-repository";
 import type { TribeInvitationRepository } from "@/src/modules/tribes/domain/repositories/tribe-invitation-repository";
 import type { TribeReadRepository } from "@/src/modules/tribes/domain/repositories/tribe-read-repository";
 import type { TribeWelcomeRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-repository";
+import type { TribeWelcomeSelectionRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-selection-repository";
 
 type TribesModuleDependencies = {
   tribeReadRepository: TribeReadRepository;
@@ -30,6 +35,7 @@ type TribesModuleDependencies = {
   tribeCreatorWhitelistRepository: TribeCreatorWhitelistRepository;
   tribeInvitationRepository: TribeInvitationRepository;
   tribeWelcomeRepository: TribeWelcomeRepository;
+  tribeWelcomeSelectionRepository: TribeWelcomeSelectionRepository;
 };
 
 export function buildTribesModule({
@@ -38,6 +44,7 @@ export function buildTribesModule({
   tribeCreatorWhitelistRepository,
   tribeInvitationRepository,
   tribeWelcomeRepository,
+  tribeWelcomeSelectionRepository,
 }: TribesModuleDependencies) {
   return {
     useCases: {
@@ -89,6 +96,12 @@ export function buildTribesModule({
       }),
       saveTribeWelcome: saveTribeWelcome({
         tribeWelcomeRepository,
+      }),
+      recordTribeWelcomeSelection: recordTribeWelcomeSelection({
+        tribeWelcomeSelectionRepository,
+      }),
+      listTribeWelcomeSelections: listTribeWelcomeSelections({
+        tribeWelcomeSelectionRepository,
       }),
     },
   };

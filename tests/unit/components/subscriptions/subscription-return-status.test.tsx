@@ -1,19 +1,16 @@
 import { render, screen } from "@testing-library/react";
 
 import { SubscriptionReturnStatus } from "@/components/subscriptions/subscription-return-status";
+import * as browserNavigation from "@/lib/browser-navigation";
 
-const refreshMock = jest.fn();
-
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({
-    refresh: refreshMock,
-  }),
+jest.mock("@/lib/browser-navigation", () => ({
+  reloadCurrentPage: jest.fn(),
 }));
 
 describe("SubscriptionReturnStatus", () => {
   beforeEach(() => {
     jest.useFakeTimers();
-    refreshMock.mockReset();
+    jest.mocked(browserNavigation.reloadCurrentPage).mockReset();
   });
 
   afterEach(() => {
@@ -21,7 +18,7 @@ describe("SubscriptionReturnStatus", () => {
     jest.useRealTimers();
   });
 
-  it("should refresh the route while Mercado Pago confirmation is pending", () => {
+  it("should reload the page while Mercado Pago confirmation is pending", () => {
     render(<SubscriptionReturnStatus />);
 
     expect(
@@ -32,6 +29,6 @@ describe("SubscriptionReturnStatus", () => {
 
     jest.advanceTimersByTime(3_000);
 
-    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(browserNavigation.reloadCurrentPage).toHaveBeenCalledTimes(1);
   });
 });

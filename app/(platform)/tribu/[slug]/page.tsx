@@ -240,6 +240,10 @@ export async function TribePageContent({
     notFound();
   }
 
+  if (mercadoPagoPreapprovalId) {
+    redirect(ROUTES.tribes.welcome(slug));
+  }
+
   const round = await modules.messages.useCases.listTribeRound({
     channelSlug,
     page,

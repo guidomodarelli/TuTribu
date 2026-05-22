@@ -69,11 +69,33 @@
     padding-left: 0;
   }
 
-  &__link {
+  &__linkCard {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
     color: var(--foreground);
+    display: block;
+    padding: 0.875rem 1rem;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--accent);
+      border-color: var(--ring);
+    }
+  }
+
+  &__linkCardTitle {
+    display: block;
     font-weight: 650;
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
+  }
+
+  &__linkCardDescription {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    margin: 0.25rem 0 0;
   }
 
   &__action {

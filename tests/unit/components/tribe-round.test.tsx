@@ -514,7 +514,7 @@ describe("TribeRound", () => {
     expect(screen.getByRole("button", { name: "Compartir" })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
-    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
 
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
 
@@ -670,7 +670,7 @@ describe("TribeRound", () => {
       "Nos vemos el viernes."
     );
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
-    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
@@ -739,7 +739,7 @@ describe("TribeRound", () => {
     await user.type(optionInputs[1], "Geometría");
     await user.click(screen.getByLabelText("Voto múltiple"));
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
-    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
@@ -790,7 +790,7 @@ describe("TribeRound", () => {
     await user.type(screen.getByRole("textbox", { name: "Opción 1" }), "Álgebra");
     await user.type(screen.getByRole("textbox", { name: "Opción 2" }), "álgebra");
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
-    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     const missingRequirements = screen.getByRole("list", {
@@ -1109,7 +1109,7 @@ describe("TribeRound", () => {
       "Nos vemos el viernes."
     );
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
-    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {
@@ -1169,7 +1169,7 @@ describe("TribeRound", () => {
       "Nos vemos el viernes."
     );
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
-    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await act(async () => {
@@ -1216,7 +1216,7 @@ describe("TribeRound", () => {
       "Nos vemos el viernes."
     );
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
-    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await act(async () => {
@@ -1266,7 +1266,7 @@ describe("TribeRound", () => {
       "Nos vemos el viernes."
     );
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
-    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await act(async () => {
@@ -1396,7 +1396,7 @@ describe("TribeRound", () => {
       "Contenido temporal"
     );
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
-    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
     await act(async () => {
       await user.click(screen.getByRole("button", { name: "Cancelar" }));
     });
@@ -1541,7 +1541,7 @@ describe("TribeRound", () => {
       "Nos vemos el viernes."
     );
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
-    await user.click(screen.getByRole("menuitem", { name: "⭐ Intro and Goals" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     await waitFor(() => {

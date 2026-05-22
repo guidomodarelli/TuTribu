@@ -88,6 +88,8 @@ describe("manage tribe welcome use cases", () => {
     await useCase({
       links: [
         {
+          badgeLabel: " Comunidad WA ",
+          description: "  Contacto directo  ",
           id: " link-1 ",
           isActive: true,
           label: " Comunidad ",
@@ -113,6 +115,8 @@ describe("manage tribe welcome use cases", () => {
     expect(repository.save).toHaveBeenCalledWith({
       links: [
         {
+          badgeLabel: "Comunidad WA",
+          description: "Contacto directo",
           id: "link-1",
           isActive: true,
           label: "Comunidad",

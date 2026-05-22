@@ -4,7 +4,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { TribeWelcomeDisplay } from "@/components/tribes/tribe-welcome-display";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
@@ -421,31 +420,73 @@ export default async function TribeInvitationPage({
     );
   }
 
+  const subscriptionOffer =
+    await modules.tribes.useCases.getTribeInvitationSubscriptionOffer({
+      token,
+      tribeSlug: slug,
+    });
+
+  if (
+    subscriptionOffer.status ===
+    TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS.available
+  ) {
+    const startSubscription = startInvitationSubscriptionAction.bind(null, {
+      slug,
+      token,
+    });
+
+    return (
+      <main className={styles.TribeInvitationPage}>
+        <section className={styles.TribeInvitationPage__content}>
+          <p className={styles.TribeInvitationPage__eyebrow}>
+            {INVITATION_PAGE_COPY.eyebrow}
+          </p>
+          <h1 className={styles.TribeInvitationPage__title}>
+            {INVITATION_PAGE_COPY.paymentTitle}
+          </h1>
+          <p className={styles.TribeInvitationPage__description}>
+            {INVITATION_PAGE_COPY.paymentDescription}
+          </p>
+          {renderSubscriptionOffer(subscriptionOffer)}
+          <form
+            action={startSubscription}
+            className={styles.TribeInvitationPage__form}
+          >
+            <Button type={INVITATION_PAGE_FORM.submitButtonType}>
+              {INVITATION_PAGE_COPY.paymentButton}
+            </Button>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
   const acceptInvitationWithToken = acceptInvitationAction.bind(null, {
     slug,
     token,
   });
 
-  const welcome = await modules.tribes.useCases.getTribeWelcomeByInvitation({
-    token,
-    tribeSlug: slug,
-  });
-
   return (
     <main className={styles.TribeInvitationPage}>
-      <TribeWelcomeDisplay
-        welcome={welcome}
-        action={
-          <form
-            action={acceptInvitationWithToken}
-            className={styles.TribeInvitationPage__form}
-          >
-            <Button type={INVITATION_PAGE_FORM.submitButtonType}>
-              {INVITATION_PAGE_COPY.continueButton}
-            </Button>
-          </form>
-        }
-      />
+      <section className={styles.TribeInvitationPage__content}>
+        <p className={styles.TribeInvitationPage__eyebrow}>
+          {INVITATION_PAGE_COPY.eyebrow}
+        </p>
+        <h1 className={styles.TribeInvitationPage__title}>
+          {INVITATION_PAGE_COPY.confirmationTitle}
+        </h1>
+        <p className={styles.TribeInvitationPage__description}>
+          {INVITATION_PAGE_COPY.confirmationDescription}
+        </p>
+        <form
+          action={acceptInvitationWithToken}
+          className={styles.TribeInvitationPage__form}
+        >
+          <Button type={INVITATION_PAGE_FORM.submitButtonType}>
+            {INVITATION_PAGE_COPY.continueButton}
+          </Button>
+        </form>
+      </section>
     </main>
   );
 }

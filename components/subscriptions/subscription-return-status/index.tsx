@@ -2,8 +2,7 @@
 
 import { useEffect } from "react";
 
-import { useRouter } from "next/navigation";
-
+import { reloadCurrentPage } from "@/lib/browser-navigation";
 import styles from "./styles.module.scss";
 
 const SUBSCRIPTION_RETURN_REFRESH_INTERVAL_MS = 3_000;
@@ -26,17 +25,15 @@ const SUBSCRIPTION_RETURN_ACCESSIBILITY = {
  * @returns Subscription return status section.
  */
 export function SubscriptionReturnStatus() {
-  const { refresh } = useRouter();
-
   useEffect(() => {
     const refreshIntervalId = window.setInterval(() => {
-      refresh();
+      reloadCurrentPage();
     }, SUBSCRIPTION_RETURN_REFRESH_INTERVAL_MS);
 
     return () => {
       window.clearInterval(refreshIntervalId);
     };
-  }, [refresh]);
+  }, []);
 
   return (
     <section

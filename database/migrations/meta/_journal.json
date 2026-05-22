@@ -183,6 +183,34 @@
       "when": 1779253200000,
       "tag": "20260520090000_create_tribe_welcome",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1779426000000,
+      "tag": "20260522090000_create_tribe_welcome_selections",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1779429600000,
+      "tag": "20260522091000_add_badge_label_to_tribe_welcome_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1779433200000,
+      "tag": "20260522110000_add_description_to_tribe_welcome_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1779436800000,
+      "tag": "20260522120000_allow_repeated_tribe_welcome_selections",
+      "breakpoints": true
     }
   ]
 }

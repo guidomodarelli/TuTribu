@@ -183,9 +183,11 @@ export const tribeWelcomeLinks = pgTable("tribe_welcome_links", {
     .references(() => tribes.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
   label: text("label").notNull(),
+  badgeLabel: text("badge_label").notNull(),
   url: text("url"),
   phoneNumber: text("phone_number"),
   message: text("message"),
+  description: text("description"),
   sortOrder: integer("sort_order").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -198,6 +200,35 @@ export const tribeWelcomeLinks = pgTable("tribe_welcome_links", {
   tribeSortIndex: index("idx_tribe_welcome_links_tribe_sort").on(
     table.tribeId,
     table.sortOrder
+  ),
+}));
+
+export const tribeWelcomeSelections = pgTable("tribe_welcome_selections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  welcomeLinkId: uuid("welcome_link_id")
+    .notNull()
+    .references(() => tribeWelcomeLinks.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  selectedAt: timestamp("selected_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  linkUserKey: uniqueIndex("tribe_welcome_selections_link_user_key").on(
+    table.welcomeLinkId,
+    table.userId
+  ),
+  tribeUserIndex: index("idx_tribe_welcome_selections_tribe_user").on(
+    table.tribeId,
+    table.userId
+  ),
+  tribeLinkIndex: index("idx_tribe_welcome_selections_tribe_link").on(
+    table.tribeId,
+    table.welcomeLinkId
   ),
 }));
 

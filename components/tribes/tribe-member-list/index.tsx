@@ -18,6 +18,9 @@ const TRIBE_MEMBER_LIST_COPY = {
     guardian: "Guardián",
     leader: "Líder",
   },
+  selectionCountAriaLabel: (count: number) =>
+    `Accedido ${count} ${count === 1 ? "vez" : "veces"}`,
+  selectionListLabel: "Opciones elegidas por el miembro",
   subtitle: "Personas que forman parte de esta tribu.",
 } as const;
 
@@ -38,8 +41,15 @@ const TRIBE_MEMBER_PRIVILEGED_ROLES = new Set<TribeMemberRole>([
 
 type PrivilegedTribeMemberRole = keyof typeof TRIBE_MEMBER_LIST_COPY.roleLabel;
 
+export type TribeMemberSelectionBadge = {
+  count: number;
+  id: string;
+  label: string;
+};
+
 type TribeMemberListProps = {
   members: TribeMemberResult[];
+  selectionsByMemberId?: Record<string, TribeMemberSelectionBadge[]>;
 };
 
 function isPrivilegedTribeMemberRole(
@@ -65,7 +75,48 @@ function TribeMemberRoleBadge({ role }: { role: TribeMemberRole }) {
   );
 }
 
-export function TribeMemberList({ members }: TribeMemberListProps) {
+function TribeMemberSelectionBadges({
+  selections,
+}: {
+  selections: TribeMemberSelectionBadge[];
+}) {
+  if (selections.length === 0) {
+    return null;
+  }
+
+  return (
+    <ul
+      aria-label={TRIBE_MEMBER_LIST_COPY.selectionListLabel}
+      className={styles.TribeMemberList__selectionList}
+    >
+      {selections.map((selection) => (
+        <li className={styles.TribeMemberList__selectionItem} key={selection.id}>
+          <Badge
+            className={styles.TribeMemberList__selectionBadge}
+            variant={TRIBE_MEMBER_LIST_ATTRIBUTES.outlineBadgeVariant}
+          >
+            <span className={styles.TribeMemberList__selectionBadgeLabel}>
+              {selection.label}
+            </span>
+            <span
+              aria-label={TRIBE_MEMBER_LIST_COPY.selectionCountAriaLabel(
+                selection.count
+              )}
+              className={styles.TribeMemberList__selectionBadgeCount}
+            >
+              {selection.count}
+            </span>
+          </Badge>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function TribeMemberList({
+  members,
+  selectionsByMemberId,
+}: TribeMemberListProps) {
   return (
     <section
       aria-labelledby={TRIBE_MEMBER_LIST_ATTRIBUTES.headingId}
@@ -94,23 +145,31 @@ export function TribeMemberList({ members }: TribeMemberListProps) {
           aria-label={TRIBE_MEMBER_LIST_COPY.listLabel}
           className={styles.TribeMemberList__list}
         >
-          {members.map((member) => (
-            <li className={styles.TribeMemberList__item} key={member.id}>
-              <Avatar className={styles.TribeMemberList__avatar}>
-                {member.image ? (
-                  <AvatarImage alt={member.name} src={member.image} />
-                ) : null}
-                <AvatarFallback>{member.avatarFallback}</AvatarFallback>
-              </Avatar>
-              <div className={styles.TribeMemberList__identity}>
-                <div className={styles.TribeMemberList__memberDetails}>
-                  <p className={styles.TribeMemberList__name}>{member.name}</p>
-                  <p className={styles.TribeMemberList__email}>{member.email}</p>
+          {members.map((member) => {
+            const memberSelections =
+              selectionsByMemberId?.[member.id] ?? [];
+
+            return (
+              <li className={styles.TribeMemberList__item} key={member.id}>
+                <Avatar className={styles.TribeMemberList__avatar}>
+                  {member.image ? (
+                    <AvatarImage alt={member.name} src={member.image} />
+                  ) : null}
+                  <AvatarFallback>{member.avatarFallback}</AvatarFallback>
+                </Avatar>
+                <div className={styles.TribeMemberList__identity}>
+                  <div className={styles.TribeMemberList__memberDetails}>
+                    <p className={styles.TribeMemberList__name}>{member.name}</p>
+                    <p className={styles.TribeMemberList__email}>{member.email}</p>
+                  </div>
+                  <div className={styles.TribeMemberList__badges}>
+                    <TribeMemberRoleBadge role={member.role} />
+                    <TribeMemberSelectionBadges selections={memberSelections} />
+                  </div>
                 </div>
-                <TribeMemberRoleBadge role={member.role} />
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

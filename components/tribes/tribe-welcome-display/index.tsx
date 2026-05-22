@@ -132,12 +132,19 @@ export function TribeWelcomeDisplay({
                   key={link.id}
                 >
                   <a
-                    className={styles.TribeWelcomeDisplay__link}
+                    className={styles.TribeWelcomeDisplay__linkCard}
                     href={href}
                     rel={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.noreferrerRel}
                     target={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.blankTarget}
                   >
-                    {link.label}
+                    <span className={styles.TribeWelcomeDisplay__linkCardTitle}>
+                      {link.label}
+                    </span>
+                    {link.description ? (
+                      <p className={styles.TribeWelcomeDisplay__linkCardDescription}>
+                        {link.description}
+                      </p>
+                    ) : null}
                   </a>
                 </li>
               ) : null;

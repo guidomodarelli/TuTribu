@@ -317,6 +317,21 @@ $tribe-welcome-touch-target: 2.75rem;
     padding: 1.5rem;
   }
 
+  &__previewHeader {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+  }
+
+  &__previewHint {
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-style: italic;
+    margin: 0;
+  }
+
   &__previewEyebrow {
     color: var(--muted-foreground);
     font-size: 0.75rem;

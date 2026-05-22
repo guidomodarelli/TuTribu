@@ -54,6 +54,7 @@ const ALLOWED_EXTERNAL_URL_PROTOCOL = {
   https: "https:",
 } as const;
 
+const BADGE_LABEL_MAX_LENGTH = 30;
 const PHONE_NUMBER_NON_DIGIT_PATTERN = /\D/g;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -183,6 +184,8 @@ function mapPayloadLinks(links: unknown): TribeWelcomeLinkResult[] | null {
     }
 
     mappedLinks.push({
+      badgeLabel: readRequiredText(link.badgeLabel) ?? "",
+      description: readOptionalText(link.description),
       id,
       isActive: link.isActive !== false,
       label: readRequiredText(link.label) ?? "",
@@ -199,6 +202,12 @@ function mapPayloadLinks(links: unknown): TribeWelcomeLinkResult[] | null {
   return mappedLinks;
 }
 
+/**
+ * Validates welcome payload fields before persistence constraints can reject them.
+ *
+ * @param input - Normalized welcome payload collected from the route request.
+ * @returns A safe Spanish validation message when the payload is invalid, otherwise null.
+ */
 function validateWelcomePayload(input: {
   links: TribeWelcomeLinkResult[];
   rules: TribeWelcomeRuleResult[];
@@ -214,6 +223,13 @@ function validateWelcomePayload(input: {
 
   for (const link of input.links) {
     if (link.label.trim().length === 0) {
+      return WELCOME_ROUTE_RESPONSE.invalidBodyMessage;
+    }
+
+    if (
+      link.badgeLabel.trim().length === 0 ||
+      link.badgeLabel.length > BADGE_LABEL_MAX_LENGTH
+    ) {
       return WELCOME_ROUTE_RESPONSE.invalidBodyMessage;
     }
 

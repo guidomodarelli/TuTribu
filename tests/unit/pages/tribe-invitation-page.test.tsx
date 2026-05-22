@@ -12,7 +12,6 @@ const mockGetSession = jest.fn();
 const getAuthenticatedMember = jest.fn();
 const acceptTribeInvitation = jest.fn();
 const getTribeInvitationSubscriptionOffer = jest.fn();
-const getTribeWelcomeByInvitation = jest.fn();
 const startTribeMemberSubscription = jest.fn();
 
 function hashInvitationToken(token: string): string {
@@ -81,7 +80,6 @@ describe("TribeInvitationPage", () => {
         useCases: {
           acceptTribeInvitation,
           getTribeInvitationSubscriptionOffer,
-          getTribeWelcomeByInvitation,
         },
       },
       subscriptions: {
@@ -99,29 +97,6 @@ describe("TribeInvitationPage", () => {
       },
       status: "available",
     });
-    getTribeWelcomeByInvitation.mockResolvedValue({
-      links: [
-        {
-          id: "link-1",
-          isActive: true,
-          label: "Grupo de soporte",
-          message: null,
-          phoneNumber: null,
-          sortOrder: 1,
-          type: "custom_button",
-          url: "https://soporte.example.com",
-        },
-      ],
-      rules: [
-        {
-          id: "rule-1",
-          isActive: true,
-          label: "Presentate al entrar",
-          sortOrder: 1,
-        },
-      ],
-      welcomeMessage: "Bienvenido/a a Matematica Pro",
-    });
   });
 
   it("redirects unauthenticated visitors to sign in with the invitation callback", async () => {
@@ -138,23 +113,37 @@ describe("TribeInvitationPage", () => {
     expect(acceptTribeInvitation).not.toHaveBeenCalled();
   });
 
-  it("renders the welcome screen before accepting during GET", async () => {
+  it("shows the subscription plan directly on first load for a paid tribe", async () => {
     render(await TribeInvitationPage(buildPageProps()));
 
     expect(
-      screen.getByRole("heading", { name: "Bienvenido/a" })
+      screen.getByRole("heading", { name: "Completá tu suscripción" })
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Acuerdos de convivencia")
+      screen.getByRole("button", { name: "Continuar con el pago" })
     ).toBeInTheDocument();
-    expect(screen.getByText("Presentate al entrar")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Comenzar" })
-    ).toBeInTheDocument();
-    expect(getTribeWelcomeByInvitation).toHaveBeenCalledWith({
+    expect(screen.getByText("Plan mensual")).toBeInTheDocument();
+    expect(getTribeInvitationSubscriptionOffer).toHaveBeenCalledWith({
       token: "invitation-token",
       tribeSlug: "matematica-pro",
     });
+    expect(acceptTribeInvitation).not.toHaveBeenCalled();
+    expect(startTribeMemberSubscription).not.toHaveBeenCalled();
+  });
+
+  it("shows a simple join confirmation for a free tribe", async () => {
+    getTribeInvitationSubscriptionOffer.mockResolvedValue({
+      status: "unavailable",
+    });
+
+    render(await TribeInvitationPage(buildPageProps()));
+
+    expect(
+      screen.getByRole("heading", { name: "Sumarte a esta tribu" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Comenzar" })
+    ).toBeInTheDocument();
     expect(acceptTribeInvitation).not.toHaveBeenCalled();
   });
 

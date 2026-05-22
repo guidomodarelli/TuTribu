@@ -5,6 +5,33 @@ type DrizzleQueryWithChunks = {
   queryChunks?: unknown[];
 };
 
+function readQueryText(query: unknown): string {
+  if (!query || typeof query !== "object" || !("queryChunks" in query)) {
+    return "";
+  }
+
+  const { queryChunks } = query as DrizzleQueryWithChunks;
+
+  return (queryChunks ?? [])
+    .map((chunk) => {
+      if (typeof chunk === "string") {
+        return chunk;
+      }
+
+      if (
+        chunk &&
+        typeof chunk === "object" &&
+        "value" in chunk &&
+        Array.isArray((chunk as { value?: unknown }).value)
+      ) {
+        return (chunk as { value: unknown[] }).value.join("");
+      }
+
+      return "";
+    })
+    .join(" ");
+}
+
 function readJsonArrayParameters(query: unknown): unknown[][] {
   if (!query || typeof query !== "object" || !("queryChunks" in query)) {
     return [];
@@ -48,6 +75,8 @@ describe("PostgresTribeWelcomeRepository", () => {
       .mockResolvedValueOnce({
         rows: [
           {
+            badge_label: "Soporte",
+            description: null,
             id: "link-1",
             is_active: true,
             label: "Soporte",
@@ -70,6 +99,8 @@ describe("PostgresTribeWelcomeRepository", () => {
     ).resolves.toEqual({
       links: [
         {
+          badgeLabel: "Soporte",
+          description: null,
           id: "link-1",
           isActive: true,
           label: "Soporte",
@@ -153,6 +184,8 @@ describe("PostgresTribeWelcomeRepository", () => {
       repository.save({
         links: [
           {
+            badgeLabel: "Soporte",
+            description: "Para soporte técnico",
             id: "link-1",
             isActive: true,
             label: "Soporte",
@@ -190,6 +223,8 @@ describe("PostgresTribeWelcomeRepository", () => {
     ]);
     expect(links).toEqual([
       expect.objectContaining({
+        badge_label: "Soporte",
+        description: "Para soporte técnico",
         id: "link-1",
         is_active: true,
         label: "Soporte",
@@ -215,6 +250,8 @@ describe("PostgresTribeWelcomeRepository", () => {
     await repository.save({
       links: [
         {
+          badgeLabel: "Soporte",
+          description: null,
           id: "link-1",
           isActive: true,
           label: "Soporte",
@@ -238,6 +275,56 @@ describe("PostgresTribeWelcomeRepository", () => {
     });
 
     expect(execute).toHaveBeenCalledTimes(5);
+  });
+
+  it("preserves member selections by upserting unchanged links before deleting removed ones", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          status: "updated",
+        },
+      ],
+    }));
+    const repository = new PostgresTribeWelcomeRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await repository.save({
+      links: [
+        {
+          badgeLabel: "Soporte",
+          description: null,
+          id: "11111111-1111-4111-8111-111111111111",
+          isActive: true,
+          label: "Soporte",
+          message: null,
+          phoneNumber: null,
+          sortOrder: 1,
+          type: TRIBE_WELCOME_LINK_TYPE.customButton,
+          url: "https://soporte.example.com",
+        },
+      ],
+      rules: [],
+      tribeSlug: "matematica-pro",
+      welcomeMessage: "Bienvenido/a",
+    });
+
+    const queryTexts = execute.mock.calls.map(([query]) =>
+      readQueryText(query)
+    );
+    const linkUpsertIndex = queryTexts.findIndex((queryText) =>
+      queryText.includes("insert into public.tribe_welcome_links")
+    );
+    const removedLinkDeleteIndex = queryTexts.findIndex((queryText) =>
+      queryText.includes("delete from public.tribe_welcome_links")
+    );
+
+    expect(linkUpsertIndex).toBeGreaterThan(-1);
+    expect(removedLinkDeleteIndex).toBeGreaterThan(linkUpsertIndex);
+    expect(queryTexts[linkUpsertIndex]).toContain(
+      "on conflict (id) do update"
+    );
+    expect(queryTexts[removedLinkDeleteIndex]).toContain("not exists");
   });
 
   it("filters inactive items for regular welcome reads", async () => {

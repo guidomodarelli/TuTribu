@@ -1,16 +1,23 @@
 import { notFound } from "next/navigation";
 
-import { TribeMemberList } from "@/components/tribes/tribe-member-list";
+import { TribeMemberDirectory } from "@/components/tribes/tribe-member-directory";
+import type { TribeMemberSelectionBadge } from "@/components/tribes/tribe-member-list";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 import styles from "./page.module.scss";
 
 const TRIBE_TRIBE_PAGE = {
   resolveMembersFailureMessage: "Failed to resolve tribe members",
+  resolveWelcomeFailureMessage: "Failed to resolve tribe welcome",
+  resolveWelcomeSelectionsFailureMessage:
+    "Failed to resolve tribe welcome selections",
   operation: "tribe-tribe-page",
 } as const;
 
 const TRIBE_TRIBE_PAGE_LOG_REASON = {
   unexpectedMembersRepositoryError: "unexpected_members_repository_error",
+  unexpectedWelcomeRepositoryError: "unexpected_welcome_repository_error",
+  unexpectedWelcomeSelectionsRepositoryError:
+    "unexpected_welcome_selections_repository_error",
 } as const;
 
 export default async function TribeTribePage({
@@ -27,24 +34,105 @@ export default async function TribeTribePage({
       slug,
     });
 
-  const members = await modules.tribes.useCases.listVisibleTribeMembers({
-    tribeSlug: tribe.slug,
-  }).catch((error: unknown) => {
-    logger.error({
-      error,
-      message: TRIBE_TRIBE_PAGE.resolveMembersFailureMessage,
-      metadata: {
-        reason: TRIBE_TRIBE_PAGE_LOG_REASON.unexpectedMembersRepositoryError,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
+  const [members, welcome, selections] = await Promise.all([
+    modules.tribes.useCases
+      .listVisibleTribeMembers({ tribeSlug: tribe.slug })
+      .catch((error: unknown) => {
+        logger.error({
+          error,
+          message: TRIBE_TRIBE_PAGE.resolveMembersFailureMessage,
+          metadata: {
+            reason:
+              TRIBE_TRIBE_PAGE_LOG_REASON.unexpectedMembersRepositoryError,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+        });
+        notFound();
+      }),
+    modules.tribes.useCases
+      .getTribeWelcome({ tribeSlug: tribe.slug })
+      .catch((error: unknown) => {
+        logger.error({
+          error,
+          message: TRIBE_TRIBE_PAGE.resolveWelcomeFailureMessage,
+          metadata: {
+            reason:
+              TRIBE_TRIBE_PAGE_LOG_REASON.unexpectedWelcomeRepositoryError,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+        });
+
+        return { links: [], rules: [], welcomeMessage: "" };
+      }),
+    modules.tribes.useCases
+      .listTribeWelcomeSelections({ tribeSlug: tribe.slug })
+      .catch((error: unknown) => {
+        logger.error({
+          error,
+          message: TRIBE_TRIBE_PAGE.resolveWelcomeSelectionsFailureMessage,
+          metadata: {
+            reason:
+              TRIBE_TRIBE_PAGE_LOG_REASON.unexpectedWelcomeSelectionsRepositoryError,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+        });
+
+        return [];
+      }),
+  ]);
+
+  const activeLinkLabelById = new Map<string, string>();
+  welcome.links
+    .filter((link) => link.isActive)
+    .forEach((link) => {
+      activeLinkLabelById.set(link.id, link.badgeLabel);
     });
-    notFound();
+
+  const filterOptions = welcome.links
+    .filter((link) => link.isActive)
+    .toSorted((left, right) => left.sortOrder - right.sortOrder)
+    .map((link) => ({ id: link.id, label: link.badgeLabel }));
+
+  const visibleMemberIds = new Set(members.map((member) => member.id));
+  const selectionCountsByMember = new Map<string, Map<string, number>>();
+  selections.forEach((selection) => {
+    if (!visibleMemberIds.has(selection.userId)) {
+      return;
+    }
+
+    if (!activeLinkLabelById.has(selection.welcomeLinkId)) {
+      return;
+    }
+
+    const linkCounts =
+      selectionCountsByMember.get(selection.userId) ?? new Map<string, number>();
+    const previousCount = linkCounts.get(selection.welcomeLinkId) ?? 0;
+
+    linkCounts.set(selection.welcomeLinkId, previousCount + 1);
+    selectionCountsByMember.set(selection.userId, linkCounts);
+  });
+
+  const selectionsByMemberId: Record<string, TribeMemberSelectionBadge[]> = {};
+  selectionCountsByMember.forEach((linkCounts, memberId) => {
+    selectionsByMemberId[memberId] = Array.from(linkCounts.entries()).map(
+      ([welcomeLinkId, count]) => ({
+        count,
+        id: welcomeLinkId,
+        label: activeLinkLabelById.get(welcomeLinkId) ?? "",
+      })
+    );
   });
 
   return (
     <main className={styles.TribeTribePage}>
-      <TribeMemberList members={members} />
+      <TribeMemberDirectory
+        filterOptions={filterOptions}
+        members={members}
+        selectionsByMemberId={selectionsByMemberId}
+      />
     </main>
   );
 }

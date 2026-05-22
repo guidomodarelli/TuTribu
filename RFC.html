@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec Técnico — TuTribu — Vivir Invirtiendo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #f8f7f4;
+    color: #1a1a1a;
+    padding: 48px 24px 80px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* ── HEADER ── */
+  .doc-header {
+    border-bottom: 2px solid #1a1a1a;
+    padding-bottom: 20px;
+    margin-bottom: 40px;
+  }
+  .doc-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 8px;
+  }
+  .doc-title {
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+  .doc-sub {
+    font-size: 14px;
+    color: #555;
+  }
+  .doc-meta {
+    display: flex;
+    gap: 24px;
+    margin-top: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #888;
+  }
+
+  /* ── SECCIÓN ── */
+  .section {
+    margin-bottom: 40px;
+  }
+
+  .section-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 6px;
+  }
+
+  .section-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0ddd6;
+  }
+
+  /* ── TEXTO ── */
+  p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #333;
+    margin-bottom: 12px;
+  }
+
+  ul, ol {
+    padding-left: 20px;
+    margin-bottom: 12px;
+  }
+
+  li {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #333;
+    margin-bottom: 4px;
+  }
+
+  strong { font-weight: 600; color: #1a1a1a; }
+
+  /* ── CODE ── */
+  .code-block {
+    background: #1a1a2e;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+
+  .code-block pre {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #e2e8f0;
+    white-space: pre;
+  }
+
+  .code-comment { color: #64748b; }
+  .code-key { color: #7dd3fc; }
+  .code-string { color: #86efac; }
+  .code-num { color: #fbbf24; }
+  .code-fn { color: #c084fc; }
+  .code-tag { color: #f9a8d4; }
+
+  /* ── CALLOUT ── */
+  .callout {
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.6;
+    border-left: 3px solid;
+  }
+
+  .callout-info { background: #eaf3fb; border-color: #5a9fd4; color: #1a4f7a; }
+  .callout-warn { background: #fdf5e0; border-color: #d4a44c; color: #7a5510; }
+  .callout-ok   { background: #e8f7f2; border-color: #4aaa8c; color: #1a6b52; }
+  .callout-red  { background: #fef8f6; border-color: #e8917a; color: #9e3d25; }
+
+  .callout strong { color: inherit; }
+
+  /* ── TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+
+  th {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid #e0ddd6;
+    background: #f0ede6;
+  }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e0ddd6;
+    vertical-align: top;
+    line-height: 1.5;
+    color: #333;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-green  { background: #e8f7f2; color: #1a6b52; border: 1px solid #4aaa8c; }
+  .badge-blue   { background: #eaf3fb; color: #1a4f7a; border: 1px solid #5a9fd4; }
+  .badge-amber  { background: #fdf5e0; color: #7a5510; border: 1px solid #d4a44c; }
+  .badge-red    { background: #fef8f6; color: #9e3d25; border: 1px solid #e8917a; }
+  .badge-gray   { background: #f0ede6; color: #666;    border: 1px solid #ccc; }
+
+  /* ── MOCKUP ── */
+  .mockup {
+    border: 1.5px solid #d0cdc6;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 16px 0;
+    background: white;
+  }
+
+  .mockup-bar {
+    background: #f0ede6;
+    padding: 10px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    border-bottom: 1px solid #d0cdc6;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mockup-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .mockup-body {
+    padding: 24px;
+  }
+
+  /* modal */
+  .modal-overlay {
+    background: rgba(0,0,0,0.08);
+    border-radius: 8px;
+    padding: 24px;
+    border: 1px solid #d0cdc6;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+
+  .modal-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  .modal-close {
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    color: #aaa;
+    cursor: pointer;
+    padding: 0 4px;
+  }
+
+  .modal-sub {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  .modal-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .modal-btn {
+    border-radius: 8px;
+    padding: 14px 12px;
+    text-align: center;
+    border: 1.5px solid;
+    cursor: pointer;
+  }
+
+  .modal-btn-icon { font-size: 20px; margin-bottom: 6px; }
+  .modal-btn-title { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .modal-btn-sub { font-size: 10px; line-height: 1.4; opacity: 0.8; }
+
+  .btn-iol-cambio { border-color: #4aaa8c; background: #e8f7f2; color: #1a6b52; }
+  .btn-iol-nuevo  { border-color: #5a9fd4; background: #eaf3fb; color: #1a4f7a; }
+  .btn-ibkr       { border-color: #d4a44c; background: #fdf5e0; color: #7a5510; }
+
+  .modal-skip {
+    text-align: center;
+    font-size: 11px;
+    color: #aaa;
+    font-style: italic;
+  }
+
+  /* tribu row */
+  .tribu-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0ede6;
+  }
+  .tribu-row:last-child { border-bottom: none; }
+  .tribu-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #e0ddd6;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 600; color: #666;
+    flex-shrink: 0;
+  }
+  .tribu-name { font-size: 13px; font-weight: 600; flex: 1; }
+  .tribu-email { font-size: 11px; color: #888; }
+
+  /* steps */
+  .steps { display: flex; flex-direction: column; gap: 0; margin: 16px 0; }
+  .step-item {
+    display: flex;
+    gap: 16px;
+    padding-bottom: 24px;
+    position: relative;
+  }
+  .step-item::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 32px;
+    bottom: 0;
+    width: 1px;
+    background: #e0ddd6;
+  }
+  .step-item:last-child::before { display: none; }
+  .step-circle {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: #1a1a2e;
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .step-body { padding-top: 4px; flex: 1; }
+  .step-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .step-desc { font-size: 13px; color: #555; line-height: 1.6; }
+
+  /* divider */
+  .divider {
+    height: 1px;
+    background: #e0ddd6;
+    margin: 32px 0;
+  }
+
+  /* priority tag */
+  .priority {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .p-alta { background: #fef8f6; color: #9e3d25; border: 1px solid #e8917a; }
+  .p-media { background: #fdf5e0; color: #7a5510; border: 1px solid #d4a44c; }
+  .p-baja { background: #f0ede6; color: #666; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-label">Especificación técnica — TuTribu</div>
+  <div class="doc-title">Tracking de elección de broker<br>y página intermedia post-pago</div>
+  <div class="doc-sub">Para: Guido — De: Marcos — Proyecto: Vivir Invirtiendo / Tribu</div>
+  <div class="doc-meta">
+    <span>Fecha: Mayo 2026</span>
+    <span>Prioridad: Alta</span>
+    <span>Estimado: 4–6 horas de desarrollo</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 1 — CONTEXTO -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Contexto y objetivo</div>
+
+  <p>Cuando una persona paga la suscripción a Tribu, queremos mostrarle una página intermedia con tres botones que representan acciones relacionadas a sus cuentas de inversión. Elegir cualquiera de estas opciones le da acceso al grupo de WhatsApp privado con Marcos y su equipo.</p>
+
+  <p>El objetivo técnico es doble: mostrar ese modal al usuario y registrar internamente cuál botón eligió cada miembro, para que esa información aparezca en la sección <strong>"La tribu"</strong> del panel de administración y Vicky pueda hacer seguimiento a los que no eligieron nada.</p>
+
+  <div class="callout callout-info">
+    <strong>Importante:</strong> No se requiere ninguna integración con APIs externas — ni IOL, ni IBKR, ni WhatsApp Business API. Todo el tracking es interno a la plataforma TuTribu. Los botones simplemente abren links (WhatsApp o URLs) y el click queda registrado en la base de datos propia.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 2 — MODAL POST-PAGO -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Modal post-pago — comportamiento</div>
+
+  <p>Inmediatamente después de que Mercado Pago confirme el pago, antes de redirigir al usuario al feed de Tribu, mostrar un modal con las tres opciones.</p>
+
+  <div class="callout callout-warn">
+    <strong>No es un bloqueo.</strong> El modal tiene una X visible en la esquina superior derecha que permite cerrarlo y continuar a Tribu igual. La persona ya pagó — hay que darle el acceso sí o sí. El modal es un recordatorio fuerte, no un requisito.
+  </div>
+
+  <p><strong>Mockup del modal:</strong></p>
+
+  <div class="mockup">
+    <div class="mockup-bar">
+      <span class="mockup-dot" style="background:#ff5f57;"></span>
+      <span class="mockup-dot" style="background:#febc2e;"></span>
+      <span class="mockup-dot" style="background:#28c840;"></span>
+      <span style="margin-left:8px;">tutribu.vercel.app — post-pago</span>
+    </div>
+    <div class="mockup-body">
+      <div style="font-size:13px;color:#888;margin-bottom:16px;text-align:center;">
+        ✅ Pago confirmado — Bienvenido a Tribu
+      </div>
+      <div class="modal-overlay">
+        <div class="modal-header">
+          <div class="modal-title">Elegí una opción antes de continuar</div>
+          <div class="modal-close">✕</div>
+        </div>
+        <div class="modal-sub">
+          Cualquiera de estas acciones te da acceso gratis al grupo de WhatsApp con Marcos y su equipo. Podés cerrar esta ventana y hacerlo después, pero te lo recomendamos ahora.
+        </div>
+        <div class="modal-buttons">
+          <div class="modal-btn btn-iol-cambio">
+            <div class="modal-btn-icon">🔄</div>
+            <div class="modal-btn-title">Cambiar asesor en IOL</div>
+            <div class="modal-btn-sub">Ya tenés cuenta con otro asesor — iniciá el cambio a Marcos</div>
+          </div>
+          <div class="modal-btn btn-iol-nuevo">
+            <div class="modal-btn-icon">🏦</div>
+            <div class="modal-btn-title">Abrir cuenta en IOL</div>
+            <div class="modal-btn-sub">Todavía no tenés cuenta — abrila con Marcos como tu asesor</div>
+          </div>
+          <div class="modal-btn btn-ibkr">
+            <div class="modal-btn-icon">💬</div>
+            <div class="modal-btn-title">Hablar con Marcos</div>
+            <div class="modal-btn-sub">Para abrir IBKR o enviar fondos a tu cuenta existente</div>
+          </div>
+        </div>
+        <div class="modal-skip">También podés cerrar esta ventana (✕) y continuar a Tribu directamente</div>
+      </div>
+    </div>
+  </div>
+
+  <p><strong>Comportamiento de cada botón:</strong></p>
+  <table>
+    <tr>
+      <th>Botón</th>
+      <th>Acción al hacer click</th>
+      <th>Valor a guardar en DB</th>
+    </tr>
+    <tr>
+      <td>🔄 Cambiar asesor IOL</td>
+      <td>Abre WhatsApp con mensaje prefijado: <em>"Hola Marcos, quiero cambiar mi asesor en IOL"</em></td>
+      <td><span class="badge badge-green">cambio_asesor_iol</span></td>
+    </tr>
+    <tr>
+      <td>🏦 Abrir cuenta IOL</td>
+      <td>Abre link de apertura de cuenta IOL (URL que Marcos provee)</td>
+      <td><span class="badge badge-blue">apertura_iol</span></td>
+    </tr>
+    <tr>
+      <td>💬 Hablar con Marcos — IBKR</td>
+      <td>Abre WhatsApp con mensaje prefijado: <em>"Hola Marcos, quiero abrir IBKR / enviar fondos"</em></td>
+      <td><span class="badge badge-amber">ibkr_fondos</span></td>
+    </tr>
+    <tr>
+      <td>✕ Cerrar modal</td>
+      <td>Cierra el modal — redirige a Tribu igual</td>
+      <td><span class="badge badge-red">sin_elegir</span></td>
+    </tr>
+  </table>
+
+  <div class="callout callout-warn">
+    <strong>Nota sobre cambio de asesor IOL:</strong> Este proceso no es instantáneo. Marcos tiene que confirmar manualmente en el portal AFI. El texto del botón y el mensaje de WhatsApp deben dejar claro que Marcos va a contactar al usuario en las próximas 24 horas — no es automático.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 3 — BASE DE DATOS -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Cambios en base de datos</div>
+
+  <p>Agregar dos columnas a la tabla de miembros existente:</p>
+
+  <div class="code-block"><pre><span class="code-comment">-- Agregar columnas a la tabla de miembros (o la que corresponda en tu schema)</span>
+
+<span class="code-fn">ALTER TABLE</span> miembros
+  <span class="code-fn">ADD COLUMN</span> <span class="code-key">broker_elegido</span>  <span class="code-string">VARCHAR(30)</span>  <span class="code-fn">DEFAULT</span> <span class="code-string">'sin_elegir'</span>,
+  <span class="code-fn">ADD COLUMN</span> <span class="code-key">broker_fecha</span>    <span class="code-string">TIMESTAMP</span>    <span class="code-fn">DEFAULT</span> <span class="code-string">NULL</span>;
+
+<span class="code-comment">-- Valores posibles para broker_elegido:</span>
+<span class="code-comment">--   'sin_elegir'        → no tocó ningún botón (default)</span>
+<span class="code-comment">--   'cambio_asesor_iol' → botón 1</span>
+<span class="code-comment">--   'apertura_iol'      → botón 2</span>
+<span class="code-comment">--   'ibkr_fondos'       → botón 3</span></pre></div>
+
+  <p>Si el schema usa una tabla separada de membresías o suscripciones, agregar las columnas ahí en vez de en usuarios.</p>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 4 — LÓGICA DE REGISTRO -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Lógica de registro del click</div>
+
+  <p>Cuando el usuario hace click en cualquiera de los tres botones, antes de abrir el link o WhatsApp, hacer un fetch al backend para guardar la elección:</p>
+
+  <div class="code-block"><pre><span class="code-comment">// Frontend — onClick de cada botón</span>
+
+<span class="code-fn">async function</span> <span class="code-key">registrarEleccion</span>(userId, eleccion) {
+  <span class="code-fn">await</span> fetch(<span class="code-string">'/api/broker-eleccion'</span>, {
+    method: <span class="code-string">'POST'</span>,
+    headers: { <span class="code-string">'Content-Type'</span>: <span class="code-string">'application/json'</span> },
+    body: JSON.stringify({
+      user_id:  userId,
+      eleccion: eleccion,   <span class="code-comment">// 'cambio_asesor_iol' | 'apertura_iol' | 'ibkr_fondos'</span>
+      fecha:    <span class="code-fn">new</span> Date().toISOString()
+    })
+  });
+}
+
+<span class="code-comment">// Ejemplo de uso en el botón 1</span>
+boton_cambioAsesor.addEventListener(<span class="code-string">'click'</span>, <span class="code-fn">async</span> () => {
+  <span class="code-fn">await</span> registrarEleccion(userId, <span class="code-string">'cambio_asesor_iol'</span>);
+  window.open(<span class="code-string">'https://wa.me/549XXXXXXXXXX?text=Hola+Marcos,+quiero+cambiar+mi+asesor+en+IOL'</span>);
+});</pre></div>
+
+  <div class="code-block"><pre><span class="code-comment">// Backend — endpoint /api/broker-eleccion (Node/Express o lo que uses)</span>
+
+app.post(<span class="code-string">'/api/broker-eleccion'</span>, <span class="code-fn">async</span> (req, res) => {
+  <span class="code-fn">const</span> { user_id, eleccion, fecha } = req.body;
+
+  <span class="code-fn">await</span> db.query(<span class="code-string">`
+    UPDATE miembros
+    SET broker_elegido = $1,
+        broker_fecha   = $2
+    WHERE id = $3
+  `</span>, [eleccion, fecha, user_id]);
+
+  res.json({ ok: <span class="code-string">true</span> });
+});</pre></div>
+
+  <div class="callout callout-ok">
+    <strong>Sin riesgo de pérdida de datos:</strong> el fetch se hace antes de abrir el link. Si el usuario cierra el tab igual, el registro ya quedó guardado.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 5 — VISTA EN LA TRIBU -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Vista en "La tribu" — panel de administración</div>
+
+  <p>En la sección "La tribu" del panel de admin, agregar una columna o badge al lado de cada miembro que muestre su elección. También agregar un filtro rápido para ver solo los que no eligieron nada.</p>
+
+  <p><strong>Mockup de cómo quedaría la lista:</strong></p>
+
+  <div class="mockup">
+    <div class="mockup-bar">
+      <span class="mockup-dot" style="background:#ff5f57;"></span>
+      <span class="mockup-dot" style="background:#febc2e;"></span>
+      <span class="mockup-dot" style="background:#28c840;"></span>
+      <span style="margin-left:8px;">tutribu.vercel.app — La tribu — Admin</span>
+    </div>
+    <div class="mockup-body">
+      <div style="font-size:20px;font-weight:600;margin-bottom:4px;">Miembros</div>
+      <div style="font-size:12px;color:#888;margin-bottom:16px;">Personas que forman parte de esta tribu.</div>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <div style="padding:5px 12px;background:#1a1a2e;color:white;border-radius:6px;font-size:12px;cursor:pointer;">Todos (4)</div>
+        <div style="padding:5px 12px;background:#fef8f6;border:1px solid #e8917a;color:#9e3d25;border-radius:6px;font-size:12px;cursor:pointer;">Sin elegir (1)</div>
+        <div style="padding:5px 12px;background:#f0ede6;color:#888;border-radius:6px;font-size:12px;cursor:pointer;">IOL cambio (1)</div>
+        <div style="padding:5px 12px;background:#f0ede6;color:#888;border-radius:6px;font-size:12px;cursor:pointer;">IOL nuevo (1)</div>
+        <div style="padding:5px 12px;background:#f0ede6;color:#888;border-radius:6px;font-size:12px;cursor:pointer;">IBKR (1)</div>
+      </div>
+
+      <div class="tribu-row">
+        <div class="tribu-avatar">VI</div>
+        <div style="flex:1;">
+          <div class="tribu-name">Vivir Invirtiendo <span style="font-size:11px;font-weight:400;color:#888;">Líder</span></div>
+          <div class="tribu-email">vivirinvirtiendo20@gmail.com</div>
+        </div>
+        <span class="badge badge-gray">Líder</span>
+      </div>
+
+      <div class="tribu-row">
+        <div class="tribu-avatar">RK</div>
+        <div style="flex:1;">
+          <div class="tribu-name">Rocio Krieger</div>
+          <div class="tribu-email">krieger3010@gmail.com</div>
+        </div>
+        <span class="badge badge-green">🔄 IOL — cambio asesor</span>
+      </div>
+
+      <div class="tribu-row">
+        <div class="tribu-avatar">JP</div>
+        <div style="flex:1;">
+          <div class="tribu-name">Juan Pérez</div>
+          <div class="tribu-email">juan@gmail.com</div>
+        </div>
+        <span class="badge badge-amber">💬 IBKR / fondos</span>
+      </div>
+
+      <div class="tribu-row">
+        <div class="tribu-avatar">ML</div>
+        <div style="flex:1;">
+          <div class="tribu-name">María López</div>
+          <div class="tribu-email">maria@gmail.com</div>
+        </div>
+        <span class="badge badge-blue">🏦 IOL — cuenta nueva</span>
+      </div>
+
+      <div class="tribu-row">
+        <div class="tribu-avatar">CP</div>
+        <div style="flex:1;">
+          <div class="tribu-name">Carlos Pérez</div>
+          <div class="tribu-email">carlos@gmail.com — <strong style="color:#9e3d25;">seguimiento pendiente</strong></div>
+        </div>
+        <span class="badge badge-red">⚠️ Sin elegir</span>
+      </div>
+
+    </div>
+  </div>
+
+  <p><strong>Query para obtener los miembros con su elección:</strong></p>
+
+  <div class="code-block"><pre><span class="code-comment">-- Todos los miembros con su estado de broker</span>
+<span class="code-fn">SELECT</span>
+  u.nombre,
+  u.email,
+  m.broker_elegido,
+  m.broker_fecha,
+  m.fecha_pago
+<span class="code-fn">FROM</span> miembros m
+<span class="code-fn">JOIN</span> usuarios u <span class="code-fn">ON</span> u.id = m.user_id
+<span class="code-fn">WHERE</span> m.tribu_id = :tribu_id
+<span class="code-fn">ORDER BY</span> m.broker_elegido = <span class="code-string">'sin_elegir'</span> <span class="code-fn">DESC</span>, <span class="code-comment">-- sin elegir primero</span>
+         m.fecha_pago <span class="code-fn">DESC</span>;
+
+<span class="code-comment">-- Solo los que NO eligieron nada (para Vicky)</span>
+<span class="code-fn">SELECT</span> u.nombre, u.email, m.fecha_pago
+<span class="code-fn">FROM</span> miembros m
+<span class="code-fn">JOIN</span> usuarios u <span class="code-fn">ON</span> u.id = m.user_id
+<span class="code-fn">WHERE</span> m.tribu_id = :tribu_id
+  <span class="code-fn">AND</span> m.broker_elegido = <span class="code-string">'sin_elegir'</span>
+  <span class="code-fn">AND</span> m.fecha_pago &lt; NOW() - <span class="code-fn">INTERVAL</span> <span class="code-string">'24 hours'</span>; <span class="code-comment">-- más de 24hs sin elegir</span></pre></div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 6 — SEGUIMIENTO 24HS -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Seguimiento a 24 horas — lista para Vicky</div>
+
+  <p>Agregar en el panel de admin una vista o exportación simple de los miembros que llevan más de 24 horas sin haber elegido ninguna opción. Vicky usa esa lista para hacer seguimiento manual.</p>
+
+  <div class="callout callout-info">
+    <strong>Implementación mínima:</strong> Un botón "Exportar sin elegir" que descarga un CSV con nombre, email y fecha de pago. No hace falta nada más sofisticado para empezar.
+  </div>
+
+  <p><strong>Mensaje de seguimiento que usa Vicky (para referencia):</strong></p>
+
+  <div style="background:#f0ede6;border-radius:8px;padding:16px 20px;margin:12px 0;font-size:13px;line-height:1.7;color:#333;border-left:3px solid #d4a44c;">
+    "Hola [nombre], vi que te sumaste a Tribu — te quería recordar que tenés acceso gratis al grupo de WhatsApp con Marcos eligiendo una de las tres opciones que te aparecieron al entrar. ¿Querés que te ayude a elegir cuál te conviene?"
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 7 — RESUMEN DE TAREAS -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Resumen de tareas para Guido</div>
+
+  <div class="steps">
+
+    <div class="step-item">
+      <div class="step-circle">1</div>
+      <div class="step-body">
+        <div class="step-label">Agregar columnas a la base de datos <span class="priority p-alta">ALTA</span></div>
+        <div class="step-desc">Dos columnas en la tabla de miembros: <code style="font-family:monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;">broker_elegido</code> (varchar, default 'sin_elegir') y <code style="font-family:monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;">broker_fecha</code> (timestamp). Estimado: 15 minutos.</div>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-circle">2</div>
+      <div class="step-body">
+        <div class="step-label">Crear endpoint POST /api/broker-eleccion <span class="priority p-alta">ALTA</span></div>
+        <div class="step-desc">Recibe user_id y eleccion, actualiza la tabla de miembros. Verificar que el usuario esté autenticado antes de procesar. Estimado: 30 minutos.</div>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-circle">3</div>
+      <div class="step-body">
+        <div class="step-label">Construir el modal post-pago <span class="priority p-alta">ALTA</span></div>
+        <div class="step-desc">Aparece después de la confirmación de Mercado Pago. Tiene X para cerrar. Tres botones con los estilos del mockup. Al clickear: llamar al endpoint y luego abrir el link. Estimado: 2 horas.</div>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-circle">4</div>
+      <div class="step-body">
+        <div class="step-label">Agregar badges en la vista "La tribu" <span class="priority p-media">MEDIA</span></div>
+        <div class="step-desc">Leer el campo broker_elegido de cada miembro y mostrar el badge correspondiente al lado del nombre. Agregar los filtros rápidos arriba de la lista. Estimado: 1 hora.</div>
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-circle">5</div>
+      <div class="step-body">
+        <div class="step-label">Botón "Exportar sin elegir" para Vicky <span class="priority p-media">MEDIA</span></div>
+        <div class="step-desc">Query que trae miembros con broker_elegido = 'sin_elegir' y fecha_pago mayor a 24 horas. Exportar como CSV con nombre, email y fecha de pago. Estimado: 45 minutos.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <table>
+    <tr>
+      <th>Tarea</th>
+      <th>Prioridad</th>
+      <th>Estimado</th>
+    </tr>
+    <tr>
+      <td>Columnas en DB</td>
+      <td><span class="badge badge-red">Alta</span></td>
+      <td>15 min</td>
+    </tr>
+    <tr>
+      <td>Endpoint POST broker-eleccion</td>
+      <td><span class="badge badge-red">Alta</span></td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td>Modal post-pago con 3 botones</td>
+      <td><span class="badge badge-red">Alta</span></td>
+      <td>2 hs</td>
+    </tr>
+    <tr>
+      <td>Badges en vista La tribu</td>
+      <td><span class="badge badge-amber">Media</span></td>
+      <td>1 h</td>
+    </tr>
+    <tr>
+      <td>Exportar CSV sin elegir</td>
+      <td><span class="badge badge-amber">Media</span></td>
+      <td>45 min</td>
+    </tr>
+    <tr>
+      <td><strong>Total estimado</strong></td>
+      <td></td>
+      <td><strong>4–5 horas</strong></td>
+    </tr>
+  </table>
+
+  <div class="callout callout-ok" style="margin-top:20px;">
+    <strong>Sin dependencias externas.</strong> Todo el desarrollo es interno a TuTribu — base de datos propia, frontend propio, sin APIs de terceros. Se puede hacer en una sola sesión de trabajo.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 8 — LINKS Y TEXTOS -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Links y textos a proveer por Marcos</div>
+
+  <div class="callout callout-red">
+    <strong>Pendiente de Marcos antes de que Guido pueda terminar:</strong>
+  </div>
+
+  <table>
+    <tr>
+      <th>Item</th>
+      <th>Descripción</th>
+      <th>Estado</th>
+    </tr>
+    <tr>
+      <td>Número de WhatsApp</td>
+      <td>El número exacto de Marcos para los links de wa.me de los botones 1 y 3</td>
+      <td><span class="badge badge-red">Pendiente</span></td>
+    </tr>
+    <tr>
+      <td>Link de apertura IOL</td>
+      <td>URL del formulario de apertura de cuenta IOL con Marcos como asesor directo</td>
+      <td><span class="badge badge-red">Pendiente</span></td>
+    </tr>
+    <tr>
+      <td>Texto del mensaje WA — botón 1</td>
+      <td>Mensaje prefijado para cambio de asesor IOL — sugerido: "Hola Marcos, quiero cambiar mi asesor en IOL a tu nombre"</td>
+      <td><span class="badge badge-amber">A confirmar</span></td>
+    </tr>
+    <tr>
+      <td>Texto del mensaje WA — botón 3</td>
+      <td>Mensaje prefijado para IBKR — sugerido: "Hola Marcos, quiero abrir mi cuenta en IBKR / enviar fondos"</td>
+      <td><span class="badge badge-amber">A confirmar</span></td>
+    </tr>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 9 — BUG MERCADO PAGO -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">🔴 Bug crítico — Error al volver de Mercado Pago</div>
+
+  <div class="callout callout-red">
+    <strong>Prioridad máxima — resolver antes del lanzamiento.</strong> Este bug rompe la experiencia en el momento más crítico: justo después de que la persona pagó.
+  </div>
+
+  <p><strong>El problema:</strong> Cuando la persona completa el pago, Mercado Pago la mantiene dentro de su propio navegador o webview interno. Al intentar volver a la plataforma aparece un error y la persona no puede ver ni acceder a la asesoría. Resultado: acaba de pagar y no puede entrar.</p>
+
+  <p><strong>El impacto:</strong> Genera desconfianza inmediata, la persona escribe preguntando si el pago se procesó, Vicky o Marcos pierden tiempo en soporte manual, y algunos pueden pedir devolución.</p>
+
+  <div class="divider"></div>
+
+  <p><strong>Soluciones posibles — elegir una o combinarlas:</strong></p>
+
+  <table>
+    <tr>
+      <th>Opción</th>
+      <th>Cómo funciona</th>
+      <th>Dificultad</th>
+    </tr>
+    <tr>
+      <td><strong>A — URL de retorno (back_url)</strong></td>
+      <td>Configurar en Mercado Pago la <code style="font-family:monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;">back_url</code> de éxito apuntando directamente a la página de acceso de la plataforma. Cuando el pago se confirma, MP redirige automáticamente a esa URL fuera de su webview.</td>
+      <td><span class="badge badge-green">Fácil</span></td>
+    </tr>
+    <tr>
+      <td><strong>B — Email automático post-pago</strong></td>
+      <td>Cuando MP confirma el pago vía webhook, la plataforma envía automáticamente un email al correo de la cuenta de MP con el link de acceso. La persona sale de MP, abre el mail y entra sin fricción. Funciona aunque el redirect falle.</td>
+      <td><span class="badge badge-amber">Media</span></td>
+    </tr>
+    <tr>
+      <td><strong>C — Ambas combinadas ✅ Recomendado</strong></td>
+      <td>Redirect con back_url + email automático de bienvenida. Si el redirect falla, el email actúa como respaldo. El email también puede incluir el link de IOL y la invitación al grupo WA — se convierte en pieza de onboarding.</td>
+      <td><span class="badge badge-amber">Media</span></td>
+    </tr>
+  </table>
+
+  <div class="callout callout-ok" style="margin-top:16px;">
+    <strong>Recomendación: Opción C.</strong> El email de bienvenida automático no solo resuelve el bug — también es una oportunidad de onboarding. Puede incluir: link de acceso a la plataforma, link de apertura IOL, e invitación a elegir el broker para acceder al grupo WA privado.
+  </div>
+
+  <p><strong>Implementación técnica — Opción C:</strong></p>
+
+  <div class="code-block"><pre><span class="code-comment">// 1. Configurar back_url en el checkout de Mercado Pago</span>
+
+<span class="code-fn">const</span> preference = {
+  items: [...],
+  back_urls: {
+    success: <span class="code-string">'https://tutribu.vercel.app/acceso?pago=ok'</span>,
+    failure: <span class="code-string">'https://tutribu.vercel.app/pago-error'</span>,
+    pending: <span class="code-string">'https://tutribu.vercel.app/pago-pendiente'</span>
+  },
+  auto_return: <span class="code-string">'approved'</span>  <span class="code-comment">// redirige automático si el pago es aprobado</span>
+};
+
+<span class="code-comment">// 2. Webhook de MP confirma el pago → enviar email</span>
+
+app.post(<span class="code-string">'/webhook/mercadopago'</span>, <span class="code-fn">async</span> (req, res) => {
+  <span class="code-fn">const</span> { type, data } = req.body;
+
+  <span class="code-fn">if</span> (type === <span class="code-string">'payment'</span>) {
+    <span class="code-fn">const</span> payment = <span class="code-fn">await</span> mp.payment.get(data.id);
+
+    <span class="code-fn">if</span> (payment.status === <span class="code-string">'approved'</span>) {
+      <span class="code-fn">await</span> activarSuscriptor(payment.payer.email);
+      <span class="code-fn">await</span> enviarEmailBienvenida(payment.payer.email);
+    }
+  }
+
+  res.sendStatus(<span class="code-num">200</span>);
+});
+
+<span class="code-comment">// 3. Email de bienvenida — contenido sugerido</span>
+
+<span class="code-fn">async function</span> enviarEmailBienvenida(email) {
+  <span class="code-fn">await</span> mailer.send({
+    to: email,
+    subject: <span class="code-string">'¡Bienvenido a Vivir Invirtiendo!'</span>,
+    html: <span class="code-string">`
+      &lt;h2&gt;Tu acceso está listo&lt;/h2&gt;
+      &lt;p&gt;Entrá a la asesoría desde acá:&lt;/p&gt;
+      &lt;a href="https://tutribu.vercel.app/acceso"&gt;Ir a la asesoría&lt;/a&gt;
+
+      &lt;p&gt;Para acceder al grupo de WhatsApp privado con Marcos,
+      elegí una de estas opciones:&lt;/p&gt;
+      &lt;ul&gt;
+        &lt;li&gt;&lt;a href="[LINK IOL APERTURA]"&gt;Abrir cuenta en IOL&lt;/a&gt;&lt;/li&gt;
+        &lt;li&gt;&lt;a href="[WA LINK IBKR]"&gt;Hablar con Marcos para IBKR&lt;/a&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+    `</span>
+  });
+}</pre></div>
+
+  <table>
+    <tr>
+      <th>Tarea</th>
+      <th>Prioridad</th>
+      <th>Estimado</th>
+    </tr>
+    <tr>
+      <td>Configurar back_url en checkout de MP</td>
+      <td><span class="badge badge-red">Urgente</span></td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td>Webhook de MP → activar suscriptor + email</td>
+      <td><span class="badge badge-red">Urgente</span></td>
+      <td>1–2 hs</td>
+    </tr>
+    <tr>
+      <td>Template HTML del email de bienvenida</td>
+      <td><span class="badge badge-red">Urgente</span></td>
+      <td>30 min</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 10 — VIDEO EN LA PLATAFORMA -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">10</div>
+  <div class="section-title">Video en la plataforma — para empezar a postear</div>
+
+  <div class="callout callout-info">
+    No hace falta construir un sistema de cursos completo para empezar. La necesidad inmediata es poder subir videos dentro de los posts de la asesoría — análisis, recomendaciones grabadas, comentarios de mercado. Hay dos formas de hacerlo sin construir nada complejo.
+  </div>
+
+  <div class="divider"></div>
+
+  <p><strong>Opción A — Link embebido desde YouTube no listado (más simple, para arrancar ya)</strong></p>
+
+  <p>Marcos sube el video a YouTube como <strong>no listado</strong> (no aparece en búsquedas ni en el canal). La plataforma embebe el reproductor de YouTube directo en el post. No hay costo de almacenamiento, no hay que construir nada de infraestructura, y el video se ve dentro de la plataforma sin que el usuario sepa que es de YouTube.</p>
+
+  <div class="code-block"><pre><span class="code-comment">&lt;!-- En el post de la plataforma — reproductor embebido --&gt;</span>
+
+<span class="code-tag">&lt;div</span> <span class="code-key">class</span>=<span class="code-string">"video-wrapper"</span><span class="code-tag">&gt;</span>
+  <span class="code-tag">&lt;iframe</span>
+    <span class="code-key">src</span>=<span class="code-string">"https://www.youtube.com/embed/VIDEO_ID?rel=0&amp;modestbranding=1"</span>
+    <span class="code-key">width</span>=<span class="code-string">"100%"</span>
+    <span class="code-key">height</span>=<span class="code-string">"400"</span>
+    <span class="code-key">frameborder</span>=<span class="code-string">"0"</span>
+    <span class="code-key">allowfullscreen</span>
+  <span class="code-tag">&gt;&lt;/iframe&gt;</span>
+<span class="code-tag">&lt;/div&gt;</span>
+
+<span class="code-comment">/* CSS — responsive */</span>
+<span class="code-fn">.video-wrapper</span> {
+  position: relative;
+  padding-bottom: <span class="code-num">56.25%</span>; <span class="code-comment">/* 16:9 */</span>
+  height: <span class="code-num">0</span>;
+  overflow: hidden;
+}
+<span class="code-fn">.video-wrapper iframe</span> {
+  position: absolute;
+  top: <span class="code-num">0</span>; left: <span class="code-num">0</span>;
+  width: <span class="code-num">100%</span>; height: <span class="code-num">100%</span>;
+}</pre></div>
+
+  <div class="callout callout-ok">
+    <strong>Lo que necesita Guido:</strong> Agregar un campo "URL de video" opcional en el editor de posts. Si el campo tiene una URL de YouTube, renderizar el iframe embebido. Si está vacío, no mostrar nada. Son 2–3 horas de trabajo máximo.
+  </div>
+
+  <div class="divider"></div>
+
+  <p><strong>Opción B — Videos alojados en Cloudflare Stream o Bunny.net (más profesional, para escalar)</strong></p>
+
+  <p>Cuando la cantidad de videos crezca o se quiera mayor control, se puede migrar a un servicio de hosting de video dedicado. Las opciones más simples y baratas:</p>
+
+  <table>
+    <tr>
+      <th>Servicio</th>
+      <th>Precio</th>
+      <th>Ventaja</th>
+    </tr>
+    <tr>
+      <td><strong>Cloudflare Stream</strong></td>
+      <td>$5 USD/mes base + $1 por 1.000 minutos vistos</td>
+      <td>Sin límite de almacenamiento, muy rápido, se embebe igual que YouTube</td>
+    </tr>
+    <tr>
+      <td><strong>Bunny.net Stream</strong></td>
+      <td>$0.005 USD por minuto almacenado + ancho de banda</td>
+      <td>Muy barato para bajo volumen, API simple, reproductor propio</td>
+    </tr>
+    <tr>
+      <td><strong>YouTube no listado</strong></td>
+      <td>Gratis</td>
+      <td>Sin infraestructura — para arrancar ya — la persona ve el reproductor de YT</td>
+    </tr>
+  </table>
+
+  <div class="callout callout-warn" style="margin-top:16px;">
+    <strong>Recomendación para arrancar:</strong> YouTube no listado + campo URL en el editor de posts. Costo cero, implementación rápida, permite empezar a postear videos esta semana. Migrar a Cloudflare Stream o Bunny cuando haya más de 20–30 videos o cuando se quiera quitar el branding de YouTube.
+  </div>
+
+  <table style="margin-top:16px;">
+    <tr>
+      <th>Tarea</th>
+      <th>Prioridad</th>
+      <th>Estimado</th>
+    </tr>
+    <tr>
+      <td>Campo "URL de video" opcional en el editor de posts</td>
+      <td><span class="badge badge-red">Alta</span></td>
+      <td>1–2 hs</td>
+    </tr>
+    <tr>
+      <td>Render del iframe embebido responsive en los posts</td>
+      <td><span class="badge badge-red">Alta</span></td>
+      <td>1 h</td>
+    </tr>
+    <tr>
+      <td>Evaluar Cloudflare Stream o Bunny cuando escale</td>
+      <td><span class="badge badge-gray">Baja</span></td>
+      <td>A futuro</td>
+    </tr>
+  </table>
+
+  <div class="callout callout-ok" style="margin-top:16px;">
+    <strong>Flujo para Marcos:</strong> Graba el video → lo sube a YouTube como "No listado" → copia el link → lo pega en el campo de video del post en la plataforma → publica. El suscriptor ve el reproductor embebido dentro de la asesoría sin salir de la plataforma.
+  </div>
+</div>
+
+</body>
+</html>
