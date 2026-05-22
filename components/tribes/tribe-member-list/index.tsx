@@ -86,26 +86,38 @@ function TribeMemberSelectionBadges({
       aria-label={TRIBE_MEMBER_LIST_COPY.selectionListLabel}
       className={styles.TribeMemberList__selectionList}
     >
-      {selections.map((selection) => (
-        <li className={styles.TribeMemberList__selectionItem} key={selection.id}>
-          <Badge
-            className={styles.TribeMemberList__selectionBadge}
-            variant={TRIBE_MEMBER_LIST_ATTRIBUTES.outlineBadgeVariant}
+      {selections.map((selection) => {
+        const countLabel = TRIBE_MEMBER_LIST_COPY.selectionCountAriaLabel(
+          selection.count
+        );
+
+        return (
+          <li
+            className={styles.TribeMemberList__selectionItem}
+            key={selection.id}
           >
-            <span className={styles.TribeMemberList__selectionBadgeLabel}>
-              {selection.label}
-            </span>
-            <span
-              aria-label={TRIBE_MEMBER_LIST_COPY.selectionCountAriaLabel(
-                selection.count
-              )}
-              className={styles.TribeMemberList__selectionBadgeCount}
+            <Badge
+              aria-label={`${selection.label}, ${countLabel}`}
+              className={styles.TribeMemberList__selectionBadge}
+              title={countLabel}
+              variant={TRIBE_MEMBER_LIST_ATTRIBUTES.outlineBadgeVariant}
             >
-              {selection.count}
-            </span>
-          </Badge>
-        </li>
-      ))}
+              <span className={styles.TribeMemberList__selectionBadgeLabel}>
+                {selection.label}
+              </span>
+              <span
+                aria-hidden={true}
+                className={styles.TribeMemberList__selectionBadgeSeparator}
+              >
+                ·
+              </span>
+              <span className={styles.TribeMemberList__selectionBadgeCount}>
+                {selection.count}
+              </span>
+            </Badge>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -140,13 +152,13 @@ export function TribeMemberList({
             </Avatar>
             <div className={styles.TribeMemberList__identity}>
               <div className={styles.TribeMemberList__memberDetails}>
-                <p className={styles.TribeMemberList__name}>{member.name}</p>
+                <div className={styles.TribeMemberList__nameRow}>
+                  <p className={styles.TribeMemberList__name}>{member.name}</p>
+                  <TribeMemberRoleBadge role={member.role} />
+                </div>
                 <p className={styles.TribeMemberList__email}>{member.email}</p>
               </div>
-              <div className={styles.TribeMemberList__badges}>
-                <TribeMemberRoleBadge role={member.role} />
-                <TribeMemberSelectionBadges selections={memberSelections} />
-              </div>
+              <TribeMemberSelectionBadges selections={memberSelections} />
             </div>
           </li>
         );

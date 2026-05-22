@@ -27,13 +27,22 @@
     flex: 1;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
+    justify-content: space-between;
+    gap: 0.75rem;
     min-width: 0;
   }
 
   &__memberDetails {
     display: grid;
     gap: 0.125rem;
+    min-width: 0;
+  }
+
+  &__nameRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
     min-width: 0;
   }
 
@@ -53,13 +62,6 @@
     line-height: 1.4;
   }
 
-  &__badges {
-    align-items: center;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem;
-  }
-
   &__selectionList {
     display: flex;
     flex-wrap: wrap;
@@ -75,31 +77,30 @@
 
   &__selectionBadge {
     align-items: center;
-    background: color-mix(in srgb, var(--primary) 12%, transparent);
-    border-color: color-mix(in srgb, var(--primary) 35%, transparent);
-    border-radius: 999rem;
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 25%, transparent);
+    border-radius: 0.375rem;
     color: var(--primary);
     display: inline-flex;
-    gap: 0.4rem;
-    padding-inline-end: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    gap: 0.3rem;
+    padding: 0.1rem 0.45rem;
   }
 
   &__selectionBadgeLabel {
     line-height: 1.2;
   }
 
-  &__selectionBadgeCount {
-    align-items: center;
-    background: color-mix(in srgb, var(--primary) 25%, transparent);
-    border-radius: 999rem;
-    color: var(--primary);
-    display: inline-flex;
-    font-size: 0.7rem;
-    font-weight: 700;
-    justify-content: center;
+  &__selectionBadgeSeparator {
+    color: color-mix(in srgb, var(--primary) 55%, transparent);
     line-height: 1;
-    min-width: 1.25rem;
-    padding: 0.15rem 0.4rem;
+  }
+
+  &__selectionBadgeCount {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    line-height: 1.2;
   }
 
   &__roleBadge {
