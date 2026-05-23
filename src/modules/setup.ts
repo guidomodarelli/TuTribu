@@ -11,6 +11,8 @@ import { PostgresMessageRoundRepository } from "./messages/infrastructure/reposi
 import { PostgresTribeChannelRepository } from "./messages/infrastructure/repositories/postgres-tribe-channel-repository";
 import { PostgresMessageMutationRepository } from "./messages/infrastructure/repositories/postgres-message-mutation-repository";
 import { buildMessagesModule } from "./messages/setup";
+import { buildCoursesModule } from "./courses/setup";
+import { PostgresCourseRepository } from "./courses/infrastructure/repositories/postgres-course-repository";
 import { buildEventsModule } from "./events/setup";
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
@@ -124,6 +126,9 @@ export async function createRequestModules(
       messageDeletionRepository: new PostgresMessageMutationRepository(
         executeWithRequestContext
       ),
+    }),
+    courses: buildCoursesModule({
+      courseRepository: new PostgresCourseRepository(executeWithRequestContext),
     }),
     events: buildEventsModule({
       tribeEventRepository: new PostgresTribeEventRepository(

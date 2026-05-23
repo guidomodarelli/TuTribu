@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -338,6 +339,62 @@ export const messagePins = pgTable("message_pins", {
     table.tribeId,
     table.pinnedAt
   ),
+}));
+
+export const courseModules = pgTable("course_modules", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  moduleTribeKey: uniqueIndex("course_modules_id_tribe_id_key").on(
+    table.id,
+    table.tribeId
+  ),
+  tribeSortIndex: index("idx_course_modules_tribe_sort").on(
+    table.tribeId,
+    table.sortOrder
+  ),
+}));
+
+export const courseLessons = pgTable("course_lessons", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  courseModuleId: uuid("course_module_id").notNull(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  videoProvider: text("video_provider").notNull(),
+  externalVideoId: text("external_video_id").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  moduleTribeForeignKey: foreignKey({
+    columns: [table.courseModuleId, table.tribeId],
+    foreignColumns: [courseModules.id, courseModules.tribeId],
+    name: "course_lessons_module_tribe_fkey",
+  }).onDelete("cascade"),
+  moduleSortIndex: index("idx_course_lessons_module_sort").on(
+    table.courseModuleId,
+    table.sortOrder
+  ),
+  tribeIndex: index("idx_course_lessons_tribe").on(table.tribeId),
 }));
 
 export const events = pgTable("events", {

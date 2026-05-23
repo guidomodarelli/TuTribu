@@ -3,6 +3,8 @@ const ROUTE_SEGMENT_SEPARATOR = "/";
 const TRIBE_ROUTE_SEGMENTS = {
   history: "historia",
   channels: "canales",
+  courses: "cursos",
+  coursesManage: "cursos/gestionar",
   events: "eventos",
   welcome: "bienvenida",
   invitations: "invitaciones",
@@ -31,6 +33,10 @@ export const ROUTES = {
     bySlug: (slug: string) => TRIBE_ROUTE_PREFIX + slug,
     channels: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.channels),
+    courses: (slug: string) =>
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.courses),
+    coursesManage: (slug: string) =>
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.coursesManage),
     create: "/tribu/crear",
     events: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.events),

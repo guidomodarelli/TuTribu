@@ -7,6 +7,7 @@ import {
   ChevronDownIcon,
   CompassIcon,
   FlameKindlingIcon,
+  GraduationCapIcon,
   HandHeartIcon,
   MailPlusIcon,
   MedalIcon,
@@ -86,6 +87,13 @@ const tribeSectionNavigation = [
     label: "Eventos",
     matchPath: (pathname: string, tribeSlug: string) =>
       isSameOrNestedPath(pathname, ROUTES.tribes.events(tribeSlug)),
+  },
+  {
+    hrefBuilder: ROUTES.tribes.courses,
+    icon: GraduationCapIcon,
+    label: "Cursos",
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.courses(tribeSlug)),
   },
   {
     hrefBuilder: ROUTES.tribes.tribe,

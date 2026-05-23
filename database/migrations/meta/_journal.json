@@ -211,6 +211,13 @@
       "when": 1779436800000,
       "tag": "20260522120000_allow_repeated_tribe_welcome_selections",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1779440400000,
+      "tag": "20260522130000_create_course_modules_and_lessons",
+      "breakpoints": true
     }
   ]
 }
