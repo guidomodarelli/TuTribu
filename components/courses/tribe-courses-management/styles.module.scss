@@ -54,6 +54,11 @@
     border-radius: var(--radius-lg);
     padding: 1.25rem;
     background-color: var(--card);
+    transition: opacity 120ms ease-out;
+
+    &--pending {
+      opacity: 0.72;
+    }
   }
 
   &__moduleHeader,
@@ -121,6 +126,22 @@
     padding: 0.75rem;
     border-radius: var(--radius-md);
     background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+    transition: opacity 120ms ease-out;
+
+    &--pending {
+      opacity: 0.72;
+    }
+  }
+
+  &__pendingBadge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999rem;
+    background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+    color: var(--muted-foreground);
   }
 
   &__form {
