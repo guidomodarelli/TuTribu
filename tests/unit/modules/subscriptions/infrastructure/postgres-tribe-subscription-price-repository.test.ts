@@ -363,9 +363,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       }
 
       if (sqlText.includes("set is_current = true")) {
-        const returnsTrial = sqlText.includes(
-          "updated_current_price.trial_frequency"
-        );
+        const returnsTrial =
+          sqlText.includes("returning") && sqlText.includes("trial_frequency");
 
         return {
           rows: [
@@ -452,20 +451,22 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         status: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
       });
 
-      const clearFreeJoinCallIndex = executedSqlTexts.findIndex((sqlText) =>
+      const clearPreviousIndex = executedSqlTexts.findIndex((sqlText) =>
+        sqlText.includes("set is_current = false")
+      );
+      const setCurrentIndex = executedSqlTexts.findIndex((sqlText) =>
+        sqlText.includes("set is_current = true")
+      );
+      const clearFreeJoinIndex = executedSqlTexts.findIndex((sqlText) =>
         sqlText.includes("set free_join_is_current = false")
       );
 
       expect(executedSqlTexts[0]).toMatch(
         /target_tribe as \([\s\S]*for update/
       );
-      expect(clearFreeJoinCallIndex).toBeGreaterThanOrEqual(0);
-      expect(executedSqlTexts[clearFreeJoinCallIndex]).toMatch(
-        /updated_current_price as \([\s\S]*set is_current = true[\s\S]*updated_tribe as \([\s\S]*set free_join_is_current = false/
-      );
-      expect(executedSqlTexts[clearFreeJoinCallIndex]).toContain(
-        "and exists (select 1 from updated_current_price)"
-      );
+      expect(clearPreviousIndex).toBeGreaterThan(0);
+      expect(setCurrentIndex).toBeGreaterThan(clearPreviousIndex);
+      expect(clearFreeJoinIndex).toBeGreaterThan(setCurrentIndex);
     }
   );
 
