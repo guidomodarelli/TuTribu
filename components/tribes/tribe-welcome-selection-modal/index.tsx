@@ -9,12 +9,10 @@ import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-we
 import styles from "./styles.module.scss";
 
 const TRIBE_WELCOME_SELECTION_MODAL_COPY = {
+  benefitEyebrow: "Beneficio",
   closeLabel: "Cerrar",
-  description:
-    "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
   fallbackError:
     "No pudimos registrar tu elección. Probá de nuevo en unos minutos.",
-  title: "Elegí una opción para empezar",
 } as const;
 
 const SELECTION_REQUEST = {
@@ -76,10 +74,13 @@ const SELECTION_WINDOW_OPEN = {
 } as const;
 
 type TribeWelcomeSelectionModalProps = {
+  benefit?: string | null;
+  description: string;
   links: TribeWelcomeLinkResult[];
   onClose?: () => void;
   open: boolean;
   previewOnly?: boolean;
+  title: string;
   tribeSlug: string;
 };
 
@@ -139,10 +140,13 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
 }
 
 export function TribeWelcomeSelectionModal({
+  benefit,
+  description,
   links,
   onClose,
   open: initiallyOpen,
   previewOnly = false,
+  title,
   tribeSlug,
 }: TribeWelcomeSelectionModalProps) {
   const activeLinks = getActiveLinks(links);
@@ -298,7 +302,7 @@ export function TribeWelcomeSelectionModal({
             className={styles.TribeWelcomeSelectionModal__title}
             id={MODAL_ARIA.labelledBy}
           >
-            {TRIBE_WELCOME_SELECTION_MODAL_COPY.title}
+            {title}
           </h2>
           <button
             aria-label={TRIBE_WELCOME_SELECTION_MODAL_COPY.closeLabel}
@@ -315,8 +319,19 @@ export function TribeWelcomeSelectionModal({
           className={styles.TribeWelcomeSelectionModal__description}
           id={MODAL_ARIA.describedBy}
         >
-          {TRIBE_WELCOME_SELECTION_MODAL_COPY.description}
+          {description}
         </p>
+
+        {benefit ? (
+          <p className={styles.TribeWelcomeSelectionModal__benefit}>
+            <span
+              className={styles.TribeWelcomeSelectionModal__benefitEyebrow}
+            >
+              {TRIBE_WELCOME_SELECTION_MODAL_COPY.benefitEyebrow}
+            </span>
+            {benefit}
+          </p>
+        ) : null}
 
         <ul className={styles.TribeWelcomeSelectionModal__optionList}>
           {activeLinks.map((link) => {

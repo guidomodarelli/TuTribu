@@ -107,8 +107,11 @@ export default async function TribeWelcomePage({
         welcome={welcome}
       />
       <TribeWelcomeSelectionModal
+        benefit={welcome.selectionModalBenefit}
+        description={welcome.selectionModalDescription}
         links={welcome.links}
         open={shouldOpenSelectionModal}
+        title={welcome.selectionModalTitle}
         tribeSlug={tribe.slug}
       />
     </main>

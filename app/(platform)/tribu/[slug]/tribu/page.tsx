@@ -2,6 +2,12 @@ import { notFound } from "next/navigation";
 
 import { TribeMemberDirectory } from "@/components/tribes/tribe-member-directory";
 import type { TribeMemberSelectionBadge } from "@/components/tribes/tribe-member-list";
+import {
+  DEFAULT_TRIBE_WELCOME_LINKS_HEADING,
+  DEFAULT_TRIBE_WELCOME_MESSAGE,
+  DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION,
+  DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE,
+} from "@/src/modules/tribes/constants/tribe-welcome";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 import styles from "./page.module.scss";
@@ -33,6 +39,16 @@ const TRIBE_MANAGER_ROLES = new Set<string>([
   TRIBE_MANAGER_ROLE.guardian,
   TRIBE_MANAGER_ROLE.leader,
 ]);
+
+const EMPTY_TRIBE_WELCOME = {
+  linksHeading: DEFAULT_TRIBE_WELCOME_LINKS_HEADING,
+  links: [],
+  rules: [],
+  selectionModalBenefit: null,
+  selectionModalDescription: DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION,
+  selectionModalTitle: DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE,
+  welcomeMessage: DEFAULT_TRIBE_WELCOME_MESSAGE,
+};
 
 export default async function TribeTribePage({
   params,
@@ -106,7 +122,7 @@ export default async function TribeTribePage({
             },
           });
 
-          return { links: [], rules: [], welcomeMessage: "" };
+          return EMPTY_TRIBE_WELCOME;
         }),
       modules.tribes.useCases
         .listTribeWelcomeSelections({ tribeSlug: tribe.slug })

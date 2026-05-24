@@ -29,7 +29,12 @@ function buildWelcome() {
         url: "https://soporte.example.com",
       },
     ],
+    linksHeading: "Recursos para empezar",
     rules: [],
+    selectionModalBenefit: null,
+    selectionModalDescription:
+      "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+    selectionModalTitle: "Elegí una opción para empezar",
     welcomeMessage: "Hola",
   };
 }

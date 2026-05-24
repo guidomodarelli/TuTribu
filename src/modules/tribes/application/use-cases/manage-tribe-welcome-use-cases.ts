@@ -76,9 +76,13 @@ export function saveTribeWelcome({
 }: TribeWelcomeDependencies) {
   return async (command: SaveTribeWelcomeCommand) =>
     tribeWelcomeRepository.save({
-    links: command.links.map(normalizeLink),
-    rules: command.rules.map(normalizeRule),
-    tribeSlug: normalizeText(command.tribeSlug),
-    welcomeMessage: normalizeText(command.welcomeMessage),
-  });
+      linksHeading: normalizeText(command.linksHeading),
+      links: command.links.map(normalizeLink),
+      rules: command.rules.map(normalizeRule),
+      selectionModalBenefit: normalizeNullableText(command.selectionModalBenefit),
+      selectionModalDescription: normalizeText(command.selectionModalDescription),
+      selectionModalTitle: normalizeText(command.selectionModalTitle),
+      tribeSlug: normalizeText(command.tribeSlug),
+      welcomeMessage: normalizeText(command.welcomeMessage),
+    });
 }

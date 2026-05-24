@@ -18,6 +18,7 @@ const UUID_PATTERN =
 
 function buildWelcome() {
   return {
+    linksHeading: "Recursos para empezar",
     links: [
       {
         badgeLabel: "Soporte",
@@ -40,6 +41,10 @@ function buildWelcome() {
         sortOrder: 1,
       },
     ],
+    selectionModalBenefit: null,
+    selectionModalDescription:
+      "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+    selectionModalTitle: "Elegí una opción para empezar",
     welcomeMessage: "Bienvenido/a a la tribu",
   };
 }
@@ -341,7 +346,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    expect(screen.getByText("Predeterminado")).toBeInTheDocument();
+    expect(screen.getAllByText("Predeterminado")).toHaveLength(4);
     expect(
       screen.queryByRole("button", { name: "Restaurar predeterminado" })
     ).not.toBeInTheDocument();
@@ -363,14 +368,14 @@ describe("TribeWelcomeManagement", () => {
     await user.clear(welcomeInput);
     await user.type(welcomeInput, "Mensaje personalizado");
 
-    expect(screen.queryByText("Predeterminado")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Predeterminado")).toHaveLength(3);
 
     await user.click(
       screen.getByRole("button", { name: "Restaurar predeterminado" })
     );
 
     expect(welcomeInput).toHaveValue("Bienvenido/a a la tribu");
-    expect(screen.getByText("Predeterminado")).toBeInTheDocument();
+    expect(screen.getAllByText("Predeterminado")).toHaveLength(4);
   });
 
   it("renders an empty state when there are no rules or links", () => {
@@ -379,8 +384,13 @@ describe("TribeWelcomeManagement", () => {
         canEdit
         tribeSlug="matematica-pro"
         welcome={{
+          linksHeading: "Recursos para empezar",
           links: [],
           rules: [],
+          selectionModalBenefit: null,
+          selectionModalDescription:
+            "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+          selectionModalTitle: "Elegí una opción para empezar",
           welcomeMessage: "Mensaje personalizado",
         }}
       />
@@ -613,6 +623,34 @@ describe("TribeWelcomeManagement", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(
       screen.getByText("Ingresá un texto para el badge.")
+    ).toBeInTheDocument();
+  });
+
+  it("blocks saving and shows inline errors when required modal copy is empty", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={buildWelcome()}
+      />
+    );
+
+    await user.clear(screen.getByLabelText(/Título del modal/));
+    await user.clear(screen.getByLabelText(/Descripción del modal/));
+    await user.clear(screen.getByLabelText(/Encabezado de recursos/));
+    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Ingresá un título para el modal.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Ingresá una descripción para el modal.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Ingresá un encabezado para los recursos.")
     ).toBeInTheDocument();
   });
 

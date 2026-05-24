@@ -209,11 +209,22 @@ function mapPayloadLinks(links: unknown): TribeWelcomeLinkResult[] | null {
  * @returns A safe Spanish validation message when the payload is invalid, otherwise null.
  */
 function validateWelcomePayload(input: {
+  linksHeading: string;
   links: TribeWelcomeLinkResult[];
   rules: TribeWelcomeRuleResult[];
+  selectionModalDescription: string;
+  selectionModalTitle: string;
   welcomeMessage: string;
 }): string | null {
   if (!input.welcomeMessage.trim()) {
+    return WELCOME_ROUTE_RESPONSE.invalidBodyMessage;
+  }
+
+  if (
+    !input.selectionModalTitle.trim() ||
+    !input.selectionModalDescription.trim() ||
+    !input.linksHeading.trim()
+  ) {
     return WELCOME_ROUTE_RESPONSE.invalidBodyMessage;
   }
 
@@ -350,10 +361,23 @@ export async function PUT(
 
     const body = parsedBody;
     const welcomeMessage = readRequiredText(body.welcomeMessage);
+    const selectionModalTitle = readRequiredText(body.selectionModalTitle);
+    const selectionModalDescription = readRequiredText(
+      body.selectionModalDescription
+    );
+    const selectionModalBenefit = readOptionalText(body.selectionModalBenefit);
+    const linksHeading = readRequiredText(body.linksHeading);
     const rules = mapPayloadRules(body.rules);
     const links = mapPayloadLinks(body.links);
 
-    if (!welcomeMessage || !rules || !links) {
+    if (
+      !welcomeMessage ||
+      !selectionModalTitle ||
+      !selectionModalDescription ||
+      !linksHeading ||
+      !rules ||
+      !links
+    ) {
       return createJsonResponse(
         { message: WELCOME_ROUTE_RESPONSE.invalidBodyMessage },
         HTTP_STATUS.badRequest
@@ -361,8 +385,11 @@ export async function PUT(
     }
 
     const validationMessage = validateWelcomePayload({
+      linksHeading,
       links,
       rules,
+      selectionModalDescription,
+      selectionModalTitle,
       welcomeMessage,
     });
 
@@ -374,8 +401,12 @@ export async function PUT(
     }
 
     const result = await modules.tribes.useCases.saveTribeWelcome({
+      linksHeading,
       links,
       rules,
+      selectionModalBenefit,
+      selectionModalDescription,
+      selectionModalTitle,
       tribeSlug: slug,
       welcomeMessage,
     });

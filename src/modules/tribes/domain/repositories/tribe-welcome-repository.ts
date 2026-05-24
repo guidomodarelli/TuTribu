@@ -27,8 +27,12 @@ export type TribeWelcomeLink = {
 };
 
 export type TribeWelcome = {
+  linksHeading: string;
   links: TribeWelcomeLink[];
   rules: TribeWelcomeRule[];
+  selectionModalBenefit: string | null;
+  selectionModalDescription: string;
+  selectionModalTitle: string;
   welcomeMessage: string;
 };
 
@@ -49,8 +53,12 @@ export type GetTribeWelcomeByInvitationQuery = {
 };
 
 export type SaveTribeWelcomeCommand = {
+  linksHeading: string;
   links: TribeWelcomeLink[];
   rules: TribeWelcomeRule[];
+  selectionModalBenefit: string | null;
+  selectionModalDescription: string;
+  selectionModalTitle: string;
   tribeSlug: string;
   welcomeMessage: string;
 };

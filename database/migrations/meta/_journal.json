@@ -225,6 +225,13 @@
       "when": 1779523200000,
       "tag": "20260523120000_add_external_video_to_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1779526800000,
+      "tag": "20260523130000_add_selection_modal_fields_to_tribe_welcome",
+      "breakpoints": true
     }
   ]
 }

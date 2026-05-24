@@ -47,10 +47,23 @@ class MockJsonResponse {
   }
 }
 
+const DEFAULT_SELECTION_MODAL_PAYLOAD = {
+  linksHeading: "Recursos para empezar",
+  selectionModalBenefit: null,
+  selectionModalDescription:
+    "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+  selectionModalTitle: "Elegí una opción para empezar",
+};
+
 function buildRequest(body: unknown = {}): Request {
+  const mergedBody =
+    body && typeof body === "object" && !Array.isArray(body)
+      ? { ...DEFAULT_SELECTION_MODAL_PAYLOAD, ...(body as Record<string, unknown>) }
+      : body;
+
   return {
     headers: new Headers(),
-    json: jest.fn(async () => body),
+    json: jest.fn(async () => mergedBody),
     method: "PUT",
     url: "https://tutribu.example.com/api/tribes/matematica-pro/welcome",
   } as unknown as Request;
@@ -66,6 +79,7 @@ function buildContext() {
 
 describe("Tribe welcome routes", () => {
   const welcome = {
+    linksHeading: "Recursos para empezar",
     links: [
       {
         badgeLabel: "Soporte",
@@ -87,6 +101,10 @@ describe("Tribe welcome routes", () => {
         sortOrder: 1,
       },
     ],
+    selectionModalBenefit: null,
+    selectionModalDescription:
+      "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+    selectionModalTitle: "Elegí una opción para empezar",
     welcomeMessage: "Bienvenido/a a la tribu",
   };
 
@@ -187,8 +205,13 @@ describe("Tribe welcome routes", () => {
 
     expect(response.status).toBe(200);
     expect(saveTribeWelcome).toHaveBeenCalledWith({
+      linksHeading: "Recursos para empezar",
       links: [],
       rules: [],
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       tribeSlug: "matematica-pro",
       welcomeMessage: "Bienvenido/a",
     });
@@ -219,12 +242,17 @@ describe("Tribe welcome routes", () => {
 
     expect(response.status).toBe(200);
     expect(saveTribeWelcome).toHaveBeenCalledWith({
+      linksHeading: "Recursos para empezar",
       links: [
         expect.objectContaining({
           type: TRIBE_WELCOME_LINK_TYPE.customButton,
         }),
       ],
       rules: [],
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       tribeSlug: "matematica-pro",
       welcomeMessage: "Bienvenido/a",
     });

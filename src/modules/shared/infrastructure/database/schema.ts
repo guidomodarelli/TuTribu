@@ -145,6 +145,16 @@ export const tribeWelcomeSettings = pgTable("tribe_welcome_settings", {
     .notNull()
     .references(() => tribes.id, { onDelete: "cascade" }),
   welcomeMessage: text("welcome_message").notNull().default("Bienvenido/a a la tribu"),
+  selectionModalTitle: text("selection_modal_title")
+    .notNull()
+    .default("Elegí una opción para empezar"),
+  selectionModalDescription: text("selection_modal_description")
+    .notNull()
+    .default(
+      "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde."
+    ),
+  selectionModalBenefit: text("selection_modal_benefit"),
+  linksHeading: text("links_heading").notNull().default("Recursos para empezar"),
   updatedBy: text("updated_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

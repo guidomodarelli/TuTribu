@@ -17,7 +17,10 @@ import type {
   TribeWelcomeRuleResult,
 } from "@/src/modules/tribes/application/results/tribe-welcome-result";
 import {
+  DEFAULT_TRIBE_WELCOME_LINKS_HEADING,
   DEFAULT_TRIBE_WELCOME_MESSAGE,
+  DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION,
+  DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE,
   TRIBE_WELCOME_LINK_TYPE,
 } from "@/src/modules/tribes/constants/tribe-welcome";
 import styles from "./styles.module.scss";
@@ -87,6 +90,22 @@ const TRIBE_WELCOME_MANAGEMENT_COPY = {
     "Ingresá un número válido en formato internacional (ej.: +54 9 11 1234 5678).",
   welcomeMessageLabel: "Mensaje de bienvenida",
   welcomeMessagePlaceholder: "Ej.: Bienvenido/a a la tribu",
+  selectionModalTitleLabel: "Título del modal",
+  selectionModalTitlePlaceholder: "Ej.: Elegí una opción para empezar",
+  selectionModalDescriptionLabel: "Descripción del modal",
+  selectionModalDescriptionPlaceholder:
+    "Ej.: Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo.",
+  selectionModalBenefitLabel: "Beneficio por seleccionar una opción",
+  selectionModalBenefitPlaceholder:
+    "Ej.: Te entregamos una guía bonus cuando elegís una opción. La entrega es externa, la coordina el líder o el equipo.",
+  selectionModalBenefitHint:
+    "Texto libre para describir el premio. La entrega es externa (la coordina el líder o el equipo).",
+  linksHeadingLabel: "Encabezado de recursos",
+  linksHeadingPlaceholder: "Ej.: Recursos para empezar",
+  requiredSelectionModalTitle: "Ingresá un título para el modal.",
+  requiredSelectionModalDescription:
+    "Ingresá una descripción para el modal.",
+  requiredLinksHeading: "Ingresá un encabezado para los recursos.",
 } as const;
 
 const WELCOME_MANAGEMENT_ROUTE = {
@@ -426,6 +445,16 @@ export function TribeWelcomeManagement({
   welcome,
 }: TribeWelcomeManagementProps) {
   const [welcomeMessage, setWelcomeMessage] = useState(welcome.welcomeMessage);
+  const [selectionModalTitle, setSelectionModalTitle] = useState(
+    welcome.selectionModalTitle
+  );
+  const [selectionModalDescription, setSelectionModalDescription] = useState(
+    welcome.selectionModalDescription
+  );
+  const [selectionModalBenefit, setSelectionModalBenefit] = useState(
+    welcome.selectionModalBenefit ?? ""
+  );
+  const [linksHeading, setLinksHeading] = useState(welcome.linksHeading);
   const [rules, setRules] = useState(welcome.rules);
   const [links, setLinks] = useState(welcome.links);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
@@ -454,14 +483,35 @@ export function TribeWelcomeManagement({
   const badgeLabelErrorIdPrefix = useId();
   const badgeLabelHelperIdPrefix = useId();
   const welcomeMessageId = useId();
+  const selectionModalTitleId = useId();
+  const selectionModalDescriptionId = useId();
+  const selectionModalBenefitId = useId();
+  const linksHeadingId = useId();
+  const selectionModalTitleErrorId = useId();
+  const selectionModalDescriptionErrorId = useId();
+  const linksHeadingErrorId = useId();
   const pendingFocusIdRef = useRef<string | null>(null);
   const currentWelcome = useMemo(
     () => ({
+      linksHeading,
       links,
       rules,
+      selectionModalBenefit: selectionModalBenefit.trim()
+        ? selectionModalBenefit
+        : null,
+      selectionModalDescription,
+      selectionModalTitle,
       welcomeMessage,
     }),
-    [links, rules, welcomeMessage]
+    [
+      links,
+      linksHeading,
+      rules,
+      selectionModalBenefit,
+      selectionModalDescription,
+      selectionModalTitle,
+      welcomeMessage,
+    ]
   );
   const hasActivePreviewLinks = useMemo(
     () => links.some((link) => link.isActive),
@@ -469,6 +519,21 @@ export function TribeWelcomeManagement({
   );
   const isWelcomeMessageDefault =
     welcomeMessage.trim() === DEFAULT_TRIBE_WELCOME_MESSAGE;
+  const isSelectionModalTitleDefault =
+    selectionModalTitle.trim() ===
+    DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE;
+  const isSelectionModalDescriptionDefault =
+    selectionModalDescription.trim() ===
+    DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION;
+  const isLinksHeadingDefault =
+    linksHeading.trim() === DEFAULT_TRIBE_WELCOME_LINKS_HEADING;
+  const showSelectionModalTitleError =
+    validationMessage !== null && isRequiredTextMissing(selectionModalTitle);
+  const showSelectionModalDescriptionError =
+    validationMessage !== null &&
+    isRequiredTextMissing(selectionModalDescription);
+  const showLinksHeadingError =
+    validationMessage !== null && isRequiredTextMissing(linksHeading);
 
   if (!canEdit) {
     return (
@@ -603,12 +668,18 @@ export function TribeWelcomeManagement({
     setMissingPhoneLinkIds(nextMissingPhones);
     setMissingBadgeLabelLinkIds(nextMissingBadgeLabels);
 
+    const hasMissingHeadingFields =
+      isRequiredTextMissing(selectionModalTitle) ||
+      isRequiredTextMissing(selectionModalDescription) ||
+      isRequiredTextMissing(linksHeading);
+
     const hasClientSideErrors =
       nextInvalidUrls.size > 0 ||
       nextMissingRuleLabels.size > 0 ||
       nextMissingLinkLabels.size > 0 ||
       nextMissingPhones.size > 0 ||
-      nextMissingBadgeLabels.size > 0;
+      nextMissingBadgeLabels.size > 0 ||
+      hasMissingHeadingFields;
 
     if (hasClientSideErrors) {
       setValidationMessage(TRIBE_WELCOME_MANAGEMENT_COPY.validationSummary);
@@ -637,6 +708,20 @@ export function TribeWelcomeManagement({
   };
   const handleRestoreDefaultMessage = () => {
     setWelcomeMessage(DEFAULT_TRIBE_WELCOME_MESSAGE);
+    setValidationMessage(null);
+  };
+  const handleRestoreDefaultSelectionModalTitle = () => {
+    setSelectionModalTitle(DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE);
+    setValidationMessage(null);
+  };
+  const handleRestoreDefaultSelectionModalDescription = () => {
+    setSelectionModalDescription(
+      DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION
+    );
+    setValidationMessage(null);
+  };
+  const handleRestoreDefaultLinksHeading = () => {
+    setLinksHeading(DEFAULT_TRIBE_WELCOME_LINKS_HEADING);
     setValidationMessage(null);
   };
   const buildFocusRef =
@@ -720,6 +805,189 @@ export function TribeWelcomeManagement({
                 <button
                   className={styles.TribeWelcomeManagement__resetButton}
                   onClick={handleRestoreDefaultMessage}
+                  type={WELCOME_MANAGEMENT_REQUEST.buttonType}
+                >
+                  {TRIBE_WELCOME_MANAGEMENT_COPY.resetDefaultLabel}
+                </button>
+              )}
+            </span>
+          </div>
+
+          <div className={styles.TribeWelcomeManagement__field}>
+            <label
+              className={styles.TribeWelcomeManagement__fieldLabel}
+              htmlFor={selectionModalTitleId}
+            >
+              {renderRequiredLabel(
+                TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalTitleLabel
+              )}
+            </label>
+            <Input
+              aria-describedby={
+                showSelectionModalTitleError
+                  ? selectionModalTitleErrorId
+                  : undefined
+              }
+              aria-invalid={showSelectionModalTitleError}
+              aria-required
+              id={selectionModalTitleId}
+              onChange={(event) => {
+                setSelectionModalTitle(event.target.value);
+                setValidationMessage(null);
+              }}
+              placeholder={
+                TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalTitlePlaceholder
+              }
+              value={selectionModalTitle}
+            />
+            {showSelectionModalTitleError ? (
+              <span
+                className={styles.TribeWelcomeManagement__fieldError}
+                id={selectionModalTitleErrorId}
+              >
+                {TRIBE_WELCOME_MANAGEMENT_COPY.requiredSelectionModalTitle}
+              </span>
+            ) : null}
+            <span className={styles.TribeWelcomeManagement__defaultHint}>
+              {isSelectionModalTitleDefault ? (
+                <span className={styles.TribeWelcomeManagement__defaultBadge}>
+                  {TRIBE_WELCOME_MANAGEMENT_COPY.defaultBadge}
+                </span>
+              ) : (
+                <button
+                  className={styles.TribeWelcomeManagement__resetButton}
+                  onClick={handleRestoreDefaultSelectionModalTitle}
+                  type={WELCOME_MANAGEMENT_REQUEST.buttonType}
+                >
+                  {TRIBE_WELCOME_MANAGEMENT_COPY.resetDefaultLabel}
+                </button>
+              )}
+            </span>
+          </div>
+
+          <div className={styles.TribeWelcomeManagement__field}>
+            <label
+              className={styles.TribeWelcomeManagement__fieldLabel}
+              htmlFor={selectionModalDescriptionId}
+            >
+              {renderRequiredLabel(
+                TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalDescriptionLabel
+              )}
+            </label>
+            <Textarea
+              aria-describedby={
+                showSelectionModalDescriptionError
+                  ? selectionModalDescriptionErrorId
+                  : undefined
+              }
+              aria-invalid={showSelectionModalDescriptionError}
+              aria-required
+              className={styles.TribeWelcomeManagement__textarea}
+              id={selectionModalDescriptionId}
+              onChange={(event) => {
+                setSelectionModalDescription(event.target.value);
+                setValidationMessage(null);
+              }}
+              placeholder={
+                TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalDescriptionPlaceholder
+              }
+              rows={3}
+              value={selectionModalDescription}
+            />
+            {showSelectionModalDescriptionError ? (
+              <span
+                className={styles.TribeWelcomeManagement__fieldError}
+                id={selectionModalDescriptionErrorId}
+              >
+                {
+                  TRIBE_WELCOME_MANAGEMENT_COPY.requiredSelectionModalDescription
+                }
+              </span>
+            ) : null}
+            <span className={styles.TribeWelcomeManagement__defaultHint}>
+              {isSelectionModalDescriptionDefault ? (
+                <span className={styles.TribeWelcomeManagement__defaultBadge}>
+                  {TRIBE_WELCOME_MANAGEMENT_COPY.defaultBadge}
+                </span>
+              ) : (
+                <button
+                  className={styles.TribeWelcomeManagement__resetButton}
+                  onClick={handleRestoreDefaultSelectionModalDescription}
+                  type={WELCOME_MANAGEMENT_REQUEST.buttonType}
+                >
+                  {TRIBE_WELCOME_MANAGEMENT_COPY.resetDefaultLabel}
+                </button>
+              )}
+            </span>
+          </div>
+
+          <div className={styles.TribeWelcomeManagement__field}>
+            <label
+              className={styles.TribeWelcomeManagement__fieldLabel}
+              htmlFor={selectionModalBenefitId}
+            >
+              {TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitLabel}
+            </label>
+            <Textarea
+              className={styles.TribeWelcomeManagement__textarea}
+              id={selectionModalBenefitId}
+              onChange={(event) => {
+                setSelectionModalBenefit(event.target.value);
+                setValidationMessage(null);
+              }}
+              placeholder={
+                TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitPlaceholder
+              }
+              rows={3}
+              value={selectionModalBenefit}
+            />
+            <span className={styles.TribeWelcomeManagement__fieldHelper}>
+              {TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitHint}
+            </span>
+          </div>
+
+          <div className={styles.TribeWelcomeManagement__field}>
+            <label
+              className={styles.TribeWelcomeManagement__fieldLabel}
+              htmlFor={linksHeadingId}
+            >
+              {renderRequiredLabel(
+                TRIBE_WELCOME_MANAGEMENT_COPY.linksHeadingLabel
+              )}
+            </label>
+            <Input
+              aria-describedby={
+                showLinksHeadingError ? linksHeadingErrorId : undefined
+              }
+              aria-invalid={showLinksHeadingError}
+              aria-required
+              id={linksHeadingId}
+              onChange={(event) => {
+                setLinksHeading(event.target.value);
+                setValidationMessage(null);
+              }}
+              placeholder={
+                TRIBE_WELCOME_MANAGEMENT_COPY.linksHeadingPlaceholder
+              }
+              value={linksHeading}
+            />
+            {showLinksHeadingError ? (
+              <span
+                className={styles.TribeWelcomeManagement__fieldError}
+                id={linksHeadingErrorId}
+              >
+                {TRIBE_WELCOME_MANAGEMENT_COPY.requiredLinksHeading}
+              </span>
+            ) : null}
+            <span className={styles.TribeWelcomeManagement__defaultHint}>
+              {isLinksHeadingDefault ? (
+                <span className={styles.TribeWelcomeManagement__defaultBadge}>
+                  {TRIBE_WELCOME_MANAGEMENT_COPY.defaultBadge}
+                </span>
+              ) : (
+                <button
+                  className={styles.TribeWelcomeManagement__resetButton}
+                  onClick={handleRestoreDefaultLinksHeading}
                   type={WELCOME_MANAGEMENT_REQUEST.buttonType}
                 >
                   {TRIBE_WELCOME_MANAGEMENT_COPY.resetDefaultLabel}
@@ -1251,10 +1519,15 @@ export function TribeWelcomeManagement({
 
         {isPreviewModalOpen ? (
           <TribeWelcomeSelectionModal
+            benefit={
+              selectionModalBenefit.trim() ? selectionModalBenefit : null
+            }
+            description={selectionModalDescription}
             links={links}
             onClose={() => setIsPreviewModalOpen(false)}
             open
             previewOnly
+            title={selectionModalTitle}
             tribeSlug={tribeSlug}
           />
         ) : null}

@@ -58,6 +58,11 @@ describe("PostgresTribeWelcomeRepository", () => {
       .mockResolvedValueOnce({
         rows: [
           {
+            links_heading: "Recursos para empezar",
+            selection_modal_benefit: null,
+            selection_modal_description:
+              "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+            selection_modal_title: "Elegí una opción para empezar",
             welcome_message: "Bienvenido/a a Matematica Pro",
           },
         ],
@@ -97,6 +102,7 @@ describe("PostgresTribeWelcomeRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
+      linksHeading: "Recursos para empezar",
       links: [
         {
           badgeLabel: "Soporte",
@@ -119,6 +125,10 @@ describe("PostgresTribeWelcomeRepository", () => {
           sortOrder: 1,
         },
       ],
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       welcomeMessage: "Bienvenido/a a Matematica Pro",
     });
   });
@@ -140,8 +150,13 @@ describe("PostgresTribeWelcomeRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
+      linksHeading: "Recursos para empezar",
       links: [],
       rules: [],
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       welcomeMessage: "Bienvenido/a a la tribu",
     });
   });
@@ -160,8 +175,13 @@ describe("PostgresTribeWelcomeRepository", () => {
 
     await expect(
       repository.save({
+        linksHeading: "Recursos para empezar",
         links: [],
         rules: [],
+        selectionModalBenefit: null,
+        selectionModalDescription:
+          "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+        selectionModalTitle: "Elegí una opción para empezar",
         tribeSlug: "matematica-pro",
         welcomeMessage: "Bienvenido/a",
       })
@@ -204,6 +224,11 @@ describe("PostgresTribeWelcomeRepository", () => {
             sortOrder: 1,
           },
         ],
+        linksHeading: "Recursos para empezar",
+        selectionModalBenefit: null,
+        selectionModalDescription:
+          "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+        selectionModalTitle: "Elegí una opción para empezar",
         tribeSlug: "matematica-pro",
         welcomeMessage: "Bienvenido/a",
       })
@@ -270,6 +295,11 @@ describe("PostgresTribeWelcomeRepository", () => {
           sortOrder: 1,
         },
       ],
+      linksHeading: "Recursos para empezar",
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       tribeSlug: "matematica-pro",
       welcomeMessage: "Bienvenido/a",
     });
@@ -305,6 +335,11 @@ describe("PostgresTribeWelcomeRepository", () => {
         },
       ],
       rules: [],
+      linksHeading: "Recursos para empezar",
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       tribeSlug: "matematica-pro",
       welcomeMessage: "Bienvenido/a",
     });

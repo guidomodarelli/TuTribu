@@ -12,18 +12,33 @@ function buildRepository(
 ): TribeWelcomeRepository {
   return {
     getEditableByTribeSlug: jest.fn(async () => ({
+      linksHeading: "Recursos para empezar",
       links: [],
       rules: [],
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       welcomeMessage: "Bienvenido/a a la tribu",
     })),
     getByInvitation: jest.fn(async () => ({
+      linksHeading: "Recursos para empezar",
       links: [],
       rules: [],
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       welcomeMessage: "Bienvenido/a a la tribu",
     })),
     getByTribeSlug: jest.fn(async () => ({
+      linksHeading: "Recursos para empezar",
       links: [],
       rules: [],
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       welcomeMessage: "Bienvenido/a a la tribu",
     })),
     save: jest.fn(async () => ({ status: "updated" })),
@@ -86,6 +101,7 @@ describe("manage tribe welcome use cases", () => {
     });
 
     await useCase({
+      linksHeading: " Recursos para empezar ",
       links: [
         {
           badgeLabel: " Comunidad WA ",
@@ -108,11 +124,15 @@ describe("manage tribe welcome use cases", () => {
           sortOrder: 1,
         },
       ],
+      selectionModalBenefit: "  Te regalamos una guía  ",
+      selectionModalDescription: " Elegí una opción ",
+      selectionModalTitle: " Elegí una opción para empezar ",
       tribeSlug: " matematica-pro ",
       welcomeMessage: " Bienvenido/a ",
     });
 
     expect(repository.save).toHaveBeenCalledWith({
+      linksHeading: "Recursos para empezar",
       links: [
         {
           badgeLabel: "Comunidad WA",
@@ -135,6 +155,9 @@ describe("manage tribe welcome use cases", () => {
           sortOrder: 1,
         },
       ],
+      selectionModalBenefit: "Te regalamos una guía",
+      selectionModalDescription: "Elegí una opción",
+      selectionModalTitle: "Elegí una opción para empezar",
       tribeSlug: "matematica-pro",
       welcomeMessage: "Bienvenido/a",
     });

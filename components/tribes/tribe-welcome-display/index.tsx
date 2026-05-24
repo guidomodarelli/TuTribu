@@ -15,10 +15,10 @@ import styles from "./styles.module.scss";
 
 const TRIBE_WELCOME_DISPLAY_COPY = {
   agreementsHeading: "Acuerdos de convivencia",
+  benefitEyebrow: "Beneficio",
   defaultHeading: "Bienvenido/a",
   fallbackError:
     "No pudimos registrar tu elección. Probá de nuevo en unos minutos.",
-  linksHeading: "Recursos para empezar",
 } as const;
 
 const WHATSAPP_LINK = {
@@ -258,8 +258,16 @@ export function TribeWelcomeDisplay({
             className={styles.TribeWelcomeDisplay__sectionTitle}
             id={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.linksTitleId}
           >
-            {TRIBE_WELCOME_DISPLAY_COPY.linksHeading}
+            {welcome.linksHeading}
           </h2>
+          {welcome.selectionModalBenefit ? (
+            <p className={styles.TribeWelcomeDisplay__benefit}>
+              <span className={styles.TribeWelcomeDisplay__benefitEyebrow}>
+                {TRIBE_WELCOME_DISPLAY_COPY.benefitEyebrow}
+              </span>
+              {welcome.selectionModalBenefit}
+            </p>
+          ) : null}
           <ul className={styles.TribeWelcomeDisplay__linkList}>
             {activeLinks.map((link) => {
               const href = getLinkHref(link);

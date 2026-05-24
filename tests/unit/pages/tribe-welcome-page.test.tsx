@@ -127,11 +127,21 @@ describe("TribeWelcomePage", () => {
           sortOrder: 1,
         },
       ],
+      linksHeading: "Recursos para empezar",
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       welcomeMessage: "Bienvenido/a a Matematica Pro",
     });
     getEditableTribeWelcome.mockResolvedValue({
+      linksHeading: "Recursos para empezar",
       links: [],
       rules: [],
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       welcomeMessage: "Bienvenido/a a Matematica Pro",
     });
     listTribeWelcomeSelections.mockResolvedValue([]);
@@ -255,7 +265,12 @@ describe("TribeWelcomePage", () => {
           url: null,
         },
       ],
+      linksHeading: "Recursos para empezar",
       rules: [],
+      selectionModalBenefit: null,
+      selectionModalDescription:
+        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
+      selectionModalTitle: "Elegí una opción para empezar",
       welcomeMessage: "Bienvenido/a a Matematica Pro",
     });
     listCurrentMemberTribeWelcomeSelections.mockResolvedValue([

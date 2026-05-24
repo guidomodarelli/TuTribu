@@ -2,7 +2,10 @@ import { createHash } from "crypto";
 import { sql } from "drizzle-orm";
 
 import {
+  DEFAULT_TRIBE_WELCOME_LINKS_HEADING,
   DEFAULT_TRIBE_WELCOME_MESSAGE,
+  DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION,
+  DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE,
   TRIBE_WELCOME_SAVE_STATUS,
 } from "@/src/modules/tribes/constants/tribe-welcome";
 import type {
@@ -21,6 +24,10 @@ type DatabaseExecutor = <T>(
 ) => Promise<T>;
 
 type WelcomeSettingsRow = {
+  links_heading: string | null;
+  selection_modal_benefit: string | null;
+  selection_modal_description: string | null;
+  selection_modal_title: string | null;
   welcome_message: string | null;
 };
 
@@ -82,9 +89,22 @@ function hashInvitationToken(token: string): string {
 }
 
 function mapSettings(row: WelcomeSettingsRow | null): {
+  linksHeading: string;
+  selectionModalBenefit: string | null;
+  selectionModalDescription: string;
+  selectionModalTitle: string;
   welcomeMessage: string;
 } {
   return {
+    linksHeading:
+      row?.links_heading?.trim() || DEFAULT_TRIBE_WELCOME_LINKS_HEADING,
+    selectionModalBenefit: row?.selection_modal_benefit?.trim() || null,
+    selectionModalDescription:
+      row?.selection_modal_description?.trim() ||
+      DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION,
+    selectionModalTitle:
+      row?.selection_modal_title?.trim() ||
+      DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE,
     welcomeMessage:
       row?.welcome_message?.trim() || DEFAULT_TRIBE_WELCOME_MESSAGE,
   };
@@ -173,8 +193,13 @@ function isMissingWelcomeStorageError(error: unknown): boolean {
 
 function createDefaultWelcome(): TribeWelcome {
   return {
+    linksHeading: DEFAULT_TRIBE_WELCOME_LINKS_HEADING,
     links: [],
     rules: [],
+    selectionModalBenefit: null,
+    selectionModalDescription:
+      DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_DESCRIPTION,
+    selectionModalTitle: DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE,
     welcomeMessage: DEFAULT_TRIBE_WELCOME_MESSAGE,
   };
 }
@@ -231,6 +256,10 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
           insert into public.tribe_welcome_settings (
             tribe_id,
             welcome_message,
+            selection_modal_title,
+            selection_modal_description,
+            selection_modal_benefit,
+            links_heading,
             updated_by,
             created_at,
             updated_at
@@ -238,6 +267,10 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
           select
             editable_tribe.id,
             ${command.welcomeMessage},
+            ${command.selectionModalTitle},
+            ${command.selectionModalDescription},
+            ${command.selectionModalBenefit},
+            ${command.linksHeading},
             public.current_app_user_id(),
             timezone('utc', now()),
             timezone('utc', now())
@@ -245,6 +278,10 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
           on conflict (tribe_id) do update
           set
             welcome_message = excluded.welcome_message,
+            selection_modal_title = excluded.selection_modal_title,
+            selection_modal_description = excluded.selection_modal_description,
+            selection_modal_benefit = excluded.selection_modal_benefit,
+            links_heading = excluded.links_heading,
             updated_by = excluded.updated_by,
             updated_at = excluded.updated_at
           returning tribe_id
@@ -467,7 +504,11 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
           limit 1
         )
         select
-          tribe_welcome_settings.welcome_message
+          tribe_welcome_settings.welcome_message,
+          tribe_welcome_settings.selection_modal_title,
+          tribe_welcome_settings.selection_modal_description,
+          tribe_welcome_settings.selection_modal_benefit,
+          tribe_welcome_settings.links_heading
         from target_tribe
         left join public.tribe_welcome_settings
           on tribe_welcome_settings.tribe_id = target_tribe.id
@@ -520,8 +561,12 @@ export class PostgresTribeWelcomeRepository implements TribeWelcomeRepository {
       );
 
       return {
+        linksHeading: settings.linksHeading,
         links: ((linksResult.rows ?? []) as WelcomeLinkRow[]).map(mapLink),
         rules: ((rulesResult.rows ?? []) as WelcomeRuleRow[]).map(mapRule),
+        selectionModalBenefit: settings.selectionModalBenefit,
+        selectionModalDescription: settings.selectionModalDescription,
+        selectionModalTitle: settings.selectionModalTitle,
         welcomeMessage: settings.welcomeMessage,
       };
     }).catch((error: unknown) => {
