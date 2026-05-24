@@ -388,6 +388,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             on target_tribe.id = tribe_subscription_prices.tribe_id
           where tribe_subscription_prices.is_current = true
             and tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
           limit 1
         ),
         inserted_membership as (

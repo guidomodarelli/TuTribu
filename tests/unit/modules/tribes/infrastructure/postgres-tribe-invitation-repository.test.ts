@@ -248,6 +248,31 @@ describe("PostgresTribeInvitationRepository", () => {
     );
   });
 
+  it(
+    "treats prices without a Mercado Pago preapproval plan as non-current when accepting an invitation",
+    async () => {
+      const execute = jest.fn(async () => ({
+        rows: [{ status: "accepted" }],
+      }));
+      const repository = new PostgresTribeInvitationRepository(async (callback) =>
+        callback({ execute } as never)
+      );
+
+      await expect(
+        repository.accept({
+          token: "plain-token",
+          tribeSlug: "matematica-pro",
+        })
+      ).resolves.toEqual({ status: "accepted" });
+
+      const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+      expect(sqlText).toMatch(
+        /current_subscription_price as \([\s\S]*tribe_subscription_prices\.is_current = true[\s\S]*tribe_subscription_prices\.status = 'active'[\s\S]*tribe_subscription_prices\.mercado_pago_preapproval_plan_id is not null/
+      );
+    }
+  );
+
   it("maps revoked invitation acceptance to a controlled result", async () => {
     const execute = jest.fn(async () => ({
       rows: [{ status: "revoked" }],
