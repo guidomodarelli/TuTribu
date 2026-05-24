@@ -1,7 +1,7 @@
 import {
   VIDEO_PROVIDER,
   type VideoProvider,
-} from "@/src/modules/courses/constants/courses";
+} from "@/src/modules/shared/domain/value-objects/video-provider";
 
 const NUMERIC_ID_PATTERN = /^\d+$/;
 const VIMEO_HASH_PATTERN = /^[a-zA-Z0-9]+$/;

@@ -22,7 +22,7 @@ import {
   InvalidVideoUrlError,
   parseExternalVideoUrl,
   type ParsedExternalVideo,
-} from "@/src/modules/courses/domain/value-objects/external-video-url";
+} from "@/src/modules/shared/domain/value-objects/external-video-url";
 
 type CourseRepositoryDependencies = {
   courseRepository: CourseRepository;

@@ -1,8 +1,8 @@
-import { VIDEO_PROVIDER } from "@/src/modules/courses/constants/courses";
+import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import {
   InvalidVideoUrlError,
   parseExternalVideoUrl,
-} from "@/src/modules/courses/domain/value-objects/external-video-url";
+} from "@/src/modules/shared/domain/value-objects/external-video-url";
 
 describe("parseExternalVideoUrl", () => {
   describe("vimeo", () => {

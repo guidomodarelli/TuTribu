@@ -8,7 +8,7 @@ import {
   updateCourseModule,
   updateLesson,
 } from "@/src/modules/courses/application/use-cases/manage-tribe-courses-use-cases";
-import { VIDEO_PROVIDER } from "@/src/modules/courses/constants/courses";
+import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import type { CourseRepository } from "@/src/modules/courses/domain/repositories/course-repository";
 
 function buildRepository(

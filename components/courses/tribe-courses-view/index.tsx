@@ -7,19 +7,11 @@ import type {
   LessonResult,
 } from "@/src/modules/courses/application/results/course-results";
 import {
-  VIDEO_PROVIDER,
-  type VideoProvider,
-} from "@/src/modules/courses/constants/courses";
+  PLAYER_IFRAME_ALLOW,
+  buildPlayerEmbedSource,
+} from "@/src/modules/shared/application/video/build-player-embed-source";
 import styles from "./styles.module.scss";
 
-const VIMEO_PLAYER_URL_PREFIX = "https://player.vimeo.com/video/";
-const WISTIA_PLAYER_URL_PREFIX = "https://fast.wistia.net/embed/iframe/";
-const LOOM_PLAYER_URL_PREFIX = "https://www.loom.com/embed/";
-const YOUTUBE_PLAYER_URL_PREFIX = "https://www.youtube.com/embed/";
-const VIMEO_UNLISTED_HASH_SEPARATOR = ":";
-const VIMEO_HASH_QUERY_PARAM = "h";
-const PLAYER_IFRAME_ALLOW =
-  "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen";
 const LESSON_QUERY_PARAM = "leccion";
 const ARIA_CURRENT_PAGE = "page";
 const QUERY_STRING_PREFIX = "?";
@@ -27,35 +19,6 @@ const QUERY_PARAM_VALUE_SEPARATOR = "=";
 
 function buildLessonHref(tribeSlug: string, lessonId: string): string {
   return `${ROUTES.tribes.courses(tribeSlug)}${QUERY_STRING_PREFIX}${LESSON_QUERY_PARAM}${QUERY_PARAM_VALUE_SEPARATOR}${lessonId}`;
-}
-
-function buildVimeoEmbedSource(externalId: string): string {
-  const [id, hash] = externalId.split(VIMEO_UNLISTED_HASH_SEPARATOR);
-  if (hash) {
-    const playerUrl = new URL(`${VIMEO_PLAYER_URL_PREFIX}${id}`);
-    playerUrl.searchParams.set(VIMEO_HASH_QUERY_PARAM, hash);
-    return playerUrl.toString();
-  }
-
-  return `${VIMEO_PLAYER_URL_PREFIX}${id}`;
-}
-
-function buildPlayerEmbedSource(
-  provider: VideoProvider,
-  externalId: string
-): string {
-  switch (provider) {
-    case VIDEO_PROVIDER.vimeo:
-      return buildVimeoEmbedSource(externalId);
-    case VIDEO_PROVIDER.wistia:
-      return `${WISTIA_PLAYER_URL_PREFIX}${externalId}`;
-    case VIDEO_PROVIDER.loom:
-      return `${LOOM_PLAYER_URL_PREFIX}${externalId}`;
-    case VIDEO_PROVIDER.youtube:
-      return `${YOUTUBE_PLAYER_URL_PREFIX}${externalId}`;
-    default:
-      return "";
-  }
 }
 const COURSES_COPY = {
   emptyDescription:

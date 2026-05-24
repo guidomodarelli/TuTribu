@@ -1,4 +1,4 @@
-import type { VideoProvider } from "@/src/modules/courses/constants/courses";
+import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
 
 export type Lesson = {
   courseModuleId: string;

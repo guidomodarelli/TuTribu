@@ -508,6 +508,128 @@
     }
   }
 
+  &__videoAddButton {
+    flex: 0 0 auto;
+    color: var(--muted-foreground);
+
+    &:hover {
+      color: var(--foreground);
+    }
+  }
+
+  &__videoComposer {
+    display: grid;
+    gap: 0.5rem;
+    position: relative;
+    padding: 0.25rem 0 0.5rem;
+  }
+
+  &__videoComposerHeader {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding-inline-end: 2.75rem;
+  }
+
+  &__videoComposerLabel {
+    display: grid;
+    flex: 1 1 auto;
+    gap: 0.5rem;
+    min-width: 0;
+    color: var(--muted-foreground);
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  &__videoInput {
+    min-height: 2rem;
+    border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+    border-radius: 0.5rem;
+    padding: 0 0.65rem;
+    color: var(--foreground);
+    font-weight: 400;
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+
+    &:focus {
+      border-color: color-mix(in oklch, var(--ring) 54%, var(--border));
+      box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ring) 28%, transparent);
+    }
+
+    &[aria-invalid="true"] {
+      border-color: var(--destructive);
+    }
+  }
+
+  &__videoComposerCloseButton {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999rem;
+    color: var(--muted-foreground);
+
+    &:hover {
+      color: var(--foreground);
+    }
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+    }
+  }
+
+  &__videoComposerHint {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+  }
+
+  &__videoComposerError {
+    margin: 0;
+    color: var(--destructive);
+    font-size: 0.85rem;
+  }
+
+  &__videoAttachedBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999rem;
+    background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-weight: 600;
+
+    svg {
+      width: 0.9rem;
+      height: 0.9rem;
+    }
+  }
+
+  &__videoEmbed {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    margin-top: 0.75rem;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background-color: var(--muted);
+  }
+
+  &__videoEmbedIframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
   &__pollComposer {
     display: grid;
     gap: 1rem;

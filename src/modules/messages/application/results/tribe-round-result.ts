@@ -3,6 +3,7 @@ import type {
   TRIBE_CHANNEL_ACCESS_SCOPE,
   MESSAGE_MEMBERSHIP_STATUS,
 } from "@/src/modules/messages/constants/message-round";
+import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
 
 export type MessageAuthorRole =
   (typeof MESSAGE_AUTHOR_ROLE)[keyof typeof MESSAGE_AUTHOR_ROLE];
@@ -54,6 +55,11 @@ export type MessagePollResult = {
   viewerHasVoted: boolean;
 };
 
+export type MessageVideoResult = {
+  externalId: string;
+  provider: VideoProvider;
+};
+
 export type TribeRoundMessagePermissionsResult = {
   canDelete: boolean;
 };
@@ -70,6 +76,7 @@ export type TribeRoundSharedMessageResult = {
   pinnedAt?: string | null;
   poll?: MessagePollResult | null;
   title: string | null;
+  video?: MessageVideoResult | null;
 };
 
 export type TribeRoundMessageResult = TribeRoundSharedMessageResult & {

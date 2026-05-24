@@ -10,12 +10,3 @@ export const COURSE_MUTATION_STATUS = {
 
 export type CourseMutationStatus =
   (typeof COURSE_MUTATION_STATUS)[keyof typeof COURSE_MUTATION_STATUS];
-
-export const VIDEO_PROVIDER = {
-  loom: "loom",
-  vimeo: "vimeo",
-  wistia: "wistia",
-  youtube: "youtube",
-} as const;
-
-export type VideoProvider = (typeof VIDEO_PROVIDER)[keyof typeof VIDEO_PROVIDER];

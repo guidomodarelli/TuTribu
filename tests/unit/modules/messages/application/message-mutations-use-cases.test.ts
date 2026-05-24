@@ -226,6 +226,129 @@ describe("message mutation use cases", () => {
     );
   });
 
+  it("creates a tribe message with a parsed external video", async () => {
+    const createdMessage = {
+      id: "message-1",
+      author: {
+        id: "member-1",
+        name: "Grace Hopper",
+        role: "tribemate" as const,
+        avatarFallback: "GH",
+        image: null,
+      },
+      channel: tribeChannel,
+      replies: [],
+      content: "Miren este video",
+      createdAt: "2026-04-26T12:00:00.000Z",
+      likedByViewer: false,
+      likeCount: 0,
+      title: "Recurso",
+      video: {
+        externalId: "dQw4w9WgXcQ",
+        provider: "youtube" as const,
+      },
+    };
+    const create = jest.fn(async () => ({
+      message: createdMessage,
+      status: "created" as const,
+    }));
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Miren este video",
+        title: "Recurso",
+        video: { url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+      })
+    ).resolves.toEqual({ message: createdMessage, status: "created" });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        video: {
+          externalId: "dQw4w9WgXcQ",
+          provider: "youtube",
+        },
+      })
+    );
+  });
+
+  it("rejects an invalid video URL before calling the repository", async () => {
+    const create = jest.fn();
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Miren este video",
+        title: "Recurso",
+        video: { url: "not-a-video-url" },
+      })
+    ).resolves.toEqual({ status: "invalid_video_url" });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("creates a tribe message with both poll and video", async () => {
+    const create = jest.fn(async () => ({
+      message: {
+        id: "message-1",
+        author: {
+          id: "member-1",
+          name: "Grace Hopper",
+          role: "tribemate" as const,
+          avatarFallback: "GH",
+          image: null,
+        },
+        channel: tribeChannel,
+        replies: [],
+        content: "Voten y miren",
+        createdAt: "2026-04-26T12:00:00.000Z",
+        likedByViewer: false,
+        likeCount: 0,
+        title: "Doble",
+      },
+      status: "created" as const,
+    }));
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+    });
+
+    await execute({
+      authorId: "member-1",
+      channelId: "channel-ronda",
+      tribeSlug: "matematica-pro",
+      content: "Voten y miren",
+      poll: {
+        allowMultipleVotes: false,
+        options: ["A", "B"],
+        question: "¿Cuál?",
+      },
+      title: "Doble",
+      video: { url: "https://vimeo.com/123456789" },
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        poll: {
+          allowMultipleVotes: false,
+          options: ["A", "B"],
+          question: "¿Cuál?",
+        },
+        video: {
+          externalId: "123456789",
+          provider: "vimeo",
+        },
+      })
+    );
+  });
+
   it("rejects a poll with less than two options before creating a message", async () => {
     const create = jest.fn();
     const execute = createTribeMessage({

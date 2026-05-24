@@ -61,6 +61,7 @@ export const MESSAGE_MUTATION_STATUS = {
   invalidChannel: "invalid_channel",
   invalidContent: "invalid_content",
   invalidPoll: "invalid_poll",
+  invalidVideoUrl: "invalid_video_url",
   liked: "liked",
   notFound: "not_found",
   pinLimitReached: "pin_limit_reached",

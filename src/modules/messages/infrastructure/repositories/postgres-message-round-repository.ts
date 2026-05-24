@@ -10,7 +10,9 @@ import type {
   TribeRoundViewerStateResult,
   MessageMembershipStatus,
   MessagePollResult,
+  MessageVideoResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
+import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import {
   MESSAGE_AUTHOR_ROLE,
   MESSAGE_MEMBERSHIP_STATUS,
@@ -56,9 +58,34 @@ type MessageRoundSharedRow = {
   poll_total_vote_count: number | string | null;
   message_content: string | null;
   message_created_at: Date | string | null;
+  message_external_video_id: string | null;
+  message_external_video_provider: string | null;
   message_id: string | null;
   message_title: string | null;
 };
+
+export function createMessageVideoFromRow(row: {
+  message_external_video_id: string | null;
+  message_external_video_provider: string | null;
+}): MessageVideoResult | null {
+  const provider = row.message_external_video_provider;
+  const externalId = row.message_external_video_id;
+
+  if (!provider || !externalId) {
+    return null;
+  }
+
+  if (
+    provider !== VIDEO_PROVIDER.youtube &&
+    provider !== VIDEO_PROVIDER.vimeo &&
+    provider !== VIDEO_PROVIDER.wistia &&
+    provider !== VIDEO_PROVIDER.loom
+  ) {
+    return null;
+  }
+
+  return { externalId, provider };
+}
 
 type TribeChannelRow = {
   access_scope: string | null;
@@ -244,6 +271,7 @@ function mapRowsToSharedData(
           : null,
         poll,
         title: row.message_title,
+        video: createMessageVideoFromRow(row),
       });
     } else if (existingMessage?.poll && row.poll_option_id && row.poll_option_text) {
       existingMessage.poll.options.push(
@@ -507,6 +535,8 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
               messages.id,
               messages.title,
               messages.content,
+              messages.external_video_provider,
+              messages.external_video_id,
               messages.created_at,
               messages.channel_id,
               messages.author_id,
@@ -545,6 +575,8 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             messages.id as message_id,
             messages.title as message_title,
             messages.content as message_content,
+            messages.external_video_provider as message_external_video_provider,
+            messages.external_video_id as message_external_video_id,
             messages.created_at as message_created_at,
             tribe_channels.id as channel_id,
             tribe_channels.name as channel_name,
@@ -585,6 +617,8 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             messages.id,
             messages.title,
             messages.content,
+            messages.external_video_provider,
+            messages.external_video_id,
             messages.created_at,
             messages.channel_id,
             messages.author_id,

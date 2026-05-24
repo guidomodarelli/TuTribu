@@ -16,6 +16,7 @@ export type MessageCreationResult =
         | typeof MESSAGE_MUTATION_STATUS.invalidChannel
         | typeof MESSAGE_MUTATION_STATUS.invalidContent
         | typeof MESSAGE_MUTATION_STATUS.invalidPoll
+        | typeof MESSAGE_MUTATION_STATUS.invalidVideoUrl
         | typeof MESSAGE_MUTATION_STATUS.notFound;
     };
 

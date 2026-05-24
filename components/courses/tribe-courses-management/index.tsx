@@ -17,11 +17,11 @@ import type {
 import {
   VIDEO_PROVIDER,
   type VideoProvider,
-} from "@/src/modules/courses/constants/courses";
+} from "@/src/modules/shared/domain/value-objects/video-provider";
 import {
   InvalidVideoUrlError,
   parseExternalVideoUrl,
-} from "@/src/modules/courses/domain/value-objects/external-video-url";
+} from "@/src/modules/shared/domain/value-objects/external-video-url";
 import {
   appendLesson,
   appendModule,

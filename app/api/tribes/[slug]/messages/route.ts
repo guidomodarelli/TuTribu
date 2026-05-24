@@ -17,7 +17,28 @@ const CREATE_MESSAGE_ROUTE_FIELD = {
   poll: "poll",
   question: "question",
   title: "title",
+  url: "url",
+  video: "video",
 } as const;
+
+const VIDEO_URL_MAX_LENGTH = 2048;
+
+/**
+ * Classifies whether the message payload contains a usable video draft.
+ */
+const CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS = {
+  absent: "absent",
+  invalid: "invalid",
+  valid: "valid",
+} as const;
+
+type CreateMessageRouteVideoReadResult =
+  | { status: typeof CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.absent }
+  | { status: typeof CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.invalid }
+  | {
+      status: typeof CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.valid;
+      video: { url: string };
+    };
 
 const CREATE_MESSAGE_ROUTE_LOG = {
   createFailureMessage: "Tribe message creation failed",
@@ -37,6 +58,8 @@ const CREATE_MESSAGE_ROUTE_RESPONSE = {
   invalidPollOptionTooLongMessage: "Acortá las opciones de la encuesta.",
   invalidPollQuestionTooLongMessage: "Acortá la pregunta de la encuesta.",
   invalidPollTooManyOptionsMessage: "Usá menos opciones para publicar la encuesta.",
+  invalidVideoUrlMessage:
+    "No pudimos reconocer ese link de video. Probá con YouTube, Vimeo, Wistia o Loom.",
   successMessage: "Mensaje creado.",
   unexpectedMessage: "No pudimos crear el mensaje. Intentalo de nuevo.",
   unauthorizedMessage: "Inicia sesion para publicar.",
@@ -83,6 +106,38 @@ function readTitleFromBody(body: unknown): string {
   const title = (body as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.title];
 
   return typeof title === "string" ? title : "";
+}
+
+/**
+ * Reads and validates the optional external-video draft from a create-message payload.
+ *
+ * @param body - Parsed request body that may contain a `video.url` value.
+ * @returns Whether the payload omits video data, contains invalid video data, or contains a trimmed URL.
+ */
+function readVideoFromBody(body: unknown): CreateMessageRouteVideoReadResult {
+  if (!body || typeof body !== "object" || !(CREATE_MESSAGE_ROUTE_FIELD.video in body)) {
+    return { status: CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.absent };
+  }
+
+  const video = (body as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.video];
+  if (!video || typeof video !== "object") {
+    return { status: CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.invalid };
+  }
+
+  const url = (video as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.url];
+  if (typeof url !== "string") {
+    return { status: CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.invalid };
+  }
+
+  const trimmed = url.trim();
+  if (trimmed.length === 0 || trimmed.length > VIDEO_URL_MAX_LENGTH) {
+    return { status: CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.invalid };
+  }
+
+  return {
+    status: CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.valid,
+    video: { url: trimmed },
+  };
 }
 
 function readPollFromBody(body: unknown) {
@@ -179,12 +234,26 @@ export async function POST(
   try {
     const body = await request.json().catch(() => null);
     const poll = readPollFromBody(body);
+    const videoResult = readVideoFromBody(body);
+
+    if (videoResult.status === CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.invalid) {
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidVideoUrlMessage },
+        HTTP_STATUS.badRequest
+      );
+    }
+
+    const video =
+      videoResult.status === CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.valid
+        ? videoResult.video
+        : null;
     const result = await modules.messages.useCases.createTribeMessage({
       authorId: authenticatedMember.id,
       channelId: readChannelIdFromBody(body),
       tribeSlug: slug,
       content: readContentFromBody(body),
       ...(poll ? { poll } : {}),
+      ...(video ? { video } : {}),
       title: readTitleFromBody(body),
     });
 
@@ -212,6 +281,11 @@ export async function POST(
       case MESSAGE_MUTATION_STATUS.invalidPoll:
         return createJsonResponse(
           { message: getInvalidPollMessage(poll) },
+          HTTP_STATUS.badRequest
+        );
+      case MESSAGE_MUTATION_STATUS.invalidVideoUrl:
+        return createJsonResponse(
+          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidVideoUrlMessage },
           HTTP_STATUS.badRequest
         );
       case MESSAGE_MUTATION_STATUS.notFound:

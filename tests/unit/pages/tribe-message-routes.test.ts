@@ -336,6 +336,29 @@ describe("Tribe message routes", () => {
     expect(revalidateTag).not.toHaveBeenCalled();
   });
 
+  it("returns a safe validation message when the video payload is malformed", async () => {
+    const response = await POST_CREATE(
+      buildJsonRequest({
+        content: "Primera mensaje",
+        channelId: "channel-ronda",
+        title: "Anuncio inicial",
+        video: {
+          url: "",
+        },
+      }),
+      buildCreateRouteContext()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      message:
+        "No pudimos reconocer ese link de video. Probá con YouTube, Vimeo, Wistia o Loom.",
+    });
+    expect(createTribeMessage).not.toHaveBeenCalled();
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
+
   it("returns a safe validation message when the tribe message is invalid", async () => {
     createTribeMessage.mockResolvedValue({
       status: "invalid_content",

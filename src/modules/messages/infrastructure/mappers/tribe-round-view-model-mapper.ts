@@ -1,5 +1,6 @@
 import type {
   MessagePollResult,
+  MessageVideoResult,
   TribeRoundAuthorResult,
   TribeRoundReplyResult,
   TribeRoundMessageResult,
@@ -44,6 +45,7 @@ export type TribeRoundMessageProjection = {
   pinnedAt?: Date | string | null;
   poll?: MessagePollResult | null;
   title: string | null;
+  video?: MessageVideoResult | null;
 };
 
 export type TribeChannelProjection = {
@@ -147,6 +149,7 @@ export function createTribeRoundMessage({
   pinnedAt = null,
   poll = null,
   title,
+  video = null,
 }: TribeRoundMessageProjection): TribeRoundMessageResult {
   return {
     author: createTribeRoundAuthor(author),
@@ -163,5 +166,6 @@ export function createTribeRoundMessage({
     pinnedAt: pinnedAt ? formatMessageDateTimeValue(pinnedAt) : null,
     poll,
     title,
+    video,
   };
 }

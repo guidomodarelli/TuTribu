@@ -1,4 +1,4 @@
-import type { VideoProvider } from "@/src/modules/courses/constants/courses";
+import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
 import type { CourseModule } from "@/src/modules/courses/domain/entities/course-module";
 import type { Lesson } from "@/src/modules/courses/domain/entities/lesson";
 

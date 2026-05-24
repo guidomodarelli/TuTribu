@@ -1,4 +1,4 @@
-import { VIDEO_PROVIDER } from "@/src/modules/courses/constants/courses";
+import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import { PostgresCourseRepository } from "@/src/modules/courses/infrastructure/repositories/postgres-course-repository";
 
 function getSqlText(statement: unknown): string {

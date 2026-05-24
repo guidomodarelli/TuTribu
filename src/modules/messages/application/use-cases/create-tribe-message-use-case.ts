@@ -10,6 +10,11 @@ import {
   isValidMessagePollDraft,
   normalizeMessagePollDraft,
 } from "@/src/modules/messages/application/use-cases/manage-message-polls-use-cases";
+import {
+  InvalidVideoUrlError,
+  type ParsedExternalVideo,
+  parseExternalVideoUrl,
+} from "@/src/modules/shared/domain/value-objects/external-video-url";
 
 type CreateTribeMessageDependencies = {
   messageCreationRepository: MessageCreationRepository;
@@ -28,6 +33,26 @@ function isInvalidText(value: string, limits: { maxLength: number; minLength: nu
     value.length < limits.minLength ||
     value.length > limits.maxLength
   );
+}
+
+const PARSED_VIDEO_KIND = {
+  invalid: "invalid",
+  ok: "ok",
+} as const;
+
+type ParsedVideoOrError =
+  | { kind: typeof PARSED_VIDEO_KIND.ok; value: ParsedExternalVideo }
+  | { kind: typeof PARSED_VIDEO_KIND.invalid };
+
+function parseVideoDraft(rawUrl: string): ParsedVideoOrError {
+  try {
+    return { kind: PARSED_VIDEO_KIND.ok, value: parseExternalVideoUrl(rawUrl) };
+  } catch (error) {
+    if (error instanceof InvalidVideoUrlError) {
+      return { kind: PARSED_VIDEO_KIND.invalid };
+    }
+    throw error;
+  }
 }
 
 export function createTribeMessage({
@@ -62,12 +87,24 @@ export function createTribeMessage({
       };
     }
 
+    let parsedVideo: ParsedExternalVideo | null = null;
+    if (command.video) {
+      const result = parseVideoDraft(command.video.url);
+      if (result.kind === PARSED_VIDEO_KIND.invalid) {
+        return {
+          status: MESSAGE_MUTATION_STATUS.invalidVideoUrl,
+        };
+      }
+      parsedVideo = result.value;
+    }
+
     return messageCreationRepository.create({
-      ...command,
+      authorId: command.authorId,
       channelId,
       tribeSlug: command.tribeSlug.trim(),
       content,
       ...(poll ? { poll } : {}),
+      ...(parsedVideo ? { video: parsedVideo } : {}),
       title,
     });
   };

@@ -133,6 +133,7 @@ describe("PostgresMessageRoundRepository", () => {
           pinnedAt: "2026-04-26T13:00:00.000Z",
           poll: null,
           title: "Anuncio inicial",
+          video: null,
         },
       ],
       pagination: {
@@ -148,6 +149,70 @@ describe("PostgresMessageRoundRepository", () => {
     );
     expect(getSqlText(execute.mock.calls[1]?.[0])).not.toContain(
       "message_replies"
+    );
+  });
+
+  it("maps external video columns into the message video field", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: channelRows })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            channel_access_scope: "tribemates",
+            channel_emoji: "🔥",
+            channel_id: "channel-ronda",
+            channel_name: "Ronda",
+            channel_slug: "ronda",
+            channel_sort_order: 20,
+            message_id: "message-with-video",
+            message_content: "Miren esto",
+            message_created_at: "2026-04-26T12:00:00.000Z",
+            message_external_video_id: "dQw4w9WgXcQ",
+            message_external_video_provider: "youtube",
+            message_title: "Recurso",
+            author_id: "member-1",
+            author_name: "Grace Hopper",
+            author_image: null,
+            author_role: "tribemate",
+            like_count: "0",
+            message_pinned_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            liked_message_ids: [],
+            selected_poll_option_ids: [],
+            viewer_membership_role: "tribemate",
+            viewer_membership_status: "active",
+          },
+        ],
+      });
+    const repository = new PostgresMessageRoundRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listByTribeSlug({
+        tribeSlug: "matematica-pro",
+        viewerId: "member-1",
+      })
+    ).resolves.toMatchObject({
+      messages: [
+        {
+          id: "message-with-video",
+          video: { externalId: "dQw4w9WgXcQ", provider: "youtube" },
+        },
+      ],
+    });
+
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+      "messages.external_video_provider as message_external_video_provider"
+    );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+      "messages.external_video_id as message_external_video_id"
     );
   });
 

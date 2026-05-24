@@ -2709,4 +2709,91 @@ describe("TribeRound", () => {
 
     expect(screen.getByText("Detalle del mensaje y sus respuestas.")).toBeInTheDocument();
   });
+
+  it("submits a video link with a new message", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Recurso"
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Miren este video."
+    );
+    await user.click(screen.getByRole("button", { name: "Agregar video" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Link del video" }),
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    );
+
+    expect(screen.getByText("Proveedor detectado: YouTube")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages",
+        expect.objectContaining({
+          body: JSON.stringify({
+            channelId: "channel-intro",
+            content: "Miren este video.",
+            video: {
+              url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            },
+            title: "Recurso",
+          }),
+          method: "POST",
+        })
+      );
+    });
+  });
+
+  it("blocks submission when the video URL is not recognized", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Recurso"
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Algo"
+    );
+    await user.click(screen.getByRole("button", { name: "Agregar video" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Link del video" }),
+      "https://www.dailymotion.com/video/x7tgad0"
+    );
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    expect(
+      screen.getByText(
+        "No pudimos reconocer este link. Probá con YouTube, Vimeo, Wistia o Loom."
+      )
+    ).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
 });

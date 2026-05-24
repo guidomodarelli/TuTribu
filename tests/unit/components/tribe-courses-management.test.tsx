@@ -10,7 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
 
 import { TribeCoursesManagement } from "@/components/courses/tribe-courses-management";
-import { VIDEO_PROVIDER } from "@/src/modules/courses/constants/courses";
+import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import type { CourseModuleWithLessonsResult } from "@/src/modules/courses/application/results/course-results";
 
 const TRIBE_SLUG = "matematica-pro";

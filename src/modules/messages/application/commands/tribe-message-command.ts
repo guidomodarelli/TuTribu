@@ -5,6 +5,11 @@ export type CreateTribeMessageCommand = {
   content: string;
   poll?: MessagePollDraftCommand | null;
   title: string;
+  video?: MessageVideoDraftCommand | null;
+};
+
+export type MessageVideoDraftCommand = {
+  url: string;
 };
 
 export type CreateMessageReplyCommand = {

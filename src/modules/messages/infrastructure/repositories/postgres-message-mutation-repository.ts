@@ -2,12 +2,15 @@ import { sql } from "drizzle-orm";
 
 import type {
   DeleteTribeMessageCommand,
-  CreateTribeMessageCommand,
   CreateMessageReplyCommand,
   ToggleMessageLikeCommand,
   ToggleMessagePinCommand,
   SubmitMessagePollVoteCommand,
 } from "@/src/modules/messages/application/commands/tribe-message-command";
+import type {
+  CreateTribeMessageRepositoryCommand,
+  MessageCreationRepository,
+} from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type {
   MessageDeletionResult,
   MessageReplyCreationResult,
@@ -24,7 +27,6 @@ import {
   PINNED_TRIBE_MESSAGES_LIMIT,
 } from "@/src/modules/messages/constants/message-round";
 import type { MessageReplyRepository } from "@/src/modules/messages/domain/repositories/message-reply-repository";
-import type { MessageCreationRepository } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type { MessageReactionRepository } from "@/src/modules/messages/domain/repositories/message-reaction-repository";
 import type { MessagePinRepository } from "@/src/modules/messages/domain/repositories/message-pin-repository";
 import type { MessagePollRepository } from "@/src/modules/messages/domain/repositories/message-poll-repository";
@@ -34,6 +36,7 @@ import {
   createTribeRoundMessage,
   formatMessageDateTimeValue,
 } from "@/src/modules/messages/infrastructure/mappers/tribe-round-view-model-mapper";
+import { createMessageVideoFromRow } from "@/src/modules/messages/infrastructure/repositories/postgres-message-round-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
@@ -57,6 +60,8 @@ type CreatedMessageRow = MutationStatusRow & {
   channel_sort_order: number | string | null;
   message_content: string | null;
   message_created_at: Date | string | null;
+  message_external_video_id: string | null;
+  message_external_video_provider: string | null;
   message_id: string | null;
   message_title: string | null;
   poll_allow_multiple_votes: boolean | null;
@@ -220,6 +225,7 @@ function mapCreatedMessage(row: CreatedMessageRow | null): MessageCreationResult
           canDelete: true,
         },
         title: row.message_title,
+        video: createMessageVideoFromRow(row),
       }),
       status: row.status,
     };
@@ -260,10 +266,12 @@ export class PostgresMessageMutationRepository
 {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
-  async create(command: CreateTribeMessageCommand): Promise<MessageCreationResult>;
+  async create(
+    command: CreateTribeMessageRepositoryCommand
+  ): Promise<MessageCreationResult>;
   async create(command: CreateMessageReplyCommand): Promise<MessageReplyCreationResult>;
   async create(
-    command: CreateTribeMessageCommand | CreateMessageReplyCommand
+    command: CreateTribeMessageRepositoryCommand | CreateMessageReplyCommand
   ): Promise<MessageCreationResult | MessageReplyCreationResult> {
     if ("messageId" in command) {
       return this.createReply(command);
@@ -607,9 +615,11 @@ export class PostgresMessageMutationRepository
   }
 
   private async createMessage(
-    command: CreateTribeMessageCommand
+    command: CreateTribeMessageRepositoryCommand
   ): Promise<MessageCreationResult> {
     return this.executeWithDatabase(async (database) => {
+      const externalVideoProvider = command.video?.provider ?? null;
+      const externalVideoId = command.video?.externalId ?? null;
       const messageResult = await database.execute(sql`
         with target_tribe as (
           select tribes.id
@@ -632,13 +642,13 @@ export class PostgresMessageMutationRepository
           limit 1
         ),
         inserted_message as (
-          insert into public.messages (tribe_id, channel_id, author_id, title, content, created_at, updated_at)
-          select target_tribe.id, target_channel.id, ${command.authorId}, ${command.title}, ${command.content}, timezone('utc', now()), timezone('utc', now())
+          insert into public.messages (tribe_id, channel_id, author_id, title, content, external_video_provider, external_video_id, created_at, updated_at)
+          select target_tribe.id, target_channel.id, ${command.authorId}, ${command.title}, ${command.content}, ${externalVideoProvider}, ${externalVideoId}, timezone('utc', now()), timezone('utc', now())
           from target_tribe
           inner join target_channel
             on true
           where public.is_active_tribe_member(target_tribe.id)
-          returning id, tribe_id, channel_id, author_id, title, content, created_at
+          returning id, tribe_id, channel_id, author_id, title, content, external_video_provider, external_video_id, created_at
         ),
         created_message as (
           select
@@ -651,6 +661,8 @@ export class PostgresMessageMutationRepository
             target_channel.access_scope as channel_access_scope,
             inserted_message.title as message_title,
             inserted_message.content as message_content,
+            inserted_message.external_video_provider as message_external_video_provider,
+            inserted_message.external_video_id as message_external_video_id,
             inserted_message.created_at as message_created_at,
             message_authors.id as author_id,
             message_authors.name as author_name,
@@ -681,6 +693,8 @@ export class PostgresMessageMutationRepository
           created_message.channel_access_scope,
           created_message.message_title,
           created_message.message_content,
+          created_message.message_external_video_provider,
+          created_message.message_external_video_id,
           created_message.message_created_at,
           created_message.author_id,
           created_message.author_name,

@@ -105,6 +105,7 @@ describe("PostgresMessageMutationRepository", () => {
           canDelete: true,
         },
         title: "Anuncio inicial",
+        video: null,
       },
       status: "created",
     });
@@ -113,7 +114,7 @@ describe("PostgresMessageMutationRepository", () => {
 
     expect(sqlText).toContain("insert into public.messages");
     expect(sqlText).toContain(
-      "(tribe_id, channel_id, author_id, title, content, created_at, updated_at)"
+      "(tribe_id, channel_id, author_id, title, content, external_video_provider, external_video_id, created_at, updated_at)"
     );
     expect(sqlText).toContain("target_channel");
     expect(sqlText).toContain(
@@ -229,6 +230,60 @@ describe("PostgresMessageMutationRepository", () => {
       params: [["Álgebra", "Geometría"], "poll-1"],
       sql: expect.stringContaining("unnest($1::text[])"),
     });
+  });
+
+  it("creates messages with parsed external video columns", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          author_id: "member-1",
+          author_image: null,
+          author_name: "Grace Hopper",
+          author_role: "tribemate",
+          channel_access_scope: "tribemates",
+          channel_emoji: "🔥",
+          channel_id: "channel-ronda",
+          channel_name: "Ronda",
+          channel_slug: "ronda",
+          channel_sort_order: 20,
+          message_content: "Miren este video",
+          message_created_at: "2026-04-26T12:00:00.000Z",
+          message_external_video_id: "dQw4w9WgXcQ",
+          message_external_video_provider: "youtube",
+          message_id: "message-1",
+          message_title: "Recurso",
+          status: "created",
+        },
+      ],
+    }));
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    const result = await repository.create({
+      authorId: "member-1",
+      channelId: "channel-ronda",
+      tribeSlug: "matematica-pro",
+      content: "Miren este video",
+      title: "Recurso",
+      video: { externalId: "dQw4w9WgXcQ", provider: "youtube" },
+    });
+
+    expect(result).toMatchObject({
+      message: {
+        video: { externalId: "dQw4w9WgXcQ", provider: "youtube" },
+      },
+      status: "created",
+    });
+
+    const insertQuery = getSqlQuery(execute.mock.calls[0]?.[0]);
+
+    expect(insertQuery.sql).toContain(
+      "(tribe_id, channel_id, author_id, title, content, external_video_provider, external_video_id, created_at, updated_at)"
+    );
+    expect(insertQuery.params).toEqual(
+      expect.arrayContaining(["youtube", "dQw4w9WgXcQ"])
+    );
   });
 
   it("toggles likes with an active-member write guard and idempotent upsert", async () => {

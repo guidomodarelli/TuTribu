@@ -22,6 +22,7 @@ import {
   PinIcon,
   TrashIcon,
   SendIcon,
+  VideoIcon,
   VoteIcon,
   XIcon,
 } from "lucide-react";
@@ -79,6 +80,15 @@ import type {
   TribeRoundMessageResult,
   TribeRoundResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
+import {
+  InvalidVideoUrlError,
+  parseExternalVideoUrl,
+} from "@/src/modules/shared/domain/value-objects/external-video-url";
+import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
+import {
+  PLAYER_IFRAME_ALLOW,
+  buildPlayerEmbedSource,
+} from "@/src/modules/shared/application/video/build-player-embed-source";
 import styles from "./styles.module.scss";
 
 const TRIBE_ROUND_ROUTE = {
@@ -189,6 +199,22 @@ const TRIBE_ROUND_COPY = {
   messageComposerTitleLabel: "Título del mensaje",
   messageComposerTitlePlaceholder: "Título del mensaje",
   messagePlaceholder: "Contá una novedad, hacé una pregunta o compartí un recurso",
+  videoAddButton: "Agregar video",
+  videoAttachedBadge: "Video adjunto",
+  videoComposerHeading: "Link del video",
+  videoEmbedTitlePrefix: "Video adjunto al mensaje",
+  videoInvalidUrl:
+    "No pudimos reconocer este link. Probá con YouTube, Vimeo, Wistia o Loom.",
+  videoMissing: "Pegar un link de video válido",
+  videoProviderDetectedPrefix: "Proveedor detectado:",
+  videoRemoveButton: "Quitar video",
+  videoUrlPlaceholder: "https://youtube.com/watch?v=...",
+  videoProviderLabel: {
+    [VIDEO_PROVIDER.loom]: "Loom",
+    [VIDEO_PROVIDER.vimeo]: "Vimeo",
+    [VIDEO_PROVIDER.wistia]: "Wistia",
+    [VIDEO_PROVIDER.youtube]: "YouTube",
+  },
   pollAddButton: "Agregar encuesta",
   pollAddOptionButton: "Agregar opción",
   pollAllowMultipleVotesLabel: "Voto múltiple",
@@ -232,6 +258,7 @@ const TRIBE_ROUND_FORM = {
   method: "POST",
   outlineVariant: "outline",
   submitType: "submit",
+  urlInputType: "url",
 } as const;
 
 const TRIBE_ROUND_ATTRIBUTES = {
@@ -616,6 +643,10 @@ function getMissingMessageRequirements(input: {
     question: string;
   };
   title: string;
+  video?: {
+    enabled: boolean;
+    url: string;
+  };
 }): string[] {
   const missingRequirements: string[] = [];
 
@@ -635,7 +666,27 @@ function getMissingMessageRequirements(input: {
     missingRequirements.push(...getPollDraftRequirements(input.poll));
   }
 
+  if (input.video?.enabled && !safeParseVideoUrl(input.video.url)) {
+    missingRequirements.push(TRIBE_ROUND_COPY.videoMissing);
+  }
+
   return missingRequirements;
+}
+
+function safeParseVideoUrl(rawInput: string) {
+  const trimmed = rawInput.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  try {
+    return parseExternalVideoUrl(trimmed);
+  } catch (error) {
+    if (error instanceof InvalidVideoUrlError) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 function getPollDraftRequirements(poll: {
@@ -953,6 +1004,8 @@ function TribeRoundContent({
     Array.from({ length: TRIBE_ROUND_POLL.initialOptionCount }, () => "")
   );
   const [pollAllowsMultipleVotes, setPollAllowsMultipleVotes] = useState(false);
+  const [isVideoComposerEnabled, setIsVideoComposerEnabled] = useState(false);
+  const [videoUrlInput, setVideoUrlInput] = useState("");
   const [selectedPollOptionIds, setSelectedPollOptionIds] = useState<
     Record<string, string[] | undefined>
   >({});
@@ -1098,9 +1151,18 @@ function TribeRoundContent({
       Array.from({ length: TRIBE_ROUND_POLL.initialOptionCount }, () => "")
     );
     setPollAllowsMultipleVotes(false);
+    setIsVideoComposerEnabled(false);
+    setVideoUrlInput("");
     setSelectedChannelId("");
     setMessageComposerErrors([]);
   };
+
+  const detectedVideo = isVideoComposerEnabled
+    ? safeParseVideoUrl(videoUrlInput)
+    : null;
+  const trimmedVideoUrl = videoUrlInput.trim();
+  const showVideoParseError =
+    isVideoComposerEnabled && trimmedVideoUrl.length > 0 && !detectedVideo;
 
   const handleMessageComposerOpenChange = (isOpen: boolean) => {
     if (isOpen) {
@@ -1123,6 +1185,10 @@ function TribeRoundContent({
         question: pollQuestion,
       },
       title,
+      video: {
+        enabled: isVideoComposerEnabled,
+        url: videoUrlInput,
+      },
     });
 
     if (missingRequirements.length > 0) {
@@ -1150,6 +1216,13 @@ function TribeRoundContent({
                     .map((option) => option.trim())
                     .filter(Boolean),
                   question: pollQuestion.trim(),
+                },
+              }
+            : {}),
+          ...(isVideoComposerEnabled
+            ? {
+                video: {
+                  url: videoUrlInput.trim(),
                 },
               }
             : {}),
@@ -2165,6 +2238,48 @@ function TribeRoundContent({
     );
   };
 
+  const renderMessageVideoBadge = (message: TribeRoundMessageResult) => {
+    if (!message.video) {
+      return null;
+    }
+
+    return (
+      <span className={styles.TribeRound__videoAttachedBadge}>
+        <VideoIcon />
+        {TRIBE_ROUND_COPY.videoAttachedBadge}
+      </span>
+    );
+  };
+
+  const renderMessageVideoEmbed = (message: TribeRoundMessageResult) => {
+    if (!message.video) {
+      return null;
+    }
+
+    const embedSource = buildPlayerEmbedSource(
+      message.video.provider,
+      message.video.externalId
+    );
+
+    if (!embedSource) {
+      return null;
+    }
+
+    return (
+      <div className={styles.TribeRound__videoEmbed}>
+        <iframe
+          allow={PLAYER_IFRAME_ALLOW}
+          allowFullScreen
+          className={styles.TribeRound__videoEmbedIframe}
+          src={embedSource}
+          title={`${TRIBE_ROUND_COPY.videoEmbedTitlePrefix}${
+            message.title ? `: ${message.title}` : ""
+          }`}
+        />
+      </div>
+    );
+  };
+
   const renderMessagePinControl = (
     message: TribeRoundMessageResult,
     shouldStopDetailsOpening = false
@@ -2473,6 +2588,57 @@ function TribeRoundContent({
                   </div>
                   </section>
                 ) : null}
+                {isVideoComposerEnabled ? (
+                  <section className={styles.TribeRound__videoComposer}>
+                    <div className={styles.TribeRound__videoComposerHeader}>
+                      <label className={styles.TribeRound__videoComposerLabel}>
+                        <span>{TRIBE_ROUND_COPY.videoComposerHeading}</span>
+                        <input
+                          aria-describedby={
+                            hasMessageComposerErrors
+                              ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                              : undefined
+                          }
+                          aria-invalid={showVideoParseError}
+                          className={styles.TribeRound__videoInput}
+                          disabled={isBusy}
+                          onChange={(event) => {
+                            setVideoUrlInput(event.currentTarget.value);
+                            setMessageComposerErrors([]);
+                          }}
+                          placeholder={TRIBE_ROUND_COPY.videoUrlPlaceholder}
+                          type={TRIBE_ROUND_FORM.urlInputType}
+                          value={videoUrlInput}
+                        />
+                      </label>
+                      <Button
+                        aria-label={TRIBE_ROUND_COPY.videoRemoveButton}
+                        className={styles.TribeRound__videoComposerCloseButton}
+                        disabled={isBusy}
+                        onClick={() => {
+                          setIsVideoComposerEnabled(false);
+                          setVideoUrlInput("");
+                          setMessageComposerErrors([]);
+                        }}
+                        type={TRIBE_ROUND_FORM.buttonType}
+                        variant={TRIBE_ROUND_FORM.ghostVariant}
+                      >
+                        <XIcon />
+                      </Button>
+                    </div>
+                    {detectedVideo ? (
+                      <p className={styles.TribeRound__videoComposerHint}>
+                        {TRIBE_ROUND_COPY.videoProviderDetectedPrefix}{" "}
+                        {TRIBE_ROUND_COPY.videoProviderLabel[detectedVideo.provider]}
+                      </p>
+                    ) : null}
+                    {showVideoParseError ? (
+                      <p className={styles.TribeRound__videoComposerError}>
+                        {TRIBE_ROUND_COPY.videoInvalidUrl}
+                      </p>
+                    ) : null}
+                  </section>
+                ) : null}
                 <div className={styles.TribeRound__composerActions}>
                   {!isPollComposerEnabled ? (
                     <Button
@@ -2487,6 +2653,21 @@ function TribeRoundContent({
                       variant={TRIBE_ROUND_FORM.ghostVariant}
                     >
                       <VoteIcon />
+                    </Button>
+                  ) : null}
+                  {!isVideoComposerEnabled ? (
+                    <Button
+                      aria-label={TRIBE_ROUND_COPY.videoAddButton}
+                      className={styles.TribeRound__videoAddButton}
+                      disabled={isBusy}
+                      onClick={() => {
+                        setIsVideoComposerEnabled(true);
+                      }}
+                      size={TRIBE_ROUND_FORM.iconSize}
+                      type={TRIBE_ROUND_FORM.buttonType}
+                      variant={TRIBE_ROUND_FORM.ghostVariant}
+                    >
+                      <VideoIcon />
                     </Button>
                   ) : null}
                   <div className={styles.TribeRound__channelPicker}>
@@ -2693,6 +2874,7 @@ function TribeRoundContent({
                         true,
                         TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round
                       )}
+                      {renderMessageVideoBadge(message)}
                     </CardContent>
                   </button>
                   {renderMessagePoll(message, true)}
@@ -2826,6 +3008,7 @@ function TribeRoundContent({
                 ) : null}
                 {renderMessageContent(selectedMessage)}
                 {renderMessageContentToggle(selectedMessage)}
+                {renderMessageVideoEmbed(selectedMessage)}
                 {renderMessagePoll(selectedMessage)}
                 <div
                   className={`${styles.TribeRound__messageActions} ${styles["TribeRound__messageActions--dialog"]}`}

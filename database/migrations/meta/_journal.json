@@ -218,6 +218,13 @@
       "when": 1779440400000,
       "tag": "20260522130000_create_course_modules_and_lessons",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1779523200000,
+      "tag": "20260523120000_add_external_video_to_messages",
+      "breakpoints": true
     }
   ]
 }

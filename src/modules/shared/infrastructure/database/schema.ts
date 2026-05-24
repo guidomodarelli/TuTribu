@@ -273,6 +273,8 @@ export const messages = pgTable("messages", {
     .references(() => users.id, { onDelete: "cascade" }),
   title: text("title"),
   content: text("content").notNull(),
+  externalVideoProvider: text("external_video_provider"),
+  externalVideoId: text("external_video_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 }, (table) => ({
