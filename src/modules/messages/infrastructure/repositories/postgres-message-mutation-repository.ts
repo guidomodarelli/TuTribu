@@ -6,12 +6,15 @@ import type {
   ToggleMessageLikeCommand,
   ToggleMessagePinCommand,
   SubmitMessagePollVoteCommand,
+  UpdateTribeMessageCreatedAtCommand,
 } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type {
   CreateTribeMessageRepositoryCommand,
   MessageCreationRepository,
 } from "@/src/modules/messages/domain/repositories/message-creation-repository";
+import type { MessageCreatedAtUpdateRepository } from "@/src/modules/messages/domain/repositories/message-created-at-update-repository";
 import type {
+  MessageCreatedAtUpdateResult,
   MessageDeletionResult,
   MessageReplyCreationResult,
   MessageCreationResult,
@@ -126,6 +129,10 @@ type ExistingPinRow = {
 
 type DeletedReactionRow = {
   id: string;
+};
+
+type UpdatedCreatedAtRow = MutationStatusRow & {
+  message_created_at: Date | string | null;
 };
 
 type PollTargetRow = {
@@ -262,7 +269,14 @@ function mapCreatedReply(row: CreatedReplyRow | null): MessageReplyCreationResul
 }
 
 export class PostgresMessageMutationRepository
-  implements MessageCreationRepository, MessageReplyRepository, MessageReactionRepository, MessagePinRepository, MessagePollRepository, MessageDeletionRepository
+  implements
+    MessageCreationRepository,
+    MessageReplyRepository,
+    MessageReactionRepository,
+    MessagePinRepository,
+    MessagePollRepository,
+    MessageDeletionRepository,
+    MessageCreatedAtUpdateRepository
 {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
@@ -604,6 +618,62 @@ export class PostgresMessageMutationRepository
 
       if (row?.status === MESSAGE_MUTATION_STATUS.deleted) {
         return { status: MESSAGE_MUTATION_STATUS.deleted };
+      }
+
+      if (row?.status === MESSAGE_MUTATION_STATUS.notFound) {
+        return { status: MESSAGE_MUTATION_STATUS.notFound };
+      }
+
+      return { status: MESSAGE_MUTATION_STATUS.forbidden };
+    });
+  }
+
+  async updateCreatedAt(
+    command: UpdateTribeMessageCreatedAtCommand
+  ): Promise<MessageCreatedAtUpdateResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_message as (
+          select
+            messages.id as message_id,
+            public.is_tribe_leader(messages.tribe_id) as can_edit
+          from public.messages
+          inner join public.tribes
+            on tribes.id = messages.tribe_id
+          where messages.id = ${command.messageId}
+            and tribes.slug = ${command.tribeSlug}
+          limit 1
+        ),
+        updated_message as (
+          update public.messages
+          set created_at = ${command.createdAt}::timestamptz,
+              updated_at = timezone('utc', now())
+          where messages.id = (select target_message.message_id from target_message)
+            and exists (
+              select 1
+              from target_message
+              where target_message.can_edit
+            )
+          returning messages.created_at
+        )
+        select
+          case
+            when exists (select 1 from updated_message) then ${MESSAGE_MUTATION_STATUS.updated}
+            when not exists (select 1 from target_message) then ${MESSAGE_MUTATION_STATUS.notFound}
+            else ${MESSAGE_MUTATION_STATUS.forbidden}
+          end as status,
+          (select updated_message.created_at from updated_message) as message_created_at
+      `);
+      const row = (result.rows?.[0] ?? null) as UpdatedCreatedAtRow | null;
+
+      if (
+        row?.status === MESSAGE_MUTATION_STATUS.updated &&
+        row.message_created_at
+      ) {
+        return {
+          createdAt: formatMessageDateTimeValue(row.message_created_at),
+          status: MESSAGE_MUTATION_STATUS.updated,
+        };
       }
 
       if (row?.status === MESSAGE_MUTATION_STATUS.notFound) {

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   createElement,
   useEffect,
@@ -13,6 +14,7 @@ import type {
   MouseEvent,
 } from "react";
 import {
+  CalendarClockIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDownIcon,
@@ -100,6 +102,7 @@ const TRIBE_ROUND_ROUTE = {
   repliesSegment: "/replies",
   likeSegment: "/like",
   pinSegment: "/pin",
+  createdAtSegment: "/created-at",
   pollSegment: "/poll",
   pollVotesSegment: "/votes",
   messagesBaseSegment: "/messages",
@@ -125,6 +128,12 @@ const TRIBE_ROUND_ENDPOINT = {
     TRIBE_ROUND_ROUTE.messagesSegment +
     messageId +
     TRIBE_ROUND_ROUTE.pinSegment,
+  createdAt: (tribeSlug: string, messageId: string) =>
+    TRIBE_ROUND_ROUTE.apiTribes +
+    tribeSlug +
+    TRIBE_ROUND_ROUTE.messagesSegment +
+    messageId +
+    TRIBE_ROUND_ROUTE.createdAtSegment,
   message: (tribeSlug: string) =>
     TRIBE_ROUND_ROUTE.apiTribes +
     tribeSlug +
@@ -162,6 +171,16 @@ const TRIBE_ROUND_COPY = {
   messageDeleteButton: "Eliminar mensaje",
   messageDeleteError: "No pudimos eliminar el mensaje.",
   messageDeleteSuccess: "Mensaje eliminado.",
+  messageEditCreatedAtButton: "Editar fecha de creación",
+  messageEditCreatedAtCancel: "Cancelar",
+  messageEditCreatedAtDescription:
+    "Modifica la fecha y hora de creación del mensaje. Afecta el orden cronológico del feed.",
+  messageEditCreatedAtError: "No pudimos actualizar la fecha del mensaje.",
+  messageEditCreatedAtInputLabel: "Fecha y hora",
+  messageEditCreatedAtInvalid: "Ingresa una fecha y hora válida.",
+  messageEditCreatedAtSubmit: "Guardar",
+  messageEditCreatedAtSuccess: "Fecha del mensaje actualizada.",
+  messageEditCreatedAtTitle: "Editar fecha del mensaje",
   messageMoreActionsAriaLabel: "Acciones del mensaje",
   emptyDescription:
     "Todavía no hay mensajes. Las novedades, preguntas y recursos van a aparecer acá.",
@@ -250,12 +269,15 @@ const TRIBE_ROUND_PATH = {
 const TRIBE_ROUND_FORM = {
   buttonType: "button",
   contentTypeHeader: "Content-Type",
+  dateTimeLocalStep: 1,
+  dateTimeLocalInputType: "datetime-local",
   defaultVariant: "default",
   ghostVariant: "ghost",
   iconSize: "icon",
   jsonContentType: "application/json",
   deleteMethod: "DELETE",
   method: "POST",
+  patchMethod: "PATCH",
   outlineVariant: "outline",
   submitType: "submit",
   urlInputType: "url",
@@ -289,6 +311,15 @@ const TRIBE_ROUND_LIMITS = {
 
 const TRIBE_ROUND_OPTIMISTIC = {
   replyIdPrefix: "optimistic-reply-",
+} as const;
+
+const DATE_TIME_LOCAL_INPUT = {
+  dateSeparator: "-",
+  dateTimeSeparator: "T",
+  monthOffset: 1,
+  padCharacter: "0",
+  padLength: 2,
+  timeSeparator: ":",
 } as const;
 
 const TRIBE_ROUND_POLL = {
@@ -418,6 +449,11 @@ type TogglePinResponse = {
   isPinned?: boolean;
   message?: string;
   pinnedAt?: string | null;
+};
+
+type UpdateCreatedAtResponse = {
+  createdAt?: string;
+  message?: string;
 };
 
 type PendingLikeIntent = {
@@ -966,6 +1002,51 @@ function getPaginationAfterVisibleMessageCreation({
   };
 }
 
+function padTwoDigits(value: number): string {
+  return value.toString().padStart(DATE_TIME_LOCAL_INPUT.padLength, DATE_TIME_LOCAL_INPUT.padCharacter);
+}
+
+function toDateTimeLocalInputValue(isoDateTime: string): string {
+  const messageDate = new Date(isoDateTime);
+
+  if (Number.isNaN(messageDate.getTime())) {
+    return TRIBE_ROUND_RESET_KEY.empty;
+  }
+
+  const year = messageDate.getFullYear();
+  const month = padTwoDigits(messageDate.getMonth() + DATE_TIME_LOCAL_INPUT.monthOffset);
+  const day = padTwoDigits(messageDate.getDate());
+  const hours = padTwoDigits(messageDate.getHours());
+  const minutes = padTwoDigits(messageDate.getMinutes());
+  const seconds = padTwoDigits(messageDate.getSeconds());
+
+  return (
+    year +
+    DATE_TIME_LOCAL_INPUT.dateSeparator +
+    month +
+    DATE_TIME_LOCAL_INPUT.dateSeparator +
+    day +
+    DATE_TIME_LOCAL_INPUT.dateTimeSeparator +
+    hours +
+    DATE_TIME_LOCAL_INPUT.timeSeparator +
+    minutes +
+    DATE_TIME_LOCAL_INPUT.timeSeparator +
+    seconds
+  );
+}
+
+function parseDateTimeLocalInputValue(rawValue: string): Date | null {
+  const trimmed = rawValue.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = new Date(trimmed);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function getOptimisticPinnedAt(
   intendedIsPinned: boolean,
   baselineIsPinned: boolean,
@@ -983,6 +1064,7 @@ function TribeRoundContent({
   tribeSlug,
   round,
 }: TribeRoundProps) {
+  const router = useRouter();
   useRelativeTimeElementDefinition();
 
   const currentTribeSlugRef = useRef(tribeSlug);
@@ -1021,6 +1103,10 @@ function TribeRoundContent({
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [isMessageDetailsOpen, setIsMessageDetailsOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [editingCreatedAtMessageId, setEditingCreatedAtMessageId] = useState<
+    string | null
+  >(null);
+  const [editingCreatedAtValue, setEditingCreatedAtValue] = useState("");
   const optimisticReplyCounterRef = useRef(0);
   const isBusy = Boolean(pendingActionId);
   const selectedChannel =
@@ -2013,6 +2099,82 @@ function TribeRoundContent({
   };
 
 
+  const openEditCreatedAtDialog = (message: TribeRoundMessageResult) => {
+    setEditingCreatedAtMessageId(message.id);
+    setEditingCreatedAtValue(toDateTimeLocalInputValue(message.createdAt));
+  };
+
+  const closeEditCreatedAtDialog = () => {
+    setEditingCreatedAtMessageId(null);
+    setEditingCreatedAtValue("");
+  };
+
+  const handleEditCreatedAtOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      closeEditCreatedAtDialog();
+    }
+  };
+
+  const handleSubmitCreatedAt = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editingCreatedAtMessageId) {
+      return;
+    }
+
+    const parsedDate = parseDateTimeLocalInputValue(editingCreatedAtValue);
+
+    if (!parsedDate) {
+      toast.warning(TRIBE_ROUND_COPY.messageEditCreatedAtInvalid);
+      return;
+    }
+
+    const messageId = editingCreatedAtMessageId;
+    const originalCreatedAt =
+      messages.find((message) => message.id === messageId)?.createdAt ?? "";
+    const nextCreatedAt =
+      originalCreatedAt &&
+      editingCreatedAtValue === toDateTimeLocalInputValue(originalCreatedAt)
+        ? originalCreatedAt
+        : parsedDate.toISOString();
+
+    setPendingActionId(messageId);
+
+    try {
+      const response = await submitJsonRequest<UpdateCreatedAtResponse>(
+        TRIBE_ROUND_ENDPOINT.createdAt(tribeSlug, messageId),
+        { createdAt: nextCreatedAt },
+        undefined,
+        TRIBE_ROUND_FORM.patchMethod
+      );
+
+      const appliedCreatedAt =
+        typeof response.createdAt === "string" ? response.createdAt : nextCreatedAt;
+
+      setMessages((currentMessages) =>
+        sortMessagesByPinnedState(
+          currentMessages.map((message) =>
+            message.id === messageId
+              ? { ...message, createdAt: appliedCreatedAt }
+              : message
+          )
+        )
+      );
+      // A timestamp move can cross page boundaries, so refresh the server view after the local update.
+      router.refresh();
+      toast.success(response.message ?? TRIBE_ROUND_COPY.messageEditCreatedAtSuccess);
+      closeEditCreatedAtDialog();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : TRIBE_ROUND_COPY.messageEditCreatedAtError
+      );
+    } finally {
+      setPendingActionId(null);
+    }
+  };
+
   const handleDeleteMessage = async (message: TribeRoundMessageResult) => {
     setPendingActionId(message.id);
 
@@ -2319,7 +2481,12 @@ function TribeRoundContent({
     message: TribeRoundMessageResult,
     shouldStopDetailsOpening = false
   ) => {
-    if (!message.permissions?.canDelete) {
+    const canDelete = Boolean(message.permissions?.canDelete);
+    const canEditCreatedAt = Boolean(
+      round.viewerPermissions.canEditMessageCreatedAt
+    );
+
+    if (!canDelete && !canEditCreatedAt) {
       return null;
     }
 
@@ -2345,21 +2512,40 @@ function TribeRoundContent({
           align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}
           className={styles.TribeRound__messageMenuContent}
         >
-          <DropdownMenuItem
-            className={styles.TribeRound__messageMenuItem}
-            disabled={isBusy}
-            onClick={(event) => {
-              if (shouldStopDetailsOpening) {
-                stopMessageDetailsOpening(event);
-              }
-            }}
-            onSelect={() => {
-              void handleDeleteMessage(message);
-            }}
-          >
-            <TrashIcon />
-            {TRIBE_ROUND_COPY.messageDeleteButton}
-          </DropdownMenuItem>
+          {canEditCreatedAt ? (
+            <DropdownMenuItem
+              className={styles.TribeRound__messageMenuItem}
+              disabled={isBusy}
+              onClick={(event) => {
+                if (shouldStopDetailsOpening) {
+                  stopMessageDetailsOpening(event);
+                }
+              }}
+              onSelect={() => {
+                openEditCreatedAtDialog(message);
+              }}
+            >
+              <CalendarClockIcon />
+              {TRIBE_ROUND_COPY.messageEditCreatedAtButton}
+            </DropdownMenuItem>
+          ) : null}
+          {canDelete ? (
+            <DropdownMenuItem
+              className={styles.TribeRound__messageMenuItem}
+              disabled={isBusy}
+              onClick={(event) => {
+                if (shouldStopDetailsOpening) {
+                  stopMessageDetailsOpening(event);
+                }
+              }}
+              onSelect={() => {
+                void handleDeleteMessage(message);
+              }}
+            >
+              <TrashIcon />
+              {TRIBE_ROUND_COPY.messageDeleteButton}
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     );
@@ -3143,6 +3329,61 @@ function TribeRoundContent({
               </div>
             </article>
           ) : null}
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(editingCreatedAtMessageId)}
+        onOpenChange={handleEditCreatedAtOpenChange}
+      >
+        <DialogContent className={styles.TribeRound__editCreatedAtDialog}>
+          <DialogHeader>
+            <DialogTitle>
+              {TRIBE_ROUND_COPY.messageEditCreatedAtTitle}
+            </DialogTitle>
+            <DialogDescription>
+              {TRIBE_ROUND_COPY.messageEditCreatedAtDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className={styles.TribeRound__editCreatedAtForm}
+            onSubmit={(event) => {
+              void handleSubmitCreatedAt(event);
+            }}
+          >
+            <label className={styles.TribeRound__editCreatedAtLabel}>
+              <span className={styles.TribeRound__editCreatedAtLabelText}>
+                {TRIBE_ROUND_COPY.messageEditCreatedAtInputLabel}
+              </span>
+              <input
+                className={styles.TribeRound__editCreatedAtInput}
+                disabled={isBusy}
+                onChange={(event) => {
+                  setEditingCreatedAtValue(event.target.value);
+                }}
+                required
+                step={TRIBE_ROUND_FORM.dateTimeLocalStep}
+                type={TRIBE_ROUND_FORM.dateTimeLocalInputType}
+                value={editingCreatedAtValue}
+              />
+            </label>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button
+                  disabled={isBusy}
+                  type={TRIBE_ROUND_FORM.buttonType}
+                  variant={TRIBE_ROUND_FORM.outlineVariant}
+                >
+                  {TRIBE_ROUND_COPY.messageEditCreatedAtCancel}
+                </Button>
+              </DialogClose>
+              <Button
+                disabled={isBusy || !editingCreatedAtValue.trim()}
+                type={TRIBE_ROUND_FORM.submitType}
+              >
+                {TRIBE_ROUND_COPY.messageEditCreatedAtSubmit}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
       </section>

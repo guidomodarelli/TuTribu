@@ -1,6 +1,7 @@
 import { createTribeMessage } from "@/src/modules/messages/application/use-cases/create-tribe-message-use-case";
 import { createMessageReply } from "@/src/modules/messages/application/use-cases/create-message-reply-use-case";
 import { deleteTribeMessage } from "@/src/modules/messages/application/use-cases/delete-tribe-message-use-case";
+import { updateTribeMessageCreatedAt } from "@/src/modules/messages/application/use-cases/update-tribe-message-created-at-use-case";
 import {
   listMessageReplies,
   listTribeRound,
@@ -24,6 +25,7 @@ import type {
   ToggleMessageLikeCommand,
   ToggleMessagePinCommand,
   UpdateTribeChannelCommand,
+  UpdateTribeMessageCreatedAtCommand,
 } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type {
   TribeRoundResult,
@@ -37,6 +39,7 @@ import type {
   TribeChannelUpdateResult,
 } from "@/src/modules/messages/application/results/tribe-channel-result";
 import type {
+  MessageCreatedAtUpdateResult,
   MessageReplyCreationResult,
   MessageCreationResult,
   MessageDeletionResult,
@@ -44,6 +47,7 @@ import type {
   MessagePollMutationResult,
   MessagePinToggleResult,
 } from "@/src/modules/messages/application/results/message-mutation-result";
+import type { MessageCreatedAtUpdateRepository } from "@/src/modules/messages/domain/repositories/message-created-at-update-repository";
 import type { MessageReplyRepository } from "@/src/modules/messages/domain/repositories/message-reply-repository";
 import type { TribeChannelRepository } from "@/src/modules/messages/domain/repositories/tribe-channel-repository";
 import type { MessageCreationRepository } from "@/src/modules/messages/domain/repositories/message-creation-repository";
@@ -70,6 +74,7 @@ type MessagesModuleDependencies = {
   messagePinRepository: MessagePinRepository;
   messagePollRepository: MessagePollRepository;
   messageDeletionRepository: MessageDeletionRepository;
+  messageCreatedAtUpdateRepository: MessageCreatedAtUpdateRepository;
 };
 
 type MessagesModule = {
@@ -104,6 +109,9 @@ type MessagesModule = {
     updateTribeChannel: (
       command: UpdateTribeChannelCommand
     ) => Promise<TribeChannelUpdateResult>;
+    updateTribeMessageCreatedAt: (
+      command: UpdateTribeMessageCreatedAtCommand
+    ) => Promise<MessageCreatedAtUpdateResult>;
   };
 };
 
@@ -117,6 +125,7 @@ export function buildMessagesModule({
   messagePinRepository,
   messagePollRepository,
   messageDeletionRepository,
+  messageCreatedAtUpdateRepository,
 }: MessagesModuleDependencies): MessagesModule {
   return {
     useCases: {
@@ -144,6 +153,9 @@ export function buildMessagesModule({
       submitMessagePollVote: submitMessagePollVote({ messagePollRepository }),
       updateTribeChannel: updateTribeChannel({
         tribeChannelRepository,
+      }),
+      updateTribeMessageCreatedAt: updateTribeMessageCreatedAt({
+        messageCreatedAtUpdateRepository,
       }),
     },
   };

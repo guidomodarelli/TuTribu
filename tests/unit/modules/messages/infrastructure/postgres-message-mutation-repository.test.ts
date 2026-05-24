@@ -785,4 +785,83 @@ describe("PostgresMessageMutationRepository", () => {
     expect(sqlText).toContain("(message_id, tribe_id, author_id, content, created_at)");
     expect(sqlText).toContain("reply_authors.name as reply_author_name");
   });
+
+  it("updates the message created_at through the leader-guarded statement", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          message_created_at: "2026-04-01T10:00:00.000Z",
+          status: "updated",
+        },
+      ],
+    }));
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateCreatedAt({
+        createdAt: "2026-04-01T10:00:00.000Z",
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        userId: "leader-1",
+      })
+    ).resolves.toEqual({
+      createdAt: "2026-04-01T10:00:00.000Z",
+      status: "updated",
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain("public.is_tribe_leader(messages.tribe_id) as can_edit");
+    expect(sqlText).toContain("update public.messages");
+    expect(sqlText).toContain("set created_at =");
+    expect(sqlText).toContain("updated_at = timezone('utc', now())");
+  });
+
+  it("returns not_found when the message does not exist", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          message_created_at: null,
+          status: "not_found",
+        },
+      ],
+    }));
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateCreatedAt({
+        createdAt: "2026-04-01T10:00:00.000Z",
+        messageId: "missing-message",
+        tribeSlug: "matematica-pro",
+        userId: "leader-1",
+      })
+    ).resolves.toEqual({ status: "not_found" });
+  });
+
+  it("returns forbidden when the viewer cannot edit the message created_at", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          message_created_at: null,
+          status: "forbidden",
+        },
+      ],
+    }));
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateCreatedAt({
+        createdAt: "2026-04-01T10:00:00.000Z",
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        userId: "tribemate-1",
+      })
+    ).resolves.toEqual({ status: "forbidden" });
+  });
 });

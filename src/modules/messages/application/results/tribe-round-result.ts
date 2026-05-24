@@ -88,6 +88,7 @@ export type TribeRoundMessageResult = TribeRoundSharedMessageResult & {
 export type TribeRoundPermissionsResult = {
   canReply: boolean;
   canCreateMessage: boolean;
+  canEditMessageCreatedAt?: boolean;
   canPinMessages?: boolean;
   canReact: boolean;
 };

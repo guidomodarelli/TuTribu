@@ -136,6 +136,7 @@ function createPermissions(
   return {
     canReply: canParticipate,
     canCreateMessage: canParticipate,
+    canEditMessageCreatedAt: false,
     canPinMessages: false,
     canReact: canParticipate,
   };
@@ -152,6 +153,19 @@ function canViewerPinMessages({
     status === MESSAGE_MEMBERSHIP_STATUS.active &&
     (role === MESSAGE_AUTHOR_ROLE.leader ||
       role === MESSAGE_AUTHOR_ROLE.guardian)
+  );
+}
+
+function canViewerEditMessageCreatedAt({
+  role,
+  status,
+}: {
+  role: string | null;
+  status: MessageMembershipStatus | null;
+}): boolean {
+  return (
+    status === MESSAGE_MEMBERSHIP_STATUS.active &&
+    role === MESSAGE_AUTHOR_ROLE.leader
   );
 }
 
@@ -368,6 +382,10 @@ function mapViewerStateRow(
     viewerId,
     viewerPermissions: {
       ...createPermissions(membershipStatus),
+      canEditMessageCreatedAt: canViewerEditMessageCreatedAt({
+        role: row?.viewer_membership_role ?? null,
+        status: membershipStatus,
+      }),
       canPinMessages: canViewerPinMessages({
         role: row?.viewer_membership_role ?? null,
         status: membershipStatus,

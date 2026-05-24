@@ -4,6 +4,7 @@ import { deleteTribeMessage } from "@/src/modules/messages/application/use-cases
 import { toggleMessageLike } from "@/src/modules/messages/application/use-cases/toggle-message-like-use-case";
 import { toggleMessagePin } from "@/src/modules/messages/application/use-cases/toggle-message-pin-use-case";
 import { submitMessagePollVote } from "@/src/modules/messages/application/use-cases/manage-message-polls-use-cases";
+import { updateTribeMessageCreatedAt } from "@/src/modules/messages/application/use-cases/update-tribe-message-created-at-use-case";
 
 describe("message mutation use cases", () => {
   const tribeChannel = {
@@ -443,6 +444,68 @@ describe("message mutation use cases", () => {
       tribeSlug: "matematica-pro",
       userId: "member-1",
     });
+  });
+
+  it("updates the message created_at after normalizing the command", async () => {
+    const updateCreatedAt = jest.fn(async () => ({
+      createdAt: "2026-04-01T10:00:00.000Z",
+      status: "updated" as const,
+    }));
+    const execute = updateTribeMessageCreatedAt({
+      messageCreatedAtUpdateRepository: { updateCreatedAt },
+    });
+
+    await expect(
+      execute({
+        createdAt: "  2026-04-01T10:00:00Z  ",
+        messageId: "message-1",
+        tribeSlug: " matematica-pro ",
+        userId: " leader-1 ",
+      })
+    ).resolves.toEqual({
+      createdAt: "2026-04-01T10:00:00.000Z",
+      status: "updated",
+    });
+    expect(updateCreatedAt).toHaveBeenCalledWith({
+      createdAt: "2026-04-01T10:00:00.000Z",
+      messageId: "message-1",
+      tribeSlug: "matematica-pro",
+      userId: "leader-1",
+    });
+  });
+
+  it("rejects an invalid created_at before calling the repository", async () => {
+    const updateCreatedAt = jest.fn();
+    const execute = updateTribeMessageCreatedAt({
+      messageCreatedAtUpdateRepository: { updateCreatedAt },
+    });
+
+    await expect(
+      execute({
+        createdAt: "not-a-date",
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        userId: "leader-1",
+      })
+    ).resolves.toEqual({ status: "invalid_content" });
+    expect(updateCreatedAt).not.toHaveBeenCalled();
+  });
+
+  it("rejects a blank created_at before calling the repository", async () => {
+    const updateCreatedAt = jest.fn();
+    const execute = updateTribeMessageCreatedAt({
+      messageCreatedAtUpdateRepository: { updateCreatedAt },
+    });
+
+    await expect(
+      execute({
+        createdAt: "   ",
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        userId: "leader-1",
+      })
+    ).resolves.toEqual({ status: "invalid_content" });
+    expect(updateCreatedAt).not.toHaveBeenCalled();
   });
 
   it("deduplicates selected poll options before voting", async () => {

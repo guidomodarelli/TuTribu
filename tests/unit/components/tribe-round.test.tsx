@@ -1810,6 +1810,62 @@ describe("TribeRound", () => {
     expect(screen.getByRole("menu")).toHaveClass("TribeRound__messageMenuContent");
   });
 
+  it("preserves timestamp precision and refreshes pagination after editing message date", async () => {
+    const user = userEvent.setup();
+    const originalCreatedAt = "2026-04-26T12:00:30.456Z";
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        createdAt: originalCreatedAt,
+        message: "Fecha del mensaje actualizada.",
+      }),
+      ok: true,
+      statusText: "OK",
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          viewerPermissions: {
+            ...round.viewerPermissions,
+            canEditMessageCreatedAt: true,
+          },
+          messages: [
+            {
+              ...round.messages[0],
+              createdAt: originalCreatedAt,
+              permissions: {
+                canDelete: false,
+              },
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Acciones del mensaje" })
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Editar fecha de creación" })
+    );
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/message-1/created-at",
+        expect.objectContaining({
+          body: JSON.stringify({ createdAt: originalCreatedAt }),
+          method: "PATCH",
+        })
+      );
+    });
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
   it("shows a warning when the pinned message limit is reached", async () => {
     jest.useFakeTimers();
     const user = userEvent.setup({

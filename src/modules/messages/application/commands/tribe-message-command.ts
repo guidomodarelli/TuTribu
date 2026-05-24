@@ -37,6 +37,13 @@ export type DeleteTribeMessageCommand = {
   userId: string;
 };
 
+export type UpdateTribeMessageCreatedAtCommand = {
+  createdAt: string;
+  messageId: string;
+  tribeSlug: string;
+  userId: string;
+};
+
 export type MessagePollDraftCommand = {
   allowMultipleVotes: boolean;
   options: string[];

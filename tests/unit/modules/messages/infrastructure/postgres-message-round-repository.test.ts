@@ -99,6 +99,7 @@ describe("PostgresMessageRoundRepository", () => {
       viewerPermissions: {
         canReply: true,
         canCreateMessage: true,
+        canEditMessageCreatedAt: true,
         canReact: true,
         canPinMessages: true,
       },
@@ -282,6 +283,7 @@ describe("PostgresMessageRoundRepository", () => {
       viewerPermissions: {
         canReply: true,
         canCreateMessage: true,
+        canEditMessageCreatedAt: false,
         canReact: true,
         canPinMessages: false,
       },
@@ -350,6 +352,7 @@ describe("PostgresMessageRoundRepository", () => {
     ).resolves.toMatchObject({
       viewerPermissions: {
         canCreateMessage: false,
+        canEditMessageCreatedAt: false,
         canPinMessages: false,
         canReact: false,
         canReply: false,
@@ -700,6 +703,7 @@ describe("PostgresMessageRoundRepository", () => {
       viewerId: "member-1",
       viewerPermissions: {
         canCreateMessage: true,
+        canEditMessageCreatedAt: false,
         canPinMessages: true,
         canReact: true,
         canReply: true,

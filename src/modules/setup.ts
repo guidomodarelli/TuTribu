@@ -126,6 +126,9 @@ export async function createRequestModules(
       messageDeletionRepository: new PostgresMessageMutationRepository(
         executeWithRequestContext
       ),
+      messageCreatedAtUpdateRepository: new PostgresMessageMutationRepository(
+        executeWithRequestContext
+      ),
     }),
     courses: buildCoursesModule({
       courseRepository: new PostgresCourseRepository(executeWithRequestContext),

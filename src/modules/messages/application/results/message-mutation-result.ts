@@ -60,6 +60,18 @@ export type MessageDeletionResult = {
     | typeof MESSAGE_MUTATION_STATUS.notFound;
 };
 
+export type MessageCreatedAtUpdateResult =
+  | {
+      createdAt: string;
+      status: typeof MESSAGE_MUTATION_STATUS.updated;
+    }
+  | {
+      status:
+        | typeof MESSAGE_MUTATION_STATUS.forbidden
+        | typeof MESSAGE_MUTATION_STATUS.invalidContent
+        | typeof MESSAGE_MUTATION_STATUS.notFound;
+    };
+
 export type MessagePollMutationResult =
   | {
       poll: MessagePollResult;
