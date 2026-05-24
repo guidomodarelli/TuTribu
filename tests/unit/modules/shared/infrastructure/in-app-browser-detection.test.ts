@@ -8,6 +8,8 @@ const CHROME_ANDROID_USER_AGENT =
   "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36";
 const MERCADO_PAGO_IOS_WEBVIEW_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MercadoPago/12.34.5";
+const MERCADO_PAGO_ANDROID_WEBVIEW_USER_AGENT =
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.0.0 Mobile Safari/537.36 MercadoPago/12.34.5";
 const GENERIC_IOS_WEBVIEW_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
 const INSTAGRAM_USER_AGENT =
@@ -18,6 +20,7 @@ describe("detectInAppBrowser", () => {
     expect(detectInAppBrowser(null)).toEqual({
       isInAppBrowser: false,
       isIos: false,
+      isAndroid: false,
       isMercadoPago: false,
     });
   });
@@ -26,6 +29,7 @@ describe("detectInAppBrowser", () => {
     expect(detectInAppBrowser(SAFARI_IOS_USER_AGENT)).toEqual({
       isInAppBrowser: false,
       isIos: true,
+      isAndroid: false,
       isMercadoPago: false,
     });
   });
@@ -34,6 +38,7 @@ describe("detectInAppBrowser", () => {
     expect(detectInAppBrowser(CHROME_DESKTOP_USER_AGENT)).toEqual({
       isInAppBrowser: false,
       isIos: false,
+      isAndroid: false,
       isMercadoPago: false,
     });
   });
@@ -42,6 +47,7 @@ describe("detectInAppBrowser", () => {
     expect(detectInAppBrowser(CHROME_ANDROID_USER_AGENT)).toEqual({
       isInAppBrowser: false,
       isIos: false,
+      isAndroid: true,
       isMercadoPago: false,
     });
   });
@@ -50,6 +56,16 @@ describe("detectInAppBrowser", () => {
     expect(detectInAppBrowser(MERCADO_PAGO_IOS_WEBVIEW_USER_AGENT)).toEqual({
       isInAppBrowser: true,
       isIos: true,
+      isAndroid: false,
+      isMercadoPago: true,
+    });
+  });
+
+  it("flags the Mercado Pago Android in-app browser", () => {
+    expect(detectInAppBrowser(MERCADO_PAGO_ANDROID_WEBVIEW_USER_AGENT)).toEqual({
+      isInAppBrowser: true,
+      isIos: false,
+      isAndroid: true,
       isMercadoPago: true,
     });
   });
@@ -58,6 +74,7 @@ describe("detectInAppBrowser", () => {
     expect(detectInAppBrowser(GENERIC_IOS_WEBVIEW_USER_AGENT)).toEqual({
       isInAppBrowser: true,
       isIos: true,
+      isAndroid: false,
       isMercadoPago: false,
     });
   });
@@ -66,6 +83,7 @@ describe("detectInAppBrowser", () => {
     expect(detectInAppBrowser(INSTAGRAM_USER_AGENT)).toEqual({
       isInAppBrowser: true,
       isIos: true,
+      isAndroid: false,
       isMercadoPago: false,
     });
   });

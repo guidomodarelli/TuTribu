@@ -1,11 +1,19 @@
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { OpenInExternalBrowser } from "@/components/subscriptions/open-in-external-browser";
 import { SubscriptionReturnStatus } from "@/components/subscriptions/subscription-return-status";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
+import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
+import {
+  buildExternalBrowserUrl,
+  type ExternalBrowserPlatform,
+} from "@/src/modules/shared/infrastructure/http/external-browser-link";
+import { detectInAppBrowser } from "@/src/modules/shared/infrastructure/http/in-app-browser-detection";
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 import {
   TRIBE_MEMBERSHIP_STATUS_REASON,
@@ -40,6 +48,12 @@ const SIGN_IN_REDIRECT_URL_TOKEN = {
   querySeparator: "?",
   valueSeparator: "=",
 } as const;
+
+const USER_AGENT_HEADER = "user-agent";
+const EXTERNAL_BROWSER_PLATFORM = {
+  android: "android",
+  ios: "ios",
+} as const satisfies Record<string, ExternalBrowserPlatform>;
 
 const SUBSCRIPTION_RETURN_BLOCKED_REASONS: ReadonlySet<string> = new Set([
   TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked,
@@ -101,16 +115,27 @@ function renderSubscriptionReturnStatus() {
   );
 }
 
-function buildSubscriptionReturnSignInRedirect(
+function buildSubscriptionReturnPath(
   slug: string,
   mercadoPagoPreapprovalId: string
 ): string {
-  const callbackPath =
+  return (
     ROUTES.tribes.bySlug(slug) +
     SIGN_IN_REDIRECT_URL_TOKEN.querySeparator +
     TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId +
     SIGN_IN_REDIRECT_URL_TOKEN.valueSeparator +
-    encodeURIComponent(mercadoPagoPreapprovalId);
+    encodeURIComponent(mercadoPagoPreapprovalId)
+  );
+}
+
+function buildSubscriptionReturnSignInRedirect(
+  slug: string,
+  mercadoPagoPreapprovalId: string
+): string {
+  const callbackPath = buildSubscriptionReturnPath(
+    slug,
+    mercadoPagoPreapprovalId
+  );
   const signInSearchParams = new URLSearchParams({
     [QUERY_PARAMS.auth.callbackUrl]: callbackPath,
   });
@@ -119,6 +144,46 @@ function buildSubscriptionReturnSignInRedirect(
     ROUTES.auth.signIn +
     SIGN_IN_REDIRECT_URL_TOKEN.querySeparator +
     signInSearchParams.toString()
+  );
+}
+
+/**
+ * Resolves the external-browser deep-link platform for detected in-app browsers.
+ *
+ * @param userAgent - Request user agent header value.
+ * @returns Matching mobile platform, or null when the request is not from an in-app browser.
+ */
+function resolveExternalBrowserPlatform(
+  userAgent: string | null
+): ExternalBrowserPlatform | null {
+  const detection = detectInAppBrowser(userAgent);
+
+  if (!detection.isInAppBrowser) {
+    return null;
+  }
+
+  if (detection.isIos) {
+    return EXTERNAL_BROWSER_PLATFORM.ios;
+  }
+
+  if (detection.isAndroid) {
+    return EXTERNAL_BROWSER_PLATFORM.android;
+  }
+
+  return null;
+}
+
+function renderOpenInExternalBrowserHandoff(
+  externalBrowserUrl: string,
+  fallbackSignInUrl: string
+) {
+  return (
+    <main className={styles.TribePage}>
+      <OpenInExternalBrowser
+        externalBrowserUrl={externalBrowserUrl}
+        fallbackSignInUrl={fallbackSignInUrl}
+      />
+    </main>
   );
 }
 
@@ -172,9 +237,33 @@ export async function TribePageContent({
       accessResult.reason === TRIBE_PAGE_ACCESS_REASON.unauthenticatedHidden &&
       mercadoPagoPreapprovalId
     ) {
-      redirect(
-        buildSubscriptionReturnSignInRedirect(slug, mercadoPagoPreapprovalId)
+      const fallbackSignInUrl = buildSubscriptionReturnSignInRedirect(
+        slug,
+        mercadoPagoPreapprovalId
       );
+      const requestHeaders = await headers();
+      const externalBrowserPlatform = resolveExternalBrowserPlatform(
+        requestHeaders.get(USER_AGENT_HEADER)
+      );
+
+      if (externalBrowserPlatform) {
+        const targetHttpsUrl =
+          resolvePublicAppBaseUrl() +
+          buildSubscriptionReturnPath(slug, mercadoPagoPreapprovalId);
+        const externalBrowserUrl = buildExternalBrowserUrl({
+          platform: externalBrowserPlatform,
+          targetHttpsUrl,
+        });
+
+        if (externalBrowserUrl) {
+          return renderOpenInExternalBrowserHandoff(
+            externalBrowserUrl,
+            fallbackSignInUrl
+          );
+        }
+      }
+
+      redirect(fallbackSignInUrl);
     }
 
     if (

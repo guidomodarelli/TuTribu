@@ -54,7 +54,37 @@ jest.mock(
   })
 );
 
+const ORIGINAL_BETTER_AUTH_URL = process.env.BETTER_AUTH_URL;
+const IOS_SAFARI_USER_AGENT =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
+const CHROME_ANDROID_USER_AGENT =
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36";
+const IOS_MERCADO_PAGO_USER_AGENT =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MercadoPago/12.34.5";
+const ANDROID_MERCADO_PAGO_USER_AGENT =
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.0.0 Mobile Safari/537.36 MercadoPago/12.34.5";
+
+function buildUserAgentHeaders(userAgent: string): Headers {
+  const requestHeaders = new Headers();
+  requestHeaders.set("user-agent", userAgent);
+
+  return requestHeaders;
+}
+
 describe("TribePage", () => {
+  beforeAll(() => {
+    process.env.BETTER_AUTH_URL = "https://tutribu.example.com";
+  });
+
+  afterAll(() => {
+    if (ORIGINAL_BETTER_AUTH_URL === undefined) {
+      delete process.env.BETTER_AUTH_URL;
+      return;
+    }
+
+    process.env.BETTER_AUTH_URL = ORIGINAL_BETTER_AUTH_URL;
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     (notFound as unknown as jest.Mock).mockReset();
@@ -452,7 +482,7 @@ describe("TribePage", () => {
     });
   });
 
-  it("redirects unauthenticated Mercado Pago returns to sign-in with the tribe URL as callback", async () => {
+  it("redirects unauthenticated Mercado Pago returns to sign-in when the visitor is not on iOS or Android", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
       status: "hidden",
@@ -475,6 +505,133 @@ describe("TribePage", () => {
       "/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
     );
     expect(listTribeRound).not.toHaveBeenCalled();
+  });
+
+  it("redirects unauthenticated Mercado Pago returns to sign-in when the visitor is in regular iOS Safari", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      reason: "unauthenticated_hidden",
+    });
+    (headers as jest.Mock).mockResolvedValue(
+      buildUserAgentHeaders(IOS_SAFARI_USER_AGENT)
+    );
+
+    await expect(
+      TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-1",
+        }),
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith(
+      "/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
+    );
+    expect(listTribeRound).not.toHaveBeenCalled();
+  });
+
+  it("redirects unauthenticated Mercado Pago returns to sign-in when the visitor is in regular Android Chrome", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      reason: "unauthenticated_hidden",
+    });
+    (headers as jest.Mock).mockResolvedValue(
+      buildUserAgentHeaders(CHROME_ANDROID_USER_AGENT)
+    );
+
+    await expect(
+      TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-1",
+        }),
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith(
+      "/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
+    );
+    expect(listTribeRound).not.toHaveBeenCalled();
+  });
+
+  it("renders the external browser handoff with an x-safari-https deep link for iOS in-app browsers", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      reason: "unauthenticated_hidden",
+    });
+    (headers as jest.Mock).mockResolvedValue(
+      buildUserAgentHeaders(IOS_MERCADO_PAGO_USER_AGENT)
+    );
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-1",
+        }),
+      })
+    );
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: "Abrí TuTribu en tu navegador" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Continuar en tu navegador" })
+    ).toHaveAttribute(
+      "href",
+      "x-safari-https://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1"
+    );
+    expect(
+      screen.getByRole("link", { name: "O continuá con inicio de sesión acá" })
+    ).toHaveAttribute(
+      "href",
+      "/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
+    );
+  });
+
+  it("renders the external browser handoff with an intent URI for Android in-app browsers", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      reason: "unauthenticated_hidden",
+    });
+    (headers as jest.Mock).mockResolvedValue(
+      buildUserAgentHeaders(ANDROID_MERCADO_PAGO_USER_AGENT)
+    );
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-1",
+        }),
+      })
+    );
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("link", { name: "Continuar en tu navegador" })
+    ).toHaveAttribute(
+      "href",
+      "intent://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end"
+    );
   });
 
   it("returns 404 and logs blocked hidden access", async () => {

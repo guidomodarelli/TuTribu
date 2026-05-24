@@ -11,6 +11,7 @@ const IN_APP_BROWSER_USER_AGENT_TOKENS = [
 ] as const;
 
 const IOS_DEVICE_TOKENS = ["iPhone", "iPad", "iPod"] as const;
+const ANDROID_DEVICE_TOKEN = "Android";
 
 const SAFARI_USER_AGENT_TOKEN = "Safari/";
 const IOS_MOBILE_USER_AGENT_TOKEN = "Mobile/";
@@ -23,6 +24,7 @@ const MERCADO_PAGO_USER_AGENT_TOKENS = [
 export type InAppBrowserDetectionResult = {
   isInAppBrowser: boolean;
   isIos: boolean;
+  isAndroid: boolean;
   isMercadoPago: boolean;
 };
 
@@ -30,10 +32,16 @@ export function detectInAppBrowser(
   userAgent: string | null | undefined
 ): InAppBrowserDetectionResult {
   if (!userAgent) {
-    return { isInAppBrowser: false, isIos: false, isMercadoPago: false };
+    return {
+      isInAppBrowser: false,
+      isIos: false,
+      isAndroid: false,
+      isMercadoPago: false,
+    };
   }
 
   const isIos = IOS_DEVICE_TOKENS.some((token) => userAgent.includes(token));
+  const isAndroid = userAgent.includes(ANDROID_DEVICE_TOKEN);
   const isMercadoPago = MERCADO_PAGO_USER_AGENT_TOKENS.some((token) =>
     userAgent.includes(token)
   );
@@ -48,6 +56,7 @@ export function detectInAppBrowser(
   return {
     isInAppBrowser: hasInAppToken || isIosWebView,
     isIos,
+    isAndroid,
     isMercadoPago,
   };
 }
