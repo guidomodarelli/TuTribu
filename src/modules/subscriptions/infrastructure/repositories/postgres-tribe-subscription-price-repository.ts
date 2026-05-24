@@ -1897,6 +1897,7 @@ export class PostgresTribeSubscriptionPriceRepository
 
     const providerPlanPrice = (
       await this.listProviderPlanPrices({
+        includeCanceled: true,
         priceId: command.priceId,
         tribeSlug: command.tribeSlug,
       })
@@ -2560,9 +2561,14 @@ export class PostgresTribeSubscriptionPriceRepository
    * @returns Price rows with provider plan identifiers.
    */
   private async listProviderPlanPrices(input: {
+    includeCanceled?: boolean;
     priceId?: string;
     tribeSlug: string;
   }): Promise<SubscriptionProviderPlanRow[]> {
+    const statusFilter = input.includeCanceled
+      ? sql`tribe_subscription_prices.status in ('active', 'canceled')`
+      : sql`tribe_subscription_prices.status = 'active'`;
+
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         with target_tribe as (
@@ -2589,7 +2595,7 @@ export class PostgresTribeSubscriptionPriceRepository
           on target_tribe.id = tribe_subscription_prices.tribe_id
         left join public.tribe_member_subscriptions
           on tribe_member_subscriptions.price_id = tribe_subscription_prices.id
-        where tribe_subscription_prices.status = 'active'
+        where ${statusFilter}
           and (${input.priceId ?? ""} = '' or tribe_subscription_prices.id::text = ${input.priceId ?? ""})
           and public.can_manage_tribe_subscription_prices(target_tribe.id)
         group by tribe_subscription_prices.id

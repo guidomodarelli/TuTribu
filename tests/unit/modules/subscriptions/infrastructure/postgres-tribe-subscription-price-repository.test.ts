@@ -1692,6 +1692,104 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(3);
   });
 
+  it("should resolve canceled prices when reconciling provider subscribers", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            mercado_pago_preapproval_plan_id: "plan-1",
+            status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            mercado_pago_preapproval_id: "subscription-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            mercado_pago_preapproval_plan_id: "plan-1",
+            status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+          }),
+        ],
+      });
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => "canceled"),
+      jest.fn(async () => "cancelled")
+    );
+
+    await expect(
+      repository.reconcileProviderSubscribers({
+        priceId: "price-1",
+        source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton,
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+    });
+
+    const priceLookupSqlText = getSqlText(execute.mock.calls[1][0]);
+
+    expect(priceLookupSqlText).toMatch(
+      /tribe_subscription_prices\.status\s+in\s*\([^)]*active[^)]*canceled[^)]*\)/
+    );
+  });
+
+  it("should restrict provider plan verification to active prices", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            freeJoinIsCurrent: false,
+            prices: [],
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = createRepository(execute);
+
+    await repository.verifyProviderPlans({ tribeSlug: "matematica-pro" });
+
+    const priceLookupSqlText = getSqlText(execute.mock.calls[1][0]);
+
+    expect(priceLookupSqlText).toMatch(
+      /tribe_subscription_prices\.status\s*=\s*'active'/
+    );
+    expect(priceLookupSqlText).not.toMatch(/canceled/);
+  });
+
   it("should release provider plan webhook idempotency when synchronization fails", async () => {
     const execute = jest.fn(async (statement) => {
       const sqlText = getSqlText(statement);
