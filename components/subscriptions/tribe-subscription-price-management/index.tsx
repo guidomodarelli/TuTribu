@@ -60,6 +60,8 @@ const PRICE_MANAGEMENT_COPY = {
   connectedStatus: "Conectado",
   createButton: "Crear precio",
   createSectionTitle: "Crear nuevo precio",
+  disconnectedFreeJoinNotice:
+    "Mercado Pago requiere reconexión para crear precios pagos. Podés marcar la entrada gratis como actual.",
   disconnectedNotice:
     "Mercado Pago requiere reconexión. Estamos intentando conectarte automáticamente.",
   canceledBadge: "Cancelado",
@@ -71,6 +73,12 @@ const PRICE_MANAGEMENT_COPY = {
   fallbackDeleteError: "No pudimos eliminar el precio.",
   fallbackUpdateError: "No pudimos actualizar el precio.",
   fallbackMakeCurrentError: "No pudimos marcar el precio como actual.",
+  fallbackFreeJoinError: "No pudimos marcar la entrada gratis como actual.",
+  freeJoinName: "Entrada gratis",
+  freeJoinMeta:
+    "Los invitados entran directo a la tribu, sin Mercado Pago ni suscripción.",
+  freeJoinPlaceholder: "—",
+  freeJoinSuccess: "Entrada gratis marcada como actual.",
   fallbackVerifyProviderPlanError:
     "No pudimos verificar los planes. Intentá de nuevo.",
   fallbackVerifyProviderSubscribersError:
@@ -130,6 +138,7 @@ const PRICE_MANAGEMENT_COPY = {
 const PRICE_MANAGEMENT_ROUTE = {
   apiTribes: "/api/tribes/",
   connectSegment: "/mercado-pago/oauth/start",
+  freeJoinMakeCurrentSegment: "/free-join/make-current",
   makeCurrentSegment: "/make-current",
   pricesSegment: "/subscriptions/prices",
   subscriberDiagnosticsReconcileSegment:
@@ -210,12 +219,14 @@ type PriceResponse = {
 
 type ProviderPlansVerificationResponse = {
   canceledPriceIds: string[];
+  freeJoinIsCurrent?: boolean;
   message?: string;
   prices: TribeSubscriptionPriceResult[];
   verifiedCount: number;
 };
 
 type ProviderPlanVerificationResponse = {
+  freeJoinIsCurrent?: boolean;
   message?: string;
   price?: TribeSubscriptionPriceResult;
   providerActiveSubscribersCount?: number;
@@ -254,6 +265,7 @@ class PriceRequestError extends Error {
 
 type TribeSubscriptionPriceManagementProps = {
   canManagePrices: boolean;
+  freeJoinIsCurrent: boolean;
   isMercadoPagoConnected: boolean;
   navigateToMercadoPagoConnection?: (connectionEndpoint: string) => void;
   prices: TribeSubscriptionPriceResult[];
@@ -595,6 +607,7 @@ function isAbortError(error: unknown): boolean {
 
 export function TribeSubscriptionPriceManagement({
   canManagePrices,
+  freeJoinIsCurrent,
   isMercadoPagoConnected,
   navigateToMercadoPagoConnection,
   prices,
@@ -604,6 +617,8 @@ export function TribeSubscriptionPriceManagement({
   tribeSlug,
 }: TribeSubscriptionPriceManagementProps) {
   const [priceItems, setPriceItems] = useState(prices);
+  const [isFreeJoinCurrent, setIsFreeJoinCurrent] =
+    useState(freeJoinIsCurrent);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [isTrialEnabled, setIsTrialEnabled] = useState(false);
@@ -627,6 +642,9 @@ export function TribeSubscriptionPriceManagement({
     useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const hasStartedMercadoPagoConnection = useRef(false);
+  const [shouldAutoConnectMercadoPagoOnLoad] = useState(
+    () => shouldAutoConnectMercadoPago && freeJoinIsCurrent
+  );
   const nameInputId = useId();
   const amountInputId = useId();
   const trialFrequencyToggleId = useId();
@@ -648,6 +666,10 @@ export function TribeSubscriptionPriceManagement({
     Boolean(pendingAction) ||
     isVerifyingProviderPlans ||
     isMercadoPagoConnectionRequired;
+  const isFreeJoinManagementDisabled =
+    Boolean(pendingAction) || isVerifyingProviderPlans || isFreeJoinCurrent;
+  const shouldStartMercadoPagoConnectionAutomatically =
+    isMercadoPagoConnectionRequired && shouldAutoConnectMercadoPagoOnLoad;
   const shouldShowMercadoPagoConnectionHealth = canManagePrices;
   const shouldShowSubscriberDiagnostics =
     canManagePrices && Boolean(subscriberDiagnosticsResult);
@@ -744,8 +766,15 @@ export function TribeSubscriptionPriceManagement({
   ) => {
     if (PRICE_MANAGEMENT_REQUEST.pricesProperty in response) {
       setPriceItems(response.prices);
+      if (typeof response.freeJoinIsCurrent === "boolean") {
+        setIsFreeJoinCurrent(response.freeJoinIsCurrent);
+      }
 
       return;
+    }
+
+    if (typeof response.freeJoinIsCurrent === "boolean") {
+      setIsFreeJoinCurrent(response.freeJoinIsCurrent);
     }
 
     if (response.price) {
@@ -861,7 +890,7 @@ export function TribeSubscriptionPriceManagement({
   useEffect(() => {
     if (
       !isMercadoPagoConnectionRequired ||
-      !shouldAutoConnectMercadoPago ||
+      !shouldStartMercadoPagoConnectionAutomatically ||
       hasStartedMercadoPagoConnection.current
     ) {
       return;
@@ -872,7 +901,7 @@ export function TribeSubscriptionPriceManagement({
   }, [
     isMercadoPagoConnectionRequired,
     mercadoPagoConnectionEndpoint,
-    shouldAutoConnectMercadoPago,
+    shouldStartMercadoPagoConnectionAutomatically,
     startMercadoPagoConnection,
   ]);
 
@@ -1072,6 +1101,7 @@ export function TribeSubscriptionPriceManagement({
       if (response.price) {
         applyPriceMutationResponse(response.price);
       }
+      setIsFreeJoinCurrent(false);
 
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.makeCurrentButton);
     } catch (error) {
@@ -1079,6 +1109,38 @@ export function TribeSubscriptionPriceManagement({
         error instanceof Error
           ? error.message
           : PRICE_MANAGEMENT_COPY.fallbackMakeCurrentError
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const FREE_JOIN_PENDING_ACTION_KEY = "free-join";
+
+  const handleMakeFreeJoinCurrent = async () => {
+    setPendingAction(FREE_JOIN_PENDING_ACTION_KEY);
+
+    try {
+      const response = await submitPriceRequest(
+        PRICE_MANAGEMENT_ROUTE.apiTribes +
+          tribeSlug +
+          PRICE_MANAGEMENT_ROUTE.freeJoinMakeCurrentSegment,
+        PRICE_MANAGEMENT_REQUEST.postMethod
+      );
+
+      setIsFreeJoinCurrent(true);
+      setPriceItems((currentPrices) =>
+        currentPrices.map((price) =>
+          price.isCurrent ? { ...price, isCurrent: false } : price
+        )
+      );
+
+      toast.success(response.message ?? PRICE_MANAGEMENT_COPY.freeJoinSuccess);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : PRICE_MANAGEMENT_COPY.fallbackFreeJoinError
       );
     } finally {
       setPendingAction(null);
@@ -1291,7 +1353,9 @@ export function TribeSubscriptionPriceManagement({
           className={styles.TribeSubscriptionPriceManagement__status}
           role={PRICE_MANAGEMENT_REQUEST.statusRole}
         >
-          {PRICE_MANAGEMENT_COPY.disconnectedNotice}
+          {shouldStartMercadoPagoConnectionAutomatically
+            ? PRICE_MANAGEMENT_COPY.disconnectedNotice
+            : PRICE_MANAGEMENT_COPY.disconnectedFreeJoinNotice}
         </p>
       ) : null}
 
@@ -1553,32 +1617,108 @@ export function TribeSubscriptionPriceManagement({
 
       <Separator />
 
-      {sortedPrices.length > 0 ? (
-        <Table
-          aria-label={PRICE_MANAGEMENT_COPY.priceListLabel}
-          className={styles.TribeSubscriptionPriceManagement__table}
-        >
-          <TableHeader>
-            <TableRow className={styles.TribeSubscriptionPriceManagement__tableHeaderRow}>
-              <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
-                {PRICE_MANAGEMENT_COPY.tableNameHeader}
-              </TableHead>
-              <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
-                {PRICE_MANAGEMENT_COPY.amountLabel}
-              </TableHead>
-              <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
-                {PRICE_MANAGEMENT_COPY.tableTrialHeader}
-              </TableHead>
-              <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
-                {PRICE_MANAGEMENT_COPY.tableStatusHeader}
-              </TableHead>
-              <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
-                {PRICE_MANAGEMENT_COPY.tableActionsHeader}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedPrices.map((price) => (
+      <Table
+        aria-label={PRICE_MANAGEMENT_COPY.priceListLabel}
+        className={styles.TribeSubscriptionPriceManagement__table}
+      >
+        <TableHeader>
+          <TableRow className={styles.TribeSubscriptionPriceManagement__tableHeaderRow}>
+            <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
+              {PRICE_MANAGEMENT_COPY.tableNameHeader}
+            </TableHead>
+            <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
+              {PRICE_MANAGEMENT_COPY.amountLabel}
+            </TableHead>
+            <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
+              {PRICE_MANAGEMENT_COPY.tableTrialHeader}
+            </TableHead>
+            <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
+              {PRICE_MANAGEMENT_COPY.tableStatusHeader}
+            </TableHead>
+            <TableHead className={styles.TribeSubscriptionPriceManagement__tableHead}>
+              {PRICE_MANAGEMENT_COPY.tableActionsHeader}
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow
+            className={styles.TribeSubscriptionPriceManagement__tableRow}
+          >
+            <TableCell
+              className={styles.TribeSubscriptionPriceManagement__nameCell}
+            >
+              <span
+                className={
+                  styles.TribeSubscriptionPriceManagement__priceIndicator
+                }
+                aria-hidden={PRICE_MANAGEMENT_REQUEST.ariaHidden}
+              />
+              <span
+                className={styles.TribeSubscriptionPriceManagement__summary}
+              >
+                <strong
+                  className={styles.TribeSubscriptionPriceManagement__name}
+                >
+                  {PRICE_MANAGEMENT_COPY.freeJoinName}
+                </strong>
+                <span
+                  className={styles.TribeSubscriptionPriceManagement__meta}
+                >
+                  {PRICE_MANAGEMENT_COPY.freeJoinMeta}
+                </span>
+              </span>
+            </TableCell>
+            <TableCell
+              className={styles.TribeSubscriptionPriceManagement__amount}
+            >
+              {PRICE_MANAGEMENT_COPY.freeJoinPlaceholder}
+            </TableCell>
+            <TableCell
+              className={styles.TribeSubscriptionPriceManagement__meta}
+            >
+              {PRICE_MANAGEMENT_COPY.freeJoinPlaceholder}
+            </TableCell>
+            <TableCell>
+              <span
+                className={styles.TribeSubscriptionPriceManagement__badges}
+              >
+                {isFreeJoinCurrent ? (
+                  <Badge>
+                    <CheckCircle2Icon />
+                    {PRICE_MANAGEMENT_COPY.currentBadge}
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}
+                  >
+                    {PRICE_MANAGEMENT_COPY.activeBadge}
+                  </Badge>
+                )}
+              </span>
+            </TableCell>
+            <TableCell>
+              {canManagePrices ? (
+                <div
+                  className={
+                    styles.TribeSubscriptionPriceManagement__actions
+                  }
+                >
+                  <Button
+                    disabled={isFreeJoinManagementDisabled}
+                    onClick={() => {
+                      void handleMakeFreeJoinCurrent();
+                    }}
+                    type={PRICE_MANAGEMENT_REQUEST.buttonType}
+                    variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                  >
+                    <StarIcon />
+                    {PRICE_MANAGEMENT_COPY.makeCurrentButton}
+                  </Button>
+                </div>
+              ) : null}
+            </TableCell>
+          </TableRow>
+          {sortedPrices.map((price) => (
               <Fragment key={price.id}>
                 <TableRow className={styles.TribeSubscriptionPriceManagement__tableRow}>
                   <TableCell className={styles.TribeSubscriptionPriceManagement__nameCell}>
@@ -1851,11 +1991,6 @@ export function TribeSubscriptionPriceManagement({
             ))}
           </TableBody>
         </Table>
-      ) : (
-        <p className={styles.TribeSubscriptionPriceManagement__empty}>
-          {PRICE_MANAGEMENT_COPY.emptyState}
-        </p>
-      )}
 
       <Separator />
 

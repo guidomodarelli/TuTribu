@@ -89,6 +89,9 @@ export async function POST(
       case TRIBE_SUBSCRIPTION_PRICE_STATUS.verified:
         return createJsonResponse(
           {
+            ...(typeof result.freeJoinIsCurrent === "boolean"
+              ? { freeJoinIsCurrent: result.freeJoinIsCurrent }
+              : {}),
             message:
               result.price.status === TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled
                 ? PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.canceledMessage

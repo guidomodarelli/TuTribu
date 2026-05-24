@@ -22,6 +22,12 @@ Reglas:
 * miembros existentes conservan su `price_id` original
 * no se cancela una versión con miembros asociados
 * cada tribu puede tener hasta 30 precios activos
+* `tribes.free_join_is_current` representa la opción gratuita actual; cuando
+  está activa, las invitaciones aceptan ingreso gratis y no se muestra oferta
+  paga para el token
+* la migración de `free_join_is_current` preserva el modo efectivo anterior:
+  queda `true` si no hay un precio `current` activo con plan de Mercado Pago y
+  `false` si sí existe una oferta paga actual
 * el período de prueba gratuita es parte mutable del precio y se sincroniza
   sobre el mismo `preapproval_plan` de Mercado Pago
 * la app solo permite pruebas gratuitas expresadas en días al crear precios

@@ -7,6 +7,7 @@
 import { sql } from "drizzle-orm";
 
 import type {
+  TribeFreeJoinMutationResult,
   TribeProviderSubscriberReconciliationResult,
   TribeSubscriberDiagnosticsReconciliationResult,
   TribeSubscriberDiagnosticsResult,
@@ -33,6 +34,7 @@ import type {
 import type { TribeSubscriberDiagnosticsRepository } from "@/src/modules/subscriptions/application/ports/tribe-subscriber-diagnostics-repository";
 import type {
   CreateTribeSubscriptionPriceCommand,
+  SetTribeFreeJoinAsCurrentCommand,
   SyncTribeSubscriptionProviderPlanCommand,
   TribeSubscriptionPriceIdentity,
   TribeSubscriptionPriceListQuery,
@@ -101,6 +103,7 @@ type SubscriptionPriceListRow = SubscriptionPriceRow & {
   access_token: string | null;
   can_manage_prices: boolean | null;
   can_view_prices: boolean | null;
+  free_join_is_current: boolean | null;
   has_mercado_pago_integration: boolean | null;
   refresh_token: string | null;
   token_expires_at: Date | string | null;
@@ -762,7 +765,9 @@ export class PostgresTribeSubscriptionPriceRepository
     const rows = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         with target_tribe as (
-          select tribes.id
+          select
+            tribes.id,
+            tribes.free_join_is_current
           from public.tribes
           where tribes.slug = ${query.tribeSlug}
           limit 1
@@ -823,6 +828,7 @@ export class PostgresTribeSubscriptionPriceRepository
           price_rows.active_subscribers_count,
           viewer_permissions.can_view_prices,
           viewer_permissions.can_manage_prices,
+          (select free_join_is_current from target_tribe) as free_join_is_current,
           payment_integration.tribe_id,
           payment_integration.access_token,
           payment_integration.refresh_token,
@@ -859,6 +865,7 @@ export class PostgresTribeSubscriptionPriceRepository
       });
 
     return {
+      freeJoinIsCurrent: Boolean(rows[0]?.free_join_is_current),
       hasMercadoPagoIntegration:
         mercadoPagoConnectionStatus === MERCADO_PAGO_CONNECTION_STATUS.connected,
       mercadoPagoConnectionStatus,
@@ -1521,6 +1528,7 @@ export class PostgresTribeSubscriptionPriceRepository
           from public.tribes
           where tribes.slug = ${command.tribeSlug}
           limit 1
+          for update
         ),
         target_price as (
           select
@@ -1537,6 +1545,7 @@ export class PostgresTribeSubscriptionPriceRepository
             on target_tribe.id = tribe_subscription_prices.tribe_id
           where tribe_subscription_prices.id = ${command.priceId}
             and tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
           limit 1
         )
         select
@@ -1570,21 +1579,6 @@ export class PostgresTribeSubscriptionPriceRepository
         );
       }
 
-      await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${command.tribeSlug}
-          limit 1
-        )
-        update public.tribe_subscription_prices
-        set is_current = false
-        where tribe_subscription_prices.tribe_id = (select id from target_tribe)
-          and tribe_subscription_prices.id <> ${command.priceId}
-          and tribe_subscription_prices.is_current = true
-          and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
-      `);
-
       const currentResult = await database.execute(sql`
         with target_tribe as (
           select tribes.id
@@ -1592,14 +1586,43 @@ export class PostgresTribeSubscriptionPriceRepository
           where tribes.slug = ${command.tribeSlug}
           limit 1
         ),
+        target_price as (
+          select tribe_subscription_prices.id
+          from public.tribe_subscription_prices
+          inner join target_tribe
+            on target_tribe.id = tribe_subscription_prices.tribe_id
+          where tribe_subscription_prices.id = ${command.priceId}
+            and tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
+          limit 1
+          for update
+        ),
         updated_current_price as (
           update public.tribe_subscription_prices
           set is_current = true
-          where tribe_subscription_prices.tribe_id = (select id from target_tribe)
-            and tribe_subscription_prices.id = ${command.priceId}
+          where tribe_subscription_prices.id = (select id from target_price)
             and tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
             and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
           returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at
+        ),
+        cleared_previous_prices as (
+          update public.tribe_subscription_prices
+          set is_current = false
+          where tribe_subscription_prices.tribe_id = (select id from target_tribe)
+            and tribe_subscription_prices.id <> (select id from updated_current_price)
+            and tribe_subscription_prices.is_current = true
+            and exists (select 1 from updated_current_price)
+            and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
+          returning id
+        ),
+        updated_tribe as (
+          update public.tribes
+          set free_join_is_current = false
+          where tribes.id = (select id from target_tribe)
+            and exists (select 1 from updated_current_price)
+            and public.can_manage_tribe_subscription_prices(tribes.id)
+          returning id
         )
         select
           case
@@ -1626,6 +1649,90 @@ export class PostgresTribeSubscriptionPriceRepository
         (currentResult.rows?.[0] ?? null) as SubscriptionPriceMutationRow | null,
         TRIBE_SUBSCRIPTION_PRICE_STATUS.current
       );
+    });
+  }
+
+  /**
+   * Marks the synthetic free-join option as the tribe's current offering,
+   * atomically clearing any paid price flagged as current.
+   *
+   * @param command - Tribe identity for the free-join toggle.
+   * @returns Mutation outcome reflecting permission and existence checks.
+   */
+  async setFreeJoinAsCurrent(
+    command: SetTribeFreeJoinAsCurrentCommand
+  ): Promise<TribeFreeJoinMutationResult> {
+    return this.executeWithDatabase(async (database) => {
+      const validationResult = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+          for update
+        )
+        select
+          case
+            when not exists (select 1 from target_tribe) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound}
+            when not public.can_manage_tribe_subscription_prices((select id from target_tribe)) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden}
+            else ${TRIBE_SUBSCRIPTION_PRICE_STATUS.current}
+          end as status_result
+      `);
+      const validationRow =
+        (validationResult.rows?.[0] ?? null) as { status_result?: string } | null;
+
+      if (
+        validationRow?.status_result !== TRIBE_SUBSCRIPTION_PRICE_STATUS.current
+      ) {
+        return {
+          status:
+            (validationRow?.status_result as TribeFreeJoinMutationResult["status"]) ??
+            TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound,
+        };
+      }
+
+      await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+        )
+        update public.tribe_subscription_prices
+        set is_current = false
+        where tribe_subscription_prices.tribe_id = (select id from target_tribe)
+          and tribe_subscription_prices.is_current = true
+          and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
+      `);
+
+      const updateResult = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+        ),
+        updated_tribe as (
+          update public.tribes
+          set free_join_is_current = true
+          where tribes.id = (select id from target_tribe)
+            and public.can_manage_tribe_subscription_prices(tribes.id)
+          returning id
+        )
+        select
+          case
+            when exists (select 1 from updated_tribe) then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.current}
+            else ${TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden}
+          end as status_result
+      `);
+      const updateRow =
+        (updateResult.rows?.[0] ?? null) as { status_result?: string } | null;
+
+      return {
+        status:
+          (updateRow?.status_result as TribeFreeJoinMutationResult["status"]) ??
+          TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden,
+      };
     });
   }
 
@@ -1702,6 +1809,7 @@ export class PostgresTribeSubscriptionPriceRepository
 
     return {
       canceledPriceIds,
+      freeJoinIsCurrent: refreshedPriceList.freeJoinIsCurrent,
       prices: refreshedPriceList.prices,
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
       verifiedCount: providerPlanPrices.length,
@@ -1766,8 +1874,12 @@ export class PostgresTribeSubscriptionPriceRepository
         priceId: providerPlanPrice.id,
         tribeSlug: command.tribeSlug,
       });
+      const refreshedPriceList = await this.listByTribeSlug({
+        tribeSlug: command.tribeSlug,
+      });
 
       return {
+        freeJoinIsCurrent: refreshedPriceList.freeJoinIsCurrent,
         price: canceledPrice ?? {
           ...mapSubscriptionPrice(providerPlanPrice),
           isCurrent: false,
@@ -2110,13 +2222,58 @@ export class PostgresTribeSubscriptionPriceRepository
   }): Promise<TribeSubscriptionPriceResult | null> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        update public.tribe_subscription_prices
-        set
-          status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled},
-          is_current = false
-        where tribe_subscription_prices.id = ${input.priceId}
-          and tribe_subscription_prices.status = 'active'
-        returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at, 0 as active_subscribers_count
+        with target_price as (
+          select
+            tribe_subscription_prices.id,
+            tribe_subscription_prices.tribe_id,
+            tribe_subscription_prices.is_current
+          from public.tribe_subscription_prices
+          where tribe_subscription_prices.id = ${input.priceId}
+            and tribe_subscription_prices.status = 'active'
+          limit 1
+        ),
+        updated_price as (
+          update public.tribe_subscription_prices
+          set
+            status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled},
+            is_current = false
+          where tribe_subscription_prices.id = (select id from target_price)
+          returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at, 0 as active_subscribers_count
+        ),
+        updated_tribe as (
+          update public.tribes
+          set free_join_is_current = true
+          where tribes.id = (select tribe_id from target_price)
+            and exists (select 1 from updated_price)
+            and exists (
+              select 1
+              from target_price
+              where target_price.is_current = true
+            )
+            and not exists (
+              select 1
+              from public.tribe_subscription_prices
+              where tribe_subscription_prices.tribe_id = (select tribe_id from target_price)
+                and tribe_subscription_prices.id <> (select id from target_price)
+                and tribe_subscription_prices.is_current = true
+                and tribe_subscription_prices.status = 'active'
+                and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
+            )
+          returning id
+        )
+        select
+          updated_price.id,
+          updated_price.name,
+          updated_price.amount_cents,
+          updated_price.currency,
+          updated_price.frequency,
+          updated_price.status,
+          updated_price.is_current,
+          updated_price.trial_frequency,
+          updated_price.trial_frequency_type,
+          updated_price.created_at,
+          updated_price.active_subscribers_count
+        from updated_price
       `);
       const row = (result.rows?.[0] ?? null) as SubscriptionPriceRow | null;
 
@@ -2654,16 +2811,46 @@ export class PostgresTribeSubscriptionPriceRepository
           where tribes.slug = ${input.tribeSlug}
           limit 1
         ),
+        target_price as (
+          select
+            tribe_subscription_prices.id,
+            tribe_subscription_prices.tribe_id,
+            tribe_subscription_prices.is_current
+          from public.tribe_subscription_prices
+          where tribe_subscription_prices.tribe_id = (select id from target_tribe)
+            and tribe_subscription_prices.id = ${input.priceId}
+            and tribe_subscription_prices.status = 'active'
+          limit 1
+        ),
         updated_price as (
         update public.tribe_subscription_prices
         set
           status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled},
           is_current = false
-        where tribe_subscription_prices.tribe_id = (select id from target_tribe)
-          and tribe_subscription_prices.id = ${input.priceId}
-          and tribe_subscription_prices.status = 'active'
+        where tribe_subscription_prices.id = (select id from target_price)
           and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
         returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at
+        ),
+        updated_tribe as (
+          update public.tribes
+          set free_join_is_current = true
+          where tribes.id = (select id from target_tribe)
+            and exists (select 1 from updated_price)
+            and exists (
+              select 1
+              from target_price
+              where target_price.is_current = true
+            )
+            and not exists (
+              select 1
+              from public.tribe_subscription_prices
+              where tribe_subscription_prices.tribe_id = (select id from target_tribe)
+                and tribe_subscription_prices.id <> (select id from target_price)
+                and tribe_subscription_prices.is_current = true
+                and tribe_subscription_prices.status = 'active'
+                and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
+            )
+          returning id
         )
         select
           updated_price.id,

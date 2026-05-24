@@ -249,7 +249,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it(
-    "treats prices without a Mercado Pago preapproval plan as non-current when accepting an invitation",
+    "tags accepted free-mode memberships with joined_via='free_invitation'",
     async () => {
       const execute = jest.fn(async () => ({
         rows: [{ status: "accepted" }],
@@ -268,10 +268,47 @@ describe("PostgresTribeInvitationRepository", () => {
       const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
       expect(sqlText).toMatch(
-        /current_subscription_price as \([\s\S]*tribe_subscription_prices\.is_current = true[\s\S]*tribe_subscription_prices\.status = 'active'[\s\S]*tribe_subscription_prices\.mercado_pago_preapproval_plan_id is not null/
+        /inserted_membership as \([\s\S]*joined_via[\s\S]*'free_invitation'/
       );
     }
   );
+
+  it("accepts free invitations only when free join is current", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [{ status: "accepted" }],
+    }));
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.accept({
+        token: "plain-token",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "accepted" });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toMatch(
+      /target_tribe as \([\s\S]*tribes\.id,[\s\S]*tribes\.free_join_is_current/
+    );
+    expect(sqlText).toMatch(
+      /current_subscription_price as \([\s\S]*target_tribe\.free_join_is_current = false[\s\S]*tribe_subscription_prices\.mercado_pago_preapproval_plan_id is not null/
+    );
+    expect(sqlText).toMatch(
+      /inserted_membership as \([\s\S]*target_tribe\.free_join_is_current = true/
+    );
+    expect(sqlText).toMatch(
+      /reactivated_membership as \([\s\S]*update public\.tribe_members[\s\S]*status = 'active'[\s\S]*status_reason = 'none'[\s\S]*joined_via = 'free_invitation'/
+    );
+    expect(sqlText).toMatch(
+      /reactivated_membership as \([\s\S]*existing_membership[\s\S]*status = 'blocked'[\s\S]*status_reason = 'payment_blocked'/
+    );
+    expect(sqlText).toMatch(
+      /when exists \(select 1 from reactivated_membership\) then .*accepted/
+    );
+  });
 
   it("maps revoked invitation acceptance to a controlled result", async () => {
     const execute = jest.fn(async () => ({
@@ -369,6 +406,13 @@ describe("PostgresTribeInvitationRepository", () => {
       },
       status: "available",
     });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toMatch(
+      /target_tribe as \([\s\S]*tribes\.id,[\s\S]*tribes\.free_join_is_current/
+    );
+    expect(sqlText).toMatch(/target_tribe\.free_join_is_current = false/);
   });
 
   it("returns unavailable when the invitation has no active current subscription offer", async () => {

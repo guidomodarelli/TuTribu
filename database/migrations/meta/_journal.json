@@ -239,6 +239,13 @@
       "when": 1779598800000,
       "tag": "20260524090000_refresh_tribe_welcome_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1779602400000,
+      "tag": "20260524100000_add_free_join_to_tribes",
+      "breakpoints": true
     }
   ]
 }

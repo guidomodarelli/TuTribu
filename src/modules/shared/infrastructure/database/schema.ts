@@ -88,6 +88,9 @@ export const tribes = pgTable("tribes", {
   name: text("name").notNull(),
   slug: text("slug").notNull(),
   visibility: text("visibility").notNull().default("private"),
+  freeJoinIsCurrent: boolean("free_join_is_current")
+    .notNull()
+    .default(true),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),
@@ -109,6 +112,7 @@ export const tribeMembers = pgTable("tribe_members", {
   role: text("role").notNull(),
   status: text("status").notNull(),
   statusReason: text("status_reason").notNull().default("none"),
+  joinedVia: text("joined_via").notNull().default("unknown"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),

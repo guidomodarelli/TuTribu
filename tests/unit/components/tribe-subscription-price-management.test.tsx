@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 
 import { TribeSubscriptionPriceManagement } from "@/components/subscriptions/tribe-subscription-price-management";
 
@@ -56,6 +57,7 @@ describe("TribeSubscriptionPriceManagement", () => {
   it("renders the current-price action with Spanish product copy", () => {
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -65,8 +67,8 @@ describe("TribeSubscriptionPriceManagement", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "Marcar como actual" })
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Marcar como actual" })
+    ).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Editar" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Verificar plan" })
@@ -80,6 +82,7 @@ describe("TribeSubscriptionPriceManagement", () => {
   it("should render prices as an operational table with creation and help sections", () => {
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -114,6 +117,7 @@ describe("TribeSubscriptionPriceManagement", () => {
   it("should hide Mercado Pago connection health for read-only users", () => {
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices={false}
         isMercadoPagoConnected={false}
         prices={[]}
@@ -136,6 +140,7 @@ describe("TribeSubscriptionPriceManagement", () => {
   it("should render subscriber diagnostics only for leaders", () => {
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -183,6 +188,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -235,6 +241,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -291,6 +298,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -363,6 +371,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[longTrialPrice]}
@@ -419,6 +428,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[monthlyTrialPrice]}
@@ -491,6 +501,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[monthlyTrialPrice]}
@@ -559,6 +570,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[canceledPrice]}
@@ -586,6 +598,7 @@ describe("TribeSubscriptionPriceManagement", () => {
   it("should verify provider plans when the prices page loads", async () => {
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -627,6 +640,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -672,6 +686,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -727,6 +742,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[priceWithLocalAssociation]}
@@ -791,6 +807,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[canceledPriceWithLocalAssociation]}
@@ -841,6 +858,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -880,6 +898,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -932,6 +951,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -974,6 +994,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -1017,6 +1038,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -1050,6 +1072,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     render(
       <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent
         canManagePrices
         isMercadoPagoConnected={false}
         navigateToMercadoPagoConnection={navigateToMercadoPagoConnection}
@@ -1075,5 +1098,182 @@ describe("TribeSubscriptionPriceManagement", () => {
       );
     });
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("should allow free join selection when Mercado Pago requires reconnection", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        message: "Entrada gratis marcada como actual.",
+      }),
+      ok: true,
+    })) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
+        canManagePrices
+        isMercadoPagoConnected={false}
+        navigateToMercadoPagoConnection={jest.fn()}
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const makeCurrentButtons = screen.getAllByRole("button", {
+      name: "Marcar como actual",
+    });
+
+    expect(makeCurrentButtons[0]).toBeEnabled();
+    expect(makeCurrentButtons[1]).toBeDisabled();
+
+    await user.click(makeCurrentButtons[0]);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/free-join/make-current",
+        expect.objectContaining({
+          method: "POST",
+        })
+      );
+      expect(toast.success).toHaveBeenCalledWith(
+        "Entrada gratis marcada como actual."
+      );
+    });
+  });
+
+  it("should not auto-connect when free join can be selected during reconnection", async () => {
+    const navigateToMercadoPagoConnection = jest.fn();
+
+    render(
+      <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
+        canManagePrices
+        isMercadoPagoConnected={false}
+        navigateToMercadoPagoConnection={navigateToMercadoPagoConnection}
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.getByText(
+        "Mercado Pago requiere reconexión para crear precios pagos. Podés marcar la entrada gratis como actual."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Marcar como actual" })[0]
+    ).toBeEnabled();
+
+    await waitFor(() => {
+      expect(navigateToMercadoPagoConnection).not.toHaveBeenCalled();
+    });
+  });
+
+  it("should mark free join as current after provider verification cancels the current paid price", async () => {
+    const canceledPrice = {
+      ...activePrice,
+      isCurrent: false,
+      status: "canceled" as const,
+    };
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        canceledPriceIds: ["price-1"],
+        freeJoinIsCurrent: true,
+        message: "Planes verificados con Mercado Pago.",
+        prices: [canceledPrice],
+        verifiedCount: 1,
+      }),
+      ok: true,
+    })) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Actual")).toBeInTheDocument();
+      expect(
+        screen.getAllByRole("button", { name: "Marcar como actual" })[0]
+      ).toBeDisabled();
+    });
+  });
+
+  it("should enable free join selection after marking a paid price as current", async () => {
+    const user = userEvent.setup();
+    const paidPrice = {
+      ...activePrice,
+      isCurrent: false,
+    };
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          canceledPriceIds: [],
+          message: "Planes verificados con Mercado Pago.",
+          prices: [paidPrice],
+          verifiedCount: 1,
+        }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          message: "Precio marcado como actual.",
+          price: {
+            ...paidPrice,
+            isCurrent: true,
+          },
+        }),
+        ok: true,
+      }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[paidPrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole("button", { name: "Marcar como actual" })[1]
+      ).toBeEnabled();
+    });
+
+    const initialMakeCurrentButtons = screen.getAllByRole("button", {
+      name: "Marcar como actual",
+    });
+    expect(initialMakeCurrentButtons[0]).toBeDisabled();
+
+    await user.click(initialMakeCurrentButtons[1]);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices/price-1/make-current",
+        expect.objectContaining({
+          method: "POST",
+        })
+      );
+      expect(
+        screen.getAllByRole("button", { name: "Marcar como actual" })[0]
+      ).toBeEnabled();
+    });
   });
 });

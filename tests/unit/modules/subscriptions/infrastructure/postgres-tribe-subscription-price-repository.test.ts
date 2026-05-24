@@ -362,10 +362,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         throw new Error("unique current price violation");
       }
 
-      if (sqlText.includes("set is_current = false")) {
-        return { rows: [] };
-      }
-
       if (sqlText.includes("set is_current = true")) {
         const returnsTrial = sqlText.includes(
           "updated_current_price.trial_frequency"
@@ -408,6 +404,202 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
     });
   });
+
+  it(
+    "clears the free-join flag while marking a paid price as current",
+    async () => {
+      const executedSqlTexts: string[] = [];
+      const execute = jest.fn(async (statement) => {
+        const sqlText = getSqlText(statement);
+
+        executedSqlTexts.push(sqlText);
+
+        if (sqlText.includes("set is_current = true")) {
+          return {
+            rows: [
+              createSubscriptionPriceRow({
+                trial_frequency: null,
+                trial_frequency_type: null,
+              }),
+            ],
+          };
+        }
+
+        if (sqlText.includes("set free_join_is_current = false")) {
+          return { rows: [] };
+        }
+
+        if (sqlText.includes("set is_current = false")) {
+          return { rows: [] };
+        }
+
+        return {
+          rows: [
+            createSubscriptionPriceRow({
+              is_current: false,
+            }),
+          ],
+        };
+      });
+      const repository = createRepository(execute);
+
+      await expect(
+        repository.makeCurrent({
+          priceId: "price-1",
+          tribeSlug: "matematica-pro",
+        })
+      ).resolves.toMatchObject({
+        status: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
+      });
+
+      const clearFreeJoinCallIndex = executedSqlTexts.findIndex((sqlText) =>
+        sqlText.includes("set free_join_is_current = false")
+      );
+
+      expect(executedSqlTexts[0]).toMatch(
+        /target_tribe as \([\s\S]*for update/
+      );
+      expect(clearFreeJoinCallIndex).toBeGreaterThanOrEqual(0);
+      expect(executedSqlTexts[clearFreeJoinCallIndex]).toMatch(
+        /updated_current_price as \([\s\S]*set is_current = true[\s\S]*updated_tribe as \([\s\S]*set free_join_is_current = false/
+      );
+      expect(executedSqlTexts[clearFreeJoinCallIndex]).toContain(
+        "and exists (select 1 from updated_current_price)"
+      );
+    }
+  );
+
+  it("does not clear free-join mode for prices without provider plans", async () => {
+    const executedSqlTexts: string[] = [];
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      executedSqlTexts.push(sqlText);
+
+      return {
+        rows: [
+          {
+            status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound,
+          },
+        ],
+      };
+    });
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.makeCurrent({
+        priceId: "price-without-provider-plan",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound,
+    });
+
+    expect(executedSqlTexts[0]).toContain(
+      "tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null"
+    );
+    expect(
+      executedSqlTexts.some((sqlText) =>
+        sqlText.includes("set free_join_is_current = false")
+      )
+    ).toBe(false);
+  });
+
+  it(
+    "marks the tribe as free-join current and clears any current paid price",
+    async () => {
+      const executedSqlTexts: string[] = [];
+      const execute = jest.fn(async (statement) => {
+        const sqlText = getSqlText(statement);
+
+        executedSqlTexts.push(sqlText);
+
+        if (
+          sqlText.includes("then ${TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound}") ||
+          sqlText.includes("not exists (select 1 from target_tribe)")
+        ) {
+          return {
+            rows: [
+              {
+                status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
+              },
+            ],
+          };
+        }
+
+        if (sqlText.includes("update public.tribes")) {
+          return {
+            rows: [
+              {
+                status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
+              },
+            ],
+          };
+        }
+
+        return { rows: [] };
+      });
+      const repository = createRepository(execute);
+
+      await expect(
+        repository.setFreeJoinAsCurrent({ tribeSlug: "matematica-pro" })
+      ).resolves.toEqual({
+        status: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
+      });
+
+      const clearPaidPricesIndex = executedSqlTexts.findIndex((sqlText) =>
+        sqlText.includes(
+          "update public.tribe_subscription_prices\n        set is_current = false"
+        )
+      );
+      const setFreeJoinIndex = executedSqlTexts.findIndex((sqlText) =>
+        sqlText.includes("set free_join_is_current = true")
+      );
+
+      expect(executedSqlTexts[0]).toMatch(
+        /target_tribe as \([\s\S]*for update/
+      );
+      expect(clearPaidPricesIndex).toBeGreaterThanOrEqual(0);
+      expect(setFreeJoinIndex).toBeGreaterThan(clearPaidPricesIndex);
+    }
+  );
+
+  it(
+    "returns freeJoinIsCurrent from the list query",
+    async () => {
+      const execute = jest.fn(async () => ({
+        rows: [
+          {
+            access_token: null,
+            active_subscribers_count: 0,
+            amount_cents: 0,
+            can_manage_prices: true,
+            can_view_prices: true,
+            created_at: "2026-05-06T13:00:00.000Z",
+            currency: "ARS",
+            free_join_is_current: true,
+            frequency: "monthly",
+            id: null,
+            is_current: false,
+            name: null,
+            refresh_token: null,
+            status: "active",
+            token_expires_at: null,
+            trial_frequency: null,
+            trial_frequency_type: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      }));
+      const repository = createRepository(execute);
+
+      await expect(
+        repository.listByTribeSlug({ tribeSlug: "matematica-pro" })
+      ).resolves.toMatchObject({
+        freeJoinIsCurrent: true,
+      });
+    }
+  );
 
   it("does not create a provider plan when reservation hits the price limit", async () => {
     const execute = jest.fn(async (statement) => {
@@ -964,7 +1156,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         ],
       })
       .mockResolvedValueOnce({
-        rows: [],
+        rows: [
+          createSubscriptionPriceRow({
+            free_join_is_current: true,
+            is_current: false,
+            status: "canceled",
+          }),
+        ],
       });
     const getMercadoPagoPlanStatus = jest.fn(async () => null);
     const repository = createRepository(
@@ -980,9 +1178,82 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       })
     ).resolves.toMatchObject({
       canceledPriceIds: ["price-1"],
+      freeJoinIsCurrent: true,
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
       verifiedCount: 1,
     });
+  });
+
+  it("should restore free-join mode when provider verification cancels the current paid price", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            is_current: true,
+            mercado_pago_preapproval_plan_id: "plan-1",
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            is_current: false,
+            status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            free_join_is_current: true,
+            is_current: false,
+            status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+          }),
+        ],
+      });
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => null)
+    );
+
+    await expect(
+      repository.verifyProviderPlan({
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      freeJoinIsCurrent: true,
+      price: {
+        isCurrent: false,
+        status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+    });
+
+    const cancellationSqlText = getSqlText(execute.mock.calls[2][0]);
+
+    expect(cancellationSqlText).toContain("set free_join_is_current = true");
+    expect(cancellationSqlText).toContain("target_price.is_current = true");
+    expect(cancellationSqlText).toContain(
+      "tribe_subscription_prices.is_current = true"
+    );
+    expect(cancellationSqlText).toContain(
+      "tribe_subscription_prices.id <> (select id from target_price)"
+    );
   });
 
   it("should keep the Mercado Pago plan identifier when provider verification cancels a local price", async () => {
@@ -1007,7 +1278,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         };
       }
 
-      if (sqlText.includes("mercado_pago_preapproval_plan_id")) {
+      if (
+        sqlText.includes("mercado_pago_preapproval_plan_id") &&
+        !sqlText.includes("update public.tribe_subscription_prices")
+      ) {
         return {
           rows: [
             createSubscriptionPriceRow({
@@ -1480,6 +1754,96 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         )
       )
     ).toBe(true);
+  });
+
+  it("should restore free-join mode when a provider webhook cancels the current paid price", async () => {
+    const executedSqlTexts: string[] = [];
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      executedSqlTexts.push(sqlText);
+
+      if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
+        return {
+          rows: [
+            {
+              id: "operation-1",
+            },
+          ],
+        };
+      }
+
+      if (sqlText.includes("set is_current = false")) {
+        return { rows: [] };
+      }
+
+      if (sqlText.includes("update public.tribe_subscription_prices")) {
+        return {
+          rows: [
+            createSubscriptionPriceRow({
+              is_current: false,
+              status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+            }),
+          ],
+        };
+      }
+
+      return {
+        rows: [
+          {
+            ...createSubscriptionPriceRow({
+              is_current: true,
+              mercado_pago_preapproval_plan_id: "plan-1",
+              tribe_id: "tribe-1",
+            }),
+            access_token: "access-token",
+            refresh_token: null,
+            token_expires_at: null,
+          },
+        ],
+      };
+    });
+    const getMercadoPagoPlan = jest.fn(async () => ({
+      externalReference: "tutribu:price:price-1",
+      id: "plan-1",
+      reason: "Plan mensual",
+      status: "cancelled",
+    }));
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(async () => "active"),
+      jest.fn(async () => "authorized"),
+      jest.fn(),
+      getMercadoPagoPlan
+    );
+
+    await expect(
+      repository.syncProviderPlan({
+        eventId: "event-1",
+        resourceId: "plan-1",
+        topic: "subscription_preapproval_plan.updated",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        isCurrent: false,
+        status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+    });
+
+    const cancellationSqlText = executedSqlTexts.find((sqlText) =>
+      sqlText.includes("set free_join_is_current = true")
+    );
+
+    expect(cancellationSqlText).toContain("target_price.is_current = true");
+    expect(cancellationSqlText).toContain(
+      "tribe_subscription_prices.is_current = true"
+    );
+    expect(cancellationSqlText).toContain(
+      "tribe_subscription_prices.id <> (select id from target_price)"
+    );
   });
 
   it("should sync provider plan webhooks with the RLS-safe price context", async () => {

@@ -116,6 +116,7 @@ describe("tribe subscription provider plan verification routes", () => {
   it("should return current prices when all provider plans are verified", async () => {
     verifyTribeSubscriptionProviderPlans.mockResolvedValue({
       canceledPriceIds: [],
+      freeJoinIsCurrent: false,
       prices: [activePrice],
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
       verifiedCount: 1,
@@ -126,6 +127,7 @@ describe("tribe subscription provider plan verification routes", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       canceledPriceIds: [],
+      freeJoinIsCurrent: false,
       message: "Planes verificados con Mercado Pago.",
       prices: [activePrice],
       verifiedCount: 1,
@@ -134,6 +136,7 @@ describe("tribe subscription provider plan verification routes", () => {
 
   it("should return the canceled price when a provider plan is missing", async () => {
     verifyTribeSubscriptionProviderPlan.mockResolvedValue({
+      freeJoinIsCurrent: true,
       price: {
         ...activePrice,
         isCurrent: false,
@@ -146,6 +149,7 @@ describe("tribe subscription provider plan verification routes", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
+      freeJoinIsCurrent: true,
       message: "El plan figura cancelado en Mercado Pago.",
       price: {
         ...activePrice,

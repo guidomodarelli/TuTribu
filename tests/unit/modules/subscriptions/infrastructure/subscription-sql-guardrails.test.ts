@@ -11,6 +11,8 @@ const TRIAL_PERIOD_CONSTRAINT_FIX_MIGRATION_PATH =
   "database/migrations/20260512130000_fix_subscription_price_trial_period_constraint.sql";
 const TRIAL_PERIOD_LIMIT_MIGRATION_PATH =
   "database/migrations/20260513140000_limit_subscription_price_trial_days.sql";
+const FREE_JOIN_MIGRATION_PATH =
+  "database/migrations/20260524100000_add_free_join_to_tribes.sql";
 
 function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -142,6 +144,47 @@ describe("Subscription SQL guardrails", () => {
     expect(constraintLimitMigration).toContain("SET trial_frequency = 14");
     expect(constraintLimitMigration).toContain(
       "trial_frequency_type = 'months'"
+    );
+  });
+
+  it("preserves free join mode for tribes without a current Mercado Pago plan", () => {
+    const migration = readWorkspaceFile(FREE_JOIN_MIGRATION_PATH);
+
+    expect(migration).toContain(
+      "ADD COLUMN IF NOT EXISTS free_join_is_current boolean NOT NULL DEFAULT true"
+    );
+    expect(migration).toContain(
+      "ALTER COLUMN free_join_is_current SET DEFAULT true"
+    );
+    expect(migration).toContain("SET free_join_is_current = false");
+    expect(migration).toContain("tribe_subscription_prices.is_current = true");
+    expect(migration).toContain(
+      "tribe_subscription_prices.mercado_pago_preapproval_plan_id IS NOT NULL"
+    );
+    expect(migration).toMatch(
+      /UPDATE public\.tribe_subscription_prices[\s\S]*SET is_current = false[\s\S]*mercado_pago_preapproval_plan_id IS NULL/
+    );
+    expect(migration).toContain(
+      "CREATE POLICY \"Leaders can update tribe free join mode\""
+    );
+    expect(migration).toContain("FOR UPDATE");
+    expect(migration).toContain(
+      "public.can_manage_tribe_subscription_prices(id)"
+    );
+    expect(migration).toContain(
+      "GRANT UPDATE (free_join_is_current) ON public.tribes TO authenticated"
+    );
+    expect(migration).toContain(
+      "CREATE POLICY \"Verified Mercado Pago webhooks can update tribe free join mode\""
+    );
+    expect(migration).toContain(
+      "public.is_mercado_pago_webhook_verified()"
+    );
+    expect(migration).toContain(
+      "CREATE POLICY \"Authenticated users can activate own free invitation memberships\""
+    );
+    expect(migration).toContain(
+      "GRANT UPDATE (status, status_reason, joined_via) ON public.tribe_members TO authenticated"
     );
   });
 });

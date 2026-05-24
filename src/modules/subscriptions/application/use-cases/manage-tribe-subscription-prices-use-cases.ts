@@ -403,6 +403,22 @@ export function makeTribeSubscriptionPriceCurrent({
 }
 
 /**
+ * Marks the synthetic free-join option as the current offering for the tribe,
+ * clearing any active paid price flagged as current.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that toggles the tribe to free-join mode.
+ */
+export function setTribeFreeJoinAsCurrent({
+  tribeSubscriptionPriceRepository,
+}: TribeSubscriptionPriceDependencies) {
+  return async (command: { tribeSlug: string }) =>
+    tribeSubscriptionPriceRepository.setFreeJoinAsCurrent({
+      tribeSlug: normalizeText(command.tribeSlug),
+    });
+}
+
+/**
  * Deletes an unused immutable subscription price version.
  *
  * @param dependencies - Repository dependencies for the use case.

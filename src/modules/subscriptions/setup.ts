@@ -10,6 +10,7 @@ import {
   deleteTribeSubscriptionPrice,
   listTribeSubscriptionPrices,
   makeTribeSubscriptionPriceCurrent,
+  setTribeFreeJoinAsCurrent,
   syncMercadoPagoSubscriptionProviderPlanWebhook,
   updateTribeSubscriptionPrice,
   verifyTribeSubscriptionProviderPlan,
@@ -81,6 +82,9 @@ export function buildSubscriptionsModule({
         tribeSubscriptionPriceRepository,
       }),
       makeTribeSubscriptionPriceCurrent: makeTribeSubscriptionPriceCurrent({
+        tribeSubscriptionPriceRepository,
+      }),
+      setTribeFreeJoinAsCurrent: setTribeFreeJoinAsCurrent({
         tribeSubscriptionPriceRepository,
       }),
       reconcileCurrentTribeMemberSubscription:

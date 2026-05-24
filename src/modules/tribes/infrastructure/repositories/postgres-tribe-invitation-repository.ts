@@ -364,7 +364,9 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           limit 1
         ),
         target_tribe as (
-          select tribes.id
+          select
+            tribes.id,
+            tribes.free_join_is_current
           from public.tribes
           inner join target_invitation
             on target_invitation.tribe_id = tribes.id
@@ -386,7 +388,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           from public.tribe_subscription_prices
           inner join target_tribe
             on target_tribe.id = tribe_subscription_prices.tribe_id
-          where tribe_subscription_prices.is_current = true
+          where target_tribe.free_join_is_current = false
+            and tribe_subscription_prices.is_current = true
             and tribe_subscription_prices.status = 'active'
             and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
           limit 1
@@ -397,6 +400,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             user_id,
             role,
             status,
+            joined_via,
             created_at
           )
           select
@@ -404,16 +408,38 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             public.current_app_user_id(),
             'tribemate',
             'active',
+            'free_invitation',
             timezone('utc', now())
           from target_tribe
           cross join target_invitation
           cross join invitation_acceptance_context
           where target_invitation.status = ${TRIBE_INVITATION_STATUS.active}
             and public.current_app_user_id() <> ''
-            and not exists (select 1 from current_subscription_price)
+            and target_tribe.free_join_is_current = true
             and not exists (select 1 from existing_membership)
           on conflict (tribe_id, user_id) do nothing
           returning id
+        ),
+        reactivated_membership as (
+          update public.tribe_members
+          set
+            status = 'active',
+            status_reason = 'none',
+            joined_via = 'free_invitation'
+          from target_tribe,
+            target_invitation,
+            invitation_acceptance_context
+          where tribe_members.tribe_id = target_tribe.id
+            and tribe_members.user_id = public.current_app_user_id()
+            and target_invitation.status = ${TRIBE_INVITATION_STATUS.active}
+            and public.current_app_user_id() <> ''
+            and target_tribe.free_join_is_current = true
+            and exists (
+              select 1 from existing_membership
+              where status = 'blocked'
+                and status_reason = 'payment_blocked'
+            )
+          returning tribe_members.id
         ),
         post_insert_membership as (
           select tribe_members.status
@@ -441,6 +467,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
               select 1 from existing_membership where status in ('active', 'muted')
             ) then ${TRIBE_INVITATION_STATUS.accepted}
             when exists (select 1 from inserted_membership) then ${TRIBE_INVITATION_STATUS.accepted}
+            when exists (select 1 from reactivated_membership) then ${TRIBE_INVITATION_STATUS.accepted}
             when exists (
               select 1 from post_insert_membership where status in ('active', 'muted')
             ) then ${TRIBE_INVITATION_STATUS.accepted}
@@ -481,7 +508,9 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           limit 1
         ),
         target_tribe as (
-          select tribes.id
+          select
+            tribes.id,
+            tribes.free_join_is_current
           from public.tribes
           inner join target_invitation
             on target_invitation.tribe_id = tribes.id
@@ -496,7 +525,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         from public.tribe_subscription_prices
         inner join target_tribe
           on target_tribe.id = tribe_subscription_prices.tribe_id
-        where tribe_subscription_prices.is_current = true
+        where target_tribe.free_join_is_current = false
+          and tribe_subscription_prices.is_current = true
           and tribe_subscription_prices.status = 'active'
           and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
           and exists (

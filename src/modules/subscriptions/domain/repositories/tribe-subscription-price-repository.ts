@@ -5,6 +5,7 @@
  */
 
 import type {
+  TribeFreeJoinMutationResult,
   TribeSubscriptionProviderPlanVerificationResult,
   TribeSubscriptionProviderPlansVerificationResult,
   TribeSubscriptionProviderPlanSyncResult,
@@ -61,6 +62,10 @@ export type TribeSubscriptionPriceListQuery = {
   tribeSlug: string;
 };
 
+export type SetTribeFreeJoinAsCurrentCommand = {
+  tribeSlug: string;
+};
+
 export type TribeSubscriptionPriceRepository = {
   create(
     command: CreateTribeSubscriptionPriceCommand
@@ -77,6 +82,9 @@ export type TribeSubscriptionPriceRepository = {
   makeCurrent(
     command: TribeSubscriptionPriceIdentity
   ): Promise<TribeSubscriptionPriceMutationResult>;
+  setFreeJoinAsCurrent(
+    command: SetTribeFreeJoinAsCurrentCommand
+  ): Promise<TribeFreeJoinMutationResult>;
   syncProviderPlan(
     command: SyncTribeSubscriptionProviderPlanCommand
   ): Promise<TribeSubscriptionProviderPlanSyncResult>;

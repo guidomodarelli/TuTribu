@@ -88,6 +88,7 @@ export async function POST(
           {
             message: PROVIDER_PLAN_VERIFICATION_ROUTE_RESPONSE.successMessage,
             canceledPriceIds: result.canceledPriceIds,
+            freeJoinIsCurrent: result.freeJoinIsCurrent,
             prices: result.prices,
             verifiedCount: result.verifiedCount,
           },

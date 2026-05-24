@@ -31,6 +31,7 @@ export type TribeSubscriptionPriceResult = {
 };
 
 export type TribeSubscriptionPriceListResult = {
+  freeJoinIsCurrent: boolean;
   hasMercadoPagoIntegration: boolean;
   mercadoPagoConnectionStatus:
     | typeof MERCADO_PAGO_CONNECTION_STATUS.connected
@@ -40,6 +41,13 @@ export type TribeSubscriptionPriceListResult = {
     canManagePrices: boolean;
     canViewPrices: boolean;
   };
+};
+
+export type TribeFreeJoinMutationResult = {
+  status:
+    | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.current
+    | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden
+    | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound;
 };
 
 export type TribeSubscriberDiagnosticsResult = {
@@ -87,6 +95,7 @@ export type TribeSubscriptionProviderPlanSyncResult =
 
 export type TribeSubscriptionProviderPlanVerificationResult =
   | {
+      freeJoinIsCurrent?: boolean;
       price: TribeSubscriptionPriceResult;
       status: typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.verified;
     }
@@ -101,6 +110,7 @@ export type TribeSubscriptionProviderPlanVerificationResult =
 export type TribeSubscriptionProviderPlansVerificationResult =
   | {
       canceledPriceIds: string[];
+      freeJoinIsCurrent: boolean;
       prices: TribeSubscriptionPriceResult[];
       status: typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.verified;
       verifiedCount: number;
