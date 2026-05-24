@@ -70,7 +70,7 @@ describe("TribeInvitationManagement", () => {
     expect(toast.success).toHaveBeenCalledWith("Link de invitación creado.");
   });
 
-  it("revokes an active invitation", async () => {
+  it("asks for confirmation before revoking an active invitation", async () => {
     const user = userEvent.setup();
 
     (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -97,6 +97,13 @@ describe("TribeInvitationManagement", () => {
 
     await user.click(screen.getByRole("button", { name: "Revocar" }));
 
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(
+      await screen.findByRole("heading", { name: "¿Revocar este link?" })
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Revocar link" }));
+
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         "/api/tribes/matematica-pro/invitations/invitation-1",
@@ -105,6 +112,33 @@ describe("TribeInvitationManagement", () => {
     });
     expect(screen.getByText("Todavía no hay invitaciones activas.")).toBeInTheDocument();
     expect(toast.success).toHaveBeenCalledWith("Invitación revocada.");
+  });
+
+  it("cancels the revoke action without calling the API", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeInvitationManagement
+        invitations={[
+          {
+            createdAt: "2026-04-26T07:00:00.000Z",
+            createdByName: "Grace Hopper",
+            id: "invitation-1",
+            invitationUrl:
+              "https://tutribu.example.com/tribu/matematica-pro/invitar/token",
+          },
+        ]}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Revocar" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Cancelar" })
+    );
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(screen.getByText("Link activo")).toBeInTheDocument();
   });
 
   it("copies the invitation URL from the selected active row", async () => {

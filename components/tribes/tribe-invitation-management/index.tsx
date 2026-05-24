@@ -5,6 +5,14 @@ import { ClipboardIcon, LinkIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import type { TribeInvitationListItemResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import styles from "./styles.module.scss";
@@ -22,6 +30,11 @@ const INVITATION_MANAGEMENT_COPY = {
   fallbackRevokeError: "No pudimos revocar la invitación.",
   itemTitle: "Link activo",
   revokeButton: "Revocar",
+  revokeConfirmCancel: "Cancelar",
+  revokeConfirmConfirm: "Revocar link",
+  revokeConfirmDescription:
+    "Si revocás este link, dejará de servir para nuevas personas. Esta acción no se puede deshacer.",
+  revokeConfirmTitle: "¿Revocar este link?",
   title: "Invitaciones",
 } as const;
 
@@ -34,6 +47,7 @@ const INVITATION_MANAGEMENT_ROUTE = {
 const INVITATION_MANAGEMENT_REQUEST = {
   dateStyle: "medium",
   deleteMethod: "DELETE",
+  destructiveVariant: "destructive",
   locale: "es",
   postMethod: "POST",
   timeStyle: "short",
@@ -102,6 +116,7 @@ export function TribeInvitationManagement({
 }: TribeInvitationManagementProps) {
   const [invitationItems, setInvitationItems] = useState(invitations);
   const [pendingInvitationId, setPendingInvitationId] = useState<string | null>(null);
+  const [revokeCandidateId, setRevokeCandidateId] = useState<string | null>(null);
   const hasActiveInvitations = invitationItems.length > 0;
   const formattedInvitations = useMemo(
     () =>
@@ -166,6 +181,7 @@ export function TribeInvitationManagement({
         currentItems.filter((invitation) => invitation.id !== invitationId)
       );
       toast.success(response.message ?? INVITATION_MANAGEMENT_COPY.revokeButton);
+      setRevokeCandidateId(null);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -175,6 +191,18 @@ export function TribeInvitationManagement({
     } finally {
       setPendingInvitationId(null);
     }
+  };
+
+  const handleRevokeDialogChange = (open: boolean) => {
+    if (open) {
+      return;
+    }
+
+    if (pendingInvitationId && pendingInvitationId === revokeCandidateId) {
+      return;
+    }
+
+    setRevokeCandidateId(null);
   };
 
   return (
@@ -236,7 +264,7 @@ export function TribeInvitationManagement({
                 <Button
                   disabled={pendingInvitationId === invitation.id}
                   onClick={() => {
-                    void handleRevokeInvitation(invitation.id);
+                    setRevokeCandidateId(invitation.id);
                   }}
                   type={INVITATION_MANAGEMENT_REQUEST.buttonType}
                   variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
@@ -253,6 +281,46 @@ export function TribeInvitationManagement({
           {INVITATION_MANAGEMENT_COPY.emptyState}
         </p>
       )}
+      <Dialog
+        open={revokeCandidateId !== null}
+        onOpenChange={handleRevokeDialogChange}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {INVITATION_MANAGEMENT_COPY.revokeConfirmTitle}
+            </DialogTitle>
+            <DialogDescription>
+              {INVITATION_MANAGEMENT_COPY.revokeConfirmDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              disabled={pendingInvitationId === revokeCandidateId}
+              onClick={() => {
+                setRevokeCandidateId(null);
+              }}
+              type={INVITATION_MANAGEMENT_REQUEST.buttonType}
+              variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
+            >
+              {INVITATION_MANAGEMENT_COPY.revokeConfirmCancel}
+            </Button>
+            <Button
+              disabled={pendingInvitationId === revokeCandidateId}
+              onClick={() => {
+                if (revokeCandidateId) {
+                  void handleRevokeInvitation(revokeCandidateId);
+                }
+              }}
+              type={INVITATION_MANAGEMENT_REQUEST.buttonType}
+              variant={INVITATION_MANAGEMENT_REQUEST.destructiveVariant}
+            >
+              <Trash2Icon />
+              {INVITATION_MANAGEMENT_COPY.revokeConfirmConfirm}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

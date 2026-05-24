@@ -109,13 +109,13 @@ describe("PostgresTribeInvitationRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual([
-        {
-          createdAt: "2026-04-26T07:00:00.000Z",
-          createdByName: "Grace Hopper",
-          id: "550e8400-e29b-41d4-a716-446655440000",
-          invitationUrl: null,
-        },
-      ]);
+      {
+        createdAt: "2026-04-26T07:00:00.000Z",
+        createdByName: "Grace Hopper",
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        invitationUrl: null,
+      },
+    ]);
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
