@@ -254,12 +254,6 @@ export function TribeWelcomeDisplay({
           aria-labelledby={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.linksTitleId}
           className={styles.TribeWelcomeDisplay__section}
         >
-          <h2
-            className={styles.TribeWelcomeDisplay__sectionTitle}
-            id={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.linksTitleId}
-          >
-            {welcome.linksHeading}
-          </h2>
           {welcome.selectionModalBenefit ? (
             <p className={styles.TribeWelcomeDisplay__benefit}>
               <span className={styles.TribeWelcomeDisplay__benefitEyebrow}>
@@ -268,6 +262,12 @@ export function TribeWelcomeDisplay({
               {welcome.selectionModalBenefit}
             </p>
           ) : null}
+          <h2
+            className={styles.TribeWelcomeDisplay__sectionTitle}
+            id={TRIBE_WELCOME_DISPLAY_ATTRIBUTES.linksTitleId}
+          >
+            {welcome.linksHeading}
+          </h2>
           <ul className={styles.TribeWelcomeDisplay__linkList}>
             {activeLinks.map((link) => {
               const href = getLinkHref(link);
