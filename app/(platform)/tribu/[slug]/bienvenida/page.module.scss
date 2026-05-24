@@ -1,3 +1,12 @@
+$tribe-welcome-page-desktop-min: 1024px;
+$tribe-welcome-page-desktop-max-width: 1400px;
+
 .TribeWelcomePage {
   width: 100%;
+}
+
+@media (min-width: $tribe-welcome-page-desktop-min) {
+  .TribeWelcomePage {
+    max-width: $tribe-welcome-page-desktop-max-width;
+  }
 }

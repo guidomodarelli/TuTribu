@@ -120,7 +120,7 @@ describe("TribeWelcomeManagement", () => {
       screen.getByLabelText("Mensaje de bienvenida"),
       "Bienvenido/a a Matematica Pro"
     );
-    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -191,7 +191,7 @@ describe("TribeWelcomeManagement", () => {
       const ruleInputs = screen.getAllByLabelText("Acuerdo");
 
       await user.type(ruleInputs.at(-1) as HTMLElement, "Saludar al entrar");
-      await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
 
       await waitFor(() => {
         expect(fetchMock).toHaveBeenCalled();
@@ -286,7 +286,7 @@ describe("TribeWelcomeManagement", () => {
       screen.getAllByLabelText("Etiqueta para miembros").at(-1) as HTMLElement,
       "Nuevo badge"
     );
-    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
@@ -329,7 +329,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(
@@ -559,7 +559,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByText("Ingresá una URL.")).toBeInTheDocument();
@@ -586,7 +586,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(
@@ -620,7 +620,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(
@@ -642,7 +642,7 @@ describe("TribeWelcomeManagement", () => {
     await user.clear(screen.getByLabelText(/Título del modal/));
     await user.clear(screen.getByLabelText(/Descripción del modal/));
     await user.clear(screen.getByLabelText(/Encabezado de recursos/));
-    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(
@@ -682,7 +682,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(
@@ -718,7 +718,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
@@ -752,7 +752,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
@@ -793,7 +793,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(

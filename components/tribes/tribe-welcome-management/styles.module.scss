@@ -1,8 +1,14 @@
 $tribe-welcome-mobile-max: 1023px;
-$tribe-welcome-row-actions-reserve: 12rem;
+$tribe-welcome-desktop-min: 1024px;
 $tribe-welcome-row-actions-gap: 1rem;
-$tribe-welcome-row-actions-offset: 0.5rem;
 $tribe-welcome-touch-target: 2.75rem;
+$tribe-welcome-preview-width: 34rem;
+$tribe-welcome-preview-gap: 2rem;
+$tribe-welcome-preview-top: 4.5rem;
+$tribe-welcome-preview-bottom: 1.25rem;
+$tribe-welcome-preview-right: 1.5rem;
+$tribe-welcome-submit-offset: 1.5rem;
+$tribe-welcome-submit-clearance: 6rem;
 
 .TribeWelcomeManagement {
   --tribe-welcome-accent: var(--primary);
@@ -12,7 +18,7 @@ $tribe-welcome-touch-target: 2.75rem;
   gap: 1.5rem;
   margin: 0 auto;
   max-width: min(100%, 980px);
-  padding: 0.25rem 0;
+  padding: 0.25rem 0 $tribe-welcome-submit-clearance;
   width: 100%;
 
   &__header,
@@ -213,15 +219,14 @@ $tribe-welcome-touch-target: 2.75rem;
     margin: 0;
     padding: 0 0 0.85rem;
     padding-top: 0.5rem;
-    position: relative;
 
     &--withHeader {
       align-items: stretch;
       grid-template-areas:
+        "actions"
         "label"
         "field";
-      grid-template-rows: auto auto;
-      padding-right: $tribe-welcome-row-actions-reserve;
+      grid-template-rows: auto auto auto;
       row-gap: 0.4rem;
     }
   }
@@ -239,12 +244,11 @@ $tribe-welcome-touch-target: 2.75rem;
 
   &__rowActions {
     align-items: center;
-    display: inline-flex;
+    display: flex;
     gap: $tribe-welcome-row-actions-gap;
-    position: absolute;
-    right: $tribe-welcome-row-actions-offset;
-    top: $tribe-welcome-row-actions-offset;
-    z-index: 1;
+    grid-area: actions;
+    justify-content: flex-end;
+    width: 100%;
   }
 
   &__removeButton {
@@ -304,7 +308,12 @@ $tribe-welcome-touch-target: 2.75rem;
   }
 
   &__submit {
-    justify-self: start;
+    bottom: $tribe-welcome-submit-offset;
+    box-shadow: 0 12px 32px
+      color-mix(in srgb, var(--foreground) 25%, transparent);
+    position: fixed;
+    right: $tribe-welcome-submit-offset;
+    z-index: 10;
   }
 
   &__preview {
@@ -348,6 +357,35 @@ $tribe-welcome-touch-target: 2.75rem;
     padding: 1.25rem;
   }
 }
+@media (min-width: $tribe-welcome-desktop-min) {
+  .TribeWelcomeManagement {
+    max-width: min(100%, 1340px);
+    padding-right: calc(
+      #{$tribe-welcome-preview-width} + #{$tribe-welcome-preview-gap}
+    );
+
+    &__preview {
+      max-height: calc(
+        100vh - #{$tribe-welcome-preview-top} -
+          #{$tribe-welcome-preview-bottom}
+      );
+      margin-top: 0;
+      overflow-y: auto;
+      position: fixed;
+      right: $tribe-welcome-preview-right;
+      top: $tribe-welcome-preview-top;
+      width: $tribe-welcome-preview-width;
+      z-index: 5;
+    }
+
+    &__submit {
+      right: calc(
+        #{$tribe-welcome-preview-right} + #{$tribe-welcome-preview-width} + 1rem
+      );
+    }
+  }
+}
+
 @media (max-width: $tribe-welcome-mobile-max) {
   .TribeWelcomeManagement {
     gap: 1.25rem;
@@ -363,25 +401,14 @@ $tribe-welcome-touch-target: 2.75rem;
 
     &__row {
       padding-top: 0.75rem;
-      position: static;
 
       &--withHeader {
-        grid-template-areas:
-          "actions"
-          "label"
-          "field";
-        grid-template-rows: auto auto auto;
-        padding-right: 0;
         row-gap: 0.5rem;
       }
     }
 
     &__rowActions {
-      grid-area: actions;
       gap: 0.75rem;
-      justify-content: space-between;
-      position: static;
-      width: 100%;
     }
 
     &__rowLabel {
@@ -398,10 +425,6 @@ $tribe-welcome-touch-target: 2.75rem;
 
     &__select {
       max-width: 100%;
-    }
-
-    &__submit {
-      width: 100%;
     }
   }
 }

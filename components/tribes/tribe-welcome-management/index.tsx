@@ -94,7 +94,7 @@ const TRIBE_WELCOME_MANAGEMENT_COPY = {
   requiredLinkLabel: "Ingresá un texto para el link.",
   requiredLinkUrl: "Ingresá una URL.",
   requiredRuleLabel: "Escribí el acuerdo antes de guardar.",
-  saveButton: "Guardar bienvenida",
+  saveButton: "Guardar",
   saveSuccess: "Bienvenida actualizada.",
   validationSummary: "Revisá los campos marcados antes de guardar.",
   validationWhatsappPhone:
