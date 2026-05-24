@@ -129,6 +129,7 @@ export const tribeInvitations = pgTable("tribe_invitations", {
     .notNull()
     .references(() => tribes.id, { onDelete: "cascade" }),
   tokenHash: text("token_hash").notNull(),
+  tokenEncrypted: text("token_encrypted"),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),

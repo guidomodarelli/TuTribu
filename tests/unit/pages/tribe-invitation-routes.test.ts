@@ -123,6 +123,7 @@ describe("Tribe invitation routes", () => {
       invitations: [invitation],
     });
     expect(listTribeInvitations).toHaveBeenCalledWith({
+      baseUrl: "https://canonical.tutribu.example.com",
       tribeSlug: "matematica-pro",
     });
   });

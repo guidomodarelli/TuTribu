@@ -1,4 +1,15 @@
+import { randomBytes } from "crypto";
+
+import { encryptInvitationToken } from "@/src/modules/tribes/infrastructure/encryption/tribe-invitation-token-cipher";
 import { PostgresTribeInvitationRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-invitation-repository";
+
+const TRIBE_INVITATION_TOKEN_KEY_ENV = "TRIBE_INVITATION_TOKEN_ENCRYPTION_KEY";
+
+function setTestEncryptionKey(): void {
+  process.env[TRIBE_INVITATION_TOKEN_KEY_ENV] = randomBytes(32).toString(
+    "base64"
+  );
+}
 
 function getSqlText(statement: unknown): string {
   return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
@@ -32,6 +43,20 @@ const FORBIDDEN_TRIBE_INVITATION_ID_CAST = [
 ].join("::");
 
 describe("PostgresTribeInvitationRepository", () => {
+  const previousKey = process.env[TRIBE_INVITATION_TOKEN_KEY_ENV];
+
+  beforeEach(() => {
+    setTestEncryptionKey();
+  });
+
+  afterEach(() => {
+    if (previousKey === undefined) {
+      delete process.env[TRIBE_INVITATION_TOKEN_KEY_ENV];
+    } else {
+      process.env[TRIBE_INVITATION_TOKEN_KEY_ENV] = previousKey;
+    }
+  });
+
   it("creates invitations with a one-time visible token, token hash, and manager permission guard", async () => {
     const execute = jest.fn(async () => ({
       rows: [
@@ -64,6 +89,7 @@ describe("PostgresTribeInvitationRepository", () => {
     expect(sqlText).toContain("insert into public.tribe_invitations");
     expect(sqlText).toContain("public.can_manage_tribe_invitations");
     expect(sqlText).toContain("token_hash");
+    expect(sqlText).toContain("token_encrypted");
     expect(sqlText).not.toContain("token,");
     expect(sqlText).not.toContain("plain-token");
   });
@@ -90,13 +116,43 @@ describe("PostgresTribeInvitationRepository", () => {
     ).resolves.toEqual({ status: "setup_required" });
   });
 
-  it("lists active invitations without exposing acceptance links for managers", async () => {
+  it("maps a missing encrypted token column during creation to setup_required", async () => {
+    const execute = jest.fn(async () => {
+      throw {
+        cause: {
+          code: "42703",
+        },
+      };
+    });
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.create({
+        baseUrl: "https://tutribu.example.com",
+        invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        token: "plain-token",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "setup_required" });
+  });
+
+  it("lists active invitations rebuilding the acceptance link from the encrypted token", async () => {
+    const encryptedActiveToken = encryptInvitationToken("active-token");
     const execute = jest.fn(async () => ({
       rows: [
         {
           created_at: "2026-04-26T07:00:00.000Z",
           created_by_name: "Grace Hopper",
           id: "550e8400-e29b-41d4-a716-446655440000",
+          token_encrypted: encryptedActiveToken,
+        },
+        {
+          created_at: "2026-04-26T07:05:00.000Z",
+          created_by_name: "Ada Lovelace",
+          id: "550e8400-e29b-41d4-a716-446655440001",
+          token_encrypted: null,
         },
       ],
     }));
@@ -106,6 +162,51 @@ describe("PostgresTribeInvitationRepository", () => {
 
     await expect(
       repository.listByTribeSlug({
+        baseUrl: "https://tutribu.example.com",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual([
+      {
+        createdAt: "2026-04-26T07:00:00.000Z",
+        createdByName: "Grace Hopper",
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        invitationUrl:
+          "https://tutribu.example.com/tribu/matematica-pro/invitar/active-token",
+      },
+      {
+        createdAt: "2026-04-26T07:05:00.000Z",
+        createdByName: "Ada Lovelace",
+        id: "550e8400-e29b-41d4-a716-446655440001",
+        invitationUrl: null,
+      },
+    ]);
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain("tribe_invitations.status");
+    expect(sqlText).toContain("tribe_invitations.token_encrypted");
+    expect(sqlText).not.toContain("tribe_invitations.token_hash");
+    expect(sqlText).toContain("public.can_manage_tribe_invitations");
+  });
+
+  it("returns null acceptance links when decryption fails for a stored row", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          created_at: "2026-04-26T07:00:00.000Z",
+          created_by_name: "Grace Hopper",
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          token_encrypted: "v1.bad.bad.bad",
+        },
+      ],
+    }));
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listByTribeSlug({
+        baseUrl: "https://tutribu.example.com",
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual([
@@ -116,12 +217,6 @@ describe("PostgresTribeInvitationRepository", () => {
         invitationUrl: null,
       },
     ]);
-
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(sqlText).toContain("tribe_invitations.status");
-    expect(sqlText).not.toContain("tribe_invitations.token");
-    expect(sqlText).toContain("public.can_manage_tribe_invitations");
   });
 
   it("returns an empty list when invitation storage has not been migrated yet", async () => {
@@ -138,6 +233,27 @@ describe("PostgresTribeInvitationRepository", () => {
 
     await expect(
       repository.listByTribeSlug({
+        baseUrl: "https://tutribu.example.com",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual([]);
+  });
+
+  it("returns an empty list when the encrypted token column has not been migrated yet", async () => {
+    const execute = jest.fn(async () => {
+      throw {
+        cause: {
+          code: "42703",
+        },
+      };
+    });
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listByTribeSlug({
+        baseUrl: "https://tutribu.example.com",
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual([]);

@@ -253,6 +253,13 @@
       "when": 1779606000000,
       "tag": "20260524110000_allow_leaders_to_update_message_created_at",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1779609600000,
+      "tag": "20260524120000_add_tribe_invitation_token_encrypted",
+      "breakpoints": true
     }
   ]
 }

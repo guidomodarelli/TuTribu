@@ -14,6 +14,7 @@ export type CreateTribeInvitationCommand = {
 };
 
 export type ListTribeInvitationsQuery = {
+  baseUrl: string;
   tribeSlug: string;
 };
 

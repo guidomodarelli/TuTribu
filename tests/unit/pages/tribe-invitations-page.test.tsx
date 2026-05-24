@@ -141,6 +141,7 @@ describe("TribeInvitationsPage", () => {
 
     expect(screen.getByRole("heading", { name: "Gestión de invitaciones" })).toBeInTheDocument();
     expect(listTribeInvitations).toHaveBeenCalledWith({
+      baseUrl: "https://canonical.tutribu.example.com",
       tribeSlug: "matematica-pro",
     });
   });

@@ -31,6 +31,7 @@ export function listTribeInvitations({
 }: TribeInvitationDependencies) {
   return async (query: ListTribeInvitationsQuery) =>
     tribeInvitationRepository.listByTribeSlug({
+      baseUrl: query.baseUrl,
       tribeSlug: query.tribeSlug.trim(),
     });
 }

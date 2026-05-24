@@ -81,17 +81,19 @@ describe("manage tribe invitations use cases", () => {
     ).resolves.toEqual({ status: TRIBE_INVITATION_STATUS.forbidden });
   });
 
-  it("lists active invitations for a tribe slug", async () => {
+  it("lists active invitations forwarding the public base URL for the tribe slug", async () => {
     const repository = buildRepository();
     const useCase = listTribeInvitations({
       tribeInvitationRepository: repository,
     });
 
     await useCase({
+      baseUrl: "https://tutribu.example.com",
       tribeSlug: " matematica-pro ",
     });
 
     expect(repository.listByTribeSlug).toHaveBeenCalledWith({
+      baseUrl: "https://tutribu.example.com",
       tribeSlug: "matematica-pro",
     });
   });

@@ -5,6 +5,10 @@ import {
   TRIBE_INVITATION_STATUS,
   TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS,
 } from "@/src/modules/tribes/constants/tribe-invitations";
+import {
+  decryptInvitationToken,
+  encryptInvitationToken,
+} from "@/src/modules/tribes/infrastructure/encryption/tribe-invitation-token-cipher";
 import type {
   AcceptTribeInvitationCommand,
   CreateTribeInvitationCommand,
@@ -20,6 +24,14 @@ import type {
   TribeInvitationSubscriptionOfferResult,
 } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+
+const TRIBE_INVITATION_REPOSITORY_LOG = {
+  decryptFailureMessage:
+    "Failed to decrypt stored tribe invitation token; falling back to null invitationUrl",
+  feature: "tribes",
+  operation: "list-tribe-invitations",
+} as const;
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -29,6 +41,10 @@ type InvitationRow = {
   created_at: Date | string;
   created_by_name: string | null;
   id: string;
+};
+
+type InvitationListRow = InvitationRow & {
+  token_encrypted: string | null;
 };
 
 type InvitationCreationRow = InvitationRow & {
@@ -57,6 +73,7 @@ const INVITATION_DATABASE_CONTEXT_SETTING = {
 } as const;
 
 const POSTGRES_ERROR_CODE = {
+  undefinedColumn: "42703",
   undefinedFunction: "42883",
   undefinedTable: "42P01",
 } as const;
@@ -79,6 +96,37 @@ function createInvitationUrl(baseUrl: string, tribeSlug: string, token: string):
       token,
     baseUrl
   ).toString();
+}
+
+function resolveInvitationUrlFromRow(
+  row: InvitationListRow,
+  baseUrl: string,
+  tribeSlug: string
+): string | null {
+  if (!row.token_encrypted) {
+    return null;
+  }
+
+  try {
+    const token = decryptInvitationToken(row.token_encrypted);
+
+    return createInvitationUrl(baseUrl, tribeSlug, token);
+  } catch (error) {
+    createServerLogger({
+      feature: TRIBE_INVITATION_REPOSITORY_LOG.feature,
+      operation: TRIBE_INVITATION_REPOSITORY_LOG.operation,
+      requestId: "",
+    }).error({
+      message: TRIBE_INVITATION_REPOSITORY_LOG.decryptFailureMessage,
+      error,
+      metadata: {
+        invitationId: row.id,
+        tribeSlug,
+      },
+    });
+
+    return null;
+  }
 }
 
 function mapInvitation(
@@ -173,8 +221,10 @@ function isMissingInvitationStorageError(error: unknown): boolean {
       : undefined;
 
   return (
+    directCode === POSTGRES_ERROR_CODE.undefinedColumn ||
     directCode === POSTGRES_ERROR_CODE.undefinedTable ||
     directCode === POSTGRES_ERROR_CODE.undefinedFunction ||
+    causeCode === POSTGRES_ERROR_CODE.undefinedColumn ||
     causeCode === POSTGRES_ERROR_CODE.undefinedTable ||
     causeCode === POSTGRES_ERROR_CODE.undefinedFunction
   );
@@ -184,6 +234,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
   async listByTribeSlug({
+    baseUrl,
     tribeSlug,
   }: ListTribeInvitationsQuery): Promise<TribeInvitationListItemResult[]> {
     return this.executeWithDatabase(async (database) => {
@@ -197,6 +248,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         select
           tribe_invitations.id,
           tribe_invitations.created_at,
+          tribe_invitations.token_encrypted,
           invitation_creators.name as created_by_name
         from public.tribe_invitations
         inner join target_tribe
@@ -208,8 +260,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         order by tribe_invitations.created_at desc
       `);
 
-      return ((result.rows ?? []) as InvitationRow[]).map((row) =>
-        mapInvitation(row)
+      return ((result.rows ?? []) as InvitationListRow[]).map((row) =>
+        mapInvitation(row, resolveInvitationUrlFromRow(row, baseUrl, tribeSlug))
       );
     }).catch((error: unknown) => {
       if (isMissingInvitationStorageError(error)) {
@@ -225,6 +277,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
   ): Promise<TribeInvitationCreationResult> {
     return this.executeWithDatabase(async (database) => {
       const tokenHash = hashInvitationToken(command.token);
+      const tokenEncrypted = encryptInvitationToken(command.token);
       const invitationUrl = createInvitationUrl(
         command.baseUrl,
         command.tribeSlug,
@@ -242,6 +295,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             id,
             tribe_id,
             token_hash,
+            token_encrypted,
             created_by,
             status,
             created_at
@@ -250,6 +304,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             ${command.invitationId},
             target_tribe.id,
             ${tokenHash},
+            ${tokenEncrypted},
             public.current_app_user_id(),
             ${TRIBE_INVITATION_STATUS.active},
             timezone('utc', now())

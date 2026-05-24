@@ -65,6 +65,7 @@ export async function GET(
     return createJsonResponse(
       {
         invitations: await modules.tribes.useCases.listTribeInvitations({
+          baseUrl: resolvePublicAppBaseUrl(),
           tribeSlug: slug,
         }),
       },
