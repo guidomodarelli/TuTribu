@@ -85,8 +85,8 @@ describe("TribeTribePage", () => {
       rules: [],
       selectionModalBenefit: null,
       selectionModalDescription:
-        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-      selectionModalTitle: "Elegí una opción para empezar",
+        "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+      selectionModalTitle: "Elegí cómo querés empezar",
       welcomeMessage: "",
     });
     listTribeWelcomeSelections.mockReset();

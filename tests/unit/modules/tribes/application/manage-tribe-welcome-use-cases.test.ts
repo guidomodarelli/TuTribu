@@ -17,9 +17,9 @@ function buildRepository(
       rules: [],
       selectionModalBenefit: null,
       selectionModalDescription:
-        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-      selectionModalTitle: "Elegí una opción para empezar",
-      welcomeMessage: "Bienvenido/a a la tribu",
+        "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+      selectionModalTitle: "Elegí cómo querés empezar",
+      welcomeMessage: "Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar.",
     })),
     getByInvitation: jest.fn(async () => ({
       linksHeading: "Recursos para empezar",
@@ -27,9 +27,9 @@ function buildRepository(
       rules: [],
       selectionModalBenefit: null,
       selectionModalDescription:
-        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-      selectionModalTitle: "Elegí una opción para empezar",
-      welcomeMessage: "Bienvenido/a a la tribu",
+        "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+      selectionModalTitle: "Elegí cómo querés empezar",
+      welcomeMessage: "Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar.",
     })),
     getByTribeSlug: jest.fn(async () => ({
       linksHeading: "Recursos para empezar",
@@ -37,9 +37,9 @@ function buildRepository(
       rules: [],
       selectionModalBenefit: null,
       selectionModalDescription:
-        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-      selectionModalTitle: "Elegí una opción para empezar",
-      welcomeMessage: "Bienvenido/a a la tribu",
+        "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+      selectionModalTitle: "Elegí cómo querés empezar",
+      welcomeMessage: "Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar.",
     })),
     save: jest.fn(async () => ({ status: "updated" })),
     ...overrides,
@@ -126,7 +126,7 @@ describe("manage tribe welcome use cases", () => {
       ],
       selectionModalBenefit: "  Te regalamos una guía  ",
       selectionModalDescription: " Elegí una opción ",
-      selectionModalTitle: " Elegí una opción para empezar ",
+      selectionModalTitle: " Elegí cómo querés empezar ",
       tribeSlug: " matematica-pro ",
       welcomeMessage: " Bienvenido/a ",
     });
@@ -157,7 +157,7 @@ describe("manage tribe welcome use cases", () => {
       ],
       selectionModalBenefit: "Te regalamos una guía",
       selectionModalDescription: "Elegí una opción",
-      selectionModalTitle: "Elegí una opción para empezar",
+      selectionModalTitle: "Elegí cómo querés empezar",
       tribeSlug: "matematica-pro",
       welcomeMessage: "Bienvenido/a",
     });

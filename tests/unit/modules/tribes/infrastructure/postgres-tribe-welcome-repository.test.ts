@@ -61,8 +61,8 @@ describe("PostgresTribeWelcomeRepository", () => {
             links_heading: "Recursos para empezar",
             selection_modal_benefit: null,
             selection_modal_description:
-              "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-            selection_modal_title: "Elegí una opción para empezar",
+              "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+            selection_modal_title: "Elegí cómo querés empezar",
             welcome_message: "Bienvenido/a a Matematica Pro",
           },
         ],
@@ -127,8 +127,8 @@ describe("PostgresTribeWelcomeRepository", () => {
       ],
       selectionModalBenefit: null,
       selectionModalDescription:
-        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-      selectionModalTitle: "Elegí una opción para empezar",
+        "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+      selectionModalTitle: "Elegí cómo querés empezar",
       welcomeMessage: "Bienvenido/a a Matematica Pro",
     });
   });
@@ -155,9 +155,9 @@ describe("PostgresTribeWelcomeRepository", () => {
       rules: [],
       selectionModalBenefit: null,
       selectionModalDescription:
-        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-      selectionModalTitle: "Elegí una opción para empezar",
-      welcomeMessage: "Bienvenido/a a la tribu",
+        "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+      selectionModalTitle: "Elegí cómo querés empezar",
+      welcomeMessage: "Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar.",
     });
   });
 
@@ -180,8 +180,8 @@ describe("PostgresTribeWelcomeRepository", () => {
         rules: [],
         selectionModalBenefit: null,
         selectionModalDescription:
-          "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-        selectionModalTitle: "Elegí una opción para empezar",
+          "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+        selectionModalTitle: "Elegí cómo querés empezar",
         tribeSlug: "matematica-pro",
         welcomeMessage: "Bienvenido/a",
       })
@@ -227,8 +227,8 @@ describe("PostgresTribeWelcomeRepository", () => {
         linksHeading: "Recursos para empezar",
         selectionModalBenefit: null,
         selectionModalDescription:
-          "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-        selectionModalTitle: "Elegí una opción para empezar",
+          "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+        selectionModalTitle: "Elegí cómo querés empezar",
         tribeSlug: "matematica-pro",
         welcomeMessage: "Bienvenido/a",
       })
@@ -298,8 +298,8 @@ describe("PostgresTribeWelcomeRepository", () => {
       linksHeading: "Recursos para empezar",
       selectionModalBenefit: null,
       selectionModalDescription:
-        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-      selectionModalTitle: "Elegí una opción para empezar",
+        "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+      selectionModalTitle: "Elegí cómo querés empezar",
       tribeSlug: "matematica-pro",
       welcomeMessage: "Bienvenido/a",
     });
@@ -338,8 +338,8 @@ describe("PostgresTribeWelcomeRepository", () => {
       linksHeading: "Recursos para empezar",
       selectionModalBenefit: null,
       selectionModalDescription:
-        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-      selectionModalTitle: "Elegí una opción para empezar",
+        "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+      selectionModalTitle: "Elegí cómo querés empezar",
       tribeSlug: "matematica-pro",
       welcomeMessage: "Bienvenido/a",
     });

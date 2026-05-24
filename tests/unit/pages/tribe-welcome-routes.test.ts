@@ -51,8 +51,8 @@ const DEFAULT_SELECTION_MODAL_PAYLOAD = {
   linksHeading: "Recursos para empezar",
   selectionModalBenefit: null,
   selectionModalDescription:
-    "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-  selectionModalTitle: "Elegí una opción para empezar",
+    "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+  selectionModalTitle: "Elegí cómo querés empezar",
 };
 
 function buildRequest(body: unknown = {}): Request {
@@ -103,9 +103,9 @@ describe("Tribe welcome routes", () => {
     ],
     selectionModalBenefit: null,
     selectionModalDescription:
-      "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-    selectionModalTitle: "Elegí una opción para empezar",
-    welcomeMessage: "Bienvenido/a a la tribu",
+      "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+    selectionModalTitle: "Elegí cómo querés empezar",
+    welcomeMessage: "Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar.",
   };
 
   beforeEach(() => {
@@ -210,8 +210,8 @@ describe("Tribe welcome routes", () => {
       rules: [],
       selectionModalBenefit: null,
       selectionModalDescription:
-        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-      selectionModalTitle: "Elegí una opción para empezar",
+        "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+      selectionModalTitle: "Elegí cómo querés empezar",
       tribeSlug: "matematica-pro",
       welcomeMessage: "Bienvenido/a",
     });
@@ -251,8 +251,8 @@ describe("Tribe welcome routes", () => {
       rules: [],
       selectionModalBenefit: null,
       selectionModalDescription:
-        "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-      selectionModalTitle: "Elegí una opción para empezar",
+        "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+      selectionModalTitle: "Elegí cómo querés empezar",
       tribeSlug: "matematica-pro",
       welcomeMessage: "Bienvenido/a",
     });

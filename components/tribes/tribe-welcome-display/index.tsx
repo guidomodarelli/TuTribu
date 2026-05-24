@@ -15,7 +15,7 @@ import styles from "./styles.module.scss";
 
 const TRIBE_WELCOME_DISPLAY_COPY = {
   agreementsHeading: "Acuerdos de convivencia",
-  benefitEyebrow: "Beneficio",
+  benefitEyebrow: "Beneficio por seleccionar una opción",
   defaultHeading: "Bienvenido/a",
   fallbackError:
     "No pudimos registrar tu elección. Probá de nuevo en unos minutos.",

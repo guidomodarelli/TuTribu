@@ -9,7 +9,7 @@ import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-we
 import styles from "./styles.module.scss";
 
 const TRIBE_WELCOME_SELECTION_MODAL_COPY = {
-  benefitEyebrow: "Beneficio",
+  benefitEyebrow: "Beneficio por seleccionar una opción",
   closeLabel: "Cerrar",
   fallbackError:
     "No pudimos registrar tu elección. Probá de nuevo en unos minutos.",

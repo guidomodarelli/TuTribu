@@ -36,10 +36,12 @@ const TRIBE_WELCOME_MANAGEMENT_COPY = {
   badgeLabelHelper: (current: number, max: number) =>
     `${current}${BADGE_LABEL_COUNTER_SEPARATOR}${max}`,
   badgeLabelHint:
-    "Aparece como chip junto a cada miembro que lo elige. Usá un texto breve y claro, en oraciones.",
-  badgeLabelLabel: "Texto del badge",
+    "Aparece como chip junto a cada miembro que eligió este recurso, en la sección Miembros de la tribu. Usá un texto breve y claro.",
+  badgeLabelLabel: "Etiqueta para miembros",
   badgeLabelPlaceholder: "Ej.: Cambiar asesor",
-  linkDescriptionLabel: "Descripción",
+  linkDescriptionLabel: "Descripción del recurso",
+  linkDescriptionHint:
+    "Texto opcional que aparece debajo del título del recurso, tanto en la pantalla de bienvenida como en el modal de selección.",
   linkDescriptionPlaceholder: "Ej.: Para cambiar tu asesor en IOL",
   defaultBadge: "Predeterminado",
   editDescriptionPrimary:
@@ -51,17 +53,26 @@ const TRIBE_WELCOME_MANAGEMENT_COPY = {
   emptyRules: "Aún no agregaste acuerdos.",
   fallbackSaveError: "No pudimos guardar la bienvenida.",
   legendOf: "de",
-  linkLabel: "Texto del link",
+  linkLabel: "Título del recurso",
+  linkLabelHint:
+    "Texto principal del botón. Es lo que ven los miembros en la pantalla de bienvenida y en el modal de selección.",
   linkLabelPlaceholder: "Ej.: Unirse al canal",
-  linkLegendPrefix: "Link",
-  linkMessageLabel: "Mensaje personalizado",
+  linkLegendPrefix: "Recurso",
+  linkMessageLabel: "Mensaje precargado de WhatsApp",
+  linkMessageHint:
+    "Texto que se carga automáticamente en el chat de WhatsApp cuando un miembro toca el botón del recurso.",
   linkMessagePlaceholder: "Ej.: Hola, vengo",
-  linkPhoneLabel: "Teléfono de WhatsApp",
+  linkPhoneLabel: "Número de WhatsApp",
+  linkPhoneHint:
+    "Número en formato internacional al que se abre el chat cuando un miembro elige el recurso.",
   linkPhonePlaceholder: "+54 9 11 1234 5678",
-  linkTypeLabel: "Tipo de link",
-  linkUrlHelper: "Pegá un enlace completo, incluido https://",
+  linkTypeLabel: "Tipo de recurso",
+  linkTypeHint:
+    "Define cómo se abre el recurso cuando un miembro lo elige: con un enlace propio o iniciando una conversación de WhatsApp.",
+  linkUrlHelper:
+    "A dónde lleva el recurso al elegirlo. Pegá un enlace completo, incluido https://",
   linkUrlInvalid: "Ingresá una URL válida que empiece con http:// o https://",
-  linkUrlLabel: "URL",
+  linkUrlLabel: "URL de destino",
   linkUrlPlaceholder: "https://...",
   previewEyebrow: "Vista previa",
   previewModalButton: "Ver modal de selección",
@@ -75,6 +86,8 @@ const TRIBE_WELCOME_MANAGEMENT_COPY = {
   resetDefaultLabel: "Restaurar predeterminado",
   resourcesHeading: "Recursos y links",
   ruleLabel: "Acuerdo",
+  ruleHint:
+    "Cada acuerdo se muestra como un punto numerado en la pantalla de bienvenida, bajo 'Acuerdos de convivencia'.",
   ruleLegendPrefix: "Acuerdo",
   rulePlaceholder: "Ej.: Respetar el descanso",
   rulesHeading: "Acuerdos de convivencia",
@@ -99,7 +112,15 @@ const TRIBE_WELCOME_MANAGEMENT_COPY = {
   selectionModalBenefitPlaceholder:
     "Ej.: Te entregamos una guía bonus cuando elegís una opción. La entrega es externa, la coordina el líder o el equipo.",
   selectionModalBenefitHint:
-    "Texto libre para describir el premio. La entrega es externa (la coordina el líder o el equipo).",
+    "Se muestra como bloque destacado dentro del modal de selección y también en la pantalla de bienvenida, encima de la lista de recursos. La entrega la coordina el líder o el equipo. Dejalo vacío si no querés ofrecer ninguno.",
+  welcomeMessageHint:
+    "Aparece en la pantalla de bienvenida que ven los miembros al entrar a la tribu, debajo del saludo. Es lo primero que leen al ingresar.",
+  selectionModalTitleHint:
+    "Encabezado del pop-up que se abre la primera vez que un miembro entra y todavía no eligió ninguna opción.",
+  selectionModalDescriptionHint:
+    "Acompaña al título del modal y aclara qué pasa al elegir una opción.",
+  linksHeadingHint:
+    "Título que aparece sobre la lista de recursos en la pantalla de bienvenida.",
   linksHeadingLabel: "Encabezado de recursos",
   linksHeadingPlaceholder: "Ej.: Recursos para empezar",
   requiredSelectionModalTitle: "Ingresá un título para el modal.",
@@ -783,6 +804,9 @@ export function TribeWelcomeManagement({
             >
               {TRIBE_WELCOME_MANAGEMENT_COPY.welcomeMessageLabel}
             </label>
+            <span className={styles.TribeWelcomeManagement__fieldHelper}>
+              {TRIBE_WELCOME_MANAGEMENT_COPY.welcomeMessageHint}
+            </span>
             <Textarea
               className={styles.TribeWelcomeManagement__textarea}
               id={welcomeMessageId}
@@ -822,6 +846,9 @@ export function TribeWelcomeManagement({
                 TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalTitleLabel
               )}
             </label>
+            <span className={styles.TribeWelcomeManagement__fieldHelper}>
+              {TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalTitleHint}
+            </span>
             <Input
               aria-describedby={
                 showSelectionModalTitleError
@@ -874,6 +901,9 @@ export function TribeWelcomeManagement({
                 TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalDescriptionLabel
               )}
             </label>
+            <span className={styles.TribeWelcomeManagement__fieldHelper}>
+              {TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalDescriptionHint}
+            </span>
             <Textarea
               aria-describedby={
                 showSelectionModalDescriptionError
@@ -928,6 +958,9 @@ export function TribeWelcomeManagement({
             >
               {TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitLabel}
             </label>
+            <span className={styles.TribeWelcomeManagement__fieldHelper}>
+              {TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitHint}
+            </span>
             <Textarea
               className={styles.TribeWelcomeManagement__textarea}
               id={selectionModalBenefitId}
@@ -941,9 +974,6 @@ export function TribeWelcomeManagement({
               rows={3}
               value={selectionModalBenefit}
             />
-            <span className={styles.TribeWelcomeManagement__fieldHelper}>
-              {TRIBE_WELCOME_MANAGEMENT_COPY.selectionModalBenefitHint}
-            </span>
           </div>
 
           <div className={styles.TribeWelcomeManagement__field}>
@@ -955,6 +985,9 @@ export function TribeWelcomeManagement({
                 TRIBE_WELCOME_MANAGEMENT_COPY.linksHeadingLabel
               )}
             </label>
+            <span className={styles.TribeWelcomeManagement__fieldHelper}>
+              {TRIBE_WELCOME_MANAGEMENT_COPY.linksHeadingHint}
+            </span>
             <Input
               aria-describedby={
                 showLinksHeadingError ? linksHeadingErrorId : undefined
@@ -1086,6 +1119,11 @@ export function TribeWelcomeManagement({
                     </Button>
                   </div>
                   <div className={styles.TribeWelcomeManagement__rowField}>
+                    <span
+                      className={styles.TribeWelcomeManagement__fieldHelper}
+                    >
+                      {TRIBE_WELCOME_MANAGEMENT_COPY.ruleHint}
+                    </span>
                     <Textarea
                       aria-describedby={
                         showRuleLabelError ? ruleErrorId : undefined
@@ -1197,6 +1235,11 @@ export function TribeWelcomeManagement({
                         styles["TribeWelcomeManagement__field--full"]
                       }
                     >
+                      <span
+                        className={styles.TribeWelcomeManagement__fieldHelper}
+                      >
+                        {TRIBE_WELCOME_MANAGEMENT_COPY.linkTypeHint}
+                      </span>
                       <select
                         className={styles.TribeWelcomeManagement__select}
                         id={linkTypeSelectId}
@@ -1243,6 +1286,13 @@ export function TribeWelcomeManagement({
                             value={link.phoneNumber ?? ""}
                           />
                         </label>
+                        <span
+                          className={
+                            styles.TribeWelcomeManagement__fieldHelper
+                          }
+                        >
+                          {TRIBE_WELCOME_MANAGEMENT_COPY.linkPhoneHint}
+                        </span>
                         {showPhoneError ? (
                           <span
                             className={
@@ -1335,6 +1385,13 @@ export function TribeWelcomeManagement({
                           value={link.label}
                         />
                       </label>
+                      <span
+                        className={
+                          styles.TribeWelcomeManagement__fieldHelper
+                        }
+                      >
+                        {TRIBE_WELCOME_MANAGEMENT_COPY.linkLabelHint}
+                      </span>
                       {showLinkLabelError ? (
                         <span
                           className={
@@ -1346,26 +1403,35 @@ export function TribeWelcomeManagement({
                         </span>
                       ) : null}
                     </div>
-                    <label className={styles.TribeWelcomeManagement__field}>
+                    <div className={styles.TribeWelcomeManagement__fieldGroup}>
+                      <label className={styles.TribeWelcomeManagement__field}>
+                        <span
+                          className={
+                            styles.TribeWelcomeManagement__fieldLabel
+                          }
+                        >
+                          {TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionLabel}
+                        </span>
+                        <Textarea
+                          className={styles.TribeWelcomeManagement__textarea}
+                          onChange={(event) =>
+                            updateLink(link.id, {
+                              description: event.target.value || null,
+                            })
+                          }
+                          placeholder={
+                            TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionPlaceholder
+                          }
+                          rows={2}
+                          value={link.description ?? ""}
+                        />
+                      </label>
                       <span
-                        className={styles.TribeWelcomeManagement__fieldLabel}
+                        className={styles.TribeWelcomeManagement__fieldHelper}
                       >
-                        {TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionLabel}
+                        {TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionHint}
                       </span>
-                      <Textarea
-                        className={styles.TribeWelcomeManagement__textarea}
-                        onChange={(event) =>
-                          updateLink(link.id, {
-                            description: event.target.value || null,
-                          })
-                        }
-                        placeholder={
-                          TRIBE_WELCOME_MANAGEMENT_COPY.linkDescriptionPlaceholder
-                        }
-                        rows={2}
-                        value={link.description ?? ""}
-                      />
-                    </label>
+                    </div>
                     <div
                       className={styles.TribeWelcomeManagement__fieldGroup}
                     >
@@ -1424,30 +1490,43 @@ export function TribeWelcomeManagement({
                       )}
                     </div>
                     {link.type === TRIBE_WELCOME_LINK_TYPE.whatsappButton ? (
-                      <label
-                        className={styles.TribeWelcomeManagement__field}
+                      <div
+                        className={styles.TribeWelcomeManagement__fieldGroup}
                       >
+                        <label
+                          className={styles.TribeWelcomeManagement__field}
+                        >
+                          <span
+                            className={
+                              styles.TribeWelcomeManagement__fieldLabel
+                            }
+                          >
+                            {TRIBE_WELCOME_MANAGEMENT_COPY.linkMessageLabel}
+                          </span>
+                          <Textarea
+                            className={
+                              styles.TribeWelcomeManagement__textarea
+                            }
+                            onChange={(event) =>
+                              updateLink(link.id, {
+                                message: event.target.value,
+                              })
+                            }
+                            placeholder={
+                              TRIBE_WELCOME_MANAGEMENT_COPY.linkMessagePlaceholder
+                            }
+                            rows={3}
+                            value={link.message ?? ""}
+                          />
+                        </label>
                         <span
                           className={
-                            styles.TribeWelcomeManagement__fieldLabel
+                            styles.TribeWelcomeManagement__fieldHelper
                           }
                         >
-                          {TRIBE_WELCOME_MANAGEMENT_COPY.linkMessageLabel}
+                          {TRIBE_WELCOME_MANAGEMENT_COPY.linkMessageHint}
                         </span>
-                        <Textarea
-                          className={styles.TribeWelcomeManagement__textarea}
-                          onChange={(event) =>
-                            updateLink(link.id, {
-                              message: event.target.value,
-                            })
-                          }
-                          placeholder={
-                            TRIBE_WELCOME_MANAGEMENT_COPY.linkMessagePlaceholder
-                          }
-                          rows={3}
-                          value={link.message ?? ""}
-                        />
-                      </label>
+                      </div>
                     ) : null}
                   </div>
                   <div className={styles.TribeWelcomeManagement__rowActions}>

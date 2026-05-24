@@ -144,14 +144,18 @@ export const tribeWelcomeSettings = pgTable("tribe_welcome_settings", {
   tribeId: uuid("tribe_id")
     .notNull()
     .references(() => tribes.id, { onDelete: "cascade" }),
-  welcomeMessage: text("welcome_message").notNull().default("Bienvenido/a a la tribu"),
+  welcomeMessage: text("welcome_message")
+    .notNull()
+    .default(
+      "Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar."
+    ),
   selectionModalTitle: text("selection_modal_title")
     .notNull()
-    .default("Elegí una opción para empezar"),
+    .default("Elegí cómo querés empezar"),
   selectionModalDescription: text("selection_modal_description")
     .notNull()
     .default(
-      "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde."
+      "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde."
     ),
   selectionModalBenefit: text("selection_modal_benefit"),
   linksHeading: text("links_heading").notNull().default("Recursos para empezar"),

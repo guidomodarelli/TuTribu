@@ -43,9 +43,9 @@ function buildWelcome() {
     ],
     selectionModalBenefit: null,
     selectionModalDescription:
-      "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-    selectionModalTitle: "Elegí una opción para empezar",
-    welcomeMessage: "Bienvenido/a a la tribu",
+      "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+    selectionModalTitle: "Elegí cómo querés empezar",
+    welcomeMessage: "Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar.",
   };
 }
 
@@ -275,15 +275,15 @@ describe("TribeWelcomeManagement", () => {
       "Saludar al entrar"
     );
     await user.type(
-      screen.getAllByLabelText("Texto del link").at(-1) as HTMLElement,
+      screen.getAllByLabelText("Título del recurso").at(-1) as HTMLElement,
       "Nuevo recurso"
     );
     await user.type(
-      screen.getAllByLabelText("URL").at(-1) as HTMLElement,
+      screen.getAllByLabelText("URL de destino").at(-1) as HTMLElement,
       "https://nuevo.example.com"
     );
     await user.type(
-      screen.getAllByLabelText("Texto del badge").at(-1) as HTMLElement,
+      screen.getAllByLabelText("Etiqueta para miembros").at(-1) as HTMLElement,
       "Nuevo badge"
     );
     await user.click(screen.getByRole("button", { name: "Guardar bienvenida" }));
@@ -374,7 +374,7 @@ describe("TribeWelcomeManagement", () => {
       screen.getByRole("button", { name: "Restaurar predeterminado" })
     );
 
-    expect(welcomeInput).toHaveValue("Bienvenido/a a la tribu");
+    expect(welcomeInput).toHaveValue("Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar.");
     expect(screen.getAllByText("Predeterminado")).toHaveLength(4);
   });
 
@@ -389,8 +389,8 @@ describe("TribeWelcomeManagement", () => {
           rules: [],
           selectionModalBenefit: null,
           selectionModalDescription:
-            "Elegí una opción para empezar. Cualquiera te da acceso a los recursos del grupo. Podés cerrar y elegir más tarde.",
-          selectionModalTitle: "Elegí una opción para empezar",
+            "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
+          selectionModalTitle: "Elegí cómo querés empezar",
           welcomeMessage: "Mensaje personalizado",
         }}
       />
@@ -427,10 +427,12 @@ describe("TribeWelcomeManagement", () => {
     );
 
     expect(
-      screen.getByText("Pegá un enlace completo, incluido https://")
+      screen.getByText(
+        "A dónde lleva el recurso al elegirlo. Pegá un enlace completo, incluido https://"
+      )
     ).toBeInTheDocument();
 
-    const urlInput = screen.getByLabelText("URL");
+    const urlInput = screen.getByLabelText("URL de destino");
 
     await user.type(urlInput, "not-a-url");
     await user.tab();
@@ -458,7 +460,7 @@ describe("TribeWelcomeManagement", () => {
     });
 
     expect(preview).toBeInTheDocument();
-    expect(preview).toHaveTextContent("Bienvenido/a a la tribu");
+    expect(preview).toHaveTextContent("Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar.");
     expect(preview).toHaveTextContent("Presentate al entrar");
 
     const welcomeInput = screen.getByLabelText("Mensaje de bienvenida");
@@ -487,7 +489,7 @@ describe("TribeWelcomeManagement", () => {
     await user.click(openModalButton);
 
     const dialog = await screen.findByRole("dialog", {
-      name: "Elegí una opción para empezar",
+      name: "Elegí cómo querés empezar",
     });
 
     expect(dialog).toBeInTheDocument();
@@ -506,7 +508,7 @@ describe("TribeWelcomeManagement", () => {
     await waitFor(() => {
       expect(
         screen.queryByRole("dialog", {
-          name: "Elegí una opción para empezar",
+          name: "Elegí cómo querés empezar",
         })
       ).not.toBeInTheDocument();
     });

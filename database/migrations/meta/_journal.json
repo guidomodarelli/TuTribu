@@ -232,6 +232,13 @@
       "when": 1779526800000,
       "tag": "20260523130000_add_selection_modal_fields_to_tribe_welcome",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1779598800000,
+      "tag": "20260524090000_refresh_tribe_welcome_defaults",
+      "breakpoints": true
     }
   ]
 }
