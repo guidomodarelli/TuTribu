@@ -133,6 +133,41 @@ describe("TribeWelcomeManagement", () => {
     expect(toast.success).toHaveBeenCalledWith("Bienvenida actualizada.");
   });
 
+  it(
+    "keeps the save button disabled until there are unsaved changes and disables it again after a successful save",
+    async () => {
+      const user = userEvent.setup();
+
+      render(
+        <TribeWelcomeManagement
+          canEdit
+          tribeSlug="matematica-pro"
+          welcome={buildWelcome()}
+        />
+      );
+
+      const saveButton = screen.getByRole("button", { name: "Guardar" });
+
+      expect(saveButton).toBeDisabled();
+
+      await user.type(
+        screen.getByLabelText("Mensaje de bienvenida"),
+        "!"
+      );
+
+      expect(saveButton).toBeEnabled();
+
+      await user.click(saveButton);
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalled();
+      });
+      await waitFor(() => {
+        expect(saveButton).toBeDisabled();
+      });
+    }
+  );
+
   it("offers only custom and WhatsApp link types", () => {
     render(
       <TribeWelcomeManagement
@@ -329,6 +364,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
+    await user.type(screen.getByLabelText("Mensaje de bienvenida"), " ");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -559,6 +595,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
+    await user.type(screen.getByLabelText("Mensaje de bienvenida"), " ");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -586,6 +623,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
+    await user.type(screen.getByLabelText("Mensaje de bienvenida"), " ");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -620,6 +658,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
+    await user.type(screen.getByLabelText("Mensaje de bienvenida"), " ");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -682,6 +721,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
+    await user.type(screen.getByLabelText("Mensaje de bienvenida"), " ");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -718,6 +758,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
+    await user.type(screen.getByLabelText("Mensaje de bienvenida"), " ");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => {
@@ -752,6 +793,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
+    await user.type(screen.getByLabelText("Mensaje de bienvenida"), " ");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => {
@@ -793,6 +835,7 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
+    await user.type(screen.getByLabelText("Mensaje de bienvenida"), " ");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();

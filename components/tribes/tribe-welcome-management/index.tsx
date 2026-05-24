@@ -434,6 +434,68 @@ function collectInvalidLabelLinkIds(
   );
 }
 
+function areRulesEqual(
+  a: TribeWelcomeRuleResult[],
+  b: TribeWelcomeRuleResult[]
+): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  return a.every((ruleA, index) => {
+    const ruleB = b[index];
+
+    return (
+      ruleA.id === ruleB.id &&
+      ruleA.isActive === ruleB.isActive &&
+      ruleA.label === ruleB.label &&
+      ruleA.sortOrder === ruleB.sortOrder
+    );
+  });
+}
+
+function areLinksEqual(
+  a: TribeWelcomeLinkResult[],
+  b: TribeWelcomeLinkResult[]
+): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  return a.every((linkA, index) => {
+    const linkB = b[index];
+
+    return (
+      linkA.id === linkB.id &&
+      linkA.isActive === linkB.isActive &&
+      linkA.label === linkB.label &&
+      linkA.badgeLabel === linkB.badgeLabel &&
+      (linkA.description ?? null) === (linkB.description ?? null) &&
+      (linkA.message ?? null) === (linkB.message ?? null) &&
+      (linkA.phoneNumber ?? null) === (linkB.phoneNumber ?? null) &&
+      linkA.sortOrder === linkB.sortOrder &&
+      linkA.type === linkB.type &&
+      (linkA.url ?? null) === (linkB.url ?? null)
+    );
+  });
+}
+
+function areWelcomesEqual(
+  current: TribeWelcomeResult,
+  saved: TribeWelcomeResult
+): boolean {
+  return (
+    current.welcomeMessage === saved.welcomeMessage &&
+    current.selectionModalTitle === saved.selectionModalTitle &&
+    current.selectionModalDescription === saved.selectionModalDescription &&
+    (current.selectionModalBenefit ?? null) ===
+      (saved.selectionModalBenefit ?? null) &&
+    current.linksHeading === saved.linksHeading &&
+    areRulesEqual(current.rules, saved.rules) &&
+    areLinksEqual(current.links, saved.links)
+  );
+}
+
 async function submitWelcomeUpdate(
   tribeSlug: string,
   welcome: TribeWelcomeResult
@@ -495,6 +557,8 @@ export function TribeWelcomeManagement({
     ReadonlySet<string>
   >(() => new Set());
   const [isSaving, setIsSaving] = useState(false);
+  const [savedWelcome, setSavedWelcome] =
+    useState<TribeWelcomeResult>(welcome);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const phoneErrorIdPrefix = useId();
   const urlErrorIdPrefix = useId();
@@ -537,6 +601,10 @@ export function TribeWelcomeManagement({
   const hasActivePreviewLinks = useMemo(
     () => links.some((link) => link.isActive),
     [links]
+  );
+  const isDirty = useMemo(
+    () => !areWelcomesEqual(currentWelcome, savedWelcome),
+    [currentWelcome, savedWelcome]
   );
   const isWelcomeMessageDefault =
     welcomeMessage.trim() === DEFAULT_TRIBE_WELCOME_MESSAGE;
@@ -716,6 +784,7 @@ export function TribeWelcomeManagement({
         sanitizeWelcomeForSave(currentWelcome)
       );
 
+      setSavedWelcome(currentWelcome);
       toast.success(message);
     } catch (error) {
       toast.error(
@@ -1622,7 +1691,7 @@ export function TribeWelcomeManagement({
 
         <Button
           className={styles.TribeWelcomeManagement__submit}
-          disabled={isSaving}
+          disabled={isSaving || !isDirty}
           type={WELCOME_MANAGEMENT_REQUEST.submitButtonType}
         >
           {TRIBE_WELCOME_MANAGEMENT_COPY.saveButton}
