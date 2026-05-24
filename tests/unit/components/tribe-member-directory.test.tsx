@@ -2,7 +2,27 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { TribeMemberDirectory } from "@/components/tribes/tribe-member-directory";
+import { downloadTextFile } from "@/components/tribes/tribe-member-directory/export";
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
+
+jest.mock("@/components/tribes/tribe-member-directory/export", () => {
+  const actual = jest.requireActual(
+    "@/components/tribes/tribe-member-directory/export"
+  );
+
+  return {
+    ...actual,
+    downloadTextFile: jest.fn(),
+  };
+});
+
+const downloadTextFileMock = downloadTextFile as jest.MockedFunction<
+  typeof downloadTextFile
+>;
+
+beforeEach(() => {
+  downloadTextFileMock.mockClear();
+});
 
 const baseMembers: TribeMemberResult[] = [
   {
@@ -35,6 +55,7 @@ describe("TribeMemberDirectory", () => {
   it("renders every member when there is no search query and no filter", () => {
     render(
       <TribeMemberDirectory
+        canExportMembers={false}
         canInviteMembers={false}
         filterOptions={[]}
         members={baseMembers}
@@ -52,6 +73,7 @@ describe("TribeMemberDirectory", () => {
     const user = userEvent.setup();
     render(
       <TribeMemberDirectory
+        canExportMembers={false}
         canInviteMembers={false}
         filterOptions={[]}
         members={baseMembers}
@@ -74,6 +96,7 @@ describe("TribeMemberDirectory", () => {
     const user = userEvent.setup();
     render(
       <TribeMemberDirectory
+        canExportMembers={false}
         canInviteMembers={false}
         filterOptions={[]}
         members={baseMembers}
@@ -95,6 +118,7 @@ describe("TribeMemberDirectory", () => {
     const user = userEvent.setup();
     render(
       <TribeMemberDirectory
+        canExportMembers={false}
         canInviteMembers={false}
         filterOptions={[]}
         members={baseMembers}
@@ -117,6 +141,7 @@ describe("TribeMemberDirectory", () => {
     const user = userEvent.setup();
     render(
       <TribeMemberDirectory
+        canExportMembers={false}
         canInviteMembers={false}
         filterOptions={[{ id: "link-1", label: "Soporte" }]}
         members={baseMembers}
@@ -143,6 +168,7 @@ describe("TribeMemberDirectory", () => {
     const user = userEvent.setup();
     const { rerender } = render(
       <TribeMemberDirectory
+        canExportMembers={false}
         canInviteMembers={false}
         filterOptions={[{ id: "link-1", label: "Soporte" }]}
         members={baseMembers}
@@ -160,6 +186,7 @@ describe("TribeMemberDirectory", () => {
 
     rerender(
       <TribeMemberDirectory
+        canExportMembers={false}
         canInviteMembers={false}
         filterOptions={[{ id: "link-2", label: "Mentoría" }]}
         members={baseMembers}
@@ -176,9 +203,85 @@ describe("TribeMemberDirectory", () => {
     expect(screen.getByRole("button", { name: "Todos (3)" })).toBeInTheDocument();
   });
 
+  it("hides the export trigger when the viewer cannot export members", () => {
+    render(
+      <TribeMemberDirectory
+        canExportMembers={false}
+        canInviteMembers={false}
+        filterOptions={[]}
+        members={baseMembers}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Exportar" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("triggers a CSV download with the filtered members when exporting to CSV", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeMemberDirectory
+        canExportMembers={true}
+        canInviteMembers={false}
+        filterOptions={[]}
+        members={baseMembers}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.type(
+      screen.getByRole("searchbox", { name: "Buscar miembro" }),
+      "ada"
+    );
+    await user.click(screen.getByRole("button", { name: "Exportar" }));
+    await user.click(screen.getByRole("menuitem", { name: "Exportar a CSV" }));
+
+    expect(downloadTextFileMock).toHaveBeenCalledTimes(1);
+    const [csvContent, csvFilename, csvMimeType] =
+      downloadTextFileMock.mock.calls[0] ?? [];
+
+    expect(csvContent).toContain("Ada Lovelace");
+    expect(csvContent).not.toContain("Grace Hopper");
+    expect(csvFilename).toMatch(/^miembros-matematica-pro-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(csvMimeType).toContain("text/csv");
+  });
+
+  it("triggers an HTML download with every member when exporting to HTML", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeMemberDirectory
+        canExportMembers={true}
+        canInviteMembers={false}
+        filterOptions={[]}
+        members={baseMembers}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Exportar" }));
+    await user.click(screen.getByRole("menuitem", { name: "Exportar a HTML" }));
+
+    expect(downloadTextFileMock).toHaveBeenCalledTimes(1);
+    const [htmlContent, htmlFilename, htmlMimeType] =
+      downloadTextFileMock.mock.calls[0] ?? [];
+
+    expect(htmlContent).toContain("<table>");
+    expect(htmlContent).toContain("Ada Lovelace");
+    expect(htmlContent).toContain("Grace Hopper");
+    expect(htmlContent).toContain("Katherine Johnson");
+    expect(htmlFilename).toMatch(/^miembros-matematica-pro-\d{4}-\d{2}-\d{2}\.html$/);
+    expect(htmlMimeType).toContain("text/html");
+  });
+
   it("renders the invite CTA only when the viewer can invite", () => {
     const { rerender } = render(
       <TribeMemberDirectory
+        canExportMembers={false}
         canInviteMembers={false}
         filterOptions={[]}
         members={baseMembers}
@@ -193,6 +296,7 @@ describe("TribeMemberDirectory", () => {
 
     rerender(
       <TribeMemberDirectory
+        canExportMembers={false}
         canInviteMembers={true}
         filterOptions={[]}
         members={baseMembers}

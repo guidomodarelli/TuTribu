@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { DownloadIcon } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import {
@@ -8,12 +9,31 @@ import {
   type TribeMemberSelectionBadge,
 } from "@/components/tribes/tribe-member-list";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
+import {
+  buildMembersCsv,
+  buildMembersExportFilename,
+  buildMembersHtml,
+  downloadTextFile,
+  MEMBER_EXPORT_FORMAT,
+  MEMBER_EXPORT_MIME_TYPE,
+  type MemberExportFormat,
+} from "./export";
 import styles from "./styles.module.scss";
 
 const TRIBE_MEMBER_DIRECTORY_COPY = {
   allFilterLabel: "Todos",
+  exportCsvLabel: "Exportar a CSV",
+  exportHtmlLabel: "Exportar a HTML",
+  exportMenuLabel: "Elegir formato de exportación",
+  exportTriggerLabel: "Exportar",
   filterListLabel: "Filtrar miembros por elección",
   headingId: "tribe-member-directory-title",
   inviteCtaLabel: "Invitar miembro",
@@ -22,6 +42,16 @@ const TRIBE_MEMBER_DIRECTORY_COPY = {
   searchPlaceholder: "Buscar por nombre o email",
   subtitle: "Personas que forman parte de esta tribu.",
   title: "Miembros",
+} as const;
+
+const EXPORT_BUTTON = {
+  iconAriaHidden: true,
+  triggerVariant: "outline",
+} as const;
+
+const EXPORT_MENU = {
+  align: "end",
+  side: "bottom",
 } as const;
 
 const SEARCH_INPUT_TYPE = "search";
@@ -53,6 +83,7 @@ type TribeMemberFilterOption = {
 };
 
 type TribeMemberDirectoryProps = {
+  canExportMembers: boolean;
   canInviteMembers: boolean;
   filterOptions: TribeMemberFilterOption[];
   members: TribeMemberResult[];
@@ -123,6 +154,7 @@ function searchMembers(
 }
 
 export function TribeMemberDirectory({
+  canExportMembers,
   canInviteMembers,
   filterOptions,
   members,
@@ -162,6 +194,16 @@ export function TribeMemberDirectory({
   const showFilters = filterOptions.length > 0;
   const invitationsHref = `${INVITATIONS_PATH_PREFIX}${tribeSlug}${INVITATIONS_PATH_SUFFIX}`;
 
+  const handleExport = (format: MemberExportFormat) => {
+    const content =
+      format === MEMBER_EXPORT_FORMAT.csv
+        ? buildMembersCsv(filteredMembers, selectionsByMemberId)
+        : buildMembersHtml(filteredMembers, selectionsByMemberId, tribeSlug);
+    const filename = buildMembersExportFilename(tribeSlug, format);
+
+    downloadTextFile(content, filename, MEMBER_EXPORT_MIME_TYPE[format]);
+  };
+
   return (
     <section
       aria-labelledby={TRIBE_MEMBER_DIRECTORY_COPY.headingId}
@@ -179,17 +221,52 @@ export function TribeMemberDirectory({
             {TRIBE_MEMBER_DIRECTORY_COPY.subtitle}
           </p>
         </div>
-        {canInviteMembers ? (
-          <Button
-            asChild
-            className={styles.TribeMemberDirectory__inviteCta}
-            size={BUTTON_SIZE.small}
-          >
-            <Link href={invitationsHref}>
-              {TRIBE_MEMBER_DIRECTORY_COPY.inviteCtaLabel}
-            </Link>
-          </Button>
-        ) : null}
+        <div className={styles.TribeMemberDirectory__headerActions}>
+          {canExportMembers ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  className={styles.TribeMemberDirectory__exportTrigger}
+                  size={BUTTON_SIZE.small}
+                  variant={EXPORT_BUTTON.triggerVariant}
+                >
+                  <DownloadIcon
+                    aria-hidden={EXPORT_BUTTON.iconAriaHidden}
+                    className={styles.TribeMemberDirectory__exportTriggerIcon}
+                  />
+                  {TRIBE_MEMBER_DIRECTORY_COPY.exportTriggerLabel}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align={EXPORT_MENU.align}
+                aria-label={TRIBE_MEMBER_DIRECTORY_COPY.exportMenuLabel}
+                side={EXPORT_MENU.side}
+              >
+                <DropdownMenuItem
+                  onSelect={() => handleExport(MEMBER_EXPORT_FORMAT.csv)}
+                >
+                  {TRIBE_MEMBER_DIRECTORY_COPY.exportCsvLabel}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => handleExport(MEMBER_EXPORT_FORMAT.html)}
+                >
+                  {TRIBE_MEMBER_DIRECTORY_COPY.exportHtmlLabel}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+          {canInviteMembers ? (
+            <Button
+              asChild
+              className={styles.TribeMemberDirectory__inviteCta}
+              size={BUTTON_SIZE.small}
+            >
+              <Link href={invitationsHref}>
+                {TRIBE_MEMBER_DIRECTORY_COPY.inviteCtaLabel}
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </header>
 
       <Input

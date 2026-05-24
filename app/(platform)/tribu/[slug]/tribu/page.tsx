@@ -88,6 +88,10 @@ export default async function TribeTribePage({
     ? viewerMembership.membershipStatus === TRIBE_MEMBERSHIP_STATUS.active &&
       TRIBE_MANAGER_ROLES.has(viewerMembership.role)
     : false;
+  const canExportTribeMembers = viewerMembership
+    ? viewerMembership.membershipStatus === TRIBE_MEMBERSHIP_STATUS.active &&
+      viewerMembership.role === TRIBE_MANAGER_ROLE.leader
+    : false;
   const members = await modules.tribes.useCases
     .listVisibleTribeMembers({ tribeSlug: tribe.slug })
     .catch((error: unknown) => {
@@ -188,6 +192,7 @@ export default async function TribeTribePage({
   return (
     <main className={styles.TribeTribePage}>
       <TribeMemberDirectory
+        canExportMembers={canExportTribeMembers}
         canInviteMembers={canManageTribeMembers}
         filterOptions={filterOptions}
         members={members}

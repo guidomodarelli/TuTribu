@@ -592,6 +592,100 @@ describe("TribeTribePage", () => {
     }
   );
 
+  it("passes canExportMembers true only when the viewer is the leader of this tribe", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      avatarFallback: "GH",
+      email: "leader@example.com",
+      id: "member-1",
+      image: null,
+      name: "Grace Hopper",
+      role: "tribemate",
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "visible",
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+    getMemberTribes.mockResolvedValue([
+      {
+        membershipStatus: "active",
+        name: "Matematica Pro",
+        role: "leader",
+        slug: "matematica-pro",
+        tribeId: "tribe-1",
+      },
+    ]);
+    listVisibleTribeMembers.mockResolvedValue([]);
+
+    render(
+      await TribeTribePage({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      })
+    );
+
+    expect(mockTribeMemberDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        canExportMembers: true,
+      })
+    );
+  });
+
+  it.each([
+    ["guardian" as const],
+    ["tribemate" as const],
+  ])(
+    "passes canExportMembers false when the viewer is %s of this tribe",
+    async (role) => {
+      getAuthenticatedMember.mockResolvedValue({
+        avatarFallback: "GH",
+        email: "viewer@example.com",
+        id: "member-1",
+        image: null,
+        name: "Grace Hopper",
+        role: "tribemate",
+      });
+      getTribePageAccess.mockResolvedValue({
+        status: "visible",
+        tribe: {
+          id: "tribe-1",
+          name: "Matematica Pro",
+          slug: "matematica-pro",
+          visibility: "private",
+        },
+      });
+      getMemberTribes.mockResolvedValue([
+        {
+          membershipStatus: "active",
+          name: "Matematica Pro",
+          role,
+          slug: "matematica-pro",
+          tribeId: "tribe-1",
+        },
+      ]);
+      listVisibleTribeMembers.mockResolvedValue([]);
+
+      render(
+        await TribeTribePage({
+          params: Promise.resolve({
+            slug: "matematica-pro",
+          }),
+        })
+      );
+
+      expect(mockTribeMemberDirectory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canExportMembers: false,
+        })
+      );
+    }
+  );
+
   it("passes canInviteMembers false when the viewer is a tribemate", async () => {
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
