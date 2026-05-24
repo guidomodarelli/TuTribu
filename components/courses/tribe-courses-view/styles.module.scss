@@ -51,6 +51,11 @@
     display: grid;
     gap: 1.25rem;
     align-content: start;
+    order: 2;
+
+    @media (min-width: 64rem) {
+      order: 0;
+    }
   }
 
   &__moduleGroup {
@@ -108,6 +113,11 @@
     display: grid;
     gap: 1rem;
     align-content: start;
+    order: 1;
+
+    @media (min-width: 64rem) {
+      order: 0;
+    }
   }
 
   &__playerFrame {
