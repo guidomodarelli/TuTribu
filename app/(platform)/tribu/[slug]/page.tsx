@@ -36,6 +36,8 @@ const TRIBE_PAGE_LOG = {
   resolveRoundFailureMessage: "Failed to resolve tribe round",
   resolveSubscriptionReturnFailureMessage:
     "Failed to resolve subscription return",
+  unauthenticatedSubscriptionReturnMessage:
+    "Unauthenticated Mercado Pago subscription return",
 } as const;
 
 const TRIBE_PAGE_QUERY = {
@@ -148,19 +150,21 @@ function buildSubscriptionReturnSignInRedirect(
 }
 
 /**
- * Resolves the external-browser deep-link platform for detected in-app browsers.
+ * Resolves the external-browser deep-link platform for mobile visitors.
+ *
+ * The "unauthenticated + Mercado Pago preapproval return" combination is
+ * itself a strong signal of an in-app browser callback, so the platform
+ * is resolved purely from the device family. False positives (e.g. real
+ * Safari with a lost session) just trigger an in-browser navigation and
+ * keep the fallback link available.
  *
  * @param userAgent - Request user agent header value.
- * @returns Matching mobile platform, or null when the request is not from an in-app browser.
+ * @returns Matching mobile platform, or null on desktop or unknown UAs.
  */
 function resolveExternalBrowserPlatform(
   userAgent: string | null
 ): ExternalBrowserPlatform | null {
   const detection = detectInAppBrowser(userAgent);
-
-  if (!detection.isInAppBrowser) {
-    return null;
-  }
 
   if (detection.isIos) {
     return EXTERNAL_BROWSER_PLATFORM.ios;
@@ -242,9 +246,18 @@ export async function TribePageContent({
         mercadoPagoPreapprovalId
       );
       const requestHeaders = await headers();
-      const externalBrowserPlatform = resolveExternalBrowserPlatform(
-        requestHeaders.get(USER_AGENT_HEADER)
-      );
+      const userAgent = requestHeaders.get(USER_AGENT_HEADER);
+      const externalBrowserPlatform =
+        resolveExternalBrowserPlatform(userAgent);
+
+      logger.info({
+        message: TRIBE_PAGE_LOG.unauthenticatedSubscriptionReturnMessage,
+        metadata: {
+          externalBrowserPlatform,
+          slug,
+          userAgent,
+        },
+      });
 
       if (externalBrowserPlatform) {
         const targetHttpsUrl =

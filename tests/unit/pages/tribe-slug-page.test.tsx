@@ -507,7 +507,7 @@ describe("TribePage", () => {
     expect(listTribeRound).not.toHaveBeenCalled();
   });
 
-  it("redirects unauthenticated Mercado Pago returns to sign-in when the visitor is in regular iOS Safari", async () => {
+  it("renders the external browser handoff for regular iOS Safari so a lost session still recovers", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
       status: "hidden",
@@ -517,8 +517,8 @@ describe("TribePage", () => {
       buildUserAgentHeaders(IOS_SAFARI_USER_AGENT)
     );
 
-    await expect(
-      TribePageContent({
+    render(
+      await TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -526,16 +526,19 @@ describe("TribePage", () => {
           preapproval_id: "preapproval-1",
         }),
       })
-    ).rejects.toThrow("NEXT_REDIRECT");
+    );
 
     expect(notFound).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith(
-      "/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
+    expect(redirect).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("link", { name: "Continuar en tu navegador" })
+    ).toHaveAttribute(
+      "href",
+      "x-safari-https://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1"
     );
-    expect(listTribeRound).not.toHaveBeenCalled();
   });
 
-  it("redirects unauthenticated Mercado Pago returns to sign-in when the visitor is in regular Android Chrome", async () => {
+  it("renders the external browser handoff for regular Android Chrome so a lost session still recovers", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
       status: "hidden",
@@ -545,8 +548,8 @@ describe("TribePage", () => {
       buildUserAgentHeaders(CHROME_ANDROID_USER_AGENT)
     );
 
-    await expect(
-      TribePageContent({
+    render(
+      await TribePageContent({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
@@ -554,13 +557,16 @@ describe("TribePage", () => {
           preapproval_id: "preapproval-1",
         }),
       })
-    ).rejects.toThrow("NEXT_REDIRECT");
+    );
 
     expect(notFound).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith(
-      "/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
+    expect(redirect).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("link", { name: "Continuar en tu navegador" })
+    ).toHaveAttribute(
+      "href",
+      "intent://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end"
     );
-    expect(listTribeRound).not.toHaveBeenCalled();
   });
 
   it("renders the external browser handoff with an x-safari-https deep link for iOS in-app browsers", async () => {
