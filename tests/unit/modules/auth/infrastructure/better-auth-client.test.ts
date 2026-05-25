@@ -34,10 +34,10 @@ describe("Better Auth client", () => {
       "@/src/modules/auth/infrastructure/better-auth/client"
     );
 
-    await startGoogleSignIn("/tribu/crear");
+    await startGoogleSignIn("/-/crear");
 
     expect(socialSignInMock).toHaveBeenCalledWith({
-      callbackURL: "/tribu/crear",
+      callbackURL: "/-/crear",
       errorCallbackURL: "/auth/error",
       provider: "google",
     });
@@ -65,7 +65,7 @@ describe("Better Auth client", () => {
       "@/src/modules/auth/infrastructure/better-auth/client"
     );
 
-    await expect(startGoogleSignIn("/tribu/crear")).rejects.toThrow(
+    await expect(startGoogleSignIn("/-/crear")).rejects.toThrow(
       "origin_mismatch"
     );
   });

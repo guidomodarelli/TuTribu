@@ -218,7 +218,7 @@ describe("mercado pago subscription gateway", () => {
       createMercadoPagoPreapprovalPlan({
         accessToken: "access-token",
         amountCents: 120000,
-        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
+        backUrl: "https://tutribu.example.com/matematica-pro",
         currency: "ARS",
         externalReference: "tutribu:price:price-1",
         idempotencyKey: "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",
@@ -243,7 +243,7 @@ describe("mercado pago subscription gateway", () => {
             },
             transaction_amount: 1200,
           },
-          back_url: "https://tutribu.example.com/tribu/matematica-pro",
+          back_url: "https://tutribu.example.com/matematica-pro",
           external_reference: "tutribu:price:price-1",
           reason: "Plan mensual",
         }),
@@ -276,7 +276,7 @@ describe("mercado pago subscription gateway", () => {
     await expect(
       updateMercadoPagoPreapprovalPlan({
         accessToken: "access-token",
-        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
+        backUrl: "https://tutribu.example.com/matematica-pro",
         externalReference: "tutribu:price:price-1",
         preapprovalPlanId: "plan-1",
         reason: "Plan actualizado",
@@ -304,7 +304,7 @@ describe("mercado pago subscription gateway", () => {
               frequency_type: "days",
             },
           },
-          back_url: "https://tutribu.example.com/tribu/matematica-pro",
+          back_url: "https://tutribu.example.com/matematica-pro",
           external_reference: "tutribu:price:price-1",
           reason: "Plan actualizado",
           status: "active",
@@ -406,7 +406,7 @@ describe("mercado pago subscription gateway", () => {
       createMercadoPagoPreapprovalPlan({
         accessToken: "access-token",
         amountCents: 120000,
-        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
+        backUrl: "https://tutribu.example.com/matematica-pro",
         currency: "ARS",
         externalReference: "tutribu:price:price-1",
         idempotencyKey: "operation-1",
@@ -485,7 +485,7 @@ describe("mercado pago subscription gateway", () => {
       createMercadoPagoPreapprovalSubscription({
         accessToken: "access-token",
         amountCents: 1500,
-        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
+        backUrl: "https://tutribu.example.com/matematica-pro",
         currency: "ARS",
         externalReference: "subscription-1",
         idempotencyKey: "member-subscription-1",
@@ -503,7 +503,7 @@ describe("mercado pago subscription gateway", () => {
       "https://api.mercadopago.com/preapproval",
       expect.objectContaining({
         body: JSON.stringify({
-          back_url: "https://tutribu.example.com/tribu/matematica-pro",
+          back_url: "https://tutribu.example.com/matematica-pro",
           external_reference: "subscription-1",
           payer_email: "member@example.com",
           preapproval_plan_id: "plan-1",
@@ -573,7 +573,7 @@ describe("mercado pago subscription gateway", () => {
       createMercadoPagoPreapprovalPlan({
         accessToken: "access-token",
         amountCents: 120000,
-        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
+        backUrl: "https://tutribu.example.com/matematica-pro",
         currency: "ARS",
         externalReference: "tutribu:price:price-1",
         idempotencyKey: "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",
@@ -596,7 +596,7 @@ describe("mercado pago subscription gateway", () => {
       createMercadoPagoPreapprovalPlan({
         accessToken: "access-token",
         amountCents: 120000,
-        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
+        backUrl: "https://tutribu.example.com/matematica-pro",
         currency: "ARS",
         externalReference: "tutribu:price:price-1",
         idempotencyKey: "tribe-price:matematica-pro:Plan mensual:120000:ARS:monthly",

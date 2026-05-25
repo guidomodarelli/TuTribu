@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import TribeInvitationPage, {
   acceptInvitationAction,
   startInvitationSubscriptionAction,
-} from "@/app/(platform)/tribu/[slug]/invitar/[token]/page";
+} from "@/app/(platform)/[slug]/invitar/[token]/page";
 import { createRequestModules } from "@/src/modules/setup";
 
 const mockGetSession = jest.fn();
@@ -113,7 +113,7 @@ describe("TribeInvitationPage", () => {
     await expect(TribeInvitationPage(buildPageProps())).rejects.toThrow("NEXT_REDIRECT");
 
     expect(redirect).toHaveBeenCalledWith(
-      "/auth/signin?callbackUrl=/tribu/matematica-pro/invitar/invitation-token"
+      "/auth/signin?callbackUrl=/matematica-pro/invitar/invitation-token"
     );
     expect(acceptTribeInvitation).not.toHaveBeenCalled();
   });
@@ -189,7 +189,7 @@ describe("TribeInvitationPage", () => {
       tribeSlug: "matematica-pro",
     });
     expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
-    expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro/bienvenida");
+    expect(redirect).toHaveBeenCalledWith("/matematica-pro/bienvenida");
   });
 
   it("renders a safe Spanish message for blocked members", async () => {
@@ -224,7 +224,7 @@ describe("TribeInvitationPage", () => {
     ).rejects.toThrow("NEXT_REDIRECT");
 
     expect(redirect).toHaveBeenCalledWith(
-      "/tribu/matematica-pro/invitar/invitation-token?status=invalid"
+      "/matematica-pro/invitar/invitation-token?status=invalid"
     );
     expect(revalidatePath).not.toHaveBeenCalled();
   });
@@ -254,7 +254,7 @@ describe("TribeInvitationPage", () => {
       tribeSlug: "matematica-pro",
     });
     expect(redirect).toHaveBeenCalledWith(
-      "/tribu/matematica-pro/invitar/invitation-token?status=payment_blocked"
+      "/matematica-pro/invitar/invitation-token?status=payment_blocked"
     );
   });
 
@@ -294,7 +294,7 @@ describe("TribeInvitationPage", () => {
     ).rejects.toThrow("NEXT_REDIRECT");
 
     expect(redirect).toHaveBeenCalledWith(
-      "/tribu/matematica-pro/invitar/invitation-token?status=payment_blocked"
+      "/matematica-pro/invitar/invitation-token?status=payment_blocked"
     );
   });
 
@@ -307,7 +307,7 @@ describe("TribeInvitationPage", () => {
     const tribeLink = screen.getByRole("link", { name: "Ir a la tribu" });
 
     expect(tribeLink).toBeInTheDocument();
-    expect(tribeLink).toHaveAttribute("href", "/tribu/matematica-pro");
+    expect(tribeLink).toHaveAttribute("href", "/matematica-pro");
   });
 
   it("renders a safe Spanish message when payment cannot start", async () => {

@@ -743,7 +743,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ]);
     expect(createMercadoPagoPlan).toHaveBeenCalledWith(
       expect.objectContaining({
-        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
+        backUrl: "https://tutribu.example.com/matematica-pro",
         externalReference: "tutribu:price:price-1",
         idempotencyKey:
           "tribe-price:price-1:matematica-pro:Plan mensual:500000:ARS:monthly",
@@ -1067,7 +1067,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(createMercadoPagoPlan).toHaveBeenCalledWith(
       expect.objectContaining({
         accessToken: "fresh-access-token",
-        backUrl: "https://tutribu.example.com/tribu/matematica-pro",
+        backUrl: "https://tutribu.example.com/matematica-pro",
       })
     );
     expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(

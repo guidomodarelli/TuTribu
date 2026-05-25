@@ -58,15 +58,15 @@ describe("TribeEventsCalendar", () => {
     expect(screen.getByRole("heading", { name: "Mayo 2026" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Mes anterior" })).toHaveAttribute(
       "href",
-      "/tribu/matematica-pro/eventos?month=2026-04"
+      "/matematica-pro/eventos?month=2026-04"
     );
     expect(screen.getByRole("link", { name: "Mes siguiente" })).toHaveAttribute(
       "href",
-      "/tribu/matematica-pro/eventos?month=2026-06"
+      "/matematica-pro/eventos?month=2026-06"
     );
     expect(screen.getByRole("link", { name: "Hoy" })).toHaveAttribute(
       "href",
-      expect.stringMatching(/\/tribu\/matematica-pro\/eventos\?month=\d{4}-\d{2}/)
+      expect.stringMatching(/\/matematica-pro\/eventos\?month=\d{4}-\d{2}/)
     );
     expect(
       screen.getByRole("table", { name: "Calendario mensual de eventos" })

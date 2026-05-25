@@ -18,7 +18,7 @@ const baseInvitation = {
   createdByName: "Grace Hopper",
   id: "invitation-1",
   invitationUrl:
-    "https://tutribu.example.com/tribu/matematica-pro/invitar/token",
+    "https://tutribu.example.com/matematica-pro/invitar/token",
   subscriptionAssociation: { type: "current" as const },
 };
 
@@ -38,7 +38,7 @@ describe("TribeInvitationManagement", () => {
   it("creates a reusable invitation link after the user picks a plan", async () => {
     const user = userEvent.setup();
     const invitationUrl =
-      "https://tutribu.example.com/tribu/matematica-pro/invitar/token";
+      "https://tutribu.example.com/matematica-pro/invitar/token";
 
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       json: async () => ({

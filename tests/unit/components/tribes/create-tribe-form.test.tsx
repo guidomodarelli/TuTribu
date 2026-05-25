@@ -17,19 +17,19 @@ describe("CreateTribeForm", () => {
   it("suggests a slug from the tribe name", async () => {
     const user = userEvent.setup();
 
-    render(<CreateTribeForm submitPath="/tribu/crear" />);
+    render(<CreateTribeForm submitPath="/-/crear" />);
 
     await user.type(screen.getByLabelText(/nombre de la tribu/i), "Tribu de Algebra");
 
     expect(screen.getByLabelText(/slug/i)).toHaveValue("tribu-de-algebra");
-    expect(screen.getByText(/\/tribu\/tribu-de-algebra/i)).toBeInTheDocument();
+    expect(screen.getByText(/\/tribu-de-algebra/i)).toBeInTheDocument();
     expect(screen.getByText(/^sincronizado$/i)).toBeInTheDocument();
   });
 
   it("stops syncing the slug once the user edits it manually", async () => {
     const user = userEvent.setup();
 
-    render(<CreateTribeForm submitPath="/tribu/crear" />);
+    render(<CreateTribeForm submitPath="/-/crear" />);
 
     await user.type(screen.getByLabelText(/nombre de la tribu/i), "Tribu de Algebra");
     await user.clear(screen.getByLabelText(/slug/i));
@@ -48,7 +48,7 @@ describe("CreateTribeForm", () => {
       <CreateTribeForm
         initialName="Tribu de Algebra"
         initialSlug="tribu-de-algebra"
-        submitPath="/tribu/crear"
+        submitPath="/-/crear"
       />
     );
 
@@ -62,7 +62,7 @@ describe("CreateTribeForm", () => {
   it("lets the user resync the slug from the tribe name", async () => {
     const user = userEvent.setup();
 
-    render(<CreateTribeForm submitPath="/tribu/crear" />);
+    render(<CreateTribeForm submitPath="/-/crear" />);
 
     await user.type(screen.getByLabelText(/nombre de la tribu/i), "Tribu de Algebra");
     await user.clear(screen.getByLabelText(/slug/i));
@@ -70,7 +70,7 @@ describe("CreateTribeForm", () => {
     await user.click(screen.getByRole("button", { name: /sincronizar con el nombre/i }));
 
     expect(screen.getByLabelText(/slug/i)).toHaveValue("tribu-de-algebra");
-    expect(screen.getByText(/\/tribu\/tribu-de-algebra/i)).toBeInTheDocument();
+    expect(screen.getByText(/\/tribu-de-algebra/i)).toBeInTheDocument();
     expect(screen.getByText(/^sincronizado$/i)).toBeInTheDocument();
   });
 
@@ -82,7 +82,7 @@ describe("CreateTribeForm", () => {
         errorMessage="Ese slug ya esta en uso. Puedes probar con la sugerencia."
         initialName="Matematica Pro"
         initialSlug="matematica-pro"
-        submitPath="/tribu/crear"
+        submitPath="/-/crear"
         suggestedSlug="matematica-pro-2"
       />
     );
@@ -99,7 +99,7 @@ describe("CreateTribeForm", () => {
   it("keeps the slug canonical when the user types a trailing separator", async () => {
     const user = userEvent.setup();
 
-    render(<CreateTribeForm submitPath="/tribu/crear" />);
+    render(<CreateTribeForm submitPath="/-/crear" />);
 
     await user.type(screen.getByLabelText(/slug/i), "matematica-pro-");
     expect(screen.getByDisplayValue("matematica-pro-")).toBeInTheDocument();
@@ -108,7 +108,7 @@ describe("CreateTribeForm", () => {
         selector: 'input[type="hidden"][name="slug"]',
       })
     ).toBeInTheDocument();
-    expect(screen.getByText(/\/tribu\/matematica-pro/i)).toBeInTheDocument();
+    expect(screen.getByText(/\/matematica-pro/i)).toBeInTheDocument();
 
     await user.tab();
 

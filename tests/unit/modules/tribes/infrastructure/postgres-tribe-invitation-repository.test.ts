@@ -89,7 +89,7 @@ describe("PostgresTribeInvitationRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toMatchObject({
-      invitationUrl: "https://tutribu.example.com/tribu/matematica-pro/invitar/plain-token",
+      invitationUrl: "https://tutribu.example.com/matematica-pro/invitar/plain-token",
       status: "created",
     });
 
@@ -247,7 +247,7 @@ describe("PostgresTribeInvitationRepository", () => {
         createdByName: "Grace Hopper",
         id: "550e8400-e29b-41d4-a716-446655440000",
         invitationUrl:
-          "https://tutribu.example.com/tribu/matematica-pro/invitar/active-token",
+          "https://tutribu.example.com/matematica-pro/invitar/active-token",
         subscriptionAssociation: { type: "current" },
       },
       {

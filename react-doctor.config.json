@@ -2,14 +2,14 @@
   "ignore": {
     "overrides": [
       {
-        "files": ["app/(platform)/tribu/[slug]/eventos/page.tsx"],
+        "files": ["app/(platform)/[slug]/eventos/page.tsx"],
         "rules": [
           "react-doctor/async-parallel",
           "react-doctor/server-sequential-independent-await"
         ]
       },
       {
-        "files": ["app/(platform)/tribu/[slug]/tribu/page.tsx"],
+        "files": ["app/(platform)/[slug]/tribu/page.tsx"],
         "rules": ["react-doctor/async-parallel"]
       },
       {

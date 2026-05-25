@@ -112,7 +112,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       repository.resolveReturnPathByProviderSubscription({
         providerSubscriptionId: "preapproval-1",
       })
-    ).resolves.toBe("/tribu/matematica-pro?preapproval_id=preapproval-1");
+    ).resolves.toBe("/matematica-pro?preapproval_id=preapproval-1");
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 

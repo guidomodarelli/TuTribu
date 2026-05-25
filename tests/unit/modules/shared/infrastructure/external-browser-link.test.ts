@@ -5,9 +5,9 @@ describe("buildExternalBrowserUrl", () => {
     expect(
       buildExternalBrowserUrl({
         platform: "ios",
-        targetHttpsUrl: "https://tutribu.example.com/tribu/matematica-pro",
+        targetHttpsUrl: "https://tutribu.example.com/matematica-pro",
       })
-    ).toBe("x-safari-https://tutribu.example.com/tribu/matematica-pro");
+    ).toBe("x-safari-https://tutribu.example.com/matematica-pro");
   });
 
   it("preserves query strings on iOS deep links", () => {
@@ -15,10 +15,10 @@ describe("buildExternalBrowserUrl", () => {
       buildExternalBrowserUrl({
         platform: "ios",
         targetHttpsUrl:
-          "https://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1",
+          "https://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1",
       })
     ).toBe(
-      "x-safari-https://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1"
+      "x-safari-https://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1"
     );
   });
 
@@ -27,10 +27,10 @@ describe("buildExternalBrowserUrl", () => {
       buildExternalBrowserUrl({
         platform: "android",
         targetHttpsUrl:
-          "https://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1",
+          "https://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1",
       })
     ).toBe(
-      "intent://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end"
+      "intent://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end"
     );
   });
 
@@ -38,13 +38,13 @@ describe("buildExternalBrowserUrl", () => {
     expect(
       buildExternalBrowserUrl({
         platform: "ios",
-        targetHttpsUrl: "http://tutribu.example.com/tribu/matematica-pro",
+        targetHttpsUrl: "http://tutribu.example.com/matematica-pro",
       })
     ).toBeNull();
     expect(
       buildExternalBrowserUrl({
         platform: "android",
-        targetHttpsUrl: "ftp://tutribu.example.com/tribu/matematica-pro",
+        targetHttpsUrl: "ftp://tutribu.example.com/matematica-pro",
       })
     ).toBeNull();
   });

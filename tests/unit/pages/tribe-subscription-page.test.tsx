@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import TribeSubscriptionPage from "@/app/(platform)/tribu/[slug]/suscripcion/page";
+import TribeSubscriptionPage from "@/app/(platform)/[slug]/suscripcion/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 

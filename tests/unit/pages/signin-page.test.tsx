@@ -229,7 +229,7 @@ describe("SignInPage", () => {
     render(
       await SignInContent({
         searchParams: createSearchParams(
-          "/tribu/matematica-pro?preapproval_id=preapproval-1"
+          "/matematica-pro?preapproval_id=preapproval-1"
         ),
       })
     );
@@ -242,7 +242,7 @@ describe("SignInPage", () => {
     });
     expect(openInSafariLink).toHaveAttribute(
       "href",
-      "x-safari-https://tutribu.example.com/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
+      "x-safari-https://tutribu.example.com/auth/signin?callbackUrl=%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
     );
     expect(startGoogleSignInMock).not.toHaveBeenCalled();
   });

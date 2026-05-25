@@ -74,7 +74,7 @@ const FILTER_BUTTON = {
 
 const EMPTY_FILTER_COUNT = 0;
 
-const INVITATIONS_PATH_PREFIX = "/tribu/";
+const INVITATIONS_PATH_PREFIX = "/";
 const INVITATIONS_PATH_SUFFIX = "/invitaciones";
 
 type TribeMemberFilterOption = {

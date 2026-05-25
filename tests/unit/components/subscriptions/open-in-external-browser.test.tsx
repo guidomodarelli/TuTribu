@@ -9,9 +9,9 @@ jest.mock("@/lib/browser-navigation", () => ({
 }));
 
 const EXTERNAL_BROWSER_URL =
-  "x-safari-https://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1";
+  "x-safari-https://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1";
 const FALLBACK_SIGN_IN_URL =
-  "/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1";
+  "/auth/signin?callbackUrl=%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1";
 
 describe("OpenInExternalBrowser", () => {
   beforeEach(() => {

@@ -193,7 +193,7 @@ describe("magic values lint rules", () => {
         export { Button };
 
         export const TRIBE_ROUTES = {
-          create: "/tribu/crear",
+          create: "/-/crear",
         } as const;
 
         export function CreateTribePage() {
@@ -222,7 +222,7 @@ describe("magic values lint rules", () => {
         export function TribeMenu() {
           return (
             <DropdownMenuContent side="top" align="start">
-              <button onClick={() => router.push("/tribu/crear")}>
+              <button onClick={() => router.push("/-/crear")}>
                 Abrir
               </button>
             </DropdownMenuContent>
@@ -254,7 +254,7 @@ describe("magic values lint rules", () => {
 
           switch (status) {
             case "created":
-              return "/tribu/crear";
+              return "/-/crear";
             default:
               return null;
           }
@@ -298,7 +298,7 @@ describe("magic values lint rules", () => {
     const [result] = await eslint.lintText(
       `
         export function openTribe(slug: string) {
-          router.push(\`/tribu/\${slug}\`);
+          router.push(\`/\${slug}\`);
         }
       `,
       {

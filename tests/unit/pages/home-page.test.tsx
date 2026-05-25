@@ -102,7 +102,7 @@ describe("HomePage", () => {
       image: null,
     });
     resolveTribeMemberSubscriptionReturnPath.mockResolvedValue(
-      "/tribu/matematica-pro?preapproval_id=preapproval-1"
+      "/matematica-pro?preapproval_id=preapproval-1"
     );
     (redirect as unknown as jest.Mock).mockImplementation(() => {
       throw new Error("NEXT_REDIRECT");
@@ -120,7 +120,7 @@ describe("HomePage", () => {
       providerSubscriptionId: "preapproval-1",
     });
     expect(redirect).toHaveBeenCalledWith(
-      "/tribu/matematica-pro?preapproval_id=preapproval-1"
+      "/matematica-pro?preapproval_id=preapproval-1"
     );
   });
 });

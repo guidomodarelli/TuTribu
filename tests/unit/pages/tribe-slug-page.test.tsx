@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
-import TribePage, { TribePageContent } from "@/app/(platform)/tribu/[slug]/page";
+import TribePage, { TribePageContent } from "@/app/(platform)/[slug]/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -236,7 +236,7 @@ describe("TribePage", () => {
       screen.queryByText("Compartí novedades, preguntas y recursos con los miembros.")
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Tribu privada")).not.toBeInTheDocument();
-    expect(screen.queryByText("/tribu/matematica-pro")).not.toBeInTheDocument();
+    expect(screen.queryByText("/matematica-pro")).not.toBeInTheDocument();
     expect(screen.queryByText("Mensajees")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", {
@@ -502,7 +502,7 @@ describe("TribePage", () => {
 
     expect(notFound).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith(
-      "/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
+      "/auth/signin?callbackUrl=%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
     );
     expect(listTribeRound).not.toHaveBeenCalled();
   });
@@ -534,7 +534,7 @@ describe("TribePage", () => {
       screen.getByRole("link", { name: "Continuar en tu navegador" })
     ).toHaveAttribute(
       "href",
-      "x-safari-https://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1"
+      "x-safari-https://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1"
     );
   });
 
@@ -565,7 +565,7 @@ describe("TribePage", () => {
       screen.getByRole("link", { name: "Continuar en tu navegador" })
     ).toHaveAttribute(
       "href",
-      "intent://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end"
+      "intent://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end"
     );
   });
 
@@ -599,13 +599,13 @@ describe("TribePage", () => {
       screen.getByRole("link", { name: "Continuar en tu navegador" })
     ).toHaveAttribute(
       "href",
-      "x-safari-https://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1"
+      "x-safari-https://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1"
     );
     expect(
       screen.getByRole("link", { name: "O continuá con inicio de sesión acá" })
     ).toHaveAttribute(
       "href",
-      "/auth/signin?callbackUrl=%2Ftribu%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
+      "/auth/signin?callbackUrl=%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
     );
   });
 
@@ -636,7 +636,7 @@ describe("TribePage", () => {
       screen.getByRole("link", { name: "Continuar en tu navegador" })
     ).toHaveAttribute(
       "href",
-      "intent://tutribu.example.com/tribu/matematica-pro?preapproval_id=preapproval-1#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end"
+      "intent://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end"
     );
   });
 
@@ -907,7 +907,7 @@ describe("TribePage", () => {
       })
     ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro/bienvenida");
+    expect(redirect).toHaveBeenCalledWith("/matematica-pro/bienvenida");
     expect(listTribeRound).not.toHaveBeenCalled();
   });
 
@@ -981,7 +981,7 @@ describe("TribePage", () => {
     ).rejects.toThrow("NEXT_REDIRECT");
 
     expect(notFound).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro/bienvenida");
+    expect(redirect).toHaveBeenCalledWith("/matematica-pro/bienvenida");
     expect(resolveTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
       providerSubscriptionId: "preapproval-1",
       tribeSlug: "matematica-pro",
@@ -1058,7 +1058,7 @@ describe("TribePage", () => {
     ).rejects.toThrow("NEXT_REDIRECT");
 
     expect(notFound).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro/suscripcion");
+    expect(redirect).toHaveBeenCalledWith("/matematica-pro/suscripcion");
     expect(resolveTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
       providerSubscriptionId: "preapproval-1",
       tribeSlug: "matematica-pro",

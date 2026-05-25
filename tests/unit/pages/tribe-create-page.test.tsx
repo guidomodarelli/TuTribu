@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import CreateTribePage from "@/app/(platform)/tribu/crear/page";
+import CreateTribePage from "@/app/(platform)/-/crear/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { getContactEmail } from "@/src/modules/tribes/infrastructure/config/tribe-creation-contact-email";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -78,7 +78,7 @@ describe("CreateTribePage", () => {
       })
     ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(redirect).toHaveBeenCalledWith("/auth/signin?callbackUrl=%2Ftribu%2Fcrear");
+    expect(redirect).toHaveBeenCalledWith("/auth/signin?callbackUrl=%2F-%2Fcrear");
   });
 
   it("renders the creation form for whitelisted users", async () => {

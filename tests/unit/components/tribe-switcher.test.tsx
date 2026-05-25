@@ -46,7 +46,7 @@ describe("TribeSwitcher", () => {
   });
 
   it("keeps the tribe dropdown trigger unnamed on a tribe route", () => {
-    (usePathname as jest.Mock).mockReturnValue("/tribu/beta-club");
+    (usePathname as jest.Mock).mockReturnValue("/beta-club");
 
     render(<TribeSwitcher memberTribes={memberTribes} />);
 
@@ -67,7 +67,7 @@ describe("TribeSwitcher", () => {
 
   it("shows actions and member tribes without search when opened", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/tribu/beta-club");
+    (usePathname as jest.Mock).mockReturnValue("/beta-club");
 
     render(<TribeSwitcher memberTribes={memberTribes} />);
 
@@ -85,13 +85,13 @@ describe("TribeSwitcher", () => {
 
   it("navigates to create, discovery, and selected tribe routes", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/tribu/beta-club");
+    (usePathname as jest.Mock).mockReturnValue("/beta-club");
 
     render(<TribeSwitcher memberTribes={memberTribes} />);
 
     await user.click(screen.getByRole("button", { name: /abrir tribus/i }));
     await user.click(screen.getByRole("menuitem", { name: /nueva tribu/i }));
-    expect(pushMock).toHaveBeenLastCalledWith("/tribu/crear");
+    expect(pushMock).toHaveBeenLastCalledWith("/-/crear");
 
     await user.click(screen.getByRole("button", { name: /abrir tribus/i }));
     await user.click(screen.getByRole("menuitem", { name: /descubrir tribus/i }));
@@ -99,12 +99,12 @@ describe("TribeSwitcher", () => {
 
     await user.click(screen.getByRole("button", { name: /abrir tribus/i }));
     await user.click(screen.getByRole("menuitem", { name: /alpha club/i }));
-    expect(pushMock).toHaveBeenLastCalledWith("/tribu/alpha-club");
+    expect(pushMock).toHaveBeenLastCalledWith("/alpha-club");
   });
 
   it("marks only the current tribe as active when the route matches", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/tribu/beta-club");
+    (usePathname as jest.Mock).mockReturnValue("/beta-club");
 
     render(<TribeSwitcher memberTribes={memberTribes} />);
 

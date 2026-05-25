@@ -2,9 +2,9 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import TribeHistoryPage from "@/app/(platform)/tribu/[slug]/historia/page";
-import TribeEventsPage from "@/app/(platform)/tribu/[slug]/eventos/page";
-import TribeMeritsPage from "@/app/(platform)/tribu/[slug]/meritos/page";
+import TribeHistoryPage from "@/app/(platform)/[slug]/historia/page";
+import TribeEventsPage from "@/app/(platform)/[slug]/eventos/page";
+import TribeMeritsPage from "@/app/(platform)/[slug]/meritos/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 

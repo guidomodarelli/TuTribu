@@ -307,6 +307,6 @@ describe("TribeMemberDirectory", () => {
 
     expect(
       screen.getByRole("link", { name: "Invitar miembro" })
-    ).toHaveAttribute("href", "/tribu/matematica-pro/invitaciones");
+    ).toHaveAttribute("href", "/matematica-pro/invitaciones");
   });
 });

@@ -161,7 +161,7 @@ describe("tribe subscription start route", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      subscriptionUrl: "/tribu/matematica-pro/suscripcion",
+      subscriptionUrl: "/matematica-pro/suscripcion",
     });
   });
 

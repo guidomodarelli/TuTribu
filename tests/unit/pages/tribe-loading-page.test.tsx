@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 
-import TribeLoadingPage from "@/app/(platform)/tribu/[slug]/loading";
+import TribeLoadingPage from "@/app/(platform)/[slug]/loading";
 
 describe("TribeLoadingPage", () => {
   it("renders an accessible tribe route loading state", () => {

@@ -105,7 +105,7 @@ describe("timezone-stable hydration formatting", () => {
             createdByName: "Grace Hopper",
             id: "invitation-1",
             invitationUrl:
-              "https://tutribu.example.com/tribu/matematica-pro/invitar/token",
+              "https://tutribu.example.com/matematica-pro/invitar/token",
             subscriptionAssociation: { type: "current" },
           },
         ]}

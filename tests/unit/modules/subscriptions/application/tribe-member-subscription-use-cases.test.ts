@@ -194,7 +194,7 @@ describe("tribe member subscription use cases", () => {
 
   it("resolves Mercado Pago returns from the home page to the owning tribe", async () => {
     const resolveReturnPathByProviderSubscription = jest.fn(
-      async () => "/tribu/matematica-pro?preapproval_id=preapproval-1"
+      async () => "/matematica-pro?preapproval_id=preapproval-1"
     );
     const execute = resolveTribeMemberSubscriptionReturnPath({
       tribeMemberSubscriptionRepository: createRepository({
@@ -206,7 +206,7 @@ describe("tribe member subscription use cases", () => {
       execute({
         providerSubscriptionId: " preapproval-1 ",
       })
-    ).resolves.toBe("/tribu/matematica-pro?preapproval_id=preapproval-1");
+    ).resolves.toBe("/matematica-pro?preapproval_id=preapproval-1");
     expect(resolveReturnPathByProviderSubscription).toHaveBeenCalledWith({
       providerSubscriptionId: "preapproval-1",
     });

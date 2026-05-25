@@ -79,7 +79,7 @@ describe("Tribe invitation routes", () => {
     createdAt: "2026-04-26T07:00:00.000Z",
     createdByName: "Grace Hopper",
     id: "invitation-1",
-    invitationUrl: "https://tutribu.example.com/tribu/matematica-pro/invitar/token",
+    invitationUrl: "https://tutribu.example.com/matematica-pro/invitar/token",
     subscriptionAssociation: { type: "current" },
   };
 
@@ -138,7 +138,7 @@ describe("Tribe invitation routes", () => {
     createTribeInvitation.mockResolvedValue({
       invitation,
       invitationUrl:
-        "https://canonical.tutribu.example.com/tribu/matematica-pro/invitar/token",
+        "https://canonical.tutribu.example.com/matematica-pro/invitar/token",
       status: "created",
     });
 
@@ -156,7 +156,7 @@ describe("Tribe invitation routes", () => {
     await expect(response.json()).resolves.toEqual({
       invitation,
       invitationUrl:
-        "https://canonical.tutribu.example.com/tribu/matematica-pro/invitar/token",
+        "https://canonical.tutribu.example.com/matematica-pro/invitar/token",
       message: "Link de invitación creado.",
     });
   });

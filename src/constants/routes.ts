@@ -1,4 +1,5 @@
-const TRIBE_ROUTE_PREFIX = "/tribu/";
+const TRIBE_ROUTE_PREFIX = "/";
+const PLATFORM_ROUTE_PREFIX = "/-/";
 const ROUTE_SEGMENT_SEPARATOR = "/";
 const TRIBE_ROUTE_SEGMENTS = {
   history: "historia",
@@ -37,7 +38,7 @@ export const ROUTES = {
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.courses),
     coursesManage: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.coursesManage),
-    create: "/tribu/crear",
+    create: `${PLATFORM_ROUTE_PREFIX}crear`,
     events: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.events),
     welcome: (slug: string) =>

@@ -83,7 +83,7 @@ type InvitationSubscriptionOfferRow = {
 
 const INVITATION_ROUTE = {
   segmentSeparator: "/",
-  tribePrefix: "/tribu/",
+  tribePrefix: "/",
   inviteSegment: "/invitar/",
 } as const;
 

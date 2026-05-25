@@ -1237,7 +1237,7 @@ describe("TribeRound", () => {
     expect(within(messageList as HTMLElement).getAllByRole("listitem")).toHaveLength(1);
     expect(screen.getByRole("link", { name: "Siguiente" })).toHaveAttribute(
       "href",
-      "/tribu/matematica-pro?page=2"
+      "/matematica-pro?page=2"
     );
     expect(refreshMock).not.toHaveBeenCalled();
   });
@@ -1429,11 +1429,11 @@ describe("TribeRound", () => {
 
     expect(screen.getByRole("link", { name: "Todos" })).toHaveAttribute(
       "href",
-      "/tribu/matematica-pro"
+      "/matematica-pro"
     );
     expect(screen.getByRole("link", { name: "Ronda" })).toHaveAttribute(
       "href",
-      "/tribu/matematica-pro?channel=ronda"
+      "/matematica-pro?channel=ronda"
     );
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
   });
@@ -1465,11 +1465,11 @@ describe("TribeRound", () => {
 
     expect(screen.getByRole("link", { name: "Anterior" })).toHaveAttribute(
       "href",
-      "/tribu/matematica-pro?channel=ronda"
+      "/matematica-pro?channel=ronda"
     );
     expect(screen.getByRole("link", { name: "Siguiente" })).toHaveAttribute(
       "href",
-      "/tribu/matematica-pro?channel=ronda&page=3"
+      "/matematica-pro?channel=ronda&page=3"
     );
   });
 
@@ -1484,7 +1484,7 @@ describe("TribeRound", () => {
 
     expect(screen.getByRole("link", { name: "Anterior" })).toHaveAttribute(
       "href",
-      "/tribu/matematica-pro?channel=ronda&page=2"
+      "/matematica-pro?channel=ronda&page=2"
     );
     expect(screen.queryByRole("link", { name: "Siguiente" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled();

@@ -97,7 +97,7 @@ const TRIBE_ROUND_ROUTE = {
   apiTribes: "/api/tribes/",
   channelQueryParam: "channel",
   pageQueryParam: "page",
-  platformTribeSegment: "/tribu/",
+  platformTribeSegment: "/",
   querySeparator: "?",
   repliesSegment: "/replies",
   likeSegment: "/like",

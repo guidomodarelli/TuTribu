@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import TribeWelcomePage from "@/app/(platform)/tribu/[slug]/bienvenida/page";
+import TribeWelcomePage from "@/app/(platform)/[slug]/bienvenida/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
 

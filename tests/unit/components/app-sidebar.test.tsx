@@ -123,7 +123,7 @@ describe("AppSidebar", () => {
   });
 
   it("replaces the product brand with the active tribe identity inside a tribe", () => {
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
@@ -147,7 +147,7 @@ describe("AppSidebar", () => {
   });
 
   it("uses the active tribe brand button as the tribe switcher trigger", () => {
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
@@ -194,7 +194,7 @@ describe("AppSidebar", () => {
 
   it("opens tribe switcher actions when the active tribe brand is clicked", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro/eventos");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro/eventos");
 
     render(
       <AppSidebar
@@ -324,7 +324,7 @@ describe("AppSidebar", () => {
 
     await user.click(screen.getByRole("button", { name: /alpha club/i }));
 
-    expect(pushMock).toHaveBeenCalledWith("/tribu/alpha-club");
+    expect(pushMock).toHaveBeenCalledWith("/alpha-club");
   });
 
   it("closes the mobile sidebar when a global navigation item is clicked", async () => {
@@ -356,7 +356,7 @@ describe("AppSidebar", () => {
   });
 
   it("renders tribe sections when the member is inside one of their tribes", () => {
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
 
     const { container } = render(
       <AppSidebar
@@ -395,7 +395,7 @@ describe("AppSidebar", () => {
   });
 
   it("uses round and channel icons for tribe navigation", () => {
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
@@ -436,7 +436,7 @@ describe("AppSidebar", () => {
   });
 
   it("does not prefetch tribe section routes before navigation intent", () => {
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
@@ -463,7 +463,7 @@ describe("AppSidebar", () => {
   });
 
   it("shows admin sections to tribe leaders and guardians below the round", () => {
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
 
     const { rerender } = render(
       <AppSidebar
@@ -557,7 +557,7 @@ describe("AppSidebar", () => {
   });
 
   it("hides the global tribes section inside an active tribe", () => {
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
@@ -593,7 +593,7 @@ describe("AppSidebar", () => {
 
   it("marks the active tribe section and navigates to real section routes", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro/eventos");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro/eventos");
 
     render(
       <AppSidebar
@@ -622,11 +622,11 @@ describe("AppSidebar", () => {
 
     await user.click(screen.getByRole("button", { name: /la tribu/i }));
 
-    expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/tribu");
+    expect(pushMock).toHaveBeenCalledWith("/matematica-pro/tribu");
   });
 
   it("shows the welcome section for every member role inside a tribe", () => {
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro/bienvenida");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro/bienvenida");
 
     render(
       <AppSidebar
@@ -663,7 +663,7 @@ describe("AppSidebar", () => {
       isMobile: true,
       setOpenMobile: setOpenMobileMock,
     });
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro/eventos");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro/eventos");
 
     render(
       <AppSidebar
@@ -687,7 +687,7 @@ describe("AppSidebar", () => {
 
     await user.click(screen.getByRole("button", { name: /la tribu/i }));
 
-    expect(pushMock).toHaveBeenCalledWith("/tribu/matematica-pro/tribu");
+    expect(pushMock).toHaveBeenCalledWith("/matematica-pro/tribu");
     expect(setOpenMobileMock).toHaveBeenCalledWith(false);
   });
 
@@ -699,7 +699,7 @@ describe("AppSidebar", () => {
       isMobile: true,
       setOpenMobile: setOpenMobileMock,
     });
-    (usePathname as jest.Mock).mockReturnValue("/tribu/matematica-pro");
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
@@ -722,7 +722,7 @@ describe("AppSidebar", () => {
     await user.click(screen.getByRole("button", { name: /matematica pro/i }));
     await user.click(screen.getByRole("menuitem", { name: /beta club/i }));
 
-    expect(pushMock).toHaveBeenCalledWith("/tribu/beta-club");
+    expect(pushMock).toHaveBeenCalledWith("/beta-club");
     expect(setOpenMobileMock).toHaveBeenCalledWith(false);
   });
 

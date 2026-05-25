@@ -167,7 +167,7 @@ export function CreateTribeForm({
           ) : null}
         </div>
         <p className={styles.CreateTribeForm__hint}>
-          Tu tribu quedara en <strong>/tribu/{slugPreview}</strong>
+          Tu tribu quedara en <strong>/{slugPreview}</strong>
         </p>
       </div>
 

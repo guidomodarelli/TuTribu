@@ -18,7 +18,7 @@ const SAMPLE_INVITATION = {
   createdByName: "Grace Hopper",
   id: "invitation-1",
   invitationUrl:
-    "https://tutribu.example.com/tribu/matematica-pro/invitar/token",
+    "https://tutribu.example.com/matematica-pro/invitar/token",
   subscriptionAssociation: {
     type: TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current,
   },

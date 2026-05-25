@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import TribeTribePage from "@/app/(platform)/tribu/[slug]/tribu/page";
+import TribeTribePage from "@/app/(platform)/[slug]/tribu/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -34,7 +34,7 @@ const mockTribeMemberDirectory = jest.fn(
     <section>
       <h1>Miembros</h1>
       {canInviteMembers ? (
-        <a href={`/tribu/${tribeSlug}/invitaciones`}>Invitar miembro</a>
+        <a href={`/${tribeSlug}/invitaciones`}>Invitar miembro</a>
       ) : null}
       {members.map((member) => (
         <article key={member.email}>
@@ -588,7 +588,7 @@ describe("TribeTribePage", () => {
       );
       expect(
         screen.getByRole("link", { name: "Invitar miembro" })
-      ).toHaveAttribute("href", "/tribu/matematica-pro/invitaciones");
+      ).toHaveAttribute("href", "/matematica-pro/invitaciones");
     }
   );
 
