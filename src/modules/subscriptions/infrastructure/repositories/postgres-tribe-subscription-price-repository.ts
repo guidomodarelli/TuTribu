@@ -34,6 +34,8 @@ import type {
 import type { TribeSubscriberDiagnosticsRepository } from "@/src/modules/subscriptions/application/ports/tribe-subscriber-diagnostics-repository";
 import type {
   CreateTribeSubscriptionPriceCommand,
+  DeleteTribeSubscriptionPriceInvitationAction,
+  DeleteTribeSubscriptionPriceWithInvitationActionsCommand,
   SetTribeFreeJoinAsCurrentCommand,
   SyncTribeSubscriptionProviderPlanCommand,
   TribeSubscriptionPriceIdentity,
@@ -2905,6 +2907,17 @@ export class PostgresTribeSubscriptionPriceRepository
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
     }
 
+    const linkedInvitationIds = await this.listLinkedActiveInvitationIds(
+      command.priceId
+    );
+
+    if (linkedInvitationIds.length > 0) {
+      return {
+        linkedInvitationIds,
+        status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasLinkedInvitations,
+      };
+    }
+
     const providerSubscribers = await this.listProviderSubscribers({
       priceId: command.priceId,
       tribeSlug: command.tribeSlug,
@@ -3153,6 +3166,352 @@ export class PostgresTribeSubscriptionPriceRepository
         )?.has_local_active_subscriptions
       );
     });
+  }
+
+  private async listLinkedActiveInvitationIds(priceId: string): Promise<string[]> {
+    return this.executeWithDatabase(async (database) => {
+      return this.listLinkedActiveInvitationIdsWithDatabase(database, priceId);
+    }).catch((error: unknown) => {
+      if (
+        error &&
+        typeof error === "object" &&
+        ((error as { code?: string }).code === "42703" ||
+          (error as { code?: string }).code === "42P01")
+      ) {
+        return [];
+      }
+
+      throw error;
+    });
+  }
+
+  private async listLinkedActiveInvitationIdsWithDatabase(
+    database: RequestDatabase,
+    priceId: string
+  ): Promise<string[]> {
+    const result = await database.execute(sql`
+      select tribe_invitations.id
+      from public.tribe_invitations
+      where tribe_invitations.subscription_price_id = ${priceId}
+        and tribe_invitations.status = 'active'
+      order by tribe_invitations.created_at asc
+    `);
+
+    return ((result.rows ?? []) as { id: string }[]).map((row) => row.id);
+  }
+
+  async deleteWithInvitationActions(
+    command: DeleteTribeSubscriptionPriceWithInvitationActionsCommand
+  ): Promise<TribeSubscriptionPriceMutationResult> {
+    const updateContext = await this.resolvePriceUpdateContext({
+      priceId: command.priceId,
+      tribeSlug: command.tribeSlug,
+    });
+
+    if (!updateContext?.tribe_id) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
+    }
+
+    if (!updateContext.can_manage_prices) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
+    }
+
+    if (await this.hasLocalActiveSubscriptions(command.priceId)) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers };
+    }
+
+    if (updateContext.status !== TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
+    }
+
+    const validatedActions = await this.validateInvitationActions(
+      command.priceId,
+      updateContext.tribe_id,
+      command.invitationActions
+    );
+
+    if (!validatedActions.valid) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput };
+    }
+
+    const providerPrecheckStatus = await this.runDeleteProviderPrecheck(
+      command,
+      updateContext
+    );
+
+    if (providerPrecheckStatus) {
+      return providerPrecheckStatus;
+    }
+
+    return this.executeWithDatabase(async (database) => {
+      const transactionValidatedActions =
+        await this.validateInvitationActionsWithDatabase(
+          database,
+          command.priceId,
+          updateContext.tribe_id,
+          command.invitationActions
+        );
+
+      if (!transactionValidatedActions.valid) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput };
+      }
+
+      for (const action of command.invitationActions) {
+        if (action.action === "revoke") {
+          await database.execute(sql`
+            update public.tribe_invitations
+            set status = 'revoked',
+                revoked_at = timezone('utc', now())
+            where tribe_invitations.id = ${action.invitationId}
+              and tribe_invitations.subscription_price_id = ${command.priceId}
+              and tribe_invitations.status = 'active'
+              and public.can_manage_tribe_invitations(tribe_invitations.tribe_id)
+          `);
+          continue;
+        }
+
+        if (action.action === "switch_to_current") {
+          await database.execute(sql`
+            update public.tribe_invitations
+            set subscription_association_type = 'current',
+                subscription_price_id = null
+            where tribe_invitations.id = ${action.invitationId}
+              and tribe_invitations.subscription_price_id = ${command.priceId}
+              and tribe_invitations.status = 'active'
+              and public.can_manage_tribe_invitations(tribe_invitations.tribe_id)
+          `);
+          continue;
+        }
+
+        await database.execute(sql`
+          update public.tribe_invitations
+          set subscription_association_type = 'specific',
+              subscription_price_id = ${action.targetPriceId}
+          where tribe_invitations.id = ${action.invitationId}
+            and tribe_invitations.subscription_price_id = ${command.priceId}
+            and tribe_invitations.status = 'active'
+            and public.can_manage_tribe_invitations(tribe_invitations.tribe_id)
+        `);
+      }
+
+      const stillLinkedResult = await database.execute(sql`
+        select count(*)::int as remaining
+        from public.tribe_invitations
+        where tribe_invitations.subscription_price_id = ${command.priceId}
+          and tribe_invitations.status = 'active'
+      `);
+      const remaining = Number(
+        (stillLinkedResult.rows?.[0] as { remaining?: number | string } | undefined)
+          ?.remaining ?? 0
+      );
+
+      if (remaining > 0) {
+        throw new Error(
+          "Linked invitations remain after applying provided actions"
+        );
+      }
+
+      const deletionResult = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+        )
+        update public.tribe_subscription_prices
+        set
+          status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted},
+          is_current = false,
+          deleted_at = timezone('utc', now())
+        where tribe_subscription_prices.tribe_id = (select id from target_tribe)
+          and tribe_subscription_prices.id = ${command.priceId}
+          and tribe_subscription_prices.status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled}
+          and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
+        returning id
+      `);
+
+      if ((deletionResult.rows ?? []).length === 0) {
+        throw new Error("Failed to soft-delete subscription price");
+      }
+
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted };
+    });
+  }
+
+  private async validateInvitationActions(
+    priceId: string,
+    tribeId: string,
+    actions: DeleteTribeSubscriptionPriceInvitationAction[]
+  ): Promise<{ valid: boolean }> {
+    return this.executeWithDatabase((database) =>
+      this.validateInvitationActionsWithDatabase(
+        database,
+        priceId,
+        tribeId,
+        actions
+      )
+    );
+  }
+
+  private async validateInvitationActionsWithDatabase(
+    database: RequestDatabase,
+    priceId: string,
+    tribeId: string,
+    actions: DeleteTribeSubscriptionPriceInvitationAction[]
+  ): Promise<{ valid: boolean }> {
+    const linkedInvitationIds = await this.listLinkedActiveInvitationIdsWithDatabase(
+      database,
+      priceId
+    );
+    const linkedSet = new Set(linkedInvitationIds);
+    const actionInvitationIds = new Set<string>();
+
+    for (const action of actions) {
+      if (!linkedSet.has(action.invitationId)) {
+        return { valid: false };
+      }
+
+      if (actionInvitationIds.has(action.invitationId)) {
+        return { valid: false };
+      }
+
+      actionInvitationIds.add(action.invitationId);
+
+      if (action.action === "switch_to_specific") {
+        if (
+          !action.targetPriceId ||
+          action.targetPriceId === priceId
+        ) {
+          return { valid: false };
+        }
+
+        const targetIsValid = await this.isCandidateReassignmentPriceWithDatabase(
+          database,
+          tribeId,
+          action.targetPriceId
+        );
+
+        if (!targetIsValid) {
+          return { valid: false };
+        }
+      }
+    }
+
+    if (actionInvitationIds.size !== linkedSet.size) {
+      return { valid: false };
+    }
+
+    return { valid: true };
+  }
+
+  private async isCandidateReassignmentPrice(
+    tribeId: string,
+    candidatePriceId: string
+  ): Promise<boolean> {
+    return this.executeWithDatabase(async (database) => {
+      return this.isCandidateReassignmentPriceWithDatabase(
+        database,
+        tribeId,
+        candidatePriceId
+      );
+    });
+  }
+
+  private async isCandidateReassignmentPriceWithDatabase(
+    database: RequestDatabase,
+    tribeId: string,
+    candidatePriceId: string
+  ): Promise<boolean> {
+    const result = await database.execute(sql`
+      select 1
+      from public.tribe_subscription_prices
+      where tribe_subscription_prices.id = ${candidatePriceId}
+        and tribe_subscription_prices.tribe_id = ${tribeId}
+        and tribe_subscription_prices.status = 'active'
+        and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
+      limit 1
+    `);
+
+    return (result.rows ?? []).length > 0;
+  }
+
+  private async runDeleteProviderPrecheck(
+    command: TribeSubscriptionPriceIdentity,
+    updateContext: PriceUpdateContextRow
+  ): Promise<TribeSubscriptionPriceMutationResult | null> {
+    const providerSubscribers = await this.listProviderSubscribers({
+      priceId: command.priceId,
+      tribeSlug: command.tribeSlug,
+    });
+    const hasProviderPlanLink = Boolean(
+      updateContext.mercado_pago_preapproval_plan_id
+    );
+    const needsProviderVerification =
+      hasProviderPlanLink || providerSubscribers.length > 0;
+
+    if (!needsProviderVerification) {
+      return null;
+    }
+
+    const accessToken = await this.resolveAccessTokenForProviderMutation(
+      updateContext
+    );
+
+    if (!accessToken) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
+    }
+
+    if (updateContext.mercado_pago_preapproval_plan_id) {
+      const traceContext = buildSubscriptionPricePaymentTraceContext({
+        operationKey: buildSubscriptionPriceOperationKey({
+          operation:
+            SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.deleteProviderPlanPrice,
+          priceId: command.priceId,
+          tribeSlug: command.tribeSlug,
+        }),
+        priceId: command.priceId,
+        providerPlanId: updateContext.mercado_pago_preapproval_plan_id,
+        requestId: this.requestId,
+        tribeSlug: command.tribeSlug,
+      });
+      const providerPlanStatus = await this.getMercadoPagoPlanStatus({
+        accessToken,
+        preapprovalPlanId: updateContext.mercado_pago_preapproval_plan_id,
+        ...(traceContext ? { traceContext } : {}),
+      });
+
+      if (providerPlanStatus === MERCADO_PAGO_PROVIDER_PLAN_STATUS.active) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
+      }
+    }
+
+    const providerSubscriptionStatuses =
+      await readProviderSubscriptionStatuses({
+        accessToken,
+        getMercadoPagoSubscriptionStatus:
+          this.getMercadoPagoSubscriptionStatus,
+        operationKey: buildSubscriptionPriceOperationKey({
+          operation:
+            SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.deleteProviderPlanPrice,
+          priceId: command.priceId,
+          tribeSlug: command.tribeSlug,
+        }),
+        priceId: command.priceId,
+        providerSubscribers,
+        requestId: this.requestId,
+        tribeSlug: command.tribeSlug,
+      });
+    const hasProviderActiveSubscribers = providerSubscriptionStatuses.some(
+      (providerSubscriptionStatus) =>
+        mapMercadoPagoSubscriptionStatus(providerSubscriptionStatus)
+          .isAttachedToProviderPlan
+    );
+
+    if (hasProviderActiveSubscribers) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers };
+    }
+
+    return null;
   }
 
   private async deleteCanceledProviderPlanPrice(

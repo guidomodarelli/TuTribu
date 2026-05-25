@@ -14,6 +14,8 @@ const INVITATION_ROUTE_LOG = {
 const INVITATION_ROUTE_RESPONSE = {
   createdMessage: "Link de invitación creado.",
   forbiddenMessage: "No tenés permisos para gestionar invitaciones.",
+  invalidInputMessage:
+    "Elegí a qué plan querés asociar este link de invitación.",
   notFoundMessage: "No pudimos encontrar la tribu.",
   setupRequiredMessage:
     "Las invitaciones todavía no están configuradas. Aplicá la migración de base de datos y volvé a intentar.",
@@ -22,7 +24,12 @@ const INVITATION_ROUTE_RESPONSE = {
   unexpectedListMessage: "No pudimos cargar las invitaciones. Intentá de nuevo.",
 } as const;
 
+const INVITATION_ROUTE_FIELD = {
+  subscriptionAssociation: "subscriptionAssociation",
+} as const;
+
 const HTTP_STATUS = {
+  badRequest: 400,
   created: 201,
   forbidden: 403,
   notFound: 404,
@@ -34,6 +41,16 @@ const HTTP_STATUS = {
 
 function createJsonResponse(body: Record<string, unknown>, status: number): Response {
   return Response.json(body, { status });
+}
+
+function readSubscriptionAssociation(body: unknown): unknown {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+
+  return (body as Record<string, unknown>)[
+    INVITATION_ROUTE_FIELD.subscriptionAssociation
+  ];
 }
 
 export async function GET(
@@ -114,8 +131,10 @@ export async function POST(
   }
 
   try {
+    const body = await request.json().catch(() => null);
     const result = await modules.tribes.useCases.createTribeInvitation({
       baseUrl: resolvePublicAppBaseUrl(),
+      subscriptionAssociation: readSubscriptionAssociation(body),
       tribeSlug: slug,
     });
 
@@ -128,6 +147,11 @@ export async function POST(
             message: INVITATION_ROUTE_RESPONSE.createdMessage,
           },
           HTTP_STATUS.created
+        );
+      case TRIBE_INVITATION_STATUS.invalid:
+        return createJsonResponse(
+          { message: INVITATION_ROUTE_RESPONSE.invalidInputMessage },
+          HTTP_STATUS.badRequest
         );
       case TRIBE_INVITATION_STATUS.notFound:
         return createJsonResponse(

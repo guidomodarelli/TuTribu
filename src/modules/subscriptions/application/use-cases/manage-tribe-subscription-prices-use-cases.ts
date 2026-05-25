@@ -15,6 +15,8 @@ import {
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
   CreateTribeSubscriptionPriceCommand,
+  DeleteTribeSubscriptionPriceInvitationAction,
+  DeleteTribeSubscriptionPriceWithInvitationActionsCommand,
   SyncTribeSubscriptionProviderPlanCommand,
   TribeSubscriptionPriceIdentity,
   TribeSubscriptionPriceListQuery,
@@ -432,6 +434,102 @@ export function deleteTribeSubscriptionPrice({
       priceId: normalizeText(command.priceId),
       tribeSlug: normalizeText(command.tribeSlug),
     });
+}
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const SUBSCRIPTION_PRICE_INVITATION_ACTION = {
+  revoke: "revoke",
+  switchToCurrent: "switch_to_current",
+  switchToSpecific: "switch_to_specific",
+} as const;
+
+function parseInvitationActions(
+  input: unknown
+): DeleteTribeSubscriptionPriceInvitationAction[] | null {
+  if (!Array.isArray(input)) {
+    return null;
+  }
+
+  const parsed: DeleteTribeSubscriptionPriceInvitationAction[] = [];
+
+  for (const candidate of input) {
+    if (!candidate || typeof candidate !== "object") {
+      return null;
+    }
+
+    const entry = candidate as {
+      action?: unknown;
+      invitationId?: unknown;
+      targetPriceId?: unknown;
+    };
+
+    if (
+      typeof entry.invitationId !== "string" ||
+      !UUID_PATTERN.test(entry.invitationId)
+    ) {
+      return null;
+    }
+
+    if (entry.action === SUBSCRIPTION_PRICE_INVITATION_ACTION.switchToCurrent) {
+      parsed.push({
+        action: SUBSCRIPTION_PRICE_INVITATION_ACTION.switchToCurrent,
+        invitationId: entry.invitationId,
+      });
+      continue;
+    }
+
+    if (entry.action === SUBSCRIPTION_PRICE_INVITATION_ACTION.revoke) {
+      parsed.push({
+        action: SUBSCRIPTION_PRICE_INVITATION_ACTION.revoke,
+        invitationId: entry.invitationId,
+      });
+      continue;
+    }
+
+    if (
+      entry.action === SUBSCRIPTION_PRICE_INVITATION_ACTION.switchToSpecific &&
+      typeof entry.targetPriceId === "string" &&
+      UUID_PATTERN.test(entry.targetPriceId)
+    ) {
+      parsed.push({
+        action: SUBSCRIPTION_PRICE_INVITATION_ACTION.switchToSpecific,
+        invitationId: entry.invitationId,
+        targetPriceId: entry.targetPriceId,
+      });
+      continue;
+    }
+
+    return null;
+  }
+
+  return parsed;
+}
+
+export function deleteTribeSubscriptionPriceWithInvitationActions({
+  tribeSubscriptionPriceRepository,
+}: TribeSubscriptionPriceDependencies) {
+  return async (
+    input: Omit<
+      DeleteTribeSubscriptionPriceWithInvitationActionsCommand,
+      "invitationActions"
+    > & {
+      invitationActions: unknown;
+    }
+  ) => {
+    const invitationActions = parseInvitationActions(input.invitationActions);
+
+    if (!invitationActions) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput };
+    }
+
+    return tribeSubscriptionPriceRepository.deleteWithInvitationActions({
+      invitationActions,
+      priceId: normalizeText(input.priceId),
+      tribeSlug: normalizeText(input.tribeSlug),
+    });
+  };
 }
 
 /**

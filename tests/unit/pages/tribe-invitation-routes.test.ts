@@ -43,13 +43,18 @@ class MockJsonResponse {
   }
 }
 
-function buildRequest(): Request {
+function buildRequest(body?: unknown): Request {
   return {
     headers: new Headers(),
+    json: async () => body,
     method: "POST",
     url: "https://tutribu.example.com/api/tribes/matematica-pro/invitations",
   } as unknown as Request;
 }
+
+const VALID_CREATE_BODY = {
+  subscriptionAssociation: { type: "current" },
+} as const;
 
 function buildTribeContext() {
   return {
@@ -75,6 +80,7 @@ describe("Tribe invitation routes", () => {
     createdByName: "Grace Hopper",
     id: "invitation-1",
     invitationUrl: "https://tutribu.example.com/tribu/matematica-pro/invitar/token",
+    subscriptionAssociation: { type: "current" },
   };
 
   beforeEach(() => {
@@ -136,11 +142,15 @@ describe("Tribe invitation routes", () => {
       status: "created",
     });
 
-    const response = await POST(buildRequest(), buildTribeContext());
+    const response = await POST(
+      buildRequest(VALID_CREATE_BODY),
+      buildTribeContext()
+    );
 
     expect(response.status).toBe(201);
     expect(createTribeInvitation).toHaveBeenCalledWith({
       baseUrl: "https://canonical.tutribu.example.com",
+      subscriptionAssociation: { type: "current" },
       tribeSlug: "matematica-pro",
     });
     await expect(response.json()).resolves.toEqual({
@@ -156,11 +166,25 @@ describe("Tribe invitation routes", () => {
       status: "forbidden",
     });
 
-    const response = await POST(buildRequest(), buildTribeContext());
+    const response = await POST(
+      buildRequest(VALID_CREATE_BODY),
+      buildTribeContext()
+    );
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
       message: "No tenés permisos para gestionar invitaciones.",
+    });
+  });
+
+  it("returns invalid input when the subscription association is missing", async () => {
+    createTribeInvitation.mockResolvedValue({ status: "invalid" });
+
+    const response = await POST(buildRequest({}), buildTribeContext());
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      message: "Elegí a qué plan querés asociar este link de invitación.",
     });
   });
 
@@ -169,7 +193,10 @@ describe("Tribe invitation routes", () => {
       status: "setup_required",
     });
 
-    const response = await POST(buildRequest(), buildTribeContext());
+    const response = await POST(
+      buildRequest(VALID_CREATE_BODY),
+      buildTribeContext()
+    );
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({

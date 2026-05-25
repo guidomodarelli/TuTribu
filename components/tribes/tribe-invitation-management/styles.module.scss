@@ -79,6 +79,35 @@
     flex-wrap: wrap;
     gap: 0.55rem;
   }
+
+  &__plan {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+    color: var(--muted-foreground);
+  }
+
+  &__planLabel {
+    color: var(--muted-foreground);
+  }
+
+  &__planBadge--missing {
+    text-transform: none;
+  }
+
+  &__dialogBody {
+    display: grid;
+    gap: 0.5rem;
+    padding-block: 0.5rem;
+  }
+
+  &__dialogLabel {
+    color: var(--foreground);
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
 }
 
 @media (min-width: 42rem) {

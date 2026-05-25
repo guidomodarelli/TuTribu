@@ -75,6 +75,7 @@ export const TRIBE_SUBSCRIPTION_PRICE_STATUS = {
   current: "current",
   deleted: "deleted",
   forbidden: "forbidden",
+  hasLinkedInvitations: "has_linked_invitations",
   hasSubscribers: "has_subscribers",
   invalidInput: "invalid_input",
   limitReached: "limit_reached",

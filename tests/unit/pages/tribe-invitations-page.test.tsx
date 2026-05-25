@@ -11,6 +11,8 @@ const getTribePageAccess = jest.fn();
 const getCurrentTribeMembershipStatus = jest.fn();
 const getMemberTribes = jest.fn();
 const listTribeInvitations = jest.fn();
+const listTribeSubscriptionPrices = jest.fn();
+const reconcileCurrentTribeMemberSubscription = jest.fn();
 const infoMock = jest.fn();
 const errorMock = jest.fn();
 
@@ -24,9 +26,13 @@ jest.mock("next/headers", () => ({
 
 jest.mock("@/components/tribes/tribe-invitation-management", () => ({
   TribeInvitationManagement: ({
+    availablePrices,
+    canManagePrices,
     invitations,
     tribeSlug,
   }: {
+    availablePrices: unknown[];
+    canManagePrices: boolean;
     invitations: unknown[];
     tribeSlug: string;
   }) => (
@@ -34,6 +40,8 @@ jest.mock("@/components/tribes/tribe-invitation-management", () => ({
       <h1>Gestión de invitaciones</h1>
       <p>{tribeSlug}</p>
       <p>{invitations.length}</p>
+      <p>plans:{availablePrices.length}</p>
+      <p>canManagePrices:{String(canManagePrices)}</p>
     </section>
   ),
 }));
@@ -99,8 +107,19 @@ describe("TribeInvitationsPage", () => {
         createdByName: "Grace Hopper",
         id: "invitation-1",
         invitationUrl: null,
+        subscriptionAssociation: { type: "current" },
       },
     ]);
+    listTribeSubscriptionPrices.mockResolvedValue({
+      freeJoinIsCurrent: true,
+      hasMercadoPagoIntegration: false,
+      mercadoPagoConnectionStatus: "connected",
+      prices: [],
+      viewerPermissions: { canManagePrices: true, canViewPrices: true },
+    });
+    reconcileCurrentTribeMemberSubscription.mockResolvedValue({
+      status: "processed",
+    });
     (headers as jest.Mock).mockResolvedValue(
       new Headers({
         host: "tutribu.example.com",
@@ -115,6 +134,12 @@ describe("TribeInvitationsPage", () => {
       auth: {
         useCases: {
           getAuthenticatedMember,
+        },
+      },
+      subscriptions: {
+        useCases: {
+          listTribeSubscriptionPrices,
+          reconcileCurrentTribeMemberSubscription,
         },
       },
       tribes: {
@@ -144,6 +169,7 @@ describe("TribeInvitationsPage", () => {
       baseUrl: "https://canonical.tutribu.example.com",
       tribeSlug: "matematica-pro",
     });
+    expect(screen.getByText("canManagePrices:true")).toBeInTheDocument();
   });
 
   it("renders invitation management for tribe guardians", async () => {
@@ -155,10 +181,18 @@ describe("TribeInvitationsPage", () => {
         slug: "matematica-pro",
       },
     ]);
+    listTribeSubscriptionPrices.mockResolvedValue({
+      freeJoinIsCurrent: true,
+      hasMercadoPagoIntegration: false,
+      mercadoPagoConnectionStatus: "connected",
+      prices: [],
+      viewerPermissions: { canManagePrices: false, canViewPrices: true },
+    });
 
     render(await TribeInvitationsPage(buildPageProps()));
 
     expect(screen.getByRole("heading", { name: "Gestión de invitaciones" })).toBeInTheDocument();
+    expect(screen.getByText("canManagePrices:false")).toBeInTheDocument();
   });
 
   it("returns 404 when a regular member opens invitation management", async () => {

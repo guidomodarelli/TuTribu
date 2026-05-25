@@ -1,0 +1,58 @@
+.LinkedInvitationsDeletionDialog {
+  max-width: min(100%, 640px);
+
+  &__intro {
+    margin: 0.25rem 0 0;
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  &__list {
+    display: grid;
+    gap: 0.85rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 0.55rem;
+  }
+
+  &__itemLabel {
+    color: var(--foreground);
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  &__itemControls {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  &__controlLabel {
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+  }
+
+  &__notice {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+  }
+
+  &__notice--danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin: 0;
+    color: var(--destructive);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+}

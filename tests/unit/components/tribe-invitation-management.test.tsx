@@ -13,6 +13,15 @@ jest.mock("sonner", () => ({
   },
 }));
 
+const baseInvitation = {
+  createdAt: "2026-04-26T07:00:00.000Z",
+  createdByName: "Grace Hopper",
+  id: "invitation-1",
+  invitationUrl:
+    "https://tutribu.example.com/tribu/matematica-pro/invitar/token",
+  subscriptionAssociation: { type: "current" as const },
+};
+
 describe("TribeInvitationManagement", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -26,7 +35,7 @@ describe("TribeInvitationManagement", () => {
     });
   });
 
-  it("creates a reusable invitation link and copies it", async () => {
+  it("creates a reusable invitation link after the user picks a plan", async () => {
     const user = userEvent.setup();
     const invitationUrl =
       "https://tutribu.example.com/tribu/matematica-pro/invitar/token";
@@ -34,10 +43,9 @@ describe("TribeInvitationManagement", () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       json: async () => ({
         invitation: {
-          createdAt: "2026-04-26T07:00:00.000Z",
-          createdByName: "Grace Hopper",
-          id: "invitation-1",
+          ...baseInvitation,
           invitationUrl,
+          subscriptionAssociation: { type: "current" },
         },
         invitationUrl,
         message: "Link de invitación creado.",
@@ -47,6 +55,8 @@ describe("TribeInvitationManagement", () => {
 
     render(
       <TribeInvitationManagement
+        availablePrices={[]}
+        canManagePrices
         invitations={[]}
         tribeSlug="matematica-pro"
       />
@@ -59,14 +69,36 @@ describe("TribeInvitationManagement", () => {
       })
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Crear link" }));
+    await user.click(screen.getByRole("button", { name: /Crear link/ }));
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      "/api/tribes/matematica-pro/invitations",
-      { method: "POST" }
+    expect(
+      await screen.findByRole("heading", {
+        name: "Nuevo link de invitación",
+      })
+    ).toBeInTheDocument();
+
+    const submitButton = screen.getByRole("button", { name: /^Crear link$/ });
+    expect(submitButton).toBeDisabled();
+
+    await user.click(screen.getByRole("combobox"));
+    await user.click(
+      await screen.findByRole("option", { name: "Plan actual" })
     );
+
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/invitations",
+        expect.objectContaining({
+          body: JSON.stringify({
+            subscriptionAssociation: { type: "current" },
+          }),
+          method: "POST",
+        })
+      );
+    });
     expect(screen.getByText("Link activo")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Copiar link" })).toBeInTheDocument();
     expect(toast.success).toHaveBeenCalledWith("Link de invitación creado.");
   });
 
@@ -82,15 +114,9 @@ describe("TribeInvitationManagement", () => {
 
     render(
       <TribeInvitationManagement
-        invitations={[
-          {
-            createdAt: "2026-04-26T07:00:00.000Z",
-            createdByName: "Grace Hopper",
-            id: "invitation-1",
-            invitationUrl:
-              "https://tutribu.example.com/tribu/matematica-pro/invitar/token",
-          },
-        ]}
+        availablePrices={[]}
+        canManagePrices
+        invitations={[baseInvitation]}
         tribeSlug="matematica-pro"
       />
     );
@@ -107,75 +133,92 @@ describe("TribeInvitationManagement", () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         "/api/tribes/matematica-pro/invitations/invitation-1",
-        { method: "DELETE" }
+        expect.objectContaining({ method: "DELETE" })
       );
     });
     expect(screen.getByText("Todavía no hay invitaciones activas.")).toBeInTheDocument();
     expect(toast.success).toHaveBeenCalledWith("Invitación revocada.");
   });
 
-  it("cancels the revoke action without calling the API", async () => {
+  it("changes the plan associated with an existing invitation", async () => {
     const user = userEvent.setup();
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        invitation: {
+          ...baseInvitation,
+          subscriptionAssociation: { type: "free" },
+        },
+        message: "Plan asociado actualizado.",
+      }),
+      ok: true,
+    });
 
     render(
       <TribeInvitationManagement
-        invitations={[
-          {
-            createdAt: "2026-04-26T07:00:00.000Z",
-            createdByName: "Grace Hopper",
-            id: "invitation-1",
-            invitationUrl:
-              "https://tutribu.example.com/tribu/matematica-pro/invitar/token",
-          },
-        ]}
+        availablePrices={[]}
+        canManagePrices
+        invitations={[baseInvitation]}
         tribeSlug="matematica-pro"
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Revocar" }));
+    await user.click(screen.getByRole("button", { name: "Cambiar plan" }));
+    await user.click(await screen.findByRole("combobox"));
     await user.click(
-      await screen.findByRole("button", { name: "Cancelar" })
+      await screen.findByRole("option", { name: "Plan gratuito" })
     );
-
-    expect(global.fetch).not.toHaveBeenCalled();
-    expect(screen.getByText("Link activo")).toBeInTheDocument();
-  });
-
-  it("copies the invitation URL from the selected active row", async () => {
-    const user = userEvent.setup();
-    const clipboardWriteTextSpy = jest
-      .spyOn(navigator.clipboard, "writeText")
-      .mockResolvedValue(undefined);
-    const firstInvitationUrl =
-      "https://tutribu.example.com/tribu/matematica-pro/invitar/first-token";
-    const secondInvitationUrl =
-      "https://tutribu.example.com/tribu/matematica-pro/invitar/second-token";
-
-    render(
-      <TribeInvitationManagement
-        invitations={[
-          {
-            createdAt: "2026-04-26T07:00:00.000Z",
-            createdByName: "Grace Hopper",
-            id: "invitation-1",
-            invitationUrl: firstInvitationUrl,
-          },
-          {
-            createdAt: "2026-04-26T07:01:00.000Z",
-            createdByName: "Grace Hopper",
-            id: "invitation-2",
-            invitationUrl: secondInvitationUrl,
-          },
-        ]}
-        tribeSlug="matematica-pro"
-      />
-    );
-
-    await user.click(screen.getAllByRole("button", { name: "Copiar link" })[1]);
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
     await waitFor(() => {
-      expect(clipboardWriteTextSpy).toHaveBeenCalledWith(secondInvitationUrl);
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/invitations/invitation-1/subscription-association",
+        expect.objectContaining({
+          body: JSON.stringify({
+            subscriptionAssociation: { type: "free" },
+          }),
+          method: "PATCH",
+        })
+      );
     });
-    expect(clipboardWriteTextSpy).not.toHaveBeenCalledWith(firstInvitationUrl);
+    expect(toast.success).toHaveBeenCalledWith("Plan asociado actualizado.");
+  });
+
+  it("hides price-only association controls when the viewer cannot manage prices", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeInvitationManagement
+        availablePrices={[
+          {
+            amountCents: 500000,
+            currency: "ARS",
+            id: "price-1",
+            isCurrent: false,
+            name: "Plan mensual",
+          },
+        ]}
+        canManagePrices={false}
+        invitations={[baseInvitation]}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Cambiar plan" })
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Crear link/ }));
+    await user.click(await screen.findByRole("combobox"));
+
+    expect(
+      await screen.findByRole("option", { name: "Plan actual" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Plan gratuito" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: /Plan mensual/ })
+    ).not.toBeInTheDocument();
   });
 });

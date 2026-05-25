@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 
 import {
   TRIBE_INVITATION_STATUS,
+  TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE,
   TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS,
 } from "@/src/modules/tribes/constants/tribe-invitations";
 import {
@@ -12,17 +13,24 @@ import {
 import type {
   AcceptTribeInvitationCommand,
   CreateTribeInvitationCommand,
+  ListTribeInvitationsByPriceQuery,
   ListTribeInvitationsQuery,
   RevokeTribeInvitationCommand,
   TribeInvitationRepository,
+  UpdateTribeInvitationSubscriptionAssociationCommand,
 } from "@/src/modules/tribes/domain/repositories/tribe-invitation-repository";
 import type {
   TribeInvitationAcceptanceResult,
+  TribeInvitationAssociatedPlanResult,
   TribeInvitationCreationResult,
   TribeInvitationListItemResult,
   TribeInvitationRevocationResult,
+  TribeInvitationSubscriptionAssociationResult,
+  TribeInvitationSubscriptionAssociationUpdateResult,
   TribeInvitationSubscriptionOfferResult,
+  TribeInvitationsByPriceResult,
 } from "@/src/modules/tribes/application/results/tribe-invitation-result";
+import type { TribeInvitationSubscriptionAssociation } from "@/src/modules/tribes/domain/value-objects/tribe-invitation-subscription-association";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -37,10 +45,21 @@ type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
 
-type InvitationRow = {
+type AssociatedPlanRow = {
+  associated_plan_amount_cents: number | null;
+  associated_plan_currency: string | null;
+  associated_plan_frequency: string | null;
+  associated_plan_id: string | null;
+  associated_plan_name: string | null;
+  associated_plan_status: "active" | "canceled" | "deleted" | null;
+};
+
+type InvitationRow = AssociatedPlanRow & {
   created_at: Date | string;
   created_by_name: string | null;
   id: string;
+  subscription_association_type: string;
+  subscription_price_id: string | null;
 };
 
 type InvitationListRow = InvitationRow & {
@@ -77,6 +96,12 @@ const POSTGRES_ERROR_CODE = {
   undefinedFunction: "42883",
   undefinedTable: "42P01",
 } as const;
+
+const POSTGRES_INTEGRITY_ERROR_CODE = {
+  checkViolation: "23514",
+  foreignKeyViolation: "23503",
+} as const;
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -129,6 +154,55 @@ function resolveInvitationUrlFromRow(
   }
 }
 
+function mapAssociatedPlan(
+  row: AssociatedPlanRow
+): TribeInvitationAssociatedPlanResult | null {
+  if (
+    row.associated_plan_id === null ||
+    row.associated_plan_amount_cents === null ||
+    row.associated_plan_currency === null ||
+    row.associated_plan_frequency === null ||
+    row.associated_plan_name === null ||
+    row.associated_plan_status === null
+  ) {
+    return null;
+  }
+
+  return {
+    amountCents: row.associated_plan_amount_cents,
+    currency: row.associated_plan_currency,
+    frequency: row.associated_plan_frequency,
+    id: row.associated_plan_id,
+    name: row.associated_plan_name,
+    status: row.associated_plan_status,
+  };
+}
+
+function mapSubscriptionAssociation(
+  row: InvitationRow
+): TribeInvitationSubscriptionAssociationResult {
+  if (
+    row.subscription_association_type ===
+      TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.specific &&
+    row.subscription_price_id
+  ) {
+    return {
+      plan: mapAssociatedPlan(row),
+      priceId: row.subscription_price_id,
+      type: TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.specific,
+    };
+  }
+
+  if (
+    row.subscription_association_type ===
+    TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.free
+  ) {
+    return { type: TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.free };
+  }
+
+  return { type: TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current };
+}
+
 function mapInvitation(
   row: InvitationRow,
   invitationUrl: string | null = null
@@ -141,6 +215,7 @@ function mapInvitation(
     createdByName: row.created_by_name,
     id: row.id,
     invitationUrl,
+    subscriptionAssociation: mapSubscriptionAssociation(row),
   };
 }
 
@@ -158,6 +233,10 @@ function mapCreationResult(
 
   if (row?.status === TRIBE_INVITATION_STATUS.notFound) {
     return { status: TRIBE_INVITATION_STATUS.notFound };
+  }
+
+  if (row?.status === TRIBE_INVITATION_STATUS.invalid) {
+    return { status: TRIBE_INVITATION_STATUS.invalid };
   }
 
   return { status: TRIBE_INVITATION_STATUS.forbidden };
@@ -230,6 +309,48 @@ function isMissingInvitationStorageError(error: unknown): boolean {
   );
 }
 
+function isIntegrityViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const postgresError = error as { cause?: unknown; code?: string };
+  const directCode = postgresError.code;
+  const causeCode =
+    postgresError.cause &&
+    typeof postgresError.cause === "object" &&
+    "code" in postgresError.cause
+      ? (postgresError.cause as { code?: string }).code
+      : undefined;
+
+  return (
+    directCode === POSTGRES_INTEGRITY_ERROR_CODE.checkViolation ||
+    directCode === POSTGRES_INTEGRITY_ERROR_CODE.foreignKeyViolation ||
+    causeCode === POSTGRES_INTEGRITY_ERROR_CODE.checkViolation ||
+    causeCode === POSTGRES_INTEGRITY_ERROR_CODE.foreignKeyViolation
+  );
+}
+
+function resolveAssociationColumns(
+  subscriptionAssociation: TribeInvitationSubscriptionAssociation
+): { subscriptionAssociationType: string; subscriptionPriceId: string | null } {
+  if (
+    subscriptionAssociation.type ===
+    TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.specific
+  ) {
+    return {
+      subscriptionAssociationType:
+        TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.specific,
+      subscriptionPriceId: subscriptionAssociation.priceId,
+    };
+  }
+
+  return {
+    subscriptionAssociationType: subscriptionAssociation.type,
+    subscriptionPriceId: null,
+  };
+}
+
 export class PostgresTribeInvitationRepository implements TribeInvitationRepository {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
@@ -249,12 +370,22 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           tribe_invitations.id,
           tribe_invitations.created_at,
           tribe_invitations.token_encrypted,
-          invitation_creators.name as created_by_name
+          tribe_invitations.subscription_association_type,
+          tribe_invitations.subscription_price_id,
+          invitation_creators.name as created_by_name,
+          associated_price.id as associated_plan_id,
+          associated_price.name as associated_plan_name,
+          associated_price.amount_cents as associated_plan_amount_cents,
+          associated_price.currency as associated_plan_currency,
+          associated_price.frequency as associated_plan_frequency,
+          associated_price.status as associated_plan_status
         from public.tribe_invitations
         inner join target_tribe
           on target_tribe.id = tribe_invitations.tribe_id
         left join public."user" invitation_creators
           on invitation_creators.id = tribe_invitations.created_by
+        left join public.tribe_subscription_prices associated_price
+          on associated_price.id = tribe_invitations.subscription_price_id
         where tribe_invitations.status = ${TRIBE_INVITATION_STATUS.active}
           and public.can_manage_tribe_invitations(target_tribe.id)
         order by tribe_invitations.created_at desc
@@ -272,6 +403,63 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     });
   }
 
+  async listByPriceId({
+    baseUrl,
+    priceId,
+    tribeSlug,
+  }: ListTribeInvitationsByPriceQuery): Promise<TribeInvitationsByPriceResult> {
+    if (!isValidInvitationId(priceId)) {
+      return { invitations: [] };
+    }
+
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
+          limit 1
+        )
+        select
+          tribe_invitations.id,
+          tribe_invitations.created_at,
+          tribe_invitations.token_encrypted,
+          tribe_invitations.subscription_association_type,
+          tribe_invitations.subscription_price_id,
+          invitation_creators.name as created_by_name,
+          associated_price.id as associated_plan_id,
+          associated_price.name as associated_plan_name,
+          associated_price.amount_cents as associated_plan_amount_cents,
+          associated_price.currency as associated_plan_currency,
+          associated_price.frequency as associated_plan_frequency,
+          associated_price.status as associated_plan_status
+        from public.tribe_invitations
+        inner join target_tribe
+          on target_tribe.id = tribe_invitations.tribe_id
+        left join public."user" invitation_creators
+          on invitation_creators.id = tribe_invitations.created_by
+        left join public.tribe_subscription_prices associated_price
+          on associated_price.id = tribe_invitations.subscription_price_id
+        where tribe_invitations.status = ${TRIBE_INVITATION_STATUS.active}
+          and tribe_invitations.subscription_price_id = ${priceId}
+          and public.can_manage_tribe_invitations(target_tribe.id)
+        order by tribe_invitations.created_at desc
+      `);
+
+      return {
+        invitations: ((result.rows ?? []) as InvitationListRow[]).map((row) =>
+          mapInvitation(row, resolveInvitationUrlFromRow(row, baseUrl, tribeSlug))
+        ),
+      };
+    }).catch((error: unknown) => {
+      if (isMissingInvitationStorageError(error)) {
+        return { invitations: [] };
+      }
+
+      throw error;
+    });
+  }
+
   async create(
     command: CreateTribeInvitationCommand
   ): Promise<TribeInvitationCreationResult> {
@@ -283,11 +471,23 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         command.tribeSlug,
         command.token
       );
+      const { subscriptionAssociationType, subscriptionPriceId } =
+        resolveAssociationColumns(command.subscriptionAssociation);
       const result = await database.execute(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
           where tribes.slug = ${command.tribeSlug}
+          limit 1
+        ),
+        target_price as (
+          select tribe_subscription_prices.id
+          from public.tribe_subscription_prices
+          inner join target_tribe
+            on target_tribe.id = tribe_subscription_prices.tribe_id
+          where tribe_subscription_prices.id = ${subscriptionPriceId}
+            and tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
           limit 1
         ),
         inserted_invitation as (
@@ -298,6 +498,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             token_encrypted,
             created_by,
             status,
+            subscription_association_type,
+            subscription_price_id,
             created_at
           )
           select
@@ -307,25 +509,47 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             ${tokenEncrypted},
             public.current_app_user_id(),
             ${TRIBE_INVITATION_STATUS.active},
+            ${subscriptionAssociationType},
+            ${subscriptionPriceId},
             timezone('utc', now())
           from target_tribe
           where public.can_manage_tribe_invitations(target_tribe.id)
-          returning id, created_at, created_by
+            and (
+              ${subscriptionAssociationType} = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current}
+              or public.can_manage_tribe_subscription_prices(target_tribe.id)
+            )
+            and (
+              ${subscriptionPriceId}::uuid is null
+              or exists (select 1 from target_price)
+            )
+          returning id, created_at, created_by, subscription_association_type, subscription_price_id
         )
         select
           case
             when exists (select 1 from inserted_invitation) then ${TRIBE_INVITATION_STATUS.created}
             when not exists (select 1 from target_tribe) then ${TRIBE_INVITATION_STATUS.notFound}
+            when ${subscriptionPriceId}::uuid is not null
+              and not exists (select 1 from target_price) then ${TRIBE_INVITATION_STATUS.invalid}
             else ${TRIBE_INVITATION_STATUS.forbidden}
           end as status,
           inserted_invitation.id,
           inserted_invitation.created_at,
-          invitation_creators.name as created_by_name
+          inserted_invitation.subscription_association_type,
+          inserted_invitation.subscription_price_id,
+          invitation_creators.name as created_by_name,
+          associated_price.id as associated_plan_id,
+          associated_price.name as associated_plan_name,
+          associated_price.amount_cents as associated_plan_amount_cents,
+          associated_price.currency as associated_plan_currency,
+          associated_price.frequency as associated_plan_frequency,
+          associated_price.status as associated_plan_status
         from (select 1) result
         left join inserted_invitation
           on true
         left join public."user" invitation_creators
           on invitation_creators.id = inserted_invitation.created_by
+        left join public.tribe_subscription_prices associated_price
+          on associated_price.id = inserted_invitation.subscription_price_id
       `);
 
       return mapCreationResult(
@@ -335,6 +559,131 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     }).catch((error: unknown) => {
       if (isMissingInvitationStorageError(error)) {
         return { status: TRIBE_INVITATION_STATUS.setupRequired };
+      }
+
+      if (isIntegrityViolation(error)) {
+        return { status: TRIBE_INVITATION_STATUS.invalid };
+      }
+
+      throw error;
+    });
+  }
+
+  async updateSubscriptionAssociation(
+    command: UpdateTribeInvitationSubscriptionAssociationCommand
+  ): Promise<TribeInvitationSubscriptionAssociationUpdateResult> {
+    if (!isValidInvitationId(command.invitationId)) {
+      return { status: TRIBE_INVITATION_STATUS.notFound };
+    }
+
+    return this.executeWithDatabase(async (database) => {
+      const { subscriptionAssociationType, subscriptionPriceId } =
+        resolveAssociationColumns(command.subscriptionAssociation);
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${command.tribeSlug}
+          limit 1
+        ),
+        target_invitation as (
+          select tribe_invitations.id, tribe_invitations.tribe_id
+          from public.tribe_invitations
+          inner join target_tribe
+            on target_tribe.id = tribe_invitations.tribe_id
+          where tribe_invitations.id = ${command.invitationId}
+            and tribe_invitations.status = ${TRIBE_INVITATION_STATUS.active}
+          limit 1
+        ),
+        target_price as (
+          select tribe_subscription_prices.id
+          from public.tribe_subscription_prices
+          inner join target_tribe
+            on target_tribe.id = tribe_subscription_prices.tribe_id
+          where tribe_subscription_prices.id = ${subscriptionPriceId}
+            and tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
+          limit 1
+        ),
+        updated_invitation as (
+          update public.tribe_invitations
+          set
+            subscription_association_type = ${subscriptionAssociationType},
+            subscription_price_id = ${subscriptionPriceId}
+          where tribe_invitations.id = (select id from target_invitation)
+            and public.can_manage_tribe_invitations(tribe_invitations.tribe_id)
+            and (
+              ${subscriptionAssociationType} = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current}
+              or public.can_manage_tribe_subscription_prices(tribe_invitations.tribe_id)
+            )
+            and (
+              ${subscriptionPriceId}::uuid is null
+              or exists (select 1 from target_price)
+            )
+          returning
+            tribe_invitations.id,
+            tribe_invitations.created_at,
+            tribe_invitations.created_by,
+            tribe_invitations.token_encrypted,
+            tribe_invitations.subscription_association_type,
+            tribe_invitations.subscription_price_id
+        )
+        select
+          case
+            when exists (select 1 from updated_invitation) then ${TRIBE_INVITATION_STATUS.updated}
+            when not exists (select 1 from target_tribe) then ${TRIBE_INVITATION_STATUS.notFound}
+            when not exists (select 1 from target_invitation) then ${TRIBE_INVITATION_STATUS.notFound}
+            when ${subscriptionPriceId}::uuid is not null
+              and not exists (select 1 from target_price) then ${TRIBE_INVITATION_STATUS.invalid}
+            else ${TRIBE_INVITATION_STATUS.forbidden}
+          end as status,
+          updated_invitation.id,
+          updated_invitation.created_at,
+          updated_invitation.token_encrypted,
+          updated_invitation.subscription_association_type,
+          updated_invitation.subscription_price_id,
+          invitation_creators.name as created_by_name,
+          associated_price.id as associated_plan_id,
+          associated_price.name as associated_plan_name,
+          associated_price.amount_cents as associated_plan_amount_cents,
+          associated_price.currency as associated_plan_currency,
+          associated_price.frequency as associated_plan_frequency,
+          associated_price.status as associated_plan_status
+        from (select 1) result
+        left join updated_invitation
+          on true
+        left join public."user" invitation_creators
+          on invitation_creators.id = updated_invitation.created_by
+        left join public.tribe_subscription_prices associated_price
+          on associated_price.id = updated_invitation.subscription_price_id
+      `);
+
+      const row = (result.rows?.[0] ?? null) as
+        | (InvitationListRow & { status: string | null })
+        | null;
+
+      if (row?.status === TRIBE_INVITATION_STATUS.updated) {
+        return {
+          invitation: mapInvitation(
+            row,
+            resolveInvitationUrlFromRow(row, command.baseUrl, command.tribeSlug)
+          ),
+          status: TRIBE_INVITATION_STATUS.updated,
+        };
+      }
+
+      if (row?.status === TRIBE_INVITATION_STATUS.notFound) {
+        return { status: TRIBE_INVITATION_STATUS.notFound };
+      }
+
+      if (row?.status === TRIBE_INVITATION_STATUS.invalid) {
+        return { status: TRIBE_INVITATION_STATUS.invalid };
+      }
+
+      return { status: TRIBE_INVITATION_STATUS.forbidden };
+    }).catch((error: unknown) => {
+      if (isIntegrityViolation(error)) {
+        return { status: TRIBE_INVITATION_STATUS.invalid };
       }
 
       throw error;
@@ -388,12 +737,6 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     });
   }
 
-  /**
-   * Accepts a tribe invitation for the current request user.
-   *
-   * @param command - Invitation token and tribe slug used to resolve the target invitation.
-   * @returns The invitation acceptance status mapped to the application contract.
-   */
   async accept(
     command: AcceptTribeInvitationCommand
   ): Promise<TribeInvitationAcceptanceResult> {
@@ -412,7 +755,9 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           select
             tribe_invitations.id,
             tribe_invitations.status,
-            tribe_invitations.tribe_id
+            tribe_invitations.tribe_id,
+            tribe_invitations.subscription_association_type,
+            tribe_invitations.subscription_price_id
           from public.tribe_invitations
           cross join invitation_acceptance_context
           where tribe_invitations.token_hash = ${tokenHash}
@@ -438,16 +783,38 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           where tribe_members.user_id = public.current_app_user_id()
           limit 1
         ),
-        current_subscription_price as (
+        invitation_offer_price as (
           select tribe_subscription_prices.id
           from public.tribe_subscription_prices
           inner join target_tribe
             on target_tribe.id = tribe_subscription_prices.tribe_id
-          where target_tribe.free_join_is_current = false
-            and tribe_subscription_prices.is_current = true
-            and tribe_subscription_prices.status = 'active'
+          inner join target_invitation
+            on true
+          where tribe_subscription_prices.status = 'active'
             and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
+            and (
+              (
+                target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.specific}
+                and tribe_subscription_prices.id = target_invitation.subscription_price_id
+              )
+              or (
+                target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current}
+                and target_tribe.free_join_is_current = false
+                and tribe_subscription_prices.is_current = true
+              )
+            )
           limit 1
+        ),
+        invitation_grants_free_access as (
+          select 1
+          from target_invitation, target_tribe
+          where (
+            target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.free}
+          )
+          or (
+            target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current}
+            and target_tribe.free_join_is_current = true
+          )
         ),
         inserted_membership as (
           insert into public.tribe_members (
@@ -470,7 +837,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           cross join invitation_acceptance_context
           where target_invitation.status = ${TRIBE_INVITATION_STATUS.active}
             and public.current_app_user_id() <> ''
-            and target_tribe.free_join_is_current = true
+            and exists (select 1 from invitation_grants_free_access)
             and not exists (select 1 from existing_membership)
           on conflict (tribe_id, user_id) do nothing
           returning id
@@ -488,7 +855,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             and tribe_members.user_id = public.current_app_user_id()
             and target_invitation.status = ${TRIBE_INVITATION_STATUS.active}
             and public.current_app_user_id() <> ''
-            and target_tribe.free_join_is_current = true
+            and exists (select 1 from invitation_grants_free_access)
             and exists (
               select 1 from existing_membership
               where status = 'blocked'
@@ -512,7 +879,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
                 and status_reason <> 'payment_blocked'
             ) then ${TRIBE_INVITATION_STATUS.blocked}
             when exists (
-              select 1 from current_subscription_price
+              select 1 from invitation_offer_price
             ) and exists (
               select 1 from target_invitation where status = ${TRIBE_INVITATION_STATUS.active}
             ) and not exists (
@@ -556,7 +923,9 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         target_invitation as (
           select
             tribe_invitations.status,
-            tribe_invitations.tribe_id
+            tribe_invitations.tribe_id,
+            tribe_invitations.subscription_association_type,
+            tribe_invitations.subscription_price_id
           from public.tribe_invitations
           cross join invitation_offer_context
           where tribe_invitations.token_hash = ${tokenHash}
@@ -580,14 +949,21 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         from public.tribe_subscription_prices
         inner join target_tribe
           on target_tribe.id = tribe_subscription_prices.tribe_id
-        where target_tribe.free_join_is_current = false
-          and tribe_subscription_prices.is_current = true
-          and tribe_subscription_prices.status = 'active'
+        inner join target_invitation
+          on true
+        where tribe_subscription_prices.status = 'active'
           and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
-          and exists (
-            select 1
-            from target_invitation
-            where target_invitation.status = ${TRIBE_INVITATION_STATUS.active}
+          and target_invitation.status = ${TRIBE_INVITATION_STATUS.active}
+          and (
+            (
+              target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.specific}
+              and tribe_subscription_prices.id = target_invitation.subscription_price_id
+            )
+            or (
+              target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current}
+              and target_tribe.free_join_is_current = false
+              and tribe_subscription_prices.is_current = true
+            )
           )
         limit 1
       `);

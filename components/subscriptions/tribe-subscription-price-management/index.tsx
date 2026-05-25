@@ -49,8 +49,23 @@ import type {
   TribeSubscriberDiagnosticsResult,
   TribeSubscriptionPriceResult,
 } from "@/src/modules/subscriptions/application/results/tribe-subscription-price-result";
+import type { TribeInvitationListItemResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
+import {
+  LinkedInvitationsDeletionDialog,
+  PRICE_STATUS_ACTIVE,
+  type LinkedInvitationActionSelection,
+  type LinkedInvitationsDialogTargetPrice,
+} from "./linked-invitations-deletion-dialog";
 import styles from "./styles.module.scss";
+
+const PRICE_DELETION_STATUS = {
+  hasLinkedInvitations: "has_linked_invitations",
+} as const;
+
+const PRICE_DELETION_ROUTE_SEGMENT = {
+  deleteWithInvitationActions: "/delete-with-invitation-actions",
+} as const;
 
 const PRICE_MANAGEMENT_COPY = {
   activeBadge: "Activo",
@@ -213,8 +228,10 @@ const SUBSCRIBER_DIAGNOSTICS_RECONCILED_AT_FORMATTER = new Intl.DateTimeFormat(
 type PriceResponse = {
   deletedPriceId?: string;
   fieldErrors?: PriceFieldErrors;
+  linkedInvitations?: TribeInvitationListItemResult[];
   message?: string;
   price?: TribeSubscriptionPriceResult;
+  status?: string;
 };
 
 type ProviderPlansVerificationResponse = {
@@ -257,7 +274,9 @@ type EditingPrice = {
 class PriceRequestError extends Error {
   constructor(
     message: string,
-    readonly fieldErrors: PriceFieldErrors = {}
+    readonly fieldErrors: PriceFieldErrors = {},
+    readonly status?: string,
+    readonly linkedInvitations?: TribeInvitationListItemResult[]
   ) {
     super(message);
   }
@@ -535,7 +554,7 @@ function getEditTrialFrequencyError(input: {
 async function submitPriceRequest(
   url: string,
   method: string,
-  body?: Record<string, string>,
+  body?: Record<string, unknown>,
   signal?: AbortSignal
 ): Promise<PriceResponse> {
   const response = await fetch(url, {
@@ -552,7 +571,9 @@ async function submitPriceRequest(
   if (!response.ok) {
     throw new PriceRequestError(
       responseBody.message ?? PRICE_MANAGEMENT_COPY.fallbackCreateError,
-      responseBody.fieldErrors
+      responseBody.fieldErrors,
+      responseBody.status,
+      responseBody.linkedInvitations
     );
   }
 
@@ -617,6 +638,14 @@ export function TribeSubscriptionPriceManagement({
   tribeSlug,
 }: TribeSubscriptionPriceManagementProps) {
   const [priceItems, setPriceItems] = useState(prices);
+  const [linkedInvitationsDeletion, setLinkedInvitationsDeletion] = useState<{
+    invitations: TribeInvitationListItemResult[];
+    priceId: string;
+  } | null>(null);
+  const [
+    isSubmittingLinkedInvitationsDeletion,
+    setIsSubmittingLinkedInvitationsDeletion,
+  ] = useState(false);
   const [isFreeJoinCurrent, setIsFreeJoinCurrent] =
     useState(freeJoinIsCurrent);
   const [name, setName] = useState("");
@@ -1172,14 +1201,72 @@ export function TribeSubscriptionPriceManagement({
       }
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.removeButton);
     } catch (error) {
+      if (
+        error instanceof PriceRequestError &&
+        error.status === PRICE_DELETION_STATUS.hasLinkedInvitations &&
+        Array.isArray(error.linkedInvitations)
+      ) {
+        setLinkedInvitationsDeletion({
+          invitations: error.linkedInvitations,
+          priceId,
+        });
+        setPendingAction(null);
+        return;
+      }
+
       toast.error(
         error instanceof Error
           ? error.message
           : PRICE_MANAGEMENT_COPY.fallbackDeleteError
       );
     } finally {
-      setPendingAction(null);
+      setPendingAction((current) => (current === priceId ? null : current));
     }
+  };
+
+  const handleConfirmLinkedInvitationsDeletion = async (
+    selections: LinkedInvitationActionSelection[]
+  ) => {
+    if (!linkedInvitationsDeletion) {
+      return;
+    }
+
+    const { priceId } = linkedInvitationsDeletion;
+    setIsSubmittingLinkedInvitationsDeletion(true);
+
+    try {
+      const response = await submitPriceRequest(
+        buildPriceEndpoint(tribeSlug, priceId) +
+          PRICE_DELETION_ROUTE_SEGMENT.deleteWithInvitationActions,
+        PRICE_MANAGEMENT_REQUEST.postMethod,
+        { invitationActions: selections } as unknown as Record<string, string>
+      );
+
+      if (response.deletedPriceId) {
+        setPriceItems((currentPrices) =>
+          currentPrices.filter((price) => price.id !== response.deletedPriceId)
+        );
+      }
+
+      toast.success(response.message ?? PRICE_MANAGEMENT_COPY.removeButton);
+      setLinkedInvitationsDeletion(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : PRICE_MANAGEMENT_COPY.fallbackDeleteError
+      );
+    } finally {
+      setIsSubmittingLinkedInvitationsDeletion(false);
+    }
+  };
+
+  const handleCancelLinkedInvitationsDeletion = () => {
+    if (isSubmittingLinkedInvitationsDeletion) {
+      return;
+    }
+
+    setLinkedInvitationsDeletion(null);
   };
 
   /**
@@ -2010,6 +2097,39 @@ export function TribeSubscriptionPriceManagement({
           </p>
         </div>
       </section>
+      <LinkedInvitationsDeletionDialog
+        invitations={linkedInvitationsDeletion?.invitations ?? []}
+        isSubmitting={isSubmittingLinkedInvitationsDeletion}
+        onCancel={handleCancelLinkedInvitationsDeletion}
+        onConfirm={(selections) => {
+          void handleConfirmLinkedInvitationsDeletion(selections);
+        }}
+        open={linkedInvitationsDeletion !== null}
+        targetPriceOptions={resolveLinkedInvitationTargetPrices(
+          priceItems,
+          linkedInvitationsDeletion?.priceId
+        )}
+      />
     </section>
   );
+}
+
+function resolveLinkedInvitationTargetPrices(
+  priceItems: TribeSubscriptionPriceResult[],
+  priceUnderDeletionId: string | undefined
+): LinkedInvitationsDialogTargetPrice[] {
+  if (!priceUnderDeletionId) {
+    return [];
+  }
+
+  return priceItems
+    .filter(
+      (price) =>
+        price.id !== priceUnderDeletionId && price.status === PRICE_STATUS_ACTIVE
+    )
+    .map((price) => ({
+      amountCents: price.amountCents,
+      id: price.id,
+      name: price.name,
+    }));
 }

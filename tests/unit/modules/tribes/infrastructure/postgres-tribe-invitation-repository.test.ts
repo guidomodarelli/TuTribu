@@ -61,10 +61,18 @@ describe("PostgresTribeInvitationRepository", () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
+          associated_plan_amount_cents: null,
+          associated_plan_currency: null,
+          associated_plan_frequency: null,
+          associated_plan_id: null,
+          associated_plan_name: null,
+          associated_plan_status: null,
           created_at: "2026-04-26T07:00:00.000Z",
           created_by_name: "Grace Hopper",
           id: "invitation-1",
           status: "created",
+          subscription_association_type: "current",
+          subscription_price_id: null,
         },
       ],
     }));
@@ -76,6 +84,7 @@ describe("PostgresTribeInvitationRepository", () => {
       repository.create({
         baseUrl: "https://tutribu.example.com",
         invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        subscriptionAssociation: { type: "current" },
         token: "plain-token",
         tribeSlug: "matematica-pro",
       })
@@ -94,6 +103,55 @@ describe("PostgresTribeInvitationRepository", () => {
     expect(sqlText).not.toContain("plain-token");
   });
 
+  it("only creates specific-price invitations for active provider-backed prices", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          associated_plan_amount_cents: 500000,
+          associated_plan_currency: "ARS",
+          associated_plan_frequency: "monthly",
+          associated_plan_id: "550e8400-e29b-41d4-a716-446655440010",
+          associated_plan_name: "Plan mensual",
+          associated_plan_status: "active",
+          created_at: "2026-04-26T07:00:00.000Z",
+          created_by_name: "Grace Hopper",
+          id: "invitation-1",
+          status: "created",
+          subscription_association_type: "specific",
+          subscription_price_id: "550e8400-e29b-41d4-a716-446655440010",
+        },
+      ],
+    }));
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.create({
+        baseUrl: "https://tutribu.example.com",
+        invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        subscriptionAssociation: {
+          priceId: "550e8400-e29b-41d4-a716-446655440010",
+          type: "specific",
+        },
+        token: "plain-token",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      status: "created",
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toMatch(
+      /target_price as \([\s\S]*tribe_subscription_prices\.status =[\s\S]*tribe_subscription_prices\.mercado_pago_preapproval_plan_id is not null/
+    );
+    expect(sqlText).toMatch(
+      /public\.can_manage_tribe_invitations\(target_tribe\.id\)[\s\S]*or public\.can_manage_tribe_subscription_prices\(target_tribe\.id\)/
+    );
+    expect(sqlText).not.toContain("tribe_subscription_prices.status <> 'deleted'");
+  });
+
   it("maps missing invitation storage during creation to setup_required", async () => {
     const execute = jest.fn(async () => {
       throw {
@@ -110,6 +168,7 @@ describe("PostgresTribeInvitationRepository", () => {
       repository.create({
         baseUrl: "https://tutribu.example.com",
         invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        subscriptionAssociation: { type: "current" },
         token: "plain-token",
         tribeSlug: "matematica-pro",
       })
@@ -132,6 +191,7 @@ describe("PostgresTribeInvitationRepository", () => {
       repository.create({
         baseUrl: "https://tutribu.example.com",
         invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        subscriptionAssociation: { type: "current" },
         token: "plain-token",
         tribeSlug: "matematica-pro",
       })
@@ -143,15 +203,31 @@ describe("PostgresTribeInvitationRepository", () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
+          associated_plan_amount_cents: null,
+          associated_plan_currency: null,
+          associated_plan_frequency: null,
+          associated_plan_id: null,
+          associated_plan_name: null,
+          associated_plan_status: null,
           created_at: "2026-04-26T07:00:00.000Z",
           created_by_name: "Grace Hopper",
           id: "550e8400-e29b-41d4-a716-446655440000",
+          subscription_association_type: "current",
+          subscription_price_id: null,
           token_encrypted: encryptedActiveToken,
         },
         {
+          associated_plan_amount_cents: null,
+          associated_plan_currency: null,
+          associated_plan_frequency: null,
+          associated_plan_id: null,
+          associated_plan_name: null,
+          associated_plan_status: null,
           created_at: "2026-04-26T07:05:00.000Z",
           created_by_name: "Ada Lovelace",
           id: "550e8400-e29b-41d4-a716-446655440001",
+          subscription_association_type: "current",
+          subscription_price_id: null,
           token_encrypted: null,
         },
       ],
@@ -172,12 +248,14 @@ describe("PostgresTribeInvitationRepository", () => {
         id: "550e8400-e29b-41d4-a716-446655440000",
         invitationUrl:
           "https://tutribu.example.com/tribu/matematica-pro/invitar/active-token",
+        subscriptionAssociation: { type: "current" },
       },
       {
         createdAt: "2026-04-26T07:05:00.000Z",
         createdByName: "Ada Lovelace",
         id: "550e8400-e29b-41d4-a716-446655440001",
         invitationUrl: null,
+        subscriptionAssociation: { type: "current" },
       },
     ]);
 
@@ -193,9 +271,17 @@ describe("PostgresTribeInvitationRepository", () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
+          associated_plan_amount_cents: null,
+          associated_plan_currency: null,
+          associated_plan_frequency: null,
+          associated_plan_id: null,
+          associated_plan_name: null,
+          associated_plan_status: null,
           created_at: "2026-04-26T07:00:00.000Z",
           created_by_name: "Grace Hopper",
           id: "550e8400-e29b-41d4-a716-446655440000",
+          subscription_association_type: "current",
+          subscription_price_id: null,
           token_encrypted: "v1.bad.bad.bad",
         },
       ],
@@ -215,6 +301,7 @@ describe("PostgresTribeInvitationRepository", () => {
         createdByName: "Grace Hopper",
         id: "550e8400-e29b-41d4-a716-446655440000",
         invitationUrl: null,
+        subscriptionAssociation: { type: "current" },
       },
     ]);
   });
@@ -295,6 +382,55 @@ describe("PostgresTribeInvitationRepository", () => {
     ).resolves.toEqual({ status: "not_found" });
 
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("only updates invitation associations to active provider-backed prices", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          associated_plan_amount_cents: 500000,
+          associated_plan_currency: "ARS",
+          associated_plan_frequency: "monthly",
+          associated_plan_id: "550e8400-e29b-41d4-a716-446655440010",
+          associated_plan_name: "Plan mensual",
+          associated_plan_status: "active",
+          created_at: "2026-04-26T07:00:00.000Z",
+          created_by_name: "Grace Hopper",
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          status: "updated",
+          subscription_association_type: "specific",
+          subscription_price_id: "550e8400-e29b-41d4-a716-446655440010",
+          token_encrypted: encryptInvitationToken("active-token"),
+        },
+      ],
+    }));
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateSubscriptionAssociation({
+        baseUrl: "https://tutribu.example.com",
+        invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        subscriptionAssociation: {
+          priceId: "550e8400-e29b-41d4-a716-446655440010",
+          type: "specific",
+        },
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      status: "updated",
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toMatch(
+      /target_price as \([\s\S]*tribe_subscription_prices\.status =[\s\S]*tribe_subscription_prices\.mercado_pago_preapproval_plan_id is not null/
+    );
+    expect(sqlText).toMatch(
+      /public\.can_manage_tribe_invitations\(tribe_invitations\.tribe_id\)[\s\S]*or public\.can_manage_tribe_subscription_prices\(tribe_invitations\.tribe_id\)/
+    );
+    expect(sqlText).not.toContain("tribe_subscription_prices.status <> 'deleted'");
   });
 
   it("accepts invitations idempotently without persisting the plain token", async () => {
@@ -410,10 +546,10 @@ describe("PostgresTribeInvitationRepository", () => {
       /target_tribe as \([\s\S]*tribes\.id,[\s\S]*tribes\.free_join_is_current/
     );
     expect(sqlText).toMatch(
-      /current_subscription_price as \([\s\S]*target_tribe\.free_join_is_current = false[\s\S]*tribe_subscription_prices\.mercado_pago_preapproval_plan_id is not null/
+      /invitation_offer_price as \([\s\S]*tribe_subscription_prices\.mercado_pago_preapproval_plan_id is not null/
     );
     expect(sqlText).toMatch(
-      /inserted_membership as \([\s\S]*target_tribe\.free_join_is_current = true/
+      /invitation_grants_free_access as \([\s\S]*target_tribe\.free_join_is_current = true/
     );
     expect(sqlText).toMatch(
       /reactivated_membership as \([\s\S]*update public\.tribe_members[\s\S]*status = 'active'[\s\S]*status_reason = 'none'[\s\S]*joined_via = 'free_invitation'/
@@ -460,7 +596,7 @@ describe("PostgresTribeInvitationRepository", () => {
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
     expect(sqlText).toMatch(
-      /when exists \(\s*select 1 from current_subscription_price\s*\)[\s\S]{0,250}target_invitation where status =[\s\S]{0,250}then/
+      /when exists \(\s*select 1 from invitation_offer_price\s*\)[\s\S]{0,250}target_invitation where status =[\s\S]{0,250}then/
     );
   });
 

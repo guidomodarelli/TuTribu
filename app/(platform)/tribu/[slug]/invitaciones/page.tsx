@@ -8,11 +8,16 @@ import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 const INVITATION_MANAGEMENT_PAGE_LOG = {
   operation: "tribe-invitation-management-page",
   resolveInvitationsFailureMessage: "Failed to resolve tribe invitations",
+  resolvePricesFailureMessage: "Failed to resolve tribe subscription prices",
 } as const;
 
 const INVITATION_MANAGER_ROLE = {
   guardian: "guardian",
   leader: "leader",
+} as const;
+
+const INVITATION_PRICE_STATUS = {
+  active: "active",
 } as const;
 
 export default async function TribeInvitationsPage({
@@ -49,27 +54,60 @@ export default async function TribeInvitationsPage({
     notFound();
   }
 
-  const invitations = await modules.tribes.useCases
-    .listTribeInvitations({
-      baseUrl: resolvePublicAppBaseUrl(),
-      tribeSlug: tribe.slug,
-    })
-    .catch((error: unknown) => {
-      logger.error({
-        message: INVITATION_MANAGEMENT_PAGE_LOG.resolveInvitationsFailureMessage,
-        error,
-        metadata: {
-          slug,
-          viewerId: authenticatedMember.id,
-        },
-      });
+  const [invitations, pricesListing] = await Promise.all([
+    modules.tribes.useCases
+      .listTribeInvitations({
+        baseUrl: resolvePublicAppBaseUrl(),
+        tribeSlug: tribe.slug,
+      })
+      .catch((error: unknown) => {
+        logger.error({
+          message:
+            INVITATION_MANAGEMENT_PAGE_LOG.resolveInvitationsFailureMessage,
+          error,
+          metadata: {
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+        });
 
-      return [];
-    });
+        return [];
+      }),
+    modules.subscriptions.useCases
+      .listTribeSubscriptionPrices({
+        tribeSlug: tribe.slug,
+      })
+      .catch((error: unknown) => {
+        logger.error({
+          message: INVITATION_MANAGEMENT_PAGE_LOG.resolvePricesFailureMessage,
+          error,
+          metadata: {
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+        });
+
+        return null;
+      }),
+  ]);
+
+  const availablePrices = (pricesListing?.prices ?? [])
+    .filter((price) => price.status === INVITATION_PRICE_STATUS.active)
+    .map((price) => ({
+      amountCents: price.amountCents,
+      currency: price.currency,
+      id: price.id,
+      isCurrent: price.isCurrent,
+      name: price.name,
+    }));
+  const canManagePrices =
+    pricesListing?.viewerPermissions.canManagePrices ?? false;
 
   return (
     <main>
       <TribeInvitationManagement
+        availablePrices={availablePrices}
+        canManagePrices={canManagePrices}
         invitations={invitations}
         tribeSlug={tribe.slug}
       />

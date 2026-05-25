@@ -134,6 +134,12 @@ export const tribeInvitations = pgTable("tribe_invitations", {
     .notNull()
     .references(() => users.id),
   status: text("status").notNull(),
+  subscriptionAssociationType: text("subscription_association_type")
+    .notNull()
+    .default("current"),
+  subscriptionPriceId: uuid("subscription_price_id").references(
+    () => tribeSubscriptionPrices.id
+  ),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
 }, (table) => ({
@@ -141,6 +147,9 @@ export const tribeInvitations = pgTable("tribe_invitations", {
   tribeStatusIndex: index("idx_tribe_invitations_tribe_status").on(
     table.tribeId,
     table.status
+  ),
+  subscriptionPriceIndex: index("idx_tribe_invitations_subscription_price_id").on(
+    table.subscriptionPriceId
   ),
 }));
 

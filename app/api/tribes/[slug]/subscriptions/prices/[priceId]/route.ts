@@ -10,6 +10,7 @@ import {
   TRIBE_SUBSCRIPTION_TRIAL_MINIMUM_DAYS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
+import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -25,6 +26,8 @@ const PRICE_ITEM_ROUTE_RESPONSE = {
   canceledMessage: "Precio cancelado.",
   deletedMessage: "Precio eliminado.",
   forbiddenMessage: "No tenés permisos para gestionar precios.",
+  hasLinkedInvitationsMessage:
+    "Este plan tiene links de invitación asociados. Decidí qué hacer con cada uno antes de eliminarlo.",
   hasSubscribersMessage: "No podés eliminar un precio con miembros asociados.",
   invalidInputMessage: "Definí un nombre y un precio mensual válido.",
   invalidTrialFieldMessage:
@@ -42,6 +45,7 @@ const PRICE_ITEM_ROUTE_RESPONSE = {
 
 const HTTP_STATUS = {
   badRequest: 400,
+  conflict: 409,
   forbidden: 403,
   notFound: 404,
   ok: 200,
@@ -321,6 +325,23 @@ export async function DELETE(
           { message: PRICE_ITEM_ROUTE_RESPONSE.hasSubscribersMessage },
           HTTP_STATUS.badRequest
         );
+      case TRIBE_SUBSCRIPTION_PRICE_STATUS.hasLinkedInvitations: {
+        const linkedInvitations =
+          await modules.tribes.useCases.listTribeInvitationsByPrice({
+            baseUrl: resolvePublicAppBaseUrl(),
+            priceId,
+            tribeSlug: slug,
+          });
+
+        return createJsonResponse(
+          {
+            linkedInvitations: linkedInvitations.invitations,
+            message: PRICE_ITEM_ROUTE_RESPONSE.hasLinkedInvitationsMessage,
+            status: result.status,
+          },
+          HTTP_STATUS.conflict
+        );
+      }
       case TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration:
         return createJsonResponse(
           { message: PRICE_ITEM_ROUTE_RESPONSE.missingIntegrationMessage },

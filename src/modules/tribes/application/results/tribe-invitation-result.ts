@@ -1,13 +1,36 @@
 import type {
   TRIBE_INVITATION_STATUS,
+  TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE,
   TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS,
 } from "@/src/modules/tribes/constants/tribe-invitations";
+
+export type TribeInvitationAssociatedPlanResult = {
+  amountCents: number;
+  currency: string;
+  frequency: string;
+  id: string;
+  name: string;
+  status: "active" | "canceled" | "deleted";
+};
+
+export type TribeInvitationSubscriptionAssociationResult =
+  | {
+      type:
+        | typeof TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current
+        | typeof TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.free;
+    }
+  | {
+      plan: TribeInvitationAssociatedPlanResult | null;
+      priceId: string;
+      type: typeof TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.specific;
+    };
 
 export type TribeInvitationListItemResult = {
   createdAt: string;
   createdByName: string | null;
   id: string;
   invitationUrl: string | null;
+  subscriptionAssociation: TribeInvitationSubscriptionAssociationResult;
 };
 
 export type TribeInvitationCreationResult =
@@ -19,6 +42,7 @@ export type TribeInvitationCreationResult =
   | {
       status:
         | typeof TRIBE_INVITATION_STATUS.forbidden
+        | typeof TRIBE_INVITATION_STATUS.invalid
         | typeof TRIBE_INVITATION_STATUS.notFound
         | typeof TRIBE_INVITATION_STATUS.setupRequired;
     };
@@ -28,6 +52,22 @@ export type TribeInvitationRevocationResult = {
     | typeof TRIBE_INVITATION_STATUS.revoked
     | typeof TRIBE_INVITATION_STATUS.forbidden
     | typeof TRIBE_INVITATION_STATUS.notFound;
+};
+
+export type TribeInvitationSubscriptionAssociationUpdateResult =
+  | {
+      invitation: TribeInvitationListItemResult;
+      status: typeof TRIBE_INVITATION_STATUS.updated;
+    }
+  | {
+      status:
+        | typeof TRIBE_INVITATION_STATUS.forbidden
+        | typeof TRIBE_INVITATION_STATUS.invalid
+        | typeof TRIBE_INVITATION_STATUS.notFound;
+    };
+
+export type TribeInvitationsByPriceResult = {
+  invitations: TribeInvitationListItemResult[];
 };
 
 export type TribeInvitationAcceptanceResult = {

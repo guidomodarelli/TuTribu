@@ -91,7 +91,7 @@ function createSubscriptionPriceRow(overrides: Record<string, unknown> = {}) {
 }
 
 async function waitUntil(condition: () => boolean): Promise<void> {
-  for (let attemptIndex = 0; attemptIndex < 20; attemptIndex += 1) {
+  for (let attemptIndex = 0; attemptIndex < 80; attemptIndex += 1) {
     if (condition()) {
       return;
     }
@@ -2295,6 +2295,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [],
       })
@@ -2327,6 +2328,68 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(getMercadoPagoSubscriptionStatus).not.toHaveBeenCalled();
   });
 
+  it("should revalidate invitation reassignment targets inside delete transactions", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...createSubscriptionPriceRow({
+              mercado_pago_preapproval_plan_id: null,
+              status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
+              tribe_id: "tribe-1",
+            }),
+            access_token: null,
+            can_manage_prices: true,
+            refresh_token: null,
+            token_expires_at: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ has_local_active_subscriptions: false }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: "invitation-1" }] })
+      .mockResolvedValueOnce({ rows: [{ exists: 1 }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: "invitation-1" }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(),
+      jest.fn()
+    );
+
+    await expect(
+      repository.deleteWithInvitationActions({
+        invitationActions: [
+          {
+            action: "switch_to_specific",
+            invitationId: "invitation-1",
+            targetPriceId: "target-price-1",
+          },
+        ],
+        priceId: "price-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput,
+    });
+
+    const executedSql = execute.mock.calls
+      .map(([statement]) => getSqlText(statement))
+      .join("\n");
+
+    expect(executedSql).not.toMatch(
+      /set subscription_association_type = 'specific'/
+    );
+    expect(executedSql).not.toMatch(
+      /update public\.tribe_subscription_prices[\s\S]*status = .*deleted/
+    );
+  });
+
   it("should keep missing provider-plan prices when historical provider subscribers are still attached", async () => {
     const execute = jest
       .fn()
@@ -2352,6 +2415,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           {
@@ -2410,6 +2474,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: providerSubscriberRows,
       })

@@ -8,6 +8,7 @@ import { connectTribePaymentIntegration } from "@/src/modules/subscriptions/appl
 import {
   createTribeSubscriptionPrice,
   deleteTribeSubscriptionPrice,
+  deleteTribeSubscriptionPriceWithInvitationActions,
   listTribeSubscriptionPrices,
   makeTribeSubscriptionPriceCurrent,
   setTribeFreeJoinAsCurrent,
@@ -69,6 +70,10 @@ export function buildSubscriptionsModule({
       deleteTribeSubscriptionPrice: deleteTribeSubscriptionPrice({
         tribeSubscriptionPriceRepository,
       }),
+      deleteTribeSubscriptionPriceWithInvitationActions:
+        deleteTribeSubscriptionPriceWithInvitationActions({
+          tribeSubscriptionPriceRepository,
+        }),
       cancelOwnTribeMemberSubscription: cancelOwnTribeMemberSubscription({
         tribeMemberSubscriptionRepository,
       }),

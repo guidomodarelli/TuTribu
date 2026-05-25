@@ -97,6 +97,8 @@ describe("timezone-stable hydration formatting", () => {
 
     renderComponent(
       <TribeInvitationManagement
+        availablePrices={[]}
+        canManagePrices
         invitations={[
           {
             createdAt: "2026-04-26T02:30:00.000Z",
@@ -104,6 +106,7 @@ describe("timezone-stable hydration formatting", () => {
             id: "invitation-1",
             invitationUrl:
               "https://tutribu.example.com/tribu/matematica-pro/invitar/token",
+            subscriptionAssociation: { type: "current" },
           },
         ]}
         tribeSlug="matematica-pro"

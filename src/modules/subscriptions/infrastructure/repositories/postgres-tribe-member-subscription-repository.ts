@@ -160,6 +160,11 @@ const SUBSCRIPTION_CHECKOUT_CONTEXT = {
   settingName: "app.subscription_checkout_tribe_id",
 } as const;
 
+const SUBSCRIPTION_INVITATION_ASSOCIATION_TYPE = {
+  current: "current",
+  specific: "specific",
+} as const;
+
 /**
  * Defines when an unfinished local checkout reservation can be retried.
  */
@@ -1170,7 +1175,10 @@ export class PostgresTribeMemberSubscriptionRepository
             )
         ),
         active_invitation as (
-          select tribe_invitations.id
+          select
+            tribe_invitations.id,
+            tribe_invitations.subscription_association_type,
+            tribe_invitations.subscription_price_id
           from public.tribe_invitations
           cross join checkout_context
           inner join target_tribe
@@ -1189,8 +1197,23 @@ export class PostgresTribeMemberSubscriptionRepository
           from public.tribe_subscription_prices
           inner join target_tribe
             on target_tribe.id = tribe_subscription_prices.tribe_id
-          where tribe_subscription_prices.is_current = true
-            and tribe_subscription_prices.status = 'active'
+          left join active_invitation
+            on true
+          where tribe_subscription_prices.status = 'active'
+            and (
+              (
+                ${input.requiresActiveInvitation} = true
+                and active_invitation.subscription_association_type = ${SUBSCRIPTION_INVITATION_ASSOCIATION_TYPE.specific}
+                and tribe_subscription_prices.id = active_invitation.subscription_price_id
+              )
+              or (
+                tribe_subscription_prices.is_current = true
+                and (
+                  ${input.requiresActiveInvitation} = false
+                  or active_invitation.subscription_association_type = ${SUBSCRIPTION_INVITATION_ASSOCIATION_TYPE.current}
+                )
+              )
+            )
           limit 1
         ),
         existing_membership as (
@@ -1432,19 +1455,24 @@ export class PostgresTribeMemberSubscriptionRepository
       };
     }
 
-    const shouldReplaceExistingCheckout =
+    const reusableCheckoutSubscriptionId =
       context.existing_checkout_subscription_id &&
-      context.existing_checkout_url;
-    const reservation = shouldReplaceExistingCheckout
-      ? {
-          checkout_url: null,
-          reserved_subscription_id: context.existing_checkout_subscription_id,
-        }
-      : await this.reservePendingSubscription({
-          currentPriceId: context.current_price_id,
-          invitationTokenHash: input.invitationTokenHash,
-          tribeId: context.tribe_id,
-        });
+      context.existing_checkout_url &&
+      !context.existing_provider_subscription_id
+        ? context.existing_checkout_subscription_id
+        : null;
+    if (reusableCheckoutSubscriptionId) {
+      await this.cancelReusablePendingSubscriptionReservation({
+        subscriptionId: reusableCheckoutSubscriptionId,
+        tribeId: context.tribe_id,
+      });
+    }
+
+    const reservation = await this.reservePendingSubscription({
+      currentPriceId: context.current_price_id,
+      invitationTokenHash: input.invitationTokenHash,
+      tribeId: context.tribe_id,
+    });
 
     if (reservation.checkout_url) {
       const reservationCheckoutProviderPlanId = readProviderPlanIdFromCheckoutUrl(
@@ -1512,12 +1540,46 @@ export class PostgresTribeMemberSubscriptionRepository
 
     return this.persistReservedPlanCheckout({
       checkoutUrl,
+      invitationTokenHash: input.invitationTokenHash,
       operationKey,
       priceId: context.current_price_id,
       providerPlanId: context.current_price_provider_plan_id,
       requestId: this.requestId,
       tribeId: context.tribe_id,
       tribeSlug: input.tribeSlug,
+    });
+  }
+
+  /**
+   * Cancels a reusable pending checkout reservation before issuing a new provider URL.
+   *
+   * @param input - Existing pending subscription identifiers.
+   * @returns Canceled subscription id, or null when the reservation is no longer reusable.
+   */
+  private async cancelReusablePendingSubscriptionReservation(input: {
+    subscriptionId: string;
+    tribeId: string | null;
+  }): Promise<string | null> {
+    if (!input.tribeId) {
+      return null;
+    }
+
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        update public.tribe_member_subscriptions
+        set
+          status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled},
+          status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+          updated_at = timezone('utc', now())
+        where tribe_member_subscriptions.id = ${input.subscriptionId}
+          and tribe_member_subscriptions.tribe_id = ${input.tribeId}
+          and tribe_member_subscriptions.user_id = public.current_app_user_id()
+          and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+          and tribe_member_subscriptions.mercado_pago_preapproval_id is null
+        returning id
+      `);
+
+      return ((result.rows?.[0] ?? null) as { id?: string } | null)?.id ?? null;
     });
   }
 
@@ -1656,6 +1718,7 @@ export class PostgresTribeMemberSubscriptionRepository
    */
   private async persistReservedPlanCheckout(input: {
     checkoutUrl: string;
+    invitationTokenHash: string;
     operationKey: string;
     priceId: string;
     providerPlanId: string;
@@ -1665,6 +1728,13 @@ export class PostgresTribeMemberSubscriptionRepository
   }): Promise<TribeMemberSubscriptionStartResult> {
     return this.executeWithDatabase(async (database) => {
       await database.execute(sql`
+        with checkout_context as (
+          select set_config(
+            ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+            ${input.invitationTokenHash},
+            true
+          )
+        )
         insert into public.tribe_members (
           tribe_id,
           user_id,
@@ -1673,14 +1743,14 @@ export class PostgresTribeMemberSubscriptionRepository
           status_reason,
           created_at
         )
-        values (
+        select
           ${input.tribeId},
           public.current_app_user_id(),
           'tribemate',
           'blocked',
           ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
           timezone('utc', now())
-        )
+        from checkout_context
         on conflict (tribe_id, user_id) do update
         set
           status = 'blocked',

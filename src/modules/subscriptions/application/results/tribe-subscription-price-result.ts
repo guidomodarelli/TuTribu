@@ -69,6 +69,10 @@ export type TribeSubscriptionPriceMutationResult =
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.updated;
     }
   | {
+      linkedInvitationIds: string[];
+      status: typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.hasLinkedInvitations;
+    }
+  | {
       status:
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted
         | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden

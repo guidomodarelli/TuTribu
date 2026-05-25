@@ -1,13 +1,17 @@
 import { randomBytes, randomUUID } from "crypto";
 
+import { TRIBE_INVITATION_STATUS } from "@/src/modules/tribes/constants/tribe-invitations";
 import type {
   AcceptTribeInvitationCommand,
   CreateTribeInvitationCommand,
   GetTribeInvitationSubscriptionOfferQuery,
+  ListTribeInvitationsByPriceQuery,
   ListTribeInvitationsQuery,
   RevokeTribeInvitationCommand,
   TribeInvitationRepository,
+  UpdateTribeInvitationSubscriptionAssociationCommand,
 } from "@/src/modules/tribes/domain/repositories/tribe-invitation-repository";
+import { parseTribeInvitationSubscriptionAssociation } from "@/src/modules/tribes/domain/value-objects/tribe-invitation-subscription-association";
 
 type TribeInvitationDependencies = {
   tribeInvitationRepository: TribeInvitationRepository;
@@ -36,16 +40,65 @@ export function listTribeInvitations({
     });
 }
 
+export function listTribeInvitationsByPrice({
+  tribeInvitationRepository,
+}: TribeInvitationDependencies) {
+  return async (query: ListTribeInvitationsByPriceQuery) =>
+    tribeInvitationRepository.listByPriceId({
+      baseUrl: query.baseUrl,
+      priceId: query.priceId.trim(),
+      tribeSlug: query.tribeSlug.trim(),
+    });
+}
+
 export function createTribeInvitation({
   tribeInvitationRepository,
 }: TribeInvitationDependencies) {
-  return async (command: Omit<CreateTribeInvitationCommand, "invitationId" | "token">) => {
+  return async (
+    command: Omit<CreateTribeInvitationCommand, "invitationId" | "token" | "subscriptionAssociation"> & {
+      subscriptionAssociation: unknown;
+    }
+  ) => {
+    const subscriptionAssociation = parseTribeInvitationSubscriptionAssociation(
+      command.subscriptionAssociation
+    );
+
+    if (!subscriptionAssociation) {
+      return { status: TRIBE_INVITATION_STATUS.invalid } as const;
+    }
+
     const invitationId = createInvitationId();
 
     return tribeInvitationRepository.create({
       baseUrl: command.baseUrl,
       invitationId,
+      subscriptionAssociation,
       token: createInvitationToken(),
+      tribeSlug: command.tribeSlug.trim(),
+    });
+  };
+}
+
+export function updateTribeInvitationSubscriptionAssociation({
+  tribeInvitationRepository,
+}: TribeInvitationDependencies) {
+  return async (
+    command: Omit<UpdateTribeInvitationSubscriptionAssociationCommand, "subscriptionAssociation"> & {
+      subscriptionAssociation: unknown;
+    }
+  ) => {
+    const subscriptionAssociation = parseTribeInvitationSubscriptionAssociation(
+      command.subscriptionAssociation
+    );
+
+    if (!subscriptionAssociation) {
+      return { status: TRIBE_INVITATION_STATUS.invalid } as const;
+    }
+
+    return tribeInvitationRepository.updateSubscriptionAssociation({
+      baseUrl: command.baseUrl,
+      invitationId: command.invitationId.trim(),
+      subscriptionAssociation,
       tribeSlug: command.tribeSlug.trim(),
     });
   };

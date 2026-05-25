@@ -66,12 +66,35 @@ export type SetTribeFreeJoinAsCurrentCommand = {
   tribeSlug: string;
 };
 
+export type DeleteTribeSubscriptionPriceWithInvitationActionsCommand =
+  TribeSubscriptionPriceIdentity & {
+    invitationActions: DeleteTribeSubscriptionPriceInvitationAction[];
+  };
+
+export type DeleteTribeSubscriptionPriceInvitationAction =
+  | {
+      action: "switch_to_current";
+      invitationId: string;
+    }
+  | {
+      action: "switch_to_specific";
+      invitationId: string;
+      targetPriceId: string;
+    }
+  | {
+      action: "revoke";
+      invitationId: string;
+    };
+
 export type TribeSubscriptionPriceRepository = {
   create(
     command: CreateTribeSubscriptionPriceCommand
   ): Promise<TribeSubscriptionPriceMutationResult>;
   delete(
     command: TribeSubscriptionPriceIdentity
+  ): Promise<TribeSubscriptionPriceMutationResult>;
+  deleteWithInvitationActions(
+    command: DeleteTribeSubscriptionPriceWithInvitationActionsCommand
   ): Promise<TribeSubscriptionPriceMutationResult>;
   listByTribeSlug(
     query: TribeSubscriptionPriceListQuery

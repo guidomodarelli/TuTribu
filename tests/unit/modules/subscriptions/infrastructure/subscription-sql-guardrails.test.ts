@@ -13,13 +13,18 @@ const TRIAL_PERIOD_LIMIT_MIGRATION_PATH =
   "database/migrations/20260513140000_limit_subscription_price_trial_days.sql";
 const FREE_JOIN_MIGRATION_PATH =
   "database/migrations/20260524100000_add_free_join_to_tribes.sql";
+const SUBSCRIPTION_ASSOCIATION_MIGRATION_PATH =
+  "database/migrations/20260525120000_add_subscription_association_to_tribe_invitations.sql";
 
 function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 function readPolicyBlock(migration: string, policyName: string): string {
-  const policyStart = migration.indexOf(`CREATE POLICY "${policyName}"`);
+  const createPolicyStart = migration.indexOf(`CREATE POLICY "${policyName}"`);
+  const alterPolicyStart = migration.indexOf(`ALTER POLICY "${policyName}"`);
+  const policyStart =
+    createPolicyStart === -1 ? alterPolicyStart : createPolicyStart;
   const policyEnd = migration.indexOf(";", policyStart);
 
   if (policyStart === -1 || policyEnd === -1) {
@@ -185,6 +190,132 @@ describe("Subscription SQL guardrails", () => {
     );
     expect(migration).toContain(
       "GRANT UPDATE (status, status_reason, joined_via) ON public.tribe_members TO authenticated"
+    );
+  });
+
+  it("allows specific invitation prices through checkout RLS", () => {
+    const migration = readWorkspaceFile(SUBSCRIPTION_ASSOCIATION_MIGRATION_PATH);
+    const subscriptionPolicy = readPolicyBlock(
+      migration,
+      "Members can create own pending subscription rows"
+    );
+    const pendingMembershipPolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can create paid pending memberships"
+    );
+    const retryMembershipPolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can recover paid retry memberships"
+    );
+    const invitationPricePolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can read specific invitation prices"
+    );
+
+    expect(subscriptionPolicy).toMatch(/tribe_subscription_prices\.is_current = true/);
+    expect(subscriptionPolicy).toMatch(/subscription_association_type = 'specific'/);
+    expect(subscriptionPolicy).toMatch(
+      /subscription_price_id = tribe_member_subscriptions\.price_id/
+    );
+    expect(pendingMembershipPolicy).toMatch(/subscription_association_type = 'specific'/);
+    expect(pendingMembershipPolicy).toMatch(
+      /tribe_subscription_prices\.mercado_pago_preapproval_plan_id IS NOT NULL/
+    );
+    expect(retryMembershipPolicy).toMatch(/subscription_association_type = 'specific'/);
+    expect(retryMembershipPolicy).toMatch(
+      /tribe_subscription_prices\.mercado_pago_preapproval_plan_id IS NOT NULL/
+    );
+    expect(invitationPricePolicy).toMatch(/FOR SELECT/);
+    expect(invitationPricePolicy).toMatch(/subscription_association_type = 'specific'/);
+    expect(invitationPricePolicy).toMatch(
+      /subscription_price_id = tribe_subscription_prices\.id/
+    );
+    expect(invitationPricePolicy).toMatch(
+      /tribe_subscription_prices\.mercado_pago_preapproval_plan_id IS NOT NULL/
+    );
+    expect(invitationPricePolicy).toMatch(
+      /tribe_invitations\.token_hash = nullif\(\s*current_setting\('app\.current_invitation_hash', true\),\s*''\s*\)/
+    );
+  });
+
+  it("allows free invitation links to reactivate blocked members", () => {
+    const migration = readWorkspaceFile(SUBSCRIPTION_ASSOCIATION_MIGRATION_PATH);
+    const freeInvitationPolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can activate own free invitation memberships"
+    );
+
+    expect(freeInvitationPolicy).toMatch(/tribes\.free_join_is_current = true/);
+    expect(freeInvitationPolicy).toMatch(/subscription_association_type = 'free'/);
+    expect(freeInvitationPolicy).toMatch(
+      /tribe_invitations\.token_hash = nullif\(\s*current_setting\('app\.current_invitation_hash', true\),\s*''\s*\)/
+    );
+  });
+
+  it("restricts active invitation membership inserts to free links", () => {
+    const migration = readWorkspaceFile(SUBSCRIPTION_ASSOCIATION_MIGRATION_PATH);
+    const activeInvitationInsertPolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can accept active invitations"
+    );
+
+    expect(migration).toContain(
+      "DROP POLICY IF EXISTS \"Authenticated users can accept active invitations\""
+    );
+    expect(activeInvitationInsertPolicy).toMatch(/FOR INSERT/);
+    expect(activeInvitationInsertPolicy).toMatch(/status = 'active'/);
+    expect(activeInvitationInsertPolicy).toMatch(/status_reason = 'none'/);
+    expect(activeInvitationInsertPolicy).toMatch(/joined_via = 'free_invitation'/);
+    expect(activeInvitationInsertPolicy).toMatch(
+      /subscription_association_type = 'free'/
+    );
+    expect(activeInvitationInsertPolicy).toMatch(
+      /tribes\.free_join_is_current = true/
+    );
+    expect(activeInvitationInsertPolicy).not.toMatch(
+      /subscription_association_type = 'specific'/
+    );
+  });
+
+  it("requires price management for billing-affecting invitation links", () => {
+    const migration = readWorkspaceFile(SUBSCRIPTION_ASSOCIATION_MIGRATION_PATH);
+    const createPolicy = readPolicyBlock(
+      migration,
+      "Invitation managers can create invitations"
+    );
+    const updatePolicy = readPolicyBlock(
+      migration,
+      "Invitation managers can update invitations"
+    );
+
+    expect(createPolicy).toMatch(/public\.can_manage_tribe_invitations\(tribe_id\)/);
+    expect(createPolicy).toMatch(/subscription_association_type = 'current'/);
+    expect(createPolicy).toMatch(
+      /OR public\.can_manage_tribe_subscription_prices\(tribe_id\)/
+    );
+    expect(createPolicy).toMatch(
+      /tribe_subscription_prices\.id = subscription_price_id/
+    );
+    expect(createPolicy).toMatch(
+      /tribe_subscription_prices\.tribe_id = tribe_invitations\.tribe_id/
+    );
+    expect(createPolicy).toMatch(
+      /tribe_subscription_prices\.mercado_pago_preapproval_plan_id IS NOT NULL/
+    );
+    expect(updatePolicy).toMatch(/public\.can_manage_tribe_invitations\(tribe_id\)/);
+    expect(updatePolicy).toMatch(/status = 'revoked'/);
+    expect(updatePolicy).toMatch(/subscription_association_type = 'current'/);
+    expect(updatePolicy).toMatch(
+      /OR public\.can_manage_tribe_subscription_prices\(tribe_id\)/
+    );
+    expect(updatePolicy).toMatch(
+      /tribe_subscription_prices\.id = subscription_price_id/
+    );
+    expect(updatePolicy).toMatch(
+      /tribe_subscription_prices\.tribe_id = tribe_invitations\.tribe_id/
+    );
+    expect(updatePolicy).toMatch(
+      /tribe_subscription_prices\.mercado_pago_preapproval_plan_id IS NOT NULL/
     );
   });
 });

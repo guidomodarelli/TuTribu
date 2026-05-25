@@ -260,6 +260,13 @@
       "when": 1779609600000,
       "tag": "20260524120000_add_tribe_invitation_token_encrypted",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1779696000000,
+      "tag": "20260525120000_add_subscription_association_to_tribe_invitations",
+      "breakpoints": true
     }
   ]
 }
