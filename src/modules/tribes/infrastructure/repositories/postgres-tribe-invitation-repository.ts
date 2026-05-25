@@ -858,8 +858,14 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             and exists (select 1 from invitation_grants_free_access)
             and exists (
               select 1 from existing_membership
-              where status = 'blocked'
+              where (
+                status = 'blocked'
                 and status_reason = 'payment_blocked'
+              )
+              or (
+                status = 'removed'
+                and status_reason = 'subscription_inactive'
+              )
             )
           returning tribe_members.id
         ),

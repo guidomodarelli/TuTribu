@@ -562,6 +562,31 @@ describe("PostgresTribeInvitationRepository", () => {
     );
   });
 
+  it(
+    "recovers free invitations from removed memberships whose subscription went inactive",
+    async () => {
+      const execute = jest.fn(async () => ({
+        rows: [{ status: "accepted" }],
+      }));
+      const repository = new PostgresTribeInvitationRepository(async (callback) =>
+        callback({ execute } as never)
+      );
+
+      await expect(
+        repository.accept({
+          token: "plain-token",
+          tribeSlug: "matematica-pro",
+        })
+      ).resolves.toEqual({ status: "accepted" });
+
+      const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+      expect(sqlText).toMatch(
+        /reactivated_membership as \([\s\S]*existing_membership[\s\S]*status = 'removed'[\s\S]*status_reason = 'subscription_inactive'/
+      );
+    }
+  );
+
   it("maps revoked invitation acceptance to a controlled result", async () => {
     const execute = jest.fn(async () => ({
       rows: [{ status: "revoked" }],

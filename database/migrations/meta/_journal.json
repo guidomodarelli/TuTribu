@@ -267,6 +267,13 @@
       "when": 1779696000000,
       "tag": "20260525120000_add_subscription_association_to_tribe_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1779699600000,
+      "tag": "20260525130000_allow_free_invitation_recovery_from_removed",
+      "breakpoints": true
     }
   ]
 }
