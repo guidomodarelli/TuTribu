@@ -292,7 +292,7 @@ export async function acceptInvitationAction({
       INVITATION_ACCEPTANCE_REVALIDATION.path,
       INVITATION_ACCEPTANCE_REVALIDATION.type
     );
-    redirect(ROUTES.tribes.bySlug(slug));
+    redirect(ROUTES.tribes.welcome(slug));
   }
 
   redirect(buildInvitationStatusPath(slug, token, result.status));

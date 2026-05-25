@@ -189,7 +189,7 @@ describe("TribeInvitationPage", () => {
       tribeSlug: "matematica-pro",
     });
     expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
-    expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro");
+    expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro/bienvenida");
   });
 
   it("renders a safe Spanish message for blocked members", async () => {
