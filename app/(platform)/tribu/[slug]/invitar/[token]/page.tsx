@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,11 @@ const INVITATION_PAGE_ROUTE = {
   querySeparator: "?",
   statusParam: "status",
   valueSeparator: "=",
+} as const;
+
+const INVITATION_ACCEPTANCE_REVALIDATION = {
+  path: "/",
+  type: "layout",
 } as const;
 
 const INVITATION_PAGE_FORM = {
@@ -282,6 +288,10 @@ export async function acceptInvitationAction({
   });
 
   if (result.status === TRIBE_INVITATION_STATUS.accepted) {
+    revalidatePath(
+      INVITATION_ACCEPTANCE_REVALIDATION.path,
+      INVITATION_ACCEPTANCE_REVALIDATION.type
+    );
     redirect(ROUTES.tribes.bySlug(slug));
   }
 

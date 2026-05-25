@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { createHash } from "crypto";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import TribeInvitationPage, {
@@ -17,6 +18,10 @@ const startTribeMemberSubscription = jest.fn();
 function hashInvitationToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
+
+jest.mock("next/cache", () => ({
+  revalidatePath: jest.fn(),
+}));
 
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
@@ -183,6 +188,7 @@ describe("TribeInvitationPage", () => {
       token: "invitation-token",
       tribeSlug: "matematica-pro",
     });
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
     expect(redirect).toHaveBeenCalledWith("/tribu/matematica-pro");
   });
 
@@ -220,6 +226,7 @@ describe("TribeInvitationPage", () => {
     expect(redirect).toHaveBeenCalledWith(
       "/tribu/matematica-pro/invitar/invitation-token?status=invalid"
     );
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("redirects payment start failures back to the tokenized invitation status page", async () => {
