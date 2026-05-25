@@ -41,6 +41,8 @@ describe("Tribe SQL guardrails", () => {
     "database/migrations/20260522090000_create_tribe_welcome_selections.sql";
   const repeatedTribeWelcomeSelectionsMigrationPath =
     "database/migrations/20260522120000_allow_repeated_tribe_welcome_selections.sql";
+  const tribeSupportSettingsMigrationPath =
+    "database/migrations/20260525140000_create_tribe_support_settings.sql";
   const databaseSchemaPath =
     "src/modules/shared/infrastructure/database/schema.ts";
   const drizzleMigrationJournalPath = "database/migrations/meta/_journal.json";
@@ -272,6 +274,26 @@ describe("Tribe SQL guardrails", () => {
     );
     expect(databaseSchema).not.toContain(
       'uniqueIndex("tribe_welcome_selections_link_user_key")'
+    );
+  });
+
+  it("keeps tribe support settings aligned in migrations and Drizzle schema", () => {
+    const tribeSupportSettingsMigration = readWorkspaceFile(
+      tribeSupportSettingsMigrationPath
+    );
+    const databaseSchema = readWorkspaceFile(databaseSchemaPath);
+
+    expect(tribeSupportSettingsMigration).toContain(
+      "CREATE TABLE IF NOT EXISTS public.tribe_support_settings"
+    );
+    expect(tribeSupportSettingsMigration).toContain(
+      "CREATE UNIQUE INDEX IF NOT EXISTS tribe_support_settings_tribe_key"
+    );
+    expect(databaseSchema).toContain(
+      'pgTable("tribe_support_settings"'
+    );
+    expect(databaseSchema).toContain(
+      'uniqueIndex("tribe_support_settings_tribe_key")'
     );
   });
 

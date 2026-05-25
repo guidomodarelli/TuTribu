@@ -1,0 +1,36 @@
+.TribeSupportConfigDialog {
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  &__label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  &__selectTrigger {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  &__help {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+  }
+
+  &__error {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--destructive);
+  }
+}

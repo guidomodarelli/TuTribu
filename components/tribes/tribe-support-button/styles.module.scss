@@ -1,0 +1,19 @@
+.TribeSupportButton {
+  border-radius: 999px;
+
+  &__icon {
+    width: 1.125rem;
+    height: 1.125rem;
+    color: var(--foreground);
+
+    &--spinning {
+      animation: TribeSupportButton__spin 1s linear infinite;
+    }
+  }
+}
+
+@keyframes TribeSupportButton__spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

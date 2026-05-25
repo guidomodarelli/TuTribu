@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
+import { TribeSupportButton } from "@/components/tribes/tribe-support-button";
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -58,6 +59,7 @@ function PlatformLayoutShell({
               showPrivateBadge
             />
             <div className={styles.PlatformLayout__accountMenu}>
+              <TribeSupportButton memberTribes={memberTribes} />
               <ThemeModeDropdown />
               <AvatarSessionMenuClient
                 authenticatedMember={authenticatedMember}

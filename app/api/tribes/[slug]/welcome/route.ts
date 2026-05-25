@@ -5,6 +5,10 @@ import {
   TRIBE_WELCOME_LINK_TYPE,
   TRIBE_WELCOME_SAVE_STATUS,
 } from "@/src/modules/tribes/constants/tribe-welcome";
+import {
+  WHATSAPP_PHONE_NON_DIGIT_PATTERN,
+  WHATSAPP_VALIDATION_MESSAGE,
+} from "@/src/modules/tribes/constants/whatsapp-validation";
 import type {
   TribeWelcomeLinkResult,
   TribeWelcomeRuleResult,
@@ -29,10 +33,8 @@ const WELCOME_ROUTE_RESPONSE = {
   forbiddenMessage: "Solo el líder puede editar la bienvenida.",
   invalidBodyMessage: "Revisá los campos de la bienvenida antes de guardar.",
   invalidUrlMessage: "Usá una URL válida para guardar ese botón.",
-  invalidWhatsappPhoneMessage:
-    "Ingresá un número válido en formato internacional (ej.: +54 9 11 1234 5678).",
-  missingWhatsappPhoneMessage:
-    "Completá el teléfono de WhatsApp para guardar ese botón.",
+  invalidWhatsappPhoneMessage: WHATSAPP_VALIDATION_MESSAGE.invalidPhone,
+  missingWhatsappPhoneMessage: WHATSAPP_VALIDATION_MESSAGE.missingPhone,
   notFoundMessage: "No pudimos encontrar la tribu.",
   savedMessage: "Bienvenida actualizada.",
   unauthorizedMessage: "Iniciá sesión para gestionar la bienvenida.",
@@ -55,7 +57,6 @@ const ALLOWED_EXTERNAL_URL_PROTOCOL = {
 } as const;
 
 const BADGE_LABEL_MAX_LENGTH = 30;
-const PHONE_NUMBER_NON_DIGIT_PATTERN = /\D/g;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -125,7 +126,7 @@ function readPayloadId(value: unknown): string | null {
 }
 
 function hasPhoneNumberDigits(value: string | null): boolean {
-  return Boolean(value?.replace(PHONE_NUMBER_NON_DIGIT_PATTERN, ""));
+  return Boolean(value?.replace(WHATSAPP_PHONE_NON_DIGIT_PATTERN, ""));
 }
 
 function hasValidWhatsappPhoneFormat(value: string | null): boolean {

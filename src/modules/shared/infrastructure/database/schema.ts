@@ -184,6 +184,25 @@ export const tribeWelcomeSettings = pgTable("tribe_welcome_settings", {
   tribeKey: uniqueIndex("tribe_welcome_settings_tribe_key").on(table.tribeId),
 }));
 
+export const tribeSupportSettings = pgTable("tribe_support_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  channel: text("channel").notNull(),
+  phoneNumber: text("phone_number").notNull(),
+  message: text("message"),
+  updatedBy: text("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  tribeKey: uniqueIndex("tribe_support_settings_tribe_key").on(table.tribeId),
+}));
+
 export const tribeWelcomeRules = pgTable("tribe_welcome_rules", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")

@@ -25,10 +25,15 @@ import {
   listTribeWelcomeSelections,
   recordTribeWelcomeSelection,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-welcome-selection-use-cases";
+import {
+  getTribeSupport,
+  saveTribeSupport,
+} from "@/src/modules/tribes/application/use-cases/manage-tribe-support-use-cases";
 import type { TribeCreationRepository } from "@/src/modules/tribes/domain/repositories/tribe-creation-repository";
 import type { TribeCreatorWhitelistRepository } from "@/src/modules/tribes/domain/repositories/tribe-creator-whitelist-repository";
 import type { TribeInvitationRepository } from "@/src/modules/tribes/domain/repositories/tribe-invitation-repository";
 import type { TribeReadRepository } from "@/src/modules/tribes/domain/repositories/tribe-read-repository";
+import type { TribeSupportRepository } from "@/src/modules/tribes/domain/repositories/tribe-support-repository";
 import type { TribeWelcomeRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-repository";
 import type { TribeWelcomeSelectionRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-selection-repository";
 
@@ -37,6 +42,7 @@ type TribesModuleDependencies = {
   tribeCreationRepository: TribeCreationRepository;
   tribeCreatorWhitelistRepository: TribeCreatorWhitelistRepository;
   tribeInvitationRepository: TribeInvitationRepository;
+  tribeSupportRepository: TribeSupportRepository;
   tribeWelcomeRepository: TribeWelcomeRepository;
   tribeWelcomeSelectionRepository: TribeWelcomeSelectionRepository;
 };
@@ -46,6 +52,7 @@ export function buildTribesModule({
   tribeCreationRepository,
   tribeCreatorWhitelistRepository,
   tribeInvitationRepository,
+  tribeSupportRepository,
   tribeWelcomeRepository,
   tribeWelcomeSelectionRepository,
 }: TribesModuleDependencies) {
@@ -116,6 +123,12 @@ export function buildTribesModule({
         }),
       listTribeWelcomeSelections: listTribeWelcomeSelections({
         tribeWelcomeSelectionRepository,
+      }),
+      getTribeSupport: getTribeSupport({
+        tribeSupportRepository,
+      }),
+      saveTribeSupport: saveTribeSupport({
+        tribeSupportRepository,
       }),
     },
   };
