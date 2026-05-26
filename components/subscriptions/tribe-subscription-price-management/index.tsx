@@ -82,7 +82,7 @@ const PRICE_MANAGEMENT_COPY = {
   canceledBadge: "Cancelado",
   currentBadge: "Actual",
   description:
-    "Creá versiones históricas de precios. Los miembros existentes conservan siempre el precio con el que entraron.",
+    "Gestioná los planes disponibles para nuevas suscripciones. Mercado Pago mantiene congeladas las condiciones de cada suscriptor existente.",
   emptyState: "Todavía no hay precios configurados.",
   fallbackCreateError: "No pudimos crear el precio.",
   fallbackDeleteError: "No pudimos eliminar el precio.",
@@ -116,15 +116,14 @@ const PRICE_MANAGEMENT_COPY = {
   editAmountLabel: "Nuevo precio mensual",
   editButton: "Editar",
   editNameLabel: "Nuevo nombre",
-  priceListLabel: "Precios históricos",
+  priceListLabel: "Catálogo de planes",
+  pausedBadge: "Pausado",
   pricesHelpDescription:
-    "Al crear un nuevo precio, se guardará como versión histórica. Los miembros existentes mantendrán el precio con el que se asociaron.",
-  pricesHelpTitle: "Sobre los precios",
+    "Editar un plan actualiza su plantilla para nuevos suscriptores. Los suscriptores existentes conservan las condiciones de su suscripción en Mercado Pago.",
+  pricesHelpTitle: "Sobre los planes",
   readonlyBadge: "Solo lectura",
   removeButton: "Eliminar",
   requiresReconnectionStatus: "Requiere reconexión",
-  replacementPlanNotice:
-    "Este precio tiene suscriptores asociados. Creá un nuevo plan para próximos miembros.",
   saveEditButton: "Guardar cambios",
   subscriberDiagnosticsLastReconciledPrefix: "Última actualización:",
   subscriberDiagnosticsTitle: "Detalle de suscriptores",
@@ -183,6 +182,7 @@ const PRICE_MANAGEMENT_REQUEST = {
 
 const PRICE_MANAGEMENT_STATUS = {
   canceled: "canceled",
+  paused: "paused",
 } as const;
 
 const PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX = {
@@ -935,7 +935,7 @@ export function TribeSubscriptionPriceManagement({
   ]);
 
   /**
-   * Creates a new immutable price version.
+   * Creates a new provider-backed price.
    *
    * @param event - Form submission event.
    * @returns Promise resolved after the request completes.
@@ -1856,8 +1856,14 @@ export function TribeSubscriptionPriceManagement({
                           {PRICE_MANAGEMENT_COPY.canceledBadge}
                         </Badge>
                       ) : null}
+                      {price.status === PRICE_MANAGEMENT_STATUS.paused ? (
+                        <Badge variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}>
+                          {PRICE_MANAGEMENT_COPY.pausedBadge}
+                        </Badge>
+                      ) : null}
                       {!price.isCurrent &&
-                      price.status !== PRICE_MANAGEMENT_STATUS.canceled ? (
+                      price.status !== PRICE_MANAGEMENT_STATUS.canceled &&
+                      price.status !== PRICE_MANAGEMENT_STATUS.paused ? (
                         <Badge variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}>
                           {PRICE_MANAGEMENT_COPY.activeBadge}
                         </Badge>
@@ -1867,15 +1873,8 @@ export function TribeSubscriptionPriceManagement({
                   <TableCell>
                     {canManagePrices ? (
                       <div className={styles.TribeSubscriptionPriceManagement__actions}>
-                        {price.activeSubscribersCount > 0 ? (
-                          <span
-                            className={styles.TribeSubscriptionPriceManagement__meta}
-                          >
-                            {PRICE_MANAGEMENT_COPY.replacementPlanNotice}
-                          </span>
-                        ) : null}
-                        {price.activeSubscribersCount === 0 &&
-                        price.status !== PRICE_MANAGEMENT_STATUS.canceled ? (
+                        {price.status !== PRICE_MANAGEMENT_STATUS.canceled &&
+                        price.status !== PRICE_MANAGEMENT_STATUS.paused ? (
                           <Button
                             disabled={isPriceManagementDisabled}
                             onClick={() => {
@@ -1892,8 +1891,8 @@ export function TribeSubscriptionPriceManagement({
                           disabled={
                             isPriceManagementDisabled ||
                             price.isCurrent ||
-                            price.activeSubscribersCount > 0 ||
-                            price.status === PRICE_MANAGEMENT_STATUS.canceled
+                            price.status === PRICE_MANAGEMENT_STATUS.canceled ||
+                            price.status === PRICE_MANAGEMENT_STATUS.paused
                           }
                           onClick={() => {
                             void handleMakeCurrent(price.id);
@@ -1907,7 +1906,6 @@ export function TribeSubscriptionPriceManagement({
                         <Button
                           disabled={
                             isPriceManagementDisabled ||
-                            price.activeSubscribersCount > 0 ||
                             price.status !== PRICE_MANAGEMENT_STATUS.canceled
                           }
                           onClick={() => {

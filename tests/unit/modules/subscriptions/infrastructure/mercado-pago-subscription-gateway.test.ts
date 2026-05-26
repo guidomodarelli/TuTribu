@@ -276,8 +276,11 @@ describe("mercado pago subscription gateway", () => {
     await expect(
       updateMercadoPagoPreapprovalPlan({
         accessToken: "access-token",
+        amountCents: 150000,
         backUrl: "https://tutribu.example.com/matematica-pro",
+        currency: "ARS",
         externalReference: "tutribu:price:price-1",
+        frequency: "monthly",
         preapprovalPlanId: "plan-1",
         reason: "Plan actualizado",
         status: "active",
@@ -299,10 +302,14 @@ describe("mercado pago subscription gateway", () => {
       expect.objectContaining({
         body: JSON.stringify({
           auto_recurring: {
+            currency_id: "ARS",
+            frequency: 1,
+            frequency_type: "months",
             free_trial: {
               frequency: 14,
               frequency_type: "days",
             },
+            transaction_amount: 1500,
           },
           back_url: "https://tutribu.example.com/matematica-pro",
           external_reference: "tutribu:price:price-1",

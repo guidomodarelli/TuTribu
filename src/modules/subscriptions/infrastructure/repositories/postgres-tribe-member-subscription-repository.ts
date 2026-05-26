@@ -95,7 +95,8 @@ type SubscriptionReservationRow = {
 
 type WebhookSubscriptionContextRow = {
   access_token: string | null;
-  existing_operation_id: string | null;
+  local_status: string | null;
+  local_status_reason: string | null;
   price_id: string | null;
   refresh_token: string | null;
   subscription_found: boolean | null;
@@ -1817,41 +1818,26 @@ export class PostgresTribeMemberSubscriptionRepository
     command: MercadoPagoSubscriptionWebhookCommand
   ): Promise<TribeMemberSubscriptionWebhookResult> {
     return this.executeWithDatabase(async (database) => {
-      const operationKey = `mercado-pago-webhook:${command.eventId}`;
       const payloadHash = hashPayload({
         resourceId: command.resourceId,
         topic: command.topic,
       });
       const result = await database.execute(sql`
-        with subscription_context as (
-          select
-            tribe_payment_integrations.access_token,
-            tribe_payment_integrations.refresh_token,
-            tribe_payment_integrations.token_expires_at,
-            tribe_member_subscriptions.price_id,
-            tribe_member_subscriptions.tribe_id,
-            true as subscription_found
-          from public.tribe_member_subscriptions
-          inner join public.tribe_payment_integrations
-            on tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
-            and tribe_payment_integrations.provider = 'mercado_pago'
-          where tribe_member_subscriptions.mercado_pago_preapproval_id = ${command.resourceId}
-          limit 1
-        ),
-        existing_operation as (
-          select subscription_idempotency_operations.id
-          from public.subscription_idempotency_operations
-          where subscription_idempotency_operations.operation_key = ${operationKey}
-          limit 1
-        )
         select
-          (select id from existing_operation) as existing_operation_id,
-          (select access_token from subscription_context) as access_token,
-          (select refresh_token from subscription_context) as refresh_token,
-          (select token_expires_at from subscription_context) as token_expires_at,
-          (select price_id from subscription_context) as price_id,
-          (select tribe_id from subscription_context) as tribe_id,
-          coalesce((select subscription_found from subscription_context), false) as subscription_found
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at,
+          tribe_member_subscriptions.price_id,
+          tribe_member_subscriptions.tribe_id,
+          tribe_member_subscriptions.status as local_status,
+          tribe_member_subscriptions.status_reason as local_status_reason,
+          true as subscription_found
+        from public.tribe_member_subscriptions
+        inner join public.tribe_payment_integrations
+          on tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
+          and tribe_payment_integrations.provider = 'mercado_pago'
+        where tribe_member_subscriptions.mercado_pago_preapproval_id = ${command.resourceId}
+        limit 1
       `);
       const context = (result.rows?.[0] ?? null) as
         | WebhookSubscriptionContextRow
@@ -1859,10 +1845,6 @@ export class PostgresTribeMemberSubscriptionRepository
 
       if (!context?.subscription_found) {
         return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook };
-      }
-
-      if (context.existing_operation_id) {
-        return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook };
       }
 
       const accessToken = await resolveMercadoPagoAccessToken({
@@ -1880,8 +1862,9 @@ export class PostgresTribeMemberSubscriptionRepository
         return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook };
       }
 
+      const operationKeyPrefix = `${MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.webhook}${MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.separator}${command.resourceId}`;
       const traceContext = buildMemberSubscriptionPaymentTraceContext({
-        operationKey,
+        operationKey: operationKeyPrefix,
         preapprovalId: command.resourceId,
         priceId: context.price_id,
         requestId: this.requestId,
@@ -1893,6 +1876,11 @@ export class PostgresTribeMemberSubscriptionRepository
       });
       const subscriptionStatus =
         mapMercadoPagoSubscriptionStatus(providerStatus);
+      const operationKey = [
+        operationKeyPrefix,
+        subscriptionStatus.status,
+        subscriptionStatus.statusReason,
+      ].join(MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.separator);
 
       const operationResult = await database.execute(sql`
         insert into public.subscription_idempotency_operations (
@@ -1916,7 +1904,14 @@ export class PostgresTribeMemberSubscriptionRepository
         | WebhookOperationInsertRow
         | null;
 
-      if (!operation?.operation_inserted) {
+      // Safeguard against state oscillation (e.g. authorized → paused →
+      // authorized). When the key already exists but the stored local state no
+      // longer matches the target, apply the change anyway.
+      if (
+        !operation?.operation_inserted &&
+        context.local_status === subscriptionStatus.status &&
+        context.local_status_reason === subscriptionStatus.statusReason
+      ) {
         return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook };
       }
 

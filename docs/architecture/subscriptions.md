@@ -9,18 +9,23 @@ el precio actual.
 
 ## Modelo
 
-Los precios son versiones históricas en `tribe_subscription_prices`. La política
-de modificación es mixta: el nombre y el estado del plan se sincronizan sobre el
-mismo precio y el mismo plan de Mercado Pago; los cambios de monto o frecuencia
-crean una nueva versión y un nuevo plan de proveedor.
+Los precios son el catálogo operativo de planes en `tribe_subscription_prices`.
+La política de modificación es destructiva sobre la misma fila local y el mismo
+plan de Mercado Pago: nombre, monto, frecuencia y período de prueba se
+sincronizan sobre el `mercado_pago_preapproval_plan_id` existente. Mercado Pago
+congela las condiciones de cada suscripción ya emitida, por lo que editar el
+template del plan no cambia lo que pagan los suscriptores existentes.
 
 Reglas:
 
-* puede haber precios nuevos más baratos que los anteriores
-* solo una versión activa puede ser `current`
-* nuevos integrantes ven únicamente la versión `current`
-* miembros existentes conservan su `price_id` original
-* no se cancela una versión con miembros asociados
+* puede haber varios planes activos, más baratos o más caros que otros
+* solo un plan activo puede ser `current`
+* nuevos integrantes ven únicamente el plan `current`
+* miembros existentes conservan su suscripción de Mercado Pago aunque el plan se
+  edite o elimine
+* los suscriptores existentes no bloquean la eliminación local de un plan
+* las invitaciones vinculadas sí bloquean la eliminación hasta que se reasignen
+  o revoquen
 * cada tribu puede tener hasta 30 precios activos
 * `tribes.free_join_is_current` representa la opción gratuita actual; cuando
   está activa, las invitaciones aceptan ingreso gratis y no se muestra oferta
@@ -53,18 +58,29 @@ La integración guarda tokens OAuth solo del lado servidor en
 `tribe_payment_integrations`. Las operaciones externas usan claves de
 idempotencia y los webhooks se registran en
 `subscription_idempotency_operations` para evitar efectos duplicados.
+La clave de idempotencia de los webhooks representa la **operación de negocio**,
+no el `event_id` de Mercado Pago: dos eventos distintos con efecto idéntico
+comparten clave y se colapsan en una sola aplicación. Para suscripciones la
+clave es `mercado-pago-webhook:<preapprovalId>:<localStatus>:<statusReason>`; para
+planes es `mercado-pago-plan-webhook:<preapprovalPlanId>:<contentHash>`, donde
+`contentHash` es un sha256 corto sobre los campos a los que reacciona el handler
+(`status`, `reason`, `amountCents`, `currency`, `trial.frequency`,
+`trial.frequencyType`). Ante colisión de clave se aplica un safeguard que
+compara el estado local actual contra el estado objetivo; si difieren (caso
+oscilación, ej. `authorized → paused → authorized`) se reaplica el cambio en
+lugar de descartarlo. Los `event_id` de Mercado Pago no se persisten.
 La pantalla de gestión no considera `Conectado` por la mera existencia de
 `tribe_payment_integrations`: el health check de Mercado Pago fuerza un
 refresh OAuth server-side y solo muestra `Conectado` si ese refresh persiste un
 token nuevo. Si falla o no hay `refresh_token`, muestra `Requiere reconexión`.
 
 Cuando la verificación contra Mercado Pago confirma que un
-`mercado_pago_preapproval_plan_id` ya no existe o no está activo, el precio
-local se marca como `canceled`, deja de ser `current` y conserva el
-identificador de plan del proveedor. Esa transición es irreversible para la
-oferta local: cualquier nueva oferta debe crear una nueva versión de precio y
-un nuevo plan de proveedor, pero el identificador se preserva para poder
-reconciliar suscriptores y webhooks posteriores.
+`mercado_pago_preapproval_plan_id` está pausado, el precio local se marca como
+`paused`, deja de ser `current` y no acepta nuevas suscripciones hasta que
+Mercado Pago vuelva a informarlo como activo. Si el plan ya no existe o queda
+cancelado, el precio local se marca como `canceled`, deja de ser `current` y
+conserva el identificador de plan del proveedor para reconciliar suscriptores y
+webhooks posteriores.
 
 Los planes creados por TuTribu se identifican en Mercado Pago con
 `external_reference = tutribu:price:<priceId>`. La app solo sincroniza planes
@@ -94,13 +110,17 @@ suscripción inactiva.
 
 Las acciones iniciadas desde TuTribu se aplican primero contra Mercado Pago y
 luego se reflejan localmente. Los webhooks `subscription_preapproval_plan`
-actualizan el nombre y el período de prueba local cuando el plan sigue activo y
-cancelan el precio local cuando el plan proveedor deja de estar activo. La app
-modela el trial con `trial_frequency` y `trial_frequency_type`, mapeados desde
+actualizan nombre, monto y período de prueba local cuando el plan sigue activo;
+pausan el precio local cuando Mercado Pago informa `paused`; y cancelan el
+precio local cuando el plan proveedor deja de estar activo. La app modela el
+trial con `trial_frequency` y `trial_frequency_type`, mapeados desde
 `auto_recurring.free_trial.frequency` y
 `auto_recurring.free_trial.frequency_type`; si Mercado Pago no devuelve
 `free_trial`, el precio local queda sin período de prueba.
 
 Una eliminación local de precio solo puede ocurrir después de que el precio ya
-esté `canceled`, Mercado Pago confirme que el plan proveedor no está activo y
-no haya suscripciones activas asociadas ni en Mercado Pago ni en la base local.
+esté `canceled`, Mercado Pago confirme que el plan proveedor no está activo y no
+queden invitaciones activas vinculadas a ese plan. Las suscripciones de miembros
+se desprenden de `price_id` y conservan un snapshot mínimo del plan para que los
+webhooks y la auditoría sigan funcionando sin dejar referencias al plan
+eliminado.

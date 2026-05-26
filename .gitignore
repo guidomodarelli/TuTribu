@@ -32,6 +32,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# local tool state
+.clawpatch/
+
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example

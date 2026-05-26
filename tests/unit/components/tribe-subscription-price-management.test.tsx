@@ -110,8 +110,31 @@ describe("TribeSubscriptionPriceManagement", () => {
       screen.getByRole("columnheader", { name: "Acciones" })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Sobre los precios" })
+      screen.getByRole("heading", { name: "Sobre los planes" })
     ).toBeInTheDocument();
+  });
+
+  it("should present prices as a plan catalog instead of historical versions", () => {
+    render(
+      <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.getByRole("table", { name: "Catálogo de planes" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Gestioná los planes disponibles para nuevas suscripciones. Mercado Pago mantiene congeladas las condiciones de cada suscriptor existente."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/versiones históricas/i)).not.toBeInTheDocument();
   });
 
   it("should hide Mercado Pago connection health for read-only users", () => {
@@ -773,6 +796,78 @@ describe("TribeSubscriptionPriceManagement", () => {
     });
   });
 
+  it("should allow editing plans that already have associated subscribers", async () => {
+    const priceWithSubscribers = {
+      ...activePrice,
+      activeSubscribersCount: 2,
+    };
+
+    render(
+      <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[priceWithSubscribers]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Editar" })).toBeEnabled();
+      expect(
+        screen.queryByText(
+          "Este precio tiene suscriptores asociados. Creá un nuevo plan para próximos miembros."
+        )
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("should render paused plans without enabling mutation actions", async () => {
+    const pausedPrice = {
+      ...activePrice,
+      status: "paused" as const,
+    };
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        canceledPriceIds: [],
+        message: "Planes verificados con Mercado Pago.",
+        prices: [pausedPrice],
+        verifiedCount: 1,
+      }),
+      ok: true,
+    })) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[pausedPrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Pausado")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Editar" })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getAllByRole("button", { name: "Marcar como actual" })[1]
+      ).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Eliminar" })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: "Verificar plan" })
+      ).toBeEnabled();
+    });
+  });
+
   it("should verify canceled price subscribers and enable deletion when Mercado Pago has no active associations", async () => {
     const user = userEvent.setup();
     const canceledPriceWithLocalAssociation = {
@@ -1202,6 +1297,9 @@ describe("TribeSubscriptionPriceManagement", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Actual")).toBeInTheDocument();
+      expect(
+        screen.getByText("Planes verificados con Mercado Pago.")
+      ).toBeInTheDocument();
       expect(
         screen.getAllByRole("button", { name: "Marcar como actual" })[0]
       ).toBeDisabled();

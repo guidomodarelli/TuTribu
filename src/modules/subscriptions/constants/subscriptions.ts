@@ -27,7 +27,7 @@ export const TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE = {
 } as const;
 
 /**
- * Defines the maximum number of historical prices allowed per tribe.
+ * Defines the maximum number of active prices allowed per tribe.
  */
 export const TRIBE_SUBSCRIPTION_PRICE_LIMIT = 30;
 
@@ -81,6 +81,7 @@ export const TRIBE_SUBSCRIPTION_PRICE_STATUS = {
   limitReached: "limit_reached",
   missingIntegration: "missing_integration",
   notFound: "not_found",
+  paused: "paused",
   setupRequired: "setup_required",
   subscriptionRequired: "subscription_required",
   updated: "updated",

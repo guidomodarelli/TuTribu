@@ -1411,27 +1411,22 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     const execute = jest.fn(async (statement) => {
       const sqlText = getSqlText(statement);
 
-      if (sqlText.includes("with subscription_context")) {
-        return sqlText.includes("inner join public.tribes")
-          ? {
-              rows: [
-                {
-                  access_token: null,
-                  subscription_found: false,
-                },
-              ],
-            }
-          : {
-              rows: [
-                {
-                  access_token: "access-token",
-                  existing_operation_id: null,
-                  price_id: "price-1",
-                  subscription_found: true,
-                  tribe_id: "tribe-1",
-                },
-              ],
-            };
+      if (
+        sqlText.includes("from public.tribe_member_subscriptions") &&
+        sqlText.includes("inner join public.tribe_payment_integrations")
+      ) {
+        return {
+          rows: [
+            {
+              access_token: "access-token",
+              local_status: "pending",
+              local_status_reason: "payment_blocked",
+              price_id: "price-1",
+              subscription_found: true,
+              tribe_id: "tribe-1",
+            },
+          ],
+        };
       }
 
       if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
@@ -1706,19 +1701,35 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
   });
 
-  it("does not call the provider again for duplicate webhook events", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
-      rows: [
-        {
-          access_token: "access-token",
-            current_price_amount_cents: 1500,
-            current_price_currency: "ARS",
-          existing_operation_id: "operation-1",
-          subscription_found: true,
-        },
-      ],
+  it("returns duplicate when the idempotent key already records the same business state", async () => {
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (
+        sqlText.includes("from public.tribe_member_subscriptions") &&
+        sqlText.includes("inner join public.tribe_payment_integrations")
+      ) {
+        return {
+          rows: [
+            {
+              access_token: "access-token",
+              local_status: "active",
+              local_status_reason: "none",
+              price_id: "price-1",
+              subscription_found: true,
+              tribe_id: "tribe-1",
+            },
+          ],
+        };
+      }
+
+      if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
+        return { rows: [] };
+      }
+
+      return { rows: [] };
     });
-    const getMercadoPagoPreapprovalStatus = jest.fn();
+    const getMercadoPagoPreapprovalStatus = jest.fn(async () => "authorized");
     const repository = createRepository(execute, {
       getMercadoPagoPreapprovalStatus,
     });
@@ -1733,7 +1744,114 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       status: "duplicate_webhook",
     });
 
-    expect(getMercadoPagoPreapprovalStatus).not.toHaveBeenCalled();
+    const sqlTexts = execute.mock.calls.map((call) => getSqlText(call[0]));
+
+    expect(sqlTexts.some((sqlText) => sqlText.includes("update public.tribe_member_subscriptions"))).toBe(false);
+  });
+
+  it("re-applies state changes after oscillation even when the idempotent key already exists", async () => {
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (
+        sqlText.includes("from public.tribe_member_subscriptions") &&
+        sqlText.includes("inner join public.tribe_payment_integrations")
+      ) {
+        return {
+          rows: [
+            {
+              access_token: "access-token",
+              local_status: "paused",
+              local_status_reason: "subscription_inactive",
+              price_id: "price-1",
+              subscription_found: true,
+              tribe_id: "tribe-1",
+            },
+          ],
+        };
+      }
+
+      if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
+        return { rows: [] };
+      }
+
+      return { rows: [] };
+    });
+    const getMercadoPagoPreapprovalStatus = jest.fn(async () => "authorized");
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
+
+    await expect(
+      repository.handleWebhook({
+        eventId: "event-3",
+        resourceId: "preapproval-1",
+        topic: "subscription_preapproval.updated",
+      })
+    ).resolves.toEqual({
+      status: "processed",
+    });
+
+    const sqlTexts = execute.mock.calls.map((call) => getSqlText(call[0]));
+
+    expect(sqlTexts.some((sqlText) => sqlText.includes("update public.tribe_member_subscriptions"))).toBe(true);
+  });
+
+  it("collapses webhook events with the same target state under a single idempotent key", async () => {
+    const insertedKeys: string[] = [];
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (
+        sqlText.includes("from public.tribe_member_subscriptions") &&
+        sqlText.includes("inner join public.tribe_payment_integrations")
+      ) {
+        return {
+          rows: [
+            {
+              access_token: "access-token",
+              local_status: "pending",
+              local_status_reason: "payment_blocked",
+              price_id: "price-1",
+              subscription_found: true,
+              tribe_id: "tribe-1",
+            },
+          ],
+        };
+      }
+
+      if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
+        const queryChunks = (statement as { queryChunks?: unknown[] })
+          ?.queryChunks ?? [];
+
+        for (const chunk of queryChunks) {
+          if (
+            typeof chunk === "string" &&
+            chunk.startsWith("mercado-pago-webhook:")
+          ) {
+            insertedKeys.push(chunk);
+          }
+        }
+
+        return { rows: [{ operation_inserted: "operation-1" }] };
+      }
+
+      return { rows: [] };
+    });
+    const getMercadoPagoPreapprovalStatus = jest.fn(async () => "authorized");
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
+
+    await repository.handleWebhook({
+      eventId: "event-1",
+      resourceId: "preapproval-1",
+      topic: "subscription_preapproval.updated",
+    });
+
+    expect(insertedKeys).toEqual([
+      "mercado-pago-webhook:preapproval-1:active:none",
+    ]);
   });
 
   it("keeps paused provider subscriptions eligible for current reconciliation", async () => {

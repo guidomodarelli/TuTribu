@@ -105,8 +105,11 @@ export type MercadoPagoPlanInput = {
 
 export type MercadoPagoPlanUpdateInput = {
   accessToken: string;
+  amountCents: number;
   backUrl: string;
+  currency: string;
   externalReference: string;
+  frequency: string;
   preapprovalPlanId: string;
   reason: string;
   status: string;
@@ -793,7 +796,12 @@ export async function updateMercadoPagoPreapprovalPlan(
     {
       body: JSON.stringify({
         auto_recurring: {
+          currency_id: input.currency,
+          frequency: 1,
+          frequency_type:
+            input.frequency === "monthly" ? "months" : input.frequency,
           free_trial: buildMercadoPagoFreeTrialPayload(input),
+          transaction_amount: input.amountCents / 100,
         },
         back_url: input.backUrl,
         external_reference: input.externalReference,

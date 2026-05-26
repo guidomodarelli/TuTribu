@@ -281,6 +281,13 @@
       "when": 1779703200000,
       "tag": "20260525140000_create_tribe_support_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1779775200000,
+      "tag": "20260526100000_allow_subscription_price_deletion_snapshots",
+      "breakpoints": true
     }
   ]
 }

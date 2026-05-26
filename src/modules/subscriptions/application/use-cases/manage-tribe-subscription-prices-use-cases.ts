@@ -1,5 +1,5 @@
 /**
- * Provides application use cases for immutable tribe subscription prices.
+ * Provides application use cases for tribe subscription prices.
  *
  * @module manage-tribe-subscription-prices-use-cases
  */
@@ -225,7 +225,6 @@ function isPreservedSynchronizedTrial(
 ): boolean {
   return Boolean(
     trialPolicy &&
-      trialPolicy.amountCents === command.amountCents &&
       trialPolicy.hasMercadoPagoPreapprovalPlan &&
       trialPolicy.trialFrequency === command.trialFrequency &&
       trialPolicy.trialFrequencyType === command.trialFrequencyType
@@ -317,7 +316,7 @@ function buildUpdateCommand(
 }
 
 /**
- * Lists immutable subscription prices for a tribe.
+ * Lists subscription prices for a tribe.
  *
  * @param dependencies - Repository dependencies for the use case.
  * @returns Executable use case that lists prices by tribe slug.
@@ -332,10 +331,10 @@ export function listTribeSubscriptionPrices({
 }
 
 /**
- * Creates a new immutable subscription price version.
+ * Creates a new subscription price.
  *
  * @param dependencies - Repository dependencies for the use case.
- * @returns Executable use case that creates a new price version.
+ * @returns Executable use case that creates a new price.
  */
 export function createTribeSubscriptionPrice({
   tribeSubscriptionPriceRepository,
@@ -352,10 +351,10 @@ export function createTribeSubscriptionPrice({
 }
 
 /**
- * Updates mutable price data or creates a new version for amount changes.
+ * Updates mutable price data on the linked provider plan.
  *
  * @param dependencies - Repository dependencies for the use case.
- * @returns Executable use case that updates one price version.
+ * @returns Executable use case that updates one price.
  */
 export function updateTribeSubscriptionPrice({
   tribeSubscriptionPriceRepository,
@@ -421,7 +420,7 @@ export function setTribeFreeJoinAsCurrent({
 }
 
 /**
- * Deletes an unused immutable subscription price version.
+ * Deletes an unused subscription price.
  *
  * @param dependencies - Repository dependencies for the use case.
  * @returns Executable use case that deletes a price when it has no subscribers.

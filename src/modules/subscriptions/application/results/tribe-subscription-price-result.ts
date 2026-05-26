@@ -21,7 +21,7 @@ export type TribeSubscriptionPriceResult = {
   id: string;
   isCurrent: boolean;
   name: string;
-  status: "active" | "canceled" | "deleted";
+  status: "active" | "canceled" | "deleted" | "paused";
   trial: {
     frequency: number;
     frequencyType:

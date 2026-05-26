@@ -534,10 +534,13 @@ export const tribeMemberSubscriptions = pgTable("tribe_member_subscriptions", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  priceId: uuid("price_id")
-    .notNull()
-    .references(() => tribeSubscriptionPrices.id),
+  priceId: uuid("price_id").references(() => tribeSubscriptionPrices.id),
   mercadoPagoPreapprovalId: text("mercado_pago_preapproval_id"),
+  priceSnapshotName: text("price_snapshot_name"),
+  priceSnapshotAmountCents: integer("price_snapshot_amount_cents"),
+  priceSnapshotCurrency: text("price_snapshot_currency"),
+  priceSnapshotFrequency: text("price_snapshot_frequency"),
+  priceSnapshotProviderPlanId: text("price_snapshot_provider_plan_id"),
   status: text("status").notNull(),
   statusReason: text("status_reason").notNull().default("none"),
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
