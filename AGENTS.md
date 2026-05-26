@@ -25,9 +25,17 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 2. Core Architecture
 
+### Documentation governance
+
+- Keep documentation under `docs/` current for every implemented behavior, architectural decision, convention, and user-facing workflow.
+- New or migrated product documentation under `docs/architecture/`, `docs/conventions/`, and `docs/user-manual/` must use `.htm` files and follow the guidelines defined in `docs/DESIGN.md`; existing tracked `.md` documents remain authoritative until they are intentionally migrated.
+- Place each documentation update in the section that owns the content: architecture decisions in `docs/architecture/`, project conventions in `docs/conventions/`, and user-facing instructions in `docs/user-manual/`.
+- Whenever a change is undocumented, or documentation needs to be improved, modified, edited, transformed, added, deleted, relocated, redefined, restructured, or adjusted in any similar way, update the corresponding document in the same work item before closing the task.
+- Do not close a task while the relevant `docs/` page is stale, missing, outside the required section, or in the wrong format.
+
 ### Architecture documentation governance
 
-- Always review `docs/architecture/*.md` before proposing or implementing changes that affect architecture, authentication, authorization, provider integrations, data flow, modular structure, or backend boundaries.
+- Always review the relevant documents in `docs/architecture/` before proposing or implementing changes that affect architecture, authentication, authorization, provider integrations, data flow, modular structure, or backend boundaries.
 - Treat `docs/architecture` as the source of truth for architectural decisions in this repository.
 - If `AGENTS.md` and `docs/architecture` conflict, `docs/architecture` takes precedence and `AGENTS.md` must be updated to match it.
 - If a work item changes an architectural decision, update the relevant file under `docs/architecture` in the same work item.
@@ -341,7 +349,7 @@ CREATE INDEX idx_posts_user_id ON posts(user_id);
 - Create and maintain RLS policies through versioned SQL migrations. `Drizzle` may model tables and persistence, but it is not the source of truth for policies.
 - Do not move complex business rules, dynamic workflows, or highly contextual product decisions into SQL policies.
 - Keep complex authorization and product behavior in application use cases and domain services.
-- When in doubt about the RLS boundary, follow `docs/architecture/rls-simple.md`.
+- When in doubt about the RLS boundary, follow the RLS simple guide under `docs/architecture/`.
 
 Example SQL migration for RLS:
 
@@ -370,7 +378,7 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
   - global constants reused across multiple modules or across the application belong in `src/constants/`
   - module-scoped constants belong in `src/modules/<module>/constants/`
   - file-local constants that are not reused outside a single component, page, route, or module file must stay in that file
-- For examples and a quick decision guide, see `docs/conventions/constants.md`.
+- For examples and a quick decision guide, see the constants convention guide under `docs/conventions/`.
 - Keep each constant close to its functional owner. Do not create global constants by default, and do not move unrelated values into a generic catch-all constants file.
 - If a constant is repeated in multiple components within the same module, promote it to that module's `constants/` folder. If it is not reused outside its file, do not abstract it into a separate file.
 - Group constants by domain ownership, not by generic technical category, and use consistent naming such as `UPPER_CASE` for constants.
@@ -460,4 +468,4 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 
 - Make critical mutations safe under retries and duplicate submissions through idempotency, transactional protection, optimistic locking, or equivalent server-side controls.
 - Avoid blocking the event loop, overfetching, and repeated expensive work in latency-sensitive paths.
-- For examples and decision guidance, see `docs/conventions/concurrency-observability-performance.md`.
+- For examples and decision guidance, see the concurrency, observability, and performance convention guide under `docs/conventions/`.

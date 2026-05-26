@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestión de precios y suscripciones</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+
+/* Doc header */
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+
+/* Part header */
+.part-header{border-top:2px solid #1a1a1a;padding-top:32px;margin-top:56px;margin-bottom:40px;}
+.doc-header + .part-header{border-top:none;padding-top:0;margin-top:0;}
+.part-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-title{font-size:22px;font-weight:600;line-height:1.2;}
+
+/* Section */
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;line-height:1.3;}
+
+/* Body */
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+em{font-style:italic;color:#555;}
+
+/* Callouts */
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.callout p{font-size:13px;line-height:1.6;color:inherit;margin-bottom:6px;}
+.callout p:last-child{margin-bottom:0;}
+.callout strong{color:inherit;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+.c-red{background:#fef8f6;border-color:#e8917a;color:#9e3d25;}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;font-weight:500;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+
+/* Badges */
+.badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;padding:2px 8px;border-radius:4px;letter-spacing:0.05em;}
+.b-green{background:#e8f7f2;color:#1a6b52;border:1px solid #4aaa8c;}
+.b-amber{background:#fdf5e0;color:#7a5510;border:1px solid #d4a44c;}
+.b-red{background:#fef8f6;color:#9e3d25;border:1px solid #e8917a;}
+.b-gray{background:#f0ede6;color:#666;border:1px solid #ccc;}
+
+/* Steps */
+.steps{display:flex;flex-direction:column;gap:0;margin:20px 0;}
+.step-item{display:flex;gap:16px;padding-bottom:24px;position:relative;}
+.step-item::before{content:'';position:absolute;left:15px;top:32px;bottom:0;width:1px;background:#e0ddd6;}
+.step-item:last-child{padding-bottom:0;}
+.step-item:last-child::before{display:none;}
+.step-circle{width:32px;height:32px;border-radius:50%;background:#1a1a2e;color:white;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;flex-shrink:0;}
+.step-body{padding-top:4px;flex:1;}
+.step-label{font-size:14px;font-weight:600;margin-bottom:4px;color:#1a1a1a;}
+.step-desc{font-size:13px;color:#555;line-height:1.6;}
+
+/* Code */
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;color:#1a1a1a;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;margin:0;}
+.c-comment{color:#64748b;}
+.c-key{color:#7dd3fc;}
+.c-str{color:#86efac;}
+.c-num{color:#fbbf24;}
+.c-fn{color:#c084fc;}
+.c-tag{color:#f9a8d4;}
+
+/* Example box */
+.example-box{background:#ffffff;border:1.5px solid #d0cdc6;border-radius:10px;padding:18px 22px;margin:16px 0;}
+.example-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:10px;}
+.example-body{font-size:14px;line-height:1.7;color:#333;}
+.example-body p{margin-bottom:8px;}
+.example-body p:last-child{margin-bottom:0;}
+
+/* Pills (chips de estado para flujos) */
+.pill-flow{display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0;}
+.pill{display:inline-block;font-family:'DM Mono',monospace;font-size:12px;padding:6px 12px;border-radius:6px;}
+.pill-neutral{background:#f0ede6;color:#1a1a1a;border:1px solid #d0cdc6;}
+.pill-success{background:#e8f7f2;color:#1a6b52;border:1px solid #4aaa8c;}
+.pill-stale{background:#f0ede6;color:#9e3d25;border:1px solid #d0cdc6;text-decoration:line-through;}
+.pill-arrow{font-family:'DM Mono',monospace;color:#888;font-size:14px;}
+
+/* Divider */
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+
+/* Subhead inside section */
+.subhead{font-size:15px;font-weight:600;color:#1a1a1a;margin-top:18px;margin-bottom:8px;}
+
+@media (max-width:720px){
+  body{padding:32px 16px 60px;}
+  .doc-title{font-size:24px;}
+  .part-title{font-size:20px;}
+  .section-title{font-size:18px;}
+}
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-label">Reglas de negocio — Billing</div>
+  <div class="doc-title">Gestión de precios y suscripciones</div>
+  <div class="doc-sub">Cómo se comportan los precios, los planes y las suscripciones, incluyendo las particularidades del flujo con Mercado Pago.</div>
+  <div class="doc-meta">
+    <span>Fecha: 2026-05-25</span>
+    <span>Autor: Guido</span>
+    <span>Estado: Vigente</span>
+    <span>Alcance: Billing / Mercado Pago</span>
+  </div>
+</div>
+
+<div class="part-header">
+  <div class="part-label">Parte A</div>
+  <div class="part-title">Gestión de precios y suscripciones</div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Regla principal: el precio se "congela" al suscribirse</div>
+  <p>Cuando un usuario se suscribe, <strong>queda atado al precio que pagó al momento de entrar</strong>. Ese precio no se le puede modificar mientras siga activo.</p>
+
+  <div class="example-box">
+    <div class="example-label">Ejemplo práctico</div>
+    <div class="example-body">
+      <p>Si un usuario se suscribió pagando <code>$15</code>, va a seguir pagando <code>$15</code> mes a mes, sin importar que después el precio del plan se haya actualizado a un valor mayor.</p>
+      <div class="pill-flow" style="margin-top:10px;">
+        <span class="pill pill-success">$15 (precio suscriptor)</span>
+        <span class="pill-arrow">vs.</span>
+        <span class="pill pill-neutral">$20 (precio actualizado)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout c-info">
+    <p><strong>¿Por qué funciona así?</strong> Para evitar problemas legales o reclamos de usuarios que digan: <em>"me actualizaron el precio sin avisarme"</em>. Es la misma lógica que utiliza Skool.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">¿Cómo se le puede cambiar el precio a un suscriptor?</div>
+  <p>Existe <strong>una única forma</strong>, y requiere la acción del propio suscriptor:</p>
+
+  <div class="steps">
+    <div class="step-item">
+      <div class="step-circle">1</div>
+      <div class="step-body">
+        <div class="step-label">Cancela la suscripción actual</div>
+        <div class="step-desc">El suscriptor cancela su suscripción vigente — la que tiene el precio viejo.</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">2</div>
+      <div class="step-body">
+        <div class="step-label">Vuelve a suscribirse al precio nuevo</div>
+        <div class="step-desc">El suscriptor inicia una nueva suscripción, ahora al precio que esté marcado como vigente.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout c-warn">
+    <p>Sin ese paso, el precio original se mantiene <strong>indefinidamente</strong>. No hay forma desde el lado del sistema de forzar el cambio sin que el suscriptor actúe.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Particularidad de Mercado Pago</div>
+  <p>En Mercado Pago, <strong>eliminar un plan no cancela las suscripciones que ya tenía ese plan</strong>. Son dos acciones distintas:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:38%;">Acción</th>
+        <th>¿Qué hace?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Cancelar/eliminar el <strong>plan</strong></td>
+        <td>Quita el plan del catálogo. Se puede hacer desde Mercado Pago oficial.</td>
+      </tr>
+      <tr>
+        <td>Cancelar la <strong>suscripción</strong></td>
+        <td>Detiene el cobro recurrente a un usuario puntual.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="subhead">Consecuencia clave</div>
+  <p>Si se elimina un plan <strong>pero no se cancelan las suscripciones asociadas</strong>, los usuarios siguen pagando ese plan mes a mes, aunque el plan ya no exista en el sistema.</p>
+
+  <div class="callout c-red">
+    <p><strong>En otras palabras:</strong> un suscriptor puede seguir pagando $15 todos los meses por un plan que fue borrado hace tiempo. El plan dejó de existir, pero el cobro continúa.</p>
+  </div>
+</div>
+
+<div class="part-header">
+  <div class="part-label">Parte B</div>
+  <div class="part-title">Gestión de planes y suscripciones</div>
+</div>
+
+<p>Es fundamental distinguir entre <strong>dos entornos separados</strong> que conviven en el sistema:</p>
+
+<ul>
+  <li>Los planes y suscripciones que existen en <strong>Mercado Pago</strong>.</li>
+  <li>Los planes y suscripciones que existen en <strong>mi base de datos</strong>.</li>
+</ul>
+
+<p>Cada uno tiene reglas propias de funcionamiento.</p>
+
+<div class="divider"></div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Planes en Mercado Pago</div>
+  <p>En Mercado Pago, un plan funciona como una <strong>plantilla</strong> (<code>template</code>). No hay un vínculo dinámico entre el plan y los suscriptores: el suscriptor no "hereda" los cambios que se le hagan al plan posteriormente.</p>
+
+  <p>Las operaciones posibles son:</p>
+
+  <div class="subhead">Crear un plan</div>
+  <p>No genera ningún efecto secundario. Se agrega normalmente.</p>
+
+  <div class="subhead">Modificar un plan</div>
+  <p>Solo se modifica la plantilla. <strong>Los suscriptores que ya usaron ese plan no se ven afectados</strong>, porque su suscripción quedó atada a las condiciones originales, no al plan vivo.</p>
+
+  <div class="subhead">Eliminar un plan</div>
+  <p>Se elimina únicamente la plantilla. <strong>Los suscriptores asociados permanecen activos</strong> y siguen pagando bajo las condiciones del plan original, aunque la plantilla ya no exista.</p>
+
+  <div class="callout c-info">
+    <p>El plan vive en el catálogo; la suscripción vive en un snapshot independiente. Tocar el catálogo nunca toca los snapshots ya emitidos.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Operaciones desde la app — flujo app → MP</div>
+  <p>Las operaciones que el admin dispara desde la app se propagan a Mercado Pago de forma <strong>simétrica</strong>: cada acción en la DB tiene su contraparte directa en el catálogo de MP, sin duplicaciones ni versiones intermedias.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:22%;">Operación en la app</th>
+        <th>Efecto en Mercado Pago</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Agregar</td>
+        <td>Se crea el plan en Mercado Pago y se inserta la fila correspondiente en la DB. <span class="badge b-green">Sin restricciones</span></td>
+      </tr>
+      <tr>
+        <td>Modificar</td>
+        <td>Se modifican los campos en Mercado Pago y en la DB sobre la <strong>misma fila</strong>. No se duplica, no se versiona, no se crea otro plan — la edición es destructiva sobre los valores anteriores.</td>
+      </tr>
+      <tr>
+        <td>Eliminar</td>
+        <td>Se cancela o verifica el plan en Mercado Pago y la fila local pasa a <code>deleted</code> con <code>deleted_at</code>; no hay borrado físico. <span class="badge b-green">Sin restricción</span> sobre la cantidad de suscriptores — antes de ocultar el precio, la app desprende las suscripciones y conserva snapshots mínimos para auditoría y webhooks.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout c-info">
+    <p>Las modificaciones <strong>no preservan historial</strong> en la DB — el cambio se aplica directamente sobre la fila existente. Si necesitás que los suscriptores actuales sigan con el precio viejo y los nuevos con el precio nuevo, la forma correcta es <strong>agregar un plan nuevo</strong> desde la app (no modificar el existente).</p>
+  </div>
+
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Sincronización con Mercado Pago — flujo MP → app</div>
+  <p>El flujo inverso (cambios disparados desde el dashboard de Mercado Pago) es <strong>asimétrico</strong>: no todos los eventos se reflejan. Las modificaciones y las bajas sí; las altas no. La razón: los planes necesitan orquestación desde la app para quedar bien registrados, así que crear planes directamente desde el dashboard de MP no produce nada del lado del sistema.</p>
+
+  <div class="subhead">Estados de un plan en la DB</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:22%;">Estado</th>
+        <th>Significado</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge b-green">Activo</span></td>
+        <td>Plan vigente. Es el que reciben los nuevos suscriptores.</td>
+      </tr>
+      <tr>
+        <td><span class="badge b-amber">Pausado</span></td>
+        <td>Plan temporalmente fuera de circulación. No acepta nuevos suscriptores, pero los existentes siguen pagando bajo sus condiciones. Estado <strong>reversible</strong>: puede volver a <span class="badge b-green">Activo</span>.</td>
+      </tr>
+      <tr>
+        <td><span class="badge b-red">Cancelado</span></td>
+        <td>El plan ya no existe en Mercado Pago. La DB lo conserva pero deja de operar con él.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="subhead">Reglas de sincronización</div>
+
+  <div class="steps">
+    <div class="step-item">
+      <div class="step-circle">A</div>
+      <div class="step-body">
+        <div class="step-label">Plan agregado en Mercado Pago</div>
+        <div class="step-desc"><strong>No se refleja</strong> en la DB. Las altas deben pasar por la app (sección 05) — crear un plan directamente desde el dashboard de Mercado Pago lo deja invisible para el sistema.</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">B</div>
+      <div class="step-body">
+        <div class="step-label">Plan modificado en Mercado Pago</div>
+        <div class="step-desc">Aplica para cambios en <strong>cualquier campo del plan</strong> — hoy son <code>nombre</code>, <code>precio</code> y <code>días gratis</code>. La fila del plan en la DB se <strong>actualiza con todos los valores nuevos</strong>: no se crea una versión nueva ni se preserva la anterior. Los suscriptores existentes siguen pagando el precio original — el congelamiento ocurre del lado de Mercado Pago (sección 01), no del nuestro.</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">C</div>
+      <div class="step-body">
+        <div class="step-label">Plan pausado en Mercado Pago</div>
+        <div class="step-desc">El plan correspondiente en la DB se marca como <span class="badge b-amber">Pausado</span>. <strong>No</strong> se crea un nuevo registro: como el cambio es reversible, mantenemos la misma fila y cambiamos solo el estado. Los suscriptores existentes no se ven afectados; los nuevos no pueden suscribirse mientras dure la pausa. Si Mercado Pago lo despausa, vuelve a <span class="badge b-green">Activo</span>.</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">D</div>
+      <div class="step-body">
+        <div class="step-label">Plan eliminado en Mercado Pago</div>
+        <div class="step-desc">El plan correspondiente en la DB se marca como <span class="badge b-red">Cancelado</span>. No se borra: se conserva para mantener el historial de cobros que lo referenciaron.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="example-box">
+    <div class="example-label">Ejemplo — cambio de precio en Mercado Pago</div>
+    <div class="example-body">
+      <p>Un plan está en <code>$15</code> con 7 días gratis. Desde Mercado Pago se actualiza a <code>$20</code>, manteniendo los 7 días gratis.</p>
+      <div class="pill-flow">
+        <span class="pill pill-neutral">Plan · $15 · 7 días</span>
+        <span class="pill-arrow">→</span>
+        <span class="pill pill-success">Plan · $20 · 7 días</span>
+      </div>
+      <p style="margin-top:10px;">La misma fila del plan en la DB pasa de <code>$15</code> a <code>$20</code>. Los suscriptores existentes <strong>siguen pagando $15</strong> porque Mercado Pago no propaga el cambio a sus suscripciones individuales — solo actualiza el template del plan (sección 03).</p>
+    </div>
+  </div>
+
+  <div class="callout c-warn">
+    <p>La DB no mantiene historial de versiones de un plan. Modificar es <strong>destructivo</strong> independientemente del canal — tanto desde la app como desde el dashboard de MP. Si hace falta auditoría de qué precio tuvo un plan en qué fecha, esa trazabilidad vive en Mercado Pago (que sí guarda histórico) o en el audit log del sistema (sección 09).</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Estados de la suscripción en Mercado Pago</div>
+  <p>Las suscripciones viven en el endpoint <code>/preapproval</code> de Mercado Pago y tienen <strong>su propio ciclo de vida</strong>, independiente del estado del plan. Son cuatro estados posibles y cada uno se traduce a un nivel de acceso distinto en la app.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:18%;">Estado MP</th>
+        <th style="width:45%;">Qué significa</th>
+        <th>Acción en mi sistema</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>pending</code></td>
+        <td>La suscripción fue creada pero <strong>todavía no tiene un medio de pago confirmado</strong>. Los cobros quedan pendientes hasta que el usuario complete el pago o agregue un método.</td>
+        <td>No dar acceso completo. Mostrar CTA para completar el pago.</td>
+      </tr>
+      <tr>
+        <td><code>authorized</code></td>
+        <td>La suscripción está <strong>autorizada para cobrar recurrentemente</strong>. MP tiene un método de pago y puede generar los cobros según la frecuencia definida.</td>
+        <td>Activar la suscripción. Seguir escuchando webhooks de pagos porque cada cuota puede aprobarse o fallar.</td>
+      </tr>
+      <tr>
+        <td><code>paused</code></td>
+        <td>La suscripción está <strong>pausada</strong>. No cancelada, pero detenida hasta reactivarla. MP permite pausar enviando <code>status: "paused"</code> al endpoint de update.</td>
+        <td>Suspender acceso temporalmente o marcar como pausada.</td>
+      </tr>
+      <tr>
+        <td><code>canceled</code></td>
+        <td>La suscripción fue <strong>cancelada</strong>. La API de MP usa la grafía con una sola "l".</td>
+        <td>Cortar renovación/acceso al final del período pago, o inmediatamente según la regla de negocio.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout c-warn">
+    <p><code>authorized</code> <strong>no garantiza que todos los cobros futuros vayan a aprobarse</strong> — solo que la suscripción tiene un método de pago y permiso para intentar. Cada cuota termina como aprobada, en espera o en reintentos si fue rechazada. Después de varios rechazos, MP puede cancelarla automáticamente (ver sección 08).</p>
+  </div>
+
+  <div class="subhead">Regla de acceso adoptada — caso simple</div>
+  <p>El acceso a la app se decide <strong>únicamente con el estado de la suscripción</strong>. No se evalúa el resultado del último cobro puntual. La regla, en una línea:</p>
+
+  <div class="code-block"><pre><span class="c-key">const</span> canAccess = subscription.status === <span class="c-str">'authorized'</span></pre></div>
+
+  <p>Aplicado a los cuatro estados:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30%;">Estado MP</th>
+        <th>¿Tiene acceso?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>authorized</code></td>
+        <td><span class="badge b-green">Sí</span> — tiene acceso, aun si el último cobro falló.</td>
+      </tr>
+      <tr>
+        <td><code>pending</code></td>
+        <td><span class="badge b-red">No</span> — todavía no, hasta completar el pago.</td>
+      </tr>
+      <tr>
+        <td><code>paused</code></td>
+        <td><span class="badge b-red">No</span> — acceso suspendido mientras dure la pausa.</td>
+      </tr>
+      <tr>
+        <td><code>canceled</code></td>
+        <td><span class="badge b-red">No</span> — sin acceso, contrato terminado.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout c-info">
+    <p>Esta regla <strong>delega el lifecycle de cobros a Mercado Pago</strong>. La documentación de MP indica que <strong>después de 3 cuotas con pagos rechazados, la suscripción se cancela automáticamente</strong>, y que el resultado de una cuota no afecta la generación de las próximas. Es decir, MP ya protege contra cobros que fallan reiteradamente — duplicar esa lógica del lado del sistema sería redundante.</p>
+  </div>
+
+  <p>El estado individual de cada cobro <strong>no se persiste</strong> en la DB. Si una cuota se rechaza, la suscripción sigue <code>authorized</code> hasta que Mercado Pago decida cancelarla automáticamente — el sistema solo reacciona al webhook final. La sección 08 describe ese flujo en detalle.</p>
+
+  <div class="callout c-info">
+    <p>Pausar una <strong>suscripción</strong> (este estado) es distinto de pausar un <strong>plan</strong> (sección 06). El plan pausado bloquea nuevas suscripciones; la suscripción pausada detiene el cobro a un usuario puntual.</p>
+  </div>
+
+  <div class="subhead">Referencias</div>
+  <ul>
+    <li><a href="https://www.mercadopago.com.ar/developers/en/docs/subscriptions/integration-configuration/subscription-no-associated-plan/pending-payments" target="_blank" rel="noopener">MP Developers — Pending payments</a></li>
+    <li><a href="https://www.mercadopago.com.ar/developers/en/docs/subscriptions/integration-configuration/subscription-no-associated-plan/authorized-payments" target="_blank" rel="noopener">MP Developers — Authorized payments</a></li>
+    <li><a href="https://www.mercadopago.com.ar/developers/en/docs/subscriptions/subscription-management" target="_blank" rel="noopener">MP Developers — Subscription management</a></li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Falla de pago — quién decide y cómo se entera la DB</div>
+  <p>Una suscripción puede tener su último pago fallido sin perder su estado de <code>authorized</code> en Mercado Pago. Esto define dos preguntas operativas claras:</p>
+
+  <div class="subhead">¿Cuenta como suscriptor activo?</div>
+  <p>Sí. <strong>Mientras Mercado Pago la considere autorizada, cuenta como activa</strong> — incluso si el último intento de cobro falló. Para el botón <code>Verificar suscriptores</code>, suma exactamente igual que un suscriptor al día.</p>
+
+  <div class="subhead">¿Quién decide cuándo darla de baja?</div>
+  <p>Mercado Pago. <strong>No implementamos política propia de reintento ni de cancelación por fallos.</strong> MP aplica su política interna de reintentos y, cuando decide dar de baja una suscripción por fallos sostenidos, envía un webhook de <code>subscription_preapproval</code>; nuestra app consulta el <code>preapproval</code> y reacciona cuando el estado proveedor vuelve como <code>canceled</code> o <code>cancelled</code>.</p>
+
+  <div class="steps">
+    <div class="step-item">
+      <div class="step-circle">1</div>
+      <div class="step-body">
+        <div class="step-label">MP intenta cobrar y falla</div>
+        <div class="step-desc">El estado de la suscripción en Mercado Pago sigue siendo <code>authorized</code>. La DB no recibe webhook de cancelación todavía.</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">2</div>
+      <div class="step-body">
+        <div class="step-label">MP reintenta según su política interna</div>
+        <div class="step-desc">La cantidad de intentos y la ventana entre cada uno la define Mercado Pago. Nuestro sistema no participa de esa decisión.</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">3</div>
+      <div class="step-body">
+        <div class="step-label">MP decide cancelar y emite el evento</div>
+        <div class="step-desc">Llega un webhook cuyo tópico empieza con <code>subscription_preapproval</code>. El handler descrito en la sección 09 consulta el estado proveedor y aplica la cancelación local cuando Mercado Pago informa <code>canceled</code> o <code>cancelled</code>.</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">4</div>
+      <div class="step-body">
+        <div class="step-label">La DB marca la suscripción como cancelada</div>
+        <div class="step-desc">A partir de ese momento deja de contar como activa para el conteo de <code>Verificar suscriptores</code>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout c-info">
+    <p>La consecuencia de delegar esto en Mercado Pago es que el sistema queda <strong>libre de colas de reintento</strong> y de jobs de "cobros pendientes". El precio es que la lógica exacta de cuántos reintentos hace MP no es algo que controlemos.</p>
+  </div>
+
+  <div class="callout c-warn">
+    <p>El conteo de "suscriptores activos" del botón Verificar incluye usuarios con el último pago fallido — son indistinguibles para el sistema, porque el resultado de cada cobro puntual no se persiste. Esto es <strong>una consecuencia consciente</strong> de delegar el lifecycle de cobros a Mercado Pago.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Implementación en Next.js — alcance nativo</div>
+  <p>Las piezas siguientes se cubren con primitivas estándar de Next.js (Route Handlers, Server Actions), Drizzle y SQL versionado. No requieren colas, workers persistentes ni servicios externos.</p>
+
+  <div class="subhead">Webhook handler (Route Handler)</div>
+  <p>Una <code>POST</code> route handler en <code>app/api/mercado-pago/webhooks/route.ts</code> recibe los eventos de Mercado Pago, normaliza el tópico, verifica que la operación pertenezca a la integración esperada y delega la idempotencia en <code>subscription_idempotency_operations</code>.</p>
+
+  <div class="code-block"><pre><span class="c-comment">// app/api/mercado-pago/webhooks/route.ts</span>
+<span class="c-key">export async function</span> <span class="c-fn">POST</span>(request: <span class="c-tag">Request</span>) {
+  <span class="c-key">const</span> body = <span class="c-key">await</span> request.<span class="c-fn">json</span>().<span class="c-fn">catch</span>(() =&gt; ({}))
+  <span class="c-key">const</span> eventId = <span class="c-fn">readEventId</span>(body)
+  <span class="c-key">const</span> resourceId = <span class="c-fn">readResourceId</span>(request.url, body)
+  <span class="c-key">const</span> topic = <span class="c-fn">readWebhookTopic</span>(body)
+
+  <span class="c-key">if</span> (!<span class="c-fn">verifyMercadoPagoWebhookSignature</span>({ headers: request.headers, resourceId })) {
+    <span class="c-key">return</span> <span class="c-tag">Response</span>.<span class="c-fn">json</span>({ message: <span class="c-str">'Unauthorized webhook'</span> }, { status: 401 })
+  }
+
+  <span class="c-key">const</span> modules = <span class="c-key">await</span> <span class="c-fn">createRequestModules</span>({
+    mercadoPagoWebhookVerified: <span class="c-key">true</span>,
+  })
+
+  <span class="c-key">if</span> (<span class="c-fn">isSubscriptionPlanWebhookTopic</span>(topic)) {
+    <span class="c-key">await</span> modules.subscriptions.useCases.<span class="c-fn">syncMercadoPagoSubscriptionProviderPlanWebhook</span>({
+      eventId,
+      resourceId,
+      topic,
+    })
+  } <span class="c-key">else if</span> (<span class="c-fn">isSubscriptionWebhookTopic</span>(topic)) {
+    <span class="c-key">await</span> modules.subscriptions.useCases.<span class="c-fn">handleMercadoPagoSubscriptionWebhook</span>({
+      eventId,
+      resourceId,
+      topic,
+    })
+  }
+
+  <span class="c-key">return</span> <span class="c-tag">Response</span>.<span class="c-fn">json</span>({ status: <span class="c-str">'processed'</span> })
+}</pre></div>
+
+  <div class="callout c-info">
+    <p>La idempotencia no se basa en <code>event_id</code>: la operación se deduplica por una clave de negocio en <code>subscription_idempotency_operations.operation_key</code>. Para planes se usa <code>mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</code>; para suscripciones, <code>mercado-pago-webhook:&lt;preapprovalId&gt;:&lt;localStatus&gt;:&lt;statusReason&gt;</code>.</p>
+  </div>
+
+  <div class="subhead">Mapeo de IDs externos (Drizzle + SQL)</div>
+  <p>Las columnas <code>mercado_pago_preapproval_plan_id</code> y <code>mercado_pago_preapproval_id</code> establecen el vínculo con Mercado Pago. La relación operativa se mantiene sobre filas locales en <code>tribe_subscription_prices</code> y <code>tribe_member_subscriptions</code>, con migraciones SQL versionadas como fuente de verdad para tablas, índices y RLS.</p>
+
+  <div class="code-block"><pre><span class="c-comment">// src/modules/shared/infrastructure/database/schema.ts</span>
+<span class="c-key">export const</span> tribeSubscriptionPrices = <span class="c-fn">pgTable</span>(<span class="c-str">"tribe_subscription_prices"</span>, {
+  id: <span class="c-fn">uuid</span>(<span class="c-str">"id"</span>).<span class="c-fn">primaryKey</span>(),
+  tribeId: <span class="c-fn">uuid</span>(<span class="c-str">"tribe_id"</span>).<span class="c-fn">notNull</span>(),
+  mercadoPagoPreapprovalPlanId: <span class="c-fn">text</span>(<span class="c-str">"mercado_pago_preapproval_plan_id"</span>),
+  status: <span class="c-fn">text</span>(<span class="c-str">"status"</span>).<span class="c-fn">notNull</span>(),
+  isCurrent: <span class="c-fn">boolean</span>(<span class="c-str">"is_current"</span>).<span class="c-fn">notNull</span>(),
+})
+
+<span class="c-key">export const</span> tribeMemberSubscriptions = <span class="c-fn">pgTable</span>(<span class="c-str">"tribe_member_subscriptions"</span>, {
+  id: <span class="c-fn">uuid</span>(<span class="c-str">"id"</span>).<span class="c-fn">primaryKey</span>(),
+  priceId: <span class="c-fn">uuid</span>(<span class="c-str">"price_id"</span>),
+  mercadoPagoPreapprovalId: <span class="c-fn">text</span>(<span class="c-str">"mercado_pago_preapproval_id"</span>),
+  status: <span class="c-fn">text</span>(<span class="c-str">"status"</span>).<span class="c-fn">notNull</span>(),
+})</pre></div>
+
+  <div class="subhead">Estados como enums</div>
+  <p>Los estados del plan (<span class="badge b-green">Activo</span> <span class="badge b-amber">Pausado</span> <span class="badge b-red">Cancelado</span>) y los de la suscripción local (<code>active</code>, <code>pending</code>, <code>paused</code>, <code>canceled</code>) se validan en los contratos de aplicación y se persisten como valores estables en Postgres. El estado proveedor <code>authorized</code> se mapea a <code>active</code> antes de guardarse localmente.</p>
+
+  <div class="subhead">Botón "Eliminar plan" (Route Handler)</div>
+  <p>La UI llama al route handler <code>DELETE /api/tribes/[slug]/subscriptions/prices/[priceId]</code>. El handler invoca el caso de uso, responde con <code>deletedPriceId</code> cuando la fila local pasó a <code>deleted</code> y el componente quita ese precio del estado local sin forzar un refresh completo de la ruta.</p>
+
+  <div class="code-block"><pre><span class="c-comment">// app/api/tribes/[slug]/subscriptions/prices/[priceId]/route.ts</span>
+<span class="c-key">export async function</span> <span class="c-fn">DELETE</span>(request: <span class="c-tag">Request</span>, context: <span class="c-tag">RouteContext</span>) {
+  <span class="c-key">const</span> { priceId, slug } = <span class="c-key">await</span> context.params
+  <span class="c-key">const</span> result = <span class="c-key">await</span> modules.subscriptions.useCases.deleteTribeSubscriptionPrice({
+    priceId,
+    tribeSlug: slug,
+  })
+
+  <span class="c-key">if</span> (result.status === <span class="c-str">'deleted'</span>) {
+    <span class="c-key">return</span> <span class="c-tag">Response</span>.<span class="c-fn">json</span>({ deletedPriceId: priceId })
+  }
+
+  <span class="c-key">return</span> <span class="c-tag">Response</span>.<span class="c-fn">json</span>({ price: result.price })
+}</pre></div>
+
+  <div class="subhead">Trazabilidad operativa</div>
+  <p>La trazabilidad de cambios relevantes se sostiene en logs estructurados, claves de idempotencia y snapshots mínimos de suscripción cuando un precio se elimina. Esa información queda en los módulos de aplicación e infraestructura, no en extensiones globales de ORM.</p>
+
+  <div class="callout c-warn">
+    <p>Lo que <strong>no</strong> entra en este alcance nativo: cola de reintentos con backoff para webhooks fallidos, reconciliación periódica de gran volumen (excede el max duration de funciones serverless) y workers de largo plazo. Esas piezas se resuelven con infraestructura complementaria — quedan fuera del alcance de este documento.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">10</div>
+  <div class="section-title">Conclusión</div>
+  <p>El modelo mental sobre Mercado Pago es válido y se sostiene en cuatro ideas:</p>
+
+  <ul>
+    <li><strong>Plan = plantilla</strong>, desacoplada de los suscriptores que la usaron.</li>
+    <li><strong>Eliminar el plan ≠ cancelar las suscripciones.</strong></li>
+    <li>Los suscriptores quedan <strong>"congelados"</strong> en las condiciones bajo las que se suscribieron.</li>
+    <li><strong>Mercado Pago administra los reintentos de cobro</strong> y decide cuándo dar de baja una suscripción por fallos sostenidos — el sistema no implementa lógica propia de "cobros pendientes".</li>
+  </ul>
+
+  <p>Y en la DB, los cambios se aplican directamente: edición sobre la misma fila cuando es actualización del template, o marca de estado cuando cambia el lifecycle — <span class="badge b-green">Activo</span>, <span class="badge b-amber">Pausado</span> o <span class="badge b-red">Cancelado</span>. La DB no guarda historial: si querés introducir un precio nuevo que coexista con el viejo, lo correcto es agregar un plan nuevo desde la app.</p>
+
+  <div class="callout c-ok">
+    <p>Mientras se respete esa separación entre <strong>catálogo</strong> (planes) y <strong>contrato</strong> (suscripción ya emitida), y la DB mantenga el historial sin sobreescribir, la lógica del sistema se mantiene consistente, auditable y predecible.</p>
+  </div>
+</div>
+
+</body>
+</html>
