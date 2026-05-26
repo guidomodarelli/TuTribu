@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Stop Quality Gate</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Agent Stop Quality Gate</div>
+  <div class="doc-sub">Cuándo deben ejecutar validación los hooks de agentes del repositorio.</div>
+  <div class="doc-meta"><span>Scope: <code>.claude</code> / <code>.codex</code></span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Regla de ejecución</div>
+  <p>Los hooks <code>Stop</code> de <code>.claude/settings.json</code> y <code>.codex/hooks.json</code> ejecutan <code>node .agents/hooks/stop-quality-gate.js</code>. Ese script revisa primero los archivos modificados con <code>git status --porcelain --untracked-files=all</code>.</p>
+  <p>Si no hay cambios relevantes para código, tooling o validación, el hook responde <code>{}</code> y no ejecuta <code>typecheck</code>, <code>lint</code>, <code>build</code> ni <code>test</code>.</p>
+  <div class="callout c-ok">Los cambios documentales como <code>.md</code> y <code>.htm</code> no disparan el gate completo por sí solos.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Cambios relevantes</div>
+  <p>El gate debe ejecutarse cuando al menos un archivo modificado pueda afectar comportamiento de producto, runtime, estilos, base de datos o validación.</p>
+  <ul>
+    <li>Code: <code>.ts</code>, <code>.tsx</code>, <code>.js</code>, <code>.jsx</code>, <code>.mjs</code>, <code>.cjs</code>, <code>.mts</code>, <code>.cts</code>.</li>
+    <li>Styles and data changes with runtime impact: <code>.scss</code>, <code>.css</code>, <code>.sql</code>.</li>
+    <li>Validation and package config: <code>package.json</code>, lockfiles, <code>tsconfig</code>, <code>eslint</code>, <code>jest</code>, <code>next</code>, <code>playwright</code>, <code>postcss</code>, and <code>components.json</code>.</li>
+    <li>Agent validation config: <code>.agents/hooks/stop-quality-gate.js</code>, <code>.codex/hooks.json</code>, and <code>.claude/settings.json</code>.</li>
+  </ul>
+  <div class="callout c-warn">Si Git status no puede leerse de forma confiable, el hook usa el fallback seguro y ejecuta el gate completo.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Validación esperada</div>
+  <p>Cuando se modifica el script del hook, validar como mínimo <code>node --check .agents/hooks/stop-quality-gate.js</code>, parseo JSON de <code>.codex/hooks.json</code> y <code>.claude/settings.json</code>, el test enfocado de tooling, <code>pnpm run lint</code> y <code>pnpm run typecheck</code>.</p>
+  <p>Para cambios documentales, se puede validar el comportamiento real con un worktree temporal que tenga solo <code>.md</code> o <code>.htm</code> modificados y comprobar que el hook responda <code>{}</code>.</p>
+</div>
+</body>
+</html>

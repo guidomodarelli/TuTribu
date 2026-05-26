@@ -13,6 +13,58 @@
 const QUALITY_GATE_SCRIPTS = ["typecheck", "lint", "build", "test"];
 
 /**
+ * Lists file extensions that can affect product code or validation behavior.
+ *
+ * @type {string[]}
+ */
+const CODE_RELEVANT_FILE_EXTENSIONS = [
+  ".cjs",
+  ".css",
+  ".cts",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".mts",
+  ".scss",
+  ".sql",
+  ".ts",
+  ".tsx",
+];
+
+/**
+ * Lists extensionless or data/config files that can affect validation behavior.
+ *
+ * @type {Set<string>}
+ */
+const CODE_RELEVANT_FILE_NAMES = new Set([
+  ".eslintrc",
+  ".prettierrc",
+  "bun.lockb",
+  "components.json",
+  "eslint.config.mjs",
+  "jest.config.mjs",
+  "next.config.ts",
+  "package-lock.json",
+  "package.json",
+  "playwright.config.ts",
+  "pnpm-lock.yaml",
+  "postcss.config.mjs",
+  "tsconfig.json",
+  "tsconfig.typecheck.json",
+  "yarn.lock",
+]);
+
+/**
+ * Lists exact repository paths that control validation behavior.
+ *
+ * @type {Set<string>}
+ */
+const CODE_RELEVANT_FILE_PATHS = new Set([
+  ".claude/settings.json",
+  ".codex/hooks.json",
+]);
+
+/**
  * Maps lockfile names to their owning package manager.
  *
  * @type {Array<{lockfile: string, packageManager: string}>}
@@ -121,6 +173,82 @@ function buildQualityGateCommands(runner) {
  * @type {number}
  */
 const MAX_OUTPUT_LENGTH = 6000;
+
+/**
+ * Parses changed file paths from `git status --porcelain` output.
+ *
+ * @param {string} gitStatusOutput - Raw git porcelain status output.
+ * @returns {string[]} Changed file paths.
+ */
+function parseChangedFilePaths(gitStatusOutput) {
+  return gitStatusOutput
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .flatMap((statusLine) => {
+      const pathSegment = statusLine.slice(3).trim();
+
+      if (!pathSegment) {
+        return [];
+      }
+
+      return pathSegment.split(" -> ");
+    });
+}
+
+/**
+ * Checks whether a changed path can affect product code or validation behavior.
+ *
+ * @param {string} changedFilePath - Changed file path.
+ * @returns {boolean} True when the path should trigger the quality gate.
+ */
+function isCodeRelevantFilePath(changedFilePath) {
+  const normalizedFilePath = changedFilePath.replace(/\\/g, "/").toLowerCase();
+  const fileName = normalizedFilePath.split("/").pop() ?? normalizedFilePath;
+
+  return (
+    CODE_RELEVANT_FILE_PATHS.has(normalizedFilePath) ||
+    CODE_RELEVANT_FILE_NAMES.has(fileName) ||
+    CODE_RELEVANT_FILE_EXTENSIONS.some((extension) =>
+      normalizedFilePath.endsWith(extension)
+    )
+  );
+}
+
+/**
+ * Checks whether the quality gate should run for the changed files.
+ *
+ * @param {string[]} changedFilePaths - Changed file paths.
+ * @returns {boolean} True when at least one path is code-relevant.
+ */
+function shouldRunQualityGateForChangedFiles(changedFilePaths) {
+  return changedFilePaths.some(isCodeRelevantFilePath);
+}
+
+/**
+ * Reads changed file paths from the current Git worktree.
+ *
+ * Returns null when Git cannot provide a reliable status so the caller can
+ * choose the safer fallback.
+ *
+ * @param {typeof import("node:child_process").spawnSync} spawnSyncCommand - Process runner.
+ * @returns {string[] | null} Changed file paths, or null when detection fails.
+ */
+function readChangedFilePaths(spawnSyncCommand) {
+  const statusResult = spawnSyncCommand(
+    "git",
+    ["status", "--porcelain", "--untracked-files=all"],
+    {
+      cwd: process.cwd(),
+      encoding: "utf8",
+    }
+  );
+
+  if (statusResult.status !== 0) {
+    return null;
+  }
+
+  return parseChangedFilePaths(statusResult.stdout ?? "");
+}
 
 /**
  * Reads and parses the Codex hook input from stdin.
@@ -259,6 +387,20 @@ async function main() {
     return;
   }
 
+  const changedFilePaths = readChangedFilePaths(spawnSync);
+
+  if (changedFilePaths === null) {
+    process.stderr.write(
+      "[codex-stop-quality-gate] Could not inspect changed files; running quality gate.\n"
+    );
+  } else if (!shouldRunQualityGateForChangedFiles(changedFilePaths)) {
+    process.stderr.write(
+      "[codex-stop-quality-gate] No code-relevant changes detected; skipping quality gate.\n"
+    );
+    process.stdout.write(JSON.stringify({}));
+    return;
+  }
+
   const packageManager = detectPackageManager(fileSystem);
   const runner = resolvePackageManagerRunner(packageManager, spawnSync);
 
@@ -314,17 +456,32 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  process.stderr.write(
-    `[codex-stop-quality-gate] Unexpected hook failure: ${
-      error instanceof Error ? error.message : String(error)
-    }\n`
-  );
-  process.stdout.write(
-    JSON.stringify({
-      decision: "block",
-      reason:
-        "The Codex Stop quality gate hook failed unexpectedly. Inspect .codex/hooks/stop-quality-gate.js and fix the hook before finishing.",
-    })
-  );
-});
+if ((process.argv[1] ?? "").endsWith("stop-quality-gate.js")) {
+  main().catch((error) => {
+    process.stderr.write(
+      `[codex-stop-quality-gate] Unexpected hook failure: ${
+        error instanceof Error ? error.message : String(error)
+      }\n`
+    );
+    process.stdout.write(
+      JSON.stringify({
+        decision: "block",
+        reason:
+          "The Codex Stop quality gate hook failed unexpectedly. Inspect .agents/hooks/stop-quality-gate.js and fix the hook before finishing.",
+      })
+    );
+  });
+}
+
+module.exports = {
+  buildFailureReason,
+  buildQualityGateCommands,
+  detectPackageManager,
+  isCodeRelevantFilePath,
+  parseChangedFilePaths,
+  readChangedFilePaths,
+  resolvePackageManagerRunner,
+  runValidationCommand,
+  shouldRunQualityGateForChangedFiles,
+  truncateOutput,
+};

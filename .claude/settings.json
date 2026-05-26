@@ -8,7 +8,7 @@
             "type": "command",
             "command": "node .agents/hooks/stop-quality-gate.js",
             "timeout": 1200,
-            "statusMessage": "Running typecheck, lint, build, and tests"
+            "statusMessage": "Checking changed files before running the quality gate"
           }
         ]
       }
