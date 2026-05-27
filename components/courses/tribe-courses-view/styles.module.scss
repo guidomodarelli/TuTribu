@@ -128,7 +128,8 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.25rem;
+    gap: 0;
+    counter-reset: lesson;
   }
 
   &__lessonItem {
@@ -136,27 +137,48 @@
   }
 
   &__lessonLink {
-    display: block;
-    border-radius: var(--radius-md);
-    padding: 0.5rem 0.75rem;
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.625rem;
+    padding: 0.625rem 0.75rem 0.625rem 0.5rem;
+    border-left: 2px solid transparent;
     color: var(--foreground);
     font-size: 0.875rem;
     text-decoration: none;
     line-height: 1.4;
+    transition: background-color 120ms ease, border-color 120ms ease,
+      color 120ms ease;
 
     &:hover {
-      background-color: color-mix(in oklch, var(--accent) 60%, transparent);
+      background-color: color-mix(in oklch, var(--accent) 45%, transparent);
     }
 
     &--active {
-      background-color: color-mix(in oklch, var(--primary) 18%, transparent);
+      border-left-color: var(--primary);
       color: var(--primary);
       font-weight: 600;
+      background-color: color-mix(in oklch, var(--primary) 10%, transparent);
+
+      .TribeCoursesView__lessonNumber {
+        color: var(--primary);
+      }
     }
+  }
+
+  &__lessonNumber {
+    display: inline-flex;
+    justify-content: center;
+    min-width: 1.5rem;
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
   }
 
   &__lessonTitle {
     display: block;
+    min-width: 0;
   }
 
   &__main {

@@ -140,7 +140,7 @@ export function TribeCoursesView({
                   {courseModule.title}
                 </h3>
                 <ul className={styles.TribeCoursesView__lessonList}>
-                  {courseModule.lessons.map((lesson) => {
+                  {courseModule.lessons.map((lesson, lessonIndex) => {
                     const isActive = activeLesson?.id === lesson.id;
                     return (
                       <li
@@ -156,6 +156,12 @@ export function TribeCoursesView({
                           }
                           href={buildLessonHref(tribeSlug, lesson.id)}
                         >
+                          <span
+                            aria-hidden
+                            className={styles.TribeCoursesView__lessonNumber}
+                          >
+                            {lessonIndex + 1}
+                          </span>
                           <span className={styles.TribeCoursesView__lessonTitle}>
                             {lesson.title}
                           </span>
