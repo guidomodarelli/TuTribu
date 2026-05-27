@@ -87,6 +87,46 @@
     margin: 0;
   }
 
+  &__managementLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 1.75rem;
+    padding: 0 0.625rem;
+    border: 1px solid transparent;
+    border-radius: min(var(--radius-md), 0.75rem);
+    color: var(--foreground);
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color 120ms ease, color 120ms ease;
+
+    &:hover {
+      background-color: var(--muted);
+      color: var(--foreground);
+    }
+
+    &:focus-visible {
+      outline: none;
+      border-color: var(--ring);
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+    }
+
+    &:active {
+      transform: translateY(1px);
+    }
+
+    svg {
+      width: 0.875rem;
+      height: 0.875rem;
+      flex-shrink: 0;
+      pointer-events: none;
+    }
+  }
+
   &__moduleGroup {
     display: grid;
     gap: 0.5rem;

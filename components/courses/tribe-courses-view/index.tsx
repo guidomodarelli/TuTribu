@@ -1,7 +1,6 @@
 import { Settings } from "lucide-react";
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/src/constants/routes";
 import type {
   CourseModuleWithLessonsResult,
@@ -18,8 +17,6 @@ const LESSON_QUERY_PARAM = "leccion";
 const ARIA_CURRENT_PAGE = "page";
 const QUERY_STRING_PREFIX = "?";
 const QUERY_PARAM_VALUE_SEPARATOR = "=";
-const MANAGE_BUTTON_SIZE = "sm";
-const MANAGE_BUTTON_VARIANT = "ghost";
 
 function buildLessonHref(tribeSlug: string, lessonId: string): string {
   return `${ROUTES.tribes.courses(tribeSlug)}${QUERY_STRING_PREFIX}${LESSON_QUERY_PARAM}${QUERY_PARAM_VALUE_SEPARATOR}${lessonId}`;
@@ -47,12 +44,13 @@ type CourseManagementLinkProps = {
 
 function CourseManagementLink({ tribeSlug }: CourseManagementLinkProps) {
   return (
-    <Button asChild size={MANAGE_BUTTON_SIZE} variant={MANAGE_BUTTON_VARIANT}>
-      <Link href={ROUTES.tribes.coursesManage(tribeSlug)}>
-        <Settings aria-hidden />
-        {COURSES_COPY.manageCta}
-      </Link>
-    </Button>
+    <Link
+      className={styles.TribeCoursesView__managementLink}
+      href={ROUTES.tribes.coursesManage(tribeSlug)}
+    >
+      <Settings aria-hidden />
+      {COURSES_COPY.manageCta}
+    </Link>
   );
 }
 
