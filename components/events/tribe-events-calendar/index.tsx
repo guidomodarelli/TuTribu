@@ -149,7 +149,7 @@ const COPY = {
   linkFallback: "Sin link",
   linkOpen: "Abrir link",
   listTableLabel: "Lista de eventos",
-  meetingUrlLabel: "Link digital",
+  meetingUrlLabel: "Link de reunión",
   nextMonth: "Mes siguiente",
   previousMonth: "Mes anterior",
   saveButton: "Guardar evento",

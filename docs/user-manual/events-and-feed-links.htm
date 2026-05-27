@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Links en eventos y mensajes</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;line-height:1.3;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;color:#1a1a1a;}
+.example-box{background:#fff;border:1.5px solid #d0cdc6;border-radius:10px;padding:18px 22px;margin:16px 0;}
+.example-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:10px;}
+.example-body{font-size:14px;line-height:1.7;color:#333;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid #5a9fd4;background:#eaf3fb;color:#1a4f7a;}
+.callout p{font-size:13px;color:inherit;margin-bottom:0;}
+@media (max-width:720px){
+  body{padding:32px 16px 60px;}
+  .doc-title{font-size:24px;}
+  .section-title{font-size:18px;}
+}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">Manual de usuario</div>
+  <div class="doc-title">Links en eventos y mensajes</div>
+  <div class="doc-sub">Cómo compartir links de reunión y otros recursos dentro de la tribu.</div>
+  <div class="doc-meta">
+    <span>Fecha: 2026-05-27</span>
+    <span>Estado: Vigente</span>
+    <span>Alcance: Eventos / Feed</span>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Eventos</div>
+  <p>Al crear o editar un evento, el campo <strong>Link de reunión</strong> permite pegar un enlace externo para Zoom, Google Meet, Teams u otro proveedor.</p>
+  <ul>
+    <li>El link es opcional.</li>
+    <li>Debe comenzar con <code>http://</code> o <code>https://</code>.</li>
+    <li>Cuando existe, aparece como acción <strong>Abrir link</strong> y se abre en una pestaña nueva.</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Mensajes del feed</div>
+  <p>El editor de mensajes del feed muestra los links dentro del mismo lugar donde se escribe. No hace falta escribir sintaxis especial: se puede pegar un link directo como texto o asociarlo a una palabra seleccionada.</p>
+  <div class="example-box">
+    <div class="example-label">Ejemplo</div>
+    <div class="example-body">
+      <p>Si se selecciona <code>google.co</code> y se pega <code>https://google.com</code>, el editor mantiene <code>google.co</code> como texto visible y usa <code>https://google.com</code> como destino. Si luego se agrega la <code>m</code>, texto y destino quedan sincronizados.</p>
+    </div>
+  </div>
+  <ul>
+    <li>Al hacer clic en un link dentro del editor, aparece un popover con acciones para editarlo o removerlo.</li>
+    <li>Editar permite cambiar el texto visible y el link asociado.</li>
+    <li>Remover elimina solo el link y conserva el texto.</li>
+    <li>Cuando el texto visible y el destino coinciden, ignorando <code>http://</code> o <code>https://</code>, las ediciones posteriores actualizan ambos.</li>
+    <li>Cuando no coinciden, las ediciones cambian solo el texto visible hasta que vuelvan a coincidir.</li>
+    <li>Los links visibles en mensajes publicados se abren en una pestaña nueva.</li>
+    <li>Los dominios sin protocolo se guardan con <code>https://</code> para abrirse de forma segura.</li>
+    <li>Cualquier otra sintaxis de Markdown, incluyendo headings, énfasis o listas, queda como texto normal.</li>
+    <li>El HTML crudo del mensaje se mantiene como texto y no se interpreta como markup.</li>
+  </ul>
+  <div class="callout">
+    <p>Los videos embebidos y las encuestas siguen funcionando como recursos independientes del contenido del mensaje.</p>
+  </div>
+</div>
+</body>
+</html>

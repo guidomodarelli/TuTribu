@@ -14,6 +14,10 @@ import {
   TRIBE_EVENT_MUTATION_STATUS,
 } from "@/src/modules/events/constants/tribe-events";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
+import {
+  InvalidMeetingUrlError,
+  normalizeExternalMeetingUrl,
+} from "@/src/modules/shared/domain/value-objects/external-meeting-url";
 
 type TribeEventDependencies = {
   tribeEventRepository: TribeEventRepository;
@@ -47,10 +51,6 @@ const DATE_FORMAT = {
   padLength: 2,
   padValue: "0",
   separator: "-",
-} as const;
-const URL_PROTOCOL = {
-  http: "http:",
-  https: "https:",
 } as const;
 const MONTH_PART = {
   base: 10,
@@ -192,22 +192,6 @@ function isInvalidDateRange(startsAt: string, endsAt: string | null): boolean {
   return !Number.isFinite(endsAtTime) || endsAtTime <= startsAtTime;
 }
 
-function isInvalidMeetingUrl(meetingUrl: string | null): boolean {
-  if (!meetingUrl) {
-    return false;
-  }
-
-  try {
-    const url = new URL(meetingUrl);
-
-    return (
-      url.protocol !== URL_PROTOCOL.http && url.protocol !== URL_PROTOCOL.https
-    );
-  } catch {
-    return true;
-  }
-}
-
 function normalizeOptionalText(value: string): string | null {
   const normalizedValue = value.trim();
 
@@ -220,7 +204,6 @@ function normalizeEventInput(
   const title = command.title.trim();
   const startsAt = command.startsAt.trim();
   const endsAt = normalizeOptionalText(command.endsAt);
-  const meetingUrl = normalizeOptionalText(command.meetingUrl);
 
   if (
     title.length === 0 ||
@@ -234,8 +217,16 @@ function normalizeEventInput(
     return { status: TRIBE_EVENT_MUTATION_STATUS.invalidDate };
   }
 
-  if (isInvalidMeetingUrl(meetingUrl)) {
-    return { status: TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl };
+  let meetingUrl: string | null;
+
+  try {
+    meetingUrl = normalizeExternalMeetingUrl(command.meetingUrl);
+  } catch (error) {
+    if (error instanceof InvalidMeetingUrlError) {
+      return { status: TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl };
+    }
+
+    throw error;
   }
 
   return {

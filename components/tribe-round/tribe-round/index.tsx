@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 import {
   createElement,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import type {
+  ClipboardEvent,
   CSSProperties,
   FormEvent,
+  KeyboardEvent,
   MouseEvent,
 } from "react";
 import {
@@ -58,6 +61,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
@@ -223,6 +231,12 @@ const TRIBE_ROUND_COPY = {
   messageComposerRequirementsTitle: "Falta completar:",
   messageCreatedTooltipPrefix: "Mensaje creado:",
   messageComposerLabel: "Contenido del mensaje",
+  messageLinkEditAction: "Editar",
+  messageLinkEditCancel: "Cancelar",
+  messageLinkEditSave: "Guardar",
+  messageLinkPopoverUrlLabel: "Link",
+  messageLinkPopoverTextLabel: "Texto del link",
+  messageLinkRemoveAction: "Remover",
   messageComposerTitleLabel: "Título del mensaje",
   messageComposerTitlePlaceholder: "Título del mensaje",
   messagePlaceholder: "Contá una novedad, hacé una pregunta o compartí un recurso",
@@ -385,6 +399,113 @@ const TRIBE_ROUND_FORMAT = {
   timeStyle: "short",
   year: "numeric",
 } as const;
+
+const MESSAGE_MARKDOWN_ALLOWED_PROTOCOL = {
+  http: "http:",
+  https: "https:",
+} as const;
+
+const MESSAGE_LINK_PROTOCOL_PREFIX = {
+  default: "https://",
+} as const;
+
+const MESSAGE_MARKDOWN_LINK_FORMAT = {
+  closeLabel: "]",
+  closeUrl: ")",
+  openLabel: "[",
+  openUrl: "](",
+  suppressedUrl: "#",
+} as const;
+
+const MESSAGE_MARKDOWN_ESCAPE_PATTERN = {
+  backslash: /\\/g,
+  closeLabel: /\]/g,
+  lineBreak: /\n/g,
+  openLabel: /\[/g,
+} as const;
+
+const MESSAGE_MARKDOWN_ESCAPE_VALUE = {
+  backslash: "\\",
+  escapedBackslash: "\\\\",
+  escapedCloseLabel: "\\]",
+  escapedLineBreak: "\\n",
+  escapedOpenLabel: "\\[",
+  lineBreakToken: "n",
+} as const;
+
+const MESSAGE_CONTENT_SEGMENT_TYPE = {
+  link: "link",
+  text: "text",
+} as const;
+
+const COMPOSER_LINK_KIND = {
+  explicit: "explicit",
+  suppressed: "suppressed",
+} as const;
+
+const COMPOSER_PREVIEW_LINK_SOURCE = {
+  automatic: "automatic",
+  explicit: "explicit",
+} as const;
+
+const COMPOSER_LINK_POPOVER_MODE = {
+  actions: "actions",
+  edit: "edit",
+} as const;
+
+const MESSAGE_LINK_PATTERN = {
+  bareDomain: /^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)]*$/,
+  bareUrl: /(?:https?:\/\/[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*)/g,
+  markdown: /\[((?:\\[\s\S]|[^\]\\])+)\]\(((?:[^()\s]+|\([^()\s]*\))+)\)/g,
+  protocolPrefix: /^https?:\/\//i,
+  trailingPunctuation: /[.,!?;:]+$/,
+  whitespace: /^\s+$/,
+} as const;
+
+const MESSAGE_MARKDOWN_LINK_MATCH_GROUP = {
+  text: 1,
+  url: 2,
+} as const;
+
+const TEXT_DIFF_FALLBACK_INDEX = {
+  notFound: -1,
+} as const;
+
+const COMPOSER_PREVIEW_LINK_KEY_SEPARATOR = {
+  value: ":",
+} as const;
+
+const CLIPBOARD_DATA_TYPE = {
+  plainText: "text/plain",
+} as const;
+
+const COMPOSER_EDITOR_INPUT_TYPE = {
+  deleteContentBackward: "deleteContentBackward",
+  deleteContentForward: "deleteContentForward",
+  insertLineBreak: "insertLineBreak",
+  insertParagraph: "insertParagraph",
+  insertText: "insertText",
+} as const;
+
+const COMPOSER_EDITOR_KEY = {
+  backspace: "Backspace",
+  delete: "Delete",
+  enter: "Enter",
+} as const;
+
+const COMPOSER_EDITOR_WORD_DIRECTION = {
+  backward: "backward",
+  forward: "forward",
+} as const;
+
+const COMPOSER_EDITOR_KEY_LENGTH = {
+  character: 1,
+} as const;
+
+const COMPOSER_EDITOR_TEXT = {
+  lineBreak: "\n",
+} as const;
+
 const MESSAGE_FULL_DATE_TIME_FORMATTER = new Intl.DateTimeFormat(
   TRIBE_ROUND_FORMAT.locale,
   {
@@ -471,6 +592,61 @@ type UpdateMessageContentResponse = {
   poll?: TribeRoundMessageResult["poll"];
   title?: string;
   video?: TribeRoundMessageResult["video"];
+};
+
+type MessageContentSegment =
+  | {
+      text: string;
+      type: typeof MESSAGE_CONTENT_SEGMENT_TYPE.text;
+    }
+  | {
+      text: string;
+      type: typeof MESSAGE_CONTENT_SEGMENT_TYPE.link;
+      url: string;
+    };
+
+type ComposerMessageLink =
+  | {
+      end: number;
+      id: string;
+      isSynced: boolean;
+      kind: typeof COMPOSER_LINK_KIND.explicit;
+      start: number;
+      url: string;
+    }
+  | {
+      end: number;
+      id: string;
+      kind: typeof COMPOSER_LINK_KIND.suppressed;
+      start: number;
+    };
+
+type ComposerPreviewSegment =
+  | {
+      text: string;
+      type: typeof MESSAGE_CONTENT_SEGMENT_TYPE.text;
+    }
+  | {
+      end: number;
+      id?: string;
+      key: string;
+      source:
+        | typeof COMPOSER_PREVIEW_LINK_SOURCE.automatic
+        | typeof COMPOSER_PREVIEW_LINK_SOURCE.explicit;
+      start: number;
+      text: string;
+      type: typeof MESSAGE_CONTENT_SEGMENT_TYPE.link;
+      url: string;
+    };
+
+type ActiveComposerPreviewLink = Extract<
+  ComposerPreviewSegment,
+  { type: typeof MESSAGE_CONTENT_SEGMENT_TYPE.link }
+>;
+
+type ComposerTextSelectionRange = {
+  end: number;
+  start: number;
 };
 
 type PendingLikeIntent = {
@@ -685,6 +861,762 @@ function useRelativeTimeElementDefinition() {
       void import("@github/relative-time-element");
     }
   }, []);
+}
+
+function normalizeMessageMarkdownUrl(
+  rawUrl: string | null | undefined
+): string | null {
+  const trimmedUrl = rawUrl?.trim();
+
+  if (!trimmedUrl) {
+    return null;
+  }
+
+  const candidateUrl = MESSAGE_LINK_PATTERN.protocolPrefix.test(trimmedUrl)
+    ? trimmedUrl
+    : MESSAGE_LINK_PATTERN.bareDomain.test(trimmedUrl)
+      ? MESSAGE_LINK_PROTOCOL_PREFIX.default + trimmedUrl
+      : null;
+
+  if (!candidateUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL(candidateUrl);
+
+    if (
+      url.protocol !== MESSAGE_MARKDOWN_ALLOWED_PROTOCOL.http &&
+      url.protocol !== MESSAGE_MARKDOWN_ALLOWED_PROTOCOL.https
+    ) {
+      return null;
+    }
+
+    return candidateUrl;
+  } catch {
+    return null;
+  }
+}
+
+function removeMessageLinkProtocolPrefix(value: string): string {
+  return value.trim().replace(MESSAGE_LINK_PATTERN.protocolPrefix, "");
+}
+
+function isMessageLinkSynchronized(text: string, url: string): boolean {
+  return (
+    removeMessageLinkProtocolPrefix(text) === removeMessageLinkProtocolPrefix(url)
+  );
+}
+
+function getMessageLinkProtocolPrefix(url: string): string {
+  const protocolPrefix = url.match(MESSAGE_LINK_PATTERN.protocolPrefix)?.[0];
+
+  return protocolPrefix ?? MESSAGE_LINK_PROTOCOL_PREFIX.default;
+}
+
+function getSynchronizedMessageLinkUrl(
+  text: string,
+  currentUrl: string
+): string | null {
+  const trimmedText = text.trim();
+
+  if (!trimmedText) {
+    return null;
+  }
+
+  return normalizeMessageMarkdownUrl(
+    MESSAGE_LINK_PATTERN.protocolPrefix.test(trimmedText)
+      ? trimmedText
+      : getMessageLinkProtocolPrefix(currentUrl) + trimmedText
+  );
+}
+
+function isWhitespaceOnly(value: string): boolean {
+  return MESSAGE_LINK_PATTERN.whitespace.test(value);
+}
+
+function getWordDeletionRange(input: {
+  direction:
+    | typeof COMPOSER_EDITOR_WORD_DIRECTION.backward
+    | typeof COMPOSER_EDITOR_WORD_DIRECTION.forward;
+  selectionRange: ComposerTextSelectionRange;
+  text: string;
+}): ComposerTextSelectionRange {
+  if (input.selectionRange.start !== input.selectionRange.end) {
+    return input.selectionRange;
+  }
+
+  if (input.direction === COMPOSER_EDITOR_WORD_DIRECTION.forward) {
+    let end = input.selectionRange.end;
+
+    while (end < input.text.length && isWhitespaceOnly(input.text[end])) {
+      end += 1;
+    }
+
+    while (end < input.text.length && !isWhitespaceOnly(input.text[end])) {
+      end += 1;
+    }
+
+    return {
+      end,
+      start: input.selectionRange.start,
+    };
+  }
+
+  let start = input.selectionRange.start;
+
+  while (start > 0 && isWhitespaceOnly(input.text[start - 1])) {
+    start -= 1;
+  }
+
+  while (start > 0 && !isWhitespaceOnly(input.text[start - 1])) {
+    start -= 1;
+  }
+
+  return {
+    end: input.selectionRange.end,
+    start,
+  };
+}
+
+function buildMarkdownLinkFromSelection(text: string, url: string): string {
+  return (
+    MESSAGE_MARKDOWN_LINK_FORMAT.openLabel +
+    escapeMessageMarkdownLinkText(text) +
+    MESSAGE_MARKDOWN_LINK_FORMAT.openUrl +
+    url +
+    MESSAGE_MARKDOWN_LINK_FORMAT.closeUrl
+  );
+}
+
+function escapeMessageMarkdownLinkText(text: string): string {
+  return text
+    .replace(
+      MESSAGE_MARKDOWN_ESCAPE_PATTERN.backslash,
+      MESSAGE_MARKDOWN_ESCAPE_VALUE.escapedBackslash
+    )
+    .replace(
+      MESSAGE_MARKDOWN_ESCAPE_PATTERN.lineBreak,
+      MESSAGE_MARKDOWN_ESCAPE_VALUE.escapedLineBreak
+    )
+    .replace(
+      MESSAGE_MARKDOWN_ESCAPE_PATTERN.openLabel,
+      MESSAGE_MARKDOWN_ESCAPE_VALUE.escapedOpenLabel
+    )
+    .replace(
+      MESSAGE_MARKDOWN_ESCAPE_PATTERN.closeLabel,
+      MESSAGE_MARKDOWN_ESCAPE_VALUE.escapedCloseLabel
+    );
+}
+
+function unescapeMessageMarkdownLinkText(text: string): string {
+  let unescapedText = "";
+
+  for (let index = 0; index < text.length; index += 1) {
+    const currentCharacter = text[index];
+    const nextCharacter = text[index + 1];
+
+    if (
+      currentCharacter === MESSAGE_MARKDOWN_ESCAPE_VALUE.backslash &&
+      nextCharacter
+    ) {
+      unescapedText +=
+        nextCharacter === MESSAGE_MARKDOWN_ESCAPE_VALUE.lineBreakToken
+          ? COMPOSER_EDITOR_TEXT.lineBreak
+          : nextCharacter;
+      index += 1;
+    } else {
+      unescapedText += currentCharacter;
+    }
+  }
+
+  return unescapedText;
+}
+
+function buildComposerPreviewLinkKey(segment: {
+  id?: string;
+  source:
+    | typeof COMPOSER_PREVIEW_LINK_SOURCE.automatic
+    | typeof COMPOSER_PREVIEW_LINK_SOURCE.explicit;
+  start: number;
+  url: string;
+}): string {
+  return [
+    segment.source,
+    segment.id ?? String(segment.start),
+    segment.url,
+  ].join(COMPOSER_PREVIEW_LINK_KEY_SEPARATOR.value);
+}
+
+function createTextMessageContentSegment(text: string): MessageContentSegment {
+  return {
+    text,
+    type: MESSAGE_CONTENT_SEGMENT_TYPE.text,
+  };
+}
+
+function createTextComposerPreviewSegment(text: string): ComposerPreviewSegment {
+  return {
+    text,
+    type: MESSAGE_CONTENT_SEGMENT_TYPE.text,
+  };
+}
+
+function createLinkComposerPreviewSegment(input: {
+  end: number;
+  id?: string;
+  source:
+    | typeof COMPOSER_PREVIEW_LINK_SOURCE.automatic
+    | typeof COMPOSER_PREVIEW_LINK_SOURCE.explicit;
+  start: number;
+  text: string;
+  url: string;
+}): ComposerPreviewSegment {
+  return {
+    ...input,
+    key: buildComposerPreviewLinkKey(input),
+    type: MESSAGE_CONTENT_SEGMENT_TYPE.link,
+  };
+}
+
+function createLinkMessageContentSegment(
+  text: string,
+  url: string
+): MessageContentSegment {
+  return {
+    text,
+    type: MESSAGE_CONTENT_SEGMENT_TYPE.link,
+    url,
+  };
+}
+
+function splitBareUrlMatch(matchedUrl: string): {
+  trailingText: string;
+  urlText: string;
+} {
+  const urlText = matchedUrl.replace(
+    MESSAGE_LINK_PATTERN.trailingPunctuation,
+    ""
+  );
+
+  return {
+    trailingText: matchedUrl.slice(urlText.length),
+    urlText,
+  };
+}
+
+function rangesOverlap(
+  firstRange: { end: number; start: number },
+  secondRange: { end: number; start: number }
+): boolean {
+  return firstRange.start < secondRange.end && secondRange.start < firstRange.end;
+}
+
+function isBareUrlMatchInsideEmail(input: {
+  content: string;
+  matchedIndex: number;
+  matchedUrl: string;
+}): boolean {
+  if (MESSAGE_LINK_PATTERN.protocolPrefix.test(input.matchedUrl)) {
+    return false;
+  }
+
+  return (
+    input.matchedUrl.includes("@") ||
+    (input.matchedIndex > 0 && input.content[input.matchedIndex - 1] === "@")
+  );
+}
+
+function parseBareUrlMessageContentSegments(content: string): MessageContentSegment[] {
+  const segments: MessageContentSegment[] = [];
+  let currentIndex = 0;
+
+  for (const match of content.matchAll(MESSAGE_LINK_PATTERN.bareUrl)) {
+    const matchedUrl = match[0];
+    const { trailingText, urlText } = splitBareUrlMatch(matchedUrl);
+    const matchedIndex = match.index ?? 0;
+    const isEmailDomain = isBareUrlMatchInsideEmail({
+      content,
+      matchedIndex,
+      matchedUrl,
+    });
+    const safeUrl = normalizeMessageMarkdownUrl(urlText);
+
+    if (matchedIndex > currentIndex) {
+      segments.push(
+        createTextMessageContentSegment(content.slice(currentIndex, matchedIndex))
+      );
+    }
+
+    segments.push(
+      safeUrl && !isEmailDomain
+        ? createLinkMessageContentSegment(urlText, safeUrl)
+        : createTextMessageContentSegment(urlText)
+    );
+    if (trailingText) {
+      segments.push(createTextMessageContentSegment(trailingText));
+    }
+    currentIndex = matchedIndex + matchedUrl.length;
+  }
+
+  if (currentIndex < content.length) {
+    segments.push(createTextMessageContentSegment(content.slice(currentIndex)));
+  }
+
+  return segments;
+}
+
+function parseBareUrlComposerPreviewSegments(
+  content: string,
+  offset: number,
+  suppressedLinks: ComposerMessageLink[]
+): ComposerPreviewSegment[] {
+  const segments: ComposerPreviewSegment[] = [];
+  let currentIndex = 0;
+
+  for (const match of content.matchAll(MESSAGE_LINK_PATTERN.bareUrl)) {
+    const matchedUrl = match[0];
+    const { trailingText, urlText } = splitBareUrlMatch(matchedUrl);
+    const matchedIndex = match.index ?? 0;
+    const absoluteStart = offset + matchedIndex;
+    const absoluteEnd = absoluteStart + urlText.length;
+    const isEmailDomain = isBareUrlMatchInsideEmail({
+      content,
+      matchedIndex,
+      matchedUrl,
+    });
+    const safeUrl = normalizeMessageMarkdownUrl(urlText);
+    const isSuppressed = suppressedLinks.some((suppressedLink) =>
+      rangesOverlap(suppressedLink, {
+        end: absoluteEnd,
+        start: absoluteStart,
+      })
+    );
+
+    if (matchedIndex > currentIndex) {
+      segments.push(
+        createTextComposerPreviewSegment(content.slice(currentIndex, matchedIndex))
+      );
+    }
+
+    segments.push(
+      safeUrl && !isEmailDomain && !isSuppressed
+        ? createLinkComposerPreviewSegment({
+            end: absoluteEnd,
+            source: COMPOSER_PREVIEW_LINK_SOURCE.automatic,
+            start: absoluteStart,
+            text: urlText,
+            url: safeUrl,
+          })
+        : createTextComposerPreviewSegment(urlText)
+    );
+    if (trailingText) {
+      segments.push(createTextComposerPreviewSegment(trailingText));
+    }
+    currentIndex = matchedIndex + matchedUrl.length;
+  }
+
+  if (currentIndex < content.length) {
+    segments.push(createTextComposerPreviewSegment(content.slice(currentIndex)));
+  }
+
+  return segments;
+}
+
+function parseComposerPreviewSegments(
+  content: string,
+  links: ComposerMessageLink[]
+): ComposerPreviewSegment[] {
+  const segments: ComposerPreviewSegment[] = [];
+  const visibleLinks = links
+    .filter((link) => link.end > link.start)
+    .sort((firstLink, secondLink) => firstLink.start - secondLink.start);
+  const suppressedLinks = visibleLinks.filter(
+    (link) => link.kind === COMPOSER_LINK_KIND.suppressed
+  );
+  let currentIndex = 0;
+
+  visibleLinks.forEach((link) => {
+    if (link.start < currentIndex) {
+      return;
+    }
+
+    if (link.start > currentIndex) {
+      segments.push(
+        ...parseBareUrlComposerPreviewSegments(
+          content.slice(currentIndex, link.start),
+          currentIndex,
+          suppressedLinks
+        )
+      );
+    }
+
+    const text = content.slice(link.start, link.end);
+
+    segments.push(
+      link.kind === COMPOSER_LINK_KIND.explicit
+        ? createLinkComposerPreviewSegment({
+            end: link.end,
+            id: link.id,
+            source: COMPOSER_PREVIEW_LINK_SOURCE.explicit,
+            start: link.start,
+            text,
+            url: link.url,
+          })
+        : createTextComposerPreviewSegment(text)
+    );
+    currentIndex = link.end;
+  });
+
+  if (currentIndex < content.length) {
+    segments.push(
+      ...parseBareUrlComposerPreviewSegments(
+        content.slice(currentIndex),
+        currentIndex,
+        suppressedLinks
+      )
+    );
+  }
+
+  return segments;
+}
+
+function parseMessageContentSegments(content: string): MessageContentSegment[] {
+  const segments: MessageContentSegment[] = [];
+  let currentIndex = 0;
+
+  for (const match of content.matchAll(MESSAGE_LINK_PATTERN.markdown)) {
+    const matchedMarkdown = match[0];
+    const linkText = unescapeMessageMarkdownLinkText(
+      match[MESSAGE_MARKDOWN_LINK_MATCH_GROUP.text] ?? ""
+    );
+    const linkUrl = match[MESSAGE_MARKDOWN_LINK_MATCH_GROUP.url] ?? "";
+    const matchedIndex = match.index ?? 0;
+    const safeUrl = normalizeMessageMarkdownUrl(linkUrl);
+
+    if (matchedIndex > currentIndex) {
+      segments.push(
+        ...parseBareUrlMessageContentSegments(
+          content.slice(currentIndex, matchedIndex)
+        )
+      );
+    }
+
+    segments.push(
+      safeUrl
+        ? createLinkMessageContentSegment(linkText, safeUrl)
+        : createTextMessageContentSegment(linkText)
+    );
+    currentIndex = matchedIndex + matchedMarkdown.length;
+  }
+
+  if (currentIndex < content.length) {
+    segments.push(...parseBareUrlMessageContentSegments(content.slice(currentIndex)));
+  }
+
+  return segments;
+}
+
+function deserializeMessageContentForComposer(content: string): {
+  content: string;
+  links: ComposerMessageLink[];
+} {
+  const links: ComposerMessageLink[] = [];
+  let displayContent = "";
+  let currentIndex = 0;
+
+  for (const match of content.matchAll(MESSAGE_LINK_PATTERN.markdown)) {
+    const matchedMarkdown = match[0];
+    const linkText = unescapeMessageMarkdownLinkText(
+      match[MESSAGE_MARKDOWN_LINK_MATCH_GROUP.text] ?? ""
+    );
+    const linkUrl = match[MESSAGE_MARKDOWN_LINK_MATCH_GROUP.url] ?? "";
+    const matchedIndex = match.index ?? 0;
+    const safeUrl = normalizeMessageMarkdownUrl(linkUrl);
+
+    displayContent += content.slice(currentIndex, matchedIndex);
+
+    const linkStart = displayContent.length;
+    displayContent += linkText;
+
+    if (safeUrl) {
+      links.push({
+        end: displayContent.length,
+        id: crypto.randomUUID(),
+        isSynced: isMessageLinkSynchronized(linkText, safeUrl),
+        kind: COMPOSER_LINK_KIND.explicit,
+        start: linkStart,
+        url: safeUrl,
+      });
+    } else if (
+      linkUrl === MESSAGE_MARKDOWN_LINK_FORMAT.suppressedUrl &&
+      normalizeMessageMarkdownUrl(linkText)
+    ) {
+      links.push({
+        end: displayContent.length,
+        id: crypto.randomUUID(),
+        kind: COMPOSER_LINK_KIND.suppressed,
+        start: linkStart,
+      });
+    }
+
+    currentIndex = matchedIndex + matchedMarkdown.length;
+  }
+
+  displayContent += content.slice(currentIndex);
+
+  return {
+    content: displayContent,
+    links,
+  };
+}
+
+function serializeComposerMessageContent(
+  content: string,
+  links: ComposerMessageLink[]
+): string {
+  const persistedLinks = links
+    .filter((link) => link.end > link.start)
+    .sort((firstLink, secondLink) => firstLink.start - secondLink.start);
+  let serializedContent = "";
+  let currentIndex = 0;
+
+  persistedLinks.forEach((link) => {
+    if (link.start < currentIndex) {
+      return;
+    }
+
+    serializedContent += content.slice(currentIndex, link.start);
+    serializedContent += buildMarkdownLinkFromSelection(
+      content.slice(link.start, link.end),
+      link.kind === COMPOSER_LINK_KIND.explicit
+        ? link.url
+        : MESSAGE_MARKDOWN_LINK_FORMAT.suppressedUrl
+    );
+    currentIndex = link.end;
+  });
+
+  return serializedContent + content.slice(currentIndex);
+}
+
+function getTextDiff(input: { nextText: string; previousText: string }): {
+  delta: number;
+  endInNextText: number;
+  endInPreviousText: number;
+  start: number;
+} {
+  const minLength = Math.min(input.previousText.length, input.nextText.length);
+  let start = 0;
+
+  while (
+    start < minLength &&
+    input.previousText[start] === input.nextText[start]
+  ) {
+    start += 1;
+  }
+
+  if (
+    start === minLength &&
+    input.previousText.length === input.nextText.length
+  ) {
+    return {
+      delta: 0,
+      endInNextText: start,
+      endInPreviousText: start,
+      start: TEXT_DIFF_FALLBACK_INDEX.notFound,
+    };
+  }
+
+  let previousEnd = input.previousText.length;
+  let nextEnd = input.nextText.length;
+
+  while (
+    previousEnd > start &&
+    nextEnd > start &&
+    input.previousText[previousEnd - 1] === input.nextText[nextEnd - 1]
+  ) {
+    previousEnd -= 1;
+    nextEnd -= 1;
+  }
+
+  return {
+    delta: nextEnd - previousEnd,
+    endInNextText: nextEnd,
+    endInPreviousText: previousEnd,
+    start,
+  };
+}
+
+function getLinksAfterTextChange(input: {
+  links: ComposerMessageLink[];
+  nextText: string;
+  previousText: string;
+}): ComposerMessageLink[] {
+  const diff = getTextDiff({
+    nextText: input.nextText,
+    previousText: input.previousText,
+  });
+
+  if (diff.start === TEXT_DIFF_FALLBACK_INDEX.notFound) {
+    return input.links;
+  }
+
+  const insertedText = input.nextText.slice(diff.start, diff.endInNextText);
+  const deletedText = input.previousText.slice(diff.start, diff.endInPreviousText);
+
+  return input.links
+    .map((link) => {
+      if (diff.endInPreviousText <= link.start) {
+        return {
+          ...link,
+          end: link.end + diff.delta,
+          start: link.start + diff.delta,
+        };
+      }
+
+      if (diff.start > link.end) {
+        return link;
+      }
+
+      if (diff.start === link.end && isWhitespaceOnly(insertedText)) {
+        return link;
+      }
+
+      if (diff.start === link.end && isWhitespaceOnly(deletedText)) {
+        return link;
+      }
+
+      return {
+        ...link,
+        end: Math.max(link.start, link.end + diff.delta),
+      };
+    })
+    .filter((link) => link.end > link.start)
+    .map((link) => {
+      if (link.kind !== COMPOSER_LINK_KIND.explicit) {
+        return link;
+      }
+
+      const linkText = input.nextText.slice(link.start, link.end);
+      const isSynced =
+        link.isSynced || isMessageLinkSynchronized(linkText, link.url);
+      const syncedUrl = isSynced
+        ? getSynchronizedMessageLinkUrl(linkText, link.url)
+        : null;
+
+      return {
+        ...link,
+        isSynced: Boolean(syncedUrl),
+        url: syncedUrl ?? link.url,
+      };
+    });
+}
+
+function getEditorBoundaryOffset(
+  editor: HTMLDivElement,
+  container: Node,
+  offset: number
+): number | null {
+  const boundaryRange = document.createRange();
+
+  boundaryRange.selectNodeContents(editor);
+
+  try {
+    boundaryRange.setEnd(container, offset);
+  } catch {
+    return null;
+  }
+
+  return boundaryRange.toString().length;
+}
+
+function getEditorSelectionRange(
+  editor: HTMLDivElement
+): ComposerTextSelectionRange | null {
+  const selection = window.getSelection();
+
+  if (!selection || selection.rangeCount === 0) {
+    return null;
+  }
+
+  const anchorNode = selection.anchorNode;
+  const focusNode = selection.focusNode;
+
+  if (!anchorNode || !focusNode) {
+    return null;
+  }
+
+  if (!editor.contains(anchorNode) || !editor.contains(focusNode)) {
+    return null;
+  }
+
+  const anchorOffset = getEditorBoundaryOffset(
+    editor,
+    anchorNode,
+    selection.anchorOffset
+  );
+  const focusOffset = getEditorBoundaryOffset(
+    editor,
+    focusNode,
+    selection.focusOffset
+  );
+
+  if (anchorOffset === null || focusOffset === null) {
+    return null;
+  }
+
+  return {
+    end: Math.max(anchorOffset, focusOffset),
+    start: Math.min(anchorOffset, focusOffset),
+  };
+}
+
+function getEditorTextBoundary(
+  editor: HTMLDivElement,
+  targetOffset: number
+): { node: Node; offset: number } {
+  const textNodeWalker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let remainingOffset = targetOffset;
+  let currentNode = textNodeWalker.nextNode();
+
+  while (currentNode) {
+    const currentTextLength = currentNode.textContent?.length ?? 0;
+
+    if (remainingOffset <= currentTextLength) {
+      return {
+        node: currentNode,
+        offset: remainingOffset,
+      };
+    }
+
+    remainingOffset -= currentTextLength;
+    currentNode = textNodeWalker.nextNode();
+  }
+
+  return {
+    node: editor,
+    offset: editor.childNodes.length,
+  };
+}
+
+function setEditorSelectionRange(
+  editor: HTMLDivElement,
+  selectionRange: ComposerTextSelectionRange
+) {
+  const selection = window.getSelection();
+
+  if (!selection) {
+    return;
+  }
+
+  const editorRange = document.createRange();
+  const startBoundary = getEditorTextBoundary(editor, selectionRange.start);
+  const endBoundary = getEditorTextBoundary(editor, selectionRange.end);
+
+  editorRange.setStart(startBoundary.node, startBoundary.offset);
+  editorRange.setEnd(endBoundary.node, endBoundary.offset);
+  selection.removeAllRanges();
+  selection.addRange(editorRange);
 }
 
 function getMissingMessageRequirements(input: {
@@ -1129,11 +2061,25 @@ function TribeRoundContent({
   const pendingPinIntentsRef = useRef<PendingPinIntents>({});
   const pollVoteDebounceTimersRef = useRef<PollVoteDebounceTimers>({});
   const pendingPollVoteIntentsRef = useRef<PendingPollVoteIntents>({});
+  const messageContentEditorRef = useRef<HTMLDivElement | null>(null);
+  const pendingComposerSelectionRef =
+    useRef<ComposerTextSelectionRange | null>(null);
+  const shouldIgnoreNextMessageContentInputRef = useRef(false);
   const [messages, setMessages] = useState<TribeRoundMessageResult[]>(round.messages);
   const [visiblePagination, setVisiblePagination] = useState(round.pagination);
   const [isMessageComposerOpen, setIsMessageComposerOpen] = useState(false);
   const [messageTitle, setMessageTitle] = useState("");
   const [messageContent, setMessageContent] = useState("");
+  const [messageContentLinks, setMessageContentLinks] = useState<
+    ComposerMessageLink[]
+  >([]);
+  const [activeComposerLink, setActiveComposerLink] =
+    useState<ActiveComposerPreviewLink | null>(null);
+  const [composerLinkTextInput, setComposerLinkTextInput] = useState("");
+  const [composerLinkUrlInput, setComposerLinkUrlInput] = useState("");
+  const [composerLinkPopoverMode, setComposerLinkPopoverMode] = useState<
+    (typeof COMPOSER_LINK_POPOVER_MODE)[keyof typeof COMPOSER_LINK_POPOVER_MODE]
+  >(COMPOSER_LINK_POPOVER_MODE.actions);
   const [isPollComposerEnabled, setIsPollComposerEnabled] = useState(false);
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState<string[]>(
@@ -1180,10 +2126,27 @@ function TribeRoundContent({
         ? TRIBE_ROUND_REPLY_LOAD_STATUS.loading
         : TRIBE_ROUND_REPLY_LOAD_STATUS.loaded)
     : TRIBE_ROUND_REPLY_LOAD_STATUS.loaded;
+  const composerEditorSegments = parseComposerPreviewSegments(
+    messageContent,
+    messageContentLinks
+  );
+  const hasComposerEditorContent = messageContent.trim().length > 0;
 
   useEffect(() => {
     currentTribeSlugRef.current = tribeSlug;
   }, [tribeSlug]);
+
+  useLayoutEffect(() => {
+    const editor = messageContentEditorRef.current;
+    const selectionRange = pendingComposerSelectionRef.current;
+
+    if (!editor || !selectionRange || !editor.contains(document.activeElement)) {
+      return;
+    }
+
+    setEditorSelectionRange(editor, selectionRange);
+    pendingComposerSelectionRef.current = null;
+  }, [messageContent, messageContentLinks]);
 
   useEffect(() => {
     return () => {
@@ -1287,6 +2250,11 @@ function TribeRoundContent({
   const resetMessageComposer = () => {
     setMessageTitle("");
     setMessageContent("");
+    setMessageContentLinks([]);
+    setActiveComposerLink(null);
+    setComposerLinkTextInput("");
+    setComposerLinkUrlInput("");
+    setComposerLinkPopoverMode(COMPOSER_LINK_POPOVER_MODE.actions);
     setIsPollComposerEnabled(false);
     setPollQuestion("");
     setPollOptions(
@@ -1306,6 +2274,307 @@ function TribeRoundContent({
   const trimmedVideoUrl = videoUrlInput.trim();
   const showVideoParseError =
     isVideoComposerEnabled && trimmedVideoUrl.length > 0 && !detectedVideo;
+
+  const replaceMessageContentText = (
+    replacementText: string,
+    selectionRange: ComposerTextSelectionRange
+  ) => {
+    const nextSelectionOffset = selectionRange.start + replacementText.length;
+    const nextContent =
+      messageContent.slice(0, selectionRange.start) +
+      replacementText +
+      messageContent.slice(selectionRange.end);
+
+    pendingComposerSelectionRef.current = {
+      end: nextSelectionOffset,
+      start: nextSelectionOffset,
+    };
+    handleMessageContentChange(nextContent);
+  };
+
+  const handleMessageContentPaste = (event: ClipboardEvent<HTMLDivElement>) => {
+    const pastedText = event.clipboardData.getData(CLIPBOARD_DATA_TYPE.plainText);
+    const pastedUrl = normalizeMessageMarkdownUrl(pastedText);
+    const selectionRange = getEditorSelectionRange(event.currentTarget) ?? {
+      end: messageContent.length,
+      start: messageContent.length,
+    };
+    const hasSelectedText = selectionRange.start !== selectionRange.end;
+
+    event.preventDefault();
+
+    if (!pastedUrl || !hasSelectedText) {
+      replaceMessageContentText(pastedText, selectionRange);
+
+      return;
+    }
+
+    pendingComposerSelectionRef.current = selectionRange;
+    setMessageContentLinks((currentLinks) => [
+      ...currentLinks.filter(
+        (link) =>
+          !rangesOverlap(link, {
+            end: selectionRange.end,
+            start: selectionRange.start,
+          })
+      ),
+      {
+        end: selectionRange.end,
+        id: crypto.randomUUID(),
+        isSynced: isMessageLinkSynchronized(
+          messageContent.slice(selectionRange.start, selectionRange.end),
+          pastedUrl
+        ),
+        kind: COMPOSER_LINK_KIND.explicit,
+        start: selectionRange.start,
+        url: pastedUrl,
+      },
+    ]);
+    setMessageComposerErrors([]);
+  };
+
+  const handleMessageContentKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.altKey || event.metaKey) {
+      return;
+    }
+
+    if (
+      event.ctrlKey &&
+      event.key !== COMPOSER_EDITOR_KEY.backspace &&
+      event.key !== COMPOSER_EDITOR_KEY.delete
+    ) {
+      return;
+    }
+
+    const selectionRange = getEditorSelectionRange(event.currentTarget) ?? {
+      end: messageContent.length,
+      start: messageContent.length,
+    };
+    let replacementText: string | null = null;
+    let replacementRange = selectionRange;
+
+    if (event.key.length === COMPOSER_EDITOR_KEY_LENGTH.character) {
+      replacementText = event.key;
+    }
+
+    if (event.key === COMPOSER_EDITOR_KEY.enter) {
+      replacementText = COMPOSER_EDITOR_TEXT.lineBreak;
+    }
+
+    if (event.key === COMPOSER_EDITOR_KEY.backspace) {
+      replacementText = TRIBE_ROUND_RESET_KEY.empty;
+      replacementRange = event.ctrlKey
+        ? getWordDeletionRange({
+            direction: COMPOSER_EDITOR_WORD_DIRECTION.backward,
+            selectionRange,
+            text: messageContent,
+          })
+        : selectionRange.start === selectionRange.end
+          ? {
+              end: selectionRange.end,
+              start: Math.max(selectionRange.start - 1, 0),
+            }
+          : selectionRange;
+    }
+
+    if (event.key === COMPOSER_EDITOR_KEY.delete) {
+      replacementText = TRIBE_ROUND_RESET_KEY.empty;
+      replacementRange = event.ctrlKey
+        ? getWordDeletionRange({
+            direction: COMPOSER_EDITOR_WORD_DIRECTION.forward,
+            selectionRange,
+            text: messageContent,
+          })
+        : selectionRange.start === selectionRange.end
+          ? {
+              end: Math.min(selectionRange.end + 1, messageContent.length),
+              start: selectionRange.start,
+            }
+          : selectionRange;
+    }
+
+    if (replacementText === null) {
+      return;
+    }
+
+    event.preventDefault();
+    shouldIgnoreNextMessageContentInputRef.current = true;
+    replaceMessageContentText(replacementText, replacementRange);
+  };
+
+  const handleMessageContentBeforeInput = (event: FormEvent<HTMLDivElement>) => {
+    const nativeEvent = event.nativeEvent as InputEvent;
+    const selectionRange = getEditorSelectionRange(event.currentTarget) ?? {
+      end: messageContent.length,
+      start: messageContent.length,
+    };
+    let replacementText: string | null = null;
+    let replacementRange = selectionRange;
+
+    if (nativeEvent.inputType === COMPOSER_EDITOR_INPUT_TYPE.insertText) {
+      replacementText = nativeEvent.data ?? TRIBE_ROUND_RESET_KEY.empty;
+    }
+
+    if (
+      nativeEvent.inputType === COMPOSER_EDITOR_INPUT_TYPE.insertParagraph ||
+      nativeEvent.inputType === COMPOSER_EDITOR_INPUT_TYPE.insertLineBreak
+    ) {
+      replacementText = COMPOSER_EDITOR_TEXT.lineBreak;
+    }
+
+    if (
+      nativeEvent.inputType === COMPOSER_EDITOR_INPUT_TYPE.deleteContentBackward
+    ) {
+      replacementText = TRIBE_ROUND_RESET_KEY.empty;
+      replacementRange =
+        selectionRange.start === selectionRange.end
+          ? {
+              end: selectionRange.end,
+              start: Math.max(selectionRange.start - 1, 0),
+            }
+          : selectionRange;
+    }
+
+    if (
+      nativeEvent.inputType === COMPOSER_EDITOR_INPUT_TYPE.deleteContentForward
+    ) {
+      replacementText = TRIBE_ROUND_RESET_KEY.empty;
+      replacementRange =
+        selectionRange.start === selectionRange.end
+          ? {
+              end: Math.min(selectionRange.end + 1, messageContent.length),
+              start: selectionRange.start,
+            }
+          : selectionRange;
+    }
+
+    if (replacementText === null) {
+      return;
+    }
+
+    event.preventDefault();
+    shouldIgnoreNextMessageContentInputRef.current = true;
+    replaceMessageContentText(replacementText, replacementRange);
+  };
+
+  const handleMessageContentInput = (event: FormEvent<HTMLDivElement>) => {
+    if (shouldIgnoreNextMessageContentInputRef.current) {
+      shouldIgnoreNextMessageContentInputRef.current = false;
+
+      return;
+    }
+
+    const selectionRange = getEditorSelectionRange(event.currentTarget);
+
+    if (selectionRange) {
+      pendingComposerSelectionRef.current = selectionRange;
+    }
+
+    handleMessageContentChange(event.currentTarget.textContent ?? "");
+  };
+
+  const handleMessageContentChange = (nextContent: string) => {
+    setMessageContentLinks((currentLinks) =>
+      getLinksAfterTextChange({
+        links: currentLinks,
+        nextText: nextContent,
+        previousText: messageContent,
+      })
+    );
+    setMessageContent(nextContent);
+    setMessageComposerErrors([]);
+  };
+
+  const openComposerLinkPopover = (segment: ActiveComposerPreviewLink) => {
+    setActiveComposerLink(segment);
+    setComposerLinkTextInput(segment.text);
+    setComposerLinkUrlInput(segment.url);
+    setComposerLinkPopoverMode(COMPOSER_LINK_POPOVER_MODE.actions);
+  };
+
+  const closeComposerLinkPopover = () => {
+    setActiveComposerLink(null);
+    setComposerLinkTextInput("");
+    setComposerLinkUrlInput("");
+    setComposerLinkPopoverMode(COMPOSER_LINK_POPOVER_MODE.actions);
+  };
+
+  const removeComposerLink = (segment: ActiveComposerPreviewLink) => {
+    const shouldSuppressVisibleUrl = Boolean(
+      normalizeMessageMarkdownUrl(segment.text)
+    );
+    const suppressedLink: ComposerMessageLink = {
+      end: segment.end,
+      id: crypto.randomUUID(),
+      kind: COMPOSER_LINK_KIND.suppressed,
+      start: segment.start,
+    };
+
+    setMessageContentLinks((currentLinks) => {
+      const linksWithoutRemovedExplicitLink =
+        segment.source === COMPOSER_PREVIEW_LINK_SOURCE.explicit && segment.id
+          ? currentLinks.filter((link) => link.id !== segment.id)
+          : currentLinks;
+
+      return shouldSuppressVisibleUrl ||
+        segment.source === COMPOSER_PREVIEW_LINK_SOURCE.automatic
+        ? [...linksWithoutRemovedExplicitLink, suppressedLink]
+        : linksWithoutRemovedExplicitLink;
+    });
+
+    closeComposerLinkPopover();
+  };
+
+  const saveComposerLinkEdit = (segment: ActiveComposerPreviewLink) => {
+    const nextUrl = normalizeMessageMarkdownUrl(composerLinkUrlInput);
+    const nextText = composerLinkTextInput;
+
+    if (!nextUrl || !nextText.trim()) {
+      return;
+    }
+
+    const nextContent =
+      messageContent.slice(0, segment.start) +
+      nextText +
+      messageContent.slice(segment.end);
+    const nextEnd = segment.start + nextText.length;
+    const nextLinkRange = {
+      end: nextEnd,
+      start: segment.start,
+    };
+
+    pendingComposerSelectionRef.current = {
+      end: nextEnd,
+      start: nextEnd,
+    };
+    setMessageContent(nextContent);
+    setMessageContentLinks((currentLinks) => {
+      const adjustedLinks = getLinksAfterTextChange({
+        links: currentLinks,
+        nextText: nextContent,
+        previousText: messageContent,
+      });
+
+      return [
+        ...adjustedLinks.filter((link) => {
+          if (segment.id && link.id === segment.id) {
+            return false;
+          }
+
+          return !rangesOverlap(link, nextLinkRange);
+        }),
+        {
+          end: nextEnd,
+          id: segment.id ?? crypto.randomUUID(),
+          isSynced: isMessageLinkSynchronized(nextText, nextUrl),
+          kind: COMPOSER_LINK_KIND.explicit,
+          start: segment.start,
+          url: nextUrl,
+        },
+      ];
+    });
+    closeComposerLinkPopover();
+  };
 
   const handleMessageComposerOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
@@ -1426,16 +2695,24 @@ function TribeRoundContent({
   const handleCreateMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const title = messageTitle.trim();
-    const content = messageContent.trim();
+    const displayContent = messageContent.trim();
+    const content = serializeComposerMessageContent(
+      messageContent,
+      messageContentLinks
+    ).trim();
 
     if (editingMessageId) {
-      await submitEditMessage({ content, messageId: editingMessageId, title });
+      await submitEditMessage({
+        content,
+        messageId: editingMessageId,
+        title,
+      });
       return;
     }
 
     const missingRequirements = getMissingMessageRequirements({
       channelId: selectedChannelId,
-      content,
+      content: displayContent,
       poll: {
         enabled: isPollComposerEnabled,
         options: pollOptions,
@@ -2347,10 +3624,13 @@ function TribeRoundContent({
   };
 
   const openEditMessageDialog = (message: TribeRoundMessageResult) => {
+    const composerContent = deserializeMessageContentForComposer(message.content);
+
     resetMessageComposer();
     setEditingMessageId(message.id);
     setMessageTitle(message.title ?? "");
-    setMessageContent(message.content);
+    setMessageContent(composerContent.content);
+    setMessageContentLinks(composerContent.links);
     setSelectedChannelId(message.channel.id);
 
     if (message.video) {
@@ -2458,7 +3738,8 @@ function TribeRoundContent({
     contentClassName = "",
     isContentAlwaysCollapsed = false,
     previewClassName: TribeRoundContentPreviewClass =
-      TRIBE_ROUND_CONTENT_PREVIEW_CLASS.details
+      TRIBE_ROUND_CONTENT_PREVIEW_CLASS.details,
+    shouldStopLinkPropagation = false
   ) => {
     const isExpanded =
       !isContentAlwaysCollapsed && Boolean(expandedMessageIds[message.id]);
@@ -2475,17 +3756,37 @@ function TribeRoundContent({
     ]
       .filter(Boolean)
       .join(TRIBE_ROUND_FORMAT.standardSpace);
+    const contentDataAttributes = {
+      [TRIBE_ROUND_ATTRIBUTES.contentExpandedDataAttribute]: String(isExpanded),
+    };
+    const contentSegments = parseMessageContentSegments(message.content);
 
     return (
-      <p
+      <div
         className={contentClassNames}
-        {...{
-          [TRIBE_ROUND_ATTRIBUTES.contentExpandedDataAttribute]:
-            String(isExpanded),
-        }}
+        {...contentDataAttributes}
       >
-        {message.content}
-      </p>
+        {contentSegments.map((segment, segmentIndex) =>
+          segment.type === MESSAGE_CONTENT_SEGMENT_TYPE.link ? (
+            <a
+              className={styles.TribeRound__contentLink}
+              href={segment.url}
+              key={segment.type + String(segmentIndex)}
+              onClick={(event) => {
+                if (shouldStopLinkPropagation) {
+                  stopMessageDetailsOpening(event);
+                }
+              }}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {segment.text}
+            </a>
+          ) : (
+            segment.text
+          )
+        )}
+      </div>
     );
   };
 
@@ -2856,22 +4157,175 @@ function TribeRoundContent({
                   placeholder={TRIBE_ROUND_COPY.messageComposerTitlePlaceholder}
                   value={messageTitle}
                 />
-                <textarea
+                <div
                   aria-describedby={
                     hasMessageComposerErrors
                       ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
                       : undefined
                   }
                   aria-label={TRIBE_ROUND_COPY.messageComposerLabel}
-                  className={styles.TribeRound__textarea}
-                  disabled={isBusy}
-                  onChange={(event) => {
-                    setMessageContent(event.currentTarget.value);
-                    setMessageComposerErrors([]);
-                  }}
-                  placeholder={TRIBE_ROUND_COPY.messagePlaceholder}
-                  value={messageContent}
-                />
+                  aria-disabled={isBusy}
+                  aria-multiline
+                  className={styles.TribeRound__messageEditor}
+                  contentEditable={!isBusy}
+                  data-placeholder={TRIBE_ROUND_COPY.messagePlaceholder}
+                  onBeforeInput={handleMessageContentBeforeInput}
+                  onInput={handleMessageContentInput}
+                  onKeyDown={handleMessageContentKeyDown}
+                  onPaste={handleMessageContentPaste}
+                  ref={messageContentEditorRef}
+                  role="textbox"
+                  suppressContentEditableWarning
+                >
+                  {hasComposerEditorContent
+                    ? composerEditorSegments.map((segment) =>
+                        segment.type === MESSAGE_CONTENT_SEGMENT_TYPE.link ? (
+                          <Popover
+                            key={segment.key}
+                            open={activeComposerLink?.key === segment.key}
+                            onOpenChange={(isOpen) => {
+                              if (isOpen) {
+                                openComposerLinkPopover(segment);
+                              } else if (activeComposerLink?.key === segment.key) {
+                                closeComposerLinkPopover();
+                              }
+                            }}
+                          >
+                            <PopoverTrigger asChild>
+                              <a
+                                className={styles.TribeRound__messageEditorLink}
+                                href={segment.url}
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  openComposerLinkPopover(segment);
+                                }}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                {segment.text}
+                              </a>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className={styles.TribeRound__composerLinkPopover}
+                              onBeforeInput={(event) => {
+                                event.stopPropagation();
+                              }}
+                              onInput={(event) => {
+                                event.stopPropagation();
+                              }}
+                              onKeyDown={(event) => {
+                                event.stopPropagation();
+                              }}
+                              onPaste={(event) => {
+                                event.stopPropagation();
+                              }}
+                            >
+                              {composerLinkPopoverMode ===
+                              COMPOSER_LINK_POPOVER_MODE.actions ? (
+                                <div
+                                  className={
+                                    styles.TribeRound__composerLinkActions
+                                  }
+                                >
+                                  <Button
+                                    onClick={() => {
+                                      setComposerLinkPopoverMode(
+                                        COMPOSER_LINK_POPOVER_MODE.edit
+                                      );
+                                    }}
+                                    type={TRIBE_ROUND_FORM.buttonType}
+                                    variant={TRIBE_ROUND_FORM.ghostVariant}
+                                  >
+                                    {TRIBE_ROUND_COPY.messageLinkEditAction}
+                                  </Button>
+                                  <Button
+                                    onClick={() => {
+                                      removeComposerLink(segment);
+                                    }}
+                                    type={TRIBE_ROUND_FORM.buttonType}
+                                    variant={TRIBE_ROUND_FORM.ghostVariant}
+                                  >
+                                    {TRIBE_ROUND_COPY.messageLinkRemoveAction}
+                                  </Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <label
+                                    className={
+                                      styles.TribeRound__composerLinkLabel
+                                    }
+                                  >
+                                    <span>
+                                      {
+                                        TRIBE_ROUND_COPY.messageLinkPopoverTextLabel
+                                      }
+                                    </span>
+                                    <input
+                                      className={
+                                        styles.TribeRound__composerLinkInput
+                                      }
+                                      onChange={(event) => {
+                                        setComposerLinkTextInput(
+                                          event.currentTarget.value
+                                        );
+                                      }}
+                                      value={composerLinkTextInput}
+                                    />
+                                  </label>
+                                  <label
+                                    className={
+                                      styles.TribeRound__composerLinkLabel
+                                    }
+                                  >
+                                    <span>
+                                      {TRIBE_ROUND_COPY.messageLinkPopoverUrlLabel}
+                                    </span>
+                                    <input
+                                      className={
+                                        styles.TribeRound__composerLinkInput
+                                      }
+                                      onChange={(event) => {
+                                        setComposerLinkUrlInput(
+                                          event.currentTarget.value
+                                        );
+                                      }}
+                                      type={TRIBE_ROUND_FORM.urlInputType}
+                                      value={composerLinkUrlInput}
+                                    />
+                                  </label>
+                                  <div
+                                    className={
+                                      styles.TribeRound__composerLinkActions
+                                    }
+                                  >
+                                    <Button
+                                      onClick={() => {
+                                        if (activeComposerLink) {
+                                          saveComposerLinkEdit(activeComposerLink);
+                                        }
+                                      }}
+                                      type={TRIBE_ROUND_FORM.buttonType}
+                                    >
+                                      {TRIBE_ROUND_COPY.messageLinkEditSave}
+                                    </Button>
+                                    <Button
+                                      onClick={closeComposerLinkPopover}
+                                      type={TRIBE_ROUND_FORM.buttonType}
+                                      variant={TRIBE_ROUND_FORM.outlineVariant}
+                                    >
+                                      {TRIBE_ROUND_COPY.messageLinkEditCancel}
+                                    </Button>
+                                  </div>
+                                </>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        ) : (
+                          segment.text
+                        )
+                      )
+                    : null}
+                </div>
                 {isPollComposerEnabled ? (
                   <section className={styles.TribeRound__pollComposer}>
                   <div className={styles.TribeRound__pollComposerHeader}>
@@ -3268,22 +4722,22 @@ function TribeRoundContent({
                         {renderMessageCreatedTime(message.createdAt)}
                       </div>
                     </CardHeader>
-
-                    <CardContent className={styles.TribeRound__messageContent}>
-                      {message.title ? (
-                        <h3 className={styles.TribeRound__messageTitle}>
-                          {message.title}
-                        </h3>
-                      ) : null}
-                      {renderMessageContent(
-                        message,
-                        "",
-                        true,
-                        TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round
-                      )}
-                      {renderMessageVideoBadge(message)}
-                    </CardContent>
                   </button>
+                  <CardContent className={styles.TribeRound__messageContent}>
+                    {message.title ? (
+                      <h3 className={styles.TribeRound__messageTitle}>
+                        {message.title}
+                      </h3>
+                    ) : null}
+                    {renderMessageContent(
+                      message,
+                      "",
+                      true,
+                      TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round,
+                      true
+                    )}
+                    {renderMessageVideoBadge(message)}
+                  </CardContent>
                   {renderMessagePoll(message, true)}
 
                   <div className={styles.TribeRound__messageActions}>

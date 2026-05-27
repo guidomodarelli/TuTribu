@@ -214,6 +214,59 @@ describe("tribe event use cases", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("prioritizes required event fields before meeting link validation", async () => {
+    const create = jest.fn();
+    const execute = createTribeEvent({
+      tribeEventRepository: createRepository({ create }),
+    });
+
+    await expect(
+      execute({
+        description: "",
+        endsAt: "",
+        meetingUrl: "ftp://meet.example.com/event",
+        startsAt: "2026-05-06T18:00:00.000Z",
+        title: "   ",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidInput });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("accepts Zoom meeting links through the shared meeting URL rules", async () => {
+    const create = jest.fn(async () => ({
+      event: {
+        ...event,
+        meetingUrl: "https://zoom.us/j/123456789",
+      },
+      status: TRIBE_EVENT_MUTATION_STATUS.created,
+    }));
+    const execute = createTribeEvent({
+      tribeEventRepository: createRepository({ create }),
+    });
+
+    await expect(
+      execute({
+        description: "",
+        endsAt: "",
+        meetingUrl: " https://zoom.us/j/123456789 ",
+        startsAt: "2026-05-06T18:00:00.000Z",
+        title: "Clase abierta",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      event: {
+        meetingUrl: "https://zoom.us/j/123456789",
+      },
+      status: TRIBE_EVENT_MUTATION_STATUS.created,
+    });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meetingUrl: "https://zoom.us/j/123456789",
+      })
+    );
+  });
+
   it("rejects end dates that are not after the start date", async () => {
     const update = jest.fn();
     const execute = updateTribeEvent({

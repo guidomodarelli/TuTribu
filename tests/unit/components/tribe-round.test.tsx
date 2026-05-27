@@ -1,29 +1,17 @@
 import type { ReactElement, ReactNode } from "react";
 import {
   act,
+  fireEvent,
   render as renderComponent,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { toast } from "sonner";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 import { TooltipProvider } from "@/components/ui/tooltip";
-
-const tribeRoundStyles = readFileSync(
-  join(
-    process.cwd(),
-    "components",
-    "tribe-round",
-    "tribe-round",
-    "styles.module.scss"
-  ),
-  "utf8"
-);
 
 const refreshMock = jest.fn();
 const originalConsoleError = console.error;
@@ -103,6 +91,105 @@ async function settleReactUpdates() {
   await act(async () => {
     await Promise.resolve();
   });
+}
+
+function getTextBoundary(
+  rootElement: HTMLElement,
+  targetOffset: number
+): { node: Node; offset: number } {
+  const textNodeWalker = document.createTreeWalker(
+    rootElement,
+    NodeFilter.SHOW_TEXT
+  );
+  let remainingOffset = targetOffset;
+  let currentNode = textNodeWalker.nextNode();
+
+  while (currentNode) {
+    const currentTextLength = currentNode.textContent?.length ?? 0;
+
+    if (remainingOffset <= currentTextLength) {
+      return {
+        node: currentNode,
+        offset: remainingOffset,
+      };
+    }
+
+    remainingOffset -= currentTextLength;
+    currentNode = textNodeWalker.nextNode();
+  }
+
+  return {
+    node: rootElement,
+    offset: rootElement.childNodes.length,
+  };
+}
+
+function selectTextRange(
+  rootElement: HTMLElement,
+  startOffset: number,
+  endOffset: number
+) {
+  const selection = window.getSelection();
+
+  if (!selection) {
+    return;
+  }
+
+  const range = document.createRange();
+  const startBoundary = getTextBoundary(rootElement, startOffset);
+  const endBoundary = getTextBoundary(rootElement, endOffset);
+
+  range.setStart(startBoundary.node, startBoundary.offset);
+  range.setEnd(endBoundary.node, endBoundary.offset);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function insertTextInMessageEditor(rootElement: HTMLElement, text: string) {
+  Array.from(text).forEach((character) => {
+    fireEvent.keyDown(rootElement, { key: character });
+  });
+}
+
+function replaceMessageEditorText(
+  rootElement: HTMLElement,
+  startOffset: number,
+  endOffset: number,
+  text: string
+) {
+  rootElement.focus();
+  selectTextRange(rootElement, startOffset, endOffset);
+  insertTextInMessageEditor(rootElement, text);
+}
+
+function deleteNextWordInMessageEditor(
+  rootElement: HTMLElement,
+  cursorOffset: number
+) {
+  rootElement.focus();
+  selectTextRange(rootElement, cursorOffset, cursorOffset);
+  fireEvent.keyDown(rootElement, {
+    ctrlKey: true,
+    key: "Delete",
+  });
+}
+
+function deletePreviousCharacterInMessageEditor(
+  rootElement: HTMLElement,
+  cursorOffset: number
+) {
+  rootElement.focus();
+  selectTextRange(rootElement, cursorOffset, cursorOffset);
+  fireEvent.keyDown(rootElement, { key: "Backspace" });
+}
+
+function setMessageEditorContent(rootElement: HTMLElement, text: string) {
+  replaceMessageEditorText(
+    rootElement,
+    0,
+    rootElement.textContent?.length ?? 0,
+    text
+  );
 }
 
 function isRadixActWarning(parameters: unknown[]) {
@@ -319,6 +406,51 @@ const roundWithLongMessage = {
   ],
 };
 
+const roundWithMarkdownLinkMessage = {
+  ...round,
+  messages: [
+    {
+      ...round.messages[0],
+      content:
+        "Sumate desde [este link](https://meet.google.com/abc-defg-hij). También https://zoom.us/j/123456789.",
+      title: "Clase en vivo",
+    },
+  ],
+};
+
+const roundWithMarkdownHeadingMessage = {
+  ...round,
+  messages: [
+    {
+      ...round.messages[0],
+      content: "# Título interno\nTexto de la publicación",
+      title: "Mensaje con marca",
+    },
+  ],
+};
+
+const roundWithNonLinkMarkdownMessage = {
+  ...round,
+  messages: [
+    {
+      ...round.messages[0],
+      content: "Este **énfasis** queda como texto",
+      title: "Mensaje sin estilos",
+    },
+  ],
+};
+
+const roundWithUnsafeMarkdownMessage = {
+  ...round,
+  messages: [
+    {
+      ...round.messages[0],
+      content: "No abrir [este atajo](javascript:alert('xss'))",
+      title: "Link inseguro",
+    },
+  ],
+};
+
 const roundWithPoll = {
   ...round,
   messages: [
@@ -463,25 +595,33 @@ describe("TribeRound", () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it("keeps channel names readable without ellipsis in filters and menu items", () => {
-    expect(tribeRoundStyles).toMatch(
-      /&__channelMenuContent\s*{[^}]*width:\s*fit-content;/s
+  it("renders full channel names in filters and composer menu items", async () => {
+    const user = userEvent.setup();
+    const longChannelName = "Intro and Goals for Advanced Algebra";
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          channels: [
+            {
+              ...round.channels[0],
+              name: longChannelName,
+            },
+            ...round.channels.slice(1),
+          ],
+        }}
+      />
     );
-    expect(tribeRoundStyles).toMatch(
-      /&__channelMenuContent\s*{[^}]*max-width:\s*min\(22rem,\s*calc\(100vw\s*-\s*2rem\)\);/s
-    );
-    expect(tribeRoundStyles).toMatch(
-      /&__channelMenuText\s*{[^}]*white-space:\s*nowrap;/s
-    );
-    expect(tribeRoundStyles).toMatch(
-      /&__channelMenuText\s*{[^}]*overflow-wrap:\s*normal;/s
-    );
-    expect(tribeRoundStyles).toMatch(
-      /&__channelFilterText\s*{[^}]*overflow:\s*visible;/s
-    );
-    expect(tribeRoundStyles).toMatch(
-      /&__channelFilterText\s*{[^}]*text-overflow:\s*clip;/s
-    );
+
+    expect(screen.getByRole("link", { name: longChannelName })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+
+    expect(screen.getByRole("menuitem", { name: longChannelName })).toBeInTheDocument();
   });
 
   it("opens a centered composer modal from the collapsed composer", async () => {
@@ -580,6 +720,1035 @@ describe("TribeRound", () => {
     expect(relativeTime).toHaveTextContent("26 abr");
   });
 
+  it("renders safe Markdown links in the message preview and details", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithMarkdownLinkMessage}
+      />
+    );
+
+    const previewLink = screen.getByRole("link", { name: "este link" });
+
+    expect(previewLink).toHaveAttribute(
+      "href",
+      "https://meet.google.com/abc-defg-hij"
+    );
+    expect(previewLink).toHaveAttribute("target", "_blank");
+    expect(previewLink).toHaveAttribute("rel", "noreferrer");
+    expect(previewLink.closest(".TribeRound__content")?.tagName).toBe("DIV");
+    expect(
+      screen.getByRole("link", { name: "https://zoom.us/j/123456789" })
+    ).toHaveAttribute("href", "https://zoom.us/j/123456789");
+    expect(screen.getByText(/También/)).toHaveTextContent(
+      "También https://zoom.us/j/123456789."
+    );
+
+    await user.click(previewLink);
+
+    expect(screen.queryByRole("dialog", { name: "Mensaje" })).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Clase en vivo/i })
+    );
+
+    expect(
+      within(screen.getByRole("dialog", { name: "Mensaje" })).getByRole("link", {
+        name: "este link",
+      })
+    ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
+  });
+
+  it("keeps email addresses as regular message text", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              content: "Escribinos a ana.maria@example.com para coordinar.",
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByText(/Escribinos a/)).toHaveTextContent(
+      "Escribinos a ana.maria@example.com para coordinar."
+    );
+    expect(screen.queryByRole("link", { name: /example\.com/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps parentheses in persisted Markdown link URLs", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              content: "Leé [doc](https://example.com/a(b)) antes del encuentro.",
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "doc" })).toHaveAttribute(
+      "href",
+      "https://example.com/a(b)"
+    );
+  });
+
+  it("renders protocol URLs with at signs as links", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              content: "Canal: https://youtube.com/@canal",
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole("link", { name: "https://youtube.com/@canal" })
+    ).toHaveAttribute("href", "https://youtube.com/@canal");
+  });
+
+  it("keeps Markdown headings as regular message text", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithMarkdownHeadingMessage}
+      />
+    );
+
+    expect(screen.queryByRole("heading", { name: "Título interno" })).not.toBeInTheDocument();
+    expect(screen.getByText(/# Título interno/)).toBeInTheDocument();
+  });
+
+  it("keeps non-link Markdown syntax as regular message text", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithNonLinkMarkdownMessage}
+      />
+    );
+
+    expect(screen.queryByText("énfasis", { selector: "strong" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Este \*\*énfasis\*\* queda como texto/)).toBeInTheDocument();
+  });
+
+  it("does not render non-http Markdown links from message content", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithUnsafeMarkdownMessage}
+      />
+    );
+
+    expect(screen.queryByRole("link", { name: "este atajo" })).not.toBeInTheDocument();
+    expect(screen.getByText(/No abrir/).closest(".TribeRound__content")).toHaveTextContent(
+      "No abrir este atajo"
+    );
+  });
+
+  it("applies a link inside the message editor when pasting an http URL over selected text", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "Sumate al encuentro");
+    selectTextRange(contentInput, 10, 19);
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://meet.google.com/abc-defg-hij",
+      },
+    });
+
+    expect(contentInput).toHaveTextContent("Sumate al encuentro");
+    expect(
+      within(contentInput).getByRole("link", { name: "encuentro" })
+    ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
+  });
+
+  it("keeps a directly pasted URL as editable text whose link follows character changes", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://meet.google.com/abc-defg-hij",
+      },
+    });
+
+    expect(contentInput).toHaveTextContent("https://meet.google.com/abc-defg-hij");
+    expect(
+      within(contentInput).getByRole("link", {
+        name: "https://meet.google.com/abc-defg-hij",
+      })
+    ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
+
+    replaceMessageEditorText(contentInput, 36, 36, "k");
+
+    expect(
+      within(contentInput).getByRole("link", {
+        name: "https://meet.google.com/abc-defg-hijk",
+      })
+    ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hijk");
+  });
+
+  it("keeps email addresses as regular text in the message editor", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "Escribinos a ana.maria@example.com");
+
+    expect(contentInput).toHaveTextContent("Escribinos a ana.maria@example.com");
+    expect(
+      within(contentInput).queryByRole("link", { name: /example\.com/ })
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps protocol URLs with at signs as links in the message editor", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://youtube.com/@canal",
+      },
+    });
+
+    expect(
+      within(contentInput).getByRole("link", {
+        name: "https://youtube.com/@canal",
+      })
+    ).toHaveAttribute("href", "https://youtube.com/@canal");
+  });
+
+  it("keeps selected-text link targets stable when the visible text changes", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "Sumate al encuentro");
+    selectTextRange(contentInput, 10, 19);
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://meet.google.com/abc-defg-hij",
+      },
+    });
+
+    replaceMessageEditorText(contentInput, 10, 19, "reunion");
+
+    expect(
+      within(contentInput).getByRole("link", { name: "reunion" })
+    ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
+  });
+
+  it("syncs selected-text links once visible text matches the URL without protocol", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "google.co");
+    selectTextRange(contentInput, 0, 9);
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://google.com",
+      },
+    });
+
+    expect(
+      within(contentInput).getByRole("link", { name: "google.co" })
+    ).toHaveAttribute("href", "https://google.com");
+
+    replaceMessageEditorText(contentInput, 9, 9, "m");
+
+    expect(
+      within(contentInput).getByRole("link", { name: "google.com" })
+    ).toHaveAttribute("href", "https://google.com");
+
+    replaceMessageEditorText(contentInput, 10, 10, "/docs");
+
+    expect(
+      within(contentInput).getByRole("link", { name: "google.com/docs" })
+    ).toHaveAttribute("href", "https://google.com/docs");
+  });
+
+  it("keeps spaces added before or after a synced link outside the link text", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "google.com");
+    selectTextRange(contentInput, 0, 10);
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://google.com",
+      },
+    });
+
+    replaceMessageEditorText(contentInput, 10, 10, " ");
+    replaceMessageEditorText(contentInput, 0, 0, " ");
+
+    expect(contentInput.textContent).toBe(" google.com ");
+    expect(
+      within(contentInput).getByRole("link", { name: "google.com" })
+    ).toHaveAttribute("href", "https://google.com");
+
+    replaceMessageEditorText(contentInput, 12, 12, "extra");
+
+    expect(contentInput.textContent).toBe(" google.com extra");
+    expect(
+      within(contentInput).getByRole("link", { name: "google.com" })
+    ).toHaveAttribute("href", "https://google.com");
+  });
+
+  it("keeps a link intact when deleting the separator before following text", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "curso");
+    selectTextRange(contentInput, 0, 5);
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://example.com/curso",
+      },
+    });
+
+    replaceMessageEditorText(contentInput, 5, 5, " m");
+    deletePreviousCharacterInMessageEditor(contentInput, 6);
+
+    expect(contentInput.textContent).toBe("cursom");
+    expect(
+      within(contentInput).getByRole("link", { name: "curso" })
+    ).toHaveAttribute("href", "https://example.com/curso");
+  });
+
+  it("keeps Ctrl Delete removals in editor state before typing again", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "Sumate al encuentro hoy");
+    deleteNextWordInMessageEditor(contentInput, 10);
+
+    expect(contentInput.textContent).toBe("Sumate al  hoy");
+
+    replaceMessageEditorText(contentInput, 10, 10, "reunion");
+
+    expect(contentInput.textContent).toBe("Sumate al reunion hoy");
+  });
+
+  it("accepts selected bare-domain links and syncs them after the text catches up", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "google.co");
+    selectTextRange(contentInput, 0, 9);
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "google.com",
+      },
+    });
+
+    expect(
+      within(contentInput).getByRole("link", { name: "google.co" })
+    ).toHaveAttribute("href", "https://google.com");
+
+    replaceMessageEditorText(contentInput, 9, 9, "m");
+
+    expect(
+      within(contentInput).getByRole("link", { name: "google.com" })
+    ).toHaveAttribute("href", "https://google.com");
+  });
+
+  it("edits and removes links from the message editor popover", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "Sumate al encuentro");
+    selectTextRange(contentInput, 10, 19);
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://meet.google.com/abc-defg-hij",
+      },
+    });
+
+    await user.click(screen.getByRole("link", { name: "encuentro" }));
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    await user.clear(screen.getByRole("textbox", { name: "Texto del link" }));
+    await user.type(screen.getByRole("textbox", { name: "Texto del link" }), "Meet");
+    await user.clear(screen.getByRole("textbox", { name: "Link" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Link" }),
+      "https://zoom.us/j/123456789"
+    );
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(contentInput).toHaveTextContent("Sumate al Meet");
+    expect(screen.getByRole("link", { name: "Meet" })).toHaveAttribute(
+      "href",
+      "https://zoom.us/j/123456789"
+    );
+
+    await user.click(screen.getByRole("link", { name: "Meet" }));
+    await user.click(screen.getByRole("button", { name: "Remover" }));
+
+    expect(contentInput).toHaveTextContent("Sumate al Meet");
+    expect(
+      within(contentInput).queryByRole("link", { name: "Meet" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the current link when edited text is blank", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "Sumate al encuentro");
+    selectTextRange(contentInput, 10, 19);
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://meet.google.com/abc-defg-hij",
+      },
+    });
+
+    await user.click(screen.getByRole("link", { name: "encuentro" }));
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    await user.clear(screen.getByRole("textbox", { name: "Texto del link" }));
+    await user.type(screen.getByRole("textbox", { name: "Texto del link" }), "   ");
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(contentInput).toHaveTextContent("Sumate al encuentro");
+    expect(screen.getByRole("link", { name: "encuentro" })).toHaveAttribute(
+      "href",
+      "https://meet.google.com/abc-defg-hij"
+    );
+  });
+
+  it("submits editor links as Markdown while keeping the editor text readable", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "Sumate al encuentro");
+    selectTextRange(contentInput, 10, 19);
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://meet.google.com/abc-defg-hij",
+      },
+    });
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages",
+        expect.objectContaining({
+          body: JSON.stringify({
+            channelId: "channel-intro",
+            content:
+              "Sumate al [encuentro](https://meet.google.com/abc-defg-hij)",
+            title: "Nuevo encuentro",
+          }),
+          method: "POST",
+        })
+      );
+    });
+
+    await act(async () => {
+      deferredResponse.resolve(
+        {
+          json: async () => ({
+            message: "Mensaje creado.",
+            tribeMessage: createdMessage,
+          }),
+          ok: true,
+          statusText: "Created",
+        } as Response
+      );
+    });
+  });
+
+  it("escapes selected link text before submitting editor links", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo material"
+    );
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "Revisá Clase [PDF]");
+    selectTextRange(contentInput, 7, 18);
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://example.com/a(b)",
+      },
+    });
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages",
+        expect.objectContaining({
+          body: JSON.stringify({
+            channelId: "channel-intro",
+            content: "Revisá [Clase \\[PDF\\]](https://example.com/a(b))",
+            title: "Nuevo material",
+          }),
+          method: "POST",
+        })
+      );
+    });
+
+    await act(async () => {
+      deferredResponse.resolve(
+        {
+          json: async () => ({
+            message: "Mensaje creado.",
+            tribeMessage: {
+              ...createdMessage,
+              content: "Revisá [Clase \\[PDF\\]](https://example.com/a(b))",
+              title: "Nuevo material",
+            },
+          }),
+          ok: true,
+          statusText: "Created",
+        } as Response
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Clase [PDF]" })).toHaveAttribute(
+        "href",
+        "https://example.com/a(b)"
+      );
+    });
+  });
+
+  it("preserves removed automatic links when submitting editor content", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://zoom.us/j/123456789",
+      },
+    });
+    await user.click(
+      within(contentInput).getByRole("link", {
+        name: "https://zoom.us/j/123456789",
+      })
+    );
+    await user.click(screen.getByRole("button", { name: "Remover" }));
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    expect(
+      within(contentInput).queryByRole("link", {
+        name: "https://zoom.us/j/123456789",
+      })
+    ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages",
+        expect.objectContaining({
+          body: JSON.stringify({
+            channelId: "channel-intro",
+            content: "[https://zoom.us/j/123456789](#)",
+            title: "Nuevo encuentro",
+          }),
+          method: "POST",
+        })
+      );
+    });
+
+    await act(async () => {
+      deferredResponse.resolve(
+        {
+          json: async () => ({
+            message: "Mensaje creado.",
+            tribeMessage: createdMessage,
+          }),
+          ok: true,
+          statusText: "Created",
+        } as Response
+      );
+    });
+  });
+
+  it("preserves removed explicit links when visible text is also a URL", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "https://zoom.us/j/123456789");
+    selectTextRange(contentInput, 0, 29);
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://example.com/reunion",
+      },
+    });
+
+    await user.click(
+      within(contentInput).getByRole("link", {
+        name: "https://zoom.us/j/123456789",
+      })
+    );
+    await user.click(screen.getByRole("button", { name: "Remover" }));
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    expect(
+      within(contentInput).queryByRole("link", {
+        name: "https://zoom.us/j/123456789",
+      })
+    ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages",
+        expect.objectContaining({
+          body: JSON.stringify({
+            channelId: "channel-intro",
+            content: "[https://zoom.us/j/123456789](#)",
+            title: "Nuevo encuentro",
+          }),
+          method: "POST",
+        })
+      );
+    });
+
+    await act(async () => {
+      deferredResponse.resolve(
+        {
+          json: async () => ({
+            message: "Mensaje creado.",
+            tribeMessage: createdMessage,
+          }),
+          ok: true,
+          statusText: "Created",
+        } as Response
+      );
+    });
+  });
+
+  it("preserves removed automatic links after reopening the message editor", async () => {
+    const user = userEvent.setup();
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        content: "[https://zoom.us/j/123456789](#)",
+        message: "Mensaje actualizado.",
+        title: "Nuevo encuentro",
+      }),
+      ok: true,
+      statusText: "OK",
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              content: "[https://zoom.us/j/123456789](#)",
+              permissions: {
+                canDelete: false,
+                canEdit: true,
+              },
+              title: "Nuevo encuentro",
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(
+      screen.queryByRole("link", { name: "https://zoom.us/j/123456789" })
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Acciones del mensaje" })
+    );
+    await user.click(screen.getByRole("menuitem", { name: "Editar mensaje" }));
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    expect(contentInput).toHaveTextContent("https://zoom.us/j/123456789");
+    expect(
+      within(contentInput).queryByRole("link", {
+        name: "https://zoom.us/j/123456789",
+      })
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/message-1",
+        expect.objectContaining({
+          body: JSON.stringify({
+            content: "[https://zoom.us/j/123456789](#)",
+            title: "Nuevo encuentro",
+          }),
+          method: "PATCH",
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("Mensaje actualizado.");
+    });
+  });
+
+  it("keeps later editor link ranges after changing the first link text", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+
+    const contentInput = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+
+    setMessageEditorContent(contentInput, "Curso uno y curso dos");
+    selectTextRange(contentInput, 0, 5);
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://example.com/curso",
+      },
+    });
+    selectTextRange(contentInput, 12, 21);
+    fireEvent.paste(contentInput, {
+      clipboardData: {
+        getData: () => "https://example.com/segundo",
+      },
+    });
+
+    await user.click(within(contentInput).getByRole("link", { name: "Curso" }));
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    await user.clear(screen.getByRole("textbox", { name: "Texto del link" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Texto del link" }),
+      "Curso avanzado"
+    );
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(
+      within(contentInput).getByRole("link", { name: "curso dos" })
+    ).toHaveAttribute("href", "https://example.com/segundo");
+
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages",
+        expect.objectContaining({
+          body: JSON.stringify({
+            channelId: "channel-intro",
+            content:
+              "[Curso avanzado](https://example.com/curso) uno y [curso dos](https://example.com/segundo)",
+            title: "Nuevo encuentro",
+          }),
+          method: "POST",
+        })
+      );
+    });
+
+    await act(async () => {
+      deferredResponse.resolve(
+        {
+          json: async () => ({
+            message: "Mensaje creado.",
+            tribeMessage: createdMessage,
+          }),
+          ok: true,
+          statusText: "Created",
+        } as Response
+      );
+    });
+  });
+
   it("uses author images for messages and replies when available", async () => {
     const user = userEvent.setup();
 
@@ -665,7 +1834,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Nos vemos el viernes."
     );
@@ -721,7 +1890,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Nos vemos el viernes."
     );
@@ -778,7 +1947,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Nos vemos el viernes."
     );
@@ -1104,7 +2273,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Nos vemos el viernes."
     );
@@ -1164,7 +2333,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Nos vemos el viernes."
     );
@@ -1211,7 +2380,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Nos vemos el viernes."
     );
@@ -1261,7 +2430,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Nos vemos el viernes."
     );
@@ -1322,7 +2491,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Nos vemos el viernes."
     );
@@ -1391,7 +2560,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Borrador temporal"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Contenido temporal"
     );
@@ -1406,7 +2575,7 @@ describe("TribeRound", () => {
     expect(screen.getByRole("textbox", { name: "Título del mensaje" })).toHaveValue("");
     expect(
       screen.getByRole("textbox", { name: "Contenido del mensaje" })
-    ).toHaveValue("");
+    ).toHaveTextContent("");
     expect(
       screen.getByRole("button", { name: "Canal del mensaje" })
     ).toHaveTextContent("Elegir canal");
@@ -1536,7 +2705,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Nuevo encuentro"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Nos vemos el viernes."
     );
@@ -2125,9 +3294,11 @@ describe("TribeRound", () => {
 
     await user.click(within(dialog).getByRole("button", { name: "Ver más" }));
 
-    expect(dialogContent).toHaveAttribute("data-expanded", "true");
-    expect(dialogContent).not.toHaveClass("TribeRound__content--collapsed");
-    expect(dialogContent).not.toHaveClass("TribeRound__content--detailsPreview");
+    const expandedDialogContent = within(dialog).getByText(longMessageContent);
+
+    expect(expandedDialogContent).toHaveAttribute("data-expanded", "true");
+    expect(expandedDialogContent).not.toHaveClass("TribeRound__content--collapsed");
+    expect(expandedDialogContent).not.toHaveClass("TribeRound__content--detailsPreview");
     expect(within(dialog).getByRole("button", { name: "Ver menos" })).toBeInTheDocument();
   });
 
@@ -2784,7 +3955,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Recurso"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Miren este video."
     );
@@ -2834,7 +4005,7 @@ describe("TribeRound", () => {
       screen.getByRole("textbox", { name: "Título del mensaje" }),
       "Recurso"
     );
-    await user.type(
+    setMessageEditorContent(
       screen.getByRole("textbox", { name: "Contenido del mensaje" }),
       "Algo"
     );

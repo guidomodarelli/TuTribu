@@ -190,7 +190,7 @@ describe("TribeEventsCalendar", () => {
     await user.type(screen.getByLabelText("Título"), "Clase abierta");
     await user.type(screen.getByLabelText("Fecha"), "2026-05-06");
     await user.type(screen.getByLabelText("Hora de inicio"), "15:00");
-    await user.type(screen.getByLabelText("Link digital"), "https://meet.google.com/abc-defg-hij");
+    await user.type(screen.getByLabelText("Link de reunión"), "https://meet.google.com/abc-defg-hij");
     await user.click(screen.getByRole("button", { name: "Guardar evento" }));
 
     expect(global.fetch).toHaveBeenCalledWith(
