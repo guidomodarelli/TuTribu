@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import {
   CalendarDaysIcon,
   CheckIcon,
@@ -45,7 +44,7 @@ const discoverTribesNavigationItem = {
   icon: CompassIcon,
   label: "Descubrir tribus",
 } as const;
-const tribeSectionNavigation = [
+const tribeMemberNavigation = [
   {
     hrefBuilder: ROUTES.tribes.bySlug,
     icon: FlameKindlingIcon,
@@ -54,32 +53,11 @@ const tribeSectionNavigation = [
       pathname === ROUTES.tribes.bySlug(tribeSlug),
   },
   {
-    hrefBuilder: ROUTES.tribes.invitations,
-    icon: MailPlusIcon,
-    label: "Invitaciones",
-    matchPath: (pathname: string, tribeSlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.tribes.invitations(tribeSlug)),
-  },
-  {
     hrefBuilder: ROUTES.tribes.welcome,
     icon: HandHeartIcon,
     label: "Bienvenida",
     matchPath: (pathname: string, tribeSlug: string) =>
       isSameOrNestedPath(pathname, ROUTES.tribes.welcome(tribeSlug)),
-  },
-  {
-    hrefBuilder: ROUTES.tribes.prices,
-    icon: ReceiptTextIcon,
-    label: "Precios",
-    matchPath: (pathname: string, tribeSlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.tribes.prices(tribeSlug)),
-  },
-  {
-    hrefBuilder: ROUTES.tribes.channels,
-    icon: SignpostBigIcon,
-    label: "Canales",
-    matchPath: (pathname: string, tribeSlug: string) =>
-      isSameOrNestedPath(pathname, ROUTES.tribes.channels(tribeSlug)),
   },
   {
     hrefBuilder: ROUTES.tribes.events,
@@ -117,50 +95,53 @@ const tribeSectionNavigation = [
       isSameOrNestedPath(pathname, ROUTES.tribes.history(tribeSlug)),
   },
 ] as const;
+const tribeAdminNavigation = [
+  {
+    hrefBuilder: ROUTES.tribes.invitations,
+    icon: MailPlusIcon,
+    label: "Invitaciones",
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.invitations(tribeSlug)),
+  },
+  {
+    hrefBuilder: ROUTES.tribes.prices,
+    icon: ReceiptTextIcon,
+    label: "Precios",
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.prices(tribeSlug)),
+  },
+  {
+    hrefBuilder: ROUTES.tribes.channels,
+    icon: SignpostBigIcon,
+    label: "Canales",
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.channels(tribeSlug)),
+  },
+] as const;
 const APP_SIDEBAR_UI = {
   brandButtonSize: "lg",
   brandMarkLength: 2,
-  channelsSectionLabel: "Canales",
-  invitationsSectionLabel: "Invitaciones",
-  pricesSectionLabel: "Precios",
+  adminSectionLabel: "Gestión",
   collapsible: "icon",
   createTribeTooltip: "Nueva tribu",
   nestedRouteSeparator: "/",
   variant: "sidebar",
 } as const;
 
-const TRIBE_CHANNEL_MANAGER_ROLE = {
+const TRIBE_ADMIN_ROLE = {
   guardian: "guardian",
   leader: "leader",
 } as const;
-
-const TRIBE_ADMIN_SECTION_LABELS = new Set<string>([
-  APP_SIDEBAR_UI.channelsSectionLabel,
-  APP_SIDEBAR_UI.invitationsSectionLabel,
-  APP_SIDEBAR_UI.pricesSectionLabel,
-]);
 
 type AppSidebarProps = {
   authenticatedMember: AuthenticatedMemberResult | null;
   memberTribes: MemberTribeListItemResult[];
 };
 
-function canManageTribeChannels(
-  tribe: MemberTribeListItemResult
-): boolean {
+function canManageTribe(tribe: MemberTribeListItemResult): boolean {
   return (
-    tribe.role === TRIBE_CHANNEL_MANAGER_ROLE.leader ||
-    tribe.role === TRIBE_CHANNEL_MANAGER_ROLE.guardian
-  );
-}
-
-function getVisibleTribeSectionNavigation(
-  tribe: MemberTribeListItemResult
-) {
-  return tribeSectionNavigation.filter(
-    (item) =>
-      !TRIBE_ADMIN_SECTION_LABELS.has(item.label) ||
-      canManageTribeChannels(tribe)
+    tribe.role === TRIBE_ADMIN_ROLE.leader ||
+    tribe.role === TRIBE_ADMIN_ROLE.guardian
   );
 }
 
@@ -196,13 +177,7 @@ export function AppSidebar({
   const brandPath = activeTribe
     ? ROUTES.tribes.bySlug(activeTribe.slug)
     : ROUTES.home;
-  const visibleTribeSectionNavigation = useMemo(
-    () =>
-      activeTribe
-        ? getVisibleTribeSectionNavigation(activeTribe)
-        : [],
-    [activeTribe]
-  );
+  const canManageActiveTribe = activeTribe ? canManageTribe(activeTribe) : false;
   const closeMobileSidebar = () => {
     if (isMobile) {
       setOpenMobile(false);
@@ -256,34 +231,69 @@ export function AppSidebar({
       <SidebarSeparator className={styles.AppSidebar__separator} />
       <SidebarContent>
         {activeTribe ? (
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {visibleTribeSectionNavigation.map((item) => {
-                  const sectionPath = item.hrefBuilder(activeTribe.slug);
-                  const isSectionActive = item.matchPath(
-                    pathname,
-                    activeTribe.slug
-                  );
+          <>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {tribeMemberNavigation.map((item) => {
+                    const sectionPath = item.hrefBuilder(activeTribe.slug);
+                    const isSectionActive = item.matchPath(
+                      pathname,
+                      activeTribe.slug
+                    );
 
-                  return (
-                    <SidebarMenuItem key={item.label}>
-                      <SidebarMenuButton
-                        tooltip={item.label}
-                        isActive={isSectionActive}
-                        onClick={() => navigateFromSidebar(sectionPath)}
-                      >
-                        <item.icon />
-                        <span className={styles.AppSidebar__itemLabel}>
-                          {item.label}
-                        </span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+                    return (
+                      <SidebarMenuItem key={item.label}>
+                        <SidebarMenuButton
+                          tooltip={item.label}
+                          isActive={isSectionActive}
+                          onClick={() => navigateFromSidebar(sectionPath)}
+                        >
+                          <item.icon />
+                          <span className={styles.AppSidebar__itemLabel}>
+                            {item.label}
+                          </span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            {canManageActiveTribe ? (
+              <SidebarGroup>
+                <SidebarGroupLabel>
+                  {APP_SIDEBAR_UI.adminSectionLabel}
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {tribeAdminNavigation.map((item) => {
+                      const sectionPath = item.hrefBuilder(activeTribe.slug);
+                      const isSectionActive = item.matchPath(
+                        pathname,
+                        activeTribe.slug
+                      );
+
+                      return (
+                        <SidebarMenuItem key={item.label}>
+                          <SidebarMenuButton
+                            tooltip={item.label}
+                            isActive={isSectionActive}
+                            onClick={() => navigateFromSidebar(sectionPath)}
+                          >
+                            <item.icon />
+                            <span className={styles.AppSidebar__itemLabel}>
+                              {item.label}
+                            </span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ) : null}
+          </>
         ) : null}
         {activeTribe ? null : (
           <SidebarGroup>

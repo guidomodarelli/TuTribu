@@ -462,6 +462,79 @@ describe("AppSidebar", () => {
     expect(prefetchMock).not.toHaveBeenCalled();
   });
 
+  it("groups admin sections under a separate 'Gestión' label for leaders and guardians", () => {
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+
+    const { rerender } = render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "leader@example.com",
+          name: "Grace Hopper",
+          role: "tribemate",
+          avatarFallback: "GH",
+          image: null,
+        }}
+        memberTribes={[
+          {
+            tribeId: "tribe-1",
+            name: "Matematica Pro",
+            role: "leader",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText("Gestión")).toBeInTheDocument();
+
+    rerender(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "guardian@example.com",
+          name: "Ada Lovelace",
+          role: "tribemate",
+          avatarFallback: "AL",
+          image: null,
+        }}
+        memberTribes={[
+          {
+            tribeId: "tribe-1",
+            name: "Matematica Pro",
+            role: "guardian",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText("Gestión")).toBeInTheDocument();
+
+    rerender(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "member@example.com",
+          name: "Katherine Johnson",
+          role: "tribemate",
+          avatarFallback: "KJ",
+          image: null,
+        }}
+        memberTribes={[
+          {
+            tribeId: "tribe-1",
+            name: "Matematica Pro",
+            role: "tribemate",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.queryByText("Gestión")).not.toBeInTheDocument();
+  });
+
   it("shows admin sections to tribe leaders and guardians below the round", () => {
     (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
 
