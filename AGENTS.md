@@ -451,6 +451,13 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 - Use `npm run db:migrate` to push versioned migrations to Neon.
 - Use `npm run db:migrate:force` only when a forced Drizzle push is intentionally required.
 
+### Quality gate hook
+
+- A Stop hook runs the project quality gate automatically at the end of every task. It already executes `pnpm run lint`, `pnpm run typecheck`, and `pnpm run build`, and reports failures back as a system reminder.
+- Do not invoke `pnpm run lint`, `pnpm run typecheck`, or `pnpm run build` manually during a task. Let the hook drive them so the same configuration runs consistently and so you avoid round-trips on commands the hook will run anyway.
+- When the hook reports errors, fix the underlying cause and let the hook re-run on the next stop, rather than chaining manual invocations of these three commands.
+- Targeted test runs and any other validation that is not lint/typecheck/build remain part of the manual workflow per the testing rules above.
+
 ## 7. Concurrency, Observability, and Performance
 
 ### Concurrency baseline

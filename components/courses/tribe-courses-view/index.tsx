@@ -1,5 +1,7 @@
+import { Settings } from "lucide-react";
 import Link from "next/link";
 
+import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/src/constants/routes";
 import type {
   CourseModuleWithLessonsResult,
@@ -16,6 +18,8 @@ const LESSON_QUERY_PARAM = "leccion";
 const ARIA_CURRENT_PAGE = "page";
 const QUERY_STRING_PREFIX = "?";
 const QUERY_PARAM_VALUE_SEPARATOR = "=";
+const MANAGE_BUTTON_SIZE = "sm";
+const MANAGE_BUTTON_VARIANT = "ghost";
 
 function buildLessonHref(tribeSlug: string, lessonId: string): string {
   return `${ROUTES.tribes.courses(tribeSlug)}${QUERY_STRING_PREFIX}${LESSON_QUERY_PARAM}${QUERY_PARAM_VALUE_SEPARATOR}${lessonId}`;
@@ -25,8 +29,7 @@ const COURSES_COPY = {
     "Todavía no hay módulos cargados para esta tribu.",
   emptyHeading: "Aún no hay cursos",
   inactiveBadge: "Inactivo",
-  manageCta: "Gestionar cursos",
-  pageHeading: "Cursos",
+  manageCta: "Gestionar",
   selectLessonPrompt: "Elegí una lección de la barra lateral para empezar.",
   sidebarHeading: "Contenido",
 } as const;
@@ -73,20 +76,6 @@ export function TribeCoursesView({
 
   return (
     <main className={styles.TribeCoursesView}>
-      {viewerPermissions.canManageCourses ? (
-        <header className={styles.TribeCoursesView__header}>
-          <h1 className={styles.TribeCoursesView__heading}>
-            {COURSES_COPY.pageHeading}
-          </h1>
-          <Link
-            className={styles.TribeCoursesView__manageLink}
-            href={ROUTES.tribes.coursesManage(tribeSlug)}
-          >
-            {COURSES_COPY.manageCta}
-          </Link>
-        </header>
-      ) : null}
-
       {hasModules ? (
         <div className={styles.TribeCoursesView__layout}>
           <article className={styles.TribeCoursesView__main}>
@@ -128,9 +117,23 @@ export function TribeCoursesView({
             aria-label={COURSES_COPY.sidebarHeading}
             className={styles.TribeCoursesView__sidebar}
           >
-            <h2 className={styles.TribeCoursesView__sidebarHeading}>
-              {COURSES_COPY.sidebarHeading}
-            </h2>
+            <div className={styles.TribeCoursesView__sidebarHeader}>
+              <h2 className={styles.TribeCoursesView__sidebarHeading}>
+                {COURSES_COPY.sidebarHeading}
+              </h2>
+              {viewerPermissions.canManageCourses ? (
+                <Button
+                  asChild
+                  size={MANAGE_BUTTON_SIZE}
+                  variant={MANAGE_BUTTON_VARIANT}
+                >
+                  <Link href={ROUTES.tribes.coursesManage(tribeSlug)}>
+                    <Settings aria-hidden />
+                    {COURSES_COPY.manageCta}
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
             {modules.map((courseModule) => (
               <section
                 className={styles.TribeCoursesView__moduleGroup}
