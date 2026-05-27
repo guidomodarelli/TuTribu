@@ -44,6 +44,16 @@ export type UpdateTribeMessageCreatedAtCommand = {
   userId: string;
 };
 
+export type UpdateTribeMessageContentCommand = {
+  content: string;
+  messageId: string;
+  poll?: MessagePollDraftCommand;
+  title: string;
+  tribeSlug: string;
+  userId: string;
+  video?: MessageVideoDraftCommand | null;
+};
+
 export type MessagePollDraftCommand = {
   allowMultipleVotes: boolean;
   options: string[];

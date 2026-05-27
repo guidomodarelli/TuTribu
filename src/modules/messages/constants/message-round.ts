@@ -66,6 +66,8 @@ export const MESSAGE_MUTATION_STATUS = {
   notFound: "not_found",
   pinLimitReached: "pin_limit_reached",
   pinned: "pinned",
+  pollHasVotes: "poll_has_votes",
+  pollMissing: "poll_missing",
   reopened: "reopened",
   unliked: "unliked",
   unpinned: "unpinned",

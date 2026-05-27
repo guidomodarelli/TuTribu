@@ -12,8 +12,13 @@ import type {
   CreateTribeMessageRepositoryCommand,
   MessageCreationRepository,
 } from "@/src/modules/messages/domain/repositories/message-creation-repository";
+import type {
+  MessageContentUpdateRepository,
+  UpdateTribeMessageContentRepositoryCommand,
+} from "@/src/modules/messages/domain/repositories/message-content-update-repository";
 import type { MessageCreatedAtUpdateRepository } from "@/src/modules/messages/domain/repositories/message-created-at-update-repository";
 import type {
+  MessageContentUpdateResult,
   MessageCreatedAtUpdateResult,
   MessageDeletionResult,
   MessageReplyCreationResult,
@@ -22,7 +27,10 @@ import type {
   MessagePollMutationResult,
   MessagePinToggleResult,
 } from "@/src/modules/messages/application/results/message-mutation-result";
-import type { MessagePollResult } from "@/src/modules/messages/application/results/tribe-round-result";
+import type {
+  MessagePollResult,
+  MessageVideoResult,
+} from "@/src/modules/messages/application/results/tribe-round-result";
 import {
   MESSAGE_MUTATION_STATUS,
   MESSAGE_POLL_STATUS,
@@ -135,6 +143,30 @@ type UpdatedCreatedAtRow = MutationStatusRow & {
   message_created_at: Date | string | null;
 };
 
+type UpdatedMessageRow = {
+  message_id: string | null;
+};
+
+type TargetEditMessageRow = {
+  can_edit: boolean;
+  external_video_id: string | null;
+  external_video_provider: string | null;
+  message_id: string;
+  poll_allow_multiple_votes: boolean | null;
+  poll_id: string | null;
+  poll_question: string | null;
+  poll_vote_count: number | string | null;
+  tribe_id: string;
+};
+
+type InsertedEditedOptionsRow = {
+  poll_options: { id: string | null; text: string | null }[] | null;
+};
+
+type PollVoteCountRow = {
+  poll_vote_count: number | string | null;
+};
+
 type PollTargetRow = {
   allow_multiple_votes: boolean;
   can_write: boolean;
@@ -152,6 +184,10 @@ type PollOptionRow = {
 const MESSAGE_CREATION_DATABASE_ERROR = {
   pollOptionsNotInserted: "Message poll options were not inserted",
   pollNotInserted: "Message poll was not inserted",
+} as const;
+
+const MESSAGE_POLL_ADVISORY_LOCK = {
+  namespace: "message-poll-vote-edit",
 } as const;
 
 function mapFallbackCreationStatus(status: string | null): MessageCreationResult {
@@ -230,6 +266,7 @@ function mapCreatedMessage(row: CreatedMessageRow | null): MessageCreationResult
           : null,
         permissions: {
           canDelete: true,
+          canEdit: true,
         },
         title: row.message_title,
         video: createMessageVideoFromRow(row),
@@ -276,7 +313,8 @@ export class PostgresMessageMutationRepository
     MessagePinRepository,
     MessagePollRepository,
     MessageDeletionRepository,
-    MessageCreatedAtUpdateRepository
+    MessageCreatedAtUpdateRepository,
+    MessageContentUpdateRepository
 {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
@@ -522,6 +560,13 @@ export class PostgresMessageMutationRepository
         return { status: MESSAGE_MUTATION_STATUS.forbidden };
       }
 
+      await this.lockMessagePollForVoting(database, targetPoll.poll_id);
+      await this.lockMessagePollForViewerVoting(
+        database,
+        targetPoll.poll_id,
+        command.userId
+      );
+
       const optionIds = targetPoll.allow_multiple_votes
         ? command.optionIds
         : command.optionIds.slice(0, 1);
@@ -542,13 +587,6 @@ export class PostgresMessageMutationRepository
       if (validOptionIds.length === 0) {
         return { status: MESSAGE_MUTATION_STATUS.invalidPoll };
       }
-
-      await database.execute(sql`
-        select pg_advisory_xact_lock(
-          hashtext(${targetPoll.poll_id}),
-          hashtext(${command.userId})
-        ) as lock_key
-      `);
 
       await database.execute(sql`
         delete from public.message_poll_votes
@@ -681,6 +719,179 @@ export class PostgresMessageMutationRepository
       }
 
       return { status: MESSAGE_MUTATION_STATUS.forbidden };
+    });
+  }
+
+  async updateContent(
+    command: UpdateTribeMessageContentRepositoryCommand
+  ): Promise<MessageContentUpdateResult> {
+    return this.executeWithDatabase(async (database) => {
+      const targetResult = await database.execute(sql`
+        select
+          messages.id as message_id,
+          messages.tribe_id,
+          messages.external_video_provider,
+          messages.external_video_id,
+          (
+            messages.author_id = ${command.userId}
+            and public.is_active_tribe_member(messages.tribe_id)
+          ) as can_edit,
+          existing_poll.id as poll_id,
+          existing_poll.question as poll_question,
+          existing_poll.allow_multiple_votes as poll_allow_multiple_votes,
+          coalesce(existing_poll_votes.vote_count, 0) as poll_vote_count
+        from public.messages
+        inner join public.tribes
+          on tribes.id = messages.tribe_id
+        left join public.message_polls existing_poll
+          on existing_poll.message_id = messages.id
+        left join lateral (
+          select count(*) as vote_count
+          from public.message_poll_votes
+          where message_poll_votes.poll_id = existing_poll.id
+        ) existing_poll_votes on true
+        where messages.id = ${command.messageId}
+          and tribes.slug = ${command.tribeSlug}
+        limit 1
+      `);
+      const targetMessage = (targetResult.rows?.[0] ?? null) as
+        | TargetEditMessageRow
+        | null;
+
+      if (!targetMessage) {
+        return { status: MESSAGE_MUTATION_STATUS.notFound };
+      }
+
+      if (!targetMessage.can_edit) {
+        return { status: MESSAGE_MUTATION_STATUS.forbidden };
+      }
+
+      if (command.poll) {
+        if (!targetMessage.poll_id) {
+          return { status: MESSAGE_MUTATION_STATUS.pollMissing };
+        }
+
+        if (Number(targetMessage.poll_vote_count ?? 0) > 0) {
+          return { status: MESSAGE_MUTATION_STATUS.pollHasVotes };
+        }
+
+        await this.lockMessagePollForOptionReplacement(
+          database,
+          targetMessage.poll_id
+        );
+
+        if (
+          (await this.countMessagePollVotes(database, targetMessage.poll_id)) > 0
+        ) {
+          return { status: MESSAGE_MUTATION_STATUS.pollHasVotes };
+        }
+      }
+
+      const hasVideoUpdate = command.video !== undefined;
+      const nextVideoProvider = hasVideoUpdate
+        ? command.video?.provider ?? null
+        : targetMessage.external_video_provider;
+      const nextVideoExternalId = hasVideoUpdate
+        ? command.video?.externalId ?? null
+        : targetMessage.external_video_id;
+
+      const updatedMessageResult = await database.execute(sql`
+        update public.messages
+        set title = ${command.title},
+            content = ${command.content},
+            external_video_provider = ${nextVideoProvider},
+            external_video_id = ${nextVideoExternalId},
+            updated_at = timezone('utc', now())
+        where messages.id = ${command.messageId}
+        returning messages.id as message_id
+      `);
+      const updatedMessage = (updatedMessageResult.rows?.[0] ?? null) as
+        | UpdatedMessageRow
+        | null;
+
+      if (!updatedMessage?.message_id) {
+        return { status: MESSAGE_MUTATION_STATUS.forbidden };
+      }
+
+      let updatedPoll: MessagePollResult | undefined;
+
+      if (command.poll && targetMessage.poll_id) {
+        await database.execute(sql`
+          update public.message_polls
+          set question = ${command.poll.question},
+              allow_multiple_votes = ${command.poll.allowMultipleVotes},
+              updated_at = timezone('utc', now())
+          where message_polls.id = ${targetMessage.poll_id}
+        `);
+
+        await database.execute(sql`
+          delete from public.message_poll_options
+          where message_poll_options.poll_id = ${targetMessage.poll_id}
+        `);
+
+        const insertedOptionsResult = await database.execute(sql`
+          with inserted_options as (
+            insert into public.message_poll_options (poll_id, tribe_id, text, sort_order, created_at)
+            select
+              ${targetMessage.poll_id},
+              ${targetMessage.tribe_id},
+              poll_option.text,
+              poll_option.sort_order::integer,
+              timezone('utc', now())
+            from unnest(${sql.param(command.poll.options)}::text[]) with ordinality as poll_option(text, sort_order)
+            returning id, text, sort_order
+          )
+          select
+            coalesce(
+              json_agg(
+                json_build_object(
+                  'id', inserted_options.id,
+                  'text', inserted_options.text
+                )
+                order by inserted_options.sort_order
+              ),
+              '[]'::json
+            ) as poll_options
+          from inserted_options
+        `);
+        const insertedOptions =
+          ((insertedOptionsResult.rows?.[0] ?? null) as InsertedEditedOptionsRow | null)
+            ?.poll_options ?? [];
+
+        if (insertedOptions.length !== command.poll.options.length) {
+          throw new Error(MESSAGE_CREATION_DATABASE_ERROR.pollOptionsNotInserted);
+        }
+
+        updatedPoll = {
+          allowMultipleVotes: command.poll.allowMultipleVotes,
+          id: targetMessage.poll_id,
+          options: insertedOptions
+            .filter((option) => option.id && option.text)
+            .map((option) => ({
+              id: option.id ?? "",
+              percentage: 0,
+              selectedByViewer: false,
+              text: option.text ?? "",
+              voteCount: 0,
+            })),
+          question: command.poll.question,
+          totalVoteCount: 0,
+          viewerHasVoted: false,
+        };
+      }
+
+      const videoResult: MessageVideoResult | null | undefined = hasVideoUpdate
+        ? command.video ?? null
+        : undefined;
+
+      return {
+        content: command.content,
+        messageId: command.messageId,
+        ...(updatedPoll !== undefined ? { poll: updatedPoll } : {}),
+        status: MESSAGE_MUTATION_STATUS.updated,
+        title: command.title,
+        ...(videoResult !== undefined ? { video: videoResult } : {}),
+      };
     });
   }
 
@@ -868,6 +1079,57 @@ export class PostgresMessageMutationRepository
     `);
 
     return (targetResult.rows?.[0] ?? null) as PollTargetRow | null;
+  }
+
+  private async lockMessagePollForVoting(
+    database: RequestDatabase,
+    pollId: string
+  ): Promise<void> {
+    await database.execute(sql`
+      select pg_advisory_xact_lock_shared(
+        hashtext(${MESSAGE_POLL_ADVISORY_LOCK.namespace}),
+        hashtext(${pollId})
+      ) as lock_key
+    `);
+  }
+
+  private async lockMessagePollForOptionReplacement(
+    database: RequestDatabase,
+    pollId: string
+  ): Promise<void> {
+    await database.execute(sql`
+      select pg_advisory_xact_lock(
+        hashtext(${MESSAGE_POLL_ADVISORY_LOCK.namespace}),
+        hashtext(${pollId})
+      ) as lock_key
+    `);
+  }
+
+  private async lockMessagePollForViewerVoting(
+    database: RequestDatabase,
+    pollId: string,
+    userId: string
+  ): Promise<void> {
+    await database.execute(sql`
+      select pg_advisory_xact_lock(
+        hashtext(${pollId}),
+        hashtext(${userId})
+      ) as lock_key
+    `);
+  }
+
+  private async countMessagePollVotes(
+    database: RequestDatabase,
+    pollId: string
+  ): Promise<number> {
+    const result = await database.execute(sql`
+      select count(*) as poll_vote_count
+      from public.message_poll_votes
+      where message_poll_votes.poll_id = ${pollId}
+    `);
+    const row = (result.rows?.[0] ?? null) as PollVoteCountRow | null;
+
+    return Number(row?.poll_vote_count ?? 0);
   }
 
   private async readPoll(

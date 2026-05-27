@@ -21,6 +21,7 @@ import {
   HeartIcon,
   ListPlusIcon,
   MoreHorizontalIcon,
+  PencilIcon,
   PinIcon,
   TrashIcon,
   SendIcon,
@@ -171,6 +172,7 @@ const TRIBE_ROUND_COPY = {
   messageDeleteButton: "Eliminar mensaje",
   messageDeleteError: "No pudimos eliminar el mensaje.",
   messageDeleteSuccess: "Mensaje eliminado.",
+  messageEditButton: "Editar mensaje",
   messageEditCreatedAtButton: "Editar fecha de creación",
   messageEditCreatedAtCancel: "Cancelar",
   messageEditCreatedAtDescription:
@@ -181,6 +183,12 @@ const TRIBE_ROUND_COPY = {
   messageEditCreatedAtSubmit: "Guardar",
   messageEditCreatedAtSuccess: "Fecha del mensaje actualizada.",
   messageEditCreatedAtTitle: "Editar fecha del mensaje",
+  messageEditDescription:
+    "Editá el título y el contenido del mensaje. Los cambios se publican al guardar.",
+  messageEditError: "No pudimos actualizar el mensaje.",
+  messageEditSubmit: "Guardar",
+  messageEditSuccess: "Mensaje actualizado.",
+  messageEditTitle: "Editar mensaje",
   messageMoreActionsAriaLabel: "Acciones del mensaje",
   emptyDescription:
     "Todavía no hay mensajes. Las novedades, preguntas y recursos van a aparecer acá.",
@@ -456,6 +464,15 @@ type UpdateCreatedAtResponse = {
   message?: string;
 };
 
+type UpdateMessageContentResponse = {
+  content?: string;
+  message?: string;
+  messageId?: string;
+  poll?: TribeRoundMessageResult["poll"];
+  title?: string;
+  video?: TribeRoundMessageResult["video"];
+};
+
 type PendingLikeIntent = {
   baselineLikedByViewer: boolean;
   baselineLikeCount: number;
@@ -707,6 +724,43 @@ function getMissingMessageRequirements(input: {
   }
 
   return missingRequirements;
+}
+
+const EDITABLE_VIDEO_URL_TEMPLATE = {
+  loom: "https://www.loom.com/share/",
+  vimeo: "https://vimeo.com/",
+  vimeoHashQuery: "?h=",
+  vimeoHashSeparator: ":",
+  wistia: "https://fast.wistia.com/medias/",
+  youtube: "https://www.youtube.com/watch?v=",
+} as const;
+
+function buildEditableVideoUrl(video: {
+  externalId: string;
+  provider: string;
+}): string {
+  if (video.provider === VIDEO_PROVIDER.youtube) {
+    return EDITABLE_VIDEO_URL_TEMPLATE.youtube + video.externalId;
+  }
+
+  if (video.provider === VIDEO_PROVIDER.vimeo) {
+    const [vimeoId, vimeoHash] = video.externalId.split(
+      EDITABLE_VIDEO_URL_TEMPLATE.vimeoHashSeparator
+    );
+
+    return vimeoHash
+      ? EDITABLE_VIDEO_URL_TEMPLATE.vimeo +
+          vimeoId +
+          EDITABLE_VIDEO_URL_TEMPLATE.vimeoHashQuery +
+          vimeoHash
+      : EDITABLE_VIDEO_URL_TEMPLATE.vimeo + video.externalId;
+  }
+
+  if (video.provider === VIDEO_PROVIDER.wistia) {
+    return EDITABLE_VIDEO_URL_TEMPLATE.wistia + video.externalId;
+  }
+
+  return EDITABLE_VIDEO_URL_TEMPLATE.loom + video.externalId;
 }
 
 function safeParseVideoUrl(rawInput: string) {
@@ -1107,6 +1161,8 @@ function TribeRoundContent({
     string | null
   >(null);
   const [editingCreatedAtValue, setEditingCreatedAtValue] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const isEditingMessage = editingMessageId !== null;
   const optimisticReplyCounterRef = useRef(0);
   const isBusy = Boolean(pendingActionId);
   const selectedChannel =
@@ -1241,6 +1297,7 @@ function TribeRoundContent({
     setVideoUrlInput("");
     setSelectedChannelId("");
     setMessageComposerErrors([]);
+    setEditingMessageId(null);
   };
 
   const detectedVideo = isVideoComposerEnabled
@@ -1251,17 +1308,131 @@ function TribeRoundContent({
     isVideoComposerEnabled && trimmedVideoUrl.length > 0 && !detectedVideo;
 
   const handleMessageComposerOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
+    if (!isOpen) {
       resetMessageComposer();
     }
 
     setIsMessageComposerOpen(isOpen);
   };
 
+  const submitEditMessage = async ({
+    content,
+    messageId,
+    title,
+  }: {
+    content: string;
+    messageId: string;
+    title: string;
+  }) => {
+    const editingMessage = messages.find((message) => message.id === messageId);
+    const canEditPoll = Boolean(
+      editingMessage?.poll && editingMessage.poll.totalVoteCount === 0
+    );
+    const isVideoEdited = isVideoComposerEnabled || Boolean(editingMessage?.video);
+    const videoPayload: { url: string } | null | undefined = isVideoEdited
+      ? isVideoComposerEnabled
+        ? { url: videoUrlInput.trim() }
+        : null
+      : undefined;
+    const pollPayload = canEditPoll && isPollComposerEnabled
+      ? {
+          allowMultipleVotes: pollAllowsMultipleVotes,
+          options: pollOptions.map((option) => option.trim()).filter(Boolean),
+          question: pollQuestion.trim(),
+        }
+      : undefined;
+    const missingRequirements = getMissingMessageRequirements({
+      channelId: editingMessage?.channel.id ?? selectedChannelId,
+      content,
+      poll: pollPayload
+        ? {
+            enabled: true,
+            options: pollOptions,
+            question: pollQuestion,
+          }
+        : undefined,
+      title,
+      video: isVideoComposerEnabled
+        ? { enabled: true, url: videoUrlInput }
+        : undefined,
+    });
+
+    if (missingRequirements.length > 0) {
+      setMessageComposerErrors(missingRequirements);
+      return;
+    }
+
+    const actionTribeSlug = tribeSlug;
+    const actionToken = currentActionTokenRef.current + 1;
+
+    currentActionTokenRef.current = actionToken;
+    setPendingActionId(messageId);
+
+    try {
+      const response = await submitJsonRequest<UpdateMessageContentResponse>(
+        TRIBE_ROUND_ENDPOINT.messageItem(actionTribeSlug, messageId),
+        {
+          content,
+          ...(pollPayload ? { poll: pollPayload } : {}),
+          title,
+          ...(videoPayload !== undefined ? { video: videoPayload } : {}),
+        },
+        undefined,
+        TRIBE_ROUND_FORM.patchMethod
+      );
+
+      if (!isCurrentAction(actionToken, actionTribeSlug)) {
+        return;
+      }
+
+      const appliedTitle =
+        typeof response.title === "string" ? response.title : title;
+      const appliedContent =
+        typeof response.content === "string" ? response.content : content;
+
+      setMessages((currentMessages) =>
+        currentMessages.map((message) =>
+          message.id === messageId
+            ? {
+                ...message,
+                content: appliedContent,
+                ...(response.poll !== undefined ? { poll: response.poll } : {}),
+                title: appliedTitle,
+                ...(response.video !== undefined ? { video: response.video } : {}),
+              }
+            : message
+        )
+      );
+      resetMessageComposer();
+      setIsMessageComposerOpen(false);
+      toast.success(response.message ?? TRIBE_ROUND_COPY.messageEditSuccess);
+    } catch (error) {
+      if (!isCurrentAction(actionToken, actionTribeSlug)) {
+        return;
+      }
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : TRIBE_ROUND_COPY.messageEditError
+      );
+    } finally {
+      if (isCurrentAction(actionToken, actionTribeSlug)) {
+        setPendingActionId(null);
+      }
+    }
+  };
+
   const handleCreateMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const title = messageTitle.trim();
     const content = messageContent.trim();
+
+    if (editingMessageId) {
+      await submitEditMessage({ content, messageId: editingMessageId, title });
+      return;
+    }
+
     const missingRequirements = getMissingMessageRequirements({
       channelId: selectedChannelId,
       content,
@@ -2175,6 +2346,28 @@ function TribeRoundContent({
     }
   };
 
+  const openEditMessageDialog = (message: TribeRoundMessageResult) => {
+    resetMessageComposer();
+    setEditingMessageId(message.id);
+    setMessageTitle(message.title ?? "");
+    setMessageContent(message.content);
+    setSelectedChannelId(message.channel.id);
+
+    if (message.video) {
+      setIsVideoComposerEnabled(true);
+      setVideoUrlInput(buildEditableVideoUrl(message.video));
+    }
+
+    if (message.poll && message.poll.totalVoteCount === 0) {
+      setIsPollComposerEnabled(true);
+      setPollQuestion(message.poll.question);
+      setPollOptions(message.poll.options.map((option) => option.text));
+      setPollAllowsMultipleVotes(message.poll.allowMultipleVotes);
+    }
+
+    setIsMessageComposerOpen(true);
+  };
+
   const handleDeleteMessage = async (message: TribeRoundMessageResult) => {
     setPendingActionId(message.id);
 
@@ -2482,11 +2675,12 @@ function TribeRoundContent({
     shouldStopDetailsOpening = false
   ) => {
     const canDelete = Boolean(message.permissions?.canDelete);
+    const canEdit = Boolean(message.permissions?.canEdit);
     const canEditCreatedAt = Boolean(
       round.viewerPermissions.canEditMessageCreatedAt
     );
 
-    if (!canDelete && !canEditCreatedAt) {
+    if (!canDelete && !canEdit && !canEditCreatedAt) {
       return null;
     }
 
@@ -2512,6 +2706,23 @@ function TribeRoundContent({
           align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}
           className={styles.TribeRound__messageMenuContent}
         >
+          {canEdit ? (
+            <DropdownMenuItem
+              className={styles.TribeRound__messageMenuItem}
+              disabled={isBusy}
+              onClick={(event) => {
+                if (shouldStopDetailsOpening) {
+                  stopMessageDetailsOpening(event);
+                }
+              }}
+              onSelect={() => {
+                openEditMessageDialog(message);
+              }}
+            >
+              <PencilIcon />
+              {TRIBE_ROUND_COPY.messageEditButton}
+            </DropdownMenuItem>
+          ) : null}
           {canEditCreatedAt ? (
             <DropdownMenuItem
               className={styles.TribeRound__messageMenuItem}
@@ -2597,12 +2808,16 @@ function TribeRoundContent({
           >
             <DialogHeader className={styles.TribeRound__composerDialogHeader}>
               <DialogTitle className={styles.TribeRound__composerDialogTitle}>
-                {TRIBE_ROUND_COPY.messageComposerDialogTitle}
+                {isEditingMessage
+                  ? TRIBE_ROUND_COPY.messageEditTitle
+                  : TRIBE_ROUND_COPY.messageComposerDialogTitle}
               </DialogTitle>
               <DialogDescription
                 className={styles.TribeRound__composerDialogDescription}
               >
-                {TRIBE_ROUND_COPY.messageComposerDescription}
+                {isEditingMessage
+                  ? TRIBE_ROUND_COPY.messageEditDescription
+                  : TRIBE_ROUND_COPY.messageComposerDescription}
               </DialogDescription>
               <div className={styles.TribeRound__composerIdentity}>
                 <Avatar className={styles.TribeRound__composerDialogAvatar}>
@@ -2678,18 +2893,20 @@ function TribeRoundContent({
                         value={pollQuestion}
                       />
                     </label>
-                    <Button
-                      disabled={isBusy}
-                      onClick={() => {
-                        setIsPollComposerEnabled(false);
-                      }}
-                      type={TRIBE_ROUND_FORM.buttonType}
-                      variant={TRIBE_ROUND_FORM.ghostVariant}
-                      aria-label={TRIBE_ROUND_COPY.pollRemoveButton}
-                      className={styles.TribeRound__pollComposerCloseButton}
-                    >
-                      <XIcon />
-                    </Button>
+                    {!isEditingMessage ? (
+                      <Button
+                        disabled={isBusy}
+                        onClick={() => {
+                          setIsPollComposerEnabled(false);
+                        }}
+                        type={TRIBE_ROUND_FORM.buttonType}
+                        variant={TRIBE_ROUND_FORM.ghostVariant}
+                        aria-label={TRIBE_ROUND_COPY.pollRemoveButton}
+                        className={styles.TribeRound__pollComposerCloseButton}
+                      >
+                        <XIcon />
+                      </Button>
+                    ) : null}
                   </div>
                   <div className={styles.TribeRound__pollComposerOptions}>
                     {pollOptions.map((option, optionIndex) => (
@@ -2826,7 +3043,7 @@ function TribeRoundContent({
                   </section>
                 ) : null}
                 <div className={styles.TribeRound__composerActions}>
-                  {!isPollComposerEnabled ? (
+                  {!isEditingMessage && !isPollComposerEnabled ? (
                     <Button
                       aria-label={TRIBE_ROUND_COPY.pollAddButton}
                       className={styles.TribeRound__pollAddButton}
@@ -2856,6 +3073,7 @@ function TribeRoundContent({
                       <VideoIcon />
                     </Button>
                   ) : null}
+                  {!isEditingMessage ? (
                   <div className={styles.TribeRound__channelPicker}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -2900,6 +3118,7 @@ function TribeRoundContent({
                     </DropdownMenuContent>
                   </DropdownMenu>
                   </div>
+                  ) : null}
                 </div>
                 {hasMessageComposerErrors ? (
                   <div
@@ -2949,8 +3168,10 @@ function TribeRoundContent({
                   disabled={isBusy}
                   type={TRIBE_ROUND_FORM.submitType}
                 >
-                  <SendIcon />
-                  {TRIBE_ROUND_COPY.messageButton}
+                  {isEditingMessage ? null : <SendIcon />}
+                  {isEditingMessage
+                    ? TRIBE_ROUND_COPY.messageEditSubmit
+                    : TRIBE_ROUND_COPY.messageButton}
                 </Button>
               </DialogFooter>
             </form>

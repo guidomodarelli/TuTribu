@@ -1793,6 +1793,7 @@ describe("TribeRound", () => {
               ...round.messages[0],
               permissions: {
                 canDelete: true,
+                canEdit: false,
               },
             },
           ],
@@ -1839,6 +1840,7 @@ describe("TribeRound", () => {
               createdAt: originalCreatedAt,
               permissions: {
                 canDelete: false,
+                canEdit: false,
               },
             },
           ],

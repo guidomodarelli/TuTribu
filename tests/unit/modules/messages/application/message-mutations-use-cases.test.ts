@@ -4,6 +4,7 @@ import { deleteTribeMessage } from "@/src/modules/messages/application/use-cases
 import { toggleMessageLike } from "@/src/modules/messages/application/use-cases/toggle-message-like-use-case";
 import { toggleMessagePin } from "@/src/modules/messages/application/use-cases/toggle-message-pin-use-case";
 import { submitMessagePollVote } from "@/src/modules/messages/application/use-cases/manage-message-polls-use-cases";
+import { updateTribeMessageContent } from "@/src/modules/messages/application/use-cases/update-tribe-message-content-use-case";
 import { updateTribeMessageCreatedAt } from "@/src/modules/messages/application/use-cases/update-tribe-message-created-at-use-case";
 
 describe("message mutation use cases", () => {
@@ -506,6 +507,76 @@ describe("message mutation use cases", () => {
       })
     ).resolves.toEqual({ status: "invalid_content" });
     expect(updateCreatedAt).not.toHaveBeenCalled();
+  });
+
+  it("updates the message content after normalizing the command", async () => {
+    const updateContent = jest.fn(async () => ({
+      content: "Mensaje editado",
+      messageId: "message-1",
+      status: "updated" as const,
+      title: "Titulo editado",
+    }));
+    const execute = updateTribeMessageContent({
+      messageContentUpdateRepository: { updateContent },
+    });
+
+    await expect(
+      execute({
+        content: "  Mensaje editado  ",
+        messageId: " message-1 ",
+        title: "  Titulo editado  ",
+        tribeSlug: " matematica-pro ",
+        userId: " member-1 ",
+      })
+    ).resolves.toEqual({
+      content: "Mensaje editado",
+      messageId: "message-1",
+      status: "updated",
+      title: "Titulo editado",
+    });
+    expect(updateContent).toHaveBeenCalledWith({
+      content: "Mensaje editado",
+      messageId: "message-1",
+      title: "Titulo editado",
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+  });
+
+  it("rejects an empty title before calling the message content repository", async () => {
+    const updateContent = jest.fn();
+    const execute = updateTribeMessageContent({
+      messageContentUpdateRepository: { updateContent },
+    });
+
+    await expect(
+      execute({
+        content: "Mensaje editado",
+        messageId: "message-1",
+        title: "   ",
+        tribeSlug: "matematica-pro",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({ status: "invalid_content" });
+    expect(updateContent).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty content before calling the message content repository", async () => {
+    const updateContent = jest.fn();
+    const execute = updateTribeMessageContent({
+      messageContentUpdateRepository: { updateContent },
+    });
+
+    await expect(
+      execute({
+        content: "   ",
+        messageId: "message-1",
+        title: "Titulo",
+        tribeSlug: "matematica-pro",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({ status: "invalid_content" });
+    expect(updateContent).not.toHaveBeenCalled();
   });
 
   it("deduplicates selected poll options before voting", async () => {

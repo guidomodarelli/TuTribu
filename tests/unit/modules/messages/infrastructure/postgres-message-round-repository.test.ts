@@ -128,6 +128,7 @@ describe("PostgresMessageRoundRepository", () => {
           likedByViewer: true,
           permissions: {
             canDelete: true,
+            canEdit: false,
           },
           likeCount: 2,
           isPinned: true,

@@ -288,6 +288,13 @@
       "when": 1779775200000,
       "tag": "20260526100000_allow_subscription_price_deletion_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1779861600000,
+      "tag": "20260527100000_allow_authors_to_update_own_messages",
+      "breakpoints": true
     }
   ]
 }

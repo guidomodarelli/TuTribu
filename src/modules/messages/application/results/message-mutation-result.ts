@@ -1,6 +1,7 @@
 import type { MESSAGE_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
 import type {
   MessagePollResult,
+  MessageVideoResult,
   TribeRoundReplyResult,
   TribeRoundMessageResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
@@ -70,6 +71,26 @@ export type MessageCreatedAtUpdateResult =
         | typeof MESSAGE_MUTATION_STATUS.forbidden
         | typeof MESSAGE_MUTATION_STATUS.invalidContent
         | typeof MESSAGE_MUTATION_STATUS.notFound;
+    };
+
+export type MessageContentUpdateResult =
+  | {
+      content: string;
+      messageId: string;
+      poll?: MessagePollResult | null;
+      status: typeof MESSAGE_MUTATION_STATUS.updated;
+      title: string;
+      video?: MessageVideoResult | null;
+    }
+  | {
+      status:
+        | typeof MESSAGE_MUTATION_STATUS.forbidden
+        | typeof MESSAGE_MUTATION_STATUS.invalidContent
+        | typeof MESSAGE_MUTATION_STATUS.invalidPoll
+        | typeof MESSAGE_MUTATION_STATUS.invalidVideoUrl
+        | typeof MESSAGE_MUTATION_STATUS.notFound
+        | typeof MESSAGE_MUTATION_STATUS.pollHasVotes
+        | typeof MESSAGE_MUTATION_STATUS.pollMissing;
     };
 
 export type MessagePollMutationResult =

@@ -103,6 +103,7 @@ describe("PostgresMessageMutationRepository", () => {
         poll: null,
         permissions: {
           canDelete: true,
+          canEdit: true,
         },
         title: "Anuncio inicial",
         video: null,
@@ -519,8 +520,9 @@ describe("PostgresMessageMutationRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [{ option_id: "option-2" }] })
       .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
+      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
+      .mockResolvedValueOnce({ rows: [{ option_id: "option-2" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ id: "vote-1" }] })
       .mockResolvedValueOnce({
@@ -566,17 +568,20 @@ describe("PostgresMessageMutationRepository", () => {
       status: "voted",
     });
 
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+      "pg_advisory_xact_lock_shared"
+    );
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
       "pg_advisory_xact_lock"
     );
-    expect(getSqlQuery(execute.mock.calls[1]?.[0])).toMatchObject({
+    expect(getSqlQuery(execute.mock.calls[3]?.[0])).toMatchObject({
       params: ["poll-1", "option-2"],
       sql: expect.stringContaining("any(array[$2::uuid]::uuid[])"),
     });
-    expect(getSqlText(execute.mock.calls[3]?.[0])).toContain(
+    expect(getSqlText(execute.mock.calls[4]?.[0])).toContain(
       "delete from public.message_poll_votes"
     );
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
       "hashtext"
     );
   });
@@ -676,10 +681,11 @@ describe("PostgresMessageMutationRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
+      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
       .mockResolvedValueOnce({
         rows: [{ option_id: "option-1" }, { option_id: "option-2" }],
       })
-      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ id: "vote-1" }] })
       .mockResolvedValueOnce({ rows: [{ id: "vote-2" }] })
@@ -722,17 +728,20 @@ describe("PostgresMessageMutationRepository", () => {
       status: "voted",
     });
 
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+      "pg_advisory_xact_lock_shared"
+    );
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
       "pg_advisory_xact_lock"
     );
-    expect(getSqlQuery(execute.mock.calls[1]?.[0])).toMatchObject({
+    expect(getSqlQuery(execute.mock.calls[3]?.[0])).toMatchObject({
       params: ["poll-1", "option-1", "option-2"],
       sql: expect.stringContaining("any(array[$2::uuid, $3::uuid]::uuid[])"),
     });
-    expect(getSqlText(execute.mock.calls[3]?.[0])).toContain(
+    expect(getSqlText(execute.mock.calls[4]?.[0])).toContain(
       "delete from public.message_poll_votes"
     );
-    expect(getSqlText(execute.mock.calls[4]?.[0])).toContain(
+    expect(getSqlText(execute.mock.calls[5]?.[0])).toContain(
       "insert into public.message_poll_votes"
     );
   });
@@ -861,6 +870,353 @@ describe("PostgresMessageMutationRepository", () => {
         messageId: "message-1",
         tribeSlug: "matematica-pro",
         userId: "tribemate-1",
+      })
+    ).resolves.toEqual({ status: "forbidden" });
+  });
+
+  it("updates the message title and content through the author-guarded statement", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_edit: true,
+            external_video_id: null,
+            external_video_provider: null,
+            message_id: "message-1",
+            poll_allow_multiple_votes: null,
+            poll_id: null,
+            poll_question: null,
+            poll_vote_count: 0,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ message_id: "message-1" }] });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateContent({
+        content: "Mensaje editado",
+        messageId: "message-1",
+        title: "Titulo editado",
+        tribeSlug: "matematica-pro",
+        userId: "author-1",
+      })
+    ).resolves.toEqual({
+      content: "Mensaje editado",
+      messageId: "message-1",
+      status: "updated",
+      title: "Titulo editado",
+    });
+
+    expect(execute).toHaveBeenCalledTimes(2);
+
+    const selectSql = getSqlText(execute.mock.calls[0]?.[0]);
+    const updateSql = getSqlText(execute.mock.calls[1]?.[0]);
+
+    expect(selectSql).toContain("messages.author_id =");
+    expect(selectSql).toContain("public.is_active_tribe_member(messages.tribe_id)");
+    expect(selectSql).toContain("from public.message_poll_votes");
+    expect(updateSql).toContain("update public.messages");
+    expect(updateSql).toContain("set title =");
+    expect(updateSql).toContain("content =");
+    expect(updateSql).toContain("external_video_provider =");
+    expect(updateSql).toContain("updated_at = timezone('utc', now())");
+    expect(updateSql).toContain("returning messages.id as message_id");
+  });
+
+  it("returns forbidden when RLS blocks the message content update", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_edit: true,
+            external_video_id: null,
+            external_video_provider: null,
+            message_id: "message-1",
+            poll_allow_multiple_votes: null,
+            poll_id: null,
+            poll_question: null,
+            poll_vote_count: 0,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateContent({
+        content: "Mensaje editado",
+        messageId: "message-1",
+        title: "Titulo editado",
+        tribeSlug: "matematica-pro",
+        userId: "author-1",
+      })
+    ).resolves.toEqual({ status: "forbidden" });
+  });
+
+  it("replaces the poll options when the poll has no votes yet", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_edit: true,
+            external_video_id: null,
+            external_video_provider: null,
+            message_id: "message-1",
+            poll_allow_multiple_votes: false,
+            poll_id: "poll-1",
+            poll_question: "Vieja pregunta",
+            poll_vote_count: 0,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
+      .mockResolvedValueOnce({ rows: [{ poll_vote_count: 0 }] })
+      .mockResolvedValueOnce({ rows: [{ message_id: "message-1" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            poll_options: [
+              { id: "option-new-1", text: "A" },
+              { id: "option-new-2", text: "B" },
+            ],
+          },
+        ],
+      });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateContent({
+        content: "Mensaje editado",
+        messageId: "message-1",
+        poll: {
+          allowMultipleVotes: true,
+          options: ["A", "B"],
+          question: "Nueva pregunta",
+        },
+        title: "Titulo editado",
+        tribeSlug: "matematica-pro",
+        userId: "author-1",
+      })
+    ).resolves.toMatchObject({
+      content: "Mensaje editado",
+      messageId: "message-1",
+      poll: {
+        allowMultipleVotes: true,
+        id: "poll-1",
+        options: [
+          { id: "option-new-1", text: "A" },
+          { id: "option-new-2", text: "B" },
+        ],
+        question: "Nueva pregunta",
+        totalVoteCount: 0,
+        viewerHasVoted: false,
+      },
+      status: "updated",
+      title: "Titulo editado",
+    });
+
+    expect(execute).toHaveBeenCalledTimes(7);
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+      "pg_advisory_xact_lock"
+    );
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
+      "from public.message_poll_votes"
+    );
+    expect(getSqlText(execute.mock.calls[3]?.[0])).toContain(
+      "update public.messages"
+    );
+    expect(getSqlText(execute.mock.calls[4]?.[0])).toContain(
+      "update public.message_polls"
+    );
+    expect(getSqlText(execute.mock.calls[5]?.[0])).toContain(
+      "delete from public.message_poll_options"
+    );
+    expect(getSqlText(execute.mock.calls[6]?.[0])).toContain(
+      "insert into public.message_poll_options"
+    );
+  });
+
+  it("returns poll_has_votes when a vote arrives before poll option replacement", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_edit: true,
+            external_video_id: null,
+            external_video_provider: null,
+            message_id: "message-1",
+            poll_allow_multiple_votes: false,
+            poll_id: "poll-1",
+            poll_question: "Vieja pregunta",
+            poll_vote_count: 0,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ lock_key: "1" }] })
+      .mockResolvedValueOnce({ rows: [{ poll_vote_count: 1 }] });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateContent({
+        content: "Mensaje editado",
+        messageId: "message-1",
+        poll: {
+          allowMultipleVotes: true,
+          options: ["A", "B"],
+          question: "Nueva pregunta",
+        },
+        title: "Titulo editado",
+        tribeSlug: "matematica-pro",
+        userId: "author-1",
+      })
+    ).resolves.toEqual({ status: "poll_has_votes" });
+
+    expect(execute).toHaveBeenCalledTimes(3);
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+      "pg_advisory_xact_lock"
+    );
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
+      "from public.message_poll_votes"
+    );
+  });
+
+  it("returns poll_has_votes when the poll already received votes", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          can_edit: true,
+          external_video_id: null,
+          external_video_provider: null,
+          message_id: "message-1",
+          poll_allow_multiple_votes: false,
+          poll_id: "poll-1",
+          poll_question: "Vieja pregunta",
+          poll_vote_count: 3,
+          tribe_id: "tribe-1",
+        },
+      ],
+    });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateContent({
+        content: "Mensaje editado",
+        messageId: "message-1",
+        poll: {
+          allowMultipleVotes: true,
+          options: ["A", "B"],
+          question: "Nueva pregunta",
+        },
+        title: "Titulo editado",
+        tribeSlug: "matematica-pro",
+        userId: "author-1",
+      })
+    ).resolves.toEqual({ status: "poll_has_votes" });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns poll_missing when there is no poll attached to edit", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          can_edit: true,
+          external_video_id: null,
+          external_video_provider: null,
+          message_id: "message-1",
+          poll_allow_multiple_votes: null,
+          poll_id: null,
+          poll_question: null,
+          poll_vote_count: 0,
+          tribe_id: "tribe-1",
+        },
+      ],
+    });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateContent({
+        content: "Mensaje editado",
+        messageId: "message-1",
+        poll: {
+          allowMultipleVotes: false,
+          options: ["A", "B"],
+          question: "Nueva pregunta",
+        },
+        title: "Titulo editado",
+        tribeSlug: "matematica-pro",
+        userId: "author-1",
+      })
+    ).resolves.toEqual({ status: "poll_missing" });
+  });
+
+  it("returns not_found when the message to edit does not exist", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({ rows: [] });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateContent({
+        content: "Mensaje editado",
+        messageId: "missing-message",
+        title: "Titulo editado",
+        tribeSlug: "matematica-pro",
+        userId: "author-1",
+      })
+    ).resolves.toEqual({ status: "not_found" });
+  });
+
+  it("returns forbidden when the viewer is not the author of the message", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          can_edit: false,
+          external_video_id: null,
+          external_video_provider: null,
+          message_id: "message-1",
+          poll_allow_multiple_votes: null,
+          poll_id: null,
+          poll_question: null,
+          poll_vote_count: 0,
+          tribe_id: "tribe-1",
+        },
+      ],
+    });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateContent({
+        content: "Mensaje editado",
+        messageId: "message-1",
+        title: "Titulo editado",
+        tribeSlug: "matematica-pro",
+        userId: "other-member",
       })
     ).resolves.toEqual({ status: "forbidden" });
   });

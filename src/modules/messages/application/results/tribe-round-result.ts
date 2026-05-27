@@ -62,6 +62,7 @@ export type MessageVideoResult = {
 
 export type TribeRoundMessagePermissionsResult = {
   canDelete: boolean;
+  canEdit: boolean;
 };
 
 export type TribeRoundSharedMessageResult = {

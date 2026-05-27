@@ -66,7 +66,7 @@ function mergeTribeRoundWithViewerState({
 }): TribeRoundResult {
   const likedMessageIds = new Set(viewerState.likedMessageIds);
   const selectedPollOptionIds = new Set(viewerState.selectedPollOptionIds);
-  const canDeleteOwnMessages = Boolean(
+  const canManageOwnMessages = Boolean(
     viewerState.viewerPermissions.canCreateMessage
   );
   const canDeleteStaffMessages = Boolean(
@@ -77,14 +77,16 @@ function mergeTribeRoundWithViewerState({
     activeChannelId: sharedData.activeChannelId,
     channels: sharedData.channels,
     messages: sharedData.messages.map((message) => {
+      const isViewerAuthor = message.author.id === viewerState.viewerId;
+
       return {
         ...message,
         hasLoadedReplies: false,
         likedByViewer: likedMessageIds.has(message.id),
         permissions: {
           canDelete:
-            (message.author.id === viewerState.viewerId && canDeleteOwnMessages) ||
-            canDeleteStaffMessages,
+            (isViewerAuthor && canManageOwnMessages) || canDeleteStaffMessages,
+          canEdit: isViewerAuthor && canManageOwnMessages,
         },
         poll: message.poll
           ? applyViewerPollState({

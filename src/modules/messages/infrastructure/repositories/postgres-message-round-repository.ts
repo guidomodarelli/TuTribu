@@ -188,7 +188,7 @@ function mapRowsToRound(
 ): TribeRoundResult {
   const likedMessageIds = new Set(viewerState.likedMessageIds);
   const selectedPollOptionIds = new Set(viewerState.selectedPollOptionIds);
-  const canDeleteOwnMessages = Boolean(
+  const canManageOwnMessages = Boolean(
     viewerState.viewerPermissions.canCreateMessage
   );
   const canDeleteStaffMessages = Boolean(
@@ -208,6 +208,7 @@ function mapRowsToRound(
             })),
           }
         : null;
+      const isViewerAuthor = message.author.id === viewerState.viewerId;
 
       return {
         ...message,
@@ -215,8 +216,8 @@ function mapRowsToRound(
         likedByViewer: likedMessageIds.has(message.id),
         permissions: {
           canDelete:
-            (message.author.id === viewerState.viewerId && canDeleteOwnMessages) ||
-            canDeleteStaffMessages,
+            (isViewerAuthor && canManageOwnMessages) || canDeleteStaffMessages,
+          canEdit: isViewerAuthor && canManageOwnMessages,
         },
         poll: poll
           ? {
