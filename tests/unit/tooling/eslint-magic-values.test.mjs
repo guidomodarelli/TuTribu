@@ -214,15 +214,28 @@ describe("magic values lint rules", () => {
     expect(result.messages).toHaveLength(0);
   });
 
-  it("rejects behavioral strings inside JSX props and handlers", async () => {
+  it("allows single-character strings and React prop values for magic strings", async () => {
     const eslint = await createMagicStringsEslint();
 
     const [result] = await eslint.lintText(
       `
         export function TribeMenu() {
           return (
-            <DropdownMenuContent side="top" align="start">
-              <button onClick={() => router.push("/-/crear")}>
+            <DropdownMenuContent
+              side="top"
+              align="start"
+              data-size={"compact"}
+              data-state="open"
+            >
+              <button
+                aria-label="Abrir menu"
+                data-separator="-"
+                onClick={() => items.join(" ")}
+                title={\`\${copy.titlePrefix}\${
+                  copy.title ? \`: \${copy.title}\` : ""
+                }\`}
+                type="button"
+              >
                 Abrir
               </button>
             </DropdownMenuContent>
@@ -234,12 +247,29 @@ describe("magic values lint rules", () => {
       }
     );
 
-    expect(result.messages).toHaveLength(3);
-    expect(result.messages.map((message) => message.ruleId)).toEqual([
-      "local/no-magic-strings",
-      "local/no-magic-strings",
-      "local/no-magic-strings",
-    ]);
+    expect(result.messages).toHaveLength(0);
+  });
+
+  it("rejects behavioral strings inside JSX handlers", async () => {
+    const eslint = await createMagicStringsEslint();
+
+    const [result] = await eslint.lintText(
+      `
+        export function TribeMenu() {
+          return (
+            <button onClick={() => router.push("/-/crear")}>
+              Abrir
+            </button>
+          );
+        }
+      `,
+      {
+        filePath: "src/example.tsx",
+      }
+    );
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]?.ruleId).toBe("local/no-magic-strings");
   });
 
   it("rejects inline strings used as statuses, routes and error/control messages", async () => {

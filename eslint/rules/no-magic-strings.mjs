@@ -9,17 +9,6 @@ const TYPEOF_RESULT_LITERALS = new Set([
   "symbol",
   "undefined",
 ]);
-const USER_FACING_JSX_ATTRIBUTES = new Set([
-  "alt",
-  "aria-description",
-  "aria-label",
-  "aria-placeholder",
-  "aria-roledescription",
-  "aria-valuetext",
-  "label",
-  "placeholder",
-  "title",
-]);
 const NEXT_FONT_IMPORT_SOURCE_PREFIX = "next/font/";
 const SVG_ELEMENT_NAMES = new Set([
   "circle",
@@ -41,8 +30,20 @@ function isNonEmptyStringLiteral(node) {
   return typeof node.value === "string" && node.value.length > 0;
 }
 
+function isSingleCharacterStringLiteral(node) {
+  return typeof node.value === "string" && node.value.length === 1;
+}
+
 function hasStaticTemplateText(node) {
   return node.quasis.some((quasi) => quasi.value.cooked?.length > 0);
+}
+
+function getNoSubstitutionTemplateText(node) {
+  if (node.expressions.length > 0 || node.quasis.length !== 1) {
+    return null;
+  }
+
+  return node.quasis[0]?.value.cooked ?? null;
 }
 
 function isImportedFromNextFont(callExpression, calleeName) {
@@ -111,7 +112,7 @@ function isInsideNextFontLoaderCall(node) {
   return false;
 }
 
-function isVisibleJsxCopyLiteral(node) {
+function isJsxAttributeValueLiteral(node) {
   let current = node;
 
   while (current) {
@@ -122,14 +123,31 @@ function isVisibleJsxCopyLiteral(node) {
     }
 
     if (
-      parent.type === "JSXAttribute" &&
-      parent.value === current &&
-      parent.name?.type === "JSXIdentifier"
+      parent.type === "ArrowFunctionExpression" ||
+      parent.type === "FunctionDeclaration" ||
+      parent.type === "FunctionExpression"
     ) {
-      return (
-        parent.name.name === "className" ||
-        USER_FACING_JSX_ATTRIBUTES.has(parent.name.name)
-      );
+      return false;
+    }
+
+    if (parent.type === "JSXAttribute" && parent.value === current) {
+      return true;
+    }
+
+    current = parent;
+  }
+
+  return false;
+}
+
+function isVisibleJsxCopyLiteral(node) {
+  let current = node;
+
+  while (current) {
+    const parent = getParent(current);
+
+    if (!parent) {
+      return false;
     }
 
     if (
@@ -292,6 +310,7 @@ function shouldIgnoreStringLikeNode(node) {
   return (
     isImportOrExportSource(node) ||
     isTypeOnlyLiteral(node) ||
+    isJsxAttributeValueLiteral(node) ||
     isVisibleJsxCopyLiteral(node) ||
     isSvgMarkupLiteral(node) ||
     isObjectKey(node) ||
@@ -322,6 +341,7 @@ const noMagicStringsRule = {
         }
 
         if (
+          isSingleCharacterStringLiteral(node) ||
           isDirectiveLiteral(node) ||
           isTypeofComparisonLiteral(node) ||
           shouldIgnoreStringLikeNode(node)
@@ -335,10 +355,14 @@ const noMagicStringsRule = {
         });
       },
       TemplateLiteral(node) {
-        if (node.expressions.length === 0 && node.quasis.length === 1) {
-          const [quasi] = node.quasis;
+        const noSubstitutionTemplateText = getNoSubstitutionTemplateText(node);
 
-          if (!quasi.value.cooked || quasi.value.cooked.length === 0) {
+        if (noSubstitutionTemplateText !== null) {
+          if (noSubstitutionTemplateText.length === 0) {
+            return;
+          }
+
+          if (noSubstitutionTemplateText.length === 1) {
             return;
           }
         } else if (!hasStaticTemplateText(node)) {
