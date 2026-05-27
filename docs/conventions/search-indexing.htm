@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search Indexing</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Search Indexing</div>
+  <div class="doc-sub">Criterios para exponer rutas publicas a crawlers sin indexar superficies internas.</div>
+  <div class="doc-meta"><span>Scope: Metadata routes</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+  <p>Search crawlers must receive first-class metadata routes from <code>app/robots.ts</code> and <code>app/sitemap.ts</code>. These routes prevent technical paths such as <code>/robots.txt</code> and <code>/sitemap.xml</code> from falling through to the dynamic tribe slug route.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Indexable Surface</div>
+  <p>The sitemap should expose only stable public URLs that are safe to discover without user context. Keep authenticated, invitation, management, and tribe-internal sections out of the sitemap by default.</p>
+  <div class="callout c-info"><strong>Robots is a crawler signal, not an authorization layer.</strong> Security must continue to live in authentication, authorization, route handlers, and data access rules.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Disallowed Routes</div>
+  <p>The generated <code>robots.txt</code> must disallow:</p>
+  <ul>
+    <li><code>/api/</code> for backend route handlers.</li>
+    <li><code>/auth/</code> for authentication flows.</li>
+    <li><code>/*/invitar</code> for invitation URLs.</li>
+    <li>Internal tribe sections such as <code>/*/tribu</code>, <code>/*/bienvenida</code>, <code>/*/canales</code>, <code>/*/cursos</code>, <code>/*/eventos</code>, <code>/*/historia</code>, <code>/*/invitaciones</code>, <code>/*/precios</code>, <code>/*/suscripcion</code>, and <code>/*/meritos</code>.</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Reserved Slugs</div>
+  <p>Technical metadata route names must stay reserved in <code>src/modules/tribes/domain/value-objects/tribe-slug.ts</code>. Reserve both base names and normalized file-like names, including <code>robots</code>, <code>robots-txt</code>, <code>sitemap</code>, and <code>sitemap-xml</code>.</p>
+</div>
+</body>
+</html>

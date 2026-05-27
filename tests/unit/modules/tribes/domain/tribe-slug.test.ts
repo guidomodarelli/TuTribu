@@ -24,6 +24,10 @@ describe("tribe slug helpers", () => {
     expect(isReservedTribeSlug("api")).toBe(true);
     expect(isReservedTribeSlug("auth")).toBe(true);
     expect(isReservedTribeSlug("tribu")).toBe(true);
+    expect(isReservedTribeSlug("robots")).toBe(true);
+    expect(isReservedTribeSlug("robots-txt")).toBe(true);
+    expect(isReservedTribeSlug("sitemap")).toBe(true);
+    expect(isReservedTribeSlug("sitemap-xml")).toBe(true);
     expect(isReservedTribeSlug("-")).toBe(true);
   });
 

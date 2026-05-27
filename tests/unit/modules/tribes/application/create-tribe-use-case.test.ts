@@ -140,13 +140,13 @@ describe("createTribe", () => {
       execute({
         creatorEmail: "leader@example.com",
         creatorId: "member-1",
-        name: "Crear",
-        slug: "crear",
+        name: "Robots",
+        slug: "robots",
       })
     ).resolves.toEqual({
       status: "slug-conflict",
       message: "Ese slug ya esta en uso. Puedes probar con la sugerencia.",
-      suggestedSlug: "crear-2",
+      suggestedSlug: "robots-2",
     });
   });
 
