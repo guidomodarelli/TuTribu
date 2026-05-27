@@ -6,11 +6,18 @@
  */
 
 /**
- * Lists package scripts that must pass before Codex can stop.
+ * Lists package scripts that must pass before Codex can stop for product code.
  *
  * @type {string[]}
  */
 const QUALITY_GATE_SCRIPTS = ["typecheck", "lint", "build", "test"];
+
+/**
+ * Lists package scripts that must pass for test-only changes.
+ *
+ * @type {string[]}
+ */
+const TEST_ONLY_QUALITY_GATE_SCRIPTS = ["typecheck", "lint", "test"];
 
 /**
  * Lists file extensions that can affect product code or validation behavior.
@@ -157,10 +164,11 @@ function resolvePackageManagerRunner(packageManager, spawnSyncCommand) {
  * Builds the quality gate commands for a resolved package manager invocation.
  *
  * @param {{ command: string, baseArgs: string[] }} runner - Resolved invocation.
+ * @param {string[]} validationScripts - Package scripts to run.
  * @returns {Array<{name: string, command: string, args: string[]}>} Command list.
  */
-function buildQualityGateCommands(runner) {
-  return QUALITY_GATE_SCRIPTS.map((script) => ({
+function buildQualityGateCommands(runner, validationScripts = QUALITY_GATE_SCRIPTS) {
+  return validationScripts.map((script) => ({
     name: script,
     command: runner.command,
     args: [...runner.baseArgs, "run", script],
@@ -215,13 +223,51 @@ function isCodeRelevantFilePath(changedFilePath) {
 }
 
 /**
+ * Checks whether a changed path belongs to a test artifact.
+ *
+ * @param {string} changedFilePath - Changed file path.
+ * @returns {boolean} True when the path is test-only.
+ */
+function isTestFilePath(changedFilePath) {
+  const normalizedFilePath = changedFilePath.replace(/\\/g, "/").toLowerCase();
+  const fileName = normalizedFilePath.split("/").pop() ?? normalizedFilePath;
+
+  return (
+    normalizedFilePath.startsWith("tests/") ||
+    normalizedFilePath.includes("/tests/") ||
+    normalizedFilePath.includes("/__tests__/") ||
+    /\.(test|spec)\.[cm]?[jt]sx?$/.test(fileName)
+  );
+}
+
+/**
+ * Selects package scripts required for the current changed files.
+ *
+ * @param {string[]} changedFilePaths - Changed file paths.
+ * @returns {string[]} Package scripts to run.
+ */
+function getQualityGateScriptsForChangedFiles(changedFilePaths) {
+  const relevantChangedFilePaths = changedFilePaths.filter(isCodeRelevantFilePath);
+
+  if (relevantChangedFilePaths.length === 0) {
+    return [];
+  }
+
+  if (relevantChangedFilePaths.every(isTestFilePath)) {
+    return TEST_ONLY_QUALITY_GATE_SCRIPTS;
+  }
+
+  return QUALITY_GATE_SCRIPTS;
+}
+
+/**
  * Checks whether the quality gate should run for the changed files.
  *
  * @param {string[]} changedFilePaths - Changed file paths.
  * @returns {boolean} True when at least one path is code-relevant.
  */
 function shouldRunQualityGateForChangedFiles(changedFilePaths) {
-  return changedFilePaths.some(isCodeRelevantFilePath);
+  return getQualityGateScriptsForChangedFiles(changedFilePaths).length > 0;
 }
 
 /**
@@ -342,9 +388,14 @@ function runValidationCommand(validationCommand, spawnSyncCommand) {
  *
  * @param {Array<{name: string, status: number | null, output: string}>} failures - Failed command results.
  * @param {{ command: string, baseArgs: string[] }} runner - Resolved package manager invocation.
+ * @param {string[]} validationScripts - Package scripts included in this gate.
  * @returns {string} Continuation prompt.
  */
-function buildFailureReason(failures, runner) {
+function buildFailureReason(
+  failures,
+  runner,
+  validationScripts = QUALITY_GATE_SCRIPTS
+) {
   const failureSummary = failures
     .map((failure) => {
       const output = failure.output || "No output captured.";
@@ -356,7 +407,7 @@ function buildFailureReason(failures, runner) {
     .join("\n\n");
 
   const runnerPrefix = [runner.command, ...runner.baseArgs].join(" ");
-  const commandList = QUALITY_GATE_SCRIPTS.map(
+  const commandList = validationScripts.map(
     (script) => `${runnerPrefix} run ${script}`
   ).join(", ");
 
@@ -388,12 +439,17 @@ async function main() {
   }
 
   const changedFilePaths = readChangedFilePaths(spawnSync);
+  let validationScripts = QUALITY_GATE_SCRIPTS;
 
   if (changedFilePaths === null) {
     process.stderr.write(
       "[codex-stop-quality-gate] Could not inspect changed files; running quality gate.\n"
     );
-  } else if (!shouldRunQualityGateForChangedFiles(changedFilePaths)) {
+  } else {
+    validationScripts = getQualityGateScriptsForChangedFiles(changedFilePaths);
+  }
+
+  if (validationScripts.length === 0) {
     process.stderr.write(
       "[codex-stop-quality-gate] No code-relevant changes detected; skipping quality gate.\n"
     );
@@ -429,7 +485,7 @@ async function main() {
     `[codex-stop-quality-gate] Using package manager: ${packageManager} (via "${runnerLabel}")\n`
   );
 
-  const qualityGateCommands = buildQualityGateCommands(runner);
+  const qualityGateCommands = buildQualityGateCommands(runner, validationScripts);
   const results = qualityGateCommands.map((validationCommand) =>
     runValidationCommand(validationCommand, spawnSync)
   );
@@ -451,7 +507,7 @@ async function main() {
   process.stdout.write(
     JSON.stringify({
       decision: "block",
-      reason: buildFailureReason(failures, runner),
+      reason: buildFailureReason(failures, runner, validationScripts),
     })
   );
 }
@@ -477,7 +533,9 @@ module.exports = {
   buildFailureReason,
   buildQualityGateCommands,
   detectPackageManager,
+  getQualityGateScriptsForChangedFiles,
   isCodeRelevantFilePath,
+  isTestFilePath,
   parseChangedFilePaths,
   readChangedFilePaths,
   resolvePackageManagerRunner,

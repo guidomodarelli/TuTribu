@@ -42,13 +42,14 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-title">Regla de ejecución</div>
   <p>Los hooks <code>Stop</code> de <code>.claude/settings.json</code> y <code>.codex/hooks.json</code> ejecutan <code>node .agents/hooks/stop-quality-gate.js</code>. Ese script revisa primero los archivos modificados con <code>git status --porcelain --untracked-files=all</code>.</p>
   <p>Si no hay cambios relevantes para código, tooling o validación, el hook responde <code>{}</code> y no ejecuta <code>typecheck</code>, <code>lint</code>, <code>build</code> ni <code>test</code>.</p>
+  <p>Si los únicos cambios relevantes pertenecen a tests, el hook ejecuta solo <code>typecheck</code>, <code>lint</code> y <code>test</code>. El comando <code>build</code> queda reservado para cambios de producto, runtime, estilos, base de datos o configuración de tooling.</p>
   <div class="callout c-ok">Los cambios documentales como <code>README.md</code>, <code>AGENTS.md</code> y archivos <code>.htm</code> bajo <code>docs/</code> no disparan el gate completo por sí solos.</div>
 </div>
 
 <div class="section">
   <div class="section-num">02</div>
   <div class="section-title">Cambios relevantes</div>
-  <p>El gate debe ejecutarse cuando al menos un archivo modificado pueda afectar comportamiento de producto, runtime, estilos, base de datos o validación.</p>
+  <p>El gate selecciona la validación mínima suficiente según los archivos modificados. Debe ejecutar el gate completo cuando al menos un archivo modificado pueda afectar comportamiento de producto, runtime, estilos, base de datos o configuración de validación.</p>
   <ul>
     <li>Code: <code>.ts</code>, <code>.tsx</code>, <code>.js</code>, <code>.jsx</code>, <code>.mjs</code>, <code>.cjs</code>, <code>.mts</code>, <code>.cts</code>.</li>
     <li>Styles and data changes with runtime impact: <code>.scss</code>, <code>.css</code>, <code>.sql</code>.</li>

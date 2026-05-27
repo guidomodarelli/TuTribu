@@ -1,6 +1,7 @@
 /** @jest-environment node */
 
 type StopQualityGateScript = {
+  getQualityGateScriptsForChangedFiles: (changedFilePaths: string[]) => string[];
   parseChangedFilePaths: (gitStatusOutput: string) => string[];
   shouldRunQualityGateForChangedFiles: (changedFilePaths: string[]) => boolean;
 };
@@ -63,6 +64,25 @@ describe("stop quality gate script", () => {
         ".codex/hooks.json",
       ])
     ).toBe(true);
+  });
+
+  it("should skip build for test-only changes", () => {
+    expect(
+      stopQualityGateScript.getQualityGateScriptsForChangedFiles([
+        "docs/architecture/subscriptions.htm",
+        "tests/unit/modules/subscriptions/application/manage-prices.test.ts",
+        "tests/unit/modules/subscriptions/infrastructure/mapper.spec.ts",
+      ])
+    ).toEqual(["typecheck", "lint", "test"]);
+  });
+
+  it("should run the full gate when product code changes alongside tests", () => {
+    expect(
+      stopQualityGateScript.getQualityGateScriptsForChangedFiles([
+        "src/modules/subscriptions/application/use-cases/manage-prices.ts",
+        "tests/unit/modules/subscriptions/application/manage-prices.test.ts",
+      ])
+    ).toEqual(["typecheck", "lint", "build", "test"]);
   });
 
   it("should parse modified and renamed files from git porcelain output", () => {
