@@ -2,9 +2,31 @@ import "server-only";
 
 import { headers } from "next/headers";
 
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
+
 import { auth } from "./auth";
 
 export type BetterAuthSession = Awaited<ReturnType<typeof auth.api.getSession>>;
+
+const BETTER_AUTH_DEPENDENCY = "better-auth";
+
+const BETTER_AUTH_SESSION_FAILURE = {
+  bodyCode: "FAILED_TO_GET_SESSION",
+  message: "Failed to get session",
+  numericStatus: 500,
+  operation: "get_session",
+  stringStatus: "INTERNAL_SERVER_ERROR",
+} as const;
+
+const BETTER_AUTH_SESSION_LOG_CONTEXT = {
+  feature: "auth",
+  operation: "better_auth_session_lookup",
+} as const;
+
+const BETTER_AUTH_SESSION_LOG_MESSAGE = {
+  retry: "Better Auth session lookup failed transiently; retrying once.",
+} as const;
 
 export type RequestAuthContext = {
   email: string | null;
@@ -13,10 +35,90 @@ export type RequestAuthContext = {
   userId: string | null;
 };
 
+type BetterAuthSessionFailure = {
+  body?: {
+    code?: unknown;
+    message?: unknown;
+  };
+  message?: unknown;
+  status?: unknown;
+  statusCode?: unknown;
+};
+
+function getBetterAuthSessionFailureMetadata(error: unknown) {
+  const sessionFailure =
+    typeof error === "object" && error !== null
+      ? (error as BetterAuthSessionFailure)
+      : {};
+  const errorStatus = sessionFailure.status;
+  const errorStatusCode = sessionFailure.statusCode;
+  const errorCode = sessionFailure.body?.code;
+  const errorMessage = sessionFailure.body?.message ?? sessionFailure.message;
+
+  return {
+    dependency: BETTER_AUTH_DEPENDENCY,
+    errorCode: typeof errorCode === "string" ? errorCode : undefined,
+    errorMessage: typeof errorMessage === "string" ? errorMessage : undefined,
+    errorStatus:
+      typeof errorStatus === "string" || typeof errorStatus === "number"
+        ? errorStatus
+        : undefined,
+    errorStatusCode:
+      typeof errorStatusCode === "number" ? errorStatusCode : undefined,
+    operation: BETTER_AUTH_SESSION_FAILURE.operation,
+  };
+}
+
+/**
+ * Detects the stable Better Auth wrapper error for a failed session read.
+ *
+ * The underlying Postgres error is not part of the public response shape, so the
+ * retry stays limited to this get-session contract and still rethrows on repeat.
+ *
+ * @param error - Error thrown by Better Auth while resolving the server session.
+ * @returns Whether the session lookup can be retried once safely.
+ */
+function isRetryableBetterAuthSessionFailure(error: unknown) {
+  const metadata = getBetterAuthSessionFailureMetadata(error);
+  const hasInternalServerErrorStatus =
+    metadata.errorStatus === BETTER_AUTH_SESSION_FAILURE.stringStatus ||
+    metadata.errorStatus === BETTER_AUTH_SESSION_FAILURE.numericStatus ||
+    metadata.errorStatusCode === BETTER_AUTH_SESSION_FAILURE.numericStatus;
+
+  return (
+    hasInternalServerErrorStatus &&
+    metadata.errorCode === BETTER_AUTH_SESSION_FAILURE.bodyCode &&
+    metadata.errorMessage === BETTER_AUTH_SESSION_FAILURE.message
+  );
+}
+
 export async function getServerBetterAuthSession(): Promise<BetterAuthSession> {
-  return auth.api.getSession({
-    headers: await headers(),
-  });
+  const requestHeaders = await headers();
+  const { requestId } = resolveRequestContext(requestHeaders);
+
+  try {
+    return await auth.api.getSession({
+      headers: requestHeaders,
+    });
+  } catch (error) {
+    if (!isRetryableBetterAuthSessionFailure(error)) {
+      throw error;
+    }
+
+    const logger = createServerLogger({
+      ...BETTER_AUTH_SESSION_LOG_CONTEXT,
+      requestId,
+    });
+    logger.warn({
+      message: BETTER_AUTH_SESSION_LOG_MESSAGE.retry,
+      metadata: getBetterAuthSessionFailureMetadata(error),
+      error,
+    });
+
+    return auth.api.getSession({
+      headers: requestHeaders,
+    });
+  }
 }
 
 export async function getRequestAuthContext(): Promise<RequestAuthContext> {

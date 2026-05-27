@@ -40,6 +40,14 @@ describe("Postgres pool factory", () => {
       operation: "runtime_database_pool_idle_error",
     });
 
+    expect(Pool).toHaveBeenCalledWith({
+      allowExitOnIdle: true,
+      connectionString: "postgres://user:secret@database.example.com/db",
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 5000,
+      max: 5,
+      maxLifetimeSeconds: 60,
+    });
     expect(poolOn).toHaveBeenCalledWith("error", expect.any(Function));
 
     const [, idleErrorHandler] = poolOn.mock.calls[0] as [

@@ -95,6 +95,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <li>Google OAuth</li>
   <li>cookies de sesion</li>
   <li>tablas <code>user</code>, <code>session</code>, <code>account</code>, <code>verification</code></li>
+  <li>retry acotado de lecturas de sesion cuando Better Auth devuelve <code>FAILED_TO_GET_SESSION</code> por una falla transitoria del runtime de base de datos</li>
 </ul>
 </div>
 
@@ -107,7 +108,8 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <li>queries SQL tipadas</li>
   <li>transacciones</li>
   <li>contexto request-scoped para RLS</li>
-  <li>pools con listener de errores de clientes idle para registrar cierres transitorios de Neon sin tumbar el proceso Node.js</li>
+  <li>pools con limites explicitos de conexiones, timeout y lifetime para runtime serverless</li>
+  <li>listener de errores de clientes idle para registrar cierres transitorios de Neon sin tumbar el proceso Node.js</li>
 </ul>
 </div>
 

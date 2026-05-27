@@ -118,6 +118,7 @@ Neon role and schema guidance:
 - For production-like environments, prefer separate credentials by responsibility: `DATABASE_URL` should use a runtime role with limited permissions over a direct Neon connection, while `DATABASE_MIGRATION_URL` can use the owner or migration role needed for schema changes.
 - Do not run the application runtime with an owner/admin role once least-privilege credentials are available.
 - To keep Neon warm, disable Scale to Zero in the Neon compute settings when the plan supports it. Free plan computes keep the fixed Scale to Zero behavior.
+- Runtime Postgres pools use explicit connection, idle, and lifetime limits so serverless instances do not keep broad direct pools alive indefinitely.
 
 ## Better Auth Setup
 
@@ -135,6 +136,7 @@ Security notes:
 - Never commit real secrets to the repository.
 - Rotate any database password that was pasted into chat, logs, or issue trackers before using it.
 - Keep database URLs, OAuth secrets, and Better Auth secrets out of the browser.
+- Better Auth session reads retry one transient `FAILED_TO_GET_SESSION` response before surfacing the failure, which protects requests from stale or restarted database connections without hiding persistent schema or credential errors.
 
 ## Testing
 

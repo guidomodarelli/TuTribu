@@ -19,6 +19,14 @@ const POSTGRES_POOL_LOG_MESSAGE = {
 
 const POSTGRES_POOL_LOG_REQUEST_ID = "background";
 
+const POSTGRES_POOL_CONFIGURATION = {
+  allowExitOnIdle: true,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 5000,
+  max: 5,
+  maxLifetimeSeconds: 60,
+} as const;
+
 type CreatePostgresPoolInput = {
   connectionString: string;
   operation: string;
@@ -59,6 +67,7 @@ function getPostgresErrorMetadata(error: unknown) {
  */
 export function createPostgresPool(input: CreatePostgresPoolInput) {
   const pool = new Pool({
+    ...POSTGRES_POOL_CONFIGURATION,
     connectionString: input.connectionString,
   });
   const logger = createServerLogger({
