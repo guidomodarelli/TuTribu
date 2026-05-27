@@ -40,7 +40,7 @@ describe("Better Auth configuration", () => {
       drizzle: (...args: unknown[]) => mockDrizzle(...args),
     }));
     jest.doMock("pg", () => ({
-      Pool: jest.fn(() => ({ id: "pool" })),
+      Pool: jest.fn(() => ({ id: "pool", on: jest.fn() })),
     }));
     jest.doMock("@/src/modules/shared/infrastructure/database/server-environment", () => ({
       getServerDatabaseEnvironment: () => ({

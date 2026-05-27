@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, PoolClient } from "pg";
 
+import { createPostgresPool } from "./postgres-pool";
 import { getServerDatabaseEnvironment } from "./server-environment";
 
 const DATABASE_CONTEXT_SETTING = {
@@ -17,6 +18,10 @@ const DATABASE_TRANSACTION = {
   emptySettingValue: "",
   rollback: "ROLLBACK",
   verifiedSettingValue: "true",
+} as const;
+
+const DATABASE_POOL_OPERATION = {
+  idleError: "runtime_database_pool_idle_error",
 } as const;
 
 type GlobalDatabase = typeof globalThis & {
@@ -40,8 +45,9 @@ function getDatabasePool() {
 
   if (!globalDatabase.__tuTribuDatabasePool) {
     const { connectionString } = getServerDatabaseEnvironment();
-    globalDatabase.__tuTribuDatabasePool = new Pool({
+    globalDatabase.__tuTribuDatabasePool = createPostgresPool({
       connectionString,
+      operation: DATABASE_POOL_OPERATION.idleError,
     });
   }
 

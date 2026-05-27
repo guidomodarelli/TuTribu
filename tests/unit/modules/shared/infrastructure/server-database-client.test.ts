@@ -39,6 +39,7 @@ describe("createServerDatabaseClient", () => {
           query,
           release,
         })),
+        on: jest.fn(),
       })),
     }));
     jest.doMock("drizzle-orm/node-postgres", () => ({

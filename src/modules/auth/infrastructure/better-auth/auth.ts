@@ -6,6 +6,7 @@ import { nextCookies } from "better-auth/next-js";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
+import { createPostgresPool } from "@/src/modules/shared/infrastructure/database/postgres-pool";
 import { getServerDatabaseEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
 import {
   accounts,
@@ -40,6 +41,10 @@ const BETTER_AUTH_SCHEMA = {
   verification: verifications,
 } as const;
 
+const BETTER_AUTH_DATABASE_POOL_OPERATION = {
+  idleError: "better_auth_database_pool_idle_error",
+} as const;
+
 type GlobalBetterAuthDatabase = typeof globalThis & {
   __tuTribuBetterAuthPool?: Pool;
 };
@@ -49,8 +54,9 @@ function getBetterAuthPool() {
 
   if (!globalDatabase.__tuTribuBetterAuthPool) {
     const { connectionString } = getServerDatabaseEnvironment();
-    globalDatabase.__tuTribuBetterAuthPool = new Pool({
+    globalDatabase.__tuTribuBetterAuthPool = createPostgresPool({
       connectionString,
+      operation: BETTER_AUTH_DATABASE_POOL_OPERATION.idleError,
     });
   }
 
