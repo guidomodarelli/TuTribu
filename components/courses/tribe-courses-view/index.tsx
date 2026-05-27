@@ -41,6 +41,21 @@ type TribeCoursesViewProps = {
   viewerPermissions: CourseTreeViewerPermissionsResult;
 };
 
+type CourseManagementLinkProps = {
+  tribeSlug: string;
+};
+
+function CourseManagementLink({ tribeSlug }: CourseManagementLinkProps) {
+  return (
+    <Button asChild size={MANAGE_BUTTON_SIZE} variant={MANAGE_BUTTON_VARIANT}>
+      <Link href={ROUTES.tribes.coursesManage(tribeSlug)}>
+        <Settings aria-hidden />
+        {COURSES_COPY.manageCta}
+      </Link>
+    </Button>
+  );
+}
+
 function findInitialLesson(
   modules: CourseModuleWithLessonsResult[],
   selectedLessonId: string | null
@@ -122,16 +137,7 @@ export function TribeCoursesView({
                 {COURSES_COPY.sidebarHeading}
               </h2>
               {viewerPermissions.canManageCourses ? (
-                <Button
-                  asChild
-                  size={MANAGE_BUTTON_SIZE}
-                  variant={MANAGE_BUTTON_VARIANT}
-                >
-                  <Link href={ROUTES.tribes.coursesManage(tribeSlug)}>
-                    <Settings aria-hidden />
-                    {COURSES_COPY.manageCta}
-                  </Link>
-                </Button>
+                <CourseManagementLink tribeSlug={tribeSlug} />
               ) : null}
             </div>
             {modules.map((courseModule) => (
@@ -185,6 +191,11 @@ export function TribeCoursesView({
           <p className={styles.TribeCoursesView__emptyDescription}>
             {COURSES_COPY.emptyDescription}
           </p>
+          {viewerPermissions.canManageCourses ? (
+            <div className={styles.TribeCoursesView__emptyActions}>
+              <CourseManagementLink tribeSlug={tribeSlug} />
+            </div>
+          ) : null}
         </section>
       )}
     </main>

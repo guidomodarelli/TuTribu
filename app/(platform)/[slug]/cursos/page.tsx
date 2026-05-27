@@ -9,6 +9,10 @@ const TRIBE_COURSES_PAGE = {
   resolveCoursesFailureMessage: "Failed to resolve tribe courses",
 } as const;
 
+const COURSE_MANAGER_ROLE = {
+  leader: "leader",
+} as const;
+
 function canReadTribeCourses(membershipStatus: string | null): boolean {
   return (
     membershipStatus === TRIBE_MEMBERSHIP_STATUS.active ||
@@ -39,6 +43,12 @@ export default async function TribeCoursesPage({
     notFound();
   }
 
+  const currentMembership = (
+    await modules.tribes.useCases.getMemberTribes()
+  ).find((tribeListItem) => tribeListItem.slug === tribe.slug);
+  const canManageCourses =
+    membershipStatus === TRIBE_MEMBERSHIP_STATUS.active &&
+    currentMembership?.role === COURSE_MANAGER_ROLE.leader;
   const courseTree = await modules.courses.useCases
     .getTribeCourses({ tribeSlug: tribe.slug })
     .catch((error: unknown) => {
@@ -55,7 +65,11 @@ export default async function TribeCoursesPage({
       modules={courseTree.modules}
       selectedLessonId={resolvedSearchParams?.leccion ?? null}
       tribeSlug={tribe.slug}
-      viewerPermissions={courseTree.viewerPermissions}
+      viewerPermissions={{
+        ...courseTree.viewerPermissions,
+        canManageCourses:
+          courseTree.viewerPermissions.canManageCourses || canManageCourses,
+      }}
     />
   );
 }
