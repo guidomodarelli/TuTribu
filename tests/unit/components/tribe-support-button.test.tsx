@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { usePathname } from "next/navigation";
 
@@ -174,6 +174,68 @@ describe("TribeSupportButton", () => {
 
     const dialog = await screen.findByTestId("support-config-dialog");
     expect(dialog).toHaveAttribute("data-tribe-slug", LEADER_TRIBE.slug);
+  });
+
+  it("recovers from a stuck support request by settling the loading state after the abort fires", async () => {
+    usePathnameMock.mockReturnValue(ROUTES.tribes.bySlug(LEADER_TRIBE.slug));
+    fetchMock.mockImplementationOnce((_url: string, init?: { signal?: AbortSignal }) => {
+      return new Promise((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) {
+          return;
+        }
+        signal.addEventListener("abort", () => {
+          const abortError = new Error("Aborted");
+          abortError.name = "AbortError";
+          reject(abortError);
+        });
+      });
+    });
+
+    render(<TribeSupportButton memberTribes={[LEADER_TRIBE]} />);
+
+    expect(
+      await screen.findByRole("button", { name: /Cargando soporte/i })
+    ).toBeInTheDocument();
+
+    const passedSignal = fetchMock.mock.calls[0]?.[1]?.signal as
+      | AbortSignal
+      | undefined;
+
+    expect(passedSignal).toBeDefined();
+
+    await act(async () => {
+      (passedSignal as AbortSignal & { dispatchEvent: (event: Event) => boolean }).dispatchEvent(
+        new Event("abort")
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: /Cargando soporte/i })
+      ).not.toBeInTheDocument()
+    );
+    expect(
+      await screen.findByRole("button", { name: /Botón de soporte/i })
+    ).toBeInTheDocument();
+  });
+
+  it("does not re-fetch support settings when the parent re-renders with a new memberTribes array for the same tribe", async () => {
+    usePathnameMock.mockReturnValue(ROUTES.tribes.bySlug(LEADER_TRIBE.slug));
+    mockFetchOnce(null);
+
+    const { rerender } = render(
+      <TribeSupportButton memberTribes={[LEADER_TRIBE]} />
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await screen.findByRole("button", { name: /Botón de soporte/i });
+
+    rerender(<TribeSupportButton memberTribes={[{ ...LEADER_TRIBE }]} />);
+    rerender(<TribeSupportButton memberTribes={[{ ...LEADER_TRIBE }]} />);
+
+    await screen.findByRole("button", { name: /Botón de soporte/i });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("opens a dropdown with open-link and configure actions when a leader already has support configured", async () => {

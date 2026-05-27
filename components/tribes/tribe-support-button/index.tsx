@@ -58,6 +58,8 @@ const SUPPORT_BUTTON_MEMBERSHIP_STATUS = {
 
 const SUPPORT_PHONE_NON_DIGIT_PATTERN = /\D/g;
 
+const SUPPORT_FETCH_TIMEOUT_MS = 15000;
+
 type TribeSupportButtonProps = {
   memberTribes: MemberTribeListItemResult[];
 };
@@ -105,6 +107,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
     () => findActiveTribe(pathname, memberTribes),
     [pathname, memberTribes]
   );
+  const activeTribeSlug = activeTribe?.slug ?? null;
   const [settings, setSettings] = useState<TribeSupportSettings | null>(null);
   const [isFetched, setIsFetched] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -114,7 +117,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
     let isCurrent = true;
 
     async function loadSupportSettings() {
-      if (!activeTribe) {
+      if (!activeTribeSlug) {
         setSettings(null);
         setIsFetched(false);
         setIsDialogOpen(false);
@@ -127,9 +130,14 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
       try {
         const response = await fetch(
           SUPPORT_BUTTON_REQUEST.apiPrefix +
-            encodeURIComponent(activeTribe.slug) +
+            encodeURIComponent(activeTribeSlug) +
             SUPPORT_BUTTON_REQUEST.supportSegment,
-          { signal: abortController.signal }
+          {
+            signal: AbortSignal.any([
+              abortController.signal,
+              AbortSignal.timeout(SUPPORT_FETCH_TIMEOUT_MS),
+            ]),
+          }
         );
 
         if (!isCurrent) {
@@ -168,7 +176,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
       isCurrent = false;
       abortController.abort();
     };
-  }, [activeTribe]);
+  }, [activeTribeSlug]);
 
   const handleSavedSettings = useCallback(
     (savedSettings: TribeSupportSettings) => {
