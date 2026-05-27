@@ -28,7 +28,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ### Documentation governance
 
 - Keep documentation under `docs/` current for every implemented behavior, architectural decision, convention, and user-facing workflow.
-- Product documentation under `docs/architecture/`, `docs/conventions/`, and `docs/user-manual/` must use `.htm` files and follow the guidelines defined in `docs/DESIGN.htm`.
+- Product documentation under `docs/architecture/`, `docs/conventions/`, and `docs/user-manual/` must use `.htm` files and follow the guidelines defined in `docs/DESIGN.md`.
 - Do not add, keep, or update Markdown product documents under `docs/`; migrate any stale `.md` document to `.htm` in the same work item before changing it.
 - Repository control files that must remain Markdown for tooling compatibility, such as `AGENTS.md`, `README.md`, `CLAUDE.md`, `DESIGN.md`, and `TODO.md`, are exempt from the `docs/` format rule.
 - Place each documentation update in the section that owns the content: architecture decisions in `docs/architecture/`, project conventions in `docs/conventions/`, and user-facing instructions in `docs/user-manual/`.
