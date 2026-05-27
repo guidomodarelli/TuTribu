@@ -73,34 +73,72 @@ export function TribeCoursesView({
 
   return (
     <main className={styles.TribeCoursesView}>
-      <header className={styles.TribeCoursesView__header}>
-        <h1 className={styles.TribeCoursesView__heading}>
-          {COURSES_COPY.pageHeading}
-        </h1>
-        {viewerPermissions.canManageCourses ? (
+      {viewerPermissions.canManageCourses ? (
+        <header className={styles.TribeCoursesView__header}>
+          <h1 className={styles.TribeCoursesView__heading}>
+            {COURSES_COPY.pageHeading}
+          </h1>
           <Link
             className={styles.TribeCoursesView__manageLink}
             href={ROUTES.tribes.coursesManage(tribeSlug)}
           >
             {COURSES_COPY.manageCta}
           </Link>
-        ) : null}
-      </header>
+        </header>
+      ) : null}
 
       {hasModules ? (
         <div className={styles.TribeCoursesView__layout}>
+          <article className={styles.TribeCoursesView__main}>
+            {activeLesson ? (
+              <>
+                <div className={styles.TribeCoursesView__playerFrame}>
+                  <iframe
+                    allow={PLAYER_IFRAME_ALLOW}
+                    allowFullScreen
+                    className={styles.TribeCoursesView__playerIframe}
+                    src={buildPlayerEmbedSource(
+                      activeLesson.videoProvider,
+                      activeLesson.externalVideoId
+                    )}
+                    title={activeLesson.title}
+                  />
+                </div>
+                <h2 className={styles.TribeCoursesView__lessonHeading}>
+                  {activeLesson.title}
+                </h2>
+                {activeLesson.description ? (
+                  <div className={styles.TribeCoursesView__lessonDescription}>
+                    <p
+                      className={styles.TribeCoursesView__lessonDescriptionText}
+                    >
+                      {activeLesson.description}
+                    </p>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p className={styles.TribeCoursesView__emptyMessage}>
+                {COURSES_COPY.selectLessonPrompt}
+              </p>
+            )}
+          </article>
+
           <nav
             aria-label={COURSES_COPY.sidebarHeading}
             className={styles.TribeCoursesView__sidebar}
           >
+            <h2 className={styles.TribeCoursesView__sidebarHeading}>
+              {COURSES_COPY.sidebarHeading}
+            </h2>
             {modules.map((courseModule) => (
               <section
                 className={styles.TribeCoursesView__moduleGroup}
                 key={courseModule.id}
               >
-                <h2 className={styles.TribeCoursesView__moduleTitle}>
+                <h3 className={styles.TribeCoursesView__moduleTitle}>
                   {courseModule.title}
-                </h2>
+                </h3>
                 <ul className={styles.TribeCoursesView__lessonList}>
                   {courseModule.lessons.map((lesson) => {
                     const isActive = activeLesson?.id === lesson.id;
@@ -129,37 +167,6 @@ export function TribeCoursesView({
               </section>
             ))}
           </nav>
-
-          <article className={styles.TribeCoursesView__main}>
-            {activeLesson ? (
-              <>
-                <div className={styles.TribeCoursesView__playerFrame}>
-                  <iframe
-                    allow={PLAYER_IFRAME_ALLOW}
-                    allowFullScreen
-                    className={styles.TribeCoursesView__playerIframe}
-                    src={buildPlayerEmbedSource(
-                      activeLesson.videoProvider,
-                      activeLesson.externalVideoId
-                    )}
-                    title={activeLesson.title}
-                  />
-                </div>
-                <h2 className={styles.TribeCoursesView__lessonHeading}>
-                  {activeLesson.title}
-                </h2>
-                {activeLesson.description ? (
-                  <p className={styles.TribeCoursesView__lessonDescription}>
-                    {activeLesson.description}
-                  </p>
-                ) : null}
-              </>
-            ) : (
-              <p className={styles.TribeCoursesView__emptyMessage}>
-                {COURSES_COPY.selectLessonPrompt}
-              </p>
-            )}
-          </article>
         </div>
       ) : (
         <section className={styles.TribeCoursesView__emptyState}>
