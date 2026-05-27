@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RLS simple</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">RLS simple</div>
+  <div class="doc-sub">Límite entre Row Level Security y reglas complejas de aplicación.</div>
+  <div class="doc-meta"><span>Scope: Security</span><span>Status: Active</span></div>
+</div>
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Que significa</div>
+<p>RLS simple significa usar <strong>Row Level Security</strong> para seguridad estructural de acceso a datos, sin convertir SQL en el motor completo de reglas de negocio.</p>
+<p>La idea practica es:</p>
+<div class="callout c-info"><strong>RLS para acceso a filas</strong></div>
+<div class="callout c-info"><strong>App layer para reglas de negocio complejas</strong></div>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Que valor da</div>
+<p>RLS sigue siendo parte de la linea base de seguridad porque:</p>
+<ul>
+  <li>reduce checks duplicados en handlers</li>
+  <li>evita huecos entre UI y backend</li>
+  <li>protege aunque alguien llegue directo a la base o a un endpoint interno</li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Que acoplamiento introduce</div>
+<p>Si usamos RLS simple, nos acoplamos a:</p>
+<ul>
+  <li>Postgres</li>
+  <li>policies de acceso a datos</li>
+  <li>contexto de request seteado por la app</li>
+</ul>
+<p>En este repo, la identidad para RLS entra desde:</p>
+<ul>
+  <li><code>current_setting('app.current_user_id', true)</code></li>
+  <li><code>current_setting('app.current_user_email', true)</code></li>
+  <li>tablas protegidas con <code>FORCE ROW LEVEL SECURITY</code> cuando la app usa una conexion compartida por <code>DATABASE_URL</code></li>
+</ul>
+<p>Ese acople es aceptable porque:</p>
+<ul>
+  <li>la app mantiene control de la identidad</li>
+  <li>RLS sigue siendo Postgres puro</li>
+  <li>las reglas de negocio importantes no quedan enterradas en SQL</li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PART 04</div>
+  <div class="part-header-title">Que va en RLS</div>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Casos adecuados</div>
+<ul>
+  <li>ownership por <code>user_id = current_app_user_id</code></li>
+  <li>acceso por pertenencia a <code>tribe_id</code></li>
+  <li>acceso via <code>tribe_members</code></li>
+  <li>acceso por rol simple</li>
+  <li>lectura y escritura sobre filas del propio usuario</li>
+</ul>
+<p>La regla importante es:</p>
+<ul>
+  <li>la sesion identifica al usuario</li>
+  <li><code>tribe_members</code> resuelve pertenencia y rol</li>
+  <li>RLS usa el contexto <code>app.current_user_*</code></li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Ejemplos</div>
+<ul>
+  <li>un usuario solo ve tribus a las que pertenece</li>
+  <li>un miembro solo ve datos de tribus donde tiene membresia</li>
+  <li>un usuario solo puede insertar la membership inicial de leader de la tribu que acaba de crear</li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Que queda fuera</div>
+<p>No meter en RLS:</p>
+<ul>
+  <li>workflows complejos</li>
+  <li>visibilidad muy dinamica</li>
+  <li>reglas temporales complejas</li>
+  <li>validaciones de UX</li>
+  <li>limites comerciales</li>
+  <li>automatizaciones de negocio</li>
+</ul>
+<p>Modelo mental:</p>
+<ul>
+  <li>RLS responde: <strong>&quot;puede tocar esta fila?&quot;</strong></li>
+  <li>la app responde: <strong>&quot;tiene sentido permitir esta accion ahora?&quot;</strong></li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Recomendacion</div>
+<p>Para este proyecto:</p>
+<ul>
+  <li><strong>RLS fuerte para acceso a datos</strong></li>
+  <li><strong>simple y entendible</strong></li>
+  <li><strong>basada en ownership, membership y tenant scope</strong></li>
+  <li><strong>sin mover toda la logica de producto a SQL</strong></li>
+</ul>
+<p>Eso mantiene:</p>
+<ul>
+  <li>seguridad real</li>
+  <li>menos bugs de permisos</li>
+  <li>buen desacople respecto de la capa de auth</li>
+  <li>proteccion efectiva aunque la app consulte Postgres con un rol owner-like compartido</li>
+</ul>
+</div>
+</body>
+</html>

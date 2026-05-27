@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Better Auth + Neon Postgres</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Better Auth + Neon Postgres</div>
+  <div class="doc-sub">Decisión vigente para Better Auth, Neon Postgres y RLS simple.</div>
+  <div class="doc-meta"><span>Scope: Data</span><span>Status: Active</span></div>
+</div>
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Stack vigente</div>
+<ul>
+  <li><strong>Next.js</strong> con App Router</li>
+  <li><strong>Better Auth</strong> para login, sesion y Google OAuth</li>
+  <li><strong>Neon Postgres</strong> como base de datos hospedada</li>
+  <li><strong>Drizzle ORM</strong> + <code>pg</code> para acceso desde la app</li>
+  <li><strong>RLS simple</strong> con contexto <code>app.current_user_*</code></li>
+  <li><strong>Arquitectura hexagonal pragmatica</strong></li>
+</ul>
+<p>Reglas operativas:</p>
+<ul>
+  <li>no usar proveedores de autenticacion legacy</li>
+  <li>no usar SDKs de auth ajenos al stack vigente</li>
+  <li>no usar SDKs propietarios de base de datos en runtime de auth o data access</li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Decision final</div>
+<p>Para este proyecto:</p>
+<ul>
+  <li><strong>Better Auth</strong> resuelve autenticacion</li>
+  <li><strong>Google OAuth</strong> es el provider inicial</li>
+  <li><strong>Neon</strong> queda como Postgres hospedado</li>
+  <li><strong>Drizzle</strong> es la capa tipada de persistencia</li>
+  <li><strong>RLS</strong> protege ownership, membership y tenant scope</li>
+  <li><strong><code>tribe</code></strong> sigue siendo el tenant canonico</li>
+</ul>
+<p>La identidad estable del usuario sale de <code>public.&quot;user&quot;.id</code>.</p>
+<p>La pertenencia, el rol y el alcance multi-tenant no salen de la sesion por si solos: se resuelven con <code>tribe_members</code>, <code>tribe_id</code> y RLS.</p>
+<div class="divider"></div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PART 03</div>
+  <div class="part-header-title">Reparto de responsabilidades</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Better Auth</div>
+<p>Lo usaria para:</p>
+<ul>
+  <li>login</li>
+  <li>sesion</li>
+  <li>Google OAuth</li>
+  <li>cookies de sesion</li>
+  <li>tablas <code>user</code>, <code>session</code>, <code>account</code>, <code>verification</code></li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Drizzle + <code>pg</code></div>
+<p>Lo usaria para:</p>
+<ul>
+  <li>repositorios del dominio</li>
+  <li>queries SQL tipadas</li>
+  <li>transacciones</li>
+  <li>contexto request-scoped para RLS</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Neon</div>
+<p>Lo dejo solo como:</p>
+<ul>
+  <li>Postgres hospedado</li>
+  <li>connection pooling para runtime cuando aplique</li>
+  <li>SQL migrations versionadas</li>
+  <li>operacion de base y entorno</li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Contexto de autorizacion</div>
+<p>La app abre cada request protegido seteando:</p>
+<ul>
+  <li><code>app.current_user_id</code></li>
+  <li><code>app.current_user_email</code></li>
+</ul>
+<p>RLS consume ese contexto y decide acceso a filas. La app sigue resolviendo:</p>
+<ul>
+  <li>workflows</li>
+  <li>validaciones de negocio</li>
+  <li>mensajes de error</li>
+  <li>UX</li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Estructura recomendada</div>
+<div class="code-block"><pre>app/
+  api/
+    auth/
+      [...all]/
+database/
+  migrations/
+src/
+  modules/
+    auth/
+      application/
+      domain/
+      infrastructure/
+        better-auth/
+        repositories/
+    tribes/
+      application/
+      domain/
+      infrastructure/
+        repositories/
+    shared/
+      infrastructure/
+        database/
+          server-database-client.ts
+          schema.ts</pre></div>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Reglas de migracion</div>
+<ul>
+  <li>cualquier cambio estructural sale con migration SQL en <code>database/migrations</code></li>
+  <li><code>DATABASE_URL</code> es el contrato de runtime; en Neon debe usar conexion directa para mantener el runtime warm y evitar PgBouncer/serverless pooling por defecto</li>
+  <li><code>DATABASE_MIGRATION_URL</code> es opcional y debe apuntar a una conexion directa cuando el tooling lo requiera</li>
+  <li><code>tribe_members</code> sigue siendo la fuente de verdad de permisos por tribu</li>
+  <li>ninguna ruta nueva debe depender de rutas OAuth custom fuera de <code>/api/auth/[...all]</code></li>
+</ul>
+</div>
+</body>
+</html>

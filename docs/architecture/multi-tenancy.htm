@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-tenancy por tribus</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Multi-tenancy por tribus</div>
+  <div class="doc-sub">Modelo multi-tenant por tribu y shared schema.</div>
+  <div class="doc-meta"><span>Scope: Tenancy</span><span>Status: Active</span></div>
+</div>
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Decision</div>
+<p>Esta aplicacion es <strong>multi-tenant</strong>.</p>
+<p>El tenant canonico del producto es <strong><code>tribe</code></strong>. Cada tribu debe aislar:</p>
+<ul>
+  <li>leader</li>
+  <li>guardians</li>
+  <li>tribemates</li>
+  <li>categorias de posts</li>
+  <li>posts</li>
+  <li>comments</li>
+  <li>events</li>
+  <li>configuracion y permisos</li>
+</ul>
+<p>La estrategia vigente es:</p>
+<ul>
+  <li><strong>single app</strong></li>
+  <li><strong>single database</strong></li>
+  <li><strong>shared schema</strong></li>
+  <li>tablas multi-tenant con <code>tribe_id</code></li>
+  <li>tabla de membresia <code>tribe_members</code></li>
+  <li><strong>RLS simple</strong></li>
+  <li>reglas de negocio complejas en <code>application</code> y <code>domain</code></li>
+</ul>
+<p>No se considera <code>course</code> como tenant arquitectonico.</p>
+<div class="divider"></div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PART 02</div>
+  <div class="part-header-title">Modelo base</div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Tablas nucleares</div>
+<ul>
+  <li><code>user</code></li>
+  <li><code>tribes</code></li>
+  <li><code>tribe_members</code></li>
+  <li><code>tribe_creator_whitelist</code></li>
+  <li><code>tribe_post_categories</code></li>
+  <li><code>posts</code></li>
+  <li><code>comments</code></li>
+  <li><code>events</code></li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Claves de aislamiento</div>
+<p>Las tablas multi-tenant deben usar:</p>
+<ul>
+  <li><code>tribe_id</code> para alcance por tenant</li>
+  <li><code>user_id</code> o <code>created_by</code> para ownership</li>
+</ul>
+<p>Las publicaciones siempre pertenecen a una categoria de la misma tribu mediante <code>posts.category_id</code>. Una tribu debe conservar al menos una categoria; si se elimina una categoria con publicaciones, la app debe mover esas publicaciones a otra categoria del mismo tenant antes de borrar la categoria origen.</p>
+<p>La tabla <code>tribe_members</code> modela:</p>
+<ul>
+  <li><code>user_id</code></li>
+  <li><code>tribe_id</code></li>
+  <li><code>role</code></li>
+  <li><code>status</code></li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PART 05</div>
+  <div class="part-header-title">Auth y autorizacion</div>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Autenticacion</div>
+<p>La identidad del usuario la resuelve <strong>Better Auth</strong>.</p>
+<p>Eso incluye:</p>
+<ul>
+  <li>login y sesion</li>
+  <li>cookies de sesion</li>
+  <li><code>public.&quot;user&quot;.id</code> como identificador estable</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Autorizacion y tenancy</div>
+<p>La pertenencia y el rol se resuelven con:</p>
+<ul>
+  <li><code>tribe_members</code></li>
+  <li><code>tribe_id</code></li>
+  <li>policies de RLS</li>
+  <li>casos de uso y servicios de aplicacion</li>
+</ul>
+<p>La regla practica es:</p>
+<div class="callout c-info"><strong>Better Auth responde quien es el usuario</strong></div>
+<div class="callout c-info"><strong>multi-tenancy + RLS + app layer responden que puede hacer en cada tribu</strong></div>
+<p>RLS usa contexto de request seteado por la app:</p>
+<ul>
+  <li><code>app.current_user_id</code></li>
+  <li><code>app.current_user_email</code></li>
+  <li><code>FORCE ROW LEVEL SECURITY</code> en tablas protegidas cuando la app entra por una conexion compartida a Postgres</li>
+</ul>
+<p>La fuente de verdad sigue siendo <code>tribe_members</code>, no la sesion.</p>
+<p>Antes de que exista la primera membership, la plataforma puede aplicar un permiso global de creacion:</p>
+<ul>
+  <li>ese permiso vive en <code>tribe_creator_whitelist</code></li>
+  <li>las filas de esa whitelist son datos operativos del entorno</li>
+</ul>
+<p>Despues de crear la tribu:</p>
+<ul>
+  <li>el usuario creador pasa a estar modelado por <code>tribe_members</code></li>
+  <li>su rol inicial queda como <code>leader</code></li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Que no haremos por ahora</div>
+<p>En esta etapa no se adopta:</p>
+<ul>
+  <li><code>database-per-tenant</code></li>
+  <li><code>schema-per-tenant</code></li>
+  <li>una instancia separada de Postgres por tribu</li>
+</ul>
+<p>La estrategia elegida sigue siendo <strong>multi-tenancy simple con shared schema</strong>.</p>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Relacion con cursos</div>
+<p><code>course</code> puede existir dentro de una tribu, pero no reemplaza al tenant arquitectonico.</p>
+<p>La regla es:</p>
+<ul>
+  <li><code>tribe</code> define el limite de aislamiento</li>
+  <li><code>course</code> cuelga de una tribu cuando el dominio lo necesite</li>
+</ul>
+</div>
+</body>
+</html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roles y permisos por tribu</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Roles y permisos por tribu</div>
+  <div class="doc-sub">Fuente de verdad de roles, estados y permisos por tribu.</div>
+  <div class="doc-meta"><span>Scope: Authorization</span><span>Status: Active</span></div>
+</div>
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Proposito y limites</div>
+<p>Este documento define:</p>
+<ul>
+  <li>la separacion entre autenticacion, autorizacion y permisos</li>
+  <li>la fuente de verdad de roles por tribu</li>
+  <li>los roles y estados canonicos del MVP</li>
+  <li>el reparto de responsabilidades entre Better Auth, Postgres/RLS y Next.js</li>
+</ul>
+<p>No define SQL exhaustivo. Para el limite exacto de RLS, mira <code>docs/architecture/rls-simple.htm</code>. Para tenancy, mira <code>docs/architecture/multi-tenancy.htm</code>.</p>
+<div class="divider"></div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PART 02</div>
+  <div class="part-header-title">Separacion de capas</div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">1. Autenticacion</div>
+<p>Responde:</p>
+<p><strong>quien es el usuario</strong></p>
+<p>La autenticacion la resuelve <strong>Better Auth</strong>. Eso incluye:</p>
+<ul>
+  <li>login con Google</li>
+  <li>sesion</li>
+  <li>cookies de sesion</li>
+  <li>tabla <code>public.&quot;user&quot;</code> como identidad estable</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">2. Autorizacion</div>
+<p>Responde:</p>
+<p><strong>si ese usuario puede acceder o modificar un recurso</strong></p>
+<p>La autorizacion real se resuelve con:</p>
+<ul>
+  <li><code>tribe_members</code></li>
+  <li><code>tribe_id</code></li>
+  <li>policies de RLS</li>
+  <li>casos de uso y servicios de aplicacion</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">3. Modelo de permisos</div>
+<p>Responde:</p>
+<p><strong>que capacidades tiene un usuario dentro de una tribu</strong></p>
+<p>La regla practica es esta:</p>
+<div class="callout c-info"><strong>Better Auth responde quien es el usuario</strong></div>
+<div class="callout c-info"><strong><code>tribe_members</code> responde que rol y estado tiene en cada tribu</strong></div>
+<div class="callout c-info"><strong>RLS decide si puede tocar los datos</strong></div>
+<div class="callout c-info"><strong>Next.js refleja esos permisos y orquesta acciones</strong></div>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Fuente de verdad</div>
+<p>La fuente de verdad del sistema de roles por tribu es:</p>
+<ul>
+  <li><code>tribe_members(tribe_id, user_id, role, status)</code></li>
+</ul>
+<p>Reglas fijas:</p>
+<ul>
+  <li>el rol siempre esta acotado por <code>tribe_id</code></li>
+  <li>un mismo usuario puede tener roles distintos en tribus distintas</li>
+  <li><code>profiles</code> no debe guardar el rol de tribu como atributo global</li>
+  <li>la sesion o las cookies no reemplazan la relacion <code>tribe_members</code></li>
+  <li>los roles globales no reemplazan permisos por tribu</li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Tipos canonicos</div>
+<div class="code-block"><pre>type TribeRole = &quot;leader&quot; | &quot;guardian&quot; | &quot;tribemate&quot;;
+type TribeStatus = &quot;active&quot; | &quot;muted&quot; | &quot;blocked&quot;;</pre></div>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Roles por tribu</div>
+<ul>
+  <li><code>leader</code></li>
+  <li><code>guardian</code></li>
+  <li><code>tribemate</code></li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Estados por tribu</div>
+<ul>
+  <li><code>active</code></li>
+  <li><code>muted</code></li>
+  <li><code>blocked</code></li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">10</div>
+  <div class="section-title">Permiso global para crear tribus</div>
+<p>En este MVP, crear tribu se resuelve con una whitelist global:</p>
+<ul>
+  <li>la capacidad de crear tribu vive en <code>tribe_creator_whitelist</code></li>
+  <li>la whitelist se consulta por email normalizado</li>
+  <li>la whitelist no reemplaza <code>leader/guardian/tribemate</code></li>
+  <li>una vez creada la tribu, la autorizacion vuelve al modelo por <code>tribe_members</code></li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PART 11</div>
+  <div class="part-header-title">Matriz base</div>
+</div>
+
+<div class="section">
+  <div class="section-num">12</div>
+  <div class="section-title"><code>leader</code></div>
+<p>Puede:</p>
+<ul>
+  <li>editar tribu</li>
+  <li>borrar tribu</li>
+  <li>crear, editar y eliminar categorias de posts</li>
+  <li>transferir liderazgo</li>
+  <li>nombrar guardians</li>
+  <li>moderar miembros</li>
+  <li>moderar contenido dentro de su tribu</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">13</div>
+  <div class="section-title"><code>guardian</code></div>
+<p>Puede:</p>
+<ul>
+  <li>moderar contenido dentro de su tribu</li>
+  <li>gestionar categorias de posts</li>
+  <li>silenciar miembros</li>
+  <li>bloquear miembros si la regla de negocio lo permite</li>
+  <li>invitar o gestionar miembros si el caso de uso lo habilita</li>
+</ul>
+<p>No puede:</p>
+<ul>
+  <li>borrar tribu</li>
+  <li>cambiar leader</li>
+  <li>transferir liderazgo</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">14</div>
+  <div class="section-title"><code>tribemate</code></div>
+<p>Puede:</p>
+<ul>
+  <li>ver tribu</li>
+  <li>participar segun las capacidades habilitadas</li>
+  <li>crear o editar solo su propio contenido permitido</li>
+</ul>
+<p>No puede:</p>
+<ul>
+  <li>moderar miembros</li>
+  <li>cambiar configuracion de tribu</li>
+  <li>gestionar categorias de posts</li>
+  <li>reasignar roles</li>
+</ul>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">15</div>
+  <div class="section-title">Efecto de <code>status</code></div>
+
+</div>
+
+<div class="section">
+  <div class="section-num">16</div>
+  <div class="section-title"><code>active</code></div>
+<p>Mantiene los permisos normales segun su <code>role</code>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">17</div>
+  <div class="section-title"><code>muted</code></div>
+<p>Mantiene lectura, pero pierde participacion activa.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">18</div>
+  <div class="section-title"><code>blocked</code></div>
+<p>Pierde acceso tenant-scoped de lectura y escritura para esa tribu.</p>
+<div class="divider"></div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PART 19</div>
+  <div class="part-header-title">Responsabilidades por capa</div>
+</div>
+
+<div class="section">
+  <div class="section-num">20</div>
+  <div class="section-title">Better Auth</div>
+<p>Responsable de:</p>
+<ul>
+  <li>identidad del usuario</li>
+  <li>login</li>
+  <li>sesion</li>
+  <li>cookies de sesion</li>
+</ul>
+<p>No es responsable de:</p>
+<ul>
+  <li>roles por tribu</li>
+  <li>permisos por tribu</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">21</div>
+  <div class="section-title">Postgres + RLS</div>
+<p>Responsable de:</p>
+<ul>
+  <li>acceso por tenant</li>
+  <li>ownership</li>
+  <li>membership</li>
+  <li>negar lecturas y escrituras cuando el usuario no cumple la policy</li>
+</ul>
+<p>No es responsable de:</p>
+<ul>
+  <li>toda la logica de negocio dinamica</li>
+  <li>toda la UX del producto</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">22</div>
+  <div class="section-title">Next.js</div>
+<p>Responsable de:</p>
+<ul>
+  <li>leer el rol y estado del usuario en la tribu actual</li>
+  <li>ocultar o mostrar acciones en la UI</li>
+  <li>redirigir o devolver errores de aplicacion cuando corresponde</li>
+  <li>orquestar mutaciones con casos de uso, server actions y route handlers</li>
+</ul>
+<p>Regla importante:</p>
+<ul>
+  <li>ocultar un boton mejora UX, pero no concede permisos</li>
+  <li>si RLS niega una operacion, la app no debe asumir que la UI la vuelve valida</li>
+</ul>
+</div>
+</body>
+</html>

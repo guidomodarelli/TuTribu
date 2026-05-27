@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concurrency, Observability, and Performance</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Concurrency, Observability, and Performance</div>
+  <div class="doc-sub">Reglas de concurrencia, observabilidad y performance para flujos de producto.</div>
+  <div class="doc-meta"><span>Scope: Reliability</span><span>Status: Active</span></div>
+</div>
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+<p>Design client and server flows assuming concurrent execution, partial failures, retries, and out-of-order completion from the start.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Goal</div>
+<p>Reduce hard-to-reproduce bugs and improve operational debugging by making concurrency, observability, and performance explicit engineering concerns.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Observability Rules</div>
+<p><strong>Structured logs</strong></p>
+<p>Use structured logs by default so events can be filtered, correlated, and aggregated across environments.</p>
+<p>Prefer including:</p>
+<ul>
+  <li>event or message name</li>
+  <li><code>requestId</code> and <code>traceId</code> when available</li>
+  <li>feature or use-case context</li>
+  <li>duration and outcome</li>
+  <li>safe resource identifiers</li>
+</ul>
+<p>Do not log secrets, tokens, raw provider payloads, session data, or internal stack traces in user-facing surfaces.</p>
+<div class="code-block"><pre>logger.info({
+  message: &quot;Tribe created&quot;,
+  tribeId,
+  requestId,
+  durationMs,
+});</pre></div>
+<p><strong>Request correlation</strong></p>
+<p>Treat request correlation as mandatory for server-side flows that cross boundaries such as route handlers, use cases, repositories, or external providers.</p>
+<p>Every important request flow should be traceable through a stable correlation identifier such as <code>requestId</code> or <code>traceId</code>.</p>
+<p><strong>Actionable metrics</strong></p>
+<p>Measure the operational signals that help detect regressions early.</p>
+<p>Track at least:</p>
+<ul>
+  <li>latency for critical flows</li>
+  <li>error rate</li>
+  <li>retry rate when retries exist</li>
+  <li>throughput for high-traffic paths</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Client Concurrency Rules</div>
+<p><strong>Effects may re-run</strong></p>
+<p>Assume <code>useEffect</code> can run more than once, especially in Strict Mode and during rapid state changes.</p>
+<p>Do not rely on an effect running exactly once unless the framework explicitly guarantees it.</p>
+<p><strong>Cancel async work</strong></p>
+<p>Cancel or invalidate asynchronous work when the component unmounts or when the effect dependencies change.</p>
+<p>Prefer <code>AbortController</code> for fetch-based work and an equivalent cleanup strategy for other async APIs.</p>
+<div class="code-block"><pre>useEffect(() =&gt; {
+  const controller = new AbortController();
+
+  fetch(&quot;/api/data&quot;, { signal: controller.signal })
+    .then((response) =&gt; response.json())
+    .then((data) =&gt; setData(data))
+    .catch((error) =&gt; {
+      if (error.name !== &quot;AbortError&quot;) {
+        console.error(error);
+      }
+    });
+
+  return () =&gt; controller.abort();
+}, []);</pre></div>
+<p><strong>Guard against stale or out-of-order responses</strong></p>
+<p>When multiple requests can overlap, ensure only the latest relevant response updates UI state.</p>
+<p>Use request sequencing, refs, or equivalent invalidation patterns to prevent older responses from overwriting newer state.</p>
+<div class="code-block"><pre>const requestIdRef = useRef(0);
+
+useEffect(() =&gt; {
+  const requestId = ++requestIdRef.current;
+
+  fetchData().then((result) =&gt; {
+    if (requestId === requestIdRef.current) {
+      setData(result);
+    }
+  });
+}, [dependency]);</pre></div>
+<p><strong>Avoid stale state updates</strong></p>
+<p>Use functional updates when the next value depends on the previous state.</p>
+<div class="code-block"><pre>setCount((previousCount) =&gt; previousCount + 1);</pre></div>
+<p><strong>Client logging</strong></p>
+<p>Keep production client logging sparse, contextual, and safe.</p>
+<p>Prefer reporting actionable failures to the approved observability platform instead of leaving noisy console output in production code.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Server Concurrency Rules</div>
+<p><strong>Assume concurrent mutations</strong></p>
+<p>Design every write path assuming multiple requests may target the same resource at nearly the same time.</p>
+<p>Do not rely on the browser or UI ordering to guarantee consistency.</p>
+<p><strong>Idempotency and retries</strong></p>
+<p>Critical mutations should be safe under retries, duplicated submissions, and transient transport failures.</p>
+<p>Prefer:</p>
+<ul>
+  <li>idempotency keys for retryable create operations</li>
+  <li>deterministic conflict handling for repeated writes</li>
+  <li>explicit retry policies only where side effects are safe</li>
+</ul>
+<p><strong>Shared-resource protection</strong></p>
+<p>Protect shared state with the correct consistency mechanism for the use case.</p>
+<p>Common options include:</p>
+<ul>
+  <li>database transactions</li>
+  <li>optimistic concurrency with version checks</li>
+  <li>unique constraints for write deduplication</li>
+  <li>queueing or serialization where required by the domain</li>
+</ul>
+<p><strong>Error boundaries</strong></p>
+<p>Classify errors by responsibility and exposure level.</p>
+<p>Expose safe, stable messages externally and keep detailed diagnostics in internal logs.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Performance and Resilience Rules</div>
+<p><strong>Avoid event-loop blocking</strong></p>
+<p>Keep CPU-heavy or blocking work out of latency-sensitive request paths unless it is explicitly bounded and justified.</p>
+<p>Prefer asynchronous I/O, batching, background processing, or precomputation when appropriate.</p>
+<p><strong>Reduce unnecessary work</strong></p>
+<p>Avoid duplicate requests, overfetching, and repeated expensive computations in both client and server flows.</p>
+<p>Prefer:</p>
+<ul>
+  <li>batching related operations</li>
+  <li>caching when data staleness is acceptable</li>
+  <li>debouncing or throttling for high-frequency user input</li>
+  <li>one primary server-side data entrypoint per route when possible</li>
+</ul>
+<p><strong>Design for partial failure</strong></p>
+<p>Assume provider calls, network requests, and downstream services can fail independently.</p>
+<p>Handle timeouts, retries, and fallback behavior intentionally instead of letting failures leak as generic runtime errors.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Common Antipatterns</div>
+<table>
+<thead>
+<tr><th>Problem</th><th>Description</th><th>Consequence</th></tr>
+</thead>
+<tbody>
+<tr><td>Race conditions</td><td>Multiple operations update the same state without coordination</td><td>Inconsistent or corrupted data</td></tr>
+<tr><td>Memory leaks</td><td>Async work continues after the owner is gone</td><td>Growing memory usage and noisy warnings</td></tr>
+<tr><td>Insufficient logs</td><td>Events lack context or correlation</td><td>Slow and unreliable debugging</td></tr>
+<tr><td>Overfetching</td><td>The system requests more data or more often than needed</td><td>Higher latency and wasted resources</td></tr>
+<tr><td>Stale state</td><td>Updates rely on outdated values</td><td>Intermittent UI and business bugs</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Notes</div>
+<ul>
+  <li>Treat concurrency as a default condition, not an edge case.</li>
+  <li>Keep consistency guarantees on the server, not in the client.</li>
+  <li>Put external DTO mapping and provider-specific resilience logic in infrastructure, not in domain or presentational UI.</li>
+  <li>Follow repository security rules when logging or handling failures.</li>
+  <li>Use this document for decision guidance; keep <code>AGENTS.md</code> focused on compact mandatory rules.</li>
+</ul>
+</div>
+</body>
+</html>

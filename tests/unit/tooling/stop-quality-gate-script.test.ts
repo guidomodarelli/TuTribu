@@ -19,7 +19,7 @@ describe("stop quality gate script", () => {
       stopQualityGateScript.shouldRunQualityGateForChangedFiles([
         "README.md",
         "docs/user-manual/subscription-pricing-management.htm",
-        "docs/architecture/subscriptions.md",
+        "docs/architecture/subscriptions.htm",
       ])
     ).toBe(false);
   });
@@ -27,7 +27,7 @@ describe("stop quality gate script", () => {
   it("should run for TypeScript, React, and test changes", () => {
     expect(
       stopQualityGateScript.shouldRunQualityGateForChangedFiles([
-        "docs/architecture/subscriptions.md",
+        "docs/architecture/subscriptions.htm",
         "src/modules/subscriptions/application/use-cases/manage-prices.ts",
       ])
     ).toBe(true);
@@ -71,13 +71,13 @@ describe("stop quality gate script", () => {
         [
           " M docs/user-manual/subscription-pricing-management.htm",
           "A  src/modules/subscriptions/domain/entities/subscription.ts",
-          "R  docs/old.md -> tests/unit/modules/subscriptions/domain/subscription.test.ts",
+          "R  docs/old.htm -> tests/unit/modules/subscriptions/domain/subscription.test.ts",
         ].join("\n")
       )
     ).toEqual([
       "docs/user-manual/subscription-pricing-management.htm",
       "src/modules/subscriptions/domain/entities/subscription.ts",
-      "docs/old.md",
+      "docs/old.htm",
       "tests/unit/modules/subscriptions/domain/subscription.test.ts",
     ]);
   });

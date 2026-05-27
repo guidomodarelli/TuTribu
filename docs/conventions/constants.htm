@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Constants Organization</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Constants Organization</div>
+  <div class="doc-sub">Criterios para ubicar constantes según ownership y reutilización real.</div>
+  <div class="doc-meta"><span>Scope: Constants</span><span>Status: Active</span></div>
+</div>
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+<p>Use constants according to their real reuse scope so behavior stays easy to find and duplication stays low.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Goal</div>
+<p>Differentiate constants by ownership and reuse level instead of extracting every literal by default.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Scope Rules</div>
+<p><strong>Global constants</strong></p>
+<p>Use <code>src/constants/</code> only for values reused across multiple modules or across the whole application.</p>
+<p>Examples:</p>
+<ul>
+  <li>shared route maps</li>
+  <li>shared configuration keys</li>
+  <li>cross-module enums or statuses</li>
+</ul>
+<div class="code-block"><pre>export const ROUTES = {
+  HOME: &quot;/&quot;,
+  LOGIN: &quot;/login&quot;,
+  DASHBOARD: &quot;/dashboard&quot;,
+} as const;</pre></div>
+<p><strong>Module constants</strong></p>
+<p>Use <code>src/modules/&lt;module&gt;/constants/</code> for values that belong to one module and should stay owned by that module.</p>
+<p>Examples:</p>
+<ul>
+  <li>module statuses</li>
+  <li>business limits</li>
+  <li>route segments used only by that module</li>
+  <li>provider names or control messages scoped to one module</li>
+</ul>
+<div class="code-block"><pre>export const USER_ROLES = {
+  ADMIN: &quot;admin&quot;,
+  USER: &quot;user&quot;,
+} as const;</pre></div>
+<p><strong>File-local constants</strong></p>
+<p>Keep a constant inside the same file when it is only used by one page, component, route, or module file.</p>
+<div class="code-block"><pre>const MAX_RETRIES = 3;</pre></div>
+<p>Do not extract file-local values into separate files without a concrete reuse need.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Quick Decision Guide</div>
+<table>
+<thead>
+<tr><th>Use case</th><th>Location</th></tr>
+</thead>
+<tbody>
+<tr><td>Reused across the app or multiple modules</td><td><code>src/constants/</code></td></tr>
+<tr><td>Reused only inside one module</td><td><code>src/modules/&lt;module&gt;/constants/</code></td></tr>
+<tr><td>Used in exactly one file</td><td>keep it in that file</td></tr>
+<tr><td>Repeated in multiple files of the same module</td><td>promote it to that module's <code>constants/</code> folder</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Notes</div>
+<ul>
+  <li>Keep each constant close to its functional owner.</li>
+  <li>Do not create global constants by default.</li>
+  <li>Group constants by domain ownership, not by generic technical category.</li>
+  <li>Prefer <code>UPPER_CASE</code> naming for constants.</li>
+  <li>Use configuration only for environment, integration, or deployment values.</li>
+  <li>ESLint already enforces objective parts of this policy such as forbidden magic behavior values and restricted imports. This document covers the structural decision criteria that still require engineering judgment.</li>
+</ul>
+</div>
+</body>
+</html>

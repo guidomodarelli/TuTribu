@@ -6,7 +6,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 
 - Read [`AGENTS.md`](./AGENTS.md) before editing code.
 - Read [`DESIGN.md`](./DESIGN.md) before creating or changing UI.
-- Review [`docs/architecture/*.md`](./docs/architecture) before changes that affect architecture, authentication, authorization, provider integrations, data flow, or modular structure.
+- Review [`docs/architecture/*.htm`](./docs/architecture) before changes that affect architecture, authentication, authorization, provider integrations, data flow, or modular structure.
 - Keep all technical names in English.
 - Keep user-facing product text in Spanish.
 - Prefer `src/modules/<feature>/{domain,application,infrastructure}` for business code.
@@ -173,4 +173,4 @@ Notes:
 - `components/<scope>/<component>/{index.tsx,styles.module.scss}` — custom presentational components.
 - `lib/*` — framework-safe helpers, UI utilities, and client-only adapters. Off-limits to `application` and `domain`.
 - `database/migrations/*` — versioned SQL migrations (source of truth for schema and RLS policies).
-- `docs/architecture/*` — authoritative architectural decisions. Conflicts with `AGENTS.md` resolve in favor of `docs/architecture`.
+- `docs/architecture/*.htm` — authoritative architectural decisions. Conflicts with `AGENTS.md` resolve in favor of `docs/architecture`.

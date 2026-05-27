@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backend propio separado</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Backend propio separado</div>
+  <div class="doc-sub">Criterio para separar un backend dedicado desde Next.js + Neon.</div>
+  <div class="doc-meta"><span>Scope: Backend</span><span>Status: Active</span></div>
+</div>
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+<p>Este archivo cubre <strong>unicamente</strong> cuando y como pasaria de <code>Next.js + Neon</code> a un <strong>backend propio separado</strong>.</p>
+<div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Cuando lo sumaria</div>
+<p>Recien cuando aparezcan 2 o 3 de estos sintomas:</p>
+<ul>
+  <li>tus <code>Route Handlers</code> empiezan a crecer demasiado</li>
+  <li>necesitas procesos async largos</li>
+  <li>queres desacoplar frontend y backend</li>
+  <li>necesitas varios clientes consumiendo la misma API</li>
+  <li>queres una capa de dominio mas estricta</li>
+  <li>tenes webhooks, colas o jobs recurrentes</li>
+  <li>necesitas aislar mejor limites de despliegue y escalado</li>
+</ul>
+<p>La guia de <strong>Backend for Frontend</strong> de Next.js encuadra este patron como valido para exponer endpoints HTTP, acceder a fuentes de datos y ejecutar side effects. Eso hace razonable empezar con Next.js como BFF, pero no obliga a quedarte ahi para siempre. (<a href="https://nextjs.org/docs/app/guides/backend-for-frontend" target="_blank" rel="noopener">Next.js</a>)</p>
+<div class="divider"></div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PART 03</div>
+  <div class="part-header-title">Como haria la migracion</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Objetivo</div>
+<p>Mover parte de la logica server desde Next.js a un servicio dedicado <strong>sin romper el frontend</strong> ni reescribir las reglas de negocio.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Estrategia</div>
+<p><strong>1. Mantener estable el dominio desde el dia uno</strong></p>
+<p>La logica de negocio no deberia vivir en <code>page.tsx</code>, componentes ni handlers grandes. Deberia vivir en:</p>
+<ul>
+  <li><code>src/modules/&lt;feature&gt;/domain</code></li>
+  <li><code>src/modules/&lt;feature&gt;/application</code></li>
+</ul>
+<p>Eso permite que el mismo caso de uso sea invocado primero desde Next.js y mas adelante desde un backend dedicado.</p>
+<p><strong>2. Tratar Next.js como primer BFF</strong></p>
+<p>En la fase inicial:</p>
+<ul>
+  <li><code>route.ts</code> y <code>Server Actions</code> reciben requests</li>
+  <li>resuelven autenticacion y contexto</li>
+  <li>llaman casos de uso</li>
+  <li>devuelven resultados simples a la UI</li>
+</ul>
+<p><strong>3. Extraer primero los casos mas tensos</strong></p>
+<p>No migraria todo junto. Sacaria primero:</p>
+<ul>
+  <li>procesos async largos</li>
+  <li>integraciones externas complejas</li>
+  <li>jobs programados</li>
+  <li>flujos con reintentos o idempotencia</li>
+  <li>endpoints usados por mas de un cliente</li>
+</ul>
+<p><strong>4. Dejar Next.js como consumidor del nuevo backend</strong></p>
+<p>Cuando exista el backend separado:</p>
+<ul>
+  <li>la UI sigue en Next.js</li>
+  <li>algunos handlers desaparecen</li>
+  <li>otros quedan como capa BFF delgada</li>
+  <li>los casos complejos pasan al backend dedicado</li>
+</ul>
+<p><strong>5. Migrar por feature, no por capa tecnica</strong></p>
+<p>El orden mas sano suele ser:</p>
+<ol>
+  <li>tribu</li>
+  <li>progreso</li>
+  <li>billing o integraciones</li>
+  <li>procesos asincronos</li>
+</ol>
+<p>No moveria &quot;todo application&quot; o &quot;todo infrastructure&quot; de una sola vez.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Secuencia tecnica de corte</div>
+<ol>
+  <li>mover un caso de uso complejo a un servicio dedicado</li>
+  <li>exponer ese caso por HTTP o mensajeria en el backend nuevo</li>
+  <li>cambiar el adapter de infraestructura en Next.js para consumir ese backend</li>
+  <li>dejar el contrato estable y medir errores, latencia y reintentos</li>
+  <li>repetir el proceso feature por feature</li>
+</ol>
+<p>Si ya mantuviste la separacion <code>domain -&gt; application -&gt; infrastructure</code>, el corte es incremental y no exige rehacer la UI.</p>
+<div class="divider"></div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PART 07</div>
+  <div class="part-header-title">Arquitectura por fases</div>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Fase 1</div>
+<p><strong>Next.js + Neon</strong></p>
+<ul>
+  <li>UI en App Router</li>
+  <li>mutaciones simples con <code>Server Actions</code></li>
+  <li>endpoints puntuales con <code>Route Handlers</code></li>
+  <li>auth en Better Auth y base relacional en Neon</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Fase 2</div>
+<p><strong>Next.js + Neon + workers o jobs</strong></p>
+<ul>
+  <li>sacas tareas largas del request/response</li>
+  <li>mantenes Next.js como entrada principal</li>
+  <li>empezas a aislar procesos operativos</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">10</div>
+  <div class="section-title">Fase 3</div>
+<p><strong>Next.js + backend dedicado + Neon</strong></p>
+<ul>
+  <li>Next.js queda como frontend y BFF liviano</li>
+  <li>el backend dedicado absorbe casos complejos</li>
+  <li>varios clientes ya pueden consumir la misma API</li>
+</ul>
+</div>
+</body>
+</html>

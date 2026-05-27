@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documento</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">DOCUMENT DESIGN</div>
+  <div class="doc-title">Documento</div>
+  <div class="doc-sub">Sistema visual para documentos técnicos y especificaciones internas.</div>
+  <div class="doc-meta"><span>Scope: Docs</span><span>Status: Active</span></div>
+</div>
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Design Tokens</div>
+<div class="code-block"><pre>version: alpha
+name: Heritage Spec
+description: &gt;
+  Sistema visual para documentos técnicos y especificaciones internas.
+  Estética de &quot;broadsheet contemporáneo&quot;: fondo cálido tipo piedra caliza,
+  serif/sans neutro para lectura, mono para metadatos y código.
+  Inspirado en specs de producto, RFCs y diseño editorial sobrio.
+colors:
+  # Texto e ink
+  primary:           &quot;#1A1A1A&quot;   # Tinta profunda — títulos, énfasis, body fuerte
+  body:              &quot;#333333&quot;   # Texto corrido — párrafos, listas, celdas
+  muted:             &quot;#555555&quot;   # Sutil — subtítulos, descripciones secundarias
+  label:             &quot;#888888&quot;   # Metadatos, labels mono, números de sección
+  # Superficies neutras
+  background:        &quot;#F8F7F4&quot;   # Fondo principal — limestone cálido
+  surface-alt:       &quot;#F0EDE6&quot;   # Beige cálido — headers de tabla, code inline, badges neutros
+  surface-card:      &quot;#FFFFFF&quot;   # Mockups, example boxes
+  # Bordes
+  border:            &quot;#E0DDD6&quot;   # Borde estándar — separadores, tablas
+  border-strong:     &quot;#D0CDC6&quot;   # Borde de cards/mockups
+  border-ink:        &quot;#1A1A1A&quot;   # Línea pesada del doc-header (2px)
+  # Superficie oscura (code blocks, step circles)
+  surface-dark:      &quot;#1A1A2E&quot;
+  on-dark:           &quot;#E2E8F0&quot;
+  # Callout — Info (azul broadsheet)
+  info-bg:           &quot;#EAF3FB&quot;
+  info-border:       &quot;#5A9FD4&quot;
+  info-text:         &quot;#1A4F7A&quot;
+  # Callout — Warn (amber)
+  warn-bg:           &quot;#FDF5E0&quot;
+  warn-border:       &quot;#D4A44C&quot;
+  warn-text:         &quot;#7A5510&quot;
+  # Callout — Ok (verde apagado)
+  ok-bg:             &quot;#E8F7F2&quot;
+  ok-border:         &quot;#4AAA8C&quot;
+  ok-text:           &quot;#1A6B52&quot;
+  # Callout — Red/Alert (coral terracota)
+  red-bg:            &quot;#FEF8F6&quot;
+  red-border:        &quot;#E8917A&quot;
+  red-text:          &quot;#9E3D25&quot;
+  # Acentos para syntax highlighting (sobre surface-dark)
+  syntax-comment:    &quot;#64748B&quot;
+  syntax-keyword:    &quot;#7DD3FC&quot;
+  syntax-string:     &quot;#86EFAC&quot;
+  syntax-number:     &quot;#FBBF24&quot;
+  syntax-function:   &quot;#C084FC&quot;
+  syntax-tag:        &quot;#F9A8D4&quot;
+
+typography:
+  doc-title:
+    fontFamily: DM Sans
+    fontSize: 28px
+    fontWeight: 600
+    lineHeight: 1.2
+  doc-sub:
+    fontFamily: DM Sans
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 1.5
+  doc-label:
+    fontFamily: DM Mono
+    fontSize: 11px
+    fontWeight: 500
+    letterSpacing: 0.14em
+    # uso: text-transform: uppercase
+  doc-meta:
+    fontFamily: DM Mono
+    fontSize: 11px
+    fontWeight: 400
+  part-title:
+    fontFamily: DM Sans
+    fontSize: 22px
+    fontWeight: 600
+    lineHeight: 1.2
+  section-num:
+    fontFamily: DM Mono
+    fontSize: 11px
+    fontWeight: 500
+    letterSpacing: 0.12em
+    # uso: text-transform: uppercase, color label
+  section-title:
+    fontFamily: DM Sans
+    fontSize: 20px
+    fontWeight: 600
+    lineHeight: 1.3
+  body-md:
+    fontFamily: DM Sans
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 1.7
+  body-callout:
+    fontFamily: DM Sans
+    fontSize: 13px
+    fontWeight: 400
+    lineHeight: 1.6
+  table-header:
+    fontFamily: DM Mono
+    fontSize: 10px
+    fontWeight: 500
+    letterSpacing: 0.1em
+    # uso: text-transform: uppercase
+  table-cell:
+    fontFamily: DM Sans
+    fontSize: 13px
+    fontWeight: 400
+    lineHeight: 1.5
+  badge:
+    fontFamily: DM Mono
+    fontSize: 10px
+    fontWeight: 500
+    letterSpacing: 0.05em
+  code-inline:
+    fontFamily: DM Mono
+    fontSize: 12px
+    fontWeight: 400
+  code-block:
+    fontFamily: DM Mono
+    fontSize: 12px
+    fontWeight: 400
+    lineHeight: 1.7
+  step-num:
+    fontFamily: DM Mono
+    fontSize: 12px
+    fontWeight: 500
+  step-label:
+    fontFamily: DM Sans
+    fontSize: 14px
+    fontWeight: 600
+  step-desc:
+    fontFamily: DM Sans
+    fontSize: 13px
+    fontWeight: 400
+    lineHeight: 1.6
+
+rounded:
+  xs:   3px      # code inline
+  sm:   4px      # badges
+  md:   6px      # pills, chips de estado
+  lg:   8px      # callouts, code blocks
+  xl:   10px    # mockups, example boxes, cards grandes
+  full: 9999px  # circular (step-circle, mockup dots)
+
+spacing:
+  xs:  4px
+  sm:  6px
+  md:  8px
+  lg:  12px
+  xl:  16px
+  2xl: 20px
+  3xl: 24px
+  4xl: 28px
+  5xl: 40px
+  6xl: 48px
+  7xl: 80px
+
+components:
+  # —— Layout raíz
+  page:
+    backgroundColor: &quot;{colors.background}&quot;
+    textColor:       &quot;{colors.primary}&quot;
+    typography:      &quot;{typography.body-md}&quot;
+    padding:         &quot;48px 24px 80px&quot;
+    # max-width: 860px, centrado horizontalmente
+
+  # —— Doc header
+  doc-header:
+    backgroundColor: &quot;{colors.background}&quot;
+    padding:         &quot;0 0 20px 0&quot;
+    # border-bottom: 2px solid {colors.border-ink}, margin-bottom: 40px
+  doc-header-label:
+    textColor:       &quot;{colors.label}&quot;
+    typography:      &quot;{typography.doc-label}&quot;
+  doc-header-title:
+    textColor:       &quot;{colors.primary}&quot;
+    typography:      &quot;{typography.doc-title}&quot;
+  doc-header-sub:
+    textColor:       &quot;{colors.muted}&quot;
+    typography:      &quot;{typography.doc-sub}&quot;
+  doc-header-meta:
+    textColor:       &quot;{colors.label}&quot;
+    typography:      &quot;{typography.doc-meta}&quot;
+    # display: flex, gap: 24px, margin-top: 16px
+
+  # —— Part header (separa partes mayores A / B)
+  part-header:
+    padding:         &quot;32px 0 0 0&quot;
+    # border-top: 2px solid {colors.border-ink}, margin-top: 56px
+  part-header-label:
+    textColor:       &quot;{colors.label}&quot;
+    typography:      &quot;{typography.doc-label}&quot;
+  part-header-title:
+    textColor:       &quot;{colors.primary}&quot;
+    typography:      &quot;{typography.part-title}&quot;
+
+  # —— Section block (bloque numerado)
+  section:
+    padding:         &quot;0&quot;
+    # margin-bottom: 40px
+  section-num:
+    textColor:       &quot;{colors.label}&quot;
+    typography:      &quot;{typography.section-num}&quot;
+  section-title:
+    textColor:       &quot;{colors.primary}&quot;
+    typography:      &quot;{typography.section-title}&quot;
+    # padding-bottom: 8px, border-bottom: 1px solid {colors.border}
+
+  # —— Callouts (4 variantes semánticas)
+  callout-info:
+    backgroundColor: &quot;{colors.info-bg}&quot;
+    textColor:       &quot;{colors.info-text}&quot;
+    typography:      &quot;{typography.body-callout}&quot;
+    rounded:         &quot;{rounded.lg}&quot;
+    padding:         &quot;14px 18px&quot;
+    # border-left: 3px solid {colors.info-border}
+  callout-warn:
+    backgroundColor: &quot;{colors.warn-bg}&quot;
+    textColor:       &quot;{colors.warn-text}&quot;
+    typography:      &quot;{typography.body-callout}&quot;
+    rounded:         &quot;{rounded.lg}&quot;
+    padding:         &quot;14px 18px&quot;
+    # border-left: 3px solid {colors.warn-border}
+  callout-ok:
+    backgroundColor: &quot;{colors.ok-bg}&quot;
+    textColor:       &quot;{colors.ok-text}&quot;
+    typography:      &quot;{typography.body-callout}&quot;
+    rounded:         &quot;{rounded.lg}&quot;
+    padding:         &quot;14px 18px&quot;
+    # border-left: 3px solid {colors.ok-border}
+  callout-red:
+    backgroundColor: &quot;{colors.red-bg}&quot;
+    textColor:       &quot;{colors.red-text}&quot;
+    typography:      &quot;{typography.body-callout}&quot;
+    rounded:         &quot;{rounded.lg}&quot;
+    padding:         &quot;14px 18px&quot;
+    # border-left: 3px solid {colors.red-border}
+
+  # —— Table
+  table-header:
+    backgroundColor: &quot;{colors.surface-alt}&quot;
+    textColor:       &quot;{colors.label}&quot;
+    typography:      &quot;{typography.table-header}&quot;
+    padding:         &quot;8px 12px&quot;
+    # text-transform: uppercase, border-bottom: 1px solid {colors.border}
+  table-cell:
+    textColor:       &quot;{colors.body}&quot;
+    typography:      &quot;{typography.table-cell}&quot;
+    padding:         &quot;10px 12px&quot;
+    # border-bottom: 1px solid {colors.border}, vertical-align: top
+
+  # —— Badges (pills compactas mono)
+  badge-green:
+    backgroundColor: &quot;{colors.ok-bg}&quot;
+    textColor:       &quot;{colors.ok-text}&quot;
+    typography:      &quot;{typography.badge}&quot;
+    rounded:         &quot;{rounded.sm}&quot;
+    padding:         &quot;2px 8px&quot;
+    # border: 1px solid {colors.ok-border}
+  badge-amber:
+    backgroundColor: &quot;{colors.warn-bg}&quot;
+    textColor:       &quot;{colors.warn-text}&quot;
+    typography:      &quot;{typography.badge}&quot;
+    rounded:         &quot;{rounded.sm}&quot;
+    padding:         &quot;2px 8px&quot;
+    # border: 1px solid {colors.warn-border}
+  badge-red:
+    backgroundColor: &quot;{colors.red-bg}&quot;
+    textColor:       &quot;{colors.red-text}&quot;
+    typography:      &quot;{typography.badge}&quot;
+    rounded:         &quot;{rounded.sm}&quot;
+    padding:         &quot;2px 8px&quot;
+    # border: 1px solid {colors.red-border}
+  badge-gray:
+    backgroundColor: &quot;{colors.surface-alt}&quot;
+    textColor:       &quot;{colors.muted}&quot;
+    typography:      &quot;{typography.badge}&quot;
+    rounded:         &quot;{rounded.sm}&quot;
+    padding:         &quot;2px 8px&quot;
+    # border: 1px solid #CCCCCC
+
+  # —— Steps (proceso numerado con línea conectora)
+  step-circle:
+    backgroundColor: &quot;{colors.surface-dark}&quot;
+    textColor:       &quot;{colors.surface-card}&quot;
+    typography:      &quot;{typography.step-num}&quot;
+    rounded:         &quot;{rounded.full}&quot;
+    width:           &quot;32px&quot;
+    height:          &quot;32px&quot;
+  step-label:
+    textColor:       &quot;{colors.primary}&quot;
+    typography:      &quot;{typography.step-label}&quot;
+  step-desc:
+    textColor:       &quot;{colors.muted}&quot;
+    typography:      &quot;{typography.step-desc}&quot;
+  # Línea conectora: 1px sólido {colors.border}, vertical, entre step-circles
+
+  # —— Code (inline + block)
+  code-inline:
+    backgroundColor: &quot;{colors.surface-alt}&quot;
+    textColor:       &quot;{colors.primary}&quot;
+    typography:      &quot;{typography.code-inline}&quot;
+    rounded:         &quot;{rounded.xs}&quot;
+    padding:         &quot;1px 5px&quot;
+  code-block:
+    backgroundColor: &quot;{colors.surface-dark}&quot;
+    textColor:       &quot;{colors.on-dark}&quot;
+    typography:      &quot;{typography.code-block}&quot;
+    rounded:         &quot;{rounded.lg}&quot;
+    padding:         &quot;20px 24px&quot;
+
+  # —— Mockup (ventana navegador estilizada)
+  mockup:
+    backgroundColor: &quot;{colors.surface-card}&quot;
+    rounded:         &quot;{rounded.xl}&quot;
+    # border: 1.5px solid {colors.border-strong}
+  mockup-bar:
+    backgroundColor: &quot;{colors.surface-alt}&quot;
+    textColor:       &quot;{colors.label}&quot;
+    typography:      &quot;{typography.doc-meta}&quot;
+    padding:         &quot;10px 16px&quot;
+    # border-bottom: 1px solid {colors.border-strong}
+
+  # —— Example box (cita destacada con label mono)
+  example-box:
+    backgroundColor: &quot;{colors.surface-card}&quot;
+    rounded:         &quot;{rounded.xl}&quot;
+    padding:         &quot;18px 22px&quot;
+    # border: 1.5px solid {colors.border-strong}
+  example-box-label:
+    textColor:       &quot;{colors.label}&quot;
+    typography:      &quot;{typography.doc-label}&quot;
+
+  # —— Pills (chips de estado para flujos)
+  pill-neutral:
+    backgroundColor: &quot;{colors.surface-alt}&quot;
+    textColor:       &quot;{colors.primary}&quot;
+    typography:      &quot;{typography.code-inline}&quot;
+    rounded:         &quot;{rounded.md}&quot;
+    padding:         &quot;6px 12px&quot;
+    # border: 1px solid {colors.border-strong}
+  pill-success:
+    backgroundColor: &quot;{colors.ok-bg}&quot;
+    textColor:       &quot;{colors.ok-text}&quot;
+    typography:      &quot;{typography.code-inline}&quot;
+    rounded:         &quot;{rounded.md}&quot;
+    padding:         &quot;6px 12px&quot;
+    # border: 1px solid {colors.ok-border}
+  pill-stale:
+    backgroundColor: &quot;{colors.surface-alt}&quot;
+    textColor:       &quot;{colors.red-text}&quot;
+    typography:      &quot;{typography.code-inline}&quot;
+    rounded:         &quot;{rounded.md}&quot;
+    padding:         &quot;6px 12px&quot;
+    # text-decoration: line-through
+
+  # —— Divider
+  divider:
+    backgroundColor: &quot;{colors.border}&quot;
+    height:          &quot;1px&quot;
+    # margin: 28px 0</pre></div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Overview</div>
+<p>Minimalismo arquitectónico + gravitas periodística. La interfaz emula un broadsheet premium o una galería contemporánea: fondo de piedra caliza cálida, tinta profunda para titulares, y un único acento por familia de callout en lugar de paletas saturadas.</p>
+<p>El sistema fue diseñado para <strong>documentos densos en información</strong>: specs técnicas, reglas de negocio, RFCs, runbooks. Prioriza legibilidad prolongada por sobre impacto visual, y conviene leerse impreso o en pantalla sin perder jerarquía.</p>
+<p><strong>Características clave:</strong></p>
+<ul>
+  <li>Dos familias tipográficas únicas — <strong>DM Sans</strong> para lectura, <strong>DM Mono</strong> para metadatos.</li>
+  <li>Fondo <code>#F8F7F4</code> (no blanco puro) para reducir fatiga visual.</li>
+  <li>Numeración explícita de secciones (<code>01</code>, <code>02</code>, …) en mono uppercase como guía estructural.</li>
+  <li>Cuatro tonos de callout (info, warn, ok, red) que cubren todo el espectro de aviso.</li>
+  <li>Ningún componente usa sombras pesadas: la jerarquía se logra con tipografía y bordes finos.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Colors</div>
+<p>La paleta se construye sobre <strong>neutros cálidos de alto contraste</strong> y cuatro familias de acento semánticas. Nada de grises azulados ni blancos puros.</p>
+<p><strong>Tinta y texto</strong></p>
+<ul>
+  <li><strong>primary (<code>#1A1A1A</code>)</strong> — Tinta profunda para titulares, énfasis, body en negrita.</li>
+  <li><strong>body (<code>#333333</code>)</strong> — Texto corrido en párrafos, listas, celdas de tabla. Es lo que el lector lee por más tiempo; por eso no es negro absoluto.</li>
+  <li><strong>muted (<code>#555555</code>)</strong> — Subtítulos, descripciones secundarias de un step. Lo suficientemente legible pero claramente subordinado.</li>
+  <li><strong>label (<code>#888888</code>)</strong> — Metadatos, números de sección, headers de tabla en mono uppercase. Texto que &quot;guía&quot; sin reclamar atención.</li>
+</ul>
+<p><strong>Superficies</strong></p>
+<ul>
+  <li><strong>background (<code>#F8F7F4</code>)</strong> — Limestone cálido. Reemplaza el blanco puro para suavizar la lectura.</li>
+  <li><strong>surface-alt (<code>#F0EDE6</code>)</strong> — Beige cálido para headers de tabla, code inline, badges neutros. Diferencia sutil del fondo.</li>
+  <li><strong>surface-card (<code>#FFFFFF</code>)</strong> — Único uso del blanco puro: dentro de mockups y example boxes que necesitan destacarse como &quot;pieza encajada&quot; sobre el fondo.</li>
+  <li><strong>surface-dark (<code>#1A1A2E</code>)</strong> — Tinta nocturna para code blocks y step circles. Único elemento muy oscuro de la página: por eso ancla la mirada cuando aparece.</li>
+</ul>
+<p><strong>Acentos semánticos</strong></p>
+<p>Cada acento viene en tríada <code>bg / border / text</code> y se usa siempre en los mismos roles:</p>
+<ul>
+  <li><strong>Info (azul broadsheet)</strong> — Contexto, aclaraciones, lógica de fondo. Es el callout por defecto cuando hay duda.</li>
+  <li><strong>Warn (amber)</strong> — Advertencias suaves, condicionales, &quot;ojo con esto&quot;. No alarmante.</li>
+  <li><strong>Ok (verde apagado)</strong> — Confirmaciones, éxito, &quot;lo que sí queremos&quot;.</li>
+  <li><strong>Red (coral terracota, no rojo brillante)</strong> — Alertas críticas, consecuencias, pendientes urgentes. El tono está apagado a propósito para no romper la paleta editorial; transmite seriedad sin gritar.</li>
+</ul>
+<p>El uso es consistente: <strong>bg suave</strong> rellena el callout, <strong>border</strong> se aplica como <code>border-left: 3px solid</code>, <strong>text</strong> colorea el texto del callout y de los badges asociados.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Typography</div>
+<p>Dos familias, ambas de Google Fonts, importables vía <code>@import</code> o <code>&lt;link&gt;</code>:</p>
+<div class="code-block"><pre>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&amp;family=DM+Mono:wght@400;500&amp;display=swap');</pre></div>
+<p><strong>DM Sans — lectura</strong></p>
+<p>Geométrica humanista, levemente grotesca. Funciona en titulares y en body sin cambiar de carácter. Pesos disponibles: 400 (regular), 500 (medium), 600 (semibold). <strong>Nunca usar 700 o más</strong> — rompe la sobriedad editorial.</p>
+<table>
+<thead>
+<tr><th>Token</th><th>Tamaño</th><th>Peso</th><th>Uso</th></tr>
+</thead>
+<tbody>
+<tr><td><code>doc-title</code></td><td>28px</td><td>600</td><td>Título de documento (1× por página)</td></tr>
+<tr><td><code>part-title</code></td><td>22px</td><td>600</td><td>División entre partes mayores (Parte A / Parte B)</td></tr>
+<tr><td><code>section-title</code></td><td>20px</td><td>600</td><td>Encabezado de sección numerada</td></tr>
+<tr><td><code>body-md</code></td><td>14px</td><td>400</td><td>Párrafos, listas, celdas</td></tr>
+<tr><td><code>body-callout</code></td><td>13px</td><td>400</td><td>Texto dentro de callouts (más compacto)</td></tr>
+<tr><td><code>table-cell</code></td><td>13px</td><td>400</td><td>Celdas de tabla</td></tr>
+<tr><td><code>step-label</code></td><td>14px</td><td>600</td><td>Etiqueta de cada paso</td></tr>
+<tr><td><code>step-desc</code></td><td>13px</td><td>400</td><td>Descripción bajo la etiqueta del paso</td></tr>
+</tbody>
+</table>
+<p>Line-height: <strong>1.7</strong> para body, <strong>1.6</strong> para callouts, <strong>1.5</strong> para celdas. Esto da espacio para leer páginas largas sin agotar la vista.</p>
+<p><strong>DM Mono — estructura</strong></p>
+<p>Monoespaciada, geométrica. Es la &quot;voz del sistema&quot;: números, IDs, labels, estados. Siempre indica algo que el lector debería tratar como literal o como metadato — no como prosa.</p>
+<table>
+<thead>
+<tr><th>Token</th><th>Tamaño</th><th>Peso</th><th>Tracking</th><th>Caja</th></tr>
+</thead>
+<tbody>
+<tr><td><code>doc-label</code></td><td>11px</td><td>500</td><td>0.14em</td><td>UPPERCASE</td></tr>
+<tr><td><code>section-num</code></td><td>11px</td><td>500</td><td>0.12em</td><td>UPPERCASE</td></tr>
+<tr><td><code>doc-meta</code></td><td>11px</td><td>400</td><td>—</td><td>mixed</td></tr>
+<tr><td><code>table-header</code></td><td>10px</td><td>500</td><td>0.10em</td><td>UPPERCASE</td></tr>
+<tr><td><code>badge</code></td><td>10px</td><td>500</td><td>0.05em</td><td>mixed</td></tr>
+<tr><td><code>code-inline</code></td><td>12px</td><td>400</td><td>—</td><td>mixed</td></tr>
+<tr><td><code>code-block</code></td><td>12px</td><td>400</td><td>—</td><td>mixed</td></tr>
+<tr><td><code>step-num</code></td><td>12px</td><td>500</td><td>—</td><td>mixed</td></tr>
+</tbody>
+</table>
+<p><strong>Regla mnemotécnica:</strong> si el contenido es legible como oración, va en <strong>DM Sans</strong>. Si es un identificador, número, label, código o estado, va en <strong>DM Mono</strong>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Layout</div>
+<p><strong>Página</strong></p>
+<ul>
+  <li>Ancho máximo: <strong><code>860px</code></strong>, centrado horizontalmente.</li>
+  <li>Padding del body: <strong><code>48px</code></strong> arriba, <strong><code>24px</code></strong> a los lados, <strong><code>80px</code></strong> abajo.</li>
+  <li>Fondo <code>{colors.background}</code> sólido (no gradientes).</li>
+  <li>En mobile (<code>&lt;720px</code>) el padding lateral puede reducirse a <code>16px</code>, pero la tipografía se mantiene en los mismos tamaños.</li>
+</ul>
+<p><strong>Densidad</strong></p>
+<ul>
+  <li>Separación entre secciones: <strong><code>40px</code></strong>.</li>
+  <li>Separación interna de una sección (entre párrafos, listas, tablas, callouts): <strong><code>12–16px</code></strong>.</li>
+  <li>Padding de callouts y example boxes: <strong><code>14–22px</code></strong>, nunca más.</li>
+</ul>
+<p><strong>Jerarquía estructural</strong></p>
+<p>Un documento típico se estructura así, de arriba a abajo:</p>
+<div class="code-block"><pre>doc-header           ← encabezado completo del documento
+section 01           ← cada sección numerada
+section 02
+section 03
+[part-header]        ← (opcional) separador de partes mayores
+section 04
+section 05
+…</pre></div>
+<p>El <code>doc-header</code> cierra con un borde de <code>2px</code> sólido tinta. El <code>part-header</code> abre con el mismo borde <code>2px</code> arriba. Las <code>section</code> cierran su título con un borde de <code>1px</code> color <code>{colors.border}</code>. <strong>Estos tres pesos de línea (2px tinta, 1px sólido cálido, hairline en tablas) son la única gramática de divisores del sistema</strong> — no agregar otros.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Elevation &amp; Depth</div>
+<p>El sistema <strong>no usa sombras</strong>. La profundidad se logra exclusivamente con:</p>
+<ol>
+  <li><strong>Bordes finos</strong> (<code>1px</code> / <code>1.5px</code>) en tono cálido <code>{colors.border}</code> o <code>{colors.border-strong}</code>.</li>
+  <li><strong>Cambios de superficie</strong> entre <code>background</code>, <code>surface-alt</code>, <code>surface-card</code> y <code>surface-dark</code>.</li>
+  <li><strong>Bordes-izquierdos gruesos</strong> (<code>3px</code>) en callouts, que indican el tono del bloque.</li>
+</ol>
+<p>Esto mantiene la sensación de papel impreso y evita el aire &quot;interfaz de software&quot;. Si en algún caso muy puntual se necesita sombra, usar <code>0 1px 2px rgba(0,0,0,0.04)</code> — apenas perceptible.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Shapes</div>
+<table>
+<thead>
+<tr><th>Token</th><th>Valor</th><th>Uso</th></tr>
+</thead>
+<tbody>
+<tr><td><code>rounded.xs</code></td><td>3px</td><td>Code inline</td></tr>
+<tr><td><code>rounded.sm</code></td><td>4px</td><td>Badges</td></tr>
+<tr><td><code>rounded.md</code></td><td>6px</td><td>Pills, chips de estado</td></tr>
+<tr><td><code>rounded.lg</code></td><td>8px</td><td>Callouts, code blocks</td></tr>
+<tr><td><code>rounded.xl</code></td><td>10px</td><td>Mockups, example boxes, cards grandes</td></tr>
+<tr><td><code>rounded.full</code></td><td>9999px</td><td>Step circles, dots del mockup bar</td></tr>
+</tbody>
+</table>
+<p><strong>Sin redondeos por encima de <code>10px</code></strong> salvo lo circular puro. Esto preserva el carácter editorial — nada de bubbles tipo dashboard SaaS.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Components</div>
+<p><strong>Doc header</strong></p>
+<p>El primer bloque de todo documento. Estructura vertical:</p>
+<div class="code-block"><pre>[doc-label]   ← contexto: proyecto, alcance, área (mono uppercase)
+[doc-title]   ← título principal — puede ocupar 2 líneas con &lt;br&gt;
+[doc-sub]     ← subtítulo descriptivo (1 línea)
+[doc-meta]    ← row horizontal de metadatos (fecha · prioridad · estado · estimado)</pre></div>
+<p>Cierra con <code>border-bottom: 2px solid {colors.border-ink}</code> y <code>margin-bottom: 40px</code>.</p>
+<p><strong>Section</strong></p>
+<p>Bloque numerado. Estructura:</p>
+<div class="code-block"><pre>[section-num]    &quot;01&quot;, &quot;02&quot;, … (mono uppercase, color label)
+[section-title]  Título de la sección (DM Sans 20/600)
+[contenido]      párrafos, listas, callouts, tablas, code, mockups, steps</pre></div>
+<p>El <code>section-title</code> cierra con <code>border-bottom: 1px solid {colors.border}</code> y <code>padding-bottom: 8px</code>. <strong>No usar <code>h1</code>/<code>h2</code>/<code>h3</code> semánticos para sub-jerarquías dentro de una sección</strong> — preferir prosa con <code>&lt;strong&gt;</code>. Si una sección crece demasiado, dividirla en dos secciones numeradas.</p>
+<p><strong>Callouts</strong></p>
+<p>Cuatro variantes, cada una con borde-izquierdo de <code>3px</code>. Reglas de elección:</p>
+<ul>
+  <li><strong>Info (azul)</strong>: contexto, lógica de fondo, &quot;esto funciona así porque…&quot;.</li>
+  <li><strong>Warn (amber)</strong>: precaución, condicionales, restricciones.</li>
+  <li><strong>Ok (verde)</strong>: confirmaciones, &quot;esto sí queremos&quot;, éxito.</li>
+  <li><strong>Red (coral)</strong>: consecuencias críticas, pendientes urgentes, errores.</li>
+</ul>
+<p><strong>Nunca anidar callouts</strong>. Si un callout contiene una lista, usar <code>&lt;ul&gt;</code> o <code>&lt;ol&gt;</code> normales — el callout ya provee el énfasis.</p>
+<p><strong>Tables</strong></p>
+<ul>
+  <li>Header en <code>{typography.table-header}</code> (mono, uppercase, tracking).</li>
+  <li>Fondo de header en <code>{colors.surface-alt}</code>.</li>
+  <li>Celdas con <code>padding: 10px 12px</code>, <code>vertical-align: top</code>, <code>line-height: 1.5</code>.</li>
+  <li>Borde inferior <code>1px solid {colors.border}</code> entre filas; <strong>sin borde</strong> en la última fila.</li>
+  <li>Sin bordes verticales — la separación columna se logra con padding y el cambio tipográfico header/celda.</li>
+</ul>
+<p>Usar tablas para comparativas estructuradas (operación / efecto / condición) o para listas con columnas claras. Si tiene menos de 2 columnas reales, preferir una lista.</p>
+<p><strong>Badges</strong></p>
+<p>Pills compactas para estado. Cuatro variantes:</p>
+<ul>
+  <li><code>b-green</code>: ✓, &quot;Sí&quot;, &quot;Completado&quot;.</li>
+  <li><code>b-amber</code>: &quot;Solo como excepción&quot;, &quot;Media&quot;, &quot;A coordinar&quot;.</li>
+  <li><code>b-red</code>: &quot;Pendiente&quot;, &quot;Bloqueante&quot;.</li>
+  <li><code>b-gray</code>: &quot;Opcional&quot;, neutral.</li>
+</ul>
+<p>Siempre en mono, siempre con <code>padding: 2px 8px</code>, siempre con borde <code>1px</code> del color de la familia. <strong>No usar emojis dentro de badges</strong> — el color y el texto ya transmiten estado.</p>
+<p><strong>Steps</strong></p>
+<p>Lista vertical numerada con línea conectora. Estructura:</p>
+<div class="code-block"><pre>[step-circle 1] [step-label] + [step-desc]
+       │
+[step-circle 2] [step-label] + [step-desc]
+       │
+[step-circle N] [step-label] + [step-desc]</pre></div>
+<ul>
+  <li><code>step-circle</code> es un círculo de <code>32×32px</code>, fondo <code>{colors.surface-dark}</code>, texto blanco mono.</li>
+  <li>La línea conectora es <code>1px solid {colors.border}</code>, vertical, desde el bottom del circle hasta el siguiente; el último step no la tiene.</li>
+  <li>Usar steps para <strong>secuencias temporales o procesos accionables</strong> (&quot;1. cancela → 2. se re-suscribe&quot;). No usar para listas de items independientes — para eso, <code>&lt;ul&gt;</code>.</li>
+</ul>
+<p><strong>Code</strong></p>
+<ul>
+  <li><strong>Inline (<code>&lt;code&gt;</code>)</strong>: fondo <code>{colors.surface-alt}</code>, padding <code>1px 5px</code>, radius <code>3px</code>. Para nombres de archivo, identificadores, valores literales en prosa.</li>
+  <li><strong>Block (<code>.code-block</code>)</strong>: fondo <code>{colors.surface-dark}</code>, texto <code>{colors.on-dark}</code>, padding <code>20px 24px</code>, radius <code>8px</code>. Para snippets de SQL, HTML, JS, configuración.</li>
+</ul>
+<p>Sintaxis: usar <code>&lt;span&gt;</code> con clases <code>c-comment</code>, <code>c-key</code>, <code>c-str</code>, <code>c-num</code>, <code>c-fn</code>, <code>c-tag</code> para colorear manualmente. Los colores están en <code>colors.syntax-*</code>. <strong>No incluir números de línea</strong> salvo que sean referenciados desde el texto.</p>
+<p><strong>Mockup</strong></p>
+<p>Ventana de navegador estilizada (tres dots tipo macOS + URL bar). Usar <strong>solo cuando una pantalla real ayuda más que la descripción</strong>. Estructura:</p>
+<div class="code-block"><pre>[mockup-bar]   dots rojo/amarillo/verde + texto de URL (mono, color label)
+[mockup-body]  contenido real del mockup (puede ser un layout multi-columna)</pre></div>
+<p>Border <code>1.5px solid {colors.border-strong}</code>, radius <code>10px</code>. Fondo del body <code>{colors.surface-card}</code> (blanco puro).</p>
+<p><strong>Example box</strong></p>
+<p>Cita destacada con label mono. Estructura:</p>
+<div class="code-block"><pre>[example-label]   &quot;EJEMPLO PRÁCTICO&quot; — mono uppercase
+[example-body]    el cuerpo del ejemplo</pre></div>
+<p>Border <code>1.5px solid {colors.border-strong}</code>, fondo blanco, radius <code>10px</code>. Equivalente a un callout pero con tono <strong>neutro</strong> — para narrar un caso concreto sin teñirlo de aviso/éxito/error.</p>
+<p><strong>Pills (chips de estado en flujos)</strong></p>
+<p>Útiles para representar transiciones de valor (<code>$15 → $20</code>):</p>
+<ul>
+  <li><code>pill-neutral</code>: estado actual sin connotación.</li>
+  <li><code>pill-success</code>: estado deseado / vigente.</li>
+  <li><code>pill-stale</code>: estado viejo (con <code>text-decoration: line-through</code>).</li>
+</ul>
+<p>Se intercalan con flechas mono (<code>→</code>) en color <code>{colors.label}</code>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Do's and Don'ts</div>
+<p><strong>Do</strong></p>
+<ul>
+  <li><strong>Numerá las secciones</strong> (<code>01</code>, <code>02</code>, …). Da una sensación de spec serio y permite referenciar &quot;ver sección 04&quot;.</li>
+  <li><strong>Usá <code>doc-label</code> y <code>section-num</code> en mono uppercase</strong>. Es la firma visual del sistema.</li>
+  <li><strong>Elegí callouts conscientemente</strong>: cada uno tiene un significado, no son intercambiables.</li>
+  <li><strong>Mantené párrafos cortos</strong> (3–5 líneas máximo). El line-height generoso es para escanear, no para muros de texto.</li>
+  <li><strong>Usá <code>&lt;strong&gt;</code> para énfasis dentro de prosa</strong>, no <code>&lt;b&gt;</code> ni colores arbitrarios.</li>
+  <li><strong>Tipografiá las tablas con <code>body-md</code></strong> — los headers ya van en mono, las celdas no.</li>
+</ul>
+<p><strong>Don't</strong></p>
+<ul>
+  <li><strong>No uses sombras pesadas.</strong> Bordes finos y cambios de superficie son suficientes.</li>
+  <li><strong>No mezcles paletas de color</strong> (verde brillante, rojo Material, azul Bootstrap). El sistema tiene cuatro acentos apagados; cualquier color fuera de la paleta rompe la estética.</li>
+  <li><strong>No uses pesos <code>700+</code> de DM Sans</strong>, ni cursivas marcadas. La sobriedad se rompe rápido con tipografía dramática.</li>
+  <li><strong>No anides callouts dentro de callouts</strong> ni callouts dentro de tablas.</li>
+  <li><strong>No uses iconos decorativos</strong> (emojis, lucide a granel). El sistema confía en tipografía y color. Excepción: un emoji muy puntual dentro de un title de step (📦, 🎯) si suma información concreta.</li>
+  <li><strong>No agregues efectos hover llamativos</strong> en documentos estáticos. Si el doc es interactivo, los hovers deben ser cambios sutiles de borde o fondo, nunca elevación dramática.</li>
+  <li><strong>No uses fondos blancos puros para el body</strong>. El <code>#F8F7F4</code> está calibrado para que <code>surface-card</code> (blanco) destaque por encima.</li>
+  <li><strong>No uses más de un <code>doc-title</code> por archivo.</strong> Para sub-documentos, usar <code>part-header</code>.</li>
+</ul>
+<div class="divider"></div>
+<p><strong>Boilerplate HTML mínimo</strong></p>
+<p>Para arrancar un documento nuevo con el sistema, copiar este esqueleto:</p>
+<div class="code-block"><pre>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;es&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;UTF-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+&lt;title&gt;[Título del documento]&lt;/title&gt;
+&lt;style&gt;
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&amp;family=DM+Mono:wght@400;500&amp;display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+.c-red{background:#fef8f6;border-color:#e8917a;color:#9e3d25;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+.badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;padding:2px 8px;border-radius:4px;letter-spacing:0.05em;}
+.b-green{background:#e8f7f2;color:#1a6b52;border:1px solid #4aaa8c;}
+.b-amber{background:#fdf5e0;color:#7a5510;border:1px solid #d4a44c;}
+.b-red{background:#fef8f6;color:#9e3d25;border:1px solid #e8917a;}
+.b-gray{background:#f0ede6;color:#666;border:1px solid #ccc;}
+.steps{display:flex;flex-direction:column;gap:0;margin:16px 0;}
+.step-item{display:flex;gap:16px;padding-bottom:24px;position:relative;}
+.step-item::before{content:'';position:absolute;left:15px;top:32px;bottom:0;width:1px;background:#e0ddd6;}
+.step-item:last-child::before{display:none;}
+.step-circle{width:32px;height:32px;border-radius:50%;background:#1a1a2e;color:white;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;flex-shrink:0;}
+.step-body{padding-top:4px;flex:1;}
+.step-label{font-size:14px;font-weight:600;margin-bottom:4px;}
+.step-desc{font-size:13px;color:#555;line-height:1.6;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.c-comment{color:#64748b;} .c-key{color:#7dd3fc;} .c-str{color:#86efac;}
+.c-num{color:#fbbf24;} .c-fn{color:#c084fc;} .c-tag{color:#f9a8d4;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div class=&quot;doc-header&quot;&gt;
+  &lt;div class=&quot;doc-label&quot;&gt;[Etiqueta — proyecto o área]&lt;/div&gt;
+  &lt;div class=&quot;doc-title&quot;&gt;[Título principal]&lt;/div&gt;
+  &lt;div class=&quot;doc-sub&quot;&gt;[Subtítulo descriptivo]&lt;/div&gt;
+  &lt;div class=&quot;doc-meta&quot;&gt;&lt;span&gt;Fecha: …&lt;/span&gt;&lt;span&gt;Estado: …&lt;/span&gt;&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;div class=&quot;section&quot;&gt;
+  &lt;div class=&quot;section-num&quot;&gt;01&lt;/div&gt;
+  &lt;div class=&quot;section-title&quot;&gt;[Título de la sección]&lt;/div&gt;
+  &lt;p&gt;…&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;</pre></div>
+</div>
+</body>
+</html>
