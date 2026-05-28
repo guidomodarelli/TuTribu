@@ -9,6 +9,11 @@ import {
   DEFAULT_TRIBE_WELCOME_SELECTION_MODAL_TITLE,
 } from "@/src/modules/tribes/constants/tribe-welcome";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import {
+  TRIBE_MEMBER_ROLE,
+  isPrivilegedTribeMemberRole,
+} from "@/src/modules/tribes/constants/tribe-member-role";
+import type { TribeMemberRole } from "@/src/modules/tribes/application/results/tribe-member-result";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 import styles from "./page.module.scss";
 
@@ -29,16 +34,6 @@ const TRIBE_TRIBE_PAGE_LOG_REASON = {
   unexpectedWelcomeSelectionsRepositoryError:
     "unexpected_welcome_selections_repository_error",
 } as const;
-
-const TRIBE_MANAGER_ROLE = {
-  guardian: "guardian",
-  leader: "leader",
-} as const;
-
-const TRIBE_MANAGER_ROLES = new Set<string>([
-  TRIBE_MANAGER_ROLE.guardian,
-  TRIBE_MANAGER_ROLE.leader,
-]);
 
 const EMPTY_TRIBE_WELCOME = {
   linksHeading: DEFAULT_TRIBE_WELCOME_LINKS_HEADING,
@@ -84,16 +79,18 @@ export default async function TribeTribePage({
   const viewerMembership = memberTribes.find(
     (tribeListItem) => tribeListItem.slug === tribe.slug
   );
-  const canManageTribeMembers = viewerMembership
-    ? viewerMembership.membershipStatus === TRIBE_MEMBERSHIP_STATUS.active &&
-      TRIBE_MANAGER_ROLES.has(viewerMembership.role)
-    : false;
-  const canExportTribeMembers = viewerMembership
-    ? viewerMembership.membershipStatus === TRIBE_MEMBERSHIP_STATUS.active &&
-      viewerMembership.role === TRIBE_MANAGER_ROLE.leader
-    : false;
+  const viewerRole = (viewerMembership?.role ?? null) as TribeMemberRole | null;
+  const isViewerActive =
+    viewerMembership?.membershipStatus === TRIBE_MEMBERSHIP_STATUS.active;
+  const canManageTribeMembers =
+    isViewerActive && isPrivilegedTribeMemberRole(viewerRole);
+  const canExportTribeMembers =
+    isViewerActive && viewerRole === TRIBE_MEMBER_ROLE.leader;
   const members = await modules.tribes.useCases
-    .listVisibleTribeMembers({ tribeSlug: tribe.slug })
+    .listVisibleTribeMembers({
+      tribeSlug: tribe.slug,
+      viewerCanViewMemberEmails: canManageTribeMembers,
+    })
     .catch((error: unknown) => {
       logger.error({
         error,

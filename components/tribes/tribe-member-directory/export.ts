@@ -218,13 +218,15 @@ type MemberExportRow = {
   role: string;
 };
 
+const HIDDEN_EMAIL_FALLBACK = "";
+
 function buildMemberRows(
   members: TribeMemberResult[],
   selectionsByMemberId: Record<string, TribeMemberSelectionBadge[]>
 ): MemberExportRow[] {
   return members.map((member) => ({
     elections: buildSelectionsCell(selectionsByMemberId[member.id] ?? []),
-    email: member.email,
+    email: member.email ?? HIDDEN_EMAIL_FALLBACK,
     name: member.name,
     role: buildRoleLabel(member.role),
   }));

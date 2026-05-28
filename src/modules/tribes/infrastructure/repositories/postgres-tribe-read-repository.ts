@@ -17,6 +17,7 @@ import {
   TRIBE_MEMBERSHIP_STATUS,
   TRIBE_MEMBERSHIP_STATUS_REASON,
 } from "@/src/modules/tribes/constants/tribe-page-access";
+import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
@@ -42,7 +43,7 @@ type PostgresMembershipTribeRow = {
 };
 
 type PostgresTribeMemberRow = {
-  email: string;
+  email: string | null;
   image: string | null;
   member_id: string;
   name: string | null;
@@ -65,12 +66,6 @@ const TRIBE_MEMBER_DEFAULTS = {
   fallbackPartCount: 2,
   unknownFallback: "??",
   unknownName: "Integrante",
-} as const;
-
-const TRIBE_MEMBER_ROLE = {
-  guardian: "guardian",
-  leader: "leader",
-  tribemate: "tribemate",
 } as const;
 
 function createTribeMemberAvatarFallback(name: string): string {

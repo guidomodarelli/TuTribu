@@ -75,6 +75,24 @@ describe("tribe member directory export", () => {
       );
     });
 
+    it("renders an empty email column when the member email is hidden", () => {
+      const csv = buildMembersCsv(
+        [
+          {
+            avatarFallback: "AL",
+            email: null,
+            id: "member-1",
+            image: null,
+            name: "Ada Lovelace",
+            role: "tribemate",
+          },
+        ],
+        {}
+      );
+
+      expect(csv.split("\r\n")[1]).toBe("Ada Lovelace,,Miembro,Sin elecciones");
+    });
+
     it("neutralizes tab-prefixed formula-like CSV fields", () => {
       const csv = buildMembersCsv(
         [
@@ -107,6 +125,26 @@ describe("tribe member directory export", () => {
       );
       expect(html).toContain("<td>Soporte (2); Mentoría (1)</td>");
       expect(html).toContain("<td>Sin elecciones</td>");
+    });
+
+    it("renders an empty email cell when the member email is hidden", () => {
+      const html = buildMembersHtml(
+        [
+          {
+            avatarFallback: "AL",
+            email: null,
+            id: "member-1",
+            image: null,
+            name: "Ada Lovelace",
+            role: "tribemate",
+          },
+        ],
+        {},
+        "matematica-pro"
+      );
+
+      expect(html).toContain("<td>Ada Lovelace</td>");
+      expect(html).toContain("<td></td>");
     });
 
     it("keeps escaped user values that look like HTML template placeholders unchanged", () => {

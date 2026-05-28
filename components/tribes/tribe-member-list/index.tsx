@@ -8,6 +8,7 @@ import type {
   TribeMemberResult,
   TribeMemberRole,
 } from "@/src/modules/tribes/application/results/tribe-member-result";
+import { isPrivilegedTribeMemberRole } from "@/src/modules/tribes/constants/tribe-member-role";
 import styles from "./styles.module.scss";
 
 const TRIBE_MEMBER_SELECTION_COUNT_COPY = {
@@ -43,21 +44,9 @@ const TRIBE_MEMBER_LIST_COPY = {
   selectionListLabel: "Opciones elegidas por el miembro",
 } as const;
 
-const TRIBE_MEMBER_LIST_ROLE = {
-  guardian: "guardian",
-  leader: "leader",
-} as const;
-
 const TRIBE_MEMBER_LIST_ATTRIBUTES = {
   outlineBadgeVariant: "outline",
 } as const;
-
-const TRIBE_MEMBER_PRIVILEGED_ROLES = new Set<TribeMemberRole>([
-  TRIBE_MEMBER_LIST_ROLE.guardian,
-  TRIBE_MEMBER_LIST_ROLE.leader,
-]);
-
-type PrivilegedTribeMemberRole = keyof typeof TRIBE_MEMBER_LIST_COPY.roleLabel;
 
 export type TribeMemberSelectionBadge = {
   count: number;
@@ -69,12 +58,6 @@ type TribeMemberListProps = {
   members: TribeMemberResult[];
   selectionsByMemberId?: Record<string, TribeMemberSelectionBadge[]>;
 };
-
-function isPrivilegedTribeMemberRole(
-  role: TribeMemberRole
-): role is PrivilegedTribeMemberRole {
-  return TRIBE_MEMBER_PRIVILEGED_ROLES.has(role);
-}
 
 function TribeMemberRoleBadge({ role }: { role: TribeMemberRole }) {
   if (!isPrivilegedTribeMemberRole(role)) {
@@ -177,7 +160,9 @@ export function TribeMemberList({
                   <p className={styles.TribeMemberList__name}>{member.name}</p>
                   <TribeMemberRoleBadge role={member.role} />
                 </div>
-                <p className={styles.TribeMemberList__email}>{member.email}</p>
+                {member.email ? (
+                  <p className={styles.TribeMemberList__email}>{member.email}</p>
+                ) : null}
               </div>
               <TribeMemberSelectionBadges selections={memberSelections} />
             </div>

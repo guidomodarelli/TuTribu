@@ -273,4 +273,37 @@ describe("PostgresTribeReadRepository", () => {
     expect(sqlText).toContain("select member_id, role, name, email, image");
     expect(sqlText).not.toContain("inner join public.tribe_members");
   });
+
+  it("propagates a null email when the database function hides it from the viewer", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          email: null,
+          image: null,
+          member_id: "member-1",
+          name: "Ada Lovelace",
+          role: "tribemate",
+        },
+      ],
+    }));
+
+    const repository = new PostgresTribeReadRepository(async (callback) =>
+      callback({
+        execute,
+      } as never)
+    );
+
+    await expect(
+      repository.listVisibleTribeMembersBySlug("matematica-pro")
+    ).resolves.toEqual([
+      {
+        avatarFallback: "AL",
+        email: null,
+        id: "member-1",
+        image: null,
+        name: "Ada Lovelace",
+        role: "tribemate",
+      },
+    ]);
+  });
 });

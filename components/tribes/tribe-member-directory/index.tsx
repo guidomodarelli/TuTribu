@@ -39,7 +39,8 @@ const TRIBE_MEMBER_DIRECTORY_COPY = {
   inviteCtaLabel: "Invitar miembro",
   pendingFilterLabel: "Sin elegir",
   searchLabel: "Buscar miembro",
-  searchPlaceholder: "Buscar por nombre o email",
+  searchPlaceholderWithEmail: "Buscar por nombre o email",
+  searchPlaceholderWithoutEmail: "Buscar por nombre",
   subtitle: "Personas que forman parte de esta tribu.",
   title: "Miembros",
 } as const;
@@ -147,7 +148,9 @@ function searchMembers(
 
   return members.filter((member) => {
     const nameMatch = member.name.toLowerCase().includes(normalizedQuery);
-    const emailMatch = member.email.toLowerCase().includes(normalizedQuery);
+    const emailMatch = member.email
+      ? member.email.toLowerCase().includes(normalizedQuery)
+      : false;
 
     return nameMatch || emailMatch;
   });
@@ -191,6 +194,13 @@ export function TribeMemberDirectory({
       resolvedActiveFilterId
     );
   }, [members, resolvedActiveFilterId, searchQuery, selectionsByMemberId]);
+  const canSearchByEmail = useMemo(
+    () => members.some((member) => member.email !== null),
+    [members]
+  );
+  const searchPlaceholder = canSearchByEmail
+    ? TRIBE_MEMBER_DIRECTORY_COPY.searchPlaceholderWithEmail
+    : TRIBE_MEMBER_DIRECTORY_COPY.searchPlaceholderWithoutEmail;
   const showFilters = filterOptions.length > 0;
   const invitationsHref = `${INVITATIONS_PATH_PREFIX}${tribeSlug}${INVITATIONS_PATH_SUFFIX}`;
 
@@ -274,7 +284,7 @@ export function TribeMemberDirectory({
         className={styles.TribeMemberDirectory__searchInput}
         id={searchInputId}
         onChange={(event) => setSearchQuery(event.target.value)}
-        placeholder={TRIBE_MEMBER_DIRECTORY_COPY.searchPlaceholder}
+        placeholder={searchPlaceholder}
         type={SEARCH_INPUT_TYPE}
         value={searchQuery}
       />

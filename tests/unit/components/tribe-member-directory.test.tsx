@@ -278,6 +278,66 @@ describe("TribeMemberDirectory", () => {
     expect(htmlMimeType).toContain("text/html");
   });
 
+  it("hides email rows and swaps the search placeholder when no member has a visible email", async () => {
+    const user = userEvent.setup();
+    const membersWithoutEmail: TribeMemberResult[] = baseMembers.map((member) => ({
+      ...member,
+      email: null,
+    }));
+
+    render(
+      <TribeMemberDirectory
+        canExportMembers={false}
+        canInviteMembers={false}
+        filterOptions={[]}
+        members={membersWithoutEmail}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.queryByText("ada.lovelace@example.com")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("grace.hopper@example.com")
+    ).not.toBeInTheDocument();
+
+    const searchInput = screen.getByRole("searchbox", {
+      name: "Buscar miembro",
+    });
+
+    expect(searchInput).toHaveAttribute("placeholder", "Buscar por nombre");
+
+    await user.type(searchInput, "hopper");
+
+    expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
+    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
+
+    await user.clear(searchInput);
+    await user.type(searchInput, "ada.lovelace");
+
+    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
+    expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument();
+  });
+
+  it("keeps the email-aware search placeholder when at least one member email is visible", () => {
+    render(
+      <TribeMemberDirectory
+        canExportMembers={false}
+        canInviteMembers={false}
+        filterOptions={[]}
+        members={baseMembers}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.getByRole("searchbox", { name: "Buscar miembro" })
+    ).toHaveAttribute("placeholder", "Buscar por nombre o email");
+  });
+
   it("renders the invite CTA only when the viewer can invite", () => {
     const { rerender } = render(
       <TribeMemberDirectory

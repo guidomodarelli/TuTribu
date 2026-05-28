@@ -22,6 +22,7 @@ type ListVisibleTribeMembersDependencies = {
 
 type ListVisibleTribeMembersQuery = {
   tribeSlug: string;
+  viewerCanViewMemberEmails: boolean;
 };
 
 export function listVisibleTribeMembers({
@@ -29,6 +30,7 @@ export function listVisibleTribeMembers({
 }: ListVisibleTribeMembersDependencies) {
   return async ({
     tribeSlug,
+    viewerCanViewMemberEmails,
   }: ListVisibleTribeMembersQuery): Promise<TribeMemberResult[]> => {
     const tribeMembers =
       await tribeReadRepository.listVisibleTribeMembersBySlug(tribeSlug);
@@ -40,18 +42,24 @@ export function listVisibleTribeMembers({
       }
     });
 
-    return Array.from(uniqueTribeMembersById.values()).toSorted((left, right) => {
-      const rolePriorityDifference =
-        TRIBE_MEMBER_ROLE_PRIORITY[left.role] -
-        TRIBE_MEMBER_ROLE_PRIORITY[right.role];
+    const sortedMembers = Array.from(uniqueTribeMembersById.values()).toSorted(
+      (left, right) => {
+        const rolePriorityDifference =
+          TRIBE_MEMBER_ROLE_PRIORITY[left.role] -
+          TRIBE_MEMBER_ROLE_PRIORITY[right.role];
 
-      return rolePriorityDifference === 0
-        ? left.name.localeCompare(
-            right.name,
-            TRIBE_MEMBER_SORT_LOCALE,
-            TRIBE_MEMBER_SORT_OPTIONS
-          )
-        : rolePriorityDifference;
-    });
+        return rolePriorityDifference === 0
+          ? left.name.localeCompare(
+              right.name,
+              TRIBE_MEMBER_SORT_LOCALE,
+              TRIBE_MEMBER_SORT_OPTIONS
+            )
+          : rolePriorityDifference;
+      }
+    );
+
+    return viewerCanViewMemberEmails
+      ? sortedMembers
+      : sortedMembers.map((member) => ({ ...member, email: null }));
   };
 }

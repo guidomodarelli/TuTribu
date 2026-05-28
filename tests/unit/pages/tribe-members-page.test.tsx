@@ -18,7 +18,7 @@ const errorMock = jest.fn();
 type MockTribeMemberDirectoryProps = {
   canInviteMembers: boolean;
   members: Array<{
-    email: string;
+    email: string | null;
     name: string;
     role: string;
   }>;
@@ -37,9 +37,9 @@ const mockTribeMemberDirectory = jest.fn(
         <a href={`/${tribeSlug}/invitaciones`}>Invitar miembro</a>
       ) : null}
       {members.map((member) => (
-        <article key={member.email}>
+        <article key={member.name}>
           <p>{member.name}</p>
-          <p>{member.email}</p>
+          {member.email ? <p>{member.email}</p> : null}
           {member.role === "leader" ? <p>Líder</p> : null}
           {member.role === "guardian" ? <p>Guardián</p> : null}
         </article>
@@ -198,6 +198,88 @@ describe("TribeTribePage", () => {
     expect(screen.queryByText("Integrante")).not.toBeInTheDocument();
     expect(listVisibleTribeMembers).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
+      viewerCanViewMemberEmails: false,
+    });
+  });
+
+  it.each([
+    ["leader" as const, true],
+    ["guardian" as const, true],
+    ["tribemate" as const, false],
+  ])(
+    "forwards whether active %s viewers can view member emails",
+    async (role, viewerCanViewMemberEmails) => {
+      getAuthenticatedMember.mockResolvedValue({
+        avatarFallback: "GH",
+        email: "viewer@example.com",
+        id: "member-1",
+        image: null,
+        name: "Grace Hopper",
+        role: "tribemate",
+      });
+      getTribePageAccess.mockResolvedValue({
+        status: "visible",
+        tribe: {
+          id: "tribe-1",
+          name: "Matematica Pro",
+          slug: "matematica-pro",
+          visibility: "private",
+        },
+      });
+      getMemberTribes.mockResolvedValue([
+        {
+          membershipStatus: "active",
+          name: "Matematica Pro",
+          role,
+          slug: "matematica-pro",
+          tribeId: "tribe-1",
+        },
+      ]);
+      listVisibleTribeMembers.mockResolvedValue([]);
+
+      await TribeTribePage({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      });
+
+      expect(listVisibleTribeMembers).toHaveBeenCalledWith({
+        tribeSlug: "matematica-pro",
+        viewerCanViewMemberEmails,
+      });
+    }
+  );
+
+  it("prevents email visibility when the viewer has no membership in this tribe", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      avatarFallback: "GH",
+      email: "viewer@example.com",
+      id: "member-1",
+      image: null,
+      name: "Grace Hopper",
+      role: "tribemate",
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "visible",
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+    getMemberTribes.mockResolvedValue([]);
+    listVisibleTribeMembers.mockResolvedValue([]);
+
+    await TribeTribePage({
+      params: Promise.resolve({
+        slug: "matematica-pro",
+      }),
+    });
+
+    expect(listVisibleTribeMembers).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+      viewerCanViewMemberEmails: false,
     });
   });
 
@@ -810,6 +892,10 @@ describe("TribeTribePage", () => {
         selectionsByMemberId: {},
       })
     );
+    expect(listVisibleTribeMembers).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+      viewerCanViewMemberEmails: false,
+    });
     expect(getTribeWelcome).not.toHaveBeenCalled();
     expect(listTribeWelcomeSelections).not.toHaveBeenCalled();
     expect(
