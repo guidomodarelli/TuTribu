@@ -80,6 +80,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   </ul>
   <p>No se duplica esta atribución en <code>tribe_member_subscriptions</code>. Las métricas se derivan por join desde <code>tribe_members</code>, lo que evita drift entre membresía y suscripción.</p>
   <div class="callout c-info">Si un miembro vuelve por otro link después de churn, se sobreescribe el último <code>invitation_id</code>. La atribución acordada es último toque dentro del sistema.</div>
+  <p>En la rama paga, <code>joined_via_invitation_id</code> se persiste apenas se reserva el checkout, cuando la membresía todavía está en <code>status = 'blocked'</code> y <code>status_reason = 'payment_blocked'</code>. Por eso una alta paga abandonada deja una fila atribuida que aún no se convirtió. El read model de conversión no debe contar esas filas como <code>signups</code>; solo cuenta membresías efectivamente unidas y excluye el estado de checkout pendiente. La corrección vive en <code>database/migrations/20260528150000_restrict_invitation_signup_metric_to_joined_members.sql</code>.</p>
 </div>
 
 <div class="section">
@@ -140,7 +141,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
       <tr><th>Pregunta</th><th>Respuesta disponible</th><th>Fuente</th></tr>
     </thead>
     <tbody>
-      <tr><td>Inscripciones por canal/campaña</td><td>Sí</td><td><code>tribe_members.joined_via_invitation_id</code> + <code>tribe_invitations</code></td></tr>
+      <tr><td>Inscripciones por canal/campaña</td><td>Sí, solo altas efectivas</td><td><code>tribe_members.joined_via_invitation_id</code> + <code>tribe_invitations</code>, excluyendo checkouts pagos pendientes (<code>blocked</code>/<code>payment_blocked</code>)</td></tr>
       <tr><td>Membresías pagas activas por canal/campaña/cuenta MP</td><td>Sí</td><td><code>tribe_members</code> + <code>tribe_member_subscriptions</code> + <code>tribe_subscription_prices.payment_integration_id</code></td></tr>
       <tr><td>Revenue mensual estimado por canal</td><td>Sí, estimado</td><td>Suma de <code>amount_cents</code> de precios activos atribuidos por frecuencia</td></tr>
       <tr><td>Tasa de conversión</td><td>No</td><td>No hay clicks</td></tr>

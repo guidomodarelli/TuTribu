@@ -323,6 +323,13 @@
       "when": 1779976800000,
       "tag": "20260528140000_exempt_referral_metadata_from_active_plan_check",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1779980400000,
+      "tag": "20260528150000_restrict_invitation_signup_metric_to_joined_members",
+      "breakpoints": true
     }
   ]
 }
