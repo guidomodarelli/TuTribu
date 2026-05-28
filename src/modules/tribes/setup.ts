@@ -9,10 +9,12 @@ import {
   acceptTribeInvitation,
   createTribeInvitation,
   getTribeInvitationSubscriptionOffer,
+  getTribeInvitationConversionMetrics,
   listTribeInvitations,
   listTribeInvitationsByPrice,
   revokeTribeInvitation,
   updateTribeInvitationSubscriptionAssociation,
+  updateTribeInvitationReferralMetadata,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-invitations-use-cases";
 import {
   getEditableTribeWelcome,
@@ -93,6 +95,10 @@ export function buildTribesModule({
         updateTribeInvitationSubscriptionAssociation({
           tribeInvitationRepository,
         }),
+      updateTribeInvitationReferralMetadata:
+        updateTribeInvitationReferralMetadata({
+          tribeInvitationRepository,
+        }),
       revokeTribeInvitation: revokeTribeInvitation({
         tribeInvitationRepository,
       }),
@@ -102,6 +108,10 @@ export function buildTribesModule({
       getTribeInvitationSubscriptionOffer: getTribeInvitationSubscriptionOffer({
         tribeInvitationRepository,
       }),
+      getTribeInvitationConversionMetrics:
+        getTribeInvitationConversionMetrics({
+          tribeInvitationRepository,
+        }),
       getEditableTribeWelcome: getEditableTribeWelcome({
         tribeWelcomeRepository,
       }),

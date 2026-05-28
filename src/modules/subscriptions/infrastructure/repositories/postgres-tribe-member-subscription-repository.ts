@@ -1463,6 +1463,11 @@ export class PostgresTribeMemberSubscriptionRepository
       context.existing_checkout_url &&
       existingCheckoutProviderPlanId === context.current_price_provider_plan_id
     ) {
+      await this.updatePendingCheckoutInvitationAttribution({
+        invitationTokenHash: input.invitationTokenHash,
+        tribeId: context.tribe_id,
+      });
+
       logMemberSubscriptionPaymentResult({
         operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
         result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
@@ -1511,6 +1516,11 @@ export class PostgresTribeMemberSubscriptionRepository
         reservationCheckoutProviderPlanId ===
         context.current_price_provider_plan_id
       ) {
+        await this.updatePendingCheckoutInvitationAttribution({
+          invitationTokenHash: input.invitationTokenHash,
+          tribeId: context.tribe_id,
+        });
+
         logMemberSubscriptionPaymentResult({
           operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
           result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
@@ -1612,6 +1622,55 @@ export class PostgresTribeMemberSubscriptionRepository
   }
 
   /**
+   * Updates pending membership invitation attribution before reusing a checkout URL.
+   *
+   * @param input - Invitation token hash and tribe identity used to resolve the active invitation.
+   * @returns Promise that resolves after the pending membership attribution update is attempted.
+   */
+  private async updatePendingCheckoutInvitationAttribution(input: {
+    invitationTokenHash: string;
+    tribeId: string | null;
+  }): Promise<void> {
+    if (!input.tribeId) {
+      return;
+    }
+
+    await this.executeWithDatabase(async (database) => {
+      await database.execute(sql`
+        with checkout_context as (
+          select set_config(
+            ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+            ${input.invitationTokenHash},
+            true
+          )
+        ),
+        target_invitation as (
+          select tribe_invitations.id
+          from public.tribe_invitations
+          cross join checkout_context
+          where tribe_invitations.tribe_id = ${input.tribeId}
+            and tribe_invitations.token_hash = nullif(
+              current_setting(
+                ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+                true
+              ),
+              ''
+            )
+            and tribe_invitations.status = 'active'
+          limit 1
+        )
+        update public.tribe_members
+        set joined_via_invitation_id = target_invitation.id
+        from target_invitation
+        where tribe_members.tribe_id = ${input.tribeId}
+          and tribe_members.user_id = public.current_app_user_id()
+          and tribe_members.status = 'blocked'
+          and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+      `);
+    });
+  }
+
+  /**
    * Reserves a local pending subscription before creating the provider checkout.
    *
    * @param input - Current tribe price and invitation data used for the reservation.
@@ -1639,6 +1698,21 @@ export class PostgresTribeMemberSubscriptionRepository
             true
           )
         ),
+        target_invitation as (
+          select tribe_invitations.id
+          from public.tribe_invitations
+          cross join checkout_context
+          where tribe_invitations.tribe_id = ${input.tribeId}
+            and tribe_invitations.token_hash = nullif(
+              current_setting(
+                ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+                true
+              ),
+              ''
+            )
+            and tribe_invitations.status = 'active'
+          limit 1
+        ),
         inserted_membership as (
           insert into public.tribe_members (
             tribe_id,
@@ -1646,6 +1720,7 @@ export class PostgresTribeMemberSubscriptionRepository
             role,
             status,
             status_reason,
+            joined_via_invitation_id,
             created_at
           )
           select
@@ -1654,14 +1729,25 @@ export class PostgresTribeMemberSubscriptionRepository
             'tribemate',
             'blocked',
             ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+            (select id from target_invitation),
             timezone('utc', now())
           from checkout_context
           on conflict (tribe_id, user_id) do update
           set
             status = 'blocked',
-            status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-          where tribe_members.status = 'removed'
-            and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
+            status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+            joined_via_invitation_id = coalesce(
+              (select id from target_invitation),
+              tribe_members.joined_via_invitation_id
+            )
+          where (
+              tribe_members.status = 'removed'
+              and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
+            )
+            or (
+              tribe_members.status = 'blocked'
+              and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+            )
           returning id
         ),
         reserved_subscription as (
@@ -1765,6 +1851,21 @@ export class PostgresTribeMemberSubscriptionRepository
             ${input.invitationTokenHash},
             true
           )
+        ),
+        target_invitation as (
+          select tribe_invitations.id
+          from public.tribe_invitations
+          cross join checkout_context
+          where tribe_invitations.tribe_id = ${input.tribeId}
+            and tribe_invitations.token_hash = nullif(
+              current_setting(
+                ${SUBSCRIPTION_CHECKOUT_CONTEXT.invitationSettingName},
+                true
+              ),
+              ''
+            )
+            and tribe_invitations.status = 'active'
+          limit 1
         )
         insert into public.tribe_members (
           tribe_id,
@@ -1772,6 +1873,7 @@ export class PostgresTribeMemberSubscriptionRepository
           role,
           status,
           status_reason,
+          joined_via_invitation_id,
           created_at
         )
         select
@@ -1780,14 +1882,25 @@ export class PostgresTribeMemberSubscriptionRepository
           'tribemate',
           'blocked',
           ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+          (select id from target_invitation),
           timezone('utc', now())
         from checkout_context
         on conflict (tribe_id, user_id) do update
         set
           status = 'blocked',
-          status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-        where tribe_members.status = 'removed'
-          and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
+          status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
+          joined_via_invitation_id = coalesce(
+            (select id from target_invitation),
+            tribe_members.joined_via_invitation_id
+          )
+        where (
+            tribe_members.status = 'removed'
+            and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
+          )
+          or (
+            tribe_members.status = 'blocked'
+            and tribe_members.status_reason = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
+          )
       `);
 
       await database.execute(sql`

@@ -1,0 +1,20 @@
+# Normalize all text files to LF in the repository and check them out as LF on
+# every platform, so Windows clients do not rewrite line endings to CRLF
+# regardless of the system-level core.autocrlf setting.
+* text=auto eol=lf
+
+# Treat known binary assets as binary so Git never inspects or rewrites their
+# bytes (line-ending normalization must never touch these).
+*.woff2 binary
+*.woff binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.pdf binary

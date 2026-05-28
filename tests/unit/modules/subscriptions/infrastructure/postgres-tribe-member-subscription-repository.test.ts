@@ -384,26 +384,29 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
   });
 
   it("reuses an existing pending plan checkout without creating a member preapproval", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
-      rows: [
-        {
-          access_token: "access-token",
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
             current_price_amount_cents: 1500,
-          current_price_currency: "ARS",
-          current_price_id: "price-1",
-          current_price_plan_id: "plan-1",
-          current_price_name: "Plan mensual",
-          current_price_provider_plan_id: "provider-plan-1",
-          current_user_email: "member@example.com",
-          existing_checkout_url: PROVIDER_PLAN_CHECKOUT_URL,
-          existing_provider_subscription_id: null,
-          existing_membership_status: "blocked",
-          existing_membership_status_reason: "payment_blocked",
-          has_active_invitation: true,
-          tribe_id: "tribe-1",
-        },
-      ],
-    });
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_plan_id: "plan-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: PROVIDER_PLAN_CHECKOUT_URL,
+            existing_provider_subscription_id: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
     const buildMercadoPagoPlanCheckoutUrl = jest.fn();
     const repository = createRepository(execute, {
       buildMercadoPagoPlanCheckoutUrl,
@@ -422,6 +425,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
 
     expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
       /tribe_member_subscriptions\.status = .*pending/
+    );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
+      /update public\.tribe_members[\s\S]*joined_via_invitation_id = target_invitation\.id/
+    );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
+      /cross join checkout_context[\s\S]*current_setting\([\s\S]*app\.current_invitation_hash/
     );
     expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
   });
@@ -578,6 +587,21 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
 
     expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
       "provider-plan-1"
+    );
+    const reservationSql = getSqlText(execute.mock.calls[1]?.[0]);
+    const persistedMembershipSql = getSqlText(execute.mock.calls[2]?.[0]);
+    const targetInvitationCheckoutContextPattern =
+      /target_invitation as \([\s\S]*from public\.tribe_invitations\s+cross join checkout_context[\s\S]*current_setting/;
+
+    expect(reservationSql).toMatch(targetInvitationCheckoutContextPattern);
+    expect(reservationSql).toMatch(
+      /where \(\s*tribe_members\.status = 'removed'[\s\S]*status_reason = .*subscription_inactive[\s\S]*or\s*\(\s*tribe_members\.status = 'blocked'[\s\S]*status_reason = .*payment_blocked/
+    );
+    expect(persistedMembershipSql).toMatch(
+      targetInvitationCheckoutContextPattern
+    );
+    expect(persistedMembershipSql).toMatch(
+      /where \(\s*tribe_members\.status = 'removed'[\s\S]*status_reason = .*subscription_inactive[\s\S]*or\s*\(\s*tribe_members\.status = 'blocked'[\s\S]*status_reason = .*payment_blocked/
     );
     expect(getSqlText(execute.mock.calls[2]?.[0])).not.toMatch(
       /mercado_pago_preapproval_id\s*=/

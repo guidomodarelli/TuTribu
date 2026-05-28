@@ -17,13 +17,16 @@ import type {
   ListTribeInvitationsQuery,
   RevokeTribeInvitationCommand,
   TribeInvitationRepository,
+  UpdateTribeInvitationReferralMetadataCommand,
   UpdateTribeInvitationSubscriptionAssociationCommand,
 } from "@/src/modules/tribes/domain/repositories/tribe-invitation-repository";
 import type {
   TribeInvitationAcceptanceResult,
   TribeInvitationAssociatedPlanResult,
   TribeInvitationCreationResult,
+  TribeInvitationConversionMetricResult,
   TribeInvitationListItemResult,
+  TribeInvitationReferralMetadataUpdateResult,
   TribeInvitationRevocationResult,
   TribeInvitationSubscriptionAssociationResult,
   TribeInvitationSubscriptionAssociationUpdateResult,
@@ -59,9 +62,12 @@ type AssociatedPlanRow = {
 };
 
 type InvitationRow = AssociatedPlanRow & {
+  campaign_name: string | null;
+  channel: string | null;
   created_at: Date | string;
   created_by_name: string | null;
   id: string;
+  referrer_handle: string | null;
   subscription_association_type: string;
   subscription_price_id: string | null;
 };
@@ -83,6 +89,20 @@ type InvitationSubscriptionOfferRow = {
   currency: string;
   frequency: string;
   name: string;
+};
+
+type InvitationConversionMetricRow = {
+  campaign_name: string | null;
+  channel: string | null;
+  clicks: null;
+  invitation_id: string;
+  mercado_pago_account_email: string | null;
+  mercado_pago_account_label: string | null;
+  paid_active: number | string | null;
+  payment_integration_id: string | null;
+  referrer_handle: string | null;
+  revenue_cents: number | string | null;
+  signups: number | string | null;
 };
 
 const INVITATION_ROUTE = {
@@ -243,6 +263,8 @@ function mapInvitation(
   invitationUrl: string | null = null
 ): TribeInvitationListItemResult {
   return {
+    campaignName: row.campaign_name,
+    channel: row.channel,
     createdAt:
       row.created_at instanceof Date
         ? row.created_at.toISOString()
@@ -250,7 +272,26 @@ function mapInvitation(
     createdByName: row.created_by_name,
     id: row.id,
     invitationUrl,
+    referrerHandle: row.referrer_handle,
     subscriptionAssociation: mapSubscriptionAssociation(row),
+  };
+}
+
+function mapConversionMetric(
+  row: InvitationConversionMetricRow
+): TribeInvitationConversionMetricResult {
+  return {
+    campaignName: row.campaign_name,
+    channel: row.channel,
+    clicks: null,
+    invitationId: row.invitation_id,
+    mercadoPagoAccountEmail: row.mercado_pago_account_email,
+    mercadoPagoAccountLabel: row.mercado_pago_account_label,
+    paidActive: Number(row.paid_active ?? 0),
+    paymentIntegrationId: row.payment_integration_id,
+    referrerHandle: row.referrer_handle,
+    revenueCents: Number(row.revenue_cents ?? 0),
+    signups: Number(row.signups ?? 0),
   };
 }
 
@@ -386,6 +427,22 @@ function resolveAssociationColumns(
   };
 }
 
+function resolveReferralMetadataColumns(
+  command:
+    | CreateTribeInvitationCommand
+    | UpdateTribeInvitationReferralMetadataCommand
+): {
+  campaignName: string | null;
+  channel: string | null;
+  referrerHandle: string | null;
+} {
+  return {
+    campaignName: command.referralMetadata?.campaignName ?? null,
+    channel: command.referralMetadata?.channel ?? null,
+    referrerHandle: command.referralMetadata?.referrerHandle ?? null,
+  };
+}
+
 export class PostgresTribeInvitationRepository implements TribeInvitationRepository {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
@@ -403,6 +460,9 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         )
         select
           tribe_invitations.id,
+          tribe_invitations.channel,
+          tribe_invitations.campaign_name,
+          tribe_invitations.referrer_handle,
           tribe_invitations.created_at,
           tribe_invitations.token_encrypted,
           tribe_invitations.subscription_association_type,
@@ -463,6 +523,9 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         )
         select
           tribe_invitations.id,
+          tribe_invitations.channel,
+          tribe_invitations.campaign_name,
+          tribe_invitations.referrer_handle,
           tribe_invitations.created_at,
           tribe_invitations.token_encrypted,
           tribe_invitations.subscription_association_type,
@@ -520,6 +583,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
       );
       const { subscriptionAssociationType, subscriptionPriceId } =
         resolveAssociationColumns(command.subscriptionAssociation);
+      const referralMetadata = resolveReferralMetadataColumns(command);
       const result = await database.execute(sql`
         with target_tribe as (
           select tribes.id
@@ -543,6 +607,9 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             tribe_id,
             token_hash,
             token_encrypted,
+            channel,
+            campaign_name,
+            referrer_handle,
             created_by,
             status,
             subscription_association_type,
@@ -554,6 +621,9 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             target_tribe.id,
             ${tokenHash},
             ${tokenEncrypted},
+            ${referralMetadata.channel},
+            ${referralMetadata.campaignName},
+            ${referralMetadata.referrerHandle},
             public.current_app_user_id(),
             ${TRIBE_INVITATION_STATUS.active},
             ${subscriptionAssociationType},
@@ -569,7 +639,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
               ${subscriptionPriceId}::uuid is null
               or exists (select 1 from target_price)
             )
-          returning id, created_at, created_by, subscription_association_type, subscription_price_id
+          returning id, channel, campaign_name, referrer_handle, created_at, created_by, subscription_association_type, subscription_price_id
         )
         select
           case
@@ -580,6 +650,9 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             else ${TRIBE_INVITATION_STATUS.forbidden}
           end as status,
           inserted_invitation.id,
+          inserted_invitation.channel,
+          inserted_invitation.campaign_name,
+          inserted_invitation.referrer_handle,
           inserted_invitation.created_at,
           inserted_invitation.subscription_association_type,
           inserted_invitation.subscription_price_id,
@@ -675,6 +748,9 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             )
           returning
             tribe_invitations.id,
+            tribe_invitations.channel,
+            tribe_invitations.campaign_name,
+            tribe_invitations.referrer_handle,
             tribe_invitations.created_at,
             tribe_invitations.created_by,
             tribe_invitations.token_encrypted,
@@ -691,6 +767,9 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             else ${TRIBE_INVITATION_STATUS.forbidden}
           end as status,
           updated_invitation.id,
+          updated_invitation.channel,
+          updated_invitation.campaign_name,
+          updated_invitation.referrer_handle,
           updated_invitation.created_at,
           updated_invitation.token_encrypted,
           updated_invitation.subscription_association_type,
@@ -743,6 +822,107 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     }).catch((error: unknown) => {
       if (isIntegrityViolation(error)) {
         return { status: TRIBE_INVITATION_STATUS.invalid };
+      }
+
+      throw error;
+    });
+  }
+
+  async updateReferralMetadata(
+    command: UpdateTribeInvitationReferralMetadataCommand
+  ): Promise<TribeInvitationReferralMetadataUpdateResult> {
+    if (!isValidInvitationId(command.invitationId)) {
+      return { status: TRIBE_INVITATION_STATUS.notFound };
+    }
+
+    return this.executeWithDatabase(async (database) => {
+      const referralMetadata = resolveReferralMetadataColumns(command);
+      const result = await database.execute(sql`
+        with updated_invitation as (
+          select *
+          from public.update_tribe_invitation_referral_metadata(
+            ${command.invitationId},
+            ${command.tribeSlug},
+            ${referralMetadata.channel},
+            ${referralMetadata.campaignName},
+            ${referralMetadata.referrerHandle}
+          )
+        )
+        select
+          updated_invitation.status,
+          updated_invitation.id,
+          updated_invitation.channel,
+          updated_invitation.campaign_name,
+          updated_invitation.referrer_handle,
+          updated_invitation.created_at,
+          updated_invitation.token_encrypted,
+          updated_invitation.subscription_association_type,
+          updated_invitation.subscription_price_id,
+          invitation_creators.name as created_by_name,
+          associated_price.id as associated_plan_id,
+          associated_price.name as associated_plan_name,
+          associated_price.amount_cents as associated_plan_amount_cents,
+          associated_price.currency as associated_plan_currency,
+          associated_price.frequency as associated_plan_frequency,
+          associated_price.status as associated_plan_status,
+          associated_price.trial_frequency as associated_plan_trial_frequency,
+          associated_price.trial_frequency_type as associated_plan_trial_frequency_type,
+          associated_plan_integration.account_label as associated_plan_mercado_pago_account_label,
+          associated_plan_integration.provider_account_email as associated_plan_mercado_pago_account_email
+        from (select 1) result
+        left join updated_invitation
+          on true
+        left join public."user" invitation_creators
+          on invitation_creators.id = updated_invitation.created_by
+        left join public.tribe_subscription_prices associated_price
+          on associated_price.id = updated_invitation.subscription_price_id
+        left join public.tribe_payment_integrations associated_plan_integration
+          on associated_plan_integration.id = associated_price.payment_integration_id
+      `);
+
+      const row = (result.rows?.[0] ?? null) as
+        | (InvitationListRow & { status: string | null })
+        | null;
+
+      if (row?.status === TRIBE_INVITATION_STATUS.updated) {
+        return {
+          invitation: mapInvitation(
+            row,
+            resolveInvitationUrlFromRow(row, command.baseUrl, command.tribeSlug)
+          ),
+          status: TRIBE_INVITATION_STATUS.updated,
+        };
+      }
+
+      if (row?.status === TRIBE_INVITATION_STATUS.notFound) {
+        return { status: TRIBE_INVITATION_STATUS.notFound };
+      }
+
+      return { status: TRIBE_INVITATION_STATUS.forbidden };
+    }).catch((error: unknown) => {
+      if (isIntegrityViolation(error)) {
+        return { status: TRIBE_INVITATION_STATUS.invalid };
+      }
+
+      throw error;
+    });
+  }
+
+  async getConversionMetrics(query: {
+    tribeSlug: string;
+  }): Promise<TribeInvitationConversionMetricResult[]> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select *
+        from public.get_tribe_invitation_conversion_metrics(${query.tribeSlug})
+      `);
+
+      return ((result.rows ?? []) as InvitationConversionMetricRow[]).map(
+        mapConversionMetric
+      );
+    }).catch((error: unknown) => {
+      if (isMissingInvitationStorageError(error)) {
+        return [];
       }
 
       throw error;
@@ -881,6 +1061,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             user_id,
             role,
             status,
+            joined_via_invitation_id,
             joined_via,
             created_at
           )
@@ -889,6 +1070,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             public.current_app_user_id(),
             'tribemate',
             'active',
+            target_invitation.id,
             'free_invitation',
             timezone('utc', now())
           from target_tribe
@@ -906,6 +1088,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           set
             status = 'active',
             status_reason = 'none',
+            joined_via_invitation_id = target_invitation.id,
             joined_via = 'free_invitation'
           from target_tribe,
             target_invitation,

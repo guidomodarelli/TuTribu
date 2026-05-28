@@ -5,6 +5,7 @@ import {
   listTribeInvitations,
   listTribeInvitationsByPrice,
   revokeTribeInvitation,
+  updateTribeInvitationReferralMetadata,
   updateTribeInvitationSubscriptionAssociation,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-invitations-use-cases";
 import {
@@ -14,11 +15,14 @@ import {
 import type { TribeInvitationRepository } from "@/src/modules/tribes/domain/repositories/tribe-invitation-repository";
 
 const SAMPLE_INVITATION = {
+  campaignName: null,
+  channel: null,
   createdAt: "2026-04-26T07:00:00.000Z",
   createdByName: "Grace Hopper",
   id: "invitation-1",
   invitationUrl:
     "https://tutribu.example.com/matematica-pro/invitar/token",
+  referrerHandle: null,
   subscriptionAssociation: {
     type: TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current,
   },
@@ -43,10 +47,15 @@ function buildRepository(
       },
       status: "available",
     })),
+    getConversionMetrics: jest.fn(async () => []),
     listByPriceId: jest.fn(async () => ({ invitations: [] })),
     listByTribeSlug: jest.fn(async () => []),
     revoke: jest.fn(async () => ({ status: TRIBE_INVITATION_STATUS.revoked })),
     updateSubscriptionAssociation: jest.fn(async () => ({
+      invitation: SAMPLE_INVITATION,
+      status: TRIBE_INVITATION_STATUS.updated,
+    })),
+    updateReferralMetadata: jest.fn(async () => ({
       invitation: SAMPLE_INVITATION,
       status: TRIBE_INVITATION_STATUS.updated,
     })),
@@ -76,6 +85,11 @@ describe("manage tribe invitations use cases", () => {
     expect(repository.create).toHaveBeenCalledWith({
       baseUrl: "https://tutribu.example.com",
       invitationId: expect.any(String),
+      referralMetadata: {
+        campaignName: null,
+        channel: null,
+        referrerHandle: null,
+      },
       subscriptionAssociation: {
         type: TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current,
       },
@@ -110,6 +124,74 @@ describe("manage tribe invitations use cases", () => {
         },
       })
     );
+  });
+
+  it("normalizes referral metadata when creating invitations", async () => {
+    const repository = buildRepository();
+    const useCase = createTribeInvitation({
+      tribeInvitationRepository: repository,
+    });
+
+    await useCase({
+      baseUrl: "https://tutribu.example.com",
+      campaignName: " lanzamiento mayo ",
+      channel: "Instagram",
+      referrerHandle: " @partner_ig ",
+      subscriptionAssociation: {
+        type: TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current,
+      },
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        referralMetadata: {
+          campaignName: "lanzamiento mayo",
+          channel: "instagram",
+          referrerHandle: "@partner_ig",
+        },
+      })
+    );
+  });
+
+  it("rejects invalid referral metadata when creating invitations", async () => {
+    const repository = buildRepository();
+    const useCase = createTribeInvitation({
+      tribeInvitationRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        baseUrl: "https://tutribu.example.com",
+        channel: "newsletter",
+        subscriptionAssociation: {
+          type: TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current,
+        },
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_INVITATION_STATUS.invalid });
+
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed referral metadata field types when creating invitations", async () => {
+    const repository = buildRepository();
+    const useCase = createTribeInvitation({
+      tribeInvitationRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        baseUrl: "https://tutribu.example.com",
+        channel: 123,
+        subscriptionAssociation: {
+          type: TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current,
+        },
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_INVITATION_STATUS.invalid });
+
+    expect(repository.create).not.toHaveBeenCalled();
   });
 
   it("rejects invitation creation when association is missing or invalid", async () => {
@@ -199,6 +281,24 @@ describe("manage tribe invitations use cases", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_INVITATION_STATUS.invalid });
+  });
+
+  it("rejects malformed referral metadata field types when updating invitations", async () => {
+    const repository = buildRepository();
+    const useCase = updateTribeInvitationReferralMetadata({
+      tribeInvitationRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        baseUrl: "https://tutribu.example.com",
+        campaignName: ["lanzamiento mayo"],
+        invitationId: "invitation-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_INVITATION_STATUS.invalid });
+
+    expect(repository.updateReferralMetadata).not.toHaveBeenCalled();
   });
 
   it("lists active invitations forwarding the public base URL for the tribe slug", async () => {

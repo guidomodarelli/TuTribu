@@ -41,6 +41,11 @@ const FORBIDDEN_TRIBE_INVITATION_ID_CAST = [
   "tribe_invitations.id",
   "text",
 ].join("::");
+const NULL_REFERRAL_METADATA = {
+  campaignName: null,
+  channel: null,
+  referrerHandle: null,
+} as const;
 
 describe("PostgresTribeInvitationRepository", () => {
   const previousKey = process.env[TRIBE_INVITATION_TOKEN_KEY_ENV];
@@ -84,6 +89,7 @@ describe("PostgresTribeInvitationRepository", () => {
       repository.create({
         baseUrl: "https://tutribu.example.com",
         invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        referralMetadata: NULL_REFERRAL_METADATA,
         subscriptionAssociation: { type: "current" },
         token: "plain-token",
         tribeSlug: "matematica-pro",
@@ -130,6 +136,7 @@ describe("PostgresTribeInvitationRepository", () => {
       repository.create({
         baseUrl: "https://tutribu.example.com",
         invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        referralMetadata: NULL_REFERRAL_METADATA,
         subscriptionAssociation: {
           priceId: "550e8400-e29b-41d4-a716-446655440010",
           type: "specific",
@@ -168,6 +175,7 @@ describe("PostgresTribeInvitationRepository", () => {
       repository.create({
         baseUrl: "https://tutribu.example.com",
         invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        referralMetadata: NULL_REFERRAL_METADATA,
         subscriptionAssociation: { type: "current" },
         token: "plain-token",
         tribeSlug: "matematica-pro",
@@ -191,6 +199,7 @@ describe("PostgresTribeInvitationRepository", () => {
       repository.create({
         baseUrl: "https://tutribu.example.com",
         invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        referralMetadata: NULL_REFERRAL_METADATA,
         subscriptionAssociation: { type: "current" },
         token: "plain-token",
         tribeSlug: "matematica-pro",
@@ -332,6 +341,120 @@ describe("PostgresTribeInvitationRepository", () => {
     );
     expect(sqlText).toContain("associated_plan_trial_frequency");
     expect(sqlText).toContain("associated_plan_mercado_pago_account_label");
+  });
+
+  it("updates referral metadata through the metadata-only database function", async () => {
+    const encryptedActiveToken = encryptInvitationToken("active-token");
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          associated_plan_amount_cents: null,
+          associated_plan_currency: null,
+          associated_plan_frequency: null,
+          associated_plan_id: null,
+          associated_plan_mercado_pago_account_email: null,
+          associated_plan_mercado_pago_account_label: null,
+          associated_plan_name: null,
+          associated_plan_status: null,
+          associated_plan_trial_frequency: null,
+          associated_plan_trial_frequency_type: null,
+          campaign_name: "Lanzamiento mayo",
+          channel: "instagram",
+          created_at: "2026-04-26T07:00:00.000Z",
+          created_by_name: "Grace Hopper",
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          referrer_handle: "@partner",
+          status: "updated",
+          subscription_association_type: "current",
+          subscription_price_id: null,
+          token_encrypted: encryptedActiveToken,
+        },
+      ],
+    }));
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.updateReferralMetadata({
+        baseUrl: "https://tutribu.example.com",
+        invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        referralMetadata: {
+          campaignName: "Lanzamiento mayo",
+          channel: "instagram",
+          referrerHandle: "@partner",
+        },
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      invitation: {
+        campaignName: "Lanzamiento mayo",
+        channel: "instagram",
+        createdAt: "2026-04-26T07:00:00.000Z",
+        createdByName: "Grace Hopper",
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        invitationUrl:
+          "https://tutribu.example.com/matematica-pro/invitar/active-token",
+        referrerHandle: "@partner",
+        subscriptionAssociation: { type: "current" },
+      },
+      status: "updated",
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain(
+      "public.update_tribe_invitation_referral_metadata"
+    );
+    expect(sqlText).not.toContain("update public.tribe_invitations");
+    expect(sqlText).toContain(
+      "left join public.tribe_payment_integrations associated_plan_integration"
+    );
+  });
+
+  it("reads conversion metrics grouped by invitation and payment account", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          campaign_name: "Lanzamiento mayo",
+          channel: "instagram",
+          clicks: null,
+          invitation_id: "550e8400-e29b-41d4-a716-446655440000",
+          mercado_pago_account_email: "partner@example.com",
+          mercado_pago_account_label: "Partner MP",
+          paid_active: "2",
+          payment_integration_id: "550e8400-e29b-41d4-a716-446655440020",
+          referrer_handle: "@partner",
+          revenue_cents: "10000",
+          signups: "3",
+        },
+      ],
+    }));
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.getConversionMetrics({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual([
+      {
+        campaignName: "Lanzamiento mayo",
+        channel: "instagram",
+        clicks: null,
+        invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        mercadoPagoAccountEmail: "partner@example.com",
+        mercadoPagoAccountLabel: "Partner MP",
+        paidActive: 2,
+        paymentIntegrationId: "550e8400-e29b-41d4-a716-446655440020",
+        referrerHandle: "@partner",
+        revenueCents: 10000,
+        signups: 3,
+      },
+    ]);
+
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it("returns null acceptance links when decryption fails for a stored row", async () => {
