@@ -3,6 +3,7 @@ import Script from "next/script";
 
 import { AppProviders } from "@/components/providers/app-providers";
 import { siteConfig } from "@/lib/site-config";
+import { ibmPlexMono, spaceGrotesk } from "./fonts";
 import {
   DARK_THEME_CLASS_NAME,
   DARK_THEME_MODE,
@@ -60,7 +61,7 @@ export default function RootLayout({
     <html
       lang={ROOT_LAYOUT_DOCUMENT.language}
       data-scroll-behavior={ROOT_LAYOUT_DOCUMENT.scrollBehavior}
-      className={styles.RootLayout}
+      className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} ${styles.RootLayout}`}
       suppressHydrationWarning
     >
       <head>

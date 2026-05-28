@@ -5,6 +5,7 @@ import Script from "next/script";
 
 import { ErrorState } from "@/components/feedback/error-state";
 import { siteConfig } from "@/lib/site-config";
+import { ibmPlexMono, spaceGrotesk } from "./fonts";
 import {
   DARK_THEME_CLASS_NAME,
   DARK_THEME_MODE,
@@ -73,6 +74,7 @@ export default function GlobalErrorPage({
   return (
     <html
       lang={GLOBAL_ERROR_PAGE_COPY.htmlLanguage}
+      className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
       suppressHydrationWarning
     >
       <head>
