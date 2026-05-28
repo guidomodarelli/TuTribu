@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import Script from "next/script";
 
 import { ErrorState } from "@/components/feedback/error-state";
 import { siteConfig } from "@/lib/site-config";
@@ -29,7 +28,6 @@ const GLOBAL_ERROR_PAGE_COPY = {
 
 const GLOBAL_ERROR_THEME_SCRIPT = {
   id: "global-error-theme-bootstrap-script",
-  strategy: "beforeInteractive",
 } as const;
 const GLOBAL_ERROR_DOCUMENT_CLASS = {
   body: "GlobalErrorPageBody",
@@ -78,12 +76,10 @@ export default function GlobalErrorPage({
       suppressHydrationWarning
     >
       <head>
-        <Script
+        <script
           id={GLOBAL_ERROR_THEME_SCRIPT.id}
-          strategy={GLOBAL_ERROR_THEME_SCRIPT.strategy}
-        >
-          {GLOBAL_ERROR_THEME_BOOTSTRAP_SCRIPT}
-        </Script>
+          dangerouslySetInnerHTML={{ __html: GLOBAL_ERROR_THEME_BOOTSTRAP_SCRIPT }}
+        />
       </head>
       <body className={GLOBAL_ERROR_DOCUMENT_CLASS.body}>
         <title>{`Error inesperado | ${siteConfig.name}`}</title>

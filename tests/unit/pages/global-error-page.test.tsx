@@ -46,4 +46,32 @@ describe("GlobalErrorPage", () => {
 
     expect(retry).toHaveBeenCalledTimes(1);
   });
+
+  it("renders the theme bootstrap without React script-tag warnings", () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const retry = jest.fn();
+
+    render(
+      <GlobalErrorPage
+        error={new Error("unexpected_failure")}
+        unstable_retry={retry}
+      />
+    );
+
+    const themeBootstrapScript = document.getElementById(
+      "global-error-theme-bootstrap-script"
+    );
+
+    expect(themeBootstrapScript?.tagName).toBe("SCRIPT");
+    expect(themeBootstrapScript?.innerHTML).toContain("classList");
+    expect(
+      consoleErrorSpy.mock.calls.some(([message]) =>
+        String(message).includes("Encountered a script tag")
+      )
+    ).toBe(false);
+
+    consoleErrorSpy.mockRestore();
+  });
 });
