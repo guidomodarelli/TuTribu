@@ -101,11 +101,14 @@ describe("timezone-stable hydration formatting", () => {
         canManagePrices
         invitations={[
           {
+            campaignName: null,
+            channel: null,
             createdAt: "2026-04-26T02:30:00.000Z",
             createdByName: "Grace Hopper",
             id: "invitation-1",
             invitationUrl:
               "https://tutribu.example.com/matematica-pro/invitar/token",
+            referrerHandle: null,
             subscriptionAssociation: { type: "current" },
           },
         ]}

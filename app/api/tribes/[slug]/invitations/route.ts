@@ -25,6 +25,9 @@ const INVITATION_ROUTE_RESPONSE = {
 } as const;
 
 const INVITATION_ROUTE_FIELD = {
+  campaignName: "campaignName",
+  channel: "channel",
+  referrerHandle: "referrerHandle",
   subscriptionAssociation: "subscriptionAssociation",
 } as const;
 
@@ -51,6 +54,28 @@ function readSubscriptionAssociation(body: unknown): unknown {
   return (body as Record<string, unknown>)[
     INVITATION_ROUTE_FIELD.subscriptionAssociation
   ];
+}
+
+function readInvitationReferralMetadata(body: unknown): {
+  campaignName: unknown;
+  channel: unknown;
+  referrerHandle: unknown;
+} {
+  if (!body || typeof body !== "object") {
+    return {
+      campaignName: undefined,
+      channel: undefined,
+      referrerHandle: undefined,
+    };
+  }
+
+  const bodyRecord = body as Record<string, unknown>;
+
+  return {
+    campaignName: bodyRecord[INVITATION_ROUTE_FIELD.campaignName],
+    channel: bodyRecord[INVITATION_ROUTE_FIELD.channel],
+    referrerHandle: bodyRecord[INVITATION_ROUTE_FIELD.referrerHandle],
+  };
 }
 
 export async function GET(
@@ -132,8 +157,12 @@ export async function POST(
 
   try {
     const body = await request.json().catch(() => null);
+    const referralMetadata = readInvitationReferralMetadata(body);
     const result = await modules.tribes.useCases.createTribeInvitation({
       baseUrl: resolvePublicAppBaseUrl(),
+      campaignName: referralMetadata.campaignName,
+      channel: referralMetadata.channel,
+      referrerHandle: referralMetadata.referrerHandle,
       subscriptionAssociation: readSubscriptionAssociation(body),
       tribeSlug: slug,
     });

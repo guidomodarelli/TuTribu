@@ -5,12 +5,15 @@ import type {
   AcceptTribeInvitationCommand,
   CreateTribeInvitationCommand,
   GetTribeInvitationSubscriptionOfferQuery,
+  GetTribeInvitationConversionMetricsQuery,
   ListTribeInvitationsByPriceQuery,
   ListTribeInvitationsQuery,
   RevokeTribeInvitationCommand,
   TribeInvitationRepository,
   UpdateTribeInvitationSubscriptionAssociationCommand,
+  UpdateTribeInvitationReferralMetadataCommand,
 } from "@/src/modules/tribes/domain/repositories/tribe-invitation-repository";
+import { parseTribeInvitationReferralMetadata } from "@/src/modules/tribes/domain/value-objects/tribe-invitation-referral-metadata";
 import { parseTribeInvitationSubscriptionAssociation } from "@/src/modules/tribes/domain/value-objects/tribe-invitation-subscription-association";
 
 type TribeInvitationDependencies = {
@@ -55,7 +58,13 @@ export function createTribeInvitation({
   tribeInvitationRepository,
 }: TribeInvitationDependencies) {
   return async (
-    command: Omit<CreateTribeInvitationCommand, "invitationId" | "token" | "subscriptionAssociation"> & {
+    command: Omit<
+      CreateTribeInvitationCommand,
+      "invitationId" | "referralMetadata" | "subscriptionAssociation" | "token"
+    > & {
+      campaignName?: unknown;
+      channel?: unknown;
+      referrerHandle?: unknown;
       subscriptionAssociation: unknown;
     }
   ) => {
@@ -67,13 +76,53 @@ export function createTribeInvitation({
       return { status: TRIBE_INVITATION_STATUS.invalid } as const;
     }
 
+    const referralMetadata = parseTribeInvitationReferralMetadata({
+      campaignName: command.campaignName,
+      channel: command.channel,
+      referrerHandle: command.referrerHandle,
+    });
+
+    if (!referralMetadata) {
+      return { status: TRIBE_INVITATION_STATUS.invalid } as const;
+    }
+
     const invitationId = createInvitationId();
 
     return tribeInvitationRepository.create({
       baseUrl: command.baseUrl,
       invitationId,
+      referralMetadata,
       subscriptionAssociation,
       token: createInvitationToken(),
+      tribeSlug: command.tribeSlug.trim(),
+    });
+  };
+}
+
+export function updateTribeInvitationReferralMetadata({
+  tribeInvitationRepository,
+}: TribeInvitationDependencies) {
+  return async (
+    command: Omit<UpdateTribeInvitationReferralMetadataCommand, "referralMetadata"> & {
+      campaignName?: unknown;
+      channel?: unknown;
+      referrerHandle?: unknown;
+    }
+  ) => {
+    const referralMetadata = parseTribeInvitationReferralMetadata({
+      campaignName: command.campaignName,
+      channel: command.channel,
+      referrerHandle: command.referrerHandle,
+    });
+
+    if (!referralMetadata) {
+      return { status: TRIBE_INVITATION_STATUS.invalid } as const;
+    }
+
+    return tribeInvitationRepository.updateReferralMetadata({
+      baseUrl: command.baseUrl,
+      invitationId: command.invitationId.trim(),
+      referralMetadata,
       tribeSlug: command.tribeSlug.trim(),
     });
   };
@@ -130,6 +179,15 @@ export function getTribeInvitationSubscriptionOffer({
   return async (query: GetTribeInvitationSubscriptionOfferQuery) =>
     tribeInvitationRepository.getSubscriptionOffer({
       token: query.token.trim(),
+      tribeSlug: query.tribeSlug.trim(),
+    });
+}
+
+export function getTribeInvitationConversionMetrics({
+  tribeInvitationRepository,
+}: TribeInvitationDependencies) {
+  return async (query: GetTribeInvitationConversionMetricsQuery) =>
+    tribeInvitationRepository.getConversionMetrics({
       tribeSlug: query.tribeSlug.trim(),
     });
 }

@@ -15,6 +15,8 @@ const FREE_JOIN_MIGRATION_PATH =
   "database/migrations/20260524100000_add_free_join_to_tribes.sql";
 const SUBSCRIPTION_ASSOCIATION_MIGRATION_PATH =
   "database/migrations/20260525120000_add_subscription_association_to_tribe_invitations.sql";
+const REFERRAL_METADATA_MIGRATION_PATH =
+  "database/migrations/20260528120000_add_referral_metadata_to_invitations.sql";
 
 function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -316,6 +318,96 @@ describe("Subscription SQL guardrails", () => {
     );
     expect(updatePolicy).toMatch(
       /tribe_subscription_prices\.mercado_pago_preapproval_plan_id IS NOT NULL/
+    );
+  });
+
+  it("adds referral metadata without adding payment integration to invitations", () => {
+    const migration = readWorkspaceFile(REFERRAL_METADATA_MIGRATION_PATH);
+    const updatePolicy = readPolicyBlock(
+      migration,
+      "Invitation managers can update invitations"
+    );
+
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS channel text");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS campaign_name text");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS referrer_handle text");
+    expect(migration).toContain(
+      "ADD COLUMN IF NOT EXISTS joined_via_invitation_id uuid"
+    );
+    expect(migration).toContain("ON DELETE SET NULL");
+    expect(migration).toContain("idx_tribe_invitations_tribe_channel");
+    expect(migration).toContain("idx_tribe_members_joined_via_invitation");
+    expect(migration).not.toMatch(
+      /ALTER TABLE public\.tribe_invitations\s+ADD COLUMN IF NOT EXISTS payment_integration_id/
+    );
+    expect(migration).toContain(
+      "CREATE OR REPLACE FUNCTION public.update_tribe_invitation_referral_metadata"
+    );
+    expect(migration).toContain("SECURITY DEFINER");
+    expect(migration).toContain(
+      "GRANT EXECUTE ON FUNCTION public.update_tribe_invitation_referral_metadata"
+    );
+    expect(migration).toContain(
+      "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN"
+    );
+    expect(migration).not.toContain("app.invitation_referral_metadata_update");
+    expect(migration).not.toContain("referral_metadata_update_context");
+    expect(updatePolicy).toMatch(/public\.can_manage_tribe_invitations\(tribe_id\)/);
+    expect(updatePolicy).toMatch(
+      /public\.can_manage_tribe_subscription_prices\(tribe_id\)/
+    );
+    expect(updatePolicy).toMatch(/current_user = \(/);
+    expect(updatePolicy).toMatch(
+      /pg_get_userbyid\(pg_class\.relowner\)/
+    );
+    expect(updatePolicy).toMatch(
+      /'public\.tribe_invitations'::regclass/
+    );
+  });
+
+  it("requires active invitation attribution to match the current token hash", () => {
+    const migration = readWorkspaceFile(REFERRAL_METADATA_MIGRATION_PATH);
+    const pendingMembershipPolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can create paid pending memberships"
+    );
+    const retryMembershipPolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can recover paid retry memberships"
+    );
+    const freeInvitationPolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can accept active invitations"
+    );
+    const pendingAttributionPolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can update pending invitation attribution"
+    );
+
+    expect(pendingMembershipPolicy).toMatch(/joined_via_invitation_id IS NULL/);
+    expect(pendingMembershipPolicy).toMatch(
+      /tribe_invitations\.id = joined_via_invitation_id/
+    );
+    expect(pendingMembershipPolicy).toMatch(
+      /current_setting\('app\.current_invitation_hash', true\)/
+    );
+    expect(retryMembershipPolicy).toMatch(/joined_via_invitation_id IS NULL/);
+    expect(retryMembershipPolicy).toMatch(
+      /nullif\(\s*current_setting\('app\.current_invitation_hash', true\),\s*''\s*\) IS NULL/
+    );
+    expect(retryMembershipPolicy).toMatch(
+      /tribe_invitations\.id = joined_via_invitation_id/
+    );
+    expect(freeInvitationPolicy).toMatch(
+      /joined_via_invitation_id = tribe_invitations\.id/
+    );
+    expect(pendingAttributionPolicy).toMatch(/status = 'blocked'/);
+    expect(pendingAttributionPolicy).toMatch(/status_reason = 'payment_blocked'/);
+    expect(pendingAttributionPolicy).toMatch(
+      /tribe_invitations\.id = joined_via_invitation_id/
+    );
+    expect(pendingAttributionPolicy).toMatch(
+      /current_setting\('app\.current_invitation_hash', true\)/
     );
   });
 

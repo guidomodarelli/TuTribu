@@ -113,6 +113,10 @@ export const tribeMembers = pgTable("tribe_members", {
   status: text("status").notNull(),
   statusReason: text("status_reason").notNull().default("none"),
   joinedVia: text("joined_via").notNull().default("unknown"),
+  joinedViaInvitationId: uuid("joined_via_invitation_id").references(
+    () => tribeInvitations.id,
+    { onDelete: "set null" }
+  ),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
@@ -120,6 +124,9 @@ export const tribeMembers = pgTable("tribe_members", {
   membershipKey: uniqueIndex("tribe_members_tribe_id_user_id_key").on(
     table.tribeId,
     table.userId
+  ),
+  joinedViaInvitationIndex: index("idx_tribe_members_joined_via_invitation").on(
+    table.joinedViaInvitationId
   ),
 }));
 
@@ -130,6 +137,9 @@ export const tribeInvitations = pgTable("tribe_invitations", {
     .references(() => tribes.id, { onDelete: "cascade" }),
   tokenHash: text("token_hash").notNull(),
   tokenEncrypted: text("token_encrypted"),
+  channel: text("channel"),
+  campaignName: text("campaign_name"),
+  referrerHandle: text("referrer_handle"),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),
@@ -150,6 +160,10 @@ export const tribeInvitations = pgTable("tribe_invitations", {
   ),
   subscriptionPriceIndex: index("idx_tribe_invitations_subscription_price_id").on(
     table.subscriptionPriceId
+  ),
+  tribeChannelIndex: index("idx_tribe_invitations_tribe_channel").on(
+    table.tribeId,
+    table.channel
   ),
 }));
 

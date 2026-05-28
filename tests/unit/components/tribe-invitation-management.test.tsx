@@ -14,11 +14,14 @@ jest.mock("sonner", () => ({
 }));
 
 const baseInvitation = {
+  campaignName: null,
+  channel: null,
   createdAt: "2026-04-26T07:00:00.000Z",
   createdByName: "Grace Hopper",
   id: "invitation-1",
   invitationUrl:
     "https://tutribu.example.com/matematica-pro/invitar/token",
+  referrerHandle: null,
   subscriptionAssociation: { type: "current" as const },
 };
 
@@ -80,7 +83,7 @@ describe("TribeInvitationManagement", () => {
     const submitButton = screen.getByRole("button", { name: /^Crear link$/ });
     expect(submitButton).toBeDisabled();
 
-    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getAllByRole("combobox")[0]);
     await user.click(
       await screen.findByRole("option", { name: "Plan actual" })
     );
@@ -92,6 +95,9 @@ describe("TribeInvitationManagement", () => {
         "/api/tribes/matematica-pro/invitations",
         expect.objectContaining({
           body: JSON.stringify({
+            campaignName: null,
+            channel: "direct",
+            referrerHandle: null,
             subscriptionAssociation: { type: "current" },
           }),
           method: "POST",
@@ -164,7 +170,7 @@ describe("TribeInvitationManagement", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Cambiar plan" }));
-    await user.click(await screen.findByRole("combobox"));
+    await user.click((await screen.findAllByRole("combobox"))[0]);
     await user.click(
       await screen.findByRole("option", { name: "Plan gratuito" })
     );
@@ -212,7 +218,7 @@ describe("TribeInvitationManagement", () => {
     ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Crear link/ }));
-    await user.click(await screen.findByRole("combobox"));
+    await user.click((await screen.findAllByRole("combobox"))[0]);
 
     expect(
       await screen.findByRole("option", { name: "Plan actual" })
@@ -223,6 +229,30 @@ describe("TribeInvitationManagement", () => {
     expect(
       screen.queryByRole("option", { name: /Plan mensual/ })
     ).not.toBeInTheDocument();
+  });
+
+  it("blocks invitation creation when the referrer handle only contains the prefix", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeInvitationManagement
+        availablePrices={[]}
+        canManagePrices
+        invitations={[]}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Crear link/ }));
+    await user.type(screen.getByLabelText("Referente"), "@");
+
+    expect(
+      screen.getByText(
+        "Revisá el canal, la campaña y el referente antes de guardar."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Crear link$/ })).toBeDisabled();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("displays the Mercado Pago account and trial period inside the associated-plan badge", () => {
@@ -285,7 +315,7 @@ describe("TribeInvitationManagement", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /Crear link/ }));
-    await user.click(await screen.findByRole("combobox"));
+    await user.click((await screen.findAllByRole("combobox"))[0]);
 
     expect(
       await screen.findByRole("option", {

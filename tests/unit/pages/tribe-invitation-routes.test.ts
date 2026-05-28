@@ -2,13 +2,17 @@ import {
   GET,
   POST,
 } from "@/app/api/tribes/[slug]/invitations/route";
-import { DELETE } from "@/app/api/tribes/[slug]/invitations/[invitationId]/route";
+import {
+  DELETE,
+  PATCH,
+} from "@/app/api/tribes/[slug]/invitations/[invitationId]/route";
 import { createRequestModules } from "@/src/modules/setup";
 
 const getAuthenticatedMember = jest.fn();
 const listTribeInvitations = jest.fn();
 const createTribeInvitation = jest.fn();
 const revokeTribeInvitation = jest.fn();
+const updateTribeInvitationReferralMetadata = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -49,6 +53,17 @@ function buildRequest(body?: unknown): Request {
     json: async () => body,
     method: "POST",
     url: "https://tutribu.example.com/api/tribes/matematica-pro/invitations",
+  } as unknown as Request;
+}
+
+function buildMalformedJsonRequest(): Request {
+  return {
+    headers: new Headers(),
+    json: async () => {
+      throw new Error("Invalid JSON");
+    },
+    method: "PATCH",
+    url: "https://tutribu.example.com/api/tribes/matematica-pro/invitations/invitation-1",
   } as unknown as Request;
 }
 
@@ -106,6 +121,7 @@ describe("Tribe invitation routes", () => {
           createTribeInvitation,
           listTribeInvitations,
           revokeTribeInvitation,
+          updateTribeInvitationReferralMetadata,
         },
       },
     });
@@ -150,6 +166,9 @@ describe("Tribe invitation routes", () => {
     expect(response.status).toBe(201);
     expect(createTribeInvitation).toHaveBeenCalledWith({
       baseUrl: "https://canonical.tutribu.example.com",
+      campaignName: undefined,
+      channel: undefined,
+      referrerHandle: undefined,
       subscriptionAssociation: { type: "current" },
       tribeSlug: "matematica-pro",
     });
@@ -219,6 +238,53 @@ describe("Tribe invitation routes", () => {
     });
     await expect(response.json()).resolves.toEqual({
       message: "Invitación revocada.",
+    });
+  });
+
+  it("updates referral metadata for an invitation", async () => {
+    updateTribeInvitationReferralMetadata.mockResolvedValue({
+      invitation: {
+        ...invitation,
+        campaignName: "Lanzamiento mayo",
+        channel: "instagram",
+        referrerHandle: "@partner",
+      },
+      status: "updated",
+    });
+
+    const response = await PATCH(
+      buildRequest({
+        campaignName: "Lanzamiento mayo",
+        channel: "instagram",
+        referrerHandle: "@partner",
+      }),
+      buildInvitationContext()
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateTribeInvitationReferralMetadata).toHaveBeenCalledWith({
+      baseUrl: "https://canonical.tutribu.example.com",
+      campaignName: "Lanzamiento mayo",
+      channel: "instagram",
+      invitationId: "invitation-1",
+      referrerHandle: "@partner",
+      tribeSlug: "matematica-pro",
+    });
+    await expect(response.json()).resolves.toMatchObject({
+      message: "Canal de referido actualizado.",
+    });
+  });
+
+  it("rejects malformed referral metadata updates without clearing saved metadata", async () => {
+    const response = await PATCH(
+      buildMalformedJsonRequest(),
+      buildInvitationContext()
+    );
+
+    expect(response.status).toBe(400);
+    expect(updateTribeInvitationReferralMetadata).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      message: "Revisá el canal, la campaña y el referente antes de guardar.",
     });
   });
 });

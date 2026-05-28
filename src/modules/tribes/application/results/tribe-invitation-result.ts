@@ -34,10 +34,13 @@ export type TribeInvitationSubscriptionAssociationResult =
     };
 
 export type TribeInvitationListItemResult = {
+  campaignName: string | null;
+  channel: string | null;
   createdAt: string;
   createdByName: string | null;
   id: string;
   invitationUrl: string | null;
+  referrerHandle: string | null;
   subscriptionAssociation: TribeInvitationSubscriptionAssociationResult;
 };
 
@@ -73,6 +76,23 @@ export type TribeInvitationSubscriptionAssociationUpdateResult =
         | typeof TRIBE_INVITATION_STATUS.invalid
         | typeof TRIBE_INVITATION_STATUS.notFound;
     };
+
+export type TribeInvitationReferralMetadataUpdateResult =
+  TribeInvitationSubscriptionAssociationUpdateResult;
+
+export type TribeInvitationConversionMetricResult = {
+  campaignName: string | null;
+  channel: string | null;
+  clicks: null;
+  invitationId: string;
+  mercadoPagoAccountEmail: string | null;
+  mercadoPagoAccountLabel: string | null;
+  paidActive: number;
+  paymentIntegrationId: string | null;
+  referrerHandle: string | null;
+  revenueCents: number;
+  signups: number;
+};
 
 export type TribeInvitationsByPriceResult = {
   invitations: TribeInvitationListItemResult[];

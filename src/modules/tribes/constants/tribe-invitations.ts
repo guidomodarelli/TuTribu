@@ -23,6 +23,15 @@ export const TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE = {
   specific: "specific",
 } as const;
 
+export const TRIBE_INVITATION_CHANNEL = {
+  direct: "direct",
+  instagram: "instagram",
+  other: "other",
+  tiktok: "tiktok",
+  whatsapp: "whatsapp",
+  youtube: "youtube",
+} as const;
+
 export const TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_ACTION = {
   switchToCurrent: "switch_to_current",
   switchToSpecific: "switch_to_specific",

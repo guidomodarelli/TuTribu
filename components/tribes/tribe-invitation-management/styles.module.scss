@@ -114,6 +114,13 @@
     min-width: 0;
     max-width: 100%;
   }
+
+  &__fieldError {
+    color: var(--destructive);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin: 0;
+  }
 }
 
 @media (min-width: 42rem) {

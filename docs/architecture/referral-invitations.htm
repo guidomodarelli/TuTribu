@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Links de referido por canal</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Links de referido por canal</div>
+  <div class="doc-sub">Extiende <code>tribe_invitations</code> con metadatos de canal y atribución de conversión sin alterar el flujo de cobros.</div>
+  <div class="doc-meta"><span>Scope: Growth</span><span>Status: Active</span><span>Provider: Mercado Pago</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Contexto y objetivo</div>
+  <p>El sistema de invitaciones ya emite un link único por token en <code>tribe_invitations</code> y puede asociarlo a un precio específico mediante <code>subscription_association_type</code> y <code>subscription_price_id</code>. Como cada precio guarda su <code>payment_integration_id</code>, un líder puede crear precios separados para canales como Instagram o YouTube y cobrar cada canal contra una cuenta distinta de Mercado Pago.</p>
+  <p>El problema pendiente no es el cobro, sino la medición. El producto necesita diferenciar links aunque apunten al mismo precio, reportar altas por canal y atribuir membresías pagas activas al link que originó la conversión.</p>
+  <p>La decisión confirmada es <strong>Modelo A: un precio por canal cuando el canal requiere una cuenta de Mercado Pago distinta</strong>. No se agrega <code>payment_integration_id</code> a <code>tribe_invitations</code>; el cobro sigue resolviéndose desde <code>tribe_subscription_prices</code>.</p>
+  <div class="callout c-ok">Este diseño solo trackea conversiones. No registra clicks anónimos ni introduce <code>tribe_invitation_visits</code>.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Modelo de datos — extensiones a <code>tribe_invitations</code></div>
+  <p>Las invitaciones existentes deben seguir funcionando sin backfill obligatorio. Por eso todos los metadatos nuevos son opcionales.</p>
+  <table>
+    <thead>
+      <tr><th>Columna</th><th>Tipo</th><th>Regla</th><th>Uso</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>channel</code></td><td><code>text NULL</code></td><td><code>CHECK</code> sobre <code>instagram</code>, <code>youtube</code>, <code>tiktok</code>, <code>whatsapp</code>, <code>direct</code>, <code>other</code></td><td>Agrupar reportes por canal.</td></tr>
+      <tr><td><code>campaign_name</code></td><td><code>text NULL</code></td><td>Máximo recomendado de 80 caracteres en dominio.</td><td>Distinguir campañas dentro de un canal.</td></tr>
+      <tr><td><code>referrer_handle</code></td><td><code>text NULL</code></td><td>Texto libre validado en dominio.</td><td>Guardar un handle externo opcional, por ejemplo <code>@partner_ig</code>.</td></tr>
+    </tbody>
+  </table>
+  <p>No debe existir un constraint que cruce <code>channel</code> con <code>subscription_association_type</code>. Un link puede ser <code>current</code>, <code>free</code> o <code>specific</code> en cualquier canal.</p>
+  <p>El índice secundario recomendado para reportes es <code>(tribe_id, channel)</code>. El índice optimiza los listados y agregados por tenant sin cambiar la semántica de seguridad.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Atribución de conversión — extensión a <code>tribe_members</code></div>
+  <p>La conversión se atribuye en la membresía, porque <code>tribe_members</code> es el punto común entre altas gratis, altas pagas pendientes y reactivaciones.</p>
+  <p>Se agrega <code>joined_via_invitation_id uuid NULL REFERENCES tribe_invitations(id) ON DELETE SET NULL</code>. La columna queda nullable para compatibilidad y para conservar miembros cuando se elimine o anonimice una invitación.</p>
+  <ul>
+    <li>En la rama gratis, <code>joined_via_invitation_id</code> se setea al insertar el miembro en <code>src/modules/tribes/infrastructure/repositories/postgres-tribe-invitation-repository.ts:878</code>, dentro de la rama <code>inserted_membership</code>.</li>
+    <li>En la reactivación gratis, se actualiza junto con <code>status</code>, <code>status_reason</code> y <code>joined_via</code> en <code>src/modules/tribes/infrastructure/repositories/postgres-tribe-invitation-repository.ts:904</code>, dentro de la rama <code>reactivated_membership</code>.</li>
+    <li>En la rama paga, el <code>invitation_id</code> se persiste al crear el <code>tribe_member</code> con <code>status = 'blocked'</code> y <code>status_reason = 'payment_blocked'</code>, siguiendo la policy <code>Authenticated users can create paid pending memberships</code> en <code>database/migrations/20260525120000_add_subscription_association_to_tribe_invitations.sql:110</code>.</li>
+  </ul>
+  <p>No se duplica esta atribución en <code>tribe_member_subscriptions</code>. Las métricas se derivan por join desde <code>tribe_members</code>, lo que evita drift entre membresía y suscripción.</p>
+  <div class="callout c-info">Si un miembro vuelve por otro link después de churn, se sobreescribe el último <code>invitation_id</code>. La atribución acordada es último toque dentro del sistema.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">RLS y seguridad</div>
+  <p>Las columnas nuevas de <code>tribe_invitations</code> se leen con las mismas policies existentes: <code>Invitation managers can read active invitations</code> y <code>Authenticated users can read invitation by token</code>.</p>
+  <p>La edición de <code>channel</code>, <code>campaign_name</code> y <code>referrer_handle</code> se ejecuta mediante <code>public.update_tribe_invitation_referral_metadata</code>, una función <code>SECURITY DEFINER</code> acotada a metadata. La policy <code>Invitation managers can update invitations</code> conserva la exigencia de <code>can_manage_tribe_subscription_prices</code> para cambios que afectan cobros, pero permite esta función por la excepción del owner de <code>public.tribe_invitations</code>. No se usa un setting <code>app.*</code> reusable para autorizar el bypass.</p>
+  <p><code>tribe_members.joined_via_invitation_id</code> se escribe solo en <code>INSERT</code> o <code>UPDATE</code> a través de las policies existentes. El <code>WITH CHECK</code> debe agregar que, si la columna está seteada, coincida con la invitación cuyo <code>token_hash</code> está en <code>app.current_invitation_hash</code>. Esa condición evita spoofing de atribución.</p>
+  <p>La lectura agregada de métricas se expone mediante <code>public.get_tribe_invitation_conversion_metrics</code>, una función <code>SECURITY DEFINER</code> que valida <code>can_manage_tribe_invitations</code> antes de agrupar conversiones. El repositorio no lee directamente todas las filas de <code>tribe_members</code>, porque con <code>FORCE ROW LEVEL SECURITY</code> esa tabla solo expone la membresía propia al rol de aplicación.</p>
+  <p><code>referrer_handle</code> es texto libre, pero no se valida en SQL más allá de las garantías estructurales. La longitud, el charset permitido y la normalización viven en dominio.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Aplicación hexagonal</div>
+  <p>El cambio de aplicación conserva la dirección de dependencias: los metadatos de invitación entran por comandos y results de aplicación, se validan con value objects de dominio y se persisten a través del puerto existente.</p>
+  <ul>
+    <li>Extender <code>CreateTribeInvitationCommand</code> en <code>src/modules/tribes/domain/repositories/tribe-invitation-repository.ts</code> con <code>channel</code>, <code>campaignName</code> y <code>referrerHandle</code>.</li>
+    <li>Extender <code>TribeInvitationListItemResult</code> en <code>src/modules/tribes/application/results/tribe-invitation-result.ts</code> con <code>channel</code>, <code>campaignName</code> y <code>referrerHandle</code>.</li>
+    <li>Agregar <code>TribeInvitationChannel</code> en <code>src/modules/tribes/domain/value-objects/</code> con el enum y parser de <code>instagram</code>, <code>youtube</code>, <code>tiktok</code>, <code>whatsapp</code>, <code>direct</code> y <code>other</code>.</li>
+    <li>Agregar <code>get-tribe-invitation-conversion-metrics-use-case.ts</code> en <code>application/use-cases/</code>.</li>
+    <li>Agregar <code>getConversionMetrics(query)</code> al puerto de repositorio de invitaciones.</li>
+  </ul>
+  <p>El nuevo use case devuelve, por <code>tribe_id</code>, agregados <code>clicks = null</code>, <code>signups</code>, <code>paid_active</code> y <code>revenue_cents</code>, agrupados por <code>channel</code>, <code>campaign_name</code> e <code>invitation_id</code>.</p>
+  <p>El read model es puro sobre <code>tribe_members</code>, <code>tribe_member_subscriptions</code> y <code>tribe_subscription_prices</code>. No llama a Mercado Pago ni depende de webhooks para el estimado inicial.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">UI / rutas</div>
+  <p>La experiencia de gestión se mantiene en las superficies de invitaciones y agrega una página específica de métricas.</p>
+  <ul>
+    <li><code>app/api/tribes/[slug]/invitations/route.ts</code> acepta <code>channel</code>, <code>campaignName</code> y <code>referrerHandle</code> opcionales en el body del <code>POST</code>.</li>
+    <li><code>app/api/tribes/[slug]/invitations/[invitationId]/route.ts</code> permite editar metadatos mediante un <code>PATCH</code> nuevo o una extensión del flujo de <code>subscription_association</code>.</li>
+    <li><code>components/tribes/tribe-invitation-management/index.tsx</code> agrega al diálogo "Nuevo link" un selector de canal, un input para nombre de campaña y un input para handle.</li>
+    <li>La lista de invitaciones muestra un badge de canal junto al badge de plan.</li>
+    <li><code>app/(platform)/[slug]/invitaciones/metricas/page.tsx</code> consume el use case de métricas y muestra una tabla por canal/campaña con <code>signups</code>, <code>paid_active</code> y <code>revenue_cents</code>.</li>
+  </ul>
+  <p>El acceso a la página de métricas queda restringido a <code>leader</code> y <code>guardian</code>, alineado con <code>can_manage_tribe_invitations</code>.</p>
+  <p>La copia visible al usuario es 100% en español. Los identificadores técnicos, nombres de archivos, comandos, DTOs, value objects y variables quedan en inglés.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Mercado Pago — modelo A confirmado</div>
+  <p>No se toca el flujo de cobro. Para canales con una cuenta de Mercado Pago distinta, el líder crea un nuevo <code>tribe_subscription_price</code> con su <code>payment_integration_id</code> y emite un link <code>specific</code> apuntando a ese precio.</p>
+  <p><code>channel</code> es exclusivamente metadata de reporting y UX. El cobro lo resuelve el <code>payment_integration_id</code> del precio asociado.</p>
+  <div class="callout c-warn">No agregar <code>payment_integration_id</code> a <code>tribe_invitations</code>. Duplicaría la fuente de verdad del cobro y abriría combinaciones inconsistentes entre link y precio.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Métricas — qué se puede responder</div>
+  <p>Con este modelo se pueden responder métricas de conversión, no métricas de tráfico anónimo.</p>
+  <table>
+    <thead>
+      <tr><th>Pregunta</th><th>Respuesta disponible</th><th>Fuente</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Inscripciones por canal/campaña</td><td>Sí</td><td><code>tribe_members.joined_via_invitation_id</code> + <code>tribe_invitations</code></td></tr>
+      <tr><td>Membresías pagas activas por canal/campaña/cuenta MP</td><td>Sí</td><td><code>tribe_members</code> + <code>tribe_member_subscriptions</code> + <code>tribe_subscription_prices.payment_integration_id</code></td></tr>
+      <tr><td>Revenue mensual estimado por canal</td><td>Sí, estimado</td><td>Suma de <code>amount_cents</code> de precios activos atribuidos por frecuencia</td></tr>
+      <tr><td>Tasa de conversión</td><td>No</td><td>No hay clicks</td></tr>
+      <tr><td>Tiempo desde click hasta signup</td><td>No</td><td>No hay timestamp de visita</td></tr>
+      <tr><td>Drop-off pre-login</td><td>No</td><td>No hay tracking anónimo</td></tr>
+    </tbody>
+  </table>
+  <p>El revenue mensual es un estimado basado en precios activos atribuidos, no el dinero real cobrado. El revenue real requiere cruzar eventos de cobro confirmados por webhooks de Mercado Pago y queda fuera de este alcance.</p>
+  <p>Si más adelante se necesita medir clicks, la opción de agregar <code>tribe_invitation_visits</code> queda abierta sin romper este diseño.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Migración y compatibilidad</div>
+  <p>Las nuevas columnas son <code>NULL</code>, por lo que las invitaciones existentes quedan sin canal explícito. El read model debe reportarlas bajo un bucket de compatibilidad como <code>direct</code> o <code>unknown</code>, sin modificar datos históricos automáticamente.</p>
+  <p>La migración SQL versionada vive en <code>database/migrations/20260528120000_add_referral_metadata_to_invitations.sql</code>. Agrega metadata nullable a <code>tribe_invitations</code>, atribución de último toque en <code>tribe_members.joined_via_invitation_id</code>, índices por canal y por invitación, las policies necesarias para escritura segura desde los flujos de invitación, y la función de métricas RLS-safe para managers.</p>
+  <div class="callout c-warn">No ejecutar la migración automáticamente. La regla del proyecto exige pedido explícito del usuario para correr <code>npm run db:migrate</code>.</div>
+  <p>El código de aplicación, rutas y UI ya consumen esta estructura. La ejecución contra Neon queda fuera del cierre automático y debe hacerse solo por pedido explícito.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">10</div>
+  <div class="section-title">Referencias cruzadas</div>
+  <ul>
+    <li><a href="subscriptions.htm"><code>subscriptions.htm</code></a>: fuente de verdad del modelo de precios y Mercado Pago.</li>
+    <li><a href="roles-and-permissions.htm"><code>roles-and-permissions.htm</code></a>: <code>leader</code> y <code>guardian</code> como invitadores.</li>
+    <li><a href="multi-tenancy.htm"><code>multi-tenancy.htm</code></a>: todo tenant-scoped por <code>tribe_id</code>.</li>
+    <li><a href="rls-simple.htm"><code>rls-simple.htm</code></a>: límite entre RLS estructural y lógica de aplicación.</li>
+  </ul>
+  <div class="callout c-info">Falta crear un índice navegable de <code>docs/architecture/</code>. Cuando exista, este documento debe enlazarse desde ahí.</div>
+</div>
+
+</body>
+</html>
