@@ -393,6 +393,8 @@ const longMessageContent = [
   "Maecenas in ultricies odio, eget interdum nunc. Cras facilisis est et arcu finibus.",
   "Nulla dignissim enim sit amet elit vestibulum, eu mattis dui commodo.",
   "Praesent congue, metus vel tempus facilisis, orci ante mattis nunc.",
+  "Suspendisse potenti. Vivamus tristique magna in nulla dictum, vitae pretium nibh laoreet placerat finibus.",
+  "Donec malesuada arcu vitae dictum gravida; integer sed lacus nec orci posuere consectetur in venenatis.",
 ].join(" ");
 
 const roundWithLongMessage = {
@@ -661,7 +663,7 @@ describe("TribeRound", () => {
     expect(screen.queryByRole("dialog", { name: "Crear mensaje" })).not.toBeInTheDocument();
   });
 
-  it("renders the timestamp under the message author name", async () => {
+  it("renders the timestamp under the message author name with the channel inline", async () => {
     const user = userEvent.setup();
 
     render(
@@ -676,15 +678,17 @@ describe("TribeRound", () => {
 
     expect(messageArticle).not.toBeNull();
 
-    const channelBadge = (messageArticle as HTMLElement).querySelector(
-      ".TribeRound__channelBadge"
+    const channelInline = (messageArticle as HTMLElement).querySelector(
+      ".TribeRound__channelInline"
     );
     const messageDate = within(messageArticle as HTMLElement).getByText("26 abr");
-
+    const messageMetaLine = messageDate.closest(".TribeRound__messageMetaLine");
     const authorBlock = messageDate.closest(".TribeRound__author");
 
-    expect(channelBadge).toHaveTextContent("🔥 Ronda");
-    expect(channelBadge?.parentElement).not.toHaveTextContent("26 abr");
+    expect(channelInline).toHaveTextContent("🔥 Ronda");
+    expect(messageMetaLine).not.toBeNull();
+    expect(messageMetaLine).toContainElement(channelInline as HTMLElement);
+    expect(messageMetaLine?.textContent ?? "").toContain("·");
     expect(authorBlock).toHaveTextContent("Ada Lovelace");
     expect(authorBlock).toHaveTextContent("Líder");
 
@@ -2873,7 +2877,7 @@ describe("TribeRound", () => {
     );
   });
 
-  it("renders the active pin toggle after the channel badge", () => {
+  it("renders the active pin toggle inside the message meta area", () => {
     render(
       <TribeRound
         authenticatedMember={authenticatedMember}
@@ -2898,13 +2902,20 @@ describe("TribeRound", () => {
     const messageMeta = (messageArticle as HTMLElement).querySelector(
       ".TribeRound__messageMeta"
     );
-    const channelBadge = within(messageMeta as HTMLElement).getByText("🔥 Ronda");
+
+    expect(messageMeta).not.toBeNull();
+
     const pinButton = within(messageMeta as HTMLElement).getByRole("button", {
       name: "Despinear mensaje",
     });
 
     expect(pinButton).toHaveClass("TribeRound__pinButton--active");
-    expect(channelBadge.nextElementSibling).toBe(pinButton);
+    expect(
+      (messageMeta as HTMLElement).querySelector(".TribeRound__channelBadge")
+    ).toBeNull();
+    expect(
+      (messageMeta as HTMLElement).querySelector(".TribeRound__channelInline")
+    ).toBeNull();
   });
 
   it("renders pinned messages with a visible indicator and toggles pin without refreshing", async () => {
@@ -3307,7 +3318,7 @@ describe("TribeRound", () => {
     expect(screen.queryByRole("button", { name: "Ver más" })).not.toBeInTheDocument();
   });
 
-  it("renders long message details in a scrollable dialog body with an expansion toggle", async () => {
+  it("renders long message details with an inline expansion toggle that reveals the full content", async () => {
     const user = userEvent.setup();
 
     render(
@@ -3332,20 +3343,32 @@ describe("TribeRound", () => {
     expect(dialogBody).toHaveClass("TribeRound__messageDetailsBody");
     expect(stickyHeader).toHaveClass("TribeRound__messageDetailsHeader");
 
-    const dialogContent = within(dialog).getByText(longMessageContent);
+    const dialogContent = dialog.querySelector<HTMLElement>("[data-expanded]");
 
+    expect(dialogContent).not.toBeNull();
     expect(dialogContent).toHaveAttribute("data-expanded", "false");
-    expect(dialogContent).toHaveClass("TribeRound__content--collapsed");
-    expect(dialogContent).toHaveClass("TribeRound__content--detailsPreview");
+    expect(dialogContent).not.toHaveClass("TribeRound__content--collapsed");
+    expect(dialogContent).not.toHaveClass("TribeRound__content--detailsPreview");
 
-    await user.click(within(dialog).getByRole("button", { name: "Ver más" }));
+    const inlineShowMoreButton = within(dialog).getByRole("button", {
+      name: "Ver más",
+    });
+
+    expect(dialogContent).toContainElement(inlineShowMoreButton);
+    expect(dialogContent?.textContent ?? "").toContain("…Ver más");
+    expect(dialogContent?.textContent ?? "").not.toEqual(
+      expect.stringContaining(longMessageContent)
+    );
+
+    await user.click(inlineShowMoreButton);
 
     const expandedDialogContent = within(dialog).getByText(longMessageContent);
 
     expect(expandedDialogContent).toHaveAttribute("data-expanded", "true");
     expect(expandedDialogContent).not.toHaveClass("TribeRound__content--collapsed");
     expect(expandedDialogContent).not.toHaveClass("TribeRound__content--detailsPreview");
-    expect(within(dialog).getByRole("button", { name: "Ver menos" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Ver menos" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Ver más" })).not.toBeInTheDocument();
   });
 
   it("reopens long message details collapsed after reading the full content", async () => {
@@ -3387,11 +3410,15 @@ describe("TribeRound", () => {
       screen.getByRole("button", { name: /Abrir mensaje: Lectura larga/i })
     );
 
+    const reopenedDialog = screen.getByRole("dialog", { name: "Mensaje" });
+    const reopenedDialogContent =
+      reopenedDialog.querySelector<HTMLElement>("[data-expanded]");
+
+    expect(reopenedDialogContent).not.toBeNull();
+    expect(reopenedDialogContent).toHaveAttribute("data-expanded", "false");
     expect(
-      within(screen.getByRole("dialog", { name: "Mensaje" })).getByText(
-        longMessageContent
-      )
-    ).toHaveAttribute("data-expanded", "false");
+      within(reopenedDialog).getByRole("button", { name: "Ver más" })
+    ).toBeInTheDocument();
   });
 
   it("reverts an optimistic like when the request fails", async () => {

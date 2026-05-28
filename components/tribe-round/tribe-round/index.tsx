@@ -175,7 +175,6 @@ const TRIBE_ROUND_COPY = {
   messageDetailsDialogDescription: "Detalle del mensaje y sus respuestas.",
   messageDetailsDialogTitle: "Mensaje",
   messageDetailsContentLabel: "Contenido del mensaje",
-  messageContentShowLess: "Ver menos",
   messageContentShowMore: "Ver más",
   messageDeleteButton: "Eliminar mensaje",
   messageDeleteError: "No pudimos eliminar el mensaje.",
@@ -328,7 +327,18 @@ const TRIBE_ROUND_ATTRIBUTES = {
 
 const TRIBE_ROUND_LIMITS = {
   collapsedContentCharacters: 320,
+  detailsCollapsedSliceCharacters: 150,
   toggleDebounceMs: 300,
+} as const;
+
+const COLLAPSED_CONTENT_PATTERN = {
+  trailingWhitespaceBoundary: /\s\S*$/,
+  whitespaceRun: /\s+/g,
+} as const;
+
+const COLLAPSED_CONTENT_TEXT = {
+  ellipsis: "…",
+  whitespaceReplacement: " ",
 } as const;
 
 const TRIBE_ROUND_OPTIMISTIC = {
@@ -1754,6 +1764,44 @@ function isLongMessageContent(content: string): boolean {
   return content.length > TRIBE_ROUND_LIMITS.collapsedContentCharacters;
 }
 
+/**
+ * Flattens whitespace and line breaks in collapsed message content so the CSS
+ * line-clamp places the trailing ellipsis at the end of the last visible text
+ * line, inline, instead of on a blank line produced by paragraph breaks.
+ */
+function flattenMessageContentForCollapsedPreview(content: string): string {
+  return content
+    .replace(
+      COLLAPSED_CONTENT_PATTERN.whitespaceRun,
+      COLLAPSED_CONTENT_TEXT.whitespaceReplacement
+    )
+    .trim();
+}
+
+/**
+ * Truncates message content at a whitespace boundary near the character limit
+ * so the inline "Ver más" toggle can sit right after the last visible word
+ * without breaking mid-token. Works on raw or flattened content; preserves
+ * line breaks inside the kept slice.
+ */
+function truncateMessageContentForCollapsedPreview(
+  content: string,
+  characterLimit: number
+): string {
+  if (content.length <= characterLimit) {
+    return content;
+  }
+
+  const slicedContent = content.slice(0, characterLimit);
+  const trailingWhitespaceMatch =
+    slicedContent.match(COLLAPSED_CONTENT_PATTERN.trailingWhitespaceBoundary);
+  const wordBoundedContent = trailingWhitespaceMatch
+    ? slicedContent.slice(0, trailingWhitespaceMatch.index)
+    : slicedContent;
+
+  return wordBoundedContent.trimEnd();
+}
+
 function getLikeButtonClassName(likedByViewer: boolean): string {
   return [
     styles.TribeRound__likeButton,
@@ -1825,22 +1873,40 @@ function renderAuthorIdentity(author: TribeRoundReplyResult["author"]) {
   );
 }
 
-function renderMessageCreatedTime(createdAt: string) {
+function renderMessageCreatedTime(
+  createdAt: string,
+  channel?: TribeRoundMessageResult["channel"]
+) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className={styles.TribeRound__time}>
-          <MessageRelativeTime dateTime={createdAt} />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent
-        className={styles.TribeRound__messageCreatedTooltip}
-        collisionPadding={TRIBE_ROUND_ATTRIBUTES.tooltipCollisionPadding}
-        sideOffset={TRIBE_ROUND_ATTRIBUTES.tooltipSideOffset}
-      >
-        {formatMessageCreatedTooltip(createdAt)}
-      </TooltipContent>
-    </Tooltip>
+    <div className={styles.TribeRound__messageMetaLine}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={styles.TribeRound__time}>
+            <MessageRelativeTime dateTime={createdAt} />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent
+          className={styles.TribeRound__messageCreatedTooltip}
+          collisionPadding={TRIBE_ROUND_ATTRIBUTES.tooltipCollisionPadding}
+          sideOffset={TRIBE_ROUND_ATTRIBUTES.tooltipSideOffset}
+        >
+          {formatMessageCreatedTooltip(createdAt)}
+        </TooltipContent>
+      </Tooltip>
+      {channel ? (
+        <>
+          <span
+            aria-hidden={TRIBE_ROUND_ATTRIBUTES.messageMetaSeparatorHidden}
+            className={styles.TribeRound__messageMetaSeparator}
+          >
+            {TRIBE_ROUND_SYMBOLS.messageMetaSeparator}
+          </span>
+          <span className={styles.TribeRound__channelInline}>
+            {channel.emoji} {channel.name}
+          </span>
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -3713,26 +3779,6 @@ function TribeRoundContent({
     }));
   };
 
-  const renderMessageContentToggle = (message: TribeRoundMessageResult) => {
-    const isExpanded = Boolean(expandedMessageIds[message.id]);
-    const isExpandable = isLongMessageContent(message.content);
-
-    return isExpandable ? (
-      <button
-        aria-expanded={isExpanded}
-        className={styles.TribeRound__contentToggle}
-        onClick={() => {
-          toggleMessageContentExpansion(message.id);
-        }}
-        type={TRIBE_ROUND_FORM.buttonType}
-      >
-        {isExpanded
-          ? TRIBE_ROUND_COPY.messageContentShowLess
-          : TRIBE_ROUND_COPY.messageContentShowMore}
-      </button>
-    ) : null;
-  };
-
   const renderMessageContent = (
     message: TribeRoundMessageResult,
     contentClassName = "",
@@ -3744,9 +3790,16 @@ function TribeRoundContent({
     const isExpanded =
       !isContentAlwaysCollapsed && Boolean(expandedMessageIds[message.id]);
     const isExpandable = isLongMessageContent(message.content);
+    const isRoundPreview =
+      previewClassName === TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round;
+    const isRoundCollapsedPreview = isRoundPreview && !isExpanded;
+    const isDetailsCollapsedPreview =
+      isExpandable &&
+      !isExpanded &&
+      previewClassName === TRIBE_ROUND_CONTENT_PREVIEW_CLASS.details;
     const contentClassNames = [
       styles.TribeRound__content,
-      ...(isExpandable && !isExpanded
+      ...(isRoundCollapsedPreview
         ? [
             styles["TribeRound__content--collapsed"],
             styles[previewClassName],
@@ -3759,7 +3812,18 @@ function TribeRoundContent({
     const contentDataAttributes = {
       [TRIBE_ROUND_ATTRIBUTES.contentExpandedDataAttribute]: String(isExpanded),
     };
-    const contentSegments = parseMessageContentSegments(message.content);
+    const displayedContent = isRoundCollapsedPreview
+      ? flattenMessageContentForCollapsedPreview(message.content)
+      : isDetailsCollapsedPreview
+        ? truncateMessageContentForCollapsedPreview(
+            message.content,
+            TRIBE_ROUND_LIMITS.detailsCollapsedSliceCharacters
+          )
+        : message.content;
+    const wasDetailsContentTruncated =
+      isDetailsCollapsedPreview &&
+      displayedContent.length < message.content.length;
+    const contentSegments = parseMessageContentSegments(displayedContent);
 
     return (
       <div
@@ -3786,6 +3850,21 @@ function TribeRoundContent({
             segment.text
           )
         )}
+        {wasDetailsContentTruncated ? (
+          <>
+            {COLLAPSED_CONTENT_TEXT.ellipsis}
+            <button
+              aria-expanded={isExpanded}
+              className={styles.TribeRound__contentToggle}
+              onClick={() => {
+                toggleMessageContentExpansion(message.id);
+              }}
+              type={TRIBE_ROUND_FORM.buttonType}
+            >
+              {TRIBE_ROUND_COPY.messageContentShowMore}
+            </button>
+          </>
+        ) : null}
       </div>
     );
   };
@@ -4701,9 +4780,6 @@ function TribeRoundContent({
               >
                 <article className={styles.TribeRound__messageArticle}>
                   <div className={styles.TribeRound__messageMeta}>
-                    <span className={styles.TribeRound__channelBadge}>
-                      {message.channel.emoji} {message.channel.name}
-                    </span>
                     {renderMessagePinControl(message, true)}
                     {renderMessageActionsMenu(message, true)}
                   </div>
@@ -4719,7 +4795,10 @@ function TribeRoundContent({
                       )}
                       <div className={styles.TribeRound__author}>
                         {renderAuthorIdentity(message.author)}
-                        {renderMessageCreatedTime(message.createdAt)}
+                        {renderMessageCreatedTime(
+                          message.createdAt,
+                          message.channel
+                        )}
                       </div>
                     </CardHeader>
                   </button>
@@ -4851,12 +4930,12 @@ function TribeRoundContent({
                 )}
                 <div className={styles.TribeRound__author}>
                   {renderAuthorIdentity(selectedMessage.author)}
-                  {renderMessageCreatedTime(selectedMessage.createdAt)}
+                  {renderMessageCreatedTime(
+                    selectedMessage.createdAt,
+                    selectedMessage.channel
+                  )}
                 </div>
                 <div className={styles.TribeRound__messageMeta}>
-                  <span className={styles.TribeRound__channelBadge}>
-                    {selectedMessage.channel.emoji} {selectedMessage.channel.name}
-                  </span>
                   {renderMessagePinControl(selectedMessage)}
                   {renderMessageActionsMenu(selectedMessage)}
                 </div>
@@ -4868,7 +4947,6 @@ function TribeRoundContent({
                   </h3>
                 ) : null}
                 {renderMessageContent(selectedMessage)}
-                {renderMessageContentToggle(selectedMessage)}
                 {renderMessageVideoEmbed(selectedMessage)}
                 {renderMessagePoll(selectedMessage)}
                 <div

@@ -978,7 +978,7 @@
 
   &__messageDetailsHeader {
     position: sticky;
-    top: -1px;
+    top: 0;
     z-index: 1;
     background: var(--background);
     box-shadow: 0 -1rem 0 1rem var(--background);
@@ -1081,6 +1081,28 @@
     font-size: 0.78rem;
   }
 
+  &__messageMetaLine {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+    line-height: 1.2;
+  }
+
+  &__channelInline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--muted-foreground);
+    font-weight: 500;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   &__messageMeta {
     display: inline-flex;
     align-items: center;
@@ -1141,27 +1163,26 @@
   }
 
   &__contentToggle {
-    justify-self: flex-start;
-    width: fit-content;
+    display: inline;
+    margin-inline-start: 0.35rem;
+    padding: 0;
     border: 0;
     background: transparent;
     color: var(--primary);
     cursor: pointer;
     font: inherit;
     font-weight: 700;
-    line-height: 1.2;
-    padding: 0 0.5rem 0.75rem;
+    line-height: inherit;
 
-    &:hover {
+    &:hover,
+    &:focus-visible {
       color: color-mix(in oklch, var(--primary) 76%, var(--foreground));
       text-decoration: underline;
       text-underline-offset: 0.2rem;
     }
 
     &:focus-visible {
-      outline: 2px solid var(--ring);
-      outline-offset: 3px;
-      border-radius: 0.35rem;
+      outline: none;
     }
   }
 
