@@ -24,6 +24,7 @@ import type {
   TribeSubscriptionPriceUpdateTrialPolicy,
   UpdateTribeSubscriptionPriceCommand,
 } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
+import { normalizeUuid } from "@/src/modules/shared/application/validation/uuid";
 
 type TribeSubscriptionPriceDependencies = {
   tribeSubscriptionPriceRepository: TribeSubscriptionPriceRepository;
@@ -32,6 +33,7 @@ type TribeSubscriptionPriceDependencies = {
 type CreateTribeSubscriptionPriceInput = {
   amount: string;
   name: string;
+  paymentIntegrationId?: string;
   trialFrequency?: string;
   trialFrequencyType?: string;
   tribeSlug: string;
@@ -267,10 +269,11 @@ function buildCreateCommand(
 ): CreateTribeSubscriptionPriceCommand | null {
   const amountCents = parseAmountCents(input.amount);
   const name = normalizeText(input.name);
+  const paymentIntegrationId = normalizeUuid(input.paymentIntegrationId);
   const trialPeriod = parseTrialPeriod(input);
   const tribeSlug = normalizeText(input.tribeSlug);
 
-  if (!amountCents || !name || !trialPeriod || !tribeSlug) {
+  if (!amountCents || !name || !paymentIntegrationId || !trialPeriod || !tribeSlug) {
     return null;
   }
 
@@ -279,6 +282,7 @@ function buildCreateCommand(
     currency: TRIBE_SUBSCRIPTION_CURRENCY.ars,
     frequency: TRIBE_SUBSCRIPTION_FREQUENCY.monthly,
     name,
+    paymentIntegrationId,
     ...trialPeriod,
     tribeSlug,
   };

@@ -144,6 +144,46 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
   });
 
+  it("should resolve subscription reconciliation tokens from the subscription account", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          access_token: "subscription-access-token",
+          mercado_pago_preapproval_id: "preapproval-1",
+          payment_integration_id: "integration-2",
+          price_id: "price-2",
+          refresh_token: null,
+          subscription_found: true,
+          token_expires_at: null,
+          tribe_id: "tribe-1",
+        },
+      ],
+    }));
+    const getMercadoPagoPreapprovalStatus = jest.fn(async () => "authorized");
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
+
+    await repository.reconcileCurrentMemberSubscription({
+      tribeSlug: "matematica-pro",
+    });
+
+    const reconciliationSqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(reconciliationSqlText).toMatch(
+      /coalesce\([\s\S]*payment_integration_id from target_subscription[\s\S]*tribe_subscription_prices\.payment_integration_id/
+    );
+    expect(reconciliationSqlText).toMatch(
+      /tribe_payment_integrations\.id =/
+    );
+    expect(getMercadoPagoPreapprovalStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "subscription-access-token",
+        preapprovalId: "preapproval-1",
+      })
+    );
+  });
+
   it("attaches the returned Mercado Pago preapproval id to the pending plan checkout without activating access", async () => {
     const execute = jest
       .fn()
@@ -1546,6 +1586,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_price_amount_cents: 1500,
             current_price_currency: "ARS",
             existing_operation_id: null,
+            payment_integration_id: "integration-1",
             refresh_token: "refresh-token",
             subscription_found: true,
             token_expires_at: expiredTokenDate,

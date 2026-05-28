@@ -479,6 +479,9 @@ export const tribePaymentIntegrations = pgTable("tribe_payment_integrations", {
     .references(() => tribes.id, { onDelete: "cascade" }),
   provider: text("provider").notNull(),
   providerAccountId: text("provider_account_id"),
+  providerAccountEmail: text("provider_account_email"),
+  accountLabel: text("account_label").notNull(),
+  status: text("status").notNull().default("connected"),
   accessToken: text("access_token").notNull(),
   refreshToken: text("refresh_token"),
   tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
@@ -492,9 +495,19 @@ export const tribePaymentIntegrations = pgTable("tribe_payment_integrations", {
     .notNull()
     .default(UTC_NOW_SQL),
 }, (table) => ({
-  tribeProviderKey: uniqueIndex("tribe_payment_integrations_tribe_provider_key").on(
+  providerAccountKey: uniqueIndex("tribe_payment_integrations_provider_account_key").on(
     table.tribeId,
-    table.provider
+    table.provider,
+    sql`COALESCE(${table.providerAccountId}, ${table.id}::text)`
+  ),
+  providerAccountIdKey: uniqueIndex("tribe_payment_integrations_provider_account_id_key").on(
+    table.tribeId,
+    table.provider,
+    table.providerAccountId
+  ).where(sql`${table.providerAccountId} IS NOT NULL`),
+  integrationTribeKey: uniqueIndex("tribe_payment_integrations_id_tribe_key").on(
+    table.id,
+    table.tribeId
   ),
 }));
 
@@ -510,6 +523,7 @@ export const tribeSubscriptionPrices = pgTable("tribe_subscription_prices", {
   status: text("status").notNull(),
   isCurrent: boolean("is_current").notNull().default(false),
   mercadoPagoPreapprovalPlanId: text("mercado_pago_preapproval_plan_id"),
+  paymentIntegrationId: uuid("payment_integration_id"),
   trialFrequency: integer("trial_frequency"),
   trialFrequencyType: text("trial_frequency_type"),
   createdBy: text("created_by")
@@ -524,6 +538,18 @@ export const tribeSubscriptionPrices = pgTable("tribe_subscription_prices", {
     table.tribeId,
     table.createdAt
   ),
+  paymentIntegrationIndex: index("idx_tribe_subscription_prices_payment_integration").on(
+    table.paymentIntegrationId
+  ),
+  priceTribeKey: uniqueIndex("tribe_subscription_prices_id_tribe_key").on(
+    table.id,
+    table.tribeId
+  ),
+  paymentIntegrationTribeForeignKey: foreignKey({
+    columns: [table.paymentIntegrationId, table.tribeId],
+    foreignColumns: [tribePaymentIntegrations.id, tribePaymentIntegrations.tribeId],
+    name: "tribe_subscription_prices_payment_integration_tribe_fkey",
+  }),
 }));
 
 export const tribeMemberSubscriptions = pgTable("tribe_member_subscriptions", {
@@ -535,6 +561,7 @@ export const tribeMemberSubscriptions = pgTable("tribe_member_subscriptions", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   priceId: uuid("price_id").references(() => tribeSubscriptionPrices.id),
+  paymentIntegrationId: uuid("payment_integration_id"),
   mercadoPagoPreapprovalId: text("mercado_pago_preapproval_id"),
   priceSnapshotName: text("price_snapshot_name"),
   priceSnapshotAmountCents: integer("price_snapshot_amount_cents"),
@@ -552,6 +579,14 @@ export const tribeMemberSubscriptions = pgTable("tribe_member_subscriptions", {
     .default(UTC_NOW_SQL),
 }, (table) => ({
   priceIndex: index("idx_tribe_member_subscriptions_price").on(table.priceId),
+  paymentIntegrationIndex: index("idx_tribe_member_subscriptions_payment_integration").on(
+    table.paymentIntegrationId
+  ),
+  paymentIntegrationTribeForeignKey: foreignKey({
+    columns: [table.paymentIntegrationId, table.tribeId],
+    foreignColumns: [tribePaymentIntegrations.id, tribePaymentIntegrations.tribeId],
+    name: "tribe_member_subscriptions_payment_integration_tribe_fkey",
+  }),
 }));
 
 export const subscriptionIdempotencyOperations = pgTable("subscription_idempotency_operations", {

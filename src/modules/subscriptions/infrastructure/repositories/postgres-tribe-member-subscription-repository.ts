@@ -72,6 +72,7 @@ type SubscriptionStartContextRow = {
   current_price_amount_cents: number | null;
   current_price_currency: string | null;
   current_price_id: string | null;
+  current_price_payment_integration_id: string | null;
   current_price_name: string | null;
   current_price_provider_plan_id: string | null;
   current_user_email: string | null;
@@ -97,6 +98,7 @@ type WebhookSubscriptionContextRow = {
   access_token: string | null;
   local_status: string | null;
   local_status_reason: string | null;
+  payment_integration_id: string | null;
   price_id: string | null;
   refresh_token: string | null;
   subscription_found: boolean | null;
@@ -126,6 +128,7 @@ type ProviderSubscriptionReturnPathRow = {
 type SubscriptionReconciliationContextRow = {
   access_token: string | null;
   mercado_pago_preapproval_id: string | null;
+  payment_integration_id: string | null;
   price_id: string | null;
   refresh_token: string | null;
   subscription_found: boolean | null;
@@ -135,6 +138,7 @@ type SubscriptionReconciliationContextRow = {
 
 type PendingSubscriptionReturnAttachmentContextRow = {
   access_token: string | null;
+  payment_integration_id: string | null;
   price_id: string | null;
   refresh_token: string | null;
   reserved_subscription_id: string | null;
@@ -145,6 +149,7 @@ type PendingSubscriptionReturnAttachmentContextRow = {
 type MissingSubscriptionReturnRecoveryContextRow = {
   access_token: string | null;
   current_price_id: string | null;
+  current_price_payment_integration_id: string | null;
   current_price_provider_plan_id: string | null;
   has_recent_plan_checkout: boolean | null;
   refresh_token: string | null;
@@ -687,6 +692,7 @@ export class PostgresTribeMemberSubscriptionRepository
       refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
       storedToken: {
         accessToken: context.access_token,
+        paymentIntegrationId: context.payment_integration_id,
         refreshToken: context.refresh_token,
         tokenExpiresAt: context.token_expires_at,
         tribeId: context.tribe_id,
@@ -760,6 +766,7 @@ export class PostgresTribeMemberSubscriptionRepository
       refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
       storedToken: {
         accessToken: context.access_token,
+        paymentIntegrationId: context.current_price_payment_integration_id,
         refreshToken: context.refresh_token,
         tokenExpiresAt: context.token_expires_at,
         tribeId: context.tribe_id,
@@ -829,6 +836,7 @@ export class PostgresTribeMemberSubscriptionRepository
       refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
       storedToken: {
         accessToken: context.access_token,
+        paymentIntegrationId: context.payment_integration_id,
         refreshToken: context.refresh_token,
         tokenExpiresAt: context.token_expires_at,
         tribeId: context.tribe_id,
@@ -850,6 +858,7 @@ export class PostgresTribeMemberSubscriptionRepository
         ),
         target_subscription as (
           select
+            tribe_member_subscriptions.payment_integration_id,
             tribe_member_subscriptions.price_id,
             tribe_member_subscriptions.tribe_id,
             tribe_member_subscriptions.mercado_pago_preapproval_id
@@ -867,6 +876,7 @@ export class PostgresTribeMemberSubscriptionRepository
           limit 1
         )
         select
+          tribe_payment_integrations.id as payment_integration_id,
           tribe_payment_integrations.access_token,
           tribe_payment_integrations.refresh_token,
           coalesce((select mercado_pago_preapproval_id from target_subscription), null) as mercado_pago_preapproval_id,
@@ -875,8 +885,15 @@ export class PostgresTribeMemberSubscriptionRepository
           coalesce((select true from target_subscription), false) as subscription_found,
           tribe_payment_integrations.token_expires_at
         from (select 1) result
+        left join public.tribe_subscription_prices
+          on tribe_subscription_prices.id = (select price_id from target_subscription)
+          and tribe_subscription_prices.tribe_id = (select id from target_tribe)
         left join public.tribe_payment_integrations
-          on tribe_payment_integrations.tribe_id = (select id from target_tribe)
+          on tribe_payment_integrations.id = coalesce(
+            (select payment_integration_id from target_subscription),
+            tribe_subscription_prices.payment_integration_id
+          )
+          and tribe_payment_integrations.tribe_id = (select id from target_tribe)
           and tribe_payment_integrations.provider = 'mercado_pago'
       `);
 
@@ -900,6 +917,7 @@ export class PostgresTribeMemberSubscriptionRepository
         pending_subscription as (
           select
             tribe_member_subscriptions.id,
+            tribe_member_subscriptions.payment_integration_id,
             tribe_member_subscriptions.price_id
           from public.tribe_member_subscriptions
           inner join target_tribe
@@ -910,6 +928,7 @@ export class PostgresTribeMemberSubscriptionRepository
           limit 1
         )
         select
+          tribe_payment_integrations.id as payment_integration_id,
           tribe_payment_integrations.access_token,
           tribe_payment_integrations.refresh_token,
           (select price_id from pending_subscription) as price_id,
@@ -918,7 +937,8 @@ export class PostgresTribeMemberSubscriptionRepository
           (select id from target_tribe) as tribe_id
         from (select 1) result
         left join public.tribe_payment_integrations
-          on tribe_payment_integrations.tribe_id = (select id from target_tribe)
+          on tribe_payment_integrations.id = (select payment_integration_id from pending_subscription)
+          and tribe_payment_integrations.tribe_id = (select id from target_tribe)
           and tribe_payment_integrations.provider = 'mercado_pago'
       `);
 
@@ -942,7 +962,8 @@ export class PostgresTribeMemberSubscriptionRepository
         current_price as (
           select
             tribe_subscription_prices.id,
-            tribe_subscription_prices.mercado_pago_preapproval_plan_id
+            tribe_subscription_prices.mercado_pago_preapproval_plan_id,
+            tribe_subscription_prices.payment_integration_id
           from public.tribe_subscription_prices
           inner join target_tribe
             on target_tribe.id = tribe_subscription_prices.tribe_id
@@ -968,6 +989,7 @@ export class PostgresTribeMemberSubscriptionRepository
         select
           tribe_payment_integrations.access_token,
           (select id from current_price) as current_price_id,
+          (select payment_integration_id from current_price) as current_price_payment_integration_id,
           (select mercado_pago_preapproval_plan_id from current_price) as current_price_provider_plan_id,
           exists (select 1 from recent_plan_checkout) as has_recent_plan_checkout,
           tribe_payment_integrations.refresh_token,
@@ -975,7 +997,8 @@ export class PostgresTribeMemberSubscriptionRepository
           (select id from target_tribe) as tribe_id
         from (select 1) result
         left join public.tribe_payment_integrations
-          on tribe_payment_integrations.tribe_id = (select id from target_tribe)
+          on tribe_payment_integrations.id = (select payment_integration_id from current_price)
+          and tribe_payment_integrations.tribe_id = (select id from target_tribe)
           and tribe_payment_integrations.provider = 'mercado_pago'
       `);
 
@@ -1194,7 +1217,8 @@ export class PostgresTribeMemberSubscriptionRepository
             tribe_subscription_prices.amount_cents,
             tribe_subscription_prices.currency,
             tribe_subscription_prices.name,
-            tribe_subscription_prices.mercado_pago_preapproval_plan_id
+            tribe_subscription_prices.mercado_pago_preapproval_plan_id,
+            tribe_subscription_prices.payment_integration_id
           from public.tribe_subscription_prices
           inner join target_tribe
             on target_tribe.id = tribe_subscription_prices.tribe_id
@@ -1268,6 +1292,7 @@ export class PostgresTribeMemberSubscriptionRepository
         select
           (select id from target_tribe) as tribe_id,
           (select id from current_price) as current_price_id,
+          (select payment_integration_id from current_price) as current_price_payment_integration_id,
           (select amount_cents from current_price) as current_price_amount_cents,
           (select currency from current_price) as current_price_currency,
           (select name from current_price) as current_price_name,
@@ -1287,7 +1312,8 @@ export class PostgresTribeMemberSubscriptionRepository
         from (select 1) result
         cross join checkout_context
         left join public.tribe_payment_integrations
-          on tribe_payment_integrations.tribe_id = (select id from target_tribe)
+          on tribe_payment_integrations.id = (select payment_integration_id from current_price)
+          and tribe_payment_integrations.tribe_id = (select id from target_tribe)
           and tribe_payment_integrations.provider = 'mercado_pago'
       `);
 
@@ -1471,6 +1497,7 @@ export class PostgresTribeMemberSubscriptionRepository
 
     const reservation = await this.reservePendingSubscription({
       currentPriceId: context.current_price_id,
+      paymentIntegrationId: context.current_price_payment_integration_id,
       invitationTokenHash: input.invitationTokenHash,
       tribeId: context.tribe_id,
     });
@@ -1593,6 +1620,7 @@ export class PostgresTribeMemberSubscriptionRepository
   private async reservePendingSubscription(input: {
     currentPriceId: string;
     invitationTokenHash: string;
+    paymentIntegrationId: string | null;
     tribeId: string | null;
   }): Promise<SubscriptionReservationRow> {
     if (!input.tribeId) {
@@ -1641,6 +1669,7 @@ export class PostgresTribeMemberSubscriptionRepository
             tribe_id,
             user_id,
             price_id,
+            payment_integration_id,
             status,
             status_reason,
             created_at,
@@ -1650,6 +1679,7 @@ export class PostgresTribeMemberSubscriptionRepository
             ${input.tribeId},
             public.current_app_user_id(),
             ${input.currentPriceId},
+            ${input.paymentIntegrationId},
             ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending},
             ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked},
             timezone('utc', now()),
@@ -1824,6 +1854,7 @@ export class PostgresTribeMemberSubscriptionRepository
       });
       const result = await database.execute(sql`
         select
+          tribe_payment_integrations.id as payment_integration_id,
           tribe_payment_integrations.access_token,
           tribe_payment_integrations.refresh_token,
           tribe_payment_integrations.token_expires_at,
@@ -1833,8 +1864,14 @@ export class PostgresTribeMemberSubscriptionRepository
           tribe_member_subscriptions.status_reason as local_status_reason,
           true as subscription_found
         from public.tribe_member_subscriptions
+        left join public.tribe_subscription_prices
+          on tribe_subscription_prices.id = tribe_member_subscriptions.price_id
         inner join public.tribe_payment_integrations
-          on tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
+          on tribe_payment_integrations.id = coalesce(
+            tribe_member_subscriptions.payment_integration_id,
+            tribe_subscription_prices.payment_integration_id
+          )
+          and tribe_payment_integrations.tribe_id = tribe_member_subscriptions.tribe_id
           and tribe_payment_integrations.provider = 'mercado_pago'
         where tribe_member_subscriptions.mercado_pago_preapproval_id = ${command.resourceId}
         limit 1
@@ -1852,6 +1889,7 @@ export class PostgresTribeMemberSubscriptionRepository
         refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
         storedToken: {
           accessToken: context.access_token,
+          paymentIntegrationId: context.payment_integration_id,
           refreshToken: context.refresh_token,
           tokenExpiresAt: context.token_expires_at,
           tribeId: context.tribe_id,

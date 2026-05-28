@@ -318,4 +318,5 @@ describe("Subscription SQL guardrails", () => {
       /tribe_subscription_prices\.mercado_pago_preapproval_plan_id IS NOT NULL/
     );
   });
+
 });

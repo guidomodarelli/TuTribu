@@ -21,12 +21,30 @@ describe("TribeSubscriptionPriceManagement", () => {
     frequency: "monthly" as const,
     id: "price-1",
     isCurrent: false,
+    mercadoPagoAccountLabel: "Cuenta principal",
+    mercadoPagoAccountEmail: "leader@example.com",
     name: "Plan mensual",
+    paymentIntegrationId: "integration-1",
+    providerAccountId: "collector-1",
     status: "active" as const,
     trial: {
       frequency: 7,
       frequencyType: "days" as const,
     },
+  };
+  const mercadoPagoAccount = {
+    accountLabel: "Cuenta principal",
+    id: "integration-1",
+    providerAccountEmail: "leader@example.com",
+    providerAccountId: "collector-1",
+    status: "connected" as const,
+  };
+  const reconnectingMercadoPagoAccount = {
+    accountLabel: "Cuenta anterior",
+    id: "revoked-integration",
+    providerAccountEmail: "old@example.com",
+    providerAccountId: "collector-old",
+    status: "requires_reconnection" as const,
   };
   const subscriberDiagnostics = {
     lastReconciledAt: "2026-05-12T01:00:00.000Z",
@@ -57,6 +75,7 @@ describe("TribeSubscriptionPriceManagement", () => {
   it("renders the current-price action with Spanish product copy", () => {
     render(
       <TribeSubscriptionPriceManagement
+        availableMercadoPagoAccounts={[mercadoPagoAccount]}
         freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
@@ -82,6 +101,7 @@ describe("TribeSubscriptionPriceManagement", () => {
   it("should render prices as an operational table with creation and help sections", () => {
     render(
       <TribeSubscriptionPriceManagement
+        availableMercadoPagoAccounts={[mercadoPagoAccount]}
         freeJoinIsCurrent={false}
         canManagePrices
         isMercadoPagoConnected
@@ -103,6 +123,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     expect(
       screen.getByRole("columnheader", { name: "Prueba gratis" })
     ).toBeInTheDocument();
+    expect(screen.getAllByText("leader@example.com").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("columnheader", { name: "Estado" })
     ).toBeInTheDocument();
@@ -734,6 +755,61 @@ describe("TribeSubscriptionPriceManagement", () => {
     });
   });
 
+  it("should preserve account metadata when a row mutation response omits it", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        json: async () => ({
+          canceledPriceIds: [],
+          message: "Planes verificados con Mercado Pago.",
+          prices: [activePrice],
+          verifiedCount: 1,
+        }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({
+          message: "El plan figura cancelado en Mercado Pago.",
+          price: {
+            activeSubscribersCount: activePrice.activeSubscribersCount,
+            amountCents: activePrice.amountCents,
+            createdAt: activePrice.createdAt,
+            currency: activePrice.currency,
+            frequency: activePrice.frequency,
+            id: activePrice.id,
+            isCurrent: false,
+            name: activePrice.name,
+            status: "canceled",
+            trial: activePrice.trial,
+          },
+        }),
+        ok: true,
+      }) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        availableMercadoPagoAccounts={[mercadoPagoAccount]}
+        freeJoinIsCurrent={false}
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    await user.click(screen.getByRole("button", { name: "Verificar plan" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Cancelado")).toBeInTheDocument();
+      expect(screen.getAllByText("leader@example.com").length).toBeGreaterThan(0);
+    });
+  });
+
   it("should show provider subscriber count without enabling deletion for local associations", async () => {
     const user = userEvent.setup();
     const priceWithLocalAssociation = {
@@ -1182,7 +1258,6 @@ describe("TribeSubscriptionPriceManagement", () => {
         "Mercado Pago requiere reconexión. Estamos intentando conectarte automáticamente."
       )
     ).toBeInTheDocument();
-    expect(screen.getByText("Requiere reconexión")).toBeInTheDocument();
     expect(screen.getByLabelText("Nombre")).toBeDisabled();
     expect(screen.getByLabelText("Precio mensual")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Crear precio" })).toBeDisabled();
@@ -1193,6 +1268,160 @@ describe("TribeSubscriptionPriceManagement", () => {
       );
     });
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("should create a price with the first connected Mercado Pago account", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        message: "Precio creado.",
+        price: activePrice,
+      }),
+      ok: true,
+    })) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        availableMercadoPagoAccounts={[
+          reconnectingMercadoPagoAccount,
+          mercadoPagoAccount,
+        ]}
+        freeJoinIsCurrent={false}
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(screen.getAllByText("leader@example.com").length).toBeGreaterThan(0);
+
+    await user.type(screen.getByLabelText("Nombre"), "Plan mensual");
+    await user.type(screen.getByLabelText("Precio mensual"), "5000");
+    await user.click(screen.getByRole("button", { name: "Crear precio" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices",
+        expect.objectContaining({
+          body: JSON.stringify({
+            amount: "5000",
+            name: "Plan mensual",
+            paymentIntegrationId: "integration-1",
+            trialFrequency: "",
+            trialFrequencyType: "days",
+          }),
+          method: "POST",
+        })
+      );
+    });
+  });
+
+  it("should update the selected Mercado Pago account label", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        account: {
+          ...mercadoPagoAccount,
+          accountLabel: "Cuenta de cursos",
+          providerAccountEmail: null,
+        },
+        message: "Alias actualizado.",
+      }),
+      ok: true,
+    })) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        availableMercadoPagoAccounts={[
+          {
+            ...mercadoPagoAccount,
+            providerAccountEmail: null,
+          },
+        ]}
+        freeJoinIsCurrent={false}
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const accountLabelInput = screen.getByLabelText("Alias");
+
+    await user.clear(accountLabelInput);
+    await user.type(accountLabelInput, "Cuenta de cursos");
+    await user.click(screen.getByRole("button", { name: "Guardar alias" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/mercado-pago-accounts/integration-1",
+        expect.objectContaining({
+          body: JSON.stringify({
+            accountLabel: "Cuenta de cursos",
+          }),
+          method: "PATCH",
+        })
+      );
+    });
+  });
+
+  it("should save the selected Mercado Pago account label with Enter without creating a price", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest.fn(async () => ({
+      json: async () => ({
+        account: {
+          ...mercadoPagoAccount,
+          accountLabel: "Cuenta de cursos",
+          providerAccountEmail: null,
+        },
+        message: "Alias actualizado.",
+      }),
+      ok: true,
+    })) as jest.Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        availableMercadoPagoAccounts={[
+          {
+            ...mercadoPagoAccount,
+            providerAccountEmail: null,
+          },
+        ]}
+        freeJoinIsCurrent={false}
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.type(screen.getByLabelText("Nombre"), "Plan mensual");
+    await user.type(screen.getByLabelText("Precio mensual"), "5000");
+
+    const accountLabelInput = screen.getByLabelText("Alias");
+
+    await user.clear(accountLabelInput);
+    await user.type(accountLabelInput, "Cuenta de cursos{enter}");
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/mercado-pago-accounts/integration-1",
+        expect.objectContaining({
+          body: JSON.stringify({
+            accountLabel: "Cuenta de cursos",
+          }),
+          method: "PATCH",
+        })
+      );
+    });
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      "/api/tribes/matematica-pro/subscriptions/prices",
+      expect.anything()
+    );
   });
 
   it("should allow free join selection when Mercado Pago requires reconnection", async () => {

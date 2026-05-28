@@ -19,6 +19,7 @@ export type MercadoPagoAccessTokenRefresher = (
 
 export type StoredMercadoPagoAccessToken = {
   accessToken: string | null;
+  paymentIntegrationId: string | null;
   refreshToken: string | null;
   tokenExpiresAt: Date | string | null;
   tribeId: string | null;
@@ -41,7 +42,11 @@ export async function refreshStoredMercadoPagoAccessToken(input: {
   refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher;
   storedToken: StoredMercadoPagoAccessToken;
 }): Promise<string | null> {
-  if (!input.storedToken.refreshToken || !input.storedToken.tribeId) {
+  if (
+    !input.storedToken.paymentIntegrationId ||
+    !input.storedToken.refreshToken ||
+    !input.storedToken.tribeId
+  ) {
     return null;
   }
 
@@ -52,6 +57,7 @@ export async function refreshStoredMercadoPagoAccessToken(input: {
   await persistMercadoPagoAccessToken({
     executeWithDatabase: input.executeWithDatabase,
     refreshedToken,
+    paymentIntegrationId: input.storedToken.paymentIntegrationId,
     storedRefreshToken: input.storedToken.refreshToken,
     tribeId: input.storedToken.tribeId,
   });
@@ -116,6 +122,7 @@ export function isMercadoPagoAccessTokenFresh(tokenExpiresAt: Date | string | nu
 async function persistMercadoPagoAccessToken(input: {
   executeWithDatabase: DatabaseExecutor;
   refreshedToken: MercadoPagoOAuthTokenResult;
+  paymentIntegrationId: string;
   storedRefreshToken: string;
   tribeId: string;
 }): Promise<void> {
@@ -147,6 +154,7 @@ async function persistMercadoPagoAccessToken(input: {
       from token_refresh_context
       where tribe_id = ${input.tribeId}
         and provider = ${MERCADO_PAGO_TOKEN_REFRESH_CONTEXT.provider}
+        and id = ${input.paymentIntegrationId}::uuid
     `);
   });
 }

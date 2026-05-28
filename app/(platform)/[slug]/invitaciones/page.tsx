@@ -98,7 +98,10 @@ export default async function TribeInvitationsPage({
       currency: price.currency,
       id: price.id,
       isCurrent: price.isCurrent,
+      mercadoPagoAccountEmail: price.mercadoPagoAccountEmail ?? null,
+      mercadoPagoAccountLabel: price.mercadoPagoAccountLabel ?? null,
       name: price.name,
+      trial: price.trial,
     }));
   const canManagePrices =
     pricesListing?.viewerPermissions.canManagePrices ?? false;

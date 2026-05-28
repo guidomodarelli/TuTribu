@@ -89,6 +89,11 @@ type MercadoPagoConnectionStatus =
   | typeof MERCADO_PAGO_CONNECTION_STATUS.connected
   | typeof MERCADO_PAGO_CONNECTION_STATUS.requiresReconnection;
 
+type MercadoPagoAccountConnectionStatus = {
+  paymentIntegrationId: string;
+  status: MercadoPagoConnectionStatus;
+};
+
 type SubscriptionPriceRow = {
   active_subscribers_count: number | string | null;
   amount_cents: number;
@@ -97,10 +102,26 @@ type SubscriptionPriceRow = {
   frequency: "monthly";
   id: string;
   is_current: boolean;
+  mercado_pago_account_email?: string | null;
+  mercado_pago_account_label?: string | null;
   name: string;
+  payment_integration_id?: string | null;
+  provider_account_id?: string | null;
   status: "active" | "canceled" | "deleted" | "paused";
   trial_frequency: number | null;
   trial_frequency_type: "days" | "months" | null;
+};
+
+type MercadoPagoAccountRow = {
+  access_token: string | null;
+  account_label: string;
+  id: string;
+  provider_account_email: string | null;
+  provider_account_id: string | null;
+  refresh_token: string | null;
+  status: MercadoPagoConnectionStatus;
+  token_expires_at: Date | string | null;
+  tribe_id: string | null;
 };
 
 type SubscriptionPriceListRow = SubscriptionPriceRow & {
@@ -109,6 +130,7 @@ type SubscriptionPriceListRow = SubscriptionPriceRow & {
   can_view_prices: boolean | null;
   free_join_is_current: boolean | null;
   has_mercado_pago_integration: boolean | null;
+  mercado_pago_connection_payment_integration_id: string | null;
   refresh_token: string | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
@@ -119,12 +141,20 @@ type SubscriptionPriceMutationRow = SubscriptionPriceRow & {
 };
 
 type SubscriptionProviderPlanRow = SubscriptionPriceRow & {
+  access_token?: string | null;
   mercado_pago_preapproval_plan_id: string | null;
+  refresh_token?: string | null;
+  token_expires_at?: Date | string | null;
   tribe_id?: string;
 };
 
 type SubscriptionProviderSubscriberRow = {
+  access_token?: string | null;
   mercado_pago_preapproval_id: string | null;
+  payment_integration_id?: string | null;
+  refresh_token?: string | null;
+  token_expires_at?: Date | string | null;
+  tribe_id?: string | null;
 };
 
 type TribeSubscriberDiagnosticsRow = {
@@ -147,6 +177,7 @@ type PriceCreationContextRow = {
   access_token: string | null;
   can_manage_prices: boolean | null;
   existing_price_count: number | string | null;
+  payment_integration_id: string | null;
   refresh_token: string | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
@@ -155,6 +186,7 @@ type PriceCreationContextRow = {
 type PriceVerificationContextRow = {
   access_token: string | null;
   can_manage_prices: boolean | null;
+  payment_integration_id: string | null;
   refresh_token: string | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
@@ -168,6 +200,7 @@ type PriceReservationRow = {
 type PriceUpdateContextRow = SubscriptionProviderPlanRow & {
   access_token: string | null;
   can_manage_prices: boolean | null;
+  payment_integration_id: string | null;
   refresh_token: string | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
@@ -184,6 +217,7 @@ type PriceCancellationReservationRow = PriceUpdateContextRow & {
 
 type ProviderPlanWebhookContextRow = SubscriptionProviderPlanRow & {
   access_token: string | null;
+  payment_integration_id: string | null;
   refresh_token: string | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
@@ -249,9 +283,18 @@ const MERCADO_PAGO_PAYMENT_INTEGRATION = {
 
 type MercadoPagoConnectionTokenRow = {
   access_token: string | null;
+  payment_integration_id: string | null;
   refresh_token: string | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
+};
+
+type ProviderTokenContext = {
+  access_token?: string | null;
+  payment_integration_id?: string | null;
+  refresh_token?: string | null;
+  token_expires_at?: Date | string | null;
+  tribe_id?: string | null;
 };
 
 /**
@@ -298,9 +341,10 @@ function hasStoredMercadoPagoTokenChanged(input: {
  */
 async function readLatestStoredMercadoPagoAccessToken(input: {
   executeWithDatabase: DatabaseExecutor;
+  paymentIntegrationId: string | null;
   tribeId: string | null;
 }): Promise<StoredMercadoPagoAccessToken | null> {
-  if (!input.tribeId) {
+  if (!input.paymentIntegrationId || !input.tribeId) {
     return null;
   }
 
@@ -314,6 +358,7 @@ async function readLatestStoredMercadoPagoAccessToken(input: {
         )
       )
       select
+        tribe_payment_integrations.id as payment_integration_id,
         tribe_payment_integrations.tribe_id,
         tribe_payment_integrations.access_token,
         tribe_payment_integrations.refresh_token,
@@ -322,6 +367,7 @@ async function readLatestStoredMercadoPagoAccessToken(input: {
       cross join public.tribe_payment_integrations
       where tribe_payment_integrations.tribe_id = ${input.tribeId}
         and tribe_payment_integrations.provider = ${MERCADO_PAGO_PAYMENT_INTEGRATION.provider}
+        and tribe_payment_integrations.id = ${input.paymentIntegrationId}::uuid
       limit 1
     `);
     const row = (result.rows?.[0] ?? null) as
@@ -331,6 +377,7 @@ async function readLatestStoredMercadoPagoAccessToken(input: {
     return row
       ? {
           accessToken: row.access_token,
+          paymentIntegrationId: row.payment_integration_id,
           refreshToken: row.refresh_token,
           tokenExpiresAt: row.token_expires_at,
           tribeId: row.tribe_id,
@@ -372,6 +419,7 @@ async function resolveMercadoPagoConnectionStatus(input: {
   refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher;
   storedToken: {
     accessToken: string | null;
+    paymentIntegrationId: string | null;
     refreshToken: string | null;
     tokenExpiresAt: Date | string | null;
     tribeId: string | null;
@@ -388,6 +436,7 @@ async function resolveMercadoPagoConnectionStatus(input: {
   } catch {
     const reloadedToken = await readLatestStoredMercadoPagoAccessToken({
       executeWithDatabase: input.executeWithDatabase,
+      paymentIntegrationId: input.storedToken.paymentIntegrationId,
       tribeId: input.storedToken.tribeId,
     }).catch(() => null);
 
@@ -400,6 +449,88 @@ async function resolveMercadoPagoConnectionStatus(input: {
   return refreshedAccessToken
     ? MERCADO_PAGO_CONNECTION_STATUS.connected
     : MERCADO_PAGO_CONNECTION_STATUS.requiresReconnection;
+}
+
+/**
+ * Resolves provider health across every connected Mercado Pago account.
+ *
+ * @param input - Stored token rows for all tribe accounts.
+ * @returns Connected when at least one account can refresh successfully.
+ */
+async function resolveMercadoPagoConnectionStatusesForAccounts(input: {
+  executeWithDatabase: DatabaseExecutor;
+  refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher;
+  storedTokens: StoredMercadoPagoAccessToken[];
+}): Promise<MercadoPagoAccountConnectionStatus[]> {
+  if (input.storedTokens.length === 0) {
+    return [];
+  }
+
+  return Promise.all(
+    input.storedTokens.map((storedToken) =>
+      resolveMercadoPagoConnectionStatus({
+        executeWithDatabase: input.executeWithDatabase,
+        refreshMercadoPagoAccessToken: input.refreshMercadoPagoAccessToken,
+        storedToken,
+      }).then((status) => ({
+        paymentIntegrationId: storedToken.paymentIntegrationId ?? "",
+        status,
+      }))
+    )
+  );
+}
+
+/**
+ * Resolves aggregate provider health from account-level connection status.
+ *
+ * @param accountConnectionStatuses - Per-account provider connection status.
+ * @returns Connected when at least one account can refresh successfully.
+ */
+function resolveMercadoPagoConnectionStatusForAccounts(
+  accountConnectionStatuses: MercadoPagoAccountConnectionStatus[]
+): MercadoPagoConnectionStatus {
+  return accountConnectionStatuses.some(
+    (connectionStatus) =>
+      connectionStatus.status === MERCADO_PAGO_CONNECTION_STATUS.connected
+  )
+    ? MERCADO_PAGO_CONNECTION_STATUS.connected
+    : MERCADO_PAGO_CONNECTION_STATUS.requiresReconnection;
+}
+
+/**
+ * Applies refreshed connection status to account rows and prioritizes usable accounts.
+ *
+ * @param accountRows - Stored Mercado Pago account rows.
+ * @param accountConnectionStatuses - Refreshed status by payment integration.
+ * @returns Account rows with refreshed status and connected accounts first.
+ */
+function applyMercadoPagoAccountConnectionStatuses(
+  accountRows: MercadoPagoAccountRow[],
+  accountConnectionStatuses: MercadoPagoAccountConnectionStatus[]
+): MercadoPagoAccountRow[] {
+  const statusByPaymentIntegrationId = new Map(
+    accountConnectionStatuses.map((accountConnectionStatus) => [
+      accountConnectionStatus.paymentIntegrationId,
+      accountConnectionStatus.status,
+    ])
+  );
+
+  return accountRows
+    .map((accountRow) => ({
+      ...accountRow,
+      status:
+        statusByPaymentIntegrationId.get(accountRow.id) ??
+        MERCADO_PAGO_CONNECTION_STATUS.requiresReconnection,
+    }))
+    .toSorted((firstAccount, secondAccount) => {
+      if (firstAccount.status === secondAccount.status) {
+        return 0;
+      }
+
+      return firstAccount.status === MERCADO_PAGO_CONNECTION_STATUS.connected
+        ? -1
+        : 1;
+    });
 }
 
 /**
@@ -551,6 +682,30 @@ async function readProviderSubscriptionStatuses(input: {
 }
 
 /**
+ * Groups provider subscribers by the Mercado Pago account token that owns them.
+ *
+ * @param providerSubscribers - Subscriber rows with account token context.
+ * @returns Subscriber rows grouped by access token.
+ */
+function groupProviderSubscribersByAccessToken(
+  providerSubscribers: SubscriptionProviderSubscriberRow[]
+): Map<string, SubscriptionProviderSubscriberRow[]> {
+  return providerSubscribers.reduce((subscriberGroups, providerSubscriber) => {
+    if (!providerSubscriber.access_token) {
+      return subscriberGroups;
+    }
+
+    const groupedSubscribers =
+      subscriberGroups.get(providerSubscriber.access_token) ?? [];
+
+    groupedSubscribers.push(providerSubscriber);
+    subscriberGroups.set(providerSubscriber.access_token, groupedSubscribers);
+
+    return subscriberGroups;
+  }, new Map<string, SubscriptionProviderSubscriberRow[]>());
+}
+
+/**
  * Converts database dates and counts into application price results.
  *
  * @param row - Database subscription price row.
@@ -568,7 +723,11 @@ function mapSubscriptionPrice(row: SubscriptionPriceRow): TribeSubscriptionPrice
     frequency: row.frequency,
     id: row.id,
     isCurrent: row.is_current,
+    mercadoPagoAccountEmail: row.mercado_pago_account_email,
+    mercadoPagoAccountLabel: row.mercado_pago_account_label,
     name: row.name,
+    paymentIntegrationId: row.payment_integration_id,
+    providerAccountId: row.provider_account_id,
     status: row.status,
     trial:
       row.trial_frequency && row.trial_frequency_type
@@ -577,6 +736,22 @@ function mapSubscriptionPrice(row: SubscriptionPriceRow): TribeSubscriptionPrice
             frequencyType: row.trial_frequency_type,
           }
         : null,
+  };
+}
+
+/**
+ * Converts a stored Mercado Pago account row into the safe application contract.
+ *
+ * @param row - Stored payment integration row.
+ * @returns Mercado Pago account data without secret token fields.
+ */
+function mapMercadoPagoAccount(row: MercadoPagoAccountRow) {
+  return {
+    accountLabel: row.account_label,
+    id: row.id,
+    providerAccountEmail: row.provider_account_email,
+    providerAccountId: row.provider_account_id,
+    status: row.status,
   };
 }
 
@@ -893,6 +1068,7 @@ export class PostgresTribeSubscriptionPriceRepository
         ),
         payment_integration as (
           select
+            tribe_payment_integrations.id as payment_integration_id,
             target_tribe.id as tribe_id,
             tribe_payment_integrations.access_token,
             tribe_payment_integrations.refresh_token,
@@ -903,6 +1079,8 @@ export class PostgresTribeSubscriptionPriceRepository
           left join public.tribe_payment_integrations
             on tribe_payment_integrations.tribe_id = target_tribe.id
             and tribe_payment_integrations.provider = 'mercado_pago'
+          order by tribe_payment_integrations.created_at asc
+          limit 1
         ),
         price_rows as (
           select
@@ -913,6 +1091,10 @@ export class PostgresTribeSubscriptionPriceRepository
             tribe_subscription_prices.frequency,
             tribe_subscription_prices.status,
             tribe_subscription_prices.is_current,
+            tribe_subscription_prices.payment_integration_id,
+            price_payment_integration.account_label as mercado_pago_account_label,
+            price_payment_integration.provider_account_email as mercado_pago_account_email,
+            price_payment_integration.provider_account_id,
             tribe_subscription_prices.trial_frequency,
             tribe_subscription_prices.trial_frequency_type,
             tribe_subscription_prices.created_at,
@@ -924,9 +1106,15 @@ export class PostgresTribeSubscriptionPriceRepository
             on target_tribe.id = tribe_subscription_prices.tribe_id
           left join public.tribe_member_subscriptions
             on tribe_member_subscriptions.price_id = tribe_subscription_prices.id
+          left join public.tribe_payment_integrations price_payment_integration
+            on price_payment_integration.id = tribe_subscription_prices.payment_integration_id
           where tribe_subscription_prices.status in ${MANAGEABLE_PROVIDER_PLAN_PRICE_STATUSES}
             and public.can_view_tribe_subscription_prices(target_tribe.id)
-          group by tribe_subscription_prices.id
+          group by
+            tribe_subscription_prices.id,
+            price_payment_integration.account_label,
+            price_payment_integration.provider_account_email,
+            price_payment_integration.provider_account_id
         )
         select
           price_rows.id,
@@ -936,6 +1124,10 @@ export class PostgresTribeSubscriptionPriceRepository
           price_rows.frequency,
           price_rows.status,
           price_rows.is_current,
+          price_rows.payment_integration_id,
+          price_rows.mercado_pago_account_label,
+          price_rows.mercado_pago_account_email,
+          price_rows.provider_account_id,
           price_rows.trial_frequency,
           price_rows.trial_frequency_type,
           price_rows.created_at,
@@ -945,6 +1137,7 @@ export class PostgresTribeSubscriptionPriceRepository
           (select free_join_is_current from target_tribe) as free_join_is_current,
           payment_integration.tribe_id,
           payment_integration.access_token,
+          payment_integration.payment_integration_id as mercado_pago_connection_payment_integration_id,
           payment_integration.refresh_token,
           payment_integration.token_expires_at
         from viewer_permissions
@@ -966,19 +1159,35 @@ export class PostgresTribeSubscriptionPriceRepository
       },
       []
     );
-    const mercadoPagoConnectionStatus =
-      await resolveMercadoPagoConnectionStatus({
+    const mercadoPagoAccountRows = await this.listMercadoPagoAccountRowsByTribeSlug(
+      query.tribeSlug
+    );
+    const mercadoPagoAccountConnectionStatuses =
+      await resolveMercadoPagoConnectionStatusesForAccounts({
         executeWithDatabase: this.executeWithDatabase,
         refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
-        storedToken: {
-          accessToken: rows[0]?.access_token ?? null,
-          refreshToken: rows[0]?.refresh_token ?? null,
-          tokenExpiresAt: rows[0]?.token_expires_at ?? null,
-          tribeId: rows[0]?.tribe_id ?? null,
-        },
+        storedTokens: mercadoPagoAccountRows.map((mercadoPagoAccountRow) => ({
+          accessToken: mercadoPagoAccountRow.access_token,
+          paymentIntegrationId: mercadoPagoAccountRow.id,
+          refreshToken: mercadoPagoAccountRow.refresh_token,
+          tokenExpiresAt: mercadoPagoAccountRow.token_expires_at,
+          tribeId: mercadoPagoAccountRow.tribe_id,
+        })),
       });
+    const prioritizedMercadoPagoAccountRows =
+      applyMercadoPagoAccountConnectionStatuses(
+        mercadoPagoAccountRows,
+        mercadoPagoAccountConnectionStatuses
+      );
+    const mercadoPagoConnectionStatus =
+      resolveMercadoPagoConnectionStatusForAccounts(
+        mercadoPagoAccountConnectionStatuses
+      );
 
     return {
+      availableMercadoPagoAccounts: prioritizedMercadoPagoAccountRows.map(
+        mapMercadoPagoAccount
+      ),
       freeJoinIsCurrent: Boolean(rows[0]?.free_join_is_current),
       hasMercadoPagoIntegration:
         mercadoPagoConnectionStatus === MERCADO_PAGO_CONNECTION_STATUS.connected,
@@ -1014,6 +1223,41 @@ export class PostgresTribeSubscriptionPriceRepository
       trialFrequency: updateContext.trial_frequency,
       trialFrequencyType: updateContext.trial_frequency_type,
     };
+  }
+
+  private async listMercadoPagoAccountRowsByTribeSlug(
+    tribeSlug: string
+  ): Promise<MercadoPagoAccountRow[]> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
+          limit 1
+        )
+        select
+          tribe_payment_integrations.id,
+          tribe_payment_integrations.tribe_id,
+          tribe_payment_integrations.account_label,
+          tribe_payment_integrations.provider_account_email,
+          tribe_payment_integrations.provider_account_id,
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at,
+          tribe_payment_integrations.status
+        from public.tribe_payment_integrations
+        inner join target_tribe
+          on target_tribe.id = tribe_payment_integrations.tribe_id
+        where tribe_payment_integrations.provider = 'mercado_pago'
+          and public.can_view_tribe_subscription_prices(target_tribe.id)
+        order by
+          tribe_payment_integrations.created_at asc,
+          tribe_payment_integrations.id asc
+      `);
+
+      return (result?.rows ?? []) as MercadoPagoAccountRow[];
+    });
   }
 
   /**
@@ -1082,37 +1326,66 @@ export class PostgresTribeSubscriptionPriceRepository
     const verificationContext = await this.resolveProviderPlanVerificationContext(
       query.tribeSlug
     );
-    const accessToken = await this.resolveVerificationAccessToken(
+    const verificationFailure = this.resolveVerificationFailure(
       verificationContext
     );
 
-    if ("status" in accessToken) {
-      return accessToken;
+    if (verificationFailure) {
+      return verificationFailure;
     }
 
     const providerSubscribers = await this.listProviderSubscribersByTribe({
       tribeSlug: query.tribeSlug,
     });
-    const providerSubscriptionStatuses =
-      await readProviderSubscriptionStatuses({
-        accessToken: accessToken.value,
-        getMercadoPagoSubscriptionStatus:
-          this.getMercadoPagoSubscriptionStatus,
-        operationKey: [
-          SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.verifyProviderSubscribers,
-          query.tribeSlug,
-          "diagnostics",
-        ].join(SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.separator),
-        priceId: "subscriber-diagnostics",
-        providerSubscribers,
-        requestId: this.requestId,
-        tribeSlug: query.tribeSlug,
+    const providerSubscriberAccessTokens = new Map<string, string>();
+    const providerSubscribersWithResolvedAccessTokens: SubscriptionProviderSubscriberRow[] = [];
+
+    for (const providerSubscriber of providerSubscribers) {
+      const accessToken = await this.resolveAccessTokenForProviderMutationWithCache(
+        providerSubscriber,
+        providerSubscriberAccessTokens
+      );
+
+      if (!accessToken) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
+      }
+
+      providerSubscribersWithResolvedAccessTokens.push({
+        ...providerSubscriber,
+        access_token: accessToken,
       });
-    const providerSubscriberStatusUpdates =
-      buildProviderSubscriberStatusUpdates({
-        providerSubscribers,
-        providerSubscriptionStatuses,
-      });
+    }
+
+    const providerSubscriberStatusUpdates = (
+      await Promise.all(
+        Array.from(
+          groupProviderSubscribersByAccessToken(
+            providerSubscribersWithResolvedAccessTokens
+          ).entries()
+        ).map(async ([accessToken, accountProviderSubscribers]) => {
+          const providerSubscriptionStatuses =
+            await readProviderSubscriptionStatuses({
+              accessToken,
+              getMercadoPagoSubscriptionStatus:
+                this.getMercadoPagoSubscriptionStatus,
+              operationKey: [
+                SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.verifyProviderSubscribers,
+                query.tribeSlug,
+                "diagnostics",
+              ].join(SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.separator),
+              priceId: "subscriber-diagnostics",
+              providerSubscribers: accountProviderSubscribers,
+              requestId: this.requestId,
+              tribeSlug: query.tribeSlug,
+            });
+
+          return buildProviderSubscriberStatusUpdates({
+            providerSubscribers: accountProviderSubscribers,
+            providerSubscriptionStatuses,
+          });
+        })
+      )
+    ).flat();
 
     await this.reconcileTribeProviderSubscriberStatuses({
       providerSubscriberStatusUpdates,
@@ -1162,6 +1435,7 @@ export class PostgresTribeSubscriptionPriceRepository
           (select id from target_tribe) as tribe_id,
           coalesce(public.can_manage_tribe_subscription_prices((select id from target_tribe)), false) as can_manage_prices,
           (select existing_price_count from active_prices) as existing_price_count,
+          tribe_payment_integrations.id as payment_integration_id,
           tribe_payment_integrations.access_token,
           tribe_payment_integrations.refresh_token,
           tribe_payment_integrations.token_expires_at
@@ -1169,6 +1443,7 @@ export class PostgresTribeSubscriptionPriceRepository
         left join public.tribe_payment_integrations
           on tribe_payment_integrations.tribe_id = (select id from target_tribe)
           and tribe_payment_integrations.provider = 'mercado_pago'
+          and tribe_payment_integrations.id = ${command.paymentIntegrationId}
       `);
 
       return (result.rows?.[0] ?? null) as
@@ -1196,6 +1471,7 @@ export class PostgresTribeSubscriptionPriceRepository
       refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
       storedToken: {
         accessToken: creationContext.access_token,
+        paymentIntegrationId: creationContext.payment_integration_id,
         refreshToken: creationContext.refresh_token,
         tokenExpiresAt: creationContext.token_expires_at,
         tribeId: creationContext.tribe_id,
@@ -1304,6 +1580,7 @@ export class PostgresTribeSubscriptionPriceRepository
             frequency,
             status,
             is_current,
+            payment_integration_id,
             trial_frequency,
             trial_frequency_type,
             mercado_pago_preapproval_plan_id,
@@ -1318,6 +1595,7 @@ export class PostgresTribeSubscriptionPriceRepository
             ${command.frequency},
             ${SUBSCRIPTION_PRICE_PROVIDER_PLAN_RESERVATION_STATUS},
             false,
+            ${command.paymentIntegrationId},
             ${command.trialFrequency},
             ${command.trialFrequencyType},
             null,
@@ -1371,6 +1649,7 @@ export class PostgresTribeSubscriptionPriceRepository
   }): Promise<TribeSubscriptionPriceMutationResult> {
     return this.executeWithDatabase(async (database) => {
       const activationResult = await database.execute(sql`
+        with activated_price as (
         update public.tribe_subscription_prices
         set
           mercado_pago_preapproval_plan_id = ${input.mercadoPagoPlanId},
@@ -1380,14 +1659,33 @@ export class PostgresTribeSubscriptionPriceRepository
         where tribe_subscription_prices.id = ${input.priceId}
           and tribe_subscription_prices.status = ${SUBSCRIPTION_PRICE_PROVIDER_PLAN_RESERVATION_STATUS}
           and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
-        returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at
+        returning id, name, amount_cents, currency, frequency, status, is_current, payment_integration_id, trial_frequency, trial_frequency_type, created_at
+        )
+        select
+          activated_price.id,
+          activated_price.name,
+          activated_price.amount_cents,
+          activated_price.currency,
+          activated_price.frequency,
+          activated_price.status,
+          activated_price.is_current,
+          activated_price.payment_integration_id,
+          price_payment_integration.account_label as mercado_pago_account_label,
+          price_payment_integration.provider_account_email as mercado_pago_account_email,
+          price_payment_integration.provider_account_id,
+          activated_price.trial_frequency,
+          activated_price.trial_frequency_type,
+          activated_price.created_at,
+          0 as active_subscribers_count
+        from activated_price
+        left join public.tribe_payment_integrations price_payment_integration
+          on price_payment_integration.id = activated_price.payment_integration_id
       `);
 
       return mapPriceMutationResult(
         (activationResult.rows?.[0]
           ? {
               ...activationResult.rows[0],
-              active_subscribers_count: 0,
               status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
             }
           : null) as SubscriptionPriceMutationRow | null,
@@ -1494,7 +1792,8 @@ export class PostgresTribeSubscriptionPriceRepository
             tribe_subscription_prices.trial_frequency,
             tribe_subscription_prices.trial_frequency_type,
             tribe_subscription_prices.created_at,
-            tribe_subscription_prices.mercado_pago_preapproval_plan_id
+            tribe_subscription_prices.mercado_pago_preapproval_plan_id,
+            tribe_subscription_prices.payment_integration_id
           from public.tribe_subscription_prices
           inner join target_tribe
             on target_tribe.id = tribe_subscription_prices.tribe_id
@@ -1515,6 +1814,7 @@ export class PostgresTribeSubscriptionPriceRepository
           target_price.trial_frequency_type,
           target_price.created_at,
           target_price.mercado_pago_preapproval_plan_id,
+          target_price.payment_integration_id,
           0 as active_subscribers_count,
           coalesce(public.can_manage_tribe_subscription_prices((select id from target_tribe)), false) as can_manage_prices,
           tribe_payment_integrations.access_token,
@@ -1524,7 +1824,8 @@ export class PostgresTribeSubscriptionPriceRepository
         left join target_price
           on true
         left join public.tribe_payment_integrations
-          on tribe_payment_integrations.tribe_id = (select id from target_tribe)
+          on tribe_payment_integrations.id = target_price.payment_integration_id
+          and tribe_payment_integrations.tribe_id = (select id from target_tribe)
           and tribe_payment_integrations.provider = 'mercado_pago'
       `);
 
@@ -1539,18 +1840,52 @@ export class PostgresTribeSubscriptionPriceRepository
    * @returns Fresh provider access token, or null when unavailable.
    */
   private async resolveAccessTokenForProviderMutation(
-    mutationContext: PriceUpdateContextRow | PriceCreationContextRow
+    mutationContext: ProviderTokenContext
   ): Promise<string | null> {
     return resolveMercadoPagoAccessToken({
       executeWithDatabase: this.executeWithDatabase,
       refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
       storedToken: {
-        accessToken: mutationContext.access_token,
-        refreshToken: mutationContext.refresh_token,
-        tokenExpiresAt: mutationContext.token_expires_at,
-        tribeId: mutationContext.tribe_id,
+        accessToken: mutationContext.access_token ?? null,
+        paymentIntegrationId: mutationContext.payment_integration_id ?? null,
+        refreshToken: mutationContext.refresh_token ?? null,
+        tokenExpiresAt: mutationContext.token_expires_at ?? null,
+        tribeId: mutationContext.tribe_id ?? null,
       },
     }).catch(() => null);
+  }
+
+  /**
+   * Resolves and reuses one fresh access token per Mercado Pago account.
+   *
+   * @param mutationContext - Stored provider token context.
+   * @param accessTokensByPaymentIntegrationId - Request-local account token cache.
+   * @returns Fresh provider access token, or null when unavailable.
+   */
+  private async resolveAccessTokenForProviderMutationWithCache(
+    mutationContext: ProviderTokenContext,
+    accessTokensByPaymentIntegrationId: Map<string, string>
+  ): Promise<string | null> {
+    const paymentIntegrationId = mutationContext.payment_integration_id ?? null;
+
+    if (paymentIntegrationId) {
+      const cachedAccessToken =
+        accessTokensByPaymentIntegrationId.get(paymentIntegrationId);
+
+      if (cachedAccessToken) {
+        return cachedAccessToken;
+      }
+    }
+
+    const accessToken = await this.resolveAccessTokenForProviderMutation(
+      mutationContext
+    );
+
+    if (paymentIntegrationId && accessToken) {
+      accessTokensByPaymentIntegrationId.set(paymentIntegrationId, accessToken);
+    }
+
+    return accessToken;
   }
 
   /**
@@ -1601,7 +1936,7 @@ export class PostgresTribeSubscriptionPriceRepository
             trial_frequency_type = ${command.trialFrequencyType}
           where tribe_subscription_prices.id = (select id from target_price)
             and exists (select 1 from snapshotted_subscriptions)
-          returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at
+          returning id, name, amount_cents, currency, frequency, status, is_current, payment_integration_id, trial_frequency, trial_frequency_type, created_at
         ),
         subscriber_counts as (
           select
@@ -1620,6 +1955,10 @@ export class PostgresTribeSubscriptionPriceRepository
           updated_price.frequency,
           updated_price.status,
           updated_price.is_current,
+          updated_price.payment_integration_id,
+          price_payment_integration.account_label as mercado_pago_account_label,
+          price_payment_integration.provider_account_email as mercado_pago_account_email,
+          price_payment_integration.provider_account_id,
           updated_price.trial_frequency,
           updated_price.trial_frequency_type,
           updated_price.created_at,
@@ -1627,6 +1966,8 @@ export class PostgresTribeSubscriptionPriceRepository
         from updated_price
         cross join subscriber_counts
         cross join snapshotted_subscriptions
+        left join public.tribe_payment_integrations price_payment_integration
+          on price_payment_integration.id = updated_price.payment_integration_id
       `);
 
       return mapPriceMutationResult(
@@ -1852,20 +2193,42 @@ export class PostgresTribeSubscriptionPriceRepository
     const verificationContext = await this.resolveProviderPlanVerificationContext(
       query.tribeSlug
     );
-    const accessToken = await this.resolveVerificationAccessToken(
+    const verificationFailure = this.resolveVerificationFailure(
       verificationContext
     );
 
-    if ("status" in accessToken) {
-      return accessToken;
+    if (verificationFailure) {
+      return verificationFailure;
     }
 
     const providerPlanPrices = await this.listProviderPlanPrices({
       tribeSlug: query.tribeSlug,
     });
+    const providerPlanAccessTokens = new Map<string, string>();
+
+    for (const providerPlanPrice of providerPlanPrices) {
+      if (!providerPlanPrice.mercado_pago_preapproval_plan_id) {
+        continue;
+      }
+
+      const accessToken =
+        await this.resolveAccessTokenForProviderMutationWithCache(
+          providerPlanPrice,
+          providerPlanAccessTokens
+        );
+
+      if (!accessToken) {
+        return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
+      }
+
+      providerPlanAccessTokens.set(providerPlanPrice.id, accessToken);
+    }
+
     const canceledPriceIds = (
       await Promise.all(
         providerPlanPrices.map(async (providerPlanPrice) => {
+          const providerPlanAccessToken =
+            providerPlanAccessTokens.get(providerPlanPrice.id) ?? null;
           const traceContext = providerPlanPrice.mercado_pago_preapproval_plan_id
             ? buildSubscriptionPricePaymentTraceContext({
                 operationKey: buildSubscriptionPriceOperationKey({
@@ -1882,9 +2245,10 @@ export class PostgresTribeSubscriptionPriceRepository
               })
             : undefined;
           const providerPlanStatus =
-            providerPlanPrice.mercado_pago_preapproval_plan_id
+            providerPlanPrice.mercado_pago_preapproval_plan_id &&
+            providerPlanAccessToken
               ? await this.getMercadoPagoPlanStatus({
-                  accessToken: accessToken.value,
+                  accessToken: providerPlanAccessToken,
                   preapprovalPlanId:
                     providerPlanPrice.mercado_pago_preapproval_plan_id,
                   ...(traceContext ? { traceContext } : {}),
@@ -1944,12 +2308,12 @@ export class PostgresTribeSubscriptionPriceRepository
     const verificationContext = await this.resolveProviderPlanVerificationContext(
       command.tribeSlug
     );
-    const accessToken = await this.resolveVerificationAccessToken(
+    const verificationFailure = this.resolveVerificationFailure(
       verificationContext
     );
 
-    if ("status" in accessToken) {
-      return accessToken;
+    if (verificationFailure) {
+      return verificationFailure;
     }
 
     const providerPlanPrice =
@@ -1960,6 +2324,13 @@ export class PostgresTribeSubscriptionPriceRepository
 
     if (!providerPlanPrice) {
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
+    }
+
+    const providerPlanAccessToken =
+      await this.resolveAccessTokenForProviderMutation(providerPlanPrice);
+
+    if (!providerPlanAccessToken) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
     }
 
     const traceContext = providerPlanPrice.mercado_pago_preapproval_plan_id
@@ -1979,7 +2350,7 @@ export class PostgresTribeSubscriptionPriceRepository
     const providerPlanStatus =
       providerPlanPrice.mercado_pago_preapproval_plan_id
         ? await this.getMercadoPagoPlanStatus({
-            accessToken: accessToken.value,
+            accessToken: providerPlanAccessToken,
             preapprovalPlanId: providerPlanPrice.mercado_pago_preapproval_plan_id,
             ...(traceContext ? { traceContext } : {}),
           })
@@ -2059,12 +2430,12 @@ export class PostgresTribeSubscriptionPriceRepository
     const verificationContext = await this.resolveProviderPlanVerificationContext(
       command.tribeSlug
     );
-    const accessToken = await this.resolveVerificationAccessToken(
+    const verificationFailure = this.resolveVerificationFailure(
       verificationContext
     );
 
-    if ("status" in accessToken) {
-      return accessToken;
+    if (verificationFailure) {
+      return verificationFailure;
     }
 
     const providerPlanPrice = (
@@ -2079,13 +2450,20 @@ export class PostgresTribeSubscriptionPriceRepository
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
     }
 
+    const providerPlanAccessToken =
+      await this.resolveAccessTokenForProviderMutation(providerPlanPrice);
+
+    if (!providerPlanAccessToken) {
+      return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
+    }
+
     const providerSubscribers = await this.listProviderSubscribers({
       priceId: command.priceId,
       tribeSlug: command.tribeSlug,
     });
     const providerSubscriptionStatuses =
       await readProviderSubscriptionStatuses({
-        accessToken: accessToken.value,
+        accessToken: providerPlanAccessToken,
         getMercadoPagoSubscriptionStatus:
           this.getMercadoPagoSubscriptionStatus,
         operationKey: buildSubscriptionPriceOperationKey({
@@ -2145,10 +2523,8 @@ export class PostgresTribeSubscriptionPriceRepository
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
     }
 
-    const accessToken = await this.resolveAccessTokenForProviderMutation({
-      ...webhookContext,
-      can_manage_prices: true,
-    });
+    const accessToken =
+      await this.resolveAccessTokenForProviderMutation(webhookContext);
 
     if (!accessToken) {
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
@@ -2278,13 +2654,16 @@ export class PostgresTribeSubscriptionPriceRepository
           tribe_subscription_prices.trial_frequency_type,
           tribe_subscription_prices.created_at,
           tribe_subscription_prices.mercado_pago_preapproval_plan_id,
+          tribe_subscription_prices.payment_integration_id,
           0 as active_subscribers_count,
+          tribe_payment_integrations.id as payment_integration_id,
           tribe_payment_integrations.access_token,
           tribe_payment_integrations.refresh_token,
           tribe_payment_integrations.token_expires_at
         from public.tribe_subscription_prices
         inner join public.tribe_payment_integrations
-          on tribe_payment_integrations.tribe_id = tribe_subscription_prices.tribe_id
+          on tribe_payment_integrations.id = tribe_subscription_prices.payment_integration_id
+          and tribe_payment_integrations.tribe_id = tribe_subscription_prices.tribe_id
           and tribe_payment_integrations.provider = 'mercado_pago'
         where tribe_subscription_prices.mercado_pago_preapproval_plan_id = ${providerPlanId}
           and tribe_subscription_prices.status in ${MANAGEABLE_PROVIDER_PLAN_PRICE_STATUSES}
@@ -2410,7 +2789,7 @@ export class PostgresTribeSubscriptionPriceRepository
             status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.active}
           where tribe_subscription_prices.id = (select id from target_price)
             and exists (select 1 from snapshotted_subscriptions)
-          returning id, name, amount_cents, currency, frequency, status, is_current, trial_frequency, trial_frequency_type, created_at
+          returning id, name, amount_cents, currency, frequency, status, is_current, payment_integration_id, trial_frequency, trial_frequency_type, created_at
         ),
         subscriber_counts as (
           select
@@ -2428,6 +2807,10 @@ export class PostgresTribeSubscriptionPriceRepository
           updated_price.frequency,
           updated_price.status,
           updated_price.is_current,
+          updated_price.payment_integration_id,
+          price_payment_integration.account_label as mercado_pago_account_label,
+          price_payment_integration.provider_account_email as mercado_pago_account_email,
+          price_payment_integration.provider_account_id,
           updated_price.trial_frequency,
           updated_price.trial_frequency_type,
           updated_price.created_at,
@@ -2435,6 +2818,8 @@ export class PostgresTribeSubscriptionPriceRepository
         from updated_price
         cross join subscriber_counts
         cross join snapshotted_subscriptions
+        left join public.tribe_payment_integrations price_payment_integration
+          on price_payment_integration.id = updated_price.payment_integration_id
       `);
       const row = (result.rows?.[0] ?? null) as SubscriptionPriceRow | null;
 
@@ -2532,6 +2917,7 @@ export class PostgresTribeSubscriptionPriceRepository
         select
           (select id from target_tribe) as tribe_id,
           coalesce(public.can_manage_tribe_subscription_prices((select id from target_tribe)), false) as can_manage_prices,
+          tribe_payment_integrations.id as payment_integration_id,
           tribe_payment_integrations.access_token,
           tribe_payment_integrations.refresh_token,
           tribe_payment_integrations.token_expires_at
@@ -2546,24 +2932,20 @@ export class PostgresTribeSubscriptionPriceRepository
   }
 
   /**
-   * Resolves a fresh access token or a stable verification failure status.
+   * Resolves stable verification failures before account-specific work starts.
    *
    * @param verificationContext - Database context for the tribe integration.
-   * @returns Access token wrapper or a verification failure result.
+   * @returns Stable failure result, or null when verification may continue.
    */
-  private async resolveVerificationAccessToken(
+  private resolveVerificationFailure(
     verificationContext: PriceVerificationContextRow | null
-  ): Promise<
-    | {
-        value: string;
-      }
+  ):
     | {
         status:
           | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden
-          | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration
           | typeof TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound;
       }
-  > {
+    | null {
     if (!verificationContext?.tribe_id) {
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound };
     }
@@ -2572,20 +2954,7 @@ export class PostgresTribeSubscriptionPriceRepository
       return { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden };
     }
 
-    const accessToken = await resolveMercadoPagoAccessToken({
-      executeWithDatabase: this.executeWithDatabase,
-      refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
-      storedToken: {
-        accessToken: verificationContext.access_token,
-        refreshToken: verificationContext.refresh_token,
-        tokenExpiresAt: verificationContext.token_expires_at,
-        tribeId: verificationContext.tribe_id,
-      },
-    }).catch(() => null);
-
-    return accessToken
-      ? { value: accessToken }
-      : { status: TRIBE_SUBSCRIPTION_PRICE_STATUS.missingIntegration };
+    return null;
   }
 
   /**
@@ -2618,6 +2987,14 @@ export class PostgresTribeSubscriptionPriceRepository
           tribe_subscription_prices.trial_frequency_type,
           tribe_subscription_prices.created_at,
           tribe_subscription_prices.mercado_pago_preapproval_plan_id,
+          tribe_subscription_prices.payment_integration_id,
+          tribe_payment_integrations.account_label as mercado_pago_account_label,
+          tribe_payment_integrations.provider_account_email as mercado_pago_account_email,
+          tribe_payment_integrations.provider_account_id,
+          target_tribe.id as tribe_id,
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at,
           count(tribe_member_subscriptions.id) filter (
             where tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
           ) as active_subscribers_count
@@ -2626,10 +3003,22 @@ export class PostgresTribeSubscriptionPriceRepository
           on target_tribe.id = tribe_subscription_prices.tribe_id
         left join public.tribe_member_subscriptions
           on tribe_member_subscriptions.price_id = tribe_subscription_prices.id
+        left join public.tribe_payment_integrations
+          on tribe_payment_integrations.id = tribe_subscription_prices.payment_integration_id
+          and tribe_payment_integrations.tribe_id = target_tribe.id
+          and tribe_payment_integrations.provider = 'mercado_pago'
         where tribe_subscription_prices.id = ${input.priceId}
           and tribe_subscription_prices.status in ${MANAGEABLE_PROVIDER_PLAN_PRICE_STATUSES}
           and public.can_manage_tribe_subscription_prices(target_tribe.id)
-        group by tribe_subscription_prices.id
+        group by
+          tribe_subscription_prices.id,
+          target_tribe.id,
+          tribe_payment_integrations.account_label,
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.provider_account_email,
+          tribe_payment_integrations.provider_account_id,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at
         limit 1
       `);
 
@@ -2835,8 +3224,16 @@ export class PostgresTribeSubscriptionPriceRepository
           tribe_subscription_prices.frequency,
           tribe_subscription_prices.status,
           tribe_subscription_prices.is_current,
+          tribe_subscription_prices.payment_integration_id,
+          tribe_payment_integrations.account_label as mercado_pago_account_label,
+          tribe_payment_integrations.provider_account_email as mercado_pago_account_email,
+          tribe_payment_integrations.provider_account_id,
           tribe_subscription_prices.created_at,
           tribe_subscription_prices.mercado_pago_preapproval_plan_id,
+          target_tribe.id as tribe_id,
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at,
           count(tribe_member_subscriptions.id) filter (
             where tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
           ) as active_subscribers_count
@@ -2845,10 +3242,22 @@ export class PostgresTribeSubscriptionPriceRepository
           on target_tribe.id = tribe_subscription_prices.tribe_id
         left join public.tribe_member_subscriptions
           on tribe_member_subscriptions.price_id = tribe_subscription_prices.id
+        left join public.tribe_payment_integrations
+          on tribe_payment_integrations.id = tribe_subscription_prices.payment_integration_id
+          and tribe_payment_integrations.tribe_id = target_tribe.id
+          and tribe_payment_integrations.provider = 'mercado_pago'
         where ${statusFilter}
           and (${input.priceId ?? ""} = '' or tribe_subscription_prices.id::text = ${input.priceId ?? ""})
           and public.can_manage_tribe_subscription_prices(target_tribe.id)
-        group by tribe_subscription_prices.id
+        group by
+          tribe_subscription_prices.id,
+          target_tribe.id,
+          tribe_payment_integrations.account_label,
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.provider_account_email,
+          tribe_payment_integrations.provider_account_id,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at
         order by tribe_subscription_prices.created_at desc
       `);
 
@@ -2907,12 +3316,25 @@ export class PostgresTribeSubscriptionPriceRepository
           where tribes.slug = ${input.tribeSlug}
           limit 1
         )
-        select tribe_member_subscriptions.mercado_pago_preapproval_id
+        select
+          tribe_payment_integrations.access_token,
+          tribe_member_subscriptions.mercado_pago_preapproval_id,
+          tribe_payment_integrations.id as payment_integration_id,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at,
+          tribe_payment_integrations.tribe_id
         from public.tribe_member_subscriptions
         left join public.tribe_subscription_prices
           on tribe_subscription_prices.id = tribe_member_subscriptions.price_id
         inner join target_tribe
           on target_tribe.id = tribe_member_subscriptions.tribe_id
+        left join public.tribe_payment_integrations
+          on tribe_payment_integrations.id = coalesce(
+            tribe_member_subscriptions.payment_integration_id,
+            tribe_subscription_prices.payment_integration_id
+          )
+          and tribe_payment_integrations.tribe_id = target_tribe.id
+          and tribe_payment_integrations.provider = 'mercado_pago'
           where (
             tribe_subscription_prices.status in ${MANAGEABLE_PROVIDER_PLAN_PRICE_STATUSES}
             or tribe_member_subscriptions.price_id is null

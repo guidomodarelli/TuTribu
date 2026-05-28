@@ -4,13 +4,21 @@ import type {
   TRIBE_INVITATION_SUBSCRIPTION_OFFER_STATUS,
 } from "@/src/modules/tribes/constants/tribe-invitations";
 
+export type TribeInvitationAssociatedPlanTrialResult = {
+  frequency: number;
+  frequencyType: "days" | "months";
+};
+
 export type TribeInvitationAssociatedPlanResult = {
   amountCents: number;
   currency: string;
   frequency: string;
   id: string;
+  mercadoPagoAccountEmail: string | null;
+  mercadoPagoAccountLabel: string | null;
   name: string;
   status: "active" | "canceled" | "deleted";
+  trial: TribeInvitationAssociatedPlanTrialResult | null;
 };
 
 export type TribeInvitationSubscriptionAssociationResult =

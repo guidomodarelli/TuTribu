@@ -76,14 +76,18 @@ function createSubscriptionPriceRow(overrides: Record<string, unknown> = {}) {
   return {
     active_subscribers_count: 0,
     amount_cents: 500000,
+    access_token: "access-token",
     created_at: "2026-05-06T13:00:00.000Z",
     currency: "ARS",
     frequency: "monthly",
     id: "price-1",
     is_current: true,
     name: "Plan mensual",
+    payment_integration_id: "integration-1",
+    refresh_token: null,
     status: "active",
     status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
+    token_expires_at: null,
     trial_frequency: 7,
     trial_frequency_type: "days",
     ...overrides,
@@ -92,9 +96,11 @@ function createSubscriptionPriceRow(overrides: Record<string, unknown> = {}) {
 
 describe("PostgresTribeSubscriptionPriceRepository", () => {
   const previousBaseUrl = process.env.BETTER_AUTH_URL;
+  const previousMercadoPagoBackUrl = process.env.MERCADO_PAGO_BACK_URL;
 
   beforeEach(() => {
     process.env.BETTER_AUTH_URL = "https://tutribu.example.com";
+    delete process.env.MERCADO_PAGO_BACK_URL;
   });
 
   afterAll(() => {
@@ -102,6 +108,12 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       delete process.env.BETTER_AUTH_URL;
     } else {
       process.env.BETTER_AUTH_URL = previousBaseUrl;
+    }
+
+    if (previousMercadoPagoBackUrl === undefined) {
+      delete process.env.MERCADO_PAGO_BACK_URL;
+    } else {
+      process.env.MERCADO_PAGO_BACK_URL = previousMercadoPagoBackUrl;
     }
   });
 
@@ -114,6 +126,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           can_manage_prices: true,
           can_view_prices: true,
           has_mercado_pago_integration: true,
+          mercado_pago_connection_payment_integration_id: "integration-1",
+          payment_integration_id: "integration-1",
           refresh_token: "stored-refresh-token",
           token_expires_at: "2026-05-06T13:05:00.000Z",
           tribe_id: "tribe-1",
@@ -155,6 +169,96 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     );
     expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith(
       "stored-refresh-token"
+    );
+  });
+
+  it("should prioritize connected Mercado Pago accounts after refreshing health", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...createSubscriptionPriceRow(),
+            access_token: "revoked-access-token",
+            can_manage_prices: true,
+            can_view_prices: true,
+            has_mercado_pago_integration: true,
+            mercado_pago_connection_payment_integration_id:
+              "revoked-integration",
+            refresh_token: "revoked-refresh-token",
+            token_expires_at: "2026-05-06T13:05:00.000Z",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "revoked-access-token",
+            account_label: "Cuenta anterior",
+            id: "revoked-integration",
+            provider_account_email: "old@example.com",
+            provider_account_id: "collector-old",
+            refresh_token: "revoked-refresh-token",
+            status: "connected",
+            token_expires_at: "2026-05-06T13:05:00.000Z",
+            tribe_id: "tribe-1",
+          },
+          {
+            access_token: "freshable-access-token",
+            account_label: "Cuenta activa",
+            id: "active-integration",
+            provider_account_email: "active@example.com",
+            provider_account_id: "collector-active",
+            refresh_token: "active-refresh-token",
+            status: "connected",
+            token_expires_at: "2026-05-06T13:05:00.000Z",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValue({ rows: [] });
+    const refreshMercadoPagoAccessToken = jest.fn(async (refreshToken) => {
+      if (refreshToken === "revoked-refresh-token") {
+        throw new Error("Mercado Pago rejected refresh token");
+      }
+
+      return {
+        accessToken: "fresh-access-token",
+        expiresIn: 3600,
+        providerAccountId: "collector-active",
+        refreshToken: "active-refresh-token",
+      };
+    });
+    const repository = createRepository(
+      execute,
+      jest.fn(async () => "plan-1"),
+      refreshMercadoPagoAccessToken
+    );
+
+    await expect(
+      repository.listByTribeSlug({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      availableMercadoPagoAccounts: [
+        {
+          id: "active-integration",
+          status: "connected",
+        },
+        {
+          id: "revoked-integration",
+          status: "requires_reconnection",
+        },
+      ],
+      hasMercadoPagoIntegration: true,
+      mercadoPagoConnectionStatus: "connected",
+    });
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith(
+      "revoked-refresh-token"
+    );
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith(
+      "active-refresh-token"
     );
   });
 
@@ -241,6 +345,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           can_manage_prices: true,
           can_view_prices: true,
           has_mercado_pago_integration: true,
+          mercado_pago_connection_payment_integration_id: "integration-1",
+          payment_integration_id: "integration-1",
           refresh_token: "revoked-refresh-token",
           token_expires_at: "2026-05-06T13:05:00.000Z",
           tribe_id: "tribe-1",
@@ -291,6 +397,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           rows: [
             {
               access_token: "fresh-access-token",
+              mercado_pago_connection_payment_integration_id: "integration-1",
+              payment_integration_id: "integration-1",
               refresh_token: "new-refresh-token",
               token_expires_at: new Date(Date.now() + 3_600_000).toISOString(),
               tribe_id: "tribe-1",
@@ -307,6 +415,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
             can_manage_prices: true,
             can_view_prices: true,
             has_mercado_pago_integration: true,
+            mercado_pago_connection_payment_integration_id: "integration-1",
+            payment_integration_id: "integration-1",
             refresh_token: "revoked-refresh-token",
             token_expires_at: "2026-05-06T13:05:00.000Z",
             tribe_id: "tribe-1",
@@ -768,6 +878,79 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     );
   });
 
+  it("should keep Mercado Pago account metadata in created price responses", async () => {
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (sqlText.includes("reserved_price")) {
+        return {
+          rows: [
+            {
+              reserved_price_id: "price-1",
+              status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+            },
+          ],
+        };
+      }
+
+      if (sqlText.includes("mercado_pago_preapproval_plan_id =")) {
+        const includesPaymentAccountMetadata = sqlText.includes(
+          "price_payment_integration.account_label"
+        );
+
+        return {
+          rows: [
+            createSubscriptionPriceRow({
+              ...(includesPaymentAccountMetadata
+                ? {
+                    mercado_pago_account_email: "leader@example.com",
+                    mercado_pago_account_label: "Cuenta principal",
+                    payment_integration_id: "integration-1",
+                    provider_account_id: "collector-1",
+                  }
+                : {}),
+              status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+            }),
+          ],
+        };
+      }
+
+      return {
+        rows: [
+          {
+            access_token: "access-token",
+            can_manage_prices: true,
+            existing_price_count: 0,
+            payment_integration_id: "integration-1",
+            refresh_token: null,
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      };
+    });
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.create({
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+        paymentIntegrationId: "integration-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      price: {
+        mercadoPagoAccountEmail: "leader@example.com",
+        mercadoPagoAccountLabel: "Cuenta principal",
+        paymentIntegrationId: "integration-1",
+        providerAccountId: "collector-1",
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+    });
+  });
+
   it("should update the same provider plan and local price when the amount changes", async () => {
     const execute = jest
       .fn()
@@ -1089,6 +1272,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
             access_token: "expired-access-token",
             can_manage_prices: true,
             existing_price_count: 0,
+            payment_integration_id: "integration-1",
             refresh_token: "refresh-token",
             token_expires_at: expiredTokenDate,
             tribe_id: "tribe-1",
@@ -2059,6 +2243,284 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     expect(priceLookupSqlText).not.toMatch(/canceled/);
   });
 
+  it("should load provider plan verification tokens from each price account", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "primary-access-token",
+            can_manage_prices: true,
+            payment_integration_id: "integration-1",
+            refresh_token: null,
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            access_token: "secondary-access-token",
+            mercado_pago_preapproval_plan_id: "plan-2",
+            payment_integration_id: "integration-2",
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            access_token: "secondary-access-token",
+            mercado_pago_preapproval_plan_id: "plan-2",
+            payment_integration_id: "integration-2",
+          }),
+        ],
+      });
+    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      jest.fn(),
+      getMercadoPagoPlanStatus
+    );
+
+    await repository.verifyProviderPlans({ tribeSlug: "matematica-pro" });
+
+    const priceLookupSqlText = getSqlText(execute.mock.calls[1]?.[0]);
+
+    expect(priceLookupSqlText).toMatch(/tribe_payment_integrations\.access_token/);
+    expect(priceLookupSqlText).toMatch(
+      /tribe_payment_integrations\.id = tribe_subscription_prices\.payment_integration_id/
+    );
+    expect(getMercadoPagoPlanStatus).toHaveBeenCalledWith({
+      accessToken: "secondary-access-token",
+      preapprovalPlanId: "plan-2",
+    });
+  });
+
+  it("should refresh provider plan account tokens before verification", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "expired-access-token",
+            can_manage_prices: true,
+            payment_integration_id: "integration-1",
+            refresh_token: "refresh-token",
+            token_expires_at: "2026-05-06T13:05:00.000Z",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            access_token: "expired-access-token",
+            mercado_pago_preapproval_plan_id: "plan-1",
+            payment_integration_id: "integration-1",
+            refresh_token: "refresh-token",
+            token_expires_at: "2026-05-06T13:05:00.000Z",
+            tribe_id: "tribe-1",
+          }),
+        ],
+      })
+      .mockResolvedValue({ rows: [] });
+    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+      accessToken: "fresh-access-token",
+      expiresIn: 3600,
+      providerAccountId: "collector-1",
+      refreshToken: "new-refresh-token",
+    }));
+    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      refreshMercadoPagoAccessToken,
+      getMercadoPagoPlanStatus
+    );
+
+    await repository.verifyProviderPlans({ tribeSlug: "matematica-pro" });
+
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith("refresh-token");
+    expect(getMercadoPagoPlanStatus).toHaveBeenCalledWith({
+      accessToken: "fresh-access-token",
+      preapprovalPlanId: "plan-1",
+    });
+  });
+
+  it("should reuse a refreshed account token when verifying multiple provider plans from the same account", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "expired-access-token",
+            can_manage_prices: true,
+            payment_integration_id: "integration-1",
+            refresh_token: "rotating-refresh-token",
+            token_expires_at: "2026-05-06T13:05:00.000Z",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            access_token: "expired-access-token",
+            id: "price-1",
+            mercado_pago_preapproval_plan_id: "plan-1",
+            payment_integration_id: "integration-1",
+            refresh_token: "rotating-refresh-token",
+            token_expires_at: "2026-05-06T13:05:00.000Z",
+            tribe_id: "tribe-1",
+          }),
+          createSubscriptionPriceRow({
+            access_token: "expired-access-token",
+            id: "price-2",
+            mercado_pago_preapproval_plan_id: "plan-2",
+            payment_integration_id: "integration-1",
+            refresh_token: "rotating-refresh-token",
+            token_expires_at: "2026-05-06T13:05:00.000Z",
+            tribe_id: "tribe-1",
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          createSubscriptionPriceRow({
+            access_token: "fresh-access-token",
+            can_manage_prices: true,
+            can_view_prices: true,
+            mercado_pago_preapproval_plan_id: "plan-1",
+            payment_integration_id: "integration-1",
+            refresh_token: "rotated-refresh-token",
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "fresh-access-token",
+            account_label: "Cuenta principal",
+            id: "integration-1",
+            provider_account_email: "leader@example.com",
+            provider_account_id: "collector-1",
+            refresh_token: null,
+            status: "connected",
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      });
+    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+      accessToken: "fresh-access-token",
+      expiresIn: 3600,
+      providerAccountId: "collector-1",
+      refreshToken: "rotated-refresh-token",
+    }));
+    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      refreshMercadoPagoAccessToken,
+      getMercadoPagoPlanStatus
+    );
+
+    await expect(
+      repository.verifyProviderPlans({ tribeSlug: "matematica-pro" })
+    ).resolves.toMatchObject({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+      verifiedCount: 2,
+    });
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledTimes(1);
+    expect(getMercadoPagoPlanStatus).toHaveBeenNthCalledWith(1, {
+      accessToken: "fresh-access-token",
+      preapprovalPlanId: "plan-1",
+    });
+    expect(getMercadoPagoPlanStatus).toHaveBeenNthCalledWith(2, {
+      accessToken: "fresh-access-token",
+      preapprovalPlanId: "plan-2",
+    });
+  });
+
+  it("should refresh subscriber diagnostics account tokens before reading provider subscriptions", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "expired-access-token",
+            can_manage_prices: true,
+            payment_integration_id: "integration-1",
+            refresh_token: "refresh-token",
+            token_expires_at: "2026-05-06T13:05:00.000Z",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "expired-access-token",
+            mercado_pago_preapproval_id: "subscriber-1",
+            payment_integration_id: "integration-1",
+            refresh_token: "refresh-token",
+            token_expires_at: "2026-05-06T13:05:00.000Z",
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            last_reconciled_at: "2026-05-12T01:00:00.000Z",
+            local_active_subscribers_count: 1,
+            mercado_pago_authorized_subscribers_count: 1,
+            mercado_pago_canceled_or_missing_subscribers_count: 0,
+            mercado_pago_paused_subscribers_count: 0,
+            mercado_pago_pending_subscribers_count: 0,
+            target_tribe_id: "tribe-1",
+          },
+        ],
+      });
+    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+      accessToken: "fresh-access-token",
+      expiresIn: 3600,
+      providerAccountId: "collector-1",
+      refreshToken: "new-refresh-token",
+    }));
+    const getMercadoPagoSubscriptionStatus = jest.fn(async () => "authorized");
+    const repository = createRepository(
+      execute,
+      jest.fn(),
+      refreshMercadoPagoAccessToken,
+      jest.fn(),
+      getMercadoPagoSubscriptionStatus
+    );
+
+    await expect(
+      repository.reconcileSubscriberDiagnostics({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
+      verifiedCount: 1,
+    });
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith("refresh-token");
+    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "fresh-access-token",
+        preapprovalId: "subscriber-1",
+      })
+    );
+  });
+
   it("does not leave an idempotent lock when the provider plan call fails before registration", async () => {
     const execute = jest.fn(async (statement) => {
       const sqlText = getSqlText(statement);
@@ -2222,10 +2684,22 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("update public.tribe_subscription_prices")) {
+        const includesPaymentIntegrationReturning = /returning[^)]*payment_integration_id/.test(
+          sqlText
+        );
+
         return {
           rows: [
             createSubscriptionPriceRow({
               amount_cents: 700000,
+              ...(includesPaymentIntegrationReturning
+                ? {
+                    mercado_pago_account_label: "Cuenta principal",
+                    payment_integration_id: "integration-1",
+                  }
+                : {
+                    payment_integration_id: undefined,
+                  }),
               name: "Plan actualizado",
               trial_frequency: 21,
               trial_frequency_type: "days",
@@ -2303,7 +2777,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ).resolves.toMatchObject({
       price: {
         amountCents: 700000,
+        mercadoPagoAccountLabel: "Cuenta principal",
         name: "Plan actualizado",
+        paymentIntegrationId: "integration-1",
         trial: {
           frequency: 21,
           frequencyType: "days",
@@ -2731,15 +3207,19 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       .mockResolvedValueOnce({
         rows: [
           {
+            access_token: "account-a-access-token",
             mercado_pago_preapproval_id: "subscription-1",
           },
           {
+            access_token: "account-a-access-token",
             mercado_pago_preapproval_id: "subscription-2",
           },
           {
+            access_token: "account-b-access-token",
             mercado_pago_preapproval_id: "subscription-3",
           },
           {
+            access_token: "account-b-access-token",
             mercado_pago_preapproval_id: "subscription-4",
           },
         ],
@@ -2791,6 +3271,18 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       verifiedCount: 4,
     });
     expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledTimes(4);
+    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "account-a-access-token",
+        preapprovalId: "subscription-1",
+      })
+    );
+    expect(getMercadoPagoSubscriptionStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "account-b-access-token",
+        preapprovalId: "subscription-3",
+      })
+    );
     expect(getSqlText(execute.mock.calls[1][0])).toContain(
       "tribe_member_subscriptions.price_id is null"
     );

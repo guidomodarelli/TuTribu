@@ -17,6 +17,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 const PRICE_ROUTE_FIELD = {
   amount: "amount",
   name: "name",
+  paymentIntegrationId: "paymentIntegrationId",
   trialFrequency: "trialFrequency",
   trialFrequencyType: "trialFrequencyType",
 } as const;
@@ -340,6 +341,10 @@ export async function POST(
     const result = await modules.subscriptions.useCases.createTribeSubscriptionPrice({
       amount: readStringField(body, PRICE_ROUTE_FIELD.amount),
       name: readStringField(body, PRICE_ROUTE_FIELD.name),
+      paymentIntegrationId: readStringField(
+        body,
+        PRICE_ROUTE_FIELD.paymentIntegrationId
+      ),
       trialFrequency: readOptionalStringField(
         body,
         PRICE_ROUTE_FIELD.trialFrequency

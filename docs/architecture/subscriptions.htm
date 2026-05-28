@@ -26,6 +26,9 @@ strong{font-weight:600;color:#1a1a1a;}
 a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
 .callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
 .c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+.c-red{background:#fef8f6;border-color:#e8917a;color:#9e3d25;}
 table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
 th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
 td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
@@ -33,6 +36,11 @@ tr:last-child td{border-bottom:none;}
 code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
 .code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
 .code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;padding:2px 8px;border-radius:4px;letter-spacing:0.05em;}
+.b-green{background:#e8f7f2;color:#1a6b52;border:1px solid #4aaa8c;}
+.b-amber{background:#fdf5e0;color:#7a5510;border:1px solid #d4a44c;}
+.b-red{background:#fef8f6;color:#9e3d25;border:1px solid #e8917a;}
+.b-gray{background:#f0ede6;color:#666;border:1px solid #ccc;}
 .divider{height:1px;background:#e0ddd6;margin:28px 0;}
 </style>
 </head>
@@ -40,52 +48,234 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="doc-header">
   <div class="doc-label">ARCHITECTURE</div>
   <div class="doc-title">Suscripciones por tribu</div>
-  <div class="doc-sub">Decisión de suscripciones tenant-scoped por tribu.</div>
-  <div class="doc-meta"><span>Scope: Billing</span><span>Status: Active</span></div>
+  <div class="doc-sub">Decisión de suscripciones tenant-scoped por tribu e integración con Mercado Pago.</div>
+  <div class="doc-meta"><span>Scope: Billing</span><span>Status: Active</span><span>Provider: Mercado Pago</span></div>
 </div>
+
 <div class="section">
   <div class="section-num">01</div>
   <div class="section-title">Decisión</div>
-<p>Las suscripciones pagas son tenant-scoped por <code>tribe</code>. Cada tribu conecta una cuenta de Mercado Pago propia, operada por su <code>leader</code>. Los <code>guardian</code> pueden ver la configuración de precios, pero no crear, eliminar, conectar ni cambiar el precio actual.</p>
+<p>Las suscripciones pagas son tenant-scoped por <code>tribe</code>. Cada tribu puede conectar una o más cuentas de Mercado Pago propias, operadas por su <code>leader</code>.</p>
+<div class="callout c-info">
+  Los <code>guardian</code> pueden ver la configuración de precios, pero no crear, eliminar, conectar ni cambiar el precio actual. Toda operación que afecta dinero queda reservada al <code>leader</code>.
+</div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PARTE A</div>
+  <div class="part-header-title">Modelo local</div>
 </div>
 
 <div class="section">
   <div class="section-num">02</div>
-  <div class="section-title">Modelo</div>
-<p>Los precios son el catálogo operativo de planes en <code>tribe_subscription_prices</code>. La política de modificación es destructiva sobre la misma fila local y el mismo plan de Mercado Pago: nombre, monto, frecuencia y período de prueba se sincronizan sobre el <code>mercado_pago_preapproval_plan_id</code> existente. Mercado Pago congela las condiciones de cada suscripción ya emitida, por lo que editar el template del plan no cambia lo que pagan los suscriptores existentes.</p>
-<p>Reglas:</p>
+  <div class="section-title">Precios y planes</div>
+<p>Los precios son el catálogo operativo de planes en <code>tribe_subscription_prices</code>. La política de modificación es destructiva sobre la misma fila local y el mismo plan de Mercado Pago: nombre, monto, frecuencia y período de prueba se sincronizan sobre el <code>mercado_pago_preapproval_plan_id</code> existente.</p>
+<div class="callout c-info">
+  Mercado Pago congela las condiciones de cada suscripción ya emitida. Editar el template del plan <strong>no cambia</strong> lo que pagan los suscriptores existentes.
+</div>
+
+<p><strong>Cardinalidad y vigencia</strong></p>
 <ul>
   <li>puede haber varios planes activos, más baratos o más caros que otros</li>
   <li>solo un plan activo puede ser <code>current</code></li>
   <li>nuevos integrantes ven únicamente el plan <code>current</code></li>
-  <li>miembros existentes conservan su suscripción de Mercado Pago aunque el plan se edite o elimine</li>
+  <li>cada tribu puede tener hasta <strong>30 precios activos</strong></li>
+</ul>
+
+<p><strong>Vínculo con la integración</strong></p>
+<ul>
+  <li>cada plan pago pertenece a una integración concreta mediante <code>payment_integration_id</code></li>
+  <li>las suscripciones guardan <code>payment_integration_id</code> para conservar la cuenta operativa aunque el precio se elimine</li>
+</ul>
+
+<p><strong>Permanencia de miembros existentes</strong></p>
+<ul>
+  <li>los miembros existentes conservan su suscripción de Mercado Pago aunque el plan se edite o elimine</li>
   <li>los suscriptores existentes no bloquean la eliminación local de un plan</li>
   <li>las invitaciones vinculadas sí bloquean la eliminación hasta que se reasignen o revoquen</li>
-  <li>cada tribu puede tener hasta 30 precios activos</li>
+</ul>
+
+<p><strong>Opción gratuita</strong></p>
+<ul>
   <li><code>tribes.free_join_is_current</code> representa la opción gratuita actual; cuando está activa, las invitaciones aceptan ingreso gratis y no se muestra oferta paga para el token</li>
   <li>la migración de <code>free_join_is_current</code> preserva el modo efectivo anterior: queda <code>true</code> si no hay un precio <code>current</code> activo con plan de Mercado Pago y <code>false</code> si sí existe una oferta paga actual</li>
+</ul>
+
+<p><strong>Período de prueba</strong></p>
+<ul>
   <li>el período de prueba gratuita es parte mutable del precio y se sincroniza sobre el mismo <code>preapproval_plan</code> de Mercado Pago</li>
-  <li>la app solo permite pruebas gratuitas expresadas en días al crear precios desde la UI, con un rango de 1 a 14 días</li>
+  <li>la app solo permite pruebas gratuitas expresadas en días al crear precios desde la UI, con un rango de <strong>1 a 14 días</strong></li>
 </ul>
 </div>
 
 <div class="section">
   <div class="section-num">03</div>
   <div class="section-title">Estado de acceso</div>
-<p><code>tribe_members.status = blocked</code> se reserva para bloqueos recuperables del checkout pendiente o para bloqueos de conducta. Cuando Mercado Pago confirma que una suscripción vigente dejó de estar activa, la membresía se conserva como historial con <code>tribe_members.status = removed</code> y <code>tribe_members.status_reason = subscription_inactive</code>.</p>
+<p>El estado de la membresía refleja la combinación entre la suscripción remota y la política local. <code>tribe_members.status = blocked</code> se reserva para bloqueos recuperables del checkout pendiente o para bloqueos de conducta.</p>
+<p>Cuando Mercado Pago confirma que una suscripción vigente dejó de estar activa, la membresía se conserva como historial.</p>
+
+<table>
+  <thead>
+    <tr><th>Situación</th><th>Status</th><th>Reason</th><th>Acceso</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Checkout pendiente o impago recuperable</td>
+      <td><span class="badge b-amber">blocked</span></td>
+      <td><code>payment_pending</code></td>
+      <td>Sin acceso, puede reintentar</td>
+    </tr>
+    <tr>
+      <td>Bloqueo por conducta</td>
+      <td><span class="badge b-red">blocked</span></td>
+      <td><code>behavior</code></td>
+      <td>Sin acceso, no puede reingresar</td>
+    </tr>
+    <tr>
+      <td>Suscripción dejó de estar activa</td>
+      <td><span class="badge b-gray">removed</span></td>
+      <td><code>subscription_inactive</code></td>
+      <td>Sin acceso, historial conservado</td>
+    </tr>
+  </tbody>
+</table>
+
 <p>Un usuario bloqueado por pago puede iniciar un nuevo checkout con el precio actual de la tribu. Un usuario bloqueado por conducta no puede reingresar por el flujo de pago. Una membresía <code>removed/subscription_inactive</code> no tiene acceso ni aparece como miembro visible; puede conservarse para auditoría, webhooks y reconciliación.</p>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PARTE B</div>
+  <div class="part-header-title">Integración con Mercado Pago</div>
 </div>
 
 <div class="section">
   <div class="section-num">04</div>
-  <div class="section-title">Mercado Pago</div>
-<p>La integración guarda tokens OAuth solo del lado servidor en <code>tribe_payment_integrations</code>. Las operaciones externas usan claves de idempotencia y los webhooks se registran en <code>subscription_idempotency_operations</code> para evitar efectos duplicados. La clave de idempotencia de los webhooks representa la <strong>operación de negocio</strong>, no el <code>event_id</code> de Mercado Pago: dos eventos distintos con efecto idéntico comparten clave y se colapsan en una sola aplicación. Para suscripciones la clave es <code>mercado-pago-webhook:&lt;preapprovalId&gt;:&lt;localStatus&gt;:&lt;statusReason&gt;</code>; para planes es <code>mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</code>, donde <code>contentHash</code> es un sha256 corto sobre los campos a los que reacciona el handler (<code>status</code>, <code>reason</code>, <code>amountCents</code>, <code>currency</code>, <code>trial.frequency</code>, <code>trial.frequencyType</code>). Ante colisión de clave se aplica un safeguard que compara el estado local actual contra el estado objetivo; si difieren (caso oscilación, ej. <code>authorized → paused → authorized</code>) se reaplica el cambio en lugar de descartarlo. Los <code>event_id</code> de Mercado Pago no se persisten. La pantalla de gestión no considera <code>Conectado</code> por la mera existencia de <code>tribe_payment_integrations</code>: el health check de Mercado Pago fuerza un refresh OAuth server-side y solo muestra <code>Conectado</code> si ese refresh persiste un token nuevo. Si falla o no hay <code>refresh_token</code>, muestra <code>Requiere reconexión</code>.</p>
-<p>Cuando la verificación contra Mercado Pago confirma que un <code>mercado_pago_preapproval_plan_id</code> está pausado, el precio local se marca como <code>paused</code>, deja de ser <code>current</code> y no acepta nuevas suscripciones hasta que Mercado Pago vuelva a informarlo como activo. Si el plan ya no existe o queda cancelado, el precio local se marca como <code>canceled</code>, deja de ser <code>current</code> y conserva el identificador de plan del proveedor para reconciliar suscriptores y webhooks posteriores.</p>
-<p>Los planes creados por TuTribu se identifican en Mercado Pago con <code>external_reference = tutribu:price:&lt;priceId&gt;</code>. La app solo sincroniza planes que estén vinculados por ese <code>external_reference</code> o por un <code>mercado_pago_preapproval_plan_id</code> ya persistido localmente; los planes sueltos de la cuenta conectada se ignoran.</p>
-<p>Cuando Mercado Pago vuelve con un <code>preapproval_id</code> desde el checkout de un plan, el retorno del usuario no da acceso por sí mismo. La página de retorno solo muestra el estado local y, si el <code>preapproval_id</code> todavía no está asociado, puede consultar a Mercado Pago para vincular o recuperar una fila local pendiente siempre que exista una operación reciente de checkout del mismo usuario para el plan actual y el <code>preapproval_id</code> pertenezca al <code>mercado_pago_preapproval_plan_id</code> actual de la tribu. Esa reparación conserva la suscripción local como <code>pending</code>; la activación o remoción de acceso queda a cargo del webhook verificado o de una reconciliación server-side posterior.</p>
-<p>La reconciliación de suscriptores de un precio es un caso de uso reusable, no una regla propia de la pantalla de precios. Puede dispararse desde el botón manual, un webhook, un job periódico o una reparación puntual de admin. El caso de uso consulta cada <code>mercado_pago_preapproval_id</code> local contra Mercado Pago y reconcilia la base local antes de responder. <code>authorized</code>, <code>pending</code> y <code>paused</code> siguen contando como suscripciones asociadas al precio; solo <code>authorized</code> da acceso activo, <code>pending</code> bloquea por pago y <code>paused</code>, <code>canceled</code>, <code>cancelled</code> o un preapproval inexistente remueven el acceso por suscripción inactiva.</p>
-<p>Las acciones iniciadas desde TuTribu se aplican primero contra Mercado Pago y luego se reflejan localmente. Los webhooks <code>subscription_preapproval_plan</code> actualizan nombre, monto y período de prueba local cuando el plan sigue activo; pausan el precio local cuando Mercado Pago informa <code>paused</code>; y cancelan el precio local cuando el plan proveedor deja de estar activo. La app modela el trial con <code>trial_frequency</code> y <code>trial_frequency_type</code>, mapeados desde <code>auto_recurring.free_trial.frequency</code> y <code>auto_recurring.free_trial.frequency_type</code>; si Mercado Pago no devuelve <code>free_trial</code>, el precio local queda sin período de prueba.</p>
-<p>Una eliminación local de precio solo puede ocurrir después de que el precio ya esté <code>canceled</code>, Mercado Pago confirme que el plan proveedor no está activo y no queden invitaciones activas vinculadas a ese plan. Las suscripciones de miembros se desprenden de <code>price_id</code> y conservan un snapshot mínimo del plan para que los webhooks y la auditoría sigan funcionando sin dejar referencias al plan eliminado.</p>
+  <div class="section-title">Cuentas y OAuth</div>
+<p>La integración guarda tokens OAuth <strong>solo del lado servidor</strong> en <code>tribe_payment_integrations</code>. Las operaciones externas usan claves de idempotencia y los webhooks se registran en <code>subscription_idempotency_operations</code> para evitar efectos duplicados.</p>
+
+<div class="callout c-warn">
+  La pantalla de gestión <strong>no</strong> considera <code>Conectado</code> por la mera existencia de <code>tribe_payment_integrations</code>: el health check de Mercado Pago fuerza un refresh OAuth server-side y solo muestra <code>Conectado</code> si ese refresh persiste un token nuevo. Si falla o no hay <code>refresh_token</code>, muestra <code>Requiere reconexión</code>.
 </div>
+
+<p>Cuando hay varias cuentas conectadas, las operaciones de planes y suscripciones resuelven el token desde la integración asociada al precio o a la suscripción local, <strong>no</strong> desde una cuenta global de la tribu. El <code>provider_account_id</code> identifica la cuenta de vendedor cuando Mercado Pago lo informa; la UI puede mostrar <code>provider_account_email</code> o, si no existe, el <code>account_label</code> editable de la integración.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Webhooks e idempotencia</div>
+<p>La clave de idempotencia de los webhooks representa la <strong>operación de negocio</strong>, no el <code>event_id</code> de Mercado Pago: dos eventos distintos con efecto idéntico comparten clave y se colapsan en una sola aplicación. Los <code>event_id</code> de Mercado Pago <strong>no se persisten</strong>.</p>
+
+<p><strong>Formato de claves</strong></p>
+<div class="code-block"><pre>mercado-pago-webhook:&lt;preapprovalId&gt;:&lt;localStatus&gt;:&lt;statusReason&gt;
+mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></div>
+
+<p>El <code>contentHash</code> es un sha256 corto sobre los campos a los que reacciona el handler de planes: <code>status</code>, <code>reason</code>, <code>amountCents</code>, <code>currency</code>, <code>trial.frequency</code>, <code>trial.frequencyType</code>.</p>
+
+<div class="callout c-info">
+  <strong>Safeguard ante colisión.</strong> Si una clave reaparece, se compara el estado local actual contra el estado objetivo; si difieren (caso oscilación, por ejemplo <code>authorized → paused → authorized</code>) se reaplica el cambio en lugar de descartarlo.
+</div>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Sincronización de planes</div>
+<p>Las acciones iniciadas desde TuTribu se aplican primero contra Mercado Pago y luego se reflejan localmente. Los planes creados por TuTribu se identifican en Mercado Pago con:</p>
+
+<div class="code-block"><pre>external_reference = tutribu:price:&lt;priceId&gt;</pre></div>
+
+<p>La app solo sincroniza planes que estén vinculados por ese <code>external_reference</code> o por un <code>mercado_pago_preapproval_plan_id</code> ya persistido localmente; los planes sueltos de la cuenta conectada se ignoran.</p>
+
+<p>Los webhooks <code>subscription_preapproval_plan</code> reflejan los cambios del proveedor sobre el precio local:</p>
+
+<table>
+  <thead>
+    <tr><th>Mercado Pago</th><th>Efecto local</th><th>Permite nuevas suscripciones</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Plan activo, datos editados</td>
+      <td>Sincroniza nombre, monto y período de prueba</td>
+      <td><span class="badge b-green">sí</span></td>
+    </tr>
+    <tr>
+      <td>Plan <code>paused</code></td>
+      <td>Precio local <code>paused</code>, deja de ser <code>current</code></td>
+      <td><span class="badge b-red">no</span></td>
+    </tr>
+    <tr>
+      <td>Plan ya no existe o cancelado</td>
+      <td>Precio local <code>canceled</code>, conserva <code>preapproval_plan_id</code></td>
+      <td><span class="badge b-red">no</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>La app modela el trial con <code>trial_frequency</code> y <code>trial_frequency_type</code>, mapeados desde <code>auto_recurring.free_trial.frequency</code> y <code>auto_recurring.free_trial.frequency_type</code>. Si Mercado Pago no devuelve <code>free_trial</code>, el precio local queda sin período de prueba.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Retorno del checkout y reconciliación</div>
+<p>Cuando Mercado Pago vuelve con un <code>preapproval_id</code> desde el checkout de un plan, el retorno del usuario <strong>no da acceso por sí mismo</strong>.</p>
+
+<div class="callout c-warn">
+  La página de retorno solo muestra el estado local. Si el <code>preapproval_id</code> todavía no está asociado, puede consultar a Mercado Pago para vincular o recuperar una fila local pendiente siempre que: (a) exista una operación reciente de checkout del mismo usuario para el plan actual, y (b) el <code>preapproval_id</code> pertenezca al <code>mercado_pago_preapproval_plan_id</code> actual de la tribu.
+</div>
+
+<p>Esa reparación conserva la suscripción local como <code>pending</code>; la activación o remoción de acceso queda a cargo del webhook verificado o de una reconciliación server-side posterior.</p>
+
+<p>La reconciliación de suscriptores de un precio es un <strong>caso de uso reusable</strong>, no una regla propia de la pantalla de precios. Puede dispararse desde el botón manual, un webhook, un job periódico o una reparación puntual de admin. El caso de uso consulta cada <code>mercado_pago_preapproval_id</code> local contra Mercado Pago y reconcilia la base local antes de responder.</p>
+
+<table>
+  <thead>
+    <tr><th>Estado en Mercado Pago</th><th>Cuenta como suscripción del precio</th><th>Acceso</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>authorized</code></td>
+      <td><span class="badge b-green">sí</span></td>
+      <td>Activo</td>
+    </tr>
+    <tr>
+      <td><code>pending</code></td>
+      <td><span class="badge b-amber">sí</span></td>
+      <td>Bloqueado por pago</td>
+    </tr>
+    <tr>
+      <td><code>paused</code></td>
+      <td><span class="badge b-amber">sí</span></td>
+      <td>Removido por suscripción inactiva</td>
+    </tr>
+    <tr>
+      <td><code>canceled</code> / <code>cancelled</code></td>
+      <td><span class="badge b-gray">no</span></td>
+      <td>Removido por suscripción inactiva</td>
+    </tr>
+    <tr>
+      <td>Preapproval inexistente</td>
+      <td><span class="badge b-gray">no</span></td>
+      <td>Removido por suscripción inactiva</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Eliminación de precios</div>
+<div class="callout c-red">
+  La eliminación local de un precio es <strong>destructiva</strong> y solo puede ocurrir cuando se cumplen las tres condiciones a la vez. Cualquier omisión deja referencias colgantes a un plan que ya no existe.
+</div>
+
+<p>Precondiciones requeridas:</p>
+<ol>
+  <li>el precio local ya está <code>canceled</code></li>
+  <li>Mercado Pago confirma que el plan proveedor <strong>no</strong> está activo</li>
+  <li>no quedan invitaciones activas vinculadas a ese plan</li>
+</ol>
+
+<p>Las suscripciones de miembros se desprenden de <code>price_id</code> y conservan un snapshot mínimo del plan para que los webhooks y la auditoría sigan funcionando sin dejar referencias al plan eliminado.</p>
+</div>
+
 </body>
 </html>

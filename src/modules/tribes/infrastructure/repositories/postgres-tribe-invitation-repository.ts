@@ -50,8 +50,12 @@ type AssociatedPlanRow = {
   associated_plan_currency: string | null;
   associated_plan_frequency: string | null;
   associated_plan_id: string | null;
+  associated_plan_mercado_pago_account_email: string | null;
+  associated_plan_mercado_pago_account_label: string | null;
   associated_plan_name: string | null;
   associated_plan_status: "active" | "canceled" | "deleted" | null;
+  associated_plan_trial_frequency: number | null;
+  associated_plan_trial_frequency_type: string | null;
 };
 
 type InvitationRow = AssociatedPlanRow & {
@@ -154,6 +158,34 @@ function resolveInvitationUrlFromRow(
   }
 }
 
+const TRIAL_FREQUENCY_TYPE = {
+  days: "days",
+  months: "months",
+} as const;
+
+function mapAssociatedPlanTrial(
+  row: AssociatedPlanRow
+): TribeInvitationAssociatedPlanResult["trial"] {
+  if (
+    row.associated_plan_trial_frequency === null ||
+    row.associated_plan_trial_frequency_type === null
+  ) {
+    return null;
+  }
+
+  if (
+    row.associated_plan_trial_frequency_type !== TRIAL_FREQUENCY_TYPE.days &&
+    row.associated_plan_trial_frequency_type !== TRIAL_FREQUENCY_TYPE.months
+  ) {
+    return null;
+  }
+
+  return {
+    frequency: row.associated_plan_trial_frequency,
+    frequencyType: row.associated_plan_trial_frequency_type,
+  };
+}
+
 function mapAssociatedPlan(
   row: AssociatedPlanRow
 ): TribeInvitationAssociatedPlanResult | null {
@@ -173,8 +205,11 @@ function mapAssociatedPlan(
     currency: row.associated_plan_currency,
     frequency: row.associated_plan_frequency,
     id: row.associated_plan_id,
+    mercadoPagoAccountEmail: row.associated_plan_mercado_pago_account_email,
+    mercadoPagoAccountLabel: row.associated_plan_mercado_pago_account_label,
     name: row.associated_plan_name,
     status: row.associated_plan_status,
+    trial: mapAssociatedPlanTrial(row),
   };
 }
 
@@ -378,7 +413,11 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           associated_price.amount_cents as associated_plan_amount_cents,
           associated_price.currency as associated_plan_currency,
           associated_price.frequency as associated_plan_frequency,
-          associated_price.status as associated_plan_status
+          associated_price.status as associated_plan_status,
+          associated_price.trial_frequency as associated_plan_trial_frequency,
+          associated_price.trial_frequency_type as associated_plan_trial_frequency_type,
+          associated_plan_integration.account_label as associated_plan_mercado_pago_account_label,
+          associated_plan_integration.provider_account_email as associated_plan_mercado_pago_account_email
         from public.tribe_invitations
         inner join target_tribe
           on target_tribe.id = tribe_invitations.tribe_id
@@ -386,6 +425,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           on invitation_creators.id = tribe_invitations.created_by
         left join public.tribe_subscription_prices associated_price
           on associated_price.id = tribe_invitations.subscription_price_id
+        left join public.tribe_payment_integrations associated_plan_integration
+          on associated_plan_integration.id = associated_price.payment_integration_id
         where tribe_invitations.status = ${TRIBE_INVITATION_STATUS.active}
           and public.can_manage_tribe_invitations(target_tribe.id)
         order by tribe_invitations.created_at desc
@@ -432,7 +473,11 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           associated_price.amount_cents as associated_plan_amount_cents,
           associated_price.currency as associated_plan_currency,
           associated_price.frequency as associated_plan_frequency,
-          associated_price.status as associated_plan_status
+          associated_price.status as associated_plan_status,
+          associated_price.trial_frequency as associated_plan_trial_frequency,
+          associated_price.trial_frequency_type as associated_plan_trial_frequency_type,
+          associated_plan_integration.account_label as associated_plan_mercado_pago_account_label,
+          associated_plan_integration.provider_account_email as associated_plan_mercado_pago_account_email
         from public.tribe_invitations
         inner join target_tribe
           on target_tribe.id = tribe_invitations.tribe_id
@@ -440,6 +485,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           on invitation_creators.id = tribe_invitations.created_by
         left join public.tribe_subscription_prices associated_price
           on associated_price.id = tribe_invitations.subscription_price_id
+        left join public.tribe_payment_integrations associated_plan_integration
+          on associated_plan_integration.id = associated_price.payment_integration_id
         where tribe_invitations.status = ${TRIBE_INVITATION_STATUS.active}
           and tribe_invitations.subscription_price_id = ${priceId}
           and public.can_manage_tribe_invitations(target_tribe.id)
@@ -542,7 +589,11 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           associated_price.amount_cents as associated_plan_amount_cents,
           associated_price.currency as associated_plan_currency,
           associated_price.frequency as associated_plan_frequency,
-          associated_price.status as associated_plan_status
+          associated_price.status as associated_plan_status,
+          associated_price.trial_frequency as associated_plan_trial_frequency,
+          associated_price.trial_frequency_type as associated_plan_trial_frequency_type,
+          associated_plan_integration.account_label as associated_plan_mercado_pago_account_label,
+          associated_plan_integration.provider_account_email as associated_plan_mercado_pago_account_email
         from (select 1) result
         left join inserted_invitation
           on true
@@ -550,6 +601,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           on invitation_creators.id = inserted_invitation.created_by
         left join public.tribe_subscription_prices associated_price
           on associated_price.id = inserted_invitation.subscription_price_id
+        left join public.tribe_payment_integrations associated_plan_integration
+          on associated_plan_integration.id = associated_price.payment_integration_id
       `);
 
       return mapCreationResult(
@@ -648,7 +701,11 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           associated_price.amount_cents as associated_plan_amount_cents,
           associated_price.currency as associated_plan_currency,
           associated_price.frequency as associated_plan_frequency,
-          associated_price.status as associated_plan_status
+          associated_price.status as associated_plan_status,
+          associated_price.trial_frequency as associated_plan_trial_frequency,
+          associated_price.trial_frequency_type as associated_plan_trial_frequency_type,
+          associated_plan_integration.account_label as associated_plan_mercado_pago_account_label,
+          associated_plan_integration.provider_account_email as associated_plan_mercado_pago_account_email
         from (select 1) result
         left join updated_invitation
           on true
@@ -656,6 +713,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           on invitation_creators.id = updated_invitation.created_by
         left join public.tribe_subscription_prices associated_price
           on associated_price.id = updated_invitation.subscription_price_id
+        left join public.tribe_payment_integrations associated_plan_integration
+          on associated_plan_integration.id = associated_price.payment_integration_id
       `);
 
       const row = (result.rows?.[0] ?? null) as

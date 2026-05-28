@@ -295,6 +295,13 @@
       "when": 1779861600000,
       "tag": "20260527100000_allow_authors_to_update_own_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1779865200000,
+      "tag": "20260527110000_support_multiple_mercado_pago_accounts",
+      "breakpoints": true
     }
   ]
 }

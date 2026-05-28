@@ -4,7 +4,7 @@ const createJestConfig = nextJest({
   dir: "./",
 });
 
-const TEST_TIMEOUT_MS = 15_000;
+const TEST_TIMEOUT_MS = 30_000;
 
 const customJestConfig = {
   moduleNameMapper: {

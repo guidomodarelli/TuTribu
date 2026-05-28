@@ -23,6 +23,7 @@ export type CreateTribeSubscriptionPriceCommand = {
   currency: typeof TRIBE_SUBSCRIPTION_CURRENCY.ars;
   frequency: typeof TRIBE_SUBSCRIPTION_FREQUENCY.monthly;
   name: string;
+  paymentIntegrationId: string;
   trialFrequency: number | null;
   trialFrequencyType:
     | typeof TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days
@@ -33,7 +34,7 @@ export type CreateTribeSubscriptionPriceCommand = {
 
 export type UpdateTribeSubscriptionPriceCommand = Omit<
   CreateTribeSubscriptionPriceCommand,
-  "trialFrequency" | "trialFrequencyType"
+  "paymentIntegrationId" | "trialFrequency" | "trialFrequencyType"
 > & {
   priceId: string;
   trialFrequency?: CreateTribeSubscriptionPriceCommand["trialFrequency"];

@@ -448,6 +448,7 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 
 ### Neon migration push workflow
 
+- No ejecutar migraciones de base de datos salvo que el usuario lo pida explícitamente.
 - Use `npm run db:migrate` to push versioned migrations to Neon.
 - Use `npm run db:migrate:force` only when a forced Drizzle push is intentionally required.
 

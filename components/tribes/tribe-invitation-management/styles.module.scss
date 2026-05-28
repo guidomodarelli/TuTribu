@@ -108,6 +108,12 @@
     font-size: 0.95rem;
     font-weight: 600;
   }
+
+  &__planTrigger {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
 @media (min-width: 42rem) {

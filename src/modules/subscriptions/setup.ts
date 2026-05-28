@@ -4,7 +4,10 @@
  * @module subscriptions-setup
  */
 
-import { connectTribePaymentIntegration } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-payment-integration-use-cases";
+import {
+  connectTribePaymentIntegration,
+  updateTribePaymentIntegrationAccountLabel,
+} from "@/src/modules/subscriptions/application/use-cases/manage-tribe-payment-integration-use-cases";
 import {
   createTribeSubscriptionPrice,
   deleteTribeSubscriptionPrice,
@@ -64,6 +67,10 @@ export function buildSubscriptionsModule({
       connectTribePaymentIntegration: connectTribePaymentIntegration({
         tribePaymentIntegrationRepository,
       }),
+      updateTribePaymentIntegrationAccountLabel:
+        updateTribePaymentIntegrationAccountLabel({
+          tribePaymentIntegrationRepository,
+        }),
       createTribeSubscriptionPrice: createTribeSubscriptionPrice({
         tribeSubscriptionPriceRepository,
       }),

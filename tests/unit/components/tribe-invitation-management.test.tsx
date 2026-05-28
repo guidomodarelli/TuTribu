@@ -195,7 +195,10 @@ describe("TribeInvitationManagement", () => {
             currency: "ARS",
             id: "price-1",
             isCurrent: false,
+            mercadoPagoAccountEmail: null,
+            mercadoPagoAccountLabel: null,
             name: "Plan mensual",
+            trial: null,
           },
         ]}
         canManagePrices={false}
@@ -220,5 +223,74 @@ describe("TribeInvitationManagement", () => {
     expect(
       screen.queryByRole("option", { name: /Plan mensual/ })
     ).not.toBeInTheDocument();
+  });
+
+  it("displays the Mercado Pago account and trial period inside the associated-plan badge", () => {
+    render(
+      <TribeInvitationManagement
+        availablePrices={[]}
+        canManagePrices
+        invitations={[
+          {
+            ...baseInvitation,
+            subscriptionAssociation: {
+              plan: {
+                amountCents: 1500,
+                currency: "ARS",
+                frequency: "monthly",
+                id: "price-1",
+                mercadoPagoAccountEmail: "guido@example.com",
+                mercadoPagoAccountLabel: "[Guido] Test",
+                name: "[Guido] Test",
+                status: "active",
+                trial: { frequency: 7, frequencyType: "days" },
+              },
+              priceId: "price-1",
+              type: "specific",
+            },
+          },
+        ]}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.getByText(
+        /\[Guido\] Test\s+·\s+15\s+ARS\s+·\s+\[Guido\] Test \(guido@example\.com\)\s+·\s+7 días gratis/
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("includes account and trial details in the create-plan selector options", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeInvitationManagement
+        availablePrices={[
+          {
+            amountCents: 1500,
+            currency: "ARS",
+            id: "price-1",
+            isCurrent: false,
+            mercadoPagoAccountEmail: "guido@example.com",
+            mercadoPagoAccountLabel: "[Guido] Test",
+            name: "[Guido] Test",
+            trial: { frequency: 7, frequencyType: "days" },
+          },
+        ]}
+        canManagePrices
+        invitations={[]}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Crear link/ }));
+    await user.click(await screen.findByRole("combobox"));
+
+    expect(
+      await screen.findByRole("option", {
+        name: /\[Guido\] Test\s+·\s+15\s+ARS\s+·\s+\[Guido\] Test \(guido@example\.com\)\s+·\s+7 días gratis/,
+      })
+    ).toBeInTheDocument();
   });
 });

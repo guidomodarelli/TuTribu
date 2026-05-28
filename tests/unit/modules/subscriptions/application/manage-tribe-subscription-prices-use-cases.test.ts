@@ -16,6 +16,8 @@ import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/con
 import type { TribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
 import type { TribeSubscriberDiagnosticsRepository } from "@/src/modules/subscriptions/application/ports/tribe-subscriber-diagnostics-repository";
 
+const PAYMENT_INTEGRATION_ID = "11111111-1111-4111-8111-111111111111";
+
 function createRepository(
   overrides: Partial<TribeSubscriptionPriceRepository> = {}
 ): TribeSubscriptionPriceRepository {
@@ -52,7 +54,11 @@ describe("manage tribe subscription prices use cases", () => {
     frequency: "monthly" as const,
     id: "price-2",
     isCurrent: false,
+    mercadoPagoAccountLabel: "Cuenta principal",
+    mercadoPagoAccountEmail: "leader@example.com",
     name: "Plan mensual",
+    paymentIntegrationId: PAYMENT_INTEGRATION_ID,
+    providerAccountId: "collector-1",
     status: "active" as const,
     trial: {
       frequency: 7,
@@ -73,6 +79,7 @@ describe("manage tribe subscription prices use cases", () => {
       execute({
         amount: "5000",
         name: " Plan mensual ",
+        paymentIntegrationId: ` ${PAYMENT_INTEGRATION_ID} `,
         trialFrequency: " 7 ",
         trialFrequencyType: " days ",
         tribeSlug: " matematica-pro ",
@@ -86,10 +93,45 @@ describe("manage tribe subscription prices use cases", () => {
       currency: "ARS",
       frequency: "monthly",
       name: "Plan mensual",
+      paymentIntegrationId: PAYMENT_INTEGRATION_ID,
       trialFrequency: 7,
       trialFrequencyType: "days",
       tribeSlug: "matematica-pro",
     });
+  });
+
+  it("should reject price creation without a selected Mercado Pago account", async () => {
+    const create = jest.fn();
+    const execute = createTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({ create }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: "Plan mensual",
+        paymentIntegrationId: " ",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("should reject price creation with a malformed Mercado Pago account id", async () => {
+    const create = jest.fn();
+    const execute = createTribeSubscriptionPrice({
+      tribeSubscriptionPriceRepository: createRepository({ create }),
+    });
+
+    await expect(
+      execute({
+        amount: "5000",
+        name: "Plan mensual",
+        paymentIntegrationId: "integration-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput });
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("should reject invalid trial periods before calling the repository", async () => {
@@ -129,6 +171,7 @@ describe("manage tribe subscription prices use cases", () => {
       execute({
         amount: "5000",
         name: "Plan mensual",
+        paymentIntegrationId: PAYMENT_INTEGRATION_ID,
         trialFrequency: "1",
         trialFrequencyType: "days",
         tribeSlug: "matematica-pro",
@@ -169,6 +212,7 @@ describe("manage tribe subscription prices use cases", () => {
       execute({
         amount: "5000",
         name: "Plan mensual",
+        paymentIntegrationId: PAYMENT_INTEGRATION_ID,
         trialFrequency: "2",
         trialFrequencyType: "days",
         tribeSlug: "matematica-pro",
@@ -268,6 +312,7 @@ describe("manage tribe subscription prices use cases", () => {
       execute({
         amount: "2500",
         name: "Plan nuevo",
+        paymentIntegrationId: PAYMENT_INTEGRATION_ID,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached });
@@ -325,6 +370,22 @@ describe("manage tribe subscription prices use cases", () => {
 
   it("lists prices with viewer permissions from the repository", async () => {
     const listByTribeSlug = jest.fn(async () => ({
+      availableMercadoPagoAccounts: [
+        {
+          accountLabel: "Cuenta principal",
+          id: PAYMENT_INTEGRATION_ID,
+          providerAccountId: "collector-1",
+          providerAccountEmail: "leader@example.com",
+          status: "connected" as const,
+        },
+        {
+          accountLabel: "Cuenta secundaria",
+          id: "integration-2",
+          providerAccountId: "collector-2",
+          providerAccountEmail: null,
+          status: "requires_reconnection" as const,
+        },
+      ],
       hasMercadoPagoIntegration: true,
       mercadoPagoConnectionStatus: "connected" as const,
       prices: [createdPrice],
@@ -342,6 +403,22 @@ describe("manage tribe subscription prices use cases", () => {
         tribeSlug: " matematica-pro ",
       })
     ).resolves.toEqual({
+      availableMercadoPagoAccounts: [
+        {
+          accountLabel: "Cuenta principal",
+          id: PAYMENT_INTEGRATION_ID,
+          providerAccountId: "collector-1",
+          providerAccountEmail: "leader@example.com",
+          status: "connected",
+        },
+        {
+          accountLabel: "Cuenta secundaria",
+          id: "integration-2",
+          providerAccountId: "collector-2",
+          providerAccountEmail: null,
+          status: "requires_reconnection",
+        },
+      ],
       hasMercadoPagoIntegration: true,
       mercadoPagoConnectionStatus: "connected",
       prices: [createdPrice],

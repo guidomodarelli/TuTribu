@@ -26,6 +26,7 @@ import {
   TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE,
 } from "@/src/modules/tribes/constants/tribe-invitations";
 import type {
+  TribeInvitationAssociatedPlanTrialResult,
   TribeInvitationListItemResult,
   TribeInvitationSubscriptionAssociationResult,
 } from "@/src/modules/tribes/application/results/tribe-invitation-result";
@@ -55,8 +56,14 @@ const INVITATION_MANAGEMENT_COPY = {
   freeOptionLabel: "Plan gratuito",
   itemTitle: "Link activo",
   missingPlanLabel: "Plan no disponible",
+  noTrialLabel: "Sin prueba gratis",
   planSelectorLabel: "Plan asociado",
   planSelectorPlaceholder: "Elegí un plan...",
+  trialDaySuffix: "día gratis",
+  trialDaysSuffix: "días gratis",
+  trialMonthSuffix: "mes gratis",
+  trialMonthsSuffix: "meses gratis",
+  unknownAccountLabel: "Cuenta sin alias",
   revokeButton: "Revocar",
   revokeConfirmCancel: "Cancelar",
   revokeConfirmConfirm: "Revocar link",
@@ -133,12 +140,29 @@ const PLAN_SELECTOR_VALUE = {
   free: "free",
 } as const;
 
+const TRIAL_FREQUENCY_TYPE = {
+  days: "days",
+  months: "months",
+} as const;
+
+const ACCOUNT_LABEL_FORMAT = {
+  emailPrefix: " (",
+  emailSuffix: ")",
+} as const;
+
+const TRIAL_PERIOD_FORMAT = {
+  frequencyUnitSeparator: " ",
+} as const;
+
 type AvailablePriceOption = {
   amountCents: number;
   currency: string;
   id: string;
   isCurrent: boolean;
+  mercadoPagoAccountEmail: string | null;
+  mercadoPagoAccountLabel: string | null;
   name: string;
+  trial: TribeInvitationAssociatedPlanTrialResult | null;
 };
 
 type InvitationResponse = {
@@ -213,6 +237,85 @@ function formatPlanAmount(amountCents: number): string {
   );
 }
 
+function formatMercadoPagoAccountLabel(
+  accountLabel: string | null,
+  accountEmail: string | null
+): string | null {
+  const trimmedLabel = accountLabel?.trim() ?? "";
+  const trimmedEmail = accountEmail?.trim() ?? "";
+
+  if (trimmedLabel && trimmedEmail) {
+    return (
+      trimmedLabel +
+      ACCOUNT_LABEL_FORMAT.emailPrefix +
+      trimmedEmail +
+      ACCOUNT_LABEL_FORMAT.emailSuffix
+    );
+  }
+
+  if (trimmedLabel) {
+    return trimmedLabel;
+  }
+
+  if (trimmedEmail) {
+    return trimmedEmail;
+  }
+
+  return null;
+}
+
+function formatTrialPeriod(
+  trial: TribeInvitationAssociatedPlanTrialResult | null
+): string | null {
+  if (!trial) {
+    return null;
+  }
+
+  const isSingular = trial.frequency === 1;
+  const unitLabel =
+    trial.frequencyType === TRIAL_FREQUENCY_TYPE.months
+      ? isSingular
+        ? INVITATION_MANAGEMENT_COPY.trialMonthSuffix
+        : INVITATION_MANAGEMENT_COPY.trialMonthsSuffix
+      : isSingular
+      ? INVITATION_MANAGEMENT_COPY.trialDaySuffix
+      : INVITATION_MANAGEMENT_COPY.trialDaysSuffix;
+
+  return (
+    String(trial.frequency) +
+    TRIAL_PERIOD_FORMAT.frequencyUnitSeparator +
+    unitLabel
+  );
+}
+
+type PlanLabelSegmentsInput = {
+  accountEmail: string | null;
+  accountLabel: string | null;
+  amountCents: number;
+  name: string;
+  trial: TribeInvitationAssociatedPlanTrialResult | null;
+};
+
+function buildPlanLabelSegments(input: PlanLabelSegmentsInput): string[] {
+  const segments: string[] = [input.name, formatPlanAmount(input.amountCents)];
+  const formattedAccount = formatMercadoPagoAccountLabel(
+    input.accountLabel,
+    input.accountEmail
+  );
+
+  if (formattedAccount) {
+    segments.push(formattedAccount);
+  } else if (input.accountLabel === null && input.accountEmail === null) {
+    // No-op: free plans or plans without payment integration omit the account segment.
+  }
+
+  segments.push(
+    formatTrialPeriod(input.trial) ?? INVITATION_MANAGEMENT_COPY.noTrialLabel
+  );
+
+  return segments;
+}
+
 function serializeSelectorValueToAssociation(
   selectorValue: string
 ): { type: string; priceId?: string } | null {
@@ -270,10 +373,13 @@ function describeAssociation(
     }
 
     return {
-      label:
-        association.plan.name +
-        INVITATION_PLAN_LABEL_SEPARATOR +
-        formatPlanAmount(association.plan.amountCents),
+      label: buildPlanLabelSegments({
+        accountEmail: association.plan.mercadoPagoAccountEmail,
+        accountLabel: association.plan.mercadoPagoAccountLabel,
+        amountCents: association.plan.amountCents,
+        name: association.plan.name,
+        trial: association.plan.trial,
+      }).join(INVITATION_PLAN_LABEL_SEPARATOR),
       tone: INVITATION_MANAGEMENT_BADGE_TONE.specific,
     };
   }
@@ -619,7 +725,10 @@ export function TribeInvitationManagement({
               onValueChange={setCreateSelectorValue}
               value={createSelectorValue}
             >
-              <SelectTrigger id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createPlan}>
+              <SelectTrigger
+                className={styles.TribeInvitationManagement__planTrigger}
+                id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createPlan}
+              >
                 <SelectValue
                   placeholder={INVITATION_MANAGEMENT_COPY.planSelectorPlaceholder}
                 />
@@ -635,7 +744,13 @@ export function TribeInvitationManagement({
                     </SelectItem>
                     {availablePrices.map((price) => (
                       <SelectItem key={price.id} value={price.id}>
-                        {price.name} · {formatPlanAmount(price.amountCents)}
+                        {buildPlanLabelSegments({
+                          accountEmail: price.mercadoPagoAccountEmail,
+                          accountLabel: price.mercadoPagoAccountLabel,
+                          amountCents: price.amountCents,
+                          name: price.name,
+                          trial: price.trial,
+                        }).join(INVITATION_PLAN_LABEL_SEPARATOR)}
                       </SelectItem>
                     ))}
                   </>
@@ -691,7 +806,10 @@ export function TribeInvitationManagement({
               onValueChange={setEditSelectorValue}
               value={editSelectorValue}
             >
-              <SelectTrigger id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editPlan}>
+              <SelectTrigger
+                className={styles.TribeInvitationManagement__planTrigger}
+                id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editPlan}
+              >
                 <SelectValue
                   placeholder={INVITATION_MANAGEMENT_COPY.planSelectorPlaceholder}
                 />
@@ -707,7 +825,13 @@ export function TribeInvitationManagement({
                     </SelectItem>
                     {availablePrices.map((price) => (
                       <SelectItem key={price.id} value={price.id}>
-                        {price.name} · {formatPlanAmount(price.amountCents)}
+                        {buildPlanLabelSegments({
+                          accountEmail: price.mercadoPagoAccountEmail,
+                          accountLabel: price.mercadoPagoAccountLabel,
+                          amountCents: price.amountCents,
+                          name: price.name,
+                          trial: price.trial,
+                        }).join(INVITATION_PLAN_LABEL_SEPARATOR)}
                       </SelectItem>
                     ))}
                   </>

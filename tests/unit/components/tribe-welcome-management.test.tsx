@@ -247,9 +247,7 @@ describe("TribeWelcomeManagement", () => {
     }
   });
 
-  it(
-    "uses the next available sort order after removing and adding items",
-    async () => {
+  it("uses the next available sort order after removing and adding items", async () => {
     const user = userEvent.setup();
 
     render(
@@ -334,9 +332,7 @@ describe("TribeWelcomeManagement", () => {
 
     expect(body.rules.map((rule) => rule.sortOrder)).toEqual([2, 3]);
     expect(body.links.map((link) => link.sortOrder)).toEqual([2, 3]);
-    },
-    15000
-  );
+  });
 
   it("blocks WhatsApp buttons without a phone number before saving", async () => {
     const user = userEvent.setup();

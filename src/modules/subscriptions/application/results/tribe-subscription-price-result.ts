@@ -20,7 +20,11 @@ export type TribeSubscriptionPriceResult = {
   frequency: typeof TRIBE_SUBSCRIPTION_FREQUENCY.monthly;
   id: string;
   isCurrent: boolean;
+  mercadoPagoAccountEmail?: string | null;
+  mercadoPagoAccountLabel?: string | null;
   name: string;
+  paymentIntegrationId?: string | null;
+  providerAccountId?: string | null;
   status: "active" | "canceled" | "deleted" | "paused";
   trial: {
     frequency: number;
@@ -30,7 +34,18 @@ export type TribeSubscriptionPriceResult = {
   } | null;
 };
 
+export type TribeMercadoPagoAccountResult = {
+  accountLabel: string;
+  id: string;
+  providerAccountEmail: string | null;
+  providerAccountId: string | null;
+  status:
+    | typeof MERCADO_PAGO_CONNECTION_STATUS.connected
+    | typeof MERCADO_PAGO_CONNECTION_STATUS.requiresReconnection;
+};
+
 export type TribeSubscriptionPriceListResult = {
+  availableMercadoPagoAccounts?: TribeMercadoPagoAccountResult[];
   freeJoinIsCurrent: boolean;
   hasMercadoPagoIntegration: boolean;
   mercadoPagoConnectionStatus:

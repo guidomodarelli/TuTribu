@@ -267,6 +267,73 @@ describe("PostgresTribeInvitationRepository", () => {
     expect(sqlText).toContain("public.can_manage_tribe_invitations");
   });
 
+  it("includes the Mercado Pago account and trial period for specific-price associations", async () => {
+    const encryptedActiveToken = encryptInvitationToken("active-token");
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          associated_plan_amount_cents: 1500,
+          associated_plan_currency: "ARS",
+          associated_plan_frequency: "monthly",
+          associated_plan_id: "550e8400-e29b-41d4-a716-446655440010",
+          associated_plan_mercado_pago_account_email: "guido@example.com",
+          associated_plan_mercado_pago_account_label: "[Guido] Test",
+          associated_plan_name: "[Guido] Test",
+          associated_plan_status: "active",
+          associated_plan_trial_frequency: 7,
+          associated_plan_trial_frequency_type: "days",
+          created_at: "2026-04-26T07:00:00.000Z",
+          created_by_name: "Grace Hopper",
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          subscription_association_type: "specific",
+          subscription_price_id: "550e8400-e29b-41d4-a716-446655440010",
+          token_encrypted: encryptedActiveToken,
+        },
+      ],
+    }));
+    const repository = new PostgresTribeInvitationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listByTribeSlug({
+        baseUrl: "https://tutribu.example.com",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual([
+      {
+        createdAt: "2026-04-26T07:00:00.000Z",
+        createdByName: "Grace Hopper",
+        id: "550e8400-e29b-41d4-a716-446655440000",
+        invitationUrl:
+          "https://tutribu.example.com/matematica-pro/invitar/active-token",
+        subscriptionAssociation: {
+          plan: {
+            amountCents: 1500,
+            currency: "ARS",
+            frequency: "monthly",
+            id: "550e8400-e29b-41d4-a716-446655440010",
+            mercadoPagoAccountEmail: "guido@example.com",
+            mercadoPagoAccountLabel: "[Guido] Test",
+            name: "[Guido] Test",
+            status: "active",
+            trial: { frequency: 7, frequencyType: "days" },
+          },
+          priceId: "550e8400-e29b-41d4-a716-446655440010",
+          type: "specific",
+        },
+      },
+    ]);
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain(
+      "left join public.tribe_payment_integrations associated_plan_integration"
+    );
+    expect(sqlText).toContain("associated_plan_trial_frequency");
+    expect(sqlText).toContain("associated_plan_mercado_pago_account_label");
+  });
+
   it("returns null acceptance links when decryption fails for a stored row", async () => {
     const execute = jest.fn(async () => ({
       rows: [

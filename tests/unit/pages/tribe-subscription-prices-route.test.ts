@@ -3,6 +3,7 @@ import {
   DELETE,
   PATCH,
 } from "@/app/api/tribes/[slug]/subscriptions/prices/[priceId]/route";
+import { PATCH as PATCH_PAYMENT_ACCOUNT } from "@/app/api/tribes/[slug]/subscriptions/mercado-pago-accounts/[paymentIntegrationId]/route";
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -11,6 +12,8 @@ const getAuthenticatedMember = jest.fn();
 const createTribeSubscriptionPrice = jest.fn();
 const deleteTribeSubscriptionPrice = jest.fn();
 const updateTribeSubscriptionPrice = jest.fn();
+const updateTribePaymentIntegrationAccountLabel = jest.fn();
+const PAYMENT_INTEGRATION_ID = "11111111-1111-4111-8111-111111111111";
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -83,6 +86,7 @@ describe("tribe subscription prices route", () => {
         useCases: {
           createTribeSubscriptionPrice,
           deleteTribeSubscriptionPrice,
+          updateTribePaymentIntegrationAccountLabel,
           updateTribeSubscriptionPrice,
         },
       },
@@ -221,6 +225,7 @@ describe("tribe subscription prices route", () => {
       buildRequest({
         amount: "5000",
         name: "Plan mensual",
+        paymentIntegrationId: PAYMENT_INTEGRATION_ID,
         trialFrequency: "14",
       }),
       buildContext()
@@ -230,9 +235,113 @@ describe("tribe subscription prices route", () => {
     expect(createTribeSubscriptionPrice).toHaveBeenCalledWith({
       amount: "5000",
       name: "Plan mensual",
+      paymentIntegrationId: PAYMENT_INTEGRATION_ID,
       trialFrequency: "14",
       trialFrequencyType: undefined,
       tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should pass the selected Mercado Pago account to price creation", async () => {
+    createTribeSubscriptionPrice.mockResolvedValue({
+      price: {
+        activeSubscribersCount: 0,
+        amountCents: 500000,
+        createdAt: "2026-05-06T12:00:00.000Z",
+        currency: "ARS",
+        frequency: "monthly",
+        id: "price-1",
+        isCurrent: false,
+        mercadoPagoAccountLabel: "Cuenta principal",
+        name: "Plan mensual",
+        paymentIntegrationId: PAYMENT_INTEGRATION_ID,
+        status: "active",
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+    });
+
+    const response = await POST(
+      buildRequest({
+        amount: "5000",
+        name: "Plan mensual",
+        paymentIntegrationId: PAYMENT_INTEGRATION_ID,
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(201);
+    expect(createTribeSubscriptionPrice).toHaveBeenCalledWith({
+      amount: "5000",
+      name: "Plan mensual",
+      paymentIntegrationId: PAYMENT_INTEGRATION_ID,
+      trialFrequency: undefined,
+      trialFrequencyType: undefined,
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should update a Mercado Pago account label", async () => {
+    updateTribePaymentIntegrationAccountLabel.mockResolvedValue({
+      account: {
+        accountLabel: "Cuenta principal",
+        id: PAYMENT_INTEGRATION_ID,
+        providerAccountEmail: null,
+        providerAccountId: "collector-1",
+        status: "connected",
+      },
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
+    });
+
+    const response = await PATCH_PAYMENT_ACCOUNT(
+      buildRequest({
+        accountLabel: "Cuenta principal",
+      }),
+      {
+        params: Promise.resolve({
+          paymentIntegrationId: PAYMENT_INTEGRATION_ID,
+          slug: "matematica-pro",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      account: {
+        accountLabel: "Cuenta principal",
+        id: PAYMENT_INTEGRATION_ID,
+        providerAccountEmail: null,
+        providerAccountId: "collector-1",
+        status: "connected",
+      },
+      message: "Alias actualizado.",
+    });
+    expect(updateTribePaymentIntegrationAccountLabel).toHaveBeenCalledWith({
+      accountLabel: "Cuenta principal",
+      paymentIntegrationId: PAYMENT_INTEGRATION_ID,
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("should return a validation error for malformed Mercado Pago account ids", async () => {
+    updateTribePaymentIntegrationAccountLabel.mockResolvedValue({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput,
+    });
+
+    const response = await PATCH_PAYMENT_ACCOUNT(
+      buildRequest({
+        accountLabel: "Cuenta principal",
+      }),
+      {
+        params: Promise.resolve({
+          paymentIntegrationId: "integration-1",
+          slug: "matematica-pro",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      message: "Definí un alias de cuenta válido.",
     });
   });
 
