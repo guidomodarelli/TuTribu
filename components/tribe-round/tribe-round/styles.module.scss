@@ -1350,6 +1350,14 @@
     margin: 0;
   }
 
+  &__replyLoading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 0.5rem 0;
+  }
+
   &__reply {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);

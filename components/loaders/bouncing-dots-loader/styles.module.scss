@@ -1,0 +1,178 @@
+$bouncing-dots-loader-md-width: 12.5rem;
+$bouncing-dots-loader-md-height: 3.75rem;
+$bouncing-dots-loader-md-dot-size: 1.25rem;
+$bouncing-dots-loader-md-shadow-height: 0.25rem;
+$bouncing-dots-loader-md-shadow-top: 3.875rem;
+$bouncing-dots-loader-md-dot-flat-height: 0.3125rem;
+$bouncing-dots-loader-md-dot-flat-radius: 3.125rem 3.125rem 1.5625rem 1.5625rem;
+$bouncing-dots-loader-sm-width: 6.5rem;
+$bouncing-dots-loader-sm-height: 1.875rem;
+$bouncing-dots-loader-sm-dot-size: 0.625rem;
+$bouncing-dots-loader-sm-shadow-height: 0.1875rem;
+$bouncing-dots-loader-sm-shadow-top: 1.9375rem;
+$bouncing-dots-loader-sm-dot-flat-height: 0.1875rem;
+$bouncing-dots-loader-sm-dot-flat-radius: 1.5625rem 1.5625rem 0.75rem 0.75rem;
+$bouncing-dots-loader-animation-duration: 0.5s;
+$bouncing-dots-loader-animation-delay-step-one: 0.2s;
+$bouncing-dots-loader-animation-delay-step-two: 0.3s;
+$bouncing-dots-loader-dot-color: var(--foreground);
+$bouncing-dots-loader-shadow-color: color-mix(
+  in srgb,
+  var(--foreground) 35%,
+  transparent
+);
+
+.BouncingDotsLoader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+
+  &__stage {
+    position: relative;
+    z-index: 1;
+    width: $bouncing-dots-loader-md-width;
+    height: $bouncing-dots-loader-md-height;
+  }
+
+  &--sm &__stage {
+    width: $bouncing-dots-loader-sm-width;
+    height: $bouncing-dots-loader-sm-height;
+  }
+
+  &__dot {
+    position: absolute;
+    left: 15%;
+    width: $bouncing-dots-loader-md-dot-size;
+    height: $bouncing-dots-loader-md-dot-size;
+    border-radius: 50%;
+    background-color: $bouncing-dots-loader-dot-color;
+    transform-origin: 50%;
+    animation: BouncingDotsLoader-dot-md
+      $bouncing-dots-loader-animation-duration alternate infinite ease;
+
+    &--middle {
+      left: 45%;
+      animation-delay: $bouncing-dots-loader-animation-delay-step-one;
+    }
+
+    &--right {
+      left: auto;
+      right: 15%;
+      animation-delay: $bouncing-dots-loader-animation-delay-step-two;
+    }
+  }
+
+  &--sm &__dot {
+    width: $bouncing-dots-loader-sm-dot-size;
+    height: $bouncing-dots-loader-sm-dot-size;
+    animation-name: BouncingDotsLoader-dot-sm;
+  }
+
+  &__shadow {
+    position: absolute;
+    top: $bouncing-dots-loader-md-shadow-top;
+    left: 15%;
+    z-index: -1;
+    width: $bouncing-dots-loader-md-dot-size;
+    height: $bouncing-dots-loader-md-shadow-height;
+    border-radius: 50%;
+    background-color: $bouncing-dots-loader-shadow-color;
+    transform-origin: 50%;
+    filter: blur(1px);
+    animation: BouncingDotsLoader-shadow
+      $bouncing-dots-loader-animation-duration alternate infinite ease;
+
+    &--middle {
+      left: 45%;
+      animation-delay: $bouncing-dots-loader-animation-delay-step-one;
+    }
+
+    &--right {
+      left: auto;
+      right: 15%;
+      animation-delay: $bouncing-dots-loader-animation-delay-step-two;
+    }
+  }
+
+  &--sm &__shadow {
+    top: $bouncing-dots-loader-sm-shadow-top;
+    width: $bouncing-dots-loader-sm-dot-size;
+    height: $bouncing-dots-loader-sm-shadow-height;
+  }
+
+  &__srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+@keyframes BouncingDotsLoader-dot-md {
+  0% {
+    top: $bouncing-dots-loader-md-height;
+    height: $bouncing-dots-loader-md-dot-flat-height;
+    border-radius: $bouncing-dots-loader-md-dot-flat-radius;
+    transform: scaleX(1.7);
+  }
+
+  40% {
+    height: $bouncing-dots-loader-md-dot-size;
+    border-radius: 50%;
+    transform: scaleX(1);
+  }
+
+  100% {
+    top: 0;
+  }
+}
+
+@keyframes BouncingDotsLoader-dot-sm {
+  0% {
+    top: $bouncing-dots-loader-sm-height;
+    height: $bouncing-dots-loader-sm-dot-flat-height;
+    border-radius: $bouncing-dots-loader-sm-dot-flat-radius;
+    transform: scaleX(1.7);
+  }
+
+  40% {
+    height: $bouncing-dots-loader-sm-dot-size;
+    border-radius: 50%;
+    transform: scaleX(1);
+  }
+
+  100% {
+    top: 0;
+  }
+}
+
+@keyframes BouncingDotsLoader-shadow {
+  0% {
+    transform: scaleX(1.5);
+  }
+
+  40% {
+    transform: scaleX(1);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scaleX(0.2);
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .BouncingDotsLoader {
+    &__dot,
+    &__shadow {
+      animation: none;
+    }
+  }
+}

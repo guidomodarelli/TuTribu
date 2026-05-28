@@ -3586,7 +3586,9 @@ describe("TribeRound", () => {
       screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
     );
 
-    expect(screen.getByText("Cargando respuestas...")).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Cargando respuestas..." })
+    ).toBeInTheDocument();
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(

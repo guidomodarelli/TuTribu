@@ -79,6 +79,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import {
@@ -5001,9 +5002,12 @@ function TribeRoundContent({
                 >
                   {selectedMessageReplyLoadStatus ===
                   TRIBE_ROUND_REPLY_LOAD_STATUS.loading ? (
-                    <p className={styles.TribeRound__replyStatus}>
-                      {TRIBE_ROUND_COPY.repliesLoading}
-                    </p>
+                    <div className={styles.TribeRound__replyLoading}>
+                      <BouncingDotsLoader
+                        label={TRIBE_ROUND_COPY.repliesLoading}
+                        size="sm"
+                      />
+                    </div>
                   ) : null}
                   {selectedMessageReplyLoadStatus ===
                   TRIBE_ROUND_REPLY_LOAD_STATUS.error ? (
