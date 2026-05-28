@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import Script from "next/script";
 
 import { ErrorState } from "@/components/feedback/error-state";
@@ -58,18 +57,6 @@ const GLOBAL_ERROR_THEME_BOOTSTRAP_SCRIPT = `
 })();
 `;
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  preload: false,
-  variable: "--font-ibm-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-});
-
 type GlobalErrorPageProps = {
   error: Error & { digest?: string };
   unstable_retry: () => void;
@@ -86,7 +73,6 @@ export default function GlobalErrorPage({
   return (
     <html
       lang={GLOBAL_ERROR_PAGE_COPY.htmlLanguage}
-      className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
       suppressHydrationWarning
     >
       <head>

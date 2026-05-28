@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import Script from "next/script";
 
 import { AppProviders } from "@/components/providers/app-providers";
@@ -46,18 +45,6 @@ const THEME_MODE_BOOTSTRAP_SCRIPT = `
 })();
 `;
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  preload: false,
-  variable: "--font-ibm-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-});
-
 export const metadata: Metadata = {
   title: siteConfig.name,
   description:
@@ -73,7 +60,7 @@ export default function RootLayout({
     <html
       lang={ROOT_LAYOUT_DOCUMENT.language}
       data-scroll-behavior={ROOT_LAYOUT_DOCUMENT.scrollBehavior}
-      className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} ${styles.RootLayout}`}
+      className={styles.RootLayout}
       suppressHydrationWarning
     >
       <head>

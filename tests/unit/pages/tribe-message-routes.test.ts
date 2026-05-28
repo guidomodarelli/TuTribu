@@ -541,6 +541,24 @@ describe("Tribe message routes", () => {
     );
   });
 
+  it("does not expose like state when the like toggle is forbidden", async () => {
+    toggleMessageLike.mockResolvedValue({
+      status: "forbidden",
+    });
+
+    const response = await POST_LIKE(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      message: "No tenes permisos para reaccionar a esta mensaje.",
+    });
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
+
   it("returns not found when pin messageId is not a UUID", async () => {
     const response = await POST_PIN(
       buildJsonRequest(),
@@ -587,8 +605,6 @@ describe("Tribe message routes", () => {
 
   it("returns a safe warning when the pin limit is reached", async () => {
     toggleMessagePin.mockResolvedValue({
-      isPinned: false,
-      pinnedAt: null,
       status: "pin_limit_reached",
     });
 
@@ -602,6 +618,24 @@ describe("Tribe message routes", () => {
     expect(body).toEqual({
       message: "Solo podes pinear hasta 3 mensajes en el fogón.",
     });
+  });
+
+  it("does not expose pin state when the pin toggle is forbidden", async () => {
+    toggleMessagePin.mockResolvedValue({
+      status: "forbidden",
+    });
+
+    const response = await POST_PIN(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      message: "No tenes permisos para pinear este mensaje.",
+    });
+    expect(revalidateTag).not.toHaveBeenCalled();
   });
 
   it("keeps independent poll updates inaccessible", async () => {

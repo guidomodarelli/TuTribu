@@ -350,16 +350,12 @@ export class PostgresMessageMutationRepository
 
       if (!targetMessage) {
         return {
-          likedByViewer: false,
-          likeCount: 0,
           status: MESSAGE_MUTATION_STATUS.notFound,
         };
       }
 
       if (!targetMessage.can_write) {
         return {
-          likedByViewer: false,
-          likeCount: 0,
           status: MESSAGE_MUTATION_STATUS.forbidden,
         };
       }
@@ -421,8 +417,6 @@ export class PostgresMessageMutationRepository
       }
 
       return {
-        likedByViewer: false,
-        likeCount,
         status: MESSAGE_MUTATION_STATUS.forbidden,
       };
     });
@@ -453,16 +447,12 @@ export class PostgresMessageMutationRepository
 
       if (!targetMessage) {
         return {
-          isPinned: false,
-          pinnedAt: null,
           status: MESSAGE_MUTATION_STATUS.notFound,
         };
       }
 
       if (!targetMessage.can_pin) {
         return {
-          isPinned: targetMessage.is_pinned,
-          pinnedAt: null,
           status: MESSAGE_MUTATION_STATUS.forbidden,
         };
       }
@@ -515,8 +505,6 @@ export class PostgresMessageMutationRepository
 
       if (pinnedCount >= PINNED_TRIBE_MESSAGES_LIMIT) {
         return {
-          isPinned: false,
-          pinnedAt: null,
           status: MESSAGE_MUTATION_STATUS.pinLimitReached,
         };
       }

@@ -423,8 +423,6 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "leader-1",
       })
     ).resolves.toEqual({
-      isPinned: false,
-      pinnedAt: null,
       status: "pin_limit_reached",
     });
     expect(execute).toHaveBeenCalledTimes(4);

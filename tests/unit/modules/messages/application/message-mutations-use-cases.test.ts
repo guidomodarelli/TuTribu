@@ -404,8 +404,6 @@ describe("message mutation use cases", () => {
 
   it("blocks a fourth pinned message through the pin repository", async () => {
     const togglePin = jest.fn(async () => ({
-      isPinned: false,
-      pinnedAt: null,
       status: "pin_limit_reached" as const,
     }));
     const execute = toggleMessagePin({
@@ -419,8 +417,6 @@ describe("message mutation use cases", () => {
         userId: "leader-1",
       })
     ).resolves.toEqual({
-      isPinned: false,
-      pinnedAt: null,
       status: "pin_limit_reached",
     });
   });
