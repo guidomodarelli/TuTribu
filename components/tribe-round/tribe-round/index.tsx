@@ -399,12 +399,13 @@ const TRIBE_ROUND_PAGINATION_LABEL = {
 } as const;
 
 const TRIBE_ROUND_FORMAT = {
+  avatarRoleModifierPrefix: "TribeRound__avatar--",
   dateStyle: "medium",
   day: "numeric",
   locale: "es-AR",
   month: "short",
   nonBreakingSpacePattern: /[\u00a0\u202f]/g,
-  roleBadgeModifierPrefix: "TribeRound__roleBadge--",
+  replyAvatarRoleModifierPrefix: "TribeRound__replyAvatar--",
   standardSpace: " ",
   timeStyle: "short",
   year: "numeric",
@@ -738,14 +739,39 @@ function buildRoundStateResetKey(
 
 function renderRoundAuthorAvatar(
   author: TribeRoundMessageResult["author"],
-  className: string
+  baseClassName: string,
+  roleModifierClassName?: string
 ) {
+  const composedClassName = [baseClassName, roleModifierClassName]
+    .filter(Boolean)
+    .join(TRIBE_ROUND_FORMAT.standardSpace);
+
   return (
-    <Avatar className={className}>
+    <Avatar className={composedClassName}>
       {author.image ? <AvatarImage alt={author.name} src={author.image} /> : null}
       <AvatarFallback>{author.avatarFallback}</AvatarFallback>
     </Avatar>
   );
+}
+
+function getAvatarRoleModifierClassName(
+  role: TribeRoundReplyResult["author"]["role"]
+): string | undefined {
+  if (!TRIBE_ROUND_PRIVILEGED_AUTHOR_ROLES.has(role)) {
+    return undefined;
+  }
+
+  return styles[TRIBE_ROUND_FORMAT.avatarRoleModifierPrefix + role];
+}
+
+function getReplyAvatarRoleModifierClassName(
+  role: TribeRoundReplyResult["author"]["role"]
+): string | undefined {
+  if (!TRIBE_ROUND_PRIVILEGED_AUTHOR_ROLES.has(role)) {
+    return undefined;
+  }
+
+  return styles[TRIBE_ROUND_FORMAT.replyAvatarRoleModifierPrefix + role];
 }
 
 async function readApiErrorMessage(response: Response): Promise<string | null> {
@@ -1846,17 +1872,15 @@ function buildTribeRoundPageHref({
     : TRIBE_ROUND_PATH.tribe(tribeSlug);
 }
 
-function renderAuthorRoleBadge(role: TribeRoundReplyResult["author"]["role"]) {
+function renderAuthorRoleAccessibleLabel(
+  role: TribeRoundReplyResult["author"]["role"]
+) {
   if (!TRIBE_ROUND_PRIVILEGED_AUTHOR_ROLES.has(role)) {
     return null;
   }
 
   return (
-    <span
-      className={`${styles.TribeRound__roleBadge} ${
-        styles[TRIBE_ROUND_FORMAT.roleBadgeModifierPrefix + role]
-      }`}
-    >
+    <span className={styles.TribeRound__visuallyHidden}>
       {TRIBE_ROUND_COPY.roleLabel[role]}
     </span>
   );
@@ -1868,7 +1892,7 @@ function renderAuthorIdentity(author: TribeRoundReplyResult["author"]) {
       <p className={styles.TribeRound__authorName}>
         {author.name}
       </p>
-      {renderAuthorRoleBadge(author.role)}
+      {renderAuthorRoleAccessibleLabel(author.role)}
     </div>
   );
 }
@@ -4791,7 +4815,8 @@ function TribeRoundContent({
                     <CardHeader className={styles.TribeRound__messageHeader}>
                       {renderRoundAuthorAvatar(
                         message.author,
-                        styles.TribeRound__avatar
+                        styles.TribeRound__avatar,
+                        getAvatarRoleModifierClassName(message.author.role)
                       )}
                       <div className={styles.TribeRound__author}>
                         {renderAuthorIdentity(message.author)}
@@ -4926,7 +4951,8 @@ function TribeRoundContent({
               >
                 {renderRoundAuthorAvatar(
                   selectedMessage.author,
-                  styles.TribeRound__avatar
+                  styles.TribeRound__avatar,
+                  getAvatarRoleModifierClassName(selectedMessage.author.role)
                 )}
                 <div className={styles.TribeRound__author}>
                   {renderAuthorIdentity(selectedMessage.author)}
@@ -4936,7 +4962,6 @@ function TribeRoundContent({
                   )}
                 </div>
                 <div className={styles.TribeRound__messageMeta}>
-                  {renderMessagePinControl(selectedMessage)}
                   {renderMessageActionsMenu(selectedMessage)}
                 </div>
               </CardHeader>
@@ -5003,12 +5028,13 @@ function TribeRoundContent({
                         <li className={styles.TribeRound__reply} key={reply.id}>
                           {renderRoundAuthorAvatar(
                             reply.author,
-                            styles.TribeRound__replyAvatar
+                            styles.TribeRound__replyAvatar,
+                            getReplyAvatarRoleModifierClassName(reply.author.role)
                           )}
                           <div className={styles.TribeRound__replyBody}>
                             <p className={styles.TribeRound__replyMeta}>
                               <span>{reply.author.name}</span>
-                              {renderAuthorRoleBadge(reply.author.role)}
+                              {renderAuthorRoleAccessibleLabel(reply.author.role)}
                             </p>
                             <p className={styles.TribeRound__replyContent}>
                               {reply.content}

@@ -976,6 +976,15 @@
     }
   }
 
+  &__messageHeader {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    min-height: auto;
+    padding-inline-end: min(10rem, 42vw);
+  }
+
   &__messageDetailsHeader {
     position: sticky;
     top: 0;
@@ -984,15 +993,14 @@
     box-shadow: 0 -1rem 0 1rem var(--background);
     padding-top: 0.25rem;
     padding-bottom: 0.75rem;
-  }
+    padding-inline-end: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
 
-  &__messageHeader {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.75rem;
-    align-items: start;
-    min-height: auto;
-    padding-inline-end: min(10rem, 42vw);
+    .TribeRound__messageMeta {
+      position: static;
+      align-self: start;
+      max-width: none;
+    }
   }
 
   &__messageContent {
@@ -1026,6 +1034,30 @@
     font-weight: 700;
   }
 
+  &__avatar--leader,
+  &__replyAvatar--leader {
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+
+  &__avatar--guardian,
+  &__replyAvatar--guardian {
+    box-shadow: 0 0 0 2px
+      color-mix(in oklch, var(--foreground) 36%, var(--border));
+  }
+
+  &__visuallyHidden {
+    border: 0;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+
   &__replyBody {
     display: grid;
     gap: 0.25rem;
@@ -1048,31 +1080,6 @@
     align-items: center;
     gap: 0.5rem;
     flex-wrap: wrap;
-  }
-
-  &__roleBadge {
-    width: fit-content;
-    border: 1px solid var(--border);
-    border-radius: 999rem;
-    padding: 0.1rem 0.45rem;
-    color: var(--muted-foreground);
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.4;
-
-    &--leader {
-      border-color: color-mix(in oklch, var(--primary) 60%, var(--border));
-      color: var(--primary);
-    }
-
-    &--guardian {
-      border-color: color-mix(in oklch, var(--foreground) 36%, var(--border));
-      color: color-mix(in oklch, var(--foreground) 86%, var(--primary));
-    }
-
-    &--tribemate {
-      color: var(--muted-foreground);
-    }
   }
 
   &__time {
