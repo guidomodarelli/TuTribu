@@ -330,6 +330,13 @@
       "when": 1779980400000,
       "tag": "20260528150000_restrict_invitation_signup_metric_to_joined_members",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1779984000000,
+      "tag": "20260528160000_hide_invitations_without_conversions_from_metrics",
+      "breakpoints": true
     }
   ]
 }

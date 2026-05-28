@@ -190,6 +190,22 @@ describe("TribeInvitationMetricsPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the empty state when no conversions are attributed", async () => {
+    getTribeInvitationConversionMetrics.mockResolvedValue([]);
+
+    render(await TribeInvitationMetricsPage(buildPageProps()));
+
+    expect(
+      screen.getByText(
+        "Todavía no hay conversiones atribuidas a links activos."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("columnheader", { name: "Inscripciones" })
+    ).not.toBeInTheDocument();
+  });
+
   it("returns 404 when a regular member opens invitation metrics", async () => {
     getMemberTribes.mockResolvedValue([
       {
