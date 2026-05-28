@@ -53,6 +53,12 @@ describe("Better Auth configuration", () => {
       users,
       verifications,
     }));
+    jest.doMock(
+      "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh",
+      () => ({
+        scheduleMemberProfileImageRefresh: jest.fn(),
+      })
+    );
 
     await import("@/src/modules/auth/infrastructure/better-auth/auth");
 
@@ -73,10 +79,131 @@ describe("Better Auth configuration", () => {
         database: adapterInstance,
         socialProviders: {
           google: expect.objectContaining({
+            accessType: "offline",
             overrideUserInfoOnSignIn: true,
+            prompt: "consent",
           }),
         },
       })
+    );
+  });
+
+  it("refreshes the member profile image when a session is renewed", async () => {
+    const scheduleMemberProfileImageRefresh = jest.fn();
+    const getAccessToken = jest
+      .fn()
+      .mockResolvedValue({ accessToken: "fresh-access-token" });
+    let capturedConfiguration: {
+      databaseHooks?: {
+        session?: { update?: { after?: (session: unknown) => Promise<void> } };
+      };
+    } = {};
+    const mockBetterAuth = jest.fn((configuration) => {
+      capturedConfiguration = configuration;
+      return { api: { getAccessToken } };
+    });
+
+    jest.doMock("better-auth", () => ({
+      betterAuth: (...args: unknown[]) => mockBetterAuth(...args),
+    }));
+    jest.doMock("@better-auth/drizzle-adapter", () => ({
+      drizzleAdapter: jest.fn(() => ({ id: "adapter" })),
+    }));
+    jest.doMock("better-auth/next-js", () => ({
+      nextCookies: jest.fn(() => ({ id: "next-cookies-plugin" })),
+    }));
+    jest.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: jest.fn(() => ({ id: "database" })),
+    }));
+    jest.doMock("pg", () => ({
+      Pool: jest.fn(() => ({ id: "pool", on: jest.fn() })),
+    }));
+    jest.doMock(
+      "@/src/modules/shared/infrastructure/database/server-environment",
+      () => ({
+        getServerDatabaseEnvironment: () => ({
+          connectionString: "postgres://tutribu.example.com/db",
+        }),
+      })
+    );
+    jest.doMock(
+      "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh",
+      () => ({ scheduleMemberProfileImageRefresh })
+    );
+
+    await import("@/src/modules/auth/infrastructure/better-auth/auth");
+
+    const afterHook = capturedConfiguration.databaseHooks?.session?.update?.after;
+    expect(typeof afterHook).toBe("function");
+
+    await afterHook?.({ userId: "member-1" });
+
+    expect(scheduleMemberProfileImageRefresh).toHaveBeenCalledWith(
+      "member-1",
+      expect.any(Function)
+    );
+
+    const [, resolveAccessToken] =
+      scheduleMemberProfileImageRefresh.mock.calls[0];
+    await expect(resolveAccessToken("member-1")).resolves.toBe(
+      "fresh-access-token"
+    );
+    expect(getAccessToken).toHaveBeenCalledWith({
+      body: { providerId: "google", userId: "member-1" },
+    });
+  });
+
+  it("propagates access token resolution failures to the profile refresh flow", async () => {
+    const scheduleMemberProfileImageRefresh = jest.fn();
+    const tokenResolutionError = new Error("token lookup failed");
+    const getAccessToken = jest.fn().mockRejectedValue(tokenResolutionError);
+    let capturedConfiguration: {
+      databaseHooks?: {
+        session?: { update?: { after?: (session: unknown) => Promise<void> } };
+      };
+    } = {};
+    const mockBetterAuth = jest.fn((configuration) => {
+      capturedConfiguration = configuration;
+      return { api: { getAccessToken } };
+    });
+
+    jest.doMock("better-auth", () => ({
+      betterAuth: (...args: unknown[]) => mockBetterAuth(...args),
+    }));
+    jest.doMock("@better-auth/drizzle-adapter", () => ({
+      drizzleAdapter: jest.fn(() => ({ id: "adapter" })),
+    }));
+    jest.doMock("better-auth/next-js", () => ({
+      nextCookies: jest.fn(() => ({ id: "next-cookies-plugin" })),
+    }));
+    jest.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: jest.fn(() => ({ id: "database" })),
+    }));
+    jest.doMock("pg", () => ({
+      Pool: jest.fn(() => ({ id: "pool", on: jest.fn() })),
+    }));
+    jest.doMock(
+      "@/src/modules/shared/infrastructure/database/server-environment",
+      () => ({
+        getServerDatabaseEnvironment: () => ({
+          connectionString: "postgres://tutribu.example.com/db",
+        }),
+      })
+    );
+    jest.doMock(
+      "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh",
+      () => ({ scheduleMemberProfileImageRefresh })
+    );
+
+    await import("@/src/modules/auth/infrastructure/better-auth/auth");
+
+    const afterHook = capturedConfiguration.databaseHooks?.session?.update?.after;
+    await afterHook?.({ userId: "member-1" });
+
+    const [, resolveAccessToken] =
+      scheduleMemberProfileImageRefresh.mock.calls[0];
+    await expect(resolveAccessToken("member-1")).rejects.toThrow(
+      tokenResolutionError
     );
   });
 });

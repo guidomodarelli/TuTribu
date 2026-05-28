@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sincronizacion de la imagen de perfil</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf4e7;border-color:#d9a441;color:#7a571a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Sincronizacion de la imagen de perfil</div>
+  <div class="doc-sub">Como se obtiene, persiste y refresca <code>user.image</code> desde Google.</div>
+  <div class="doc-meta"><span>Scope: Authentication</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Origen y persistencia</div>
+<p>La imagen de perfil proviene del claim <code>picture</code> del ID token de Google. Better Auth lo mapea al campo <code>user.image</code> en la tabla de autenticacion (<code>src/modules/shared/infrastructure/database/schema.ts</code>).</p>
+<p>La escritura ocurre dentro del callback OAuth gracias a <code>overrideUserInfoOnSignIn: true</code> en el provider Google (<code>src/modules/auth/infrastructure/better-auth/auth.ts</code>). Es decir, <strong>solo se reescribe cuando el usuario atraviesa el flujo de inicio de sesion de Google</strong>.</p>
+<p>La UI lee <code>user.image</code> sin caches intermedias. Por ejemplo, los miembros de la tribu salen de la funcion SQL <code>public.list_visible_tribe_members_by_slug</code>, que devuelve <code>"user".image</code> tal cual.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">El problema: imagen congelada</div>
+<p>La sesion de Better Auth usa los valores por defecto (expiracion 7 dias, refresco rotativo cada 1 dia). El refresco de sesion <strong>no</strong> vuelve a pedir el perfil a Google, por lo que la URL de <code>picture</code> queda congelada mientras la sesion siga viva.</p>
+<p>Consecuencia: si un usuario cambia su foto en Google despues de iniciar sesion (caso tipico de una cuenta nueva que arranca con avatar por defecto), la URL nueva nunca llega a la base de datos hasta que el usuario rehace el login. La imagen mostrada queda desactualizada por dias.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Decision: refrescar al renovar sesion</div>
+<p>Cuando Better Auth renueva la sesion se dispara el hook <code>databaseHooks.session.update.after</code>. Ese hook agenda, con <code>after()</code> de <code>next/server</code> (post-respuesta, sin bloquear), un refresco en background de la imagen del miembro.</p>
+<p>El flujo respeta los limites hexagonales del modulo <code>auth</code>:</p>
+<ul>
+  <li><strong>Dominio</strong>: puertos <code>MemberProfileRepository</code> y <code>ExternalProfilePictureProvider</code>.</li>
+  <li><strong>Aplicacion</strong>: caso de uso <code>refreshMemberProfileImage</code>, que lee la imagen actual, pide la vigente y persiste solo si cambio.</li>
+  <li><strong>Infraestructura</strong>: <code>GoogleProfilePictureProvider</code> (consulta el endpoint userinfo de Google), <code>PostgresMemberProfileRepository</code> (lee/actualiza <code>user.image</code>) y la composicion en <code>infrastructure/composition/member-profile-image-refresh.ts</code>.</li>
+</ul>
+<p>Para obtener la <code>picture</code> vigente sin el usuario presente se usa <code>auth.api.getAccessToken</code>, que desencripta y refresca el access token con el refresh token guardado, y luego se llama al endpoint OpenID <code>https://openidconnect.googleapis.com/v1/userinfo</code>. Se prefiere userinfo sobre decodificar el id token de un refresh porque ese id token puede ser un valor viejo.</p>
+<div class="callout c-info">El <code>UPDATE</code> sobre <code>user.image</code> corre sin contexto RLS de request, igual que Better Auth al escribir la imagen en el sign-in. No requiere migracion SQL ni cambios de politicas.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Offline access y trade-offs</div>
+<p>El refresco requiere un refresh token de Google. El provider esta configurado con <code>accessType: "offline"</code> y <code>prompt: "consent"</code> para garantizar que Google emita un refresh token tanto a usuarios nuevos como existentes.</p>
+<div class="callout c-warn"><code>prompt: "consent"</code> muestra la pantalla de consentimiento de Google en cada inicio de sesion. Es el costo aceptado a cambio de cobertura completa del refresh token.</div>
+<ul>
+  <li>El refresco corre aproximadamente una vez por dia por usuario activo (cadencia de renovacion con <code>updateAge</code> por defecto).</li>
+  <li>Si <code>getAccessToken</code> responde sin <code>accessToken</code>, el refresco se omite sin actualizar la imagen. Si Better Auth falla al resolverlo, el caso de uso registra el fallo como <code>failed</code> para mantener observabilidad.</li>
+  <li>Los logs son estructurados y seguros: nunca se registran tokens ni la URL completa de la imagen, solo el host.</li>
+</ul>
+</div>
+
+</body>
+</html>

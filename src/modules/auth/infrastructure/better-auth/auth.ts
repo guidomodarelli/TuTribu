@@ -6,6 +6,7 @@ import { nextCookies } from "better-auth/next-js";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
+import { scheduleMemberProfileImageRefresh } from "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh";
 import { createPostgresPool } from "@/src/modules/shared/infrastructure/database/postgres-pool";
 import { getServerDatabaseEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
 import {
@@ -32,6 +33,13 @@ const BETTER_AUTH_ERROR_MESSAGE = {
 const BETTER_AUTH_PROVIDER = {
   database: "pg",
   google: "google",
+} as const;
+
+const GOOGLE_OFFLINE_ACCESS = {
+  /** Requests a refresh token so the profile picture can be re-fetched later. */
+  accessType: "offline",
+  /** Forces the consent screen so a refresh token is issued on every sign-in. */
+  prompt: "consent",
 } as const;
 
 const BETTER_AUTH_SCHEMA = {
@@ -96,13 +104,46 @@ export const auth = betterAuth({
     provider: BETTER_AUTH_PROVIDER.database,
     schema: BETTER_AUTH_SCHEMA,
   }),
+  databaseHooks: {
+    session: {
+      update: {
+        after: async (session) => {
+          scheduleMemberProfileImageRefresh(
+            session.userId,
+            getGoogleAccessTokenForMember
+          );
+        },
+      },
+    },
+  },
   plugins: [nextCookies()],
   secret: betterAuthEnvironment.secret,
   socialProviders: {
     [BETTER_AUTH_PROVIDER.google]: {
+      accessType: GOOGLE_OFFLINE_ACCESS.accessType,
       clientId: betterAuthEnvironment.googleClientId,
       clientSecret: betterAuthEnvironment.googleClientSecret,
       overrideUserInfoOnSignIn: true,
+      prompt: GOOGLE_OFFLINE_ACCESS.prompt,
     },
   },
 });
+
+/**
+ * Resolves a fresh Google access token for a member using the stored offline
+ * credentials. Returns `null` only when Better Auth resolves successfully but no
+ * access token is available, so operational failures still reach the background
+ * refresh use case and are logged.
+ *
+ * @param userId - Identifier of the member whose access token is requested.
+ * @returns A valid access token, or `null` when none is available.
+ */
+async function getGoogleAccessTokenForMember(
+  userId: string
+): Promise<string | null> {
+  const tokens = await auth.api.getAccessToken({
+    body: { providerId: BETTER_AUTH_PROVIDER.google, userId },
+  });
+
+  return tokens?.accessToken ?? null;
+}
