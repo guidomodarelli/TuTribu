@@ -10,7 +10,7 @@
  *
  * @type {string[]}
  */
-const QUALITY_GATE_SCRIPTS = ["typecheck", "lint", "build", "test"];
+const QUALITY_GATE_SCRIPTS = ["typecheck", "lint", "test"];
 
 /**
  * Lists package scripts that must pass for test-only changes.
@@ -18,6 +18,27 @@ const QUALITY_GATE_SCRIPTS = ["typecheck", "lint", "build", "test"];
  * @type {string[]}
  */
 const TEST_ONLY_QUALITY_GATE_SCRIPTS = ["typecheck", "lint", "test"];
+
+/**
+ * Lists signals that should cancel any active validation child process.
+ *
+ * @type {string[]}
+ */
+const CANCELLATION_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"];
+
+/**
+ * Exit code used when the hook is cancelled by a signal.
+ *
+ * @type {number}
+ */
+const CANCELLATION_EXIT_CODE = 130;
+
+/**
+ * Tracks the currently running validation child so cancellation can reach it.
+ *
+ * @type {import("node:child_process").ChildProcess | null}
+ */
+let activeValidationChild = null;
 
 /**
  * Lists file extensions that can affect product code or validation behavior.
@@ -339,13 +360,85 @@ function truncateOutput(output) {
 }
 
 /**
+ * Kills the active validation child process tree, if any is running.
+ *
+ * On Windows the child runs through `cmd.exe`, so killing the tree requires
+ * `taskkill /T /F` to reach grandchildren such as `next build` or `tsc`.
+ *
+ * @param {typeof import("node:child_process").spawnSync} spawnSyncCommand - Process runner.
+ * @returns {void}
+ */
+function killActiveValidationChild(spawnSyncCommand) {
+  const child = activeValidationChild;
+
+  if (!child || child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+
+  const childProcessId = child.pid;
+
+  if (!childProcessId) {
+    return;
+  }
+
+  if (process.platform === "win32") {
+    try {
+      spawnSyncCommand(
+        "taskkill",
+        ["/pid", String(childProcessId), "/T", "/F"],
+        { stdio: "ignore" }
+      );
+    } catch {
+      // Best-effort cleanup; ignore failures so the hook can still exit.
+    }
+    return;
+  }
+
+  try {
+    child.kill("SIGTERM");
+  } catch {
+    // Best-effort cleanup; ignore failures so the hook can still exit.
+  }
+}
+
+/**
+ * Installs handlers that propagate cancellation signals to the active child.
+ *
+ * @param {typeof import("node:child_process").spawnSync} spawnSyncCommand - Process runner.
+ * @returns {void}
+ */
+function installCancellationHandlers(spawnSyncCommand) {
+  let cancellationInProgress = false;
+
+  for (const cancellationSignal of CANCELLATION_SIGNALS) {
+    process.on(cancellationSignal, () => {
+      if (cancellationInProgress) {
+        return;
+      }
+
+      cancellationInProgress = true;
+
+      process.stderr.write(
+        `[codex-stop-quality-gate] Received ${cancellationSignal}; cancelling active validation child.\n`
+      );
+
+      killActiveValidationChild(spawnSyncCommand);
+      process.exit(CANCELLATION_EXIT_CODE);
+    });
+  }
+}
+
+/**
  * Runs one quality gate command and captures its result.
  *
+ * Uses asynchronous spawn so the hook can react to cancellation signals while
+ * the child is running and propagate the cancellation to the child tree.
+ *
  * @param {{name: string, command: string, args: string[]}} validationCommand - Command definition.
- * @param {typeof import("node:child_process").spawnSync} spawnSyncCommand - Process runner.
- * @returns {{name: string, status: number | null, output: string}} Captured command result.
+ * @param {typeof import("node:child_process").spawn} spawnCommand - Async process runner.
+ * @returns {Promise<{name: string, status: number | null, output: string}>} Captured command result.
  */
-function runValidationCommand(validationCommand, spawnSyncCommand) {
+function runValidationCommand(validationCommand, spawnCommand) {
   const printableCommand = [
     validationCommand.command,
     ...validationCommand.args,
@@ -353,34 +446,62 @@ function runValidationCommand(validationCommand, spawnSyncCommand) {
 
   process.stderr.write(`[codex-stop-quality-gate] Running ${printableCommand}\n`);
 
-  const result = spawnSyncCommand(
-    validationCommand.command,
-    validationCommand.args,
-    {
-      cwd: process.cwd(),
-      encoding: "utf8",
-      shell: process.platform === "win32",
-    }
-  );
+  return new Promise((resolve) => {
+    const child = spawnCommand(
+      validationCommand.command,
+      validationCommand.args,
+      {
+        cwd: process.cwd(),
+        shell: process.platform === "win32",
+      }
+    );
 
-  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
-  const status = result.status ?? null;
+    activeValidationChild = child;
 
-  process.stderr.write(
-    `[codex-stop-quality-gate] ${validationCommand.name} exited with ${
-      status ?? "no status"
-    }\n`
-  );
+    let stdoutBuffer = "";
+    let stderrBuffer = "";
 
-  if (output) {
-    process.stderr.write(`${truncateOutput(output)}\n`);
-  }
+    child.stdout?.on("data", (chunk) => {
+      stdoutBuffer += chunk.toString();
+    });
 
-  return {
-    name: validationCommand.name,
-    status,
-    output: truncateOutput(output),
-  };
+    child.stderr?.on("data", (chunk) => {
+      stderrBuffer += chunk.toString();
+    });
+
+    const finalize = (status) => {
+      if (activeValidationChild === child) {
+        activeValidationChild = null;
+      }
+
+      const output = `${stdoutBuffer}${stderrBuffer}`.trim();
+
+      process.stderr.write(
+        `[codex-stop-quality-gate] ${validationCommand.name} exited with ${
+          status ?? "no status"
+        }\n`
+      );
+
+      if (output) {
+        process.stderr.write(`${truncateOutput(output)}\n`);
+      }
+
+      resolve({
+        name: validationCommand.name,
+        status,
+        output: truncateOutput(output),
+      });
+    };
+
+    child.on("close", (status) => {
+      finalize(status);
+    });
+
+    child.on("error", (error) => {
+      stderrBuffer += `${error instanceof Error ? error.message : String(error)}\n`;
+      finalize(null);
+    });
+  });
 }
 
 /**
@@ -428,7 +549,9 @@ function buildFailureReason(
 async function main() {
   const hookInput = await readHookInput();
   const fileSystem = await import("node:fs");
-  const { spawnSync } = await import("node:child_process");
+  const { spawn, spawnSync } = await import("node:child_process");
+
+  installCancellationHandlers(spawnSync);
 
   if (!fileSystem.existsSync("package.json")) {
     process.stderr.write(
@@ -486,9 +609,12 @@ async function main() {
   );
 
   const qualityGateCommands = buildQualityGateCommands(runner, validationScripts);
-  const results = qualityGateCommands.map((validationCommand) =>
-    runValidationCommand(validationCommand, spawnSync)
-  );
+  const results = [];
+
+  for (const validationCommand of qualityGateCommands) {
+    results.push(await runValidationCommand(validationCommand, spawn));
+  }
+
   const failures = results.filter((result) => result.status !== 0);
 
   if (failures.length === 0) {

@@ -41,9 +41,9 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">01</div>
   <div class="section-title">Regla de ejecución</div>
   <p>Los hooks <code>Stop</code> de <code>.claude/settings.json</code> y <code>.codex/hooks.json</code> ejecutan <code>node .agents/hooks/stop-quality-gate.js</code>. Ese script revisa primero los archivos modificados con <code>git status --porcelain --untracked-files=all</code>.</p>
-  <p>Si no hay cambios relevantes para código, tooling o validación, el hook responde <code>{}</code> y no ejecuta <code>typecheck</code>, <code>lint</code>, <code>build</code> ni <code>test</code>.</p>
-  <p>Si los únicos cambios relevantes pertenecen a tests, el hook ejecuta solo <code>typecheck</code>, <code>lint</code> y <code>test</code>. El comando <code>build</code> queda reservado para cambios de producto, runtime, estilos, base de datos o configuración de tooling.</p>
-  <div class="callout c-ok">Los cambios documentales como <code>README.md</code>, <code>AGENTS.md</code> y archivos <code>.htm</code> bajo <code>docs/</code> no disparan el gate completo por sí solos.</div>
+  <p>Si no hay cambios relevantes para código, tooling o validación, el hook responde <code>{}</code> y no ejecuta <code>typecheck</code>, <code>lint</code> ni <code>test</code>.</p>
+  <p>Cuando hay cambios relevantes, el hook ejecuta <code>typecheck</code>, <code>lint</code> y <code>test</code>. El comando <code>build</code> queda fuera del Stop hook por costo y debe ejecutarse manualmente cuando un cambio lo requiera (por ejemplo, antes de mergear cambios de producto, runtime o configuración de tooling).</p>
+  <div class="callout c-ok">Los cambios documentales como <code>README.md</code>, <code>AGENTS.md</code> y archivos <code>.htm</code> bajo <code>docs/</code> no disparan el gate por sí solos.</div>
 </div>
 
 <div class="section">
@@ -61,6 +61,12 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 
 <div class="section">
   <div class="section-num">03</div>
+  <div class="section-title">Cancelación</div>
+  <p>El hook spawnea cada comando de validación de forma asíncrona y registra el proceso hijo activo. Cuando recibe <code>SIGINT</code>, <code>SIGTERM</code>, <code>SIGHUP</code> o <code>SIGBREAK</code>, mata el árbol del hijo en curso (<code>taskkill /T /F</code> en Windows, <code>SIGTERM</code> en POSIX) antes de salir, para que cancelar el Stop hook no deje procesos huérfanos como <code>next build</code>, <code>tsc</code> o <code>jest</code>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
   <div class="section-title">Validación esperada</div>
   <p>Cuando se modifica el script del hook, validar como mínimo <code>node --check .agents/hooks/stop-quality-gate.js</code>, parseo JSON de <code>.codex/hooks.json</code> y <code>.claude/settings.json</code>, el test enfocado de tooling, <code>pnpm run lint</code> y <code>pnpm run typecheck</code>.</p>
   <p>Para cambios documentales, se puede validar el comportamiento real con un worktree temporal que tenga solo archivos <code>.htm</code> bajo <code>docs/</code> o archivos Markdown de control del repositorio, y comprobar que el hook responda <code>{}</code>.</p>

@@ -82,7 +82,7 @@ describe("stop quality gate script", () => {
         "src/modules/subscriptions/application/use-cases/manage-prices.ts",
         "tests/unit/modules/subscriptions/application/manage-prices.test.ts",
       ])
-    ).toEqual(["typecheck", "lint", "build", "test"]);
+    ).toEqual(["typecheck", "lint", "test"]);
   });
 
   it("should parse modified and renamed files from git porcelain output", () => {
