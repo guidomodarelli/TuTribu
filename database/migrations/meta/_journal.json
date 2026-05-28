@@ -316,6 +316,13 @@
       "when": 1779944400000,
       "tag": "20260528090000_restrict_visible_tribe_member_email_to_managers",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1779976800000,
+      "tag": "20260528140000_exempt_referral_metadata_from_active_plan_check",
+      "breakpoints": true
     }
   ]
 }
