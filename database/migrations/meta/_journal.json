@@ -306,13 +306,6 @@
     {
       "idx": 43,
       "version": "7",
-      "when": 1779969600000,
-      "tag": "20260528120000_add_referral_metadata_to_invitations",
-      "breakpoints": true
-    },
-    {
-      "idx": 43,
-      "version": "7",
       "when": 1779944400000,
       "tag": "20260528090000_restrict_visible_tribe_member_email_to_managers",
       "breakpoints": true
@@ -320,19 +313,26 @@
     {
       "idx": 44,
       "version": "7",
+      "when": 1779969600000,
+      "tag": "20260528120000_add_referral_metadata_to_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
       "when": 1779976800000,
       "tag": "20260528140000_exempt_referral_metadata_from_active_plan_check",
       "breakpoints": true
     },
     {
-      "idx": 45,
+      "idx": 46,
       "version": "7",
       "when": 1779980400000,
       "tag": "20260528150000_restrict_invitation_signup_metric_to_joined_members",
       "breakpoints": true
     },
     {
-      "idx": 46,
+      "idx": 47,
       "version": "7",
       "when": 1779984000000,
       "tag": "20260528160000_hide_invitations_without_conversions_from_metrics",
