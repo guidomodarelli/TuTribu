@@ -830,6 +830,52 @@ describe("TribeRound", () => {
     ).toHaveAttribute("href", "https://youtube.com/@canal");
   });
 
+  it("keeps abbreviations like EE.UU. or China.Por as plain text without linkifying", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              content:
+                "Hablamos sobre EE.UU. y China.Por eso revisamos el Nasdaq.",
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.queryByRole("link", { name: /EE\.UU/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /China\.Por/ })
+    ).not.toBeInTheDocument();
+  });
+
+  it("auto-links bare URLs that start with www.", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              content: "Visitá www.latribu.app para mas info.",
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole("link", { name: "www.latribu.app" })
+    ).toHaveAttribute("href", "https://www.latribu.app");
+  });
+
   it("keeps Markdown headings as regular message text", () => {
     render(
       <TribeRound

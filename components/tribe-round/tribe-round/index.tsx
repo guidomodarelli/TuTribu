@@ -455,7 +455,7 @@ const COMPOSER_LINK_POPOVER_MODE = {
 
 const MESSAGE_LINK_PATTERN = {
   bareDomain: /^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)]*$/,
-  bareUrl: /(?:https?:\/\/[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*)/g,
+  bareUrl: /(?:https?:\/\/[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*|www\.(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*)/g,
   markdown: /\[((?:\\[\s\S]|[^\]\\])+)\]\(((?:[^()\s]+|\([^()\s]*\))+)\)/g,
   protocolPrefix: /^https?:\/\//i,
   trailingPunctuation: /[.,!?;:]+$/,
