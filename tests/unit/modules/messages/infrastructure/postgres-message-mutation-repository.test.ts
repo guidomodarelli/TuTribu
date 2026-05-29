@@ -348,6 +348,44 @@ describe("PostgresMessageMutationRepository", () => {
     expect(countSqlText).toContain("count(*) as like_count");
   });
 
+  it("returns like failures without message state fields", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_write: false,
+            message_id: "message-1",
+            tribe_id: "tribe-1",
+          },
+        ],
+      });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.toggle({
+        tribeSlug: "matematica-pro",
+        messageId: "missing-message",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({
+      status: "not_found",
+    });
+    await expect(
+      repository.toggle({
+        tribeSlug: "matematica-pro",
+        messageId: "message-1",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({
+      status: "forbidden",
+    });
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
   it("pins messages through a limit-guarded transaction", async () => {
     const execute = jest
       .fn()
@@ -394,6 +432,45 @@ describe("PostgresMessageMutationRepository", () => {
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("select message_pins.pinned_at");
     expect(getSqlText(execute.mock.calls[3]?.[0])).toContain("count(*) as pinned_count");
     expect(getSqlText(execute.mock.calls[4]?.[0])).toContain("insert into public.message_pins");
+  });
+
+  it("returns pin failures without message state fields", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_pin: false,
+            is_pinned: false,
+            message_id: "message-1",
+            tribe_id: "tribe-1",
+          },
+        ],
+      });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.togglePin({
+        messageId: "missing-message",
+        tribeSlug: "matematica-pro",
+        userId: "leader-1",
+      })
+    ).resolves.toEqual({
+      status: "not_found",
+    });
+    await expect(
+      repository.togglePin({
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        userId: "leader-1",
+      })
+    ).resolves.toEqual({
+      status: "forbidden",
+    });
+    expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("blocks pinning when the tribe pin limit is reached", async () => {
