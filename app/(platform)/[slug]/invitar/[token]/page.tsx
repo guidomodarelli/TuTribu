@@ -1,9 +1,9 @@
 import { createHash } from "crypto";
 
-import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { Link } from "@/components/navigation/link";
 import { Button } from "@/components/ui/button";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";

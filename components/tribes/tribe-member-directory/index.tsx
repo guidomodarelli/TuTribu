@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { DownloadIcon } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
+import { Link } from "@/components/navigation/link";
 import {
   TribeMemberList,
   type TribeMemberSelectionBadge,

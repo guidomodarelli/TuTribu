@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
-import Link from "next/link";
 
+import { Link } from "@/components/navigation/link";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
@@ -43,7 +43,7 @@ export function NotFoundSignInAction() {
       size={NOT_FOUND_UI.buttonSize}
       variant={NOT_FOUND_UI.outlineVariant}
     >
-      <Link href={ROUTES.auth.signIn} prefetch={false}>
+      <Link href={ROUTES.auth.signIn}>
         Iniciar sesion
       </Link>
     </Button>
@@ -86,7 +86,7 @@ export function NotFoundView({
       </p>
       <div className={styles.NotFoundPage__actions}>
         <Button asChild size={NOT_FOUND_UI.buttonSize}>
-          <Link href={ROUTES.home} prefetch={false}>
+          <Link href={ROUTES.home}>
             Volver al inicio
           </Link>
         </Button>

@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-
+import { Link } from "@/components/navigation/link";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/src/constants/routes";
 import styles from "./styles.module.scss";

@@ -195,6 +195,13 @@ components/<scope>/<component>/
 
   - Keep imports pointing to the component folder path so resolution uses `index.tsx`.
 
+### Navigation links
+
+- Always use the shared `Link` component from `@/components/navigation/link` for in-app navigation. Never import `Link` from `next/link` directly in product code (`app`, `components`, including `components/ui`, and `src`).
+- The shared `Link` is a thin wrapper over Next.js `Link` that sets `prefetch` to `false` by default and forwards every other prop untouched. Prefetch is opt-in: pass `prefetch` explicitly only on the rare route that genuinely benefits from being prefetched.
+- `next/link` may be imported only inside `components/navigation/link/index.tsx`, which is the single allowed wrapper around it.
+- For details and examples, see the navigation links convention guide at `docs/conventions/navigation-links.htm`.
+
 ### Product language policy
 
 - All user-facing product text must be in Spanish.

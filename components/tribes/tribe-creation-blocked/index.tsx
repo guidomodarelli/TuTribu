@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { Link } from "@/components/navigation/link";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/site-config";
 import styles from "./styles.module.scss";

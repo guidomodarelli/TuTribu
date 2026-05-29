@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   createElement,
@@ -34,6 +33,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { Link } from "@/components/navigation/link";
 import { Button } from "@/components/ui/button";
 import {
   Avatar,

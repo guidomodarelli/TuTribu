@@ -1,9 +1,9 @@
 "use client";
 
 import { Settings } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 
+import { Link } from "@/components/navigation/link";
 import { ROUTES } from "@/src/constants/routes";
 import type {
   CourseModuleWithLessonsResult,

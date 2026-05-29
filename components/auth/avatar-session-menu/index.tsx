@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { LogInIcon, LogOutIcon } from "lucide-react";
 
+import { Link } from "@/components/navigation/link";
 import {
   Avatar,
   AvatarFallback,
