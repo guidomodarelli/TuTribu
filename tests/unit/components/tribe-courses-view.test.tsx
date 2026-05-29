@@ -1,5 +1,6 @@
 import { act } from "react";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 
@@ -20,6 +21,16 @@ const courseModules: CourseModuleWithLessonsResult[] = [
         isActive: true,
         sortOrder: 0,
         title: "Primera clase",
+        videoProvider: "youtube",
+      },
+      {
+        courseModuleId: "module-1",
+        description: null,
+        externalVideoId: "video-2",
+        id: "lesson-2",
+        isActive: true,
+        sortOrder: 1,
+        title: "Segunda clase",
         videoProvider: "youtube",
       },
     ],
@@ -56,6 +67,48 @@ describe("TribeCoursesView", () => {
     );
 
     expect(screen.queryByRole("link", { name: /Gestionar/ })).toBeNull();
+  });
+
+  it("keeps lesson links shareable while selecting them client-side without navigating", async () => {
+    const user = userEvent.setup();
+    const pushStateSpy = jest.spyOn(window.history, "pushState");
+
+    render(
+      <TribeCoursesView
+        modules={courseModules}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    // Lessons render as real, shareable links carrying the `leccion` query.
+    const secondLessonLink = screen.getByRole("link", {
+      name: /Segunda clase/,
+    });
+    expect(secondLessonLink).toHaveAttribute(
+      "href",
+      `/${TRIBE_SLUG}/cursos?leccion=lesson-2`
+    );
+
+    // The first lesson is shown by default.
+    expect(
+      screen.getByRole("heading", { name: "Primera clase" })
+    ).toBeInTheDocument();
+
+    await user.click(secondLessonLink);
+
+    // Selecting updates the view and the URL without a server navigation.
+    expect(
+      screen.getByRole("heading", { name: "Segunda clase" })
+    ).toBeInTheDocument();
+    expect(pushStateSpy).toHaveBeenCalledWith(
+      null,
+      "",
+      `/${TRIBE_SLUG}/cursos?leccion=lesson-2`
+    );
+
+    pushStateSpy.mockRestore();
   });
 
   it("hydrates the sidebar management link without recoverable errors", async () => {

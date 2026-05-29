@@ -1,5 +1,8 @@
+"use client";
+
 import { Settings } from "lucide-react";
 import Link from "next/link";
+import { useCallback, useEffect, useState, type MouseEvent } from "react";
 
 import { ROUTES } from "@/src/constants/routes";
 import type {
@@ -17,6 +20,9 @@ const LESSON_QUERY_PARAM = "leccion";
 const ARIA_CURRENT_PAGE = "page";
 const QUERY_STRING_PREFIX = "?";
 const QUERY_PARAM_VALUE_SEPARATOR = "=";
+const POPSTATE_EVENT = "popstate";
+const HISTORY_UNUSED_TITLE = "";
+const PRIMARY_MOUSE_BUTTON = 0;
 
 function buildLessonHref(tribeSlug: string, lessonId: string): string {
   return `${ROUTES.tribes.courses(tribeSlug)}${QUERY_STRING_PREFIX}${LESSON_QUERY_PARAM}${QUERY_PARAM_VALUE_SEPARATOR}${lessonId}`;
@@ -84,7 +90,51 @@ export function TribeCoursesView({
   tribeSlug,
   viewerPermissions,
 }: TribeCoursesViewProps) {
-  const activeLesson = findInitialLesson(modules, selectedLessonId);
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(
+    selectedLessonId
+  );
+
+  // Keep the selection in sync with browser back/forward, which only changes
+  // the `leccion` query string without a server navigation.
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      setActiveLessonId(params.get(LESSON_QUERY_PARAM));
+    };
+
+    window.addEventListener(POPSTATE_EVENT, handlePopState);
+    return () => window.removeEventListener(POPSTATE_EVENT, handlePopState);
+  }, []);
+
+  // Select a lesson without a server round-trip: the view already holds every
+  // lesson, so we update local state and reflect the shareable `leccion` query
+  // through the History API instead of navigating. Modified clicks (new tab,
+  // etc.) fall through to the real link so the URL stays openable on its own.
+  const handleLessonSelect = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>, lessonId: string) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== PRIMARY_MOUSE_BUTTON ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      setActiveLessonId(lessonId);
+      window.history.pushState(
+        null,
+        HISTORY_UNUSED_TITLE,
+        buildLessonHref(tribeSlug, lessonId)
+      );
+    },
+    [tribeSlug]
+  );
+
+  const activeLesson = findInitialLesson(modules, activeLessonId);
   const hasModules = modules.length > 0;
 
   return (
@@ -154,7 +204,7 @@ export function TribeCoursesView({
                         className={styles.TribeCoursesView__lessonItem}
                         key={lesson.id}
                       >
-                        <Link
+                        <a
                           aria-current={isActive ? ARIA_CURRENT_PAGE : undefined}
                           className={
                             isActive
@@ -162,6 +212,9 @@ export function TribeCoursesView({
                               : styles.TribeCoursesView__lessonLink
                           }
                           href={buildLessonHref(tribeSlug, lesson.id)}
+                          onClick={(event) =>
+                            handleLessonSelect(event, lesson.id)
+                          }
                         >
                           <span
                             aria-hidden
@@ -172,7 +225,7 @@ export function TribeCoursesView({
                           <span className={styles.TribeCoursesView__lessonTitle}>
                             {lesson.title}
                           </span>
-                        </Link>
+                        </a>
                       </li>
                     );
                   })}
