@@ -6,6 +6,10 @@
 
 import { sql } from "drizzle-orm";
 
+import {
+  MILLISECONDS_PER_SECOND,
+  SECONDS_PER_MINUTE,
+} from "@/src/constants/time";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MercadoPagoOAuthTokenResult } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 
@@ -25,7 +29,11 @@ export type StoredMercadoPagoAccessToken = {
   tribeId: string | null;
 };
 
-const MERCADO_PAGO_TOKEN_REFRESH_WINDOW_MS = 5 * 60 * 1000;
+const MERCADO_PAGO_TOKEN_REFRESH_WINDOW_MINUTES = 5;
+const MERCADO_PAGO_TOKEN_REFRESH_WINDOW_MS =
+  MERCADO_PAGO_TOKEN_REFRESH_WINDOW_MINUTES *
+  SECONDS_PER_MINUTE *
+  MILLISECONDS_PER_SECOND;
 const MERCADO_PAGO_TOKEN_REFRESH_CONTEXT = {
   checkoutTribeSettingName: "app.subscription_checkout_tribe_id",
   provider: "mercado_pago",

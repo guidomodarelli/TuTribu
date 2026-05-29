@@ -29,7 +29,7 @@ type FetchLifecycleEvent = {
 export type FetchLifecycleLogger = (event: FetchLifecycleEvent) => void;
 
 const FETCH_DEFAULT_METHOD = "GET";
-const FETCH_LIFECYCLE_EVENT = {
+export const FETCH_LIFECYCLE_EVENT = {
   requestAttempted: "request-attempted",
   requestFailed: "request-failed",
   retryScheduled: "retry-scheduled",

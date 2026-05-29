@@ -10,11 +10,6 @@
 export const SITEMAP_PATH = "/sitemap.xml";
 
 /**
- * Wildcard user-agent used to apply crawler directives to every bot.
- */
-export const SEARCH_CRAWLER_USER_AGENT_ALL = "*";
-
-/**
  * Default update cadence advertised for stable public sitemap URLs.
  */
 export const SITEMAP_CHANGE_FREQUENCY = "weekly";

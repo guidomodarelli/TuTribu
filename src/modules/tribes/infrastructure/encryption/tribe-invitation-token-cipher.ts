@@ -5,6 +5,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 const TRIBE_INVITATION_TOKEN_CIPHER = {
   algorithm: "aes-256-gcm",
   authTagLengthBytes: 16,
+  envelopePartCount: 4,
   envelopeSeparator: ".",
   expectedKeyLengthBytes: 32,
   ivLengthBytes: 12,
@@ -72,7 +73,7 @@ export function encryptInvitationToken(token: string): string {
 export function decryptInvitationToken(payload: string): string {
   const parts = payload.split(TRIBE_INVITATION_TOKEN_CIPHER.envelopeSeparator);
 
-  if (parts.length !== 4) {
+  if (parts.length !== TRIBE_INVITATION_TOKEN_CIPHER.envelopePartCount) {
     throw new Error(TRIBE_INVITATION_TOKEN_CIPHER_ERROR.invalidPayload);
   }
 

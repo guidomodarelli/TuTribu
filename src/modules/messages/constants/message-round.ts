@@ -49,6 +49,11 @@ export const MESSAGE_POLL_STATUS = {
   open: "open",
 } as const;
 
+/**
+ * Scale used to turn a vote ratio into a 0-100 poll percentage.
+ */
+export const MESSAGE_POLL_PERCENTAGE_SCALE = 100;
+
 export const PINNED_TRIBE_MESSAGES_LIMIT = 3;
 
 export const TRIBE_ROUND_PAGE_SIZE = 15;

@@ -22,8 +22,10 @@ import type {
 } from "@/src/modules/subscriptions/application/results/tribe-subscription-price-result";
 import {
   MERCADO_PAGO_CONNECTION_STATUS,
+  SUBSCRIPTION_PRICE_INVITATION_ACTION,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON,
+  TRIBE_SUBSCRIPTION_CURRENCY,
   TRIBE_SUBSCRIPTION_PRICE_LIMIT,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
   TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
@@ -269,7 +271,6 @@ const MERCADO_PAGO_PROVIDER_SUBSCRIPTION_STATUS_LOOKUP_CONCURRENCY_LIMIT = 5;
 
 const SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY = {
   deleteProviderPlanPrice: "delete-provider-plan-price",
-  separator: ":",
   syncProviderPlanWebhook: "mercado-pago-plan-webhook",
   updateProviderPlan: "update-provider-plan",
   verifyProviderPlan: "verify-provider-plan",
@@ -279,6 +280,17 @@ const SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY = {
 const MERCADO_PAGO_PAYMENT_INTEGRATION = {
   checkoutTribeSettingName: "app.subscription_checkout_tribe_id",
   provider: "mercado_pago",
+} as const;
+
+const PROVIDER_PLAN_CONTENT_FINGERPRINT = {
+  algorithm: "sha256",
+  encoding: "hex",
+  length: 16,
+} as const;
+
+const POSTGRES_ERROR_CODE = {
+  undefinedColumn: "42703",
+  undefinedTable: "42P01",
 } as const;
 
 type MercadoPagoConnectionTokenRow = {
@@ -583,7 +595,7 @@ function buildSubscriptionPriceOperationKey(parts: {
     operationKeyParts.push(parts.source);
   }
 
-  return operationKeyParts.join(SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.separator);
+  return operationKeyParts.join(":");
 }
 
 /**
@@ -945,7 +957,10 @@ function buildProviderPlanContentHash(
     providerPlan?.trial?.frequencyType ?? "",
   ].join("|");
 
-  return createHash("sha256").update(normalized).digest("hex").slice(0, 16);
+  return createHash(PROVIDER_PLAN_CONTENT_FINGERPRINT.algorithm)
+    .update(normalized)
+    .digest(PROVIDER_PLAN_CONTENT_FINGERPRINT.encoding)
+    .slice(0, PROVIDER_PLAN_CONTENT_FINGERPRINT.length);
 }
 
 /**
@@ -964,7 +979,7 @@ function buildProviderPlanWebhookOperationKey(input: {
     SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.syncProviderPlanWebhook,
     input.providerPlanId,
     input.contentHash,
-  ].join(SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.separator);
+  ].join(":");
 }
 
 /**
@@ -999,7 +1014,9 @@ function arePlanStatesEquivalent(input: {
   const targetName = provider.reason ?? local.name;
   const targetAmountCents = provider.amountCents ?? local.amount_cents;
   const targetCurrency =
-    provider.currency === "ARS" ? provider.currency : local.currency;
+    provider.currency === TRIBE_SUBSCRIPTION_CURRENCY.ars
+      ? provider.currency
+      : local.currency;
   const targetTrialFrequency = provider.trial?.frequency ?? null;
   const targetTrialFrequencyType = provider.trial?.frequencyType ?? null;
 
@@ -1372,7 +1389,7 @@ export class PostgresTribeSubscriptionPriceRepository
                 SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.verifyProviderSubscribers,
                 query.tribeSlug,
                 "diagnostics",
-              ].join(SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.separator),
+              ].join(":"),
               priceId: "subscriber-diagnostics",
               providerSubscribers: accountProviderSubscribers,
               requestId: this.requestId,
@@ -2533,7 +2550,7 @@ export class PostgresTribeSubscriptionPriceRepository
     const operationKeyPrefix = [
       SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.syncProviderPlanWebhook,
       command.resourceId,
-    ].join(SUBSCRIPTION_PRICE_PAYMENT_OPERATION_KEY.separator);
+    ].join(":");
     const traceContext = buildSubscriptionPricePaymentTraceContext({
       operationKey: operationKeyPrefix,
       priceId: webhookContext.id,
@@ -2605,7 +2622,7 @@ export class PostgresTribeSubscriptionPriceRepository
         const updatedPrice = await this.updateLocalPriceMutableFieldsFromWebhook({
         amountCents: providerPlan.amountCents ?? webhookContext.amount_cents,
         currency:
-          providerPlan.currency === "ARS"
+          providerPlan.currency === TRIBE_SUBSCRIPTION_CURRENCY.ars
             ? providerPlan.currency
             : webhookContext.currency,
         frequency: webhookContext.frequency,
@@ -3778,8 +3795,10 @@ export class PostgresTribeSubscriptionPriceRepository
       if (
         error &&
         typeof error === "object" &&
-        ((error as { code?: string }).code === "42703" ||
-          (error as { code?: string }).code === "42P01")
+        ((error as { code?: string }).code ===
+          POSTGRES_ERROR_CODE.undefinedColumn ||
+          (error as { code?: string }).code ===
+            POSTGRES_ERROR_CODE.undefinedTable)
       ) {
         return [];
       }
@@ -3949,7 +3968,7 @@ export class PostgresTribeSubscriptionPriceRepository
       }
 
       for (const action of command.invitationActions) {
-        if (action.action === "revoke") {
+        if (action.action === SUBSCRIPTION_PRICE_INVITATION_ACTION.revoke) {
           await database.execute(sql`
             update public.tribe_invitations
             set status = 'revoked',
@@ -3962,7 +3981,7 @@ export class PostgresTribeSubscriptionPriceRepository
           continue;
         }
 
-        if (action.action === "switch_to_current") {
+        if (action.action === SUBSCRIPTION_PRICE_INVITATION_ACTION.switchToCurrent) {
           await database.execute(sql`
             update public.tribe_invitations
             set subscription_association_type = 'current',
@@ -4055,7 +4074,7 @@ export class PostgresTribeSubscriptionPriceRepository
 
       actionInvitationIds.add(action.invitationId);
 
-      if (action.action === "switch_to_specific") {
+      if (action.action === SUBSCRIPTION_PRICE_INVITATION_ACTION.switchToSpecific) {
         if (
           !action.targetPriceId ||
           action.targetPriceId === priceId

@@ -10,7 +10,6 @@ const LOOM_ID_PATTERN = /^[a-f0-9]{32}$/i;
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
 const VIMEO_ID_HASH_SEPARATOR = ":";
-const URL_PATH_SEPARATOR = "/";
 const VIMEO_HASH_QUERY_PARAM = "h";
 const YOUTUBE_VIDEO_QUERY_PARAM = "v";
 
@@ -47,7 +46,7 @@ export class InvalidVideoUrlError extends Error {
 
 function getPathSegments(url: URL): string[] {
   return url.pathname
-    .split(URL_PATH_SEPARATOR)
+    .split("/")
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
 }

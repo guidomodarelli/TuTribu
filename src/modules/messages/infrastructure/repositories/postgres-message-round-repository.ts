@@ -17,6 +17,7 @@ import {
   MESSAGE_AUTHOR_ROLE,
   MESSAGE_MEMBERSHIP_STATUS,
   MESSAGE_MUTATION_STATUS,
+  MESSAGE_POLL_PERCENTAGE_SCALE,
   TRIBE_ROUND_PAGE_SIZE,
 } from "@/src/modules/messages/constants/message-round";
 import type {
@@ -340,7 +341,9 @@ function createMessagePollOptionFromRow(
   return {
     id: row.poll_option_id ?? "",
     percentage:
-      totalVoteCount > 0 ? Math.round((voteCount / totalVoteCount) * 100) : 0,
+      totalVoteCount > 0
+        ? Math.round((voteCount / totalVoteCount) * MESSAGE_POLL_PERCENTAGE_SCALE)
+        : 0,
     selectedByViewer: false,
     text: row.poll_option_text ?? "",
     voteCount,

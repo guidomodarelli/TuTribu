@@ -49,8 +49,6 @@ const DATE_FORMAT = {
   fallbackYear: "2026",
   monthStartIndex: 5,
   padLength: 2,
-  padValue: "0",
-  separator: "-",
 } as const;
 const MONTH_PART = {
   base: 10,
@@ -68,10 +66,7 @@ const MONTH_PART = {
 } as const;
 
 function formatMonth(year: number, month: number): string {
-  return `${year}${DATE_FORMAT.separator}${String(month).padStart(
-    DATE_FORMAT.padLength,
-    DATE_FORMAT.padValue
-  )}`;
+  return `${year}-${String(month).padStart(DATE_FORMAT.padLength, "0")}`;
 }
 
 function getMonthParts(month: string): { month: number; year: number } | null {

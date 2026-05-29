@@ -7,10 +7,16 @@
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 import {
   fetchWithResilience,
+  FETCH_LIFECYCLE_EVENT,
   type FetchLifecycleLogger,
   type HttpFetcher,
   type HttpResponse,
 } from "@/src/modules/shared/infrastructure/http/fetch-with-resilience";
+import { SERVER_LOG_LEVEL } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import {
+  TRIBE_SUBSCRIPTION_FREQUENCY,
+  TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
+} from "@/src/modules/subscriptions/constants/subscriptions";
 import {
   logPaymentOperation,
   type PaymentOperationTraceContext,
@@ -45,6 +51,15 @@ const MERCADO_PAGO_ERROR_DETAIL = {
   maxCauseCount: 3,
   maxTextLength: 240,
 } as const;
+
+const MERCADO_PAGO_RESPONSE_ERROR_MESSAGE = {
+  preapprovalMissingStatus:
+    "Mercado Pago preapproval response did not include status",
+} as const;
+
+const HTTP_STATUS_NOT_FOUND = 404;
+
+const CENTS_PER_CURRENCY_UNIT = 100;
 
 const MERCADO_PAGO_FETCH_RESILIENCE = {
   maxRetries: 1,
@@ -367,13 +382,13 @@ function mapMercadoPagoLifecycleResult(
   event: Parameters<FetchLifecycleLogger>[0]
 ): string {
   switch (event.event) {
-    case "retry-scheduled":
+    case FETCH_LIFECYCLE_EVENT.retryScheduled:
       return MERCADO_PAGO_PAYMENT_OPERATION_RESULT.retryScheduled;
-    case "timeout-abort":
+    case FETCH_LIFECYCLE_EVENT.timeoutAbort:
       return MERCADO_PAGO_PAYMENT_OPERATION_RESULT.timeoutAbort;
-    case "request-failed":
+    case FETCH_LIFECYCLE_EVENT.requestFailed:
       return MERCADO_PAGO_PAYMENT_OPERATION_RESULT.requestFailed;
-    case "request-attempted":
+    case FETCH_LIFECYCLE_EVENT.requestAttempted:
     default:
       return MERCADO_PAGO_PAYMENT_OPERATION_RESULT.requestAttempted;
   }
@@ -388,15 +403,18 @@ function mapMercadoPagoLifecycleResult(
 function resolveMercadoPagoLifecycleLogLevel(
   event: Parameters<FetchLifecycleLogger>[0]
 ) {
-  if (event.event === "request-failed" || event.event === "timeout-abort") {
-    return "error";
+  if (
+    event.event === FETCH_LIFECYCLE_EVENT.requestFailed ||
+    event.event === FETCH_LIFECYCLE_EVENT.timeoutAbort
+  ) {
+    return SERVER_LOG_LEVEL.error;
   }
 
-  if (event.event === "retry-scheduled") {
-    return "warn";
+  if (event.event === FETCH_LIFECYCLE_EVENT.retryScheduled) {
+    return SERVER_LOG_LEVEL.warn;
   }
 
-  return "info";
+  return SERVER_LOG_LEVEL.info;
 }
 
 /**
@@ -476,7 +494,8 @@ function logMercadoPagoOperationResult(input: {
     error: input.error,
     level: input.level,
     message:
-      input.level === "error" || input.level === "warn"
+      input.level === SERVER_LOG_LEVEL.error ||
+      input.level === SERVER_LOG_LEVEL.warn
         ? MERCADO_PAGO_PAYMENT_OPERATION_LOG.failedMessage
         : MERCADO_PAGO_PAYMENT_OPERATION_LOG.completedMessage,
     metadata: input.metadata,
@@ -508,7 +527,9 @@ function mapMercadoPagoPreapprovalPlanResponse(
   return {
     amountCents:
       typeof body.auto_recurring?.transaction_amount === "number"
-        ? Math.round(body.auto_recurring.transaction_amount * 100)
+        ? Math.round(
+            body.auto_recurring.transaction_amount * CENTS_PER_CURRENCY_UNIT
+          )
         : null,
     currency: body.auto_recurring?.currency_id ?? null,
     externalReference:
@@ -520,8 +541,10 @@ function mapMercadoPagoPreapprovalPlanResponse(
     status: body.status,
     trial:
       typeof body.auto_recurring?.free_trial?.frequency === "number" &&
-      (body.auto_recurring.free_trial.frequency_type === "days" ||
-        body.auto_recurring.free_trial.frequency_type === "months")
+      (body.auto_recurring.free_trial.frequency_type ===
+        TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days ||
+        body.auto_recurring.free_trial.frequency_type ===
+          TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.months)
         ? {
             frequency: body.auto_recurring.free_trial.frequency,
             frequencyType: body.auto_recurring.free_trial.frequency_type,
@@ -733,7 +756,7 @@ export async function createMercadoPagoPreapprovalPlan(
           frequency: 1,
           frequency_type: "months",
           free_trial: buildMercadoPagoFreeTrialPayload(input),
-          transaction_amount: input.amountCents / 100,
+          transaction_amount: input.amountCents / CENTS_PER_CURRENCY_UNIT,
         },
         back_url: input.backUrl,
         external_reference: input.externalReference,
@@ -758,7 +781,7 @@ export async function createMercadoPagoPreapprovalPlan(
 
   if (!body.id) {
     logMercadoPagoOperationResult({
-      level: "error",
+      level: SERVER_LOG_LEVEL.error,
       operation,
       result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
       traceContext: input.traceContext,
@@ -799,9 +822,11 @@ export async function updateMercadoPagoPreapprovalPlan(
           currency_id: input.currency,
           frequency: 1,
           frequency_type:
-            input.frequency === "monthly" ? "months" : input.frequency,
+            input.frequency === TRIBE_SUBSCRIPTION_FREQUENCY.monthly
+              ? "months"
+              : input.frequency,
           free_trial: buildMercadoPagoFreeTrialPayload(input),
-          transaction_amount: input.amountCents / 100,
+          transaction_amount: input.amountCents / CENTS_PER_CURRENCY_UNIT,
         },
         back_url: input.backUrl,
         external_reference: input.externalReference,
@@ -866,7 +891,7 @@ export async function getMercadoPagoPreapprovalPlan(
     input.traceContext
   );
 
-  if (response.status === 404) {
+  if (response.status === HTTP_STATUS_NOT_FOUND) {
     logMercadoPagoOperationResult({
       metadata: {
         status: response.status,
@@ -978,7 +1003,7 @@ export async function getMercadoPagoPreapprovalPlanStatus(
     input.traceContext
   );
 
-  if (response.status === 404) {
+  if (response.status === HTTP_STATUS_NOT_FOUND) {
     logMercadoPagoOperationResult({
       metadata: {
         status: response.status,
@@ -1000,7 +1025,7 @@ export async function getMercadoPagoPreapprovalPlanStatus(
 
   if (!body.status) {
     logMercadoPagoOperationResult({
-      level: "error",
+      level: SERVER_LOG_LEVEL.error,
       operation,
       providerPlanId: input.preapprovalPlanId,
       result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
@@ -1068,7 +1093,7 @@ export async function createMercadoPagoPreapprovalSubscription(
 
   if (!body.id || !body.init_point) {
     logMercadoPagoOperationResult({
-      level: "error",
+      level: SERVER_LOG_LEVEL.error,
       operation,
       providerPlanId: input.preapprovalPlanId,
       result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
@@ -1136,14 +1161,16 @@ export async function updateMercadoPagoPreapprovalSubscriptionStatus(input: {
 
   if (!body.status) {
     logMercadoPagoOperationResult({
-      level: "error",
+      level: SERVER_LOG_LEVEL.error,
       operation,
       preapprovalId: input.preapprovalId,
       result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
       traceContext: input.traceContext,
     });
 
-    throw new Error("Mercado Pago preapproval response did not include status");
+    throw new Error(
+      MERCADO_PAGO_RESPONSE_ERROR_MESSAGE.preapprovalMissingStatus
+    );
   }
 
   logMercadoPagoOperationResult({
@@ -1183,7 +1210,7 @@ export async function getMercadoPagoPreapprovalStatus(
     input.traceContext
   );
 
-  if (response.status === 404) {
+  if (response.status === HTTP_STATUS_NOT_FOUND) {
     logMercadoPagoOperationResult({
       metadata: {
         status: response.status,
@@ -1205,14 +1232,16 @@ export async function getMercadoPagoPreapprovalStatus(
 
   if (!body.status) {
     logMercadoPagoOperationResult({
-      level: "error",
+      level: SERVER_LOG_LEVEL.error,
       operation,
       preapprovalId: input.preapprovalId,
       result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
       traceContext: input.traceContext,
     });
 
-    throw new Error("Mercado Pago preapproval response did not include status");
+    throw new Error(
+      MERCADO_PAGO_RESPONSE_ERROR_MESSAGE.preapprovalMissingStatus
+    );
   }
 
   logMercadoPagoOperationResult({
@@ -1252,7 +1281,7 @@ export async function getMercadoPagoPreapprovalDetails(
     input.traceContext
   );
 
-  if (response.status === 404) {
+  if (response.status === HTTP_STATUS_NOT_FOUND) {
     logMercadoPagoOperationResult({
       metadata: {
         status: response.status,
@@ -1274,14 +1303,16 @@ export async function getMercadoPagoPreapprovalDetails(
 
   if (!body.status) {
     logMercadoPagoOperationResult({
-      level: "error",
+      level: SERVER_LOG_LEVEL.error,
       operation,
       preapprovalId: input.preapprovalId,
       result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
       traceContext: input.traceContext,
     });
 
-    throw new Error("Mercado Pago preapproval response did not include status");
+    throw new Error(
+      MERCADO_PAGO_RESPONSE_ERROR_MESSAGE.preapprovalMissingStatus
+    );
   }
 
   const providerPreapprovalDetails = {

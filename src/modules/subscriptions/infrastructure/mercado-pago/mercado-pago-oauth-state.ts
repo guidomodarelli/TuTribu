@@ -8,6 +8,8 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
 const MERCADO_PAGO_OAUTH_STATE = {
   encoding: "base64url",
+  hexEncoding: "hex",
+  nonceByteLength: 16,
   separator: ".",
   signatureAlgorithm: "sha256",
   tribeType: "tribe",
@@ -37,7 +39,9 @@ export function buildMercadoPagoOAuthState(input: {
 }): string {
   const payload: MercadoPagoOAuthStatePayload = {
     memberId: input.memberId,
-    nonce: randomBytes(16).toString(MERCADO_PAGO_OAUTH_STATE.encoding),
+    nonce: randomBytes(MERCADO_PAGO_OAUTH_STATE.nonceByteLength).toString(
+      MERCADO_PAGO_OAUTH_STATE.encoding
+    ),
     tribeSlug: input.tribeSlug,
     type: MERCADO_PAGO_OAUTH_STATE.tribeType,
   };
@@ -117,7 +121,7 @@ function signMercadoPagoOAuthStatePayload(encodedPayload: string): string {
 
   return createHmac(MERCADO_PAGO_OAUTH_STATE.signatureAlgorithm, secret)
     .update(encodedPayload)
-    .digest("hex");
+    .digest(MERCADO_PAGO_OAUTH_STATE.hexEncoding);
 }
 
 /**
@@ -128,8 +132,14 @@ function signMercadoPagoOAuthStatePayload(encodedPayload: string): string {
  * @returns Whether both values are equal.
  */
 function safeCompareHex(receivedValue: string, expectedValue: string): boolean {
-  const receivedBuffer = Buffer.from(receivedValue, "hex");
-  const expectedBuffer = Buffer.from(expectedValue, "hex");
+  const receivedBuffer = Buffer.from(
+    receivedValue,
+    MERCADO_PAGO_OAUTH_STATE.hexEncoding
+  );
+  const expectedBuffer = Buffer.from(
+    expectedValue,
+    MERCADO_PAGO_OAUTH_STATE.hexEncoding
+  );
 
   return (
     receivedBuffer.length === expectedBuffer.length &&

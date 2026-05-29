@@ -8,7 +8,7 @@ const SERVER_LOG_FIELD = {
   message: "message",
 } as const;
 
-const SERVER_LOG_LEVEL = {
+export const SERVER_LOG_LEVEL = {
   error: "error",
   info: "info",
   warn: "warn",

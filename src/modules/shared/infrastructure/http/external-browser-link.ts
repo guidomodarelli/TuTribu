@@ -4,7 +4,13 @@ const INTENT_URL_PREFIX = "intent://";
 const INTENT_URL_SUFFIX =
   "#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end";
 
-export type ExternalBrowserPlatform = "ios" | "android";
+export const EXTERNAL_BROWSER_PLATFORM = {
+  android: "android",
+  ios: "ios",
+} as const;
+
+export type ExternalBrowserPlatform =
+  (typeof EXTERNAL_BROWSER_PLATFORM)[keyof typeof EXTERNAL_BROWSER_PLATFORM];
 
 type BuildExternalBrowserUrlInput = {
   platform: ExternalBrowserPlatform;
@@ -29,7 +35,7 @@ export function buildExternalBrowserUrl({
 
   const urlWithoutScheme = targetHttpsUrl.slice(HTTPS_PROTOCOL.length);
 
-  if (platform === "ios") {
+  if (platform === EXTERNAL_BROWSER_PLATFORM.ios) {
     return SAFARI_URL_SCHEME + urlWithoutScheme;
   }
 

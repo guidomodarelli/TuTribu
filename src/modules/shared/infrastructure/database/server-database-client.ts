@@ -18,7 +18,6 @@ const DATABASE_CONTEXT_SETTING = {
 const DATABASE_TRANSACTION = {
   begin: "BEGIN",
   commit: "COMMIT",
-  emptySettingValue: "",
   rollback: "ROLLBACK",
   verifiedSettingValue: "true",
 } as const;
@@ -138,13 +137,13 @@ export async function createServerDatabaseClient() {
     ): Promise<T> {
       return runWithGuardedTransaction(pool, callback, async (database) => {
         await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserId}, ${context.userId ?? DATABASE_TRANSACTION.emptySettingValue}, true)`
+          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserId}, ${context.userId ?? ""}, true)`
         );
         await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserEmail}, ${context.email ?? DATABASE_TRANSACTION.emptySettingValue}, true)`
+          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserEmail}, ${context.email ?? ""}, true)`
         );
         await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : DATABASE_TRANSACTION.emptySettingValue}, true)`
+          sql`select set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : ""}, true)`
         );
       });
     },
