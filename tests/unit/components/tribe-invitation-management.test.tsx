@@ -284,11 +284,12 @@ describe("TribeInvitationManagement", () => {
       />
     );
 
+    expect(screen.getAllByText("[Guido] Test").length).toBeGreaterThan(0);
+    expect(screen.getByText(/^15\s+ARS$/)).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /\[Guido\] Test\s+·\s+15\s+ARS\s+·\s+\[Guido\] Test \(guido@example\.com\)\s+·\s+7 días gratis/
-      )
+      screen.getByText("[Guido] Test (guido@example.com)")
     ).toBeInTheDocument();
+    expect(screen.getByText("7 días gratis")).toBeInTheDocument();
   });
 
   it("includes account and trial details in the create-plan selector options", async () => {

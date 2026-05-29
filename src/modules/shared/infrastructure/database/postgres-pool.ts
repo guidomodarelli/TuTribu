@@ -23,7 +23,10 @@ const POSTGRES_POOL_CONFIGURATION = {
   allowExitOnIdle: true,
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 5000,
-  max: 5,
+  // Headroom for concurrent server renders. The Neon pooler tolerates hundreds
+  // of connections, so a small per-pool ceiling only starves legitimate
+  // concurrency. Three runtime pools at this size stay far below the limit.
+  max: 10,
   maxLifetimeSeconds: 60,
 } as const;
 

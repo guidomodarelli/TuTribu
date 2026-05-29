@@ -127,11 +127,13 @@ type ProviderSubscriptionReturnPathRow = {
 
 type SubscriptionReconciliationContextRow = {
   access_token: string | null;
+  is_reconciliation_fresh: boolean | null;
   mercado_pago_preapproval_id: string | null;
   payment_integration_id: string | null;
   price_id: string | null;
   refresh_token: string | null;
   subscription_found: boolean | null;
+  subscription_status: string | null;
   token_expires_at: Date | string | null;
   tribe_id: string | null;
 };
@@ -178,6 +180,26 @@ const SUBSCRIPTION_RESERVATION = {
   returnRecoveryInterval: "24 hours",
   staleReservationInterval: "5 minutes",
 } as const;
+
+/**
+ * Bounds how stale the locally stored subscription status may be before access
+ * resolution reconciles it against Mercado Pago again. Within this window the
+ * reconcile reuses the stored status instead of issuing a provider HTTP call and
+ * a write, which collapses the repeated reconciliations triggered by concurrent
+ * renders of the same page. Real-time provider webhooks keep the stored status
+ * fresh between windows, so authorization staleness stays bounded by this value.
+ */
+const RECONCILIATION_FRESHNESS_SECONDS = 60;
+
+type CacheableReconciliationStatus =
+  | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.active
+  | typeof TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused;
+
+const RECONCILIATION_CACHEABLE_SUBSCRIPTION_STATUSES: ReadonlySet<string> =
+  new Set([
+    TRIBE_MEMBER_SUBSCRIPTION_STATUS.active,
+    TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused,
+  ]);
 
 const SUBSCRIPTION_RETURN_QUERY = {
   mercadoPagoPreapprovalId: "preapproval_id",
@@ -368,6 +390,22 @@ function buildProviderSubscriptionReturnPath(input: {
  */
 function buildPriceExternalReference(priceId: string): string {
   return `tutribu:price:${priceId}`;
+}
+
+/**
+ * Checks whether a fresh local subscription status can be returned directly by
+ * the public reconciliation contract without consulting the provider again.
+ *
+ * @param status - Local subscription status stored in Postgres.
+ * @returns Whether the status is safe to expose from reconciliation.
+ */
+function isCacheableReconciliationStatus(
+  status: string | null
+): status is CacheableReconciliationStatus {
+  return (
+    status !== null &&
+    RECONCILIATION_CACHEABLE_SUBSCRIPTION_STATUSES.has(status)
+  );
 }
 
 export class PostgresTribeMemberSubscriptionRepository
@@ -632,6 +670,17 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound };
     }
 
+    // Reuse the recently reconciled status instead of issuing another provider
+    // call and write. Webhooks keep the stored status current between windows.
+    if (
+      context.is_reconciliation_fresh &&
+      isCacheableReconciliationStatus(context.subscription_status)
+    ) {
+      return {
+        status: context.subscription_status,
+      };
+    }
+
     const accessToken = await this.resolveAccessTokenForSubscriptionContext(
       context
     );
@@ -861,7 +910,9 @@ export class PostgresTribeMemberSubscriptionRepository
             tribe_member_subscriptions.payment_integration_id,
             tribe_member_subscriptions.price_id,
             tribe_member_subscriptions.tribe_id,
-            tribe_member_subscriptions.mercado_pago_preapproval_id
+            tribe_member_subscriptions.mercado_pago_preapproval_id,
+            tribe_member_subscriptions.status,
+            tribe_member_subscriptions.updated_at
           from public.tribe_member_subscriptions
           inner join target_tribe
             on target_tribe.id = tribe_member_subscriptions.tribe_id
@@ -883,6 +934,15 @@ export class PostgresTribeMemberSubscriptionRepository
           coalesce((select price_id from target_subscription), null) as price_id,
           coalesce((select tribe_id from target_subscription), (select id from target_tribe)) as tribe_id,
           coalesce((select true from target_subscription), false) as subscription_found,
+          (select status from target_subscription) as subscription_status,
+          coalesce(
+            (
+              select timezone('utc', now()) - target_subscription.updated_at
+                < make_interval(secs => ${RECONCILIATION_FRESHNESS_SECONDS})
+              from target_subscription
+            ),
+            false
+          ) as is_reconciliation_fresh,
           tribe_payment_integrations.token_expires_at
         from (select 1) result
         left join public.tribe_subscription_prices

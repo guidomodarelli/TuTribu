@@ -82,6 +82,50 @@ describe("Better Auth server auth context", () => {
     });
   });
 
+  it("does not retry when the failure was caused by a connection acquisition timeout", async () => {
+    const sessionFailure = Object.assign(new Error("Failed to get session"), {
+      body: {
+        code: "FAILED_TO_GET_SESSION",
+        message: "Failed to get session",
+      },
+      cause: new Error("timeout exceeded when trying to connect"),
+      status: "INTERNAL_SERVER_ERROR",
+      statusCode: 500,
+    });
+    const getSession = jest.fn().mockRejectedValueOnce(sessionFailure);
+
+    jest.doMock("next/headers", () => ({
+      headers: jest.fn(async () => new Headers({ "x-request-id": "request-3" })),
+    }));
+    jest.doMock("@/src/modules/auth/infrastructure/better-auth/auth", () => ({
+      auth: {
+        api: {
+          getSession,
+        },
+      },
+    }));
+    jest.doMock(
+      "@/src/modules/shared/infrastructure/observability/server-logger",
+      () => ({
+        createServerLogger: createServerLogger.mockReturnValue({
+          error: jest.fn(),
+          info: jest.fn(),
+          warn: loggerWarn,
+        }),
+      })
+    );
+
+    const { getServerBetterAuthSession } = await import(
+      "@/src/modules/auth/infrastructure/better-auth/server-auth-context"
+    );
+
+    await expect(getServerBetterAuthSession()).rejects.toThrow(
+      "Failed to get session"
+    );
+    expect(getSession).toHaveBeenCalledTimes(1);
+    expect(loggerWarn).not.toHaveBeenCalled();
+  });
+
   it("does not retry unrelated session lookup failures", async () => {
     const sessionFailure = new Error("Unexpected Better Auth failure");
     const getSession = jest.fn().mockRejectedValueOnce(sessionFailure);

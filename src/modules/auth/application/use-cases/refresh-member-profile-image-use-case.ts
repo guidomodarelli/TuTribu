@@ -26,10 +26,17 @@ type RefreshMemberProfileImageDependencies = {
 };
 
 const PROFILE_IMAGE_REFRESH_LOG_MESSAGE = {
+  aborted:
+    "Member profile image refresh was aborted before completion; skipping.",
   failed: "Failed to refresh member profile image from the identity provider.",
   updated: "Member profile image refreshed from the identity provider.",
 } as const;
 
+const ABORT_ERROR_NAME = "AbortError";
+
+const RESULT_ABORTED: ProfileImageRefreshResult = {
+  outcome: PROFILE_IMAGE_REFRESH_OUTCOME.aborted,
+};
 const RESULT_FAILED: ProfileImageRefreshResult = {
   outcome: PROFILE_IMAGE_REFRESH_OUTCOME.failed,
 };
@@ -53,6 +60,22 @@ function extractImageHost(imageUrl: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Determines whether a thrown value represents an aborted operation, such as a
+ * request lifecycle cancellation that interrupts the in-flight provider fetch.
+ * These cancellations are expected and must not be treated as real failures.
+ *
+ * @param error - The value thrown by the refresh flow.
+ * @returns `true` when the error is an abort signal cancellation.
+ */
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { name?: unknown }).name === ABORT_ERROR_NAME
+  );
 }
 
 /**
@@ -95,6 +118,15 @@ export function refreshMemberProfileImage({
 
       return RESULT_UPDATED;
     } catch (error) {
+      if (isAbortError(error)) {
+        logger.info({
+          message: PROFILE_IMAGE_REFRESH_LOG_MESSAGE.aborted,
+          metadata: { userId },
+        });
+
+        return RESULT_ABORTED;
+      }
+
       logger.error({
         error,
         message: PROFILE_IMAGE_REFRESH_LOG_MESSAGE.failed,

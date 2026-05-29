@@ -45,7 +45,7 @@ describe("Postgres pool factory", () => {
       connectionString: "postgres://user:secret@database.example.com/db",
       connectionTimeoutMillis: 10000,
       idleTimeoutMillis: 5000,
-      max: 5,
+      max: 10,
       maxLifetimeSeconds: 60,
     });
     expect(poolOn).toHaveBeenCalledWith("error", expect.any(Function));

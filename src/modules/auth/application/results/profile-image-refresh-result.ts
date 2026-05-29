@@ -2,6 +2,7 @@
  * Possible outcomes of a member profile image refresh.
  */
 export const PROFILE_IMAGE_REFRESH_OUTCOME = {
+  aborted: "aborted",
   failed: "failed",
   skipped: "skipped",
   updated: "updated",

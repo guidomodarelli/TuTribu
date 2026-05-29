@@ -497,7 +497,7 @@ const INVITATION_PLAN_LABEL_SEPARATOR = " · ";
 function describeAssociation(
   association: TribeInvitationSubscriptionAssociationResult
 ): {
-  label: string;
+  segments: string[];
   tone: (typeof INVITATION_MANAGEMENT_BADGE_TONE)[keyof typeof INVITATION_MANAGEMENT_BADGE_TONE];
 } {
   if (
@@ -505,19 +505,19 @@ function describeAssociation(
   ) {
     if (!association.plan) {
       return {
-        label: INVITATION_MANAGEMENT_COPY.missingPlanLabel,
+        segments: [INVITATION_MANAGEMENT_COPY.missingPlanLabel],
         tone: INVITATION_MANAGEMENT_BADGE_TONE.missing,
       };
     }
 
     return {
-      label: buildPlanLabelSegments({
+      segments: buildPlanLabelSegments({
         accountEmail: association.plan.mercadoPagoAccountEmail,
         accountLabel: association.plan.mercadoPagoAccountLabel,
         amountCents: association.plan.amountCents,
         name: association.plan.name,
         trial: association.plan.trial,
-      }).join(INVITATION_PLAN_LABEL_SEPARATOR),
+      }),
       tone: INVITATION_MANAGEMENT_BADGE_TONE.specific,
     };
   }
@@ -526,13 +526,13 @@ function describeAssociation(
     association.type === TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.free
   ) {
     return {
-      label: INVITATION_MANAGEMENT_COPY.freeOptionLabel,
+      segments: [INVITATION_MANAGEMENT_COPY.freeOptionLabel],
       tone: INVITATION_MANAGEMENT_BADGE_TONE.free,
     };
   }
 
   return {
-    label: INVITATION_MANAGEMENT_COPY.usesCurrentPlanLabel,
+    segments: [INVITATION_MANAGEMENT_COPY.usesCurrentPlanLabel],
     tone: INVITATION_MANAGEMENT_BADGE_TONE.current,
   };
 }
@@ -868,25 +868,32 @@ export function TribeInvitationManagement({
                   <span className={styles.TribeInvitationManagement__planLabel}>
                     {INVITATION_MANAGEMENT_COPY.associatedPlanLabel}:
                   </span>{" "}
-                  <Badge
-                    className={
-                      invitation.planDescription.tone ===
-                      INVITATION_MANAGEMENT_BADGE_TONE.missing
-                        ? styles["TribeInvitationManagement__planBadge--missing"]
-                        : undefined
-                    }
-                    variant={
-                      invitation.planDescription.tone ===
-                      INVITATION_MANAGEMENT_BADGE_TONE.missing
-                        ? INVITATION_MANAGEMENT_REQUEST.destructiveVariant
-                        : invitation.planDescription.tone ===
-                          INVITATION_MANAGEMENT_BADGE_TONE.specific
-                        ? INVITATION_MANAGEMENT_REQUEST.defaultVariant
-                        : INVITATION_MANAGEMENT_REQUEST.secondaryVariant
-                    }
-                  >
-                    {invitation.planDescription.label}
-                  </Badge>
+                  {invitation.planDescription.segments.map(
+                    (planSegment, planSegmentIndex) => (
+                      <Badge
+                        className={
+                          invitation.planDescription.tone ===
+                          INVITATION_MANAGEMENT_BADGE_TONE.missing
+                            ? styles[
+                                "TribeInvitationManagement__planBadge--missing"
+                              ]
+                            : undefined
+                        }
+                        key={`${invitation.id}-plan-${planSegmentIndex}`}
+                        variant={
+                          invitation.planDescription.tone ===
+                          INVITATION_MANAGEMENT_BADGE_TONE.missing
+                            ? INVITATION_MANAGEMENT_REQUEST.destructiveVariant
+                            : invitation.planDescription.tone ===
+                              INVITATION_MANAGEMENT_BADGE_TONE.specific
+                            ? INVITATION_MANAGEMENT_REQUEST.defaultVariant
+                            : INVITATION_MANAGEMENT_REQUEST.secondaryVariant
+                        }
+                      >
+                        {planSegment}
+                      </Badge>
+                    )
+                  )}
                 </span>
                 <span className={styles.TribeInvitationManagement__plan}>
                   <span className={styles.TribeInvitationManagement__planLabel}>

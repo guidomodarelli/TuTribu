@@ -180,6 +180,15 @@ useEffect(() =&gt; {
 <p><strong>Design for partial failure</strong></p>
 <p>Assume provider calls, network requests, and downstream services can fail independently.</p>
 <p>Handle timeouts, retries, and fallback behavior intentionally instead of letting failures leak as generic runtime errors.</p>
+<p><strong>Database connection pool resilience</strong></p>
+<p>Server renders can be aborted mid-flight (dev render restarts on cache miss, or a client disconnect in production). An aborted render suspends the <code>finally</code> that returns a pooled client, so a request-scoped transaction can leak its connection and eventually exhaust the pool, surfacing as <code>timeout exceeded when trying to connect</code>.</p>
+<ul>
+  <li>Every request-scoped transaction sets a local <code>idle_in_transaction_session_timeout</code> right after <code>BEGIN</code> (<code>withRequestContext</code>). Postgres terminates an abandoned transaction, which closes the socket and lets the pool reclaim the slot. The window is far larger than any legitimate request, so healthy work is never affected.</li>
+  <li>Keep enough pool headroom for concurrent renders. The Neon pooler tolerates hundreds of connections, so a small per-pool ceiling only starves legitimate concurrency.</li>
+  <li>Do not retry a session or query failure caused by a connection-acquisition timeout: retrying while the pool is saturated only doubles the pressure. Reserve retries for genuinely transient terminations (for example a backend-closed idle client).</li>
+</ul>
+<p><strong>Throttle provider reconciliation on hot read paths</strong></p>
+<p>When access resolution reconciles a subscription against the provider on every page load, concurrent renders multiply the provider HTTP calls and writes. Gate the reconciliation by freshness: reuse the locally stored status when it was reconciled within a short window (<code>RECONCILIATION_FRESHNESS_SECONDS</code>) and only call the provider once the stored status ages out. Real-time provider webhooks keep the stored status current between windows, so authorization staleness stays bounded by the window.</p>
 </div>
 
 <div class="section">

@@ -1,5 +1,7 @@
 /** @jest-environment node */
 
+import { EventEmitter } from "node:events";
+
 describe("createServerDatabaseClient", () => {
   const originalEnvironment = { ...process.env };
 
@@ -17,7 +19,11 @@ describe("createServerDatabaseClient", () => {
   it("runs request context settings sequentially on the transaction client", async () => {
     let activeQueryCount = 0;
     let detectedOverlappingQuery = false;
-    const query = jest.fn(async () => {
+    const executedStatements: string[] = [];
+    const query = jest.fn(async (statement?: unknown) => {
+      if (typeof statement === "string") {
+        executedStatements.push(statement);
+      }
       detectedOverlappingQuery = detectedOverlappingQuery || activeQueryCount > 0;
       activeQueryCount += 1;
 
@@ -32,13 +38,14 @@ describe("createServerDatabaseClient", () => {
       };
     });
     const release = jest.fn();
+    const client = Object.assign(new EventEmitter(), {
+      query,
+      release,
+    });
 
     jest.doMock("pg", () => ({
       Pool: jest.fn(() => ({
-        connect: jest.fn(async () => ({
-          query,
-          release,
-        })),
+        connect: jest.fn(async () => client),
         on: jest.fn(),
       })),
     }));
@@ -64,7 +71,62 @@ describe("createServerDatabaseClient", () => {
     );
 
     expect(detectedOverlappingQuery).toBe(false);
-    expect(query).toHaveBeenCalledTimes(5);
+    // BEGIN + idle-in-transaction guard + 3 request-context settings + COMMIT.
+    expect(query).toHaveBeenCalledTimes(6);
+    expect(executedStatements[0]).toBe("BEGIN");
+    expect(executedStatements[executedStatements.length - 1]).toBe("COMMIT");
     expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases a checked-out client with the emitted error when the connection closes asynchronously", async () => {
+    const connectionError = new Error("idle-in-transaction timeout");
+    let activeClient: EventEmitter | null = null;
+    const release = jest.fn();
+    const query = jest.fn(async (statement?: unknown) => {
+      if (statement === "BEGIN") {
+        activeClient?.emit("error", connectionError);
+      }
+
+      return {
+        rows: [],
+      };
+    });
+    const client = Object.assign(new EventEmitter(), {
+      query,
+      release,
+    });
+    activeClient = client;
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn(() => ({
+        connect: jest.fn(async () => client),
+        on: jest.fn(),
+      })),
+    }));
+    jest.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: (databaseClient: { query: () => Promise<unknown> }) => ({
+        execute: () => databaseClient.query(),
+      }),
+    }));
+
+    const { createServerDatabaseClient } = await import(
+      "@/src/modules/shared/infrastructure/database/server-database-client"
+    );
+
+    const databaseClient = await createServerDatabaseClient();
+
+    await expect(
+      databaseClient.withRequestContext(
+        {
+          email: "leader@example.com",
+          userId: "member-1",
+        },
+        async () => "ok"
+      )
+    ).resolves.toBe("ok");
+
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(release).toHaveBeenCalledWith(connectionError);
+    expect(query).not.toHaveBeenCalledWith("ROLLBACK");
   });
 });

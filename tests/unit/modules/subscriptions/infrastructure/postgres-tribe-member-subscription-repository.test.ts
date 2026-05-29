@@ -184,6 +184,121 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
   });
 
+  it("reuses the recently reconciled status without calling Mercado Pago", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          access_token: "subscription-access-token",
+          is_reconciliation_fresh: true,
+          mercado_pago_preapproval_id: "preapproval-1",
+          payment_integration_id: "integration-2",
+          price_id: "price-2",
+          refresh_token: null,
+          subscription_found: true,
+          subscription_status: "active",
+          token_expires_at: null,
+          tribe_id: "tribe-1",
+        },
+      ],
+    }));
+    const getMercadoPagoPreapprovalStatus = jest.fn();
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
+
+    await expect(
+      repository.reconcileCurrentMemberSubscription({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "active" });
+
+    expect(getMercadoPagoPreapprovalStatus).not.toHaveBeenCalled();
+    // Only the context lookup runs: no provider call and no status write.
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
+      /is_reconciliation_fresh/
+    );
+  });
+
+  it("reconciles fresh pending subscriptions because provider returns may be approved before webhooks arrive", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "subscription-access-token",
+            is_reconciliation_fresh: true,
+            mercado_pago_preapproval_id: "preapproval-1",
+            payment_integration_id: "integration-2",
+            price_id: "price-2",
+            refresh_token: null,
+            subscription_found: true,
+            subscription_status: "pending",
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const getMercadoPagoPreapprovalStatus = jest.fn(async () => "authorized");
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
+
+    await expect(
+      repository.reconcileCurrentMemberSubscription({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "active" });
+
+    expect(getMercadoPagoPreapprovalStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "subscription-access-token",
+        preapprovalId: "preapproval-1",
+      })
+    );
+    expect(execute).toHaveBeenCalledTimes(3);
+  });
+
+  it("reconciles fresh payment-blocked subscriptions through Mercado Pago instead of returning the internal status", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "subscription-access-token",
+            is_reconciliation_fresh: true,
+            mercado_pago_preapproval_id: "preapproval-1",
+            payment_integration_id: "integration-2",
+            price_id: "price-2",
+            refresh_token: null,
+            subscription_found: true,
+            subscription_status: "payment_blocked",
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const getMercadoPagoPreapprovalStatus = jest.fn(async () => "authorized");
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalStatus,
+    });
+
+    await expect(
+      repository.reconcileCurrentMemberSubscription({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "active" });
+
+    expect(getMercadoPagoPreapprovalStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "subscription-access-token",
+        preapprovalId: "preapproval-1",
+      })
+    );
+  });
+
   it("attaches the returned Mercado Pago preapproval id to the pending plan checkout without activating access", async () => {
     const execute = jest
       .fn()

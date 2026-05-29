@@ -28,6 +28,47 @@ const BETTER_AUTH_SESSION_LOG_MESSAGE = {
   retry: "Better Auth session lookup failed transiently; retrying once.",
 } as const;
 
+/**
+ * node-postgres signature emitted when a pooled connection cannot be acquired in
+ * time. Retrying this is futile while the pool stays saturated, so the retry is
+ * skipped to avoid doubling the connection pressure that caused the timeout.
+ */
+const CONNECTION_TIMEOUT_ERROR_SIGNATURE =
+  "timeout exceeded when trying to connect";
+
+const ERROR_CAUSE_MAX_DEPTH = 5;
+
+/**
+ * Detects whether an error, or any error in its `cause` chain, is a pooled
+ * connection-acquisition timeout. The chain is walked with a bounded depth so a
+ * self-referential cause cannot loop.
+ *
+ * @param error - Error thrown by Better Auth while resolving the session.
+ * @returns Whether the failure was caused by a connection-acquisition timeout.
+ */
+function isConnectionAcquisitionTimeout(error: unknown): boolean {
+  let current: unknown = error;
+
+  for (let depth = 0; depth < ERROR_CAUSE_MAX_DEPTH; depth += 1) {
+    if (typeof current !== "object" || current === null) {
+      return false;
+    }
+
+    const candidate = current as { message?: unknown; cause?: unknown };
+
+    if (
+      typeof candidate.message === "string" &&
+      candidate.message.includes(CONNECTION_TIMEOUT_ERROR_SIGNATURE)
+    ) {
+      return true;
+    }
+
+    current = candidate.cause;
+  }
+
+  return false;
+}
+
 export type RequestAuthContext = {
   email: string | null;
   image: string | null;
@@ -101,7 +142,10 @@ export async function getServerBetterAuthSession(): Promise<BetterAuthSession> {
       headers: requestHeaders,
     });
   } catch (error) {
-    if (!isRetryableBetterAuthSessionFailure(error)) {
+    if (
+      !isRetryableBetterAuthSessionFailure(error) ||
+      isConnectionAcquisitionTimeout(error)
+    ) {
       throw error;
     }
 

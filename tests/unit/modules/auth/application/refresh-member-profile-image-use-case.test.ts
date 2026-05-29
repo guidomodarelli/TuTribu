@@ -77,6 +77,31 @@ describe("refreshMemberProfileImage", () => {
     expect(result.outcome).toBe(PROFILE_IMAGE_REFRESH_OUTCOME.skipped);
   });
 
+  it("treats an aborted operation as a benign cancellation without logging an error", async () => {
+    const abortError = new DOMException(
+      "This operation was aborted",
+      "AbortError"
+    );
+    const memberProfileRepository: MemberProfileRepository = {
+      getImage: jest.fn().mockResolvedValue(STORED_IMAGE),
+      updateImage: jest.fn().mockResolvedValue(undefined),
+    };
+    const externalProfilePictureProvider: ExternalProfilePictureProvider = {
+      getCurrentPictureUrl: jest.fn().mockRejectedValue(abortError),
+    };
+    const logger = createLogger();
+
+    const result = await refreshMemberProfileImage({
+      externalProfilePictureProvider,
+      logger,
+      memberProfileRepository,
+    })(MEMBER_ID);
+
+    expect(result.outcome).toBe(PROFILE_IMAGE_REFRESH_OUTCOME.aborted);
+    expect(memberProfileRepository.updateImage).not.toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
   it("logs and does not rethrow when the provider fails", async () => {
     const providerError = new Error("provider unreachable");
     const memberProfileRepository: MemberProfileRepository = {
