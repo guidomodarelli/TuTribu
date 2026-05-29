@@ -2,6 +2,7 @@ import {
   GET,
   PUT,
 } from "@/app/api/tribes/[slug]/welcome/route";
+import { POST as POST_WELCOME_SELECTION } from "@/app/api/tribes/[slug]/welcome/selections/route";
 import { createRequestModules } from "@/src/modules/setup";
 import {
   TRIBE_PAGE_ACCESS_REASON,
@@ -12,6 +13,8 @@ import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-we
 const getAuthenticatedMember = jest.fn();
 const getTribePageAccess = jest.fn();
 const getTribeWelcome = jest.fn();
+const mockLoggerError = jest.fn();
+const recordTribeWelcomeSelection = jest.fn();
 const saveTribeWelcome = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
@@ -22,7 +25,7 @@ jest.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
     createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
+      error: mockLoggerError,
       info: jest.fn(),
     })),
   })
@@ -140,6 +143,7 @@ describe("Tribe welcome routes", () => {
         useCases: {
           getTribePageAccess,
           getTribeWelcome,
+          recordTribeWelcomeSelection,
           saveTribeWelcome,
         },
       },
@@ -159,6 +163,29 @@ describe("Tribe welcome routes", () => {
     });
     await expect(response.json()).resolves.toEqual({
       welcome,
+    });
+  });
+
+  it("returns a safe GET error response when request modules fail to initialize", async () => {
+    const initializationError = new Error("database connection failed");
+    (createRequestModules as jest.Mock).mockRejectedValueOnce(
+      initializationError
+    );
+
+    const response = await GET(buildRequest(), buildContext());
+
+    expect(response.status).toBe(500);
+    expect(getAuthenticatedMember).not.toHaveBeenCalled();
+    expect(mockLoggerError).toHaveBeenCalledWith({
+      error: initializationError,
+      message: "Tribe welcome loading failed",
+      metadata: {
+        slug: "matematica-pro",
+        viewerId: null,
+      },
+    });
+    await expect(response.json()).resolves.toEqual({
+      message: "No pudimos cargar la bienvenida. Intentá de nuevo.",
     });
   });
 
@@ -217,6 +244,34 @@ describe("Tribe welcome routes", () => {
     });
     await expect(response.json()).resolves.toEqual({
       message: "Bienvenida actualizada.",
+    });
+  });
+
+  it("returns a safe PUT error response when authentication fails unexpectedly", async () => {
+    const authenticationError = new Error("better auth session lookup failed");
+    getAuthenticatedMember.mockRejectedValueOnce(authenticationError);
+
+    const response = await PUT(
+      buildRequest({
+        links: [],
+        rules: [],
+        welcomeMessage: "Bienvenido/a",
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(500);
+    expect(saveTribeWelcome).not.toHaveBeenCalled();
+    expect(mockLoggerError).toHaveBeenCalledWith({
+      error: authenticationError,
+      message: "Tribe welcome save failed",
+      metadata: {
+        slug: "matematica-pro",
+        viewerId: null,
+      },
+    });
+    await expect(response.json()).resolves.toEqual({
+      message: "No pudimos guardar la bienvenida. Intentá de nuevo.",
     });
   });
 
@@ -466,6 +521,37 @@ describe("Tribe welcome routes", () => {
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
       message: "Solo el líder puede editar la bienvenida.",
+    });
+  });
+
+  it("returns a safe selection error response when authentication fails unexpectedly", async () => {
+    const authenticationError = new Error("better auth session lookup failed");
+    getAuthenticatedMember.mockRejectedValueOnce(authenticationError);
+
+    const response = await POST_WELCOME_SELECTION(
+      buildRequest(
+        {
+          welcomeLinkId: "11111111-1111-4111-8111-111111111111",
+        },
+        "POST"
+      ),
+      buildContext()
+    );
+
+    expect(response.status).toBe(500);
+    expect(recordTribeWelcomeSelection).not.toHaveBeenCalled();
+    expect(mockLoggerError).toHaveBeenCalledWith({
+      error: authenticationError,
+      message: "Tribe welcome selection record failed",
+      metadata: {
+        slug: "matematica-pro",
+        viewerId: null,
+        welcomeLinkId: null,
+      },
+    });
+    await expect(response.json()).resolves.toEqual({
+      message:
+        "No pudimos registrar tu elección. Probá de nuevo en unos minutos.",
     });
   });
 });

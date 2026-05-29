@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
@@ -187,10 +187,18 @@ describe("TribeEventsCalendar", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Crear evento" }));
-    await user.type(screen.getByLabelText("Título"), "Clase abierta");
-    await user.type(screen.getByLabelText("Fecha"), "2026-05-06");
-    await user.type(screen.getByLabelText("Hora de inicio"), "15:00");
-    await user.type(screen.getByLabelText("Link de reunión"), "https://meet.google.com/abc-defg-hij");
+    fireEvent.change(screen.getByLabelText("Título"), {
+      target: { value: "Clase abierta" },
+    });
+    fireEvent.change(screen.getByLabelText("Fecha"), {
+      target: { value: "2026-05-06" },
+    });
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "15:00" },
+    });
+    fireEvent.change(screen.getByLabelText("Link de reunión"), {
+      target: { value: "https://meet.google.com/abc-defg-hij" },
+    });
     await user.click(screen.getByRole("button", { name: "Guardar evento" }));
 
     expect(global.fetch).toHaveBeenCalledWith(

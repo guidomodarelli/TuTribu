@@ -280,17 +280,21 @@ export async function GET(
     operation: WELCOME_ROUTE_LOG.operation,
     requestId,
   });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
-
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: WELCOME_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  let viewerId: string | null = null;
 
   try {
+    const modules = await createRequestModules();
+    const authenticatedMember =
+      await modules.auth.useCases.getAuthenticatedMember();
+
+    if (!authenticatedMember) {
+      return createJsonResponse(
+        { message: WELCOME_ROUTE_RESPONSE.unauthorizedMessage },
+        HTTP_STATUS.unauthorized
+      );
+    }
+
+    viewerId = authenticatedMember.id;
     const accessResult = await modules.tribes.useCases.getTribePageAccess({
       isAuthenticated: true,
       slug,
@@ -314,7 +318,7 @@ export async function GET(
       message: WELCOME_ROUTE_LOG.getFailureMessage,
       metadata: {
         slug,
-        viewerId: authenticatedMember.id,
+        viewerId,
       },
     });
 
@@ -340,17 +344,21 @@ export async function PUT(
     operation: WELCOME_ROUTE_LOG.operation,
     requestId,
   });
-  const modules = await createRequestModules();
-  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
-
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: WELCOME_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
+  let viewerId: string | null = null;
 
   try {
+    const modules = await createRequestModules();
+    const authenticatedMember =
+      await modules.auth.useCases.getAuthenticatedMember();
+
+    if (!authenticatedMember) {
+      return createJsonResponse(
+        { message: WELCOME_ROUTE_RESPONSE.unauthorizedMessage },
+        HTTP_STATUS.unauthorized
+      );
+    }
+
+    viewerId = authenticatedMember.id;
     const parsedBody = await request.json().catch(() => ({}));
 
     if (!isPayloadObject(parsedBody)) {
@@ -436,7 +444,7 @@ export async function PUT(
       message: WELCOME_ROUTE_LOG.saveFailureMessage,
       metadata: {
         slug,
-        viewerId: authenticatedMember.id,
+        viewerId,
       },
     });
 
