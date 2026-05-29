@@ -129,4 +129,46 @@ describe("createServerDatabaseClient", () => {
     expect(release).toHaveBeenCalledWith(connectionError);
     expect(query).not.toHaveBeenCalledWith("ROLLBACK");
   });
+
+  it("guards and commits a transaction without request-context settings when no prepare is provided", async () => {
+    const executedStatements: string[] = [];
+    const query = jest.fn(async (statement?: unknown) => {
+      if (typeof statement === "string") {
+        executedStatements.push(statement);
+      }
+
+      return {
+        rows: [],
+      };
+    });
+    const release = jest.fn();
+    const client = Object.assign(new EventEmitter(), {
+      query,
+      release,
+    });
+    const pool = { connect: jest.fn(async () => client) };
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn(),
+    }));
+    jest.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: (databaseClient: { query: () => Promise<unknown> }) => ({
+        execute: () => databaseClient.query(),
+      }),
+    }));
+
+    const { runWithGuardedTransaction } = await import(
+      "@/src/modules/shared/infrastructure/database/server-database-client"
+    );
+
+    await expect(
+      runWithGuardedTransaction(pool as never, async () => "done")
+    ).resolves.toBe("done");
+
+    // BEGIN + idle-in-transaction guard + COMMIT, without request-context settings.
+    expect(query).toHaveBeenCalledTimes(3);
+    expect(executedStatements).toEqual(["BEGIN", "COMMIT"]);
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(release).toHaveBeenCalledWith(undefined);
+  });
 });

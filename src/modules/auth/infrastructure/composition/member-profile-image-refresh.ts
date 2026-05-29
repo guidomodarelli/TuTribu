@@ -1,6 +1,5 @@
 import "server-only";
 
-import { drizzle } from "drizzle-orm/node-postgres";
 import { after } from "next/server";
 import { Pool } from "pg";
 
@@ -8,7 +7,10 @@ import { refreshMemberProfileImage } from "@/src/modules/auth/application/use-ca
 import { GoogleProfilePictureProvider } from "@/src/modules/auth/infrastructure/profile/google-profile-picture-provider";
 import { PostgresMemberProfileRepository } from "@/src/modules/auth/infrastructure/repositories/postgres-member-profile-repository";
 import { createPostgresPool } from "@/src/modules/shared/infrastructure/database/postgres-pool";
-import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import {
+  runWithGuardedTransaction,
+  type RequestDatabase,
+} from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { getServerDatabaseEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -46,20 +48,16 @@ function getProfileRefreshPool(): Pool {
 }
 
 /**
- * Runs a callback against a plain pooled connection, without any request-scoped
+ * Runs a callback against the profile-refresh pool without any request-scoped
  * row-level-security context. The profile image lives in the authentication user
- * table, which Better Auth writes with this same database role.
+ * table, which Better Auth writes with this same database role. The shared
+ * guarded transaction releases the client even when the background `after()`
+ * flow is abandoned, so the pool is not leaked.
  */
 async function executeWithProfileDatabase<T>(
   callback: (database: RequestDatabase) => Promise<T>
 ): Promise<T> {
-  const client = await getProfileRefreshPool().connect();
-
-  try {
-    return await callback(drizzle(client));
-  } finally {
-    client.release();
-  }
+  return runWithGuardedTransaction(getProfileRefreshPool(), callback);
 }
 
 /**

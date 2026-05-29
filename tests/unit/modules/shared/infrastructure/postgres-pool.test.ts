@@ -47,6 +47,7 @@ describe("Postgres pool factory", () => {
       idleTimeoutMillis: 5000,
       max: 10,
       maxLifetimeSeconds: 60,
+      onConnect: expect.any(Function),
     });
     expect(poolOn).toHaveBeenCalledWith("error", expect.any(Function));
 
@@ -145,5 +146,101 @@ describe("Postgres pool factory", () => {
       }),
     });
     expect(loggerWarn).not.toHaveBeenCalled();
+  });
+
+  it("applies the idle-in-transaction guard on every new connection", async () => {
+    const Pool = jest.fn(() => ({
+      on: jest.fn(),
+    }));
+
+    jest.doMock("pg", () => ({
+      Pool,
+    }));
+    jest.doMock(
+      "@/src/modules/shared/infrastructure/observability/server-logger",
+      () => ({
+        createServerLogger: () => ({
+          error: loggerError,
+          info: jest.fn(),
+          warn: loggerWarn,
+        }),
+      })
+    );
+
+    const { createPostgresPool } = await import(
+      "@/src/modules/shared/infrastructure/database/postgres-pool"
+    );
+
+    createPostgresPool({
+      connectionString: "postgres://user:secret@database.example.com/db",
+      operation: "better_auth_database_pool_idle_error",
+    });
+
+    const poolConfig = Pool.mock.calls[0][0] as {
+      onConnect: (client: unknown) => Promise<void>;
+    };
+    const query = jest.fn().mockResolvedValue({ rows: [] });
+
+    await expect(poolConfig.onConnect({ query })).resolves.toBeUndefined();
+
+    expect(query).toHaveBeenCalledWith("select set_config($1, $2, false)", [
+      "idle_in_transaction_session_timeout",
+      "30000",
+    ]);
+  });
+
+  it("rejects new connections when the idle-in-transaction guard cannot be applied", async () => {
+    const Pool = jest.fn(() => ({
+      on: jest.fn(),
+    }));
+
+    jest.doMock("pg", () => ({
+      Pool,
+    }));
+    jest.doMock(
+      "@/src/modules/shared/infrastructure/observability/server-logger",
+      () => ({
+        createServerLogger: () => ({
+          error: loggerError,
+          info: jest.fn(),
+          warn: loggerWarn,
+        }),
+      })
+    );
+
+    const { createPostgresPool } = await import(
+      "@/src/modules/shared/infrastructure/database/postgres-pool"
+    );
+
+    createPostgresPool({
+      connectionString: "postgres://user:secret@database.example.com/db",
+      operation: "better_auth_database_pool_idle_error",
+    });
+
+    const poolConfig = Pool.mock.calls[0][0] as {
+      onConnect: (client: unknown) => Promise<void>;
+    };
+    const guardError = Object.assign(new Error("set_config failed"), {
+      code: "42501",
+      severity: "ERROR",
+    });
+
+    await expect(
+      poolConfig.onConnect({
+        query: jest.fn().mockRejectedValue(guardError),
+      })
+    ).rejects.toBe(guardError);
+
+    expect(loggerWarn).toHaveBeenCalledWith({
+      message:
+        "Failed to apply the idle-in-transaction guard to a new Postgres connection.",
+      metadata: {
+        dependency: "postgres",
+        errorCode: "42501",
+        errorSeverity: "ERROR",
+        isTransientConnectionTermination: false,
+      },
+      error: guardError,
+    });
   });
 });

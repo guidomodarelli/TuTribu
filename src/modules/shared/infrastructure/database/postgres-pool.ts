@@ -11,6 +11,8 @@ const POSTGRES_ERROR_CODE = {
 } as const;
 
 const POSTGRES_POOL_LOG_MESSAGE = {
+  connectionGuardFailed:
+    "Failed to apply the idle-in-transaction guard to a new Postgres connection.",
   transientTermination:
     "Postgres idle client was closed by the database backend.",
   unexpectedError:
@@ -18,6 +20,22 @@ const POSTGRES_POOL_LOG_MESSAGE = {
 } as const;
 
 const POSTGRES_POOL_LOG_REQUEST_ID = "background";
+
+/**
+ * Connection-level idle-in-transaction guard, in milliseconds. Applied to every
+ * pooled connection so an abandoned transaction is terminated server-side and
+ * its pool slot reclaimed instead of leaking. This covers transactions opened by
+ * library adapters that own their own checkout (for example the Better Auth
+ * Drizzle adapter), which the request-scoped helper cannot wrap. The window is
+ * far larger than any legitimate transaction, so healthy work is never affected.
+ */
+export const IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS = 30000;
+
+const IDLE_IN_TRANSACTION_GUARD = {
+  setting: "idle_in_transaction_session_timeout",
+  /** Session-level (not transaction-local) so it persists across the pooled connection. */
+  statement: "select set_config($1, $2, false)",
+} as const;
 
 const POSTGRES_POOL_CONFIGURATION = {
   allowExitOnIdle: true,
@@ -69,14 +87,29 @@ function getPostgresErrorMetadata(error: unknown) {
  * @returns Configured Postgres pool.
  */
 export function createPostgresPool(input: CreatePostgresPoolInput) {
-  const pool = new Pool({
-    ...POSTGRES_POOL_CONFIGURATION,
-    connectionString: input.connectionString,
-  });
   const logger = createServerLogger({
     feature: "database",
     operation: input.operation,
     requestId: POSTGRES_POOL_LOG_REQUEST_ID,
+  });
+  const pool = new Pool({
+    ...POSTGRES_POOL_CONFIGURATION,
+    connectionString: input.connectionString,
+    onConnect: async (client) => {
+      try {
+        await client.query(IDLE_IN_TRANSACTION_GUARD.statement, [
+          IDLE_IN_TRANSACTION_GUARD.setting,
+          String(IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS),
+        ]);
+      } catch (error) {
+        logger.warn({
+          message: POSTGRES_POOL_LOG_MESSAGE.connectionGuardFailed,
+          metadata: getPostgresErrorMetadata(error),
+          error,
+        });
+        throw error;
+      }
+    },
   });
 
   pool.on("error", (error: unknown) => {

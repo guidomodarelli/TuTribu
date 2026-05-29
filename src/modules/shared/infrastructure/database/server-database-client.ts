@@ -4,7 +4,10 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, PoolClient } from "pg";
 
-import { createPostgresPool } from "./postgres-pool";
+import {
+  createPostgresPool,
+  IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS,
+} from "./postgres-pool";
 import { getServerDatabaseEnvironment } from "./server-environment";
 
 const DATABASE_CONTEXT_SETTING = {
@@ -23,16 +26,6 @@ const DATABASE_TRANSACTION = {
 const DATABASE_TRANSACTION_SETTING = {
   idleInTransactionSessionTimeout: "idle_in_transaction_session_timeout",
 } as const;
-
-/**
- * Server-side guard that terminates a transaction abandoned before commit so the
- * pooled connection is reclaimed instead of leaking. Renders aborted mid-flight
- * (for example by the dev render restarts or by a client disconnect) suspend the
- * `finally` release indefinitely, which otherwise exhausts the pool. The window
- * is far larger than any legitimate request transaction, so healthy work is
- * never affected.
- */
-const IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS = 30000;
 
 const DATABASE_POOL_OPERATION = {
   idleError: "runtime_database_pool_idle_error",
@@ -68,6 +61,73 @@ function getDatabasePool() {
   return globalDatabase.__tuTribuDatabasePool;
 }
 
+/**
+ * Runs work inside a guarded transaction on a freshly checked-out pool client.
+ *
+ * The client is released even when the awaiting flow is abandoned (an aborted
+ * render or `after()` callback): a client `error` listener releases it on
+ * connection death, the release is idempotent, and `ROLLBACK` is skipped once
+ * the socket has already errored. A local `idle_in_transaction_session_timeout`
+ * lets Postgres terminate a transaction abandoned before commit so the pooled
+ * connection is reclaimed instead of leaking and starving the pool.
+ *
+ * Every code path that checks out a pooled client must go through this helper
+ * instead of a bare `pool.connect()`/`finally` pair, so the safety net stays in
+ * one place.
+ *
+ * @param pool - Pool to check a client out from.
+ * @param runStatements - Work to run against the transaction-scoped database.
+ * @param prepare - Optional per-transaction setup run right after the guard,
+ *   such as request-scoped row-level-security settings.
+ * @returns The value returned by `runStatements`.
+ */
+export async function runWithGuardedTransaction<T>(
+  pool: Pool,
+  runStatements: (database: RequestDatabase) => Promise<T>,
+  prepare?: (database: RequestDatabase) => Promise<void>
+): Promise<T> {
+  const client = await pool.connect();
+  let wasClientReleased = false;
+  const releaseClient = (error?: Error) => {
+    if (wasClientReleased) {
+      return;
+    }
+
+    wasClientReleased = true;
+    client.release(error);
+  };
+  const handleCheckedOutClientError = (error: Error) => {
+    releaseClient(error);
+  };
+
+  try {
+    client.on("error", handleCheckedOutClientError);
+    await client.query(DATABASE_TRANSACTION.begin);
+
+    const database = createRequestDatabase(client);
+    await database.execute(
+      sql`select set_config(${DATABASE_TRANSACTION_SETTING.idleInTransactionSessionTimeout}, ${String(IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS)}, true)`
+    );
+
+    if (prepare) {
+      await prepare(database);
+    }
+
+    const result = await runStatements(database);
+    await client.query(DATABASE_TRANSACTION.commit);
+    return result;
+  } catch (error) {
+    if (!wasClientReleased) {
+      await client.query(DATABASE_TRANSACTION.rollback);
+    }
+
+    throw error;
+  } finally {
+    client.removeListener("error", handleCheckedOutClientError);
+    releaseClient();
+  }
+}
+
 export async function createServerDatabaseClient() {
   const pool = getDatabasePool();
 
@@ -76,28 +136,7 @@ export async function createServerDatabaseClient() {
       context: RequestDatabaseContext,
       callback: (database: RequestDatabase) => Promise<T>
     ): Promise<T> {
-      const client = await pool.connect();
-      let wasClientReleased = false;
-      const releaseClient = (error?: Error) => {
-        if (wasClientReleased) {
-          return;
-        }
-
-        wasClientReleased = true;
-        client.release(error);
-      };
-      const handleCheckedOutClientError = (error: Error) => {
-        releaseClient(error);
-      };
-
-      try {
-        client.on("error", handleCheckedOutClientError);
-        await client.query(DATABASE_TRANSACTION.begin);
-
-        const database = createRequestDatabase(client);
-        await database.execute(
-          sql`select set_config(${DATABASE_TRANSACTION_SETTING.idleInTransactionSessionTimeout}, ${String(IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS)}, true)`
-        );
+      return runWithGuardedTransaction(pool, callback, async (database) => {
         await database.execute(
           sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserId}, ${context.userId ?? DATABASE_TRANSACTION.emptySettingValue}, true)`
         );
@@ -107,20 +146,7 @@ export async function createServerDatabaseClient() {
         await database.execute(
           sql`select set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : DATABASE_TRANSACTION.emptySettingValue}, true)`
         );
-
-        const result = await callback(database);
-        await client.query(DATABASE_TRANSACTION.commit);
-        return result;
-      } catch (error) {
-        if (!wasClientReleased) {
-          await client.query(DATABASE_TRANSACTION.rollback);
-        }
-
-        throw error;
-      } finally {
-        client.removeListener("error", handleCheckedOutClientError);
-        releaseClient();
-      }
+      });
     },
   };
 }
