@@ -55,6 +55,7 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.6",
     "eslint-plugin-no-eslint-disable": "^3.0.2",
+    "eslint-plugin-no-magic": "^0.1.0",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "sass": "^1.100.0",

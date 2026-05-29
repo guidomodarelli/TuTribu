@@ -3,8 +3,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import * as noEslintDisable from "eslint-plugin-no-eslint-disable";
-import noMagicNumbers from "./eslint/rules/no-magic-numbers.mjs";
-import noMagicStrings from "./eslint/rules/no-magic-strings.mjs";
+import noMagic, { recommendedMagicNumberOptions } from "eslint-plugin-no-magic";
 
 const deprecatedFeatureImportPatterns = ["@/src/features/*", "src/features/*"];
 const moduleSetupImportPatterns = [
@@ -75,18 +74,12 @@ const eslintConfig = defineConfig([
     ],
     plugins: {
       "no-eslint-disable": noEslintDisable,
-      local: {
-        rules: {
-          "no-magic-numbers": noMagicNumbers,
-          "no-magic-strings": noMagicStrings,
-        },
-      },
+      "no-magic": noMagic,
     },
     rules: {
-      "@typescript-eslint/no-magic-numbers": "off",
+      "@typescript-eslint/no-magic-numbers": ["error", recommendedMagicNumberOptions],
       "no-eslint-disable/no-eslint-disable": "error",
-      "local/no-magic-numbers": "error",
-      "local/no-magic-strings": "error",
+      "no-magic/no-magic-strings": "error",
     },
   },
   // Override default ignores of eslint-config-next.

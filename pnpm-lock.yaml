@@ -117,6 +117,9 @@ importers:
       eslint-plugin-no-eslint-disable:
         specifier: ^3.0.2
         version: 3.0.2(eslint@9.39.4(jiti@2.6.1))
+      eslint-plugin-no-magic:
+        specifier: ^0.1.0
+        version: 0.1.0(eslint@9.39.4(jiti@2.6.1))
       jest:
         specifier: ^30.4.2
         version: 30.4.2(@types/node@25.9.1)
@@ -3588,6 +3591,12 @@ packages:
     resolution: {integrity: sha512-a8Oc+WzWpGH7hkX6udm4eEVi/RPouGWY0M1xAep/xx5clvysMf3nhaQL5xnGwvmAMS/y2NHQ6TMU8PLB3CDmGw==}
     peerDependencies:
       eslint: '9'
+
+  eslint-plugin-no-magic@0.1.0:
+    resolution: {integrity: sha512-4j5ailx2SS3gKFmz9JucS9SQkjjHUiMXyo9IJaLEeX3aYgBJs+fYg933SCTCaMkx34HZjjI2dbFUFY9xnDLoQQ==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      eslint: '>=9'
 
   eslint-plugin-react-hooks@7.1.1:
     resolution: {integrity: sha512-f2I7Gw6JbvCexzIInuSbZpfdQ44D7iqdWX01FKLvrPgqxoE7oMj8clOfto8U6vYiz4yd5oKu39rRSVOe1zRu0g==}
@@ -9236,6 +9245,10 @@ snapshots:
       string.prototype.includes: 2.0.1
 
   eslint-plugin-no-eslint-disable@3.0.2(eslint@9.39.4(jiti@2.6.1)):
+    dependencies:
+      eslint: 9.39.4(jiti@2.6.1)
+
+  eslint-plugin-no-magic@0.1.0(eslint@9.39.4(jiti@2.6.1)):
     dependencies:
       eslint: 9.39.4(jiti@2.6.1)
 

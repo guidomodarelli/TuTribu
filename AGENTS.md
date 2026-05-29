@@ -390,6 +390,17 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
   - visible UI copy rendered from JSX
   - import/export sources and obvious structural property names or keys
 
+### Magic strings and magic numbers
+
+- A literal is "magic" when its value carries domain, protocol, or business meaning but that meaning is not named in the code. Name it; a literal is not magic just for being a literal.
+- Enforcement lives in tooling, not only in review:
+  - Magic strings: `eslint-plugin-no-magic` (rule `no-magic/no-magic-strings`). It reports a string only when it is a hidden contract: an equality/inequality comparison operand, a `switch` `case`, an argument to a known behavioral sink (analytics/tracking, storage, feature flags, cache, routing/navigation), the `type` of a dispatched action, or a value duplicated across the file at or above the configured threshold.
+  - Magic numbers: `@typescript-eslint/no-magic-numbers`, wired with `recommendedMagicNumberOptions` from `eslint-plugin-no-magic`.
+- Prefer named constants, typed unions, enums, or shared maps for: domain statuses, roles, action types, tracking event names, feature flags, storage/cache keys, route names, API paths, HTTP statuses, timeouts, limits, breakpoints, and retry counts. Place them per the constant-scope rules above.
+- Do NOT extract by default (the linter intentionally ignores these): JSX string props (`<Button size="small" />`), property-existence checks (`"status" in obj`), `import`/`export` paths, runtime directives (`"use client"`), `typeof` comparison vocabulary, object keys and property-name access, TypeScript literal-union declarations, `enum` member initializers, visible JSX copy, inline SVG markup, `next/font` loader options, and human-readable messages that are not duplicated.
+- Before creating a new constant, search for an existing domain constant and follow nearby patterns instead of duplicating it.
+- The linter enforces the mechanical, low-noise subset; this section is the criterion for the cases tooling cannot judge. See the constants convention guide at `docs/conventions/constants.htm`.
+
 ### TDD is mandatory
 
 - Work in strict TDD for every feature, bug fix, and architectural change.
