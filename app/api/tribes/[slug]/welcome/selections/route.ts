@@ -67,36 +67,40 @@ export async function POST(
     operation: WELCOME_SELECTION_ROUTE_LOG.operation,
     requestId,
   });
-  const modules = await createRequestModules();
-  const authenticatedMember =
-    await modules.auth.useCases.getAuthenticatedMember();
-
-  if (!authenticatedMember) {
-    return createJsonResponse(
-      { message: WELCOME_SELECTION_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
-    );
-  }
-
-  const parsedBody = await request.json().catch(() => null);
-
-  if (!isPayloadObject(parsedBody)) {
-    return createJsonResponse(
-      { message: WELCOME_SELECTION_ROUTE_RESPONSE.invalidPayloadMessage },
-      HTTP_STATUS.badRequest
-    );
-  }
-
-  const welcomeLinkId = readWelcomeLinkId(parsedBody.welcomeLinkId);
-
-  if (!welcomeLinkId) {
-    return createJsonResponse(
-      { message: WELCOME_SELECTION_ROUTE_RESPONSE.invalidPayloadMessage },
-      HTTP_STATUS.badRequest
-    );
-  }
+  let viewerId: string | null = null;
+  let welcomeLinkId: string | null = null;
 
   try {
+    const modules = await createRequestModules();
+    const authenticatedMember =
+      await modules.auth.useCases.getAuthenticatedMember();
+
+    if (!authenticatedMember) {
+      return createJsonResponse(
+        { message: WELCOME_SELECTION_ROUTE_RESPONSE.unauthorizedMessage },
+        HTTP_STATUS.unauthorized
+      );
+    }
+
+    viewerId = authenticatedMember.id;
+    const parsedBody = await request.json().catch(() => null);
+
+    if (!isPayloadObject(parsedBody)) {
+      return createJsonResponse(
+        { message: WELCOME_SELECTION_ROUTE_RESPONSE.invalidPayloadMessage },
+        HTTP_STATUS.badRequest
+      );
+    }
+
+    welcomeLinkId = readWelcomeLinkId(parsedBody.welcomeLinkId);
+
+    if (!welcomeLinkId) {
+      return createJsonResponse(
+        { message: WELCOME_SELECTION_ROUTE_RESPONSE.invalidPayloadMessage },
+        HTTP_STATUS.badRequest
+      );
+    }
+
     const result = await modules.tribes.useCases.recordTribeWelcomeSelection({
       tribeSlug: slug,
       welcomeLinkId,
@@ -126,7 +130,7 @@ export async function POST(
       message: WELCOME_SELECTION_ROUTE_LOG.recordFailureMessage,
       metadata: {
         slug,
-        viewerId: authenticatedMember.id,
+        viewerId,
         welcomeLinkId,
       },
     });

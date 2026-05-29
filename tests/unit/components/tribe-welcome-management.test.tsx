@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
 
@@ -303,21 +303,26 @@ describe("TribeWelcomeManagement", () => {
     await user.click(screen.getByRole("button", { name: "Agregar acuerdo" }));
     await user.click(screen.getByRole("button", { name: "Agregar link" }));
 
-    await user.type(
-      screen.getAllByLabelText("Acuerdo").at(-1) as HTMLElement,
-      "Saludar al entrar"
-    );
-    await user.type(
+    fireEvent.change(screen.getAllByLabelText("Acuerdo").at(-1) as HTMLElement, {
+      target: { value: "Saludar al entrar" },
+    });
+    fireEvent.change(
       screen.getAllByLabelText("Título del recurso").at(-1) as HTMLElement,
-      "Nuevo recurso"
+      {
+        target: { value: "Nuevo recurso" },
+      }
     );
-    await user.type(
+    fireEvent.change(
       screen.getAllByLabelText("URL de destino").at(-1) as HTMLElement,
-      "https://nuevo.example.com"
+      {
+        target: { value: "https://nuevo.example.com" },
+      }
     );
-    await user.type(
+    fireEvent.change(
       screen.getAllByLabelText("Etiqueta para miembros").at(-1) as HTMLElement,
-      "Nuevo badge"
+      {
+        target: { value: "Nuevo badge" },
+      }
     );
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
