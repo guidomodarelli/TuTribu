@@ -17,6 +17,7 @@ import {
   TRIBE_MEMBER_SUBSCRIPTION_STATUS,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON,
 } from "@/src/modules/subscriptions/constants/subscriptions";
+import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import type {
   MercadoPagoSubscriptionWebhookCommand,
   PendingSubscriptionReturnQuery,
@@ -250,7 +251,6 @@ const MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY = {
   cancelSubscription: "cancel-member-subscription",
   confirmReturn: "confirm-member-subscription-return",
   reconcileSubscription: "reconcile-member-subscription",
-  separator: ":",
   startSubscription: "member-plan-subscription",
   startSubscriptionAlreadyActive: "member-plan-subscription-already-active",
   webhook: "mercado-pago-webhook",
@@ -303,7 +303,7 @@ function buildMemberSubscriptionOperationKey(parts: {
     parts.operation,
     parts.tribeSlug,
     parts.providerSubscriptionId ?? "",
-  ].join(MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.separator);
+  ].join(":");
 }
 
 /**
@@ -1235,7 +1235,7 @@ export class PostgresTribeMemberSubscriptionRepository
       MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.startSubscription,
       input.tribeSlug,
       input.idempotencyKey,
-    ].join(MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.separator);
+    ].join(":");
 
     const context = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
@@ -1397,17 +1397,17 @@ export class PostgresTribeMemberSubscriptionRepository
     const hasRetryBlockingMemberSubscription =
       context?.has_retry_blocking_member_subscription === true;
     const hasRecoverablePaymentMembership =
-      (context?.existing_membership_status === "blocked" &&
+      (context?.existing_membership_status === TRIBE_MEMBERSHIP_STATUS.blocked &&
         context.existing_membership_status_reason ===
           TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked) ||
-      (context?.existing_membership_status === "removed" &&
+      (context?.existing_membership_status === TRIBE_MEMBERSHIP_STATUS.removed &&
         context.existing_membership_status_reason ===
           TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive &&
         !hasRetryBlockingMemberSubscription);
 
     if (!input.requiresActiveInvitation && !hasRecoverablePaymentMembership) {
       const retryRejectionStatus =
-        context?.existing_membership_status === "blocked" &&
+        context?.existing_membership_status === TRIBE_MEMBERSHIP_STATUS.blocked &&
         context.existing_membership_status_reason !==
           TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked
           ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked
@@ -1467,7 +1467,7 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     if (
-      context.existing_membership_status === "blocked" &&
+      context.existing_membership_status === TRIBE_MEMBERSHIP_STATUS.blocked &&
       context.existing_membership_status_reason !==
         TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked
     ) {
@@ -2073,7 +2073,7 @@ export class PostgresTribeMemberSubscriptionRepository
         return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook };
       }
 
-      const operationKeyPrefix = `${MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.webhook}${MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.separator}${command.resourceId}`;
+      const operationKeyPrefix = `${MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.webhook}:${command.resourceId}`;
       const traceContext = buildMemberSubscriptionPaymentTraceContext({
         operationKey: operationKeyPrefix,
         preapprovalId: command.resourceId,
@@ -2091,7 +2091,7 @@ export class PostgresTribeMemberSubscriptionRepository
         operationKeyPrefix,
         subscriptionStatus.status,
         subscriptionStatus.statusReason,
-      ].join(MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.separator);
+      ].join(":");
 
       const operationResult = await database.execute(sql`
         insert into public.subscription_idempotency_operations (

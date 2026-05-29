@@ -5,7 +5,6 @@ const HTTP_PROTOCOL = "http:";
 const HTTPS_PROTOCOL = "https:";
 const LOCALHOST_HOSTNAME = "localhost";
 const LOCAL_LOOPBACK_HOSTNAME = "127.0.0.1";
-const PATH_SEPARATOR = "/";
 const PUBLIC_APP_BASE_URL_ERROR_SUFFIX = {
   httpsOrLocalhost: " must use https, or http only for localhost",
   required: " is required to build public app links",
@@ -13,7 +12,7 @@ const PUBLIC_APP_BASE_URL_ERROR_SUFFIX = {
 } as const;
 
 function trimTrailingSlash(value: string): string {
-  return value.endsWith(PATH_SEPARATOR) ? value.slice(0, -1) : value;
+  return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
 export function resolvePublicAppBaseUrl(): string {

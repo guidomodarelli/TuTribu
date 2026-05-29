@@ -1,5 +1,3 @@
-const REQUEST_ID_SEPARATOR = ",";
-
 export const REQUEST_ID_HEADER = "x-request-id";
 
 export type RequestContext = {
@@ -22,7 +20,7 @@ function readRequestId(headersLike?: HeadersLike | null): string | null {
   }
 
   const [requestId] = rawHeader
-    .split(REQUEST_ID_SEPARATOR)
+    .split(",")
     .flatMap((value) => {
       const trimmedValue = value.trim();
 

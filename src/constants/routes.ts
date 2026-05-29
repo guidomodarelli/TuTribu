@@ -1,6 +1,4 @@
-const TRIBE_ROUTE_PREFIX = "/";
 const PLATFORM_ROUTE_PREFIX = "/-/";
-const ROUTE_SEGMENT_SEPARATOR = "/";
 const TRIBE_ROUTE_SEGMENTS = {
   history: "historia",
   channels: "canales",
@@ -17,7 +15,7 @@ const TRIBE_ROUTE_SEGMENTS = {
 } as const;
 
 function buildTribeSectionRoute(slug: string, section: string): string {
-  return `${TRIBE_ROUTE_PREFIX}${slug}${ROUTE_SEGMENT_SEPARATOR}${section}`;
+  return `/${slug}/${section}`;
 }
 
 export const ROUTES = {
@@ -31,7 +29,7 @@ export const ROUTES = {
   tribes: {
     history: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.history),
-    bySlug: (slug: string) => TRIBE_ROUTE_PREFIX + slug,
+    bySlug: (slug: string) => `/${slug}`,
     channels: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.channels),
     courses: (slug: string) =>
@@ -54,7 +52,7 @@ export const ROUTES = {
     merits: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.merits),
     invitation: (slug: string, token: string) =>
-      `${TRIBE_ROUTE_PREFIX}${slug}${ROUTE_SEGMENT_SEPARATOR}${TRIBE_ROUTE_SEGMENTS.invitation}${ROUTE_SEGMENT_SEPARATOR}${token}`,
+      `/${slug}/${TRIBE_ROUTE_SEGMENTS.invitation}/${token}`,
   },
   home: "/",
 } as const;

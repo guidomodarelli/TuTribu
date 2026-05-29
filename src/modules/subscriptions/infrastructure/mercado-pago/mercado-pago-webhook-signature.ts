@@ -6,6 +6,11 @@
 
 import { createHmac, timingSafeEqual } from "crypto";
 
+import {
+  MILLISECONDS_PER_SECOND,
+  SECONDS_PER_MINUTE,
+} from "@/src/constants/time";
+
 const MERCADO_PAGO_WEBHOOK_ENV = {
   secret: "MERCADO_PAGO_WEBHOOK_SECRET",
 } as const;
@@ -17,14 +22,21 @@ const MERCADO_PAGO_WEBHOOK_HEADER = {
 
 const MERCADO_PAGO_WEBHOOK_SIGNATURE = {
   algorithm: "sha256",
+  hexEncoding: "hex",
   partSeparator: ",",
+  timestampKey: "ts",
   valueSeparator: "=",
+  versionOneKey: "v1",
 } as const;
 
+const WEBHOOK_TIMESTAMP_TOLERANCE_MINUTES = 5;
 const WEBHOOK_TIMESTAMP = {
   millisecondsLength: 13,
-  secondsMultiplier: 1000,
-  toleranceMilliseconds: 5 * 60 * 1000,
+  secondsMultiplier: MILLISECONDS_PER_SECOND,
+  toleranceMilliseconds:
+    WEBHOOK_TIMESTAMP_TOLERANCE_MINUTES *
+    SECONDS_PER_MINUTE *
+    MILLISECONDS_PER_SECOND,
 } as const;
 
 type ParsedWebhookSignature = {
@@ -67,7 +79,7 @@ export function verifyMercadoPagoWebhookSignature(input: {
     webhookSecret
   )
     .update(manifest)
-    .digest("hex");
+    .digest(MERCADO_PAGO_WEBHOOK_SIGNATURE.hexEncoding);
 
   return safeCompareHex(parsedSignature.versionOneSignature, expectedSignature);
 }
@@ -88,8 +100,12 @@ function parseWebhookSignature(
   const signatureParts = signatureHeader
     .split(MERCADO_PAGO_WEBHOOK_SIGNATURE.partSeparator)
     .map((part) => part.trim().split(MERCADO_PAGO_WEBHOOK_SIGNATURE.valueSeparator));
-  const timestamp = signatureParts.find(([key]) => key === "ts")?.[1];
-  const versionOneSignature = signatureParts.find(([key]) => key === "v1")?.[1];
+  const timestamp = signatureParts.find(
+    ([key]) => key === MERCADO_PAGO_WEBHOOK_SIGNATURE.timestampKey
+  )?.[1];
+  const versionOneSignature = signatureParts.find(
+    ([key]) => key === MERCADO_PAGO_WEBHOOK_SIGNATURE.versionOneKey
+  )?.[1];
 
   return timestamp && versionOneSignature
     ? {
@@ -131,8 +147,14 @@ function isFreshWebhookTimestamp(timestamp: string): boolean {
  * @returns Whether both values are equal.
  */
 function safeCompareHex(receivedValue: string, expectedValue: string): boolean {
-  const receivedBuffer = Buffer.from(receivedValue, "hex");
-  const expectedBuffer = Buffer.from(expectedValue, "hex");
+  const receivedBuffer = Buffer.from(
+    receivedValue,
+    MERCADO_PAGO_WEBHOOK_SIGNATURE.hexEncoding
+  );
+  const expectedBuffer = Buffer.from(
+    expectedValue,
+    MERCADO_PAGO_WEBHOOK_SIGNATURE.hexEncoding
+  );
 
   return (
     receivedBuffer.length === expectedBuffer.length &&

@@ -55,6 +55,15 @@ export const MERCADO_PAGO_CONNECTION_STATUS = {
 } as const;
 
 /**
+ * Defines the invitation actions allowed while deleting a subscription price.
+ */
+export const SUBSCRIPTION_PRICE_INVITATION_ACTION = {
+  revoke: "revoke",
+  switchToCurrent: "switch_to_current",
+  switchToSpecific: "switch_to_specific",
+} as const;
+
+/**
  * Defines the supported triggers for provider subscriber reconciliation.
  */
 export const TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE = {

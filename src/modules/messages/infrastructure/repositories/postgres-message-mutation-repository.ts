@@ -33,6 +33,7 @@ import type {
 } from "@/src/modules/messages/application/results/tribe-round-result";
 import {
   MESSAGE_MUTATION_STATUS,
+  MESSAGE_POLL_PERCENTAGE_SCALE,
   MESSAGE_POLL_STATUS,
   MESSAGE_REACTION_TYPE,
   PINNED_TRIBE_MESSAGES_LIMIT,
@@ -1179,7 +1180,11 @@ export class PostgresMessageMutationRepository
         return {
           id: row.option_id,
           percentage:
-            totalVoteCount > 0 ? Math.round((voteCount / totalVoteCount) * 100) : 0,
+            totalVoteCount > 0
+              ? Math.round(
+                  (voteCount / totalVoteCount) * MESSAGE_POLL_PERCENTAGE_SCALE
+                )
+              : 0,
           selectedByViewer: Boolean(row.selected_by_viewer),
           text: row.option_text,
           voteCount,

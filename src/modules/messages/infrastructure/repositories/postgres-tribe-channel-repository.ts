@@ -46,7 +46,6 @@ type PostgresError = {
 };
 
 const CHANNEL_SLUG = {
-  duplicateSeparator: "-",
   emptyFallback: "channel",
   nonAlphanumericPattern: /[^a-z0-9]+/g,
   trimSeparatorPattern: /^-+|-+$/g,
@@ -65,7 +64,7 @@ function createChannelSlug(name: string): string {
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
-    .replace(CHANNEL_SLUG.nonAlphanumericPattern, CHANNEL_SLUG.duplicateSeparator)
+    .replace(CHANNEL_SLUG.nonAlphanumericPattern, "-")
     .replace(CHANNEL_SLUG.trimSeparatorPattern, "");
 
   return normalizedSlug || CHANNEL_SLUG.emptyFallback;

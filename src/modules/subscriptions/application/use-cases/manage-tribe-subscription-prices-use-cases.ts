@@ -5,6 +5,7 @@
  */
 
 import {
+  SUBSCRIPTION_PRICE_INVITATION_ACTION,
   TRIBE_SUBSCRIPTION_CURRENCY,
   TRIBE_SUBSCRIPTION_FREQUENCY,
   TRIBE_SUBSCRIPTION_PRICE_MINIMUM_AMOUNT_CENTS,
@@ -43,10 +44,6 @@ type UpdateTribeSubscriptionPriceInput = CreateTribeSubscriptionPriceInput & {
   priceId: string;
 };
 
-const AMOUNT_DECIMAL_SEPARATOR = {
-  comma: ",",
-  dot: ".",
-} as const;
 const AMOUNT_CENTS_MULTIPLIER = 100;
 const POSTGRES_INTEGER_MAX_VALUE = 2147483647;
 const VALID_AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
@@ -108,9 +105,7 @@ function normalizeText(value: string): string {
  * @returns Integer amount in cents, or null when invalid.
  */
 function parseAmountCents(amount: string): number | null {
-  const normalizedAmount = amount
-    .trim()
-    .replace(AMOUNT_DECIMAL_SEPARATOR.comma, AMOUNT_DECIMAL_SEPARATOR.dot);
+  const normalizedAmount = amount.trim().replace(",", ".");
 
   if (!VALID_AMOUNT_PATTERN.test(normalizedAmount)) {
     return null;
@@ -441,12 +436,6 @@ export function deleteTribeSubscriptionPrice({
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const SUBSCRIPTION_PRICE_INVITATION_ACTION = {
-  revoke: "revoke",
-  switchToCurrent: "switch_to_current",
-  switchToSpecific: "switch_to_specific",
-} as const;
 
 function parseInvitationActions(
   input: unknown

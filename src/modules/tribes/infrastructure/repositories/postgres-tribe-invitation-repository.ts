@@ -106,8 +106,6 @@ type InvitationConversionMetricRow = {
 };
 
 const INVITATION_ROUTE = {
-  segmentSeparator: "/",
-  tribePrefix: "/",
   inviteSegment: "/invitar/",
 } as const;
 
@@ -139,10 +137,7 @@ function isValidInvitationId(invitationId: string): boolean {
 
 function createInvitationUrl(baseUrl: string, tribeSlug: string, token: string): string {
   return new URL(
-    INVITATION_ROUTE.tribePrefix +
-      tribeSlug +
-      INVITATION_ROUTE.inviteSegment +
-      token,
+    `/${tribeSlug}${INVITATION_ROUTE.inviteSegment}${token}`,
     baseUrl
   ).toString();
 }

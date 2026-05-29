@@ -5,10 +5,6 @@
  */
 
 /**
- * Separates normalized slug words.
- */
-const TRIBE_SLUG_BUILD_SEPARATOR = "-";
-/**
  * Splits accented characters from their marks before ASCII cleanup.
  */
 const TRIBE_SLUG_NORMALIZATION_FORM = "NFD";
@@ -78,11 +74,6 @@ const TRIBE_SLUG_RESERVED_VALUE_LIST = [
  */
 const TRIBE_SLUG_RESERVED_VALUES = new Set<string>(TRIBE_SLUG_RESERVED_VALUE_LIST);
 /**
- * Represents an empty normalized slug fragment.
- */
-const EMPTY_TEXT = "";
-
-/**
  * Converts user-entered text into the canonical tribe slug format.
  *
  * @param input - Raw user-entered slug or tribe name.
@@ -91,12 +82,12 @@ const EMPTY_TEXT = "";
 export function normalizeTribeSlug(input: string): string {
   return input
     .normalize(TRIBE_SLUG_NORMALIZATION_FORM)
-    .replace(/[\u0300-\u036f]/g, EMPTY_TEXT)
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, TRIBE_SLUG_BUILD_SEPARATOR)
-    .replace(/^-+|-+$/g, EMPTY_TEXT)
-    .replace(/-{2,}/g, TRIBE_SLUG_BUILD_SEPARATOR);
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
 }
 
 /**
@@ -117,5 +108,5 @@ export function isReservedTribeSlug(slug: string): boolean {
  * @returns Suggested canonical slug with an incremental suffix.
  */
 export function buildTribeSlugSuggestion(baseSlug: string, index: number): string {
-  return `${baseSlug}${TRIBE_SLUG_BUILD_SEPARATOR}${index}`;
+  return `${baseSlug}-${index}`;
 }
