@@ -17,7 +17,6 @@ import {
   TRIBE_MEMBER_SUBSCRIPTION_STATUS,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON,
 } from "@/src/modules/subscriptions/constants/subscriptions";
-import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import type {
   MercadoPagoSubscriptionWebhookCommand,
   PendingSubscriptionReturnQuery,
@@ -254,6 +253,15 @@ const MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY = {
   startSubscription: "member-plan-subscription",
   startSubscriptionAlreadyActive: "member-plan-subscription-already-active",
   webhook: "mercado-pago-webhook",
+} as const;
+
+/**
+ * Defines persisted tribe membership statuses that subscriptions may recover
+ * while starting or retrying paid checkout flows.
+ */
+const MEMBER_SUBSCRIPTION_RECOVERY_MEMBERSHIP_STATUS = {
+  blocked: "blocked",
+  removed: "removed",
 } as const;
 
 const MEMBER_SUBSCRIPTION_PAYMENT_LOG = {
@@ -1397,17 +1405,20 @@ export class PostgresTribeMemberSubscriptionRepository
     const hasRetryBlockingMemberSubscription =
       context?.has_retry_blocking_member_subscription === true;
     const hasRecoverablePaymentMembership =
-      (context?.existing_membership_status === TRIBE_MEMBERSHIP_STATUS.blocked &&
+      (context?.existing_membership_status ===
+        MEMBER_SUBSCRIPTION_RECOVERY_MEMBERSHIP_STATUS.blocked &&
         context.existing_membership_status_reason ===
           TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked) ||
-      (context?.existing_membership_status === TRIBE_MEMBERSHIP_STATUS.removed &&
+      (context?.existing_membership_status ===
+        MEMBER_SUBSCRIPTION_RECOVERY_MEMBERSHIP_STATUS.removed &&
         context.existing_membership_status_reason ===
           TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive &&
         !hasRetryBlockingMemberSubscription);
 
     if (!input.requiresActiveInvitation && !hasRecoverablePaymentMembership) {
       const retryRejectionStatus =
-        context?.existing_membership_status === TRIBE_MEMBERSHIP_STATUS.blocked &&
+        context?.existing_membership_status ===
+          MEMBER_SUBSCRIPTION_RECOVERY_MEMBERSHIP_STATUS.blocked &&
         context.existing_membership_status_reason !==
           TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked
           ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked
@@ -1467,7 +1478,8 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     if (
-      context.existing_membership_status === TRIBE_MEMBERSHIP_STATUS.blocked &&
+      context.existing_membership_status ===
+        MEMBER_SUBSCRIPTION_RECOVERY_MEMBERSHIP_STATUS.blocked &&
       context.existing_membership_status_reason !==
         TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked
     ) {
