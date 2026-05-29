@@ -528,6 +528,7 @@ export function TribeEventsCalendar({
         <Link
           className={styles.TribeEventsCalendar__todayLink}
           href={buildEventsRoute(tribeSlug, getCurrentBuenosAiresMonth())}
+          prefetch={false}
         >
           {COPY.today}
         </Link>
@@ -536,6 +537,7 @@ export function TribeEventsCalendar({
             aria-label={COPY.previousMonth}
             className={styles.TribeEventsCalendar__iconLink}
             href={buildEventsRoute(tribeSlug, month.previous)}
+            prefetch={false}
           >
             <ChevronLeftIcon aria-hidden />
           </Link>
@@ -551,6 +553,7 @@ export function TribeEventsCalendar({
             aria-label={COPY.nextMonth}
             className={styles.TribeEventsCalendar__iconLink}
             href={buildEventsRoute(tribeSlug, month.next)}
+            prefetch={false}
           >
             <ChevronRightIcon aria-hidden />
           </Link>
