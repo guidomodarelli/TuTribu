@@ -9,6 +9,10 @@ import {
 } from "@/src/modules/messages/application/use-cases/list-tribe-round-use-case";
 import { submitMessagePollVote } from "@/src/modules/messages/application/use-cases/manage-message-polls-use-cases";
 import {
+  createMessageImageUpload,
+  deleteMessageImage,
+} from "@/src/modules/messages/application/use-cases/message-images-use-cases";
+import {
   createTribeChannel,
   deleteTribeChannel,
   listTribeChannels,
@@ -65,6 +69,13 @@ import type { MessageReactionRepository } from "@/src/modules/messages/domain/re
 import type { MessagePinRepository } from "@/src/modules/messages/domain/repositories/message-pin-repository";
 import type { MessagePollRepository } from "@/src/modules/messages/domain/repositories/message-poll-repository";
 import type { MessageDeletionRepository } from "@/src/modules/messages/domain/repositories/message-deletion-repository";
+import type {
+  CreateMessageImageUploadCommand,
+  DeleteMessageImageCommand,
+  MessageImageDeletionResult,
+  MessageImageRepository,
+  MessageImageUploadCreationResult,
+} from "@/src/modules/messages/domain/repositories/message-image-repository";
 
 type MessagesModuleDependencies = {
   tribeChannelRepository: TribeChannelRepository;
@@ -80,6 +91,7 @@ type MessagesModuleDependencies = {
   messageDeletionRepository: MessageDeletionRepository;
   messageCreatedAtUpdateRepository: MessageCreatedAtUpdateRepository;
   messageContentUpdateRepository: MessageContentUpdateRepository;
+  messageImageRepository: MessageImageRepository;
 };
 
 type MessagesModule = {
@@ -99,6 +111,12 @@ type MessagesModule = {
     createMessageReply: (
       command: CreateMessageReplyCommand
     ) => Promise<MessageReplyCreationResult>;
+    createMessageImageUpload: (
+      command: CreateMessageImageUploadCommand
+    ) => Promise<MessageImageUploadCreationResult>;
+    deleteMessageImage: (
+      command: DeleteMessageImageCommand
+    ) => Promise<MessageImageDeletionResult>;
     listTribeRound: (query: ListTribeRoundQuery) => Promise<TribeRoundResult>;
     listMessageReplies: (
       query: ListMessageRepliesQuery
@@ -135,18 +153,29 @@ export function buildMessagesModule({
   messageDeletionRepository,
   messageCreatedAtUpdateRepository,
   messageContentUpdateRepository,
+  messageImageRepository,
 }: MessagesModuleDependencies): MessagesModule {
   return {
     useCases: {
-      createTribeMessage: createTribeMessage({ messageCreationRepository }),
+      createTribeMessage: createTribeMessage({
+        messageCreationRepository,
+        messageImageRepository,
+      }),
       createTribeChannel: createTribeChannel({
         tribeChannelRepository,
       }),
       deleteTribeChannel: deleteTribeChannel({
         tribeChannelRepository,
       }),
-      deleteTribeMessage: deleteTribeMessage({ messageDeletionRepository }),
+      deleteTribeMessage: deleteTribeMessage({
+        messageDeletionRepository,
+        messageImageRepository,
+      }),
       createMessageReply: createMessageReply({ messageReplyRepository }),
+      createMessageImageUpload: createMessageImageUpload({
+        messageImageRepository,
+      }),
+      deleteMessageImage: deleteMessageImage({ messageImageRepository }),
       listTribeRound: listTribeRound({
         listCachedTribeRoundSharedData,
         messageRoundReadRepository,
@@ -165,6 +194,7 @@ export function buildMessagesModule({
       }),
       updateTribeMessageContent: updateTribeMessageContent({
         messageContentUpdateRepository,
+        messageImageRepository,
       }),
       updateTribeMessageCreatedAt: updateTribeMessageCreatedAt({
         messageCreatedAtUpdateRepository,

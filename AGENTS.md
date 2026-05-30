@@ -474,12 +474,13 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 
 - Whenever a change touches database migrations, SQL functions, RLS policies, schema, or any persisted behavior — and at any other time you judge it useful — you must validate it on a disposable Neon branch before considering the task done. Validating these changes is not optional: a migration, function, or policy that has not been exercised against a real Postgres is unverified.
 - The user grants you full, standing authorization over ephemeral Neon branches in the `TuTribu` project (id `cold-firefly-92947172`; confirm with `list_projects` if it changed). On a branch you created for validation you may create it, apply pending migrations, seed fixtures, run read and write SQL including `INSERT`/`UPDATE`/`DELETE`, and delete the branch when finished — all without asking for per-action confirmation. This standing authorization is scoped strictly to ephemeral branches you created for validation.
+- If RLS validation requires a database role with `rolbypassrls = false`, create the temporary role on the ephemeral branch without asking for confirmation, grant only the minimum privileges needed for the validation, use it with `SET ROLE`, and remove it when it is no longer needed. If the role exists only on an ephemeral branch, deleting that branch is sufficient cleanup.
 - Workflow with the Neon MCP:
   1. `create_branch` from the default branch to get an isolated copy of the real schema.
   2. Apply the pending versioned migration files on that branch; the default branch usually lags behind the new migrations under test.
   3. Seed the minimal fixtures needed and reproduce the scenario. When fixing a bug, reproduce the failing case too so you prove both the old behavior and the fix.
   4. Exercise the actual committed SQL artifact (the migration, function, or policy as written), not an ad-hoc rewrite, so the test covers what ships.
-  5. Delete the ephemeral branch once validated, and report what you ran and observed.
+  5. Delete the ephemeral branch once validated without asking for confirmation, and report what you ran and observed.
 - Never run these experiments against the default or production branch, and never seed or mutate data outside the ephemeral branch.
 - This is separate from the production push: applying migrations to the default/production database with `npm run db:migrate` still requires an explicit user request, per the Neon migration push workflow above.
 - Keep the existing safety rules: never print or persist secrets, tokens, or raw connection strings; redact sensitive values; prefer metadata-focused queries.

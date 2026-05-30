@@ -1,5 +1,6 @@
 import {
   MESSAGE_MUTATION_STATUS,
+  MESSAGE_IMAGES,
   MESSAGE_POLL_OPTION_TEXT,
   MESSAGE_POLL_OPTIONS,
   MESSAGE_POLL_QUESTION,
@@ -13,6 +14,9 @@ const CREATE_MESSAGE_ROUTE_FIELD = {
   allowMultipleVotes: "allowMultipleVotes",
   channelId: "channelId",
   content: "content",
+  images: "images",
+  altText: "altText",
+  assetId: "assetId",
   options: "options",
   poll: "poll",
   question: "question",
@@ -48,6 +52,7 @@ const CREATE_MESSAGE_ROUTE_LOG = {
 
 const CREATE_MESSAGE_ROUTE_RESPONSE = {
   forbiddenMessage: "No tenes permisos para publicar en esta tribu.",
+  invalidImageMessage: "No pudimos adjuntar esas imagenes. Volvé a subirlas.",
   invalidContentMessage: "Completá el título y el contenido antes de publicar.",
   invalidChannelMessage: "Seleccioná un canal antes de publicar.",
   notFoundMessage: "No pudimos encontrar la tribu.",
@@ -106,6 +111,43 @@ function readTitleFromBody(body: unknown): string {
   const title = (body as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.title];
 
   return typeof title === "string" ? title : "";
+}
+
+function readImagesFromBody(body: unknown) {
+  if (!body || typeof body !== "object" || !(CREATE_MESSAGE_ROUTE_FIELD.images in body)) {
+    return undefined;
+  }
+
+  const images = (body as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.images];
+
+  if (!Array.isArray(images) || images.length > MESSAGE_IMAGES.maxCount) {
+    return null;
+  }
+
+  const drafts = images.map((image) => {
+    if (!image || typeof image !== "object") {
+      return null;
+    }
+
+    const imageRecord = image as Record<string, unknown>;
+    const assetId = imageRecord[CREATE_MESSAGE_ROUTE_FIELD.assetId];
+    const altText = imageRecord[CREATE_MESSAGE_ROUTE_FIELD.altText];
+
+    if (typeof assetId !== "string") {
+      return null;
+    }
+
+    return {
+      assetId,
+      ...(typeof altText === "string" ? { altText } : {}),
+    };
+  });
+
+  if (drafts.some((image) => image === null)) {
+    return null;
+  }
+
+  return drafts as { altText?: string; assetId: string }[];
 }
 
 /**
@@ -234,7 +276,15 @@ export async function POST(
   try {
     const body = await request.json().catch(() => null);
     const poll = readPollFromBody(body);
+    const images = readImagesFromBody(body);
     const videoResult = readVideoFromBody(body);
+
+    if (images === null) {
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
+        HTTP_STATUS.badRequest
+      );
+    }
 
     if (videoResult.status === CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.invalid) {
       return createJsonResponse(
@@ -252,6 +302,7 @@ export async function POST(
       channelId: readChannelIdFromBody(body),
       tribeSlug: slug,
       content: readContentFromBody(body),
+      ...(images !== undefined ? { images } : {}),
       ...(poll ? { poll } : {}),
       ...(video ? { video } : {}),
       title: readTitleFromBody(body),
@@ -276,6 +327,11 @@ export async function POST(
       case MESSAGE_MUTATION_STATUS.invalidChannel:
         return createJsonResponse(
           { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidChannelMessage },
+          HTTP_STATUS.badRequest
+        );
+      case MESSAGE_MUTATION_STATUS.invalidImage:
+        return createJsonResponse(
+          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
           HTTP_STATUS.badRequest
         );
       case MESSAGE_MUTATION_STATUS.invalidPoll:

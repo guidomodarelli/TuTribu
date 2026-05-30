@@ -568,6 +568,121 @@
     }
   }
 
+  &__imageAddButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999rem;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+
+    &:hover {
+      background: color-mix(in oklch, var(--muted) 62%, transparent);
+      color: var(--foreground);
+    }
+
+    &:focus-within {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+    }
+  }
+
+  &__fileInput {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  &__imageDraftList {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  &__imageDraft {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr) minmax(4rem, auto) auto;
+    gap: 0.6rem;
+    align-items: center;
+    border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+    border-radius: 0.5rem;
+    background: color-mix(in oklch, var(--muted) 28%, transparent);
+    padding: 0.5rem;
+  }
+
+  &__imageDraftPreview {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 4.5rem;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 0.45rem;
+    background: var(--background);
+    color: var(--muted-foreground);
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+    }
+  }
+
+  &__imageDraftImage,
+  &__image {
+    object-fit: cover;
+  }
+
+  &__imageAltInput {
+    min-width: 0;
+    width: 100%;
+    min-height: 2rem;
+    border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+    border-radius: 0.45rem;
+    background: var(--background);
+    color: var(--foreground);
+    font: inherit;
+    padding: 0 0.65rem;
+  }
+
+  &__imageDraftStatus {
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+    overflow-wrap: anywhere;
+  }
+
+  &__imageRemoveButton {
+    color: var(--muted-foreground);
+  }
+
+  &__imageGallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+    gap: 0.45rem;
+  }
+
+  &__imageFrame {
+    position: relative;
+    min-height: 9rem;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    background: color-mix(in oklch, var(--muted) 48%, transparent);
+  }
+
   &__videoComposer {
     display: grid;
     gap: 0.5rem;

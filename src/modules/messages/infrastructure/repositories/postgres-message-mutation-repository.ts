@@ -28,11 +28,13 @@ import type {
   MessagePinToggleResult,
 } from "@/src/modules/messages/application/results/message-mutation-result";
 import type {
+  MessageImageResult,
   MessagePollResult,
   MessageVideoResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
 import {
   MESSAGE_MUTATION_STATUS,
+  MESSAGE_IMAGE_STATUS,
   MESSAGE_POLL_PERCENTAGE_SCALE,
   MESSAGE_POLL_STATUS,
   MESSAGE_REACTION_TYPE,
@@ -48,12 +50,26 @@ import {
   createTribeRoundMessage,
   formatMessageDateTimeValue,
 } from "@/src/modules/messages/infrastructure/mappers/tribe-round-view-model-mapper";
-import { createMessageVideoFromRow } from "@/src/modules/messages/infrastructure/repositories/postgres-message-round-repository";
+import {
+  createMessageImagesFromRows,
+  createMessageVideoFromRow,
+} from "@/src/modules/messages/infrastructure/repositories/postgres-message-round-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import type { MessageImageAttachmentDraft } from "@/src/modules/messages/domain/repositories/message-image-repository";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
+
+/**
+ * Signals an image attachment conflict that must abort the current transaction.
+ */
+class MessageImageAttachmentConflictError extends Error {
+  constructor() {
+    super("Message image attachment conflict");
+    this.name = "MessageImageAttachmentConflictError";
+  }
+}
 
 type MutationStatusRow = {
   status: string | null;
@@ -75,7 +91,9 @@ type CreatedMessageRow = MutationStatusRow & {
   message_external_video_id: string | null;
   message_external_video_provider: string | null;
   message_id: string | null;
+  message_images: PersistedMessageImageRow[] | null;
   message_title: string | null;
+  message_tribe_id: string | null;
   poll_allow_multiple_votes: boolean | null;
   poll_id: string | null;
   poll_options: CreatedPollOptionRow[] | null;
@@ -164,6 +182,16 @@ type InsertedEditedOptionsRow = {
   poll_options: { id: string | null; text: string | null }[] | null;
 };
 
+type PersistedMessageImageRow = {
+  alt_text: string | null;
+  id: string;
+  url: string;
+};
+
+type PersistedMessageImagesRow = {
+  message_images: PersistedMessageImageRow[] | null;
+};
+
 type PollVoteCountRow = {
   poll_vote_count: number | string | null;
 };
@@ -245,6 +273,7 @@ function mapCreatedMessage(row: CreatedMessageRow | null): MessageCreationResult
         },
         content: row.message_content,
         createdAt: row.message_created_at,
+        images: createMessageImagesFromRows(row.message_images),
         likedByViewer: false,
         likeCount: 0,
         poll: row.poll_id
@@ -714,38 +743,39 @@ export class PostgresMessageMutationRepository
   async updateContent(
     command: UpdateTribeMessageContentRepositoryCommand
   ): Promise<MessageContentUpdateResult> {
-    return this.executeWithDatabase(async (database) => {
-      const targetResult = await database.execute(sql`
-        select
-          messages.id as message_id,
-          messages.tribe_id,
-          messages.external_video_provider,
-          messages.external_video_id,
-          (
-            messages.author_id = ${command.userId}
-            and public.is_active_tribe_member(messages.tribe_id)
-          ) as can_edit,
-          existing_poll.id as poll_id,
-          existing_poll.question as poll_question,
-          existing_poll.allow_multiple_votes as poll_allow_multiple_votes,
-          coalesce(existing_poll_votes.vote_count, 0) as poll_vote_count
-        from public.messages
-        inner join public.tribes
-          on tribes.id = messages.tribe_id
-        left join public.message_polls existing_poll
-          on existing_poll.message_id = messages.id
-        left join lateral (
-          select count(*) as vote_count
-          from public.message_poll_votes
-          where message_poll_votes.poll_id = existing_poll.id
-        ) existing_poll_votes on true
-        where messages.id = ${command.messageId}
-          and tribes.slug = ${command.tribeSlug}
-        limit 1
-      `);
-      const targetMessage = (targetResult.rows?.[0] ?? null) as
-        | TargetEditMessageRow
-        | null;
+    try {
+      return await this.executeWithDatabase(async (database) => {
+        const targetResult = await database.execute(sql`
+          select
+            messages.id as message_id,
+            messages.tribe_id,
+            messages.external_video_provider,
+            messages.external_video_id,
+            (
+              messages.author_id = ${command.userId}
+              and public.is_active_tribe_member(messages.tribe_id)
+            ) as can_edit,
+            existing_poll.id as poll_id,
+            existing_poll.question as poll_question,
+            existing_poll.allow_multiple_votes as poll_allow_multiple_votes,
+            coalesce(existing_poll_votes.vote_count, 0) as poll_vote_count
+          from public.messages
+          inner join public.tribes
+            on tribes.id = messages.tribe_id
+          left join public.message_polls existing_poll
+            on existing_poll.message_id = messages.id
+          left join lateral (
+            select count(*) as vote_count
+            from public.message_poll_votes
+            where message_poll_votes.poll_id = existing_poll.id
+          ) existing_poll_votes on true
+          where messages.id = ${command.messageId}
+            and tribes.slug = ${command.tribeSlug}
+          limit 1
+        `);
+        const targetMessage = (targetResult.rows?.[0] ?? null) as
+          | TargetEditMessageRow
+          | null;
 
       if (!targetMessage) {
         return { status: MESSAGE_MUTATION_STATUS.notFound };
@@ -803,6 +833,18 @@ export class PostgresMessageMutationRepository
       }
 
       let updatedPoll: MessagePollResult | undefined;
+      let updatedImages: MessageImageResult[] | undefined;
+
+      if (command.images !== undefined) {
+        const attachedImages = await this.replaceMessageImages(database, {
+          images: command.images,
+          messageId: command.messageId,
+          tribeId: targetMessage.tribe_id,
+          userId: command.userId,
+        });
+
+        updatedImages = attachedImages;
+      }
 
       if (command.poll && targetMessage.poll_id) {
         await database.execute(sql`
@@ -875,22 +917,31 @@ export class PostgresMessageMutationRepository
 
       return {
         content: command.content,
+        ...(updatedImages !== undefined ? { images: updatedImages } : {}),
         messageId: command.messageId,
         ...(updatedPoll !== undefined ? { poll: updatedPoll } : {}),
         status: MESSAGE_MUTATION_STATUS.updated,
         title: command.title,
         ...(videoResult !== undefined ? { video: videoResult } : {}),
       };
-    });
+      });
+    } catch (error) {
+      if (error instanceof MessageImageAttachmentConflictError) {
+        return { status: MESSAGE_MUTATION_STATUS.invalidImage };
+      }
+
+      throw error;
+    }
   }
 
   private async createMessage(
     command: CreateTribeMessageRepositoryCommand
   ): Promise<MessageCreationResult> {
-    return this.executeWithDatabase(async (database) => {
-      const externalVideoProvider = command.video?.provider ?? null;
-      const externalVideoId = command.video?.externalId ?? null;
-      const messageResult = await database.execute(sql`
+    try {
+      return await this.executeWithDatabase(async (database) => {
+        const externalVideoProvider = command.video?.provider ?? null;
+        const externalVideoId = command.video?.externalId ?? null;
+        const messageResult = await database.execute(sql`
         with target_tribe as (
           select tribes.id
           from public.tribes
@@ -923,6 +974,7 @@ export class PostgresMessageMutationRepository
         created_message as (
           select
             inserted_message.id as message_id,
+            inserted_message.tribe_id as message_tribe_id,
             target_channel.id as channel_id,
             target_channel.name as channel_name,
             target_channel.slug as channel_slug,
@@ -955,6 +1007,7 @@ export class PostgresMessageMutationRepository
             else ${MESSAGE_MUTATION_STATUS.forbidden}
           end as status,
           created_message.message_id,
+          created_message.message_tribe_id,
           created_message.channel_id,
           created_message.channel_name,
           created_message.channel_slug,
@@ -974,14 +1027,43 @@ export class PostgresMessageMutationRepository
         left join created_message
           on true
       `);
-      const createdMessage = (messageResult.rows?.[0] ?? null) as CreatedMessageRow | null;
+        const createdMessage = (messageResult.rows?.[0] ?? null) as
+          | CreatedMessageRow
+          | null;
 
       if (
         createdMessage?.status !== MESSAGE_MUTATION_STATUS.created ||
-        !command.poll ||
         !createdMessage.message_id
       ) {
         return mapCreatedMessage(createdMessage);
+      }
+
+      let messageImages: PersistedMessageImageRow[] | null = null;
+
+      if (command.images?.length) {
+        if (!createdMessage.message_tribe_id) {
+          return { status: MESSAGE_MUTATION_STATUS.invalidImage };
+        }
+
+        const attachedImages = await this.replaceMessageImages(database, {
+          images: command.images,
+          messageId: createdMessage.message_id,
+          tribeId: createdMessage.message_tribe_id,
+          userId: command.authorId,
+        });
+
+        messageImages = attachedImages.map((image) => ({
+          alt_text: image.altText,
+          id: image.id,
+          url: image.url,
+        }));
+      }
+
+      if (!command.poll) {
+        return mapCreatedMessage({
+          ...createdMessage,
+          message_images: messageImages,
+        });
       }
 
       const pollResult = await database.execute(sql`
@@ -1037,12 +1119,105 @@ export class PostgresMessageMutationRepository
 
       return mapCreatedMessage({
         ...createdMessage,
+        message_images: messageImages,
         poll_allow_multiple_votes: insertedPoll.poll_allow_multiple_votes,
         poll_id: insertedPoll.poll_id,
         poll_options: pollOptions,
         poll_question: insertedPoll.poll_question,
       });
-    });
+      });
+    } catch (error) {
+      if (error instanceof MessageImageAttachmentConflictError) {
+        return { status: MESSAGE_MUTATION_STATUS.invalidImage };
+      }
+
+      throw error;
+    }
+  }
+
+  private async replaceMessageImages(
+    database: RequestDatabase,
+    command: {
+      images: MessageImageAttachmentDraft[];
+      messageId: string;
+      tribeId: string;
+      userId: string;
+    }
+  ): Promise<MessageImageResult[]> {
+    const imageIds = command.images.map((image) => image.assetId);
+
+    await database.execute(sql`
+      update public.message_images
+      set status = ${MESSAGE_IMAGE_STATUS.pendingDelete},
+          updated_at = timezone('utc', now())
+      where message_images.message_id = ${command.messageId}
+        and message_images.tribe_id = ${command.tribeId}
+        and message_images.status = ${MESSAGE_IMAGE_STATUS.attached}
+    `);
+
+    if (command.images.length === 0) {
+      return [];
+    }
+
+    const altTexts = command.images.map((image) => image.altText);
+    const attachedImagesResult = await database.execute(sql`
+      with image_input as (
+        select
+          image_input.asset_id,
+          image_input.alt_text,
+          image_input.sort_order::integer - 1 as sort_order
+        from unnest(
+          ${sql.param(imageIds)}::uuid[],
+          ${sql.param(altTexts)}::text[]
+        ) with ordinality as image_input(asset_id, alt_text, sort_order)
+      ),
+      updated_images as (
+        update public.message_images
+        set message_id = ${command.messageId},
+            status = ${MESSAGE_IMAGE_STATUS.attached},
+            alt_text = image_input.alt_text,
+            sort_order = image_input.sort_order,
+            updated_at = timezone('utc', now())
+        from image_input
+        where message_images.id = image_input.asset_id
+          and message_images.tribe_id = ${command.tribeId}
+          and message_images.uploaded_by = ${command.userId}
+          and (
+            message_images.status = ${MESSAGE_IMAGE_STATUS.draft}
+            or (
+              message_images.status = ${MESSAGE_IMAGE_STATUS.pendingDelete}
+              and message_images.message_id = ${command.messageId}
+            )
+          )
+        returning
+          message_images.id,
+          message_images.alt_text,
+          message_images.delivery_url as url,
+          message_images.sort_order
+      )
+      select
+        coalesce(
+          json_agg(
+            json_build_object(
+              'alt_text', updated_images.alt_text,
+              'id', updated_images.id,
+              'url', updated_images.url
+            )
+            order by updated_images.sort_order
+          ),
+          '[]'::json
+        ) as message_images
+      from updated_images
+    `);
+    const attachedImages =
+      ((attachedImagesResult.rows?.[0] ?? null) as PersistedMessageImagesRow | null)
+        ?.message_images ?? [];
+
+    if (attachedImages.length !== command.images.length) {
+      throw new MessageImageAttachmentConflictError();
+    }
+
+    return createMessageImagesFromRows(attachedImages);
   }
 
   private async findPollTarget(

@@ -11,6 +11,7 @@ import { PostgresTribeWelcomeSelectionRepository } from "./tribes/infrastructure
 import { PostgresMessageRoundRepository } from "./messages/infrastructure/repositories/postgres-message-round-repository";
 import { PostgresTribeChannelRepository } from "./messages/infrastructure/repositories/postgres-tribe-channel-repository";
 import { PostgresMessageMutationRepository } from "./messages/infrastructure/repositories/postgres-message-mutation-repository";
+import { CloudflareImagesMessageImageRepository } from "./messages/infrastructure/repositories/cloudflare-images-message-image-repository";
 import { buildMessagesModule } from "./messages/setup";
 import { buildCoursesModule } from "./courses/setup";
 import { PostgresCourseRepository } from "./courses/infrastructure/repositories/postgres-course-repository";
@@ -32,6 +33,7 @@ import {
   updateMercadoPagoPreapprovalSubscriptionStatus,
 } from "./subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
+import { createServerLogger } from "./shared/infrastructure/observability/server-logger";
 
 type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
 type RequestModuleContextOverrides = {
@@ -76,6 +78,16 @@ export async function createRequestModules(
       getMercadoPagoPreapprovalStatus,
       requestId
     );
+  const messageImageRepository = new CloudflareImagesMessageImageRepository(
+    executeWithRequestContext,
+    {
+      logger: createServerLogger({
+        feature: "messages",
+        operation: "message_images",
+        requestId: requestId ?? "request",
+      }),
+    }
+  );
 
   return {
     auth: buildAuthModule({
@@ -136,6 +148,7 @@ export async function createRequestModules(
       messageContentUpdateRepository: new PostgresMessageMutationRepository(
         executeWithRequestContext
       ),
+      messageImageRepository,
     }),
     courses: buildCoursesModule({
       courseRepository: new PostgresCourseRepository(executeWithRequestContext),

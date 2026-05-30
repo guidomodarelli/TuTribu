@@ -1,5 +1,6 @@
 import type {
   MessagePollResult,
+  MessageImageResult,
   MessageVideoResult,
   TribeRoundAuthorResult,
   TribeRoundReplyResult,
@@ -38,6 +39,7 @@ export type TribeRoundMessageProjection = {
   content: string;
   createdAt: Date | string;
   id: string;
+  images?: MessageImageResult[];
   isPinned?: boolean;
   likedByViewer: boolean;
   likeCount: number;
@@ -142,6 +144,7 @@ export function createTribeRoundMessage({
   content,
   createdAt,
   id,
+  images = [],
   isPinned = false,
   likedByViewer,
   likeCount,
@@ -159,6 +162,7 @@ export function createTribeRoundMessage({
     content,
     createdAt: formatMessageDateTimeValue(createdAt),
     id,
+    images,
     isPinned,
     likedByViewer,
     likeCount,

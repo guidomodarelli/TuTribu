@@ -16,6 +16,11 @@ describe("message mutation use cases", () => {
     slug: "ronda",
     sortOrder: 20,
   };
+  const firstImageAssetId = "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2";
+  const secondImageAssetId = "8b9fda6e-6ef2-4a4d-bd8d-00b0e04b6b55";
+  const thirdImageAssetId = "9a5d94c0-2c3b-4c62-9c93-f08d7d8f6d44";
+  const fourthImageAssetId = "a4bb88a6-d77e-4d2f-8e38-39b7fbb6cbf5";
+  const fifthImageAssetId = "b1243c2f-92d3-4dd2-ae88-45acb6bbd8cf";
 
   it("creates a tribe message when content is valid", async () => {
     const createdMessage = {
@@ -278,6 +283,148 @@ describe("message mutation use cases", () => {
     );
   });
 
+  it("creates a tribe message after preparing uploaded images", async () => {
+    const create = jest.fn(async () => ({
+      message: {
+        id: "message-1",
+        author: {
+          id: "member-1",
+          name: "Grace Hopper",
+          role: "tribemate" as const,
+          avatarFallback: "GH",
+          image: null,
+        },
+        channel: tribeChannel,
+        replies: [],
+        content: "Miren estas capturas",
+        createdAt: "2026-04-26T12:00:00.000Z",
+        images: [
+          {
+            altText: "",
+            id: firstImageAssetId,
+            url: "https://imagedelivery.net/account-hash/image-1/public",
+          },
+        ],
+        likedByViewer: false,
+        likeCount: 0,
+        title: "Capturas",
+      },
+      status: "created" as const,
+    }));
+    const prepareForAttachment = jest.fn(async () => ({
+      images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
+      status: "ready" as const,
+    }));
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+      messageImageRepository: {
+        prepareForAttachment,
+      },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Miren estas capturas",
+        images: [{ assetId: ` ${firstImageAssetId} ` }],
+        title: "Capturas",
+      })
+    ).resolves.toMatchObject({ status: "created" });
+    expect(prepareForAttachment).toHaveBeenCalledWith({
+      images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
+      })
+    );
+  });
+
+  it("rejects messages with more than four images before preparing attachments", async () => {
+    const create = jest.fn();
+    const prepareForAttachment = jest.fn();
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+      messageImageRepository: {
+        prepareForAttachment,
+      },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Demasiadas imagenes",
+        images: [
+          { assetId: firstImageAssetId },
+          { assetId: secondImageAssetId },
+          { assetId: thirdImageAssetId },
+          { assetId: fourthImageAssetId },
+          { assetId: fifthImageAssetId },
+        ],
+        title: "Capturas",
+      })
+    ).resolves.toEqual({ status: "invalid_image" });
+    expect(prepareForAttachment).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicated image asset ids before preparing attachments", async () => {
+    const create = jest.fn();
+    const prepareForAttachment = jest.fn();
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+      messageImageRepository: {
+        prepareForAttachment,
+      },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Duplicadas",
+        images: [
+          { assetId: firstImageAssetId },
+          { assetId: ` ${firstImageAssetId} ` },
+        ],
+        title: "Capturas",
+      })
+    ).resolves.toEqual({ status: "invalid_image" });
+    expect(prepareForAttachment).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("rejects non UUID image asset ids before preparing attachments", async () => {
+    const create = jest.fn();
+    const prepareForAttachment = jest.fn();
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+      messageImageRepository: {
+        prepareForAttachment,
+      },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Imagen invalida",
+        images: [{ assetId: "asset-1" }],
+        title: "Capturas",
+      })
+    ).resolves.toEqual({ status: "invalid_image" });
+    expect(prepareForAttachment).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("rejects an invalid video URL before calling the repository", async () => {
     const create = jest.fn();
     const execute = createTribeMessage({
@@ -425,8 +572,10 @@ describe("message mutation use cases", () => {
     const deleteMessage = jest.fn(async () => ({
       status: "deleted" as const,
     }));
+    const deletePendingImages = jest.fn(async () => undefined);
     const execute = deleteTribeMessage({
       messageDeletionRepository: { delete: deleteMessage },
+      messageImageRepository: { deletePendingImages },
     });
 
     await expect(
@@ -441,6 +590,31 @@ describe("message mutation use cases", () => {
       tribeSlug: "matematica-pro",
       userId: "member-1",
     });
+    expect(deletePendingImages).toHaveBeenCalledWith({
+      messageId: "message-1",
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+  });
+
+  it("does not clean pending images when message deletion is denied", async () => {
+    const deleteMessage = jest.fn(async () => ({
+      status: "forbidden" as const,
+    }));
+    const deletePendingImages = jest.fn();
+    const execute = deleteTribeMessage({
+      messageDeletionRepository: { delete: deleteMessage },
+      messageImageRepository: { deletePendingImages },
+    });
+
+    await expect(
+      execute({
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({ status: "forbidden" });
+    expect(deletePendingImages).not.toHaveBeenCalled();
   });
 
   it("updates the message created_at after normalizing the command", async () => {
@@ -537,6 +711,91 @@ describe("message mutation use cases", () => {
       tribeSlug: "matematica-pro",
       userId: "member-1",
     });
+  });
+
+  it("updates message images and deletes removed remote assets after editing", async () => {
+    const updateContent = jest.fn(async () => ({
+      content: "Mensaje editado",
+      images: [
+        {
+          altText: "",
+          id: secondImageAssetId,
+          url: "https://imagedelivery.net/account-hash/image-2/public",
+        },
+      ],
+      messageId: "message-1",
+      status: "updated" as const,
+      title: "Titulo editado",
+    }));
+    const prepareForAttachment = jest.fn(async () => ({
+      images: [{ altText: "", assetId: secondImageAssetId, sortOrder: 0 }],
+      status: "ready" as const,
+    }));
+    const deletePendingImages = jest.fn(async () => undefined);
+    const execute = updateTribeMessageContent({
+      messageContentUpdateRepository: { updateContent },
+      messageImageRepository: {
+        prepareForAttachment,
+        deletePendingImages,
+      },
+    });
+
+    await expect(
+      execute({
+        content: "  Mensaje editado  ",
+        images: [{ assetId: ` ${secondImageAssetId} ` }],
+        messageId: " message-1 ",
+        title: "  Titulo editado  ",
+        tribeSlug: " matematica-pro ",
+        userId: " member-1 ",
+      })
+    ).resolves.toMatchObject({
+      images: [{ id: secondImageAssetId }],
+      status: "updated",
+    });
+    expect(prepareForAttachment).toHaveBeenCalledWith({
+      images: [{ altText: "", assetId: secondImageAssetId, sortOrder: 0 }],
+      messageId: "message-1",
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+    expect(updateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        images: [{ altText: "", assetId: secondImageAssetId, sortOrder: 0 }],
+      })
+    );
+    expect(deletePendingImages).toHaveBeenCalledWith({
+      messageId: "message-1",
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+  });
+
+  it("rejects non UUID image asset ids before updating message images", async () => {
+    const updateContent = jest.fn();
+    const prepareForAttachment = jest.fn();
+    const deletePendingImages = jest.fn();
+    const execute = updateTribeMessageContent({
+      messageContentUpdateRepository: { updateContent },
+      messageImageRepository: {
+        prepareForAttachment,
+        deletePendingImages,
+      },
+    });
+
+    await expect(
+      execute({
+        content: "Mensaje editado",
+        images: [{ assetId: "asset-1" }],
+        messageId: "message-1",
+        title: "Titulo editado",
+        tribeSlug: "matematica-pro",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({ status: "invalid_image" });
+    expect(prepareForAttachment).not.toHaveBeenCalled();
+    expect(updateContent).not.toHaveBeenCalled();
+    expect(deletePendingImages).not.toHaveBeenCalled();
   });
 
   it("rejects an empty title before calling the message content repository", async () => {

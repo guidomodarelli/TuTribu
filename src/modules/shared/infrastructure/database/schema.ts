@@ -345,6 +345,53 @@ export const messages = pgTable("messages", {
   ),
 }));
 
+export const messageImages = pgTable("message_images", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  messageId: uuid("message_id").references(() => messages.id, {
+    onDelete: "set null",
+  }),
+  deletedMessageId: uuid("deleted_message_id"),
+  uploadedBy: text("uploaded_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  cloudflareImageId: text("cloudflare_image_id").notNull(),
+  deliveryUrl: text("delivery_url").notNull(),
+  status: text("status").notNull().default("draft"),
+  altText: text("alt_text").notNull().default(""),
+  sortOrder: integer("sort_order"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  cloudflareImageKey: uniqueIndex("message_images_cloudflare_image_id_key").on(
+    table.cloudflareImageId
+  ),
+  messageSortKey: uniqueIndex("message_images_message_sort_key").on(
+    table.messageId,
+    table.sortOrder
+  ).where(sql`${table.status} = 'attached'`),
+  messageStatusSortIndex: index("idx_message_images_message_status_sort").on(
+    table.messageId,
+    table.status,
+    table.sortOrder
+  ),
+  tribeUploadedByStatusIndex: index(
+    "idx_message_images_tribe_uploaded_by_status"
+  ).on(table.tribeId, table.uploadedBy, table.status),
+  pendingDeleteIndex: index("idx_message_images_pending_delete")
+    .on(table.status, table.updatedAt)
+    .where(sql`${table.status} = 'pending_delete'`),
+  deletedMessageStatusIndex: index("idx_message_images_deleted_message_status")
+    .on(table.deletedMessageId, table.status)
+    .where(sql`${table.deletedMessageId} IS NOT NULL`),
+}));
+
 export const messageReplies = pgTable("message_replies", {
   id: uuid("id").defaultRandom().primaryKey(),
   messageId: uuid("message_id")

@@ -9,6 +9,7 @@ import type {
   TribeRoundSharedMessageResult,
   TribeRoundViewerStateResult,
   MessageMembershipStatus,
+  MessageImageResult,
   MessagePollResult,
   MessageVideoResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
@@ -62,7 +63,15 @@ type MessageRoundSharedRow = {
   message_external_video_id: string | null;
   message_external_video_provider: string | null;
   message_id: string | null;
+  message_images: MessageImageRow[] | null;
   message_title: string | null;
+};
+
+type MessageImageRow = {
+  altText?: string | null;
+  alt_text?: string | null;
+  id: string;
+  url: string;
 };
 
 export function createMessageVideoFromRow(row: {
@@ -86,6 +95,16 @@ export function createMessageVideoFromRow(row: {
   }
 
   return { externalId, provider };
+}
+
+export function createMessageImagesFromRows(
+  rows: MessageImageRow[] | null | undefined
+): MessageImageResult[] {
+  return (rows ?? []).map((row) => ({
+    altText: row.altText ?? row.alt_text ?? "",
+    id: row.id,
+    url: row.url,
+  }));
 }
 
 type TribeChannelRow = {
@@ -280,6 +299,7 @@ function mapRowsToSharedData(
         content: row.message_content,
         createdAt: formatMessageDateTimeValue(row.message_created_at),
         id: row.message_id,
+        images: createMessageImagesFromRows(row.message_images),
         isPinned: Boolean(row.message_pinned_at),
         likeCount: Number(row.like_count),
         pinnedAt: row.message_pinned_at
@@ -563,6 +583,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
               messages.channel_id,
               messages.author_id,
               messages.tribe_id,
+              coalesce(message_images.message_images, '[]'::jsonb) as message_images,
               coalesce(message_like_counts.like_count, 0) as like_count,
               message_pins.pinned_at as pinned_at
             from public.messages
@@ -572,6 +593,19 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
               on message_like_counts.message_id = messages.id
             left join public.message_pins
               on message_pins.message_id = messages.id
+            left join lateral (
+              select jsonb_agg(
+                jsonb_build_object(
+                  'alt_text', image_assets.alt_text,
+                  'id', image_assets.id,
+                  'url', image_assets.delivery_url
+                )
+                order by image_assets.sort_order asc, image_assets.created_at asc
+              ) as message_images
+              from public.message_images image_assets
+              where image_assets.message_id = messages.id
+                and image_assets.status = 'attached'
+            ) message_images on true
             where messages.channel_id is not null
               and (
                 ${activeChannel?.slug ?? null}::text is null
@@ -600,6 +634,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             messages.external_video_provider as message_external_video_provider,
             messages.external_video_id as message_external_video_id,
             messages.created_at as message_created_at,
+            messages.message_images as message_images,
             tribe_channels.id as channel_id,
             tribe_channels.name as channel_name,
             tribe_channels.slug as channel_slug,
@@ -642,6 +677,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             messages.external_video_provider,
             messages.external_video_id,
             messages.created_at,
+            messages.message_images,
             messages.channel_id,
             messages.author_id,
             messages.tribe_id,

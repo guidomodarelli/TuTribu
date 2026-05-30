@@ -96,6 +96,7 @@ describe("PostgresMessageMutationRepository", () => {
         content: "Primera mensaje",
         createdAt: "2026-04-26T12:00:00.000Z",
         hasLoadedReplies: true,
+        images: [],
         likedByViewer: false,
         isPinned: false,
         likeCount: 0,
@@ -285,6 +286,138 @@ describe("PostgresMessageMutationRepository", () => {
     expect(insertQuery.params).toEqual(
       expect.arrayContaining(["youtube", "dQw4w9WgXcQ"])
     );
+  });
+
+  it("attaches prepared images when creating a message", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            author_id: "member-1",
+            author_image: null,
+            author_name: "Grace Hopper",
+            author_role: "tribemate",
+            channel_access_scope: "tribemates",
+            channel_emoji: "🔥",
+            channel_id: "channel-ronda",
+            channel_name: "Ronda",
+            channel_slug: "ronda",
+            channel_sort_order: 20,
+            message_content: "Miren estas capturas",
+            message_created_at: "2026-04-26T12:00:00.000Z",
+            message_id: "message-1",
+            message_title: "Capturas",
+            message_tribe_id: "tribe-1",
+            status: "created",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            message_images: [
+              {
+                alt_text: "",
+                id: "asset-1",
+                url: "https://imagedelivery.net/account-hash/image-1/public",
+              },
+            ],
+          },
+        ],
+      });
+    const repository = new PostgresMessageMutationRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.create({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Miren estas capturas",
+        images: [{ altText: "", assetId: "asset-1", sortOrder: 0 }],
+        title: "Capturas",
+      })
+    ).resolves.toMatchObject({
+      message: {
+        images: [
+          {
+            altText: "",
+            id: "asset-1",
+            url: "https://imagedelivery.net/account-hash/image-1/public",
+          },
+        ],
+      },
+      status: "created",
+    });
+
+    expect(execute).toHaveBeenCalledTimes(3);
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+      "update public.message_images"
+    );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("pending_delete");
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
+      "message_images.status ="
+    );
+    expect(getSqlQuery(execute.mock.calls[2]?.[0])).toMatchObject({
+      params: expect.arrayContaining([["asset-1"], [""]]),
+      sql: expect.stringContaining("unnest"),
+    });
+  });
+
+  it("aborts message creation when prepared images cannot all be attached", async () => {
+    let transactionWasAborted = false;
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            author_id: "member-1",
+            author_image: null,
+            author_name: "Grace Hopper",
+            author_role: "tribemate",
+            channel_access_scope: "tribemates",
+            channel_emoji: "🔥",
+            channel_id: "channel-ronda",
+            channel_name: "Ronda",
+            channel_slug: "ronda",
+            channel_sort_order: 20,
+            message_content: "Miren estas capturas",
+            message_created_at: "2026-04-26T12:00:00.000Z",
+            message_id: "message-1",
+            message_title: "Capturas",
+            message_tribe_id: "tribe-1",
+            status: "created",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ message_images: [] }] });
+    const repository = new PostgresMessageMutationRepository(async (callback) => {
+      try {
+        return await callback({ execute } as never);
+      } catch (error) {
+        transactionWasAborted = true;
+        throw error;
+      }
+    });
+
+    await expect(
+      repository.create({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Miren estas capturas",
+        images: [{ altText: "", assetId: "asset-1", sortOrder: 0 }],
+        title: "Capturas",
+      })
+    ).resolves.toEqual({
+      status: "invalid_image",
+    });
+
+    expect(transactionWasAborted).toBe(true);
   });
 
   it("toggles likes with an active-member write guard and idempotent upsert", async () => {
@@ -1246,6 +1379,53 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "author-1",
       })
     ).resolves.toEqual({ status: "poll_missing" });
+  });
+
+  it("aborts message updates when prepared images cannot all be attached", async () => {
+    let transactionWasAborted = false;
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_edit: true,
+            external_video_id: null,
+            external_video_provider: null,
+            message_id: "message-1",
+            poll_allow_multiple_votes: null,
+            poll_id: null,
+            poll_question: null,
+            poll_vote_count: 0,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ message_id: "message-1" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ message_images: [] }] });
+    const repository = new PostgresMessageMutationRepository(async (callback) => {
+      try {
+        return await callback({ execute } as never);
+      } catch (error) {
+        transactionWasAborted = true;
+        throw error;
+      }
+    });
+
+    await expect(
+      repository.updateContent({
+        content: "Contenido actualizado",
+        images: [{ altText: "", assetId: "asset-1", sortOrder: 0 }],
+        messageId: "message-1",
+        title: "Titulo actualizado",
+        tribeSlug: "matematica-pro",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({
+      status: "invalid_image",
+    });
+
+    expect(transactionWasAborted).toBe(true);
   });
 
   it("returns not_found when the message to edit does not exist", async () => {
