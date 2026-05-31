@@ -7,6 +7,11 @@ const MEMBER_ID = "member-1";
 const STORED_IMAGE = "https://lh3.googleusercontent.com/a/old=s96-c";
 const FRESH_IMAGE = "https://lh3.googleusercontent.com/a/new=s96-c";
 
+/**
+ * Builds the structured logger double used by profile-image refresh tests.
+ *
+ * @returns A logger-shaped test double with observable `info` and `error` calls.
+ */
 function createLogger() {
   return {
     error: jest.fn(),
@@ -66,15 +71,17 @@ describe("refreshMemberProfileImage", () => {
     const externalProfilePictureProvider: ExternalProfilePictureProvider = {
       getCurrentPictureUrl: jest.fn().mockResolvedValue(null),
     };
+    const logger = createLogger();
 
     const result = await refreshMemberProfileImage({
       externalProfilePictureProvider,
-      logger: createLogger(),
+      logger,
       memberProfileRepository,
     })(MEMBER_ID);
 
     expect(memberProfileRepository.updateImage).not.toHaveBeenCalled();
     expect(result.outcome).toBe(PROFILE_IMAGE_REFRESH_OUTCOME.skipped);
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
   it("treats an aborted operation as a benign cancellation without logging an error", async () => {

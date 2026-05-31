@@ -4,6 +4,7 @@ import type {
 } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type { MessageCreationResult } from "@/src/modules/messages/application/results/message-mutation-result";
 import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
+import type { MessageImageAttachmentDraft } from "@/src/modules/messages/domain/repositories/message-image-repository";
 
 export type MessageVideoRepositoryDraft = {
   externalId: string;
@@ -12,8 +13,9 @@ export type MessageVideoRepositoryDraft = {
 
 export type CreateTribeMessageRepositoryCommand = Omit<
   CreateTribeMessageCommand,
-  "poll" | "video"
+  "images" | "poll" | "video"
 > & {
+  images?: MessageImageAttachmentDraft[];
   poll?: MessagePollDraftCommand | null;
   video?: MessageVideoRepositoryDraft | null;
 };

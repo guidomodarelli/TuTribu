@@ -60,6 +60,12 @@ export type MessageVideoResult = {
   provider: VideoProvider;
 };
 
+export type MessageImageResult = {
+  altText: string;
+  id: string;
+  url: string;
+};
+
 export type TribeRoundMessagePermissionsResult = {
   canDelete: boolean;
   canEdit: boolean;
@@ -71,6 +77,7 @@ export type TribeRoundSharedMessageResult = {
   content: string;
   createdAt: string;
   id: string;
+  images?: MessageImageResult[];
   isPinned?: boolean;
   likeCount: number;
   permissions?: TribeRoundMessagePermissionsResult;

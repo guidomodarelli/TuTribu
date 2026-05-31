@@ -3,9 +3,15 @@ export type CreateTribeMessageCommand = {
   channelId: string;
   tribeSlug: string;
   content: string;
+  images?: MessageImageDraftCommand[] | null;
   poll?: MessagePollDraftCommand | null;
   title: string;
   video?: MessageVideoDraftCommand | null;
+};
+
+export type MessageImageDraftCommand = {
+  altText?: string | null;
+  assetId: string;
 };
 
 export type MessageVideoDraftCommand = {
@@ -46,6 +52,7 @@ export type UpdateTribeMessageCreatedAtCommand = {
 
 export type UpdateTribeMessageContentCommand = {
   content: string;
+  images?: MessageImageDraftCommand[];
   messageId: string;
   poll?: MessagePollDraftCommand;
   title: string;

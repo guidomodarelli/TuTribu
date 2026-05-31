@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Imágenes en mensajes</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">Architecture</div>
+  <div class="doc-title">Imágenes en mensajes</div>
+  <div class="doc-sub">Decisión de almacenamiento, tenancy y borrado remoto para adjuntos del feed.</div>
+  <div class="doc-meta"><span>Scope: Messages</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Decisión</div>
+  <p>Los mensajes de la ronda usan Cloudflare Images mediante Direct Creator Uploads. La app crea la URL de subida en servidor, el browser sube el archivo directo a Cloudflare y luego el mensaje adjunta assets ya verificados.</p>
+  <p>El token de Cloudflare queda siempre server-side. El browser recibe solamente <code>uploadUrl</code>, <code>assetId</code> e <code>imageId</code>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Modelo de datos</div>
+  <p>La tabla <code>message_images</code> pertenece al módulo <code>messages</code> y usa <code>tribe_id</code> como clave de aislamiento multi-tenant. <code>message_id</code> es nullable para soportar drafts antes de publicar.</p>
+  <ul>
+    <li><code>draft</code>: asset creado y todavía no adjuntado.</li>
+    <li><code>attached</code>: asset visible en un mensaje.</li>
+    <li><code>pending_delete</code>: asset oculto y pendiente de borrado remoto.</li>
+    <li><code>deleted</code>: asset remoto borrado o tratado como eliminado.</li>
+  </ul>
+  <div class="callout c-info">El máximo de cuatro imágenes se refuerza con <code>sort_order</code> entre <code>0</code> y <code>3</code> para assets adjuntos, además de la validación en application.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Límites de arquitectura</div>
+  <p>Los use cases de <code>messages</code> dependen del puerto <code>MessageImageRepository</code>. La aplicación prepara y valida comandos, pero no conoce Cloudflare ni detalles HTTP externos.</p>
+  <p>El adapter <code>CloudflareImagesMessageImageRepository</code> concentra Direct Creator Uploads, verificación de <code>draft</code>, construcción de delivery URLs y borrado remoto.</p>
+  <p>Después de una subida directa, Cloudflare puede mantener el asset como <code>draft</code> durante una ventana corta aunque el upload HTTP ya haya terminado. Por eso el adapter espera y reintenta de forma acotada la verificación remota antes de rechazar el adjunto.</p>
+  <p>Las policies de <code>message_images</code> permiten que quien subió la imagen administre sus drafts y que los roles autorizados por <code>public.can_pin_tribe_messages</code> muevan assets desde <code>attached</code> a <code>pending_delete</code> durante borrados moderados y luego a <code>deleted</code> durante la limpieza remota.</p>
+  <div class="callout c-warn">Si el borrado remoto falla durante una eliminación directa, el adapter restaura el estado local previo para que una imagen adjunta siga visible y el usuario pueda reintentar. Durante la limpieza de assets ya pendientes, el sistema conserva <code>pending_delete</code> para permitir reintentos posteriores.</div>
+</div>
+</body>
+</html>

@@ -5,7 +5,12 @@ import {
 } from "@/app/api/tribes/[slug]/messages/[messageId]/replies/route";
 import { POST as POST_LIKE } from "@/app/api/tribes/[slug]/messages/[messageId]/like/route";
 import { POST as POST_PIN } from "@/app/api/tribes/[slug]/messages/[messageId]/pin/route";
-import { DELETE as DELETE_MESSAGE } from "@/app/api/tribes/[slug]/messages/[messageId]/route";
+import {
+  DELETE as DELETE_MESSAGE,
+  PATCH as PATCH_MESSAGE,
+} from "@/app/api/tribes/[slug]/messages/[messageId]/route";
+import { DELETE as DELETE_MESSAGE_IMAGE } from "@/app/api/tribes/[slug]/messages/images/[assetId]/route";
+import { POST as POST_MESSAGE_IMAGE_UPLOAD } from "@/app/api/tribes/[slug]/messages/images/uploads/route";
 import {
   DELETE as DELETE_POLL,
   PATCH as PATCH_POLL,
@@ -22,6 +27,9 @@ const listMessageReplies = jest.fn();
 const toggleMessageLike = jest.fn();
 const toggleMessagePin = jest.fn();
 const deleteTribeMessage = jest.fn();
+const updateTribeMessageContent = jest.fn();
+const createMessageImageUpload = jest.fn();
+const deleteMessageImage = jest.fn();
 const submitMessagePollVote = jest.fn();
 const listTribeChannels = jest.fn();
 const createTribeChannel = jest.fn();
@@ -91,6 +99,15 @@ function buildCreateRouteContext() {
   };
 }
 
+function buildImageRouteContext(assetId: string) {
+  return {
+    params: Promise.resolve({
+      assetId,
+      slug: "matematica-pro",
+    }),
+  };
+}
+
 describe("Tribe message routes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -101,6 +118,9 @@ describe("Tribe message routes", () => {
     toggleMessageLike.mockReset();
     toggleMessagePin.mockReset();
     deleteTribeMessage.mockReset();
+    updateTribeMessageContent.mockReset();
+    createMessageImageUpload.mockReset();
+    deleteMessageImage.mockReset();
     submitMessagePollVote.mockReset();
     listTribeChannels.mockReset();
     createTribeChannel.mockReset();
@@ -134,6 +154,9 @@ describe("Tribe message routes", () => {
           toggleMessageLike,
           toggleMessagePin,
           deleteTribeMessage,
+          updateTribeMessageContent,
+          createMessageImageUpload,
+          deleteMessageImage,
           submitMessagePollVote,
           updateTribeChannel,
         },
@@ -285,6 +308,126 @@ describe("Tribe message routes", () => {
           question: "¿Qué vemos?",
         },
       })
+    );
+  });
+
+  it("passes image attachments when creating a tribe message", async () => {
+    createTribeMessage.mockResolvedValue({
+      message: {
+        id: "message-1",
+        images: [
+          {
+            altText: "",
+            id: "asset-1",
+            url: "https://imagedelivery.net/account-hash/image-1/public",
+          },
+        ],
+      },
+      status: "created",
+    });
+
+    const response = await POST_CREATE(
+      buildJsonRequest({
+        channelId: "channel-ronda",
+        content: "Primera mensaje",
+        images: [{ assetId: "asset-1" }],
+        title: "Anuncio inicial",
+      }),
+      buildCreateRouteContext()
+    );
+
+    expect(response.status).toBe(201);
+    expect(createTribeMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        images: [{ assetId: "asset-1" }],
+      })
+    );
+  });
+
+  it("creates a direct image upload for the authenticated member", async () => {
+    createMessageImageUpload.mockResolvedValue({
+      assetId: "asset-1",
+      imageId: "cloudflare-image-1",
+      status: "created",
+      uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+    });
+
+    const response = await POST_MESSAGE_IMAGE_UPLOAD(
+      buildJsonRequest(),
+      buildCreateRouteContext()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body).toEqual({
+      assetId: "asset-1",
+      imageId: "cloudflare-image-1",
+      uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+    });
+    expect(createMessageImageUpload).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+  });
+
+  it("updates a message image list through the message edit route", async () => {
+    updateTribeMessageContent.mockResolvedValue({
+      content: "Mensaje editado",
+      images: [
+        {
+          altText: "",
+          id: "asset-2",
+          url: "https://imagedelivery.net/account-hash/image-2/public",
+        },
+      ],
+      messageId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
+      status: "updated",
+      title: "Titulo editado",
+    });
+
+    const response = await PATCH_MESSAGE(
+      buildJsonRequest({
+        content: "Mensaje editado",
+        images: [{ assetId: "asset-2" }],
+        title: "Titulo editado",
+      }),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      images: [{ id: "asset-2" }],
+      message: "Mensaje actualizado.",
+    });
+    expect(updateTribeMessageContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        images: [{ assetId: "asset-2" }],
+      })
+    );
+  });
+
+  it("deletes a message image and revalidates the round cache", async () => {
+    deleteMessageImage.mockResolvedValue({
+      status: "deleted",
+    });
+
+    const response = await DELETE_MESSAGE_IMAGE(
+      buildJsonRequest(),
+      buildImageRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ message: "Imagen eliminada." });
+    expect(deleteMessageImage).toHaveBeenCalledWith({
+      assetId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+    expect(revalidateTag).toHaveBeenCalledWith(
+      "tribe-round:matematica-pro",
+      { expire: 0 }
     );
   });
 

@@ -28,6 +28,22 @@ export const MESSAGE_POLL_OPTIONS = {
   minCount: 2,
 } as const;
 
+export const MESSAGE_IMAGES = {
+  maxAltTextLength: 160,
+  maxCount: 4,
+} as const;
+
+export const MESSAGE_IMAGE_STATUS = {
+  attached: "attached",
+  deleted: "deleted",
+  draft: "draft",
+  pendingDelete: "pending_delete",
+} as const;
+
+export const MESSAGE_IMAGE_PREPARATION_STATUS = {
+  ready: "ready",
+} as const;
+
 export const MESSAGE_AUTHOR_ROLE = {
   guardian: "guardian",
   leader: "leader",
@@ -65,6 +81,7 @@ export const MESSAGE_MUTATION_STATUS = {
   forbidden: "forbidden",
   invalidChannel: "invalid_channel",
   invalidContent: "invalid_content",
+  invalidImage: "invalid_image",
   invalidPoll: "invalid_poll",
   invalidVideoUrl: "invalid_video_url",
   liked: "liked",

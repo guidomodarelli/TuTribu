@@ -337,6 +337,13 @@
       "when": 1779984000000,
       "tag": "20260528160000_hide_invitations_without_conversions_from_metrics",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1780045200000,
+      "tag": "20260529100000_create_message_images",
+      "breakpoints": true
     }
   ]
 }

@@ -24,8 +24,30 @@ type GoogleUserInfo = {
 };
 
 const GOOGLE_PROFILE_ERROR_MESSAGE = {
-  userInfoRequestFailed: "Google userinfo request failed with status",
+  userInfoRequestFailed:
+    "Google OpenID userinfo profile picture request failed with status",
 } as const;
+const HTTP_STATUS_UNAUTHORIZED = 401;
+const HTTP_STATUS_FORBIDDEN = 403;
+/**
+ * Status codes that mean the stored Google credentials cannot be used for
+ * userinfo anymore and should not make the background refresh noisy.
+ */
+const UNUSABLE_GOOGLE_USERINFO_CREDENTIAL_STATUS_CODES: ReadonlySet<number> =
+  new Set([HTTP_STATUS_UNAUTHORIZED, HTTP_STATUS_FORBIDDEN]);
+
+/**
+ * Checks whether Google rejected the userinfo request because the credentials
+ * are no longer usable for this member.
+ *
+ * @param statusCode - HTTP status code returned by the Google userinfo request.
+ * @returns Whether the profile picture refresh should be skipped quietly.
+ */
+function isUnusableGoogleUserInfoCredentialStatus(
+  statusCode: number
+): boolean {
+  return UNUSABLE_GOOGLE_USERINFO_CREDENTIAL_STATUS_CODES.has(statusCode);
+}
 
 /**
  * Reads a member's current Google profile picture from the OpenID userinfo
@@ -49,6 +71,13 @@ export class GoogleProfilePictureProvider
     this.getAccessToken = getAccessToken;
   }
 
+  /**
+   * Fetches the member's current Google profile picture URL from userinfo.
+   *
+   * @param userId - Identifier of the member whose stored Google credentials are used.
+   * @returns The current Google picture URL, or `null` when no usable picture can be resolved.
+   * @throws When Google userinfo fails with an unexpected HTTP status.
+   */
   async getCurrentPictureUrl(userId: string): Promise<string | null> {
     const accessToken = await this.getAccessToken(userId);
 
@@ -64,6 +93,10 @@ export class GoogleProfilePictureProvider
     });
 
     if (!response.ok) {
+      if (isUnusableGoogleUserInfoCredentialStatus(response.status)) {
+        return null;
+      }
+
       throw new Error(
         `${GOOGLE_PROFILE_ERROR_MESSAGE.userInfoRequestFailed} ${response.status}`
       );

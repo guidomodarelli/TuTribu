@@ -3,12 +3,14 @@ import type {
   UpdateTribeMessageContentCommand,
 } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type { MessageContentUpdateResult } from "@/src/modules/messages/application/results/message-mutation-result";
+import type { MessageImageAttachmentDraft } from "@/src/modules/messages/domain/repositories/message-image-repository";
 import type { MessageVideoRepositoryDraft } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 
 export type UpdateTribeMessageContentRepositoryCommand = Omit<
   UpdateTribeMessageContentCommand,
-  "poll" | "video"
+  "images" | "poll" | "video"
 > & {
+  images?: MessageImageAttachmentDraft[];
   poll?: MessagePollDraftCommand;
   video?: MessageVideoRepositoryDraft | null;
 };
