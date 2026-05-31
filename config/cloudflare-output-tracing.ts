@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import {
+  type RuntimeEnvironment,
+  isVercelEnvironment,
+} from "./deployment-environment";
 
 const ALL_SERVER_ROUTES = "/*";
 
@@ -13,3 +17,13 @@ export const PG_CLOUDFLARE_TRACE_FILES = [
 export const cloudflareOutputFileTracingIncludes = {
   [ALL_SERVER_ROUTES]: [...PG_CLOUDFLARE_TRACE_FILES],
 } satisfies NonNullable<NextConfig["outputFileTracingIncludes"]>;
+
+export function getCloudflareOutputFileTracingIncludes(
+  environment: RuntimeEnvironment = process.env
+): NextConfig["outputFileTracingIncludes"] {
+  if (isVercelEnvironment(environment)) {
+    return undefined;
+  }
+
+  return cloudflareOutputFileTracingIncludes;
+}

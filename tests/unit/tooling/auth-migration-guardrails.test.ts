@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   PG_CLOUDFLARE_TRACE_FILES,
   cloudflareOutputFileTracingIncludes,
+  getCloudflareOutputFileTracingIncludes,
 } from "@/config/cloudflare-output-tracing";
 import { shouldInitializeOpenNextCloudflareForDev } from "@/config/cloudflare-dev-runtime";
 
@@ -108,6 +109,13 @@ describe("Auth migration guardrails", () => {
   it("includes pg-cloudflare runtime files in Cloudflare output tracing", () => {
     expect(Object.values(cloudflareOutputFileTracingIncludes).flat()).toEqual(
       expect.arrayContaining([...PG_CLOUDFLARE_TRACE_FILES])
+    );
+  });
+
+  it("skips Cloudflare output tracing on Vercel builds", () => {
+    expect(getCloudflareOutputFileTracingIncludes({ VERCEL: "1" })).toBeUndefined();
+    expect(getCloudflareOutputFileTracingIncludes({})).toBe(
+      cloudflareOutputFileTracingIncludes
     );
   });
 

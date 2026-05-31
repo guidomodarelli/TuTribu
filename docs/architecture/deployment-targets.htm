@@ -96,7 +96,7 @@ tr:last-child td{border-bottom:none;}
   <p>Cloudflare usa <code>@opennextjs/cloudflare</code> para convertir el build de Next.js al runtime de Workers. El deploy no debe invocar <code>wrangler</code> directamente para publicar la aplicacion Next.js; debe usar <code>opennextjs-cloudflare deploy</code> o <code>opennextjs-cloudflare upload</code>.</p>
   <p>La configuracion de <code>wrangler.jsonc</code> apunta al worker generado en <code>.open-next/worker.js</code> y a los assets generados en <code>.open-next/assets</code>. El directorio <code>.open-next</code> es output de build y no se versiona.</p>
   <p>Los redirects legacy que pueden expresarse de forma estatica deben vivir en <code>next.config.ts</code> a traves de <code>redirects</code>, no en <code>proxy.ts</code>. En Next.js 16, <code>proxy.ts</code> corre con runtime <code>nodejs</code>; OpenNext Cloudflare no soporta middleware Node.js y el build debe evitar ese entrypoint cuando el comportamiento sea un redirect estatico.</p>
-  <p>Como el runtime usa <code>pg</code> para Postgres, <code>pg-cloudflare</code> debe declararse como dependencia directa y sus archivos runtime deben incluirse en <code>outputFileTracingIncludes</code>. OpenNext bundla con la condicion <code>workerd</code>, y <code>pg</code> resuelve ese adapter durante el empaquetado del server function.</p>
+  <p>Como el runtime usa <code>pg</code> para Postgres, <code>pg-cloudflare</code> debe declararse como dependencia directa y sus archivos runtime deben incluirse en <code>outputFileTracingIncludes</code> solo fuera de Vercel. OpenNext bundla con la condicion <code>workerd</code>, y <code>pg</code> resuelve ese adapter durante el empaquetado del server function.</p>
   <div class="callout c-ok"><strong>Contrato esperado:</strong> <code>wrangler.jsonc</code> describe el artefacto generado; OpenNext sigue siendo el entrypoint de build y publicacion para Cloudflare.</div>
 </div>
 
@@ -117,7 +117,7 @@ tr:last-child td{border-bottom:none;}
   <div class="section-title">Contrato existente</div>
   <p>Vercel sigue usando el build nativo de Next.js. No requiere <code>wrangler.jsonc</code> ni los scripts de Cloudflare para desplegar.</p>
   <p>El mantenimiento de ambos targets no debe cambiar el comportamiento de <code>pnpm run build</code>, porque ese comando sigue siendo el contrato compartido por el flujo actual.</p>
-  <p>La inicializacion de desarrollo de <code>@opennextjs/cloudflare</code> debe omitirse cuando el entorno define <code>VERCEL=1</code>, para que el build nativo de Vercel no ejecute tooling especifico de Workers.</p>
+  <p>La inicializacion de desarrollo de <code>@opennextjs/cloudflare</code> y el tracing extra de archivos para Workers deben omitirse cuando el entorno define <code>VERCEL=1</code>, para que el build nativo de Vercel no ejecute tooling especifico de Workers ni empaquete archivos de dependencias pensados para Cloudflare.</p>
 </div>
 </body>
 </html>

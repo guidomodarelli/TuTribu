@@ -1,12 +1,12 @@
-const VERCEL_ENVIRONMENT_VARIABLE = "VERCEL";
-const ENABLED_ENVIRONMENT_VALUE = "1";
-
-type RuntimeEnvironment = Record<string, string | undefined>;
+import {
+  type RuntimeEnvironment,
+  isVercelEnvironment,
+} from "./deployment-environment";
 
 export function shouldInitializeOpenNextCloudflareForDev(
   environment: RuntimeEnvironment = process.env
 ): boolean {
-  return environment[VERCEL_ENVIRONMENT_VARIABLE] !== ENABLED_ENVIRONMENT_VALUE;
+  return !isVercelEnvironment(environment);
 }
 
 export async function initializeOpenNextCloudflareForDev(): Promise<void> {
