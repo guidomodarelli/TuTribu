@@ -32,45 +32,46 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <body>
 <div class="doc-header">
   <div class="doc-label">CONVENTION</div>
-  <div class="doc-title">Agent Stop Quality Gate</div>
-  <div class="doc-sub">Cuándo deben ejecutar validación los hooks de agentes del repositorio.</div>
-  <div class="doc-meta"><span>Scope: <code>.claude</code> / <code>.codex</code></span><span>Status: Active</span></div>
+  <div class="doc-title">Repository Quality Gate</div>
+  <div class="doc-sub">Dónde vive la validación completa del repositorio y qué rol cumplen los agentes.</div>
+  <div class="doc-meta"><span>Scope: <code>GitHub Actions</code> / <code>Vercel</code> / <code>agents</code></span><span>Status: Active</span></div>
 </div>
 
 <div class="section">
   <div class="section-num">01</div>
   <div class="section-title">Regla de ejecución</div>
-  <p>Los hooks <code>Stop</code> de <code>.claude/settings.json</code> y <code>.codex/hooks.json</code> ejecutan <code>node .agents/hooks/stop-quality-gate.js</code>. Ese script revisa primero los archivos modificados con <code>git status --porcelain --untracked-files=all</code>.</p>
-  <p>Si no hay cambios relevantes para código, tooling o validación, el hook responde <code>{}</code> y no ejecuta <code>typecheck</code>, <code>lint</code> ni <code>test</code>.</p>
-  <p>Cuando hay cambios relevantes, el hook ejecuta <code>typecheck</code>, <code>lint</code> y <code>test</code>. El comando <code>build</code> queda fuera del Stop hook por costo y debe ejecutarse manualmente cuando un cambio lo requiera (por ejemplo, antes de mergear cambios de producto, runtime o configuración de tooling).</p>
+  <p>El gate completo del repositorio vive en <code>.github/workflows/quality-gate.yml</code> y corre en cada <code>push</code> y <code>pull_request</code>. El workflow instala dependencias con <code>pnpm install --frozen-lockfile</code> y ejecuta el contrato compartido <code>pnpm run ci</code>.</p>
+  <p>El script <code>ci</code> encadena <code>pnpm run lint</code>, <code>pnpm run typecheck</code>, <code>pnpm run test</code> y <code>pnpm run build</code>. Ese orden mantiene los checks estáticos, la suite Jest y el build de Next.js en un único punto de entrada reutilizable.</p>
+  <p>Los hooks <code>Stop</code> de agentes no deben duplicar este gate pesado. Durante el trabajo local, Codex y Claude deben ejecutar validaciones enfocadas al cambio realizado y dejar el gate completo para GitHub Actions.</p>
   <p>Los outputs generados por builds, como <code>.next/</code> y <code>.open-next/</code>, no forman parte del codigo fuente validable. Deben quedar fuera de ESLint para que los artefactos de adaptadores externos no rompan el gate del repositorio.</p>
-  <div class="callout c-ok">Los cambios documentales como <code>README.md</code>, <code>AGENTS.md</code> y archivos <code>.htm</code> bajo <code>docs/</code> no disparan el gate por sí solos.</div>
+  <div class="callout c-ok">La validación completa queda asociada al push y al pull request, no al cierre de cada turno del agente.</div>
 </div>
 
 <div class="section">
   <div class="section-num">02</div>
   <div class="section-title">Cambios relevantes</div>
-  <p>El gate selecciona la validación mínima suficiente según los archivos modificados. Debe ejecutar el gate completo cuando al menos un archivo modificado pueda afectar comportamiento de producto, runtime, estilos, base de datos o configuración de validación.</p>
+  <p>Los cambios que afectan comportamiento de producto, runtime, estilos, base de datos o configuración de validación deben llegar a GitHub Actions con el gate completo pasando. En local se debe elegir la validación mínima suficiente para iterar sin duplicar el costo del workflow completo.</p>
   <ul>
     <li>Code: <code>.ts</code>, <code>.tsx</code>, <code>.js</code>, <code>.jsx</code>, <code>.mjs</code>, <code>.cjs</code>, <code>.mts</code>, <code>.cts</code>.</li>
     <li>Styles and data changes with runtime impact: <code>.scss</code>, <code>.css</code>, <code>.sql</code>.</li>
     <li>Validation and package config: <code>package.json</code>, lockfiles, <code>tsconfig</code>, <code>eslint</code>, <code>jest</code>, <code>next</code>, <code>playwright</code>, <code>postcss</code>, and <code>components.json</code>.</li>
-    <li>Agent validation config: <code>.agents/hooks/stop-quality-gate.js</code>, <code>.codex/hooks.json</code>, and <code>.claude/settings.json</code>.</li>
+    <li>CI config: <code>.github/workflows/quality-gate.yml</code>.</li>
   </ul>
-  <div class="callout c-warn">Si Git status no puede leerse de forma confiable, el hook usa el fallback seguro y ejecuta el gate completo.</div>
+  <div class="callout c-warn">No mover el gate completo exclusivamente a Vercel mientras <code>vercel.json</code> use <code>ignoreCommand</code>, porque un deploy salteado también saltearía esa validación.</div>
 </div>
 
 <div class="section">
   <div class="section-num">03</div>
-  <div class="section-title">Cancelación</div>
-  <p>El hook spawnea cada comando de validación de forma asíncrona y registra el proceso hijo activo. Cuando recibe <code>SIGINT</code>, <code>SIGTERM</code>, <code>SIGHUP</code> o <code>SIGBREAK</code>, mata el árbol del hijo en curso (<code>taskkill /T /F</code> en Windows, <code>SIGTERM</code> en POSIX) antes de salir, para que cancelar el Stop hook no deje procesos huérfanos como <code>next build</code>, <code>tsc</code> o <code>jest</code>.</p>
+  <div class="section-title">Vercel</div>
+  <p>Vercel sigue siendo responsable de verificar el build real de deployment con el contrato nativo de Next.js. El flujo de deploy no reemplaza al gate de GitHub Actions: lo complementa con la validación del entorno de despliegue.</p>
+  <p>Si en el futuro se decide ejecutar <code>pnpm run ci</code> dentro de Vercel, primero se debe revisar <code>scripts/ignore-build.sh</code> para evitar que una omisión intencional del deploy deje el gate sin correr.</p>
 </div>
 
 <div class="section">
   <div class="section-num">04</div>
   <div class="section-title">Validación esperada</div>
-  <p>Cuando se modifica el script del hook, validar como mínimo <code>node --check .agents/hooks/stop-quality-gate.js</code>, parseo JSON de <code>.codex/hooks.json</code> y <code>.claude/settings.json</code>, el test enfocado de tooling, <code>pnpm run lint</code> y <code>pnpm run typecheck</code>.</p>
-  <p>Para cambios documentales, se puede validar el comportamiento real con un worktree temporal que tenga solo archivos <code>.htm</code> bajo <code>docs/</code> o archivos Markdown de control del repositorio, y comprobar que el hook responda <code>{}</code>.</p>
+  <p>Cuando se modifica el workflow o el script <code>ci</code>, validar como mínimo el parseo de <code>package.json</code>, el formato del YAML y que el workflow invoque el contrato compartido. No agregar tests que inspeccionen strings internos de los archivos fuente como sustituto del comportamiento real.</p>
+  <p>Para cambios de producto, mantener los tests relevantes en local durante la iteración y dejar que GitHub Actions ejecute el gate completo antes de mergear o desplegar.</p>
 </div>
 </body>
 </html>

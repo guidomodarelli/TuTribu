@@ -486,12 +486,12 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 - Keep the existing safety rules: never print or persist secrets, tokens, or raw connection strings; redact sensitive values; prefer metadata-focused queries.
 - If a Neon branch cannot be created or reached (credentials, network, or MCP unavailable), state the concrete blocker and fall back to the closest validation allowed by the `pg` reproduction rule in section 5.
 
-### Quality gate hook
+### Quality gate workflow
 
-- A Stop hook runs the project quality gate automatically at the end of every task. It already executes `pnpm run lint`, `pnpm run typecheck`, and `pnpm run build`, and reports failures back as a system reminder.
-- Do not invoke `pnpm run lint`, `pnpm run typecheck`, or `pnpm run build` manually during a task. Let the hook drive them so the same configuration runs consistently and so you avoid round-trips on commands the hook will run anyway.
-- When the hook reports errors, fix the underlying cause and let the hook re-run on the next stop, rather than chaining manual invocations of these three commands.
-- Targeted test runs and any other validation that is not lint/typecheck/build remain part of the manual workflow per the testing rules above.
+- The full repository gate runs in GitHub Actions through `.github/workflows/quality-gate.yml`.
+- The shared contract is `pnpm run ci`, which runs `lint`, `typecheck`, `test`, and `build`.
+- Agents must not duplicate this heavy gate in local Stop hooks; during a task, run only validations relevant to the change.
+- Vercel validates the deployment build and does not replace the GitHub Actions gate.
 
 ## 7. Concurrency, Observability, and Performance
 
