@@ -17,6 +17,7 @@
 
 # next.js
 /.next/
+/.open-next/
 /out/
 
 # production
@@ -34,6 +35,7 @@ yarn-error.log*
 
 # local tool state
 .clawpatch/
+.wrangler/
 
 # env files (can opt-in for committing if needed)
 .env*

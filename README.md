@@ -55,6 +55,11 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | --- | --- |
 | `npm run dev` | Start the Next.js dev server with hot reload. |
 | `npm run build` | Build the production bundle. |
+| `npm run build:cloudflare` | Build the Cloudflare Workers bundle with OpenNext. |
+| `npm run preview:cloudflare` | Build and preview the app locally in the Cloudflare Workers runtime. |
+| `npm run deploy:cloudflare` | Build and deploy the app to Cloudflare Workers. |
+| `npm run upload:cloudflare` | Build and upload a new Cloudflare Workers version without deploying it. |
+| `npm run cf-typegen` | Generate Cloudflare binding types from `wrangler.jsonc`. |
 | `npm start` | Run the production build locally. |
 | `npm run lint` | Run ESLint across the repo. Must pass before closing a task. |
 | `npm run typecheck` | Run `tsc --noEmit` over production code. Must pass before closing a task. |
@@ -156,6 +161,20 @@ Before closing any task, both of the following must pass:
 npm run typecheck
 npm run lint
 ```
+
+## Deployment targets
+
+Vercel remains the default Next.js deployment target and continues to use `npm run build`.
+
+Cloudflare Workers is supported through `@opennextjs/cloudflare` and `wrangler.jsonc`. Use the Cloudflare-specific scripts instead of invoking `wrangler` directly for the Next.js app:
+
+```bash
+npm run build:cloudflare
+npm run preview:cloudflare
+npm run deploy:cloudflare
+```
+
+OpenNext warns that Windows local builds can hit runtime-specific failures. Prefer Linux, WSL with Node.js installed, or the Cloudflare build environment for final Cloudflare validation.
 
 Notes:
 

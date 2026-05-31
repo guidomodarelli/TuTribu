@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Targets de despliegue</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;line-height:1.3;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;color:#1a1a1a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+.badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.05em;border-radius:4px;padding:2px 8px;border:1px solid;}
+.badge-green{background:#e8f7f2;color:#1a6b52;border-color:#4aaa8c;}
+.badge-gray{background:#f0ede6;color:#555;border-color:#ccc;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Targets de despliegue</div>
+  <div class="doc-sub">Decision operativa para mantener Vercel y habilitar Cloudflare Workers en la misma aplicacion Next.js App Router.</div>
+  <div class="doc-meta"><span>Scope: Deployment</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Decision</div>
+  <p>TuTribu mantiene compatibilidad con <strong>Vercel</strong> y agrega <strong>Cloudflare Workers</strong> como target de despliegue alternativo para la misma aplicacion <code>Next.js App Router</code>.</p>
+  <p>El script <code>build</code> conserva <code>next build</code> para no cambiar el contrato actual de Vercel. Los comandos de Cloudflare viven en scripts dedicados con el sufijo <code>:cloudflare</code>.</p>
+  <div class="callout c-info"><strong>Criterio principal:</strong> cada target conserva su contrato de build y deploy sin mezclar herramientas ni outputs.</div>
+  <div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Matriz de targets</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Target</th>
+        <th>Estado</th>
+        <th>Build</th>
+        <th>Deploy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Vercel</strong></td>
+        <td><span class="badge badge-green">ACTIVE</span></td>
+        <td><code>pnpm run build</code></td>
+        <td>Build nativo de Next.js en Vercel.</td>
+      </tr>
+      <tr>
+        <td><strong>Cloudflare Workers</strong></td>
+        <td><span class="badge badge-gray">ALTERNATIVE</span></td>
+        <td><code>pnpm run build:cloudflare</code></td>
+        <td><code>opennextjs-cloudflare deploy</code> o <code>opennextjs-cloudflare upload</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="divider"></div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PART 03</div>
+  <div class="part-header-title">Cloudflare Workers</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Runtime y output</div>
+  <p>Cloudflare usa <code>@opennextjs/cloudflare</code> para convertir el build de Next.js al runtime de Workers. El deploy no debe invocar <code>wrangler</code> directamente para publicar la aplicacion Next.js; debe usar <code>opennextjs-cloudflare deploy</code> o <code>opennextjs-cloudflare upload</code>.</p>
+  <p>La configuracion de <code>wrangler.jsonc</code> apunta al worker generado en <code>.open-next/worker.js</code> y a los assets generados en <code>.open-next/assets</code>. El directorio <code>.open-next</code> es output de build y no se versiona.</p>
+  <div class="callout c-ok"><strong>Contrato esperado:</strong> <code>wrangler.jsonc</code> describe el artefacto generado; OpenNext sigue siendo el entrypoint de build y publicacion para Cloudflare.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Validacion operativa</div>
+  <p>Para validar el target de Cloudflare se debe ejecutar <code>pnpm run build:cloudflare</code>. Para preview local del runtime de Workers se debe usar <code>pnpm run preview:cloudflare</code>.</p>
+  <div class="callout c-warn"><strong>Advertencia de entorno:</strong> OpenNext advierte que los builds locales en Windows pueden fallar por comportamiento especifico del sistema operativo. La validacion final de Cloudflare debe correr en Linux, WSL con Node.js instalado o el entorno de build de Cloudflare.</div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PART 06</div>
+  <div class="part-header-title">Vercel</div>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Contrato existente</div>
+  <p>Vercel sigue usando el build nativo de Next.js. No requiere <code>wrangler.jsonc</code> ni los scripts de Cloudflare para desplegar.</p>
+  <p>El mantenimiento de ambos targets no debe cambiar el comportamiento de <code>pnpm run build</code>, porque ese comando sigue siendo el contrato compartido por el flujo actual.</p>
+</div>
+</body>
+</html>
