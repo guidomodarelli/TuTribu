@@ -1705,7 +1705,217 @@ describe("TribeRound", () => {
     }
   });
 
-  it("keeps submitted image drafts while message creation is pending during unmount", async () => {
+  it("shows a new message optimistically before the create message request resolves", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    setMessageEditorContent(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Nos vemos el viernes."
+    );
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
+    expect(screen.getByText("Nos vemos el viernes.")).toBeInTheDocument();
+
+    await act(async () => {
+      deferredResponse.resolve({
+        json: async () => ({
+          message: "Mensaje creado.",
+          tribeMessage: {
+            ...createdMessage,
+            title: "Mensaje confirmado",
+          },
+        }),
+        ok: true,
+        statusText: "Created",
+      } as Response);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Mensaje confirmado")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+  });
+
+  it("keeps pending optimistic message actions disabled before creation resolves", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    setMessageEditorContent(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Nos vemos el viernes."
+    );
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    const optimisticMessageArticle = screen
+      .getByText("Nuevo encuentro")
+      .closest("article");
+
+    expect(optimisticMessageArticle).not.toBeNull();
+    expect(
+      within(optimisticMessageArticle as HTMLElement).getByRole("button", {
+        name: "Me gusta 0",
+      })
+    ).toBeDisabled();
+    expect(
+      within(optimisticMessageArticle as HTMLElement).getByRole("button", {
+        name: "Pinear mensaje",
+      })
+    ).toBeDisabled();
+    expect(
+      within(optimisticMessageArticle as HTMLElement).queryByRole("button", {
+        name: "Acciones del mensaje",
+      })
+    ).not.toBeInTheDocument();
+  });
+
+  it("preserves concurrent message interactions when optimistic creation fails", async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({
+      advanceTimers: jest.advanceTimersByTime,
+    });
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    try {
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      await user.type(
+        screen.getByRole("textbox", { name: "Título del mensaje" }),
+        "Nuevo encuentro"
+      );
+      setMessageEditorContent(
+        screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+        "Nos vemos el viernes."
+      );
+      await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+      await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+      await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+      expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Me gusta 2" }));
+
+      expect(screen.getByRole("button", { name: "Me gusta 3" })).toBeInTheDocument();
+
+      await act(async () => {
+        deferredResponse.resolve({
+          json: async () => ({
+            message: "No pudimos publicar el mensaje.",
+          }),
+          ok: false,
+          statusText: "Bad Request",
+        } as Response);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { hidden: true, name: "Me gusta 3" })
+      ).toBeInTheDocument();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("restores a displaced visible message when optimistic creation fails on a full page", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={fullFirstPageRound}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    setMessageEditorContent(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Nos vemos el viernes."
+    );
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
+    expect(screen.queryByText("Anuncio inicial")).not.toBeInTheDocument();
+
+    await act(async () => {
+      deferredResponse.resolve({
+        json: async () => ({
+          message: "No pudimos publicar el mensaje.",
+        }),
+        ok: false,
+        statusText: "Bad Request",
+      } as Response);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+    expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
+  });
+
+  it("shows uploaded image previews optimistically while creating a message", async () => {
     const user = userEvent.setup();
     const originalCreateObjectUrl = URL.createObjectURL;
     const messageCreationResponse = createDeferredResponse();
@@ -1713,6 +1923,368 @@ describe("TribeRound", () => {
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
       value: jest.fn(() => "blob:message-image"),
+    });
+
+    try {
+      const imageFile = new File(["image"], "captura.png", {
+        type: "image/png",
+      });
+
+      (global.fetch as jest.Mock).mockImplementation(
+        async (url: string) => {
+          if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
+            return {
+              json: async () => ({
+                assetId: "asset-1",
+                imageId: "cloudflare-image-1",
+                uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+              }),
+              ok: true,
+              statusText: "Created",
+            };
+          }
+
+          if (url === "https://upload.imagedelivery.net/direct-upload") {
+            return {
+              json: async () => ({}),
+              ok: true,
+              statusText: "OK",
+            };
+          }
+
+          if (url === "/api/tribes/matematica-pro/messages") {
+            return messageCreationResponse.promise;
+          }
+
+          throw new Error(`Unexpected fetch ${url}`);
+        }
+      );
+
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      await user.type(
+        screen.getByRole("textbox", { name: "Título del mensaje" }),
+        "Nuevo encuentro"
+      );
+      setMessageEditorContent(
+        screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+        "Sumate al encuentro"
+      );
+      await user.upload(screen.getByLabelText("Agregar imagen"), imageFile);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "https://upload.imagedelivery.net/direct-upload",
+          expect.objectContaining({ method: "POST" })
+        );
+      });
+
+      await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+      await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+      await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "Nuevo encuentro" })).toHaveAttribute(
+        "src",
+        "blob:message-image"
+      );
+      expect(global.fetch).not.toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/images/asset-1",
+        expect.objectContaining({ method: "DELETE" })
+      );
+
+      await act(async () => {
+        messageCreationResponse.resolve({
+          json: async () => ({
+            message: "Mensaje creado.",
+            tribeMessage: {
+              ...createdMessage,
+              images: [
+                {
+                  altText: "",
+                  id: "asset-1",
+                  url: "https://imagedelivery.net/account-hash/image-1/public",
+                },
+              ],
+            },
+          }),
+          ok: true,
+          statusText: "Created",
+        } as Response);
+      });
+    } finally {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreateObjectUrl,
+      });
+    }
+  });
+
+  it("reopens the message draft when optimistic message creation fails", async () => {
+    const user = userEvent.setup();
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const messageCreationResponse = createDeferredResponse();
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: jest.fn(() => "blob:message-image"),
+    });
+
+    try {
+      const imageFile = new File(["image"], "captura.png", {
+        type: "image/png",
+      });
+
+      (global.fetch as jest.Mock).mockImplementation(
+        async (url: string) => {
+          if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
+            return {
+              json: async () => ({
+                assetId: "asset-1",
+                imageId: "cloudflare-image-1",
+                uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+              }),
+              ok: true,
+              statusText: "Created",
+            };
+          }
+
+          if (url === "https://upload.imagedelivery.net/direct-upload") {
+            return {
+              json: async () => ({}),
+              ok: true,
+              statusText: "OK",
+            };
+          }
+
+          if (url === "/api/tribes/matematica-pro/messages") {
+            return messageCreationResponse.promise;
+          }
+
+          throw new Error(`Unexpected fetch ${url}`);
+        }
+      );
+
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      await user.type(
+        screen.getByRole("textbox", { name: "Título del mensaje" }),
+        "Nuevo encuentro"
+      );
+      setMessageEditorContent(
+        screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+        "Sumate al encuentro"
+      );
+      await user.upload(screen.getByLabelText("Agregar imagen"), imageFile);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "https://upload.imagedelivery.net/direct-upload",
+          expect.objectContaining({ method: "POST" })
+        );
+      });
+
+      await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+      await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+      await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+      expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
+
+      await act(async () => {
+        messageCreationResponse.resolve({
+          json: async () => ({
+            message: "No pudimos publicar el mensaje.",
+          }),
+          ok: false,
+          statusText: "Bad Request",
+        } as Response);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Título del mensaje" })).toHaveValue(
+        "Nuevo encuentro"
+      );
+      expect(
+        screen.getByRole("textbox", { name: "Contenido del mensaje" })
+      ).toHaveTextContent("Sumate al encuentro");
+      expect(screen.getByRole("button", { name: "Canal del mensaje" })).toHaveTextContent(
+        "⭐ Intro and Goals"
+      );
+      expect(screen.getByRole("img", { name: "Descripción de la imagen" })).toHaveAttribute(
+        "src",
+        "blob:message-image"
+      );
+      expect(toast.error).toHaveBeenCalledWith("No pudimos publicar el mensaje.");
+      expect(global.fetch).not.toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/images/asset-1",
+        expect.objectContaining({ method: "DELETE" })
+      );
+    } finally {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreateObjectUrl,
+      });
+    }
+  });
+
+  it("deletes uploaded image drafts when obsolete optimistic creation fails", async () => {
+    const user = userEvent.setup();
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const messageCreationResponse = createDeferredResponse();
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: jest.fn(() => "blob:message-image"),
+    });
+
+    try {
+      const imageFile = new File(["image"], "captura.png", {
+        type: "image/png",
+      });
+
+      (global.fetch as jest.Mock).mockImplementation(
+        async (url: string, init?: RequestInit) => {
+          if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
+            return {
+              json: async () => ({
+                assetId: "asset-1",
+                imageId: "cloudflare-image-1",
+                uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+              }),
+              ok: true,
+              statusText: "Created",
+            };
+          }
+
+          if (url === "https://upload.imagedelivery.net/direct-upload") {
+            return {
+              json: async () => ({}),
+              ok: true,
+              statusText: "OK",
+            };
+          }
+
+          if (url === "/api/tribes/matematica-pro/messages") {
+            return messageCreationResponse.promise;
+          }
+
+          if (
+            url === "/api/tribes/matematica-pro/messages/images/asset-1" &&
+            init?.method === "DELETE"
+          ) {
+            return {
+              json: async () => ({}),
+              ok: true,
+              statusText: "OK",
+            };
+          }
+
+          throw new Error(`Unexpected fetch ${url}`);
+        }
+      );
+
+      const { unmount } = render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      await user.type(
+        screen.getByRole("textbox", { name: "Título del mensaje" }),
+        "Nuevo encuentro"
+      );
+      setMessageEditorContent(
+        screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+        "Sumate al encuentro"
+      );
+      await user.upload(screen.getByLabelText("Agregar imagen"), imageFile);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "https://upload.imagedelivery.net/direct-upload",
+          expect.objectContaining({ method: "POST" })
+        );
+      });
+
+      await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+      await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+      await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/tribes/matematica-pro/messages",
+          expect.objectContaining({ method: "POST" })
+        );
+      });
+
+      unmount();
+
+      await act(async () => {
+        messageCreationResponse.resolve({
+          json: async () => ({
+            message: "No pudimos publicar el mensaje.",
+          }),
+          ok: false,
+          statusText: "Bad Request",
+        } as Response);
+      });
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/tribes/matematica-pro/messages/images/asset-1",
+          expect.objectContaining({ method: "DELETE" })
+        );
+      });
+    } finally {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreateObjectUrl,
+      });
+    }
+  });
+
+  it("keeps submitted image drafts while message creation is pending during unmount", async () => {
+    const user = userEvent.setup();
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const originalRevokeObjectUrl = URL.revokeObjectURL;
+    const revokeObjectUrl = jest.fn();
+    const messageCreationResponse = createDeferredResponse();
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: jest.fn(() => "blob:message-image"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectUrl,
     });
 
     try {
@@ -1791,6 +2363,7 @@ describe("TribeRound", () => {
 
       unmount();
 
+      expect(revokeObjectUrl).toHaveBeenCalledWith("blob:message-image");
       expect(global.fetch).not.toHaveBeenCalledWith(
         "/api/tribes/matematica-pro/messages/images/asset-1",
         expect.objectContaining({ method: "DELETE" })
@@ -1825,10 +2398,14 @@ describe("TribeRound", () => {
         configurable: true,
         value: originalCreateObjectUrl,
       });
+      Object.defineProperty(URL, "revokeObjectURL", {
+        configurable: true,
+        value: originalRevokeObjectUrl,
+      });
     }
   });
 
-  it("keeps submitted image drafts when the composer is cancelled during message creation", async () => {
+  it("keeps submitted image drafts while optimistic message creation is pending", async () => {
     const user = userEvent.setup();
     const originalCreateObjectUrl = URL.createObjectURL;
     const messageCreationResponse = createDeferredResponse();
@@ -1912,8 +2489,8 @@ describe("TribeRound", () => {
         );
       });
 
-      await user.click(screen.getByRole("button", { name: "Cancelar" }));
-
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
       expect(global.fetch).not.toHaveBeenCalledWith(
         "/api/tribes/matematica-pro/messages/images/asset-1",
         expect.objectContaining({ method: "DELETE" })
@@ -3363,6 +3940,61 @@ describe("TribeRound", () => {
     expect(screen.queryByText("Nos vemos el viernes.")).not.toBeInTheDocument();
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
     expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the composer open while creating a message outside the active channel", async () => {
+    const user = userEvent.setup();
+    const deferredResponse = createDeferredResponse();
+
+    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          activeChannelId: tribeChannels[1].id,
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    setMessageEditorContent(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Nos vemos el viernes."
+    );
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    expect(screen.getByRole("dialog", { name: "Crear mensaje" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Título del mensaje" })).toHaveValue(
+      "Nuevo encuentro"
+    );
+    expect(screen.getByRole("button", { name: "Compartir" })).toBeDisabled();
+    expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+
+    await act(async () => {
+      deferredResponse.resolve({
+        json: async () => ({
+          message: "Mensaje creado.",
+          tribeMessage: createdMessage,
+        }),
+        ok: true,
+        statusText: "Created",
+      } as Response);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Crear mensaje" })).not.toBeInTheDocument();
+    });
+    expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+    expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
   });
 
   it("keeps the visible first page within its page size when creating a message", async () => {
