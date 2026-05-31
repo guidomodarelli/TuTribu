@@ -148,16 +148,26 @@ function normalizeMembershipStatus(
   return null;
 }
 
-function createPermissions(
-  status: MessageMembershipStatus | null
-): TribeRoundPermissionsResult {
+function createPermissions({
+  role,
+  status,
+}: {
+  role: string | null;
+  status: MessageMembershipStatus | null;
+}): TribeRoundPermissionsResult {
   const canParticipate = status === MESSAGE_MEMBERSHIP_STATUS.active;
 
   return {
     canReply: canParticipate,
     canCreateMessage: canParticipate,
-    canEditMessageCreatedAt: false,
-    canPinMessages: false,
+    canEditMessageCreatedAt: canViewerEditMessageCreatedAt({
+      role,
+      status,
+    }),
+    canPinMessages: canViewerPinMessages({
+      role,
+      status,
+    }),
     canReact: canParticipate,
   };
 }
@@ -404,17 +414,10 @@ function mapViewerStateRow(
     likedMessageIds: row?.liked_message_ids ?? [],
     selectedPollOptionIds: row?.selected_poll_option_ids ?? [],
     viewerId,
-    viewerPermissions: {
-      ...createPermissions(membershipStatus),
-      canEditMessageCreatedAt: canViewerEditMessageCreatedAt({
-        role: row?.viewer_membership_role ?? null,
-        status: membershipStatus,
-      }),
-      canPinMessages: canViewerPinMessages({
-        role: row?.viewer_membership_role ?? null,
-        status: membershipStatus,
-      }),
-    },
+    viewerPermissions: createPermissions({
+      role: row?.viewer_membership_role ?? null,
+      status: membershipStatus,
+    }),
   };
 }
 
