@@ -1,0 +1,114 @@
+import { FetchGitHubIssuePublisher } from "@/src/modules/siteping/infrastructure/github/github-issue-publisher";
+import {
+  SITEPING_FEEDBACK_GITHUB_STATUS,
+  SITEPING_FEEDBACK_STATUS,
+  SITEPING_FEEDBACK_TYPE,
+} from "@/src/modules/siteping/constants/siteping";
+import type { SitepingFeedback } from "@/src/modules/siteping/domain/repositories/siteping-feedback-repository";
+
+const fetchMock = jest.fn();
+
+function buildFeedback(overrides: Partial<SitepingFeedback> = {}): SitepingFeedback {
+  return {
+    annotations: [],
+    authorEmail: "leader@example.com",
+    authorName: "Leader Example",
+    clientId: "client-feedback-1",
+    createdAt: new Date("2026-05-31T12:00:00.000Z"),
+    createdBy: "member-1",
+    diagnostics: {
+      console: [
+        {
+          level: "error",
+          message: 'Request failed token=secret {"refresh_token":"json-secret"}',
+          timestamp: "2026-05-31T12:00:00.000Z",
+        },
+      ],
+      network: [
+        {
+          durationMs: 120,
+          method: "GET",
+          status: 500,
+          timestamp: "2026-05-31T12:00:00.000Z",
+          url: "https://tutribu.example.com/api/private?access_token=secret&api_key=secret",
+        },
+      ],
+    },
+    githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.pending,
+    id: "feedback-1",
+    message: "No puedo guardar refresh_token=secret",
+    projectName: "tutribu",
+    resolvedAt: null,
+    screenshotUrl: null,
+    status: SITEPING_FEEDBACK_STATUS.open,
+    type: SITEPING_FEEDBACK_TYPE.bug,
+    updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+    url: "https://tutribu.example.com/precios?access_token=secret",
+    urlPattern: "/precios",
+    userAgent: "Bearer secret",
+    viewport: "1280x800",
+    ...overrides,
+  };
+}
+
+describe("FetchGitHubIssuePublisher", () => {
+  const originalEnvironment = process.env;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = {
+      ...originalEnvironment,
+      SITEPING_GITHUB_TOKEN: "github-token",
+    };
+    global.fetch = fetchMock as unknown as typeof fetch;
+    fetchMock.mockResolvedValue({
+      json: jest.fn(async () => ({
+        html_url: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        number: 42,
+      })),
+      ok: true,
+    });
+  });
+
+  afterEach(() => {
+    process.env = originalEnvironment;
+  });
+
+  it("redacts sensitive values before publishing the GitHub issue", async () => {
+    const publisher = new FetchGitHubIssuePublisher();
+
+    await publisher.publish({
+      feedback: buildFeedback(),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      body: string;
+      title: string;
+    };
+
+    expect(requestBody.title).toContain("refresh_token=[redacted]");
+    expect(requestBody.body).toContain("access_token=[redacted]");
+    expect(requestBody.body).toContain("api_key=[redacted]");
+    expect(requestBody.body).toContain('"refresh_token":"[redacted]"');
+    expect(requestBody.body).toContain("Bearer [redacted]");
+    expect(requestBody.body).not.toContain("secret");
+  });
+
+  it("builds GitHub deep links from relative widget URLs", async () => {
+    const publisher = new FetchGitHubIssuePublisher();
+
+    await publisher.publish({
+      feedback: buildFeedback({ url: "/matematica/precios" }),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      body: string;
+    };
+
+    expect(requestBody.body).toContain(
+      "https://tutribu.example.com/matematica/precios?siteping=feedback-1"
+    );
+  });
+});

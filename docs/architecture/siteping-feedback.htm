@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SitePing feedback</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">SitePing feedback</div>
+  <div class="doc-sub">Integracion del widget visual, persistencia propia y publicacion automatica en GitHub.</div>
+  <div class="doc-meta"><span>Scope: Feedback</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Decision vigente</div>
+  <p>LaTribu usa <code>@siteping/widget</code> para la experiencia visual, pero no usa Prisma ni el CLI de SitePing. El backend vive en <code>src/modules/siteping</code> para mantener Drizzle, Neon Postgres, Better Auth y la arquitectura hexagonal del repo.</p>
+  <p>El endpoint principal es <code>/api/siteping</code>. La identidad y el permiso del widget se resuelven en <code>/api/siteping/identity</code>.</p>
+  <div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Acceso</div>
+  <p>El widget no es publico. Se habilita solo cuando:</p>
+  <ul>
+    <li><code>SITEPING_ENABLED</code> esta activo.</li>
+    <li>Better Auth resuelve una sesion valida.</li>
+    <li>El usuario tiene al menos una membresia activa como <code>leader</code> o <code>guardian</code>, o su email esta incluido en <code>SITEPING_ALLOWED_EMAILS</code>.</li>
+  </ul>
+  <p>La base tambien aplica RLS sobre <code>created_by = current_app_user_id()</code>, de modo que el acceso directo a filas queda limitado por el contexto de request.</p>
+  <div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Datos capturados</div>
+  <p>La captura de v1 combina feedback base con diagnosticos tecnicos y mantiene screenshots desactivados.</p>
+  <ul>
+    <li>Se guarda texto, tipo, URL, viewport, user agent, autor, <code>clientId</code> y anclas DOM.</li>
+    <li>Se guarda <code>diagnostics</code> como <code>jsonb</code> con consola reciente y requests fallidos.</li>
+    <li><code>enableScreenshot</code> queda en <code>false</code>. Si llega <code>screenshotDataUrl</code>, se ignora y no se persiste.</li>
+  </ul>
+  <div class="callout c-info"><strong>Privacidad:</strong> los diagnosticos pueden contener datos sensibles si el frontend los loguea. Por eso se redactan tokens, secretos y parametros sensibles antes de persistirlos o publicarlos en GitHub.</div>
+  <div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">GitHub issues</div>
+  <p>Cada feedback nuevo publica una issue en <code>SITEPING_GITHUB_REPOSITORY</code>, por defecto <code>guidomodarelli/LaTribu</code>. La idempotencia vive en la combinacion <code>project_name</code>, <code>created_by</code> y <code>client_id</code>, asi que una repeticion del mismo envio del mismo usuario no crea otra issue sin bloquear envios de otros usuarios o proyectos.</p>
+  <p>La issue incluye mensaje, tipo, URL redactada, deep link <code>?siteping=&lt;feedbackId&gt;</code>, viewport, user agent, autor y resumen redactado de diagnosticos. No incluye screenshots, cookies, tokens, query params sensibles, stack traces completos ni payloads raw de proveedores.</p>
+  <p>Si GitHub falla, el feedback queda guardado y se marca <code>github_issue_status = failed</code> para permitir reintentos operativos posteriores.</p>
+</div>
+</body>
+</html>

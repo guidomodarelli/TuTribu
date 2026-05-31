@@ -27,6 +27,7 @@
     "@better-auth/drizzle-adapter": "^1.6.11",
     "@github/relative-time-element": "^5.0.0",
     "@next/env": "^16.2.6",
+    "@siteping/widget": "0.9.12",
     "better-auth": "^1.6.11",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

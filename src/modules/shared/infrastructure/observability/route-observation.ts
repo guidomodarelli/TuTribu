@@ -30,7 +30,7 @@ type RouteResponseLogInput = Omit<RouteOutcomeLogInput, "status">;
 
 type RouteObservation = {
   createJsonResponse: (
-    body: Record<string, unknown>,
+    body: unknown,
     status: number,
     logInput?: RouteResponseLogInput
   ) => Response;
@@ -105,7 +105,7 @@ export function createRouteObservation(
 
   return {
     createJsonResponse(
-      body: Record<string, unknown>,
+      body: unknown,
       status: number,
       logInput?: RouteResponseLogInput
     ) {
