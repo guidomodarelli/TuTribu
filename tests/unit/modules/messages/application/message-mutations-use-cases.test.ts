@@ -344,6 +344,91 @@ describe("message mutation use cases", () => {
     );
   });
 
+  it("deletes prepared image drafts when message creation is rejected", async () => {
+    const create = jest.fn(async () => ({
+      status: "invalid_channel" as const,
+    }));
+    const prepareForAttachment = jest.fn(async () => ({
+      images: [
+        { altText: "", assetId: firstImageAssetId, sortOrder: 0 },
+        { altText: "", assetId: secondImageAssetId, sortOrder: 1 },
+      ],
+      status: "ready" as const,
+    }));
+    const deleteImage = jest.fn(async () => ({
+      status: "deleted" as const,
+    }));
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+      messageImageRepository: {
+        prepareForAttachment,
+        deleteImage,
+      },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Miren estas capturas",
+        images: [
+          { assetId: firstImageAssetId },
+          { assetId: secondImageAssetId },
+        ],
+        title: "Capturas",
+      })
+    ).resolves.toEqual({ status: "invalid_channel" });
+    expect(deleteImage).toHaveBeenCalledTimes(2);
+    expect(deleteImage).toHaveBeenCalledWith({
+      assetId: firstImageAssetId,
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+    expect(deleteImage).toHaveBeenCalledWith({
+      assetId: secondImageAssetId,
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+  });
+
+  it("deletes prepared image drafts when message creation throws", async () => {
+    const creationError = new Error("database insert failed");
+    const create = jest.fn(async () => {
+      throw creationError;
+    });
+    const prepareForAttachment = jest.fn(async () => ({
+      images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
+      status: "ready" as const,
+    }));
+    const deleteImage = jest.fn(async () => ({
+      status: "deleted" as const,
+    }));
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+      messageImageRepository: {
+        prepareForAttachment,
+        deleteImage,
+      },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Miren estas capturas",
+        images: [{ assetId: firstImageAssetId }],
+        title: "Capturas",
+      })
+    ).rejects.toThrow(creationError);
+    expect(deleteImage).toHaveBeenCalledWith({
+      assetId: firstImageAssetId,
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+  });
+
   it("rejects messages with more than four images before preparing attachments", async () => {
     const create = jest.fn();
     const prepareForAttachment = jest.fn();

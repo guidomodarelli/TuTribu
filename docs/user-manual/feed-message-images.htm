@@ -43,6 +43,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <li>Después de terminar una subida, el sistema espera unos segundos si el proveedor todavía no confirma que la imagen está lista para adjuntarse.</li>
     <li>Al publicar, el mensaje aparece enseguida en la ronda y luego se confirma con la respuesta del servidor.</li>
     <li>Si una subida falla, se muestra un error seguro y se puede quitar la imagen del compositor.</li>
+    <li>Si la publicación no se completa después de haber subido imágenes, el borrador de texto se conserva, pero las imágenes se eliminan de Cloudflare y deben subirse de nuevo.</li>
   </ul>
 </div>
 
@@ -50,6 +51,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">02</div>
   <div class="section-title">Editar y quitar imágenes</div>
   <p>Al editar un mensaje propio, las imágenes actuales aparecen en el compositor. El autor puede conservarlas, quitarlas o agregar nuevas imágenes, siempre dentro del límite de cuatro.</p>
+  <p>Si una edición con imágenes nuevas falla, esas imágenes nuevas se eliminan de Cloudflare y el mensaje original queda sin cambios. Las imágenes que ya estaban adjuntas al mensaje no se borran por cancelar o fallar una edición.</p>
   <div class="callout c-info">Cuando una imagen se quita de un mensaje editado, deja de mostrarse después de confirmar el borrado remoto. Si el proveedor no confirma la eliminación, la imagen se conserva en el mensaje y se puede reintentar sin perder el adjunto local.</div>
 </div>
 

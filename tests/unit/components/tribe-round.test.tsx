@@ -2030,7 +2030,7 @@ describe("TribeRound", () => {
     }
   });
 
-  it("reopens the message draft when optimistic message creation fails", async () => {
+  it("reopens the message draft without images when optimistic message creation fails", async () => {
     const user = userEvent.setup();
     const originalCreateObjectUrl = URL.createObjectURL;
     const messageCreationResponse = createDeferredResponse();
@@ -2046,7 +2046,7 @@ describe("TribeRound", () => {
       });
 
       (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+        async (url: string, init?: RequestInit) => {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -2069,6 +2069,17 @@ describe("TribeRound", () => {
 
           if (url === "/api/tribes/matematica-pro/messages") {
             return messageCreationResponse.promise;
+          }
+
+          if (
+            url === "/api/tribes/matematica-pro/messages/images/asset-1" &&
+            init?.method === "DELETE"
+          ) {
+            return {
+              json: async () => ({}),
+              ok: true,
+              statusText: "OK",
+            };
           }
 
           throw new Error(`Unexpected fetch ${url}`);
@@ -2133,12 +2144,11 @@ describe("TribeRound", () => {
       expect(screen.getByRole("button", { name: "Canal del mensaje" })).toHaveTextContent(
         "⭐ Intro and Goals"
       );
-      expect(screen.getByRole("img", { name: "Descripción de la imagen" })).toHaveAttribute(
-        "src",
-        "blob:message-image"
-      );
+      expect(
+        screen.queryByRole("img", { name: "Descripción de la imagen" })
+      ).not.toBeInTheDocument();
       expect(toast.error).toHaveBeenCalledWith("No pudimos publicar el mensaje.");
-      expect(global.fetch).not.toHaveBeenCalledWith(
+      expect(global.fetch).toHaveBeenCalledWith(
         "/api/tribes/matematica-pro/messages/images/asset-1",
         expect.objectContaining({ method: "DELETE" })
       );
@@ -2660,6 +2670,149 @@ describe("TribeRound", () => {
 
       expect(deleteRequestCount).toBe(0);
       expect(toast.success).toHaveBeenCalledWith("Mensaje actualizado.");
+    } finally {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreateObjectUrl,
+      });
+    }
+  });
+
+  it("deletes newly uploaded image drafts when editing a message fails", async () => {
+    const user = userEvent.setup();
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const messageUpdateResponse = createDeferredResponse();
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: jest.fn(() => "blob:message-image"),
+    });
+
+    try {
+      const imageFile = new File(["image"], "captura.png", {
+        type: "image/png",
+      });
+
+      (global.fetch as jest.Mock).mockImplementation(
+        async (url: string, init?: RequestInit) => {
+          if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
+            return {
+              json: async () => ({
+                assetId: "asset-1",
+                imageId: "cloudflare-image-1",
+                uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+              }),
+              ok: true,
+              statusText: "Created",
+            };
+          }
+
+          if (url === "https://upload.imagedelivery.net/direct-upload") {
+            return {
+              json: async () => ({}),
+              ok: true,
+              statusText: "OK",
+            };
+          }
+
+          if (
+            url === "/api/tribes/matematica-pro/messages/images/asset-1" &&
+            init?.method === "DELETE"
+          ) {
+            return {
+              json: async () => ({}),
+              ok: true,
+              statusText: "OK",
+            };
+          }
+
+          if (url === "/api/tribes/matematica-pro/messages/message-1") {
+            return messageUpdateResponse.promise;
+          }
+
+          throw new Error(`Unexpected fetch ${url}`);
+        }
+      );
+
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={{
+            ...round,
+            messages: [
+              {
+                ...round.messages[0],
+                images: [
+                  {
+                    altText: "Adjunto existente",
+                    id: "persisted-asset-1",
+                    url: "https://imagedelivery.net/account-hash/existing/public",
+                  },
+                ],
+                permissions: {
+                  canDelete: false,
+                  canEdit: true,
+                },
+              },
+            ],
+          }}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Acciones del mensaje" })
+      );
+      await user.click(screen.getByRole("menuitem", { name: "Editar mensaje" }));
+      await user.upload(screen.getByLabelText("Agregar imagen"), imageFile);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "https://upload.imagedelivery.net/direct-upload",
+          expect.objectContaining({ method: "POST" })
+        );
+      });
+
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/tribes/matematica-pro/messages/message-1",
+          expect.objectContaining({
+            body: JSON.stringify({
+              content: "Bienvenida a la tribu",
+              images: [
+                { altText: "Adjunto existente", assetId: "persisted-asset-1" },
+                { altText: "", assetId: "asset-1" },
+              ],
+              title: "Anuncio inicial",
+            }),
+            method: "PATCH",
+          })
+        );
+      });
+
+      await act(async () => {
+        messageUpdateResponse.resolve({
+          json: async () => ({
+            message: "No pudimos actualizar el mensaje.",
+          }),
+          ok: false,
+          statusText: "Bad Request",
+        } as Response);
+      });
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/tribes/matematica-pro/messages/images/asset-1",
+          expect.objectContaining({ method: "DELETE" })
+        );
+      });
+      expect(global.fetch).not.toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/images/persisted-asset-1",
+        expect.objectContaining({ method: "DELETE" })
+      );
+      expect(toast.error).toHaveBeenCalledWith("No pudimos actualizar el mensaje.");
     } finally {
       Object.defineProperty(URL, "createObjectURL", {
         configurable: true,

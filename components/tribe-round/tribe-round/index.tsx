@@ -3004,6 +3004,19 @@ function TribeRoundContent({
     });
   };
 
+  const removeTransientMessageImageDraftsFromComposer = () => {
+    const persistedImageDrafts = currentMessageImageDraftsRef.current.filter(
+      (imageDraft) => imageDraft.isPersisted
+    );
+    const transientImageDrafts = currentMessageImageDraftsRef.current.filter(
+      (imageDraft) => !imageDraft.isPersisted
+    );
+
+    revokeMessageImageDraftPreviewUrls(transientImageDrafts);
+    currentMessageImageDraftsRef.current = persistedImageDrafts;
+    setMessageImageDrafts(persistedImageDrafts);
+  };
+
   const uploadMessageImage = async (file: File, localId: string) => {
     let createdAssetId: string | null = null;
 
@@ -3265,7 +3278,8 @@ function TribeRoundContent({
         return;
       }
 
-      clearPersistingMessageImages(persistingImageAssetIds);
+      cleanupPersistingMessageImages(persistingImageAssetIds, actionTribeSlug);
+      removeTransientMessageImageDraftsFromComposer();
       toast.error(
         error instanceof Error
           ? error.message
@@ -3599,9 +3613,13 @@ function TribeRoundContent({
         })
       );
       setVisiblePagination(createMessageIntent.baselinePagination);
-      clearPersistingMessageImages(persistingImageAssetIds);
+      cleanupPersistingMessageImages(persistingImageAssetIds, actionTribeSlug);
       pendingCreateMessageIntentRef.current = null;
-      restoreCreateMessageDraft(createMessageIntent.draft);
+      revokeMessageImageDraftPreviewUrls(createMessageIntent.draft.imageDrafts);
+      restoreCreateMessageDraft({
+        ...createMessageIntent.draft,
+        imageDrafts: [],
+      });
       setIsMessageComposerOpen(true);
       toast.error(
         error instanceof Error ? error.message : TRIBE_ROUND_COPY.submitMessageError

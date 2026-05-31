@@ -21,6 +21,10 @@ const CHANNEL_ROUTE_LOG = {
   operation: "manage-tribe-channels",
 } as const;
 
+const CHANNEL_ROUTE_OBSERVATION_LEVEL = {
+  warn: "warn",
+} as const;
+
 const CHANNEL_ROUTE_RESPONSE = {
   duplicateSlugMessage: "Ya existe un canal con ese nombre.",
   forbiddenMessage: "No tenés permisos para gestionar canales.",
@@ -82,7 +86,7 @@ export async function GET(
           slug,
         },
         outcome: "unauthorized",
-        level: "warn",
+        level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
       }
     );
   }
@@ -150,7 +154,7 @@ export async function POST(
           slug,
         },
         outcome: "unauthorized",
-        level: "warn",
+        level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
       }
     );
   }
@@ -194,7 +198,7 @@ export async function POST(
               viewerId: authenticatedMember.id,
             },
             outcome: result.status,
-            level: "warn",
+            level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
           }
         );
       case TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug:
@@ -208,7 +212,7 @@ export async function POST(
               viewerId: authenticatedMember.id,
             },
             outcome: result.status,
-            level: "warn",
+            level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
           }
         );
       case TRIBE_CHANNEL_MUTATION_STATUS.notFound:
@@ -222,7 +226,7 @@ export async function POST(
               viewerId: authenticatedMember.id,
             },
             outcome: result.status,
-            level: "warn",
+            level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
           }
         );
       case TRIBE_CHANNEL_MUTATION_STATUS.forbidden:
@@ -237,7 +241,7 @@ export async function POST(
               viewerId: authenticatedMember.id,
             },
             outcome: result.status,
-            level: "warn",
+            level: CHANNEL_ROUTE_OBSERVATION_LEVEL.warn,
           }
         );
     }

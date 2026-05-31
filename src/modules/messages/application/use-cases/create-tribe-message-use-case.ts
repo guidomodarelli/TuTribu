@@ -21,7 +21,8 @@ import type { MessageImageRepository } from "@/src/modules/messages/domain/repos
 
 type CreateTribeMessageDependencies = {
   messageCreationRepository: MessageCreationRepository;
-  messageImageRepository?: Pick<MessageImageRepository, "prepareForAttachment">;
+  messageImageRepository?: Pick<MessageImageRepository, "prepareForAttachment"> &
+    Partial<Pick<MessageImageRepository, "deleteImage">>;
 };
 
 function normalizeMessageContent(content: string): string {
@@ -57,6 +58,34 @@ function parseVideoDraft(rawUrl: string): ParsedVideoOrError {
     }
     throw error;
   }
+}
+
+async function cleanupPreparedMessageImages({
+  images,
+  messageImageRepository,
+  tribeSlug,
+  userId,
+}: {
+  images: { assetId: string }[];
+  messageImageRepository?: Partial<Pick<MessageImageRepository, "deleteImage">>;
+  tribeSlug: string;
+  userId: string;
+}): Promise<void> {
+  if (!messageImageRepository?.deleteImage || images.length === 0) {
+    return;
+  }
+
+  const deleteImage = messageImageRepository.deleteImage;
+
+  await Promise.allSettled(
+    images.map((image) =>
+      deleteImage({
+        assetId: image.assetId,
+        tribeSlug,
+        userId,
+      })
+    )
+  );
 }
 
 export function createTribeMessage({
@@ -108,33 +137,65 @@ export function createTribeMessage({
       parsedVideo = result.value;
     }
 
+    const tribeSlug = command.tribeSlug.trim();
+    const userId = command.authorId;
     let images = normalizedImages.images;
+
     if (images.length > 0) {
       const preparedImages = await messageImageRepository?.prepareForAttachment({
         images,
-        tribeSlug: command.tribeSlug.trim(),
-        userId: command.authorId,
+        tribeSlug,
+        userId,
       });
 
       if (
         !preparedImages ||
         preparedImages.status !== MESSAGE_IMAGE_PREPARATION_STATUS.ready
       ) {
+        await cleanupPreparedMessageImages({
+          images,
+          messageImageRepository,
+          tribeSlug,
+          userId,
+        });
+
         return { status: MESSAGE_MUTATION_STATUS.invalidImage };
       }
 
       images = preparedImages.images;
     }
 
-    return messageCreationRepository.create({
-      authorId: command.authorId,
-      channelId,
-      tribeSlug: command.tribeSlug.trim(),
-      content,
-      ...(images.length > 0 ? { images } : {}),
-      ...(poll ? { poll } : {}),
-      ...(parsedVideo ? { video: parsedVideo } : {}),
-      title,
-    });
+    try {
+      const result = await messageCreationRepository.create({
+        authorId: command.authorId,
+        channelId,
+        tribeSlug,
+        content,
+        ...(images.length > 0 ? { images } : {}),
+        ...(poll ? { poll } : {}),
+        ...(parsedVideo ? { video: parsedVideo } : {}),
+        title,
+      });
+
+      if (result.status !== MESSAGE_MUTATION_STATUS.created) {
+        await cleanupPreparedMessageImages({
+          images,
+          messageImageRepository,
+          tribeSlug,
+          userId,
+        });
+      }
+
+      return result;
+    } catch (error) {
+      await cleanupPreparedMessageImages({
+        images,
+        messageImageRepository,
+        tribeSlug,
+        userId,
+      });
+
+      throw error;
+    }
   };
 }
