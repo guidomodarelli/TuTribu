@@ -4,8 +4,20 @@ import { GoogleProfilePictureProvider } from "@/src/modules/auth/infrastructure/
 const MEMBER_ID = "member-1";
 const ACCESS_TOKEN = "ya29.access-token";
 const PICTURE_URL = "https://lh3.googleusercontent.com/a/current=s96-c";
+const HTTP_STATUS_OK = 200;
+const HTTP_STATUS_UNAUTHORIZED = 401;
+const HTTP_STATUS_FORBIDDEN = 403;
+const HTTP_STATUS_INTERNAL_SERVER_ERROR = 500;
 
-function createJsonResponse(body: unknown, ok = true, status = 200) {
+/**
+ * Builds a minimal fetch `Response` double for Google userinfo scenarios.
+ *
+ * @param body - JSON payload returned by the fake response.
+ * @param ok - Whether the response should be treated as successful.
+ * @param status - HTTP status code exposed by the fake response.
+ * @returns A response-shaped test double.
+ */
+function createJsonResponse(body: unknown, ok = true, status = HTTP_STATUS_OK) {
   return {
     json: jest.fn().mockResolvedValue(body),
     ok,
@@ -61,11 +73,27 @@ describe("GoogleProfilePictureProvider", () => {
     expect(fetchImplementation).not.toHaveBeenCalled();
   });
 
-  it("throws when the userinfo request fails", async () => {
+  it.each([HTTP_STATUS_UNAUTHORIZED, HTTP_STATUS_FORBIDDEN])(
+    "returns null when Google userinfo rejects the access token with status %s",
+    async (statusCode) => {
+      const provider = new GoogleProfilePictureProvider({
+        fetchImplementation: jest
+          .fn()
+          .mockResolvedValue(createJsonResponse({}, false, statusCode)),
+        getAccessToken: jest.fn().mockResolvedValue(ACCESS_TOKEN),
+      });
+
+      await expect(provider.getCurrentPictureUrl(MEMBER_ID)).resolves.toBeNull();
+    }
+  );
+
+  it("throws when the userinfo request fails unexpectedly", async () => {
     const provider = new GoogleProfilePictureProvider({
       fetchImplementation: jest
         .fn()
-        .mockResolvedValue(createJsonResponse({}, false, 401)),
+        .mockResolvedValue(
+          createJsonResponse({}, false, HTTP_STATUS_INTERNAL_SERVER_ERROR)
+        ),
       getAccessToken: jest.fn().mockResolvedValue(ACCESS_TOKEN),
     });
 

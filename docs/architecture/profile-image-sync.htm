@@ -74,7 +74,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="callout c-warn"><code>prompt: "consent"</code> muestra la pantalla de consentimiento de Google en cada inicio de sesion. Es el costo aceptado a cambio de cobertura completa del refresh token.</div>
 <ul>
   <li>El refresco corre aproximadamente una vez por dia por usuario activo (cadencia de renovacion con <code>updateAge</code> por defecto).</li>
-  <li>Si <code>getAccessToken</code> responde sin <code>accessToken</code>, el refresco se omite sin actualizar la imagen. Si Better Auth falla al resolverlo, el caso de uso registra el fallo como <code>failed</code> para mantener observabilidad.</li>
+  <li>Si <code>getAccessToken</code> responde sin <code>accessToken</code>, o si Google userinfo responde <code>401</code>/<code>403</code> porque las credenciales guardadas ya no son utilizables, el refresco se omite sin actualizar la imagen. Si Better Auth falla al resolver el token o Google responde un fallo inesperado, el caso de uso registra el fallo como <code>failed</code> para mantener observabilidad.</li>
   <li>Los logs son estructurados y seguros: nunca se registran tokens ni la URL completa de la imagen, solo el host.</li>
 </ul>
 </div>
