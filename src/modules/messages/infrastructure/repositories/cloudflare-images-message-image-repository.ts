@@ -78,6 +78,10 @@ type CloudflareImageDetailsResponse = {
 
 type CloudflareImagesRepositoryOptions = {
   fetcher?: Fetcher;
+  imageReadinessRetry?: {
+    delayMs: number;
+    maxAttempts: number;
+  };
   logger?: MessageImageLogger;
 };
 
@@ -100,6 +104,11 @@ const MESSAGE_IMAGE_LOG_RESULT = {
   failed: "failed",
 } as const;
 
+const MESSAGE_IMAGE_READINESS_RETRY = {
+  delayMs: 500,
+  maxAttempts: 6,
+} as const;
+
 function buildCloudflareImageApiUrl(
   environment: CloudflareImagesEnvironment,
   path: string
@@ -118,13 +127,16 @@ function createCloudflareHeaders(
 function isCloudflareImageReady(
   response: CloudflareImageDetailsResponse
 ): boolean {
-  return Boolean(response.success && response.result?.draft === false);
+  return Boolean(
+    response.success && response.result?.id && response.result.draft !== true
+  );
 }
 
 export class CloudflareImagesMessageImageRepository
   implements MessageImageRepository
 {
   private readonly fetcher: Fetcher;
+  private readonly imageReadinessRetry: { delayMs: number; maxAttempts: number };
   private readonly logger?: MessageImageLogger;
 
   constructor(
@@ -132,6 +144,8 @@ export class CloudflareImagesMessageImageRepository
     options: CloudflareImagesRepositoryOptions = {}
   ) {
     this.fetcher = options.fetcher ?? fetch;
+    this.imageReadinessRetry =
+      options.imageReadinessRetry ?? MESSAGE_IMAGE_READINESS_RETRY;
     this.logger = options.logger;
   }
 
@@ -306,7 +320,10 @@ export class CloudflareImagesMessageImageRepository
     for (const image of images) {
       if (
         image.status === MESSAGE_IMAGE_STATUS.draft &&
-        !(await this.isRemoteImageReady(environment, image.cloudflare_image_id))
+        !(await this.waitForRemoteImageReady(
+          environment,
+          image.cloudflare_image_id
+        ))
       ) {
         return { status: MESSAGE_MUTATION_STATUS.invalidImage };
       }
@@ -545,6 +562,37 @@ export class CloudflareImagesMessageImageRepository
     return isCloudflareImageReady(
       (await response.json()) as CloudflareImageDetailsResponse
     );
+  }
+
+  /**
+   * Waits briefly for Cloudflare to finish promoting a Direct Creator Upload
+   * from draft to available before the message mutation attaches it.
+   *
+   * @param environment - Cloudflare Images configuration for the request.
+   * @param imageId - Cloudflare image identifier to verify.
+   * @returns Whether the remote image became attachable within the retry window.
+   */
+  private async waitForRemoteImageReady(
+    environment: CloudflareImagesEnvironment,
+    imageId: string
+  ): Promise<boolean> {
+    for (
+      let attemptNumber = 1;
+      attemptNumber <= this.imageReadinessRetry.maxAttempts;
+      attemptNumber += 1
+    ) {
+      if (await this.isRemoteImageReady(environment, imageId)) {
+        return true;
+      }
+
+      if (attemptNumber < this.imageReadinessRetry.maxAttempts) {
+        await new Promise((resolve) => {
+          setTimeout(resolve, this.imageReadinessRetry.delayMs);
+        });
+      }
+    }
+
+    return false;
   }
 
   private async markImageDeleted(assetId: string): Promise<boolean> {

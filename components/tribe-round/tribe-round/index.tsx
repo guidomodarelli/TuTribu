@@ -264,6 +264,7 @@ const TRIBE_ROUND_COPY = {
   imageLimitError: "Podés adjuntar hasta 4 imágenes.",
   imageRemoveButton: "Quitar imagen",
   imageUploadError: "No pudimos subir la imagen.",
+  imageUploadPendingError: "Esperá a que termine de subir la imagen.",
   imageUploadingLabel: "Subiendo imagen",
   videoAddButton: "Agregar video",
   videoAttachedBadge: "Video adjunto",
@@ -2872,6 +2873,26 @@ function TribeRoundContent({
       )
       .map((image) => image.assetId ?? "");
 
+  const getMessageImageDraftValidationError = () => {
+    if (
+      messageImageDrafts.some(
+        (image) => image.status === COMPOSER_IMAGE_UPLOAD_STATUS.uploading
+      )
+    ) {
+      return TRIBE_ROUND_COPY.imageUploadPendingError;
+    }
+
+    if (
+      messageImageDrafts.some(
+        (image) => image.status === COMPOSER_IMAGE_UPLOAD_STATUS.error
+      )
+    ) {
+      return TRIBE_ROUND_COPY.imageUploadError;
+    }
+
+    return null;
+  };
+
   const markMessageImagesAsPersisting = (assetIds: string[]) => {
     assetIds.forEach((assetId) => {
       persistingMessageImageAssetIdsRef.current.add(assetId);
@@ -3092,12 +3113,9 @@ function TribeRoundContent({
       return;
     }
 
-    if (
-      messageImageDrafts.some(
-        (image) => image.status !== COMPOSER_IMAGE_UPLOAD_STATUS.uploaded
-      )
-    ) {
-      setMessageComposerErrors([TRIBE_ROUND_COPY.imageUploadError]);
+    const imageDraftValidationError = getMessageImageDraftValidationError();
+    if (imageDraftValidationError) {
+      setMessageComposerErrors([imageDraftValidationError]);
       return;
     }
 
@@ -3210,12 +3228,9 @@ function TribeRoundContent({
       return;
     }
 
-    if (
-      messageImageDrafts.some(
-        (image) => image.status !== COMPOSER_IMAGE_UPLOAD_STATUS.uploaded
-      )
-    ) {
-      setMessageComposerErrors([TRIBE_ROUND_COPY.imageUploadError]);
+    const imageDraftValidationError = getMessageImageDraftValidationError();
+    if (imageDraftValidationError) {
+      setMessageComposerErrors([imageDraftValidationError]);
       return;
     }
 
@@ -4426,9 +4441,10 @@ function TribeRoundContent({
             <Image
               alt={image.altText || message.title || TRIBE_ROUND_COPY.messageDetailsDialogTitle}
               className={styles.TribeRound__image}
-              fill
+              height={0}
               sizes="(max-width: 768px) 88vw, 420px"
               src={image.url}
+              width={0}
             />
           </div>
         ))}
@@ -4458,6 +4474,15 @@ function TribeRoundContent({
               ) : (
                 <ImageIcon />
               )}
+              {imageDraft.status === COMPOSER_IMAGE_UPLOAD_STATUS.uploading ? (
+                <div
+                  aria-label={TRIBE_ROUND_COPY.imageUploadingLabel}
+                  className={styles.TribeRound__imageDraftLoadingOverlay}
+                  role="status"
+                >
+                  <span className={styles.TribeRound__imageDraftSpinner} />
+                </div>
+              ) : null}
             </div>
             <input
               aria-label={TRIBE_ROUND_COPY.imageAltInputLabel}

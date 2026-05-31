@@ -641,9 +641,33 @@
     }
   }
 
-  &__imageDraftImage,
+  &__imageDraftImage {
+    object-fit: contain;
+  }
+
+  &__imageDraftLoadingOverlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: color-mix(in oklch, var(--background) 54%, transparent);
+    backdrop-filter: blur(1px);
+  }
+
+  &__imageDraftSpinner {
+    width: 1.4rem;
+    height: 1.4rem;
+    border: 2px solid color-mix(in oklch, var(--foreground) 26%, transparent);
+    border-top-color: var(--foreground);
+    border-radius: 999rem;
+    animation: TribeRoundImageDraftSpinner 820ms linear infinite;
+  }
+
   &__image {
-    object-fit: cover;
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
   }
 
   &__imageAltInput {
@@ -664,6 +688,12 @@
     overflow-wrap: anywhere;
   }
 
+  @keyframes TribeRoundImageDraftSpinner {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
   &__imageRemoveButton {
     color: var(--muted-foreground);
   }
@@ -676,11 +706,8 @@
 
   &__imageFrame {
     position: relative;
-    min-height: 9rem;
-    aspect-ratio: 4 / 3;
     overflow: hidden;
     border-radius: 0.5rem;
-    background: color-mix(in oklch, var(--muted) 48%, transparent);
   }
 
   &__videoComposer {

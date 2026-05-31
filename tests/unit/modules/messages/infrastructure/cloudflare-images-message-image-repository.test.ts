@@ -164,6 +164,87 @@ describe("CloudflareImagesMessageImageRepository", () => {
     );
   });
 
+  it("treats uploaded Cloudflare assets without a draft flag as ready", async () => {
+    const fetcher = jest.fn(async () =>
+      createFetchResponse({
+        result: {
+          id: "cloudflare-image-1",
+          uploaded: "2026-05-31T00:42:02.249Z",
+        },
+        success: true,
+      })
+    );
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          cloudflare_image_id: "cloudflare-image-1",
+          id: "asset-1",
+          message_id: null,
+          status: "draft",
+        },
+      ],
+    }));
+    const repository = new CloudflareImagesMessageImageRepository(
+      async (callback) => callback({ execute } as never),
+      { fetcher }
+    );
+
+    await expect(
+      repository.prepareForAttachment({
+        images: [{ altText: "", assetId: "asset-1", sortOrder: 0 }],
+        tribeSlug: "matematica-pro",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({
+      images: [{ altText: "", assetId: "asset-1", sortOrder: 0 }],
+      status: "ready",
+    });
+  });
+
+  it("waits for a recently uploaded draft asset before attachment", async () => {
+    const fetcher = jest
+      .fn()
+      .mockResolvedValueOnce(
+        createFetchResponse({
+          result: { draft: true, id: "cloudflare-image-1" },
+          success: true,
+        })
+      )
+      .mockResolvedValueOnce(
+        createFetchResponse({
+          result: { draft: false, id: "cloudflare-image-1" },
+          success: true,
+        })
+      );
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          cloudflare_image_id: "cloudflare-image-1",
+          id: "asset-1",
+          message_id: null,
+          status: "draft",
+        },
+      ],
+    }));
+    const repository = new CloudflareImagesMessageImageRepository(
+      async (callback) => callback({ execute } as never),
+      { fetcher, imageReadinessRetry: { delayMs: 0, maxAttempts: 2 } }
+    );
+
+    await expect(
+      repository.prepareForAttachment({
+        images: [{ altText: "", assetId: "asset-1", sortOrder: 0 }],
+        tribeSlug: "matematica-pro",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({
+      images: [{ altText: "", assetId: "asset-1", sortOrder: 0 }],
+      status: "ready",
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
   it("marks an allowed asset for deletion and deletes it remotely", async () => {
     const fetcher = jest.fn(async () => createFetchResponse({}));
     const execute = jest
