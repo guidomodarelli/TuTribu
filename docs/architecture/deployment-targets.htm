@@ -117,6 +117,7 @@ tr:last-child td{border-bottom:none;}
   <div class="section-title">Contrato existente</div>
   <p>Vercel sigue usando el build nativo de Next.js. No requiere <code>wrangler.jsonc</code> ni los scripts de Cloudflare para desplegar.</p>
   <p>El mantenimiento de ambos targets no debe cambiar el comportamiento de <code>pnpm run build</code>, porque ese comando sigue siendo el contrato compartido por el flujo actual.</p>
+  <p>La inicializacion de desarrollo de <code>@opennextjs/cloudflare</code> debe omitirse cuando el entorno define <code>VERCEL=1</code>, para que el build nativo de Vercel no ejecute tooling especifico de Workers.</p>
 </div>
 </body>
 </html>

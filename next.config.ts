@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+import { initializeOpenNextCloudflareForDev } from "./config/cloudflare-dev-runtime";
 import { cloudflareOutputFileTracingIncludes } from "./config/cloudflare-output-tracing";
 import { getLegacyRedirects } from "./config/legacy-redirects";
 
@@ -21,6 +21,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-initOpenNextCloudflareForDev();
+void initializeOpenNextCloudflareForDev();
 
 export default nextConfig;

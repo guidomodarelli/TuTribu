@@ -7,6 +7,7 @@ import {
   PG_CLOUDFLARE_TRACE_FILES,
   cloudflareOutputFileTracingIncludes,
 } from "@/config/cloudflare-output-tracing";
+import { shouldInitializeOpenNextCloudflareForDev } from "@/config/cloudflare-dev-runtime";
 
 const NEON_BASELINE_MIGRATION_TAG = "20260426000000_create_neon_baseline";
 const NEON_BASELINE_SNAPSHOT_PATH = "database/migrations/meta/0000_snapshot.json";
@@ -108,6 +109,11 @@ describe("Auth migration guardrails", () => {
     expect(Object.values(cloudflareOutputFileTracingIncludes).flat()).toEqual(
       expect.arrayContaining([...PG_CLOUDFLARE_TRACE_FILES])
     );
+  });
+
+  it("skips OpenNext Cloudflare dev initialization on Vercel builds", () => {
+    expect(shouldInitializeOpenNextCloudflareForDev({ VERCEL: "1" })).toBe(false);
+    expect(shouldInitializeOpenNextCloudflareForDev({})).toBe(true);
   });
 
   it("does not reference Supabase auth helpers in production auth code", () => {
