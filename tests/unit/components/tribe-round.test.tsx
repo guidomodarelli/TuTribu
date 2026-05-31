@@ -2528,6 +2528,146 @@ describe("TribeRound", () => {
     }
   });
 
+  it("keeps submitted image drafts when an edit dialog closes while the request is pending", async () => {
+    const user = userEvent.setup();
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const messageUpdateResponse = createDeferredResponse();
+    let deleteRequestCount = 0;
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: jest.fn(() => "blob:message-image"),
+    });
+
+    try {
+      const imageFile = new File(["image"], "captura.png", {
+        type: "image/png",
+      });
+
+      (global.fetch as jest.Mock).mockImplementation(
+        async (url: string, init?: RequestInit) => {
+          if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
+            return {
+              json: async () => ({
+                assetId: "asset-1",
+                imageId: "cloudflare-image-1",
+                uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+              }),
+              ok: true,
+              statusText: "Created",
+            };
+          }
+
+          if (url === "https://upload.imagedelivery.net/direct-upload") {
+            return {
+              json: async () => ({}),
+              ok: true,
+              statusText: "OK",
+            };
+          }
+
+          if (
+            url === "/api/tribes/matematica-pro/messages/images/asset-1" &&
+            init?.method === "DELETE"
+          ) {
+            deleteRequestCount += 1;
+
+            return {
+              json: async () => ({}),
+              ok: true,
+              statusText: "OK",
+            };
+          }
+
+          if (url === "/api/tribes/matematica-pro/messages/message-1") {
+            return messageUpdateResponse.promise;
+          }
+
+          throw new Error(`Unexpected fetch ${url}`);
+        }
+      );
+
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={{
+            ...round,
+            messages: [
+              {
+                ...round.messages[0],
+                permissions: {
+                  canDelete: false,
+                  canEdit: true,
+                },
+              },
+            ],
+          }}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Acciones del mensaje" })
+      );
+      await user.click(screen.getByRole("menuitem", { name: "Editar mensaje" }));
+      await user.upload(screen.getByLabelText("Agregar imagen"), imageFile);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "https://upload.imagedelivery.net/direct-upload",
+          expect.objectContaining({ method: "POST" })
+        );
+      });
+
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/tribes/matematica-pro/messages/message-1",
+          expect.objectContaining({
+            body: JSON.stringify({
+              content: "Bienvenida a la tribu",
+              images: [{ altText: "", assetId: "asset-1" }],
+              title: "Anuncio inicial",
+            }),
+            method: "PATCH",
+          })
+        );
+      });
+
+      await user.keyboard("{Escape}");
+
+      expect(deleteRequestCount).toBe(0);
+
+      await act(async () => {
+        messageUpdateResponse.resolve({
+          json: async () => ({
+            content: "Bienvenida a la tribu",
+            images: [
+              {
+                altText: "",
+                id: "asset-1",
+                url: "https://imagedelivery.net/account-hash/image-1/public",
+              },
+            ],
+            message: "Mensaje actualizado.",
+            title: "Anuncio inicial",
+          }),
+          ok: true,
+          statusText: "OK",
+        } as Response);
+      });
+
+      expect(deleteRequestCount).toBe(0);
+      expect(toast.success).toHaveBeenCalledWith("Mensaje actualizado.");
+    } finally {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreateObjectUrl,
+      });
+    }
+  });
+
   it("deletes uploaded image drafts when the composer is cancelled", async () => {
     const user = userEvent.setup();
     const originalCreateObjectUrl = URL.createObjectURL;

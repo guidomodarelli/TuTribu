@@ -2572,8 +2572,16 @@ function TribeRoundContent({
   const cleanupTransientMessageImageDrafts = (
     imageDrafts: ComposerImageDraft[]
   ) => {
+    const persistingMessageImageAssetIds =
+      persistingMessageImageAssetIdsRef.current;
+
     imageDrafts
-      .filter((imageDraft) => !imageDraft.isPersisted)
+      .filter(
+        (imageDraft) =>
+          !imageDraft.isPersisted &&
+          (!imageDraft.assetId ||
+            !persistingMessageImageAssetIds.has(imageDraft.assetId))
+      )
       .forEach((imageDraft) => {
         discardedMessageImageLocalIdsRef.current.add(imageDraft.localId);
 
