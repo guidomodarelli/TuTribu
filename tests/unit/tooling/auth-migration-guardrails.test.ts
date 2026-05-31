@@ -3,6 +3,10 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import {
+  PG_CLOUDFLARE_TRACE_FILES,
+  cloudflareOutputFileTracingIncludes,
+} from "@/config/cloudflare-output-tracing";
 
 const NEON_BASELINE_MIGRATION_TAG = "20260426000000_create_neon_baseline";
 const NEON_BASELINE_SNAPSHOT_PATH = "database/migrations/meta/0000_snapshot.json";
@@ -98,6 +102,12 @@ describe("Auth migration guardrails", () => {
     };
 
     expect(packageJson.dependencies).toHaveProperty("pg-cloudflare");
+  });
+
+  it("includes pg-cloudflare runtime files in Cloudflare output tracing", () => {
+    expect(Object.values(cloudflareOutputFileTracingIncludes).flat()).toEqual(
+      expect.arrayContaining([...PG_CLOUDFLARE_TRACE_FILES])
+    );
   });
 
   it("does not reference Supabase auth helpers in production auth code", () => {
