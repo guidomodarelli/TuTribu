@@ -9,7 +9,7 @@ import { createHash } from "crypto";
 import { ROUTES } from "@/src/constants/routes";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { createRouteObservation } from "@/src/modules/shared/infrastructure/observability/route-observation";
 
 const SUBSCRIPTION_START_RESPONSE = {
   conductBlockedMessage: "No podés reingresar a esta tribu con esta cuenta.",
@@ -36,6 +36,17 @@ const SUBSCRIPTION_IDEMPOTENCY = {
   hashAlgorithm: "sha256",
   hashEncoding: "hex",
   separator: ":",
+} as const;
+
+const SUBSCRIPTION_START_LOG = {
+  blockedMessage: "Tribe subscription checkout blocked",
+  feature: "subscriptions",
+  operation: "start-tribe-subscription-checkout",
+  resultMessage: "Tribe subscription checkout resolved",
+} as const;
+
+const SUBSCRIPTION_START_LOG_LEVEL = {
+  warn: "warn",
 } as const;
 
 /**
@@ -90,17 +101,29 @@ export async function POST(
     }>;
   }
 ) {
-  const { requestId } = resolveRequestContext(request.headers);
+  const routeObservation = createRouteObservation({
+    feature: SUBSCRIPTION_START_LOG.feature,
+    operation: SUBSCRIPTION_START_LOG.operation,
+    request,
+  });
   const [{ slug }, modules] = await Promise.all([
     context.params,
-    createRequestModules({ requestId }),
+    createRequestModules({ requestId: routeObservation.requestId }),
   ]);
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
-    return Response.json(
+    return routeObservation.createJsonResponse(
       { message: SUBSCRIPTION_START_RESPONSE.unauthorizedMessage },
-      { status: HTTP_STATUS.unauthorized }
+      HTTP_STATUS.unauthorized,
+      {
+        message: SUBSCRIPTION_START_LOG.blockedMessage,
+        metadata: {
+          slug,
+        },
+        outcome: "unauthorized",
+        level: SUBSCRIPTION_START_LOG_LEVEL.warn,
+      }
     );
   }
 
@@ -131,34 +154,92 @@ export async function POST(
 
   switch (result.status) {
     case TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending:
-      return Response.json(
+      return routeObservation.createJsonResponse(
         { checkoutUrl: result.checkoutUrl },
-        { status: HTTP_STATUS.ok }
+        HTTP_STATUS.ok,
+        {
+          message: SUBSCRIPTION_START_LOG.resultMessage,
+          metadata: {
+            hasInvitationToken,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+          outcome: result.status,
+        }
       );
     case TRIBE_MEMBER_SUBSCRIPTION_STATUS.alreadySubscribed:
-      return Response.json(
+      return routeObservation.createJsonResponse(
         { subscriptionUrl: ROUTES.tribes.subscription(slug) },
-        { status: HTTP_STATUS.ok }
+        HTTP_STATUS.ok,
+        {
+          message: SUBSCRIPTION_START_LOG.resultMessage,
+          metadata: {
+            hasInvitationToken,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+          outcome: result.status,
+        }
       );
     case TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked:
-      return Response.json(
+      return routeObservation.createJsonResponse(
         { message: SUBSCRIPTION_START_RESPONSE.conductBlockedMessage },
-        { status: HTTP_STATUS.forbidden }
+        HTTP_STATUS.forbidden,
+        {
+          message: SUBSCRIPTION_START_LOG.blockedMessage,
+          metadata: {
+            hasInvitationToken,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+          outcome: result.status,
+          level: SUBSCRIPTION_START_LOG_LEVEL.warn,
+        }
       );
     case TRIBE_MEMBER_SUBSCRIPTION_STATUS.invalidInvitation:
-      return Response.json(
+      return routeObservation.createJsonResponse(
         { message: SUBSCRIPTION_START_RESPONSE.invalidInvitationMessage },
-        { status: HTTP_STATUS.forbidden }
+        HTTP_STATUS.forbidden,
+        {
+          message: SUBSCRIPTION_START_LOG.blockedMessage,
+          metadata: {
+            hasInvitationToken,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+          outcome: result.status,
+          level: SUBSCRIPTION_START_LOG_LEVEL.warn,
+        }
       );
     case TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice:
-      return Response.json(
+      return routeObservation.createJsonResponse(
         { message: SUBSCRIPTION_START_RESPONSE.missingCurrentPriceMessage },
-        { status: HTTP_STATUS.badRequest }
+        HTTP_STATUS.badRequest,
+        {
+          message: SUBSCRIPTION_START_LOG.blockedMessage,
+          metadata: {
+            hasInvitationToken,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+          outcome: result.status,
+          level: SUBSCRIPTION_START_LOG_LEVEL.warn,
+        }
       );
     default:
-      return Response.json(
+      return routeObservation.createJsonResponse(
         { message: SUBSCRIPTION_START_RESPONSE.paymentBlockedMessage },
-        { status: HTTP_STATUS.serviceUnavailable }
+        HTTP_STATUS.serviceUnavailable,
+        {
+          message: SUBSCRIPTION_START_LOG.blockedMessage,
+          metadata: {
+            hasInvitationToken,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+          outcome: result.status,
+          level: SUBSCRIPTION_START_LOG_LEVEL.warn,
+        }
       );
   }
 }

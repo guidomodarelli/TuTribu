@@ -2,9 +2,18 @@ import { createHmac } from "crypto";
 
 import { POST } from "@/app/api/mercado-pago/webhooks/route";
 import { createRequestModules } from "@/src/modules/setup";
+import {
+  REQUEST_ID_HEADER,
+  TRACE_ID_HEADER,
+} from "@/src/modules/shared/infrastructure/observability/request-context";
 
 const handleMercadoPagoSubscriptionWebhook = jest.fn();
 const syncMercadoPagoSubscriptionProviderPlanWebhook = jest.fn();
+const mockServerLogger = {
+  error: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+};
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -13,20 +22,19 @@ jest.mock("@/src/modules/setup", () => ({
 jest.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
-    })),
+    createServerLogger: jest.fn(() => mockServerLogger),
   })
 );
 
 class MockJsonResponse {
+  headers: Headers;
   status: number;
 
   constructor(
     private readonly body: Record<string, unknown>,
     init?: ResponseInit
   ) {
+    this.headers = new Headers(init?.headers);
     this.status = init?.status ?? 200;
   }
 
@@ -106,17 +114,93 @@ describe("Mercado Pago webhook route", () => {
     expect(handleMercadoPagoSubscriptionWebhook).not.toHaveBeenCalled();
   });
 
+  it("does not log unverified webhook resource data when the signature is invalid", async () => {
+    const response = await POST(
+      buildWebhookRequest(
+        {
+          [REQUEST_ID_HEADER]: "request-1",
+        },
+        undefined,
+        {
+          action: "subscription_preapproval.created",
+          data: {
+            id: "attacker-controlled-resource",
+          },
+          id: "attacker-controlled-event",
+        }
+      )
+    );
+
+    expect(response.status).toBe(401);
+    expect(mockServerLogger.warn).toHaveBeenCalledWith({
+      message: "Mercado Pago webhook rejected",
+      metadata: expect.objectContaining({
+        hasEventId: true,
+        hasResourceId: true,
+        hasTopic: true,
+        outcome: "unauthorized",
+        status: 401,
+      }),
+    });
+    expect(mockServerLogger.warn).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          eventId: expect.any(String),
+          resourceId: expect.any(String),
+          topic: expect.any(String),
+        }),
+      })
+    );
+  });
+
+  it("does not log unverified webhook event data when the payload is invalid", async () => {
+    const response = await POST(
+      buildWebhookRequest(
+        {
+          [REQUEST_ID_HEADER]: "request-1",
+        },
+        undefined,
+        {
+          action: "",
+          id: "attacker-controlled-event",
+        }
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockServerLogger.warn).toHaveBeenCalledWith({
+      message: "Mercado Pago webhook rejected",
+      metadata: expect.objectContaining({
+        hasEventId: true,
+        hasResourceId: false,
+        hasTopic: false,
+        outcome: "invalid_payload",
+        status: 400,
+      }),
+    });
+    expect(mockServerLogger.warn).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          eventId: expect.any(String),
+        }),
+      })
+    );
+  });
+
   it("processes signed webhook payloads with a verified database context", async () => {
     const timestamp = String(Date.now());
     const requestId = "request-1";
     const response = await POST(
       buildWebhookRequest({
-        "x-request-id": requestId,
+        [REQUEST_ID_HEADER]: requestId,
+        [TRACE_ID_HEADER]: "trace-1",
         "x-signature": buildWebhookSignature("preapproval-1", requestId, timestamp),
       })
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get(REQUEST_ID_HEADER)).toBe(requestId);
+    expect(response.headers.get(TRACE_ID_HEADER)).toBe("trace-1");
     expect(createRequestModules).toHaveBeenCalledWith({
       mercadoPagoWebhookVerified: true,
       requestId,

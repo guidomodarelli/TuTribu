@@ -1,5 +1,9 @@
 import { POST } from "@/app/api/tribes/[slug]/subscriptions/start/route";
 import { createRequestModules } from "@/src/modules/setup";
+import {
+  REQUEST_ID_HEADER,
+  TRACE_ID_HEADER,
+} from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createHash } from "crypto";
 
 const getAuthenticatedMember = jest.fn();
@@ -18,13 +22,26 @@ jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
 }));
 
+jest.mock(
+  "@/src/modules/shared/infrastructure/observability/server-logger",
+  () => ({
+    createServerLogger: jest.fn(() => ({
+      error: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+    })),
+  })
+);
+
 class MockJsonResponse {
+  headers: Headers;
   status: number;
 
   constructor(
     private readonly body: Record<string, unknown>,
     init?: ResponseInit
   ) {
+    this.headers = new Headers(init?.headers);
     this.status = init?.status ?? 200;
   }
 
@@ -37,10 +54,14 @@ class MockJsonResponse {
   }
 }
 
-function buildRequest(body: Record<string, unknown> = {}) {
+function buildRequest(
+  body: Record<string, unknown> = {},
+  headers: HeadersInit = {}
+) {
   return {
     headers: new Headers({
       "x-idempotency-key": "request-1",
+      ...headers,
     }),
     json: async () => body,
   } as unknown as Request;
@@ -101,6 +122,7 @@ describe("tribe subscription start route", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get(REQUEST_ID_HEADER)).toEqual(expect.any(String));
     expect(startTribeMemberSubscription).toHaveBeenCalledWith({
       idempotencyKey: [
         "member-1",
@@ -171,9 +193,20 @@ describe("tribe subscription start route", () => {
       status: "pending",
     });
 
-    const response = await POST(buildRequest({}), buildContext());
+    const response = await POST(
+      buildRequest(
+        {},
+        {
+          [REQUEST_ID_HEADER]: "correlation-1",
+          [TRACE_ID_HEADER]: "trace-1",
+        }
+      ),
+      buildContext()
+    );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get(REQUEST_ID_HEADER)).toBe("correlation-1");
+    expect(response.headers.get(TRACE_ID_HEADER)).toBe("trace-1");
     expect(retryTribeMemberSubscriptionPayment).toHaveBeenCalledWith({
       idempotencyKey: [
         "member-1",

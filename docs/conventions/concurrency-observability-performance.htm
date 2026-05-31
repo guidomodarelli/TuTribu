@@ -77,7 +77,8 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 });</pre></div>
 <p><strong>Request correlation</strong></p>
 <p>Treat request correlation as mandatory for server-side flows that cross boundaries such as route handlers, use cases, repositories, or external providers.</p>
-<p>Every important request flow should be traceable through a stable correlation identifier such as <code>requestId</code> or <code>traceId</code>.</p>
+<p>Every important request flow should be traceable through stable correlation identifiers: <code>x-request-id</code> identifies the local request and <code>x-trace-id</code> links related work across boundaries. When a trace header is missing, use the request id as the trace id fallback.</p>
+<p>Route handlers that return JSON or redirects should attach both correlation headers to the response and log outcomes through the shared route observability helper so logs include <code>status</code>, <code>outcome</code>, <code>durationMs</code>, <code>requestId</code>, and <code>traceId</code>.</p>
 <p><strong>Actionable metrics</strong></p>
 <p>Measure the operational signals that help detect regressions early.</p>
 <p>Track at least:</p>

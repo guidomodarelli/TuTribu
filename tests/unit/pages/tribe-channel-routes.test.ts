@@ -7,6 +7,10 @@ import {
   PATCH,
 } from "@/app/api/tribes/[slug]/channels/[channelId]/route";
 import { createRequestModules } from "@/src/modules/setup";
+import {
+  REQUEST_ID_HEADER,
+  TRACE_ID_HEADER,
+} from "@/src/modules/shared/infrastructure/observability/request-context";
 import { revalidateTag } from "next/cache";
 
 const getAuthenticatedMember = jest.fn();
@@ -14,6 +18,11 @@ const listTribeChannels = jest.fn();
 const createTribeChannel = jest.fn();
 const updateTribeChannel = jest.fn();
 const deleteTribeChannel = jest.fn();
+const mockServerLogger = {
+  error: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+};
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -26,20 +35,19 @@ jest.mock("next/cache", () => ({
 jest.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
-    })),
+    createServerLogger: jest.fn(() => mockServerLogger),
   })
 );
 
 class MockJsonResponse {
+  headers: Headers;
   status: number;
 
   constructor(
     private readonly body: Record<string, unknown>,
     init?: ResponseInit
   ) {
+    this.headers = new Headers(init?.headers);
     this.status = init?.status ?? 200;
   }
 
@@ -52,10 +60,14 @@ class MockJsonResponse {
   }
 }
 
-function buildJsonRequest(body: Record<string, string | number> = {}): Request {
+function buildJsonRequest(
+  body: Record<string, string | number> = {},
+  headers: HeadersInit = {}
+): Request {
   return {
     headers: new Headers({
       "Content-Type": "application/json",
+      ...headers,
     }),
     json: async () => body,
     method: "POST",
@@ -130,10 +142,33 @@ describe("Tribe channel routes", () => {
       channels: [channel],
     });
     expect(response.status).toBe(200);
+    expect(createRequestModules).toHaveBeenCalledWith({
+      requestId: expect.any(String),
+    });
     expect(listTribeChannels).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
+  });
+
+  it("attaches request and trace headers when listing channels", async () => {
+    listTribeChannels.mockResolvedValue({
+      channels: [channel],
+    });
+
+    const response = await GET(
+      buildJsonRequest(
+        {},
+        {
+          [REQUEST_ID_HEADER]: "request-1",
+          [TRACE_ID_HEADER]: "trace-1",
+        }
+      ),
+      buildTribeContext()
+    );
+
+    expect(response.headers.get(REQUEST_ID_HEADER)).toBe("request-1");
+    expect(response.headers.get(TRACE_ID_HEADER)).toBe("trace-1");
   });
 
   it("returns a safe message when listing channels fails unexpectedly", async () => {
@@ -188,6 +223,15 @@ describe("Tribe channel routes", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       message: "Ya existe un canal con ese nombre.",
+    });
+    expect(mockServerLogger.warn).toHaveBeenCalledWith({
+      message: "Tribe channel creation failed",
+      metadata: expect.objectContaining({
+        outcome: "duplicate_slug",
+        slug: "matematica-pro",
+        status: 400,
+        viewerId: "member-1",
+      }),
     });
     expect(revalidateTag).not.toHaveBeenCalled();
   });

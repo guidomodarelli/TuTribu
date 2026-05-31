@@ -4,8 +4,7 @@ import {
 } from "@/src/modules/messages/constants/message-round";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { createRouteObservation } from "@/src/modules/shared/infrastructure/observability/route-observation";
 
 const CHANNEL_ROUTE_FIELD = {
   emoji: "emoji",
@@ -14,8 +13,11 @@ const CHANNEL_ROUTE_FIELD = {
 
 const CHANNEL_ROUTE_LOG = {
   createFailureMessage: "Tribe channel creation failed",
+  createSuccessMessage: "Tribe channel creation completed",
   feature: "messages",
+  listBlockedMessage: "Tribe channel listing blocked",
   listFailureMessage: "Tribe channel listing failed",
+  listSuccessMessage: "Tribe channel listing completed",
   operation: "manage-tribe-channels",
 } as const;
 
@@ -41,10 +43,6 @@ const HTTP_STATUS = {
   unauthorized: 401,
 } as const;
 
-function createJsonResponse(body: Record<string, unknown>, status: number): Response {
-  return Response.json(body, { status });
-}
-
 function readStringField(body: unknown, field: string): string {
   if (!body || typeof body !== "object" || !(field in body)) {
     return "";
@@ -64,19 +62,28 @@ export async function GET(
   }
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
+  const routeObservation = createRouteObservation({
     feature: CHANNEL_ROUTE_LOG.feature,
     operation: CHANNEL_ROUTE_LOG.operation,
-    requestId,
+    request,
   });
-  const modules = await createRequestModules();
+  const modules = await createRequestModules({
+    requestId: routeObservation.requestId,
+  });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
-    return createJsonResponse(
+    return routeObservation.createJsonResponse(
       { message: CHANNEL_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
+      HTTP_STATUS.unauthorized,
+      {
+        message: CHANNEL_ROUTE_LOG.listBlockedMessage,
+        metadata: {
+          slug,
+        },
+        outcome: "unauthorized",
+        level: "warn",
+      }
     );
   }
 
@@ -86,18 +93,28 @@ export async function GET(
       viewerId: authenticatedMember.id,
     });
 
-    return createJsonResponse(result, HTTP_STATUS.ok);
+    return routeObservation.createJsonResponse(result, HTTP_STATUS.ok, {
+      message: CHANNEL_ROUTE_LOG.listSuccessMessage,
+      metadata: {
+        channelCount: result.channels.length,
+        slug,
+        viewerId: authenticatedMember.id,
+      },
+      outcome: "success",
+    });
   } catch (error) {
-    logger.error({
+    routeObservation.logRouteError({
       message: CHANNEL_ROUTE_LOG.listFailureMessage,
       error,
       metadata: {
         slug,
         viewerId: authenticatedMember.id,
       },
+      outcome: "error",
+      status: HTTP_STATUS.serverError,
     });
 
-    return createJsonResponse(
+    return routeObservation.createJsonResponse(
       { message: CHANNEL_ROUTE_RESPONSE.unexpectedListMessage },
       HTTP_STATUS.serverError
     );
@@ -113,19 +130,28 @@ export async function POST(
   }
 ) {
   const { slug } = await context.params;
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
+  const routeObservation = createRouteObservation({
     feature: CHANNEL_ROUTE_LOG.feature,
     operation: CHANNEL_ROUTE_LOG.operation,
-    requestId,
+    request,
   });
-  const modules = await createRequestModules();
+  const modules = await createRequestModules({
+    requestId: routeObservation.requestId,
+  });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
-    return createJsonResponse(
+    return routeObservation.createJsonResponse(
       { message: CHANNEL_ROUTE_RESPONSE.unauthorizedMessage },
-      HTTP_STATUS.unauthorized
+      HTTP_STATUS.unauthorized,
+      {
+        message: CHANNEL_ROUTE_LOG.createFailureMessage,
+        metadata: {
+          slug,
+        },
+        outcome: "unauthorized",
+        level: "warn",
+      }
     );
   }
 
@@ -141,46 +167,93 @@ export async function POST(
       case TRIBE_CHANNEL_MUTATION_STATUS.created:
         revalidateTribeRoundCache(slug);
 
-        return createJsonResponse(
+        return routeObservation.createJsonResponse(
           {
             channel: result.channel,
             message: CHANNEL_ROUTE_RESPONSE.successMessage,
           },
-          HTTP_STATUS.created
+          HTTP_STATUS.created,
+          {
+            message: CHANNEL_ROUTE_LOG.createSuccessMessage,
+            metadata: {
+              channelId: result.channel.id,
+              slug,
+              viewerId: authenticatedMember.id,
+            },
+            outcome: TRIBE_CHANNEL_MUTATION_STATUS.created,
+          }
         );
       case TRIBE_CHANNEL_MUTATION_STATUS.invalidName:
-        return createJsonResponse(
+        return routeObservation.createJsonResponse(
           { message: CHANNEL_ROUTE_RESPONSE.invalidNameMessage },
-          HTTP_STATUS.badRequest
+          HTTP_STATUS.badRequest,
+          {
+            message: CHANNEL_ROUTE_LOG.createFailureMessage,
+            metadata: {
+              slug,
+              viewerId: authenticatedMember.id,
+            },
+            outcome: result.status,
+            level: "warn",
+          }
         );
       case TRIBE_CHANNEL_MUTATION_STATUS.duplicateSlug:
-        return createJsonResponse(
+        return routeObservation.createJsonResponse(
           { message: CHANNEL_ROUTE_RESPONSE.duplicateSlugMessage },
-          HTTP_STATUS.badRequest
+          HTTP_STATUS.badRequest,
+          {
+            message: CHANNEL_ROUTE_LOG.createFailureMessage,
+            metadata: {
+              slug,
+              viewerId: authenticatedMember.id,
+            },
+            outcome: result.status,
+            level: "warn",
+          }
         );
       case TRIBE_CHANNEL_MUTATION_STATUS.notFound:
-        return createJsonResponse(
+        return routeObservation.createJsonResponse(
           { message: CHANNEL_ROUTE_RESPONSE.notFoundMessage },
-          HTTP_STATUS.notFound
+          HTTP_STATUS.notFound,
+          {
+            message: CHANNEL_ROUTE_LOG.createFailureMessage,
+            metadata: {
+              slug,
+              viewerId: authenticatedMember.id,
+            },
+            outcome: result.status,
+            level: "warn",
+          }
         );
       case TRIBE_CHANNEL_MUTATION_STATUS.forbidden:
       default:
-        return createJsonResponse(
+        return routeObservation.createJsonResponse(
           { message: CHANNEL_ROUTE_RESPONSE.forbiddenMessage },
-          HTTP_STATUS.forbidden
+          HTTP_STATUS.forbidden,
+          {
+            message: CHANNEL_ROUTE_LOG.createFailureMessage,
+            metadata: {
+              slug,
+              viewerId: authenticatedMember.id,
+            },
+            outcome: result.status,
+            level: "warn",
+          }
         );
     }
   } catch (error) {
-    logger.error({
+    routeObservation.logRouteError({
       message: CHANNEL_ROUTE_LOG.createFailureMessage,
       error,
       metadata: {
         slug,
         viewerId: authenticatedMember.id,
       },
+      outcome: "error",
+      status: HTTP_STATUS.serverError,
     });
 
-    return createJsonResponse(
+    return routeObservation.createJsonResponse(
       { message: CHANNEL_ROUTE_RESPONSE.unexpectedMessage },
       HTTP_STATUS.serverError
     );

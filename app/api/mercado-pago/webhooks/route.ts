@@ -10,8 +10,7 @@ import {
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import { verifyMercadoPagoWebhookSignature } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-webhook-signature";
 import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { createRouteObservation } from "@/src/modules/shared/infrastructure/observability/route-observation";
 
 const WEBHOOK_FIELD = {
   action: "action",
@@ -38,7 +37,15 @@ const WEBHOOK_RESPONSE = {
 const WEBHOOK_LOG = {
   failureMessage: "Mercado Pago webhook handling failed",
   feature: "subscriptions",
+  ignoredMessage: "Mercado Pago webhook ignored",
+  invalidMessage: "Mercado Pago webhook rejected",
   operation: "mercado-pago-webhook",
+  processedMessage: "Mercado Pago webhook processed",
+  retryableMessage: "Mercado Pago webhook retry requested",
+} as const;
+
+const WEBHOOK_LOG_LEVEL = {
+  warn: "warn",
 } as const;
 
 const HTTP_STATUS = {
@@ -152,24 +159,37 @@ function readWebhookTopic(body: Record<string, unknown>): string {
 }
 
 export async function POST(request: Request) {
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
+  const routeObservation = createRouteObservation({
     feature: WEBHOOK_LOG.feature,
     operation: WEBHOOK_LOG.operation,
-    requestId,
+    request,
   });
+  const { requestId } = routeObservation;
+  let eventId = requestId;
+  let resourceId = "";
+  let topic = "";
 
   try {
     const requestUrl = new URL(request.url);
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-    const eventId = readScalarString(body[WEBHOOK_FIELD.id]) || requestId;
-    const resourceId = readResourceId(requestUrl, body);
-    const topic = readWebhookTopic(body);
+    eventId = readScalarString(body[WEBHOOK_FIELD.id]) || requestId;
+    resourceId = readResourceId(requestUrl, body);
+    topic = readWebhookTopic(body);
 
     if (!resourceId || !topic) {
-      return Response.json(
+      return routeObservation.createJsonResponse(
         { message: WEBHOOK_RESPONSE.invalidMessage },
-        { status: HTTP_STATUS.badRequest }
+        HTTP_STATUS.badRequest,
+        {
+          message: WEBHOOK_LOG.invalidMessage,
+          metadata: {
+            hasEventId: Boolean(eventId),
+            hasResourceId: Boolean(resourceId),
+            hasTopic: Boolean(topic),
+          },
+          outcome: "invalid_payload",
+          level: WEBHOOK_LOG_LEVEL.warn,
+        }
       );
     }
 
@@ -179,9 +199,19 @@ export async function POST(request: Request) {
         resourceId,
       })
     ) {
-      return Response.json(
+      return routeObservation.createJsonResponse(
         { message: WEBHOOK_RESPONSE.unauthorizedMessage },
-        { status: HTTP_STATUS.unauthorized }
+        HTTP_STATUS.unauthorized,
+        {
+          message: WEBHOOK_LOG.invalidMessage,
+          metadata: {
+            hasEventId: Boolean(eventId),
+            hasResourceId: Boolean(resourceId),
+            hasTopic: Boolean(topic),
+          },
+          outcome: "unauthorized",
+          level: WEBHOOK_LOG_LEVEL.warn,
+        }
       );
     }
 
@@ -189,9 +219,18 @@ export async function POST(request: Request) {
       !isSubscriptionWebhookTopic(topic) &&
       !isSubscriptionPlanWebhookTopic(topic)
     ) {
-      return Response.json(
+      return routeObservation.createJsonResponse(
         { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed },
-        { status: HTTP_STATUS.ok }
+        HTTP_STATUS.ok,
+        {
+          message: WEBHOOK_LOG.ignoredMessage,
+          metadata: {
+            eventId,
+            resourceId,
+            topic,
+          },
+          outcome: "ignored_topic",
+        }
       );
     }
 
@@ -210,15 +249,36 @@ export async function POST(request: Request) {
         );
 
       if (isRetryableSubscriptionPlanSyncStatus(result.status)) {
-        return Response.json(
+        return routeObservation.createJsonResponse(
           { message: WEBHOOK_RESPONSE.unexpectedMessage },
-          { status: HTTP_STATUS.serviceUnavailable }
+          HTTP_STATUS.serviceUnavailable,
+          {
+            message: WEBHOOK_LOG.retryableMessage,
+            metadata: {
+              eventId,
+              resourceId,
+              result: result.status,
+              topic,
+            },
+            outcome: result.status,
+            level: WEBHOOK_LOG_LEVEL.warn,
+          }
         );
       }
 
-      return Response.json(
+      return routeObservation.createJsonResponse(
         { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed },
-        { status: HTTP_STATUS.ok }
+        HTTP_STATUS.ok,
+        {
+          message: WEBHOOK_LOG.processedMessage,
+          metadata: {
+            eventId,
+            resourceId,
+            result: result.status,
+            topic,
+          },
+          outcome: result.status,
+        }
       );
     }
 
@@ -230,33 +290,59 @@ export async function POST(request: Request) {
       });
 
     if (result.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook) {
-      return Response.json(
+      return routeObservation.createJsonResponse(
         { message: WEBHOOK_RESPONSE.unexpectedMessage },
-        { status: HTTP_STATUS.serviceUnavailable }
+        HTTP_STATUS.serviceUnavailable,
+        {
+          message: WEBHOOK_LOG.retryableMessage,
+          metadata: {
+            eventId,
+            resourceId,
+            result: result.status,
+            topic,
+          },
+          outcome: result.status,
+          level: WEBHOOK_LOG_LEVEL.warn,
+        }
       );
     }
 
-    return Response.json(
+    return routeObservation.createJsonResponse(
       {
         status:
           result.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook
             ? TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook
             : TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed,
       },
-      { status: HTTP_STATUS.ok }
+      HTTP_STATUS.ok,
+      {
+        message: WEBHOOK_LOG.processedMessage,
+        metadata: {
+          eventId,
+          resourceId,
+          result: result.status,
+          topic,
+        },
+        outcome: result.status,
+      }
     );
   } catch (error) {
-    logger.error({
+    routeObservation.logRouteError({
       message: WEBHOOK_LOG.failureMessage,
       error,
       metadata: {
+        eventId,
         requestId,
+        resourceId,
+        topic,
       },
+      outcome: "error",
+      status: HTTP_STATUS.serverError,
     });
 
-    return Response.json(
+    return routeObservation.createJsonResponse(
       { message: WEBHOOK_RESPONSE.unexpectedMessage },
-      { status: HTTP_STATUS.serverError }
+      HTTP_STATUS.serverError
     );
   }
 }
