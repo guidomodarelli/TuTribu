@@ -54,6 +54,8 @@ type DeletableMessageImageRow = {
   can_delete: boolean;
   cloudflare_image_id: string;
   id: string;
+  sort_order: number | null;
+  status: string;
 };
 
 type MarkedMessageImageRow = {
@@ -240,6 +242,23 @@ export class CloudflareImagesMessageImageRepository
     }
 
     if (!(await this.deleteRemoteImage(environment, image.cloudflare_image_id))) {
+      const wasRestored = await this.restoreImageDeletionState({
+        assetId: image.id,
+        status: image.status,
+        sortOrder: image.sort_order,
+      });
+
+      if (!wasRestored) {
+        this.logger?.warn({
+          message: "Message image local delete rollback failed",
+          metadata: {
+            assetId: image.id,
+            result: MESSAGE_IMAGE_LOG_RESULT.failed,
+            tribeSlug: command.tribeSlug,
+          },
+        });
+      }
+
       return { status: MESSAGE_MUTATION_STATUS.invalidImage };
     }
 
@@ -428,6 +447,8 @@ export class CloudflareImagesMessageImageRepository
         select
           message_images.id,
           message_images.cloudflare_image_id,
+          message_images.sort_order,
+          message_images.status,
           (
             public.is_active_tribe_member(message_images.tribe_id)
             and (
@@ -462,6 +483,8 @@ export class CloudflareImagesMessageImageRepository
         select
           message_images.id,
           message_images.cloudflare_image_id,
+          message_images.sort_order,
+          message_images.status,
           true as can_delete
         from public.message_images
         left join public.messages
@@ -617,6 +640,31 @@ export class CloudflareImagesMessageImageRepository
         update public.message_images
         set status = ${MESSAGE_IMAGE_STATUS.pendingDelete},
             sort_order = null,
+            updated_at = timezone('utc', now())
+        where message_images.id = ${assetId}
+        returning message_images.id as asset_id
+      `);
+
+      return Boolean(
+        ((result.rows?.[0] ?? null) as MarkedMessageImageRow | null)?.asset_id
+      );
+    });
+  }
+
+  private async restoreImageDeletionState({
+    assetId,
+    sortOrder,
+    status,
+  }: {
+    assetId: string;
+    sortOrder: number | null;
+    status: string;
+  }): Promise<boolean> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        update public.message_images
+        set status = ${status},
+            sort_order = ${sortOrder},
             updated_at = timezone('utc', now())
         where message_images.id = ${assetId}
         returning message_images.id as asset_id

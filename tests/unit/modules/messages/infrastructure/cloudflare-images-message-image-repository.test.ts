@@ -364,7 +364,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
     });
   });
 
-  it("keeps the image pending delete when remote deletion fails", async () => {
+  it("restores the local image state when remote deletion fails", async () => {
     const fetcher = jest.fn(async () => ({
       json: async () => ({}),
       ok: false,
@@ -377,9 +377,12 @@ describe("CloudflareImagesMessageImageRepository", () => {
             can_delete: true,
             cloudflare_image_id: "cloudflare-image-1",
             id: "asset-1",
+            sort_order: 2,
+            status: "attached",
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [{ asset_id: "asset-1" }] })
       .mockResolvedValueOnce({ rows: [{ asset_id: "asset-1" }] });
     const repository = new CloudflareImagesMessageImageRepository(
       async (callback) => callback({ execute } as never),
@@ -394,8 +397,12 @@ describe("CloudflareImagesMessageImageRepository", () => {
       })
     ).resolves.toEqual({ status: "invalid_image" });
 
-    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenCalledTimes(3);
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("pending_delete");
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("sort_order");
+    expect(getSqlQuery(execute.mock.calls[2]?.[0]).params).toEqual(
+      expect.arrayContaining(["attached", 2])
+    );
   });
 
   it("keeps pending image cleanup best effort when remote deletion rejects", async () => {
