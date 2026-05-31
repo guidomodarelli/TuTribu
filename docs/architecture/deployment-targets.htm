@@ -95,6 +95,7 @@ tr:last-child td{border-bottom:none;}
   <div class="section-title">Runtime y output</div>
   <p>Cloudflare usa <code>@opennextjs/cloudflare</code> para convertir el build de Next.js al runtime de Workers. El deploy no debe invocar <code>wrangler</code> directamente para publicar la aplicacion Next.js; debe usar <code>opennextjs-cloudflare deploy</code> o <code>opennextjs-cloudflare upload</code>.</p>
   <p>La configuracion de <code>wrangler.jsonc</code> apunta al worker generado en <code>.open-next/worker.js</code> y a los assets generados en <code>.open-next/assets</code>. El directorio <code>.open-next</code> es output de build y no se versiona.</p>
+  <p>Los redirects legacy que pueden expresarse de forma estatica deben vivir en <code>next.config.ts</code> a traves de <code>redirects</code>, no en <code>proxy.ts</code>. En Next.js 16, <code>proxy.ts</code> corre con runtime <code>nodejs</code>; OpenNext Cloudflare no soporta middleware Node.js y el build debe evitar ese entrypoint cuando el comportamiento sea un redirect estatico.</p>
   <div class="callout c-ok"><strong>Contrato esperado:</strong> <code>wrangler.jsonc</code> describe el artefacto generado; OpenNext sigue siendo el entrypoint de build y publicacion para Cloudflare.</div>
 </div>
 

@@ -43,6 +43,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <p>Los hooks <code>Stop</code> de <code>.claude/settings.json</code> y <code>.codex/hooks.json</code> ejecutan <code>node .agents/hooks/stop-quality-gate.js</code>. Ese script revisa primero los archivos modificados con <code>git status --porcelain --untracked-files=all</code>.</p>
   <p>Si no hay cambios relevantes para código, tooling o validación, el hook responde <code>{}</code> y no ejecuta <code>typecheck</code>, <code>lint</code> ni <code>test</code>.</p>
   <p>Cuando hay cambios relevantes, el hook ejecuta <code>typecheck</code>, <code>lint</code> y <code>test</code>. El comando <code>build</code> queda fuera del Stop hook por costo y debe ejecutarse manualmente cuando un cambio lo requiera (por ejemplo, antes de mergear cambios de producto, runtime o configuración de tooling).</p>
+  <p>Los outputs generados por builds, como <code>.next/</code> y <code>.open-next/</code>, no forman parte del codigo fuente validable. Deben quedar fuera de ESLint para que los artefactos de adaptadores externos no rompan el gate del repositorio.</p>
   <div class="callout c-ok">Los cambios documentales como <code>README.md</code>, <code>AGENTS.md</code> y archivos <code>.htm</code> bajo <code>docs/</code> no disparan el gate por sí solos.</div>
 </div>
 
