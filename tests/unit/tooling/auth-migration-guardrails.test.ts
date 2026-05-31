@@ -92,6 +92,14 @@ describe("Auth migration guardrails", () => {
     expect(packageJson.devDependencies).not.toHaveProperty("supabase");
   });
 
+  it("declares the Cloudflare socket adapter required by pg as a runtime dependency", () => {
+    const packageJson = JSON.parse(readWorkspaceFile("package.json")) as {
+      dependencies?: Record<string, string>;
+    };
+
+    expect(packageJson.dependencies).toHaveProperty("pg-cloudflare");
+  });
+
   it("does not reference Supabase auth helpers in production auth code", () => {
     const authSetup = readWorkspaceFile("src/modules/setup.ts");
     const routeSignIn = readWorkspaceFile("app/auth/signin/page.tsx");

@@ -47,6 +47,9 @@ importers:
       pg:
         specifier: ^8.21.0
         version: 8.21.0
+      pg-cloudflare:
+        specifier: 1.4.0
+        version: 1.4.0
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -13289,8 +13292,7 @@ snapshots:
 
   pathe@2.0.3: {}
 
-  pg-cloudflare@1.4.0:
-    optional: true
+  pg-cloudflare@1.4.0: {}
 
   pg-connection-string@2.13.0: {}
 
