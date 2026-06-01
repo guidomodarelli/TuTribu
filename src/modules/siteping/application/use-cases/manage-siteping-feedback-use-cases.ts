@@ -318,11 +318,22 @@ export function updateSitepingFeedbackStatus({
 }
 
 export function deleteSitepingFeedback({
+  githubIssuePublisher,
   sitepingFeedbackRepository,
 }: {
+  githubIssuePublisher: GitHubIssuePublisher;
   sitepingFeedbackRepository: SitepingFeedbackRepository;
 }) {
   return async (feedbackId: string): Promise<void> => {
+    const feedback = await sitepingFeedbackRepository.findById(feedbackId);
+
+    if (feedback?.githubIssueNumber) {
+      await githubIssuePublisher.close({
+        feedbackId: feedback.id,
+        issueNumber: feedback.githubIssueNumber,
+      });
+    }
+
     await sitepingFeedbackRepository.remove(feedbackId);
   };
 }

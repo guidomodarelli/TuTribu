@@ -127,6 +127,16 @@ function createRepositoryHarness() {
     const operation = getSqlOperation(query.sql);
 
     if (operation === SQL_OPERATION.selectFeedback) {
+      if (query.params.length === 1) {
+        const [feedbackId] = query.params;
+
+        return {
+          rows: feedbackRows.filter(
+            (feedbackRow) => feedbackRow.id === feedbackId
+          ),
+        };
+      }
+
       const [projectName, createdBy, clientId] = query.params;
 
       return {
@@ -220,5 +230,20 @@ describe("PostgresSitepingFeedbackRepository", () => {
     });
 
     expect(feedbackRows).toHaveLength(3);
+  });
+
+  it("finds feedback by id with GitHub issue metadata", async () => {
+    const { feedbackRows, repository } = createRepositoryHarness();
+
+    await repository.create(createFeedbackCommand());
+    feedbackRows[0].github_issue_number = 42;
+    feedbackRows[0].github_issue_url =
+      "https://github.com/guidomodarelli/LaTribu/issues/42";
+
+    await expect(repository.findById(feedbackRows[0].id)).resolves.toMatchObject({
+      githubIssueNumber: 42,
+      githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+      id: feedbackRows[0].id,
+    });
   });
 });

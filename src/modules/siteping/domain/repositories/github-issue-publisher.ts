@@ -10,7 +10,12 @@ export type PublishGitHubIssueCommand = {
   requestUrl: string;
 };
 
-export type GitHubIssuePublisher = {
-  publish(command: PublishGitHubIssueCommand): Promise<GitHubIssuePublication>;
+export type CloseGitHubIssueCommand = {
+  feedbackId: string;
+  issueNumber: number;
 };
 
+export type GitHubIssuePublisher = {
+  close(command: CloseGitHubIssueCommand): Promise<void>;
+  publish(command: PublishGitHubIssueCommand): Promise<GitHubIssuePublication>;
+};

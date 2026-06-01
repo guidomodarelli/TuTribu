@@ -117,6 +117,7 @@ export type SitepingFeedbackRepository = {
   create(
     command: CreateSitepingFeedbackRecordCommand
   ): Promise<CreateSitepingFeedbackRecordResult>;
+  findById(feedbackId: string): Promise<SitepingFeedback | null>;
   findPage(query: SitepingFeedbackQuery): Promise<SitepingFeedbackPage>;
   markGitHubIssueFailed(command: MarkGitHubIssueFailedCommand): Promise<void>;
   markGitHubIssuePublished(command: MarkGitHubIssuePublishedCommand): Promise<void>;

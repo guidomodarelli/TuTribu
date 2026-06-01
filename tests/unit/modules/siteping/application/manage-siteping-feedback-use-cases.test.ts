@@ -1,5 +1,6 @@
 import {
   createSitepingFeedback,
+  deleteSitepingFeedback,
   getSitepingIdentity,
 } from "@/src/modules/siteping/application/use-cases/manage-siteping-feedback-use-cases";
 import type { SitepingFeedbackRepository } from "@/src/modules/siteping/domain/repositories/siteping-feedback-repository";
@@ -130,6 +131,30 @@ function buildRepository(
       },
       wasCreated: true,
     })),
+    findById: jest.fn(async () => ({
+      annotations: [],
+      authorEmail: "leader@example.com",
+      authorName: "Leader Example",
+      clientId: "client-feedback-1",
+      createdAt: new Date("2026-05-31T12:00:00.000Z"),
+      createdBy: "member-1",
+      diagnostics: null,
+      githubIssueNumber: 42,
+      githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
+      githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+      id: FEEDBACK_ID,
+      message: "No puedo guardar el precio",
+      projectName: "tutribu",
+      resolvedAt: null,
+      screenshotUrl: null,
+      status: "open",
+      type: SITEPING_FEEDBACK_TYPE.bug,
+      updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+      url: "https://tutribu.example.com/matematica/precios",
+      urlPattern: "/[slug]/precios",
+      userAgent: "Jest Browser",
+      viewport: "1280x800",
+    })),
     findPage: jest.fn(),
     markGitHubIssueFailed: jest.fn(),
     markGitHubIssuePublished: jest.fn(),
@@ -144,6 +169,7 @@ function buildPublisher(
   overrides: Partial<GitHubIssuePublisher> = {}
 ): GitHubIssuePublisher {
   return {
+    close: jest.fn(async () => undefined),
     publish: jest.fn(async () => ({
       issueNumber: 42,
       issueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
@@ -353,5 +379,39 @@ describe("manage Siteping feedback use cases", () => {
       errorMessage: "github_failed",
       feedbackId: FEEDBACK_ID,
     });
+  });
+
+  it("closes the linked GitHub issue before deleting an individual feedback", async () => {
+    const repository = buildRepository();
+    const publisher = buildPublisher();
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: publisher,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase(FEEDBACK_ID);
+
+    expect(publisher.close).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      issueNumber: 42,
+    });
+    expect(repository.remove).toHaveBeenCalledWith(FEEDBACK_ID);
+  });
+
+  it("does not delete local feedback when closing the linked GitHub issue fails", async () => {
+    const repository = buildRepository();
+    const publisher = buildPublisher({
+      close: jest.fn(async () => {
+        throw new Error("github_close_failed");
+      }),
+    });
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: publisher,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await expect(useCase(FEEDBACK_ID)).rejects.toThrow("github_close_failed");
+
+    expect(repository.remove).not.toHaveBeenCalled();
   });
 });

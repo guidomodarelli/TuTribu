@@ -325,6 +325,27 @@ export class PostgresSitepingFeedbackRepository
     });
   }
 
+  async findById(feedbackId: string): Promise<SitepingFeedback | null> {
+    return this.executeWithRequestContext(async (database) => {
+      const rows = await database.execute(sql`
+        select *
+        from public.siteping_feedbacks
+        where id = ${feedbackId}
+        limit 1
+      `);
+      const [feedbackRow] = rows.rows as FeedbackRow[];
+
+      if (!feedbackRow) {
+        return null;
+      }
+
+      return mapFeedbackRow(
+        feedbackRow,
+        await this.findAnnotationsByFeedbackId(database, feedbackRow.id)
+      );
+    });
+  }
+
   async findPage(query: SitepingFeedbackQuery): Promise<SitepingFeedbackPage> {
     return this.executeWithRequestContext(async (database) => {
       const limit = normalizeLimit(query.limit);

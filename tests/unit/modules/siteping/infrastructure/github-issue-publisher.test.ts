@@ -111,4 +111,32 @@ describe("FetchGitHubIssuePublisher", () => {
       "https://tutribu.example.com/matematica/precios?siteping=feedback-1"
     );
   });
+
+  it("closes and comments the GitHub issue linked to deleted feedback", async () => {
+    const publisher = new FetchGitHubIssuePublisher();
+
+    await publisher.close({
+      feedbackId: "feedback-1",
+      issueNumber: 42,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.github.com/repos/guidomodarelli/LaTribu/issues/42",
+      expect.objectContaining({
+        body: JSON.stringify({ state: "closed" }),
+        method: "PATCH",
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.github.com/repos/guidomodarelli/LaTribu/issues/42/comments",
+      expect.objectContaining({
+        body: JSON.stringify({
+          body: "SitePing feedback feedback-1 was deleted from LaTribu.",
+        }),
+        method: "POST",
+      })
+    );
+  });
 });

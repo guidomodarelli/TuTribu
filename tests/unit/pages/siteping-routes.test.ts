@@ -8,6 +8,7 @@ import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-r
 const getAuthenticatedMember = jest.fn();
 const createFeedback = jest.fn();
 const deleteAllFeedback = jest.fn();
+const deleteFeedback = jest.fn();
 const getIdentity = jest.fn();
 const getMemberTribes = jest.fn();
 const listFeedback = jest.fn();
@@ -141,6 +142,7 @@ describe("Siteping routes", () => {
       viewport: "1280x800",
     });
     deleteAllFeedback.mockResolvedValue(undefined);
+    deleteFeedback.mockResolvedValue(undefined);
     getIdentity.mockReturnValue({
       enabled: true,
       identity: {
@@ -167,6 +169,7 @@ describe("Siteping routes", () => {
         useCases: {
           createFeedback,
           deleteAllFeedback,
+          deleteFeedback,
           getIdentity,
           listFeedback,
         },
@@ -312,6 +315,17 @@ describe("Siteping routes", () => {
 
     expect(response.status).toBe(200);
     expect(deleteAllFeedback).toHaveBeenCalledWith("tutribu");
+    expect(deleteFeedback).not.toHaveBeenCalled();
+  });
+
+  it("deletes an individual feedback through the Siteping use case", async () => {
+    const response = await DELETE(buildRequest({
+      id: "feedback-1",
+    }, "DELETE"));
+
+    expect(response.status).toBe(200);
+    expect(deleteFeedback).toHaveBeenCalledWith("feedback-1");
+    expect(deleteAllFeedback).not.toHaveBeenCalled();
   });
 
   it("rejects fractional Siteping pagination values", async () => {

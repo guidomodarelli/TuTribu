@@ -1,4 +1,5 @@
 import type {
+  CloseGitHubIssueCommand,
   GitHubIssuePublication,
   GitHubIssuePublisher,
   PublishGitHubIssueCommand,
@@ -10,6 +11,7 @@ const GITHUB_API = {
   accept: "application/vnd.github+json",
   apiVersion: "2022-11-28",
   baseUrl: "https://api.github.com",
+  commentPath: "comments",
   contentType: "application/json",
   issuePath: "issues",
   tokenPrefix: "Bearer",
@@ -27,6 +29,14 @@ const GITHUB_ISSUE_COPY = {
   userAgent: "User agent",
   viewport: "Viewport",
   widgetDeepLink: "Widget deep link",
+} as const;
+
+const GITHUB_ISSUE_STATE = {
+  closed: "closed",
+} as const;
+
+const GITHUB_ISSUE_COMMENT = {
+  deletedFeedback: "SitePing feedback {feedbackId} was deleted from LaTribu.",
 } as const;
 
 const REDACTION = {
@@ -127,6 +137,18 @@ function buildIssueUrl(repository: string): string {
   return `${GITHUB_API.baseUrl}/repos/${repository}/${GITHUB_API.issuePath}`;
 }
 
+function buildIssueResourceUrl(repository: string, issueNumber: number): string {
+  return `${buildIssueUrl(repository)}/${issueNumber}`;
+}
+
+function buildIssueCommentUrl(repository: string, issueNumber: number): string {
+  return `${buildIssueResourceUrl(repository, issueNumber)}/${GITHUB_API.commentPath}`;
+}
+
+function buildDeletedFeedbackComment(feedbackId: string): string {
+  return GITHUB_ISSUE_COMMENT.deletedFeedback.replace("{feedbackId}", feedbackId);
+}
+
 function isIssueResponse(value: unknown): value is {
   html_url: string;
   number: number;
@@ -140,6 +162,50 @@ function isIssueResponse(value: unknown): value is {
 }
 
 export class FetchGitHubIssuePublisher implements GitHubIssuePublisher {
+  async close(command: CloseGitHubIssueCommand): Promise<void> {
+    const environment = getSitepingEnvironment();
+
+    if (!environment.githubToken) {
+      throw new Error("Siteping GitHub token is not configured.");
+    }
+
+    const commonHeaders = {
+      accept: GITHUB_API.accept,
+      authorization: `${GITHUB_API.tokenPrefix} ${environment.githubToken}`,
+      "content-type": GITHUB_API.contentType,
+      "x-github-api-version": GITHUB_API.apiVersion,
+    };
+    const closeResponse = await fetch(
+      buildIssueResourceUrl(environment.githubRepository, command.issueNumber),
+      {
+        body: JSON.stringify({ state: GITHUB_ISSUE_STATE.closed }),
+        headers: commonHeaders,
+        method: "PATCH",
+      }
+    );
+
+    if (!closeResponse.ok) {
+      throw new Error(`GitHub issue close failed with status ${closeResponse.status}.`);
+    }
+
+    const commentResponse = await fetch(
+      buildIssueCommentUrl(environment.githubRepository, command.issueNumber),
+      {
+        body: JSON.stringify({
+          body: buildDeletedFeedbackComment(command.feedbackId),
+        }),
+        headers: commonHeaders,
+        method: "POST",
+      }
+    );
+
+    if (!commentResponse.ok) {
+      throw new Error(
+        `GitHub issue deletion comment failed with status ${commentResponse.status}.`
+      );
+    }
+  }
+
   async publish(command: PublishGitHubIssueCommand): Promise<GitHubIssuePublication> {
     const environment = getSitepingEnvironment();
 
