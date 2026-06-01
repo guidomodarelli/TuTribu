@@ -1,6 +1,6 @@
 {
   "name": "tutribu",
-  "version": "0.52.3",
+  "version": "0.53.0",
   "private": true,
   "packageManager": "pnpm@11.1.1",
   "scripts": {
