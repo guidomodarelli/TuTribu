@@ -274,6 +274,7 @@ const createdMessage = {
   createdAt: "2026-04-26T13:00:00.000Z",
   likedByViewer: false,
   likeCount: 0,
+  replyCount: 0,
   title: "Nuevo encuentro",
 };
 
@@ -323,6 +324,7 @@ const round = {
       createdAt: "2026-04-26T12:00:00.000Z",
       likedByViewer: false,
       likeCount: 2,
+      replyCount: 0,
       title: "Anuncio inicial",
     },
   ],
@@ -381,6 +383,7 @@ const algebraRound = {
       createdAt: "2026-04-26T14:00:00.000Z",
       likedByViewer: false,
       likeCount: 1,
+      replyCount: 0,
       title: "Guia de algebra",
     },
   ],
@@ -4803,6 +4806,40 @@ describe("TribeRound", () => {
     );
   });
 
+  it("renders a comments action with the current reply count", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              replies: [],
+              replyCount: 2,
+            },
+          ],
+        }}
+      />
+    );
+
+    const commentButton = screen.getByRole("button", { name: "Comentarios 2" });
+
+    expect(commentButton).toHaveClass("TribeRound__commentButton");
+
+    await user.click(commentButton);
+
+    const dialog = await screen.findByRole("dialog", { name: "Mensaje" });
+
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Comentarios 2" })).toHaveClass(
+      "TribeRound__commentButton"
+    );
+  });
+
   it("renders the active pin toggle inside the message meta area", () => {
     render(
       <TribeRound
@@ -5266,6 +5303,7 @@ describe("TribeRound", () => {
     const stickyHeader = within(dialogBody).getByText("Ada Lovelace")
       .closest('[data-slot="card-header"]');
 
+    expect(dialog).toHaveClass("TribeRound__composerDialog--messageDetails");
     expect(dialogBody).toHaveClass("TribeRound__messageDetailsBody");
     expect(stickyHeader).toHaveClass("TribeRound__messageDetailsHeader");
 
@@ -5451,6 +5489,7 @@ describe("TribeRound", () => {
       />
     );
 
+    expect(screen.getByRole("button", { name: "Comentarios 0" })).toBeInTheDocument();
     expect(
       screen.queryByRole("textbox", {
         name: "Escribir una respuesta",
@@ -5488,6 +5527,10 @@ describe("TribeRound", () => {
 
     const repliesSection = screen.getByRole("region", { name: "Respuestas" });
     expect(within(repliesSection).getByText("Excelente clase")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.getByRole("button", { name: "Comentarios 1" })).toBeInTheDocument();
     expect(refreshMock).not.toHaveBeenCalled();
   });
 

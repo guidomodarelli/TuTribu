@@ -50,6 +50,7 @@ type MessageRoundSharedRow = {
   channel_slug: string | null;
   channel_sort_order: number | string | null;
   like_count: number | string;
+  reply_count: number | string;
   message_pinned_at: Date | string | null;
   poll_allow_multiple_votes: boolean | null;
   poll_id: string | null;
@@ -316,6 +317,7 @@ function mapRowsToSharedData(
           ? formatMessageDateTimeValue(row.message_pinned_at)
           : null,
         poll,
+        replyCount: Number(row.reply_count),
         title: row.message_title,
         video: createMessageVideoFromRow(row),
       });
@@ -649,6 +651,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             message_authors.image as author_image,
             message_members.role as author_role,
             messages.like_count as like_count,
+            coalesce(message_reply_counts.reply_count, 0) as reply_count,
             messages.pinned_at as message_pinned_at,
             message_polls.id as poll_id,
             message_polls.question as poll_question,
@@ -665,6 +668,11 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
           left join public.tribe_members message_members
             on message_members.tribe_id = messages.tribe_id
             and message_members.user_id = messages.author_id
+          left join lateral (
+            select count(*) as reply_count
+            from public.message_replies
+            where message_replies.message_id = messages.id
+          ) message_reply_counts on true
           left join public.message_polls
             on message_polls.message_id = messages.id
           left join public.message_poll_options
@@ -692,6 +700,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             tribe_channels.access_scope,
             messages.like_count,
             messages.pinned_at,
+            message_reply_counts.reply_count,
             message_polls.id,
             message_poll_options.id,
             poll_option_counts.vote_count,

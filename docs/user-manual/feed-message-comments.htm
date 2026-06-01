@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comentarios en mensajes del feed</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">USER MANUAL</div>
+  <div class="doc-title">Comentarios en mensajes del feed</div>
+  <div class="doc-sub">Cómo se muestran y cargan las respuestas de una publicación.</div>
+  <div class="doc-meta"><span>Scope: Feed</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Contador visible</div>
+  <p>Cada mensaje de la ronda muestra un icono de comentarios junto al total de respuestas publicadas. Ese número representa el total real de comentarios del mensaje, aunque el detalle todavía no se haya abierto.</p>
+  <p>Al crear una respuesta, el contador se actualiza en la ronda sin recargar la página.</p>
+  <div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Detalle de respuestas</div>
+  <p>Al tocar el contador o abrir el mensaje, se muestra el detalle con las respuestas. La ronda evita cargar el contenido de todos los comentarios por adelantado para mantener el feed liviano.</p>
+  <ul>
+    <li>El feed carga el total de comentarios por publicación.</li>
+    <li>Las respuestas completas se cargan recién al abrir el detalle del mensaje.</li>
+    <li>Si la carga falla, la pantalla permite reintentar sin perder una respuesta recién creada.</li>
+  </ul>
+  <div class="callout c-info">El contador y el detalle pueden actualizarse en momentos distintos: el contador resume el total, mientras que el detalle muestra el contenido completo cuando hace falta leer o responder.</div>
+</div>
+</body>
+</html>

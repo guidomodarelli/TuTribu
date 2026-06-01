@@ -26,6 +26,7 @@ import {
   HeartIcon,
   ImageIcon,
   ListPlusIcon,
+  MessageCircleIcon,
   MoreHorizontalIcon,
   PencilIcon,
   PinIcon,
@@ -221,6 +222,7 @@ const TRIBE_ROUND_COPY = {
   emptyTitle: "Compartí el primer mensaje de la ronda",
   likeButton: "Me gusta",
   likeButtonAriaLabel: "Me gusta",
+  commentButtonAriaLabel: "Comentarios",
   mutedNotice: "Podes leer la ronda, pero tu estado actual no permite participar.",
   pinButtonAriaLabel: "Pinear mensaje",
   pinnedBadge: "Pineado",
@@ -1944,6 +1946,10 @@ function getLikeButtonClassName(likedByViewer: boolean): string {
   ].join(TRIBE_ROUND_FORMAT.standardSpace);
 }
 
+function getCommentCount(message: TribeRoundMessageResult): number {
+  return message.replyCount;
+}
+
 function getPinButtonClassName(isPinned: boolean): string {
   return [
     styles.TribeRound__pinButton,
@@ -2087,6 +2093,7 @@ function replaceMessageReply(
 
     return {
       ...message,
+      replyCount: hasNextReply ? message.replyCount : message.replyCount + 1,
       replies: hasNextReply ? message.replies : [...message.replies, nextReply],
     };
   }
@@ -2118,8 +2125,13 @@ function removeMessageReply(
   message: TribeRoundMessageResult,
   replyId: string
 ): TribeRoundMessageResult {
+  const hasReplyToRemove = message.replies.some((reply) => reply.id === replyId);
+
   return {
     ...message,
+    replyCount: hasReplyToRemove
+      ? Math.max(0, message.replyCount - 1)
+      : message.replyCount,
     replies: message.replies.filter((reply) => reply.id !== replyId),
   };
 }
@@ -3416,6 +3428,7 @@ function TribeRoundContent({
       ...(optimisticImages.length > 0 ? { images: optimisticImages } : {}),
       likedByViewer: false,
       likeCount: 0,
+      replyCount: 0,
       isPending: true,
       permissions: {
         canDelete: false,
@@ -3677,6 +3690,7 @@ function TribeRoundContent({
           ? {
               ...message,
               hasLoadedReplies: message.hasLoadedReplies === false ? false : true,
+              replyCount: message.replyCount + 1,
               replies: [...message.replies, optimisticReply],
             }
           : message
@@ -5740,6 +5754,20 @@ function TribeRoundContent({
                       <HeartIcon />
                       {message.likeCount}
                     </Button>
+                    <Button
+                      aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(message)}`}
+                      className={styles.TribeRound__commentButton}
+                      disabled={isPendingMessage(message)}
+                      onClick={(event) => {
+                        stopMessageDetailsOpening(event);
+                        openMessageDetails(message.id);
+                      }}
+                      type={TRIBE_ROUND_FORM.buttonType}
+                      variant={TRIBE_ROUND_FORM.outlineVariant}
+                    >
+                      <MessageCircleIcon />
+                      {getCommentCount(message)}
+                    </Button>
                   </div>
               </article>
               </Card>
@@ -5804,7 +5832,9 @@ function TribeRoundContent({
         </Pagination>
       ) : null}
       <Dialog open={isMessageDetailsOpen} onOpenChange={setIsMessageDetailsOpen}>
-        <DialogContent className={styles.TribeRound__composerDialog}>
+        <DialogContent
+          className={`${styles.TribeRound__composerDialog} ${styles["TribeRound__composerDialog--messageDetails"]}`}
+        >
           <DialogHeader className={styles.TribeRound__composerDialogHeader}>
             <DialogTitle
               className={
@@ -5876,6 +5906,16 @@ function TribeRoundContent({
                   >
                     <HeartIcon />
                     {selectedMessage.likeCount}
+                  </Button>
+                  <Button
+                    aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(selectedMessage)}`}
+                    className={styles.TribeRound__commentButton}
+                    disabled={isPendingMessage(selectedMessage)}
+                    type={TRIBE_ROUND_FORM.buttonType}
+                    variant={TRIBE_ROUND_FORM.outlineVariant}
+                  >
+                    <MessageCircleIcon />
+                    {getCommentCount(selectedMessage)}
                   </Button>
                 </div>
               </CardContent>
