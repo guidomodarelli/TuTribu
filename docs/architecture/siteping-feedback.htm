@@ -51,6 +51,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <li>Better Auth resuelve una sesion valida.</li>
     <li>El usuario tiene al menos una membresia activa como <code>leader</code> o <code>guardian</code>, o su email esta incluido en <code>SITEPING_ALLOWED_EMAILS</code>.</li>
   </ul>
+  <p>Cuando <code>SITEPING_ENABLED</code> esta apagado, el layout no monta el provider del widget y <code>/api/siteping/identity</code> devuelve <code>enabled: false</code> antes de resolver modulos, sesion o membresias.</p>
   <p>La base tambien aplica RLS. La creacion y la idempotencia quedan atadas a <code>created_by = current_app_user_id()</code>, mientras que las operaciones de lectura, actualizacion y borrado del panel usan contexto transaccional <code>app.siteping_project_admin</code> y <code>app.siteping_project_name</code> para que los usuarios autorizados por la API puedan administrar el set completo de feedback del proyecto expuesto.</p>
   <div class="divider"></div>
 </div>

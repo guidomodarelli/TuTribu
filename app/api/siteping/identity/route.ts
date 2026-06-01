@@ -1,4 +1,5 @@
 import { createRequestModules } from "@/src/modules/setup";
+import { getSitepingEnvironment } from "@/src/modules/siteping/infrastructure/environment/siteping-environment";
 import { createRouteObservation } from "@/src/modules/shared/infrastructure/observability/route-observation";
 
 const SITEPING_IDENTITY_ROUTE = {
@@ -19,6 +20,19 @@ export async function GET(request: Request) {
   });
 
   try {
+    const sitepingEnvironment = getSitepingEnvironment();
+
+    if (!sitepingEnvironment.enabled) {
+      return observation.createJsonResponse(
+        {
+          enabled: false,
+          identity: null,
+          projectName: sitepingEnvironment.projectName,
+        },
+        HTTP_STATUS.ok
+      );
+    }
+
     const modules = await createRequestModules();
     const authenticatedMember =
       await modules.auth.useCases.getAuthenticatedMember();

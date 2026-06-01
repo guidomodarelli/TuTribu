@@ -15,13 +15,17 @@ const APP_PROVIDERS_TOASTER = {
 
 type AppProvidersProps = {
   children: ReactNode;
+  isSitepingEnabled: boolean;
 };
 
-export function AppProviders({ children }: AppProvidersProps) {
+export function AppProviders({
+  children,
+  isSitepingEnabled,
+}: AppProvidersProps) {
   return (
     <div className={styles.AppProviders}>
       {children}
-      <SitepingProvider />
+      {isSitepingEnabled ? <SitepingProvider /> : null}
       <Toaster
         closeButton={APP_PROVIDERS_TOASTER.closeButton}
         position={APP_PROVIDERS_TOASTER.position}

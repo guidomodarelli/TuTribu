@@ -16,6 +16,7 @@ const getIdentity = jest.fn();
 const getMemberTribes = jest.fn();
 const listFeedback = jest.fn();
 const updateFeedbackStatus = jest.fn();
+const originalSitepingEnabled = process.env.SITEPING_ENABLED;
 
 class MockJsonResponse {
   headers: Headers;
@@ -116,6 +117,7 @@ function buildAnnotationPayload() {
 describe("Siteping routes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.SITEPING_ENABLED = "true";
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "LE",
@@ -203,6 +205,10 @@ describe("Siteping routes", () => {
         useCases: { getMemberTribes },
       },
     });
+  });
+
+  afterAll(() => {
+    process.env.SITEPING_ENABLED = originalSitepingEnabled;
   });
 
   it("creates feedback for an authorized member and preserves correlation headers", async () => {
@@ -310,6 +316,22 @@ describe("Siteping routes", () => {
       identity: null,
       projectName: "tutribu",
     });
+  });
+
+  it("returns disabled identity without building request modules when Siteping is disabled", async () => {
+    process.env.SITEPING_ENABLED = "false";
+
+    const response = await GET_IDENTITY(buildRequest(undefined, "GET"));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      enabled: false,
+      identity: null,
+      projectName: "tutribu",
+    });
+    expect(createRequestModules).not.toHaveBeenCalled();
+    expect(getAuthenticatedMember).not.toHaveBeenCalled();
+    expect(getMemberTribes).not.toHaveBeenCalled();
   });
 
   it("lists feedback for the authorized Siteping project", async () => {
