@@ -21,6 +21,7 @@ const relativeModuleSetupImportPatterns = [
     regex: String.raw`^(?:\.\./)+(?:[^/]+/)?setup(?:\.[^/]+)?$`,
   },
 ];
+const sitepingWidgetImportPatterns = ["@siteping/widget"];
 
 const eslintConfig = defineConfig([
   ...fixupConfigRules(nextVitals),
@@ -47,6 +48,26 @@ const eslintConfig = defineConfig([
               group: [
                 ...deprecatedFeatureImportPatterns,
                 ...moduleSetupImportPatterns,
+              ],
+            },
+            ...relativeModuleSetupImportPatterns,
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/modules/siteping/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                ...deprecatedFeatureImportPatterns,
+                ...moduleSetupImportPatterns,
+                ...sitepingWidgetImportPatterns,
               ],
             },
             ...relativeModuleSetupImportPatterns,

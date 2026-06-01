@@ -1,9 +1,8 @@
-import type {
-  AnnotationPayload,
-} from "@siteping/widget";
-
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
-import type { SitepingFeedbackCommand } from "@/src/modules/siteping/application/commands/siteping-feedback-command";
+import type {
+  SitepingAnnotationCommand,
+  SitepingFeedbackCommand,
+} from "@/src/modules/siteping/application/commands/siteping-feedback-command";
 import { SITEPING_PROJECT } from "@/src/modules/siteping/constants/siteping";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { isPrivilegedTribeMemberRole } from "@/src/modules/tribes/constants/tribe-member-role";
@@ -139,7 +138,7 @@ export function serializeSitepingFeedback(
   };
 }
 
-function flattenAnnotation(annotation: AnnotationPayload) {
+function flattenAnnotation(annotation: SitepingAnnotationCommand) {
   return {
     anchorKey: annotation.anchor.anchorKey ?? null,
     cssSelector: annotation.anchor.cssSelector,
