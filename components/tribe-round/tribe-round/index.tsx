@@ -427,6 +427,7 @@ type TribeRoundContentPreviewClass =
   (typeof TRIBE_ROUND_CONTENT_PREVIEW_CLASS)[keyof typeof TRIBE_ROUND_CONTENT_PREVIEW_CLASS];
 
 const TRIBE_ROUND_SYMBOLS = {
+  blobUrlPrefix: "blob:",
   missingRequirementBullet: "-",
   messageMetaSeparator: "·",
 } as const;
@@ -732,6 +733,10 @@ type PendingCreateMessageIntent = {
 type TribeRoundVisibleMessageResult = TribeRoundMessageResult & {
   isPending?: boolean;
 };
+
+type TribeRoundMessageImageResult = NonNullable<
+  TribeRoundMessageResult["images"]
+>[number];
 
 type ComposerPreviewSegment =
   | {
@@ -1074,7 +1079,7 @@ function isWhitespaceOnly(value: string): boolean {
 
 function revokeMessageImagePreviewUrl(previewUrl: string): void {
   if (
-    previewUrl.startsWith("blob:") &&
+    previewUrl.startsWith(TRIBE_ROUND_SYMBOLS.blobUrlPrefix) &&
     typeof URL.revokeObjectURL === "function"
   ) {
     URL.revokeObjectURL(previewUrl);
@@ -2284,6 +2289,68 @@ function getMessagesAfterVisibleMessageCreation({
   const sortedMessages = sortMessagesByPinnedState([createdMessage, ...currentMessages]);
 
   return sortedMessages.slice(0, pagination.pageSize);
+}
+
+function getCreatedMessageWithStableImages({
+  createdMessage,
+  optimisticMessage,
+}: {
+  createdMessage: TribeRoundMessageResult;
+  optimisticMessage: TribeRoundVisibleMessageResult | null;
+}): TribeRoundMessageResult {
+  const optimisticImages = optimisticMessage?.images ?? [];
+
+  if (optimisticImages.length === 0) {
+    return createdMessage;
+  }
+
+  const createdImages = createdMessage.images ?? [];
+
+  if (createdImages.length === 0) {
+    return {
+      ...createdMessage,
+      images: optimisticImages,
+    };
+  }
+
+  const optimisticImageUrlsById = new Map(
+    optimisticImages.map((image) => [image.id, image.url])
+  );
+  const stableImages: TribeRoundMessageImageResult[] = createdImages.map(
+    (image) => ({
+      ...image,
+      url: optimisticImageUrlsById.get(image.id) ?? image.url,
+    })
+  );
+
+  return {
+    ...createdMessage,
+    images: stableImages,
+  };
+}
+
+function shouldKeepOptimisticImagePreviewUrls({
+  createdMessage,
+  optimisticMessage,
+}: {
+  createdMessage: TribeRoundMessageResult;
+  optimisticMessage: TribeRoundVisibleMessageResult | null;
+}): boolean {
+  const optimisticImages = optimisticMessage?.images ?? [];
+
+  if (optimisticImages.length === 0) {
+    return false;
+  }
+
+  const createdImageIds = new Set(
+    (createdMessage.images ?? []).map((image) => image.id)
+  );
+
+  return optimisticImages.some(
+    (image) =>
+      image.url.startsWith(TRIBE_ROUND_SYMBOLS.blobUrlPrefix) ||
+      createdImageIds.has(image.id)
+  );
 }
 
 function getMessagesAfterOptimisticCreationFailure({
@@ -3555,20 +3622,31 @@ function TribeRoundContent({
 
   const replaceOptimisticMessage = ({
     createdMessage,
+    optimisticMessage,
     optimisticMessageId,
   }: {
     createdMessage: TribeRoundMessageResult;
+    optimisticMessage: TribeRoundVisibleMessageResult | null;
     optimisticMessageId: string;
   }) => {
+    const visibleCreatedMessage = getCreatedMessageWithStableImages({
+      createdMessage,
+      optimisticMessage,
+    });
+
     setMessages((currentMessages) => {
       const messagesWithoutOptimistic = currentMessages.filter(
         (message) =>
-          message.id !== optimisticMessageId && message.id !== createdMessage.id
+          message.id !== optimisticMessageId &&
+          message.id !== visibleCreatedMessage.id
       );
 
-      if (!round.activeChannelId || createdMessage.channel.id === round.activeChannelId) {
+      if (
+        !round.activeChannelId ||
+        visibleCreatedMessage.channel.id === round.activeChannelId
+      ) {
         return getMessagesAfterVisibleMessageCreation({
-          createdMessage,
+          createdMessage: visibleCreatedMessage,
           currentMessages: messagesWithoutOptimistic,
           pagination: visiblePagination,
         });
@@ -3714,9 +3792,17 @@ function TribeRoundContent({
 
       replaceOptimisticMessage({
         createdMessage,
+        optimisticMessage,
         optimisticMessageId,
       });
-      revokeMessageImageDraftPreviewUrls(draftSnapshot.imageDrafts);
+      if (
+        !shouldKeepOptimisticImagePreviewUrls({
+          createdMessage,
+          optimisticMessage,
+        })
+      ) {
+        revokeMessageImageDraftPreviewUrls(draftSnapshot.imageDrafts);
+      }
       clearPersistingMessageImages(persistingImageAssetIds);
       pendingCreateMessageIntentRef.current = null;
       if (!shouldShowOptimisticMessageInCurrentView) {
@@ -4890,7 +4976,10 @@ function TribeRoundContent({
     );
   };
 
-  const renderMessageImages = (message: TribeRoundMessageResult) => {
+  const renderMessageImages = (
+    message: TribeRoundMessageResult,
+    shouldLoadFirstImageEagerly = false
+  ) => {
     const messageImages = message.images ?? [];
 
     if (messageImages.length === 0) {
@@ -4899,8 +4988,12 @@ function TribeRoundContent({
 
     return (
       <div className={styles.TribeRound__imageGallery}>
-        {messageImages.map((image) => {
-          const isTemporaryImage = image.url.startsWith("blob:");
+        {messageImages.map((image, imageIndex) => {
+          const isTemporaryImage = image.url.startsWith(
+            TRIBE_ROUND_SYMBOLS.blobUrlPrefix
+          );
+          const imageLoading =
+            shouldLoadFirstImageEagerly && imageIndex === 0 ? "eager" : "lazy";
 
           return (
             <div className={styles.TribeRound__imageFrame} key={image.id}>
@@ -4908,6 +5001,7 @@ function TribeRoundContent({
                 alt={image.altText || message.title || TRIBE_ROUND_COPY.messageDetailsDialogTitle}
                 className={styles.TribeRound__image}
                 height={0}
+                loading={imageLoading}
                 sizes="(max-width: 768px) 88vw, 420px"
                 src={image.url}
                 unoptimized={isTemporaryImage}
@@ -5854,7 +5948,7 @@ function TribeRoundContent({
         </div>
       ) : (
         <ol className={styles.TribeRound__messageList}>
-          {messages.map((message) => (
+          {messages.map((message, messageIndex) => (
             <li className={styles.TribeRound__message} key={message.id}>
               <Card
                 className={styles.TribeRound__messageCard}
@@ -5901,7 +5995,7 @@ function TribeRoundContent({
                       TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round,
                       true
                     )}
-                    {renderMessageImages(message)}
+                    {renderMessageImages(message, messageIndex === 0)}
                     {renderMessageVideoBadge(message)}
                   </CardContent>
                   {renderMessagePoll(message, true)}

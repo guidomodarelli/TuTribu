@@ -357,6 +357,35 @@ const roundWithAuthorImages = {
   ],
 };
 
+const roundWithMessageImages = {
+  ...round,
+  messages: [
+    {
+      ...round.messages[0],
+      images: [
+        {
+          altText: "",
+          id: "message-image-1",
+          url: "https://imagedelivery.net/account-hash/message-image-1/public",
+        },
+      ],
+      title: "Mensaje con imagen principal",
+    },
+    {
+      ...round.messages[0],
+      id: "message-2",
+      images: [
+        {
+          altText: "",
+          id: "message-image-2",
+          url: "https://imagedelivery.net/account-hash/message-image-2/public",
+        },
+      ],
+      title: "Mensaje con imagen secundaria",
+    },
+  ],
+};
+
 const algebraRound = {
   activeChannelId: null,
   channels: tribeChannels,
@@ -665,6 +694,23 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
 
     expect(screen.queryByRole("dialog", { name: "Crear mensaje" })).not.toBeInTheDocument();
+  });
+
+  it("loads the first visible feed image eagerly and leaves later feed images lazy", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithMessageImages}
+      />
+    );
+
+    expect(
+      screen.getByRole("img", { name: "Mensaje con imagen principal" })
+    ).toHaveAttribute("loading", "eager");
+    expect(
+      screen.getByRole("img", { name: "Mensaje con imagen secundaria" })
+    ).toHaveAttribute("loading", "lazy");
   });
 
   it("renders the timestamp under the message author name with the channel inline", async () => {
@@ -2026,6 +2072,117 @@ describe("TribeRound", () => {
           statusText: "Created",
         } as Response);
       });
+    } finally {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreateObjectUrl,
+      });
+    }
+  });
+
+  it("keeps optimistic image previews when the created message response has no images yet", async () => {
+    const user = userEvent.setup();
+    const originalCreateObjectUrl = URL.createObjectURL;
+    const messageCreationResponse = createDeferredResponse();
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: jest.fn(() => "blob:message-image"),
+    });
+
+    try {
+      const imageFile = new File(["image"], "captura.png", {
+        type: "image/png",
+      });
+
+      (global.fetch as jest.Mock).mockImplementation(
+        async (url: string) => {
+          if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
+            return {
+              json: async () => ({
+                assetId: "asset-1",
+                imageId: "cloudflare-image-1",
+                uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+              }),
+              ok: true,
+              statusText: "Created",
+            };
+          }
+
+          if (url === "https://upload.imagedelivery.net/direct-upload") {
+            return {
+              json: async () => ({}),
+              ok: true,
+              statusText: "OK",
+            };
+          }
+
+          if (url === "/api/tribes/matematica-pro/messages") {
+            return messageCreationResponse.promise;
+          }
+
+          throw new Error(`Unexpected fetch ${url}`);
+        }
+      );
+
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      await user.type(
+        screen.getByRole("textbox", { name: "Título del mensaje" }),
+        "Nuevo encuentro"
+      );
+      setMessageEditorContent(
+        screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+        "Sumate al encuentro"
+      );
+      await user.upload(screen.getByLabelText("Agregar imagen"), imageFile);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "https://upload.imagedelivery.net/direct-upload",
+          expect.objectContaining({ method: "POST" })
+        );
+      });
+
+      await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+      await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+      await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+      expect(screen.getByRole("img", { name: "Nuevo encuentro" })).toHaveAttribute(
+        "src",
+        "blob:message-image"
+      );
+
+      await act(async () => {
+        messageCreationResponse.resolve({
+          json: async () => ({
+            message: "Mensaje creado.",
+            tribeMessage: {
+              ...createdMessage,
+              images: [],
+            },
+          }),
+          ok: true,
+          statusText: "Created",
+        } as Response);
+      });
+
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith("Mensaje creado.");
+      });
+      expect(screen.getByRole("img", { name: "Nuevo encuentro" })).toHaveAttribute(
+        "src",
+        "blob:message-image"
+      );
     } finally {
       Object.defineProperty(URL, "createObjectURL", {
         configurable: true,
