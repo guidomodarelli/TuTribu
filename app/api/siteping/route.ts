@@ -1,3 +1,5 @@
+import type { AnnotationPayload } from "@siteping/widget";
+
 import { createRequestModules } from "@/src/modules/setup";
 import {
   SITEPING_FEEDBACK_STATUS,
@@ -5,10 +7,7 @@ import {
 } from "@/src/modules/siteping/constants/siteping";
 import type { SitepingDiagnosticsSnapshot } from "@/src/modules/siteping/domain/entities/siteping-diagnostics";
 import { createRouteObservation } from "@/src/modules/shared/infrastructure/observability/route-observation";
-import type {
-  SitepingAnnotationCommand,
-  SitepingFeedbackCommand,
-} from "@/src/modules/siteping/application/commands/siteping-feedback-command";
+import type { SitepingFeedbackCommand } from "@/src/modules/siteping/application/commands/siteping-feedback-command";
 import type {
   SitepingFeedbackStatus,
   SitepingFeedbackType,
@@ -57,6 +56,12 @@ const SITEPING_QUERY_PARAM = {
   url: "url",
   urlPattern: "urlPattern",
 } as const;
+
+type SitepingAnnotationRequestPayload = Omit<AnnotationPayload, "anchor"> & {
+  anchor: Omit<AnnotationPayload["anchor"], "elementId"> & {
+    elementId?: string | null;
+  };
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -144,7 +149,7 @@ function isDiagnosticsPayload(value: unknown): value is SitepingDiagnosticsSnaps
   );
 }
 
-function isAnnotationPayload(value: unknown): value is SitepingAnnotationCommand {
+function isAnnotationPayload(value: unknown): value is SitepingAnnotationRequestPayload {
   if (!isRecord(value) || !isRecord(value.anchor) || !isRecord(value.rect)) {
     return false;
   }
@@ -168,6 +173,20 @@ function isAnnotationPayload(value: unknown): value is SitepingAnnotationCommand
     readRequiredNumber(value.viewportH) !== null &&
     readRequiredNumber(value.devicePixelRatio) !== null
   );
+}
+
+function normalizeAnnotationPayload(
+  annotation: SitepingAnnotationRequestPayload
+): AnnotationPayload {
+  const { elementId, ...anchor } = annotation.anchor;
+
+  return {
+    ...annotation,
+    anchor: {
+      ...anchor,
+      ...(typeof elementId === "string" ? { elementId } : {}),
+    },
+  };
 }
 
 function parseFeedbackCommand(body: unknown): SitepingFeedbackCommand | null {
@@ -209,7 +228,7 @@ function parseFeedbackCommand(body: unknown): SitepingFeedbackCommand | null {
   }
 
   return {
-    annotations: body.annotations,
+    annotations: body.annotations.map(normalizeAnnotationPayload),
     authorEmail,
     authorName,
     clientId,

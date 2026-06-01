@@ -286,6 +286,10 @@ describe("Siteping routes", () => {
   });
 
   it("accepts widget annotations without visible text", async () => {
+    const expectedAnnotationPayload = buildAnnotationPayload();
+
+    delete expectedAnnotationPayload.anchor.elementId;
+
     const response = await POST(buildRequest({
       ...buildPayload(),
       annotations: [buildAnnotationPayload()],
@@ -295,7 +299,7 @@ describe("Siteping routes", () => {
     expect(createFeedback).toHaveBeenCalledWith(
       expect.objectContaining({
         command: expect.objectContaining({
-          annotations: [buildAnnotationPayload()],
+          annotations: [expectedAnnotationPayload],
         }),
       })
     );
