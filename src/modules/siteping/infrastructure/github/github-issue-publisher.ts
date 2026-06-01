@@ -6,6 +6,12 @@ import type {
 } from "@/src/modules/siteping/domain/repositories/github-issue-publisher";
 import type { SitepingFeedback } from "@/src/modules/siteping/domain/repositories/siteping-feedback-repository";
 import { getSitepingEnvironment } from "@/src/modules/siteping/infrastructure/environment/siteping-environment";
+import {
+  fetchWithResilience,
+  type FetchResilienceOptions,
+  type HttpFetcher,
+  type HttpResponse,
+} from "@/src/modules/shared/infrastructure/http/fetch-with-resilience";
 
 const GITHUB_API = {
   accept: "application/vnd.github+json",
@@ -38,6 +44,12 @@ const GITHUB_ISSUE_STATE = {
 const GITHUB_ISSUE_COMMENT = {
   deletedFeedback: "SitePing feedback {feedbackId} was deleted from LaTribu.",
 } as const;
+
+const GITHUB_FETCH_RESILIENCE: FetchResilienceOptions = {
+  maxRetries: 1,
+  retryDelayMs: 100,
+  timeoutMs: 3000,
+};
 
 const REDACTION = {
   hiddenValue: "[redacted]",
@@ -162,6 +174,22 @@ function isIssueResponse(value: unknown): value is {
 }
 
 export class FetchGitHubIssuePublisher implements GitHubIssuePublisher {
+  private readonly fetchResilienceOptions: Partial<FetchResilienceOptions>;
+
+  constructor(fetchResilienceOptions: Partial<FetchResilienceOptions> = {}) {
+    this.fetchResilienceOptions = fetchResilienceOptions;
+  }
+
+  private fetchGitHub(input: string, init: RequestInit): Promise<HttpResponse> {
+    const githubFetch: HttpFetcher = (fetchInput, requestInit) =>
+      fetch(fetchInput, requestInit);
+
+    return fetchWithResilience(githubFetch, input, init, {
+      ...GITHUB_FETCH_RESILIENCE,
+      ...this.fetchResilienceOptions,
+    });
+  }
+
   async close(command: CloseGitHubIssueCommand): Promise<void> {
     const environment = getSitepingEnvironment();
 
@@ -175,7 +203,7 @@ export class FetchGitHubIssuePublisher implements GitHubIssuePublisher {
       "content-type": GITHUB_API.contentType,
       "x-github-api-version": GITHUB_API.apiVersion,
     };
-    const closeResponse = await fetch(
+    const closeResponse = await this.fetchGitHub(
       buildIssueResourceUrl(environment.githubRepository, command.issueNumber),
       {
         body: JSON.stringify({ state: GITHUB_ISSUE_STATE.closed }),
@@ -188,7 +216,7 @@ export class FetchGitHubIssuePublisher implements GitHubIssuePublisher {
       throw new Error(`GitHub issue close failed with status ${closeResponse.status}.`);
     }
 
-    const commentResponse = await fetch(
+    const commentResponse = await this.fetchGitHub(
       buildIssueCommentUrl(environment.githubRepository, command.issueNumber),
       {
         body: JSON.stringify({
@@ -213,7 +241,7 @@ export class FetchGitHubIssuePublisher implements GitHubIssuePublisher {
       throw new Error("Siteping GitHub token is not configured.");
     }
 
-    const response = await fetch(buildIssueUrl(environment.githubRepository), {
+    const response = await this.fetchGitHub(buildIssueUrl(environment.githubRepository), {
       body: JSON.stringify({
         body: buildIssueBody(command),
         labels: environment.githubLabels,

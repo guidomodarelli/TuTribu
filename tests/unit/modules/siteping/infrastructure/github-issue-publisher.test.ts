@@ -112,6 +112,36 @@ describe("FetchGitHubIssuePublisher", () => {
     );
   });
 
+  it("bounds stalled GitHub issue publication with the resilience timeout", async () => {
+    fetchMock.mockImplementation((_, init: RequestInit | undefined) => {
+      return new Promise((_, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("Aborted", "AbortError"));
+        });
+      });
+    });
+    const publisher = new FetchGitHubIssuePublisher({
+      maxRetries: 0,
+      retryDelayMs: 0,
+      timeoutMs: 5,
+    });
+
+    await expect(
+      publisher.publish({
+        feedback: buildFeedback(),
+        requestUrl: "https://tutribu.example.com/api/siteping",
+      })
+    ).rejects.toThrow("Request timed out");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.github.com/repos/guidomodarelli/LaTribu/issues",
+      expect.objectContaining({
+        method: "POST",
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
   it("closes and comments the GitHub issue linked to deleted feedback", async () => {
     const publisher = new FetchGitHubIssuePublisher();
 

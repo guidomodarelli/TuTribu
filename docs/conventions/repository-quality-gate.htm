@@ -42,6 +42,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-title">Regla de ejecución</div>
   <p>El gate completo del repositorio vive en <code>.github/workflows/quality-gate.yml</code> y corre en cada <code>push</code> y <code>pull_request</code>. El workflow instala dependencias con <code>pnpm install --frozen-lockfile</code> y ejecuta el contrato compartido <code>pnpm run ci</code>.</p>
   <p>El script <code>ci</code> encadena <code>pnpm run lint</code>, <code>pnpm run typecheck</code> y <code>pnpm run test</code>. Ese orden mantiene los checks estáticos y la suite Jest en un único punto de entrada reutilizable, sin evaluar rutas runtime-only que dependen de secretos reales de deployment.</p>
+  <p>El script <code>commitlint</code> valida los ultimos 30 mensajes contra <code>commitlint.config.mjs</code>. La configuracion acepta el estilo real del repositorio: commits convencionales con prefijo, releases semver como <code>0.52.3</code> y titulos imperativos heredados sin prefijo.</p>
   <p>Los hooks <code>Stop</code> de agentes no deben duplicar este gate pesado. Durante el trabajo local, Codex y Claude deben ejecutar validaciones enfocadas al cambio realizado y dejar el gate completo para GitHub Actions.</p>
   <p>Los outputs generados por builds, como <code>.next/</code> y <code>.open-next/</code>, no forman parte del codigo fuente validable. Deben quedar fuera de ESLint para que los artefactos de adaptadores externos no rompan el gate del repositorio.</p>
   <div class="callout c-ok">La validación completa queda asociada al push y al pull request, no al cierre de cada turno del agente.</div>
@@ -54,7 +55,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <ul>
     <li>Code: <code>.ts</code>, <code>.tsx</code>, <code>.js</code>, <code>.jsx</code>, <code>.mjs</code>, <code>.cjs</code>, <code>.mts</code>, <code>.cts</code>.</li>
     <li>Styles and data changes with runtime impact: <code>.scss</code>, <code>.css</code>, <code>.sql</code>.</li>
-    <li>Validation and package config: <code>package.json</code>, lockfiles, <code>tsconfig</code>, <code>eslint</code>, <code>jest</code>, <code>next</code>, <code>playwright</code>, <code>postcss</code>, and <code>components.json</code>.</li>
+    <li>Validation and package config: <code>package.json</code>, lockfiles, <code>tsconfig</code>, <code>commitlint</code>, <code>eslint</code>, <code>jest</code>, <code>next</code>, <code>playwright</code>, <code>postcss</code>, and <code>components.json</code>.</li>
     <li>CI config: <code>.github/workflows/quality-gate.yml</code>.</li>
   </ul>
   <div class="callout c-warn">No mover el gate completo exclusivamente a Vercel mientras <code>vercel.json</code> use <code>ignoreCommand</code>, porque un deploy salteado también saltearía esa validación.</div>
@@ -71,6 +72,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">04</div>
   <div class="section-title">Validación esperada</div>
   <p>Cuando se modifica el workflow o el script <code>ci</code>, validar como mínimo el parseo de <code>package.json</code>, el formato del YAML y que el workflow invoque el contrato compartido. No agregar tests que inspeccionen strings internos de los archivos fuente como sustituto del comportamiento real.</p>
+  <p>Cuando se modifica <code>commitlint.config.mjs</code> o el script <code>commitlint</code>, validar con tests de tooling sobre mensajes observables del historial reciente y ejecutar <code>pnpm run commitlint</code> para comprobar el rango configurado.</p>
   <p>Para cambios de producto, mantener los tests relevantes en local durante la iteración y dejar que GitHub Actions ejecute el gate completo antes de mergear o desplegar.</p>
 </div>
 </body>
