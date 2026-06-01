@@ -83,6 +83,7 @@ export type TribeRoundSharedMessageResult = {
   permissions?: TribeRoundMessagePermissionsResult;
   pinnedAt?: string | null;
   poll?: MessagePollResult | null;
+  replyAuthorsPreview?: TribeRoundAuthorResult[];
   replyCount: number;
   title: string | null;
   video?: MessageVideoResult | null;

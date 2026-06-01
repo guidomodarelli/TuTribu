@@ -36,6 +36,7 @@ li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
   <div class="section-num">01</div>
   <div class="section-title">Contador visible</div>
   <p>Cada mensaje de la ronda muestra un icono de comentarios junto al total de respuestas publicadas. Ese número representa el total real de comentarios del mensaje, aunque el detalle todavía no se haya abierto.</p>
+  <p>Cuando existen respuestas, el contador puede mostrar un grupo acotado de avatares con algunos usuarios que comentaron. Ese preview ayuda a reconocer la conversación sin cargar todos los comentarios del mensaje.</p>
   <p>Al crear una respuesta, el contador se actualiza en la ronda sin recargar la página.</p>
   <div class="divider"></div>
 </div>
@@ -46,6 +47,8 @@ li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
   <p>Al tocar el contador o abrir el mensaje, se muestra el detalle con las respuestas. La ronda evita cargar el contenido de todos los comentarios por adelantado para mantener el feed liviano.</p>
   <ul>
     <li>El feed carga el total de comentarios por publicación.</li>
+    <li>El feed carga solo un preview limitado de autores de comentarios.</li>
+    <li>Cuando el total es cero, el detalle queda disponible sin mostrar una carga de respuestas innecesaria.</li>
     <li>Las respuestas completas se cargan recién al abrir el detalle del mensaje.</li>
     <li>Si la carga falla, la pantalla permite reintentar sin perder una respuesta recién creada.</li>
   </ul>

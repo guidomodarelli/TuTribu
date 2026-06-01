@@ -11,6 +11,7 @@ import type {
   MessageMembershipStatus,
   MessageImageResult,
   MessagePollResult,
+  TribeRoundAuthorResult,
   MessageVideoResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
@@ -51,6 +52,7 @@ type MessageRoundSharedRow = {
   channel_sort_order: number | string | null;
   like_count: number | string;
   reply_count: number | string;
+  reply_authors_preview: ReplyAuthorPreviewRow[] | null;
   message_pinned_at: Date | string | null;
   poll_allow_multiple_votes: boolean | null;
   poll_id: string | null;
@@ -73,6 +75,13 @@ type MessageImageRow = {
   alt_text?: string | null;
   id: string;
   url: string;
+};
+
+type ReplyAuthorPreviewRow = {
+  id?: unknown;
+  image?: unknown;
+  name?: unknown;
+  role?: unknown;
 };
 
 export function createMessageVideoFromRow(row: {
@@ -106,6 +115,26 @@ export function createMessageImagesFromRows(
     id: row.id,
     url: row.url,
   }));
+}
+
+function createReplyAuthorsPreviewFromRows(
+  rows: ReplyAuthorPreviewRow[] | null | undefined
+): TribeRoundAuthorResult[] {
+  return (rows ?? [])
+    .flatMap((row) => {
+      if (typeof row.id !== "string") {
+        return [];
+      }
+
+      return [
+        createTribeRoundAuthor({
+          id: row.id,
+          image: typeof row.image === "string" ? row.image : null,
+          name: typeof row.name === "string" ? row.name : null,
+          role: typeof row.role === "string" ? row.role : null,
+        }),
+      ];
+    });
 }
 
 type TribeChannelRow = {
@@ -243,7 +272,7 @@ function mapRowsToRound(
 
       return {
         ...message,
-        hasLoadedReplies: false,
+        hasLoadedReplies: (message.replyCount ?? 0) === 0,
         likedByViewer: likedMessageIds.has(message.id),
         permissions: {
           canDelete:
@@ -317,6 +346,9 @@ function mapRowsToSharedData(
           ? formatMessageDateTimeValue(row.message_pinned_at)
           : null,
         poll,
+        replyAuthorsPreview: createReplyAuthorsPreviewFromRows(
+          row.reply_authors_preview
+        ),
         replyCount: Number(row.reply_count),
         title: row.message_title,
         video: createMessageVideoFromRow(row),
@@ -652,6 +684,10 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             message_members.role as author_role,
             messages.like_count as like_count,
             coalesce(message_reply_counts.reply_count, 0) as reply_count,
+            coalesce(
+              message_reply_counts.reply_authors_preview,
+              '[]'::jsonb
+            ) as reply_authors_preview,
             messages.pinned_at as message_pinned_at,
             message_polls.id as poll_id,
             message_polls.question as poll_question,
@@ -669,9 +705,44 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             on message_members.tribe_id = messages.tribe_id
             and message_members.user_id = messages.author_id
           left join lateral (
-            select count(*) as reply_count
-            from public.message_replies
-            where message_replies.message_id = messages.id
+            select
+              coalesce(sum(reply_author_previews.reply_count), 0) as reply_count,
+              coalesce(
+                jsonb_agg(
+                    jsonb_build_object(
+                      'id', reply_author_previews.id,
+                      'image', reply_author_previews.image,
+                      'name', reply_author_previews.name,
+                      'role', reply_author_previews.role
+                    )
+                    order by reply_author_previews.latest_reply_created_at desc
+                  ) filter (where reply_author_previews.author_rank <= 3),
+                '[]'::jsonb
+              ) as reply_authors_preview
+            from (
+              select
+                reply_authors.id,
+                reply_authors.image,
+                reply_authors.name,
+                reply_members.role,
+                count(*) as reply_count,
+                max(message_replies.created_at) as latest_reply_created_at,
+                row_number() over (
+                  order by max(message_replies.created_at) desc
+                ) as author_rank
+              from public.message_replies
+              inner join public."user" reply_authors
+                on reply_authors.id = message_replies.author_id
+              left join public.tribe_members reply_members
+                on reply_members.tribe_id = messages.tribe_id
+                and reply_members.user_id = message_replies.author_id
+              where message_replies.message_id = messages.id
+              group by
+                reply_authors.id,
+                reply_authors.image,
+                reply_authors.name,
+                reply_members.role
+            ) reply_author_previews
           ) message_reply_counts on true
           left join public.message_polls
             on message_polls.message_id = messages.id
@@ -701,6 +772,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             messages.like_count,
             messages.pinned_at,
             message_reply_counts.reply_count,
+            message_reply_counts.reply_authors_preview,
             message_polls.id,
             message_poll_options.id,
             poll_option_counts.vote_count,

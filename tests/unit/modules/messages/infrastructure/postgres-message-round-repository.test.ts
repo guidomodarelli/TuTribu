@@ -56,6 +56,20 @@ describe("PostgresMessageRoundRepository", () => {
             author_role: "leader",
             like_count: "2",
             reply_count: "3",
+            reply_authors_preview: [
+              {
+                id: "member-1",
+                image: null,
+                name: "Grace Hopper",
+                role: "tribemate",
+              },
+              {
+                id: "member-2",
+                image: "https://example.com/katherine.png",
+                name: "Katherine Johnson",
+                role: "tribemate",
+              },
+            ],
             message_pinned_at: "2026-04-26T13:00:00.000Z",
             reply_id: "reply-1",
             reply_content: "Gracias",
@@ -134,6 +148,22 @@ describe("PostgresMessageRoundRepository", () => {
           },
           likeCount: 2,
           replyCount: 3,
+          replyAuthorsPreview: [
+            {
+              id: "member-1",
+              name: "Grace Hopper",
+              role: "tribemate",
+              avatarFallback: "GH",
+              image: null,
+            },
+            {
+              id: "member-2",
+              name: "Katherine Johnson",
+              role: "tribemate",
+              avatarFallback: "KJ",
+              image: "https://example.com/katherine.png",
+            },
+          ],
           isPinned: true,
           pinnedAt: "2026-04-26T13:00:00.000Z",
           poll: null,
@@ -152,8 +182,8 @@ describe("PostgresMessageRoundRepository", () => {
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
       "order by message_pins.pinned_at desc nulls last, messages.created_at desc, messages.id desc"
     );
-    expect(getSqlText(execute.mock.calls[1]?.[0])).not.toContain("reply_content");
-    expect(getSqlText(execute.mock.calls[1]?.[0])).not.toContain("reply_author");
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("reply_authors_preview");
+    expect(getSqlText(execute.mock.calls[1]?.[0])).not.toContain("message_replies.content");
   });
 
   it("maps external video columns into the message video field", async () => {
@@ -394,6 +424,7 @@ describe("PostgresMessageRoundRepository", () => {
             author_role: "leader",
             like_count: "1",
             reply_count: "2",
+            reply_authors_preview: [],
             message_pinned_at: null,
             reply_id: "reply-1",
             reply_content: "Gracias",
@@ -420,6 +451,7 @@ describe("PostgresMessageRoundRepository", () => {
             author_role: "leader",
             like_count: "1",
             reply_count: "2",
+            reply_authors_preview: [],
             message_pinned_at: null,
             reply_id: "reply-2",
             reply_content: "Vamos",
@@ -466,6 +498,8 @@ describe("PostgresMessageRoundRepository", () => {
     expect(sqlText).toContain("message_like_counts");
     expect(sqlText).toContain("message_reply_counts");
     expect(sqlText).toContain("count(*) as reply_count");
+    expect(sqlText).toContain("reply_authors_preview");
+    expect(sqlText).toContain("author_rank <= 3");
     expect(sqlText).toContain("left join public.message_pins");
     expect(sqlText).toContain("messages.pinned_at as message_pinned_at");
     expect(sqlText).toContain("filtered_messages as");
@@ -477,8 +511,7 @@ describe("PostgresMessageRoundRepository", () => {
     expect(sqlText).toContain("and channel_matches.tribe_id = target_tribe.id");
     expect(sqlText).not.toContain("liked_by_viewer");
     expect(sqlText).not.toContain("viewer_membership_status");
-    expect(sqlText).not.toContain("reply_content");
-    expect(sqlText).not.toContain("reply_author");
+    expect(sqlText).not.toContain("message_replies.content");
     expect(sqlText).not.toContain("count(message_reactions.id) filter");
   });
 

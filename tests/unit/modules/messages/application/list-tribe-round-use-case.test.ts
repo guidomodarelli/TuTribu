@@ -10,6 +10,18 @@ describe("listTribeRound", () => {
     sortOrder: 20,
   };
 
+  function createDeferredResult<Result>() {
+    let resolveDeferredResult!: (result: Result) => void;
+    const promise = new Promise<Result>((resolve) => {
+      resolveDeferredResult = resolve;
+    });
+
+    return {
+      promise,
+      resolve: resolveDeferredResult,
+    };
+  }
+
   it("returns messages and enables participation for active members", async () => {
     const listSharedDataByTribeSlug = jest.fn(async () => ({
       activeChannelId: null,
@@ -73,7 +85,7 @@ describe("listTribeRound", () => {
       messages: [
         expect.objectContaining({
           id: "message-1",
-          hasLoadedReplies: false,
+          hasLoadedReplies: true,
           likedByViewer: true,
           likeCount: 1,
           replies: [],
@@ -465,5 +477,56 @@ describe("listTribeRound", () => {
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
+  });
+
+  it("reads viewer state after shared round data to reduce concurrent database checkouts", async () => {
+    const sharedRoundData = {
+      activeChannelId: null,
+      channels: [channel],
+      messages: [],
+      pagination: {
+        currentPage: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        pageSize: 15,
+      },
+    };
+    const sharedData = createDeferredResult(sharedRoundData);
+    const listSharedDataByTribeSlug = jest.fn(() => sharedData.promise);
+    const listViewerStateByTribeSlug = jest.fn(async () => ({
+      likedMessageIds: [],
+      selectedPollOptionIds: [],
+      viewerId: "member-1",
+      viewerPermissions: {
+        canReply: true,
+        canCreateMessage: true,
+        canReact: true,
+      },
+    }));
+    const execute = listTribeRound({
+      messageRoundReadRepository: {
+        listByTribeSlug: jest.fn(),
+        listRepliesByMessageId: jest.fn(),
+        listSharedDataByTribeSlug,
+        listViewerStateByTribeSlug,
+      },
+    });
+    const result = execute({
+      tribeSlug: "matematica-pro",
+      viewerId: "member-1",
+    });
+
+    await Promise.resolve();
+
+    expect(listSharedDataByTribeSlug).toHaveBeenCalledTimes(1);
+    expect(listViewerStateByTribeSlug).not.toHaveBeenCalled();
+
+    sharedData.resolve(sharedRoundData);
+
+    await expect(result).resolves.toMatchObject({
+      channels: [channel],
+      messages: [],
+    });
+    expect(listViewerStateByTribeSlug).toHaveBeenCalledTimes(1);
   });
 });

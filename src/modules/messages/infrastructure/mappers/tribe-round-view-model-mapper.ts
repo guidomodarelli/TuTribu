@@ -46,6 +46,7 @@ export type TribeRoundMessageProjection = {
   permissions?: TribeRoundMessageResult["permissions"];
   pinnedAt?: Date | string | null;
   poll?: MessagePollResult | null;
+  replyAuthorsPreview?: TribeRoundAuthorProjection[];
   replyCount?: number;
   title: string | null;
   video?: MessageVideoResult | null;
@@ -152,6 +153,7 @@ export function createTribeRoundMessage({
   permissions,
   pinnedAt = null,
   poll = null,
+  replyAuthorsPreview = [],
   replyCount = 0,
   title,
   video = null,
@@ -171,6 +173,7 @@ export function createTribeRoundMessage({
     permissions,
     pinnedAt: pinnedAt ? formatMessageDateTimeValue(pinnedAt) : null,
     poll,
+    replyAuthorsPreview: replyAuthorsPreview.map(createTribeRoundAuthor),
     replyCount,
     title,
     video,

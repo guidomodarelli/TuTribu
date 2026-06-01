@@ -546,6 +546,7 @@ const roundWithDeferredReplies = {
     {
       ...round.messages[0],
       hasLoadedReplies: false,
+      replyCount: 1,
       replies: [],
     },
   ],
@@ -4819,6 +4820,22 @@ describe("TribeRound", () => {
             {
               ...round.messages[0],
               replies: [],
+              replyAuthorsPreview: [
+                {
+                  avatarFallback: "GH",
+                  id: "member-1",
+                  image: "https://example.com/grace.png",
+                  name: "Grace Hopper",
+                  role: "tribemate",
+                },
+                {
+                  avatarFallback: "KJ",
+                  id: "member-2",
+                  image: null,
+                  name: "Katherine Johnson",
+                  role: "tribemate",
+                },
+              ],
               replyCount: 2,
             },
           ],
@@ -4829,6 +4846,13 @@ describe("TribeRound", () => {
     const commentButton = screen.getByRole("button", { name: "Comentarios 2" });
 
     expect(commentButton).toHaveClass("TribeRound__commentButton");
+    expect(
+      screen.getByRole("group", {
+        name: "Comentaron Grace Hopper, Katherine Johnson",
+      })
+    ).toHaveClass("TribeRound__commentAuthors");
+    expect(screen.getByAltText("Grace Hopper")).toBeInTheDocument();
+    expect(screen.getByText("KJ")).toBeInTheDocument();
 
     await user.click(commentButton);
 
@@ -4838,6 +4862,41 @@ describe("TribeRound", () => {
     expect(within(dialog).getByRole("button", { name: "Comentarios 2" })).toHaveClass(
       "TribeRound__commentButton"
     );
+  });
+
+  it("keeps remote comment author previews when local replies are partial", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              hasLoadedReplies: false,
+              replies: [createdReply],
+              replyAuthorsPreview: [
+                {
+                  avatarFallback: "AL",
+                  id: "member-2",
+                  image: null,
+                  name: "Ada Lovelace",
+                  role: "tribemate",
+                },
+              ],
+              replyCount: 2,
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole("group", {
+        name: "Comentaron Grace Hopper, Ada Lovelace",
+      })
+    ).toHaveClass("TribeRound__commentAuthors");
   });
 
   it("renders the active pin toggle inside the message meta area", () => {
@@ -5583,6 +5642,47 @@ describe("TribeRound", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not load replies when the message has no comments", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              hasLoadedReplies: false,
+              replyCount: 0,
+              replies: [],
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
+    );
+
+    expect(
+      screen.queryByRole("status", { name: "Cargando respuestas..." })
+    ).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      "/api/tribes/matematica-pro/messages/message-1/replies",
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      })
+    );
+    expect(
+      screen.getByRole("textbox", {
+        name: "Escribir una respuesta",
+      })
+    ).toBeEnabled();
+  });
+
   it("reloads existing replies after creating a reply from a failed deferred load", async () => {
     const user = userEvent.setup();
     const failedLoadMessage = "No pudimos cargar las respuestas.";
@@ -5785,6 +5885,9 @@ describe("TribeRound", () => {
     expect(
       within(repliesSection).getByText("Respuesta optimista")
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("group", { name: "Comentaron Grace Hopper" }).length
+    ).toBeGreaterThan(0);
     expect(replyInput).toHaveValue("");
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/tribes/matematica-pro/messages/message-1/replies",

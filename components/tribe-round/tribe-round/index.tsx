@@ -43,6 +43,7 @@ import { Button } from "@/components/ui/button";
 import {
   Avatar,
   AvatarFallback,
+  AvatarGroup,
   AvatarImage,
 } from "@/components/ui/avatar";
 import {
@@ -223,6 +224,7 @@ const TRIBE_ROUND_COPY = {
   likeButton: "Me gusta",
   likeButtonAriaLabel: "Me gusta",
   commentButtonAriaLabel: "Comentarios",
+  commentAuthorsPreviewLabel: "Comentaron",
   mutedNotice: "Podes leer la ronda, pero tu estado actual no permite participar.",
   pinButtonAriaLabel: "Pinear mensaje",
   pinnedBadge: "Pineado",
@@ -358,6 +360,7 @@ const TRIBE_ROUND_ATTRIBUTES = {
 
 const TRIBE_ROUND_LIMITS = {
   collapsedContentCharacters: 320,
+  commentAuthorsPreviewCount: 3,
   detailsCollapsedSliceCharacters: 150,
   toggleDebounceMs: 300,
 } as const;
@@ -1950,6 +1953,107 @@ function getCommentCount(message: TribeRoundMessageResult): number {
   return message.replyCount;
 }
 
+function getCommentAuthorsPreviewLabel(
+  authors: TribeRoundMessageResult["author"][]
+): string {
+  return `${TRIBE_ROUND_COPY.commentAuthorsPreviewLabel} ${authors
+    .map((author) => author.name)
+    .join(", ")}`;
+}
+
+function getRecentReplyAuthorsPreview(
+  replies: TribeRoundReplyResult[]
+): TribeRoundMessageResult["author"][] {
+  const authors: TribeRoundMessageResult["author"][] = [];
+  const authorIds = new Set<string>();
+
+  for (const reply of [...replies].reverse()) {
+    if (authorIds.has(reply.author.id)) {
+      continue;
+    }
+
+    authorIds.add(reply.author.id);
+    authors.push(reply.author);
+
+    if (authors.length === TRIBE_ROUND_LIMITS.commentAuthorsPreviewCount) {
+      break;
+    }
+  }
+
+  return authors;
+}
+
+function mergeCommentAuthorsPreview(
+  preferredAuthors: TribeRoundMessageResult["author"][],
+  fallbackAuthors: TribeRoundMessageResult["author"][]
+): TribeRoundMessageResult["author"][] {
+  const authors: TribeRoundMessageResult["author"][] = [];
+  const authorIds = new Set<string>();
+
+  for (const author of [...preferredAuthors, ...fallbackAuthors]) {
+    if (authorIds.has(author.id)) {
+      continue;
+    }
+
+    authorIds.add(author.id);
+    authors.push(author);
+
+    if (authors.length === TRIBE_ROUND_LIMITS.commentAuthorsPreviewCount) {
+      break;
+    }
+  }
+
+  return authors;
+}
+
+function getCommentAuthorsPreview(
+  message: TribeRoundMessageResult
+): TribeRoundMessageResult["author"][] {
+  if (message.replyCount <= 0) {
+    return [];
+  }
+
+  if (message.replies.length > 0) {
+    const localAuthorsPreview = getRecentReplyAuthorsPreview(message.replies);
+
+    if (message.hasLoadedReplies) {
+      return localAuthorsPreview;
+    }
+
+    return mergeCommentAuthorsPreview(
+      localAuthorsPreview,
+      message.replyAuthorsPreview ?? []
+    );
+  }
+
+  return message.replyAuthorsPreview ?? [];
+}
+
+function renderCommentAuthorsPreview(message: TribeRoundMessageResult) {
+  const authors = getCommentAuthorsPreview(message);
+
+  if (authors.length === 0) {
+    return null;
+  }
+
+  return (
+    <AvatarGroup
+      aria-label={getCommentAuthorsPreviewLabel(authors)}
+      className={styles.TribeRound__commentAuthors}
+      role="group"
+    >
+      {authors.map((author) => (
+        <Avatar className={styles.TribeRound__commentAuthorAvatar} key={author.id} size="sm">
+          {author.image ? (
+            <AvatarImage alt={author.name} src={author.image} />
+          ) : null}
+          <AvatarFallback>{author.avatarFallback}</AvatarFallback>
+        </Avatar>
+      ))}
+    </AvatarGroup>
+  );
+}
+
 function getPinButtonClassName(isPinned: boolean): string {
   return [
     styles.TribeRound__pinButton,
@@ -2377,7 +2481,7 @@ function TribeRoundContent({
     round.channels.find((channel) => channel.id === round.activeChannelId) ?? null;
   const selectedMessageReplyLoadStatus = selectedMessage
     ? replyLoadStatuses[selectedMessage.id] ??
-      (selectedMessage.hasLoadedReplies === false
+      (selectedMessage.replyCount > 0 && selectedMessage.hasLoadedReplies === false
         ? TRIBE_ROUND_REPLY_LOAD_STATUS.loading
         : TRIBE_ROUND_REPLY_LOAD_STATUS.loaded)
     : TRIBE_ROUND_REPLY_LOAD_STATUS.loaded;
@@ -5768,6 +5872,7 @@ function TribeRoundContent({
                       <MessageCircleIcon />
                       {getCommentCount(message)}
                     </Button>
+                    {renderCommentAuthorsPreview(message)}
                   </div>
               </article>
               </Card>
@@ -5917,6 +6022,7 @@ function TribeRoundContent({
                     <MessageCircleIcon />
                     {getCommentCount(selectedMessage)}
                   </Button>
+                  {renderCommentAuthorsPreview(selectedMessage)}
                 </div>
               </CardContent>
               <div className={styles.TribeRound__modalReplysSection}>

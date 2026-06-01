@@ -81,7 +81,7 @@ function mergeTribeRoundWithViewerState({
 
       return {
         ...message,
-        hasLoadedReplies: false,
+        hasLoadedReplies: (message.replyCount ?? 0) === 0,
         likedByViewer: likedMessageIds.has(message.id),
         permissions: {
           canDelete:
@@ -132,10 +132,9 @@ export function listTribeRound({
       messageRoundReadRepository.listSharedDataByTribeSlug.bind(
         messageRoundReadRepository
       );
-    const [sharedData, viewerState] = await Promise.all([
-      readSharedData(normalizedQuery),
-      messageRoundReadRepository.listViewerStateByTribeSlug(normalizedQuery),
-    ]);
+    const sharedData = await readSharedData(normalizedQuery);
+    const viewerState =
+      await messageRoundReadRepository.listViewerStateByTribeSlug(normalizedQuery);
 
     return mergeTribeRoundWithViewerState({
       sharedData,
