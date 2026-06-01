@@ -264,22 +264,30 @@ export function createSitepingFeedback({
       return serializeSitepingFeedback(result.feedback);
     }
 
+    let publication: Awaited<ReturnType<GitHubIssuePublisher["publish"]>>;
+
     try {
-      const publication = await githubIssuePublisher.publish({
+      publication = await githubIssuePublisher.publish({
         feedback: result.feedback,
         requestUrl,
-      });
-
-      await sitepingFeedbackRepository.markGitHubIssuePublished({
-        feedbackId: result.feedback.id,
-        issueNumber: publication.issueNumber,
-        issueUrl: publication.issueUrl,
       });
     } catch (error) {
       await sitepingFeedbackRepository.markGitHubIssueFailed({
         errorMessage: readErrorMessage(error),
         feedbackId: result.feedback.id,
       });
+
+      return serializeSitepingFeedback(result.feedback);
+    }
+
+    try {
+      await sitepingFeedbackRepository.markGitHubIssuePublished({
+        feedbackId: result.feedback.id,
+        issueNumber: publication.issueNumber,
+        issueUrl: publication.issueUrl,
+      });
+    } catch {
+      // Keep the feedback pending because GitHub already created the issue.
     }
 
     return serializeSitepingFeedback(result.feedback);

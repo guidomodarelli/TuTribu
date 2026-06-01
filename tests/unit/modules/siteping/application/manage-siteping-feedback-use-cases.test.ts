@@ -381,6 +381,34 @@ describe("manage Siteping feedback use cases", () => {
     });
   });
 
+  it("does not mark publication as failed when storing the created GitHub issue fails", async () => {
+    const repository = buildRepository({
+      markGitHubIssuePublished: jest.fn(async () => {
+        throw new Error("database_connection_interrupted");
+      }),
+    });
+    const publisher = buildPublisher();
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: publisher,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        authenticatedMember: buildAuthenticatedMember(),
+        command: buildFeedbackCommand(),
+        requestUrl: "https://tutribu.example.com/api/siteping",
+      })
+    ).resolves.toEqual(expect.objectContaining({ id: FEEDBACK_ID }));
+
+    expect(repository.markGitHubIssuePublished).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      issueNumber: 42,
+      issueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+    });
+    expect(repository.markGitHubIssueFailed).not.toHaveBeenCalled();
+  });
+
   it("closes the linked GitHub issue before deleting an individual feedback", async () => {
     const repository = buildRepository();
     const publisher = buildPublisher();
