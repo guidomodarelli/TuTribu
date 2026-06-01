@@ -1,7 +1,10 @@
-import { DELETE, GET, POST } from "@/app/api/siteping/route";
+import { DELETE, GET, PATCH, POST } from "@/app/api/siteping/route";
 import { GET as GET_IDENTITY } from "@/app/api/siteping/identity/route";
 import { createRequestModules } from "@/src/modules/setup";
-import { SITEPING_FEEDBACK_TYPE } from "@/src/modules/siteping/constants/siteping";
+import {
+  SITEPING_FEEDBACK_STATUS,
+  SITEPING_FEEDBACK_TYPE,
+} from "@/src/modules/siteping/constants/siteping";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 
@@ -12,6 +15,7 @@ const deleteFeedback = jest.fn();
 const getIdentity = jest.fn();
 const getMemberTribes = jest.fn();
 const listFeedback = jest.fn();
+const updateFeedbackStatus = jest.fn();
 
 class MockJsonResponse {
   headers: Headers;
@@ -161,6 +165,26 @@ describe("Siteping routes", () => {
       },
     ]);
     listFeedback.mockResolvedValue({ feedbacks: [], total: 0 });
+    updateFeedbackStatus.mockResolvedValue({
+      annotations: [],
+      authorEmail: "leader@example.com",
+      authorName: "Leader Example",
+      clientId: "client-feedback-1",
+      createdAt: "2026-05-31T12:00:00.000Z",
+      diagnostics: null,
+      id: "feedback-1",
+      message: "No puedo guardar el precio",
+      projectName: "tutribu",
+      resolvedAt: "2026-05-31T12:30:00.000Z",
+      screenshotUrl: null,
+      status: SITEPING_FEEDBACK_STATUS.resolved,
+      type: SITEPING_FEEDBACK_TYPE.bug,
+      updatedAt: "2026-05-31T12:30:00.000Z",
+      url: "https://tutribu.example.com/matematica/precios",
+      urlPattern: null,
+      userAgent: "Jest Browser",
+      viewport: "1280x800",
+    });
     (createRequestModules as jest.Mock).mockResolvedValue({
       auth: {
         useCases: { getAuthenticatedMember },
@@ -172,6 +196,7 @@ describe("Siteping routes", () => {
           deleteFeedback,
           getIdentity,
           listFeedback,
+          updateFeedbackStatus,
         },
       },
       tribes: {
@@ -295,6 +320,10 @@ describe("Siteping routes", () => {
     } as unknown as Request);
 
     expect(response.status).toBe(200);
+    expect(createRequestModules).toHaveBeenLastCalledWith({
+      sitepingProjectAdmin: true,
+      sitepingProjectName: "tutribu",
+    });
     expect(listFeedback).toHaveBeenCalledWith({
       limit: undefined,
       page: undefined,
@@ -314,8 +343,29 @@ describe("Siteping routes", () => {
     }, "DELETE"));
 
     expect(response.status).toBe(200);
+    expect(createRequestModules).toHaveBeenLastCalledWith({
+      sitepingProjectAdmin: true,
+      sitepingProjectName: "tutribu",
+    });
     expect(deleteAllFeedback).toHaveBeenCalledWith("tutribu");
     expect(deleteFeedback).not.toHaveBeenCalled();
+  });
+
+  it("updates feedback status with Siteping project context", async () => {
+    const response = await PATCH(buildRequest({
+      id: "feedback-1",
+      status: SITEPING_FEEDBACK_STATUS.resolved,
+    }, "PATCH"));
+
+    expect(response.status).toBe(200);
+    expect(createRequestModules).toHaveBeenLastCalledWith({
+      sitepingProjectAdmin: true,
+      sitepingProjectName: "tutribu",
+    });
+    expect(updateFeedbackStatus).toHaveBeenCalledWith({
+      feedbackId: "feedback-1",
+      status: SITEPING_FEEDBACK_STATUS.resolved,
+    });
   });
 
   it("deletes an individual feedback through the Siteping use case", async () => {

@@ -42,6 +42,8 @@ type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabas
 type RequestModuleContextOverrides = {
   mercadoPagoWebhookVerified?: boolean;
   requestId?: string;
+  sitepingProjectAdmin?: boolean;
+  sitepingProjectName?: string | null;
 };
 
 /**

@@ -14,6 +14,8 @@ const DATABASE_CONTEXT_SETTING = {
   currentUserEmail: "app.current_user_email",
   currentUserId: "app.current_user_id",
   mercadoPagoWebhookVerified: "app.mercado_pago_webhook_verified",
+  sitepingProjectAdmin: "app.siteping_project_admin",
+  sitepingProjectName: "app.siteping_project_name",
 } as const;
 const DATABASE_TRANSACTION = {
   begin: "BEGIN",
@@ -37,6 +39,8 @@ type GlobalDatabase = typeof globalThis & {
 export type RequestDatabaseContext = {
   email: string | null;
   mercadoPagoWebhookVerified?: boolean;
+  sitepingProjectAdmin?: boolean;
+  sitepingProjectName?: string | null;
   userId: string | null;
 };
 
@@ -144,6 +148,12 @@ export async function createServerDatabaseClient() {
         );
         await database.execute(
           sql`select set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : ""}, true)`
+        );
+        await database.execute(
+          sql`select set_config(${DATABASE_CONTEXT_SETTING.sitepingProjectAdmin}, ${context.sitepingProjectAdmin ? DATABASE_TRANSACTION.verifiedSettingValue : ""}, true)`
+        );
+        await database.execute(
+          sql`select set_config(${DATABASE_CONTEXT_SETTING.sitepingProjectName}, ${context.sitepingProjectName ?? ""}, true)`
         );
       });
     },

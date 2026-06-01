@@ -232,6 +232,13 @@ async function resolveAuthorizedModules() {
   };
 }
 
+async function createSitepingProjectModules(projectName: string) {
+  return createRequestModules({
+    sitepingProjectAdmin: true,
+    sitepingProjectName: projectName,
+  });
+}
+
 export function OPTIONS(request: Request) {
   const observation = createRouteObservation({
     feature: SITEPING_ROUTE.feature,
@@ -311,7 +318,7 @@ export async function GET(request: Request) {
   });
 
   try {
-    const { authenticatedMember, identity, modules } = await resolveAuthorizedModules();
+    const { authenticatedMember, identity } = await resolveAuthorizedModules();
 
     if (!authenticatedMember) {
       return observation.createJsonResponse(
@@ -344,7 +351,8 @@ export async function GET(request: Request) {
       );
     }
 
-    const feedbackPage = await modules.siteping.useCases.listFeedback({
+    const projectModules = await createSitepingProjectModules(identity.projectName);
+    const feedbackPage = await projectModules.siteping.useCases.listFeedback({
       limit,
       page,
       projectName: identity.projectName,
@@ -380,7 +388,7 @@ export async function PATCH(request: Request) {
   });
 
   try {
-    const { authenticatedMember, identity, modules } = await resolveAuthorizedModules();
+    const { authenticatedMember, identity } = await resolveAuthorizedModules();
 
     if (!authenticatedMember || !identity.enabled) {
       return observation.createJsonResponse(
@@ -398,7 +406,8 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const feedback = await modules.siteping.useCases.updateFeedbackStatus({
+    const projectModules = await createSitepingProjectModules(identity.projectName);
+    const feedback = await projectModules.siteping.useCases.updateFeedbackStatus({
       feedbackId: readRequiredText(body.id) as string,
       status: body.status,
     });
@@ -427,7 +436,7 @@ export async function DELETE(request: Request) {
   });
 
   try {
-    const { authenticatedMember, identity, modules } = await resolveAuthorizedModules();
+    const { authenticatedMember, identity } = await resolveAuthorizedModules();
 
     if (!authenticatedMember || !identity.enabled) {
       return observation.createJsonResponse(
@@ -446,7 +455,9 @@ export async function DELETE(request: Request) {
     }
 
     if (body.deleteAll === true) {
-      await modules.siteping.useCases.deleteAllFeedback(identity.projectName);
+      const projectModules = await createSitepingProjectModules(identity.projectName);
+
+      await projectModules.siteping.useCases.deleteAllFeedback(identity.projectName);
 
       return observation.createJsonResponse(
         { message: SITEPING_ROUTE_RESPONSE.okMessage },
@@ -463,7 +474,9 @@ export async function DELETE(request: Request) {
       );
     }
 
-    await modules.siteping.useCases.deleteFeedback(feedbackId);
+    const projectModules = await createSitepingProjectModules(identity.projectName);
+
+    await projectModules.siteping.useCases.deleteFeedback(feedbackId);
 
     return observation.createJsonResponse(
       { message: SITEPING_ROUTE_RESPONSE.okMessage },

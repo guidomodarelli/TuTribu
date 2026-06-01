@@ -351,6 +351,13 @@
       "when": 1780228800000,
       "tag": "20260531120000_create_siteping_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1780315200000,
+      "tag": "20260601120000_allow_siteping_project_admin_feedback_management",
+      "breakpoints": true
     }
   ]
 }
