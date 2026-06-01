@@ -1,9 +1,3 @@
-import type {
-  AnnotationPayload,
-  FeedbackStatus,
-  FeedbackType,
-} from "@siteping/widget";
-
 import { createRequestModules } from "@/src/modules/setup";
 import {
   SITEPING_FEEDBACK_STATUS,
@@ -11,7 +5,14 @@ import {
 } from "@/src/modules/siteping/constants/siteping";
 import type { SitepingDiagnosticsSnapshot } from "@/src/modules/siteping/domain/entities/siteping-diagnostics";
 import { createRouteObservation } from "@/src/modules/shared/infrastructure/observability/route-observation";
-import type { SitepingFeedbackCommand } from "@/src/modules/siteping/application/use-cases/manage-siteping-feedback-use-cases";
+import type {
+  SitepingAnnotationCommand,
+  SitepingFeedbackCommand,
+} from "@/src/modules/siteping/application/commands/siteping-feedback-command";
+import type {
+  SitepingFeedbackStatus,
+  SitepingFeedbackType,
+} from "@/src/modules/siteping/domain/entities/siteping-feedback";
 
 const SITEPING_ROUTE = {
   feature: "siteping",
@@ -73,12 +74,14 @@ function readOptionalText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function isFeedbackType(value: unknown): value is FeedbackType {
-  return Object.values(SITEPING_FEEDBACK_TYPE).includes(value as FeedbackType);
+function isFeedbackType(value: unknown): value is SitepingFeedbackType {
+  return Object.values(SITEPING_FEEDBACK_TYPE).includes(value as SitepingFeedbackType);
 }
 
-function isFeedbackStatus(value: unknown): value is FeedbackStatus {
-  return Object.values(SITEPING_FEEDBACK_STATUS).includes(value as FeedbackStatus);
+function isFeedbackStatus(value: unknown): value is SitepingFeedbackStatus {
+  return Object.values(SITEPING_FEEDBACK_STATUS).includes(
+    value as SitepingFeedbackStatus
+  );
 }
 
 function isInvalidOptionalFeedbackType(value: string | null): boolean {
@@ -141,7 +144,7 @@ function isDiagnosticsPayload(value: unknown): value is SitepingDiagnosticsSnaps
   );
 }
 
-function isAnnotationPayload(value: unknown): value is AnnotationPayload {
+function isAnnotationPayload(value: unknown): value is SitepingAnnotationCommand {
   if (!isRecord(value) || !isRecord(value.anchor) || !isRecord(value.rect)) {
     return false;
   }

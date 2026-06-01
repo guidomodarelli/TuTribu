@@ -1,8 +1,3 @@
-import type {
-  AnnotationPayload,
-  FeedbackType,
-} from "@siteping/widget";
-
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import { SITEPING_PROJECT } from "@/src/modules/siteping/constants/siteping";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
@@ -23,6 +18,10 @@ import type {
   SitepingIdentityResult,
 } from "@/src/modules/siteping/application/results/siteping-feedback-result";
 import type { SitepingDiagnosticsSnapshot } from "@/src/modules/siteping/domain/entities/siteping-diagnostics";
+import type {
+  SitepingAnnotationCommand,
+  SitepingFeedbackCommand,
+} from "@/src/modules/siteping/application/commands/siteping-feedback-command";
 
 const SITEPING_ERROR_MESSAGE = {
   unknownGitHubFailure: "Unknown GitHub issue publication failure",
@@ -38,22 +37,6 @@ const SITEPING_REDACTION = {
     /([?&][^=&]*(?:token|key|password|secret|code|state|session|auth|cookie)[^=&]*=)[^&]+/gi,
   tokenLikePattern: /(bearer\s+)[a-z0-9._-]+/gi,
 } as const;
-
-export type SitepingFeedbackCommand = {
-  annotations: AnnotationPayload[];
-  authorEmail: string;
-  authorName: string;
-  clientId: string;
-  diagnostics?: SitepingDiagnosticsSnapshot | null;
-  message: string;
-  projectName: string;
-  screenshotDataUrl?: string | null;
-  type: FeedbackType;
-  url: string;
-  urlPattern?: string | null;
-  userAgent: string;
-  viewport: string;
-};
 
 type CreateSitepingFeedbackDependencies = {
   githubIssuePublisher: GitHubIssuePublisher;
@@ -165,7 +148,7 @@ export function serializeSitepingFeedback(
   };
 }
 
-function flattenAnnotation(annotation: AnnotationPayload) {
+function flattenAnnotation(annotation: SitepingAnnotationCommand) {
   return {
     anchorKey: annotation.anchor.anchorKey ?? null,
     cssSelector: annotation.anchor.cssSelector,
