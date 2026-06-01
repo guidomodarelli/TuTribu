@@ -50,6 +50,18 @@ const SQL_OPERATION = {
   unsupported: "unsupported",
 } as const;
 
+const POSTGRES_TEST_ERROR = {
+  transactionAborted: "25P02",
+  uniqueViolation: "23505",
+} as const;
+
+type RepositoryHarnessOptions = {
+  beforeFeedbackInsert?: (
+    command: CreateSitepingFeedbackRecordCommand,
+    feedbackRows: FeedbackRow[]
+  ) => void;
+};
+
 function createFeedbackCommand(
   override: Partial<CreateSitepingFeedbackRecordCommand> = {}
 ): CreateSitepingFeedbackRecordCommand {
@@ -120,11 +132,18 @@ function createFeedbackRow(command: CreateSitepingFeedbackRecordCommand): Feedba
   };
 }
 
-function createRepositoryHarness() {
+function createRepositoryHarness(options: RepositoryHarnessOptions = {}) {
   const feedbackRows: FeedbackRow[] = [];
+  let isTransactionAborted = false;
   const execute = jest.fn(async (statement: unknown) => {
     const query = readQuery(statement);
     const operation = getSqlOperation(query.sql);
+
+    if (isTransactionAborted) {
+      throw Object.assign(new Error("current transaction is aborted"), {
+        code: POSTGRES_TEST_ERROR.transactionAborted,
+      });
+    }
 
     if (operation === SQL_OPERATION.selectFeedback) {
       if (query.params.length === 1) {
@@ -163,6 +182,26 @@ function createRepositoryHarness() {
         clientId: query.params[10] as string,
         createdBy: query.params[11] as string,
       });
+      options.beforeFeedbackInsert?.(command, feedbackRows);
+      const existingFeedbackRow = feedbackRows.find(
+        (feedbackRow) =>
+          feedbackRow.project_name === command.projectName &&
+          feedbackRow.created_by === command.createdBy &&
+          feedbackRow.client_id === command.clientId
+      );
+
+      if (existingFeedbackRow) {
+        if (!query.sql.includes("on conflict")) {
+          isTransactionAborted = true;
+
+          throw Object.assign(new Error("duplicate key value"), {
+            code: POSTGRES_TEST_ERROR.uniqueViolation,
+          });
+        }
+
+        return { rows: [] };
+      }
+
       const feedbackRow = createFeedbackRow(command);
 
       feedbackRows.push(feedbackRow);
@@ -230,6 +269,27 @@ describe("PostgresSitepingFeedbackRepository", () => {
     });
 
     expect(feedbackRows).toHaveLength(3);
+  });
+
+  it("returns the concurrent duplicate feedback without aborting the transaction", async () => {
+    const { feedbackRows, repository } = createRepositoryHarness({
+      beforeFeedbackInsert: (command, rows) => {
+        if (rows.length === 0) {
+          rows.push(createFeedbackRow(command));
+        }
+      },
+    });
+
+    await expect(repository.create(createFeedbackCommand())).resolves.toMatchObject({
+      feedback: {
+        clientId: "client-feedback-1",
+        createdBy: "member-1",
+        projectName: "tutribu",
+      },
+      wasCreated: false,
+    });
+
+    expect(feedbackRows).toHaveLength(1);
   });
 
   it("finds feedback by id with GitHub issue metadata", async () => {

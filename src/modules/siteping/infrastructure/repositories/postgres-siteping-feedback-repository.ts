@@ -77,10 +77,6 @@ type SitepingIdempotencyKey = {
   projectName: string;
 };
 
-const POSTGRES_ERROR = {
-  uniqueViolation: "23505",
-} as const;
-
 const SITEPING_PAGINATION = {
   defaultLimit: 50,
   defaultPage: 1,
@@ -89,14 +85,6 @@ const SITEPING_PAGINATION = {
 
 function toNumber(value: number | string): number {
   return typeof value === "number" ? value : Number(value);
-}
-
-function isPostgresError(error: unknown, code: string): boolean {
-  return (
-    Boolean(error) &&
-    typeof error === "object" &&
-    (error as { cause?: { code?: unknown }; code?: unknown }).code === code
-  ) || (error as { cause?: { code?: unknown } })?.cause?.code === code;
 }
 
 function mapAnnotationRow(row: AnnotationRow): SitepingAnnotation {
@@ -177,6 +165,13 @@ export class PostgresSitepingFeedbackRepository
 {
   constructor(private readonly executeWithRequestContext: ExecuteWithRequestContext) {}
 
+  /**
+   * Creates SitePing feedback or returns the existing idempotent submission.
+   *
+   * @param command - Feedback payload and idempotency identifiers for the current user.
+   * @returns The persisted feedback and whether this call created it.
+   * @throws When the created or existing feedback cannot be loaded from Postgres.
+   */
   async create(
     command: CreateSitepingFeedbackRecordCommand
   ): Promise<CreateSitepingFeedbackRecordResult> {
@@ -198,130 +193,122 @@ export class PostgresSitepingFeedbackRepository
         };
       }
 
-      try {
-        const feedbackRows = await database.execute(sql`
-          insert into public.siteping_feedbacks (
-            project_name,
-            type,
-            message,
-            status,
-            url,
-            url_pattern,
-            viewport,
-            user_agent,
-            author_name,
-            author_email,
-            client_id,
-            created_by,
-            screenshot_url,
-            diagnostics,
-            github_issue_status
-          )
-          values (
-            ${command.projectName},
-            ${command.type},
-            ${command.message},
-            ${SITEPING_FEEDBACK_STATUS.open},
-            ${command.url},
-            ${command.urlPattern},
-            ${command.viewport},
-            ${command.userAgent},
-            ${command.authorName},
-            ${command.authorEmail},
-            ${command.clientId},
-            ${command.createdBy},
-            ${command.screenshotUrl},
-            ${JSON.stringify(command.diagnostics)}::jsonb,
-            ${SITEPING_FEEDBACK_GITHUB_STATUS.pending}
-          )
-          returning *
-        `);
-        const [feedbackRow] = feedbackRows.rows as FeedbackRow[];
+      const feedbackRows = await database.execute(sql`
+        insert into public.siteping_feedbacks (
+          project_name,
+          type,
+          message,
+          status,
+          url,
+          url_pattern,
+          viewport,
+          user_agent,
+          author_name,
+          author_email,
+          client_id,
+          created_by,
+          screenshot_url,
+          diagnostics,
+          github_issue_status
+        )
+        values (
+          ${command.projectName},
+          ${command.type},
+          ${command.message},
+          ${SITEPING_FEEDBACK_STATUS.open},
+          ${command.url},
+          ${command.urlPattern},
+          ${command.viewport},
+          ${command.userAgent},
+          ${command.authorName},
+          ${command.authorEmail},
+          ${command.clientId},
+          ${command.createdBy},
+          ${command.screenshotUrl},
+          ${JSON.stringify(command.diagnostics)}::jsonb,
+          ${SITEPING_FEEDBACK_GITHUB_STATUS.pending}
+        )
+        on conflict (project_name, created_by, client_id) do nothing
+        returning *
+      `);
+      const [feedbackRow] = feedbackRows.rows as FeedbackRow[];
 
-        if (!feedbackRow) {
-          throw new Error("Siteping feedback insert did not return a row.");
-        }
-
-        if (command.annotations.length > 0) {
-          await Promise.all(
-            command.annotations.map((annotation) =>
-              database.execute(sql`
-                insert into public.siteping_annotations (
-                  feedback_id,
-                  css_selector,
-                  xpath,
-                  text_snippet,
-                  element_tag,
-                  element_id,
-                  text_prefix,
-                  text_suffix,
-                  fingerprint,
-                  neighbor_text,
-                  anchor_key,
-                  x_pct,
-                  y_pct,
-                  w_pct,
-                  h_pct,
-                  scroll_x,
-                  scroll_y,
-                  viewport_w,
-                  viewport_h,
-                  device_pixel_ratio
-                )
-                values (
-                  ${feedbackRow.id},
-                  ${annotation.cssSelector},
-                  ${annotation.xpath},
-                  ${annotation.textSnippet},
-                  ${annotation.elementTag},
-                  ${annotation.elementId},
-                  ${annotation.textPrefix},
-                  ${annotation.textSuffix},
-                  ${annotation.fingerprint},
-                  ${annotation.neighborText},
-                  ${annotation.anchorKey},
-                  ${annotation.xPct},
-                  ${annotation.yPct},
-                  ${annotation.wPct},
-                  ${annotation.hPct},
-                  ${annotation.scrollX},
-                  ${annotation.scrollY},
-                  ${annotation.viewportW},
-                  ${annotation.viewportH},
-                  ${annotation.devicePixelRatio}
-                )
-              `)
-            )
-          );
-        }
-
+      if (!feedbackRow) {
         const feedback = await this.findByIdempotencyKey(database, idempotencyKey);
 
-        if (!feedback) {
-          throw new Error("Siteping feedback could not be loaded after insert.");
+        if (feedback) {
+          return {
+            feedback,
+            wasCreated: false,
+          };
         }
 
-        return {
-          feedback,
-          wasCreated: true,
-        };
-      } catch (error) {
-        if (isPostgresError(error, POSTGRES_ERROR.uniqueViolation)) {
-          const feedback = await this.findByIdempotencyKey(
-            database,
-            idempotencyKey
-          );
-
-          if (feedback) {
-            return {
-              feedback,
-              wasCreated: false,
-            };
-          }
-        }
-
-        throw error;
+        throw new Error("Siteping feedback could not be loaded after conflict.");
       }
+
+      if (command.annotations.length > 0) {
+        await Promise.all(
+          command.annotations.map((annotation) =>
+            database.execute(sql`
+              insert into public.siteping_annotations (
+                feedback_id,
+                css_selector,
+                xpath,
+                text_snippet,
+                element_tag,
+                element_id,
+                text_prefix,
+                text_suffix,
+                fingerprint,
+                neighbor_text,
+                anchor_key,
+                x_pct,
+                y_pct,
+                w_pct,
+                h_pct,
+                scroll_x,
+                scroll_y,
+                viewport_w,
+                viewport_h,
+                device_pixel_ratio
+              )
+              values (
+                ${feedbackRow.id},
+                ${annotation.cssSelector},
+                ${annotation.xpath},
+                ${annotation.textSnippet},
+                ${annotation.elementTag},
+                ${annotation.elementId},
+                ${annotation.textPrefix},
+                ${annotation.textSuffix},
+                ${annotation.fingerprint},
+                ${annotation.neighborText},
+                ${annotation.anchorKey},
+                ${annotation.xPct},
+                ${annotation.yPct},
+                ${annotation.wPct},
+                ${annotation.hPct},
+                ${annotation.scrollX},
+                ${annotation.scrollY},
+                ${annotation.viewportW},
+                ${annotation.viewportH},
+                ${annotation.devicePixelRatio}
+              )
+            `)
+          )
+        );
+      }
+
+      const feedback = await this.findByIdempotencyKey(database, idempotencyKey);
+
+      if (!feedback) {
+        throw new Error("Siteping feedback could not be loaded after insert.");
+      }
+
+      return {
+        feedback,
+        wasCreated: true,
+      };
     });
   }
 
