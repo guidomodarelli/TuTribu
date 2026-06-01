@@ -1022,12 +1022,36 @@
 
   &__messageMenuItem {
     white-space: nowrap;
+
+    &--destructive {
+      color: var(--destructive) !important;
+
+      svg {
+        color: var(--destructive) !important;
+      }
+    }
   }
 
   &__messageMenuContent {
     width: max-content;
     min-width: max-content;
     max-width: calc(100vw - 2rem);
+
+    :global([data-variant="destructive"]) {
+      color: var(--destructive) !important;
+
+      svg {
+        color: var(--destructive) !important;
+      }
+    }
+  }
+
+  &__deleteMessageDialog {
+    gap: 1rem;
+  }
+
+  &__deleteMessageConfirmButton {
+    color: var(--destructive);
   }
 
   &__editCreatedAtDialog {

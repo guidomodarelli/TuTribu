@@ -5053,10 +5053,84 @@ describe("TribeRound", () => {
       screen.getByRole("button", { name: "Acciones del mensaje" })
     );
 
-    expect(
-      screen.getByRole("menuitem", { name: "Eliminar mensaje" })
-    ).toHaveClass("TribeRound__messageMenuItem");
+    const deleteMenuItem = screen.getByRole("menuitem", {
+      name: "Eliminar mensaje",
+    });
+
+    expect(deleteMenuItem).toHaveClass("TribeRound__messageMenuItem");
+    expect(deleteMenuItem).toHaveClass("TribeRound__messageMenuItem--destructive");
+    expect(deleteMenuItem).toHaveAttribute("data-variant", "destructive");
     expect(screen.getByRole("menu")).toHaveClass("TribeRound__messageMenuContent");
+  });
+
+  it("asks for confirmation before deleting a feed message", async () => {
+    const user = userEvent.setup();
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        message: "Mensaje eliminado.",
+      }),
+      ok: true,
+      statusText: "OK",
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              permissions: {
+                canDelete: true,
+                canEdit: false,
+              },
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Acciones del mensaje" })
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Eliminar mensaje" })
+    );
+
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    const confirmationDialog = screen.getByRole("dialog", {
+      name: "Eliminar mensaje",
+    });
+
+    expect(confirmationDialog).toBeInTheDocument();
+    expect(
+      within(confirmationDialog).getByText(
+        "Esta acción elimina el mensaje del feed y no se puede deshacer."
+      )
+    ).toBeInTheDocument();
+
+    const confirmButton = within(confirmationDialog).getByRole("button", {
+      name: "Eliminar",
+    });
+
+    expect(confirmButton).toHaveClass("TribeRound__deleteMessageConfirmButton");
+
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/message-1",
+        expect.objectContaining({
+          method: "DELETE",
+        })
+      );
+    });
+    expect(screen.queryByText("Anuncio inicial")).not.toBeInTheDocument();
+    expect(toast.success).toHaveBeenCalledWith("Mensaje eliminado.");
   });
 
   it("preserves timestamp precision and refreshes pagination after editing message date", async () => {

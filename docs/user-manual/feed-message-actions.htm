@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acciones en mensajes del feed</title>
+<style>
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:24px;margin-bottom:36px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#888;margin-bottom:12px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:8px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:12px;flex-wrap:wrap;font-family:'DM Mono',monospace;font-size:11px;color:#555;margin-top:16px;}
+.section{margin:32px 0;}
+.section-title{font-size:20px;font-weight:600;line-height:1.3;margin-bottom:12px;}
+p,li{font-size:14px;line-height:1.7;color:#333;}
+ul{padding-left:20px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid #e8917a;background:#fef8f6;color:#9e3d25;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;color:#1a1a1a;}
+</style>
+</head>
+<body>
+<header class="doc-header">
+  <div class="doc-label">Manual de usuario</div>
+  <div class="doc-title">Acciones en mensajes del feed</div>
+  <div class="doc-sub">Cómo se muestran y confirman las acciones disponibles sobre publicaciones de la ronda.</div>
+  <div class="doc-meta"><span>Área: Feed</span><span>Estado: Implementado</span></div>
+</header>
+
+<main>
+  <section class="section">
+    <div class="section-title">Menú de acciones</div>
+    <p>Los mensajes de la ronda muestran un botón de tres puntos cuando la persona tiene permisos para editar, cambiar la fecha de creación o eliminar esa publicación.</p>
+    <ul>
+      <li>Las acciones de edición abren sus respectivos formularios.</li>
+      <li>La acción <strong>Eliminar mensaje</strong> aparece destacada en rojo para marcar que es destructiva.</li>
+      <li>Si hay una acción del mensaje en curso, el menú evita iniciar otra acción hasta que termine.</li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <div class="section-title">Confirmación de eliminación</div>
+    <p>Elegir <strong>Eliminar mensaje</strong> no borra la publicación de inmediato. Primero se abre un modal de confirmación con la advertencia de que la acción elimina el mensaje del feed y no se puede deshacer.</p>
+    <div class="callout">El borrado recién se envía al confirmar con el botón rojo <strong>Eliminar</strong>. Cancelar o cerrar el modal conserva el mensaje sin cambios.</div>
+    <p>Cuando el servidor confirma el borrado, el mensaje desaparece del feed y se muestra la notificación de éxito. Si el borrado falla, la app muestra un error seguro y conserva el contexto para que la persona pueda reintentar.</p>
+  </section>
+</main>
+</body>
+</html>

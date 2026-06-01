@@ -198,6 +198,11 @@ const TRIBE_ROUND_COPY = {
   messageDetailsContentLabel: "Contenido del mensaje",
   messageContentShowMore: "Ver más",
   messageDeleteButton: "Eliminar mensaje",
+  messageDeleteConfirmCancel: "Cancelar",
+  messageDeleteConfirmDescription:
+    "Esta acción elimina el mensaje del feed y no se puede deshacer.",
+  messageDeleteConfirmSubmit: "Eliminar",
+  messageDeleteConfirmTitle: "Eliminar mensaje",
   messageDeleteError: "No pudimos eliminar el mensaje.",
   messageDeleteSuccess: "Mensaje eliminado.",
   messageEditButton: "Editar mensaje",
@@ -324,6 +329,7 @@ const TRIBE_ROUND_FORM = {
   dateTimeLocalStep: 1,
   dateTimeLocalInputType: "datetime-local",
   defaultVariant: "default",
+  destructiveVariant: "destructive",
   fileInputType: "file",
   ghostVariant: "ghost",
   imageAccept: "image/*",
@@ -2452,6 +2458,8 @@ function TribeRoundContent({
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [isMessageDetailsOpen, setIsMessageDetailsOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [messagePendingDeletion, setMessagePendingDeletion] =
+    useState<TribeRoundMessageResult | null>(null);
   const [editingCreatedAtMessageId, setEditingCreatedAtMessageId] = useState<
     string | null
   >(null);
@@ -4616,12 +4624,32 @@ function TribeRoundContent({
         setSelectedMessageId(null);
       }
       toast.success(response.message ?? TRIBE_ROUND_COPY.messageDeleteSuccess);
+      return true;
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : TRIBE_ROUND_COPY.messageDeleteError
       );
+      return false;
     } finally {
       setPendingActionId(null);
+    }
+  };
+
+  const handleDeleteConfirmationOpenChange = (isOpen: boolean) => {
+    if (!isOpen && !isBusy) {
+      setMessagePendingDeletion(null);
+    }
+  };
+
+  const handleConfirmMessageDeletion = async () => {
+    if (!messagePendingDeletion) {
+      return;
+    }
+
+    const wasDeleted = await handleDeleteMessage(messagePendingDeletion);
+
+    if (wasDeleted) {
+      setMessagePendingDeletion(null);
     }
   };
 
@@ -5123,7 +5151,7 @@ function TribeRoundContent({
           ) : null}
           {canDelete ? (
             <DropdownMenuItem
-              className={styles.TribeRound__messageMenuItem}
+              className={`${styles.TribeRound__messageMenuItem} ${styles["TribeRound__messageMenuItem--destructive"]}`}
               disabled={isBusy}
               onClick={(event) => {
                 if (shouldStopDetailsOpening) {
@@ -5131,8 +5159,9 @@ function TribeRoundContent({
                 }
               }}
               onSelect={() => {
-                void handleDeleteMessage(message);
+                setMessagePendingDeletion(message);
               }}
+              variant={TRIBE_ROUND_FORM.destructiveVariant}
             >
               <TrashIcon />
               {TRIBE_ROUND_COPY.messageDeleteButton}
@@ -5149,11 +5178,47 @@ function TribeRoundContent({
         className={styles.TribeRound}
         aria-label={TRIBE_ROUND_COPY.sectionLabel}
       >
-      {!round.viewerPermissions.canCreateMessage ? (
-        <p className={styles.TribeRound__notice}>
-          {TRIBE_ROUND_COPY.mutedNotice}
-        </p>
-      ) : null}
+        <Dialog
+          open={Boolean(messagePendingDeletion)}
+          onOpenChange={handleDeleteConfirmationOpenChange}
+        >
+          <DialogContent
+            className={styles.TribeRound__deleteMessageDialog}
+            showCloseButton={!isBusy}
+          >
+            <DialogHeader>
+              <DialogTitle>{TRIBE_ROUND_COPY.messageDeleteConfirmTitle}</DialogTitle>
+              <DialogDescription>
+                {TRIBE_ROUND_COPY.messageDeleteConfirmDescription}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                disabled={isBusy}
+                onClick={() => setMessagePendingDeletion(null)}
+                type={TRIBE_ROUND_FORM.buttonType}
+                variant={TRIBE_ROUND_FORM.outlineVariant}
+              >
+                {TRIBE_ROUND_COPY.messageDeleteConfirmCancel}
+              </Button>
+              <Button
+                className={styles.TribeRound__deleteMessageConfirmButton}
+                disabled={isBusy}
+                onClick={handleConfirmMessageDeletion}
+                type={TRIBE_ROUND_FORM.buttonType}
+                variant={TRIBE_ROUND_FORM.destructiveVariant}
+              >
+                <TrashIcon />
+                {TRIBE_ROUND_COPY.messageDeleteConfirmSubmit}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {!round.viewerPermissions.canCreateMessage ? (
+          <p className={styles.TribeRound__notice}>
+            {TRIBE_ROUND_COPY.mutedNotice}
+          </p>
+        ) : null}
 
       {round.viewerPermissions.canCreateMessage ? (
         <Dialog
