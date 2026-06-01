@@ -312,6 +312,59 @@ describe("manage Siteping feedback use cases", () => {
     });
   });
 
+  it("drops untrusted diagnostic fields before persisting feedback", async () => {
+    const repository = buildRepository();
+    const publisher = buildPublisher();
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: publisher,
+      sitepingFeedbackRepository: repository,
+    });
+    const command = buildFeedbackCommand();
+    const diagnosticPayload = command.diagnostics as unknown as {
+      console: Array<Record<string, unknown>>;
+      network: Array<Record<string, unknown>>;
+    };
+
+    diagnosticPayload.console[0].cookie = "session=secret";
+    diagnosticPayload.network[0].headers = {
+      authorization: "Bearer secret",
+      cookie: "session=secret",
+    };
+    diagnosticPayload.network[0].requestBody = {
+      refresh_token: "secret",
+    };
+
+    await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command,
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        diagnostics: {
+          console: [
+            {
+              level: "error",
+              message:
+                'Failed request token=[redacted] cookie=[redacted] set-cookie: [redacted] {"refresh_token":"[redacted]","cookie":"[redacted]"}',
+              timestamp: "2026-05-31T12:00:00.000Z",
+            },
+          ],
+          network: [
+            {
+              durationMs: 250,
+              method: "GET",
+              status: 500,
+              timestamp: "2026-05-31T12:00:00.000Z",
+              url: "https://tutribu.example.com/api/private?access_token=[redacted]&api_key=[redacted]&cookie=[redacted]",
+            },
+          ],
+        },
+      })
+    );
+  });
+
   it("does not publish a duplicate GitHub issue for an existing client id", async () => {
     const repository = buildRepository({
       create: jest.fn(async () => ({
