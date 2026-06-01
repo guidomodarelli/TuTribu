@@ -81,7 +81,6 @@ Create `.env.local` from `.env.example` and provide:
 - `BETTER_AUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
-- `TUTRIBU_BACKEND_BASE_URL`: optional absolute URL for a separated TuTribu backend. Leave it empty when Next.js resolves backend routes internally. It must use HTTPS, except for local `http://localhost` or `http://127.0.0.1` development URLs.
 - `CONTACT_EMAIL`: optional contact email shown when tribe creation is not available. Leave it empty to hide the contact action.
 
 Generate a strong random value for `BETTER_AUTH_SECRET`.

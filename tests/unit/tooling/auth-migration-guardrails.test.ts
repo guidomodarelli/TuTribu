@@ -163,9 +163,7 @@ describe("Auth migration guardrails", () => {
 
     expect(environmentExample).toContain("DATABASE_URL=");
     expect(environmentExample).toContain("DATABASE_MIGRATION_URL=");
-    expect(environmentExample).toContain("TUTRIBU_BACKEND_BASE_URL=");
     expect(environmentExample).toContain("CONTACT_EMAIL=");
-    expect(readme).toContain("TUTRIBU_BACKEND_BASE_URL");
     expect(readme).toContain("CONTACT_EMAIL");
     expect(readme).toContain("Neon Postgres");
     expect(readme).toContain("direct Neon URL for warm runtime environments");
