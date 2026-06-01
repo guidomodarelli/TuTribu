@@ -3,6 +3,7 @@ import Script from "next/script";
 
 import { AppProviders } from "@/components/providers/app-providers";
 import { siteConfig } from "@/lib/site-config";
+import { getSitepingEnvironment } from "@/src/modules/siteping/infrastructure/environment/siteping-environment";
 import { ibmPlexMono, spaceGrotesk } from "./fonts";
 import {
   DARK_THEME_CLASS_NAME,
@@ -57,6 +58,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const sitepingEnvironment = getSitepingEnvironment();
+
   return (
     <html
       lang={ROOT_LAYOUT_DOCUMENT.language}
@@ -70,7 +73,9 @@ export default function RootLayout({
         </Script>
       </head>
       <body className={styles.RootLayout__body}>
-        <AppProviders>{children}</AppProviders>
+        <AppProviders isSitepingEnabled={sitepingEnvironment.enabled}>
+          {children}
+        </AppProviders>
       </body>
     </html>
   );

@@ -84,6 +84,15 @@ describe("eslint module boundaries", () => {
       )
     ).toContain("no-restricted-imports");
   });
+
+  it("rejects SitePing widget imports inside the SitePing module", async () => {
+    expect(
+      lintImport(
+        'import type { FeedbackType } from "@siteping/widget";',
+        "src/modules/siteping/application/use-cases/foo.ts"
+      )
+    ).toContain("no-restricted-imports");
+  });
 });
 
 describe("eslint generated output boundaries", () => {

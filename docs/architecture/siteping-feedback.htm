@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SitePing feedback</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">SitePing feedback</div>
+  <div class="doc-sub">Integracion del widget visual, persistencia propia y publicacion automatica en GitHub.</div>
+  <div class="doc-meta"><span>Scope: Feedback</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Decision vigente</div>
+  <p>LaTribu usa <code>@siteping/widget</code> para la experiencia visual, pero no usa Prisma ni el CLI de SitePing. El backend vive en <code>src/modules/siteping</code> para mantener Drizzle, Neon Postgres, Better Auth y la arquitectura hexagonal del repo.</p>
+  <p>El paquete del widget se instala desde el registry de npm. Si el paquete requiere autenticacion, GitHub Actions debe exponer un secret <code>NPM_TOKEN</code> con acceso de lectura para que <code>pnpm install --frozen-lockfile</code> pueda resolver la dependencia antes de ejecutar el gate.</p>
+  <p>El endpoint principal es <code>/api/siteping</code>. La identidad y el permiso del widget se resuelven en <code>/api/siteping/identity</code>.</p>
+  <p>Los contratos de dominio y aplicacion son propios de LaTribu. Los DTOs de <code>@siteping/widget</code> solo pueden aparecer en el borde visual o de entrada HTTP, y deben mapearse a tipos internos antes de cruzar hacia <code>application</code> o <code>domain</code>.</p>
+  <div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Acceso</div>
+  <p>El widget no es publico. Se habilita solo cuando:</p>
+  <ul>
+    <li><code>SITEPING_ENABLED</code> esta activo.</li>
+    <li>Better Auth resuelve una sesion valida.</li>
+    <li>El usuario tiene al menos una membresia activa como <code>leader</code> o <code>guardian</code>, o su email esta incluido en <code>SITEPING_ALLOWED_EMAILS</code>.</li>
+  </ul>
+  <p>Cuando <code>SITEPING_ENABLED</code> esta apagado, el layout no monta el provider del widget y <code>/api/siteping/identity</code> devuelve <code>enabled: false</code> antes de resolver modulos, sesion o membresias.</p>
+  <p>La base tambien aplica RLS. La creacion y la idempotencia quedan atadas a <code>created_by = current_app_user_id()</code>, mientras que las operaciones de lectura, actualizacion y borrado del panel usan contexto transaccional <code>app.siteping_project_admin</code> y <code>app.siteping_project_name</code> para que los usuarios autorizados por la API puedan administrar el set completo de feedback del proyecto expuesto.</p>
+  <p>Las mutaciones individuales del panel siempre combinan <code>feedbackId</code> con el <code>projectName</code> autorizado por <code>/api/siteping/identity</code>; no aceptan el proyecto enviado por el cliente ni dependen de que el identificador sea globalmente unico entre proyectos.</p>
+  <div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Datos capturados</div>
+  <p>La captura de v1 combina feedback base con diagnosticos tecnicos y mantiene screenshots desactivados.</p>
+  <ul>
+    <li>Se guarda texto, tipo, URL, viewport, user agent, autor, <code>clientId</code> y anclas DOM.</li>
+    <li>Se guarda <code>diagnostics</code> como <code>jsonb</code> con consola reciente y requests fallidos.</li>
+    <li>En los diagnosticos de red, <code>method</code> se limita a verbos HTTP conocidos y cualquier valor desconocido se reemplaza por <code>[redacted]</code> antes de persistirse.</li>
+    <li><code>enableScreenshot</code> queda en <code>false</code>. Si llega <code>screenshotDataUrl</code>, se ignora y no se persiste.</li>
+  </ul>
+  <div class="callout c-info"><strong>Privacidad:</strong> los diagnosticos y las anclas DOM pueden contener datos sensibles si el frontend captura texto cercano a tokens, cookies o secretos. Por eso se redactan cookies, tokens, secretos y parametros sensibles en mensajes, diagnosticos, URL, user agent y texto de anotaciones antes de persistirlos o publicarlos en GitHub.</div>
+  <div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">GitHub issues</div>
+  <p>Cada feedback nuevo publica una issue en <code>SITEPING_GITHUB_REPOSITORY</code>, por defecto <code>guidomodarelli/LaTribu</code>. La idempotencia vive en la combinacion <code>project_name</code>, <code>created_by</code> y <code>client_id</code>, asi que una repeticion del mismo envio del mismo usuario no crea otra issue sin bloquear envios de otros usuarios o proyectos.</p>
+  <p>La creacion usa <code>ON CONFLICT DO NOTHING</code> sobre esa clave para que dos envios concurrentes con el mismo <code>clientId</code> no aborten la transaccion perdedora. Si el insert no devuelve fila, el adapter vuelve a leer el feedback existente y conserva el camino idempotente.</p>
+  <p>La issue incluye mensaje, tipo, URL redactada, deep link <code>?siteping=&lt;feedbackId&gt;</code>, viewport, user agent, autor y resumen redactado de diagnosticos. El titulo se resume para respetar el limite de GitHub, pero el mensaje completo queda en el body. No incluye screenshots, cookies, tokens, query params sensibles, stack traces completos ni payloads raw de proveedores.</p>
+  <p>Las llamadas a GitHub usan <code>fetchWithResilience</code> para aplicar timeout bounded. La creacion de issues no reintenta respuestas retryable porque <code>POST /issues</code> no es idempotente: si GitHub crea la issue pero la respuesta se pierde o vuelve como 5xx, un retry podria duplicar la publicacion antes de que LaTribu marque el feedback como publicado. Las operaciones posteriores mantienen el retry corto compartido cuando el riesgo de duplicacion no afecta la creacion principal.</p>
+  <p>Si la creacion de la issue en GitHub falla, el feedback queda guardado y se marca <code>github_issue_status = failed</code> para permitir reintentos operativos posteriores. Si GitHub ya creo la issue pero falla la persistencia local de <code>issueUrl</code> o <code>issueNumber</code>, LaTribu no sobrescribe el estado como <code>failed</code>; el feedback queda pendiente para evitar que un reintento operativo cree una issue duplicada.</p>
+  <p>Cuando se elimina un feedback individual desde el panel, LaTribu marca primero el registro local con <code>github_issue_status = deletion_pending</code>, lo oculta de los listados del panel y despues comenta/cierra la issue vinculada. Si el cierre de GitHub falla, intenta restaurar <code>published</code> para que el feedback vuelva a quedar disponible. Cuando GitHub confirma el cierre, marca <code>deletion_completed</code> antes del <code>DELETE</code> final; si ese borrado local falla por una caida transitoria de base de datos, el siguiente retry solo reintenta el borrado local y no vuelve a comentar/cerrar la issue. El publisher tambien evita duplicar el comentario de eliminacion si GitHub ya lo tiene. La accion <code>Eliminar todo</code> no cierra issues en masa para evitar cambios destructivos accidentales.</p>
+  <p>Si un admin intenta resolver o reabrir un feedback que ya fue eliminado o que no pertenece al <code>projectName</code> autorizado, el endpoint responde <code>404</code> con un mensaje estable en lugar de registrar un error inesperado. Esto mantiene los casos de UI stale y concurrencia entre admins fuera del camino de <code>server-error</code>.</p>
+</div>
+</body>
+</html>

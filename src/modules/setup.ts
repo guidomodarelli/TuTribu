@@ -18,6 +18,7 @@ import { PostgresCourseRepository } from "./courses/infrastructure/repositories/
 import { buildEventsModule } from "./events/setup";
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
+import { buildSitepingModule } from "./siteping/setup";
 import { PostgresTribeMemberSubscriptionRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
 import { PostgresTribePaymentIntegrationRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-payment-integration-repository";
 import { PostgresTribeSubscriptionPriceRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-subscription-price-repository";
@@ -34,11 +35,15 @@ import {
 } from "./subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
 import { createServerLogger } from "./shared/infrastructure/observability/server-logger";
+import { FetchGitHubIssuePublisher } from "./siteping/infrastructure/github/github-issue-publisher";
+import { PostgresSitepingFeedbackRepository } from "./siteping/infrastructure/repositories/postgres-siteping-feedback-repository";
 
 type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
 type RequestModuleContextOverrides = {
   mercadoPagoWebhookVerified?: boolean;
   requestId?: string;
+  sitepingProjectAdmin?: boolean;
+  sitepingProjectName?: string | null;
 };
 
 /**
@@ -155,6 +160,12 @@ export async function createRequestModules(
     }),
     events: buildEventsModule({
       tribeEventRepository: new PostgresTribeEventRepository(
+        executeWithRequestContext
+      ),
+    }),
+    siteping: buildSitepingModule({
+      githubIssuePublisher: new FetchGitHubIssuePublisher(),
+      sitepingFeedbackRepository: new PostgresSitepingFeedbackRepository(
         executeWithRequestContext
       ),
     }),

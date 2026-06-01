@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import { Toaster } from "sonner";
 
+import { SitepingProvider } from "@/components/providers/siteping-provider";
+
 import styles from "./styles.module.scss";
 
 const APP_PROVIDERS_TOASTER = {
@@ -13,12 +15,17 @@ const APP_PROVIDERS_TOASTER = {
 
 type AppProvidersProps = {
   children: ReactNode;
+  isSitepingEnabled: boolean;
 };
 
-export function AppProviders({ children }: AppProvidersProps) {
+export function AppProviders({
+  children,
+  isSitepingEnabled,
+}: AppProvidersProps) {
   return (
     <div className={styles.AppProviders}>
       {children}
+      {isSitepingEnabled ? <SitepingProvider /> : null}
       <Toaster
         closeButton={APP_PROVIDERS_TOASTER.closeButton}
         position={APP_PROVIDERS_TOASTER.position}

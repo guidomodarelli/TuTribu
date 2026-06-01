@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  doublePrecision,
   foreignKey,
   index,
   integer,
@@ -665,4 +666,83 @@ export const subscriptionIdempotencyOperations = pgTable("subscription_idempoten
   operationKey: uniqueIndex("subscription_idempotency_operations_key").on(
     table.operationKey
   ),
+}));
+
+export const sitepingFeedbacks = pgTable("siteping_feedbacks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectName: text("project_name").notNull(),
+  type: text("type").notNull(),
+  message: text("message").notNull(),
+  status: text("status").notNull().default("open"),
+  url: text("url").notNull(),
+  urlPattern: text("url_pattern"),
+  screenshotUrl: text("screenshot_url"),
+  diagnostics: jsonb("diagnostics"),
+  viewport: text("viewport").notNull(),
+  userAgent: text("user_agent").notNull(),
+  authorName: text("author_name").notNull(),
+  authorEmail: text("author_email").notNull(),
+  clientId: text("client_id").notNull(),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  githubIssueStatus: text("github_issue_status").notNull().default("pending"),
+  githubIssueNumber: integer("github_issue_number"),
+  githubIssueUrl: text("github_issue_url"),
+  githubIssueError: text("github_issue_error"),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  projectCreatedByClientIdKey: uniqueIndex(
+    "siteping_feedbacks_project_created_by_client_id_key"
+  ).on(table.projectName, table.createdBy, table.clientId),
+  projectCreatedAtIndex: index("idx_siteping_feedbacks_project_created_at").on(
+    table.projectName,
+    table.createdAt
+  ),
+  projectStatusCreatedAtIndex: index("idx_siteping_feedbacks_project_status_created_at").on(
+    table.projectName,
+    table.status,
+    table.createdAt
+  ),
+  projectUrlIndex: index("idx_siteping_feedbacks_project_url").on(
+    table.projectName,
+    table.url
+  ),
+}));
+
+export const sitepingAnnotations = pgTable("siteping_annotations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  feedbackId: uuid("feedback_id")
+    .notNull()
+    .references(() => sitepingFeedbacks.id, { onDelete: "cascade" }),
+  cssSelector: text("css_selector").notNull(),
+  xpath: text("xpath").notNull(),
+  textSnippet: text("text_snippet").notNull(),
+  elementTag: text("element_tag").notNull(),
+  elementId: text("element_id"),
+  textPrefix: text("text_prefix").notNull(),
+  textSuffix: text("text_suffix").notNull(),
+  fingerprint: text("fingerprint").notNull(),
+  neighborText: text("neighbor_text").notNull(),
+  anchorKey: text("anchor_key"),
+  xPct: doublePrecision("x_pct").notNull(),
+  yPct: doublePrecision("y_pct").notNull(),
+  wPct: doublePrecision("w_pct").notNull(),
+  hPct: doublePrecision("h_pct").notNull(),
+  scrollX: doublePrecision("scroll_x").notNull(),
+  scrollY: doublePrecision("scroll_y").notNull(),
+  viewportW: integer("viewport_w").notNull(),
+  viewportH: integer("viewport_h").notNull(),
+  devicePixelRatio: doublePrecision("device_pixel_ratio").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  feedbackIndex: index("idx_siteping_annotations_feedback").on(table.feedbackId),
 }));
