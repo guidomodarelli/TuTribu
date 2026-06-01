@@ -51,6 +51,10 @@ const GITHUB_FETCH_RESILIENCE: FetchResilienceOptions = {
   timeoutMs: 3000,
 };
 
+const GITHUB_ISSUE_CREATION_FETCH_RESILIENCE: Partial<FetchResilienceOptions> = {
+  maxRetries: 0,
+};
+
 const REDACTION = {
   hiddenValue: "[redacted]",
   maxDiagnosticEntries: 5,
@@ -180,13 +184,18 @@ export class FetchGitHubIssuePublisher implements GitHubIssuePublisher {
     this.fetchResilienceOptions = fetchResilienceOptions;
   }
 
-  private fetchGitHub(input: string, init: RequestInit): Promise<HttpResponse> {
+  private fetchGitHub(
+    input: string,
+    init: RequestInit,
+    fetchResilienceOptions: Partial<FetchResilienceOptions> = {}
+  ): Promise<HttpResponse> {
     const githubFetch: HttpFetcher = (fetchInput, requestInit) =>
       fetch(fetchInput, requestInit);
 
     return fetchWithResilience(githubFetch, input, init, {
       ...GITHUB_FETCH_RESILIENCE,
       ...this.fetchResilienceOptions,
+      ...fetchResilienceOptions,
     });
   }
 
@@ -241,20 +250,24 @@ export class FetchGitHubIssuePublisher implements GitHubIssuePublisher {
       throw new Error("Siteping GitHub token is not configured.");
     }
 
-    const response = await this.fetchGitHub(buildIssueUrl(environment.githubRepository), {
-      body: JSON.stringify({
-        body: buildIssueBody(command),
-        labels: environment.githubLabels,
-        title: buildIssueTitle(command.feedback),
-      }),
-      headers: {
-        accept: GITHUB_API.accept,
-        authorization: `${GITHUB_API.tokenPrefix} ${environment.githubToken}`,
-        "content-type": GITHUB_API.contentType,
-        "x-github-api-version": GITHUB_API.apiVersion,
+    const response = await this.fetchGitHub(
+      buildIssueUrl(environment.githubRepository),
+      {
+        body: JSON.stringify({
+          body: buildIssueBody(command),
+          labels: environment.githubLabels,
+          title: buildIssueTitle(command.feedback),
+        }),
+        headers: {
+          accept: GITHUB_API.accept,
+          authorization: `${GITHUB_API.tokenPrefix} ${environment.githubToken}`,
+          "content-type": GITHUB_API.contentType,
+          "x-github-api-version": GITHUB_API.apiVersion,
+        },
+        method: "POST",
       },
-      method: "POST",
-    });
+      GITHUB_ISSUE_CREATION_FETCH_RESILIENCE
+    );
 
     if (!response.ok) {
       throw new Error(`GitHub issue creation failed with status ${response.status}.`);

@@ -146,6 +146,30 @@ describe("FetchGitHubIssuePublisher", () => {
     );
   });
 
+  it("does not retry retryable GitHub issue creation failures", async () => {
+    fetchMock.mockResolvedValue({
+      json: jest.fn(async () => ({})),
+      ok: false,
+      status: 502,
+    });
+    const publisher = new FetchGitHubIssuePublisher();
+
+    await expect(
+      publisher.publish({
+        feedback: buildFeedback(),
+        requestUrl: "https://tutribu.example.com/api/siteping",
+      })
+    ).rejects.toThrow("GitHub issue creation failed with status 502.");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.github.com/repos/guidomodarelli/LaTribu/issues",
+      expect.objectContaining({
+        method: "POST",
+      })
+    );
+  });
+
   it("closes and comments the GitHub issue linked to deleted feedback", async () => {
     const publisher = new FetchGitHubIssuePublisher();
 
