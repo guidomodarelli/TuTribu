@@ -91,5 +91,7 @@ export type SitepingFeedbackRepository = {
   remove(command: SitepingFeedbackProjectCommand): Promise<void>;
   removeAll(projectName: string): Promise<void>;
   restoreGitHubIssuePublished(command: RestoreGitHubIssuePublishedCommand): Promise<void>;
-  updateStatus(command: UpdateSitepingFeedbackStatusCommand): Promise<SitepingFeedback>;
+  updateStatus(
+    command: UpdateSitepingFeedbackStatusCommand
+  ): Promise<SitepingFeedback | null>;
 };

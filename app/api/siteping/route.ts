@@ -22,6 +22,7 @@ const SITEPING_ROUTE_RESPONSE = {
   forbiddenMessage: "No tenés permiso para usar SitePing.",
   invalidBodyMessage: "Revisá el feedback antes de enviarlo.",
   invalidQueryMessage: "Revisá los filtros de SitePing.",
+  notFoundMessage: "El feedback ya no está disponible.",
   okMessage: "OK",
   unauthorizedMessage: "Iniciá sesión para enviar feedback.",
   unexpectedMessage: "No pudimos procesar el feedback. Intentá de nuevo.",
@@ -42,6 +43,7 @@ const HTTP_STATUS = {
   badRequest: 400,
   created: 201,
   forbidden: 403,
+  notFound: 404,
   ok: 200,
   serverError: 500,
   unauthorized: 401,
@@ -447,6 +449,13 @@ export async function PATCH(request: Request) {
       projectName: identity.projectName,
       status: body.status,
     });
+
+    if (!feedback) {
+      return observation.createJsonResponse(
+        { message: SITEPING_ROUTE_RESPONSE.notFoundMessage },
+        HTTP_STATUS.notFound
+      );
+    }
 
     return observation.createJsonResponse(feedback, HTTP_STATUS.ok);
   } catch (error) {

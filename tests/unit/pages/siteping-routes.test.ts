@@ -396,6 +396,30 @@ describe("Siteping routes", () => {
     });
   });
 
+  it("returns not found when status update targets stale project feedback", async () => {
+    updateFeedbackStatus.mockResolvedValue(null);
+
+    const response = await PATCH(buildRequest({
+      id: "feedback-1",
+      projectName: "client-controlled-project",
+      status: SITEPING_FEEDBACK_STATUS.resolved,
+    }, "PATCH"));
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      message: "El feedback ya no está disponible.",
+    });
+    expect(createRequestModules).toHaveBeenLastCalledWith({
+      sitepingProjectAdmin: true,
+      sitepingProjectName: "tutribu",
+    });
+    expect(updateFeedbackStatus).toHaveBeenCalledWith({
+      feedbackId: "feedback-1",
+      projectName: "tutribu",
+      status: SITEPING_FEEDBACK_STATUS.resolved,
+    });
+  });
+
   it("deletes an individual feedback with Siteping project context", async () => {
     const response = await DELETE(buildRequest({
       id: "feedback-1",

@@ -423,7 +423,7 @@ describe("PostgresSitepingFeedbackRepository", () => {
       feedbackId: feedbackRows[0].id,
       projectName: "another-project",
       status: "resolved",
-    })).rejects.toThrow("Siteping feedback was not found for status update.");
+    })).resolves.toBeNull();
     expect(feedbackRows[0].status).toBe("open");
 
     await expect(repository.updateStatus({

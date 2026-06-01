@@ -490,7 +490,7 @@ export class PostgresSitepingFeedbackRepository
     feedbackId,
     projectName,
     status,
-  }: UpdateSitepingFeedbackStatusCommand): Promise<SitepingFeedback> {
+  }: UpdateSitepingFeedbackStatusCommand): Promise<SitepingFeedback | null> {
     return this.executeWithRequestContext(async (database) => {
       const resolvedAt = status === SITEPING_FEEDBACK_STATUS.resolved ? new Date() : null;
       const rows = await database.execute(sql`
@@ -505,7 +505,7 @@ export class PostgresSitepingFeedbackRepository
       const [feedbackRow] = rows.rows as FeedbackRow[];
 
       if (!feedbackRow) {
-        throw new Error("Siteping feedback was not found for status update.");
+        return null;
       }
 
       return mapFeedbackRow(

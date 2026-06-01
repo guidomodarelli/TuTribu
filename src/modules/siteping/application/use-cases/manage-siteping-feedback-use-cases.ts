@@ -317,8 +317,12 @@ export function updateSitepingFeedbackStatus({
 }) {
   return async (
     command: UpdateSitepingFeedbackStatusCommand
-  ): Promise<SitepingFeedbackResult> => {
+  ): Promise<SitepingFeedbackResult | null> => {
     const feedback = await sitepingFeedbackRepository.updateStatus(command);
+
+    if (!feedback) {
+      return null;
+    }
 
     return serializeSitepingFeedback(feedback);
   };

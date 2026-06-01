@@ -2,6 +2,7 @@ import {
   createSitepingFeedback,
   deleteSitepingFeedback,
   getSitepingIdentity,
+  updateSitepingFeedbackStatus,
 } from "@/src/modules/siteping/application/use-cases/manage-siteping-feedback-use-cases";
 import type { SitepingFeedbackRepository } from "@/src/modules/siteping/domain/repositories/siteping-feedback-repository";
 import type { GitHubIssuePublisher } from "@/src/modules/siteping/domain/repositories/github-issue-publisher";
@@ -614,6 +615,27 @@ describe("manage Siteping feedback use cases", () => {
     expect(repository.remove).not.toHaveBeenCalled();
     expect(repository.restoreGitHubIssuePublished).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
+    });
+  });
+
+  it("returns null when feedback status update finds no matching project feedback", async () => {
+    const repository = buildRepository({
+      updateStatus: jest.fn(async () => null),
+    });
+    const useCase = updateSitepingFeedbackStatus({
+      sitepingFeedbackRepository: repository,
+    });
+
+    await expect(useCase({
+      feedbackId: FEEDBACK_ID,
+      projectName: "another-project",
+      status: "resolved",
+    })).resolves.toBeNull();
+
+    expect(repository.updateStatus).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      projectName: "another-project",
+      status: "resolved",
     });
   });
 });
