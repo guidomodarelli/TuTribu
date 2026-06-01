@@ -15,6 +15,8 @@ export const SITEPING_FEEDBACK_STATUS = {
 } as const;
 
 export const SITEPING_FEEDBACK_GITHUB_STATUS = {
+  deletionCompleted: "deletion_completed",
+  deletionPending: "deletion_pending",
   failed: "failed",
   pending: "pending",
   published: "published",
@@ -23,4 +25,3 @@ export const SITEPING_FEEDBACK_GITHUB_STATUS = {
 
 export const SITEPING_API_ENDPOINT = "/api/siteping";
 export const SITEPING_IDENTITY_ENDPOINT = "/api/siteping/identity";
-

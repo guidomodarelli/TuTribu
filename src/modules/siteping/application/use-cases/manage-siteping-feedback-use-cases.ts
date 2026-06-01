@@ -3,7 +3,10 @@ import type {
   SitepingAnnotationCommand,
   SitepingFeedbackCommand,
 } from "@/src/modules/siteping/application/commands/siteping-feedback-command";
-import { SITEPING_PROJECT } from "@/src/modules/siteping/constants/siteping";
+import {
+  SITEPING_FEEDBACK_GITHUB_STATUS,
+  SITEPING_PROJECT,
+} from "@/src/modules/siteping/constants/siteping";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { isPrivilegedTribeMemberRole } from "@/src/modules/tribes/constants/tribe-member-role";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
@@ -309,10 +312,41 @@ export function deleteSitepingFeedback({
   return async (command: SitepingFeedbackProjectCommand): Promise<void> => {
     const feedback = await sitepingFeedbackRepository.findById(command);
 
-    if (feedback?.githubIssueNumber) {
-      await githubIssuePublisher.close({
+    if (!feedback) {
+      return;
+    }
+
+    if (
+      feedback.githubIssueStatus ===
+      SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted
+    ) {
+      await sitepingFeedbackRepository.remove(command);
+
+      return;
+    }
+
+    if (
+      feedback.githubIssueStatus !== SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending
+    ) {
+      await sitepingFeedbackRepository.markGitHubIssueDeletionPending(command);
+    }
+
+    if (feedback.githubIssueNumber) {
+      try {
+        await githubIssuePublisher.close({
+          feedbackId: feedback.id,
+          issueNumber: feedback.githubIssueNumber,
+        });
+      } catch (error) {
+        await sitepingFeedbackRepository.restoreGitHubIssuePublished({
+          feedbackId: feedback.id,
+        });
+
+        throw error;
+      }
+
+      await sitepingFeedbackRepository.markGitHubIssueDeletionCompleted({
         feedbackId: feedback.id,
-        issueNumber: feedback.githubIssueNumber,
       });
     }
 

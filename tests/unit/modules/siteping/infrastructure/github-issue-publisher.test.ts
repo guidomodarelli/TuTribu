@@ -194,6 +194,19 @@ describe("FetchGitHubIssuePublisher", () => {
   });
 
   it("closes and comments the GitHub issue linked to deleted feedback", async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        json: jest.fn(async () => ({})),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: jest.fn(async () => []),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: jest.fn(async () => ({})),
+        ok: true,
+      });
     const publisher = new FetchGitHubIssuePublisher();
 
     await publisher.close({
@@ -211,12 +224,50 @@ describe("FetchGitHubIssuePublisher", () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
+      "https://api.github.com/repos/guidomodarelli/LaTribu/issues/42/comments?per_page=100",
+      expect.objectContaining({
+        method: "GET",
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
       "https://api.github.com/repos/guidomodarelli/LaTribu/issues/42/comments",
       expect.objectContaining({
         body: JSON.stringify({
           body: "SitePing feedback feedback-1 was deleted from LaTribu.",
         }),
         method: "POST",
+      })
+    );
+  });
+
+  it("does not post another deletion comment when the feedback was already commented", async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        json: jest.fn(async () => ({})),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: jest.fn(async () => [
+          {
+            body: "SitePing feedback feedback-1 was deleted from LaTribu.",
+          },
+        ]),
+        ok: true,
+      });
+    const publisher = new FetchGitHubIssuePublisher();
+
+    await publisher.close({
+      feedbackId: "feedback-1",
+      issueNumber: 42,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.github.com/repos/guidomodarelli/LaTribu/issues/42/comments?per_page=100",
+      expect.objectContaining({
+        method: "GET",
       })
     );
   });

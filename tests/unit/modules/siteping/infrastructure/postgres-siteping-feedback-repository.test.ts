@@ -1,4 +1,5 @@
 import { PostgresSitepingFeedbackRepository } from "@/src/modules/siteping/infrastructure/repositories/postgres-siteping-feedback-repository";
+import { SITEPING_FEEDBACK_GITHUB_STATUS } from "@/src/modules/siteping/constants/siteping";
 import type { CreateSitepingFeedbackRecordCommand } from "@/src/modules/siteping/domain/repositories/siteping-feedback-repository";
 
 type QueryConfig = {
@@ -156,6 +157,36 @@ function createRepositoryHarness(options: RepositoryHarnessOptions = {}) {
     }
 
     if (operation === SQL_OPERATION.selectFeedback) {
+      if (query.sql.includes("order by created_at desc")) {
+        return {
+          rows: feedbackRows.filter(
+            (feedbackRow) =>
+              feedbackRow.project_name === query.params[0] &&
+              feedbackRow.github_issue_status !==
+                SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending &&
+              feedbackRow.github_issue_status !==
+                SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted
+          ),
+        };
+      }
+
+      if (query.sql.includes("select count(*)::int as total")) {
+        return {
+          rows: [
+            {
+              total: feedbackRows.filter(
+                (feedbackRow) =>
+                  feedbackRow.project_name === query.params[0] &&
+                  feedbackRow.github_issue_status !==
+                    SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending &&
+                  feedbackRow.github_issue_status !==
+                    SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted
+              ).length,
+            },
+          ],
+        };
+      }
+
       if (query.params.length === 2) {
         const [feedbackId, projectName] = query.params;
 
@@ -226,6 +257,26 @@ function createRepositoryHarness(options: RepositoryHarnessOptions = {}) {
     }
 
     if (operation === SQL_OPERATION.updateFeedback) {
+      if (query.sql.includes("github_issue_status")) {
+        const projectName = query.sql.includes("project_name")
+          ? query.params.at(-1)
+          : undefined;
+        const feedbackId = query.sql.includes("project_name")
+          ? query.params.at(-2)
+          : query.params.at(-1);
+        const feedbackRowsToUpdate = feedbackRows.filter(
+          (row) =>
+            row.id === feedbackId &&
+            (projectName === undefined || row.project_name === projectName)
+        );
+
+        feedbackRowsToUpdate.forEach((feedbackRow) => {
+          feedbackRow.github_issue_status = query.params[0] as string;
+        });
+
+        return { rows: feedbackRowsToUpdate };
+      }
+
       const [status, resolvedAt, feedbackId, projectName] = query.params;
       const feedbackRow = feedbackRows.find(
         (row) => row.id === feedbackId && row.project_name === projectName
@@ -383,6 +434,58 @@ describe("PostgresSitepingFeedbackRepository", () => {
       projectName: "tutribu",
       status: "resolved",
     });
+  });
+
+  it("hides feedback marked for deletion from paginated lists", async () => {
+    const { feedbackRows, repository } = createRepositoryHarness();
+
+    await repository.create(createFeedbackCommand());
+    await repository.create(createFeedbackCommand({
+      clientId: "client-feedback-2",
+    }));
+    feedbackRows[1].github_issue_status =
+      SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending;
+
+    await expect(repository.findPage({
+      projectName: "tutribu",
+    })).resolves.toMatchObject({
+      feedbacks: [
+        {
+          clientId: "client-feedback-1",
+        },
+      ],
+      total: 1,
+    });
+  });
+
+  it("persists durable GitHub deletion states", async () => {
+    const { feedbackRows, repository } = createRepositoryHarness();
+
+    await repository.create(createFeedbackCommand());
+    await repository.markGitHubIssueDeletionPending({
+      feedbackId: feedbackRows[0].id,
+      projectName: "tutribu",
+    });
+
+    expect(feedbackRows[0].github_issue_status).toBe(
+      SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending
+    );
+
+    await repository.markGitHubIssueDeletionCompleted({
+      feedbackId: feedbackRows[0].id,
+    });
+
+    expect(feedbackRows[0].github_issue_status).toBe(
+      SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted
+    );
+
+    await repository.restoreGitHubIssuePublished({
+      feedbackId: feedbackRows[0].id,
+    });
+
+    expect(feedbackRows[0].github_issue_status).toBe(
+      SITEPING_FEEDBACK_GITHUB_STATUS.published
+    );
   });
 
   it("removes feedback only inside the requested Siteping project", async () => {

@@ -157,10 +157,13 @@ function buildRepository(
       viewport: "1280x800",
     })),
     findPage: jest.fn(),
+    markGitHubIssueDeletionCompleted: jest.fn(),
+    markGitHubIssueDeletionPending: jest.fn(),
     markGitHubIssueFailed: jest.fn(),
     markGitHubIssuePublished: jest.fn(),
     remove: jest.fn(),
     removeAll: jest.fn(),
+    restoreGitHubIssuePublished: jest.fn(),
     updateStatus: jest.fn(),
     ...overrides,
   };
@@ -463,7 +466,7 @@ describe("manage Siteping feedback use cases", () => {
     expect(repository.markGitHubIssueFailed).not.toHaveBeenCalled();
   });
 
-  it("closes the linked GitHub issue before deleting an individual feedback", async () => {
+  it("marks deletion as pending before closing the linked GitHub issue", async () => {
     const repository = buildRepository();
     const publisher = buildPublisher();
     const useCase = deleteSitepingFeedback({
@@ -484,6 +487,66 @@ describe("manage Siteping feedback use cases", () => {
       feedbackId: FEEDBACK_ID,
       issueNumber: 42,
     });
+    expect(repository.markGitHubIssueDeletionPending).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+    expect(repository.markGitHubIssueDeletionCompleted).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+    });
+    expect(repository.remove).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+    expect(
+      (repository.markGitHubIssueDeletionPending as jest.Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan((publisher.close as jest.Mock).mock.invocationCallOrder[0]);
+    expect((publisher.close as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (repository.remove as jest.Mock).mock.invocationCallOrder[0]
+    );
+  });
+
+  it("removes completed deletion feedback without closing the GitHub issue again", async () => {
+    const repository = buildRepository({
+      findById: jest.fn(async () => ({
+        annotations: [],
+        authorEmail: "leader@example.com",
+        authorName: "Leader Example",
+        clientId: "client-feedback-1",
+        createdAt: new Date("2026-05-31T12:00:00.000Z"),
+        createdBy: "member-1",
+        diagnostics: null,
+        githubIssueNumber: 42,
+        githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted,
+        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        id: FEEDBACK_ID,
+        message: "No puedo guardar el precio",
+        projectName: "tutribu",
+        resolvedAt: null,
+        screenshotUrl: null,
+        status: "open",
+        type: SITEPING_FEEDBACK_TYPE.bug,
+        updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+        url: "https://tutribu.example.com/matematica/precios",
+        urlPattern: "/[slug]/precios",
+        userAgent: "Jest Browser",
+        viewport: "1280x800",
+      })),
+    });
+    const publisher = buildPublisher();
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: publisher,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+
+    expect(publisher.close).not.toHaveBeenCalled();
+    expect(repository.markGitHubIssueDeletionPending).not.toHaveBeenCalled();
+    expect(repository.markGitHubIssueDeletionCompleted).not.toHaveBeenCalled();
     expect(repository.remove).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
       projectName: "tutribu",
@@ -508,5 +571,8 @@ describe("manage Siteping feedback use cases", () => {
     })).rejects.toThrow("github_close_failed");
 
     expect(repository.remove).not.toHaveBeenCalled();
+    expect(repository.restoreGitHubIssuePublished).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+    });
   });
 });

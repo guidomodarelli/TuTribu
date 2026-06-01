@@ -21,6 +21,7 @@ const GITHUB_API = {
   commentPath: "comments",
   contentType: "application/json",
   issuePath: "issues",
+  maxCommentsPerPage: 100,
   tokenPrefix: "Bearer",
 } as const;
 
@@ -178,6 +179,14 @@ function buildIssueCommentUrl(repository: string, issueNumber: number): string {
   return `${buildIssueResourceUrl(repository, issueNumber)}/${GITHUB_API.commentPath}`;
 }
 
+function buildIssueCommentListUrl(repository: string, issueNumber: number): string {
+  const commentsUrl = new URL(buildIssueCommentUrl(repository, issueNumber));
+
+  commentsUrl.searchParams.set("per_page", String(GITHUB_API.maxCommentsPerPage));
+
+  return commentsUrl.toString();
+}
+
 function buildDeletedFeedbackComment(feedbackId: string): string {
   return GITHUB_ISSUE_COMMENT.deletedFeedback.replace("{feedbackId}", feedbackId);
 }
@@ -191,6 +200,18 @@ function isIssueResponse(value: unknown): value is {
     typeof value === "object" &&
     typeof (value as { html_url?: unknown }).html_url === "string" &&
     typeof (value as { number?: unknown }).number === "number"
+  );
+}
+
+function isIssueCommentListResponse(value: unknown): value is Array<{ body: string }> {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (comment) =>
+        Boolean(comment) &&
+        typeof comment === "object" &&
+        typeof (comment as { body?: unknown }).body === "string"
+    )
   );
 }
 
@@ -242,11 +263,36 @@ export class FetchGitHubIssuePublisher implements GitHubIssuePublisher {
       throw new Error(`GitHub issue close failed with status ${closeResponse.status}.`);
     }
 
+    const deletedFeedbackComment = buildDeletedFeedbackComment(command.feedbackId);
+    const commentListResponse = await this.fetchGitHub(
+      buildIssueCommentListUrl(environment.githubRepository, command.issueNumber),
+      {
+        headers: commonHeaders,
+        method: "GET",
+      }
+    );
+
+    if (!commentListResponse.ok) {
+      throw new Error(
+        `GitHub issue comments lookup failed with status ${commentListResponse.status}.`
+      );
+    }
+
+    const commentListPayload: unknown = await commentListResponse.json();
+
+    if (!isIssueCommentListResponse(commentListPayload)) {
+      throw new Error("GitHub issue comments lookup returned an invalid response.");
+    }
+
+    if (commentListPayload.some((comment) => comment.body === deletedFeedbackComment)) {
+      return;
+    }
+
     const commentResponse = await this.fetchGitHub(
       buildIssueCommentUrl(environment.githubRepository, command.issueNumber),
       {
         body: JSON.stringify({
-          body: buildDeletedFeedbackComment(command.feedbackId),
+          body: deletedFeedbackComment,
         }),
         headers: commonHeaders,
         method: "POST",

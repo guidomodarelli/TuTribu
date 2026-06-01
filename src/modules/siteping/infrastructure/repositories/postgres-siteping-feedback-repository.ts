@@ -7,8 +7,10 @@ import {
 import type {
   CreateSitepingFeedbackRecordCommand,
   CreateSitepingFeedbackRecordResult,
+  MarkGitHubIssueDeletionCompletedCommand,
   MarkGitHubIssueFailedCommand,
   MarkGitHubIssuePublishedCommand,
+  RestoreGitHubIssuePublishedCommand,
   SitepingAnnotation,
   SitepingFeedback,
   SitepingFeedbackPage,
@@ -348,6 +350,8 @@ export class PostgresSitepingFeedbackRepository
         where project_name = ${query.projectName}
           and (${query.type ?? null}::text is null or type = ${query.type ?? null})
           and (${query.status ?? null}::text is null or status = ${query.status ?? null})
+          and github_issue_status <> ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending}
+          and github_issue_status <> ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted}
           and (${query.url ?? null}::text is null or url = ${query.url ?? null})
           and (${query.urlPattern ?? null}::text is null or url_pattern = ${query.urlPattern ?? null})
           and (${query.search ?? null}::text is null or message ilike '%' || ${query.search ?? null} || '%')
@@ -361,6 +365,8 @@ export class PostgresSitepingFeedbackRepository
         where project_name = ${query.projectName}
           and (${query.type ?? null}::text is null or type = ${query.type ?? null})
           and (${query.status ?? null}::text is null or status = ${query.status ?? null})
+          and github_issue_status <> ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending}
+          and github_issue_status <> ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted}
           and (${query.url ?? null}::text is null or url = ${query.url ?? null})
           and (${query.urlPattern ?? null}::text is null or url_pattern = ${query.urlPattern ?? null})
           and (${query.search ?? null}::text is null or message ilike '%' || ${query.search ?? null} || '%')
@@ -397,6 +403,36 @@ export class PostgresSitepingFeedbackRepository
     });
   }
 
+  async markGitHubIssueDeletionPending({
+    feedbackId,
+    projectName,
+  }: SitepingFeedbackProjectCommand): Promise<void> {
+    await this.executeWithRequestContext(async (database) => {
+      await database.execute(sql`
+        update public.siteping_feedbacks
+        set github_issue_status = ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending},
+            github_issue_error = null,
+            updated_at = timezone('utc', now())
+        where id = ${feedbackId}
+          and project_name = ${projectName}
+      `);
+    });
+  }
+
+  async markGitHubIssueDeletionCompleted({
+    feedbackId,
+  }: MarkGitHubIssueDeletionCompletedCommand): Promise<void> {
+    await this.executeWithRequestContext(async (database) => {
+      await database.execute(sql`
+        update public.siteping_feedbacks
+        set github_issue_status = ${SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted},
+            github_issue_error = null,
+            updated_at = timezone('utc', now())
+        where id = ${feedbackId}
+      `);
+    });
+  }
+
   async markGitHubIssuePublished({
     feedbackId,
     issueNumber,
@@ -409,6 +445,19 @@ export class PostgresSitepingFeedbackRepository
             github_issue_number = ${issueNumber},
             github_issue_url = ${issueUrl},
             github_issue_error = null,
+            updated_at = timezone('utc', now())
+        where id = ${feedbackId}
+      `);
+    });
+  }
+
+  async restoreGitHubIssuePublished({
+    feedbackId,
+  }: RestoreGitHubIssuePublishedCommand): Promise<void> {
+    await this.executeWithRequestContext(async (database) => {
+      await database.execute(sql`
+        update public.siteping_feedbacks
+        set github_issue_status = ${SITEPING_FEEDBACK_GITHUB_STATUS.published},
             updated_at = timezone('utc', now())
         where id = ${feedbackId}
       `);

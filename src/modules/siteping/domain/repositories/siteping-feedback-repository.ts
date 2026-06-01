@@ -68,15 +68,28 @@ export type MarkGitHubIssueFailedCommand = {
   feedbackId: string;
 };
 
+export type MarkGitHubIssueDeletionCompletedCommand = {
+  feedbackId: string;
+};
+
+export type RestoreGitHubIssuePublishedCommand = {
+  feedbackId: string;
+};
+
 export type SitepingFeedbackRepository = {
   create(
     command: CreateSitepingFeedbackRecordCommand
   ): Promise<CreateSitepingFeedbackRecordResult>;
   findById(command: SitepingFeedbackProjectCommand): Promise<SitepingFeedback | null>;
   findPage(query: SitepingFeedbackQuery): Promise<SitepingFeedbackPage>;
+  markGitHubIssueDeletionCompleted(
+    command: MarkGitHubIssueDeletionCompletedCommand
+  ): Promise<void>;
+  markGitHubIssueDeletionPending(command: SitepingFeedbackProjectCommand): Promise<void>;
   markGitHubIssueFailed(command: MarkGitHubIssueFailedCommand): Promise<void>;
   markGitHubIssuePublished(command: MarkGitHubIssuePublishedCommand): Promise<void>;
   remove(command: SitepingFeedbackProjectCommand): Promise<void>;
   removeAll(projectName: string): Promise<void>;
+  restoreGitHubIssuePublished(command: RestoreGitHubIssuePublishedCommand): Promise<void>;
   updateStatus(command: UpdateSitepingFeedbackStatusCommand): Promise<SitepingFeedback>;
 };
