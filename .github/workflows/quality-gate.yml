@@ -25,4 +25,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run quality gate
+        env:
+          BETTER_AUTH_SECRET: github-actions-build-secret-with-32-characters
+          BETTER_AUTH_URL: http://localhost:3000
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/tutribu
+          GOOGLE_CLIENT_ID: github-actions-google-client-id
+          GOOGLE_CLIENT_SECRET: github-actions-google-client-secret
         run: pnpm run ci

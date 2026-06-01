@@ -61,7 +61,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `npm run upload:cloudflare` | Build and upload a new Cloudflare Workers version without deploying it. |
 | `npm run cf-typegen` | Generate Cloudflare binding types from `wrangler.jsonc`. |
 | `npm start` | Run the production build locally. |
-| `npm run ci` | Run the GitHub Actions quality gate: lint, typecheck, and Jest. |
+| `pnpm run ci` | Run the GitHub Actions quality gate: lint, typecheck, Jest, and Next.js build. |
 | `npm run lint` | Run ESLint across the repo. |
 | `npm run typecheck` | Run `tsc --noEmit` over production code. |
 | `npm test` | Run Jest unit and integration tests. |
@@ -164,7 +164,7 @@ npm run lint
 
 ## Deployment targets
 
-GitHub Actions runs `npm run ci` on push and pull request as the deterministic quality gate. Vercel remains the default Next.js deployment target and continues to use `npm run build` with deployment environment variables available.
+GitHub Actions runs `pnpm run ci` on push and pull request as the deterministic quality gate, including `next build` with non-sensitive build-time placeholders for server-only configuration. Vercel remains the default Next.js deployment target and continues to use `pnpm run build` with deployment environment variables available.
 
 Cloudflare Workers is supported through `@opennextjs/cloudflare` and `wrangler.jsonc`. Use the Cloudflare-specific scripts instead of invoking `wrangler` directly for the Next.js app:
 
