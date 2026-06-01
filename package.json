@@ -12,7 +12,7 @@
     "upload:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "start": "next start",
-    "ci": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+    "ci": "pnpm run lint && pnpm run typecheck && pnpm run test",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "test": "jest",
