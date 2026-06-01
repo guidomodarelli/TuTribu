@@ -102,6 +102,8 @@ describe("PostgresMessageMutationRepository", () => {
         likeCount: 0,
         pinnedAt: null,
         poll: null,
+        replyAuthorsPreview: [],
+        replyCount: 0,
         permissions: {
           canDelete: true,
           canEdit: true,
