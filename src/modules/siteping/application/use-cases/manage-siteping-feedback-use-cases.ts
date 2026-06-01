@@ -35,6 +35,20 @@ const SITEPING_ERROR_MESSAGE = {
   unknownGitHubFailure: "Unknown GitHub issue publication failure",
 } as const;
 
+const SAFE_HTTP_METHODS = new Set([
+  "CONNECT",
+  "DELETE",
+  "GET",
+  "HEAD",
+  "OPTIONS",
+  "PATCH",
+  "POST",
+  "PUT",
+  "TRACE",
+]);
+
+const SAFE_DIAGNOSTIC_FALLBACK = "[redacted]";
+
 type CreateSitepingFeedbackDependencies = {
   githubIssuePublisher: GitHubIssuePublisher;
   sitepingFeedbackRepository: SitepingFeedbackRepository;
@@ -81,12 +95,20 @@ function sanitizeConsoleDiagnosticEntry(
   };
 }
 
+function sanitizeNetworkDiagnosticMethod(method: string): string {
+  const normalizedMethod = method.trim().toUpperCase();
+
+  return SAFE_HTTP_METHODS.has(normalizedMethod)
+    ? normalizedMethod
+    : SAFE_DIAGNOSTIC_FALLBACK;
+}
+
 function sanitizeNetworkDiagnosticEntry(
   entry: SitepingNetworkDiagnosticEntry
 ): SitepingNetworkDiagnosticEntry {
   return {
     durationMs: entry.durationMs,
-    method: entry.method,
+    method: sanitizeNetworkDiagnosticMethod(entry.method),
     status: entry.status,
     timestamp: entry.timestamp,
     url: redactSitepingSensitiveText(entry.url),

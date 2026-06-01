@@ -315,6 +315,47 @@ describe("manage Siteping feedback use cases", () => {
     });
   });
 
+  it("clamps untrusted network diagnostic methods before persisting feedback", async () => {
+    const repository = buildRepository();
+    const publisher = buildPublisher();
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: publisher,
+      sitepingFeedbackRepository: repository,
+    });
+    const command = buildFeedbackCommand();
+
+    command.diagnostics.network[0].method = "POST access_token=secret";
+
+    await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command,
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        diagnostics: expect.objectContaining({
+          network: [
+            expect.objectContaining({
+              method: "[redacted]",
+            }),
+          ],
+        }),
+      })
+    );
+    expect(repository.create).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        diagnostics: expect.objectContaining({
+          network: [
+            expect.objectContaining({
+              method: expect.stringContaining("secret"),
+            }),
+          ],
+        }),
+      })
+    );
+  });
+
   it("drops untrusted diagnostic fields before persisting feedback", async () => {
     const repository = buildRepository();
     const publisher = buildPublisher();
