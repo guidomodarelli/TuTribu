@@ -38,6 +38,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">01</div>
   <div class="section-title">Decision vigente</div>
   <p>LaTribu usa <code>@siteping/widget</code> para la experiencia visual, pero no usa Prisma ni el CLI de SitePing. El backend vive en <code>src/modules/siteping</code> para mantener Drizzle, Neon Postgres, Better Auth y la arquitectura hexagonal del repo.</p>
+  <p>El paquete del widget se instala desde el registry de npm. Si el paquete requiere autenticacion, GitHub Actions debe exponer un secret <code>NPM_TOKEN</code> con acceso de lectura para que <code>pnpm install --frozen-lockfile</code> pueda resolver la dependencia antes de ejecutar el gate.</p>
   <p>El endpoint principal es <code>/api/siteping</code>. La identidad y el permiso del widget se resuelven en <code>/api/siteping/identity</code>.</p>
   <p>Los contratos de dominio y aplicacion son propios de LaTribu. Los DTOs de <code>@siteping/widget</code> solo pueden aparecer en el borde visual o de entrada HTTP, y deben mapearse a tipos internos antes de cruzar hacia <code>application</code> o <code>domain</code>.</p>
   <div class="divider"></div>

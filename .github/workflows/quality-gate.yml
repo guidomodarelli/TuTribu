@@ -17,11 +17,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+          registry-url: https://registry.npmjs.org
+          scope: "@siteping"
 
       - name: Enable Corepack
         run: corepack enable
 
       - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm install --frozen-lockfile
 
       - name: Run quality gate
