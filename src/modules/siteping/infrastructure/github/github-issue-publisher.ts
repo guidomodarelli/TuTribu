@@ -37,6 +37,12 @@ const GITHUB_ISSUE_COPY = {
   widgetDeepLink: "Widget deep link",
 } as const;
 
+const GITHUB_ISSUE_TITLE = {
+  maxLength: 256,
+  separator: " ",
+  truncationSuffix: "...",
+} as const;
+
 const GITHUB_ISSUE_STATE = {
   closed: "closed",
 } as const;
@@ -145,8 +151,36 @@ function buildIssueBody(command: PublishGitHubIssueCommand): string {
   ].join("\n\n");
 }
 
+/**
+ * Truncates a feedback message so the full prefixed GitHub issue title stays valid.
+ *
+ * @param value - Redacted feedback message used as the title-specific summary.
+ * @returns Message summary that leaves room for the SitePing prefix and separator.
+ */
+function truncateIssueTitleMessage(value: string): string {
+  const maxTitleMessageLength =
+    GITHUB_ISSUE_TITLE.maxLength -
+    GITHUB_ISSUE_COPY.titlePrefix.length -
+    GITHUB_ISSUE_TITLE.separator.length;
+
+  if (value.length <= maxTitleMessageLength) {
+    return value;
+  }
+
+  return `${value.slice(
+    0,
+    maxTitleMessageLength - GITHUB_ISSUE_TITLE.truncationSuffix.length
+  )}${GITHUB_ISSUE_TITLE.truncationSuffix}`;
+}
+
+/**
+ * Builds a GitHub issue title within the provider title-length limit.
+ *
+ * @param feedback - Persisted SitePing feedback used to derive the title.
+ * @returns GitHub issue title with a SitePing prefix and redacted message summary.
+ */
 function buildIssueTitle(feedback: SitepingFeedback): string {
-  return `${GITHUB_ISSUE_COPY.titlePrefix} ${truncateText(redactText(feedback.message))}`;
+  return `${GITHUB_ISSUE_COPY.titlePrefix}${GITHUB_ISSUE_TITLE.separator}${truncateIssueTitleMessage(redactText(feedback.message))}`;
 }
 
 function buildIssueUrl(repository: string): string {

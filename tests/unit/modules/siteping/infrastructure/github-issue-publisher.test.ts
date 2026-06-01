@@ -7,6 +7,8 @@ import {
 import type { SitepingFeedback } from "@/src/modules/siteping/domain/repositories/siteping-feedback-repository";
 
 const fetchMock = jest.fn();
+const GITHUB_ISSUE_TITLE_MAX_LENGTH = 256;
+const SITEPING_TITLE_PREFIX = "[SitePing]";
 
 function buildFeedback(overrides: Partial<SitepingFeedback> = {}): SitepingFeedback {
   return {
@@ -114,6 +116,26 @@ describe("FetchGitHubIssuePublisher", () => {
     expect(requestBody.body).toContain(
       "https://tutribu.example.com/matematica/precios?siteping=feedback-1"
     );
+  });
+
+  it("truncates the GitHub issue title without truncating the feedback body message", async () => {
+    const longFeedbackMessage = "a".repeat(GITHUB_ISSUE_TITLE_MAX_LENGTH);
+    const publisher = new FetchGitHubIssuePublisher();
+
+    await publisher.publish({
+      feedback: buildFeedback({ message: longFeedbackMessage }),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      body: string;
+      title: string;
+    };
+
+    expect(requestBody.title).toHaveLength(GITHUB_ISSUE_TITLE_MAX_LENGTH);
+    expect(requestBody.title.startsWith(SITEPING_TITLE_PREFIX)).toBe(true);
+    expect(requestBody.title).toContain("...");
+    expect(requestBody.body).toContain(longFeedbackMessage);
   });
 
   it("bounds stalled GitHub issue publication with the resilience timeout", async () => {
