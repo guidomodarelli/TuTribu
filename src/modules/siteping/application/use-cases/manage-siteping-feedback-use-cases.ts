@@ -136,6 +136,10 @@ function serializeAnnotation(annotation: SitepingAnnotation) {
   return {
     ...annotation,
     createdAt: serializeDate(annotation.createdAt),
+    neighborText: redactSitepingSensitiveText(annotation.neighborText),
+    textPrefix: redactSitepingSensitiveText(annotation.textPrefix),
+    textSnippet: redactSitepingSensitiveText(annotation.textSnippet),
+    textSuffix: redactSitepingSensitiveText(annotation.textSuffix),
   };
 }
 
@@ -172,12 +176,12 @@ function flattenAnnotation(annotation: SitepingAnnotationCommand) {
     elementTag: annotation.anchor.elementTag,
     fingerprint: annotation.anchor.fingerprint,
     hPct: annotation.rect.hPct,
-    neighborText: annotation.anchor.neighborText,
+    neighborText: redactSitepingSensitiveText(annotation.anchor.neighborText),
     scrollX: annotation.scrollX,
     scrollY: annotation.scrollY,
-    textPrefix: annotation.anchor.textPrefix,
-    textSnippet: annotation.anchor.textSnippet,
-    textSuffix: annotation.anchor.textSuffix,
+    textPrefix: redactSitepingSensitiveText(annotation.anchor.textPrefix),
+    textSnippet: redactSitepingSensitiveText(annotation.anchor.textSnippet),
+    textSuffix: redactSitepingSensitiveText(annotation.anchor.textSuffix),
     viewportH: annotation.viewportH,
     viewportW: annotation.viewportW,
     wPct: annotation.rect.wPct,

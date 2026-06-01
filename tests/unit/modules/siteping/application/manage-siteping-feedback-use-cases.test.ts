@@ -2,6 +2,7 @@ import {
   createSitepingFeedback,
   deleteSitepingFeedback,
   getSitepingIdentity,
+  listSitepingFeedback,
   updateSitepingFeedbackStatus,
 } from "@/src/modules/siteping/application/use-cases/manage-siteping-feedback-use-cases";
 import type { SitepingFeedbackRepository } from "@/src/modules/siteping/domain/repositories/siteping-feedback-repository";
@@ -355,6 +356,133 @@ describe("manage Siteping feedback use cases", () => {
         }),
       })
     );
+  });
+
+  it("redacts sensitive annotation text before persisting feedback", async () => {
+    const repository = buildRepository();
+    const publisher = buildPublisher();
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: publisher,
+      sitepingFeedbackRepository: repository,
+    });
+    const command = buildFeedbackCommand();
+
+    command.annotations[0].anchor.neighborText =
+      "Plan premium password=visible-secret";
+    command.annotations[0].anchor.textPrefix =
+      "Session starts Cookie: sid=visible-secret token=visible-secret";
+    command.annotations[0].anchor.textSnippet =
+      "Reset password token=visible-secret";
+    command.annotations[0].anchor.textSuffix =
+      'Payload {"refresh_token":"visible-secret","cookie":"visible-secret"}';
+
+    await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command,
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        annotations: [
+          expect.objectContaining({
+            neighborText: "Plan premium password=[redacted]",
+            textPrefix: "Session starts Cookie: [redacted]",
+            textSnippet: "Reset password token=[redacted]",
+            textSuffix:
+              'Payload {"refresh_token":"[redacted]","cookie":"[redacted]"}',
+          }),
+        ],
+      })
+    );
+    expect(repository.create).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        annotations: [
+          expect.objectContaining({
+            textSnippet: expect.stringContaining("visible-secret"),
+          }),
+        ],
+      })
+    );
+  });
+
+  it("redacts sensitive persisted annotation text before returning feedback lists", async () => {
+    const repository = buildRepository({
+      findPage: jest.fn(async () => ({
+        feedbacks: [
+          {
+            annotations: [
+              {
+                anchorKey: null,
+                createdAt: new Date("2026-05-31T12:00:00.000Z"),
+                cssSelector: "[data-feedback-anchor='pricing']",
+                devicePixelRatio: 1,
+                elementId: "pricing",
+                elementTag: "SECTION",
+                feedbackId: FEEDBACK_ID,
+                fingerprint: "1:0:abc",
+                hPct: 0.2,
+                id: "annotation-1",
+                neighborText: "Plan premium password=visible-secret",
+                scrollX: 0,
+                scrollY: 120,
+                textPrefix: "Session starts Cookie: sid=visible-secret",
+                textSnippet: "Reset password token=visible-secret",
+                textSuffix:
+                  'Payload {"refresh_token":"visible-secret","cookie":"visible-secret"}',
+                viewportH: 800,
+                viewportW: 1280,
+                wPct: 0.3,
+                xpath: "/html/body/section[1]",
+                xPct: 0.1,
+                yPct: 0.4,
+              },
+            ],
+            authorEmail: "leader@example.com",
+            authorName: "Leader Example",
+            clientId: "client-feedback-1",
+            createdAt: new Date("2026-05-31T12:00:00.000Z"),
+            createdBy: "member-1",
+            diagnostics: null,
+            githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
+            id: FEEDBACK_ID,
+            message: "No puedo guardar el precio",
+            projectName: "tutribu",
+            resolvedAt: null,
+            screenshotUrl: null,
+            status: "open",
+            type: SITEPING_FEEDBACK_TYPE.bug,
+            updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+            url: "https://tutribu.example.com/matematica/precios",
+            urlPattern: "/[slug]/precios",
+            userAgent: "Jest Browser",
+            viewport: "1280x800",
+          },
+        ],
+        total: 1,
+      })),
+    });
+    const useCase = listSitepingFeedback({
+      sitepingFeedbackRepository: repository,
+    });
+
+    const result = await useCase({
+      limit: 20,
+      offset: 0,
+      projectName: "tutribu",
+      status: "open",
+    });
+
+    expect(result.feedbacks[0].annotations[0]).toEqual(
+      expect.objectContaining({
+        neighborText: "Plan premium password=[redacted]",
+        textPrefix: "Session starts Cookie: [redacted]",
+        textSnippet: "Reset password token=[redacted]",
+        textSuffix:
+          'Payload {"refresh_token":"[redacted]","cookie":"[redacted]"}',
+      })
+    );
+    expect(JSON.stringify(result)).not.toContain("visible-secret");
   });
 
   it("drops untrusted diagnostic fields before persisting feedback", async () => {

@@ -69,7 +69,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <li>En los diagnosticos de red, <code>method</code> se limita a verbos HTTP conocidos y cualquier valor desconocido se reemplaza por <code>[redacted]</code> antes de persistirse.</li>
     <li><code>enableScreenshot</code> queda en <code>false</code>. Si llega <code>screenshotDataUrl</code>, se ignora y no se persiste.</li>
   </ul>
-  <div class="callout c-info"><strong>Privacidad:</strong> los diagnosticos pueden contener datos sensibles si el frontend los loguea. Por eso se redactan cookies, tokens, secretos y parametros sensibles antes de persistirlos o publicarlos en GitHub.</div>
+  <div class="callout c-info"><strong>Privacidad:</strong> los diagnosticos y las anclas DOM pueden contener datos sensibles si el frontend captura texto cercano a tokens, cookies o secretos. Por eso se redactan cookies, tokens, secretos y parametros sensibles en mensajes, diagnosticos, URL, user agent y texto de anotaciones antes de persistirlos o publicarlos en GitHub.</div>
   <div class="divider"></div>
 </div>
 
