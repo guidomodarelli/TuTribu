@@ -422,6 +422,7 @@ export async function PATCH(request: Request) {
     const projectModules = await createSitepingProjectModules(identity.projectName);
     const feedback = await projectModules.siteping.useCases.updateFeedbackStatus({
       feedbackId: readRequiredText(body.id) as string,
+      projectName: identity.projectName,
       status: body.status,
     });
 
@@ -489,7 +490,10 @@ export async function DELETE(request: Request) {
 
     const projectModules = await createSitepingProjectModules(identity.projectName);
 
-    await projectModules.siteping.useCases.deleteFeedback(feedbackId);
+    await projectModules.siteping.useCases.deleteFeedback({
+      feedbackId,
+      projectName: identity.projectName,
+    });
 
     return observation.createJsonResponse(
       { message: SITEPING_ROUTE_RESPONSE.okMessage },

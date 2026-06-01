@@ -12,6 +12,7 @@ import type { GitHubIssuePublisher } from "@/src/modules/siteping/domain/reposit
 import type {
   SitepingAnnotation,
   SitepingFeedback,
+  SitepingFeedbackProjectCommand,
   SitepingFeedbackQuery,
   SitepingFeedbackRepository,
   UpdateSitepingFeedbackStatusCommand,
@@ -332,8 +333,8 @@ export function deleteSitepingFeedback({
   githubIssuePublisher: GitHubIssuePublisher;
   sitepingFeedbackRepository: SitepingFeedbackRepository;
 }) {
-  return async (feedbackId: string): Promise<void> => {
-    const feedback = await sitepingFeedbackRepository.findById(feedbackId);
+  return async (command: SitepingFeedbackProjectCommand): Promise<void> => {
+    const feedback = await sitepingFeedbackRepository.findById(command);
 
     if (feedback?.githubIssueNumber) {
       await githubIssuePublisher.close({
@@ -342,7 +343,7 @@ export function deleteSitepingFeedback({
       });
     }
 
-    await sitepingFeedbackRepository.remove(feedbackId);
+    await sitepingFeedbackRepository.remove(command);
   };
 }
 

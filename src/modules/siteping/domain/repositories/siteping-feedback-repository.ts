@@ -99,7 +99,13 @@ export type SitepingFeedbackPage = {
 
 export type UpdateSitepingFeedbackStatusCommand = {
   feedbackId: string;
+  projectName: string;
   status: FeedbackStatus;
+};
+
+export type SitepingFeedbackProjectCommand = {
+  feedbackId: string;
+  projectName: string;
 };
 
 export type MarkGitHubIssuePublishedCommand = {
@@ -117,11 +123,11 @@ export type SitepingFeedbackRepository = {
   create(
     command: CreateSitepingFeedbackRecordCommand
   ): Promise<CreateSitepingFeedbackRecordResult>;
-  findById(feedbackId: string): Promise<SitepingFeedback | null>;
+  findById(command: SitepingFeedbackProjectCommand): Promise<SitepingFeedback | null>;
   findPage(query: SitepingFeedbackQuery): Promise<SitepingFeedbackPage>;
   markGitHubIssueFailed(command: MarkGitHubIssueFailedCommand): Promise<void>;
   markGitHubIssuePublished(command: MarkGitHubIssuePublishedCommand): Promise<void>;
-  remove(feedbackId: string): Promise<void>;
+  remove(command: SitepingFeedbackProjectCommand): Promise<void>;
   removeAll(projectName: string): Promise<void>;
   updateStatus(command: UpdateSitepingFeedbackStatusCommand): Promise<SitepingFeedback>;
 };

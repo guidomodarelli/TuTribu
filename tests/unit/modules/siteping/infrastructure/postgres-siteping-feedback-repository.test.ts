@@ -44,10 +44,12 @@ const QUERY_CONFIG: QueryConfig = {
 };
 
 const SQL_OPERATION = {
+  deleteFeedback: "deleteFeedback",
   insertFeedback: "insertFeedback",
   selectAnnotations: "selectAnnotations",
   selectFeedback: "selectFeedback",
   unsupported: "unsupported",
+  updateFeedback: "updateFeedback",
 } as const;
 
 const POSTGRES_TEST_ERROR = {
@@ -89,6 +91,10 @@ function readQuery(statement: unknown): { params: unknown[]; sql: string } {
 }
 
 function getSqlOperation(sql: string): (typeof SQL_OPERATION)[keyof typeof SQL_OPERATION] {
+  if (sql.includes("delete from public.siteping_feedbacks")) {
+    return SQL_OPERATION.deleteFeedback;
+  }
+
   if (sql.includes("insert into public.siteping_feedbacks")) {
     return SQL_OPERATION.insertFeedback;
   }
@@ -99,6 +105,10 @@ function getSqlOperation(sql: string): (typeof SQL_OPERATION)[keyof typeof SQL_O
 
   if (sql.includes("from public.siteping_feedbacks")) {
     return SQL_OPERATION.selectFeedback;
+  }
+
+  if (sql.includes("update public.siteping_feedbacks")) {
+    return SQL_OPERATION.updateFeedback;
   }
 
   return SQL_OPERATION.unsupported;
@@ -146,12 +156,14 @@ function createRepositoryHarness(options: RepositoryHarnessOptions = {}) {
     }
 
     if (operation === SQL_OPERATION.selectFeedback) {
-      if (query.params.length === 1) {
-        const [feedbackId] = query.params;
+      if (query.params.length === 2) {
+        const [feedbackId, projectName] = query.params;
 
         return {
           rows: feedbackRows.filter(
-            (feedbackRow) => feedbackRow.id === feedbackId
+            (feedbackRow) =>
+              feedbackRow.id === feedbackId &&
+              feedbackRow.project_name === projectName
           ),
         };
       }
@@ -210,6 +222,36 @@ function createRepositoryHarness(options: RepositoryHarnessOptions = {}) {
     }
 
     if (operation === SQL_OPERATION.selectAnnotations) {
+      return { rows: [] };
+    }
+
+    if (operation === SQL_OPERATION.updateFeedback) {
+      const [status, resolvedAt, feedbackId, projectName] = query.params;
+      const feedbackRow = feedbackRows.find(
+        (row) => row.id === feedbackId && row.project_name === projectName
+      );
+
+      if (!feedbackRow) {
+        return { rows: [] };
+      }
+
+      feedbackRow.status = status as string;
+      feedbackRow.resolved_at = resolvedAt as null;
+
+      return { rows: [feedbackRow] };
+    }
+
+    if (operation === SQL_OPERATION.deleteFeedback) {
+      const [feedbackId, projectName] = query.params;
+      const feedbackIndex = feedbackRows.findIndex(
+        (feedbackRow) =>
+          feedbackRow.id === feedbackId && feedbackRow.project_name === projectName
+      );
+
+      if (feedbackIndex >= 0) {
+        feedbackRows.splice(feedbackIndex, 1);
+      }
+
       return { rows: [] };
     }
 
@@ -300,10 +342,65 @@ describe("PostgresSitepingFeedbackRepository", () => {
     feedbackRows[0].github_issue_url =
       "https://github.com/guidomodarelli/LaTribu/issues/42";
 
-    await expect(repository.findById(feedbackRows[0].id)).resolves.toMatchObject({
+    await expect(repository.findById({
+      feedbackId: feedbackRows[0].id,
+      projectName: "tutribu",
+    })).resolves.toMatchObject({
       githubIssueNumber: 42,
       githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
       id: feedbackRows[0].id,
     });
+  });
+
+  it("does not find feedback from another Siteping project", async () => {
+    const { feedbackRows, repository } = createRepositoryHarness();
+
+    await repository.create(createFeedbackCommand());
+
+    await expect(repository.findById({
+      feedbackId: feedbackRows[0].id,
+      projectName: "another-project",
+    })).resolves.toBeNull();
+  });
+
+  it("updates feedback status only inside the requested Siteping project", async () => {
+    const { feedbackRows, repository } = createRepositoryHarness();
+
+    await repository.create(createFeedbackCommand());
+
+    await expect(repository.updateStatus({
+      feedbackId: feedbackRows[0].id,
+      projectName: "another-project",
+      status: "resolved",
+    })).rejects.toThrow("Siteping feedback was not found for status update.");
+    expect(feedbackRows[0].status).toBe("open");
+
+    await expect(repository.updateStatus({
+      feedbackId: feedbackRows[0].id,
+      projectName: "tutribu",
+      status: "resolved",
+    })).resolves.toMatchObject({
+      projectName: "tutribu",
+      status: "resolved",
+    });
+  });
+
+  it("removes feedback only inside the requested Siteping project", async () => {
+    const { feedbackRows, repository } = createRepositoryHarness();
+
+    await repository.create(createFeedbackCommand());
+    await repository.remove({
+      feedbackId: feedbackRows[0].id,
+      projectName: "another-project",
+    });
+
+    expect(feedbackRows).toHaveLength(1);
+
+    await repository.remove({
+      feedbackId: feedbackRows[0].id,
+      projectName: "tutribu",
+    });
+
+    expect(feedbackRows).toHaveLength(0);
   });
 });

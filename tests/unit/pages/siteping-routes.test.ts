@@ -376,6 +376,7 @@ describe("Siteping routes", () => {
   it("updates feedback status with Siteping project context", async () => {
     const response = await PATCH(buildRequest({
       id: "feedback-1",
+      projectName: "client-controlled-project",
       status: SITEPING_FEEDBACK_STATUS.resolved,
     }, "PATCH"));
 
@@ -386,17 +387,26 @@ describe("Siteping routes", () => {
     });
     expect(updateFeedbackStatus).toHaveBeenCalledWith({
       feedbackId: "feedback-1",
+      projectName: "tutribu",
       status: SITEPING_FEEDBACK_STATUS.resolved,
     });
   });
 
-  it("deletes an individual feedback through the Siteping use case", async () => {
+  it("deletes an individual feedback with Siteping project context", async () => {
     const response = await DELETE(buildRequest({
       id: "feedback-1",
+      projectName: "client-controlled-project",
     }, "DELETE"));
 
     expect(response.status).toBe(200);
-    expect(deleteFeedback).toHaveBeenCalledWith("feedback-1");
+    expect(createRequestModules).toHaveBeenLastCalledWith({
+      sitepingProjectAdmin: true,
+      sitepingProjectName: "tutribu",
+    });
+    expect(deleteFeedback).toHaveBeenCalledWith({
+      feedbackId: "feedback-1",
+      projectName: "tutribu",
+    });
     expect(deleteAllFeedback).not.toHaveBeenCalled();
   });
 

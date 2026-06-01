@@ -12,6 +12,7 @@ import type {
   SitepingAnnotation,
   SitepingFeedback,
   SitepingFeedbackPage,
+  SitepingFeedbackProjectCommand,
   SitepingFeedbackQuery,
   SitepingFeedbackRepository,
   UpdateSitepingFeedbackStatusCommand,
@@ -312,12 +313,16 @@ export class PostgresSitepingFeedbackRepository
     });
   }
 
-  async findById(feedbackId: string): Promise<SitepingFeedback | null> {
+  async findById({
+    feedbackId,
+    projectName,
+  }: SitepingFeedbackProjectCommand): Promise<SitepingFeedback | null> {
     return this.executeWithRequestContext(async (database) => {
       const rows = await database.execute(sql`
         select *
         from public.siteping_feedbacks
         where id = ${feedbackId}
+          and project_name = ${projectName}
         limit 1
       `);
       const [feedbackRow] = rows.rows as FeedbackRow[];
@@ -410,11 +415,15 @@ export class PostgresSitepingFeedbackRepository
     });
   }
 
-  async remove(feedbackId: string): Promise<void> {
+  async remove({
+    feedbackId,
+    projectName,
+  }: SitepingFeedbackProjectCommand): Promise<void> {
     await this.executeWithRequestContext(async (database) => {
       await database.execute(sql`
         delete from public.siteping_feedbacks
         where id = ${feedbackId}
+          and project_name = ${projectName}
       `);
     });
   }
@@ -430,6 +439,7 @@ export class PostgresSitepingFeedbackRepository
 
   async updateStatus({
     feedbackId,
+    projectName,
     status,
   }: UpdateSitepingFeedbackStatusCommand): Promise<SitepingFeedback> {
     return this.executeWithRequestContext(async (database) => {
@@ -440,6 +450,7 @@ export class PostgresSitepingFeedbackRepository
             resolved_at = ${resolvedAt},
             updated_at = timezone('utc', now())
         where id = ${feedbackId}
+          and project_name = ${projectName}
         returning *
       `);
       const [feedbackRow] = rows.rows as FeedbackRow[];

@@ -417,13 +417,23 @@ describe("manage Siteping feedback use cases", () => {
       sitepingFeedbackRepository: repository,
     });
 
-    await useCase(FEEDBACK_ID);
+    await useCase({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
 
+    expect(repository.findById).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
     expect(publisher.close).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
       issueNumber: 42,
     });
-    expect(repository.remove).toHaveBeenCalledWith(FEEDBACK_ID);
+    expect(repository.remove).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
   });
 
   it("does not delete local feedback when closing the linked GitHub issue fails", async () => {
@@ -438,7 +448,10 @@ describe("manage Siteping feedback use cases", () => {
       sitepingFeedbackRepository: repository,
     });
 
-    await expect(useCase(FEEDBACK_ID)).rejects.toThrow("github_close_failed");
+    await expect(useCase({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    })).rejects.toThrow("github_close_failed");
 
     expect(repository.remove).not.toHaveBeenCalled();
   });

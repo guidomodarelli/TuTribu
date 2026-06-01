@@ -53,6 +53,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   </ul>
   <p>Cuando <code>SITEPING_ENABLED</code> esta apagado, el layout no monta el provider del widget y <code>/api/siteping/identity</code> devuelve <code>enabled: false</code> antes de resolver modulos, sesion o membresias.</p>
   <p>La base tambien aplica RLS. La creacion y la idempotencia quedan atadas a <code>created_by = current_app_user_id()</code>, mientras que las operaciones de lectura, actualizacion y borrado del panel usan contexto transaccional <code>app.siteping_project_admin</code> y <code>app.siteping_project_name</code> para que los usuarios autorizados por la API puedan administrar el set completo de feedback del proyecto expuesto.</p>
+  <p>Las mutaciones individuales del panel siempre combinan <code>feedbackId</code> con el <code>projectName</code> autorizado por <code>/api/siteping/identity</code>; no aceptan el proyecto enviado por el cliente ni dependen de que el identificador sea globalmente unico entre proyectos.</p>
   <div class="divider"></div>
 </div>
 
