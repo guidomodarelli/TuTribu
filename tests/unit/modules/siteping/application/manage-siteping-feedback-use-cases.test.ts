@@ -65,7 +65,7 @@ function buildFeedbackCommand() {
         {
           level: "error" as const,
           message:
-            'Failed request token=secret cookie=session-secret set-cookie: auth-secret {"refresh_token":"json-secret","cookie":"json-cookie-secret"}',
+            'Failed request token=secret Cookie: sid=abc; refresh=def set-cookie: auth-secret {"refresh_token":"json-secret","cookie":"json-cookie-secret"}',
           timestamp: "2026-05-31T12:00:00.000Z",
         },
       ],
@@ -277,7 +277,7 @@ describe("manage Siteping feedback use cases", () => {
           console: [
             expect.objectContaining({
               message:
-                'Failed request token=[redacted] cookie=[redacted] set-cookie: [redacted] {"refresh_token":"[redacted]","cookie":"[redacted]"}',
+                'Failed request token=[redacted] Cookie: [redacted] set-cookie: [redacted] {"refresh_token":"[redacted]","cookie":"[redacted]"}',
             }),
           ],
           network: [
@@ -298,7 +298,7 @@ describe("manage Siteping feedback use cases", () => {
         diagnostics: expect.objectContaining({
           console: [
             expect.objectContaining({
-              message: expect.stringContaining("secret"),
+              message: expect.stringMatching(/secret|refresh=def/),
             }),
           ],
         }),
@@ -347,7 +347,7 @@ describe("manage Siteping feedback use cases", () => {
             {
               level: "error",
               message:
-                'Failed request token=[redacted] cookie=[redacted] set-cookie: [redacted] {"refresh_token":"[redacted]","cookie":"[redacted]"}',
+                'Failed request token=[redacted] Cookie: [redacted] set-cookie: [redacted] {"refresh_token":"[redacted]","cookie":"[redacted]"}',
               timestamp: "2026-05-31T12:00:00.000Z",
             },
           ],

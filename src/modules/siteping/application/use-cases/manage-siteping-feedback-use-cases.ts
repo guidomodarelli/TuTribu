@@ -27,20 +27,10 @@ import type {
   SitepingDiagnosticsSnapshot,
   SitepingNetworkDiagnosticEntry,
 } from "@/src/modules/siteping/domain/entities/siteping-diagnostics";
+import { redactSitepingSensitiveText } from "@/src/modules/siteping/domain/services/siteping-sensitive-text-redaction";
 
 const SITEPING_ERROR_MESSAGE = {
   unknownGitHubFailure: "Unknown GitHub issue publication failure",
-} as const;
-
-const SITEPING_REDACTION = {
-  hiddenValue: "[redacted]",
-  sensitiveJsonKeyValuePattern:
-    /("[^"]*(?:token|key|password|secret|code|state|session|auth|cookie)[^"]*"\s*:\s*)"[^"]*"/gi,
-  sensitiveKeyValuePattern:
-    /\b([a-z0-9_-]*(?:token|key|password|secret|code|state|session|auth|cookie)[a-z0-9_-]*)(=|:\s*)[^\s,;)&]+/gi,
-  sensitiveQueryPattern:
-    /([?&][^=&]*(?:token|key|password|secret|code|state|session|auth|cookie)[^=&]*=)[^&]+/gi,
-  tokenLikePattern: /(bearer\s+)[a-z0-9._-]+/gi,
 } as const;
 
 type CreateSitepingFeedbackDependencies = {
@@ -79,32 +69,12 @@ function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function redactSensitiveText(value: string): string {
-  return value
-    .replace(
-      SITEPING_REDACTION.sensitiveQueryPattern,
-      `$1${SITEPING_REDACTION.hiddenValue}`
-    )
-    .replace(
-      SITEPING_REDACTION.sensitiveJsonKeyValuePattern,
-      `$1"${SITEPING_REDACTION.hiddenValue}"`
-    )
-    .replace(
-      SITEPING_REDACTION.sensitiveKeyValuePattern,
-      `$1$2${SITEPING_REDACTION.hiddenValue}`
-    )
-    .replace(
-      SITEPING_REDACTION.tokenLikePattern,
-      `$1${SITEPING_REDACTION.hiddenValue}`
-    );
-}
-
 function sanitizeConsoleDiagnosticEntry(
   entry: SitepingConsoleDiagnosticEntry
 ): SitepingConsoleDiagnosticEntry {
   return {
     level: entry.level,
-    message: redactSensitiveText(entry.message),
+    message: redactSitepingSensitiveText(entry.message),
     timestamp: entry.timestamp,
   };
 }
@@ -117,7 +87,7 @@ function sanitizeNetworkDiagnosticEntry(
     method: entry.method,
     status: entry.status,
     timestamp: entry.timestamp,
-    url: redactSensitiveText(entry.url),
+    url: redactSitepingSensitiveText(entry.url),
   };
 }
 
@@ -255,13 +225,13 @@ export function createSitepingFeedback({
       clientId: normalizeText(command.clientId),
       createdBy: authenticatedMember.id,
       diagnostics: sanitizeDiagnostics(command.diagnostics),
-      message: redactSensitiveText(normalizeText(command.message)),
+      message: redactSitepingSensitiveText(normalizeText(command.message)),
       projectName: normalizeText(command.projectName),
       screenshotUrl: null,
       type: command.type,
-      url: redactSensitiveText(normalizeText(command.url)),
+      url: redactSitepingSensitiveText(normalizeText(command.url)),
       urlPattern: normalizeOptionalText(command.urlPattern),
-      userAgent: redactSensitiveText(normalizeText(command.userAgent)),
+      userAgent: redactSitepingSensitiveText(normalizeText(command.userAgent)),
       viewport: normalizeText(command.viewport),
     });
 

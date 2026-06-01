@@ -5,6 +5,7 @@ import type {
   PublishGitHubIssueCommand,
 } from "@/src/modules/siteping/domain/repositories/github-issue-publisher";
 import type { SitepingFeedback } from "@/src/modules/siteping/domain/repositories/siteping-feedback-repository";
+import { redactSitepingSensitiveText } from "@/src/modules/siteping/domain/services/siteping-sensitive-text-redaction";
 import { getSitepingEnvironment } from "@/src/modules/siteping/infrastructure/environment/siteping-environment";
 import {
   fetchWithResilience,
@@ -62,30 +63,12 @@ const GITHUB_ISSUE_CREATION_FETCH_RESILIENCE: Partial<FetchResilienceOptions> = 
 };
 
 const REDACTION = {
-  hiddenValue: "[redacted]",
   maxDiagnosticEntries: 5,
   maxMessageLength: 500,
-  sensitiveJsonKeyValuePattern:
-    /("[^"]*(?:token|key|password|secret|code|state|session|auth|cookie)[^"]*"\s*:\s*)"[^"]*"/gi,
-  sensitiveKeyValuePattern:
-    /\b([a-z0-9_-]*(?:token|key|password|secret|code|state|session|auth|cookie)[a-z0-9_-]*)(=|:\s*)[^\s,;)&]+/gi,
-  sensitiveQueryPattern:
-    /([?&][^=&]*(?:token|key|password|secret|code|state|session|auth|cookie)[^=&]*=)[^&]+/gi,
-  tokenLikePattern: /(bearer\s+)[a-z0-9._-]+/gi,
 } as const;
 
 function redactText(value: string): string {
-  return value
-    .replace(REDACTION.sensitiveQueryPattern, `$1${REDACTION.hiddenValue}`)
-    .replace(
-      REDACTION.sensitiveJsonKeyValuePattern,
-      `$1"${REDACTION.hiddenValue}"`
-    )
-    .replace(
-      REDACTION.sensitiveKeyValuePattern,
-      `$1$2${REDACTION.hiddenValue}`
-    )
-    .replace(REDACTION.tokenLikePattern, `$1${REDACTION.hiddenValue}`);
+  return redactSitepingSensitiveText(value);
 }
 
 function truncateText(value: string): string {

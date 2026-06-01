@@ -23,7 +23,7 @@ function buildFeedback(overrides: Partial<SitepingFeedback> = {}): SitepingFeedb
         {
           level: "error",
           message:
-            'Request failed token=secret cookie=session-secret set-cookie: auth-secret {"refresh_token":"json-secret","cookie":"json-cookie-secret"}',
+            'Request failed token=secret Cookie: sid=abc; refresh=def set-cookie: auth-secret {"refresh_token":"json-secret","cookie":"json-cookie-secret"}',
           timestamp: "2026-05-31T12:00:00.000Z",
         },
       ],
@@ -93,12 +93,13 @@ describe("FetchGitHubIssuePublisher", () => {
     expect(requestBody.title).toContain("refresh_token=[redacted]");
     expect(requestBody.body).toContain("access_token=[redacted]");
     expect(requestBody.body).toContain("api_key=[redacted]");
-    expect(requestBody.body).toContain("cookie=[redacted]");
+    expect(requestBody.body).toContain("Cookie: [redacted]");
     expect(requestBody.body).toContain("set-cookie: [redacted]");
     expect(requestBody.body).toContain('"refresh_token":"[redacted]"');
     expect(requestBody.body).toContain('"cookie":"[redacted]"');
     expect(requestBody.body).toContain("Bearer [redacted]");
     expect(requestBody.body).not.toContain("secret");
+    expect(requestBody.body).not.toContain("refresh=def");
   });
 
   it("builds GitHub deep links from relative widget URLs", async () => {
