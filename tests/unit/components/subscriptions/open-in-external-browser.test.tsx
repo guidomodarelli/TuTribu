@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { OpenInExternalBrowser } from "@/components/subscriptions/open-in-external-browser";
@@ -12,6 +12,8 @@ const EXTERNAL_BROWSER_URL =
   "x-safari-https://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1";
 const FALLBACK_SIGN_IN_URL =
   "/auth/signin?callbackUrl=%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1";
+const COUNTDOWN_MESSAGE =
+  "Cuando el contador llegue a 0, te vamos a redirigir al flujo para continuar con tu suscripción y quedar dentro de la tribu.";
 
 describe("OpenInExternalBrowser", () => {
   beforeEach(() => {
@@ -28,7 +30,7 @@ describe("OpenInExternalBrowser", () => {
     jest.useRealTimers();
   });
 
-  it("renders the handoff copy with the primary action and fallback link", () => {
+  it("renders the handoff copy with the primary action, countdown, and fallback link", () => {
     render(
       <OpenInExternalBrowser
         externalBrowserUrl={EXTERNAL_BROWSER_URL}
@@ -39,12 +41,41 @@ describe("OpenInExternalBrowser", () => {
     expect(
       screen.getByRole("heading", { name: "Abrí TuTribu en tu navegador" })
     ).toBeInTheDocument();
+    expect(screen.queryByText("Suscripción confirmada")).not.toBeInTheDocument();
+    expect(screen.getByText("Suscripción pendiente")).toBeInTheDocument();
+    expect(screen.getByText(COUNTDOWN_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByText("5")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Continuar en tu navegador" })
     ).toHaveAttribute("href", EXTERNAL_BROWSER_URL);
     expect(
       screen.getByRole("link", { name: "O continuá con inicio de sesión acá" })
     ).toHaveAttribute("href", FALLBACK_SIGN_IN_URL);
+  });
+
+  it("automatically navigates to the sign-in fallback when the countdown reaches zero", () => {
+    render(
+      <OpenInExternalBrowser
+        externalBrowserUrl={EXTERNAL_BROWSER_URL}
+        fallbackSignInUrl={FALLBACK_SIGN_IN_URL}
+      />
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(1_000);
+    });
+
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(browserNavigation.navigateToUrl).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(4_000);
+    });
+
+    expect(screen.getByText("0")).toBeInTheDocument();
+    expect(browserNavigation.navigateToUrl).toHaveBeenCalledWith(
+      FALLBACK_SIGN_IN_URL
+    );
   });
 
   it("navigates to the sign-in fallback when the deep link does not take the user away", async () => {
@@ -63,7 +94,44 @@ describe("OpenInExternalBrowser", () => {
 
     expect(browserNavigation.navigateToUrl).not.toHaveBeenCalled();
 
-    jest.advanceTimersByTime(2_000);
+    act(() => {
+      jest.advanceTimersByTime(2_000);
+    });
+
+    expect(browserNavigation.navigateToUrl).toHaveBeenCalledWith(
+      FALLBACK_SIGN_IN_URL
+    );
+  });
+
+  it("gives the primary action its fallback window when the countdown is almost done", async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    render(
+      <OpenInExternalBrowser
+        externalBrowserUrl={EXTERNAL_BROWSER_URL}
+        fallbackSignInUrl={FALLBACK_SIGN_IN_URL}
+      />
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(4_000);
+    });
+
+    expect(screen.getByText("1")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("link", { name: "Continuar en tu navegador" })
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(1_000);
+    });
+
+    expect(browserNavigation.navigateToUrl).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(1_000);
+    });
 
     expect(browserNavigation.navigateToUrl).toHaveBeenCalledWith(
       FALLBACK_SIGN_IN_URL
@@ -88,7 +156,9 @@ describe("OpenInExternalBrowser", () => {
       screen.getByRole("link", { name: "Continuar en tu navegador" })
     );
 
-    jest.advanceTimersByTime(2_000);
+    act(() => {
+      jest.advanceTimersByTime(2_000);
+    });
 
     expect(browserNavigation.navigateToUrl).not.toHaveBeenCalled();
   });

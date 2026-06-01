@@ -375,6 +375,9 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-title">Estados de la suscripción en Mercado Pago</div>
   <p>Las suscripciones viven en el endpoint <code>/preapproval</code> de Mercado Pago y tienen <strong>su propio ciclo de vida</strong>, independiente del estado del plan. Son cuatro estados posibles y cada uno se traduce a un nivel de acceso distinto en la app.</p>
 
+  <div class="subhead">Retorno desde el checkout</div>
+  <p>Cuando el usuario vuelve desde Mercado Pago con un <code>preapproval_id</code>, la pantalla puede pedirle que abra TuTribu en el navegador del dispositivo para completar el inicio de sesión. Ese retorno todavía no confirma que el usuario haya quedado dentro de la tribu: la pantalla muestra el estado como pendiente, ofrece continuar en el navegador externo y mantiene una alternativa visible de inicio de sesión. Si el usuario no toca la acción principal, un contador de 5 segundos lo redirige al flujo para continuar la suscripción.</p>
+
   <table>
     <thead>
       <tr>

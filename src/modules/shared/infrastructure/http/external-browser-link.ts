@@ -1,8 +1,6 @@
 const HTTPS_PROTOCOL = "https://";
 const SAFARI_URL_SCHEME = "x-safari-https://";
-const INTENT_URL_PREFIX = "intent://";
-const INTENT_URL_SUFFIX =
-  "#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end";
+const CHROME_ANDROID_NAVIGATION_URL_PREFIX = "googlechrome://navigate?url=";
 
 export const EXTERNAL_BROWSER_PLATFORM = {
   android: "android",
@@ -22,8 +20,8 @@ type BuildExternalBrowserUrlInput = {
  * user's default external browser instead of the in-app browser.
  *
  * @param input - Target URL and detected platform.
- * @returns A deep-link URL for iOS Safari or an Android Intent URI. Returns
- *          null when the target URL does not use the https scheme.
+ * @returns A deep-link URL for iOS Safari or Android Chrome. Returns null when
+ *          the target URL does not use the https scheme.
  */
 export function buildExternalBrowserUrl({
   platform,
@@ -39,5 +37,5 @@ export function buildExternalBrowserUrl({
     return SAFARI_URL_SCHEME + urlWithoutScheme;
   }
 
-  return INTENT_URL_PREFIX + urlWithoutScheme + INTENT_URL_SUFFIX;
+  return CHROME_ANDROID_NAVIGATION_URL_PREFIX + encodeURIComponent(targetHttpsUrl);
 }

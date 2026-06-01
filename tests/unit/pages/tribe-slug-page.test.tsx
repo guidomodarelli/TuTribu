@@ -565,7 +565,7 @@ describe("TribePage", () => {
       screen.getByRole("link", { name: "Continuar en tu navegador" })
     ).toHaveAttribute(
       "href",
-      "intent://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end"
+      "googlechrome://navigate?url=https%3A%2F%2Ftutribu.example.com%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
     );
   });
 
@@ -609,7 +609,7 @@ describe("TribePage", () => {
     );
   });
 
-  it("renders the external browser handoff with an intent URI for Android in-app browsers", async () => {
+  it("renders the external browser handoff with a Google Chrome deep link for Android in-app browsers", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
       status: "hidden",
@@ -636,7 +636,7 @@ describe("TribePage", () => {
       screen.getByRole("link", { name: "Continuar en tu navegador" })
     ).toHaveAttribute(
       "href",
-      "intent://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end"
+      "googlechrome://navigate?url=https%3A%2F%2Ftutribu.example.com%2Fmatematica-pro%3Fpreapproval_id%3Dpreapproval-1"
     );
   });
 

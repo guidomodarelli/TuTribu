@@ -1,16 +1,22 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { navigateToUrl } from "@/lib/browser-navigation";
 import styles from "./styles.module.scss";
 
+const COUNTDOWN_INITIAL_SECONDS = 5;
+const COUNTDOWN_INTERVAL_MS = 1000;
 const VISIBILITY_FALLBACK_DELAY_MS = 2000;
 const VISIBILITY_VISIBLE_STATE = "visible";
 
 const OPEN_IN_EXTERNAL_BROWSER_COPY = {
+  countdownDescription:
+    "Cuando el contador llegue a 0, te vamos a redirigir al flujo para continuar con tu suscripción y quedar dentro de la tribu.",
   description:
     "Para entrar a tu tribu después del pago, abrí TuTribu en tu navegador habitual y completá el inicio de sesión.",
-  eyebrow: "Suscripción confirmada",
+  eyebrow: "Suscripción pendiente",
   fallbackLink: "O continuá con inicio de sesión acá",
   primaryAction: "Continuar en tu navegador",
   title: "Abrí TuTribu en tu navegador",
@@ -38,7 +44,37 @@ export function OpenInExternalBrowser({
   externalBrowserUrl,
   fallbackSignInUrl,
 }: OpenInExternalBrowserProps) {
+  const automaticFallbackTimeoutIdRef = useRef<number | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(
+    COUNTDOWN_INITIAL_SECONDS
+  );
+
+  useEffect(() => {
+    const countdownIntervalId = window.setInterval(() => {
+      setRemainingSeconds((currentRemainingSeconds) =>
+        Math.max(currentRemainingSeconds - 1, 0)
+      );
+    }, COUNTDOWN_INTERVAL_MS);
+    const fallbackRedirectTimeoutId = window.setTimeout(() => {
+      setRemainingSeconds(0);
+
+      if (document.visibilityState === VISIBILITY_VISIBLE_STATE) {
+        navigateToUrl(fallbackSignInUrl);
+      }
+    }, COUNTDOWN_INITIAL_SECONDS * COUNTDOWN_INTERVAL_MS);
+    automaticFallbackTimeoutIdRef.current = fallbackRedirectTimeoutId;
+
+    return () => {
+      window.clearInterval(countdownIntervalId);
+      window.clearTimeout(automaticFallbackTimeoutIdRef.current ?? undefined);
+      automaticFallbackTimeoutIdRef.current = null;
+    };
+  }, [fallbackSignInUrl]);
+
   const handlePrimaryAction = () => {
+    window.clearTimeout(automaticFallbackTimeoutIdRef.current ?? undefined);
+    automaticFallbackTimeoutIdRef.current = null;
+
     window.setTimeout(() => {
       if (document.visibilityState === VISIBILITY_VISIBLE_STATE) {
         navigateToUrl(fallbackSignInUrl);
@@ -58,6 +94,17 @@ export function OpenInExternalBrowser({
         <p className={styles.OpenInExternalBrowser__description}>
           {OPEN_IN_EXTERNAL_BROWSER_COPY.description}
         </p>
+        <div
+          aria-live="polite"
+          className={styles.OpenInExternalBrowser__countdown}
+        >
+          <span className={styles.OpenInExternalBrowser__countdownValue}>
+            {remainingSeconds}
+          </span>
+          <p className={styles.OpenInExternalBrowser__countdownDescription}>
+            {OPEN_IN_EXTERNAL_BROWSER_COPY.countdownDescription}
+          </p>
+        </div>
         <Button
           asChild
           className={styles.OpenInExternalBrowser__primaryAction}
@@ -67,13 +114,13 @@ export function OpenInExternalBrowser({
             {OPEN_IN_EXTERNAL_BROWSER_COPY.primaryAction}
           </a>
         </Button>
+        <a
+          className={styles.OpenInExternalBrowser__fallbackLink}
+          href={fallbackSignInUrl}
+        >
+          {OPEN_IN_EXTERNAL_BROWSER_COPY.fallbackLink}
+        </a>
       </div>
-      <a
-        className={styles.OpenInExternalBrowser__fallbackLink}
-        href={fallbackSignInUrl}
-      >
-        {OPEN_IN_EXTERNAL_BROWSER_COPY.fallbackLink}
-      </a>
     </section>
   );
 }

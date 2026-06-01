@@ -1,19 +1,16 @@
 .OpenInExternalBrowser {
   align-items: center;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 90vh;
-  padding: 2rem 1.25rem;
+  display: grid;
+  min-height: 100svh;
+  padding: 1.5rem 1.25rem;
+  place-items: center;
   width: 100%;
 
   &__primary {
     align-items: center;
     display: grid;
-    flex-grow: 1;
-    gap: 1rem;
+    gap: 0.875rem;
     justify-items: center;
-    margin: auto 0;
     max-width: 32rem;
     text-align: center;
     width: 100%;
@@ -42,8 +39,38 @@
     max-width: 28rem;
   }
 
+  &__countdown {
+    align-items: center;
+    display: grid;
+    gap: 0.625rem;
+    justify-items: center;
+    margin-block: 0.75rem 0.5rem;
+    max-width: 28rem;
+  }
+
+  &__countdownValue {
+    align-items: center;
+    background: var(--foreground);
+    border-radius: 999rem;
+    color: var(--background);
+    display: inline-flex;
+    font-size: 2.25rem;
+    font-weight: 700;
+    height: 4.5rem;
+    justify-content: center;
+    line-height: 1;
+    width: 4.5rem;
+  }
+
+  &__countdownDescription {
+    color: var(--foreground);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-inline: auto;
+  }
+
   &__primaryAction {
-    margin-top: 1.25rem;
+    margin-top: 0.5rem;
     width: 100%;
   }
 
@@ -51,9 +78,8 @@
     color: var(--muted-foreground);
     font-size: 0.75rem;
     font-weight: 400;
-    margin-top: auto;
     opacity: 0.6;
-    padding-top: 2.5rem;
+    padding-top: 0.25rem;
     text-decoration: none;
 
     &:hover {
