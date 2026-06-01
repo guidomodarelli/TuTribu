@@ -81,6 +81,14 @@ function isFeedbackStatus(value: unknown): value is FeedbackStatus {
   return Object.values(SITEPING_FEEDBACK_STATUS).includes(value as FeedbackStatus);
 }
 
+function isInvalidOptionalFeedbackType(value: string | null): boolean {
+  return value !== null && !isFeedbackType(value);
+}
+
+function isInvalidOptionalFeedbackStatus(value: string | null): boolean {
+  return value !== null && !isFeedbackStatus(value);
+}
+
 function readOptionalInteger(value: string | null): number | null | undefined {
   if (!value) {
     return undefined;
@@ -344,7 +352,12 @@ export async function GET(request: Request) {
       requestUrl.searchParams.get(SITEPING_QUERY_PARAM.page)
     );
 
-    if (limit === null || page === null) {
+    if (
+      limit === null ||
+      page === null ||
+      isInvalidOptionalFeedbackStatus(status) ||
+      isInvalidOptionalFeedbackType(type)
+    ) {
       return observation.createJsonResponse(
         { message: SITEPING_ROUTE_RESPONSE.invalidQueryMessage },
         HTTP_STATUS.badRequest

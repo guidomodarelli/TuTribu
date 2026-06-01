@@ -388,4 +388,26 @@ describe("Siteping routes", () => {
     expect(response.status).toBe(400);
     expect(listFeedback).not.toHaveBeenCalled();
   });
+
+  it("rejects unsupported Siteping status filters before listing feedback", async () => {
+    const response = await GET({
+      headers: new Headers(),
+      method: "GET",
+      url: "https://tutribu.example.com/api/siteping?status=resolvedd",
+    } as unknown as Request);
+
+    expect(response.status).toBe(400);
+    expect(listFeedback).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported Siteping type filters before listing feedback", async () => {
+    const response = await GET({
+      headers: new Headers(),
+      method: "GET",
+      url: "https://tutribu.example.com/api/siteping?type=bugg",
+    } as unknown as Request);
+
+    expect(response.status).toBe(400);
+    expect(listFeedback).not.toHaveBeenCalled();
+  });
 });
