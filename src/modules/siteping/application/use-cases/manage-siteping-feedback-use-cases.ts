@@ -31,11 +31,11 @@ const SITEPING_ERROR_MESSAGE = {
 const SITEPING_REDACTION = {
   hiddenValue: "[redacted]",
   sensitiveJsonKeyValuePattern:
-    /("[^"]*(?:token|key|password|secret|code|state|session|auth)[^"]*"\s*:\s*)"[^"]*"/gi,
+    /("[^"]*(?:token|key|password|secret|code|state|session|auth|cookie)[^"]*"\s*:\s*)"[^"]*"/gi,
   sensitiveKeyValuePattern:
-    /\b([a-z0-9_-]*(?:token|key|password|secret|code|state|session|auth)[a-z0-9_-]*)(=|:\s*)[^\s,;)&]+/gi,
+    /\b([a-z0-9_-]*(?:token|key|password|secret|code|state|session|auth|cookie)[a-z0-9_-]*)(=|:\s*)[^\s,;)&]+/gi,
   sensitiveQueryPattern:
-    /([?&][^=&]*(?:token|key|password|secret|code|state|session|auth)[^=&]*=)[^&]+/gi,
+    /([?&][^=&]*(?:token|key|password|secret|code|state|session|auth|cookie)[^=&]*=)[^&]+/gi,
   tokenLikePattern: /(bearer\s+)[a-z0-9._-]+/gi,
 } as const;
 

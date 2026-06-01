@@ -64,7 +64,8 @@ function buildFeedbackCommand() {
       console: [
         {
           level: "error" as const,
-          message: 'Failed request token=secret {"refresh_token":"json-secret"}',
+          message:
+            'Failed request token=secret cookie=session-secret set-cookie: auth-secret {"refresh_token":"json-secret","cookie":"json-cookie-secret"}',
           timestamp: "2026-05-31T12:00:00.000Z",
         },
       ],
@@ -74,7 +75,7 @@ function buildFeedbackCommand() {
           method: "GET",
           status: 500,
           timestamp: "2026-05-31T12:00:00.000Z",
-          url: "https://tutribu.example.com/api/private?access_token=secret&api_key=secret",
+          url: "https://tutribu.example.com/api/private?access_token=secret&api_key=secret&cookie=query-cookie-secret",
         },
       ],
     },
@@ -276,12 +277,12 @@ describe("manage Siteping feedback use cases", () => {
           console: [
             expect.objectContaining({
               message:
-                'Failed request token=[redacted] {"refresh_token":"[redacted]"}',
+                'Failed request token=[redacted] cookie=[redacted] set-cookie: [redacted] {"refresh_token":"[redacted]","cookie":"[redacted]"}',
             }),
           ],
           network: [
             expect.objectContaining({
-              url: "https://tutribu.example.com/api/private?access_token=[redacted]&api_key=[redacted]",
+              url: "https://tutribu.example.com/api/private?access_token=[redacted]&api_key=[redacted]&cookie=[redacted]",
             }),
           ],
         },

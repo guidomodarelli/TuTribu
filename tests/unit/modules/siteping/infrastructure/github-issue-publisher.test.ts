@@ -20,7 +20,8 @@ function buildFeedback(overrides: Partial<SitepingFeedback> = {}): SitepingFeedb
       console: [
         {
           level: "error",
-          message: 'Request failed token=secret {"refresh_token":"json-secret"}',
+          message:
+            'Request failed token=secret cookie=session-secret set-cookie: auth-secret {"refresh_token":"json-secret","cookie":"json-cookie-secret"}',
           timestamp: "2026-05-31T12:00:00.000Z",
         },
       ],
@@ -30,7 +31,7 @@ function buildFeedback(overrides: Partial<SitepingFeedback> = {}): SitepingFeedb
           method: "GET",
           status: 500,
           timestamp: "2026-05-31T12:00:00.000Z",
-          url: "https://tutribu.example.com/api/private?access_token=secret&api_key=secret",
+          url: "https://tutribu.example.com/api/private?access_token=secret&api_key=secret&cookie=query-cookie-secret",
         },
       ],
     },
@@ -90,7 +91,10 @@ describe("FetchGitHubIssuePublisher", () => {
     expect(requestBody.title).toContain("refresh_token=[redacted]");
     expect(requestBody.body).toContain("access_token=[redacted]");
     expect(requestBody.body).toContain("api_key=[redacted]");
+    expect(requestBody.body).toContain("cookie=[redacted]");
+    expect(requestBody.body).toContain("set-cookie: [redacted]");
     expect(requestBody.body).toContain('"refresh_token":"[redacted]"');
+    expect(requestBody.body).toContain('"cookie":"[redacted]"');
     expect(requestBody.body).toContain("Bearer [redacted]");
     expect(requestBody.body).not.toContain("secret");
   });
