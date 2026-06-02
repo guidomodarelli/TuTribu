@@ -1,3 +1,26 @@
+// Opacity-only entrance/exit for the message details modal. It deliberately
+// avoids `transform` so the fixed close button is never dragged by a transient
+// containing block during the animation.
+@keyframes messageDetailsDialogFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes messageDetailsDialogFadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
 .TribeRound {
   display: flex;
   flex-direction: column;
@@ -185,6 +208,21 @@
       position: fixed;
       top: 1rem;
       right: 1rem;
+    }
+
+    // Replace the default open/close animation (which zooms via a transient
+    // `transform`) with an opacity-only fade. Any transform on this panel would
+    // momentarily re-establish a containing block and drag the fixed close
+    // button, so the entrance/exit must never touch `transform`.
+    // `both` fill-mode is required: it holds the closing frame at `opacity: 0`
+    // until Radix unmounts the dialog. Without it the opacity snaps back to 1
+    // after the animation ends, producing a flicker on close.
+    &:global([data-state="open"]) {
+      animation: messageDetailsDialogFadeIn 0.1s ease both !important;
+    }
+
+    &:global([data-state="closed"]) {
+      animation: messageDetailsDialogFadeOut 0.1s ease both !important;
     }
   }
 
