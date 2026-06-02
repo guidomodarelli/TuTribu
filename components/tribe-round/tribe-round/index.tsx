@@ -85,6 +85,14 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import {
+  Carousel,
+  type CarouselApi,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
@@ -270,6 +278,14 @@ const TRIBE_ROUND_COPY = {
   imageAddButton: "Agregar imagen",
   imageAltInputLabel: "Descripción de la imagen",
   imageAltInputPlaceholder: "Descripción breve",
+  imageCarouselDialogDescription:
+    "Galería de imágenes ampliadas del mensaje.",
+  imageCarouselDialogTitle: "Imágenes del mensaje",
+  imageCarouselNextButton: "Siguiente imagen",
+  imageCarouselOpenButtonPrefix: "Abrir imagen",
+  imageCarouselPreviousButton: "Imagen anterior",
+  imageCarouselProgressPrefix: "Imagen",
+  imageCarouselProgressSeparator: "de",
   imageLimitError: "Podés adjuntar hasta 4 imágenes.",
   imageRemoveButton: "Quitar imagen",
   imageUploadError: "No pudimos subir la imagen.",
@@ -369,6 +385,12 @@ const TRIBE_ROUND_LIMITS = {
   commentAuthorsPreviewCount: 3,
   detailsCollapsedSliceCharacters: 150,
   toggleDebounceMs: 300,
+} as const;
+
+const TRIBE_ROUND_CAROUSEL = {
+  imageDecoding: "async",
+  imageFetchPriority: "high",
+  transitionDuration: 14,
 } as const;
 
 const COLLAPSED_CONTENT_PATTERN = {
@@ -737,6 +759,11 @@ type TribeRoundVisibleMessageResult = TribeRoundMessageResult & {
 type TribeRoundMessageImageResult = NonNullable<
   TribeRoundMessageResult["images"]
 >[number];
+
+type ActiveMessageImageCarousel = {
+  imageIndex: number;
+  messageId: string;
+};
 
 type ComposerPreviewSegment =
   | {
@@ -2523,6 +2550,13 @@ function TribeRoundContent({
     {}
   );
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [activeImageCarousel, setActiveImageCarousel] =
+    useState<ActiveMessageImageCarousel | null>(null);
+  const [activeImageCarouselSlideIndex, setActiveImageCarouselSlideIndex] =
+    useState(0);
+  const [imageCarouselApi, setImageCarouselApi] = useState<CarouselApi | null>(
+    null
+  );
   const [isMessageDetailsOpen, setIsMessageDetailsOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [messagePendingDeletion, setMessagePendingDeletion] =
@@ -2550,6 +2584,10 @@ function TribeRoundContent({
   const hasMessageComposerErrors = messageComposerErrors.length > 0;
   const selectedMessage =
     messages.find((message) => message.id === selectedMessageId) ?? null;
+  const activeImageCarouselMessage = activeImageCarousel
+    ? messages.find((message) => message.id === activeImageCarousel.messageId) ??
+      null
+    : null;
   const selectedMessageHasLoadedReplies = selectedMessage?.hasLoadedReplies;
   const selectedMessageRepliesId = selectedMessage?.id;
   const activeChannel =
@@ -2626,6 +2664,80 @@ function TribeRoundContent({
     setEditorSelectionRange(editor, selectionRange);
     pendingComposerSelectionRef.current = null;
   }, [messageContent, messageContentLinks]);
+
+  useEffect(() => {
+    if (!activeImageCarousel || !imageCarouselApi) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const settleFrameId = window.requestAnimationFrame(() => {
+      if (isCancelled) {
+        return;
+      }
+
+      imageCarouselApi.reInit();
+    });
+
+    return () => {
+      isCancelled = true;
+      window.cancelAnimationFrame(settleFrameId);
+    };
+  }, [
+    activeImageCarousel,
+    activeImageCarouselMessage?.images?.length,
+    imageCarouselApi,
+  ]);
+
+  useEffect(() => {
+    if (!activeImageCarousel || !imageCarouselApi) {
+      return;
+    }
+
+    const updateImageCarouselSlideIndex = () => {
+      setActiveImageCarouselSlideIndex(imageCarouselApi.selectedScrollSnap());
+    };
+
+    updateImageCarouselSlideIndex();
+    imageCarouselApi.on("reInit", updateImageCarouselSlideIndex);
+    imageCarouselApi.on("select", updateImageCarouselSlideIndex);
+
+    return () => {
+      imageCarouselApi.off("reInit", updateImageCarouselSlideIndex);
+      imageCarouselApi.off("select", updateImageCarouselSlideIndex);
+    };
+  }, [activeImageCarousel, imageCarouselApi]);
+
+  useEffect(() => {
+    if (!activeImageCarouselMessage?.images?.length) {
+      return;
+    }
+
+    let isCancelled = false;
+    const preloadedImages = activeImageCarouselMessage.images.map((image) => {
+      const preloadedImage = new window.Image();
+      preloadedImage.decoding = TRIBE_ROUND_CAROUSEL.imageDecoding;
+      preloadedImage.fetchPriority = TRIBE_ROUND_CAROUSEL.imageFetchPriority;
+      preloadedImage.src = image.url;
+
+      return preloadedImage;
+    });
+
+    void Promise.allSettled(
+      preloadedImages.map((preloadedImage) =>
+        preloadedImage.decode ? preloadedImage.decode() : Promise.resolve()
+      )
+    ).then(() => {
+      if (!isCancelled) {
+        imageCarouselApi?.reInit();
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeImageCarouselMessage?.images, imageCarouselApi]);
 
   useEffect(() => {
     const discardedMessageImageLocalIds =
@@ -4976,9 +5088,37 @@ function TribeRoundContent({
     );
   };
 
+  const openMessageImageCarousel = ({
+    event,
+    imageIndex,
+    messageId,
+  }: {
+    event: MouseEvent<HTMLButtonElement>;
+    imageIndex: number;
+    messageId: string;
+  }) => {
+    stopMessageDetailsOpening(event);
+    setActiveImageCarouselSlideIndex(imageIndex);
+    setActiveImageCarousel({ imageIndex, messageId });
+  };
+
+  const handleImageCarouselOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setActiveImageCarousel(null);
+      setActiveImageCarouselSlideIndex(0);
+      setImageCarouselApi(null);
+    }
+  };
+
   const renderMessageImages = (
     message: TribeRoundMessageResult,
-    shouldLoadFirstImageEagerly = false
+    {
+      canOpenCarousel = false,
+      shouldLoadFirstImageEagerly = false,
+    }: {
+      canOpenCarousel?: boolean;
+      shouldLoadFirstImageEagerly?: boolean;
+    } = {}
   ) => {
     const messageImages = message.images ?? [];
 
@@ -4994,19 +5134,44 @@ function TribeRoundContent({
           );
           const imageLoading =
             shouldLoadFirstImageEagerly && imageIndex === 0 ? "eager" : "lazy";
+          const imageAlt =
+            image.altText ||
+            message.title ||
+            TRIBE_ROUND_COPY.messageDetailsDialogTitle;
+
+          const messageImage = (
+            <Image
+              alt={imageAlt}
+              className={styles.TribeRound__image}
+              height={0}
+              loading={imageLoading}
+              sizes="(max-width: 768px) 88vw, 420px"
+              src={image.url}
+              unoptimized={isTemporaryImage}
+              width={0}
+            />
+          );
 
           return (
             <div className={styles.TribeRound__imageFrame} key={image.id}>
-              <Image
-                alt={image.altText || message.title || TRIBE_ROUND_COPY.messageDetailsDialogTitle}
-                className={styles.TribeRound__image}
-                height={0}
-                loading={imageLoading}
-                sizes="(max-width: 768px) 88vw, 420px"
-                src={image.url}
-                unoptimized={isTemporaryImage}
-                width={0}
-              />
+              {canOpenCarousel ? (
+              <button
+                aria-label={`${TRIBE_ROUND_COPY.imageCarouselOpenButtonPrefix} ${String(imageIndex + 1)}: ${imageAlt}`}
+                className={styles.TribeRound__imageOpenButton}
+                onClick={(event) => {
+                  openMessageImageCarousel({
+                    event,
+                    imageIndex,
+                    messageId: message.id,
+                  });
+                }}
+                type={TRIBE_ROUND_FORM.buttonType}
+              >
+                {messageImage}
+              </button>
+              ) : (
+                messageImage
+              )}
             </div>
           );
         })}
@@ -5087,6 +5252,92 @@ function TribeRoundContent({
           </div>
         ))}
       </div>
+    );
+  };
+
+  const renderMessageImageCarouselDialog = () => {
+    const messageImages = activeImageCarouselMessage?.images ?? [];
+    const activeImageCarouselSlideNumber = Math.min(
+      activeImageCarouselSlideIndex + 1,
+      messageImages.length
+    );
+
+    return (
+      <Dialog
+        open={messageImages.length > 0}
+        onOpenChange={handleImageCarouselOpenChange}
+      >
+        <DialogContent
+          className={styles.TribeRound__imageCarouselDialog}
+          showCloseButton
+        >
+          <DialogHeader className={styles.TribeRound__imageCarouselHeader}>
+            <DialogTitle className={styles.TribeRound__srOnly}>
+              {TRIBE_ROUND_COPY.imageCarouselDialogTitle}
+            </DialogTitle>
+            <DialogDescription className={styles.TribeRound__srOnly}>
+              {TRIBE_ROUND_COPY.imageCarouselDialogDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <Carousel
+            className={styles.TribeRound__imageCarousel}
+            opts={{
+              duration: TRIBE_ROUND_CAROUSEL.transitionDuration,
+              loop: messageImages.length > 1,
+              startIndex: activeImageCarousel?.imageIndex ?? 0,
+            }}
+            setApi={setImageCarouselApi}
+          >
+            <CarouselContent className={styles.TribeRound__imageCarouselContent}>
+              {messageImages.map((image) => {
+                const imageAlt =
+                  image.altText ||
+                  activeImageCarouselMessage?.title ||
+                  TRIBE_ROUND_COPY.messageDetailsDialogTitle;
+
+                return (
+                  <CarouselItem
+                    className={styles.TribeRound__imageCarouselItem}
+                    key={image.id}
+                  >
+                    <div className={styles.TribeRound__imageCarouselFrame}>
+                      {createElement("img", {
+                        alt: imageAlt,
+                        className: styles.TribeRound__imageCarouselImage,
+                        decoding: TRIBE_ROUND_CAROUSEL.imageDecoding,
+                        fetchPriority: TRIBE_ROUND_CAROUSEL.imageFetchPriority,
+                        loading: "eager",
+                        src: image.url,
+                      })}
+                    </div>
+                  </CarouselItem>
+                );
+              })}
+            </CarouselContent>
+            {messageImages.length > 1 ? (
+              <>
+                <CarouselPrevious
+                  aria-label={TRIBE_ROUND_COPY.imageCarouselPreviousButton}
+                  className={styles.TribeRound__imageCarouselPrevious}
+                />
+                <CarouselNext
+                  aria-label={TRIBE_ROUND_COPY.imageCarouselNextButton}
+                  className={styles.TribeRound__imageCarouselNext}
+                />
+              </>
+            ) : null}
+          </Carousel>
+          <p
+            aria-live="polite"
+            className={styles.TribeRound__imageCarouselProgress}
+          >
+            {TRIBE_ROUND_COPY.imageCarouselProgressPrefix}{" "}
+            {activeImageCarouselSlideNumber}{" "}
+            {TRIBE_ROUND_COPY.imageCarouselProgressSeparator}{" "}
+            {messageImages.length}
+          </p>
+        </DialogContent>
+      </Dialog>
     );
   };
 
@@ -5995,7 +6246,9 @@ function TribeRoundContent({
                       TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round,
                       true
                     )}
-                    {renderMessageImages(message, messageIndex === 0)}
+                    {renderMessageImages(message, {
+                      shouldLoadFirstImageEagerly: messageIndex === 0,
+                    })}
                     {renderMessageVideoBadge(message)}
                   </CardContent>
                   {renderMessagePoll(message, true)}
@@ -6095,6 +6348,7 @@ function TribeRoundContent({
           </PaginationContent>
         </Pagination>
       ) : null}
+      {renderMessageImageCarouselDialog()}
       <Dialog open={isMessageDetailsOpen} onOpenChange={setIsMessageDetailsOpen}>
         <DialogContent
           className={`${styles.TribeRound__composerDialog} ${styles["TribeRound__composerDialog--messageDetails"]}`}
@@ -6147,7 +6401,7 @@ function TribeRoundContent({
                   </h3>
                 ) : null}
                 {renderMessageContent(selectedMessage)}
-                {renderMessageImages(selectedMessage)}
+                {renderMessageImages(selectedMessage, { canOpenCarousel: true })}
                 {renderMessageVideoEmbed(selectedMessage)}
                 {renderMessagePoll(selectedMessage)}
                 <div

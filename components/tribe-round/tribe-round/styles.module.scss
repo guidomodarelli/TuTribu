@@ -197,6 +197,15 @@
     white-space: nowrap;
   }
 
+  &__srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
   &__composerIdentity {
     display: flex;
     gap: 0.55rem;
@@ -677,8 +686,25 @@
   &__image {
     display: block;
     width: 100%;
-    height: 15.625rem;
+    height: 9rem;
     object-fit: cover;
+  }
+
+  &__imageOpenButton {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: zoom-in;
+    padding: 0;
+    text-align: inherit;
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 3px;
+      border-radius: 0.5rem;
+    }
   }
 
   &__imageAltInput {
@@ -711,8 +737,8 @@
 
   &__imageGallery {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(15.625rem, 100%), 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+    gap: 0.45rem;
     width: 100%;
   }
 
@@ -720,6 +746,125 @@
     position: relative;
     overflow: hidden;
     border-radius: 0.5rem;
+  }
+
+  &__imageCarouselDialog:global([data-slot="dialog-content"]) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) clamp(3.75rem, 8vw, 5rem);
+    width: min(calc(100vw - 2rem), 72rem);
+    max-width: min(calc(100vw - 2rem), 72rem);
+    height: min(calc(100svh - 2rem), 48rem);
+    max-height: min(calc(100svh - 2rem), 48rem);
+    gap: 0;
+    border: 1px solid color-mix(in oklch, var(--border) 64%, transparent);
+    border-radius: 1rem;
+    background: color-mix(in oklch, var(--background) 88%, black);
+    padding: 0;
+    overflow: hidden;
+
+    :global([data-slot="dialog-close"]) {
+      top: 1rem;
+      right: 1rem;
+      z-index: 4;
+      border: 0;
+      background: color-mix(in oklch, var(--background) 84%, transparent);
+      color: var(--foreground);
+      backdrop-filter: blur(8px);
+
+      &:hover {
+        box-shadow: 0 0.75rem 1.75rem color-mix(in oklch, black 32%, transparent);
+      }
+    }
+  }
+
+  &__imageCarouselHeader {
+    min-height: 0;
+  }
+
+  &__imageCarouselProgress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    margin: 0;
+    padding: 0 clamp(1.5rem, 6vw, 5rem);
+    color: color-mix(in oklch, var(--foreground) 78%, transparent);
+    font-size: clamp(1rem, 3vw, 1.5rem);
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  &__imageCarousel {
+    box-sizing: border-box;
+    display: grid;
+    align-items: center;
+    grid-template-rows: minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    padding: clamp(4rem, 8vw, 6rem) clamp(1.5rem, 6vw, 5rem)
+      clamp(0.75rem, 2vw, 1.25rem);
+
+    :global([data-slot="carousel-content"]) {
+      min-height: 0;
+      height: 100%;
+    }
+  }
+
+  &__imageCarouselContent {
+    height: 100%;
+    margin-left: 0;
+  }
+
+  &__imageCarouselItem {
+    display: grid;
+    min-height: 0;
+    height: 100%;
+    padding-left: 0;
+    place-items: center;
+  }
+
+  &__imageCarouselFrame {
+    display: grid;
+    width: min(100%, 72rem);
+    height: 100%;
+    overflow: hidden;
+    place-items: center;
+  }
+
+  &__imageCarouselImage {
+    align-self: center;
+    display: block;
+    justify-self: center;
+    width: auto;
+    max-width: min(92%, calc(100% - clamp(1rem, 3vw, 2rem)));
+    height: auto;
+    max-height: min(82%, calc(100% - clamp(1rem, 3vw, 2rem)));
+    margin: auto;
+    object-fit: contain;
+    object-position: center;
+  }
+
+  &__imageCarouselPrevious,
+  &__imageCarouselNext {
+    z-index: 3;
+    border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+    background: color-mix(in oklch, var(--background) 84%, transparent);
+    color: var(--foreground);
+    backdrop-filter: blur(8px);
+
+    &:disabled {
+      opacity: 0.35;
+    }
+  }
+
+  &__imageCarouselPrevious {
+    left: clamp(0.75rem, 3vw, 1.5rem);
+  }
+
+  &__imageCarouselNext {
+    right: clamp(0.75rem, 3vw, 1.5rem);
   }
 
   &__videoComposer {

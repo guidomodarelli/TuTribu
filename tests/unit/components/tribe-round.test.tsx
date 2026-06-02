@@ -35,6 +35,35 @@ class ResizeObserverMock {
 
 globalThis.ResizeObserver = ResizeObserverMock;
 
+class IntersectionObserverMock {
+  observe() {}
+
+  unobserve() {}
+
+  disconnect() {}
+
+  takeRecords() {
+    return [];
+  }
+}
+
+globalThis.IntersectionObserver =
+  IntersectionObserverMock as unknown as typeof IntersectionObserver;
+
+Object.defineProperty(window, "matchMedia", {
+  configurable: true,
+  value: jest.fn().mockImplementation((query: string) => ({
+    addEventListener: jest.fn(),
+    addListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+    matches: false,
+    media: query,
+    onchange: null,
+    removeEventListener: jest.fn(),
+    removeListener: jest.fn(),
+  })),
+});
+
 class ImageMock {
   complete = true;
 
@@ -711,6 +740,99 @@ describe("TribeRound", () => {
     expect(
       screen.getByRole("img", { name: "Mensaje con imagen secundaria" })
     ).toHaveAttribute("loading", "lazy");
+  });
+
+  it("opens message images in a fullscreen carousel from message details only", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...roundWithMessageImages,
+          messages: [
+            {
+              ...roundWithMessageImages.messages[0],
+              images: [
+                ...(roundWithMessageImages.messages[0].images ?? []),
+                {
+                  altText: "",
+                  id: "message-image-1b",
+                  url: "https://imagedelivery.net/account-hash/message-image-1b/public",
+                },
+              ],
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", {
+        name: "Abrir imagen 1: Mensaje con imagen principal",
+      })
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Abrir mensaje: Mensaje con imagen principal/i,
+      })
+    );
+
+    const messageDetailsDialog = screen.getByRole("dialog", {
+      name: "Mensaje",
+    });
+
+    await user.click(
+      within(messageDetailsDialog).getByRole("button", {
+        name: "Abrir imagen 1: Mensaje con imagen principal",
+      })
+    );
+
+    const carouselDialog = screen.getByRole("dialog", {
+      name: "Imágenes del mensaje",
+    });
+
+    expect(carouselDialog).toHaveClass(
+      "TribeRound__imageCarouselDialog"
+    );
+    expect(within(carouselDialog).getByText("Imagen 1 de 2")).toHaveClass(
+      "TribeRound__imageCarouselProgress"
+    );
+    expect(
+      within(carouselDialog).getAllByRole("img", {
+        name: "Mensaje con imagen principal",
+      })
+    ).toHaveLength(2);
+    within(carouselDialog)
+      .getAllByRole("img", { name: "Mensaje con imagen principal" })
+      .forEach((image) => {
+        expect(image).toHaveAttribute("fetchpriority", "high");
+        expect(image).toHaveAttribute("loading", "eager");
+      });
+
+    const previousImageButton = within(carouselDialog).getByRole("button", {
+      name: "Imagen anterior",
+    });
+    const nextImageButton = within(carouselDialog).getByRole("button", {
+      name: "Siguiente imagen",
+    });
+
+    expect(previousImageButton).toBeEnabled();
+    expect(nextImageButton).toBeEnabled();
+
+    await user.click(nextImageButton);
+    await user.click(
+      within(carouselDialog).getByRole("button", { name: "Cerrar" })
+    );
+
+    expect(
+      screen.queryByRole("dialog", { name: "Imágenes del mensaje" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Mensaje" })
+    ).toBeInTheDocument();
   });
 
   it("renders the timestamp under the message author name with the channel inline", async () => {
