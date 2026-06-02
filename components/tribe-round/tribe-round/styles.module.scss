@@ -165,10 +165,27 @@
     }
   }
 
-  &__composerDialog--messageDetails {
+  &__composerDialog--messageDetails:global([data-slot="dialog-content"]) {
+    inset: 0;
+    margin: auto;
+    height: fit-content;
+    // The Tailwind centering uses the CSS `translate` property. We must reset it
+    // to `none` so this element stops being a containing block for the fixed close
+    // button. A plain `translate: none` is dropped by the build minifier as a
+    // redundant initial value, so we route it through an undefined custom property
+    // whose fallback resolves to `none` at runtime — the minifier cannot strip it.
+    // `transform` is intentionally left unset: declaring `transform: none` gets
+    // normalized to `translate3d(0, 0, 0)`, which would re-create the containing block.
+    translate: var(--tribe-message-details-no-translate, none) !important;
     width: min(100% - 2rem, 64rem);
     max-width: 64rem;
     max-height: calc(100svh - 2rem);
+
+    :global([data-slot="dialog-close"]) {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+    }
   }
 
   &__composerDialog--messageDetails &__messageDetailsBody {
