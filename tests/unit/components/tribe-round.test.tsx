@@ -850,21 +850,11 @@ describe("TribeRound", () => {
     await user.click(imageCarousel as HTMLElement);
 
     expect(
-      screen.queryByRole("dialog", { name: "Imágenes del mensaje" })
-    ).not.toBeInTheDocument();
+      screen.getByRole("dialog", { name: "Imágenes del mensaje" })
+    ).toBeInTheDocument();
 
     await user.click(
-      within(messageDetailsDialog).getByRole("button", {
-        name: "Abrir imagen 1: Mensaje con imagen principal",
-      })
-    );
-
-    const reopenedCarouselDialog = screen.getByRole("dialog", {
-      name: "Imágenes del mensaje",
-    });
-
-    await user.click(
-      within(reopenedCarouselDialog).getByRole("button", { name: "Cerrar" })
+      within(carouselDialog).getByRole("button", { name: "Cerrar" })
     );
 
     expect(
