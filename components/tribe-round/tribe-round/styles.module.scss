@@ -1373,6 +1373,12 @@
     gap: 0;
     max-height: min(72vh, 46rem);
     overflow-y: auto;
+    // On iOS WebKit the modal is a fullscreen overlay and this is its only
+    // scroll container. `contain` stops the scroll chaining that otherwise
+    // lets the page behind the modal scroll once this area hits its top or
+    // bottom edge; `touch` keeps native momentum scrolling on older iOS.
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     padding-right: 0.5rem;
     scrollbar-color: color-mix(in oklch, var(--muted-foreground) 34%, transparent)
       transparent;
@@ -1898,7 +1904,13 @@
 
 :global([data-slot="dialog-overlay"]) {
   background: color-mix(in oklch, var(--foreground) 18%, transparent);
-  backdrop-filter: blur(5x);
+  // WebKit (Safari/iOS) still requires the prefixed property; the unprefixed
+  // one alone leaves the blur missing on iOS. The previous `blur(5x)` typo was
+  // an invalid value, so the whole declaration was dropped and no blur applied.
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  // Prevent iOS rubber-band scroll from chaining to the page behind the overlay.
+  overscroll-behavior: contain;
 }
 
 @media (max-width: 1023px) {
