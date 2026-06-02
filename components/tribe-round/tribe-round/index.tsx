@@ -17,6 +17,7 @@ import type {
   FormEvent,
   KeyboardEvent,
   MouseEvent,
+  PointerEvent,
 } from "react";
 import {
   CalendarClockIcon,
@@ -366,6 +367,8 @@ const TRIBE_ROUND_ATTRIBUTES = {
   dropdownAlign: "center",
   inlineEndIcon: "inline-end",
   inlineStartIcon: "inline-start",
+  imageCarouselInteractiveDataAttribute: "data-image-carousel-interactive",
+  imageCarouselInteractiveSelector: "[data-image-carousel-interactive='true']",
   messageMetaSeparatorHidden: true,
   relativeTimeFormat: "relative",
   relativeTimeNoTitleAttribute: "no-title",
@@ -2582,6 +2585,15 @@ function TribeRoundContent({
   const selectedChannel =
     round.channels.find((channel) => channel.id === selectedChannelId) ?? null;
   const hasMessageComposerErrors = messageComposerErrors.length > 0;
+  const isMessageTitleInvalid = messageComposerErrors.includes(
+    TRIBE_ROUND_COPY.messageComposerMissingTitle
+  );
+  const isMessageContentInvalid = messageComposerErrors.includes(
+    TRIBE_ROUND_COPY.messageComposerMissingContent
+  );
+  const isMessageChannelInvalid = messageComposerErrors.includes(
+    TRIBE_ROUND_COPY.messageComposerMissingChannel
+  );
   const selectedMessage =
     messages.find((message) => message.id === selectedMessageId) ?? null;
   const activeImageCarouselMessage = activeImageCarousel
@@ -5261,6 +5273,22 @@ function TribeRoundContent({
       activeImageCarouselSlideIndex + 1,
       messageImages.length
     );
+    const handleImageCarouselDialogPointerDown = (
+      event: PointerEvent<HTMLDivElement>
+    ) => {
+      const targetElement = event.target;
+
+      if (
+        targetElement instanceof Element &&
+        targetElement.closest(
+          TRIBE_ROUND_ATTRIBUTES.imageCarouselInteractiveSelector
+        )
+      ) {
+        return;
+      }
+
+      handleImageCarouselOpenChange(false);
+    };
 
     return (
       <Dialog
@@ -5269,6 +5297,7 @@ function TribeRoundContent({
       >
         <DialogContent
           className={styles.TribeRound__imageCarouselDialog}
+          onPointerDownCapture={handleImageCarouselDialogPointerDown}
           showCloseButton
         >
           <DialogHeader className={styles.TribeRound__imageCarouselHeader}>
@@ -5304,6 +5333,8 @@ function TribeRoundContent({
                       {createElement("img", {
                         alt: imageAlt,
                         className: styles.TribeRound__imageCarouselImage,
+                        [TRIBE_ROUND_ATTRIBUTES.imageCarouselInteractiveDataAttribute]:
+                          TRIBE_ROUND_ATTRIBUTES.trueString,
                         decoding: TRIBE_ROUND_CAROUSEL.imageDecoding,
                         fetchPriority: TRIBE_ROUND_CAROUSEL.imageFetchPriority,
                         loading: "eager",
@@ -5317,10 +5348,18 @@ function TribeRoundContent({
             {messageImages.length > 1 ? (
               <>
                 <CarouselPrevious
+                  {...{
+                    [TRIBE_ROUND_ATTRIBUTES.imageCarouselInteractiveDataAttribute]:
+                      TRIBE_ROUND_ATTRIBUTES.trueString,
+                  }}
                   aria-label={TRIBE_ROUND_COPY.imageCarouselPreviousButton}
                   className={styles.TribeRound__imageCarouselPrevious}
                 />
                 <CarouselNext
+                  {...{
+                    [TRIBE_ROUND_ATTRIBUTES.imageCarouselInteractiveDataAttribute]:
+                      TRIBE_ROUND_ATTRIBUTES.trueString,
+                  }}
                   aria-label={TRIBE_ROUND_COPY.imageCarouselNextButton}
                   className={styles.TribeRound__imageCarouselNext}
                 />
@@ -5339,6 +5378,10 @@ function TribeRoundContent({
             </span>
             {messageImages.map((image, imageIndex) => (
               <span
+                {...{
+                  [TRIBE_ROUND_ATTRIBUTES.imageCarouselInteractiveDataAttribute]:
+                    TRIBE_ROUND_ATTRIBUTES.trueString,
+                }}
                 aria-hidden="true"
                 className={
                   imageIndex === activeImageCarouselSlideIndex
@@ -5651,7 +5694,12 @@ function TribeRoundContent({
                       : undefined
                   }
                   aria-label={TRIBE_ROUND_COPY.messageComposerTitleLabel}
-                  className={styles.TribeRound__titleInput}
+                  aria-invalid={isMessageTitleInvalid}
+                  className={
+                    isMessageTitleInvalid
+                      ? `${styles.TribeRound__titleInput} ${styles["TribeRound__titleInput--invalid"]}`
+                      : styles.TribeRound__titleInput
+                  }
                   disabled={isBusy}
                   onChange={(event) => {
                     setMessageTitle(event.currentTarget.value);
@@ -5668,8 +5716,13 @@ function TribeRoundContent({
                   }
                   aria-label={TRIBE_ROUND_COPY.messageComposerLabel}
                   aria-disabled={isBusy}
+                  aria-invalid={isMessageContentInvalid}
                   aria-multiline
-                  className={styles.TribeRound__messageEditor}
+                  className={
+                    isMessageContentInvalid
+                      ? `${styles.TribeRound__messageEditor} ${styles["TribeRound__messageEditor--invalid"]}`
+                      : styles.TribeRound__messageEditor
+                  }
                   contentEditable={!isBusy}
                   data-placeholder={TRIBE_ROUND_COPY.messagePlaceholder}
                   onBeforeInput={handleMessageContentBeforeInput}
@@ -6053,8 +6106,18 @@ function TribeRoundContent({
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
+                        aria-describedby={
+                          hasMessageComposerErrors
+                            ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                            : undefined
+                        }
+                        aria-invalid={isMessageChannelInvalid}
                         aria-label={TRIBE_ROUND_COPY.tribeChannelLabel}
-                        className={styles.TribeRound__channelTrigger}
+                        className={
+                          isMessageChannelInvalid
+                            ? `${styles.TribeRound__channelTrigger} ${styles["TribeRound__channelTrigger--invalid"]}`
+                            : styles.TribeRound__channelTrigger
+                        }
                         disabled={isBusy}
                         type={TRIBE_ROUND_FORM.buttonType}
                       >

@@ -823,8 +823,48 @@ describe("TribeRound", () => {
     expect(nextImageButton).toBeEnabled();
 
     await user.click(nextImageButton);
+    expect(carouselDialog).toBeInTheDocument();
+
     await user.click(
-      within(carouselDialog).getByRole("button", { name: "Cerrar" })
+      within(carouselDialog).getAllByRole("img", {
+        name: "Mensaje con imagen principal",
+      })[0]
+    );
+    expect(carouselDialog).toBeInTheDocument();
+
+    const imageCarouselProgressDot = carouselDialog.querySelector(
+      ".TribeRound__imageCarouselProgressDot"
+    );
+
+    expect(imageCarouselProgressDot).not.toBeNull();
+
+    await user.click(imageCarouselProgressDot as HTMLElement);
+    expect(carouselDialog).toBeInTheDocument();
+
+    const imageCarousel = carouselDialog.querySelector(
+      ".TribeRound__imageCarousel"
+    );
+
+    expect(imageCarousel).not.toBeNull();
+
+    await user.click(imageCarousel as HTMLElement);
+
+    expect(
+      screen.queryByRole("dialog", { name: "Imágenes del mensaje" })
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(messageDetailsDialog).getByRole("button", {
+        name: "Abrir imagen 1: Mensaje con imagen principal",
+      })
+    );
+
+    const reopenedCarouselDialog = screen.getByRole("dialog", {
+      name: "Imágenes del mensaje",
+    });
+
+    await user.click(
+      within(reopenedCarouselDialog).getByRole("button", { name: "Cerrar" })
     );
 
     expect(
@@ -4801,6 +4841,38 @@ describe("TribeRound", () => {
       expect.objectContaining({ textContent: "-Seleccionar canal" }),
     ]);
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("marks every missing composer field as invalid before submitting", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Compartí algo en la ronda" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    const titleInput = screen.getByRole("textbox", {
+      name: "Título del mensaje",
+    });
+    const contentEditor = screen.getByRole("textbox", {
+      name: "Contenido del mensaje",
+    });
+    const channelTrigger = screen.getByRole("button", {
+      name: "Canal del mensaje",
+    });
+
+    expect(titleInput).toHaveAttribute("aria-invalid", "true");
+    expect(titleInput).toHaveClass("TribeRound__titleInput--invalid");
+    expect(contentEditor).toHaveAttribute("aria-invalid", "true");
+    expect(contentEditor).toHaveClass("TribeRound__messageEditor--invalid");
+    expect(channelTrigger).toHaveAttribute("aria-invalid", "true");
+    expect(channelTrigger).toHaveClass("TribeRound__channelTrigger--invalid");
   });
 
   it("starts with a blank composer every time the modal opens", async () => {
