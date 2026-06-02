@@ -5331,10 +5331,23 @@ function TribeRoundContent({
             aria-live="polite"
             className={styles.TribeRound__imageCarouselProgress}
           >
-            {TRIBE_ROUND_COPY.imageCarouselProgressPrefix}{" "}
-            {activeImageCarouselSlideNumber}{" "}
-            {TRIBE_ROUND_COPY.imageCarouselProgressSeparator}{" "}
-            {messageImages.length}
+            <span className={styles.TribeRound__srOnly}>
+              {TRIBE_ROUND_COPY.imageCarouselProgressPrefix}{" "}
+              {activeImageCarouselSlideNumber}{" "}
+              {TRIBE_ROUND_COPY.imageCarouselProgressSeparator}{" "}
+              {messageImages.length}
+            </span>
+            {messageImages.map((image, imageIndex) => (
+              <span
+                aria-hidden="true"
+                className={
+                  imageIndex === activeImageCarouselSlideIndex
+                    ? `${styles.TribeRound__imageCarouselProgressDot} ${styles["TribeRound__imageCarouselProgressDot--active"]}`
+                    : styles.TribeRound__imageCarouselProgressDot
+                }
+                key={image.id}
+              />
+            ))}
           </p>
         </DialogContent>
       </Dialog>

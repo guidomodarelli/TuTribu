@@ -798,7 +798,7 @@ describe("TribeRound", () => {
       "TribeRound__imageCarouselDialog"
     );
     expect(within(carouselDialog).getByText("Imagen 1 de 2")).toHaveClass(
-      "TribeRound__imageCarouselProgress"
+      "TribeRound__srOnly"
     );
     expect(
       within(carouselDialog).getAllByRole("img", {
