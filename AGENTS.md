@@ -274,6 +274,15 @@ components/<scope>/<component>/
 </article>
 ```
 
+### Cross-engine compatibility (Chromium and WebKit) — mandatory
+
+- Always keep in mind that every style (`SCSS`, `*.module.scss`, inline runtime values) and every piece of client-side JavaScript in product code must render and behave correctly on both Chromium (Chrome, Edge, Android Chrome) and WebKit (Safari, iOS Safari, iOS Chrome, and iOS WebViews). A change is not done until it works on both engines.
+- Treat mobile as a first-class target: validate small viewports on both engines, because several engine divergences only surface on mobile Chrome and iOS Safari/Chrome.
+- Be especially careful with layout features whose intrinsic-sizing or rendering behavior diverges between engines, such as: CSS Grid `fr`/`minmax()` tracks inside `fit-content`/`auto`-sized containers, `-webkit-line-clamp` with `-webkit-box`, flexbox/grid `min-height`/`min-width` defaults, sticky positioning, fixed positioning combined with `inset`/`margin: auto`, and dynamic viewport units (`svh`, `dvh`, `vh`). When a scroll container relies on an `fr` track, give it a definite size instead of depending on engine-specific intrinsic sizing.
+- Keep the required `-webkit-` prefixes and provide standard fallbacks; never ship a property or value that only one engine understands without an equivalent path for the other.
+- For client-side JavaScript, do not depend on Chromium-only APIs or behaviors. Guard non-universal Web APIs with feature detection and provide a safe WebKit fallback so iOS users are never left with a broken flow.
+- When fixing or reviewing a UI bug, confirm the root cause is not an engine-specific behavior and verify the fix holds on both Chromium and WebKit before closing the task. If one engine cannot be exercised in the current environment, state the concrete blocker and the closest validation performed.
+
 ## 4. Server-First Data Flow
 
 ### Default data strategy

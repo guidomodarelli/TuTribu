@@ -1906,6 +1906,13 @@
     &__composerDialog--messageDetails:global([data-slot="dialog-content"]) {
       width: 100vw;
       max-width: 100vw;
+      // A definite height (instead of the desktop `fit-content`) gives the
+      // `grid-template-rows: auto minmax(0, 1fr)` body row concrete space to
+      // fill. Without it, mobile Chromium/WebKit resolve the `1fr` track toward
+      // its `min-content` (~one line) once the expanded content overflows the
+      // viewport, collapsing the modal each time "Ver más" is pressed. With a
+      // fixed height the body scrolls via its own `overflow-y: auto` instead.
+      height: 100svh;
       max-height: 100svh;
       border-radius: 0;
       padding: 0;
