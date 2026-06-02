@@ -364,6 +364,7 @@ const TRIBE_ROUND_ATTRIBUTES = {
   composerAvatarSize: "lg",
   contentExpandedDataAttribute: "data-expanded",
   dropdownAlign: "center",
+  messageActionsDropdownAlign: "end",
   inlineEndIcon: "inline-end",
   inlineStartIcon: "inline-start",
   messageMetaSeparatorHidden: true,
@@ -5478,7 +5479,7 @@ function TribeRoundContent({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}
+          align={TRIBE_ROUND_ATTRIBUTES.messageActionsDropdownAlign}
           className={styles.TribeRound__messageMenuContent}
         >
           {canEdit ? (
