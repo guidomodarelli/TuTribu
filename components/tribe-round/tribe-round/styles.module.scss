@@ -1837,7 +1837,7 @@
 
 :global([data-slot="dialog-overlay"]) {
   background: color-mix(in oklch, var(--foreground) 18%, transparent);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(5x);
 }
 
 @media (max-width: 1023.98px) {
