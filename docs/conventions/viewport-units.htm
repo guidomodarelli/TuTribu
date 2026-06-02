@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Viewport Units</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fbf3ea;border-color:#d4a15a;color:#7a541a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Viewport Units</div>
+  <div class="doc-sub">Cuándo usar <code>svh</code> y cuándo <code>dvh</code> para alturas relativas al viewport, evitando el jank de las barras del navegador en mobile.</div>
+  <div class="doc-meta"><span>Scope: UI / Styling</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+<p>En mobile, las barras del navegador (URL, herramientas) aparecen y desaparecen al scrollear, por lo que la altura del viewport no es un valor único. CSS expone tres unidades para esto: <code>svh</code> (small viewport, con las barras visibles), <code>lvh</code> (large, con las barras ocultas) y <code>dvh</code> (dynamic, que cambia en vivo entre ambas). Elegir la unidad equivocada produce contenido tapado o reflow visible mientras el usuario scrollea.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Goal</div>
+<p>Mantener un comportamiento estable y consistente en Chromium y WebKit (Safari/iOS), que es donde estas unidades más divergen. <code>dvh</code> llena más pantalla pero provoca jank al togglear las barras; <code>svh</code> es estable pero deja un margen cuando las barras se ocultan. La regla acota cada unidad al caso donde su ventaja es real y su desventaja no aplica.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Rules</div>
+<table>
+  <tr><th>Caso</th><th>Unidad</th><th>Por qué</th></tr>
+  <tr><td><code>min-height</code> de páginas y secciones que deben llenar al menos la pantalla y cuyo contenido puede crecer</td><td><code>svh</code></td><td>Garantiza el alto mínimo de forma estable; no hay reflow cuando las barras aparecen u ocultan.</td></tr>
+  <tr><td>Scroll containers acotados al viewport (<code>max-height: calc(100svh - …)</code>), típicamente sidebars sticky o fixed en desktop</td><td><code>svh</code></td><td>El borde no se mueve; la barra del navegador no togglea en esos contextos, así que <code>dvh</code> solo agregaría inestabilidad.</td></tr>
+  <tr><td>Overlays <strong>fullscreen de mobile</strong> (<code>position: fixed</code>, ocupan toda la pantalla, sin scroll de la página de fondo)</td><td><code>dvh</code></td><td>Llenan todo el espacio disponible. El scroll interno del overlay no togglea las barras del navegador, así que no introduce jank.</td></tr>
+</table>
+<ul>
+  <li>No usar <code>100vh</code> en código de producto: en mobile resuelve al viewport grande y deja contenido tapado detrás de la barra de URL.</li>
+  <li>No hacer un reemplazo masivo <code>svh</code> → <code>dvh</code> "para mobile": en diálogos centrados y scroll containers de desktop, <code>dvh</code> agrega jank sin beneficio.</li>
+  <li>Mantener las clases <code>min-h-svh</code> / <code>h-svh</code> generadas por shadcn/ui (por ejemplo en <code>components/ui/sidebar.tsx</code>) tal como vienen: ya cumplen la convención.</li>
+</ul>
+<div class="callout c-warn">Al combinar <code>dvh</code> con <code>env(safe-area-inset-bottom)</code> en un overlay fullscreen, validar en iOS real que la zona de acciones inferior no quede clippeada ni salte cuando la barra del navegador togglea.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Usage</div>
+<div class="code-block"><pre>// Página/sección: alto mínimo estable.
+.SignInPage {
+  min-height: 100svh;
+}
+
+// Scroll container de desktop acotado al viewport.
+.Sidebar {
+  max-height: calc(100svh - 3.5rem);
+  overflow-y: auto;
+}
+
+// Overlay fullscreen de mobile: llena toda la pantalla.
+@media (max-width: 1023px) {
+  .Dialog {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+}</pre></div>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Notes</div>
+<ul>
+  <li>Esta convención es la aplicación concreta de la regla "Cross-engine compatibility (Chromium and WebKit)" de <code>AGENTS.md</code>, que marca <code>svh</code>/<code>dvh</code>/<code>vh</code> como unidades de comportamiento divergente entre motores.</li>
+  <li>Si un overlay fullscreen depende de un track <code>fr</code> para su scroll interno, darle un alto definido (con <code>svh</code> o <code>dvh</code> según esta tabla) en vez de depender del intrinsic sizing, que diverge entre motores.</li>
+</ul>
+</div>
+</body>
+</html>

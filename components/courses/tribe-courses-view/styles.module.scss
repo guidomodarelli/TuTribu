@@ -30,7 +30,7 @@
       top: 3.5rem;
       align-self: start;
       margin-top: calc(-1 * clamp(1rem, 3vw, 2rem));
-      max-height: calc(100dvh - 3.5rem);
+      max-height: calc(100svh - 3.5rem);
       overflow-y: auto;
       overscroll-behavior: contain;
       padding: 0.75rem 0.5rem 0.75rem 0;

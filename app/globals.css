@@ -139,14 +139,14 @@
   }
 
   body {
-    min-height: 100vh;
+    min-height: 100svh;
     background-color: var(--background);
     color: var(--foreground);
     background-image: var(--body-background-image);
   }
 
   .GlobalErrorPageBody {
-    min-height: 100dvh;
+    min-height: 100svh;
   }
 
   ::selection {

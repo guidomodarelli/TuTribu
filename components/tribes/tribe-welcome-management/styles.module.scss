@@ -366,7 +366,7 @@ $tribe-welcome-submit-clearance: 6rem;
 
     &__preview {
       max-height: calc(
-        100vh - #{$tribe-welcome-preview-top} -
+        100svh - #{$tribe-welcome-preview-top} -
           #{$tribe-welcome-preview-bottom}
       );
       margin-top: 0;
