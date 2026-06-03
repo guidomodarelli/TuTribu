@@ -1916,6 +1916,14 @@
 @media (max-width: 1023px) {
   .TribeRound {
     &__composerDialog--messageDetails:global([data-slot="dialog-content"]) {
+      // On iOS WebKit the fixed-positioning containing block spans the large
+      // viewport (`lvh`), while this panel is sized to the dynamic viewport
+      // (`100dvh`). The inherited desktop `margin: auto` then centers the
+      // shorter panel inside the taller containing block, pushing it off the
+      // visible area so the modal looks shifted and partly off-screen. Pin it
+      // to the top-left corner so it exactly fills the visible viewport.
+      inset: 0 auto auto 0;
+      margin: 0;
       width: 100vw;
       max-width: 100vw;
       // A definite height (instead of the desktop `fit-content`) gives the
@@ -1946,6 +1954,16 @@
     }
 
     &__imageCarouselDialog:global([data-slot="dialog-content"]) {
+      // Same iOS offset as the message-details modal: the desktop variant
+      // centers via Tailwind's `translate`, which leaves the
+      // dynamic-viewport-sized panel shifted inside the large-viewport
+      // containing block on WebKit. Pin it to the top-left and drop the
+      // translate so it fills the visible viewport. The translate is routed
+      // through an undefined custom property because the build minifier strips a
+      // plain `translate: none` as a redundant initial value.
+      inset: 0 auto auto 0;
+      margin: 0;
+      translate: var(--tribe-message-details-no-translate, none) !important;
       width: 100vw;
       max-width: 100vw;
       height: 100dvh;
