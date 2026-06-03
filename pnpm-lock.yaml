@@ -136,8 +136,8 @@ importers:
         specifier: ^3.0.2
         version: 3.0.2(eslint@9.39.4(jiti@2.6.1))
       eslint-plugin-no-magic:
-        specifier: ^0.1.0
-        version: 0.1.0(eslint@9.39.4(jiti@2.6.1))
+        specifier: ^0.1.1
+        version: 0.1.1(eslint@9.39.4(jiti@2.6.1))
       jest:
         specifier: ^30.4.2
         version: 30.4.2(@types/node@25.9.1)
@@ -4661,8 +4661,8 @@ packages:
     peerDependencies:
       eslint: '9'
 
-  eslint-plugin-no-magic@0.1.0:
-    resolution: {integrity: sha512-4j5ailx2SS3gKFmz9JucS9SQkjjHUiMXyo9IJaLEeX3aYgBJs+fYg933SCTCaMkx34HZjjI2dbFUFY9xnDLoQQ==}
+  eslint-plugin-no-magic@0.1.1:
+    resolution: {integrity: sha512-MR2YmGPzkdFj6+uve7sJpzhO6ngDtl8h1GOSZ27p5tOcGJz5Xm3W/3/fDoT5CCeHcjSH6Yp+b1CsCUEATIzpBQ==}
     engines: {node: '>=20'}
     peerDependencies:
       eslint: '>=9'
@@ -11946,7 +11946,7 @@ snapshots:
     dependencies:
       eslint: 9.39.4(jiti@2.6.1)
 
-  eslint-plugin-no-magic@0.1.0(eslint@9.39.4(jiti@2.6.1)):
+  eslint-plugin-no-magic@0.1.1(eslint@9.39.4(jiti@2.6.1)):
     dependencies:
       eslint: 9.39.4(jiti@2.6.1)
 
