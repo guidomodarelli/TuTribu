@@ -45,6 +45,7 @@ type PostgresMembershipTribeRow = {
 type PostgresTribeMemberRow = {
   email: string | null;
   image: string | null;
+  joined_free: boolean | null;
   member_id: string;
   name: string | null;
   role: string | null;
@@ -124,6 +125,7 @@ function mapTribeMemberRow(row: PostgresTribeMemberRow): TribeMemberResult {
     email: row.email,
     id: row.member_id,
     image: row.image,
+    joinedViaFreeInvitation: row.joined_free === true,
     name,
     role: normalizeTribeMemberRole(row.role),
   };
@@ -290,7 +292,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
   async listVisibleTribeMembersBySlug(slug: string): Promise<TribeMemberResult[]> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        select member_id, role, name, email, image
+        select member_id, role, name, email, image, joined_free
         from public.list_visible_tribe_members_by_slug(${slug})
       `);
 

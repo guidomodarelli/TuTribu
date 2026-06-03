@@ -31,6 +31,7 @@ import styles from "./styles.module.scss";
 const TRIBE_MEMBER_DIRECTORY_COPY = {
   allFilterLabel: "Todos",
   exportCsvLabel: "Exportar a CSV",
+  freeFilterLabel: "Invitación free",
   exportHtmlLabel: "Exportar a HTML",
   exportMenuLabel: "Elegir formato de exportación",
   exportTriggerLabel: "Exportar",
@@ -59,6 +60,7 @@ const SEARCH_INPUT_TYPE = "search";
 
 const FILTER_ID = {
   all: "all",
+  free: "free",
   pending: "pending",
 } as const;
 
@@ -86,6 +88,7 @@ type TribeMemberFilterOption = {
 type TribeMemberDirectoryProps = {
   canExportMembers: boolean;
   canInviteMembers: boolean;
+  canViewFreeInvitations?: boolean;
   filterOptions: TribeMemberFilterOption[];
   members: TribeMemberResult[];
   selectionsByMemberId: Record<string, TribeMemberSelectionBadge[]>;
@@ -99,6 +102,10 @@ function countMembersForFilter(
 ): number {
   if (filterId === FILTER_ID.all) {
     return members.length;
+  }
+
+  if (filterId === FILTER_ID.free) {
+    return members.filter((member) => member.joinedViaFreeInvitation).length;
   }
 
   if (filterId === FILTER_ID.pending) {
@@ -121,6 +128,10 @@ function filterMembers(
 ): TribeMemberResult[] {
   if (filterId === FILTER_ID.all) {
     return members;
+  }
+
+  if (filterId === FILTER_ID.free) {
+    return members.filter((member) => member.joinedViaFreeInvitation);
   }
 
   if (filterId === FILTER_ID.pending) {
@@ -159,6 +170,7 @@ function searchMembers(
 export function TribeMemberDirectory({
   canExportMembers,
   canInviteMembers,
+  canViewFreeInvitations = false,
   filterOptions,
   members,
   selectionsByMemberId,
@@ -167,17 +179,36 @@ export function TribeMemberDirectory({
   const [activeFilterId, setActiveFilterId] = useState<string>(FILTER_ID.all);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const searchInputId = useId();
-  const availableFilters = useMemo<TribeMemberFilterOption[]>(
-    () => [
-      { id: FILTER_ID.all, label: TRIBE_MEMBER_DIRECTORY_COPY.allFilterLabel },
-      {
-        id: FILTER_ID.pending,
-        label: TRIBE_MEMBER_DIRECTORY_COPY.pendingFilterLabel,
-      },
-      ...filterOptions,
-    ],
-    [filterOptions]
-  );
+  const hasSelectionFilters = filterOptions.length > 0;
+  const availableFilters = useMemo<TribeMemberFilterOption[]>(() => {
+    const filters: TribeMemberFilterOption[] = [];
+
+    if (hasSelectionFilters || canViewFreeInvitations) {
+      filters.push({
+        id: FILTER_ID.all,
+        label: TRIBE_MEMBER_DIRECTORY_COPY.allFilterLabel,
+      });
+    }
+
+    if (hasSelectionFilters) {
+      filters.push(
+        {
+          id: FILTER_ID.pending,
+          label: TRIBE_MEMBER_DIRECTORY_COPY.pendingFilterLabel,
+        },
+        ...filterOptions
+      );
+    }
+
+    if (canViewFreeInvitations) {
+      filters.push({
+        id: FILTER_ID.free,
+        label: TRIBE_MEMBER_DIRECTORY_COPY.freeFilterLabel,
+      });
+    }
+
+    return filters;
+  }, [canViewFreeInvitations, filterOptions, hasSelectionFilters]);
   const isActiveFilterAvailable = availableFilters.some(
     (filter) => filter.id === activeFilterId
   );
@@ -201,7 +232,7 @@ export function TribeMemberDirectory({
   const searchPlaceholder = canSearchByEmail
     ? TRIBE_MEMBER_DIRECTORY_COPY.searchPlaceholderWithEmail
     : TRIBE_MEMBER_DIRECTORY_COPY.searchPlaceholderWithoutEmail;
-  const showFilters = filterOptions.length > 0;
+  const showFilters = availableFilters.length > 0;
   const invitationsHref = `${INVITATIONS_PATH_PREFIX}${tribeSlug}${INVITATIONS_PATH_SUFFIX}`;
 
   const handleExport = (format: MemberExportFormat) => {
@@ -296,6 +327,7 @@ export function TribeMemberDirectory({
         >
           {availableFilters.map((filter) => {
             const isActive = filter.id === resolvedActiveFilterId;
+            const isFreeFilter = filter.id === FILTER_ID.free;
             const count = countMembersForFilter(
               members,
               selectionsByMemberId,
@@ -304,6 +336,12 @@ export function TribeMemberDirectory({
             const isEmptyCount = count === EMPTY_FILTER_COUNT && !isActive;
             const filterButtonClasses = [
               styles.TribeMemberDirectory__filterButton,
+              isFreeFilter
+                ? styles["TribeMemberDirectory__filterButton--free"]
+                : null,
+              isFreeFilter && isActive
+                ? styles["TribeMemberDirectory__filterButton--freeActive"]
+                : null,
               isEmptyCount
                 ? styles["TribeMemberDirectory__filterButton--empty"]
                 : null,
@@ -327,6 +365,12 @@ export function TribeMemberDirectory({
                       : FILTER_BUTTON.inactiveVariant
                   }
                 >
+                  {isFreeFilter ? (
+                    <span
+                      aria-hidden={true}
+                      className={styles.TribeMemberDirectory__filterDot}
+                    />
+                  ) : null}
                   {filter.label} ({count})
                 </Button>
               </li>
@@ -336,6 +380,7 @@ export function TribeMemberDirectory({
       ) : null}
 
       <TribeMemberList
+        canViewFreeInvitations={canViewFreeInvitations}
         members={filteredMembers}
         selectionsByMemberId={selectionsByMemberId}
       />

@@ -22,6 +22,7 @@ type ListVisibleTribeMembersDependencies = {
 
 type ListVisibleTribeMembersQuery = {
   tribeSlug: string;
+  viewerCanViewFreeInvitations: boolean;
   viewerCanViewMemberEmails: boolean;
 };
 
@@ -30,6 +31,7 @@ export function listVisibleTribeMembers({
 }: ListVisibleTribeMembersDependencies) {
   return async ({
     tribeSlug,
+    viewerCanViewFreeInvitations,
     viewerCanViewMemberEmails,
   }: ListVisibleTribeMembersQuery): Promise<TribeMemberResult[]> => {
     const tribeMembers =
@@ -58,8 +60,12 @@ export function listVisibleTribeMembers({
       }
     );
 
-    return viewerCanViewMemberEmails
-      ? sortedMembers
-      : sortedMembers.map((member) => ({ ...member, email: null }));
+    return sortedMembers.map((member) => ({
+      ...member,
+      email: viewerCanViewMemberEmails ? member.email : null,
+      joinedViaFreeInvitation: viewerCanViewFreeInvitations
+        ? member.joinedViaFreeInvitation
+        : false,
+    }));
   };
 }

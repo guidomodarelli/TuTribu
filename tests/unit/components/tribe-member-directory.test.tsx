@@ -30,6 +30,7 @@ const baseMembers: TribeMemberResult[] = [
     email: "ada.lovelace@example.com",
     id: "member-1",
     image: null,
+    joinedViaFreeInvitation: false,
     name: "Ada Lovelace",
     role: "leader",
   },
@@ -38,6 +39,7 @@ const baseMembers: TribeMemberResult[] = [
     email: "grace.hopper@example.com",
     id: "member-2",
     image: null,
+    joinedViaFreeInvitation: true,
     name: "Grace Hopper",
     role: "tribemate",
   },
@@ -46,6 +48,7 @@ const baseMembers: TribeMemberResult[] = [
     email: "katherine.j@example.com",
     id: "member-3",
     image: null,
+    joinedViaFreeInvitation: false,
     name: "Katherine Johnson",
     role: "tribemate",
   },
@@ -336,6 +339,65 @@ describe("TribeMemberDirectory", () => {
     expect(
       screen.getByRole("searchbox", { name: "Buscar miembro" })
     ).toHaveAttribute("placeholder", "Buscar por nombre o email");
+  });
+
+  it("does not show the free-invitation frame or chip when the viewer cannot view free invitations", () => {
+    render(
+      <TribeMemberDirectory
+        canExportMembers={false}
+        canInviteMembers={false}
+        filterOptions={[]}
+        members={baseMembers}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /Invitación free/ })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Invitación free")).not.toBeInTheDocument();
+    expect(screen.queryByText("FREE")).not.toBeInTheDocument();
+  });
+
+  it("frames the avatar of members who joined for free when the viewer can view free invitations", () => {
+    render(
+      <TribeMemberDirectory
+        canExportMembers={false}
+        canInviteMembers={false}
+        canViewFreeInvitations={true}
+        filterOptions={[]}
+        members={baseMembers}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(screen.getByLabelText("Invitación free")).toBeInTheDocument();
+    expect(screen.getByText("FREE")).toBeInTheDocument();
+  });
+
+  it("filters to only the members who joined through a free invitation", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeMemberDirectory
+        canExportMembers={false}
+        canInviteMembers={false}
+        canViewFreeInvitations={true}
+        filterOptions={[]}
+        members={baseMembers}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Invitación free (1)" })
+    );
+
+    expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
+    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
+    expect(screen.queryByText("Katherine Johnson")).not.toBeInTheDocument();
   });
 
   it("renders the invite CTA only when the viewer can invite", () => {

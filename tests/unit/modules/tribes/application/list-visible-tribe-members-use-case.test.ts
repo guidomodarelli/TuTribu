@@ -7,6 +7,7 @@ const memberFixtures: TribeMemberResult[] = [
     email: "katherine.johnson@example.com",
     id: "member-3",
     image: null,
+    joinedViaFreeInvitation: true,
     name: "Katherine Johnson",
     role: "tribemate",
   },
@@ -15,6 +16,7 @@ const memberFixtures: TribeMemberResult[] = [
     email: "sofia.kovalevskaya@example.com",
     id: "member-2",
     image: null,
+    joinedViaFreeInvitation: false,
     name: "Sofia Kovalevskaya",
     role: "guardian",
   },
@@ -23,6 +25,7 @@ const memberFixtures: TribeMemberResult[] = [
     email: "grace.hopper@example.com",
     id: "member-4",
     image: null,
+    joinedViaFreeInvitation: false,
     name: "Grace Hopper",
     role: "guardian",
   },
@@ -31,6 +34,7 @@ const memberFixtures: TribeMemberResult[] = [
     email: "ada.lovelace@example.com",
     id: "member-1",
     image: null,
+    joinedViaFreeInvitation: false,
     name: "Ada Lovelace",
     role: "leader",
   },
@@ -39,6 +43,7 @@ const memberFixtures: TribeMemberResult[] = [
     email: "ana.martinez@example.com",
     id: "member-5",
     image: null,
+    joinedViaFreeInvitation: true,
     name: "Ana Martinez",
     role: "tribemate",
   },
@@ -47,6 +52,7 @@ const memberFixtures: TribeMemberResult[] = [
     email: "duplicate.ada@example.com",
     id: "member-1",
     image: null,
+    joinedViaFreeInvitation: false,
     name: "Ada Lovelace",
     role: "leader",
   },
@@ -77,6 +83,7 @@ describe("listVisibleTribeMembers", () => {
     await expect(
       execute({
         tribeSlug: "matematica-pro",
+        viewerCanViewFreeInvitations: true,
         viewerCanViewMemberEmails: true,
       })
     ).resolves.toEqual([
@@ -85,6 +92,7 @@ describe("listVisibleTribeMembers", () => {
         email: "ada.lovelace@example.com",
         id: "member-1",
         image: null,
+        joinedViaFreeInvitation: false,
         name: "Ada Lovelace",
         role: "leader",
       },
@@ -93,6 +101,7 @@ describe("listVisibleTribeMembers", () => {
         email: "grace.hopper@example.com",
         id: "member-4",
         image: null,
+        joinedViaFreeInvitation: false,
         name: "Grace Hopper",
         role: "guardian",
       },
@@ -101,6 +110,7 @@ describe("listVisibleTribeMembers", () => {
         email: "sofia.kovalevskaya@example.com",
         id: "member-2",
         image: null,
+        joinedViaFreeInvitation: false,
         name: "Sofia Kovalevskaya",
         role: "guardian",
       },
@@ -109,6 +119,7 @@ describe("listVisibleTribeMembers", () => {
         email: "ana.martinez@example.com",
         id: "member-5",
         image: null,
+        joinedViaFreeInvitation: true,
         name: "Ana Martinez",
         role: "tribemate",
       },
@@ -117,6 +128,7 @@ describe("listVisibleTribeMembers", () => {
         email: "katherine.johnson@example.com",
         id: "member-3",
         image: null,
+        joinedViaFreeInvitation: true,
         name: "Katherine Johnson",
         role: "tribemate",
       },
@@ -129,6 +141,7 @@ describe("listVisibleTribeMembers", () => {
 
     const results = await execute({
       tribeSlug: "matematica-pro",
+      viewerCanViewFreeInvitations: true,
       viewerCanViewMemberEmails: true,
     });
 
@@ -140,6 +153,7 @@ describe("listVisibleTribeMembers", () => {
 
     const results = await execute({
       tribeSlug: "matematica-pro",
+      viewerCanViewFreeInvitations: false,
       viewerCanViewMemberEmails: false,
     });
 
@@ -147,11 +161,40 @@ describe("listVisibleTribeMembers", () => {
     expect(results.every((member) => member.email === null)).toBe(true);
   });
 
+  it("keeps the free-invitation flag when the viewer can view free invitations", async () => {
+    const { execute } = buildExecutor();
+
+    const results = await execute({
+      tribeSlug: "matematica-pro",
+      viewerCanViewFreeInvitations: true,
+      viewerCanViewMemberEmails: true,
+    });
+
+    expect(
+      results.filter((member) => member.joinedViaFreeInvitation).map((member) => member.id)
+    ).toEqual(["member-5", "member-3"]);
+  });
+
+  it("scrubs the free-invitation flag to false when the viewer cannot view free invitations", async () => {
+    const { execute } = buildExecutor();
+
+    const results = await execute({
+      tribeSlug: "matematica-pro",
+      viewerCanViewFreeInvitations: false,
+      viewerCanViewMemberEmails: true,
+    });
+
+    expect(results.every((member) => member.joinedViaFreeInvitation === false)).toBe(
+      true
+    );
+  });
+
   it("preserves the role-based sort order even when emails are scrubbed", async () => {
     const { execute } = buildExecutor();
 
     const results = await execute({
       tribeSlug: "matematica-pro",
+      viewerCanViewFreeInvitations: false,
       viewerCanViewMemberEmails: false,
     });
 

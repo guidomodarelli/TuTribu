@@ -358,6 +358,13 @@
       "when": 1780315200000,
       "tag": "20260601120000_allow_siteping_project_admin_feedback_management",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1780401600000,
+      "tag": "20260602120000_expose_free_invitation_to_tribe_leaders",
+      "breakpoints": true
     }
   ]
 }

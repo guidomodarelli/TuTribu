@@ -1,0 +1,27 @@
+.FreeInvitationAvatarFrame {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+
+  &__ring {
+    position: absolute;
+    // The band lives inside the avatar circle (overlapping the image edge), so
+    // the overlay covers the avatar exactly and is clipped to its circle.
+    inset: 0;
+    pointer-events: none;
+  }
+
+  &__arc {
+    stroke-width: 6;
+    stroke-linecap: round;
+  }
+
+  &__text {
+    fill: #ffffff;
+    font-family: var(--font-sans), sans-serif;
+    font-size: 4.4px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+}

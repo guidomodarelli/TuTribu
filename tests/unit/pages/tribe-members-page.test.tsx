@@ -198,6 +198,7 @@ describe("TribeTribePage", () => {
     expect(screen.queryByText("Integrante")).not.toBeInTheDocument();
     expect(listVisibleTribeMembers).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
+      viewerCanViewFreeInvitations: false,
       viewerCanViewMemberEmails: false,
     });
   });
@@ -245,6 +246,7 @@ describe("TribeTribePage", () => {
 
       expect(listVisibleTribeMembers).toHaveBeenCalledWith({
         tribeSlug: "matematica-pro",
+        viewerCanViewFreeInvitations: role === "leader",
         viewerCanViewMemberEmails,
       });
     }
@@ -279,6 +281,7 @@ describe("TribeTribePage", () => {
 
     expect(listVisibleTribeMembers).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
+      viewerCanViewFreeInvitations: false,
       viewerCanViewMemberEmails: false,
     });
   });
@@ -894,6 +897,7 @@ describe("TribeTribePage", () => {
     );
     expect(listVisibleTribeMembers).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
+      viewerCanViewFreeInvitations: false,
       viewerCanViewMemberEmails: false,
     });
     expect(getTribeWelcome).not.toHaveBeenCalled();

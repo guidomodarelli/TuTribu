@@ -6,8 +6,9 @@ const googleFontLoaderImport = jest.fn(() => {
 });
 
 jest.mock("next/font/google", () => ({
+  Geist: googleFontLoaderImport,
   IBM_Plex_Mono: googleFontLoaderImport,
-  Space_Grotesk: googleFontLoaderImport,
+  Poppins: googleFontLoaderImport,
 }));
 
 // next/font loaders only run through the Next build-time SWC plugin; in Jest
@@ -26,7 +27,8 @@ jest.mock("next/font/local", () => ({
 
 const FONT_DIRECTORY = join(process.cwd(), "app", "fonts");
 const SELF_HOSTED_FONT_FILES = [
-  "space-grotesk-latin-variable.woff2",
+  "geist-latin-variable.woff2",
+  "poppins-latin-600.woff2",
   "ibm-plex-mono-latin-400.woff2",
   "ibm-plex-mono-latin-500.woff2",
 ];
@@ -49,8 +51,9 @@ describe("font preload config", () => {
       expect(existsSync(join(FONT_DIRECTORY, fontFile))).toBe(true);
     }
 
-    expect(globalStyles).toMatch(/--font-sans:\s*var\(--font-space-grotesk\);/);
+    expect(globalStyles).toMatch(/--font-sans:\s*var\(--font-geist\);/);
     expect(globalStyles).toMatch(/--font-mono:\s*var\(--font-ibm-plex-mono\);/);
-    expect(globalStyles).toMatch(/--font-heading:\s*var\(--font-space-grotesk\);/);
+    expect(globalStyles).toMatch(/--font-heading:\s*var\(--font-geist\);/);
+    expect(globalStyles).toMatch(/--font-display:\s*var\(--font-poppins\);/);
   });
 });

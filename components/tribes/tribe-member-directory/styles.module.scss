@@ -20,8 +20,10 @@
   &__title {
     margin: 0;
     color: var(--foreground);
-    font-size: clamp(1.75rem, 4vw, 2.5rem);
-    line-height: 1.1;
+    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-size: clamp(2.5rem, 6vw, 3.5rem);
+    font-weight: 600;
+    line-height: 1.05;
   }
 
   &__subtitle {
@@ -76,5 +78,43 @@
     &--empty {
       opacity: 0.5;
     }
+
+    &--free {
+      border-color: color-mix(in srgb, var(--free) 36%, transparent);
+      background: color-mix(in srgb, var(--free) 12%, transparent);
+      color: var(--free-foreground);
+
+      &:hover {
+        border-color: color-mix(in srgb, var(--free) 52%, transparent);
+        background: color-mix(in srgb, var(--free) 20%, transparent);
+        color: var(--free-foreground);
+      }
+    }
+
+    &--freeActive {
+      border-color: var(--free);
+      background: var(--free);
+      color: var(--background);
+
+      &:hover {
+        border-color: var(--free);
+        background: color-mix(in srgb, var(--free) 88%, black);
+        color: var(--background);
+      }
+
+      .TribeMemberDirectory__filterDot {
+        background: var(--background);
+        box-shadow: none;
+      }
+    }
+  }
+
+  &__filterDot {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--free);
+    box-shadow: 0 0 0.5rem color-mix(in srgb, var(--free) 70%, transparent);
   }
 }

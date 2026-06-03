@@ -244,6 +244,13 @@ type TribeStatus = &quot;active&quot; | &quot;muted&quot; | &quot;blocked&quot;;
 </div>
 
 <div class="section">
+  <div class="section-num">17.2</div>
+  <div class="section-title">Visibilidad de invitacion free en directorio</div>
+<p>El indicador de <strong>Invitacion free</strong> (miembros con <code>tribe_members.joined_via = 'free_invitation'</code>) es informacion de gestion mas sensible que el email: solo se revela a una membresia <code>active</code> con rol <code>leader</code>. Un <code>guardian</code> ve los emails pero recibe siempre <code>joined_free = false</code>, y un <code>tribemate</code> no ve ni emails ni el indicador.</p>
+<p>La autorizacion es autoritativa en la base: la funcion <code>SECURITY DEFINER</code> <code>public.list_visible_tribe_members_by_slug(text)</code> calcula <code>joined_free</code> con un <code>CASE</code> que exige rol <code>leader</code> activo del viewer (migracion <code>database/migrations/20260602120000_expose_free_invitation_to_tribe_leaders.sql</code>). El caso de uso <code>listVisibleTribeMembers</code> aplica el mismo gating en una segunda capa via <code>viewerCanViewFreeInvitations</code>, y la UI (<code>chip</code> de filtro y badge verde) solo se renderiza cuando ese permiso es verdadero.</p>
+</div>
+
+<div class="section">
   <div class="section-num">18</div>
   <div class="section-title"><code>blocked</code></div>
 <p>Pierde acceso tenant-scoped de lectura y escritura para esa tribu.</p>

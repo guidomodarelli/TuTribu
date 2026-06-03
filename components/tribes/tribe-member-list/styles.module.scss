@@ -62,6 +62,18 @@
     line-height: 1.4;
   }
 
+  &__sideBadges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.375rem;
+    min-width: 0;
+    // Keep the badge cluster pinned to the right even when it wraps onto its
+    // own line, where the parent's `space-between` would otherwise left-align it.
+    margin-left: auto;
+  }
+
   &__selectionList {
     display: flex;
     flex-wrap: wrap;

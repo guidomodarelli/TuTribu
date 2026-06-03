@@ -4,6 +4,7 @@ import {
   AvatarImage,
 } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { FreeInvitationAvatarFrame } from "@/components/tribes/free-invitation-avatar-frame";
 import type {
   TribeMemberResult,
   TribeMemberRole,
@@ -55,6 +56,7 @@ export type TribeMemberSelectionBadge = {
 };
 
 type TribeMemberListProps = {
+  canViewFreeInvitations?: boolean;
   members: TribeMemberResult[];
   selectionsByMemberId?: Record<string, TribeMemberSelectionBadge[]>;
 };
@@ -127,6 +129,7 @@ function TribeMemberSelectionBadges({
 }
 
 export function TribeMemberList({
+  canViewFreeInvitations = false,
   members,
   selectionsByMemberId,
 }: TribeMemberListProps) {
@@ -145,15 +148,26 @@ export function TribeMemberList({
     >
       {members.map((member) => {
         const memberSelections = selectionsByMemberId?.[member.id] ?? [];
+        const showFreeFrame =
+          canViewFreeInvitations && member.joinedViaFreeInvitation;
+        const avatar = (
+          <Avatar className={styles.TribeMemberList__avatar}>
+            {member.image ? (
+              <AvatarImage alt={member.name} src={member.image} />
+            ) : null}
+            <AvatarFallback>{member.avatarFallback}</AvatarFallback>
+          </Avatar>
+        );
 
         return (
           <li className={styles.TribeMemberList__item} key={member.id}>
-            <Avatar className={styles.TribeMemberList__avatar}>
-              {member.image ? (
-                <AvatarImage alt={member.name} src={member.image} />
-              ) : null}
-              <AvatarFallback>{member.avatarFallback}</AvatarFallback>
-            </Avatar>
+            {showFreeFrame ? (
+              <FreeInvitationAvatarFrame frameId={member.id}>
+                {avatar}
+              </FreeInvitationAvatarFrame>
+            ) : (
+              avatar
+            )}
             <div className={styles.TribeMemberList__identity}>
               <div className={styles.TribeMemberList__memberDetails}>
                 <div className={styles.TribeMemberList__nameRow}>
@@ -164,7 +178,11 @@ export function TribeMemberList({
                   <p className={styles.TribeMemberList__email}>{member.email}</p>
                 ) : null}
               </div>
-              <TribeMemberSelectionBadges selections={memberSelections} />
+              {memberSelections.length > 0 ? (
+                <div className={styles.TribeMemberList__sideBadges}>
+                  <TribeMemberSelectionBadges selections={memberSelections} />
+                </div>
+              ) : null}
             </div>
           </li>
         );

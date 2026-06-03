@@ -224,6 +224,7 @@ describe("PostgresTribeReadRepository", () => {
         {
           email: "ada.lovelace@example.com",
           image: null,
+          joined_free: false,
           member_id: "member-1",
           name: "Ada Lovelace",
           role: "leader",
@@ -231,6 +232,7 @@ describe("PostgresTribeReadRepository", () => {
         {
           email: "grace.hopper@example.com",
           image: "https://example.com/grace.png",
+          joined_free: true,
           member_id: "member-2",
           name: "Grace Hopper",
           role: "guardian",
@@ -252,6 +254,7 @@ describe("PostgresTribeReadRepository", () => {
         email: "ada.lovelace@example.com",
         id: "member-1",
         image: null,
+        joinedViaFreeInvitation: false,
         name: "Ada Lovelace",
         role: "leader",
       },
@@ -260,6 +263,7 @@ describe("PostgresTribeReadRepository", () => {
         email: "grace.hopper@example.com",
         id: "member-2",
         image: "https://example.com/grace.png",
+        joinedViaFreeInvitation: true,
         name: "Grace Hopper",
         role: "guardian",
       },
@@ -270,16 +274,19 @@ describe("PostgresTribeReadRepository", () => {
     expect(sqlText).toContain(
       "from public.list_visible_tribe_members_by_slug("
     );
-    expect(sqlText).toContain("select member_id, role, name, email, image");
+    expect(sqlText).toContain(
+      "select member_id, role, name, email, image, joined_free"
+    );
     expect(sqlText).not.toContain("inner join public.tribe_members");
   });
 
-  it("propagates a null email when the database function hides it from the viewer", async () => {
+  it("treats a missing free-invitation flag as not joined via a free invitation", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
           email: null,
           image: null,
+          joined_free: null,
           member_id: "member-1",
           name: "Ada Lovelace",
           role: "tribemate",
@@ -301,6 +308,7 @@ describe("PostgresTribeReadRepository", () => {
         email: null,
         id: "member-1",
         image: null,
+        joinedViaFreeInvitation: false,
         name: "Ada Lovelace",
         role: "tribemate",
       },

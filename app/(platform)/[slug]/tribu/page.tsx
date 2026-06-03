@@ -86,9 +86,12 @@ export default async function TribeTribePage({
     isViewerActive && isPrivilegedTribeMemberRole(viewerRole);
   const canExportTribeMembers =
     isViewerActive && viewerRole === TRIBE_MEMBER_ROLE.leader;
+  const canViewFreeInvitations =
+    isViewerActive && viewerRole === TRIBE_MEMBER_ROLE.leader;
   const members = await modules.tribes.useCases
     .listVisibleTribeMembers({
       tribeSlug: tribe.slug,
+      viewerCanViewFreeInvitations: canViewFreeInvitations,
       viewerCanViewMemberEmails: canManageTribeMembers,
     })
     .catch((error: unknown) => {
@@ -191,6 +194,7 @@ export default async function TribeTribePage({
       <TribeMemberDirectory
         canExportMembers={canExportTribeMembers}
         canInviteMembers={canManageTribeMembers}
+        canViewFreeInvitations={canViewFreeInvitations}
         filterOptions={filterOptions}
         members={members}
         selectionsByMemberId={selectionsByMemberId}

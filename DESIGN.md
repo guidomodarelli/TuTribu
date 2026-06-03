@@ -64,6 +64,14 @@ SCSS Module conventions already present in the platform.
 
 ## Typography
 
+- The product ships two self-hosted typefaces (latin WOFF2 in `app/fonts`,
+  loaded with `next/font/local`, never fetched from Google at runtime):
+  - **Geist** (weights 400-600) is the base sans for everything: body copy,
+    controls, labels, badges, and ordinary headings. It is exposed through the
+    `--font-sans` and `--font-heading` tokens and matches the shadcn/ui feel.
+  - **Poppins** (weight 600) is reserved exclusively for large page-level
+    display headings, exposed through the `--font-display` token. Do not use it
+    for body text, controls, or compact headings.
 - Use large type only for true page-level headings.
 - Keep compact panels, forms, sidebars, and tool surfaces visually dense enough
   for repeated use.

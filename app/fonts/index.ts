@@ -6,10 +6,29 @@ import localFont from "next/font/local";
  * to Google. Each loader exposes a CSS variable consumed by the `--font-*`
  * tokens in `app/globals.css`.
  */
-export const spaceGrotesk = localFont({
-  src: "./space-grotesk-latin-variable.woff2",
-  variable: "--font-space-grotesk",
-  weight: "300 700",
+
+/**
+ * Geist is the base sans-serif typeface for the whole product, matching the
+ * shadcn/ui visual language. The latin subset ships as a single variable WOFF2
+ * covering the 400-600 weight range used across body copy, controls, and labels.
+ */
+export const geist = localFont({
+  src: "./geist-latin-variable.woff2",
+  variable: "--font-geist",
+  weight: "400 600",
+  display: "swap",
+});
+
+/**
+ * Poppins (semibold) is reserved exclusively for large page-level display
+ * headings. It is not preloaded because only a few entrypoints render a heading
+ * with it, so the small static subset is fetched on demand.
+ */
+export const poppins = localFont({
+  src: "./poppins-latin-600.woff2",
+  variable: "--font-poppins",
+  weight: "600",
+  preload: false,
   display: "swap",
 });
 

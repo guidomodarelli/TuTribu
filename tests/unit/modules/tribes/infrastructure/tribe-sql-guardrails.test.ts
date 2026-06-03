@@ -33,6 +33,8 @@ describe("Tribe SQL guardrails", () => {
     "database/migrations/20260426080000_fix_tribe_timestamp_defaults.sql";
   const visibleTribeMembersMigrationPath =
     "database/migrations/20260506090000_add_visible_tribe_members_function.sql";
+  const freeInvitationVisibilityMigrationPath =
+    "database/migrations/20260602120000_expose_free_invitation_to_tribe_leaders.sql";
   const invitationAcceptanceRepairMigrationPath =
     "database/migrations/20260506110000_repair_invitation_acceptance_storage.sql";
   const removedSubscriptionMembershipStatusMigrationPath =
@@ -215,6 +217,24 @@ describe("Tribe SQL guardrails", () => {
       "viewer_membership.status IN ('active', 'muted')"
     );
     expect(visibleTribeMembersMigration).toContain(
+      "GRANT EXECUTE ON FUNCTION public.list_visible_tribe_members_by_slug(text)"
+    );
+  });
+
+  it("discloses the free-invitation flag only to an active tribe leader", () => {
+    const freeInvitationVisibilityMigration = readWorkspaceFile(
+      freeInvitationVisibilityMigrationPath
+    );
+
+    expect(freeInvitationVisibilityMigration).toContain(
+      "CREATE OR REPLACE FUNCTION public.list_visible_tribe_members_by_slug"
+    );
+    expect(freeInvitationVisibilityMigration).toContain("SECURITY DEFINER");
+    expect(freeInvitationVisibilityMigration).toContain("joined_free boolean");
+    expect(freeInvitationVisibilityMigration).toMatch(
+      /WHEN \(SELECT viewer\.role FROM viewer\) = 'leader'[\s\S]*tribe_members\.joined_via = 'free_invitation'[\s\S]*ELSE FALSE/
+    );
+    expect(freeInvitationVisibilityMigration).toContain(
       "GRANT EXECUTE ON FUNCTION public.list_visible_tribe_members_by_slug(text)"
     );
   });

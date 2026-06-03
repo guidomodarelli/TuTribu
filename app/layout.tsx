@@ -4,7 +4,7 @@ import Script from "next/script";
 import { AppProviders } from "@/components/providers/app-providers";
 import { siteConfig } from "@/lib/site-config";
 import { getSitepingEnvironment } from "@/src/modules/siteping/infrastructure/environment/siteping-environment";
-import { ibmPlexMono, spaceGrotesk } from "./fonts";
+import { geist, ibmPlexMono, poppins } from "./fonts";
 import {
   DARK_THEME_CLASS_NAME,
   DARK_THEME_MODE,
@@ -64,7 +64,7 @@ export default function RootLayout({
     <html
       lang={ROOT_LAYOUT_DOCUMENT.language}
       data-scroll-behavior={ROOT_LAYOUT_DOCUMENT.scrollBehavior}
-      className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} ${styles.RootLayout}`}
+      className={`${geist.variable} ${poppins.variable} ${ibmPlexMono.variable} ${styles.RootLayout}`}
       suppressHydrationWarning
     >
       <head>
