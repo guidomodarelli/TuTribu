@@ -131,6 +131,8 @@ export function MessageLikesHoverCard({
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    setLikers([]);
+    setTotalCount(0);
     setStatus(LIKERS_LOAD_STATUS.loading);
 
     try {
@@ -157,6 +159,8 @@ export function MessageLikesHoverCard({
         return;
       }
 
+      setLikers([]);
+      setTotalCount(0);
       setStatus(LIKERS_LOAD_STATUS.error);
     }
   }, [messageId, tribeSlug]);

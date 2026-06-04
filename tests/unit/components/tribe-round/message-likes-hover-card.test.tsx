@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MessageLikesHoverCard } from "@/components/tribe-round/message-likes-hover-card";
 
 const HOVER_OPEN_DELAY_MS = 700;
+const HOVER_CLOSE_DELAY_MS = 300;
 
 type LikerFixture = {
   avatarFallback: string;
@@ -222,5 +223,55 @@ describe("MessageLikesHoverCard", () => {
         screen.getByText("No pudimos cargar las reacciones.")
       ).toBeInTheDocument();
     });
+  });
+
+  it("clears stale likers while a later request loads and fails", async () => {
+    const firstLiker = buildLiker("member-1", "Guido Modarelli", "GM");
+    let rejectLaterRequest: (error: Error) => void = () => {};
+    const laterRequest = new Promise<never>((_, reject) => {
+      rejectLaterRequest = reject;
+    });
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        json: async () => ({ likers: [firstLiker], totalCount: 1 }),
+        ok: true,
+      })
+      .mockReturnValueOnce(laterRequest);
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    renderHoverCard(1);
+
+    await openHoverCard(user);
+
+    await waitFor(() => {
+      expect(screen.getByText(firstLiker.name)).toBeInTheDocument();
+    });
+
+    await user.unhover(screen.getByRole("button", { name: /Me gusta/ }));
+    await act(async () => {
+      jest.advanceTimersByTime(HOVER_CLOSE_DELAY_MS);
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(firstLiker.name)).not.toBeInTheDocument();
+    });
+
+    await user.hover(screen.getByRole("button", { name: /Me gusta/ }));
+    await act(async () => {
+      jest.advanceTimersByTime(HOVER_OPEN_DELAY_MS);
+    });
+
+    expect(screen.getByText("Cargando reacciones...")).toBeInTheDocument();
+    expect(screen.queryByText(firstLiker.name)).not.toBeInTheDocument();
+
+    await act(async () => {
+      rejectLaterRequest(new Error("boom"));
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("No pudimos cargar las reacciones.")
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(firstLiker.name)).not.toBeInTheDocument();
   });
 });
