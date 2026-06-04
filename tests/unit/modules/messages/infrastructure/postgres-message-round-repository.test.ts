@@ -720,6 +720,122 @@ describe("PostgresMessageRoundRepository", () => {
     expect(sqlText).toContain("order by message_replies.created_at asc");
   });
 
+  it("lists message likers with total count limited to the preview size", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          status_result: "found",
+          liker_total_count: 9,
+          liker_id: "member-1",
+          liker_name: "Grace Hopper",
+          liker_image: null,
+          liker_role: "tribemate",
+          liker_created_at: "2026-04-26T12:05:00.000Z",
+        },
+        {
+          status_result: "found",
+          liker_total_count: 9,
+          liker_id: "member-2",
+          liker_name: "Katherine Johnson",
+          liker_image: "https://example.com/katherine.png",
+          liker_role: "guardian",
+          liker_created_at: "2026-04-26T12:06:00.000Z",
+        },
+      ],
+    });
+    const repository = new PostgresMessageRoundRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listLikersByMessageId({
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        viewerId: "member-1",
+      })
+    ).resolves.toEqual({
+      status: "found",
+      totalCount: 9,
+      likers: [
+        {
+          id: "member-1",
+          name: "Grace Hopper",
+          role: "tribemate",
+          avatarFallback: "GH",
+          image: null,
+        },
+        {
+          id: "member-2",
+          name: "Katherine Johnson",
+          role: "guardian",
+          avatarFallback: "KJ",
+          image: "https://example.com/katherine.png",
+        },
+      ],
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toContain("message_reactions");
+    expect(sqlText).toContain("order by message_reactions.created_at asc");
+    expect(sqlText).toContain("limit");
+    expect(sqlText).toContain("liker_total_count");
+  });
+
+  it("returns forbidden likers result when the message is not visible", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          status_result: "forbidden",
+          liker_total_count: 0,
+          liker_id: null,
+          liker_name: null,
+          liker_image: null,
+          liker_role: null,
+          liker_created_at: null,
+        },
+      ],
+    });
+    const repository = new PostgresMessageRoundRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listLikersByMessageId({
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        viewerId: "outsider-1",
+      })
+    ).resolves.toEqual({ status: "forbidden" });
+  });
+
+  it("returns not found likers result when the message does not exist", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          status_result: "not_found",
+          liker_total_count: 0,
+          liker_id: null,
+          liker_name: null,
+          liker_image: null,
+          liker_role: null,
+          liker_created_at: null,
+        },
+      ],
+    });
+    const repository = new PostgresMessageRoundRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listLikersByMessageId({
+        messageId: "missing-message",
+        tribeSlug: "matematica-pro",
+        viewerId: "member-1",
+      })
+    ).resolves.toEqual({ status: "not_found" });
+  });
+
   it("returns viewer state separately from shared message rows", async () => {
     const execute = jest.fn().mockResolvedValueOnce({
       rows: [

@@ -94,6 +94,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
+import { MessageLikesHoverCard } from "@/components/tribe-round/message-likes-hover-card";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import {
@@ -4897,6 +4898,9 @@ function TribeRoundContent({
     event.stopPropagation();
   };
 
+  const isLikeButtonDisabled = (message: TribeRoundMessageResult): boolean =>
+    !round.viewerPermissions.canReact || isPendingMessage(message);
+
   const toggleMessageContentExpansion = (messageId: string) => {
     setExpandedMessageIds((currentExpandedMessageIds) => ({
       ...currentExpandedMessageIds,
@@ -6296,22 +6300,28 @@ function TribeRoundContent({
                   {renderMessagePoll(message, true)}
 
                   <div className={styles.TribeRound__messageActions}>
-                    <Button
-                      aria-label={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${message.likeCount}`}
-                      className={getLikeButtonClassName(message.likedByViewer)}
-                      disabled={
-                        !round.viewerPermissions.canReact || isPendingMessage(message)
-                      }
-                      onClick={(event) => {
-                        stopMessageDetailsOpening(event);
-                        handleToggleLike(message.id);
-                      }}
-                      type={TRIBE_ROUND_FORM.buttonType}
-                      variant={TRIBE_ROUND_FORM.outlineVariant}
+                    <MessageLikesHoverCard
+                      isTriggerDisabled={isLikeButtonDisabled(message)}
+                      likeCount={message.likeCount}
+                      messageId={message.id}
+                      onTriggerClick={stopMessageDetailsOpening}
+                      tribeSlug={tribeSlug}
                     >
-                      <HeartIcon />
-                      {message.likeCount}
-                    </Button>
+                      <Button
+                        aria-label={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${message.likeCount}`}
+                        className={getLikeButtonClassName(message.likedByViewer)}
+                        disabled={isLikeButtonDisabled(message)}
+                        onClick={(event) => {
+                          stopMessageDetailsOpening(event);
+                          handleToggleLike(message.id);
+                        }}
+                        type={TRIBE_ROUND_FORM.buttonType}
+                        variant={TRIBE_ROUND_FORM.outlineVariant}
+                      >
+                        <HeartIcon />
+                        {message.likeCount}
+                      </Button>
+                    </MessageLikesHoverCard>
                     <Button
                       aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(message)}`}
                       className={styles.TribeRound__commentButton}
@@ -6449,24 +6459,28 @@ function TribeRoundContent({
                 <div
                   className={`${styles.TribeRound__messageActions} ${styles["TribeRound__messageActions--dialog"]}`}
                 >
-                  <Button
-                    aria-label={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${selectedMessage.likeCount}`}
-                    className={getLikeButtonClassName(
-                      selectedMessage.likedByViewer
-                    )}
-                    disabled={
-                      !round.viewerPermissions.canReact ||
-                      isPendingMessage(selectedMessage)
-                    }
-                    onClick={() => {
-                      handleToggleLike(selectedMessage.id);
-                    }}
-                    type={TRIBE_ROUND_FORM.buttonType}
-                    variant={TRIBE_ROUND_FORM.outlineVariant}
+                  <MessageLikesHoverCard
+                    isTriggerDisabled={isLikeButtonDisabled(selectedMessage)}
+                    likeCount={selectedMessage.likeCount}
+                    messageId={selectedMessage.id}
+                    tribeSlug={tribeSlug}
                   >
-                    <HeartIcon />
-                    {selectedMessage.likeCount}
-                  </Button>
+                    <Button
+                      aria-label={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${selectedMessage.likeCount}`}
+                      className={getLikeButtonClassName(
+                        selectedMessage.likedByViewer
+                      )}
+                      disabled={isLikeButtonDisabled(selectedMessage)}
+                      onClick={() => {
+                        handleToggleLike(selectedMessage.id);
+                      }}
+                      type={TRIBE_ROUND_FORM.buttonType}
+                      variant={TRIBE_ROUND_FORM.outlineVariant}
+                    >
+                      <HeartIcon />
+                      {selectedMessage.likeCount}
+                    </Button>
+                  </MessageLikesHoverCard>
                   <Button
                     aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(selectedMessage)}`}
                     className={styles.TribeRound__commentButton}

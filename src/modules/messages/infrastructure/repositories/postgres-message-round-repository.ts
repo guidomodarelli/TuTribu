@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 
 import type {
+  TribeRoundLikersResult,
   TribeRoundRepliesResult,
   TribeRoundResult,
   TribeChannelResult,
@@ -17,12 +18,15 @@ import type {
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import {
   MESSAGE_AUTHOR_ROLE,
+  MESSAGE_LIKERS_PREVIEW_LIMIT,
   MESSAGE_MEMBERSHIP_STATUS,
   MESSAGE_MUTATION_STATUS,
   MESSAGE_POLL_PERCENTAGE_SCALE,
+  MESSAGE_REACTION_TYPE,
   TRIBE_ROUND_PAGE_SIZE,
 } from "@/src/modules/messages/constants/message-round";
 import type {
+  ListMessageLikersQuery,
   ListMessageRepliesQuery,
   ListTribeRoundQuery,
   MessageRoundReadRepository,
@@ -161,6 +165,16 @@ type MessageReplyRow = {
   reply_content: string | null;
   reply_created_at: Date | string | null;
   reply_id: string | null;
+  status_result: string;
+};
+
+type MessageLikerRow = {
+  liker_created_at: Date | string | null;
+  liker_id: string | null;
+  liker_image: string | null;
+  liker_name: string | null;
+  liker_role: string | null;
+  liker_total_count: number | string | null;
   status_result: string;
 };
 
@@ -503,6 +517,37 @@ function mapRowsToReplies(rows: MessageReplyRow[]): TribeRoundRepliesResult {
           },
           content: row.reply_content,
           createdAt: row.reply_created_at,
+        }),
+      ];
+    }),
+  };
+}
+
+export function mapRowsToLikers(rows: MessageLikerRow[]): TribeRoundLikersResult {
+  const status = rows[0]?.status_result;
+
+  if (status === MESSAGE_MUTATION_STATUS.notFound) {
+    return { status: MESSAGE_MUTATION_STATUS.notFound };
+  }
+
+  if (status === MESSAGE_MUTATION_STATUS.forbidden || !status) {
+    return { status: MESSAGE_MUTATION_STATUS.forbidden };
+  }
+
+  return {
+    status: "found",
+    totalCount: Number(rows[0]?.liker_total_count ?? 0),
+    likers: rows.flatMap((row) => {
+      if (!row.liker_id) {
+        return [];
+      }
+
+      return [
+        createTribeRoundAuthor({
+          id: row.liker_id,
+          image: row.liker_image,
+          name: row.liker_name,
+          role: row.liker_role,
         }),
       ];
     }),
@@ -871,6 +916,88 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
       `);
 
       return mapRowsToReplies((result.rows ?? []) as MessageReplyRow[]);
+    });
+  }
+
+  async listLikersByMessageId({
+    messageId,
+    tribeSlug,
+    viewerId,
+  }: ListMessageLikersQuery): Promise<TribeRoundLikersResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with target_tribe as (
+          select tribes.id
+          from public.tribes
+          where tribes.slug = ${tribeSlug}
+          limit 1
+        ),
+        viewer_membership as (
+          select 1
+          from public.tribe_members
+          inner join target_tribe
+            on target_tribe.id = tribe_members.tribe_id
+          where tribe_members.user_id = ${viewerId}
+            and tribe_members.status in ('active', 'muted')
+          limit 1
+        ),
+        target_message as (
+          select messages.id, messages.tribe_id
+          from public.messages
+          inner join target_tribe
+            on target_tribe.id = messages.tribe_id
+          where messages.id = ${messageId}
+          limit 1
+        ),
+        visible_message as (
+          select target_message.id, target_message.tribe_id
+          from target_message
+          where exists (select 1 from viewer_membership)
+        ),
+        total_count as (
+          select count(*)::int as liker_total_count
+          from visible_message
+          inner join public.message_reactions
+            on message_reactions.message_id = visible_message.id
+            and message_reactions.type = ${MESSAGE_REACTION_TYPE.like}
+        ),
+        liker_rows as (
+          select
+            liker_users.id as liker_id,
+            liker_users.name as liker_name,
+            liker_users.image as liker_image,
+            liker_members.role as liker_role,
+            message_reactions.created_at as liker_created_at
+          from visible_message
+          inner join public.message_reactions
+            on message_reactions.message_id = visible_message.id
+            and message_reactions.type = ${MESSAGE_REACTION_TYPE.like}
+          inner join public."user" liker_users
+            on liker_users.id = message_reactions.user_id
+          left join public.tribe_members liker_members
+            on liker_members.tribe_id = visible_message.tribe_id
+            and liker_members.user_id = message_reactions.user_id
+          order by message_reactions.created_at asc
+          limit ${MESSAGE_LIKERS_PREVIEW_LIMIT}
+        )
+        select
+          case
+            when not exists (select 1 from target_message) then ${MESSAGE_MUTATION_STATUS.notFound}
+            when not exists (select 1 from visible_message) then ${MESSAGE_MUTATION_STATUS.forbidden}
+            else 'found'
+          end as status_result,
+          (select liker_total_count from total_count) as liker_total_count,
+          liker_rows.liker_id,
+          liker_rows.liker_name,
+          liker_rows.liker_image,
+          liker_rows.liker_role,
+          liker_rows.liker_created_at
+        from (select 1) status_anchor
+        left join liker_rows
+          on true
+      `);
+
+      return mapRowsToLikers((result.rows ?? []) as MessageLikerRow[]);
     });
   }
 

@@ -60,6 +60,12 @@ export const MESSAGE_REACTION_TYPE = {
   like: "like",
 } as const;
 
+/**
+ * Maximum number of likers fetched and shown in the message like HoverCard
+ * before collapsing the rest into the "y otros X..." row.
+ */
+export const MESSAGE_LIKERS_PREVIEW_LIMIT = 7;
+
 export const MESSAGE_POLL_STATUS = {
   closed: "closed",
   open: "open",

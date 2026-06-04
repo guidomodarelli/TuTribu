@@ -1,5 +1,6 @@
 import type {
   TribeRoundResult,
+  TribeRoundLikersResult,
   TribeRoundRepliesResult,
   TribeRoundSharedDataResult,
   TribeRoundViewerStateResult,
@@ -20,8 +21,17 @@ export type ListMessageRepliesQuery = {
   viewerId: string;
 };
 
+export type ListMessageLikersQuery = {
+  messageId: string;
+  tribeSlug: string;
+  viewerId: string;
+};
+
 export interface MessageRoundReadRepository {
   listByTribeSlug(query: ListTribeRoundQuery): Promise<TribeRoundResult>;
+  listLikersByMessageId(
+    query: ListMessageLikersQuery
+  ): Promise<TribeRoundLikersResult>;
   listRepliesByMessageId(
     query: ListMessageRepliesQuery
   ): Promise<TribeRoundRepliesResult>;

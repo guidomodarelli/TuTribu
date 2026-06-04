@@ -3,6 +3,7 @@ import {
   GET as GET_REPLIES,
   POST as POST_REPLY,
 } from "@/app/api/tribes/[slug]/messages/[messageId]/replies/route";
+import { GET as GET_LIKERS } from "@/app/api/tribes/[slug]/messages/[messageId]/likes/route";
 import { POST as POST_LIKE } from "@/app/api/tribes/[slug]/messages/[messageId]/like/route";
 import { POST as POST_PIN } from "@/app/api/tribes/[slug]/messages/[messageId]/pin/route";
 import {
@@ -24,6 +25,7 @@ const getAuthenticatedMember = jest.fn();
 const createTribeMessage = jest.fn();
 const createMessageReply = jest.fn();
 const listMessageReplies = jest.fn();
+const listMessageLikers = jest.fn();
 const toggleMessageLike = jest.fn();
 const toggleMessagePin = jest.fn();
 const deleteTribeMessage = jest.fn();
@@ -115,6 +117,7 @@ describe("Tribe message routes", () => {
     createTribeMessage.mockReset();
     createMessageReply.mockReset();
     listMessageReplies.mockReset();
+    listMessageLikers.mockReset();
     toggleMessageLike.mockReset();
     toggleMessagePin.mockReset();
     deleteTribeMessage.mockReset();
@@ -149,6 +152,7 @@ describe("Tribe message routes", () => {
           createTribeChannel,
           createMessageReply,
           listMessageReplies,
+          listMessageLikers,
           deleteTribeChannel,
           listTribeChannels,
           toggleMessageLike,
@@ -642,6 +646,91 @@ describe("Tribe message routes", () => {
     expect(response.status).toBe(500);
     expect(body).toEqual({
       message: "No pudimos cargar las respuestas. Intentalo de nuevo.",
+    });
+  });
+
+  it("returns the likers preview and total count when listing likers", async () => {
+    listMessageLikers.mockResolvedValue({
+      status: "found",
+      totalCount: 9,
+      likers: [
+        {
+          id: "member-1",
+          name: "Grace Hopper",
+          role: "tribemate",
+          avatarFallback: "GH",
+          image: null,
+        },
+      ],
+    });
+
+    const response = await GET_LIKERS(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      totalCount: 9,
+      likers: [
+        {
+          id: "member-1",
+          name: "Grace Hopper",
+          role: "tribemate",
+          avatarFallback: "GH",
+          image: null,
+        },
+      ],
+    });
+    expect(listMessageLikers).toHaveBeenCalledWith({
+      messageId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
+      tribeSlug: "matematica-pro",
+      viewerId: "member-1",
+    });
+  });
+
+  it("returns not found when likers messageId is not a UUID", async () => {
+    const response = await GET_LIKERS(
+      buildJsonRequest(),
+      buildRouteContext("not-a-uuid")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({
+      message: "No pudimos encontrar el mensaje.",
+    });
+    expect(listMessageLikers).not.toHaveBeenCalled();
+  });
+
+  it("hides likers when listing is forbidden", async () => {
+    listMessageLikers.mockResolvedValue({ status: "forbidden" });
+
+    const response = await GET_LIKERS(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      message: "No tenes permisos para ver las reacciones de este mensaje.",
+    });
+  });
+
+  it("returns a safe loading message when listing likers fails unexpectedly", async () => {
+    listMessageLikers.mockRejectedValue(new Error("database unavailable"));
+
+    const response = await GET_LIKERS(
+      buildJsonRequest(),
+      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      message: "No pudimos cargar las reacciones. Intentalo de nuevo.",
     });
   });
 
