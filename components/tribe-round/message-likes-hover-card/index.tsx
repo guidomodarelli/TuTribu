@@ -1,6 +1,13 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type MouseEventHandler,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   Avatar,
@@ -47,8 +54,10 @@ type ListLikersResponse = {
 
 type MessageLikesHoverCardProps = {
   children: ReactNode;
+  isTriggerDisabled?: boolean;
   likeCount: number;
   messageId: string;
+  onTriggerClick?: MouseEventHandler<HTMLSpanElement>;
   tribeSlug: string;
 };
 
@@ -77,15 +86,19 @@ function buildLikesEndpoint(tribeSlug: string, messageId: string): string {
  *
  * @param props - Component props.
  * @param props.children - The hover trigger, typically the like button.
+ * @param props.isTriggerDisabled - Whether the wrapped trigger control is disabled.
  * @param props.likeCount - Current like count, used to render the empty state.
  * @param props.messageId - Identifier of the message whose likers are shown.
+ * @param props.onTriggerClick - Optional click handler for the trigger wrapper.
  * @param props.tribeSlug - Slug of the tribe that owns the message.
  * @returns The hover card wrapping the provided trigger.
  */
 export function MessageLikesHoverCard({
   children,
+  isTriggerDisabled = false,
   likeCount,
   messageId,
+  onTriggerClick,
   tribeSlug,
 }: MessageLikesHoverCardProps) {
   const [status, setStatus] = useState<LikersLoadStatus>(
@@ -152,10 +165,25 @@ export function MessageLikesHoverCard({
   const hasLikers = likers.length > 0;
   const isEmpty =
     status === LIKERS_LOAD_STATUS.loaded && !hasLikers && likeCount === 0;
+  const triggerClassName = [
+    styles.MessageLikesHoverCard__trigger,
+    ...(isTriggerDisabled
+      ? [styles["MessageLikesHoverCard__trigger--disabled"]]
+      : []),
+  ].join(" ");
 
   return (
     <HoverCard onOpenChange={handleOpenChange}>
-      <HoverCardTrigger asChild>{children}</HoverCardTrigger>
+      <HoverCardTrigger asChild>
+        <span
+          aria-disabled={isTriggerDisabled || undefined}
+          className={triggerClassName}
+          onClick={isTriggerDisabled ? onTriggerClick : undefined}
+          tabIndex={isTriggerDisabled ? 0 : undefined}
+        >
+          {children}
+        </span>
+      </HoverCardTrigger>
       <HoverCardContent className={styles.MessageLikesHoverCard}>
         <p className={styles.MessageLikesHoverCard__title}>
           {MESSAGE_LIKES_HOVER_CARD_COPY.title}

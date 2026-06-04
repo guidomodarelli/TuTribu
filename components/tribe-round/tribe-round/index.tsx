@@ -4898,6 +4898,9 @@ function TribeRoundContent({
     event.stopPropagation();
   };
 
+  const isLikeButtonDisabled = (message: TribeRoundMessageResult): boolean =>
+    !round.viewerPermissions.canReact || isPendingMessage(message);
+
   const toggleMessageContentExpansion = (messageId: string) => {
     setExpandedMessageIds((currentExpandedMessageIds) => ({
       ...currentExpandedMessageIds,
@@ -6298,16 +6301,16 @@ function TribeRoundContent({
 
                   <div className={styles.TribeRound__messageActions}>
                     <MessageLikesHoverCard
+                      isTriggerDisabled={isLikeButtonDisabled(message)}
                       likeCount={message.likeCount}
                       messageId={message.id}
+                      onTriggerClick={stopMessageDetailsOpening}
                       tribeSlug={tribeSlug}
                     >
                       <Button
                         aria-label={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${message.likeCount}`}
                         className={getLikeButtonClassName(message.likedByViewer)}
-                        disabled={
-                          !round.viewerPermissions.canReact || isPendingMessage(message)
-                        }
+                        disabled={isLikeButtonDisabled(message)}
                         onClick={(event) => {
                           stopMessageDetailsOpening(event);
                           handleToggleLike(message.id);
@@ -6457,6 +6460,7 @@ function TribeRoundContent({
                   className={`${styles.TribeRound__messageActions} ${styles["TribeRound__messageActions--dialog"]}`}
                 >
                   <MessageLikesHoverCard
+                    isTriggerDisabled={isLikeButtonDisabled(selectedMessage)}
                     likeCount={selectedMessage.likeCount}
                     messageId={selectedMessage.id}
                     tribeSlug={tribeSlug}
@@ -6466,10 +6470,7 @@ function TribeRoundContent({
                       className={getLikeButtonClassName(
                         selectedMessage.likedByViewer
                       )}
-                      disabled={
-                        !round.viewerPermissions.canReact ||
-                        isPendingMessage(selectedMessage)
-                      }
+                      disabled={isLikeButtonDisabled(selectedMessage)}
                       onClick={() => {
                         handleToggleLike(selectedMessage.id);
                       }}

@@ -35,6 +35,24 @@ function renderHoverCard(likeCount = 12) {
   );
 }
 
+function renderDisabledHoverCard(likeCount = 3) {
+  const handleClick = jest.fn();
+
+  render(
+    <MessageLikesHoverCard
+      isTriggerDisabled
+      likeCount={likeCount}
+      messageId="message-1"
+      onTriggerClick={handleClick}
+      tribeSlug="matematica-pro"
+    >
+      <button disabled type="button">{`Me gusta ${likeCount}`}</button>
+    </MessageLikesHoverCard>
+  );
+
+  return { handleClick };
+}
+
 async function openHoverCard(user: ReturnType<typeof userEvent.setup>) {
   await user.hover(screen.getByRole("button", { name: /Me gusta/ }));
   await act(async () => {
@@ -105,6 +123,25 @@ describe("MessageLikesHoverCard", () => {
       expect(screen.getByText("Guido Modarelli")).toBeInTheDocument();
     });
     expect(screen.queryByText(/y otros/)).not.toBeInTheDocument();
+  });
+
+  it("opens from focus when the wrapped like button is disabled", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        likers: [buildLiker("member-1", "Guido Modarelli", "GM")],
+        totalCount: 1,
+      }),
+      ok: true,
+    });
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const { handleClick } = renderDisabledHoverCard(3);
+
+    await user.tab();
+
+    await waitFor(() => {
+      expect(screen.getByText("Guido Modarelli")).toBeInTheDocument();
+    });
+    expect(handleClick).not.toHaveBeenCalled();
   });
 
   it("shows the empty state when the message has no likes", async () => {
