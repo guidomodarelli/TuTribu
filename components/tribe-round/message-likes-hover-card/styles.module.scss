@@ -1,0 +1,55 @@
+.MessageLikesHoverCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 16rem;
+  max-width: calc(100vw - 2rem);
+
+  &__title {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  &__feedback {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted-foreground);
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  &__avatar {
+    flex-shrink: 0;
+  }
+
+  &__name {
+    overflow: hidden;
+    font-size: 0.85rem;
+    color: var(--foreground);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__more {
+    margin: 0;
+    padding-top: 0.25rem;
+    border-top: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+    font-size: 0.8rem;
+    color: var(--muted-foreground);
+  }
+}

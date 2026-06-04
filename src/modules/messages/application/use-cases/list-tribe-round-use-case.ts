@@ -1,11 +1,13 @@
 import type {
   MessagePollResult,
   TribeRoundResult,
+  TribeRoundLikersResult,
   TribeRoundRepliesResult,
   TribeRoundSharedDataResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
 import { TRIBE_ROUND_PAGE_SIZE } from "@/src/modules/messages/constants/message-round";
 import type {
+  ListMessageLikersQuery,
   ListMessageRepliesQuery,
   ListTribeRoundQuery,
   ListTribeRoundSharedDataQuery,
@@ -150,6 +152,20 @@ export function listMessageReplies({
     query: ListMessageRepliesQuery
   ): Promise<TribeRoundRepliesResult> => {
     return messageRoundReadRepository.listRepliesByMessageId({
+      messageId: query.messageId,
+      tribeSlug: query.tribeSlug.trim(),
+      viewerId: query.viewerId,
+    });
+  };
+}
+
+export function listMessageLikers({
+  messageRoundReadRepository,
+}: ListTribeRoundDependencies) {
+  return async (
+    query: ListMessageLikersQuery
+  ): Promise<TribeRoundLikersResult> => {
+    return messageRoundReadRepository.listLikersByMessageId({
       messageId: query.messageId,
       tribeSlug: query.tribeSlug.trim(),
       viewerId: query.viewerId,

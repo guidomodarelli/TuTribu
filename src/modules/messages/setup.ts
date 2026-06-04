@@ -4,6 +4,7 @@ import { deleteTribeMessage } from "@/src/modules/messages/application/use-cases
 import { updateTribeMessageContent } from "@/src/modules/messages/application/use-cases/update-tribe-message-content-use-case";
 import { updateTribeMessageCreatedAt } from "@/src/modules/messages/application/use-cases/update-tribe-message-created-at-use-case";
 import {
+  listMessageLikers,
   listMessageReplies,
   listTribeRound,
 } from "@/src/modules/messages/application/use-cases/list-tribe-round-use-case";
@@ -35,6 +36,7 @@ import type {
 } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type {
   TribeRoundResult,
+  TribeRoundLikersResult,
   TribeRoundRepliesResult,
   TribeRoundSharedDataResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
@@ -60,6 +62,7 @@ import type { MessageReplyRepository } from "@/src/modules/messages/domain/repos
 import type { TribeChannelRepository } from "@/src/modules/messages/domain/repositories/tribe-channel-repository";
 import type { MessageCreationRepository } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type {
+  ListMessageLikersQuery,
   ListMessageRepliesQuery,
   ListTribeRoundQuery,
   ListTribeRoundSharedDataQuery,
@@ -121,6 +124,9 @@ type MessagesModule = {
     listMessageReplies: (
       query: ListMessageRepliesQuery
     ) => Promise<TribeRoundRepliesResult>;
+    listMessageLikers: (
+      query: ListMessageLikersQuery
+    ) => Promise<TribeRoundLikersResult>;
     listTribeChannels: (
       query: ListTribeRoundQuery
     ) => Promise<TribeChannelListResult>;
@@ -181,6 +187,9 @@ export function buildMessagesModule({
         messageRoundReadRepository,
       }),
       listMessageReplies: listMessageReplies({
+        messageRoundReadRepository,
+      }),
+      listMessageLikers: listMessageLikers({
         messageRoundReadRepository,
       }),
       listTribeChannels: listTribeChannels({

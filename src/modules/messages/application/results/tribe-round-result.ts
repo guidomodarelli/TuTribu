@@ -140,3 +140,15 @@ export type TribeRoundRepliesResult =
   | {
       status: "forbidden" | "not_found";
     };
+
+export type MessageLikerResult = TribeRoundAuthorResult;
+
+export type TribeRoundLikersResult =
+  | {
+      likers: MessageLikerResult[];
+      status: "found";
+      totalCount: number;
+    }
+  | {
+      status: "forbidden" | "not_found";
+    };
