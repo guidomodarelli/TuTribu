@@ -23,11 +23,24 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <header class="doc-header">
   <div class="doc-label">Manual de usuario</div>
   <div class="doc-title">Acciones en mensajes del feed</div>
-  <div class="doc-sub">Cómo se muestran y confirman las acciones disponibles sobre publicaciones de la ronda.</div>
+  <div class="doc-sub">Cómo se muestran y confirman las reacciones y acciones disponibles sobre publicaciones de la ronda.</div>
   <div class="doc-meta"><span>Área: Feed</span><span>Estado: Implementado</span></div>
 </header>
 
 <main>
+  <section class="section">
+    <div class="section-title">Reacciones y personas que dieron Me gusta</div>
+    <p>El botón <strong>Me gusta</strong> muestra el total de reacciones de cada mensaje. Al activarlo, la app actualiza el contador de forma inmediata y sincroniza el cambio con el servidor; si la actualización falla, se revierte el estado visible y se muestra un error seguro.</p>
+    <p>Al pasar el cursor o abrir la tarjeta sobre el botón, la app carga bajo demanda la lista de personas que reaccionaron. La tarjeta muestra el título <strong>Le gustó a</strong>, el avatar y el nombre de cada integrante incluido en la previsualización.</p>
+    <ul>
+      <li>La lista se consulta solo al abrir la tarjeta para evitar cargar datos innecesarios.</li>
+      <li>La previsualización muestra hasta siete integrantes y resume el resto con <strong>y otros X...</strong>.</li>
+      <li>Si nadie reaccionó, se muestra <strong>Todavía nadie dio me gusta.</strong>.</li>
+      <li>Si la consulta falla, se muestra <strong>No pudimos cargar las reacciones.</strong> sin exponer detalles internos.</li>
+      <li>Solo las personas autenticadas con acceso al mensaje pueden ver las reacciones.</li>
+    </ul>
+  </section>
+
   <section class="section">
     <div class="section-title">Menú de acciones</div>
     <p>Los mensajes de la ronda muestran un botón de tres puntos cuando la persona tiene permisos para editar, cambiar la fecha de creación o eliminar esa publicación.</p>
