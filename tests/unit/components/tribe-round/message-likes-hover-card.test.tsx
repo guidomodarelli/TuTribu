@@ -106,6 +106,29 @@ describe("MessageLikesHoverCard", () => {
     expect(screen.getByText("y otros 5...")).toBeInTheDocument();
   });
 
+  it("prefers opening the hover card above the like button", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        likers: [buildLiker("member-1", "Guido Modarelli", "GM")],
+        totalCount: 1,
+      }),
+      ok: true,
+    });
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    renderHoverCard(1);
+    await openHoverCard(user);
+
+    await waitFor(() => {
+      expect(screen.getByText("Guido Modarelli")).toBeInTheDocument();
+    });
+    const hoverCardContent = document.querySelector(
+      '[data-slot="hover-card-content"]'
+    );
+
+    expect(hoverCardContent).toHaveAttribute("data-side", "top");
+  });
+
   it("does not render the remainder row when all likers fit in the preview", async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       json: async () => ({

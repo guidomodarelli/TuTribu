@@ -184,7 +184,7 @@ export function MessageLikesHoverCard({
           {children}
         </span>
       </HoverCardTrigger>
-      <HoverCardContent className={styles.MessageLikesHoverCard}>
+      <HoverCardContent className={styles.MessageLikesHoverCard} side="top">
         <p className={styles.MessageLikesHoverCard__title}>
           {MESSAGE_LIKES_HOVER_CARD_COPY.title}
         </p>
