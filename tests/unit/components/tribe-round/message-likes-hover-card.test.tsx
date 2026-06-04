@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { MessageLikesHoverCard } from "@/components/tribe-round/message-likes-hover-card";
@@ -165,6 +165,30 @@ describe("MessageLikesHoverCard", () => {
       expect(screen.getByText("Guido Modarelli")).toBeInTheDocument();
     });
     expect(handleClick).not.toHaveBeenCalled();
+  });
+
+  it("does not cancel touch starts on the wrapped like button", () => {
+    const handleClick = jest.fn();
+
+    render(
+      <MessageLikesHoverCard
+        likeCount={1}
+        messageId="message-1"
+        tribeSlug="matematica-pro"
+      >
+        <button onClick={handleClick} type="button">
+          Me gusta 1
+        </button>
+      </MessageLikesHoverCard>
+    );
+
+    const likeButton = screen.getByRole("button", { name: "Me gusta 1" });
+
+    expect(fireEvent.touchStart(likeButton)).toBe(true);
+
+    fireEvent.click(likeButton);
+
+    expect(handleClick).toHaveBeenCalledTimes(1);
   });
 
   it("shows the empty state when the message has no likes", async () => {

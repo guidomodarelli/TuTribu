@@ -3,6 +3,7 @@
 import {
   type MouseEventHandler,
   type ReactNode,
+  type TouchEvent,
   useCallback,
   useEffect,
   useRef,
@@ -76,6 +77,18 @@ function buildLikesEndpoint(tribeSlug: string, messageId: string): string {
     messageId +
     MESSAGE_LIKES_HOVER_CARD_API.likesSegment
   );
+}
+
+/**
+ * Keeps Radix HoverCardTrigger's touch handler from cancelling the synthesized
+ * click emitted by mobile browsers for the nested like button.
+ *
+ * @param event - Touch event started inside the actionable trigger content.
+ */
+function stopTriggerTouchStartPropagation(
+  event: TouchEvent<HTMLSpanElement>
+) {
+  event.stopPropagation();
 }
 
 /**
@@ -181,7 +194,12 @@ export function MessageLikesHoverCard({
           onClick={isTriggerDisabled ? onTriggerClick : undefined}
           tabIndex={isTriggerDisabled ? 0 : undefined}
         >
-          {children}
+          <span
+            className={styles.MessageLikesHoverCard__triggerInteraction}
+            onTouchStart={stopTriggerTouchStartPropagation}
+          >
+            {children}
+          </span>
         </span>
       </HoverCardTrigger>
       <HoverCardContent className={styles.MessageLikesHoverCard} side="top">
