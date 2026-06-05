@@ -194,7 +194,6 @@ describe("message mutation use cases", () => {
         allowMultipleVotes: true,
         id: "poll-1",
         options: [],
-        question: "¿Qué vemos?",
         totalVoteCount: 0,
         viewerHasVoted: false,
       },
@@ -217,7 +216,6 @@ describe("message mutation use cases", () => {
         poll: {
           allowMultipleVotes: true,
           options: [" Álgebra ", "   ", " Geometría "],
-          question: " ¿Qué vemos? ",
         },
         title: "Bienvenida",
       })
@@ -227,7 +225,6 @@ describe("message mutation use cases", () => {
         poll: {
           allowMultipleVotes: true,
           options: ["Álgebra", "Geometría"],
-          question: "¿Qué vemos?",
         },
       })
     );
@@ -562,7 +559,6 @@ describe("message mutation use cases", () => {
       poll: {
         allowMultipleVotes: false,
         options: ["A", "B"],
-        question: "¿Cuál?",
       },
       title: "Doble",
       video: { url: "https://vimeo.com/123456789" },
@@ -573,7 +569,6 @@ describe("message mutation use cases", () => {
         poll: {
           allowMultipleVotes: false,
           options: ["A", "B"],
-          question: "¿Cuál?",
         },
         video: {
           externalId: "123456789",
@@ -598,7 +593,6 @@ describe("message mutation use cases", () => {
         poll: {
           allowMultipleVotes: false,
           options: ["Álgebra", " "],
-          question: "¿Qué vemos?",
         },
         title: "Bienvenida",
       })
@@ -924,7 +918,6 @@ describe("message mutation use cases", () => {
       allowMultipleVotes: false,
       id: "poll-1",
       options: [],
-      question: "¿Qué vemos?",
       totalVoteCount: 0,
       viewerHasVoted: false,
     };

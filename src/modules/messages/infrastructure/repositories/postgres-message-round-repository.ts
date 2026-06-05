@@ -63,7 +63,6 @@ type MessageRoundSharedRow = {
   poll_option_id: string | null;
   poll_option_text: string | null;
   poll_option_vote_count: number | string | null;
-  poll_question: string | null;
   poll_total_vote_count: number | string | null;
   message_content: string | null;
   message_created_at: Date | string | null;
@@ -429,7 +428,7 @@ function createMessagePollOptionFromRow(
 }
 
 function createMessagePollFromRow(row: MessageRoundSharedRow): MessagePollResult | null {
-  if (!row.poll_id || !row.poll_question) {
+  if (!row.poll_id) {
     return null;
   }
 
@@ -438,7 +437,6 @@ function createMessagePollFromRow(row: MessageRoundSharedRow): MessagePollResult
     allowMultipleVotes: Boolean(row.poll_allow_multiple_votes),
     id: row.poll_id,
     options: [],
-    question: row.poll_question,
     totalVoteCount,
     viewerHasVoted: false,
   };
@@ -735,7 +733,6 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             ) as reply_authors_preview,
             messages.pinned_at as message_pinned_at,
             message_polls.id as poll_id,
-            message_polls.question as poll_question,
             message_polls.allow_multiple_votes as poll_allow_multiple_votes,
             message_poll_options.id as poll_option_id,
             message_poll_options.text as poll_option_text,

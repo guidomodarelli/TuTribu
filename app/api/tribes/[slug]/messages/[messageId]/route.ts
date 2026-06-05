@@ -61,7 +61,6 @@ const HTTP_STATUS = {
 type UpdateMessagePollPayload = {
   allowMultipleVotes: boolean;
   options: string[];
-  question: string;
 };
 
 type UpdateMessageVideoPayload = { url: string } | null;
@@ -100,11 +99,9 @@ function readPollPayload(value: unknown): UpdateMessagePollPayload | null {
   const candidate = value as {
     allowMultipleVotes?: unknown;
     options?: unknown;
-    question?: unknown;
   };
 
   if (
-    typeof candidate.question !== "string" ||
     typeof candidate.allowMultipleVotes !== "boolean" ||
     !Array.isArray(candidate.options) ||
     !candidate.options.every((option) => typeof option === "string")
@@ -115,7 +112,6 @@ function readPollPayload(value: unknown): UpdateMessagePollPayload | null {
   return {
     allowMultipleVotes: candidate.allowMultipleVotes,
     options: candidate.options as string[],
-    question: candidate.question,
   };
 }
 

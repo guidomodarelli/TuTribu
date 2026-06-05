@@ -100,7 +100,6 @@ import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/r
 import {
   MESSAGE_POLL_OPTION_TEXT,
   MESSAGE_POLL_OPTIONS,
-  MESSAGE_POLL_QUESTION,
   MESSAGE_IMAGES,
 } from "@/src/modules/messages/constants/message-round";
 import type {
@@ -261,8 +260,6 @@ const TRIBE_ROUND_COPY = {
   messageComposerPollOptionsLimit: "Usar menos opciones",
   messageComposerPollOptionsRequired: "Agregar al menos 2 opciones",
   messageComposerPollOptionTooLong: "Acortar las opciones",
-  messageComposerPollQuestionRequired: "Completar la pregunta",
-  messageComposerPollQuestionTooLong: "Acortar la pregunta",
   messageComposerMissingTitle: "Completar título",
   messageComposerRequirementsTitle: "Falta completar:",
   messageCreatedTooltipPrefix: "Mensaje creado:",
@@ -312,8 +309,6 @@ const TRIBE_ROUND_COPY = {
   pollAddOptionButton: "Agregar opción",
   pollAllowMultipleVotesLabel: "Voto múltiple",
   pollOptionPlaceholder: "Opción",
-  pollQuestionLabel: "Pregunta de la encuesta",
-  pollQuestionPlaceholder: "¿Qué querés preguntar?",
   pollRemoveButton: "Quitar encuesta",
   pollRemoveOptionButton: "Quitar opción",
   pollSubmitButton: "Votar",
@@ -424,7 +419,7 @@ const DATE_TIME_LOCAL_INPUT = {
 
 const TRIBE_ROUND_POLL = {
   draftKeyPrefix: "poll-option-",
-  initialOptionCount: 3,
+  initialOptionCount: 2,
   minimumOptionCount: 2,
   multipleInputType: "checkbox",
   percentageBase: 100,
@@ -741,7 +736,6 @@ type CreateMessageDraftSnapshot = {
   messageContentLinks: ComposerMessageLink[];
   pollAllowsMultipleVotes: boolean;
   pollOptions: string[];
-  pollQuestion: string;
   selectedChannelId: string;
   title: string;
   videoUrlInput: string;
@@ -1813,7 +1807,6 @@ function getMissingMessageRequirements(input: {
   poll?: {
     enabled: boolean;
     options: string[];
-    question: string;
   };
   title: string;
   video?: {
@@ -1901,9 +1894,7 @@ function safeParseVideoUrl(rawInput: string) {
 
 function getPollDraftRequirements(poll: {
   options: string[];
-  question: string;
 }): string[] {
-  const trimmedQuestion = poll.question.trim();
   const trimmedOptions = poll.options
     .map((option) => option.trim())
     .filter(Boolean);
@@ -1911,12 +1902,6 @@ function getPollDraftRequirements(poll: {
     trimmedOptions.map((option) => option.toLocaleLowerCase())
   );
   const pollRequirements: string[] = [];
-
-  if (!trimmedQuestion) {
-    pollRequirements.push(TRIBE_ROUND_COPY.messageComposerPollQuestionRequired);
-  } else if (trimmedQuestion.length > MESSAGE_POLL_QUESTION.maxLength) {
-    pollRequirements.push(TRIBE_ROUND_COPY.messageComposerPollQuestionTooLong);
-  }
 
   if (trimmedOptions.length < MESSAGE_POLL_OPTIONS.minCount) {
     pollRequirements.push(TRIBE_ROUND_COPY.messageComposerPollOptionsRequired);
@@ -2529,7 +2514,6 @@ function TribeRoundContent({
     (typeof COMPOSER_LINK_POPOVER_MODE)[keyof typeof COMPOSER_LINK_POPOVER_MODE]
   >(COMPOSER_LINK_POPOVER_MODE.actions);
   const [isPollComposerEnabled, setIsPollComposerEnabled] = useState(false);
-  const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState<string[]>(
     Array.from({ length: TRIBE_ROUND_POLL.initialOptionCount }, () => "")
   );
@@ -2925,7 +2909,6 @@ function TribeRoundContent({
     setComposerLinkUrlInput("");
     setComposerLinkPopoverMode(COMPOSER_LINK_POPOVER_MODE.actions);
     setIsPollComposerEnabled(false);
-    setPollQuestion("");
     setPollOptions(
       Array.from({ length: TRIBE_ROUND_POLL.initialOptionCount }, () => "")
     );
@@ -3505,7 +3488,6 @@ function TribeRoundContent({
       ? {
           allowMultipleVotes: pollAllowsMultipleVotes,
           options: pollOptions.map((option) => option.trim()).filter(Boolean),
-          question: pollQuestion.trim(),
         }
       : undefined;
     const missingRequirements = getMissingMessageRequirements({
@@ -3515,7 +3497,6 @@ function TribeRoundContent({
         ? {
             enabled: true,
             options: pollOptions,
-            question: pollQuestion,
           }
         : undefined,
       title,
@@ -3621,7 +3602,6 @@ function TribeRoundContent({
     messageContentLinks: messageContentLinks.map((link) => ({ ...link })),
     pollAllowsMultipleVotes,
     pollOptions: [...pollOptions],
-    pollQuestion,
     selectedChannelId,
     title,
     videoUrlInput,
@@ -3636,7 +3616,6 @@ function TribeRoundContent({
     setComposerLinkUrlInput("");
     setComposerLinkPopoverMode(COMPOSER_LINK_POPOVER_MODE.actions);
     setIsPollComposerEnabled(draft.isPollComposerEnabled);
-    setPollQuestion(draft.pollQuestion);
     setPollOptions([...draft.pollOptions]);
     setPollAllowsMultipleVotes(draft.pollAllowsMultipleVotes);
     setIsVideoComposerEnabled(draft.isVideoComposerEnabled);
@@ -3673,7 +3652,6 @@ function TribeRoundContent({
         text: option,
         voteCount: 0,
       })),
-      question: pollQuestion.trim(),
       totalVoteCount: 0,
       viewerHasVoted: false,
     };
@@ -3804,7 +3782,6 @@ function TribeRoundContent({
       poll: {
         enabled: isPollComposerEnabled,
         options: pollOptions,
-        question: pollQuestion,
       },
       title,
       video: {
@@ -3887,7 +3864,6 @@ function TribeRoundContent({
                   options: pollOptions
                     .map((option) => option.trim())
                     .filter(Boolean),
-                  question: pollQuestion.trim(),
                 },
               }
             : {}),
@@ -4806,7 +4782,6 @@ function TribeRoundContent({
 
     if (message.poll && message.poll.totalVoteCount === 0) {
       setIsPollComposerEnabled(true);
-      setPollQuestion(message.poll.question);
       setPollOptions(message.poll.options.map((option) => option.text));
       setPollAllowsMultipleVotes(message.poll.allowMultipleVotes);
     }
@@ -5008,10 +4983,12 @@ function TribeRoundContent({
       return null;
     }
 
+    const pollAccessibleLabel = message.title ?? TRIBE_ROUND_COPY.pollSummaryLabel;
+
     if (shouldStopDetailsOpening) {
       return (
         <section
-          aria-label={poll.question}
+          aria-label={pollAccessibleLabel}
           className={styles.TribeRound__pollSummary}
         >
           <span className={styles.TribeRound__pollSummaryBadge}>
@@ -5031,7 +5008,7 @@ function TribeRoundContent({
 
     return (
       <section
-        aria-label={poll.question}
+        aria-label={pollAccessibleLabel}
         className={styles.TribeRound__poll}
         onClick={(event) => {
           if (shouldStopDetailsOpening) {
@@ -5041,7 +5018,6 @@ function TribeRoundContent({
       >
         <div className={styles.TribeRound__pollHeader}>
           <div className={styles.TribeRound__pollHeading}>
-            <p className={styles.TribeRound__pollQuestion}>{poll.question}</p>
             <span className={styles.TribeRound__pollMode}>
               {poll.allowMultipleVotes
                 ? TRIBE_ROUND_COPY.pollToggleMultipleVotesLabel
@@ -5855,24 +5831,6 @@ function TribeRoundContent({
                 {isPollComposerEnabled ? (
                   <section className={styles.TribeRound__pollComposer}>
                   <div className={styles.TribeRound__pollComposerHeader}>
-                    <label className={styles.TribeRound__pollComposerLabel}>
-                      <span>{TRIBE_ROUND_COPY.pollQuestionLabel}</span>
-                      <input
-                        aria-describedby={
-                          hasMessageComposerErrors
-                            ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
-                            : undefined
-                        }
-                        className={styles.TribeRound__pollInput}
-                        disabled={isBusy}
-                        onChange={(event) => {
-                          setPollQuestion(event.currentTarget.value);
-                          setMessageComposerErrors([]);
-                        }}
-                        placeholder={TRIBE_ROUND_COPY.pollQuestionPlaceholder}
-                        value={pollQuestion}
-                      />
-                    </label>
                     {!isEditingMessage ? (
                       <Button
                         disabled={isBusy}

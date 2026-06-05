@@ -13,11 +13,6 @@ export const MESSAGE_REPLY_CONTENT = {
   minLength: 1,
 } as const;
 
-export const MESSAGE_POLL_QUESTION = {
-  maxLength: 160,
-  minLength: 1,
-} as const;
-
 export const MESSAGE_POLL_OPTION_TEXT = {
   maxLength: 80,
   minLength: 1,

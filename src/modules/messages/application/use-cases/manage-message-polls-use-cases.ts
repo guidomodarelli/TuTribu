@@ -2,7 +2,6 @@ import {
   MESSAGE_MUTATION_STATUS,
   MESSAGE_POLL_OPTION_TEXT,
   MESSAGE_POLL_OPTIONS,
-  MESSAGE_POLL_QUESTION,
 } from "@/src/modules/messages/constants/message-round";
 import type {
   MessagePollDraftCommand,
@@ -19,7 +18,7 @@ type MessagePollDependencies = {
  * Normalizes a poll draft before validation and persistence.
  *
  * @param poll - Poll draft supplied by a client or route.
- * @returns Normalized poll draft with trimmed question and non-empty options.
+ * @returns Normalized poll draft with non-empty options.
  */
 export function normalizeMessagePollDraft(
   poll: MessagePollDraftCommand
@@ -27,7 +26,6 @@ export function normalizeMessagePollDraft(
   return {
     allowMultipleVotes: Boolean(poll.allowMultipleVotes),
     options: poll.options.map((option) => option.trim()).filter(Boolean),
-    question: poll.question.trim(),
   };
 }
 
@@ -35,7 +33,7 @@ export function normalizeMessagePollDraft(
  * Validates whether a poll draft can be persisted.
  *
  * @param poll - Normalized poll draft to validate.
- * @returns True when the poll satisfies question and option constraints.
+ * @returns True when the poll satisfies the option constraints.
  */
 export function isValidMessagePollDraft(poll: MessagePollDraftCommand): boolean {
   const nonEmptyOptions = poll.options.filter(Boolean);
@@ -44,8 +42,6 @@ export function isValidMessagePollDraft(poll: MessagePollDraftCommand): boolean 
   );
 
   return (
-    poll.question.length >= MESSAGE_POLL_QUESTION.minLength &&
-    poll.question.length <= MESSAGE_POLL_QUESTION.maxLength &&
     nonEmptyOptions.length >= MESSAGE_POLL_OPTIONS.minCount &&
     nonEmptyOptions.length <= MESSAGE_POLL_OPTIONS.maxCount &&
     uniqueOptions.size === nonEmptyOptions.length &&

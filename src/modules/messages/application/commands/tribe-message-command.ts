@@ -64,7 +64,6 @@ export type UpdateTribeMessageContentCommand = {
 export type MessagePollDraftCommand = {
   allowMultipleVotes: boolean;
   options: string[];
-  question: string;
 };
 
 export type SubmitMessagePollVoteCommand = {
