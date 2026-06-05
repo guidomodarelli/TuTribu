@@ -29,8 +29,8 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <body>
 <div class="doc-header">
   <div class="doc-label">Architecture</div>
-  <div class="doc-title">Imágenes en mensajes</div>
-  <div class="doc-sub">Decisión de almacenamiento, tenancy y borrado remoto para adjuntos del feed.</div>
+  <div class="doc-title">Medios en mensajes</div>
+  <div class="doc-sub">Almacenamiento, tenancy y borrado de los adjuntos del feed: imágenes (Cloudflare) y videos externos, unificados en una sola galería.</div>
   <div class="doc-meta"><span>Scope: Messages</span><span>Status: Active</span></div>
 </div>
 
@@ -51,7 +51,16 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <li><code>pending_delete</code>: asset oculto y pendiente de borrado remoto.</li>
     <li><code>deleted</code>: asset remoto borrado o tratado como eliminado.</li>
   </ul>
-  <div class="callout c-info">El máximo de cuatro imágenes se refuerza con <code>sort_order</code> entre <code>0</code> y <code>3</code> para assets adjuntos, además de la validación en application.</div>
+  <div class="callout c-info">Una publicación admite hasta <strong>10 medios combinados</strong> (imágenes + videos externos). Cada medio ocupa un <code>sort_order</code> global entre <code>0</code> y <code>9</code> compartido por imágenes y videos; el constraint <code>sort_order BETWEEN 0 AND 9</code> de <code>message_images</code> es defensa, y el tope combinado lo refuerza la validación en application (<code>MESSAGE_MEDIA.maxCount</code>).</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Videos externos y galería unificada</div>
+  <p>Los videos son links externos (YouTube, Vimeo, Wistia, Loom) y viven en la tabla <code>message_videos</code> del módulo <code>messages</code>, con <code>tribe_id</code> de aislamiento, <code>message_id</code> con <code>ON DELETE CASCADE</code>, <code>external_video_provider</code>, <code>external_video_id</code> y <code>sort_order</code>. No tienen lifecycle de subida: se validan con el value object <code>parseExternalVideoUrl</code> y se insertan directo. La columna histórica de un único video en <code>messages</code> fue migrada a esta tabla y eliminada.</p>
+  <p>Imágenes y videos comparten un único espacio de <code>sort_order</code> (0..9) por mensaje. La galería unificada se arma <strong>al leer</strong>: el repositorio de ronda mergea ambas tablas por <code>sort_order</code> y expone un solo arreglo <code>media</code> (unión discriminada por <code>kind</code>: <code>image</code> | <code>video</code>) que la UI renderiza en un carrusel único, en el orden que eligió el autor.</p>
+  <p>El composer envía un único arreglo ordenado <code>media</code> al crear o editar; el índice de cada ítem es su slot global. En edición, <code>media: []</code> limpia todos los medios. El use case <code>normalizeMessageMediaDrafts</code> valida el tope combinado, deduplica imágenes, parsea las URLs de video y asigna el <code>sort_order</code> global.</p>
+  <div class="callout c-info">Las policies de <code>message_videos</code>: lectura para quien puede leer el contenido de la tribu (<code>public.can_read_tribe_content</code>); inserción, edición y borrado directos solo para el autor activo del mensaje. El borrado del mensaje elimina sus videos por cascada de la FK (sin pasar por RLS).</div>
 </div>
 
 <div class="section">

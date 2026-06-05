@@ -379,6 +379,27 @@
       "when": 1780578000000,
       "tag": "20260604130000_remove_message_polls_question",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1780660800000,
+      "tag": "20260605120000_widen_message_images_sort_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1780661400000,
+      "tag": "20260605121000_create_message_videos",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1780662000000,
+      "tag": "20260605122000_drop_message_external_video_columns",
+      "breakpoints": true
     }
   ]
 }

@@ -25,7 +25,26 @@ export const MESSAGE_POLL_OPTIONS = {
 
 export const MESSAGE_IMAGES = {
   maxAltTextLength: 160,
-  maxCount: 4,
+  maxCount: 10,
+} as const;
+
+export const MESSAGE_VIDEOS = {
+  maxCount: 10,
+} as const;
+
+/**
+ * Combined ceiling for media attachments (images + external videos) that a
+ * single message can carry. Images and external videos share one global
+ * `sortOrder` slot space, so the total of both kinds must stay within this
+ * limit.
+ */
+export const MESSAGE_MEDIA = {
+  maxCount: 10,
+} as const;
+
+export const MESSAGE_MEDIA_KIND = {
+  image: "image",
+  video: "video",
 } as const;
 
 export const MESSAGE_IMAGE_STATUS = {
@@ -83,6 +102,7 @@ export const MESSAGE_MUTATION_STATUS = {
   invalidChannel: "invalid_channel",
   invalidContent: "invalid_content",
   invalidImage: "invalid_image",
+  invalidMedia: "invalid_media",
   invalidPoll: "invalid_poll",
   invalidVideoUrl: "invalid_video_url",
   liked: "liked",

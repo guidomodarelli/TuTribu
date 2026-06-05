@@ -1,7 +1,6 @@
 import type {
   MessagePollResult,
-  MessageImageResult,
-  MessageVideoResult,
+  MessageMediaResult,
   TribeRoundAuthorResult,
   TribeRoundReplyResult,
   TribeRoundMessageResult,
@@ -39,17 +38,16 @@ export type TribeRoundMessageProjection = {
   content: string;
   createdAt: Date | string;
   id: string;
-  images?: MessageImageResult[];
   isPinned?: boolean;
   likedByViewer: boolean;
   likeCount: number;
+  media?: MessageMediaResult[];
   permissions?: TribeRoundMessageResult["permissions"];
   pinnedAt?: Date | string | null;
   poll?: MessagePollResult | null;
   replyAuthorsPreview?: TribeRoundAuthorProjection[];
   replyCount?: number;
   title: string | null;
-  video?: MessageVideoResult | null;
 };
 
 export type TribeChannelProjection = {
@@ -146,17 +144,16 @@ export function createTribeRoundMessage({
   content,
   createdAt,
   id,
-  images = [],
   isPinned = false,
   likedByViewer,
   likeCount,
+  media = [],
   permissions,
   pinnedAt = null,
   poll = null,
   replyAuthorsPreview = [],
   replyCount = 0,
   title,
-  video = null,
 }: TribeRoundMessageProjection): TribeRoundMessageResult {
   return {
     author: createTribeRoundAuthor(author),
@@ -166,16 +163,15 @@ export function createTribeRoundMessage({
     content,
     createdAt: formatMessageDateTimeValue(createdAt),
     id,
-    images,
     isPinned,
     likedByViewer,
     likeCount,
+    media,
     permissions,
     pinnedAt: pinnedAt ? formatMessageDateTimeValue(pinnedAt) : null,
     poll,
     replyAuthorsPreview: replyAuthorsPreview.map(createTribeRoundAuthor),
     replyCount,
     title,
-    video,
   };
 }

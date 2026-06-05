@@ -18,9 +18,6 @@ describe("message mutation use cases", () => {
   };
   const firstImageAssetId = "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2";
   const secondImageAssetId = "8b9fda6e-6ef2-4a4d-bd8d-00b0e04b6b55";
-  const thirdImageAssetId = "9a5d94c0-2c3b-4c62-9c93-f08d7d8f6d44";
-  const fourthImageAssetId = "a4bb88a6-d77e-4d2f-8e38-39b7fbb6cbf5";
-  const fifthImageAssetId = "b1243c2f-92d3-4dd2-ae88-45acb6bbd8cf";
 
   it("creates a tribe message when content is valid", async () => {
     const createdMessage = {
@@ -246,11 +243,16 @@ describe("message mutation use cases", () => {
       createdAt: "2026-04-26T12:00:00.000Z",
       likedByViewer: false,
       likeCount: 0,
+      media: [
+        {
+          externalId: "dQw4w9WgXcQ",
+          id: "video-1",
+          kind: "video" as const,
+          provider: "youtube" as const,
+          sortOrder: 0,
+        },
+      ],
       title: "Recurso",
-      video: {
-        externalId: "dQw4w9WgXcQ",
-        provider: "youtube" as const,
-      },
     };
     const create = jest.fn(async () => ({
       message: createdMessage,
@@ -266,16 +268,21 @@ describe("message mutation use cases", () => {
         channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
         content: "Miren este video",
+        media: [
+          { kind: "video", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+        ],
         title: "Recurso",
-        video: { url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
       })
     ).resolves.toEqual({ message: createdMessage, status: "created" });
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
-        video: {
-          externalId: "dQw4w9WgXcQ",
-          provider: "youtube",
-        },
+        videos: [
+          {
+            externalId: "dQw4w9WgXcQ",
+            provider: "youtube",
+            sortOrder: 0,
+          },
+        ],
       })
     );
   });
@@ -295,15 +302,17 @@ describe("message mutation use cases", () => {
         replies: [],
         content: "Miren estas capturas",
         createdAt: "2026-04-26T12:00:00.000Z",
-        images: [
+        likedByViewer: false,
+        likeCount: 0,
+        media: [
           {
             altText: "",
             id: firstImageAssetId,
+            kind: "image" as const,
+            sortOrder: 0,
             url: "https://imagedelivery.net/account-hash/image-1/public",
           },
         ],
-        likedByViewer: false,
-        likeCount: 0,
         title: "Capturas",
       },
       status: "created" as const,
@@ -325,7 +334,7 @@ describe("message mutation use cases", () => {
         channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
         content: "Miren estas capturas",
-        images: [{ assetId: ` ${firstImageAssetId} ` }],
+        media: [{ assetId: ` ${firstImageAssetId} `, kind: "image" }],
         title: "Capturas",
       })
     ).resolves.toMatchObject({ status: "created" });
@@ -369,9 +378,9 @@ describe("message mutation use cases", () => {
         channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
         content: "Miren estas capturas",
-        images: [
-          { assetId: firstImageAssetId },
-          { assetId: secondImageAssetId },
+        media: [
+          { assetId: firstImageAssetId, kind: "image" },
+          { assetId: secondImageAssetId, kind: "image" },
         ],
         title: "Capturas",
       })
@@ -415,7 +424,7 @@ describe("message mutation use cases", () => {
         channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
         content: "Miren estas capturas",
-        images: [{ assetId: firstImageAssetId }],
+        media: [{ assetId: firstImageAssetId, kind: "image" }],
         title: "Capturas",
       })
     ).rejects.toThrow(creationError);
@@ -426,7 +435,65 @@ describe("message mutation use cases", () => {
     });
   });
 
-  it("rejects messages with more than four images before preparing attachments", async () => {
+  it("creates a tribe message mixing images and videos with a shared global order", async () => {
+    const create = jest.fn(async () => ({
+      message: {
+        id: "message-1",
+        author: {
+          id: "member-1",
+          name: "Grace Hopper",
+          role: "tribemate" as const,
+          avatarFallback: "GH",
+          image: null,
+        },
+        channel: tribeChannel,
+        replies: [],
+        content: "Imagen y video",
+        createdAt: "2026-04-26T12:00:00.000Z",
+        likedByViewer: false,
+        likeCount: 0,
+        title: "Mixto",
+      },
+      status: "created" as const,
+    }));
+    const prepareForAttachment = jest.fn(async () => ({
+      images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
+      status: "ready" as const,
+    }));
+    const execute = createTribeMessage({
+      messageCreationRepository: { create },
+      messageImageRepository: { prepareForAttachment },
+    });
+
+    await expect(
+      execute({
+        authorId: "member-1",
+        channelId: "channel-ronda",
+        tribeSlug: "matematica-pro",
+        content: "Imagen y video",
+        media: [
+          { assetId: firstImageAssetId, kind: "image" },
+          { kind: "video", url: "https://vimeo.com/123456789" },
+        ],
+        title: "Mixto",
+      })
+    ).resolves.toMatchObject({ status: "created" });
+    expect(prepareForAttachment).toHaveBeenCalledWith({
+      images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
+      tribeSlug: "matematica-pro",
+      userId: "member-1",
+    });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
+        videos: [
+          { externalId: "123456789", provider: "vimeo", sortOrder: 1 },
+        ],
+      })
+    );
+  });
+
+  it("rejects messages with more than ten combined media before preparing attachments", async () => {
     const create = jest.fn();
     const prepareForAttachment = jest.fn();
     const execute = createTribeMessage({
@@ -441,17 +508,14 @@ describe("message mutation use cases", () => {
         authorId: "member-1",
         channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
-        content: "Demasiadas imagenes",
-        images: [
-          { assetId: firstImageAssetId },
-          { assetId: secondImageAssetId },
-          { assetId: thirdImageAssetId },
-          { assetId: fourthImageAssetId },
-          { assetId: fifthImageAssetId },
-        ],
-        title: "Capturas",
+        content: "Demasiados medios",
+        media: Array.from({ length: 11 }, () => ({
+          kind: "video" as const,
+          url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        })),
+        title: "Medios",
       })
-    ).resolves.toEqual({ status: "invalid_image" });
+    ).resolves.toEqual({ status: "invalid_media" });
     expect(prepareForAttachment).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
@@ -472,9 +536,9 @@ describe("message mutation use cases", () => {
         channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
         content: "Duplicadas",
-        images: [
-          { assetId: firstImageAssetId },
-          { assetId: ` ${firstImageAssetId} ` },
+        media: [
+          { assetId: firstImageAssetId, kind: "image" },
+          { assetId: ` ${firstImageAssetId} `, kind: "image" },
         ],
         title: "Capturas",
       })
@@ -499,7 +563,7 @@ describe("message mutation use cases", () => {
         channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
         content: "Imagen invalida",
-        images: [{ assetId: "asset-1" }],
+        media: [{ assetId: "asset-1", kind: "image" }],
         title: "Capturas",
       })
     ).resolves.toEqual({ status: "invalid_image" });
@@ -519,8 +583,8 @@ describe("message mutation use cases", () => {
         channelId: "channel-ronda",
         tribeSlug: "matematica-pro",
         content: "Miren este video",
+        media: [{ kind: "video", url: "not-a-video-url" }],
         title: "Recurso",
-        video: { url: "not-a-video-url" },
       })
     ).resolves.toEqual({ status: "invalid_video_url" });
     expect(create).not.toHaveBeenCalled();
@@ -556,12 +620,12 @@ describe("message mutation use cases", () => {
       channelId: "channel-ronda",
       tribeSlug: "matematica-pro",
       content: "Voten y miren",
+      media: [{ kind: "video", url: "https://vimeo.com/123456789" }],
       poll: {
         allowMultipleVotes: false,
         options: ["A", "B"],
       },
       title: "Doble",
-      video: { url: "https://vimeo.com/123456789" },
     });
 
     expect(create).toHaveBeenCalledWith(
@@ -570,10 +634,13 @@ describe("message mutation use cases", () => {
           allowMultipleVotes: false,
           options: ["A", "B"],
         },
-        video: {
-          externalId: "123456789",
-          provider: "vimeo",
-        },
+        videos: [
+          {
+            externalId: "123456789",
+            provider: "vimeo",
+            sortOrder: 0,
+          },
+        ],
       })
     );
   });
@@ -795,10 +862,12 @@ describe("message mutation use cases", () => {
   it("updates message images and deletes removed remote assets after editing", async () => {
     const updateContent = jest.fn(async () => ({
       content: "Mensaje editado",
-      images: [
+      media: [
         {
           altText: "",
           id: secondImageAssetId,
+          kind: "image" as const,
+          sortOrder: 0,
           url: "https://imagedelivery.net/account-hash/image-2/public",
         },
       ],
@@ -822,14 +891,14 @@ describe("message mutation use cases", () => {
     await expect(
       execute({
         content: "  Mensaje editado  ",
-        images: [{ assetId: ` ${secondImageAssetId} ` }],
+        media: [{ assetId: ` ${secondImageAssetId} `, kind: "image" }],
         messageId: " message-1 ",
         title: "  Titulo editado  ",
         tribeSlug: " matematica-pro ",
         userId: " member-1 ",
       })
     ).resolves.toMatchObject({
-      images: [{ id: secondImageAssetId }],
+      media: [{ id: secondImageAssetId }],
       status: "updated",
     });
     expect(prepareForAttachment).toHaveBeenCalledWith({
@@ -865,7 +934,7 @@ describe("message mutation use cases", () => {
     await expect(
       execute({
         content: "Mensaje editado",
-        images: [{ assetId: "asset-1" }],
+        media: [{ assetId: "asset-1", kind: "image" }],
         messageId: "message-1",
         title: "Titulo editado",
         tribeSlug: "matematica-pro",

@@ -1,5 +1,6 @@
 import type {
   MESSAGE_AUTHOR_ROLE,
+  MESSAGE_MEDIA_KIND,
   TRIBE_CHANNEL_ACCESS_SCOPE,
   MESSAGE_MEMBERSHIP_STATUS,
 } from "@/src/modules/messages/constants/message-round";
@@ -65,6 +66,23 @@ export type MessageImageResult = {
   url: string;
 };
 
+/**
+ * A single media attachment of a message, projected for the unified gallery.
+ *
+ * Images and external videos share one global `sortOrder` slot space, so the
+ * UI can render every attachment in the exact order the author arranged them.
+ */
+export type MessageMediaResult =
+  | ({
+      kind: typeof MESSAGE_MEDIA_KIND.image;
+      sortOrder: number;
+    } & MessageImageResult)
+  | ({
+      id: string;
+      kind: typeof MESSAGE_MEDIA_KIND.video;
+      sortOrder: number;
+    } & MessageVideoResult);
+
 export type TribeRoundMessagePermissionsResult = {
   canDelete: boolean;
   canEdit: boolean;
@@ -76,16 +94,15 @@ export type TribeRoundSharedMessageResult = {
   content: string;
   createdAt: string;
   id: string;
-  images?: MessageImageResult[];
   isPinned?: boolean;
   likeCount: number;
+  media?: MessageMediaResult[];
   permissions?: TribeRoundMessagePermissionsResult;
   pinnedAt?: string | null;
   poll?: MessagePollResult | null;
   replyAuthorsPreview?: TribeRoundAuthorResult[];
   replyCount: number;
   title: string | null;
-  video?: MessageVideoResult | null;
 };
 
 export type TribeRoundMessageResult = TribeRoundSharedMessageResult & {

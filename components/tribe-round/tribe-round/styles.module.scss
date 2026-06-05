@@ -1038,23 +1038,18 @@
     font-size: 0.85rem;
   }
 
-  &__videoAttachedBadge {
-    display: inline-flex;
+  &__videoTile {
+    display: flex;
     align-items: center;
-    align-self: flex-start;
-    gap: 0.35rem;
-    width: fit-content;
-    margin-top: 0.5rem;
-    padding: 0.15rem 0.55rem;
-    border-radius: 999rem;
-    background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background-color: color-mix(in oklch, var(--muted) 80%, transparent);
     color: var(--muted-foreground);
-    font-size: 0.8rem;
-    font-weight: 600;
 
     svg {
-      width: 0.9rem;
-      height: 0.9rem;
+      width: 2.25rem;
+      height: 2.25rem;
     }
   }
 
@@ -1062,7 +1057,6 @@
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 9;
-    margin-top: 0.75rem;
     border-radius: 0.75rem;
     overflow: hidden;
     background-color: var(--muted);

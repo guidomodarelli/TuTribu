@@ -141,7 +141,7 @@ describe("PostgresMessageRoundRepository", () => {
           content: "Bienvenida",
           createdAt: "2026-04-26T12:00:00.000Z",
           likedByViewer: true,
-          images: [],
+          media: [],
           permissions: {
             canDelete: true,
             canEdit: false,
@@ -168,7 +168,6 @@ describe("PostgresMessageRoundRepository", () => {
           pinnedAt: "2026-04-26T13:00:00.000Z",
           poll: null,
           title: "Anuncio inicial",
-          video: null,
         },
       ],
       pagination: {
@@ -186,7 +185,7 @@ describe("PostgresMessageRoundRepository", () => {
     expect(getSqlText(execute.mock.calls[1]?.[0])).not.toContain("message_replies.content");
   });
 
-  it("maps external video columns into the message video field", async () => {
+  it("merges attached images and videos into the unified media field in slot order", async () => {
     const execute = jest
       .fn()
       .mockResolvedValueOnce({ rows: channelRows })
@@ -199,11 +198,25 @@ describe("PostgresMessageRoundRepository", () => {
             channel_name: "Ronda",
             channel_slug: "ronda",
             channel_sort_order: 20,
-            message_id: "message-with-video",
+            message_id: "message-with-media",
             message_content: "Miren esto",
             message_created_at: "2026-04-26T12:00:00.000Z",
-            message_external_video_id: "dQw4w9WgXcQ",
-            message_external_video_provider: "youtube",
+            message_images: [
+              {
+                alt_text: "Una captura",
+                id: "image-1",
+                sort_order: 1,
+                url: "https://imagedelivery.net/account-hash/image-1/public",
+              },
+            ],
+            message_videos: [
+              {
+                external_video_id: "dQw4w9WgXcQ",
+                external_video_provider: "youtube",
+                id: "video-1",
+                sort_order: 0,
+              },
+            ],
             message_title: "Recurso",
             author_id: "member-1",
             author_name: "Grace Hopper",
@@ -236,18 +249,32 @@ describe("PostgresMessageRoundRepository", () => {
     ).resolves.toMatchObject({
       messages: [
         {
-          id: "message-with-video",
-          video: { externalId: "dQw4w9WgXcQ", provider: "youtube" },
+          id: "message-with-media",
+          media: [
+            {
+              externalId: "dQw4w9WgXcQ",
+              id: "video-1",
+              kind: "video",
+              provider: "youtube",
+              sortOrder: 0,
+            },
+            {
+              altText: "Una captura",
+              id: "image-1",
+              kind: "image",
+              sortOrder: 1,
+              url: "https://imagedelivery.net/account-hash/image-1/public",
+            },
+          ],
         },
       ],
     });
 
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
-      "messages.external_video_provider as message_external_video_provider"
-    );
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
-      "messages.external_video_id as message_external_video_id"
-    );
+    const sqlText = getSqlText(execute.mock.calls[1]?.[0]);
+
+    expect(sqlText).toContain("messages.message_videos as message_videos");
+    expect(sqlText).toContain("from public.message_videos video_assets");
+    expect(sqlText).not.toContain("external_video_provider as message_external_video_provider");
   });
 
   it("returns viewer permissions when the tribe has no messages yet", async () => {

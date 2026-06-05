@@ -10,15 +10,18 @@ import type {
   TribeRoundSharedMessageResult,
   TribeRoundViewerStateResult,
   MessageMembershipStatus,
-  MessageImageResult,
+  MessageMediaResult,
   MessagePollResult,
   TribeRoundAuthorResult,
-  MessageVideoResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
-import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
+import {
+  VIDEO_PROVIDER,
+  type VideoProvider,
+} from "@/src/modules/shared/domain/value-objects/video-provider";
 import {
   MESSAGE_AUTHOR_ROLE,
   MESSAGE_LIKERS_PREVIEW_LIMIT,
+  MESSAGE_MEDIA_KIND,
   MESSAGE_MEMBERSHIP_STATUS,
   MESSAGE_MUTATION_STATUS,
   MESSAGE_POLL_PERCENTAGE_SCALE,
@@ -66,18 +69,29 @@ type MessageRoundSharedRow = {
   poll_total_vote_count: number | string | null;
   message_content: string | null;
   message_created_at: Date | string | null;
-  message_external_video_id: string | null;
-  message_external_video_provider: string | null;
   message_id: string | null;
   message_images: MessageImageRow[] | null;
   message_title: string | null;
+  message_videos: MessageVideoRow[] | null;
 };
 
-type MessageImageRow = {
+export type MessageImageRow = {
   altText?: string | null;
   alt_text?: string | null;
   id: string;
+  sort_order?: number | string | null;
+  sortOrder?: number | string | null;
   url: string;
+};
+
+export type MessageVideoRow = {
+  external_video_id?: string | null;
+  external_video_provider?: string | null;
+  externalId?: string | null;
+  id: string;
+  provider?: string | null;
+  sort_order?: number | string | null;
+  sortOrder?: number | string | null;
 };
 
 type ReplyAuthorPreviewRow = {
@@ -87,37 +101,68 @@ type ReplyAuthorPreviewRow = {
   role?: unknown;
 };
 
-export function createMessageVideoFromRow(row: {
-  message_external_video_id: string | null;
-  message_external_video_provider: string | null;
-}): MessageVideoResult | null {
-  const provider = row.message_external_video_provider;
-  const externalId = row.message_external_video_id;
-
-  if (!provider || !externalId) {
-    return null;
-  }
-
-  if (
-    provider !== VIDEO_PROVIDER.youtube &&
-    provider !== VIDEO_PROVIDER.vimeo &&
-    provider !== VIDEO_PROVIDER.wistia &&
-    provider !== VIDEO_PROVIDER.loom
-  ) {
-    return null;
-  }
-
-  return { externalId, provider };
+function isVideoProvider(value: string | null | undefined): value is VideoProvider {
+  return (
+    value === VIDEO_PROVIDER.youtube ||
+    value === VIDEO_PROVIDER.vimeo ||
+    value === VIDEO_PROVIDER.wistia ||
+    value === VIDEO_PROVIDER.loom
+  );
 }
 
-export function createMessageImagesFromRows(
-  rows: MessageImageRow[] | null | undefined
-): MessageImageResult[] {
-  return (rows ?? []).map((row) => ({
+/**
+ * Sorts message media by its global slot so images and external videos render
+ * in the exact order the author arranged them.
+ *
+ * @param media - Unsorted media items.
+ * @returns A new array sorted ascending by `sortOrder`.
+ */
+export function sortMessageMediaBySortOrder(
+  media: MessageMediaResult[]
+): MessageMediaResult[] {
+  return [...media].sort((first, second) => first.sortOrder - second.sortOrder);
+}
+
+/**
+ * Merges persisted image and video rows into the unified, ordered media list
+ * consumed by the round view model.
+ *
+ * @param imageRows - Attached image rows (with their global `sort_order`).
+ * @param videoRows - Attached external video rows (with their global `sort_order`).
+ * @returns Media items sorted by their shared global slot.
+ */
+export function createMessageMediaFromRows(
+  imageRows: MessageImageRow[] | null | undefined,
+  videoRows: MessageVideoRow[] | null | undefined
+): MessageMediaResult[] {
+  const imageMedia: MessageMediaResult[] = (imageRows ?? []).map((row) => ({
     altText: row.altText ?? row.alt_text ?? "",
     id: row.id,
+    kind: MESSAGE_MEDIA_KIND.image,
+    sortOrder: Number(row.sortOrder ?? row.sort_order ?? 0),
     url: row.url,
   }));
+
+  const videoMedia: MessageMediaResult[] = (videoRows ?? []).flatMap((row) => {
+    const provider = row.provider ?? row.external_video_provider;
+    const externalId = row.externalId ?? row.external_video_id;
+
+    if (!isVideoProvider(provider) || !externalId) {
+      return [];
+    }
+
+    return [
+      {
+        externalId,
+        id: row.id,
+        kind: MESSAGE_MEDIA_KIND.video,
+        provider,
+        sortOrder: Number(row.sortOrder ?? row.sort_order ?? 0),
+      },
+    ];
+  });
+
+  return sortMessageMediaBySortOrder([...imageMedia, ...videoMedia]);
 }
 
 function createReplyAuthorsPreviewFromRows(
@@ -352,9 +397,9 @@ function mapRowsToSharedData(
         content: row.message_content,
         createdAt: formatMessageDateTimeValue(row.message_created_at),
         id: row.message_id,
-        images: createMessageImagesFromRows(row.message_images),
         isPinned: Boolean(row.message_pinned_at),
         likeCount: Number(row.like_count),
+        media: createMessageMediaFromRows(row.message_images, row.message_videos),
         pinnedAt: row.message_pinned_at
           ? formatMessageDateTimeValue(row.message_pinned_at)
           : null,
@@ -364,7 +409,6 @@ function mapRowsToSharedData(
         ),
         replyCount: Number(row.reply_count),
         title: row.message_title,
-        video: createMessageVideoFromRow(row),
       });
     } else if (existingMessage?.poll && row.poll_option_id && row.poll_option_text) {
       existingMessage.poll.options.push(
@@ -657,13 +701,12 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
               messages.id,
               messages.title,
               messages.content,
-              messages.external_video_provider,
-              messages.external_video_id,
               messages.created_at,
               messages.channel_id,
               messages.author_id,
               messages.tribe_id,
               coalesce(message_images.message_images, '[]'::jsonb) as message_images,
+              coalesce(message_videos.message_videos, '[]'::jsonb) as message_videos,
               coalesce(message_like_counts.like_count, 0) as like_count,
               message_pins.pinned_at as pinned_at
             from public.messages
@@ -678,6 +721,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
                 jsonb_build_object(
                   'alt_text', image_assets.alt_text,
                   'id', image_assets.id,
+                  'sort_order', image_assets.sort_order,
                   'url', image_assets.delivery_url
                 )
                 order by image_assets.sort_order asc, image_assets.created_at asc
@@ -686,6 +730,19 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
               where image_assets.message_id = messages.id
                 and image_assets.status = 'attached'
             ) message_images on true
+            left join lateral (
+              select jsonb_agg(
+                jsonb_build_object(
+                  'external_video_id', video_assets.external_video_id,
+                  'external_video_provider', video_assets.external_video_provider,
+                  'id', video_assets.id,
+                  'sort_order', video_assets.sort_order
+                )
+                order by video_assets.sort_order asc, video_assets.created_at asc
+              ) as message_videos
+              from public.message_videos video_assets
+              where video_assets.message_id = messages.id
+            ) message_videos on true
             where messages.channel_id is not null
               and (
                 ${activeChannel?.slug ?? null}::text is null
@@ -711,10 +768,9 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             messages.id as message_id,
             messages.title as message_title,
             messages.content as message_content,
-            messages.external_video_provider as message_external_video_provider,
-            messages.external_video_id as message_external_video_id,
             messages.created_at as message_created_at,
             messages.message_images as message_images,
+            messages.message_videos as message_videos,
             tribe_channels.id as channel_id,
             tribe_channels.name as channel_name,
             tribe_channels.slug as channel_slug,
@@ -798,10 +854,9 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             messages.id,
             messages.title,
             messages.content,
-            messages.external_video_provider,
-            messages.external_video_id,
             messages.created_at,
             messages.message_images,
+            messages.message_videos,
             messages.channel_id,
             messages.author_id,
             messages.tribe_id,

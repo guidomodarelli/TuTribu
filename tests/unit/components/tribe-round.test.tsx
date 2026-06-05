@@ -391,10 +391,12 @@ const roundWithMessageImages = {
   messages: [
     {
       ...round.messages[0],
-      images: [
+      media: [
         {
           altText: "",
           id: "message-image-1",
+          kind: "image" as const,
+          sortOrder: 0,
           url: "https://imagedelivery.net/account-hash/message-image-1/public",
         },
       ],
@@ -403,10 +405,12 @@ const roundWithMessageImages = {
     {
       ...round.messages[0],
       id: "message-2",
-      images: [
+      media: [
         {
           altText: "",
           id: "message-image-2",
+          kind: "image" as const,
+          sortOrder: 0,
           url: "https://imagedelivery.net/account-hash/message-image-2/public",
         },
       ],
@@ -753,11 +757,13 @@ describe("TribeRound", () => {
           messages: [
             {
               ...roundWithMessageImages.messages[0],
-              images: [
-                ...(roundWithMessageImages.messages[0].images ?? []),
+              media: [
+                ...(roundWithMessageImages.messages[0].media ?? []),
                 {
                   altText: "",
                   id: "message-image-1b",
+                  kind: "image" as const,
+                  sortOrder: 1,
                   url: "https://imagedelivery.net/account-hash/message-image-1b/public",
                 },
               ],
@@ -790,13 +796,13 @@ describe("TribeRound", () => {
     );
 
     const carouselDialog = screen.getByRole("dialog", {
-      name: "Imágenes del mensaje",
+      name: "Medios del mensaje",
     });
 
     expect(carouselDialog).toHaveClass(
       "TribeRound__imageCarouselDialog"
     );
-    expect(within(carouselDialog).getByText("Imagen 1 de 2")).toHaveClass(
+    expect(within(carouselDialog).getByText("Medio 1 de 2")).toHaveClass(
       "TribeRound__srOnly"
     );
     expect(
@@ -812,10 +818,10 @@ describe("TribeRound", () => {
       });
 
     const previousImageButton = within(carouselDialog).getByRole("button", {
-      name: "Imagen anterior",
+      name: "Medio anterior",
     });
     const nextImageButton = within(carouselDialog).getByRole("button", {
-      name: "Siguiente imagen",
+      name: "Siguiente medio",
     });
 
     expect(previousImageButton).toBeEnabled();
@@ -849,7 +855,7 @@ describe("TribeRound", () => {
     await user.click(imageCarousel as HTMLElement);
 
     expect(
-      screen.getByRole("dialog", { name: "Imágenes del mensaje" })
+      screen.getByRole("dialog", { name: "Medios del mensaje" })
     ).toBeInTheDocument();
 
     await user.click(
@@ -857,7 +863,7 @@ describe("TribeRound", () => {
     );
 
     expect(
-      screen.queryByRole("dialog", { name: "Imágenes del mensaje" })
+      screen.queryByRole("dialog", { name: "Medios del mensaje" })
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("dialog", { name: "Mensaje" })
@@ -1736,10 +1742,12 @@ describe("TribeRound", () => {
               message: "Mensaje creado.",
               tribeMessage: {
                 ...createdMessage,
-                images: [
+                media: [
                   {
                     altText: "",
                     id: "asset-1",
+                    kind: "image",
+                    sortOrder: 0,
                     url: "https://imagedelivery.net/account-hash/image-1/public",
                   },
                 ],
@@ -1793,7 +1801,7 @@ describe("TribeRound", () => {
           body: JSON.stringify({
             channelId: "channel-intro",
             content: "Sumate al encuentro",
-            images: [{ altText: "", assetId: "asset-1" }],
+            media: [{ altText: "", assetId: "asset-1", kind: "image" }],
             title: "Nuevo encuentro",
           }),
           method: "POST",
@@ -2210,10 +2218,12 @@ describe("TribeRound", () => {
             message: "Mensaje creado.",
             tribeMessage: {
               ...createdMessage,
-              images: [
+              media: [
                 {
                   altText: "",
                   id: "asset-1",
+                  kind: "image",
+                  sortOrder: 0,
                   url: "https://imagedelivery.net/account-hash/image-1/public",
                 },
               ],
@@ -2319,7 +2329,7 @@ describe("TribeRound", () => {
             message: "Mensaje creado.",
             tribeMessage: {
               ...createdMessage,
-              images: [],
+              media: [],
             },
           }),
           ok: true,
@@ -2697,10 +2707,12 @@ describe("TribeRound", () => {
             message: "Mensaje creado.",
             tribeMessage: {
               ...createdMessage,
-              images: [
+              media: [
                 {
                   altText: "",
                   id: "asset-1",
+                  kind: "image",
+                  sortOrder: 0,
                   url: "https://imagedelivery.net/account-hash/image-1/public",
                 },
               ],
@@ -2824,10 +2836,12 @@ describe("TribeRound", () => {
             message: "Mensaje creado.",
             tribeMessage: {
               ...createdMessage,
-              images: [
+              media: [
                 {
                   altText: "",
                   id: "asset-1",
+                  kind: "image",
+                  sortOrder: 0,
                   url: "https://imagedelivery.net/account-hash/image-1/public",
                 },
               ],
@@ -2949,7 +2963,7 @@ describe("TribeRound", () => {
           expect.objectContaining({
             body: JSON.stringify({
               content: "Bienvenida a la tribu",
-              images: [{ altText: "", assetId: "asset-1" }],
+              media: [{ altText: "", assetId: "asset-1", kind: "image" }],
               title: "Anuncio inicial",
             }),
             method: "PATCH",
@@ -2965,10 +2979,12 @@ describe("TribeRound", () => {
         messageUpdateResponse.resolve({
           json: async () => ({
             content: "Bienvenida a la tribu",
-            images: [
+            media: [
               {
                 altText: "",
                 id: "asset-1",
+                kind: "image",
+                sortOrder: 0,
                 url: "https://imagedelivery.net/account-hash/image-1/public",
               },
             ],
@@ -3055,10 +3071,12 @@ describe("TribeRound", () => {
             messages: [
               {
                 ...round.messages[0],
-                images: [
+                media: [
                   {
                     altText: "Adjunto existente",
                     id: "persisted-asset-1",
+                    kind: "image" as const,
+                    sortOrder: 0,
                     url: "https://imagedelivery.net/account-hash/existing/public",
                   },
                 ],
@@ -3093,9 +3111,13 @@ describe("TribeRound", () => {
           expect.objectContaining({
             body: JSON.stringify({
               content: "Bienvenida a la tribu",
-              images: [
-                { altText: "Adjunto existente", assetId: "persisted-asset-1" },
-                { altText: "", assetId: "asset-1" },
+              media: [
+                {
+                  altText: "Adjunto existente",
+                  assetId: "persisted-asset-1",
+                  kind: "image",
+                },
+                { altText: "", assetId: "asset-1", kind: "image" },
               ],
               title: "Anuncio inicial",
             }),
@@ -3887,6 +3909,7 @@ describe("TribeRound", () => {
         expect.objectContaining({
           body: JSON.stringify({
             content: "[https://zoom.us/j/123456789](#)",
+            media: [],
             title: "Nuevo encuentro",
           }),
           method: "PATCH",
@@ -6532,9 +6555,12 @@ describe("TribeRound", () => {
           body: JSON.stringify({
             channelId: "channel-intro",
             content: "Miren este video.",
-            video: {
-              url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            },
+            media: [
+              {
+                kind: "video",
+                url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+              },
+            ],
             title: "Recurso",
           }),
           method: "POST",
@@ -6578,5 +6604,325 @@ describe("TribeRound", () => {
       )
     ).toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("disables the media buttons once the combined limit is reached", async () => {
+    const user = userEvent.setup();
+    const combinedMediaLimit = 10;
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Compartí algo en la ronda" })
+    );
+
+    const addVideoButton = screen.getByRole("button", {
+      name: "Agregar video",
+    });
+
+    for (let videoIndex = 0; videoIndex < combinedMediaLimit; videoIndex += 1) {
+      await user.click(addVideoButton);
+    }
+
+    expect(
+      screen.getAllByRole("textbox", { name: "Link del video" })
+    ).toHaveLength(combinedMediaLimit);
+    expect(addVideoButton).toBeDisabled();
+
+    const imageFileInput = screen
+      .getByLabelText("Agregar imagen")
+      .querySelector('input[type="file"]');
+
+    expect(imageFileInput).toBeDisabled();
+  });
+
+  it("shows the dynamic combined media limit error when uploading too many files", async () => {
+    const user = userEvent.setup();
+    const originalCreateObjectUrl = URL.createObjectURL;
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: jest.fn(() => "blob:message-image"),
+    });
+
+    try {
+      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+        if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
+          return {
+            json: async () => ({
+              assetId: "asset-1",
+              imageId: "cloudflare-image-1",
+              uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+            }),
+            ok: true,
+            statusText: "Created",
+          };
+        }
+
+        if (url === "https://upload.imagedelivery.net/direct-upload") {
+          return {
+            json: async () => ({}),
+            ok: true,
+            statusText: "OK",
+          };
+        }
+
+        throw new Error(`Unexpected fetch ${url}`);
+      });
+
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+
+      const addVideoButton = screen.getByRole("button", {
+        name: "Agregar video",
+      });
+
+      for (let videoIndex = 0; videoIndex < 9; videoIndex += 1) {
+        await user.click(addVideoButton);
+      }
+
+      const twoImageFiles = [
+        new File(["a"], "uno.png", { type: "image/png" }),
+        new File(["b"], "dos.png", { type: "image/png" }),
+      ];
+
+      await user.upload(screen.getByLabelText("Agregar imagen"), twoImageFiles);
+
+      expect(
+        screen.getByText(
+          "Podés adjuntar hasta 10 archivos entre imágenes y videos."
+        )
+      ).toBeInTheDocument();
+      expect(global.fetch).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreateObjectUrl,
+      });
+    }
+  });
+
+  it("submits images and videos as a single ordered media list", async () => {
+    const user = userEvent.setup();
+    const originalCreateObjectUrl = URL.createObjectURL;
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: jest.fn(() => "blob:message-image"),
+    });
+
+    try {
+      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+        if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
+          return {
+            json: async () => ({
+              assetId: "asset-1",
+              imageId: "cloudflare-image-1",
+              uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+            }),
+            ok: true,
+            statusText: "Created",
+          };
+        }
+
+        if (url === "https://upload.imagedelivery.net/direct-upload") {
+          return {
+            json: async () => ({}),
+            ok: true,
+            statusText: "OK",
+          };
+        }
+
+        if (url === "/api/tribes/matematica-pro/messages") {
+          return {
+            json: async () => ({
+              message: "Mensaje creado.",
+              tribeMessage: {
+                ...createdMessage,
+                media: [
+                  {
+                    altText: "",
+                    id: "asset-1",
+                    kind: "image",
+                    sortOrder: 0,
+                    url: "https://imagedelivery.net/account-hash/image-1/public",
+                  },
+                  {
+                    externalId: "dQw4w9WgXcQ",
+                    id: "message-video-1",
+                    kind: "video",
+                    provider: "youtube",
+                    sortOrder: 1,
+                  },
+                ],
+              },
+            }),
+            ok: true,
+            statusText: "Created",
+          };
+        }
+
+        throw new Error(`Unexpected fetch ${url}`);
+      });
+
+      const imageFile = new File(["image"], "captura.png", {
+        type: "image/png",
+      });
+
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      await user.type(
+        screen.getByRole("textbox", { name: "Título del mensaje" }),
+        "Recurso mixto"
+      );
+      setMessageEditorContent(
+        screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+        "Imagen y video."
+      );
+      await user.upload(screen.getByLabelText("Agregar imagen"), imageFile);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "https://upload.imagedelivery.net/direct-upload",
+          expect.objectContaining({ method: "POST" })
+        );
+      });
+
+      await user.click(screen.getByRole("button", { name: "Agregar video" }));
+      await user.type(
+        screen.getByRole("textbox", { name: "Link del video" }),
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      );
+
+      await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+      await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+      await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/tribes/matematica-pro/messages",
+          expect.objectContaining({
+            body: JSON.stringify({
+              channelId: "channel-intro",
+              content: "Imagen y video.",
+              media: [
+                { altText: "", assetId: "asset-1", kind: "image" },
+                {
+                  kind: "video",
+                  url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                },
+              ],
+              title: "Recurso mixto",
+            }),
+            method: "POST",
+          })
+        );
+      });
+    } finally {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreateObjectUrl,
+      });
+    }
+  });
+
+  it("renders a unified carousel with image and video slides for mixed media", async () => {
+    const user = userEvent.setup();
+    const mixedMediaRound = {
+      ...round,
+      messages: [
+        {
+          ...round.messages[0],
+          media: [
+            {
+              altText: "Captura del recurso",
+              id: "message-image-1",
+              kind: "image" as const,
+              sortOrder: 0,
+              url: "https://imagedelivery.net/account-hash/message-image-1/public",
+            },
+            {
+              externalId: "dQw4w9WgXcQ",
+              id: "message-video-1",
+              kind: "video" as const,
+              provider: "youtube" as const,
+              sortOrder: 1,
+            },
+          ],
+          title: "Mensaje con media mixto",
+        },
+      ],
+    };
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={mixedMediaRound}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Abrir mensaje: Mensaje con media mixto/i,
+      })
+    );
+
+    const messageDetailsDialog = screen.getByRole("dialog", {
+      name: "Mensaje",
+    });
+
+    expect(
+      within(messageDetailsDialog).getByRole("button", {
+        name: "Abrir video 2: YouTube",
+      })
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(messageDetailsDialog).getByRole("button", {
+        name: "Abrir imagen 1: Captura del recurso",
+      })
+    );
+
+    const carouselDialog = screen.getByRole("dialog", {
+      name: "Medios del mensaje",
+    });
+
+    expect(
+      within(carouselDialog).getByRole("img", { name: "Captura del recurso" })
+    ).toBeInTheDocument();
+    expect(
+      carouselDialog.querySelector(".TribeRound__videoEmbedIframe")
+    ).toHaveAttribute(
+      "src",
+      "https://www.youtube.com/embed/dQw4w9WgXcQ"
+    );
+    expect(within(carouselDialog).getByText("Medio 1 de 2")).toHaveClass(
+      "TribeRound__srOnly"
+    );
   });
 });

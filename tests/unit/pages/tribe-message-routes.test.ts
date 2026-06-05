@@ -312,14 +312,16 @@ describe("Tribe message routes", () => {
     );
   });
 
-  it("passes image attachments when creating a tribe message", async () => {
+  it("passes media attachments when creating a tribe message", async () => {
     createTribeMessage.mockResolvedValue({
       message: {
         id: "message-1",
-        images: [
+        media: [
           {
             altText: "",
             id: "asset-1",
+            kind: "image",
+            sortOrder: 0,
             url: "https://imagedelivery.net/account-hash/image-1/public",
           },
         ],
@@ -331,7 +333,10 @@ describe("Tribe message routes", () => {
       buildJsonRequest({
         channelId: "channel-ronda",
         content: "Primera mensaje",
-        images: [{ assetId: "asset-1" }],
+        media: [
+          { assetId: "asset-1", kind: "image" },
+          { kind: "video", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+        ],
         title: "Anuncio inicial",
       }),
       buildCreateRouteContext()
@@ -340,9 +345,34 @@ describe("Tribe message routes", () => {
     expect(response.status).toBe(201);
     expect(createTribeMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        images: [{ assetId: "asset-1" }],
+        media: [
+          { assetId: "asset-1", kind: "image" },
+          { kind: "video", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+        ],
       })
     );
+  });
+
+  it("rejects creating a message with more than ten combined media", async () => {
+    const response = await POST_CREATE(
+      buildJsonRequest({
+        channelId: "channel-ronda",
+        content: "Primera mensaje",
+        media: Array.from({ length: 11 }, () => ({
+          kind: "video",
+          url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        })),
+        title: "Anuncio inicial",
+      }),
+      buildCreateRouteContext()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      message: "Podés adjuntar hasta 10 archivos entre imágenes y videos.",
+    });
+    expect(createTribeMessage).not.toHaveBeenCalled();
   });
 
   it("creates a direct image upload for the authenticated member", async () => {
@@ -371,13 +401,15 @@ describe("Tribe message routes", () => {
     });
   });
 
-  it("updates a message image list through the message edit route", async () => {
+  it("updates a message media list through the message edit route", async () => {
     updateTribeMessageContent.mockResolvedValue({
       content: "Mensaje editado",
-      images: [
+      media: [
         {
           altText: "",
           id: "asset-2",
+          kind: "image",
+          sortOrder: 0,
           url: "https://imagedelivery.net/account-hash/image-2/public",
         },
       ],
@@ -389,7 +421,7 @@ describe("Tribe message routes", () => {
     const response = await PATCH_MESSAGE(
       buildJsonRequest({
         content: "Mensaje editado",
-        images: [{ assetId: "asset-2" }],
+        media: [{ assetId: "asset-2", kind: "image" }],
         title: "Titulo editado",
       }),
       buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
@@ -398,12 +430,12 @@ describe("Tribe message routes", () => {
 
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
-      images: [{ id: "asset-2" }],
+      media: [{ id: "asset-2", kind: "image" }],
       message: "Mensaje actualizado.",
     });
     expect(updateTribeMessageContent).toHaveBeenCalledWith(
       expect.objectContaining({
-        images: [{ assetId: "asset-2" }],
+        media: [{ assetId: "asset-2", kind: "image" }],
       })
     );
   });
@@ -479,15 +511,13 @@ describe("Tribe message routes", () => {
     expect(revalidateTag).not.toHaveBeenCalled();
   });
 
-  it("returns a safe validation message when the video payload is malformed", async () => {
+  it("returns a safe validation message when a media video link is malformed", async () => {
     const response = await POST_CREATE(
       buildJsonRequest({
         content: "Primera mensaje",
         channelId: "channel-ronda",
         title: "Anuncio inicial",
-        video: {
-          url: "",
-        },
+        media: [{ kind: "video", url: "" }],
       }),
       buildCreateRouteContext()
     );

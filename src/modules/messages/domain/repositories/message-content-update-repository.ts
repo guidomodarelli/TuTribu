@@ -8,11 +8,11 @@ import type { MessageVideoRepositoryDraft } from "@/src/modules/messages/domain/
 
 export type UpdateTribeMessageContentRepositoryCommand = Omit<
   UpdateTribeMessageContentCommand,
-  "images" | "poll" | "video"
+  "media" | "poll"
 > & {
   images?: MessageImageAttachmentDraft[];
   poll?: MessagePollDraftCommand;
-  video?: MessageVideoRepositoryDraft | null;
+  videos?: MessageVideoRepositoryDraft[];
 };
 
 /**
