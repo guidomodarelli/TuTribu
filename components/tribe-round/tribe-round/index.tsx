@@ -100,13 +100,16 @@ import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/r
 import {
   MESSAGE_POLL_OPTION_TEXT,
   MESSAGE_POLL_OPTIONS,
-  MESSAGE_IMAGES,
+  MESSAGE_MEDIA,
+  MESSAGE_MEDIA_KIND,
 } from "@/src/modules/messages/constants/message-round";
 import type {
+  MessageMediaResult,
   TribeRoundReplyResult,
   TribeRoundMessageResult,
   TribeRoundResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
+import type { MessageMediaDraftCommand } from "@/src/modules/messages/application/commands/tribe-message-command";
 import {
   InvalidVideoUrlError,
   parseExternalVideoUrl,
@@ -277,20 +280,22 @@ const TRIBE_ROUND_COPY = {
   imageAltInputLabel: "Descripción de la imagen",
   imageAltInputPlaceholder: "Descripción breve",
   imageCarouselDialogDescription:
-    "Galería de imágenes ampliadas del mensaje.",
-  imageCarouselDialogTitle: "Imágenes del mensaje",
-  imageCarouselNextButton: "Siguiente imagen",
+    "Galería de medios ampliados del mensaje.",
+  imageCarouselDialogTitle: "Medios del mensaje",
+  imageCarouselNextButton: "Siguiente medio",
   imageCarouselOpenButtonPrefix: "Abrir imagen",
-  imageCarouselPreviousButton: "Imagen anterior",
-  imageCarouselProgressPrefix: "Imagen",
+  imageCarouselVideoOpenButtonPrefix: "Abrir video",
+  imageCarouselPreviousButton: "Medio anterior",
+  imageCarouselProgressPrefix: "Medio",
   imageCarouselProgressSeparator: "de",
-  imageLimitError: "Podés adjuntar hasta 4 imágenes.",
+  mediaLimitError: `Podés adjuntar hasta ${String(
+    MESSAGE_MEDIA.maxCount
+  )} archivos entre imágenes y videos.`,
   imageRemoveButton: "Quitar imagen",
   imageUploadError: "No pudimos subir la imagen.",
   imageUploadPendingError: "Esperá a que termine de subir la imagen.",
   imageUploadingLabel: "Subiendo imagen",
   videoAddButton: "Agregar video",
-  videoAttachedBadge: "Video adjunto",
   videoComposerHeading: "Link del video",
   videoEmbedTitlePrefix: "Video adjunto al mensaje",
   videoInvalidUrl:
@@ -403,6 +408,8 @@ const COLLAPSED_CONTENT_TEXT = {
 const TRIBE_ROUND_OPTIMISTIC = {
   messageIdPrefix: "optimistic-message-",
   messageImageIdPrefix: "optimistic-message-image-",
+  messageVideoIdPrefix: "optimistic-message-video-",
+  mediaVideoLocalIdPrefix: "composer-video-",
   pollIdPrefix: "optimistic-poll-",
   pollOptionIdPrefix: "optimistic-poll-option-",
   replyIdPrefix: "optimistic-reply-",
@@ -662,12 +669,11 @@ type UpdateCreatedAtResponse = {
 
 type UpdateMessageContentResponse = {
   content?: string;
-  images?: TribeRoundMessageResult["images"];
+  media?: TribeRoundMessageResult["media"];
   message?: string;
   messageId?: string;
   poll?: TribeRoundMessageResult["poll"];
   title?: string;
-  video?: TribeRoundMessageResult["video"];
 };
 
 type MessageImageUploadResponse = {
@@ -694,6 +700,33 @@ type ComposerImageDraft = {
   status: ComposerImageUploadStatus;
   isPersisted: boolean;
 };
+
+/**
+ * A single image attachment inside the unified, ordered media draft list. It
+ * carries every Cloudflare upload field of {@link ComposerImageDraft} plus the
+ * discriminating `kind` shared by all media drafts.
+ */
+type ComposerImageMediaDraft = {
+  kind: typeof MESSAGE_MEDIA_KIND.image;
+} & ComposerImageDraft;
+
+/**
+ * A single external video attachment inside the unified, ordered media draft
+ * list. The author pastes a URL that is validated live with
+ * {@link safeParseVideoUrl}; the URL is sent verbatim on submit.
+ */
+type ComposerVideoMediaDraft = {
+  kind: typeof MESSAGE_MEDIA_KIND.video;
+  localId: string;
+  url: string;
+};
+
+/**
+ * One slot in the composer's ordered media list. Images and external videos
+ * share a single array so the array index expresses the author-chosen global
+ * order (`sortOrder`).
+ */
+type ComposerMediaDraft = ComposerImageMediaDraft | ComposerVideoMediaDraft;
 
 type ResetMessageComposerOptions = {
   shouldCleanupTransientImages?: boolean;
@@ -729,16 +762,14 @@ type ComposerMessageLink =
 
 type CreateMessageDraftSnapshot = {
   content: string;
-  imageDrafts: ComposerImageDraft[];
+  mediaDrafts: ComposerMediaDraft[];
   isPollComposerEnabled: boolean;
-  isVideoComposerEnabled: boolean;
   messageContent: string;
   messageContentLinks: ComposerMessageLink[];
   pollAllowsMultipleVotes: boolean;
   pollOptions: string[];
   selectedChannelId: string;
   title: string;
-  videoUrlInput: string;
 };
 
 type PendingCreateMessageIntent = {
@@ -752,12 +783,17 @@ type TribeRoundVisibleMessageResult = TribeRoundMessageResult & {
   isPending?: boolean;
 };
 
-type TribeRoundMessageImageResult = NonNullable<
-  TribeRoundMessageResult["images"]
+type TribeRoundMessageMediaResult = NonNullable<
+  TribeRoundMessageResult["media"]
 >[number];
 
-type ActiveMessageImageCarousel = {
-  imageIndex: number;
+type TribeRoundMessageImageResult = Extract<
+  TribeRoundMessageMediaResult,
+  { kind: typeof MESSAGE_MEDIA_KIND.image }
+>;
+
+type ActiveMessageMediaCarousel = {
+  mediaIndex: number;
   messageId: string;
 };
 
@@ -1114,6 +1150,29 @@ function revokeMessageImageDraftPreviewUrls(
 ): void {
   imageDrafts.forEach((imageDraft) => {
     revokeMessageImagePreviewUrl(imageDraft.previewUrl);
+  });
+}
+
+/**
+ * Type guard selecting the image slots of the unified media draft list.
+ */
+function isComposerImageMediaDraft(
+  mediaDraft: ComposerMediaDraft
+): mediaDraft is ComposerImageMediaDraft {
+  return mediaDraft.kind === MESSAGE_MEDIA_KIND.image;
+}
+
+/**
+ * Extracts the image drafts from an ordered media draft list, preserving their
+ * relative order. The Cloudflare upload and cleanup machinery operates on image
+ * drafts only, so it consumes this projection of the unified list.
+ */
+function getImageDraftsFromMediaDrafts(
+  mediaDrafts: ComposerMediaDraft[]
+): ComposerImageDraft[] {
+  return mediaDrafts.filter(isComposerImageMediaDraft).map(({ kind, ...imageDraft }) => {
+    void kind;
+    return imageDraft;
   });
 }
 
@@ -1804,15 +1863,12 @@ function setEditorSelectionRange(
 function getMissingMessageRequirements(input: {
   channelId: string;
   content: string;
+  mediaDrafts?: ComposerMediaDraft[];
   poll?: {
     enabled: boolean;
     options: string[];
   };
   title: string;
-  video?: {
-    enabled: boolean;
-    url: string;
-  };
 }): string[] {
   const missingRequirements: string[] = [];
 
@@ -1832,7 +1888,13 @@ function getMissingMessageRequirements(input: {
     missingRequirements.push(...getPollDraftRequirements(input.poll));
   }
 
-  if (input.video?.enabled && !safeParseVideoUrl(input.video.url)) {
+  const hasInvalidVideoDraft = (input.mediaDrafts ?? []).some(
+    (mediaDraft) =>
+      mediaDraft.kind === MESSAGE_MEDIA_KIND.video &&
+      !safeParseVideoUrl(mediaDraft.url)
+  );
+
+  if (hasInvalidVideoDraft) {
     missingRequirements.push(TRIBE_ROUND_COPY.videoMissing);
   }
 
@@ -2305,6 +2367,20 @@ function getMessagesAfterVisibleMessageCreation({
   return sortedMessages.slice(0, pagination.pageSize);
 }
 
+function getMessageImageMedia(
+  message: TribeRoundMessageResult | null
+): TribeRoundMessageImageResult[] {
+  return (message?.media ?? []).filter(
+    (mediaItem): mediaItem is TribeRoundMessageImageResult =>
+      mediaItem.kind === MESSAGE_MEDIA_KIND.image
+  );
+}
+
+/**
+ * Rewrites the created message so its image slots keep the optimistic preview
+ * URLs (local blobs or already-known remote URLs) while the persisted message
+ * still carries the server-assigned ordering and remaining media untouched.
+ */
 function getCreatedMessageWithStableImages({
   createdMessage,
   optimisticMessage,
@@ -2312,34 +2388,36 @@ function getCreatedMessageWithStableImages({
   createdMessage: TribeRoundMessageResult;
   optimisticMessage: TribeRoundVisibleMessageResult | null;
 }): TribeRoundMessageResult {
-  const optimisticImages = optimisticMessage?.images ?? [];
+  const optimisticImages = getMessageImageMedia(optimisticMessage);
 
   if (optimisticImages.length === 0) {
     return createdMessage;
   }
 
-  const createdImages = createdMessage.images ?? [];
+  const createdMedia = createdMessage.media ?? [];
 
-  if (createdImages.length === 0) {
+  if (createdMedia.length === 0) {
     return {
       ...createdMessage,
-      images: optimisticImages,
+      media: optimisticMessage?.media ?? [],
     };
   }
 
   const optimisticImageUrlsById = new Map(
     optimisticImages.map((image) => [image.id, image.url])
   );
-  const stableImages: TribeRoundMessageImageResult[] = createdImages.map(
-    (image) => ({
-      ...image,
-      url: optimisticImageUrlsById.get(image.id) ?? image.url,
-    })
+  const stableMedia: MessageMediaResult[] = createdMedia.map((mediaItem) =>
+    mediaItem.kind === MESSAGE_MEDIA_KIND.image
+      ? {
+          ...mediaItem,
+          url: optimisticImageUrlsById.get(mediaItem.id) ?? mediaItem.url,
+        }
+      : mediaItem
   );
 
   return {
     ...createdMessage,
-    images: stableImages,
+    media: stableMedia,
   };
 }
 
@@ -2350,14 +2428,14 @@ function shouldKeepOptimisticImagePreviewUrls({
   createdMessage: TribeRoundMessageResult;
   optimisticMessage: TribeRoundVisibleMessageResult | null;
 }): boolean {
-  const optimisticImages = optimisticMessage?.images ?? [];
+  const optimisticImages = getMessageImageMedia(optimisticMessage);
 
   if (optimisticImages.length === 0) {
     return false;
   }
 
   const createdImageIds = new Set(
-    (createdMessage.images ?? []).map((image) => image.id)
+    getMessageImageMedia(createdMessage).map((image) => image.id)
   );
 
   return optimisticImages.some(
@@ -2518,11 +2596,7 @@ function TribeRoundContent({
     Array.from({ length: TRIBE_ROUND_POLL.initialOptionCount }, () => "")
   );
   const [pollAllowsMultipleVotes, setPollAllowsMultipleVotes] = useState(false);
-  const [isVideoComposerEnabled, setIsVideoComposerEnabled] = useState(false);
-  const [videoUrlInput, setVideoUrlInput] = useState("");
-  const [messageImageDrafts, setMessageImageDrafts] = useState<
-    ComposerImageDraft[]
-  >([]);
+  const [mediaDrafts, setMediaDrafts] = useState<ComposerMediaDraft[]>([]);
   const [selectedPollOptionIds, setSelectedPollOptionIds] = useState<
     Record<string, string[] | undefined>
   >({});
@@ -2537,7 +2611,7 @@ function TribeRoundContent({
   );
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [activeImageCarousel, setActiveImageCarousel] =
-    useState<ActiveMessageImageCarousel | null>(null);
+    useState<ActiveMessageMediaCarousel | null>(null);
   const [activeImageCarouselSlideIndex, setActiveImageCarouselSlideIndex] =
     useState(0);
   const [imageCarouselApi, setImageCarouselApi] = useState<CarouselApi | null>(
@@ -2564,7 +2638,69 @@ function TribeRoundContent({
   const optimisticReplyCounterRef = useRef(0);
   const pendingCreateMessageIntentRef =
     useRef<PendingCreateMessageIntent | null>(null);
+  const mediaDraftCounterRef = useRef(0);
   const isBusy = Boolean(pendingActionId);
+
+  /**
+   * Image projection of the unified media draft list. The Cloudflare upload and
+   * cleanup machinery reads and writes this view; updates are merged back into
+   * `mediaDrafts` so the author-chosen global order is preserved.
+   */
+  const messageImageDrafts = getImageDraftsFromMediaDrafts(mediaDrafts);
+
+  /**
+   * Applies a state updater to the image projection of the media drafts and
+   * merges the result back, keeping the relative position of images and videos.
+   */
+  const setMessageImageDrafts = useCallback(
+    (
+      updater:
+        | ComposerImageDraft[]
+        | ((currentImages: ComposerImageDraft[]) => ComposerImageDraft[])
+    ) => {
+      setMediaDrafts((currentMediaDrafts) => {
+        const currentImageDrafts =
+          getImageDraftsFromMediaDrafts(currentMediaDrafts);
+        const nextImageDrafts =
+          typeof updater === "function"
+            ? updater(currentImageDrafts)
+            : updater;
+        const nextImageDraftsByLocalId = new Map(
+          nextImageDrafts.map((imageDraft) => [imageDraft.localId, imageDraft])
+        );
+        const survivingMediaDrafts = currentMediaDrafts.filter(
+          (mediaDraft) =>
+            mediaDraft.kind === MESSAGE_MEDIA_KIND.video ||
+            nextImageDraftsByLocalId.has(mediaDraft.localId)
+        );
+        const appendedImageDrafts = nextImageDrafts.filter(
+          (imageDraft) =>
+            !currentMediaDrafts.some(
+              (mediaDraft) =>
+                mediaDraft.kind === MESSAGE_MEDIA_KIND.image &&
+                mediaDraft.localId === imageDraft.localId
+            )
+        );
+
+        return [
+          ...survivingMediaDrafts.map((mediaDraft) =>
+            mediaDraft.kind === MESSAGE_MEDIA_KIND.image
+              ? {
+                  kind: MESSAGE_MEDIA_KIND.image as typeof MESSAGE_MEDIA_KIND.image,
+                  ...(nextImageDraftsByLocalId.get(mediaDraft.localId) ??
+                    getImageDraftsFromMediaDrafts([mediaDraft])[0]),
+                }
+              : mediaDraft
+          ),
+          ...appendedImageDrafts.map((imageDraft) => ({
+            kind: MESSAGE_MEDIA_KIND.image as typeof MESSAGE_MEDIA_KIND.image,
+            ...imageDraft,
+          })),
+        ];
+      });
+    },
+    []
+  );
   const selectedChannel =
     round.channels.find((channel) => channel.id === selectedChannelId) ?? null;
   const hasMessageComposerErrors = messageComposerErrors.length > 0;
@@ -2583,6 +2719,7 @@ function TribeRoundContent({
     ? messages.find((message) => message.id === activeImageCarousel.messageId) ??
       null
     : null;
+  const activeImageCarouselMedia = activeImageCarouselMessage?.media ?? [];
   const selectedMessageHasLoadedReplies = selectedMessage?.hasLoadedReplies;
   const selectedMessageRepliesId = selectedMessage?.id;
   const activeChannel =
@@ -2645,8 +2782,9 @@ function TribeRoundContent({
   }, [tribeSlug]);
 
   useEffect(() => {
-    currentMessageImageDraftsRef.current = messageImageDrafts;
-  }, [messageImageDrafts]);
+    currentMessageImageDraftsRef.current =
+      getImageDraftsFromMediaDrafts(mediaDrafts);
+  }, [mediaDrafts]);
 
   useLayoutEffect(() => {
     const editor = messageContentEditorRef.current;
@@ -2681,7 +2819,7 @@ function TribeRoundContent({
     };
   }, [
     activeImageCarousel,
-    activeImageCarouselMessage?.images?.length,
+    activeImageCarouselMedia.length,
     imageCarouselApi,
   ]);
 
@@ -2704,13 +2842,19 @@ function TribeRoundContent({
     };
   }, [activeImageCarousel, imageCarouselApi]);
 
+  const activeImageCarouselMessageMedia = activeImageCarouselMessage?.media;
+
   useEffect(() => {
-    if (!activeImageCarouselMessage?.images?.length) {
+    const imageMedia = (activeImageCarouselMessageMedia ?? []).filter(
+      (mediaItem) => mediaItem.kind === MESSAGE_MEDIA_KIND.image
+    );
+
+    if (imageMedia.length === 0) {
       return;
     }
 
     let isCancelled = false;
-    const preloadedImages = activeImageCarouselMessage.images.map((image) => {
+    const preloadedImages = imageMedia.map((image) => {
       const preloadedImage = new window.Image();
       preloadedImage.decoding = TRIBE_ROUND_CAROUSEL.imageDecoding;
       preloadedImage.fetchPriority = TRIBE_ROUND_CAROUSEL.imageFetchPriority;
@@ -2732,7 +2876,7 @@ function TribeRoundContent({
     return () => {
       isCancelled = true;
     };
-  }, [activeImageCarouselMessage?.images, imageCarouselApi]);
+  }, [activeImageCarouselMessageMedia, imageCarouselApi]);
 
   useEffect(() => {
     const discardedMessageImageLocalIds =
@@ -2761,13 +2905,13 @@ function TribeRoundContent({
           }
         });
 
-      pendingCreateMessageIntentRef.current?.draft.imageDrafts.forEach(
-        (imageDraft) => {
-          if (!revokedMessageImagePreviewUrls.has(imageDraft.previewUrl)) {
-            revokeMessageImagePreviewUrl(imageDraft.previewUrl);
-          }
+      getImageDraftsFromMediaDrafts(
+        pendingCreateMessageIntentRef.current?.draft.mediaDrafts ?? []
+      ).forEach((imageDraft) => {
+        if (!revokedMessageImagePreviewUrls.has(imageDraft.previewUrl)) {
+          revokeMessageImagePreviewUrl(imageDraft.previewUrl);
         }
-      );
+      });
       pendingCreateMessageIntentRef.current = null;
 
       currentActionTokenRef.current += 1;
@@ -2913,20 +3057,11 @@ function TribeRoundContent({
       Array.from({ length: TRIBE_ROUND_POLL.initialOptionCount }, () => "")
     );
     setPollAllowsMultipleVotes(false);
-    setIsVideoComposerEnabled(false);
-    setVideoUrlInput("");
-    setMessageImageDrafts([]);
+    setMediaDrafts([]);
     setSelectedChannelId("");
     setMessageComposerErrors([]);
     setEditingMessageId(null);
   };
-
-  const detectedVideo = isVideoComposerEnabled
-    ? safeParseVideoUrl(videoUrlInput)
-    : null;
-  const trimmedVideoUrl = videoUrlInput.trim();
-  const showVideoParseError =
-    isVideoComposerEnabled && trimmedVideoUrl.length > 0 && !detectedVideo;
 
   const replaceMessageContentText = (
     replacementText: string,
@@ -3237,17 +3372,33 @@ function TribeRoundContent({
     setIsMessageComposerOpen(isOpen);
   };
 
-  const buildMessageImagePayload = () =>
-    messageImageDrafts
-      .filter(
-        (image) =>
-          image.status === COMPOSER_IMAGE_UPLOAD_STATUS.uploaded &&
-          Boolean(image.assetId)
-      )
-      .map((image) => ({
-        altText: image.altText,
-        assetId: image.assetId ?? "",
-      }));
+  const buildMessageMediaPayload = (): MessageMediaDraftCommand[] =>
+    mediaDrafts.flatMap<MessageMediaDraftCommand>((mediaDraft) => {
+      if (mediaDraft.kind === MESSAGE_MEDIA_KIND.image) {
+        if (
+          mediaDraft.status !== COMPOSER_IMAGE_UPLOAD_STATUS.uploaded ||
+          !mediaDraft.assetId
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            altText: mediaDraft.altText,
+            assetId: mediaDraft.assetId,
+            kind: MESSAGE_MEDIA_KIND.image,
+          },
+        ];
+      }
+
+      const trimmedUrl = mediaDraft.url.trim();
+
+      if (trimmedUrl.length === 0) {
+        return [];
+      }
+
+      return [{ kind: MESSAGE_MEDIA_KIND.video, url: trimmedUrl }];
+    });
 
   const getPersistingTransientMessageImageAssetIds = () =>
     messageImageDrafts
@@ -3416,8 +3567,8 @@ function TribeRoundContent({
       return;
     }
 
-    if (messageImageDrafts.length + selectedFiles.length > MESSAGE_IMAGES.maxCount) {
-      setMessageComposerErrors([TRIBE_ROUND_COPY.imageLimitError]);
+    if (mediaDrafts.length + selectedFiles.length > MESSAGE_MEDIA.maxCount) {
+      setMessageComposerErrors([TRIBE_ROUND_COPY.mediaLimitError]);
       return;
     }
 
@@ -3461,6 +3612,49 @@ function TribeRoundContent({
     }
   };
 
+  const addVideoMediaDraft = () => {
+    if (mediaDrafts.length >= MESSAGE_MEDIA.maxCount) {
+      setMessageComposerErrors([TRIBE_ROUND_COPY.mediaLimitError]);
+      return;
+    }
+
+    mediaDraftCounterRef.current += 1;
+    const localId =
+      TRIBE_ROUND_OPTIMISTIC.mediaVideoLocalIdPrefix +
+      String(mediaDraftCounterRef.current);
+
+    setMediaDrafts((currentMediaDrafts) => [
+      ...currentMediaDrafts,
+      { kind: MESSAGE_MEDIA_KIND.video, localId, url: "" },
+    ]);
+    setMessageComposerErrors([]);
+  };
+
+  const updateVideoMediaDraftUrl = (localId: string, url: string) => {
+    setMediaDrafts((currentMediaDrafts) =>
+      currentMediaDrafts.map((mediaDraft) =>
+        mediaDraft.kind === MESSAGE_MEDIA_KIND.video &&
+        mediaDraft.localId === localId
+          ? { ...mediaDraft, url }
+          : mediaDraft
+      )
+    );
+    setMessageComposerErrors([]);
+  };
+
+  const removeVideoMediaDraft = (localId: string) => {
+    setMediaDrafts((currentMediaDrafts) =>
+      currentMediaDrafts.filter(
+        (mediaDraft) =>
+          !(
+            mediaDraft.kind === MESSAGE_MEDIA_KIND.video &&
+            mediaDraft.localId === localId
+          )
+      )
+    );
+    setMessageComposerErrors([]);
+  };
+
   const submitEditMessage = async ({
     content,
     messageId,
@@ -3471,19 +3665,10 @@ function TribeRoundContent({
     title: string;
   }) => {
     const editingMessage = messages.find((message) => message.id === messageId);
-    const existingMessageImages = editingMessage?.images ?? [];
-    const imagePayload = buildMessageImagePayload();
-    const shouldUpdateImages =
-      messageImageDrafts.length > 0 || existingMessageImages.length > 0;
+    const mediaPayload = buildMessageMediaPayload();
     const canEditPoll = Boolean(
       editingMessage?.poll && editingMessage.poll.totalVoteCount === 0
     );
-    const isVideoEdited = isVideoComposerEnabled || Boolean(editingMessage?.video);
-    const videoPayload: { url: string } | null | undefined = isVideoEdited
-      ? isVideoComposerEnabled
-        ? { url: videoUrlInput.trim() }
-        : null
-      : undefined;
     const pollPayload = canEditPoll && isPollComposerEnabled
       ? {
           allowMultipleVotes: pollAllowsMultipleVotes,
@@ -3493,6 +3678,7 @@ function TribeRoundContent({
     const missingRequirements = getMissingMessageRequirements({
       channelId: editingMessage?.channel.id ?? selectedChannelId,
       content,
+      mediaDrafts,
       poll: pollPayload
         ? {
             enabled: true,
@@ -3500,9 +3686,6 @@ function TribeRoundContent({
           }
         : undefined,
       title,
-      video: isVideoComposerEnabled
-        ? { enabled: true, url: videoUrlInput }
-        : undefined,
     });
 
     if (missingRequirements.length > 0) {
@@ -3518,9 +3701,7 @@ function TribeRoundContent({
 
     const actionTribeSlug = tribeSlug;
     const actionToken = currentActionTokenRef.current + 1;
-    const persistingImageAssetIds = shouldUpdateImages
-      ? getPersistingTransientMessageImageAssetIds()
-      : [];
+    const persistingImageAssetIds = getPersistingTransientMessageImageAssetIds();
 
     currentActionTokenRef.current = actionToken;
     markMessageImagesAsPersisting(persistingImageAssetIds);
@@ -3531,10 +3712,9 @@ function TribeRoundContent({
         TRIBE_ROUND_ENDPOINT.messageItem(actionTribeSlug, messageId),
         {
           content,
-          ...(shouldUpdateImages ? { images: imagePayload } : {}),
+          media: mediaPayload,
           ...(pollPayload ? { poll: pollPayload } : {}),
           title,
-          ...(videoPayload !== undefined ? { video: videoPayload } : {}),
         },
         undefined,
         TRIBE_ROUND_FORM.patchMethod
@@ -3555,10 +3735,9 @@ function TribeRoundContent({
             ? {
                 ...message,
                 content: appliedContent,
-                ...(response.images !== undefined ? { images: response.images } : {}),
+                ...(response.media !== undefined ? { media: response.media } : {}),
                 ...(response.poll !== undefined ? { poll: response.poll } : {}),
                 title: appliedTitle,
-                ...(response.video !== undefined ? { video: response.video } : {}),
               }
             : message
         )
@@ -3595,16 +3774,14 @@ function TribeRoundContent({
     title: string;
   }): CreateMessageDraftSnapshot => ({
     content,
-    imageDrafts: messageImageDrafts.map((imageDraft) => ({ ...imageDraft })),
+    mediaDrafts: mediaDrafts.map((mediaDraft) => ({ ...mediaDraft })),
     isPollComposerEnabled,
-    isVideoComposerEnabled,
     messageContent,
     messageContentLinks: messageContentLinks.map((link) => ({ ...link })),
     pollAllowsMultipleVotes,
     pollOptions: [...pollOptions],
     selectedChannelId,
     title,
-    videoUrlInput,
   });
 
   const restoreCreateMessageDraft = (draft: CreateMessageDraftSnapshot) => {
@@ -3618,12 +3795,12 @@ function TribeRoundContent({
     setIsPollComposerEnabled(draft.isPollComposerEnabled);
     setPollOptions([...draft.pollOptions]);
     setPollAllowsMultipleVotes(draft.pollAllowsMultipleVotes);
-    setIsVideoComposerEnabled(draft.isVideoComposerEnabled);
-    setVideoUrlInput(draft.videoUrlInput);
-    setMessageImageDrafts(draft.imageDrafts.map((imageDraft) => ({ ...imageDraft })));
-    currentMessageImageDraftsRef.current = draft.imageDrafts.map((imageDraft) => ({
-      ...imageDraft,
+    const restoredMediaDrafts = draft.mediaDrafts.map((mediaDraft) => ({
+      ...mediaDraft,
     }));
+    setMediaDrafts(restoredMediaDrafts);
+    currentMessageImageDraftsRef.current =
+      getImageDraftsFromMediaDrafts(restoredMediaDrafts);
     setSelectedChannelId(draft.selectedChannelId);
     setMessageComposerErrors([]);
     setEditingMessageId(null);
@@ -3674,21 +3851,49 @@ function TribeRoundContent({
       messages,
       authenticatedMember.id
     );
-    const optimisticImages = messageImageDrafts
-      .filter(
-        (imageDraft) =>
-          imageDraft.status === COMPOSER_IMAGE_UPLOAD_STATUS.uploaded
-      )
-      .map((imageDraft, imageIndex) => ({
-        altText: imageDraft.altText,
+    const optimisticMedia: MessageMediaResult[] = [];
+
+    mediaDrafts.forEach((mediaDraft, mediaIndex) => {
+      const sortOrder = optimisticMedia.length;
+
+      if (mediaDraft.kind === MESSAGE_MEDIA_KIND.image) {
+        if (mediaDraft.status !== COMPOSER_IMAGE_UPLOAD_STATUS.uploaded) {
+          return;
+        }
+
+        optimisticMedia.push({
+          altText: mediaDraft.altText,
+          id:
+            mediaDraft.assetId ??
+            TRIBE_ROUND_OPTIMISTIC.messageImageIdPrefix +
+              optimisticMessageId +
+              TRIBE_ROUND_RESET_KEY.fieldSeparator +
+              String(mediaIndex),
+          kind: MESSAGE_MEDIA_KIND.image,
+          sortOrder,
+          url: mediaDraft.previewUrl,
+        });
+        return;
+      }
+
+      const detectedVideo = safeParseVideoUrl(mediaDraft.url);
+
+      if (!detectedVideo) {
+        return;
+      }
+
+      optimisticMedia.push({
+        externalId: detectedVideo.externalId,
         id:
-          imageDraft.assetId ??
-          TRIBE_ROUND_OPTIMISTIC.messageImageIdPrefix +
-            optimisticMessageId +
-            TRIBE_ROUND_RESET_KEY.fieldSeparator +
-            String(imageIndex),
-        url: imageDraft.previewUrl,
-      }));
+          TRIBE_ROUND_OPTIMISTIC.messageVideoIdPrefix +
+          optimisticMessageId +
+          TRIBE_ROUND_RESET_KEY.fieldSeparator +
+          String(mediaIndex),
+        kind: MESSAGE_MEDIA_KIND.video,
+        provider: detectedVideo.provider,
+        sortOrder,
+      });
+    });
 
     return {
       author: {
@@ -3705,7 +3910,7 @@ function TribeRoundContent({
       content,
       createdAt: new Date().toISOString(),
       id: optimisticMessageId,
-      ...(optimisticImages.length > 0 ? { images: optimisticImages } : {}),
+      ...(optimisticMedia.length > 0 ? { media: optimisticMedia } : {}),
       likedByViewer: false,
       likeCount: 0,
       replyCount: 0,
@@ -3717,7 +3922,6 @@ function TribeRoundContent({
       poll: buildOptimisticPoll(optimisticMessageId),
       replies: [],
       title,
-      ...(isVideoComposerEnabled && detectedVideo ? { video: detectedVideo } : {}),
     };
   };
 
@@ -3765,7 +3969,7 @@ function TribeRoundContent({
       messageContent,
       messageContentLinks
     ).trim();
-    const imagePayload = buildMessageImagePayload();
+    const mediaPayload = buildMessageMediaPayload();
 
     if (editingMessageId) {
       await submitEditMessage({
@@ -3779,15 +3983,12 @@ function TribeRoundContent({
     const missingRequirements = getMissingMessageRequirements({
       channelId: selectedChannelId,
       content: displayContent,
+      mediaDrafts,
       poll: {
         enabled: isPollComposerEnabled,
         options: pollOptions,
       },
       title,
-      video: {
-        enabled: isVideoComposerEnabled,
-        url: videoUrlInput,
-      },
     });
 
     if (missingRequirements.length > 0) {
@@ -3867,14 +4068,7 @@ function TribeRoundContent({
                 },
               }
             : {}),
-          ...(isVideoComposerEnabled
-            ? {
-                video: {
-                  url: videoUrlInput.trim(),
-                },
-              }
-            : {}),
-          ...(imagePayload.length > 0 ? { images: imagePayload } : {}),
+          ...(mediaPayload.length > 0 ? { media: mediaPayload } : {}),
           title,
         }
       );
@@ -3900,7 +4094,9 @@ function TribeRoundContent({
           optimisticMessage,
         })
       ) {
-        revokeMessageImageDraftPreviewUrls(draftSnapshot.imageDrafts);
+        revokeMessageImageDraftPreviewUrls(
+          getImageDraftsFromMediaDrafts(draftSnapshot.mediaDrafts)
+        );
       }
       clearPersistingMessageImages(persistingImageAssetIds);
       pendingCreateMessageIntentRef.current = null;
@@ -3925,10 +4121,14 @@ function TribeRoundContent({
       setVisiblePagination(createMessageIntent.baselinePagination);
       cleanupPersistingMessageImages(persistingImageAssetIds, actionTribeSlug);
       pendingCreateMessageIntentRef.current = null;
-      revokeMessageImageDraftPreviewUrls(createMessageIntent.draft.imageDrafts);
+      revokeMessageImageDraftPreviewUrls(
+        getImageDraftsFromMediaDrafts(createMessageIntent.draft.mediaDrafts)
+      );
       restoreCreateMessageDraft({
         ...createMessageIntent.draft,
-        imageDrafts: [],
+        mediaDrafts: createMessageIntent.draft.mediaDrafts.filter(
+          (mediaDraft) => mediaDraft.kind === MESSAGE_MEDIA_KIND.video
+        ),
       });
       setIsMessageComposerOpen(true);
       toast.error(
@@ -4764,21 +4964,34 @@ function TribeRoundContent({
     setMessageContent(composerContent.content);
     setMessageContentLinks(composerContent.links);
     setSelectedChannelId(message.channel.id);
-    setMessageImageDrafts(
-      (message.images ?? []).map((image) => ({
-        altText: image.altText,
-        assetId: image.id,
-        localId: image.id,
-        previewUrl: image.url,
-        status: COMPOSER_IMAGE_UPLOAD_STATUS.uploaded,
-        isPersisted: true,
-      }))
-    );
+    const hydratedMediaDrafts: ComposerMediaDraft[] = (message.media ?? []).map(
+      (mediaItem) => {
+        if (mediaItem.kind === MESSAGE_MEDIA_KIND.image) {
+          return {
+            altText: mediaItem.altText,
+            assetId: mediaItem.id,
+            isPersisted: true,
+            kind: MESSAGE_MEDIA_KIND.image,
+            localId: mediaItem.id,
+            previewUrl: mediaItem.url,
+            status: COMPOSER_IMAGE_UPLOAD_STATUS.uploaded,
+          };
+        }
 
-    if (message.video) {
-      setIsVideoComposerEnabled(true);
-      setVideoUrlInput(buildEditableVideoUrl(message.video));
-    }
+        mediaDraftCounterRef.current += 1;
+
+        return {
+          kind: MESSAGE_MEDIA_KIND.video,
+          localId:
+            TRIBE_ROUND_OPTIMISTIC.mediaVideoLocalIdPrefix +
+            String(mediaDraftCounterRef.current),
+          url: buildEditableVideoUrl(mediaItem),
+        };
+      }
+    );
+    setMediaDrafts(hydratedMediaDrafts);
+    currentMessageImageDraftsRef.current =
+      getImageDraftsFromMediaDrafts(hydratedMediaDrafts);
 
     if (message.poll && message.poll.totalVoteCount === 0) {
       setIsPollComposerEnabled(true);
@@ -5078,18 +5291,18 @@ function TribeRoundContent({
     );
   };
 
-  const openMessageImageCarousel = ({
+  const openMessageMediaCarousel = ({
     event,
-    imageIndex,
+    mediaIndex,
     messageId,
   }: {
     event: MouseEvent<HTMLButtonElement>;
-    imageIndex: number;
+    mediaIndex: number;
     messageId: string;
   }) => {
     stopMessageDetailsOpening(event);
-    setActiveImageCarouselSlideIndex(imageIndex);
-    setActiveImageCarousel({ imageIndex, messageId });
+    setActiveImageCarouselSlideIndex(mediaIndex);
+    setActiveImageCarousel({ mediaIndex, messageId });
   };
 
   const handleImageCarouselOpenChange = (isOpen: boolean) => {
@@ -5100,7 +5313,15 @@ function TribeRoundContent({
     }
   };
 
-  const renderMessageImages = (
+  const getMessageMediaAltText = (
+    mediaItem: TribeRoundMessageImageResult,
+    message: TribeRoundMessageResult
+  ) =>
+    mediaItem.altText ||
+    message.title ||
+    TRIBE_ROUND_COPY.messageDetailsDialogTitle;
+
+  const renderMessageMedia = (
     message: TribeRoundMessageResult,
     {
       canOpenCarousel = false,
@@ -5110,24 +5331,57 @@ function TribeRoundContent({
       shouldLoadFirstImageEagerly?: boolean;
     } = {}
   ) => {
-    const messageImages = message.images ?? [];
+    const messageMedia = message.media ?? [];
 
-    if (messageImages.length === 0) {
+    if (messageMedia.length === 0) {
       return null;
     }
 
     return (
       <div className={styles.TribeRound__imageGallery}>
-        {messageImages.map((image, imageIndex) => {
-          const isTemporaryImage = image.url.startsWith(
+        {messageMedia.map((mediaItem, mediaIndex) => {
+          if (mediaItem.kind === MESSAGE_MEDIA_KIND.video) {
+            const videoTile = (
+              <span
+                aria-hidden="true"
+                className={styles.TribeRound__videoTile}
+              >
+                <VideoIcon />
+              </span>
+            );
+
+            return (
+              <div className={styles.TribeRound__imageFrame} key={mediaItem.id}>
+                {canOpenCarousel ? (
+                  <button
+                    aria-label={`${TRIBE_ROUND_COPY.imageCarouselVideoOpenButtonPrefix} ${String(
+                      mediaIndex + 1
+                    )}: ${TRIBE_ROUND_COPY.videoProviderLabel[mediaItem.provider]}`}
+                    className={styles.TribeRound__imageOpenButton}
+                    onClick={(event) => {
+                      openMessageMediaCarousel({
+                        event,
+                        mediaIndex,
+                        messageId: message.id,
+                      });
+                    }}
+                    type={TRIBE_ROUND_FORM.buttonType}
+                  >
+                    {videoTile}
+                  </button>
+                ) : (
+                  videoTile
+                )}
+              </div>
+            );
+          }
+
+          const isTemporaryImage = mediaItem.url.startsWith(
             TRIBE_ROUND_SYMBOLS.blobUrlPrefix
           );
           const imageLoading =
-            shouldLoadFirstImageEagerly && imageIndex === 0 ? "eager" : "lazy";
-          const imageAlt =
-            image.altText ||
-            message.title ||
-            TRIBE_ROUND_COPY.messageDetailsDialogTitle;
+            shouldLoadFirstImageEagerly && mediaIndex === 0 ? "eager" : "lazy";
+          const imageAlt = getMessageMediaAltText(mediaItem, message);
 
           const messageImage = (
             <Image
@@ -5136,22 +5390,22 @@ function TribeRoundContent({
               height={0}
               loading={imageLoading}
               sizes="(max-width: 768px) 88vw, 420px"
-              src={image.url}
+              src={mediaItem.url}
               unoptimized={isTemporaryImage}
               width={0}
             />
           );
 
           return (
-            <div className={styles.TribeRound__imageFrame} key={image.id}>
+            <div className={styles.TribeRound__imageFrame} key={mediaItem.id}>
               {canOpenCarousel ? (
               <button
-                aria-label={`${TRIBE_ROUND_COPY.imageCarouselOpenButtonPrefix} ${String(imageIndex + 1)}: ${imageAlt}`}
+                aria-label={`${TRIBE_ROUND_COPY.imageCarouselOpenButtonPrefix} ${String(mediaIndex + 1)}: ${imageAlt}`}
                 className={styles.TribeRound__imageOpenButton}
                 onClick={(event) => {
-                  openMessageImageCarousel({
+                  openMessageMediaCarousel({
                     event,
-                    imageIndex,
+                    mediaIndex,
                     messageId: message.id,
                   });
                 }}
@@ -5169,91 +5423,166 @@ function TribeRoundContent({
     );
   };
 
-  const renderComposerImageDrafts = () => {
-    if (messageImageDrafts.length === 0) {
+  const renderComposerImageMediaDraft = (
+    mediaDraft: ComposerImageMediaDraft
+  ) => (
+    <div className={styles.TribeRound__imageDraft} key={mediaDraft.localId}>
+      <div className={styles.TribeRound__imageDraftPreview}>
+        {mediaDraft.previewUrl ? (
+          <Image
+            alt={mediaDraft.altText || TRIBE_ROUND_COPY.imageAltInputLabel}
+            className={styles.TribeRound__imageDraftImage}
+            fill
+            sizes="96px"
+            src={mediaDraft.previewUrl}
+            unoptimized
+          />
+        ) : (
+          <ImageIcon />
+        )}
+        {mediaDraft.status === COMPOSER_IMAGE_UPLOAD_STATUS.uploading ? (
+          <div
+            aria-label={TRIBE_ROUND_COPY.imageUploadingLabel}
+            className={styles.TribeRound__imageDraftLoadingOverlay}
+            role="status"
+          >
+            <span className={styles.TribeRound__imageDraftSpinner} />
+          </div>
+        ) : null}
+      </div>
+      <input
+        aria-label={TRIBE_ROUND_COPY.imageAltInputLabel}
+        className={styles.TribeRound__imageAltInput}
+        disabled={isBusy}
+        onChange={(event) => {
+          const altText = event.currentTarget.value;
+
+          setMessageImageDrafts((currentImages) =>
+            currentImages.map((image) =>
+              image.localId === mediaDraft.localId
+                ? { ...image, altText }
+                : image
+            )
+          );
+        }}
+        placeholder={TRIBE_ROUND_COPY.imageAltInputPlaceholder}
+        value={mediaDraft.altText}
+      />
+      <span className={styles.TribeRound__imageDraftStatus}>
+        {mediaDraft.status === COMPOSER_IMAGE_UPLOAD_STATUS.uploading
+          ? TRIBE_ROUND_COPY.imageUploadingLabel
+          : mediaDraft.status === COMPOSER_IMAGE_UPLOAD_STATUS.error
+            ? TRIBE_ROUND_COPY.imageUploadError
+            : ""}
+      </span>
+      <Button
+        aria-label={TRIBE_ROUND_COPY.imageRemoveButton}
+        className={styles.TribeRound__imageRemoveButton}
+        disabled={isBusy}
+        onClick={() => {
+          removeMessageImageDraft({
+            altText: mediaDraft.altText,
+            assetId: mediaDraft.assetId,
+            isPersisted: mediaDraft.isPersisted,
+            localId: mediaDraft.localId,
+            previewUrl: mediaDraft.previewUrl,
+            status: mediaDraft.status,
+          });
+        }}
+        size={TRIBE_ROUND_FORM.iconSize}
+        type={TRIBE_ROUND_FORM.buttonType}
+        variant={TRIBE_ROUND_FORM.ghostVariant}
+      >
+        <XIcon />
+      </Button>
+    </div>
+  );
+
+  const renderComposerVideoMediaDraft = (
+    mediaDraft: ComposerVideoMediaDraft
+  ) => {
+    const detectedVideo = safeParseVideoUrl(mediaDraft.url);
+    const trimmedVideoUrl = mediaDraft.url.trim();
+    const showVideoParseError = trimmedVideoUrl.length > 0 && !detectedVideo;
+
+    return (
+      <div className={styles.TribeRound__videoComposer} key={mediaDraft.localId}>
+        <div className={styles.TribeRound__videoComposerHeader}>
+          <label className={styles.TribeRound__videoComposerLabel}>
+            <span>{TRIBE_ROUND_COPY.videoComposerHeading}</span>
+            <input
+              aria-describedby={
+                hasMessageComposerErrors
+                  ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                  : undefined
+              }
+              aria-invalid={showVideoParseError}
+              className={styles.TribeRound__videoInput}
+              disabled={isBusy}
+              onChange={(event) => {
+                updateVideoMediaDraftUrl(
+                  mediaDraft.localId,
+                  event.currentTarget.value
+                );
+              }}
+              placeholder={TRIBE_ROUND_COPY.videoUrlPlaceholder}
+              type={TRIBE_ROUND_FORM.urlInputType}
+              value={mediaDraft.url}
+            />
+          </label>
+          <Button
+            aria-label={TRIBE_ROUND_COPY.videoRemoveButton}
+            className={styles.TribeRound__videoComposerCloseButton}
+            disabled={isBusy}
+            onClick={() => {
+              removeVideoMediaDraft(mediaDraft.localId);
+            }}
+            type={TRIBE_ROUND_FORM.buttonType}
+            variant={TRIBE_ROUND_FORM.ghostVariant}
+          >
+            <XIcon />
+          </Button>
+        </div>
+        {detectedVideo ? (
+          <p className={styles.TribeRound__videoComposerHint}>
+            {TRIBE_ROUND_COPY.videoProviderDetectedPrefix}{" "}
+            {TRIBE_ROUND_COPY.videoProviderLabel[detectedVideo.provider]}
+          </p>
+        ) : null}
+        {showVideoParseError ? (
+          <p className={styles.TribeRound__videoComposerError}>
+            {TRIBE_ROUND_COPY.videoInvalidUrl}
+          </p>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderComposerMediaDrafts = () => {
+    if (mediaDrafts.length === 0) {
       return null;
     }
 
     return (
       <div className={styles.TribeRound__imageDraftList}>
-        {messageImageDrafts.map((imageDraft) => (
-          <div className={styles.TribeRound__imageDraft} key={imageDraft.localId}>
-            <div className={styles.TribeRound__imageDraftPreview}>
-              {imageDraft.previewUrl ? (
-                <Image
-                  alt={imageDraft.altText || TRIBE_ROUND_COPY.imageAltInputLabel}
-                  className={styles.TribeRound__imageDraftImage}
-                  fill
-                  sizes="96px"
-                  src={imageDraft.previewUrl}
-                  unoptimized
-                />
-              ) : (
-                <ImageIcon />
-              )}
-              {imageDraft.status === COMPOSER_IMAGE_UPLOAD_STATUS.uploading ? (
-                <div
-                  aria-label={TRIBE_ROUND_COPY.imageUploadingLabel}
-                  className={styles.TribeRound__imageDraftLoadingOverlay}
-                  role="status"
-                >
-                  <span className={styles.TribeRound__imageDraftSpinner} />
-                </div>
-              ) : null}
-            </div>
-            <input
-              aria-label={TRIBE_ROUND_COPY.imageAltInputLabel}
-              className={styles.TribeRound__imageAltInput}
-              disabled={isBusy}
-              onChange={(event) => {
-                const altText = event.currentTarget.value;
-
-                setMessageImageDrafts((currentImages) =>
-                  currentImages.map((image) =>
-                    image.localId === imageDraft.localId
-                      ? { ...image, altText }
-                      : image
-                  )
-                );
-              }}
-              placeholder={TRIBE_ROUND_COPY.imageAltInputPlaceholder}
-              value={imageDraft.altText}
-            />
-            <span className={styles.TribeRound__imageDraftStatus}>
-              {imageDraft.status === COMPOSER_IMAGE_UPLOAD_STATUS.uploading
-                ? TRIBE_ROUND_COPY.imageUploadingLabel
-                : imageDraft.status === COMPOSER_IMAGE_UPLOAD_STATUS.error
-                  ? TRIBE_ROUND_COPY.imageUploadError
-                  : ""}
-            </span>
-            <Button
-              aria-label={TRIBE_ROUND_COPY.imageRemoveButton}
-              className={styles.TribeRound__imageRemoveButton}
-              disabled={isBusy}
-              onClick={() => {
-                removeMessageImageDraft(imageDraft);
-              }}
-              size={TRIBE_ROUND_FORM.iconSize}
-              type={TRIBE_ROUND_FORM.buttonType}
-              variant={TRIBE_ROUND_FORM.ghostVariant}
-            >
-              <XIcon />
-            </Button>
-          </div>
-        ))}
+        {mediaDrafts.map((mediaDraft) =>
+          mediaDraft.kind === MESSAGE_MEDIA_KIND.image
+            ? renderComposerImageMediaDraft(mediaDraft)
+            : renderComposerVideoMediaDraft(mediaDraft)
+        )}
       </div>
     );
   };
 
   const renderMessageImageCarouselDialog = () => {
-    const messageImages = activeImageCarouselMessage?.images ?? [];
+    const messageMedia = activeImageCarouselMedia;
     const activeImageCarouselSlideNumber = Math.min(
       activeImageCarouselSlideIndex + 1,
-      messageImages.length
+      messageMedia.length
     );
     return (
       <Dialog
-        open={messageImages.length > 0}
+        open={messageMedia.length > 0}
         onOpenChange={handleImageCarouselOpenChange}
       >
         <DialogContent
@@ -5272,22 +5601,50 @@ function TribeRoundContent({
             className={styles.TribeRound__imageCarousel}
             opts={{
               duration: TRIBE_ROUND_CAROUSEL.transitionDuration,
-              loop: messageImages.length > 1,
-              startIndex: activeImageCarousel?.imageIndex ?? 0,
+              loop: messageMedia.length > 1,
+              startIndex: activeImageCarousel?.mediaIndex ?? 0,
             }}
             setApi={setImageCarouselApi}
           >
             <CarouselContent className={styles.TribeRound__imageCarouselContent}>
-              {messageImages.map((image) => {
+              {messageMedia.map((mediaItem) => {
+                if (mediaItem.kind === MESSAGE_MEDIA_KIND.video) {
+                  const embedSource = buildPlayerEmbedSource(
+                    mediaItem.provider,
+                    mediaItem.externalId
+                  );
+
+                  return (
+                    <CarouselItem
+                      className={styles.TribeRound__imageCarouselItem}
+                      key={mediaItem.id}
+                    >
+                      <div className={styles.TribeRound__videoEmbed}>
+                        <iframe
+                          allow={PLAYER_IFRAME_ALLOW}
+                          allowFullScreen
+                          className={styles.TribeRound__videoEmbedIframe}
+                          src={embedSource}
+                          title={`${TRIBE_ROUND_COPY.videoEmbedTitlePrefix}${
+                            activeImageCarouselMessage?.title
+                              ? `: ${activeImageCarouselMessage.title}`
+                              : ""
+                          }`}
+                        />
+                      </div>
+                    </CarouselItem>
+                  );
+                }
+
                 const imageAlt =
-                  image.altText ||
+                  mediaItem.altText ||
                   activeImageCarouselMessage?.title ||
                   TRIBE_ROUND_COPY.messageDetailsDialogTitle;
 
                 return (
                   <CarouselItem
                     className={styles.TribeRound__imageCarouselItem}
-                    key={image.id}
+                    key={mediaItem.id}
                   >
                     <div className={styles.TribeRound__imageCarouselFrame}>
                       {createElement("img", {
@@ -5296,14 +5653,14 @@ function TribeRoundContent({
                         decoding: TRIBE_ROUND_CAROUSEL.imageDecoding,
                         fetchPriority: TRIBE_ROUND_CAROUSEL.imageFetchPriority,
                         loading: "eager",
-                        src: image.url,
+                        src: mediaItem.url,
                       })}
                     </div>
                   </CarouselItem>
                 );
               })}
             </CarouselContent>
-            {messageImages.length > 1 ? (
+            {messageMedia.length > 1 ? (
               <>
                 <CarouselPrevious
                   aria-label={TRIBE_ROUND_COPY.imageCarouselPreviousButton}
@@ -5324,64 +5681,22 @@ function TribeRoundContent({
               {TRIBE_ROUND_COPY.imageCarouselProgressPrefix}{" "}
               {activeImageCarouselSlideNumber}{" "}
               {TRIBE_ROUND_COPY.imageCarouselProgressSeparator}{" "}
-              {messageImages.length}
+              {messageMedia.length}
             </span>
-            {messageImages.map((image, imageIndex) => (
+            {messageMedia.map((mediaItem, mediaIndex) => (
               <span
                 aria-hidden="true"
                 className={
-                  imageIndex === activeImageCarouselSlideIndex
+                  mediaIndex === activeImageCarouselSlideIndex
                     ? `${styles.TribeRound__imageCarouselProgressDot} ${styles["TribeRound__imageCarouselProgressDot--active"]}`
                     : styles.TribeRound__imageCarouselProgressDot
                 }
-                key={image.id}
+                key={mediaItem.id}
               />
             ))}
           </p>
         </DialogContent>
       </Dialog>
-    );
-  };
-
-  const renderMessageVideoBadge = (message: TribeRoundMessageResult) => {
-    if (!message.video) {
-      return null;
-    }
-
-    return (
-      <span className={styles.TribeRound__videoAttachedBadge}>
-        <VideoIcon />
-        {TRIBE_ROUND_COPY.videoAttachedBadge}
-      </span>
-    );
-  };
-
-  const renderMessageVideoEmbed = (message: TribeRoundMessageResult) => {
-    if (!message.video) {
-      return null;
-    }
-
-    const embedSource = buildPlayerEmbedSource(
-      message.video.provider,
-      message.video.externalId
-    );
-
-    if (!embedSource) {
-      return null;
-    }
-
-    return (
-      <div className={styles.TribeRound__videoEmbed}>
-        <iframe
-          allow={PLAYER_IFRAME_ALLOW}
-          allowFullScreen
-          className={styles.TribeRound__videoEmbedIframe}
-          src={embedSource}
-          title={`${TRIBE_ROUND_COPY.videoEmbedTitlePrefix}${
-            message.title ? `: ${message.title}` : ""
-          }`}
-        />
-      </div>
     );
   };
 
@@ -5929,58 +6244,7 @@ function TribeRoundContent({
                   </div>
                   </section>
                 ) : null}
-                {isVideoComposerEnabled ? (
-                  <section className={styles.TribeRound__videoComposer}>
-                    <div className={styles.TribeRound__videoComposerHeader}>
-                      <label className={styles.TribeRound__videoComposerLabel}>
-                        <span>{TRIBE_ROUND_COPY.videoComposerHeading}</span>
-                        <input
-                          aria-describedby={
-                            hasMessageComposerErrors
-                              ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
-                              : undefined
-                          }
-                          aria-invalid={showVideoParseError}
-                          className={styles.TribeRound__videoInput}
-                          disabled={isBusy}
-                          onChange={(event) => {
-                            setVideoUrlInput(event.currentTarget.value);
-                            setMessageComposerErrors([]);
-                          }}
-                          placeholder={TRIBE_ROUND_COPY.videoUrlPlaceholder}
-                          type={TRIBE_ROUND_FORM.urlInputType}
-                          value={videoUrlInput}
-                        />
-                      </label>
-                      <Button
-                        aria-label={TRIBE_ROUND_COPY.videoRemoveButton}
-                        className={styles.TribeRound__videoComposerCloseButton}
-                        disabled={isBusy}
-                        onClick={() => {
-                          setIsVideoComposerEnabled(false);
-                          setVideoUrlInput("");
-                          setMessageComposerErrors([]);
-                        }}
-                        type={TRIBE_ROUND_FORM.buttonType}
-                        variant={TRIBE_ROUND_FORM.ghostVariant}
-                      >
-                        <XIcon />
-                      </Button>
-                    </div>
-                    {detectedVideo ? (
-                      <p className={styles.TribeRound__videoComposerHint}>
-                        {TRIBE_ROUND_COPY.videoProviderDetectedPrefix}{" "}
-                        {TRIBE_ROUND_COPY.videoProviderLabel[detectedVideo.provider]}
-                      </p>
-                    ) : null}
-                    {showVideoParseError ? (
-                      <p className={styles.TribeRound__videoComposerError}>
-                        {TRIBE_ROUND_COPY.videoInvalidUrl}
-                      </p>
-                    ) : null}
-                  </section>
-                ) : null}
-                {renderComposerImageDrafts()}
+                {renderComposerMediaDrafts()}
                 <div className={styles.TribeRound__composerActions}>
                   <label
                     aria-label={TRIBE_ROUND_COPY.imageAddButton}
@@ -5991,8 +6255,7 @@ function TribeRoundContent({
                       accept={TRIBE_ROUND_FORM.imageAccept}
                       className={styles.TribeRound__fileInput}
                       disabled={
-                        isBusy ||
-                        messageImageDrafts.length >= MESSAGE_IMAGES.maxCount
+                        isBusy || mediaDrafts.length >= MESSAGE_MEDIA.maxCount
                       }
                       multiple
                       onChange={handleMessageImageSelection}
@@ -6014,21 +6277,19 @@ function TribeRoundContent({
                       <VoteIcon />
                     </Button>
                   ) : null}
-                  {!isVideoComposerEnabled ? (
-                    <Button
-                      aria-label={TRIBE_ROUND_COPY.videoAddButton}
-                      className={styles.TribeRound__videoAddButton}
-                      disabled={isBusy}
-                      onClick={() => {
-                        setIsVideoComposerEnabled(true);
-                      }}
-                      size={TRIBE_ROUND_FORM.iconSize}
-                      type={TRIBE_ROUND_FORM.buttonType}
-                      variant={TRIBE_ROUND_FORM.ghostVariant}
-                    >
-                      <VideoIcon />
-                    </Button>
-                  ) : null}
+                  <Button
+                    aria-label={TRIBE_ROUND_COPY.videoAddButton}
+                    className={styles.TribeRound__videoAddButton}
+                    disabled={
+                      isBusy || mediaDrafts.length >= MESSAGE_MEDIA.maxCount
+                    }
+                    onClick={addVideoMediaDraft}
+                    size={TRIBE_ROUND_FORM.iconSize}
+                    type={TRIBE_ROUND_FORM.buttonType}
+                    variant={TRIBE_ROUND_FORM.ghostVariant}
+                  >
+                    <VideoIcon />
+                  </Button>
                   {!isEditingMessage ? (
                   <div className={styles.TribeRound__channelPicker}>
                   <DropdownMenu>
@@ -6250,10 +6511,9 @@ function TribeRoundContent({
                       TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round,
                       true
                     )}
-                    {renderMessageImages(message, {
+                    {renderMessageMedia(message, {
                       shouldLoadFirstImageEagerly: messageIndex === 0,
                     })}
-                    {renderMessageVideoBadge(message)}
                   </CardContent>
                   {renderMessagePoll(message, true)}
 
@@ -6411,8 +6671,7 @@ function TribeRoundContent({
                   </h3>
                 ) : null}
                 {renderMessageContent(selectedMessage)}
-                {renderMessageImages(selectedMessage, { canOpenCarousel: true })}
-                {renderMessageVideoEmbed(selectedMessage)}
+                {renderMessageMedia(selectedMessage, { canOpenCarousel: true })}
                 {renderMessagePoll(selectedMessage)}
                 <div
                   className={`${styles.TribeRound__messageActions} ${styles["TribeRound__messageActions--dialog"]}`}

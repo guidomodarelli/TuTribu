@@ -96,10 +96,10 @@ describe("PostgresMessageMutationRepository", () => {
         content: "Primera mensaje",
         createdAt: "2026-04-26T12:00:00.000Z",
         hasLoadedReplies: true,
-        images: [],
         likedByViewer: false,
         isPinned: false,
         likeCount: 0,
+        media: [],
         pinnedAt: null,
         poll: null,
         replyAuthorsPreview: [],
@@ -109,7 +109,6 @@ describe("PostgresMessageMutationRepository", () => {
           canEdit: true,
         },
         title: "Anuncio inicial",
-        video: null,
       },
       status: "created",
     });
@@ -118,7 +117,7 @@ describe("PostgresMessageMutationRepository", () => {
 
     expect(sqlText).toContain("insert into public.messages");
     expect(sqlText).toContain(
-      "(tribe_id, channel_id, author_id, title, content, external_video_provider, external_video_id, created_at, updated_at)"
+      "(tribe_id, channel_id, author_id, title, content, created_at, updated_at)"
     );
     expect(sqlText).toContain("target_channel");
     expect(sqlText).toContain(
@@ -234,30 +233,46 @@ describe("PostgresMessageMutationRepository", () => {
     });
   });
 
-  it("creates messages with parsed external video columns", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [
-        {
-          author_id: "member-1",
-          author_image: null,
-          author_name: "Grace Hopper",
-          author_role: "tribemate",
-          channel_access_scope: "tribemates",
-          channel_emoji: "🔥",
-          channel_id: "channel-ronda",
-          channel_name: "Ronda",
-          channel_slug: "ronda",
-          channel_sort_order: 20,
-          message_content: "Miren este video",
-          message_created_at: "2026-04-26T12:00:00.000Z",
-          message_external_video_id: "dQw4w9WgXcQ",
-          message_external_video_provider: "youtube",
-          message_id: "message-1",
-          message_title: "Recurso",
-          status: "created",
-        },
-      ],
-    }));
+  it("creates messages with attached external videos as media", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            author_id: "member-1",
+            author_image: null,
+            author_name: "Grace Hopper",
+            author_role: "tribemate",
+            channel_access_scope: "tribemates",
+            channel_emoji: "🔥",
+            channel_id: "channel-ronda",
+            channel_name: "Ronda",
+            channel_slug: "ronda",
+            channel_sort_order: 20,
+            message_content: "Miren este video",
+            message_created_at: "2026-04-26T12:00:00.000Z",
+            message_id: "message-1",
+            message_title: "Recurso",
+            message_tribe_id: "tribe-1",
+            status: "created",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            message_videos: [
+              {
+                external_video_id: "dQw4w9WgXcQ",
+                external_video_provider: "youtube",
+                id: "video-1",
+                sort_order: 0,
+              },
+            ],
+          },
+        ],
+      });
     const repository = new PostgresMessageMutationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -268,12 +283,20 @@ describe("PostgresMessageMutationRepository", () => {
       tribeSlug: "matematica-pro",
       content: "Miren este video",
       title: "Recurso",
-      video: { externalId: "dQw4w9WgXcQ", provider: "youtube" },
+      videos: [{ externalId: "dQw4w9WgXcQ", provider: "youtube", sortOrder: 0 }],
     });
 
     expect(result).toMatchObject({
       message: {
-        video: { externalId: "dQw4w9WgXcQ", provider: "youtube" },
+        media: [
+          {
+            externalId: "dQw4w9WgXcQ",
+            id: "video-1",
+            kind: "video",
+            provider: "youtube",
+            sortOrder: 0,
+          },
+        ],
       },
       status: "created",
     });
@@ -281,11 +304,17 @@ describe("PostgresMessageMutationRepository", () => {
     const insertQuery = getSqlQuery(execute.mock.calls[0]?.[0]);
 
     expect(insertQuery.sql).toContain(
-      "(tribe_id, channel_id, author_id, title, content, external_video_provider, external_video_id, created_at, updated_at)"
+      "(tribe_id, channel_id, author_id, title, content, created_at, updated_at)"
     );
-    expect(insertQuery.params).toEqual(
-      expect.arrayContaining(["youtube", "dQw4w9WgXcQ"])
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+      "delete from public.message_videos"
     );
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
+      "insert into public.message_videos"
+    );
+    expect(getSqlQuery(execute.mock.calls[2]?.[0])).toMatchObject({
+      params: expect.arrayContaining([["youtube"], ["dQw4w9WgXcQ"], [0]]),
+    });
   });
 
   it("attaches prepared images when creating a message", async () => {
@@ -321,6 +350,7 @@ describe("PostgresMessageMutationRepository", () => {
               {
                 alt_text: "",
                 id: "asset-1",
+                sort_order: 0,
                 url: "https://imagedelivery.net/account-hash/image-1/public",
               },
             ],
@@ -342,10 +372,12 @@ describe("PostgresMessageMutationRepository", () => {
       })
     ).resolves.toMatchObject({
       message: {
-        images: [
+        media: [
           {
             altText: "",
             id: "asset-1",
+            kind: "image",
+            sortOrder: 0,
             url: "https://imagedelivery.net/account-hash/image-1/public",
           },
         ],
@@ -362,7 +394,7 @@ describe("PostgresMessageMutationRepository", () => {
       "message_images.status ="
     );
     expect(getSqlQuery(execute.mock.calls[2]?.[0])).toMatchObject({
-      params: expect.arrayContaining([["asset-1"], [""]]),
+      params: expect.arrayContaining([["asset-1"], [""], [0]]),
       sql: expect.stringContaining("unnest"),
     });
   });
@@ -1126,7 +1158,7 @@ describe("PostgresMessageMutationRepository", () => {
     expect(updateSql).toContain("update public.messages");
     expect(updateSql).toContain("set title =");
     expect(updateSql).toContain("content =");
-    expect(updateSql).toContain("external_video_provider =");
+    expect(updateSql).not.toContain("external_video_provider =");
     expect(updateSql).toContain("updated_at = timezone('utc', now())");
     expect(updateSql).toContain("returning messages.id as message_id");
   });

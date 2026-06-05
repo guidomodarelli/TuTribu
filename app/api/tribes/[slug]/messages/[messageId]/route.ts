@@ -1,7 +1,8 @@
 import {
-  MESSAGE_IMAGES,
+  MESSAGE_MEDIA_KIND,
   MESSAGE_MUTATION_STATUS,
 } from "@/src/modules/messages/constants/message-round";
+import type { MessageMediaDraftCommand } from "@/src/modules/messages/application/commands/tribe-message-command";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { isUuidRouteParam } from "@/src/modules/messages/infrastructure/http/message-route-params";
 import { createRequestModules } from "@/src/modules/setup";
@@ -31,6 +32,8 @@ const UPDATE_MESSAGE_ROUTE_LOG = {
 const UPDATE_MESSAGE_ROUTE_RESPONSE = {
   forbiddenMessage: "No tenes permisos para editar este mensaje.",
   invalidImageMessage: "No pudimos guardar esas imagenes. Volvé a subirlas.",
+  invalidMediaMessage:
+    "Podés adjuntar hasta 10 archivos entre imágenes y videos.",
   invalidContentMessage:
     "Revisa el titulo y el contenido del mensaje antes de guardar.",
   invalidPayloadMessage: "Enviaste datos invalidos para editar el mensaje.",
@@ -63,32 +66,25 @@ type UpdateMessagePollPayload = {
   options: string[];
 };
 
-type UpdateMessageVideoPayload = { url: string } | null;
-
-type UpdateMessageImagePayload = {
-  altText?: string;
-  assetId: string;
-};
-
 type UpdateMessageInputPayload = {
   content: string;
-  images?: UpdateMessageImagePayload[];
+  media?: MessageMediaDraftCommand[];
   poll?: UpdateMessagePollPayload;
   title: string;
-  video?: UpdateMessageVideoPayload;
 };
 
 type UpdateMessageRequestBody = {
   content?: unknown;
-  images?: unknown;
+  media?: unknown;
   poll?: unknown;
   title?: unknown;
-  video?: unknown;
 };
 
-const UPDATE_MESSAGE_IMAGE_FIELD = {
+const UPDATE_MESSAGE_MEDIA_FIELD = {
   altText: "altText",
   assetId: "assetId",
+  kind: "kind",
+  url: "url",
 } as const;
 
 function readPollPayload(value: unknown): UpdateMessagePollPayload | null {
@@ -115,53 +111,52 @@ function readPollPayload(value: unknown): UpdateMessagePollPayload | null {
   };
 }
 
-function readVideoPayload(
-  value: unknown
-): { ok: true; value: UpdateMessageVideoPayload } | { ok: false } {
-  if (value === null) {
-    return { ok: true, value: null };
-  }
-
-  if (value && typeof value === "object") {
-    const candidate = value as { url?: unknown };
-
-    if (typeof candidate.url === "string") {
-      return { ok: true, value: { url: candidate.url } };
-    }
-  }
-
-  return { ok: false };
-}
-
-function readImagesPayload(value: unknown): UpdateMessageImagePayload[] | null {
-  if (!Array.isArray(value) || value.length > MESSAGE_IMAGES.maxCount) {
+function readMediaPayload(value: unknown): MessageMediaDraftCommand[] | null {
+  if (!Array.isArray(value)) {
     return null;
   }
 
-  const images = value.map((image) => {
-    if (!image || typeof image !== "object") {
+  const drafts: MessageMediaDraftCommand[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object") {
       return null;
     }
 
-    const candidate = image as Record<string, unknown>;
-    const assetId = candidate[UPDATE_MESSAGE_IMAGE_FIELD.assetId];
-    const altText = candidate[UPDATE_MESSAGE_IMAGE_FIELD.altText];
+    const candidate = item as Record<string, unknown>;
+    const kind = candidate[UPDATE_MESSAGE_MEDIA_FIELD.kind];
 
-    if (typeof assetId !== "string") {
-      return null;
+    if (kind === MESSAGE_MEDIA_KIND.image) {
+      const assetId = candidate[UPDATE_MESSAGE_MEDIA_FIELD.assetId];
+      const altText = candidate[UPDATE_MESSAGE_MEDIA_FIELD.altText];
+
+      if (typeof assetId !== "string") {
+        return null;
+      }
+
+      drafts.push({
+        assetId,
+        kind: MESSAGE_MEDIA_KIND.image,
+        ...(typeof altText === "string" ? { altText } : {}),
+      });
+      continue;
     }
 
-    return {
-      assetId,
-      ...(typeof altText === "string" ? { altText } : {}),
-    };
-  });
+    if (kind === MESSAGE_MEDIA_KIND.video) {
+      const url = candidate[UPDATE_MESSAGE_MEDIA_FIELD.url];
 
-  if (images.some((image) => image === null)) {
+      if (typeof url !== "string") {
+        return null;
+      }
+
+      drafts.push({ kind: MESSAGE_MEDIA_KIND.video, url });
+      continue;
+    }
+
     return null;
   }
 
-  return images as UpdateMessageImagePayload[];
+  return drafts;
 }
 
 function readUpdateMessagePayload(
@@ -190,24 +185,14 @@ function readUpdateMessagePayload(
     payload.poll = poll;
   }
 
-  if (body.video !== undefined) {
-    const video = readVideoPayload(body.video);
+  if (body.media !== undefined) {
+    const media = readMediaPayload(body.media);
 
-    if (!video.ok) {
+    if (!media) {
       return null;
     }
 
-    payload.video = video.value;
-  }
-
-  if (body.images !== undefined) {
-    const images = readImagesPayload(body.images);
-
-    if (!images) {
-      return null;
-    }
-
-    payload.images = images;
+    payload.media = media;
   }
 
   return payload;
@@ -343,13 +328,12 @@ export async function PATCH(
   try {
     const result = await modules.messages.useCases.updateTribeMessageContent({
       content: payload.content,
-      ...(payload.images !== undefined ? { images: payload.images } : {}),
+      ...(payload.media !== undefined ? { media: payload.media } : {}),
       messageId,
       ...(payload.poll ? { poll: payload.poll } : {}),
       title: payload.title,
       tribeSlug: slug,
       userId: authenticatedMember.id,
-      ...(payload.video !== undefined ? { video: payload.video } : {}),
     });
 
     switch (result.status) {
@@ -361,10 +345,9 @@ export async function PATCH(
             content: result.content,
             message: UPDATE_MESSAGE_ROUTE_RESPONSE.successMessage,
             messageId: result.messageId,
-            ...(result.images !== undefined ? { images: result.images } : {}),
+            ...(result.media !== undefined ? { media: result.media } : {}),
             ...(result.poll !== undefined ? { poll: result.poll } : {}),
             title: result.title,
-            ...(result.video !== undefined ? { video: result.video } : {}),
           },
           HTTP_STATUS.ok
         );
@@ -376,6 +359,11 @@ export async function PATCH(
       case MESSAGE_MUTATION_STATUS.invalidImage:
         return createJsonResponse(
           { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
+          HTTP_STATUS.badRequest
+        );
+      case MESSAGE_MUTATION_STATUS.invalidMedia:
+        return createJsonResponse(
+          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidMediaMessage },
           HTTP_STATUS.badRequest
         );
       case MESSAGE_MUTATION_STATUS.invalidPoll:

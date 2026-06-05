@@ -1,12 +1,6 @@
-import type { MessageImageDraftCommand } from "@/src/modules/messages/application/commands/tribe-message-command";
-import {
-  MESSAGE_IMAGES,
-  MESSAGE_MUTATION_STATUS,
-} from "@/src/modules/messages/constants/message-round";
 import type {
   CreateMessageImageUploadCommand,
   DeleteMessageImageCommand,
-  MessageImageAttachmentDraft,
   MessageImageDeletionResult,
   MessageImageRepository,
   MessageImageUploadCreationResult,
@@ -20,65 +14,28 @@ type DeleteMessageImageDependencies = {
   messageImageRepository: MessageImageRepository;
 };
 
-const NORMALIZED_MESSAGE_IMAGES_STATUS = {
-  valid: "valid",
-} as const;
-
 const MESSAGE_IMAGE_ASSET_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export type NormalizedMessageImagesResult =
-  | {
-      images: MessageImageAttachmentDraft[];
-      status: typeof NORMALIZED_MESSAGE_IMAGES_STATUS.valid;
-    }
-  | {
-      status: typeof MESSAGE_MUTATION_STATUS.invalidImage;
-    };
-
-function normalizeImageAltText(altText: string | null | undefined): string {
+/**
+ * Trims a raw alt text into the canonical empty-or-trimmed form persisted for
+ * message images.
+ *
+ * @param altText - Raw alt text coming from the composer payload.
+ * @returns The trimmed alt text, or an empty string when absent.
+ */
+export function normalizeImageAltText(altText: string | null | undefined): string {
   return (altText ?? "").trim();
 }
 
-function isMessageImageAssetId(value: string): boolean {
+/**
+ * Checks whether a value is a valid Cloudflare-backed message image asset id.
+ *
+ * @param value - Candidate asset id.
+ * @returns `true` when the value matches the UUID asset id contract.
+ */
+export function isMessageImageAssetId(value: string): boolean {
   return MESSAGE_IMAGE_ASSET_ID_PATTERN.test(value);
-}
-
-export function normalizeMessageImageDrafts(
-  images: MessageImageDraftCommand[] | null | undefined
-): NormalizedMessageImagesResult {
-  if (!images || images.length === 0) {
-    return { images: [], status: NORMALIZED_MESSAGE_IMAGES_STATUS.valid };
-  }
-
-  if (images.length > MESSAGE_IMAGES.maxCount) {
-    return { status: MESSAGE_MUTATION_STATUS.invalidImage };
-  }
-
-  const assetIds = new Set<string>();
-  const normalizedImages: MessageImageAttachmentDraft[] = [];
-
-  for (const image of images) {
-    const assetId = image.assetId.trim();
-    const altText = normalizeImageAltText(image.altText);
-
-    if (
-      !isMessageImageAssetId(assetId) ||
-      assetIds.has(assetId) ||
-      altText.length > MESSAGE_IMAGES.maxAltTextLength
-    ) {
-      return { status: MESSAGE_MUTATION_STATUS.invalidImage };
-    }
-
-    assetIds.add(assetId);
-    normalizedImages.push({
-      altText,
-      assetId,
-      sortOrder: normalizedImages.length,
-    });
-  }
-
-  return { images: normalizedImages, status: NORMALIZED_MESSAGE_IMAGES_STATUS.valid };
 }
 
 export function createMessageImageUpload({

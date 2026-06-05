@@ -12,12 +12,10 @@ import {
   isValidMessagePollDraft,
   normalizeMessagePollDraft,
 } from "@/src/modules/messages/application/use-cases/manage-message-polls-use-cases";
-import { normalizeMessageImageDrafts } from "@/src/modules/messages/application/use-cases/message-images-use-cases";
 import {
-  InvalidVideoUrlError,
-  type ParsedExternalVideo,
-  parseExternalVideoUrl,
-} from "@/src/modules/shared/domain/value-objects/external-video-url";
+  NORMALIZED_MESSAGE_MEDIA_STATUS,
+  normalizeMessageMediaDrafts,
+} from "@/src/modules/messages/application/use-cases/normalize-message-media-use-cases";
 
 type UpdateTribeMessageContentDependencies = {
   messageContentUpdateRepository: MessageContentUpdateRepository;
@@ -26,26 +24,6 @@ type UpdateTribeMessageContentDependencies = {
     "deletePendingImages" | "prepareForAttachment"
   >;
 };
-
-const PARSED_VIDEO_KIND = {
-  invalid: "invalid",
-  ok: "ok",
-} as const;
-
-type ParsedVideoOrError =
-  | { kind: typeof PARSED_VIDEO_KIND.ok; value: ParsedExternalVideo }
-  | { kind: typeof PARSED_VIDEO_KIND.invalid };
-
-function parseVideoDraft(rawUrl: string): ParsedVideoOrError {
-  try {
-    return { kind: PARSED_VIDEO_KIND.ok, value: parseExternalVideoUrl(rawUrl) };
-  } catch (error) {
-    if (error instanceof InvalidVideoUrlError) {
-      return { kind: PARSED_VIDEO_KIND.invalid };
-    }
-    throw error;
-  }
-}
 
 function isInvalidText(
   value: string,
@@ -82,30 +60,21 @@ export function updateTribeMessageContent({
       return { status: MESSAGE_MUTATION_STATUS.invalidPoll };
     }
 
-    const normalizedImages =
-      command.images === undefined
+    const normalizedMedia =
+      command.media === undefined
         ? undefined
-        : normalizeMessageImageDrafts(command.images);
+        : normalizeMessageMediaDrafts(command.media);
 
-    if (normalizedImages?.status === MESSAGE_MUTATION_STATUS.invalidImage) {
-      return { status: MESSAGE_MUTATION_STATUS.invalidImage };
+    if (
+      normalizedMedia &&
+      normalizedMedia.status !== NORMALIZED_MESSAGE_MEDIA_STATUS.valid
+    ) {
+      return { status: normalizedMedia.status };
     }
 
-    let parsedVideo: ParsedExternalVideo | null | undefined;
+    const videos = normalizedMedia?.videos;
+    let images = normalizedMedia?.images;
 
-    if (command.video === null) {
-      parsedVideo = null;
-    } else if (command.video) {
-      const result = parseVideoDraft(command.video.url);
-
-      if (result.kind === PARSED_VIDEO_KIND.invalid) {
-        return { status: MESSAGE_MUTATION_STATUS.invalidVideoUrl };
-      }
-
-      parsedVideo = result.value;
-    }
-
-    let images = normalizedImages?.images;
     if (images && images.length > 0) {
       const preparedImages = await messageImageRepository?.prepareForAttachment({
         images,
@@ -126,18 +95,18 @@ export function updateTribeMessageContent({
 
     const result = await messageContentUpdateRepository.updateContent({
       content,
-      ...(images ? { images } : {}),
+      ...(images !== undefined ? { images } : {}),
       messageId,
       ...(poll ? { poll } : {}),
       title,
       tribeSlug,
       userId,
-      ...(parsedVideo !== undefined ? { video: parsedVideo } : {}),
+      ...(videos !== undefined ? { videos } : {}),
     });
 
     if (
       result.status === MESSAGE_MUTATION_STATUS.updated &&
-      command.images !== undefined
+      command.media !== undefined
     ) {
       await messageImageRepository?.deletePendingImages({
         messageId,

@@ -1,9 +1,11 @@
 import {
+  MESSAGE_MEDIA,
+  MESSAGE_MEDIA_KIND,
   MESSAGE_MUTATION_STATUS,
-  MESSAGE_IMAGES,
   MESSAGE_POLL_OPTION_TEXT,
   MESSAGE_POLL_OPTIONS,
 } from "@/src/modules/messages/constants/message-round";
+import type { MessageMediaDraftCommand } from "@/src/modules/messages/application/commands/tribe-message-command";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -13,33 +15,37 @@ const CREATE_MESSAGE_ROUTE_FIELD = {
   allowMultipleVotes: "allowMultipleVotes",
   channelId: "channelId",
   content: "content",
-  images: "images",
+  media: "media",
+  kind: "kind",
   altText: "altText",
   assetId: "assetId",
   options: "options",
   poll: "poll",
   title: "title",
   url: "url",
-  video: "video",
 } as const;
 
 const VIDEO_URL_MAX_LENGTH = 2048;
 
 /**
- * Classifies whether the message payload contains a usable video draft.
+ * Classifies the outcome of reading the unified media list from a payload.
  */
-const CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS = {
+const CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS = {
   absent: "absent",
-  invalid: "invalid",
+  invalidImage: "invalidImage",
+  invalidMedia: "invalidMedia",
+  invalidVideoUrl: "invalidVideoUrl",
   valid: "valid",
 } as const;
 
-type CreateMessageRouteVideoReadResult =
-  | { status: typeof CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.absent }
-  | { status: typeof CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.invalid }
+type CreateMessageRouteMediaReadResult =
+  | { status: typeof CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.absent }
+  | { status: typeof CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidImage }
+  | { status: typeof CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidMedia }
+  | { status: typeof CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidVideoUrl }
   | {
-      status: typeof CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.valid;
-      video: { url: string };
+      media: MessageMediaDraftCommand[];
+      status: typeof CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.valid;
     };
 
 const CREATE_MESSAGE_ROUTE_LOG = {
@@ -51,6 +57,8 @@ const CREATE_MESSAGE_ROUTE_LOG = {
 const CREATE_MESSAGE_ROUTE_RESPONSE = {
   forbiddenMessage: "No tenes permisos para publicar en esta tribu.",
   invalidImageMessage: "No pudimos adjuntar esas imagenes. Volvé a subirlas.",
+  invalidMediaMessage:
+    "Podés adjuntar hasta 10 archivos entre imágenes y videos.",
   invalidContentMessage: "Completá el título y el contenido antes de publicar.",
   invalidChannelMessage: "Seleccioná un canal antes de publicar.",
   notFoundMessage: "No pudimos encontrar la tribu.",
@@ -109,72 +117,74 @@ function readTitleFromBody(body: unknown): string {
   return typeof title === "string" ? title : "";
 }
 
-function readImagesFromBody(body: unknown) {
-  if (!body || typeof body !== "object" || !(CREATE_MESSAGE_ROUTE_FIELD.images in body)) {
-    return undefined;
-  }
-
-  const images = (body as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.images];
-
-  if (!Array.isArray(images) || images.length > MESSAGE_IMAGES.maxCount) {
-    return null;
-  }
-
-  const drafts = images.map((image) => {
-    if (!image || typeof image !== "object") {
-      return null;
-    }
-
-    const imageRecord = image as Record<string, unknown>;
-    const assetId = imageRecord[CREATE_MESSAGE_ROUTE_FIELD.assetId];
-    const altText = imageRecord[CREATE_MESSAGE_ROUTE_FIELD.altText];
-
-    if (typeof assetId !== "string") {
-      return null;
-    }
-
-    return {
-      assetId,
-      ...(typeof altText === "string" ? { altText } : {}),
-    };
-  });
-
-  if (drafts.some((image) => image === null)) {
-    return null;
-  }
-
-  return drafts as { altText?: string; assetId: string }[];
-}
-
 /**
- * Reads and validates the optional external-video draft from a create-message payload.
+ * Reads and validates the optional unified media list from a create-message
+ * payload. Images and external videos travel in one ordered array so the array
+ * index expresses the author-chosen global slot.
  *
- * @param body - Parsed request body that may contain a `video.url` value.
- * @returns Whether the payload omits video data, contains invalid video data, or contains a trimmed URL.
+ * @param body - Parsed request body that may contain a `media` array.
+ * @returns Whether the payload omits media, contains an invalid item, exceeds
+ *   the combined limit, or contains a normalized media draft list.
  */
-function readVideoFromBody(body: unknown): CreateMessageRouteVideoReadResult {
-  if (!body || typeof body !== "object" || !(CREATE_MESSAGE_ROUTE_FIELD.video in body)) {
-    return { status: CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.absent };
+function readMediaFromBody(body: unknown): CreateMessageRouteMediaReadResult {
+  if (!body || typeof body !== "object" || !(CREATE_MESSAGE_ROUTE_FIELD.media in body)) {
+    return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.absent };
   }
 
-  const video = (body as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.video];
-  if (!video || typeof video !== "object") {
-    return { status: CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.invalid };
+  const media = (body as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.media];
+
+  if (!Array.isArray(media) || media.length > MESSAGE_MEDIA.maxCount) {
+    return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidMedia };
   }
 
-  const url = (video as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.url];
-  if (typeof url !== "string") {
-    return { status: CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.invalid };
-  }
+  const drafts: MessageMediaDraftCommand[] = [];
 
-  const trimmed = url.trim();
-  if (trimmed.length === 0 || trimmed.length > VIDEO_URL_MAX_LENGTH) {
-    return { status: CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.invalid };
+  for (const item of media) {
+    if (!item || typeof item !== "object") {
+      return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidMedia };
+    }
+
+    const itemRecord = item as Record<string, unknown>;
+    const kind = itemRecord[CREATE_MESSAGE_ROUTE_FIELD.kind];
+
+    if (kind === MESSAGE_MEDIA_KIND.image) {
+      const assetId = itemRecord[CREATE_MESSAGE_ROUTE_FIELD.assetId];
+      const altText = itemRecord[CREATE_MESSAGE_ROUTE_FIELD.altText];
+
+      if (typeof assetId !== "string") {
+        return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidImage };
+      }
+
+      drafts.push({
+        assetId,
+        kind: MESSAGE_MEDIA_KIND.image,
+        ...(typeof altText === "string" ? { altText } : {}),
+      });
+      continue;
+    }
+
+    if (kind === MESSAGE_MEDIA_KIND.video) {
+      const url = itemRecord[CREATE_MESSAGE_ROUTE_FIELD.url];
+
+      if (typeof url !== "string") {
+        return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidVideoUrl };
+      }
+
+      const trimmed = url.trim();
+      if (trimmed.length === 0 || trimmed.length > VIDEO_URL_MAX_LENGTH) {
+        return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidVideoUrl };
+      }
+
+      drafts.push({ kind: MESSAGE_MEDIA_KIND.video, url: trimmed });
+      continue;
+    }
+
+    return { status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidMedia };
   }
 
   return {
-    status: CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.valid,
-    video: { url: trimmed },
+    media: drafts,
+    status: CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.valid,
   };
 }
 
@@ -261,35 +271,40 @@ export async function POST(
   try {
     const body = await request.json().catch(() => null);
     const poll = readPollFromBody(body);
-    const images = readImagesFromBody(body);
-    const videoResult = readVideoFromBody(body);
+    const mediaResult = readMediaFromBody(body);
 
-    if (images === null) {
+    if (mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidImage) {
       return createJsonResponse(
         { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
         HTTP_STATUS.badRequest
       );
     }
 
-    if (videoResult.status === CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.invalid) {
+    if (mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidVideoUrl) {
       return createJsonResponse(
         { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidVideoUrlMessage },
         HTTP_STATUS.badRequest
       );
     }
 
-    const video =
-      videoResult.status === CREATE_MESSAGE_ROUTE_VIDEO_READ_STATUS.valid
-        ? videoResult.video
-        : null;
+    if (mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidMedia) {
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidMediaMessage },
+        HTTP_STATUS.badRequest
+      );
+    }
+
+    const media =
+      mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.valid
+        ? mediaResult.media
+        : undefined;
     const result = await modules.messages.useCases.createTribeMessage({
       authorId: authenticatedMember.id,
       channelId: readChannelIdFromBody(body),
       tribeSlug: slug,
       content: readContentFromBody(body),
-      ...(images !== undefined ? { images } : {}),
+      ...(media !== undefined ? { media } : {}),
       ...(poll ? { poll } : {}),
-      ...(video ? { video } : {}),
       title: readTitleFromBody(body),
     });
 
@@ -317,6 +332,11 @@ export async function POST(
       case MESSAGE_MUTATION_STATUS.invalidImage:
         return createJsonResponse(
           { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidImageMessage },
+          HTTP_STATUS.badRequest
+        );
+      case MESSAGE_MUTATION_STATUS.invalidMedia:
+        return createJsonResponse(
+          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidMediaMessage },
           HTTP_STATUS.badRequest
         );
       case MESSAGE_MUTATION_STATUS.invalidPoll:

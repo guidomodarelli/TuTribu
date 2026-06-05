@@ -335,8 +335,6 @@ export const messages = pgTable("messages", {
     .references(() => users.id, { onDelete: "cascade" }),
   title: text("title"),
   content: text("content").notNull(),
-  externalVideoProvider: text("external_video_provider"),
-  externalVideoId: text("external_video_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 }, (table) => ({
@@ -391,6 +389,34 @@ export const messageImages = pgTable("message_images", {
   deletedMessageStatusIndex: index("idx_message_images_deleted_message_status")
     .on(table.deletedMessageId, table.status)
     .where(sql`${table.deletedMessageId} IS NOT NULL`),
+}));
+
+export const messageVideos = pgTable("message_videos", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  messageId: uuid("message_id")
+    .notNull()
+    .references(() => messages.id, { onDelete: "cascade" }),
+  externalVideoProvider: text("external_video_provider").notNull(),
+  externalVideoId: text("external_video_id").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  messageSortKey: uniqueIndex("message_videos_message_sort_key").on(
+    table.messageId,
+    table.sortOrder
+  ),
+  messageSortIndex: index("idx_message_videos_message_sort").on(
+    table.messageId,
+    table.sortOrder
+  ),
 }));
 
 export const messageReplies = pgTable("message_replies", {

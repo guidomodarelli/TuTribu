@@ -11,12 +11,10 @@ import {
   isValidMessagePollDraft,
   normalizeMessagePollDraft,
 } from "@/src/modules/messages/application/use-cases/manage-message-polls-use-cases";
-import { normalizeMessageImageDrafts } from "@/src/modules/messages/application/use-cases/message-images-use-cases";
 import {
-  InvalidVideoUrlError,
-  type ParsedExternalVideo,
-  parseExternalVideoUrl,
-} from "@/src/modules/shared/domain/value-objects/external-video-url";
+  NORMALIZED_MESSAGE_MEDIA_STATUS,
+  normalizeMessageMediaDrafts,
+} from "@/src/modules/messages/application/use-cases/normalize-message-media-use-cases";
 import type { MessageImageRepository } from "@/src/modules/messages/domain/repositories/message-image-repository";
 
 type CreateTribeMessageDependencies = {
@@ -38,26 +36,6 @@ function isInvalidText(value: string, limits: { maxLength: number; minLength: nu
     value.length < limits.minLength ||
     value.length > limits.maxLength
   );
-}
-
-const PARSED_VIDEO_KIND = {
-  invalid: "invalid",
-  ok: "ok",
-} as const;
-
-type ParsedVideoOrError =
-  | { kind: typeof PARSED_VIDEO_KIND.ok; value: ParsedExternalVideo }
-  | { kind: typeof PARSED_VIDEO_KIND.invalid };
-
-function parseVideoDraft(rawUrl: string): ParsedVideoOrError {
-  try {
-    return { kind: PARSED_VIDEO_KIND.ok, value: parseExternalVideoUrl(rawUrl) };
-  } catch (error) {
-    if (error instanceof InvalidVideoUrlError) {
-      return { kind: PARSED_VIDEO_KIND.invalid };
-    }
-    throw error;
-  }
 }
 
 async function cleanupPreparedMessageImages({
@@ -99,7 +77,7 @@ export function createTribeMessage({
     const title = normalizeMessageTitle(command.title);
     const channelId = command.channelId.trim();
     const poll = command.poll ? normalizeMessagePollDraft(command.poll) : null;
-    const normalizedImages = normalizeMessageImageDrafts(command.images);
+    const normalizedMedia = normalizeMessageMediaDrafts(command.media);
 
     if (
       isInvalidText(content, TRIBE_MESSAGE_CONTENT) ||
@@ -122,24 +100,14 @@ export function createTribeMessage({
       };
     }
 
-    if (normalizedImages.status === MESSAGE_MUTATION_STATUS.invalidImage) {
-      return { status: MESSAGE_MUTATION_STATUS.invalidImage };
-    }
-
-    let parsedVideo: ParsedExternalVideo | null = null;
-    if (command.video) {
-      const result = parseVideoDraft(command.video.url);
-      if (result.kind === PARSED_VIDEO_KIND.invalid) {
-        return {
-          status: MESSAGE_MUTATION_STATUS.invalidVideoUrl,
-        };
-      }
-      parsedVideo = result.value;
+    if (normalizedMedia.status !== NORMALIZED_MESSAGE_MEDIA_STATUS.valid) {
+      return { status: normalizedMedia.status };
     }
 
     const tribeSlug = command.tribeSlug.trim();
     const userId = command.authorId;
-    let images = normalizedImages.images;
+    const videos = normalizedMedia.videos;
+    let images = normalizedMedia.images;
 
     if (images.length > 0) {
       const preparedImages = await messageImageRepository?.prepareForAttachment({
@@ -173,7 +141,7 @@ export function createTribeMessage({
         content,
         ...(images.length > 0 ? { images } : {}),
         ...(poll ? { poll } : {}),
-        ...(parsedVideo ? { video: parsedVideo } : {}),
+        ...(videos.length > 0 ? { videos } : {}),
         title,
       });
 

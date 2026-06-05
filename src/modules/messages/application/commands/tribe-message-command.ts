@@ -1,12 +1,13 @@
+import type { MESSAGE_MEDIA_KIND } from "@/src/modules/messages/constants/message-round";
+
 export type CreateTribeMessageCommand = {
   authorId: string;
   channelId: string;
   tribeSlug: string;
   content: string;
-  images?: MessageImageDraftCommand[] | null;
+  media?: MessageMediaDraftCommand[] | null;
   poll?: MessagePollDraftCommand | null;
   title: string;
-  video?: MessageVideoDraftCommand | null;
 };
 
 export type MessageImageDraftCommand = {
@@ -17,6 +18,15 @@ export type MessageImageDraftCommand = {
 export type MessageVideoDraftCommand = {
   url: string;
 };
+
+/**
+ * A single media attachment draft submitted by the composer. Images and
+ * external videos share one ordered list so the array index expresses the
+ * author-chosen global slot (`sortOrder`).
+ */
+export type MessageMediaDraftCommand =
+  | ({ kind: typeof MESSAGE_MEDIA_KIND.image } & MessageImageDraftCommand)
+  | ({ kind: typeof MESSAGE_MEDIA_KIND.video } & MessageVideoDraftCommand);
 
 export type CreateMessageReplyCommand = {
   authorId: string;
@@ -52,13 +62,12 @@ export type UpdateTribeMessageCreatedAtCommand = {
 
 export type UpdateTribeMessageContentCommand = {
   content: string;
-  images?: MessageImageDraftCommand[];
+  media?: MessageMediaDraftCommand[];
   messageId: string;
   poll?: MessagePollDraftCommand;
   title: string;
   tribeSlug: string;
   userId: string;
-  video?: MessageVideoDraftCommand | null;
 };
 
 export type MessagePollDraftCommand = {

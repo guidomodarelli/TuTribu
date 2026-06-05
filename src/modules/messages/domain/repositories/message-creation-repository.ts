@@ -9,15 +9,16 @@ import type { MessageImageAttachmentDraft } from "@/src/modules/messages/domain/
 export type MessageVideoRepositoryDraft = {
   externalId: string;
   provider: VideoProvider;
+  sortOrder: number;
 };
 
 export type CreateTribeMessageRepositoryCommand = Omit<
   CreateTribeMessageCommand,
-  "images" | "poll" | "video"
+  "media" | "poll"
 > & {
   images?: MessageImageAttachmentDraft[];
   poll?: MessagePollDraftCommand | null;
-  video?: MessageVideoRepositoryDraft | null;
+  videos?: MessageVideoRepositoryDraft[];
 };
 
 export interface MessageCreationRepository {
