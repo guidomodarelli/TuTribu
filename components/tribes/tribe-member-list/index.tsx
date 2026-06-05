@@ -23,6 +23,12 @@ const TRIBE_MEMBER_SELECTION_COUNT = {
   singular: 1,
 } as const;
 
+const FIRST_MEMBER_POSITION = 1;
+
+const POSITION_ATTRIBUTES = {
+  ariaHidden: true,
+} as const;
+
 const TRIBE_MEMBER_LIST_COPY = {
   emptyDescription: "Todavía no hay miembros visibles en esta tribu.",
   listLabel: "Lista de miembros",
@@ -146,8 +152,9 @@ export function TribeMemberList({
       aria-label={TRIBE_MEMBER_LIST_COPY.listLabel}
       className={styles.TribeMemberList__list}
     >
-      {members.map((member) => {
+      {members.map((member, memberIndex) => {
         const memberSelections = selectionsByMemberId?.[member.id] ?? [];
+        const memberPosition = memberIndex + FIRST_MEMBER_POSITION;
         const showFreeFrame =
           canViewFreeInvitations && member.joinedViaFreeInvitation;
         const avatar = (
@@ -161,6 +168,12 @@ export function TribeMemberList({
 
         return (
           <li className={styles.TribeMemberList__item} key={member.id}>
+            <span
+              aria-hidden={POSITION_ATTRIBUTES.ariaHidden}
+              className={styles.TribeMemberList__position}
+            >
+              {memberPosition}
+            </span>
             {showFreeFrame ? (
               <FreeInvitationAvatarFrame frameId={member.id}>
                 {avatar}

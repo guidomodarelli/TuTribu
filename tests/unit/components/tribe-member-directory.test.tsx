@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { TribeMemberDirectory } from "@/components/tribes/tribe-member-directory";
@@ -70,6 +70,56 @@ describe("TribeMemberDirectory", () => {
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
     expect(screen.getByText("Katherine Johnson")).toBeInTheDocument();
+  });
+
+  it("numbers each rendered member by its position in the list", () => {
+    render(
+      <TribeMemberDirectory
+        canExportMembers={false}
+        canInviteMembers={false}
+        filterOptions={[]}
+        members={baseMembers}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const memberList = screen.getByRole("list", { name: "Lista de miembros" });
+    const items = within(memberList).getAllByRole("listitem");
+
+    expect(within(items[0]).getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(within(items[0]).getByText("1")).toBeInTheDocument();
+    expect(within(items[1]).getByText("Grace Hopper")).toBeInTheDocument();
+    expect(within(items[1]).getByText("2")).toBeInTheDocument();
+    expect(within(items[2]).getByText("Katherine Johnson")).toBeInTheDocument();
+    expect(within(items[2]).getByText("3")).toBeInTheDocument();
+  });
+
+  it("renumbers members from one when a filter narrows the list", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeMemberDirectory
+        canExportMembers={false}
+        canInviteMembers={false}
+        canViewFreeInvitations={true}
+        filterOptions={[]}
+        members={baseMembers}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Invitación free (1)" })
+    );
+
+    const memberList = screen.getByRole("list", { name: "Lista de miembros" });
+    const items = within(memberList).getAllByRole("listitem");
+
+    expect(items).toHaveLength(1);
+    expect(within(items[0]).getByText("Grace Hopper")).toBeInTheDocument();
+    expect(within(items[0]).getByText("1")).toBeInTheDocument();
+    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
   });
 
   it("filters members by a case-insensitive name match", async () => {
