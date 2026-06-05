@@ -71,8 +71,8 @@ describe("createServerDatabaseClient", () => {
     );
 
     expect(detectedOverlappingQuery).toBe(false);
-    // BEGIN + idle-in-transaction guard + 5 request-context settings + COMMIT.
-    expect(query).toHaveBeenCalledTimes(8);
+    // BEGIN + idle-in-transaction guard + 3 request-context settings + COMMIT.
+    expect(query).toHaveBeenCalledTimes(6);
     expect(executedStatements[0]).toBe("BEGIN");
     expect(executedStatements[executedStatements.length - 1]).toBe("COMMIT");
     expect(release).toHaveBeenCalledTimes(1);

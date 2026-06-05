@@ -1,36 +1,58 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const SITEPING_PROJECT_ADMIN_MIGRATION_PATH =
-  "database/migrations/20260601120000_allow_siteping_project_admin_feedback_management.sql";
+const SITEPING_REMOVE_ADMIN_MIGRATION_PATH =
+  "database/migrations/20260604120000_remove_siteping_project_admin_management.sql";
+const SITEPING_BASE_FEEDBACK_MIGRATION_PATH =
+  "database/migrations/20260531120000_create_siteping_feedback.sql";
 
 function readWorkspaceFile(relativePath: string): string {
   return readFileSync(join(process.cwd(), relativePath), "utf8");
 }
 
 describe("SitePing SQL guardrails", () => {
-  it("keeps project feedback management scoped by transaction context under RLS", () => {
-    const migration = readWorkspaceFile(SITEPING_PROJECT_ADMIN_MIGRATION_PATH);
+  it("drops the project-admin elevation so feedback management is ownership-only", () => {
+    const migration = readWorkspaceFile(SITEPING_REMOVE_ADMIN_MIGRATION_PATH);
     const migrationJournal = JSON.parse(
       readWorkspaceFile("database/migrations/meta/_journal.json")
     ) as { entries: Array<{ tag: string }> };
 
-    expect(migration).toMatch(/CREATE OR REPLACE FUNCTION public\.current_siteping_project_name\(\)/);
-    expect(migration).toMatch(/CREATE OR REPLACE FUNCTION public\.is_siteping_project_admin\(project_name text\)/);
-    expect(migration).toMatch(/current_setting\('app\.siteping_project_admin', true\)/);
-    expect(migration).toMatch(/project_name = public\.current_siteping_project_name\(\)/);
-    expect(migration).toMatch(/ON public\.siteping_feedbacks[\s\S]*FOR SELECT[\s\S]*USING \(public\.is_siteping_project_admin\(project_name\)\)/);
-    expect(migration).toMatch(/ON public\.siteping_feedbacks[\s\S]*FOR UPDATE[\s\S]*WITH CHECK \(public\.is_siteping_project_admin\(project_name\)\)/);
-    expect(migration).toMatch(/ON public\.siteping_feedbacks[\s\S]*FOR DELETE[\s\S]*USING \(public\.is_siteping_project_admin\(project_name\)\)/);
-    expect(migration).toMatch(/ON public\.siteping_annotations[\s\S]*FOR SELECT[\s\S]*public\.is_siteping_project_admin\(siteping_feedbacks\.project_name\)/);
-    expect(migration).toMatch(/ON public\.siteping_annotations[\s\S]*FOR DELETE[\s\S]*public\.is_siteping_project_admin\(siteping_feedbacks\.project_name\)/);
-    expect(migration).not.toMatch(/FOR ALL/);
+    expect(migration).toMatch(
+      /DROP FUNCTION IF EXISTS public\.is_siteping_project_admin\(project_name text\)/
+    );
+    expect(migration).toMatch(
+      /DROP FUNCTION IF EXISTS public\.current_siteping_project_name\(\)/
+    );
+    expect(migration).toMatch(
+      /DROP POLICY IF EXISTS "SitePing project admins can read project feedback" ON public\.siteping_feedbacks/
+    );
+    expect(migration).toMatch(
+      /DROP POLICY IF EXISTS "SitePing project admins can update project feedback" ON public\.siteping_feedbacks/
+    );
+    expect(migration).toMatch(
+      /DROP POLICY IF EXISTS "SitePing project admins can delete project feedback" ON public\.siteping_feedbacks/
+    );
+    expect(migration).toMatch(
+      /DROP POLICY IF EXISTS "SitePing project admins can read project annotations" ON public\.siteping_annotations/
+    );
+    expect(migration).toMatch(
+      /DROP POLICY IF EXISTS "SitePing project admins can delete project annotations" ON public\.siteping_annotations/
+    );
+    expect(migration).not.toMatch(/CREATE POLICY/);
     expect(migrationJournal.entries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          tag: "20260601120000_allow_siteping_project_admin_feedback_management",
+          tag: "20260604120000_remove_siteping_project_admin_management",
         }),
       ])
+    );
+  });
+
+  it("keeps the base ownership policy scoping feedback to its creator", () => {
+    const migration = readWorkspaceFile(SITEPING_BASE_FEEDBACK_MIGRATION_PATH);
+
+    expect(migration).toMatch(
+      /CREATE POLICY "Users can manage own SitePing feedback"[\s\S]*USING \(created_by = public\.current_app_user_id\(\)\)/
     );
   });
 });

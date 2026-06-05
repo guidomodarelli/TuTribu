@@ -10,7 +10,6 @@ import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-r
 
 const getAuthenticatedMember = jest.fn();
 const createFeedback = jest.fn();
-const deleteAllFeedback = jest.fn();
 const deleteFeedback = jest.fn();
 const getIdentity = jest.fn();
 const getMemberTribes = jest.fn();
@@ -147,7 +146,6 @@ describe("Siteping routes", () => {
       userAgent: "Jest Browser",
       viewport: "1280x800",
     });
-    deleteAllFeedback.mockResolvedValue(undefined);
     deleteFeedback.mockResolvedValue(undefined);
     getIdentity.mockReturnValue({
       enabled: true,
@@ -194,7 +192,6 @@ describe("Siteping routes", () => {
       siteping: {
         useCases: {
           createFeedback,
-          deleteAllFeedback,
           deleteFeedback,
           getIdentity,
           listFeedback,
@@ -346,10 +343,10 @@ describe("Siteping routes", () => {
     } as unknown as Request);
 
     expect(response.status).toBe(200);
-    expect(createRequestModules).toHaveBeenLastCalledWith({
-      sitepingProjectAdmin: true,
-      sitepingProjectName: "tutribu",
-    });
+    expect(createRequestModules).toHaveBeenCalledWith();
+    expect(createRequestModules).not.toHaveBeenCalledWith(
+      expect.objectContaining({ sitepingProjectAdmin: true })
+    );
     expect(listFeedback).toHaveBeenCalledWith({
       limit: undefined,
       page: undefined,
@@ -362,18 +359,13 @@ describe("Siteping routes", () => {
     });
   });
 
-  it("deletes all feedback for the authorized Siteping project", async () => {
+  it("rejects the removed delete-all action without an individual feedback id", async () => {
     const response = await DELETE(buildRequest({
       deleteAll: true,
       projectName: "client-controlled-project",
     }, "DELETE"));
 
-    expect(response.status).toBe(200);
-    expect(createRequestModules).toHaveBeenLastCalledWith({
-      sitepingProjectAdmin: true,
-      sitepingProjectName: "tutribu",
-    });
-    expect(deleteAllFeedback).toHaveBeenCalledWith("tutribu");
+    expect(response.status).toBe(400);
     expect(deleteFeedback).not.toHaveBeenCalled();
   });
 
@@ -385,10 +377,10 @@ describe("Siteping routes", () => {
     }, "PATCH"));
 
     expect(response.status).toBe(200);
-    expect(createRequestModules).toHaveBeenLastCalledWith({
-      sitepingProjectAdmin: true,
-      sitepingProjectName: "tutribu",
-    });
+    expect(createRequestModules).toHaveBeenCalledWith();
+    expect(createRequestModules).not.toHaveBeenCalledWith(
+      expect.objectContaining({ sitepingProjectAdmin: true })
+    );
     expect(updateFeedbackStatus).toHaveBeenCalledWith({
       feedbackId: "feedback-1",
       projectName: "tutribu",
@@ -409,10 +401,9 @@ describe("Siteping routes", () => {
     await expect(response.json()).resolves.toEqual({
       message: "El feedback ya no está disponible.",
     });
-    expect(createRequestModules).toHaveBeenLastCalledWith({
-      sitepingProjectAdmin: true,
-      sitepingProjectName: "tutribu",
-    });
+    expect(createRequestModules).not.toHaveBeenCalledWith(
+      expect.objectContaining({ sitepingProjectAdmin: true })
+    );
     expect(updateFeedbackStatus).toHaveBeenCalledWith({
       feedbackId: "feedback-1",
       projectName: "tutribu",
@@ -427,15 +418,14 @@ describe("Siteping routes", () => {
     }, "DELETE"));
 
     expect(response.status).toBe(200);
-    expect(createRequestModules).toHaveBeenLastCalledWith({
-      sitepingProjectAdmin: true,
-      sitepingProjectName: "tutribu",
-    });
+    expect(createRequestModules).toHaveBeenCalledWith();
+    expect(createRequestModules).not.toHaveBeenCalledWith(
+      expect.objectContaining({ sitepingProjectAdmin: true })
+    );
     expect(deleteFeedback).toHaveBeenCalledWith({
       feedbackId: "feedback-1",
       projectName: "tutribu",
     });
-    expect(deleteAllFeedback).not.toHaveBeenCalled();
   });
 
   it("rejects fractional Siteping pagination values", async () => {

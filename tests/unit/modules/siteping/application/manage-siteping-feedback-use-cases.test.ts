@@ -164,7 +164,6 @@ function buildRepository(
     markGitHubIssueFailed: jest.fn(),
     markGitHubIssuePublished: jest.fn(),
     remove: jest.fn(),
-    removeAll: jest.fn(),
     restoreGitHubIssuePublished: jest.fn(),
     updateStatus: jest.fn(),
     ...overrides,
