@@ -372,6 +372,13 @@
       "when": 1780574400000,
       "tag": "20260604120000_remove_siteping_project_admin_management",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1780578000000,
+      "tag": "20260604130000_remove_message_polls_question",
+      "breakpoints": true
     }
   ]
 }
