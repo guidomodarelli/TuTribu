@@ -50,7 +50,6 @@ export type MessagePollResult = {
   allowMultipleVotes: boolean;
   id: string;
   options: MessagePollOptionResult[];
-  question: string;
   totalVoteCount: number;
   viewerHasVoted: boolean;
 };

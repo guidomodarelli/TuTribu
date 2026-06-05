@@ -281,7 +281,6 @@ describe("Tribe message routes", () => {
           allowMultipleVotes: true,
           id: "poll-1",
           options: [],
-          question: "¿Qué vemos?",
           totalVoteCount: 0,
           viewerHasVoted: false,
         },
@@ -297,7 +296,6 @@ describe("Tribe message routes", () => {
         poll: {
           allowMultipleVotes: true,
           options: ["Álgebra", "Geometría"],
-          question: "¿Qué vemos?",
         },
       } as never),
       buildCreateRouteContext()
@@ -309,7 +307,6 @@ describe("Tribe message routes", () => {
         poll: {
           allowMultipleVotes: true,
           options: ["Álgebra", "Geometría"],
-          question: "¿Qué vemos?",
         },
       })
     );
@@ -448,7 +445,6 @@ describe("Tribe message routes", () => {
         poll: {
           allowMultipleVotes: false,
           options: ["Álgebra", "álgebra"],
-          question: "¿Qué vemos?",
         },
       } as never),
       buildCreateRouteContext()
@@ -875,7 +871,6 @@ describe("Tribe message routes", () => {
       buildJsonRequest({
         allowMultipleVotes: false,
         options: ["Álgebra", "Geometría"],
-        question: "¿Qué tema seguimos?",
         resetVotes: true,
       } as never),
       buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
@@ -903,7 +898,6 @@ describe("Tribe message routes", () => {
             voteCount: 1,
           },
         ],
-        question: "¿Qué vemos?",
         totalVoteCount: 1,
         viewerHasVoted: true,
       },

@@ -3,7 +3,6 @@ import {
   MESSAGE_IMAGES,
   MESSAGE_POLL_OPTION_TEXT,
   MESSAGE_POLL_OPTIONS,
-  MESSAGE_POLL_QUESTION,
 } from "@/src/modules/messages/constants/message-round";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { createRequestModules } from "@/src/modules/setup";
@@ -19,7 +18,6 @@ const CREATE_MESSAGE_ROUTE_FIELD = {
   assetId: "assetId",
   options: "options",
   poll: "poll",
-  question: "question",
   title: "title",
   url: "url",
   video: "video",
@@ -59,9 +57,7 @@ const CREATE_MESSAGE_ROUTE_RESPONSE = {
   invalidPollDuplicateOptionsMessage: "Usá opciones distintas para publicar la encuesta.",
   invalidPollMessage: "No pudimos publicar la encuesta. Revisá los datos.",
   invalidPollMissingOptionsMessage: "Agregá al menos 2 opciones para publicar la encuesta.",
-  invalidPollMissingQuestionMessage: "Completá la pregunta para publicar la encuesta.",
   invalidPollOptionTooLongMessage: "Acortá las opciones de la encuesta.",
-  invalidPollQuestionTooLongMessage: "Acortá la pregunta de la encuesta.",
   invalidPollTooManyOptionsMessage: "Usá menos opciones para publicar la encuesta.",
   invalidVideoUrlMessage:
     "No pudimos reconocer ese link de video. Probá con YouTube, Vimeo, Wistia o Loom.",
@@ -194,7 +190,6 @@ function readPollFromBody(body: unknown) {
   }
 
   const pollRecord = poll as Record<string, unknown>;
-  const question = pollRecord[CREATE_MESSAGE_ROUTE_FIELD.question];
   const options = pollRecord[CREATE_MESSAGE_ROUTE_FIELD.options];
   const allowMultipleVotes =
     pollRecord[CREATE_MESSAGE_ROUTE_FIELD.allowMultipleVotes];
@@ -204,7 +199,6 @@ function readPollFromBody(body: unknown) {
     options: Array.isArray(options)
       ? options.filter((option): option is string => typeof option === "string")
       : [],
-    question: typeof question === "string" ? question : "",
   };
 }
 
@@ -213,21 +207,12 @@ function getInvalidPollMessage(poll: ReturnType<typeof readPollFromBody>): strin
     return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollMessage;
   }
 
-  const trimmedQuestion = poll.question.trim();
   const trimmedOptions = poll.options
     .map((option) => option.trim())
     .filter(Boolean);
   const uniqueOptionTexts = new Set(
     trimmedOptions.map((option) => option.toLocaleLowerCase())
   );
-
-  if (!trimmedQuestion) {
-    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollMissingQuestionMessage;
-  }
-
-  if (trimmedQuestion.length > MESSAGE_POLL_QUESTION.maxLength) {
-    return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollQuestionTooLongMessage;
-  }
 
   if (trimmedOptions.length < MESSAGE_POLL_OPTIONS.minCount) {
     return CREATE_MESSAGE_ROUTE_RESPONSE.invalidPollMissingOptionsMessage;

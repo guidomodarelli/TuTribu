@@ -97,7 +97,6 @@ type CreatedMessageRow = MutationStatusRow & {
   poll_allow_multiple_votes: boolean | null;
   poll_id: string | null;
   poll_options: CreatedPollOptionRow[] | null;
-  poll_question: string | null;
 };
 
 type CreatedPollOptionRow = {
@@ -108,7 +107,6 @@ type CreatedPollOptionRow = {
 type InsertedPollRow = {
   poll_allow_multiple_votes: boolean | null;
   poll_id: string | null;
-  poll_question: string | null;
 };
 
 type InsertedPollOptionsRow = {
@@ -173,7 +171,6 @@ type TargetEditMessageRow = {
   message_id: string;
   poll_allow_multiple_votes: boolean | null;
   poll_id: string | null;
-  poll_question: string | null;
   poll_vote_count: number | string | null;
   tribe_id: string;
 };
@@ -289,7 +286,6 @@ function mapCreatedMessage(row: CreatedMessageRow | null): MessageCreationResult
                   text: option.text ?? "",
                   voteCount: 0,
                 })),
-              question: row.poll_question ?? "",
               totalVoteCount: 0,
               viewerHasVoted: false,
             }
@@ -756,7 +752,6 @@ export class PostgresMessageMutationRepository
               and public.is_active_tribe_member(messages.tribe_id)
             ) as can_edit,
             existing_poll.id as poll_id,
-            existing_poll.question as poll_question,
             existing_poll.allow_multiple_votes as poll_allow_multiple_votes,
             coalesce(existing_poll_votes.vote_count, 0) as poll_vote_count
           from public.messages
@@ -849,8 +844,7 @@ export class PostgresMessageMutationRepository
       if (command.poll && targetMessage.poll_id) {
         await database.execute(sql`
           update public.message_polls
-          set question = ${command.poll.question},
-              allow_multiple_votes = ${command.poll.allowMultipleVotes},
+          set allow_multiple_votes = ${command.poll.allowMultipleVotes},
               updated_at = timezone('utc', now())
           where message_polls.id = ${targetMessage.poll_id}
         `);
@@ -905,7 +899,6 @@ export class PostgresMessageMutationRepository
               text: option.text ?? "",
               voteCount: 0,
             })),
-          question: command.poll.question,
           totalVoteCount: 0,
           viewerHasVoted: false,
         };
@@ -1067,8 +1060,8 @@ export class PostgresMessageMutationRepository
       }
 
       const pollResult = await database.execute(sql`
-        insert into public.message_polls (message_id, tribe_id, question, allow_multiple_votes, status, created_at, updated_at)
-        select messages.id, messages.tribe_id, ${command.poll.question}, ${command.poll.allowMultipleVotes}, ${MESSAGE_POLL_STATUS.open}, timezone('utc', now()), timezone('utc', now())
+        insert into public.message_polls (message_id, tribe_id, allow_multiple_votes, status, created_at, updated_at)
+        select messages.id, messages.tribe_id, ${command.poll.allowMultipleVotes}, ${MESSAGE_POLL_STATUS.open}, timezone('utc', now()), timezone('utc', now())
         from public.messages
         inner join public.tribes
           on tribes.id = messages.tribe_id
@@ -1077,7 +1070,6 @@ export class PostgresMessageMutationRepository
           and messages.author_id = ${command.authorId}
         returning
           id as poll_id,
-          question as poll_question,
           allow_multiple_votes as poll_allow_multiple_votes
       `);
       const insertedPoll = (pollResult.rows?.[0] ?? null) as InsertedPollRow | null;
@@ -1123,7 +1115,6 @@ export class PostgresMessageMutationRepository
         poll_allow_multiple_votes: insertedPoll.poll_allow_multiple_votes,
         poll_id: insertedPoll.poll_id,
         poll_options: pollOptions,
-        poll_question: insertedPoll.poll_question,
       });
       });
     } catch (error) {
@@ -1315,7 +1306,6 @@ export class PostgresMessageMutationRepository
       )
       select
         message_polls.id as poll_id,
-        message_polls.question,
         message_polls.allow_multiple_votes,
         message_poll_options.id as option_id,
         message_poll_options.text as option_text,
@@ -1340,7 +1330,6 @@ export class PostgresMessageMutationRepository
     const rows = (optionsResult.rows ?? []) as Array<PollOptionRow & {
       allow_multiple_votes: boolean;
       poll_id: string;
-      question: string;
       total_vote_count: number | string | null;
     }>;
     const firstRow = rows[0];
@@ -1365,7 +1354,6 @@ export class PostgresMessageMutationRepository
           voteCount,
         };
       }),
-      question: firstRow?.question ?? "",
       totalVoteCount,
       viewerHasVoted: rows.some((row) => row.selected_by_viewer),
     };

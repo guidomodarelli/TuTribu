@@ -538,7 +538,6 @@ const roundWithPoll = {
             voteCount: 0,
           },
         ],
-        question: "¿Qué tema seguimos?",
         totalVoteCount: 0,
         viewerHasVoted: false,
       },
@@ -4129,10 +4128,6 @@ describe("TribeRound", () => {
       "Nos vemos el viernes."
     );
     await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
-    await user.type(
-      screen.getByRole("textbox", { name: "Pregunta de la encuesta" }),
-      "¿Qué tema seguimos?"
-    );
     const optionInputs = [
       screen.getByRole("textbox", { name: "Opción 1" }),
       screen.getByRole("textbox", { name: "Opción 2" }),
@@ -4155,7 +4150,6 @@ describe("TribeRound", () => {
             poll: {
               allowMultipleVotes: true,
               options: ["Álgebra", "Geometría"],
-              question: "¿Qué tema seguimos?",
             },
             title: "Nuevo encuentro",
           }),
@@ -4186,10 +4180,6 @@ describe("TribeRound", () => {
       "Nos vemos el viernes."
     );
     await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
-    await user.type(
-      screen.getByRole("textbox", { name: "Pregunta de la encuesta" }),
-      "¿Qué tema seguimos?"
-    );
     await user.type(screen.getByRole("textbox", { name: "Opción 1" }), "Álgebra");
     await user.type(screen.getByRole("textbox", { name: "Opción 2" }), "álgebra");
     await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
@@ -4206,7 +4196,7 @@ describe("TribeRound", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("shows three poll option fields when composing a survey", async () => {
+  it("shows two poll option fields by default when composing a survey", async () => {
     const user = userEvent.setup();
 
     render(
@@ -4221,10 +4211,12 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
 
     expect(screen.getByLabelText("Quitar encuesta")).toBeInTheDocument();
-    expect(screen.getAllByRole("textbox", { name: /Opción/ })).toHaveLength(3);
+    expect(
+      screen.queryByRole("textbox", { name: "Pregunta de la encuesta" })
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("textbox", { name: /Opción/ })).toHaveLength(2);
     expect(screen.queryByText("Opción 1")).not.toBeInTheDocument();
     expect(screen.queryByText("Opción 2")).not.toBeInTheDocument();
-    expect(screen.queryByText("Opción 3")).not.toBeInTheDocument();
   });
 
   it("submits a poll vote and reveals percentages with counts", async () => {
