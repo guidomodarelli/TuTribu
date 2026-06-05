@@ -477,15 +477,6 @@ export class PostgresSitepingFeedbackRepository
     });
   }
 
-  async removeAll(projectName: string): Promise<void> {
-    await this.executeWithRequestContext(async (database) => {
-      await database.execute(sql`
-        delete from public.siteping_feedbacks
-        where project_name = ${projectName}
-      `);
-    });
-  }
-
   async updateStatus({
     feedbackId,
     projectName,

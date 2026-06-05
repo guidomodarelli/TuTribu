@@ -383,13 +383,3 @@ export function deleteSitepingFeedback({
     await sitepingFeedbackRepository.remove(command);
   };
 }
-
-export function deleteAllSitepingFeedback({
-  sitepingFeedbackRepository,
-}: {
-  sitepingFeedbackRepository: SitepingFeedbackRepository;
-}) {
-  return async (projectName: string): Promise<void> => {
-    await sitepingFeedbackRepository.removeAll(projectName);
-  };
-}

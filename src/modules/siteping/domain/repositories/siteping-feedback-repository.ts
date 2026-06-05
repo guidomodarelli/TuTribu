@@ -89,7 +89,6 @@ export type SitepingFeedbackRepository = {
   markGitHubIssueFailed(command: MarkGitHubIssueFailedCommand): Promise<void>;
   markGitHubIssuePublished(command: MarkGitHubIssuePublishedCommand): Promise<void>;
   remove(command: SitepingFeedbackProjectCommand): Promise<void>;
-  removeAll(projectName: string): Promise<void>;
   restoreGitHubIssuePublished(command: RestoreGitHubIssuePublishedCommand): Promise<void>;
   updateStatus(
     command: UpdateSitepingFeedbackStatusCommand

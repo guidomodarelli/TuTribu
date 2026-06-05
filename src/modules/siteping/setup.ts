@@ -1,6 +1,5 @@
 import {
   createSitepingFeedback,
-  deleteAllSitepingFeedback,
   deleteSitepingFeedback,
   getSitepingIdentity,
   listSitepingFeedback,
@@ -25,9 +24,6 @@ export function buildSitepingModule({
     useCases: {
       createFeedback: createSitepingFeedback({
         githubIssuePublisher,
-        sitepingFeedbackRepository,
-      }),
-      deleteAllFeedback: deleteAllSitepingFeedback({
         sitepingFeedbackRepository,
       }),
       deleteFeedback: deleteSitepingFeedback({

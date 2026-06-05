@@ -365,6 +365,13 @@
       "when": 1780401600000,
       "tag": "20260602120000_expose_free_invitation_to_tribe_leaders",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1780574400000,
+      "tag": "20260604120000_remove_siteping_project_admin_management",
+      "breakpoints": true
     }
   ]
 }
