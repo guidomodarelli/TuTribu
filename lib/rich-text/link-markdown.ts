@@ -48,6 +48,15 @@ const MINIMUM_HOST_LABELS = 2;
  * `[text](url with space)` link that cannot be read back and renders as broken
  * markdown. Whitespace-free candidates are returned verbatim to preserve their
  * exact form (no trailing slash, stable synchronization checks).
+ *
+ * A scheme-less candidate that parses into userinfo (`john.doe@example.com`) is
+ * rejected: the `bareDomain` pattern allows `@` in its trailing class, so an
+ * email or literal slips through and prepending `https://` would yield
+ * `https://john.doe@example.com`, where the browser reads `john.doe` as
+ * credentials for `example.com`. That turns the value into a misleading
+ * outbound link, against the convention that email addresses are not linked.
+ * The check uses the parsed `username`/`password` rather than a naive `@` scan
+ * so a legitimate `@` past the authority (a path or query) still links.
  */
 export function normalizeMarkdownUrl(
   rawUrl: string | null | undefined
@@ -58,7 +67,8 @@ export function normalizeMarkdownUrl(
     return null;
   }
 
-  const candidateUrl = LINK_PATTERN.protocolPrefix.test(trimmedUrl)
+  const hasExplicitProtocol = LINK_PATTERN.protocolPrefix.test(trimmedUrl);
+  const candidateUrl = hasExplicitProtocol
     ? trimmedUrl
     : LINK_PATTERN.bareDomain.test(trimmedUrl)
       ? LINK_PROTOCOL_PREFIX.default + trimmedUrl
@@ -75,6 +85,10 @@ export function normalizeMarkdownUrl(
       url.protocol !== LINK_MARKDOWN_ALLOWED_PROTOCOL.http &&
       url.protocol !== LINK_MARKDOWN_ALLOWED_PROTOCOL.https
     ) {
+      return null;
+    }
+
+    if (!hasExplicitProtocol && (url.username || url.password)) {
       return null;
     }
 

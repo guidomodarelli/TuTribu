@@ -34,6 +34,20 @@ describe("normalizeMarkdownUrl", () => {
     expect(normalizeMarkdownUrl("javascript:alert(1)")).toBeNull();
   });
 
+  it("rejects a dotted email local part instead of reading it as credentials", () => {
+    expect(normalizeMarkdownUrl("john.doe@example.com")).toBeNull();
+  });
+
+  it("rejects a scheme-less bare domain that carries userinfo", () => {
+    expect(normalizeMarkdownUrl("user@example.com/path")).toBeNull();
+  });
+
+  it("keeps an @ that belongs to a bare domain query string", () => {
+    expect(normalizeMarkdownUrl("example.com/buscar?ref=a@b")).toBe(
+      "https://example.com/buscar?ref=a@b"
+    );
+  });
+
   it("returns null for empty or whitespace input", () => {
     expect(normalizeMarkdownUrl("   ")).toBeNull();
     expect(normalizeMarkdownUrl(null)).toBeNull();
@@ -209,6 +223,17 @@ describe("parseRichTextSegments", () => {
     expect(
       segments.every((segment) => segment.type === RICH_TEXT_SEGMENT_TYPE.text)
     ).toBe(true);
+  });
+
+  it("does not turn a markdown target with an email local part into a credentials link", () => {
+    const segments = parseRichTextSegments("[Contacto](john.doe@example.com)");
+
+    expect(segments).toEqual([
+      {
+        text: "[Contacto](john.doe@example.com)",
+        type: RICH_TEXT_SEGMENT_TYPE.text,
+      },
+    ]);
   });
 
   it("keeps trailing punctuation outside the link", () => {
