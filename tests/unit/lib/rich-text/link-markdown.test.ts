@@ -145,6 +145,19 @@ describe("parseRichTextSegments", () => {
     ]);
   });
 
+  it("keeps prose abbreviations with unknown TLDs as plain text", () => {
+    const segments = parseRichTextSegments(
+      "Hablamos sobre EE.UU. y China.Por eso revisamos el Nasdaq."
+    );
+
+    expect(
+      segments.every((segment) => segment.type === RICH_TEXT_SEGMENT_TYPE.text)
+    ).toBe(true);
+    expect(segments.map((segment) => segment.text).join("")).toBe(
+      "Hablamos sobre EE.UU. y China.Por eso revisamos el Nasdaq."
+    );
+  });
+
   it("renders a markdown link with custom text", () => {
     const segments = parseRichTextSegments("[el curso](https://tutribu.com)");
 

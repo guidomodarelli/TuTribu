@@ -6,6 +6,7 @@
  */
 
 import {
+  KNOWN_TOP_LEVEL_DOMAINS,
   LINK_MARKDOWN_ALLOWED_PROTOCOL,
   LINK_MARKDOWN_ESCAPE_PATTERN,
   LINK_MARKDOWN_ESCAPE_VALUE,
@@ -29,6 +30,12 @@ import type {
 } from "@/lib/rich-text/link-markdown-types";
 
 const EMAIL_LOCAL_PART_SEPARATOR = "@";
+
+/** Separator between the labels of a host name (`sub.example.com`). */
+const LINK_HOST_LABEL_SEPARATOR = ".";
+
+/** A linkable host needs at least a domain label and a TLD label. */
+const MINIMUM_HOST_LABELS = 2;
 
 /**
  * Normalizes a raw markdown URL into a safe absolute `http(s)` URL, or `null`
@@ -76,6 +83,47 @@ export function normalizeMarkdownUrl(
   } catch {
     return null;
   }
+}
+
+/**
+ * Extracts the top-level domain (the last dot-separated label of the host) from
+ * a bare or scheme-prefixed candidate, lowercased, or `null` when the candidate
+ * has no host label past a dot. The host ends at the first path, query,
+ * fragment, or port boundary so a path segment is never mistaken for the TLD.
+ */
+export function getCandidateTopLevelDomain(candidate: string): string | null {
+  const host = candidate
+    .replace(LINK_PATTERN.protocolPrefix, "")
+    .split(LINK_PATTERN.hostBoundary)[0];
+  const labels = host.split(LINK_HOST_LABEL_SEPARATOR);
+
+  if (labels.length < MINIMUM_HOST_LABELS) {
+    return null;
+  }
+
+  return labels[labels.length - 1].toLowerCase() || null;
+}
+
+/**
+ * Normalizes a candidate for the automatic detection path. Scheme-prefixed URLs
+ * are trusted and normalized as-is; a scheme-less bare domain is only accepted
+ * when its TLD is a recognized public suffix, so prose abbreviations such as
+ * `EE.UU.` or `China.Por` stay plain text instead of resolving to bogus hosts.
+ * Explicit paste-as-link flows keep using `normalizeMarkdownUrl` directly and
+ * stay permissive.
+ */
+export function normalizeAutolinkUrl(candidate: string): string | null {
+  if (LINK_PATTERN.protocolPrefix.test(candidate)) {
+    return normalizeMarkdownUrl(candidate);
+  }
+
+  const topLevelDomain = getCandidateTopLevelDomain(candidate);
+
+  if (!topLevelDomain || !KNOWN_TOP_LEVEL_DOMAINS.has(topLevelDomain)) {
+    return null;
+  }
+
+  return normalizeMarkdownUrl(candidate);
 }
 
 /** Strips the `http(s)://` prefix from a value for synchronization checks. */
@@ -338,7 +386,7 @@ export function parseBareUrlSegments(content: string): RichTextSegment[] {
       matchedIndex,
       matchedUrl,
     });
-    const safeUrl = normalizeMarkdownUrl(urlText);
+    const safeUrl = normalizeAutolinkUrl(urlText);
 
     if (matchedIndex > currentIndex) {
       segments.push(createTextSegment(content.slice(currentIndex, matchedIndex)));
@@ -382,7 +430,7 @@ export function parseBareUrlPreviewSegments(
       matchedIndex,
       matchedUrl,
     });
-    const safeUrl = normalizeMarkdownUrl(urlText);
+    const safeUrl = normalizeAutolinkUrl(urlText);
     const isSuppressed = suppressedLinks.some((suppressedLink) =>
       rangesOverlap(suppressedLink, {
         end: absoluteEnd,
