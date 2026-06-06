@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
 
 import { TribeCoursesManagement } from "@/components/courses/tribe-courses-management";
+import { COURSE_LESSON_DESCRIPTION } from "@/src/modules/courses/constants/courses";
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import type { CourseModuleWithLessonsResult } from "@/src/modules/courses/application/results/course-results";
 
@@ -507,6 +508,129 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
       "Lección intro",
       "Nueva lección",
     ]);
+  });
+
+  it("preserves markdown links in the lesson description when saving an edit", async () => {
+    const modulesWithLinkDescription: CourseModuleWithLessonsResult[] = [
+      {
+        ...seedModules[0],
+        lessons: [
+          {
+            ...seedModules[0].lessons[0],
+            description: "Mirá [el curso](https://tutribu.com)",
+          },
+        ],
+      },
+    ];
+    const pending = createDeferredResponse();
+    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        initialModules={modulesWithLinkDescription}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const lessonActions = screen.getByRole("group", {
+      name: "Acciones de la lección Lección intro",
+    });
+    await user.click(
+      within(lessonActions).getByRole("button", { name: "Editar" })
+    );
+
+    // The editor deserializes the stored markdown into an interactive link.
+    expect(screen.getByRole("link", { name: "el curso" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(global.fetch).toHaveBeenCalled();
+    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const requestBody = JSON.parse((requestInit as { body: string }).body);
+    expect(requestBody.description).toBe("Mirá [el curso](https://tutribu.com)");
+
+    await act(async () => {
+      pending.resolveWith(
+        buildJsonResponse(200, {
+          lesson: {
+            courseModuleId: "module-empezar-aca",
+            description: "Mirá [el curso](https://tutribu.com)",
+            externalVideoId: "111",
+            id: "lesson-intro",
+            isActive: true,
+            sortOrder: 0,
+            title: "Lección intro",
+            videoProvider: VIDEO_PROVIDER.vimeo,
+          },
+          message: "Lección actualizada.",
+        })
+      );
+      await pending.promise;
+    });
+  });
+
+  it("treats a whitespace-only lesson description as empty instead of blocking the submit", async () => {
+    const whitespaceOnlyDescription = " ".repeat(
+      COURSE_LESSON_DESCRIPTION.maxLength + 1
+    );
+    const modulesWithWhitespaceDescription: CourseModuleWithLessonsResult[] = [
+      {
+        ...seedModules[0],
+        lessons: [
+          {
+            ...seedModules[0].lessons[0],
+            description: whitespaceOnlyDescription,
+          },
+        ],
+      },
+    ];
+    const pending = createDeferredResponse();
+    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        initialModules={modulesWithWhitespaceDescription}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const lessonActions = screen.getByRole("group", {
+      name: "Acciones de la lección Lección intro",
+    });
+    await user.click(
+      within(lessonActions).getByRole("button", { name: "Editar" })
+    );
+
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    // A blank-but-over-limit description must not trip the too-long guard: it is
+    // empty once trimmed, so the request goes out with the trimmed description,
+    // matching the backend's `normalizeOptionalText`.
+    expect(global.fetch).toHaveBeenCalled();
+    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const requestBody = JSON.parse((requestInit as { body: string }).body);
+    expect(requestBody.description).toBe("");
+
+    await act(async () => {
+      pending.resolveWith(
+        buildJsonResponse(200, {
+          lesson: {
+            courseModuleId: "module-empezar-aca",
+            description: null,
+            externalVideoId: "111",
+            id: "lesson-intro",
+            isActive: true,
+            sortOrder: 0,
+            title: "Lección intro",
+            videoProvider: VIDEO_PROVIDER.vimeo,
+          },
+          message: "Lección actualizada.",
+        })
+      );
+      await pending.promise;
+    });
   });
 
   it("removes a lesson optimistically and restores it on failure", async () => {

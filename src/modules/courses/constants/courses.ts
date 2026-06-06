@@ -1,3 +1,8 @@
+export const COURSE_LESSON_DESCRIPTION = {
+  maxLength: 2000,
+  minLength: 0,
+} as const;
+
 export const COURSE_MUTATION_STATUS = {
   created: "created",
   deleted: "deleted",

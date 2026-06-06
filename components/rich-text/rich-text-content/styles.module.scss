@@ -1,0 +1,13 @@
+.RichTextContent {
+  &__link {
+    color: var(--primary);
+    font-weight: 700;
+    text-decoration-line: underline;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.18em;
+
+    &:hover {
+      color: color-mix(in oklch, var(--primary) 72%, var(--foreground));
+    }
+  }
+}

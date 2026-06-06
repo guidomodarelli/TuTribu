@@ -111,6 +111,47 @@ describe("TribeCoursesView", () => {
     pushStateSpy.mockRestore();
   });
 
+  it("renders links inside the active lesson description", () => {
+    const modulesWithDescription: CourseModuleWithLessonsResult[] = [
+      {
+        id: "module-1",
+        isActive: true,
+        lessons: [
+          {
+            courseModuleId: "module-1",
+            description:
+              "Mirá [el curso](https://tutribu.com) y también www.ejemplo.com",
+            externalVideoId: "video-1",
+            id: "lesson-1",
+            isActive: true,
+            sortOrder: 0,
+            title: "Primera clase",
+            videoProvider: "youtube",
+          },
+        ],
+        sortOrder: 0,
+        title: "Módulo inicial",
+      },
+    ];
+
+    render(
+      <TribeCoursesView
+        modules={modulesWithDescription}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    const markdownLink = screen.getByRole("link", { name: "el curso" });
+    expect(markdownLink).toHaveAttribute("href", "https://tutribu.com");
+    expect(markdownLink).toHaveAttribute("target", "_blank");
+    expect(markdownLink).toHaveAttribute("rel", "noreferrer");
+
+    const bareLink = screen.getByRole("link", { name: "www.ejemplo.com" });
+    expect(bareLink).toHaveAttribute("href", "https://www.ejemplo.com");
+  });
+
   it("hydrates the sidebar management link without recoverable errors", async () => {
     const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");

@@ -177,6 +177,78 @@ describe("manage tribe courses use cases", () => {
     });
   });
 
+  it("persists a markdown link in the lesson description verbatim", async () => {
+    const repository = buildRepository();
+    const useCase = createLesson({ courseRepository: repository });
+
+    await useCase({
+      courseModuleId: "m1",
+      description: "Mirá [el curso](https://tutribu.com)",
+      externalVideoUrl: "https://vimeo.com/123456789",
+      sortOrder: 0,
+      title: "Lección con link",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(repository.createLesson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: "Mirá [el curso](https://tutribu.com)",
+      })
+    );
+  });
+
+  it("accepts a lesson description at the maximum length", async () => {
+    const repository = buildRepository();
+    const useCase = createLesson({ courseRepository: repository });
+
+    await useCase({
+      courseModuleId: "m1",
+      description: "a".repeat(2000),
+      externalVideoUrl: "https://vimeo.com/123456789",
+      sortOrder: 0,
+      title: "Lección larga",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(repository.createLesson).toHaveBeenCalled();
+  });
+
+  it("rejects a lesson description longer than the maximum length", async () => {
+    const repository = buildRepository();
+    const useCase = createLesson({ courseRepository: repository });
+
+    const result = await useCase({
+      courseModuleId: "m1",
+      description: "a".repeat(2001),
+      externalVideoUrl: "https://vimeo.com/123456789",
+      sortOrder: 0,
+      title: "Lección demasiado larga",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result).toEqual({ status: "invalid_input" });
+    expect(repository.createLesson).not.toHaveBeenCalled();
+  });
+
+  it("rejects updating a lesson with a description longer than the maximum", async () => {
+    const repository = buildRepository();
+    const useCase = updateLesson({ courseRepository: repository });
+
+    const result = await useCase({
+      courseModuleId: "m1",
+      description: "a".repeat(2001),
+      externalVideoUrl: "https://vimeo.com/123456789",
+      isActive: true,
+      lessonId: "l1",
+      sortOrder: 0,
+      title: "Lección",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result).toEqual({ status: "invalid_input" });
+    expect(repository.updateLesson).not.toHaveBeenCalled();
+  });
+
   it("creates a lesson from a YouTube URL", async () => {
     const repository = buildRepository();
     const useCase = createLesson({ courseRepository: repository });
