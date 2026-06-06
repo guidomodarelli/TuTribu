@@ -1113,7 +1113,7 @@ describe("TribeRound", () => {
     expect(screen.getByText(/Este \*\*énfasis\*\* queda como texto/)).toBeInTheDocument();
   });
 
-  it("does not render non-http Markdown links from message content", () => {
+  it("does not render non-http Markdown links and keeps the original text inert", () => {
     render(
       <TribeRound
         authenticatedMember={authenticatedMember}
@@ -1123,8 +1123,9 @@ describe("TribeRound", () => {
     );
 
     expect(screen.queryByRole("link", { name: "este atajo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /javascript/i })).not.toBeInTheDocument();
     expect(screen.getByText(/No abrir/).closest(".TribeRound__content")).toHaveTextContent(
-      "No abrir este atajo"
+      "No abrir [este atajo](javascript:alert('xss'))"
     );
   });
 

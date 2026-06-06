@@ -27,6 +27,15 @@ describe("RichTextContent", () => {
     expect(link).toHaveAttribute("href", "https://tutribu.com");
   });
 
+  it("shows bracket text that is not a valid link unchanged", () => {
+    render(<RichTextContent content="Material [PDF](pendiente) acá" />);
+
+    expect(
+      screen.getByText("[PDF](pendiente)", { exact: false })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
   it("invokes onLinkClick when a link is clicked", async () => {
     const user = userEvent.setup();
     const handleLinkClick = jest.fn((event) => event.preventDefault());

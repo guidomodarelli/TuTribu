@@ -115,6 +115,33 @@ describe("parseRichTextSegments", () => {
       { text: "tutribu.com", type: RICH_TEXT_SEGMENT_TYPE.text },
     ]);
   });
+
+  it("preserves bracket text that is not a valid link unchanged", () => {
+    const segments = parseRichTextSegments("Material [PDF](pendiente) acá");
+
+    expect(segments).toEqual([
+      { text: "Material ", type: RICH_TEXT_SEGMENT_TYPE.text },
+      { text: "[PDF](pendiente)", type: RICH_TEXT_SEGMENT_TYPE.text },
+      { text: " acá", type: RICH_TEXT_SEGMENT_TYPE.text },
+    ]);
+  });
+
+  it("preserves a footnote-like bracket reference unchanged", () => {
+    const segments = parseRichTextSegments("Ver [1](capítulo)");
+
+    expect(segments).toEqual([
+      { text: "Ver ", type: RICH_TEXT_SEGMENT_TYPE.text },
+      { text: "[1](capítulo)", type: RICH_TEXT_SEGMENT_TYPE.text },
+    ]);
+  });
+
+  it("preserves bracket text whose url is the suppression marker but label is not a url", () => {
+    const segments = parseRichTextSegments("[nota](#)");
+
+    expect(segments).toEqual([
+      { text: "[nota](#)", type: RICH_TEXT_SEGMENT_TYPE.text },
+    ]);
+  });
 });
 
 describe("serializeEditorContent / deserializeMarkdownForEditor", () => {
@@ -150,6 +177,17 @@ describe("serializeEditorContent / deserializeMarkdownForEditor", () => {
     const editorState = deserializeMarkdownForEditor(markdown);
 
     expect(editorState.content).toBe("texto [raro]");
+    expect(serializeEditorContent(editorState.content, editorState.links)).toBe(
+      markdown
+    );
+  });
+
+  it("keeps bracket text that is not a valid link as literal editor content", () => {
+    const markdown = "Material [PDF](pendiente) acá";
+    const editorState = deserializeMarkdownForEditor(markdown);
+
+    expect(editorState.content).toBe("Material [PDF](pendiente) acá");
+    expect(editorState.links).toHaveLength(0);
     expect(serializeEditorContent(editorState.content, editorState.links)).toBe(
       markdown
     );

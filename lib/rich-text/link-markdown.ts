@@ -474,6 +474,25 @@ export function parsePreviewSegments(
 }
 
 /**
+ * Whether a markdown link whose URL is not a safe web link is a genuine
+ * suppressed autolink (`[some-url.com](#)`) produced by the editor, rather than
+ * literal text that merely looks like a markdown link (`[PDF](pendiente)`).
+ *
+ * Suppression only applies when the label itself is a normalizable URL, which
+ * mirrors `serializeEditorContent`. Any other `[text](url)` whose URL cannot be
+ * normalized is treated as authored plain text and preserved verbatim.
+ */
+export function isSuppressedAutolinkMarkdown(
+  linkText: string,
+  linkUrl: string
+): boolean {
+  return (
+    linkUrl === LINK_MARKDOWN_FORMAT.suppressedUrl &&
+    normalizeMarkdownUrl(linkText) !== null
+  );
+}
+
+/**
  * Parses persisted content (markdown links plus bare URLs) into rendered
  * segments for read-only display.
  */
@@ -499,7 +518,9 @@ export function parseRichTextSegments(content: string): RichTextSegment[] {
     segments.push(
       safeUrl
         ? createLinkSegment(linkText, safeUrl)
-        : createTextSegment(linkText)
+        : isSuppressedAutolinkMarkdown(linkText, linkUrl)
+          ? createTextSegment(linkText)
+          : createTextSegment(matchedMarkdown)
     );
     currentIndex = matchedIndex + matchedMarkdown.length;
   }
@@ -534,10 +555,9 @@ export function deserializeMarkdownForEditor(content: string): {
 
     displayContent += content.slice(currentIndex, matchedIndex);
 
-    const linkStart = displayContent.length;
-    displayContent += linkText;
-
     if (safeUrl) {
+      const linkStart = displayContent.length;
+      displayContent += linkText;
       links.push({
         end: displayContent.length,
         id: crypto.randomUUID(),
@@ -546,16 +566,17 @@ export function deserializeMarkdownForEditor(content: string): {
         start: linkStart,
         url: safeUrl,
       });
-    } else if (
-      linkUrl === LINK_MARKDOWN_FORMAT.suppressedUrl &&
-      normalizeMarkdownUrl(linkText)
-    ) {
+    } else if (isSuppressedAutolinkMarkdown(linkText, linkUrl)) {
+      const linkStart = displayContent.length;
+      displayContent += linkText;
       links.push({
         end: displayContent.length,
         id: crypto.randomUUID(),
         kind: RICH_LINK_KIND.suppressed,
         start: linkStart,
       });
+    } else {
+      displayContent += matchedMarkdown;
     }
 
     currentIndex = matchedIndex + matchedMarkdown.length;
