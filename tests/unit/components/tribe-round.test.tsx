@@ -4875,7 +4875,7 @@ describe("TribeRound", () => {
     expect(titleInput).toHaveAttribute("aria-invalid", "true");
     expect(titleInput).toHaveClass("TribeRound__titleInput--invalid");
     expect(contentEditor).toHaveAttribute("aria-invalid", "true");
-    expect(contentEditor).toHaveClass("TribeRound__messageEditor--invalid");
+    expect(contentEditor).toHaveClass("RichLinkEditor__editor--invalid");
     expect(channelTrigger).toHaveAttribute("aria-invalid", "true");
     expect(channelTrigger).toHaveClass("TribeRound__channelTrigger--invalid");
   });

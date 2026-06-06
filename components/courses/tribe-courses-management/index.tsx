@@ -4,11 +4,13 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { Link } from "@/components/navigation/link";
+import { RichLinkEditor } from "@/components/rich-text/rich-link-editor";
+import { useRichLinkEditor } from "@/components/rich-text/rich-link-editor/use-rich-link-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ROUTES } from "@/src/constants/routes";
+import { COURSE_LESSON_DESCRIPTION } from "@/src/modules/courses/constants/courses";
 import type {
   CourseModuleResult,
   CourseModuleWithLessonsResult,
@@ -50,6 +52,8 @@ const COURSES_MANAGEMENT_COPY = {
   deleteLessonConfirm: "¿Eliminar esta lección?",
   descriptionLabel: "Descripción",
   descriptionPlaceholder: "Texto opcional debajo del video",
+  descriptionTooLongMessage:
+    "La descripción supera el máximo de caracteres permitido.",
   editButton: "Editar",
   emptyState: "Todavía no creaste ningún módulo.",
   inactiveBadge: "Inactivo",
@@ -79,6 +83,15 @@ const COURSES_MANAGEMENT_COPY = {
 } as const;
 
 const EDIT_HEADING_PREFIX = "Editar: ";
+
+const LESSON_DESCRIPTION_EDITOR_COPY = {
+  editAction: "Editar",
+  editCancel: "Cancelar",
+  editSave: "Guardar",
+  popoverTextLabel: "Texto del link",
+  popoverUrlLabel: "Link",
+  removeAction: "Remover",
+} as const;
 
 const PROVIDER_LABEL: Record<VideoProvider, string> = {
   [VIDEO_PROVIDER.loom]: "Loom",
@@ -1135,15 +1148,25 @@ function LessonForm({
   const [externalVideoUrl, setExternalVideoUrl] = useState(
     initialState.externalVideoUrl
   );
-  const [description, setDescription] = useState(initialState.description);
+  const descriptionEditor = useRichLinkEditor({
+    initialMarkdown: initialState.description,
+  });
   const [sortOrder, setSortOrder] = useState(initialState.sortOrder);
   const [isActive, setIsActive] = useState(initialState.isActive);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const detectedProvider = detectProviderFromInput(externalVideoUrl);
+  const descriptionLength = descriptionEditor.serialize().length;
+  const isDescriptionTooLong =
+    descriptionLength > COURSE_LESSON_DESCRIPTION.maxLength;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const description = descriptionEditor.serialize();
+    if (description.length > COURSE_LESSON_DESCRIPTION.maxLength) {
+      toast.error(COURSES_MANAGEMENT_COPY.descriptionTooLongMessage);
+      return;
+    }
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -1191,12 +1214,18 @@ function LessonForm({
       </label>
       <label className={styles.TribeCoursesManagement__formField}>
         <span>{COURSES_MANAGEMENT_COPY.descriptionLabel}</span>
-        <Textarea
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder={COURSES_MANAGEMENT_COPY.descriptionPlaceholder}
-          rows={4}
-          value={description}
-        />
+        <div className={styles.TribeCoursesManagement__descriptionEditor}>
+          <RichLinkEditor
+            ariaLabel={COURSES_MANAGEMENT_COPY.descriptionLabel}
+            copy={LESSON_DESCRIPTION_EDITOR_COPY}
+            editor={descriptionEditor}
+            isInvalid={isDescriptionTooLong}
+            placeholder={COURSES_MANAGEMENT_COPY.descriptionPlaceholder}
+          />
+        </div>
+        <small className={styles.TribeCoursesManagement__formHelp}>
+          {descriptionLength}/{COURSE_LESSON_DESCRIPTION.maxLength}
+        </small>
       </label>
       <label className={styles.TribeCoursesManagement__formField}>
         <span>{COURSES_MANAGEMENT_COPY.sortOrderLabel}</span>

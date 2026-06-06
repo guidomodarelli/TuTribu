@@ -4,6 +4,7 @@ import { Settings } from "lucide-react";
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 
 import { Link } from "@/components/navigation/link";
+import { RichTextContent } from "@/components/rich-text/rich-text-content";
 import { ROUTES } from "@/src/constants/routes";
 import type {
   CourseModuleWithLessonsResult,
@@ -164,7 +165,7 @@ export function TribeCoursesView({
                     <p
                       className={styles.TribeCoursesView__lessonDescriptionText}
                     >
-                      {activeLesson.description}
+                      <RichTextContent content={activeLesson.description} />
                     </p>
                   </div>
                 ) : null}

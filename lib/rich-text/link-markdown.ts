@@ -1,0 +1,728 @@
+/**
+ * Pure helpers for the rich-text link layer: URL normalization, markdown
+ * link (de)serialization, plain-text autolink parsing, and editor link
+ * bookkeeping. None of these touch the DOM, so they are unit-testable in
+ * isolation and shared by the renderer, the editor hook, and persistence.
+ */
+
+import {
+  LINK_MARKDOWN_ALLOWED_PROTOCOL,
+  LINK_MARKDOWN_ESCAPE_PATTERN,
+  LINK_MARKDOWN_ESCAPE_VALUE,
+  LINK_MARKDOWN_FORMAT,
+  LINK_MARKDOWN_MATCH_GROUP,
+  LINK_PATTERN,
+  LINK_PROTOCOL_PREFIX,
+  PREVIEW_LINK_KEY_SEPARATOR,
+  RICH_LINK_KIND,
+  RICH_PREVIEW_LINK_SOURCE,
+  RICH_TEXT_EDITOR_TEXT,
+  RICH_TEXT_EDITOR_WORD_DIRECTION,
+  RICH_TEXT_SEGMENT_TYPE,
+  TEXT_DIFF_FALLBACK_INDEX,
+} from "@/lib/rich-text/link-markdown-constants";
+import type {
+  RichLink,
+  RichPreviewSegment,
+  RichTextSegment,
+  RichTextSelectionRange,
+} from "@/lib/rich-text/link-markdown-types";
+
+const EMAIL_LOCAL_PART_SEPARATOR = "@";
+
+/**
+ * Normalizes a raw markdown URL into a safe absolute `http(s)` URL, or `null`
+ * when it is not a usable web link. Bare domains gain an `https://` prefix.
+ */
+export function normalizeMarkdownUrl(
+  rawUrl: string | null | undefined
+): string | null {
+  const trimmedUrl = rawUrl?.trim();
+
+  if (!trimmedUrl) {
+    return null;
+  }
+
+  const candidateUrl = LINK_PATTERN.protocolPrefix.test(trimmedUrl)
+    ? trimmedUrl
+    : LINK_PATTERN.bareDomain.test(trimmedUrl)
+      ? LINK_PROTOCOL_PREFIX.default + trimmedUrl
+      : null;
+
+  if (!candidateUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL(candidateUrl);
+
+    if (
+      url.protocol !== LINK_MARKDOWN_ALLOWED_PROTOCOL.http &&
+      url.protocol !== LINK_MARKDOWN_ALLOWED_PROTOCOL.https
+    ) {
+      return null;
+    }
+
+    return candidateUrl;
+  } catch {
+    return null;
+  }
+}
+
+/** Strips the `http(s)://` prefix from a value for synchronization checks. */
+export function removeLinkProtocolPrefix(value: string): string {
+  return value.trim().replace(LINK_PATTERN.protocolPrefix, "");
+}
+
+/** Whether a link's visible text matches its URL ignoring the protocol. */
+export function isLinkSynchronized(text: string, url: string): boolean {
+  return removeLinkProtocolPrefix(text) === removeLinkProtocolPrefix(url);
+}
+
+/** Returns the protocol prefix of a URL, defaulting to `https://`. */
+export function getLinkProtocolPrefix(url: string): string {
+  const protocolPrefix = url.match(LINK_PATTERN.protocolPrefix)?.[0];
+
+  return protocolPrefix ?? LINK_PROTOCOL_PREFIX.default;
+}
+
+/**
+ * Rebuilds the URL of a synchronized link after its visible text changed, so a
+ * link whose label is the URL keeps tracking the edited text.
+ */
+export function getSynchronizedLinkUrl(
+  text: string,
+  currentUrl: string
+): string | null {
+  const trimmedText = text.trim();
+
+  if (!trimmedText) {
+    return null;
+  }
+
+  return normalizeMarkdownUrl(
+    LINK_PATTERN.protocolPrefix.test(trimmedText)
+      ? trimmedText
+      : getLinkProtocolPrefix(currentUrl) + trimmedText
+  );
+}
+
+/** Whether the value contains only whitespace. */
+export function isWhitespaceOnly(value: string): boolean {
+  return LINK_PATTERN.whitespace.test(value);
+}
+
+/**
+ * Computes the range a word-wise deletion (Ctrl/Alt+Backspace/Delete) should
+ * remove from a collapsed caret, mirroring native word deletion.
+ */
+export function getWordDeletionRange(input: {
+  direction:
+    | typeof RICH_TEXT_EDITOR_WORD_DIRECTION.backward
+    | typeof RICH_TEXT_EDITOR_WORD_DIRECTION.forward;
+  selectionRange: RichTextSelectionRange;
+  text: string;
+}): RichTextSelectionRange {
+  if (input.selectionRange.start !== input.selectionRange.end) {
+    return input.selectionRange;
+  }
+
+  if (input.direction === RICH_TEXT_EDITOR_WORD_DIRECTION.forward) {
+    let end = input.selectionRange.end;
+
+    while (end < input.text.length && isWhitespaceOnly(input.text[end])) {
+      end += 1;
+    }
+
+    while (end < input.text.length && !isWhitespaceOnly(input.text[end])) {
+      end += 1;
+    }
+
+    return {
+      end,
+      start: input.selectionRange.start,
+    };
+  }
+
+  let start = input.selectionRange.start;
+
+  while (start > 0 && isWhitespaceOnly(input.text[start - 1])) {
+    start -= 1;
+  }
+
+  while (start > 0 && !isWhitespaceOnly(input.text[start - 1])) {
+    start -= 1;
+  }
+
+  return {
+    end: input.selectionRange.end,
+    start,
+  };
+}
+
+/** Builds a `[text](url)` markdown link, escaping the label. */
+export function buildMarkdownLinkFromSelection(
+  text: string,
+  url: string
+): string {
+  return (
+    LINK_MARKDOWN_FORMAT.openLabel +
+    escapeMarkdownLinkText(text) +
+    LINK_MARKDOWN_FORMAT.openUrl +
+    url +
+    LINK_MARKDOWN_FORMAT.closeUrl
+  );
+}
+
+/** Escapes characters that would break a markdown link label. */
+export function escapeMarkdownLinkText(text: string): string {
+  return text
+    .replace(
+      LINK_MARKDOWN_ESCAPE_PATTERN.backslash,
+      LINK_MARKDOWN_ESCAPE_VALUE.escapedBackslash
+    )
+    .replace(
+      LINK_MARKDOWN_ESCAPE_PATTERN.lineBreak,
+      LINK_MARKDOWN_ESCAPE_VALUE.escapedLineBreak
+    )
+    .replace(
+      LINK_MARKDOWN_ESCAPE_PATTERN.openLabel,
+      LINK_MARKDOWN_ESCAPE_VALUE.escapedOpenLabel
+    )
+    .replace(
+      LINK_MARKDOWN_ESCAPE_PATTERN.closeLabel,
+      LINK_MARKDOWN_ESCAPE_VALUE.escapedCloseLabel
+    );
+}
+
+/** Reverses `escapeMarkdownLinkText`, restoring line breaks and literals. */
+export function unescapeMarkdownLinkText(text: string): string {
+  let unescapedText = "";
+
+  for (let index = 0; index < text.length; index += 1) {
+    const currentCharacter = text[index];
+    const nextCharacter = text[index + 1];
+
+    if (
+      currentCharacter === LINK_MARKDOWN_ESCAPE_VALUE.backslash &&
+      nextCharacter
+    ) {
+      unescapedText +=
+        nextCharacter === LINK_MARKDOWN_ESCAPE_VALUE.lineBreakToken
+          ? RICH_TEXT_EDITOR_TEXT.lineBreak
+          : nextCharacter;
+      index += 1;
+    } else {
+      unescapedText += currentCharacter;
+    }
+  }
+
+  return unescapedText;
+}
+
+/** Builds a stable React key for a preview link segment. */
+export function buildPreviewLinkKey(segment: {
+  id?: string;
+  source:
+    | typeof RICH_PREVIEW_LINK_SOURCE.automatic
+    | typeof RICH_PREVIEW_LINK_SOURCE.explicit;
+  start: number;
+  url: string;
+}): string {
+  return [segment.source, segment.id ?? String(segment.start), segment.url].join(
+    PREVIEW_LINK_KEY_SEPARATOR.value
+  );
+}
+
+/** Creates a plain-text rendered segment. */
+export function createTextSegment(text: string): RichTextSegment {
+  return {
+    text,
+    type: RICH_TEXT_SEGMENT_TYPE.text,
+  };
+}
+
+/** Creates a link rendered segment. */
+export function createLinkSegment(text: string, url: string): RichTextSegment {
+  return {
+    text,
+    type: RICH_TEXT_SEGMENT_TYPE.link,
+    url,
+  };
+}
+
+/** Creates a plain-text editor preview segment. */
+export function createTextPreviewSegment(text: string): RichPreviewSegment {
+  return {
+    text,
+    type: RICH_TEXT_SEGMENT_TYPE.text,
+  };
+}
+
+/** Creates a link editor preview segment with a stable key. */
+export function createLinkPreviewSegment(input: {
+  end: number;
+  id?: string;
+  source:
+    | typeof RICH_PREVIEW_LINK_SOURCE.automatic
+    | typeof RICH_PREVIEW_LINK_SOURCE.explicit;
+  start: number;
+  text: string;
+  url: string;
+}): RichPreviewSegment {
+  return {
+    ...input,
+    key: buildPreviewLinkKey(input),
+    type: RICH_TEXT_SEGMENT_TYPE.link,
+  };
+}
+
+/** Splits a matched bare URL from any trailing sentence punctuation. */
+export function splitBareUrlMatch(matchedUrl: string): {
+  trailingText: string;
+  urlText: string;
+} {
+  const urlText = matchedUrl.replace(LINK_PATTERN.trailingPunctuation, "");
+
+  return {
+    trailingText: matchedUrl.slice(urlText.length),
+    urlText,
+  };
+}
+
+/** Whether two `[start, end)` ranges overlap. */
+export function rangesOverlap(
+  firstRange: { end: number; start: number },
+  secondRange: { end: number; start: number }
+): boolean {
+  return firstRange.start < secondRange.end && secondRange.start < firstRange.end;
+}
+
+/** Whether a matched bare URL is actually part of an email address. */
+export function isBareUrlMatchInsideEmail(input: {
+  content: string;
+  matchedIndex: number;
+  matchedUrl: string;
+}): boolean {
+  if (LINK_PATTERN.protocolPrefix.test(input.matchedUrl)) {
+    return false;
+  }
+
+  return (
+    input.matchedUrl.includes(EMAIL_LOCAL_PART_SEPARATOR) ||
+    (input.matchedIndex > 0 &&
+      input.content[input.matchedIndex - 1] === EMAIL_LOCAL_PART_SEPARATOR)
+  );
+}
+
+/** Parses plain text into rendered segments, auto-linking bare URLs. */
+export function parseBareUrlSegments(content: string): RichTextSegment[] {
+  const segments: RichTextSegment[] = [];
+  let currentIndex = 0;
+
+  for (const match of content.matchAll(LINK_PATTERN.bareUrl)) {
+    const matchedUrl = match[0];
+    const { trailingText, urlText } = splitBareUrlMatch(matchedUrl);
+    const matchedIndex = match.index ?? 0;
+    const isEmailDomain = isBareUrlMatchInsideEmail({
+      content,
+      matchedIndex,
+      matchedUrl,
+    });
+    const safeUrl = normalizeMarkdownUrl(urlText);
+
+    if (matchedIndex > currentIndex) {
+      segments.push(createTextSegment(content.slice(currentIndex, matchedIndex)));
+    }
+
+    segments.push(
+      safeUrl && !isEmailDomain
+        ? createLinkSegment(urlText, safeUrl)
+        : createTextSegment(urlText)
+    );
+    if (trailingText) {
+      segments.push(createTextSegment(trailingText));
+    }
+    currentIndex = matchedIndex + matchedUrl.length;
+  }
+
+  if (currentIndex < content.length) {
+    segments.push(createTextSegment(content.slice(currentIndex)));
+  }
+
+  return segments;
+}
+
+/** Parses plain text into editor preview segments, auto-linking bare URLs. */
+export function parseBareUrlPreviewSegments(
+  content: string,
+  offset: number,
+  suppressedLinks: RichLink[]
+): RichPreviewSegment[] {
+  const segments: RichPreviewSegment[] = [];
+  let currentIndex = 0;
+
+  for (const match of content.matchAll(LINK_PATTERN.bareUrl)) {
+    const matchedUrl = match[0];
+    const { trailingText, urlText } = splitBareUrlMatch(matchedUrl);
+    const matchedIndex = match.index ?? 0;
+    const absoluteStart = offset + matchedIndex;
+    const absoluteEnd = absoluteStart + urlText.length;
+    const isEmailDomain = isBareUrlMatchInsideEmail({
+      content,
+      matchedIndex,
+      matchedUrl,
+    });
+    const safeUrl = normalizeMarkdownUrl(urlText);
+    const isSuppressed = suppressedLinks.some((suppressedLink) =>
+      rangesOverlap(suppressedLink, {
+        end: absoluteEnd,
+        start: absoluteStart,
+      })
+    );
+
+    if (matchedIndex > currentIndex) {
+      segments.push(
+        createTextPreviewSegment(content.slice(currentIndex, matchedIndex))
+      );
+    }
+
+    segments.push(
+      safeUrl && !isEmailDomain && !isSuppressed
+        ? createLinkPreviewSegment({
+            end: absoluteEnd,
+            source: RICH_PREVIEW_LINK_SOURCE.automatic,
+            start: absoluteStart,
+            text: urlText,
+            url: safeUrl,
+          })
+        : createTextPreviewSegment(urlText)
+    );
+    if (trailingText) {
+      segments.push(createTextPreviewSegment(trailingText));
+    }
+    currentIndex = matchedIndex + matchedUrl.length;
+  }
+
+  if (currentIndex < content.length) {
+    segments.push(createTextPreviewSegment(content.slice(currentIndex)));
+  }
+
+  return segments;
+}
+
+/**
+ * Parses the editor's plain-text content plus its tracked links into preview
+ * segments, layering explicit links over auto-detected bare URLs.
+ */
+export function parsePreviewSegments(
+  content: string,
+  links: RichLink[]
+): RichPreviewSegment[] {
+  const segments: RichPreviewSegment[] = [];
+  const visibleLinks = links
+    .filter((link) => link.end > link.start)
+    .sort((firstLink, secondLink) => firstLink.start - secondLink.start);
+  const suppressedLinks = visibleLinks.filter(
+    (link) => link.kind === RICH_LINK_KIND.suppressed
+  );
+  let currentIndex = 0;
+
+  visibleLinks.forEach((link) => {
+    if (link.start < currentIndex) {
+      return;
+    }
+
+    if (link.start > currentIndex) {
+      segments.push(
+        ...parseBareUrlPreviewSegments(
+          content.slice(currentIndex, link.start),
+          currentIndex,
+          suppressedLinks
+        )
+      );
+    }
+
+    const text = content.slice(link.start, link.end);
+
+    segments.push(
+      link.kind === RICH_LINK_KIND.explicit
+        ? createLinkPreviewSegment({
+            end: link.end,
+            id: link.id,
+            source: RICH_PREVIEW_LINK_SOURCE.explicit,
+            start: link.start,
+            text,
+            url: link.url,
+          })
+        : createTextPreviewSegment(text)
+    );
+    currentIndex = link.end;
+  });
+
+  if (currentIndex < content.length) {
+    segments.push(
+      ...parseBareUrlPreviewSegments(
+        content.slice(currentIndex),
+        currentIndex,
+        suppressedLinks
+      )
+    );
+  }
+
+  return segments;
+}
+
+/**
+ * Parses persisted content (markdown links plus bare URLs) into rendered
+ * segments for read-only display.
+ */
+export function parseRichTextSegments(content: string): RichTextSegment[] {
+  const segments: RichTextSegment[] = [];
+  let currentIndex = 0;
+
+  for (const match of content.matchAll(LINK_PATTERN.markdown)) {
+    const matchedMarkdown = match[0];
+    const linkText = unescapeMarkdownLinkText(
+      match[LINK_MARKDOWN_MATCH_GROUP.text] ?? ""
+    );
+    const linkUrl = match[LINK_MARKDOWN_MATCH_GROUP.url] ?? "";
+    const matchedIndex = match.index ?? 0;
+    const safeUrl = normalizeMarkdownUrl(linkUrl);
+
+    if (matchedIndex > currentIndex) {
+      segments.push(
+        ...parseBareUrlSegments(content.slice(currentIndex, matchedIndex))
+      );
+    }
+
+    segments.push(
+      safeUrl
+        ? createLinkSegment(linkText, safeUrl)
+        : createTextSegment(linkText)
+    );
+    currentIndex = matchedIndex + matchedMarkdown.length;
+  }
+
+  if (currentIndex < content.length) {
+    segments.push(...parseBareUrlSegments(content.slice(currentIndex)));
+  }
+
+  return segments;
+}
+
+/**
+ * Converts persisted markdown into the editor's plain-text content plus the
+ * tracked links (explicit and suppressed) needed to re-render it for editing.
+ */
+export function deserializeMarkdownForEditor(content: string): {
+  content: string;
+  links: RichLink[];
+} {
+  const links: RichLink[] = [];
+  let displayContent = "";
+  let currentIndex = 0;
+
+  for (const match of content.matchAll(LINK_PATTERN.markdown)) {
+    const matchedMarkdown = match[0];
+    const linkText = unescapeMarkdownLinkText(
+      match[LINK_MARKDOWN_MATCH_GROUP.text] ?? ""
+    );
+    const linkUrl = match[LINK_MARKDOWN_MATCH_GROUP.url] ?? "";
+    const matchedIndex = match.index ?? 0;
+    const safeUrl = normalizeMarkdownUrl(linkUrl);
+
+    displayContent += content.slice(currentIndex, matchedIndex);
+
+    const linkStart = displayContent.length;
+    displayContent += linkText;
+
+    if (safeUrl) {
+      links.push({
+        end: displayContent.length,
+        id: crypto.randomUUID(),
+        isSynced: isLinkSynchronized(linkText, safeUrl),
+        kind: RICH_LINK_KIND.explicit,
+        start: linkStart,
+        url: safeUrl,
+      });
+    } else if (
+      linkUrl === LINK_MARKDOWN_FORMAT.suppressedUrl &&
+      normalizeMarkdownUrl(linkText)
+    ) {
+      links.push({
+        end: displayContent.length,
+        id: crypto.randomUUID(),
+        kind: RICH_LINK_KIND.suppressed,
+        start: linkStart,
+      });
+    }
+
+    currentIndex = matchedIndex + matchedMarkdown.length;
+  }
+
+  displayContent += content.slice(currentIndex);
+
+  return {
+    content: displayContent,
+    links,
+  };
+}
+
+/**
+ * Serializes the editor's plain-text content plus tracked links back into
+ * persisted markdown, emitting `[text](url)` for explicit links and
+ * `[text](#)` for suppressed auto-detected URLs.
+ */
+export function serializeEditorContent(
+  content: string,
+  links: RichLink[]
+): string {
+  const persistedLinks = links
+    .filter((link) => link.end > link.start)
+    .sort((firstLink, secondLink) => firstLink.start - secondLink.start);
+  let serializedContent = "";
+  let currentIndex = 0;
+
+  persistedLinks.forEach((link) => {
+    if (link.start < currentIndex) {
+      return;
+    }
+
+    serializedContent += content.slice(currentIndex, link.start);
+    serializedContent += buildMarkdownLinkFromSelection(
+      content.slice(link.start, link.end),
+      link.kind === RICH_LINK_KIND.explicit
+        ? link.url
+        : LINK_MARKDOWN_FORMAT.suppressedUrl
+    );
+    currentIndex = link.end;
+  });
+
+  return serializedContent + content.slice(currentIndex);
+}
+
+/**
+ * Computes the minimal changed range between two strings: the common prefix
+ * end (`start`), the changed-region ends in each string, and the length delta.
+ */
+export function getTextDiff(input: { nextText: string; previousText: string }): {
+  delta: number;
+  endInNextText: number;
+  endInPreviousText: number;
+  start: number;
+} {
+  const minLength = Math.min(input.previousText.length, input.nextText.length);
+  let start = 0;
+
+  while (
+    start < minLength &&
+    input.previousText[start] === input.nextText[start]
+  ) {
+    start += 1;
+  }
+
+  if (
+    start === minLength &&
+    input.previousText.length === input.nextText.length
+  ) {
+    return {
+      delta: 0,
+      endInNextText: start,
+      endInPreviousText: start,
+      start: TEXT_DIFF_FALLBACK_INDEX.notFound,
+    };
+  }
+
+  let previousEnd = input.previousText.length;
+  let nextEnd = input.nextText.length;
+
+  while (
+    previousEnd > start &&
+    nextEnd > start &&
+    input.previousText[previousEnd - 1] === input.nextText[nextEnd - 1]
+  ) {
+    previousEnd -= 1;
+    nextEnd -= 1;
+  }
+
+  return {
+    delta: nextEnd - previousEnd,
+    endInNextText: nextEnd,
+    endInPreviousText: previousEnd,
+    start,
+  };
+}
+
+/**
+ * Adjusts tracked link ranges after the editor's plain text changed, shifting,
+ * shrinking, or dropping links and keeping synchronized links in step with
+ * their visible text.
+ */
+export function getLinksAfterTextChange(input: {
+  links: RichLink[];
+  nextText: string;
+  previousText: string;
+}): RichLink[] {
+  const diff = getTextDiff({
+    nextText: input.nextText,
+    previousText: input.previousText,
+  });
+
+  if (diff.start === TEXT_DIFF_FALLBACK_INDEX.notFound) {
+    return input.links;
+  }
+
+  const insertedText = input.nextText.slice(diff.start, diff.endInNextText);
+  const deletedText = input.previousText.slice(
+    diff.start,
+    diff.endInPreviousText
+  );
+
+  return input.links
+    .map((link) => {
+      if (diff.endInPreviousText <= link.start) {
+        return {
+          ...link,
+          end: link.end + diff.delta,
+          start: link.start + diff.delta,
+        };
+      }
+
+      if (diff.start > link.end) {
+        return link;
+      }
+
+      if (diff.start === link.end && isWhitespaceOnly(insertedText)) {
+        return link;
+      }
+
+      if (diff.start === link.end && isWhitespaceOnly(deletedText)) {
+        return link;
+      }
+
+      return {
+        ...link,
+        end: Math.max(link.start, link.end + diff.delta),
+      };
+    })
+    .filter((link) => link.end > link.start)
+    .map((link) => {
+      if (link.kind !== RICH_LINK_KIND.explicit) {
+        return link;
+      }
+
+      const linkText = input.nextText.slice(link.start, link.end);
+      const isSynced =
+        link.isSynced || isLinkSynchronized(linkText, link.url);
+      const syncedUrl = isSynced
+        ? getSynchronizedLinkUrl(linkText, link.url)
+        : null;
+
+      return {
+        ...link,
+        isSynced: Boolean(syncedUrl),
+        url: syncedUrl ?? link.url,
+      };
+    });
+}

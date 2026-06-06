@@ -509,6 +509,66 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     ]);
   });
 
+  it("preserves markdown links in the lesson description when saving an edit", async () => {
+    const modulesWithLinkDescription: CourseModuleWithLessonsResult[] = [
+      {
+        ...seedModules[0],
+        lessons: [
+          {
+            ...seedModules[0].lessons[0],
+            description: "Mirá [el curso](https://tutribu.com)",
+          },
+        ],
+      },
+    ];
+    const pending = createDeferredResponse();
+    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        initialModules={modulesWithLinkDescription}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const lessonActions = screen.getByRole("group", {
+      name: "Acciones de la lección Lección intro",
+    });
+    await user.click(
+      within(lessonActions).getByRole("button", { name: "Editar" })
+    );
+
+    // The editor deserializes the stored markdown into an interactive link.
+    expect(screen.getByRole("link", { name: "el curso" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(global.fetch).toHaveBeenCalled();
+    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const requestBody = JSON.parse((requestInit as { body: string }).body);
+    expect(requestBody.description).toBe("Mirá [el curso](https://tutribu.com)");
+
+    await act(async () => {
+      pending.resolveWith(
+        buildJsonResponse(200, {
+          lesson: {
+            courseModuleId: "module-empezar-aca",
+            description: "Mirá [el curso](https://tutribu.com)",
+            externalVideoId: "111",
+            id: "lesson-intro",
+            isActive: true,
+            sortOrder: 0,
+            title: "Lección intro",
+            videoProvider: VIDEO_PROVIDER.vimeo,
+          },
+          message: "Lección actualizada.",
+        })
+      );
+      await pending.promise;
+    });
+  });
+
   it("removes a lesson optimistically and restores it on failure", async () => {
     const pending = createDeferredResponse();
     (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);

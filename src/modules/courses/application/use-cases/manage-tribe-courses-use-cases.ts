@@ -16,7 +16,10 @@ import type {
   LessonDeletionResult,
   LessonUpdateResult,
 } from "@/src/modules/courses/application/results/course-results";
-import { COURSE_MUTATION_STATUS } from "@/src/modules/courses/constants/courses";
+import {
+  COURSE_LESSON_DESCRIPTION,
+  COURSE_MUTATION_STATUS,
+} from "@/src/modules/courses/constants/courses";
 import type { CourseRepository } from "@/src/modules/courses/domain/repositories/course-repository";
 import {
   InvalidVideoUrlError,
@@ -47,6 +50,10 @@ function isValidModuleTitle(title: string): boolean {
 
 function isValidLessonTitle(title: string): boolean {
   return title.length > 0 && title.length <= COURSE_LESSON_TITLE_MAX_LENGTH;
+}
+
+function isValidLessonDescription(description: string): boolean {
+  return normalizeText(description).length <= COURSE_LESSON_DESCRIPTION.maxLength;
 }
 
 const PARSED_VIDEO_KIND = {
@@ -153,6 +160,10 @@ export function createLesson({
       return { status: COURSE_MUTATION_STATUS.invalidInput };
     }
 
+    if (!isValidLessonDescription(command.description)) {
+      return { status: COURSE_MUTATION_STATUS.invalidInput };
+    }
+
     const parsedVideo = safeParseVideo(command.externalVideoUrl);
     if (parsedVideo.kind !== PARSED_VIDEO_KIND.ok) {
       return { status: COURSE_MUTATION_STATUS.invalidVideoUrl };
@@ -177,6 +188,10 @@ export function updateLesson({
     const title = normalizeText(command.title);
 
     if (!isValidLessonTitle(title)) {
+      return { status: COURSE_MUTATION_STATUS.invalidInput };
+    }
+
+    if (!isValidLessonDescription(command.description)) {
       return { status: COURSE_MUTATION_STATUS.invalidInput };
     }
 

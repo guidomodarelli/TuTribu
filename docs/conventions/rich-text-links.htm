@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rich Text Links</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Rich Text Links</div>
+  <div class="doc-sub">Capa compartida para texto con links: autodetección de URLs, links markdown <code>[texto](url)</code> y un editor enriquecido reutilizable.</div>
+  <div class="doc-meta"><span>Scope: UI / Rich Text</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+<p>La lógica de links de texto vive en una única capa compartida y se consume desde cualquier feature que necesite mostrar o editar contenido con enlaces. Hoy la usan el composer de mensajes (<code>components/tribe-round</code>) y la descripción de las lecciones de cursos.</p>
+<p>El contenido se persiste como <strong>markdown crudo</strong>: links explícitos como <code>[texto](url)</code> y URLs sueltas como texto plano. Las URLs sueltas se convierten en enlaces clickeables solo al renderizar, no al guardar.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Piezas</div>
+<table>
+  <thead><tr><th>Pieza</th><th>Ubicación</th><th>Responsabilidad</th></tr></thead>
+  <tbody>
+    <tr><td>Funciones puras + constantes + tipos</td><td><code>lib/rich-text/link-markdown*.ts</code></td><td>Parseo, normalización y (de)serialización de markdown de links. Sin DOM, sin reglas de negocio.</td></tr>
+    <tr><td>Helpers de DOM</td><td><code>lib/rich-text/rich-text-editor-dom.ts</code></td><td>Traducen offsets de texto a la API de <code>Selection</code>/<code>Range</code>. Separados para testear las puras sin DOM.</td></tr>
+    <tr><td>Renderer</td><td><code>components/rich-text/rich-text-content</code></td><td>Renderiza contenido persistido como texto + <code>&lt;a target="_blank" rel="noreferrer"&gt;</code>.</td></tr>
+    <tr><td>Editor</td><td><code>components/rich-text/rich-link-editor</code></td><td>Editor <code>contentEditable</code> con popover para crear/editar/remover links. Estado en <code>useRichLinkEditor</code>; presentación en <code>RichLinkEditor</code>.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Rules</div>
+<ul>
+  <li>No dupliques la lógica de links: reutilizá <code>lib/rich-text</code>, <code>RichTextContent</code> y <code>RichLinkEditor</code> en lugar de reimplementar parseo o el editor.</li>
+  <li>Para mostrar contenido con links usá <code>RichTextContent</code>; pasá <code>onLinkClick</code> solo si necesitás interceptar el click (por ejemplo, frenar la propagación).</li>
+  <li>Para editar, creá el controller con <code>useRichLinkEditor</code> en el contenedor de la feature y pasáselo a <code>RichLinkEditor</code>. El controller expone <code>serialize()</code>, <code>reset(markdown?)</code>, <code>getDisplayState()</code> y <code>loadFromDisplay()</code>.</li>
+  <li>El copy del popover (Editar, Remover, Guardar, Cancelar, etc.) lo inyecta cada feature vía la prop <code>copy</code>, en español.</li>
+  <li>Cada feature define su propio límite de longitud como constante de módulo y lo valida en su use case. Mensajes: <code>TRIBE_MESSAGE_CONTENT.maxLength</code> (2000). Descripción de lección: <code>COURSE_LESSON_DESCRIPTION.maxLength</code> (2000).</li>
+</ul>
+<div class="callout c-info"><code>RichTextContent</code> renderiza un fragmento inline (sin wrapper) a propósito, para componer dentro de cualquier contenedor sin romper comportamientos sensibles al layout como <code>-webkit-line-clamp</code> en un ancestro.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Markdown soportado</div>
+<ul>
+  <li><strong>Link explícito:</strong> <code>[texto](https://...)</code> renderiza un enlace con texto personalizado.</li>
+  <li><strong>Autodetección:</strong> URLs sueltas (<code>https://...</code>, <code>www....</code>, dominios) se vuelven enlaces al renderizar. No se tocan las direcciones de email.</li>
+  <li><strong>Autolink suprimido:</strong> <code>[url](#)</code> marca una URL detectada que el autor decidió dejar como texto plano.</li>
+  <li>Solo se aceptan protocolos <code>http</code>/<code>https</code>; cualquier otra cosa cae a texto plano.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Usage</div>
+<div class="code-block"><pre>// Mostrar contenido persistido con links.
+import { RichTextContent } from &quot;@/components/rich-text/rich-text-content&quot;;
+
+&lt;RichTextContent content={lesson.description} /&gt;
+
+// Editar contenido con el editor enriquecido.
+import { RichLinkEditor } from &quot;@/components/rich-text/rich-link-editor&quot;;
+import { useRichLinkEditor } from &quot;@/components/rich-text/rich-link-editor/use-rich-link-editor&quot;;
+
+const editor = useRichLinkEditor({ initialMarkdown: lesson.description });
+
+&lt;RichLinkEditor
+  ariaLabel=&quot;Descripción&quot;
+  copy={DESCRIPTION_EDITOR_COPY}
+  editor={editor}
+  placeholder=&quot;Texto opcional debajo del video&quot;
+/&gt;
+
+// Al guardar: editor.serialize() devuelve el markdown a persistir.</pre></div>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Notes</div>
+<ul>
+  <li>La descripción de la lección se persiste como markdown crudo en la columna <code>course_lessons.description</code> (tipo <code>text</code>): el cambio de texto plano a markdown no requirió migración.</li>
+  <li>Las puras tienen tests en <code>tests/unit/lib/rich-text</code>; el renderer y el editor, en <code>tests/unit/components/rich-text</code>.</li>
+  <li>El editor controla el <code>contentEditable</code> a mano (no se actualiza su HTML vía React, solo se lee) y reaplica la selección con un <code>useLayoutEffect</code>; por eso el estado y los handlers viven en el hook y no en el componente de presentación.</li>
+</ul>
+</div>
+</body>
+</html>
