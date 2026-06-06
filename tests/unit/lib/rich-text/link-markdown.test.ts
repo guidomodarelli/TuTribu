@@ -37,6 +37,36 @@ describe("normalizeMarkdownUrl", () => {
     expect(normalizeMarkdownUrl("   ")).toBeNull();
     expect(normalizeMarkdownUrl(null)).toBeNull();
   });
+
+  it("percent-encodes whitespace so the URL round-trips through markdown", () => {
+    expect(normalizeMarkdownUrl("https://example.com/a b")).toBe(
+      "https://example.com/a%20b"
+    );
+  });
+
+  it("rejects a bare domain whose path contains whitespace", () => {
+    expect(normalizeMarkdownUrl("example.com/a b")).toBeNull();
+  });
+
+  it("leaves an already encoded URL untouched", () => {
+    expect(normalizeMarkdownUrl("https://example.com/a%20b")).toBe(
+      "https://example.com/a%20b"
+    );
+  });
+
+  it("returns a URL the renderer can read back as a link", () => {
+    const normalizedUrl = normalizeMarkdownUrl("https://example.com/a b");
+    const markdown = `[texto](${normalizedUrl})`;
+    const segments = parseRichTextSegments(markdown);
+
+    expect(segments).toEqual([
+      {
+        text: "texto",
+        type: RICH_TEXT_SEGMENT_TYPE.link,
+        url: "https://example.com/a%20b",
+      },
+    ]);
+  });
 });
 
 describe("parseRichTextSegments", () => {

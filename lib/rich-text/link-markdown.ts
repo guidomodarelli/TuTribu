@@ -33,6 +33,13 @@ const EMAIL_LOCAL_PART_SEPARATOR = "@";
 /**
  * Normalizes a raw markdown URL into a safe absolute `http(s)` URL, or `null`
  * when it is not a usable web link. Bare domains gain an `https://` prefix.
+ *
+ * A candidate that contains whitespace is returned as its parsed `href`, which
+ * percent-encodes those characters. The renderer's `LINK_PATTERN.markdown` URL
+ * group forbids whitespace, so persisting the raw candidate would serialize a
+ * `[text](url with space)` link that cannot be read back and renders as broken
+ * markdown. Whitespace-free candidates are returned verbatim to preserve their
+ * exact form (no trailing slash, stable synchronization checks).
  */
 export function normalizeMarkdownUrl(
   rawUrl: string | null | undefined
@@ -63,7 +70,9 @@ export function normalizeMarkdownUrl(
       return null;
     }
 
-    return candidateUrl;
+    return LINK_PATTERN.containsWhitespace.test(candidateUrl)
+      ? url.href
+      : candidateUrl;
   } catch {
     return null;
   }
