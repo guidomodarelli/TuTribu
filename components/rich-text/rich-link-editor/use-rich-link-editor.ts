@@ -349,12 +349,12 @@ export function useRichLinkEditor(
     setPopoverMode(RICH_LINK_POPOVER_MODE.actions);
   };
 
-  const closeLinkPopover = () => {
+  const closeLinkPopover = useCallback(() => {
     setActiveLink(null);
     setLinkTextInput(EMPTY_TEXT);
     setLinkUrlInput(EMPTY_TEXT);
     setPopoverMode(RICH_LINK_POPOVER_MODE.actions);
-  };
+  }, []);
 
   const removeLink = (segment: ActiveRichPreviewLink) => {
     const shouldSuppressVisibleUrl = Boolean(normalizeMarkdownUrl(segment.text));

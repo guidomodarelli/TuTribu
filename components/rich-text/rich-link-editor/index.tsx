@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -78,6 +80,15 @@ export function RichLinkEditor({
     ? `${styles.RichLinkEditor__editor} ${styles["RichLinkEditor__editor--invalid"]}`
     : styles.RichLinkEditor__editor;
 
+  // Dismiss any open link popover the moment the editor locks, so a pending
+  // submit/edit request can never leave editable controls active over a draft
+  // the user can no longer change.
+  useEffect(() => {
+    if (isDisabled) {
+      closeLinkPopover();
+    }
+  }, [closeLinkPopover, isDisabled]);
+
   return (
     <div
       aria-describedby={ariaDescribedBy}
@@ -99,6 +110,22 @@ export function RichLinkEditor({
       {hasContent
         ? segments.map((segment) =>
             segment.type === RICH_TEXT_SEGMENT_TYPE.link ? (
+              isDisabled ? (
+                <a
+                  aria-disabled
+                  className={styles.RichLinkEditor__editorLink}
+                  href={segment.url}
+                  key={segment.key}
+                  onClick={(event) => {
+                    event.preventDefault();
+                  }}
+                  rel={LINK_REL}
+                  tabIndex={-1}
+                  target={LINK_TARGET}
+                >
+                  {segment.text}
+                </a>
+              ) : (
               <Popover
                 key={segment.key}
                 onOpenChange={(isOpen) => {
@@ -206,6 +233,7 @@ export function RichLinkEditor({
                   )}
                 </PopoverContent>
               </Popover>
+              )
             ) : (
               segment.text
             )

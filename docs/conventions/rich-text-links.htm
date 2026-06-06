@@ -116,6 +116,7 @@ const editor = useRichLinkEditor({ initialMarkdown: lesson.description });
   <li>La descripción de la lección se persiste como markdown crudo en la columna <code>course_lessons.description</code> (tipo <code>text</code>): el cambio de texto plano a markdown no requirió migración.</li>
   <li>Las puras tienen tests en <code>tests/unit/lib/rich-text</code>; el renderer y el editor, en <code>tests/unit/components/rich-text</code>.</li>
   <li>El editor controla el <code>contentEditable</code> a mano (no se actualiza su HTML vía React, solo se lee) y reaplica la selección con un <code>useLayoutEffect</code>; por eso el estado y los handlers viven en el hook y no en el componente de presentación.</li>
+  <li>Con <code>isDisabled</code> (por ejemplo durante un envío o edición pendiente) el editor queda bloqueado por completo: además de quitar <code>contentEditable</code>, los links se renderizan como anclas inertes que no abren el popover ni exponen editar/remover, y cualquier popover abierto se cierra al bloquearse. Así un click en un link no puede mutar el borrador mientras el resto del composer está bloqueado.</li>
 </ul>
 </div>
 </body>

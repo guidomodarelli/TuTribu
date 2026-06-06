@@ -17,7 +17,13 @@ const COPY = {
 const SERIALIZE_BUTTON_LABEL = "serializar";
 const SERIALIZED_TEST_ID = "serialized";
 
-function EditorHarness({ initialMarkdown }: { initialMarkdown?: string }) {
+function EditorHarness({
+  initialMarkdown,
+  isDisabled,
+}: {
+  initialMarkdown?: string;
+  isDisabled?: boolean;
+}) {
   const editor = useRichLinkEditor({ initialMarkdown });
   const [serialized, setSerialized] = useState<string | null>(null);
 
@@ -27,6 +33,7 @@ function EditorHarness({ initialMarkdown }: { initialMarkdown?: string }) {
         ariaLabel="Editor de prueba"
         copy={COPY}
         editor={editor}
+        isDisabled={isDisabled}
         placeholder="Escribí algo"
       />
       <button
@@ -114,5 +121,47 @@ describe("RichLinkEditor", () => {
     fireEvent.input(editor);
 
     expect(await serialize(user)).toBe("holX");
+  });
+
+  it("keeps showing the link but does not open its popover while disabled", async () => {
+    const user = userEvent.setup();
+    render(
+      <EditorHarness
+        initialMarkdown="[el curso](https://tutribu.com)"
+        isDisabled
+      />
+    );
+
+    await user.click(screen.getByRole("link", { name: "el curso" }));
+
+    expect(
+      screen.queryByRole("button", { name: COPY.editAction })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: COPY.removeAction })
+    ).not.toBeInTheDocument();
+  });
+
+  it("closes an open link popover when the editor becomes disabled", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <EditorHarness initialMarkdown="[el curso](https://tutribu.com)" />
+    );
+
+    await user.click(screen.getByRole("link", { name: "el curso" }));
+    expect(
+      screen.getByRole("button", { name: COPY.editAction })
+    ).toBeInTheDocument();
+
+    rerender(
+      <EditorHarness initialMarkdown="[el curso](https://tutribu.com)" isDisabled />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: COPY.editAction })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: COPY.removeAction })
+    ).not.toBeInTheDocument();
   });
 });
