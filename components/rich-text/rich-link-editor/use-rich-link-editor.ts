@@ -102,7 +102,6 @@ export function useRichLinkEditor(
     editorRef.current = node;
   }, []);
   const pendingSelectionRef = useRef<RichTextSelectionRange | null>(null);
-  const shouldIgnoreNextInputRef = useRef(false);
 
   const [content, setContent] = useState(
     () => deserializeMarkdownForEditor(options.initialMarkdown ?? EMPTY_TEXT).content
@@ -275,7 +274,6 @@ export function useRichLinkEditor(
     }
 
     event.preventDefault();
-    shouldIgnoreNextInputRef.current = true;
     replaceContentText(replacementText, replacementRange);
   };
 
@@ -331,17 +329,10 @@ export function useRichLinkEditor(
     }
 
     event.preventDefault();
-    shouldIgnoreNextInputRef.current = true;
     replaceContentText(replacementText, replacementRange);
   };
 
   const handleInput = (event: FormEvent<HTMLDivElement>) => {
-    if (shouldIgnoreNextInputRef.current) {
-      shouldIgnoreNextInputRef.current = false;
-
-      return;
-    }
-
     const selectionRange = getEditorSelectionRange(event.currentTarget);
 
     if (selectionRange) {
