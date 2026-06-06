@@ -723,7 +723,15 @@ export function getLinksAfterTextChange(input: {
         return link;
       }
 
-      if (diff.start === link.end && isWhitespaceOnly(deletedText)) {
+      // A change that begins exactly at the link's exclusive end boundary and
+      // removes text only deletes characters past the link, so the link's own
+      // text is untouched and must stay intact. This holds regardless of
+      // whether the removed text was whitespace; gating it on whitespace would
+      // wrongly shrink the link when a non-whitespace character right after it
+      // (for example deleting "X" from "abcX" where only "abc" is linked) is
+      // removed. Pure insertions still fall through so non-whitespace typed
+      // against the boundary can extend the link.
+      if (diff.start === link.end && deletedText.length > 0) {
         return link;
       }
 

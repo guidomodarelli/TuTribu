@@ -334,6 +334,30 @@ describe("getLinksAfterTextChange", () => {
 
     expect(nextText.slice(adjustedLink.start, adjustedLink.end)).toBe("tribu");
   });
+
+  it("keeps the link intact when a non-whitespace character right after it is deleted", () => {
+    // "abc" is linked at [0, 3) of "abcX". Deleting "X" removes a character that
+    // starts exactly at the link's exclusive end, so it is outside the link and
+    // must not shrink it to "ab".
+    const trackedLink: RichLink = {
+      end: 3,
+      id: "link-1",
+      isSynced: false,
+      kind: RICH_LINK_KIND.explicit,
+      start: 0,
+      url: "https://tutribu.com",
+    };
+    const nextText = "abc";
+
+    const [adjustedLink] = getLinksAfterTextChange({
+      links: [trackedLink],
+      nextText,
+      previousText: "abcX",
+    });
+
+    expect(adjustedLink).toMatchObject({ end: 3, start: 0 });
+    expect(nextText.slice(adjustedLink.start, adjustedLink.end)).toBe("abc");
+  });
 });
 
 describe("getWordDeletionRange", () => {
