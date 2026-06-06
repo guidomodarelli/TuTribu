@@ -69,11 +69,18 @@ export const RICH_LINK_POPOVER_MODE = {
   edit: "edit",
 } as const;
 
-/** Regular expressions used to detect links in plain text. */
+/**
+ * Regular expressions used to detect links in plain text.
+ *
+ * The URL character classes exclude both `)` and `]` so a URL wrapped in
+ * brackets or parentheses (`[https://example.com/path]`) stops at the closing
+ * delimiter instead of swallowing it into the link target. Balanced `(...)`
+ * inside the URL is still matched through the dedicated paren-balancing group.
+ */
 export const LINK_PATTERN = {
-  bareDomain: /^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)]*$/,
+  bareDomain: /^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)\]]*$/,
   bareUrl:
-    /(?:https?:\/\/[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*)/g,
+    /(?:https?:\/\/[^\s<>)\]]*(?:\([^\s<>()]*\)[^\s<>)\]]*)*|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)\]]*(?:\([^\s<>()]*\)[^\s<>)\]]*)*)/g,
   markdown: /\[((?:\\[\s\S]|[^\]\\])+)\]\(((?:[^()\s]+|\([^()\s]*\))+)\)/g,
   protocolPrefix: /^https?:\/\//i,
   trailingPunctuation: /[.,!?;:]+$/,

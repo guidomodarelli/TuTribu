@@ -183,6 +183,34 @@ describe("parseRichTextSegments", () => {
       { text: "[nota](#)", type: RICH_TEXT_SEGMENT_TYPE.text },
     ]);
   });
+
+  it("excludes a wrapping closing bracket from an absolute URL link", () => {
+    const segments = parseRichTextSegments("[https://example.com/path]");
+
+    expect(segments).toEqual([
+      { text: "[", type: RICH_TEXT_SEGMENT_TYPE.text },
+      {
+        text: "https://example.com/path",
+        type: RICH_TEXT_SEGMENT_TYPE.link,
+        url: "https://example.com/path",
+      },
+      { text: "]", type: RICH_TEXT_SEGMENT_TYPE.text },
+    ]);
+  });
+
+  it("excludes a wrapping closing bracket from a bare domain link", () => {
+    const segments = parseRichTextSegments("[tutribu.com/curso]");
+
+    expect(segments).toEqual([
+      { text: "[", type: RICH_TEXT_SEGMENT_TYPE.text },
+      {
+        text: "tutribu.com/curso",
+        type: RICH_TEXT_SEGMENT_TYPE.link,
+        url: "https://tutribu.com/curso",
+      },
+      { text: "]", type: RICH_TEXT_SEGMENT_TYPE.text },
+    ]);
+  });
 });
 
 describe("serializeEditorContent / deserializeMarkdownForEditor", () => {
