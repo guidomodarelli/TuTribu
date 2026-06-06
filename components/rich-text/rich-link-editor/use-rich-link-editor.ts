@@ -119,7 +119,11 @@ export function useRichLinkEditor(
   );
 
   const segments = parsePreviewSegments(content, links);
-  const hasContent = content.trim().length > 0;
+  // Any character — including whitespace — counts as content so the editor
+  // renders it into the DOM. Gating on a trimmed value would keep spaces in
+  // state while showing the placeholder, leaving the caret and Backspace acting
+  // on an empty DOM selection that can never reach those hidden spaces.
+  const hasContent = content.length > 0;
 
   useLayoutEffect(() => {
     const editor = editorRef.current;

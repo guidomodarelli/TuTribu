@@ -123,6 +123,40 @@ describe("RichLinkEditor", () => {
     expect(await serialize(user)).toBe("holX");
   });
 
+  it("renders whitespace-only content instead of hiding it behind the placeholder", async () => {
+    const user = userEvent.setup();
+    render(<EditorHarness initialMarkdown="   " />);
+
+    const editor = screen.getByRole("textbox");
+
+    // The spaces must reach the DOM so the caret and selection have real text
+    // to land on; otherwise the editor shows the placeholder while still
+    // holding hidden spaces in its state.
+    expect(editor.textContent).toBe("   ");
+    expect(await serialize(user)).toBe("   ");
+  });
+
+  it("deletes whitespace-only content with Backspace from the live selection", async () => {
+    const user = userEvent.setup();
+    render(<EditorHarness initialMarkdown="   " />);
+
+    const editor = screen.getByRole("textbox") as HTMLDivElement;
+    editor.focus();
+
+    const selection = window.getSelection();
+    const caretRange = document.createRange();
+    caretRange.selectNodeContents(editor);
+    caretRange.collapse(false);
+    selection?.removeAllRanges();
+    selection?.addRange(caretRange);
+
+    fireEvent.keyDown(editor, { key: "Backspace" });
+
+    // Backspace must remove a real space at the caret, not no-op against an
+    // empty DOM selection that leaves the hidden spaces stuck.
+    expect(await serialize(user)).toBe("  ");
+  });
+
   it("keeps showing the link but does not open its popover while disabled", async () => {
     const user = userEvent.setup();
     render(

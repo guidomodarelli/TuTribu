@@ -1156,13 +1156,16 @@ function LessonForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const detectedProvider = detectProviderFromInput(externalVideoUrl);
-  const descriptionLength = descriptionEditor.serialize().length;
+  // Mirror the backend's `normalizeText`/`normalizeOptionalText`: trim before
+  // measuring so a whitespace-only description counts as empty (length 0) and is
+  // never wrongly flagged as too long while it looks blank to the author.
+  const descriptionLength = descriptionEditor.serialize().trim().length;
   const isDescriptionTooLong =
     descriptionLength > COURSE_LESSON_DESCRIPTION.maxLength;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const description = descriptionEditor.serialize();
+    const description = descriptionEditor.serialize().trim();
     if (description.length > COURSE_LESSON_DESCRIPTION.maxLength) {
       toast.error(COURSES_MANAGEMENT_COPY.descriptionTooLongMessage);
       return;
