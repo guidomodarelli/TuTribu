@@ -73,7 +73,7 @@ export const RICH_LINK_POPOVER_MODE = {
 export const LINK_PATTERN = {
   bareDomain: /^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)]*$/,
   bareUrl:
-    /(?:https?:\/\/[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*|www\.(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*)/g,
+    /(?:https?:\/\/[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}[^\s<>)]*(?:\([^\s<>()]*\)[^\s<>)]*)*)/g,
   markdown: /\[((?:\\[\s\S]|[^\]\\])+)\]\(((?:[^()\s]+|\([^()\s]*\))+)\)/g,
   protocolPrefix: /^https?:\/\//i,
   trailingPunctuation: /[.,!?;:]+$/,

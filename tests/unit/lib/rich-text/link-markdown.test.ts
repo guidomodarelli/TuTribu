@@ -74,6 +74,47 @@ describe("parseRichTextSegments", () => {
     ]);
   });
 
+  it("auto-detects a bare domain and adds https", () => {
+    const segments = parseRichTextSegments("entrá a tutribu.com hoy");
+
+    expect(segments).toEqual([
+      { text: "entrá a ", type: RICH_TEXT_SEGMENT_TYPE.text },
+      {
+        text: "tutribu.com",
+        type: RICH_TEXT_SEGMENT_TYPE.link,
+        url: "https://tutribu.com",
+      },
+      { text: " hoy", type: RICH_TEXT_SEGMENT_TYPE.text },
+    ]);
+  });
+
+  it("auto-detects a bare domain with a path", () => {
+    const segments = parseRichTextSegments("mirá tutribu.com/curso/algebra");
+
+    expect(segments).toEqual([
+      { text: "mirá ", type: RICH_TEXT_SEGMENT_TYPE.text },
+      {
+        text: "tutribu.com/curso/algebra",
+        type: RICH_TEXT_SEGMENT_TYPE.link,
+        url: "https://tutribu.com/curso/algebra",
+      },
+    ]);
+  });
+
+  it("keeps trailing punctuation outside a bare domain link", () => {
+    const segments = parseRichTextSegments("entrá a tutribu.com.");
+
+    expect(segments).toEqual([
+      { text: "entrá a ", type: RICH_TEXT_SEGMENT_TYPE.text },
+      {
+        text: "tutribu.com",
+        type: RICH_TEXT_SEGMENT_TYPE.link,
+        url: "https://tutribu.com",
+      },
+      { text: ".", type: RICH_TEXT_SEGMENT_TYPE.text },
+    ]);
+  });
+
   it("renders a markdown link with custom text", () => {
     const segments = parseRichTextSegments("[el curso](https://tutribu.com)");
 
@@ -437,6 +478,23 @@ describe("parsePreviewSegments", () => {
         source: RICH_PREVIEW_LINK_SOURCE.explicit,
         start: 0,
         text: "el curso",
+        type: RICH_TEXT_SEGMENT_TYPE.link,
+        url: "https://tutribu.com",
+      },
+    ]);
+  });
+
+  it("auto-detects a bare domain as an automatic preview link", () => {
+    const segments = parsePreviewSegments("entrá a tutribu.com", []);
+
+    expect(segments).toEqual([
+      { text: "entrá a ", type: RICH_TEXT_SEGMENT_TYPE.text },
+      {
+        end: 19,
+        key: expect.stringContaining(RICH_PREVIEW_LINK_SOURCE.automatic),
+        source: RICH_PREVIEW_LINK_SOURCE.automatic,
+        start: 8,
+        text: "tutribu.com",
         type: RICH_TEXT_SEGMENT_TYPE.link,
         url: "https://tutribu.com",
       },
