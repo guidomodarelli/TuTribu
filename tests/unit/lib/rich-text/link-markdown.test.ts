@@ -1,5 +1,6 @@
 import {
   deserializeMarkdownForEditor,
+  escapeMarkdownLinkUrl,
   getLinksAfterTextChange,
   getTextDiff,
   getWordDeletionRange,
@@ -66,6 +67,38 @@ describe("normalizeMarkdownUrl", () => {
         url: "https://example.com/a%20b",
       },
     ]);
+  });
+});
+
+describe("escapeMarkdownLinkUrl", () => {
+  it("percent-encodes an unmatched closing parenthesis", () => {
+    expect(escapeMarkdownLinkUrl("https://example.com/a)b")).toBe(
+      "https://example.com/a%29b"
+    );
+  });
+
+  it("percent-encodes an unmatched opening parenthesis", () => {
+    expect(escapeMarkdownLinkUrl("https://example.com/a(b")).toBe(
+      "https://example.com/a%28b"
+    );
+  });
+
+  it("preserves a balanced single-level parenthesis pair", () => {
+    expect(escapeMarkdownLinkUrl("https://en.wikipedia.org/wiki/Foo_(bar)")).toBe(
+      "https://en.wikipedia.org/wiki/Foo_(bar)"
+    );
+  });
+
+  it("encodes nested parentheses the markdown URL group cannot represent", () => {
+    expect(escapeMarkdownLinkUrl("https://example.com/(a(b)c)")).toBe(
+      "https://example.com/%28a(b)c%29"
+    );
+  });
+
+  it("leaves a URL without parentheses untouched", () => {
+    expect(escapeMarkdownLinkUrl("https://example.com/a%20b")).toBe(
+      "https://example.com/a%20b"
+    );
   });
 });
 
@@ -303,6 +336,55 @@ describe("serializeEditorContent / deserializeMarkdownForEditor", () => {
     expect(serializeEditorContent(editorState.content, editorState.links)).toBe(
       markdown
     );
+  });
+
+  it("serializes an explicit link whose URL has an unmatched ) so it reads back intact", () => {
+    const links: RichLink[] = [
+      {
+        end: 5,
+        id: "link-paren",
+        isSynced: false,
+        kind: RICH_LINK_KIND.explicit,
+        start: 0,
+        url: "https://example.com/a)b",
+      },
+    ];
+
+    const serialized = serializeEditorContent("texto", links);
+
+    expect(parseRichTextSegments(serialized)).toEqual([
+      {
+        text: "texto",
+        type: RICH_TEXT_SEGMENT_TYPE.link,
+        url: "https://example.com/a%29b",
+      },
+    ]);
+  });
+
+  it("serializes balanced parentheses in an explicit link URL verbatim", () => {
+    const links: RichLink[] = [
+      {
+        end: 4,
+        id: "link-wiki",
+        isSynced: false,
+        kind: RICH_LINK_KIND.explicit,
+        start: 0,
+        url: "https://en.wikipedia.org/wiki/Foo_(bar)",
+      },
+    ];
+
+    const serialized = serializeEditorContent("wiki", links);
+
+    expect(serialized).toBe(
+      "[wiki](https://en.wikipedia.org/wiki/Foo_(bar))"
+    );
+    expect(parseRichTextSegments(serialized)).toEqual([
+      {
+        text: "wiki",
+        type: RICH_TEXT_SEGMENT_TYPE.link,
+        url: "https://en.wikipedia.org/wiki/Foo_(bar)",
+      },
+    ]);
   });
 
   it("serializes an edited suppressed autolink as plain text once it is no longer a URL", () => {

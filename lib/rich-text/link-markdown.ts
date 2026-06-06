@@ -12,6 +12,7 @@ import {
   LINK_MARKDOWN_ESCAPE_VALUE,
   LINK_MARKDOWN_FORMAT,
   LINK_MARKDOWN_MATCH_GROUP,
+  LINK_MARKDOWN_URL_PAREN,
   LINK_PATTERN,
   LINK_PROTOCOL_PREFIX,
   PREVIEW_LINK_KEY_SEPARATOR,
@@ -217,7 +218,82 @@ export function getWordDeletionRange(input: {
   };
 }
 
-/** Builds a `[text](url)` markdown link, escaping the label. */
+/**
+ * Finds the index of the `)` that closes a balanced single-level paren pair
+ * opened at `openIndex`, or `null` when the run cannot form one the markdown URL
+ * group accepts. A pair is balanced only when nothing but non-paren,
+ * non-whitespace characters sit between the parens, mirroring the `\([^()\s]*\)`
+ * alternative in `LINK_PATTERN.markdown`.
+ */
+function findBalancedParenCloseIndex(
+  url: string,
+  openIndex: number
+): number | null {
+  for (let index = openIndex + 1; index < url.length; index += 1) {
+    const character = url[index];
+
+    if (character === LINK_MARKDOWN_URL_PAREN.close) {
+      return index;
+    }
+
+    if (
+      character === LINK_MARKDOWN_URL_PAREN.open ||
+      isWhitespaceOnly(character)
+    ) {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Percent-encodes the parentheses a URL cannot keep literal inside a
+ * `[text](url)` target, so an explicit link whose URL contains an unmatched or
+ * nested `(`/`)` (for example `https://example.com/a)b`) serializes to markdown
+ * that `LINK_PATTERN.markdown` reads back as the same link instead of truncating
+ * the target at the stray paren and spilling the rest into plain text.
+ *
+ * The URL group only matches balanced single-level `(...)` pairs, so those are
+ * preserved verbatim (keeping links like `.../Foo_(bar)` intact); every other
+ * paren becomes `%28`/`%29`, which is decoded back to the literal character when
+ * the link is opened.
+ */
+export function escapeMarkdownLinkUrl(url: string): string {
+  let escapedUrl = "";
+  let index = 0;
+
+  while (index < url.length) {
+    const character = url[index];
+
+    if (character === LINK_MARKDOWN_URL_PAREN.open) {
+      const closeIndex = findBalancedParenCloseIndex(url, index);
+
+      if (closeIndex !== null) {
+        escapedUrl += url.slice(index, closeIndex + 1);
+        index = closeIndex + 1;
+        continue;
+      }
+
+      escapedUrl += LINK_MARKDOWN_URL_PAREN.encodedOpen;
+      index += 1;
+      continue;
+    }
+
+    if (character === LINK_MARKDOWN_URL_PAREN.close) {
+      escapedUrl += LINK_MARKDOWN_URL_PAREN.encodedClose;
+      index += 1;
+      continue;
+    }
+
+    escapedUrl += character;
+    index += 1;
+  }
+
+  return escapedUrl;
+}
+
+/** Builds a `[text](url)` markdown link, escaping the label and the URL. */
 export function buildMarkdownLinkFromSelection(
   text: string,
   url: string
@@ -226,7 +302,7 @@ export function buildMarkdownLinkFromSelection(
     LINK_MARKDOWN_FORMAT.openLabel +
     escapeMarkdownLinkText(text) +
     LINK_MARKDOWN_FORMAT.openUrl +
-    url +
+    escapeMarkdownLinkUrl(url) +
     LINK_MARKDOWN_FORMAT.closeUrl
   );
 }

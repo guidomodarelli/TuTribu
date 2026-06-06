@@ -27,6 +27,20 @@ export const LINK_MARKDOWN_FORMAT = {
   suppressedUrl: "#",
 } as const;
 
+/**
+ * Parentheses that the `[text](url)` markdown URL group cannot represent
+ * unescaped, paired with their percent-encoded equivalents. The URL group only
+ * accepts balanced single-level `(...)` pairs, so any other paren must be
+ * encoded when serializing a link target; browsers decode `%28`/`%29` back to
+ * the literal character when the link is opened.
+ */
+export const LINK_MARKDOWN_URL_PAREN = {
+  close: ")",
+  encodedClose: "%29",
+  encodedOpen: "%28",
+  open: "(",
+} as const;
+
 /** Patterns matching characters that must be escaped inside link label text. */
 export const LINK_MARKDOWN_ESCAPE_PATTERN = {
   backslash: /\\/g,
