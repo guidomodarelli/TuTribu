@@ -743,9 +743,21 @@ export function getLinksAfterTextChange(input: {
       const nextStart =
         diff.start < link.start ? diff.endInNextText : link.start;
 
+      // A deletion can start inside the link and run past its end. Only the
+      // removed characters that fell within the link should shrink it; the ones
+      // deleted beyond `link.end` were never part of the link, so adding them
+      // back to `diff.delta` keeps them from being subtracted from `link.end`.
+      const deletedLengthPastLinkEnd = Math.max(
+        0,
+        diff.endInPreviousText - link.end
+      );
+
       return {
         ...link,
-        end: Math.max(nextStart, link.end + diff.delta),
+        end: Math.max(
+          nextStart,
+          link.end + diff.delta + deletedLengthPastLinkEnd
+        ),
         start: nextStart,
       };
     })

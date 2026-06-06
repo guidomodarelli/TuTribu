@@ -399,6 +399,31 @@ describe("getLinksAfterTextChange", () => {
     expect(adjustedLink).toMatchObject({ end: 3, start: 0 });
     expect(nextText.slice(adjustedLink.start, adjustedLink.end)).toBe("abc");
   });
+
+  it("only shrinks by the deleted link characters when the deletion runs past the link end", () => {
+    // "abc" is linked at [0, 3) of "abcX". Deleting "cX" (a selection that
+    // starts inside the link and overruns its end) must drop only "c" from the
+    // link, leaving it on the surviving "ab"; the trailing "X" was never linked
+    // and must not be subtracted from link.end.
+    const trackedLink: RichLink = {
+      end: 3,
+      id: "link-1",
+      isSynced: false,
+      kind: RICH_LINK_KIND.explicit,
+      start: 0,
+      url: "https://tutribu.com",
+    };
+    const nextText = "ab";
+
+    const [adjustedLink] = getLinksAfterTextChange({
+      links: [trackedLink],
+      nextText,
+      previousText: "abcX",
+    });
+
+    expect(adjustedLink).toMatchObject({ end: 2, start: 0 });
+    expect(nextText.slice(adjustedLink.start, adjustedLink.end)).toBe("ab");
+  });
 });
 
 describe("getWordDeletionRange", () => {
