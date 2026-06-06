@@ -80,7 +80,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <ul>
   <li><strong>Link explícito:</strong> <code>[texto](https://...)</code> renderiza un enlace con texto personalizado.</li>
   <li><strong>Autodetección:</strong> URLs sueltas (<code>https://...</code>, <code>www....</code>, dominios) se vuelven enlaces al renderizar. No se tocan las direcciones de email.</li>
-  <li><strong>Autolink suprimido:</strong> <code>[url](#)</code> marca una URL detectada que el autor decidió dejar como texto plano; se renderiza solo la etiqueta (sin el <code>(#)</code>).</li>
+  <li><strong>Autolink suprimido:</strong> <code>[url](#)</code> marca una URL detectada que el autor decidió dejar como texto plano; se renderiza solo la etiqueta (sin el <code>(#)</code>). La supresión solo subsiste mientras la etiqueta sigue siendo una URL normalizable: si el autor edita ese rango y lo convierte en texto que ya no es una URL (por ejemplo <code>nota</code>), el editor descarta la supresión y persiste el texto plano, en vez de emitir <code>[nota](#)</code> (que al renderizarse se mostraría como markdown literal).</li>
   <li>Solo se aceptan protocolos <code>http</code>/<code>https</code> para generar un enlace; cualquier otro destino no produce un <code>&lt;a&gt;</code>.</li>
   <li><strong>Markdown que no es un link válido</strong> (por ejemplo <code>[PDF](pendiente)</code> o <code>[1](capítulo)</code>) se preserva tal cual como texto: el contenido original nunca se oculta. Lo mismo aplica a destinos inseguros como <code>javascript:</code>, que se muestran como texto inerte y nunca como enlace.</li>
 </ul>

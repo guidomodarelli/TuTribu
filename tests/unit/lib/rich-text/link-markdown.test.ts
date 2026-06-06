@@ -192,6 +192,27 @@ describe("serializeEditorContent / deserializeMarkdownForEditor", () => {
       markdown
     );
   });
+
+  it("serializes an edited suppressed autolink as plain text once it is no longer a URL", () => {
+    const suppressedLink: RichLink = {
+      end: 11,
+      id: "link-2",
+      kind: RICH_LINK_KIND.suppressed,
+      start: 0,
+    };
+    const links = getLinksAfterTextChange({
+      links: [suppressedLink],
+      nextText: "nota",
+      previousText: "tutribu.com",
+    });
+
+    const serialized = serializeEditorContent("nota", links);
+
+    expect(serialized).toBe("nota");
+    expect(parseRichTextSegments(serialized)).toEqual([
+      { text: "nota", type: RICH_TEXT_SEGMENT_TYPE.text },
+    ]);
+  });
 });
 
 describe("getTextDiff", () => {
@@ -218,6 +239,35 @@ describe("getLinksAfterTextChange", () => {
     start: 0,
     url: "https://tutribu.com",
   };
+
+  const suppressedLink: RichLink = {
+    end: 11,
+    id: "link-2",
+    kind: RICH_LINK_KIND.suppressed,
+    start: 0,
+  };
+
+  it("keeps a suppressed autolink while its text is still a URL", () => {
+    const links = getLinksAfterTextChange({
+      links: [suppressedLink],
+      nextText: "tutribu.org",
+      previousText: "tutribu.com",
+    });
+
+    expect(links).toEqual([
+      { end: 11, id: "link-2", kind: RICH_LINK_KIND.suppressed, start: 0 },
+    ]);
+  });
+
+  it("drops a suppressed autolink once its text is no longer a URL", () => {
+    const links = getLinksAfterTextChange({
+      links: [suppressedLink],
+      nextText: "nota",
+      previousText: "tutribu.com",
+    });
+
+    expect(links).toHaveLength(0);
+  });
 
   it("shifts a link when text is inserted before it", () => {
     const links = getLinksAfterTextChange({

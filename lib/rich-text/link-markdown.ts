@@ -679,6 +679,11 @@ export function getTextDiff(input: { nextText: string; previousText: string }): 
  * Adjusts tracked link ranges after the editor's plain text changed, shifting,
  * shrinking, or dropping links and keeping synchronized links in step with
  * their visible text.
+ *
+ * A suppressed autolink is dropped once its visible text is no longer a
+ * normalizable URL, mirroring `isSuppressedAutolinkMarkdown`: with nothing left
+ * to suppress, the edited text serializes as plain text instead of `[text](#)`,
+ * which would otherwise be rendered back as literal markdown.
  */
 export function getLinksAfterTextChange(input: {
   links: RichLink[];
@@ -728,6 +733,12 @@ export function getLinksAfterTextChange(input: {
       };
     })
     .filter((link) => link.end > link.start)
+    .filter(
+      (link) =>
+        link.kind !== RICH_LINK_KIND.suppressed ||
+        normalizeMarkdownUrl(input.nextText.slice(link.start, link.end)) !==
+          null
+    )
     .map((link) => {
       if (link.kind !== RICH_LINK_KIND.explicit) {
         return link;
