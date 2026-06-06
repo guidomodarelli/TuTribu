@@ -288,6 +288,52 @@ describe("getLinksAfterTextChange", () => {
 
     expect(links).toHaveLength(0);
   });
+
+  it("keeps the link on the surviving text when a deletion starts before the link and ends inside it", () => {
+    // "tutribu" is linked at [5, 12) of "ir a tutribu". Deleting "a tu" (a
+    // selection that starts before the link and ends inside it) must move the
+    // link onto the surviving "tribu", not leave its start at the stale offset.
+    const trackedLink: RichLink = {
+      end: 12,
+      id: "link-1",
+      isSynced: false,
+      kind: RICH_LINK_KIND.explicit,
+      start: 5,
+      url: "https://tutribu.com",
+    };
+    const nextText = "ir tribu";
+
+    const [adjustedLink] = getLinksAfterTextChange({
+      links: [trackedLink],
+      nextText,
+      previousText: "ir a tutribu",
+    });
+
+    expect(adjustedLink).toMatchObject({ end: 8, start: 3 });
+    expect(nextText.slice(adjustedLink.start, adjustedLink.end)).toBe("tribu");
+  });
+
+  it("keeps the surviving link text when a selection across the boundary is replaced", () => {
+    // Replacing "a tu" with "y " keeps "tribu" linked: the inserted text must
+    // not be absorbed into the link, and its start must follow the deletion.
+    const trackedLink: RichLink = {
+      end: 12,
+      id: "link-1",
+      isSynced: false,
+      kind: RICH_LINK_KIND.explicit,
+      start: 5,
+      url: "https://tutribu.com",
+    };
+    const nextText = "ir y tribu";
+
+    const [adjustedLink] = getLinksAfterTextChange({
+      links: [trackedLink],
+      nextText,
+      previousText: "ir a tutribu",
+    });
+
+    expect(nextText.slice(adjustedLink.start, adjustedLink.end)).toBe("tribu");
+  });
 });
 
 describe("getWordDeletionRange", () => {

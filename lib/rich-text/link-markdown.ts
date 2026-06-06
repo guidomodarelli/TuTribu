@@ -727,9 +727,18 @@ export function getLinksAfterTextChange(input: {
         return link;
       }
 
+      // When the change starts before the link's start, it deleted part of the
+      // link's prefix, so the surviving link text now begins where the changed
+      // region ends in the new text. Clamping start there (instead of leaving
+      // the stale offset) keeps the link anchored to the remaining text and
+      // excludes any replacement text from the link.
+      const nextStart =
+        diff.start < link.start ? diff.endInNextText : link.start;
+
       return {
         ...link,
-        end: Math.max(link.start, link.end + diff.delta),
+        end: Math.max(nextStart, link.end + diff.delta),
+        start: nextStart,
       };
     })
     .filter((link) => link.end > link.start)
