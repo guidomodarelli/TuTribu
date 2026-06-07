@@ -10,6 +10,7 @@ import {
 import type { SitepingIdentityResult } from "@/src/modules/siteping/application/results/siteping-feedback-result";
 import { installSitepingDismissGuard } from "@/components/providers/siteping-provider/siteping-dismiss-guard";
 import { dismissOpenSitepingCommentForm } from "@/components/providers/siteping-provider/siteping-comment-form";
+import { installSitepingFormViewportClamp } from "@/components/providers/siteping-provider/siteping-form-placement";
 
 import "./siteping-overlay.scss";
 
@@ -26,6 +27,7 @@ type SitepingProviderState = SitepingIdentityResult | null;
 
 function SitepingWidgetMount({ config }: { config: SitepingIdentityResult }) {
   useEffect(() => installSitepingDismissGuard(), []);
+  useEffect(() => installSitepingFormViewportClamp(), []);
 
   useEffect(() => {
     let isMounted = true;
