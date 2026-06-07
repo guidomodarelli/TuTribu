@@ -1093,7 +1093,6 @@ $media-thumbnail-size: clamp(5rem, 26vw, 8.5rem);
   &__pollComposer {
     display: grid;
     gap: 1rem;
-    position: relative;
     padding: 0.25rem 0 0.5rem;
   }
 
@@ -1106,8 +1105,8 @@ $media-thumbnail-size: clamp(5rem, 26vw, 8.5rem);
 
   &__pollComposerHeader {
     align-items: flex-start;
+    justify-content: flex-end;
     gap: 1rem;
-    padding-inline-end: 2.75rem;
   }
 
   &__pollComposerLabel {
@@ -1139,9 +1138,7 @@ $media-thumbnail-size: clamp(5rem, 26vw, 8.5rem);
   }
 
   &__pollComposerCloseButton {
-    position: absolute;
-    top: 0;
-    right: 0;
+    flex: 0 0 auto;
     width: 2rem;
     height: 2rem;
     border-radius: 999rem;
