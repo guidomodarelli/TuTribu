@@ -1002,6 +1002,36 @@
       width: 2.25rem;
       height: 2.25rem;
     }
+
+    &--preview {
+      position: relative;
+      overflow: hidden;
+    }
+  }
+
+  &__videoThumbnail {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &__videoPlayBadge {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background-color: color-mix(in oklch, var(--background) 55%, transparent);
+    color: var(--foreground);
+
+    svg {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
   }
 
   &__videoEmbed {

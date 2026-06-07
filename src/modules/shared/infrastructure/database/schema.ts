@@ -402,6 +402,14 @@ export const messageVideos = pgTable("message_videos", {
   externalVideoProvider: text("external_video_provider").notNull(),
   externalVideoId: text("external_video_id").notNull(),
   sortOrder: integer("sort_order").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  thumbnailResolvedAt: timestamp("thumbnail_resolved_at", {
+    withTimezone: true,
+  }),
+  thumbnailAttempts: integer("thumbnail_attempts").notNull().default(0),
+  thumbnailLastAttemptAt: timestamp("thumbnail_last_attempt_at", {
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),

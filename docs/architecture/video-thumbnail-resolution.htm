@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resolucion de thumbnails de video</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf4e7;border-color:#d9a441;color:#7a571a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Resolucion de thumbnails de video</div>
+  <div class="doc-sub">Como se obtiene, persiste y muestra el preview de los videos externos (YouTube, Vimeo, Wistia, Loom) de un mensaje.</div>
+  <div class="doc-meta"><span>Scope: Messages</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Objetivo</div>
+<p>En el feed y en el modal del mensaje, cada video adjunto muestra su <strong>thumbnail/preview</strong>; la <strong>reproduccion</strong> ocurre exclusivamente dentro del carrusel de medios, donde se monta el <code>iframe</code> del proveedor. Fuera del carrusel nunca hay reproduccion: solo una imagen con un badge de play que abre el carrusel.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Dos origenes de thumbnail</div>
+<p>El modelo persistido de un video guarda <code>external_video_provider</code> y <code>external_video_id</code>. A partir de eso, el thumbnail se obtiene de dos maneras segun el proveedor:</p>
+<ul>
+  <li><strong>YouTube</strong>: deterministico. <code>buildVideoThumbnailSource</code> (en <code>src/modules/shared/application/video</code>) arma <code>https://i.ytimg.com/vi/&lt;id&gt;/hqdefault.jpg</code> en el render, sin red ni persistencia.</li>
+  <li><strong>Vimeo, Wistia, Loom</strong>: no exponen una URL deterministica. Se resuelve via <strong>oEmbed</strong> (campo <code>thumbnail_url</code>) y se persiste en <code>message_videos.thumbnail_url</code>. La URL objetivo del oEmbed la arma <code>buildVideoOEmbedRequestUrl</code>; para Wistia usa el host canonico <code>fast.wistia.com</code> (el endpoint resuelve por el <code>hashed_id</code> del path, pero <code>fast.wistia.net</code> no matchea la regex documentada de targets aceptados).</li>
+</ul>
+<p>La UI usa <code>buildVideoThumbnailSource(provider, externalId) ?? mediaItem.thumbnailUrl ?? null</code>: YouTube siempre tiene preview; el resto lo muestra una vez resuelto.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Backfill perezoso al ver la ronda</div>
+<p>La resolucion oEmbed no corre en el camino de render. Tras cargar la ronda, <code>page.tsx</code> calcula con <code>selectMessageIdsNeedingVideoThumbnail</code> que mensajes visibles tienen videos no-YouTube sin thumbnail, y agenda el trabajo con <code>after()</code> de <code>next/server</code> (post-respuesta, sin bloquear) mediante <code>scheduleMissingVideoThumbnailBackfill</code>.</p>
+<p>El flujo respeta los limites hexagonales del modulo <code>messages</code>:</p>
+<ul>
+  <li><strong>Dominio</strong>: puertos <code>VideoThumbnailResolver</code> y <code>MessageVideoThumbnailRepository</code>.</li>
+  <li><strong>Aplicacion</strong>: caso de uso <code>resolveMissingVideoThumbnails</code>, que lista candidatos, resuelve y persiste, acotando el lote a <code>MESSAGE_VIDEO_THUMBNAIL_BACKFILL.maxPerRequest</code> y logueando el remanente diferido.</li>
+  <li><strong>Infraestructura</strong>: <code>OEmbedVideoThumbnailResolver</code> (usa <code>fetchWithResilience</code>), <code>PostgresMessageVideoThumbnailRepository</code> y la composicion en <code>infrastructure/composition/video-thumbnail-backfill.ts</code>.</li>
+</ul>
+<p>Si el backfill registra al menos un <strong>intento</strong> (con o sin thumbnail), invalida el cache de la ronda con <code>revalidateTribeRoundCache</code>. No alcanza con revalidar solo cuando se encontro un thumbnail: un intento sin resultado tambien debe propagarse para que el view model marque el video como ya intentado y el pre-filtro deje de re-agendarlo. Como la lectura de la ronda corre dentro de <code>"use cache"</code>, el backfill <strong>no</strong> escribe dentro de esa funcion: corre fuera, en <code>after()</code>.</p>
+<div class="callout c-info">Crear o editar un mensaje no resuelve thumbnails de forma separada: el autor ve la ronda inmediatamente despues, y ese render dispara el mismo backfill. Un solo camino cubre creacion, edicion y videos legacy.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Persistencia: funcion SECURITY DEFINER y reintento acotado</div>
+<p>La RLS de <code>message_videos</code> solo permite el <code>UPDATE</code> al <strong>autor</strong> del mensaje, pero el backfill suele dispararlo un tribemate <strong>no autor</strong> que esta viendo la ronda. Por eso la persistencia pasa por la funcion <code>public.set_message_video_thumbnail(uuid, text, integer, integer)</code>, <code>SECURITY DEFINER</code>, que autoriza con <code>can_read_tribe_content(tribe_id)</code> leyendo el usuario desde el GUC de sesion (<code>current_app_user_id</code>), sin bypassear la autorizacion. Es el mismo patron que <code>can_open_join_tribe_paid_plan</code>.</p>
+<p><code>thumbnail_resolved_at</code> marca el estado <strong>terminal</strong>: o se encontro thumbnail, o se agoto el tope de intentos. Cada llamada registra un intento (<code>thumbnail_attempts + 1</code>, <code>thumbnail_last_attempt_at = now</code>); el campo terminal solo se setea cuando hay <code>thumbnail_url</code> o cuando <code>thumbnail_attempts</code> alcanza <code>MESSAGE_VIDEO_THUMBNAIL_BACKFILL.maxAttempts</code>. Asi un fallo <strong>transitorio</strong> (proveedor caido, media aun procesando, timeout) se <strong>reintenta</strong> en renders posteriores, mientras que un video definitivamente irresoluble (privado, borrado) deja de reconsultarse al llegar al tope.</p>
+<p>Para no reconsultar en cada render, el candidato exige <code>thumbnail_url IS NULL AND thumbnail_resolved_at IS NULL</code> <strong>y</strong> que haya pasado <code>retryCooldownMinutes</code> desde <code>thumbnail_last_attempt_at</code>. La funcion sigue siendo idempotente sobre el estado terminal (el guard <code>thumbnail_resolved_at IS NULL</code> nunca pisa una fila ya terminal).</p>
+<p>El cooldown <strong>tambien</strong> se aplica en la escritura, no solo en la lectura de candidatos. Si dos o mas renders agendan el mismo video no-terminal antes de que alguno persista, todos pasan el filtro de lectura y luego corren el <code>UPDATE</code>; con el guard original (<code>thumbnail_resolved_at IS NULL</code> a secas) un <strong>miss</strong> deja la fila <code>NULL</code> y cada render concurrente sumaba un intento, asi que tres misses transitorios simultaneos podian agotar <code>maxAttempts</code> de una y marcar terminal un video recuperable. Ahora el <code>UPDATE</code> de un <strong>miss</strong> solo cuenta como intento si paso <code>retryCooldownMinutes</code> desde <code>thumbnail_last_attempt_at</code>: bajo <code>READ COMMITTED</code> los misses concurrentes se serializan en el lock de fila y los que esperan reevaluan el guard contra la fila ya commiteada, colapsando a <strong>un solo intento por ventana</strong>. Un <strong>acierto</strong> (se encontro thumbnail) nunca lo frena el cooldown: persiste siempre mientras la fila no sea terminal, de modo que un miss concurrente que recien toco <code>thumbnail_last_attempt_at</code> no descarta un thumbnail hallado.</p>
+<p>El view model expone el estado terminal como <code>thumbnailResolved</code> (true cuando <code>thumbnail_resolved_at</code> no es <code>NULL</code>); el pre-filtro <code>selectMessageIdsNeedingVideoThumbnail</code> excluye los videos terminales y el cooldown lo aplica <code>listUnresolvedVideos</code> en SQL. Como cualquier intento (con o sin thumbnail) actualiza estado persistido, el cache de la ronda se revalida ante cualquier intento.</p>
+<div class="callout c-info">Migraciones: <code>database/migrations/20260606160000_add_message_video_thumbnail.sql</code> (columnas base y funcion inicial), <code>20260607120000_retry_message_video_thumbnail.sql</code> (columnas <code>thumbnail_attempts</code> y <code>thumbnail_last_attempt_at</code>, y la funcion con tope de intentos) y <code>20260607130000_cooldown_message_video_thumbnail_attempt.sql</code> (4to parametro <code>retry_cooldown_minutes</code> que aplica el cooldown tambien en la escritura para colapsar misses concurrentes). Validadas en branch efimero de Neon con un rol <code>NOBYPASSRLS</code>: un no autor persiste via la funcion, un <code>UPDATE</code> directo del no autor queda bloqueado por RLS, un no miembro no persiste, el reintento por debajo del tope deja la fila retryable y al alcanzar el tope queda terminal, y misses repetidos dentro del cooldown cuentan un solo intento por ventana.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Trade-offs</div>
+<ul>
+  <li>YouTube nunca toca red ni base: su preview aparece en el primer render. Vimeo, Wistia y Loom aparecen <strong>en el segundo render</strong> (tras el backfill y la invalidacion del cache).</li>
+  <li>El thumbnail externo se renderiza con un <code>img</code> plano (no <code>next/image</code>) para evitar configurar <code>remotePatterns</code> por host de proveedor y la optimizacion de imagenes externas.</li>
+  <li>El backfill corre en un pool dedicado dentro de <code>after()</code>, con la transaccion guardada que libera el cliente aunque el flujo se aborte, igual que el refresco de imagen de perfil.</li>
+  <li>Los logs son estructurados y seguros: ante un fallo de oEmbed se registra el proveedor y el estado, nunca payloads crudos del proveedor.</li>
+  <li>El reintento es <strong>acotado</strong>: un fallo transitorio se recupera, pero el tope <code>maxAttempts</code> y el <code>retryCooldownMinutes</code> evitan que un video irresoluble dispare un fetch en cada render.</li>
+</ul>
+</div>
+
+</body>
+</html>

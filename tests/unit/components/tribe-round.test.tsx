@@ -6926,4 +6926,82 @@ describe("TribeRound", () => {
       "TribeRound__srOnly"
     );
   });
+
+  it("shows video thumbnail previews in the message modal and keeps playback in the carousel", async () => {
+    const user = userEvent.setup();
+    const videoPreviewRound = {
+      ...round,
+      messages: [
+        {
+          ...round.messages[0],
+          media: [
+            {
+              externalId: "dQw4w9WgXcQ",
+              id: "message-video-youtube",
+              kind: "video" as const,
+              provider: "youtube" as const,
+              sortOrder: 0,
+              thumbnailUrl: null,
+            },
+            {
+              externalId: "123456789",
+              id: "message-video-vimeo",
+              kind: "video" as const,
+              provider: "vimeo" as const,
+              sortOrder: 1,
+              thumbnailUrl: "https://i.vimeocdn.com/video/123456789.jpg",
+            },
+          ],
+          title: "Mensaje con videos",
+        },
+      ],
+    };
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={videoPreviewRound}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Mensaje con videos/i })
+    );
+
+    const messageDetailsDialog = screen.getByRole("dialog", {
+      name: "Mensaje",
+    });
+
+    const thumbnails = messageDetailsDialog.querySelectorAll(
+      ".TribeRound__videoThumbnail"
+    );
+
+    expect(thumbnails).toHaveLength(2);
+    expect(thumbnails[0]).toHaveAttribute(
+      "src",
+      "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"
+    );
+    expect(thumbnails[1]).toHaveAttribute(
+      "src",
+      "https://i.vimeocdn.com/video/123456789.jpg"
+    );
+    expect(
+      messageDetailsDialog.querySelector(".TribeRound__videoEmbedIframe")
+    ).toBeNull();
+
+    await user.click(
+      within(messageDetailsDialog).getByRole("button", {
+        name: "Abrir video 1: YouTube",
+      })
+    );
+
+    const carouselDialog = screen.getByRole("dialog", {
+      name: "Medios del mensaje",
+    });
+
+    expect(
+      carouselDialog.querySelector(".TribeRound__videoEmbedIframe")
+    ).toHaveAttribute("src", "https://www.youtube.com/embed/dQw4w9WgXcQ");
+  });
 });

@@ -47,6 +47,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <p>El script <code>commitlint</code> valida los ultimos 30 mensajes contra <code>commitlint.config.mjs</code>. La configuracion acepta el estilo real del repositorio: commits convencionales con prefijo, releases semver como <code>0.52.3</code> y titulos imperativos heredados sin prefijo.</p>
   <p>Los hooks <code>Stop</code> de agentes no deben duplicar este gate pesado. Durante el trabajo local, Codex y Claude deben ejecutar validaciones enfocadas al cambio realizado y dejar el gate completo para GitHub Actions.</p>
   <p>Los outputs generados por builds, como <code>.next/</code> y <code>.open-next/</code>, no forman parte del codigo fuente validable. Deben quedar fuera de ESLint para que los artefactos de adaptadores externos no rompan el gate del repositorio.</p>
+  <p>Los worktrees generados por agentes bajo <code>.claude/</code> tampoco forman parte del checkout validable de Jest ni ESLint. Jest debe ignorarlos tanto para descubrir tests como para construir el mapa de modulos, y ESLint debe excluirlos de sus ignores globales, evitando que copias temporales de <code>package.json</code> o de suites antiguas interfieran con la rama actual.</p>
   <div class="callout c-ok">La validación completa queda asociada al push y al pull request, no al cierre de cada turno del agente.</div>
 </div>
 

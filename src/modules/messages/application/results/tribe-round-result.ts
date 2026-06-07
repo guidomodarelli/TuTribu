@@ -58,6 +58,20 @@ export type MessagePollResult = {
 export type MessageVideoResult = {
   externalId: string;
   provider: VideoProvider;
+  /**
+   * Persisted preview/thumbnail URL resolved through the provider's oEmbed
+   * endpoint. Absent for YouTube (whose thumbnail is derived deterministically
+   * from the id) and `null` until a lazy resolution has run for the others.
+   */
+  thumbnailUrl?: string | null;
+  /**
+   * Whether thumbnail resolution for this video has reached a terminal state:
+   * a thumbnail was found, or the lazy backfill gave up after exhausting its
+   * retry attempts (private, deleted, or persistently failing). A miss that is
+   * still within its retry budget keeps this `false` so the backfill picks the
+   * video up again on a later render, without re-fetching on every render.
+   */
+  thumbnailResolved?: boolean;
 };
 
 export type MessageImageResult = {
