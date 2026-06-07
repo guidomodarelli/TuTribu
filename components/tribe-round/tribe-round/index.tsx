@@ -4816,108 +4816,6 @@ function TribeRoundContent({
                   </section>
                 ) : null}
                 {renderComposerMediaDrafts()}
-                <div className={styles.TribeRound__composerActions}>
-                  <label
-                    aria-label={TRIBE_ROUND_COPY.imageAddButton}
-                    className={styles.TribeRound__imageAddButton}
-                  >
-                    <ImageIcon />
-                    <input
-                      accept={TRIBE_ROUND_FORM.imageAccept}
-                      className={styles.TribeRound__fileInput}
-                      disabled={
-                        isBusy || mediaDrafts.length >= MESSAGE_MEDIA.maxCount
-                      }
-                      multiple
-                      onChange={handleMessageImageSelection}
-                      type={TRIBE_ROUND_FORM.fileInputType}
-                    />
-                  </label>
-                  {!isEditingMessage && !isPollComposerEnabled ? (
-                    <Button
-                      aria-label={TRIBE_ROUND_COPY.pollAddButton}
-                      className={styles.TribeRound__pollAddButton}
-                      disabled={isBusy}
-                      onClick={() => {
-                        setIsPollComposerEnabled(true);
-                      }}
-                      size={TRIBE_ROUND_FORM.iconSize}
-                      type={TRIBE_ROUND_FORM.buttonType}
-                      variant={TRIBE_ROUND_FORM.ghostVariant}
-                    >
-                      <VoteIcon />
-                    </Button>
-                  ) : null}
-                  <Button
-                    aria-label={TRIBE_ROUND_COPY.videoAddButton}
-                    className={styles.TribeRound__videoAddButton}
-                    disabled={
-                      isBusy || mediaDrafts.length >= MESSAGE_MEDIA.maxCount
-                    }
-                    onClick={addVideoMediaDraft}
-                    size={TRIBE_ROUND_FORM.iconSize}
-                    type={TRIBE_ROUND_FORM.buttonType}
-                    variant={TRIBE_ROUND_FORM.ghostVariant}
-                  >
-                    <VideoIcon />
-                  </Button>
-                  {!isEditingMessage ? (
-                  <div className={styles.TribeRound__channelPicker}>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        aria-describedby={
-                          hasMessageComposerErrors
-                            ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
-                            : undefined
-                        }
-                        aria-invalid={isMessageChannelInvalid}
-                        aria-label={TRIBE_ROUND_COPY.tribeChannelLabel}
-                        className={
-                          isMessageChannelInvalid
-                            ? `${styles.TribeRound__channelTrigger} ${styles["TribeRound__channelTrigger--invalid"]}`
-                            : styles.TribeRound__channelTrigger
-                        }
-                        disabled={isBusy}
-                        type={TRIBE_ROUND_FORM.buttonType}
-                      >
-                        <span>
-                          {selectedChannel
-                            ? `${selectedChannel.emoji} ${selectedChannel.name}`
-                            : TRIBE_ROUND_COPY.tribeChannelSelect}
-                        </span>
-                        <ChevronDownIcon />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}
-                      className={styles.TribeRound__channelMenuContent}
-                    >
-                      {round.channels.map((channel) => (
-                        <DropdownMenuItem
-                          className={styles.TribeRound__channelMenuItem}
-                          key={channel.id}
-                          onSelect={() => {
-                            setSelectedChannelId(channel.id);
-                            setMessageComposerErrors([]);
-                          }}
-                        >
-                          <span
-                            aria-hidden={TRIBE_ROUND_ATTRIBUTES.channelFilterEmojiHidden}
-                            className={styles.TribeRound__channelMenuEmoji}
-                          >
-                            {channel.emoji}
-                          </span>
-                          <span className={styles.TribeRound__channelMenuText}>
-                            {channel.name}
-                          </span>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  </div>
-                  ) : null}
-                </div>
                 {hasMessageComposerErrors ? (
                   <div
                     className={styles.TribeRound__composerError}
@@ -4950,6 +4848,108 @@ function TribeRoundContent({
                       ))}
                     </ul>
                   </div>
+                ) : null}
+              </div>
+              <div className={styles.TribeRound__composerActions}>
+                <label
+                  aria-label={TRIBE_ROUND_COPY.imageAddButton}
+                  className={styles.TribeRound__imageAddButton}
+                >
+                  <ImageIcon />
+                  <input
+                    accept={TRIBE_ROUND_FORM.imageAccept}
+                    className={styles.TribeRound__fileInput}
+                    disabled={
+                      isBusy || mediaDrafts.length >= MESSAGE_MEDIA.maxCount
+                    }
+                    multiple
+                    onChange={handleMessageImageSelection}
+                    type={TRIBE_ROUND_FORM.fileInputType}
+                  />
+                </label>
+                {!isEditingMessage && !isPollComposerEnabled ? (
+                  <Button
+                    aria-label={TRIBE_ROUND_COPY.pollAddButton}
+                    className={styles.TribeRound__pollAddButton}
+                    disabled={isBusy}
+                    onClick={() => {
+                      setIsPollComposerEnabled(true);
+                    }}
+                    size={TRIBE_ROUND_FORM.iconSize}
+                    type={TRIBE_ROUND_FORM.buttonType}
+                    variant={TRIBE_ROUND_FORM.ghostVariant}
+                  >
+                    <VoteIcon />
+                  </Button>
+                ) : null}
+                <Button
+                  aria-label={TRIBE_ROUND_COPY.videoAddButton}
+                  className={styles.TribeRound__videoAddButton}
+                  disabled={
+                    isBusy || mediaDrafts.length >= MESSAGE_MEDIA.maxCount
+                  }
+                  onClick={addVideoMediaDraft}
+                  size={TRIBE_ROUND_FORM.iconSize}
+                  type={TRIBE_ROUND_FORM.buttonType}
+                  variant={TRIBE_ROUND_FORM.ghostVariant}
+                >
+                  <VideoIcon />
+                </Button>
+                {!isEditingMessage ? (
+                <div className={styles.TribeRound__channelPicker}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      aria-describedby={
+                        hasMessageComposerErrors
+                          ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                          : undefined
+                      }
+                      aria-invalid={isMessageChannelInvalid}
+                      aria-label={TRIBE_ROUND_COPY.tribeChannelLabel}
+                      className={
+                        isMessageChannelInvalid
+                          ? `${styles.TribeRound__channelTrigger} ${styles["TribeRound__channelTrigger--invalid"]}`
+                          : styles.TribeRound__channelTrigger
+                      }
+                      disabled={isBusy}
+                      type={TRIBE_ROUND_FORM.buttonType}
+                    >
+                      <span>
+                        {selectedChannel
+                          ? `${selectedChannel.emoji} ${selectedChannel.name}`
+                          : TRIBE_ROUND_COPY.tribeChannelSelect}
+                      </span>
+                      <ChevronDownIcon />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}
+                    className={styles.TribeRound__channelMenuContent}
+                  >
+                    {round.channels.map((channel) => (
+                      <DropdownMenuItem
+                        className={styles.TribeRound__channelMenuItem}
+                        key={channel.id}
+                        onSelect={() => {
+                          setSelectedChannelId(channel.id);
+                          setMessageComposerErrors([]);
+                        }}
+                      >
+                        <span
+                          aria-hidden={TRIBE_ROUND_ATTRIBUTES.channelFilterEmojiHidden}
+                          className={styles.TribeRound__channelMenuEmoji}
+                        >
+                          {channel.emoji}
+                        </span>
+                        <span className={styles.TribeRound__channelMenuText}>
+                          {channel.name}
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                </div>
                 ) : null}
               </div>
               <DialogFooter className={styles.TribeRound__composerFooter}>
