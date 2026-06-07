@@ -109,7 +109,9 @@ export class PostgresMessageVideoThumbnailRepository
 
   /**
    * Records a resolution attempt for a single video through the SECURITY DEFINER
-   * function, passing the attempt cap so a miss below the cap stays retryable.
+   * function, passing the attempt cap so a miss below the cap stays retryable and
+   * the retry cooldown so concurrent misses within one window collapse to a
+   * single counted attempt instead of burning the cap on a transient outage.
    *
    * @param command - The video and the thumbnail URL to persist.
    * @returns Whether the function updated a row.
@@ -123,7 +125,8 @@ export class PostgresMessageVideoThumbnailRepository
         select public.set_message_video_thumbnail(
           ${command.videoId}::uuid,
           ${command.thumbnailUrl}::text,
-          ${sql.param(MESSAGE_VIDEO_THUMBNAIL_BACKFILL.maxAttempts)}::integer
+          ${sql.param(MESSAGE_VIDEO_THUMBNAIL_BACKFILL.maxAttempts)}::integer,
+          ${sql.param(MESSAGE_VIDEO_THUMBNAIL_BACKFILL.retryCooldownMinutes)}::integer
         ) as persisted
       `);
 

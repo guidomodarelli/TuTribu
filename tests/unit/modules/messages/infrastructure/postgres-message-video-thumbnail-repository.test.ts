@@ -1,3 +1,4 @@
+import { MESSAGE_VIDEO_THUMBNAIL_BACKFILL } from "@/src/modules/messages/constants/message-round";
 import { PostgresMessageVideoThumbnailRepository } from "@/src/modules/messages/infrastructure/repositories/postgres-message-video-thumbnail-repository";
 
 function getSqlText(statement: unknown): string {
@@ -19,6 +20,22 @@ function getSqlText(statement: unknown): string {
       return "";
     })
     .join("");
+}
+
+function getNumericSqlParams(statement: unknown): number[] {
+  return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
+    .flatMap((chunk) => {
+      if (
+        chunk &&
+        typeof chunk === "object" &&
+        "value" in chunk &&
+        typeof (chunk as { value: unknown }).value === "number"
+      ) {
+        return [(chunk as { value: number }).value];
+      }
+
+      return [];
+    });
 }
 
 describe("PostgresMessageVideoThumbnailRepository", () => {
@@ -85,8 +102,13 @@ describe("PostgresMessageVideoThumbnailRepository", () => {
     ).resolves.toBe(true);
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    const numericParams = getNumericSqlParams(execute.mock.calls[0]?.[0]);
 
     expect(sqlText).toContain("public.set_message_video_thumbnail");
+    expect(numericParams).toContain(MESSAGE_VIDEO_THUMBNAIL_BACKFILL.maxAttempts);
+    expect(numericParams).toContain(
+      MESSAGE_VIDEO_THUMBNAIL_BACKFILL.retryCooldownMinutes
+    );
   });
 
   it("reports a non-persisted attempt when the function updates no row", async () => {

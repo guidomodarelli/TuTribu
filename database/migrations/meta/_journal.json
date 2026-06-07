@@ -442,6 +442,13 @@
       "when": 1780833600000,
       "tag": "20260607120000_retry_message_video_thumbnail",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1780837200000,
+      "tag": "20260607130000_cooldown_message_video_thumbnail_attempt",
+      "breakpoints": true
     }
   ]
 }
