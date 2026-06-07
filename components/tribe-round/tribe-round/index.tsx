@@ -438,6 +438,7 @@ const DATE_TIME_LOCAL_INPUT = {
 } as const;
 
 const TRIBE_ROUND_POLL = {
+  composerBlockKey: "poll-composer",
   draftKeyPrefix: "poll-option-",
   firstOptionIndex: 0,
   initialOptionCount: 2,
@@ -1724,48 +1725,31 @@ function TribeRoundContent({
   const pendingCreateMessageIntentRef =
     useRef<PendingCreateMessageIntent | null>(null);
   const mediaDraftCounterRef = useRef(0);
-  const composerBodyRef = useRef<HTMLDivElement | null>(null);
-  const pollComposerRef = useRef<HTMLElement | null>(null);
   const isBusy = Boolean(pendingActionId);
 
   /**
-   * Scrolls the composer body to its bottom edge so a freshly appended media
-   * draft (image preview or video link field) becomes visible. The scroll is
-   * deferred to the next animation frame so React has committed the new draft
-   * to the DOM and `scrollHeight` reflects the taller content. `scrollTo`'s
-   * options form and the `smooth` behavior degrade gracefully to an instant
-   * jump on older WebKit, keeping the bottom in view on both engines.
+   * Registry of composer block containers (a media draft card or the poll
+   * composer section) keyed by a stable token, so {@link revealComposerBlock} and
+   * {@link scrollPollComposerIntoView} can scroll the whole block into view rather
+   * than a single input.
    */
-  const scrollComposerBodyToBottom = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      const composerBody = composerBodyRef.current;
-
-      if (!composerBody) {
-        return;
-      }
-
-      composerBody.scrollTo({
-        top: composerBody.scrollHeight,
-        behavior: COMPOSER_BODY_SCROLL.bottomBehavior,
-      });
-    });
-  }, []);
+  const composerBlockTargetsRef = useRef(new Map<string, HTMLElement | null>());
 
   /**
-   * Scrolls the poll composer into view. Unlike media drafts, the poll composer
-   * is inserted above the media draft list instead of being appended at the
-   * bottom, so scrolling the body to its bottom edge would skip past it.
-   * Aligning the section's bottom edge with the scrollport reveals both a
-   * freshly enabled composer and a newly appended option. Deferred to the next
-   * frame so the section is in the DOM and taller; `scrollIntoView` degrades to
-   * an instant alignment on older WebKit, keeping it visible on both engines.
+   * Scrolls the poll composer into view aligning its bottom edge with the
+   * scrollport, so a newly appended option becomes visible. Deferred to the next
+   * frame so the new option is in the DOM and the section is taller;
+   * `scrollIntoView` degrades to an instant alignment on older WebKit, keeping it
+   * visible on both engines.
    */
   const scrollPollComposerIntoView = useCallback(() => {
     window.requestAnimationFrame(() => {
-      pollComposerRef.current?.scrollIntoView({
-        behavior: COMPOSER_BODY_SCROLL.bottomBehavior,
-        block: COMPOSER_BODY_SCROLL.pollBlockAlignment,
-      });
+      composerBlockTargetsRef.current
+        .get(TRIBE_ROUND_POLL.composerBlockKey)
+        ?.scrollIntoView({
+          behavior: COMPOSER_BODY_SCROLL.bottomBehavior,
+          block: COMPOSER_BODY_SCROLL.pollBlockAlignment,
+        });
     });
   }, []);
 
@@ -1782,46 +1766,43 @@ function TribeRoundContent({
 
   /**
    * Returns a ref callback that registers (or unregisters on unmount) a composer
-   * input under {@link focusKey} so {@link focusComposerInput} can move the caret
-   * to it once it mounts.
+   * element under {@link key} in {@link registry}, so it can later be scrolled
+   * into view or focused once it mounts.
    */
-  const registerComposerFocusTarget = useCallback(
-    (focusKey: string) => (node: HTMLInputElement | null) => {
-      if (node) {
-        composerFocusTargetsRef.current.set(focusKey, node);
-      } else {
-        composerFocusTargetsRef.current.delete(focusKey);
-      }
-    },
+  const registerComposerTarget = useCallback(
+    <ElementType extends HTMLElement>(
+      registry: { current: Map<string, ElementType | null> },
+      key: string
+    ) =>
+      (node: ElementType | null) => {
+        if (node) {
+          registry.current.set(key, node);
+        } else {
+          registry.current.delete(key);
+        }
+      },
     []
   );
 
   /**
-   * Moves focus to a just-added composer input on the next frame, after React
-   * has committed it to the DOM. Focus always runs with `preventScroll` so it
-   * never overrides the surrounding smooth scroll with an instant jump: media
-   * drafts are revealed by the explicit scroll to the bottom, while the poll
-   * composer — inserted above the media list — opts into smoothly scrolling its
-   * first option into view here. Older WebKit that ignores `preventScroll` falls
-   * back to native focus scrolling, which still reveals the input.
+   * On the next frame, after React has committed the new nodes to the DOM,
+   * scrolls a just-added composer block fully into view and moves the caret to
+   * its first input. `block: "nearest"` reveals the whole block (its top and
+   * bottom) whenever it fits the scrollport, instead of pinning a single input
+   * and clipping the rest. Focus runs with `preventScroll` so it never overrides
+   * that smooth scroll with an instant jump; older WebKit that ignores
+   * `preventScroll` still falls back to native focus scrolling.
    */
-  const focusComposerInput = useCallback(
-    (focusKey: string, { shouldScrollIntoView = false } = {}) => {
+  const revealComposerBlock = useCallback(
+    (blockKey: string, inputKey: string) => {
       window.requestAnimationFrame(() => {
-        const input = composerFocusTargetsRef.current.get(focusKey);
-
-        if (!input) {
-          return;
-        }
-
-        if (shouldScrollIntoView) {
-          input.scrollIntoView({
-            behavior: COMPOSER_BODY_SCROLL.bottomBehavior,
-            block: COMPOSER_BODY_SCROLL.focusBlockAlignment,
-          });
-        }
-
-        input.focus({ preventScroll: true });
+        composerBlockTargetsRef.current.get(blockKey)?.scrollIntoView({
+          behavior: COMPOSER_BODY_SCROLL.bottomBehavior,
+          block: COMPOSER_BODY_SCROLL.focusBlockAlignment,
+        });
+        composerFocusTargetsRef.current
+          .get(inputKey)
+          ?.focus({ preventScroll: true });
       });
     },
     []
@@ -2464,10 +2445,9 @@ function TribeRoundContent({
       void uploadMessageImage(file, localId);
     });
     setMessageComposerErrors([]);
-    scrollComposerBodyToBottom();
 
     if (firstAddedImageLocalId !== null) {
-      focusComposerInput(firstAddedImageLocalId);
+      revealComposerBlock(firstAddedImageLocalId, firstAddedImageLocalId);
     }
   };
 
@@ -2502,8 +2482,7 @@ function TribeRoundContent({
       { kind: MESSAGE_MEDIA_KIND.video, localId, url: "" },
     ]);
     setMessageComposerErrors([]);
-    scrollComposerBodyToBottom();
-    focusComposerInput(localId);
+    revealComposerBlock(localId, localId);
   };
 
   const updateVideoMediaDraftUrl = (localId: string, url: string) => {
@@ -4411,7 +4390,11 @@ function TribeRoundContent({
   const renderComposerImageMediaDraft = (
     mediaDraft: ComposerImageMediaDraft
   ) => (
-    <div className={styles.TribeRound__imageDraft} key={mediaDraft.localId}>
+    <div
+      className={styles.TribeRound__imageDraft}
+      key={mediaDraft.localId}
+      ref={registerComposerTarget(composerBlockTargetsRef, mediaDraft.localId)}
+    >
       <div className={styles.TribeRound__imageDraftPreview}>
         {mediaDraft.previewUrl ? (
           <Image
@@ -4438,7 +4421,7 @@ function TribeRoundContent({
       <input
         aria-label={TRIBE_ROUND_COPY.imageAltInputLabel}
         className={styles.TribeRound__imageAltInput}
-        ref={registerComposerFocusTarget(mediaDraft.localId)}
+        ref={registerComposerTarget(composerFocusTargetsRef, mediaDraft.localId)}
         disabled={isBusy}
         onChange={(event) => {
           const altText = event.currentTarget.value;
@@ -4492,7 +4475,11 @@ function TribeRoundContent({
     const showVideoParseError = trimmedVideoUrl.length > 0 && !detectedVideo;
 
     return (
-      <div className={styles.TribeRound__videoComposer} key={mediaDraft.localId}>
+      <div
+        className={styles.TribeRound__videoComposer}
+        key={mediaDraft.localId}
+        ref={registerComposerTarget(composerBlockTargetsRef, mediaDraft.localId)}
+      >
         <div className={styles.TribeRound__videoComposerHeader}>
           <label className={styles.TribeRound__videoComposerLabel}>
             <span>{TRIBE_ROUND_COPY.videoComposerHeading}</span>
@@ -4504,7 +4491,7 @@ function TribeRoundContent({
               }
               aria-invalid={showVideoParseError}
               className={styles.TribeRound__videoInput}
-              ref={registerComposerFocusTarget(mediaDraft.localId)}
+              ref={registerComposerTarget(composerFocusTargetsRef, mediaDraft.localId)}
               disabled={isBusy}
               onChange={(event) => {
                 updateVideoMediaDraftUrl(
@@ -4934,10 +4921,7 @@ function TribeRoundContent({
               className={styles.TribeRound__composer}
               onSubmit={handleCreateMessage}
             >
-              <div
-                className={styles.TribeRound__composerBody}
-                ref={composerBodyRef}
-              >
+              <div className={styles.TribeRound__composerBody}>
                 <input
                   aria-describedby={
                     hasMessageComposerErrors
@@ -4983,7 +4967,10 @@ function TribeRoundContent({
                 {isPollComposerEnabled ? (
                   <section
                     className={styles.TribeRound__pollComposer}
-                    ref={pollComposerRef}
+                    ref={registerComposerTarget(
+                      composerBlockTargetsRef,
+                      TRIBE_ROUND_POLL.composerBlockKey
+                    )}
                   >
                   <div className={styles.TribeRound__pollComposerHeader}>
                     {!isEditingMessage ? (
@@ -5013,7 +5000,8 @@ function TribeRoundContent({
                               optionIndex + 1
                             }`}
                             className={styles.TribeRound__pollInput}
-                            ref={registerComposerFocusTarget(
+                            ref={registerComposerTarget(
+                              composerFocusTargetsRef,
                               TRIBE_ROUND_POLL.draftKeyPrefix +
                                 String(optionIndex)
                             )}
@@ -5148,10 +5136,10 @@ function TribeRoundContent({
                     disabled={isBusy}
                     onClick={() => {
                       setIsPollComposerEnabled(true);
-                      focusComposerInput(
+                      revealComposerBlock(
+                        TRIBE_ROUND_POLL.composerBlockKey,
                         TRIBE_ROUND_POLL.draftKeyPrefix +
-                          String(TRIBE_ROUND_POLL.firstOptionIndex),
-                        { shouldScrollIntoView: true }
+                          String(TRIBE_ROUND_POLL.firstOptionIndex)
                       );
                     }}
                     size={TRIBE_ROUND_FORM.iconSize}

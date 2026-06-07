@@ -6849,12 +6849,12 @@ describe("TribeRound", () => {
     });
   });
 
-  it("scrolls the composer body to the bottom when a video draft is added", async () => {
+  it("scrolls the whole video block into view and focuses its input when a video draft is added", async () => {
     const user = userEvent.setup();
-    const scrollToSpy = jest.fn();
-    const originalScrollTo = HTMLElement.prototype.scrollTo;
-    HTMLElement.prototype.scrollTo =
-      scrollToSpy as unknown as typeof HTMLElement.prototype.scrollTo;
+    const scrollIntoViewSpy = jest.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView =
+      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
 
     try {
       render(
@@ -6868,17 +6868,20 @@ describe("TribeRound", () => {
       await user.click(
         screen.getByRole("button", { name: "Compartí algo en la ronda" })
       );
-      scrollToSpy.mockClear();
+      scrollIntoViewSpy.mockClear();
       await user.click(screen.getByRole("button", { name: "Agregar video" }));
 
       await waitFor(() => {
-        expect(scrollToSpy).toHaveBeenCalled();
+        expect(scrollIntoViewSpy).toHaveBeenCalled();
       });
 
-      const [scrollOptions] = scrollToSpy.mock.calls.at(-1) ?? [];
-      expect(scrollOptions).toMatchObject({ behavior: "smooth" });
+      const [scrollOptions] = scrollIntoViewSpy.mock.calls.at(-1) ?? [];
+      expect(scrollOptions).toMatchObject({
+        behavior: "smooth",
+        block: "nearest",
+      });
 
-      const scrolledElement = scrollToSpy.mock.instances.at(
+      const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
       ) as unknown as HTMLElement;
       expect(
@@ -6893,16 +6896,16 @@ describe("TribeRound", () => {
         ).toHaveFocus();
       });
     } finally {
-      HTMLElement.prototype.scrollTo = originalScrollTo;
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
     }
   });
 
-  it("scrolls the composer body to the bottom when an image draft is added", async () => {
+  it("scrolls the whole image block into view and focuses its input when an image draft is added", async () => {
     const user = userEvent.setup();
-    const scrollToSpy = jest.fn();
-    const originalScrollTo = HTMLElement.prototype.scrollTo;
-    HTMLElement.prototype.scrollTo =
-      scrollToSpy as unknown as typeof HTMLElement.prototype.scrollTo;
+    const scrollIntoViewSpy = jest.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView =
+      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
     const imageFile = new File(["image"], "captura.png", {
       type: "image/png",
     });
@@ -6939,20 +6942,23 @@ describe("TribeRound", () => {
       await user.click(
         screen.getByRole("button", { name: "Compartí algo en la ronda" })
       );
-      scrollToSpy.mockClear();
+      scrollIntoViewSpy.mockClear();
       await user.upload(
         screen.getByLabelText("Agregar imagen"),
         imageFile
       );
 
       await waitFor(() => {
-        expect(scrollToSpy).toHaveBeenCalled();
+        expect(scrollIntoViewSpy).toHaveBeenCalled();
       });
 
-      const [scrollOptions] = scrollToSpy.mock.calls.at(-1) ?? [];
-      expect(scrollOptions).toMatchObject({ behavior: "smooth" });
+      const [scrollOptions] = scrollIntoViewSpy.mock.calls.at(-1) ?? [];
+      expect(scrollOptions).toMatchObject({
+        behavior: "smooth",
+        block: "nearest",
+      });
 
-      const scrolledElement = scrollToSpy.mock.instances.at(
+      const scrolledElement = scrollIntoViewSpy.mock.instances.at(
         -1
       ) as unknown as HTMLElement;
       expect(
@@ -6967,31 +6973,60 @@ describe("TribeRound", () => {
         ).toHaveFocus();
       });
     } finally {
-      HTMLElement.prototype.scrollTo = originalScrollTo;
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
     }
   });
 
-  it("focuses the first poll option when the poll composer is enabled", async () => {
+  it("scrolls the whole poll block into view and focuses the first option when the poll composer is enabled", async () => {
     const user = userEvent.setup();
+    const scrollIntoViewSpy = jest.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView =
+      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
 
-    render(
-      <TribeRound
-        authenticatedMember={authenticatedMember}
-        tribeSlug="matematica-pro"
-        round={round}
-      />
-    );
+    try {
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
 
-    await user.click(
-      screen.getByRole("button", { name: "Compartí algo en la ronda" })
-    );
-    await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      scrollIntoViewSpy.mockClear();
+      await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
 
-    await waitFor(() => {
+      await waitFor(() => {
+        expect(scrollIntoViewSpy).toHaveBeenCalled();
+      });
+
+      const [scrollOptions] = scrollIntoViewSpy.mock.calls.at(-1) ?? [];
+      expect(scrollOptions).toMatchObject({
+        behavior: "smooth",
+        block: "nearest",
+      });
+
+      const scrolledElement = scrollIntoViewSpy.mock.instances.at(
+        -1
+      ) as unknown as HTMLElement;
       expect(
-        screen.getByRole("textbox", { name: "Opción 1" })
-      ).toHaveFocus();
-    });
+        within(scrolledElement).getByRole("textbox", { name: "Opción 1" })
+      ).toBeInTheDocument();
+      expect(
+        within(scrolledElement).getByRole("textbox", { name: "Opción 2" })
+      ).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("textbox", { name: "Opción 1" })
+        ).toHaveFocus();
+      });
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    }
   });
 
   it("scrolls the poll composer into view when a poll option is added", async () => {
