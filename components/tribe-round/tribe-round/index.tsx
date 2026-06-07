@@ -296,6 +296,7 @@ const TRIBE_ROUND_COPY = {
   videoAddButton: "Agregar video",
   videoAttachedFallbackLabel: "Video adjunto",
   videoThumbnailUnavailableLabel: "Miniatura no disponible",
+  videoPlayHintLabel: "Tocá para ver el video",
   videoComposerHeading: "Link del video",
   videoEmbedTitlePrefix: "Video adjunto al mensaje",
   videoInvalidUrl:
@@ -4099,7 +4100,7 @@ function TribeRoundContent({
             const videoTile = videoThumbnailSource ? (
               <span
                 aria-hidden="true"
-                className={`${styles.TribeRound__videoTile} ${styles["TribeRound__videoTile--preview"]}`}
+                className={styles.TribeRound__videoTile}
               >
                 {createElement(TRIBE_ROUND_MEDIA.imageElementTag, {
                   alt: "",
@@ -4121,28 +4122,46 @@ function TribeRoundContent({
               </span>
             );
 
+            const videoFrameInner = canOpenCarousel ? (
+              <button
+                aria-label={`${TRIBE_ROUND_COPY.imageCarouselVideoOpenButtonPrefix} ${String(
+                  mediaIndex + 1
+                )}: ${TRIBE_ROUND_COPY.videoProviderLabel[mediaItem.provider]}`}
+                className={styles.TribeRound__imageOpenButton}
+                onClick={(event) => {
+                  openMessageMediaCarousel({
+                    event,
+                    mediaIndex,
+                    messageId: message.id,
+                  });
+                }}
+                type={TRIBE_ROUND_FORM.buttonType}
+              >
+                {videoTile}
+              </button>
+            ) : (
+              videoTile
+            );
+
+            if (!videoThumbnailSource && canOpenCarousel) {
+              return (
+                <div
+                  className={styles.TribeRound__mediaColumn}
+                  key={mediaItem.id}
+                >
+                  <div className={styles.TribeRound__imageFrame}>
+                    {videoFrameInner}
+                  </div>
+                  <span className={styles.TribeRound__mediaPlayHint}>
+                    {TRIBE_ROUND_COPY.videoPlayHintLabel}
+                  </span>
+                </div>
+              );
+            }
+
             return (
               <div className={styles.TribeRound__imageFrame} key={mediaItem.id}>
-                {canOpenCarousel ? (
-                  <button
-                    aria-label={`${TRIBE_ROUND_COPY.imageCarouselVideoOpenButtonPrefix} ${String(
-                      mediaIndex + 1
-                    )}: ${TRIBE_ROUND_COPY.videoProviderLabel[mediaItem.provider]}`}
-                    className={styles.TribeRound__imageOpenButton}
-                    onClick={(event) => {
-                      openMessageMediaCarousel({
-                        event,
-                        mediaIndex,
-                        messageId: message.id,
-                      });
-                    }}
-                    type={TRIBE_ROUND_FORM.buttonType}
-                  >
-                    {videoTile}
-                  </button>
-                ) : (
-                  videoTile
-                )}
+                {videoFrameInner}
               </div>
             );
           }
@@ -4162,7 +4181,7 @@ function TribeRoundContent({
               className={styles.TribeRound__image}
               height={0}
               loading={imageLoading}
-              sizes="(max-width: 768px) 88vw, 420px"
+              sizes="(max-width: 768px) 26vw, 8.5rem"
               src={mediaItem.url}
               unoptimized={isTemporaryImage}
               width={0}
@@ -4224,7 +4243,7 @@ function TribeRoundContent({
           {videoThumbnailSource ? (
             <span
               aria-hidden="true"
-              className={`${styles.TribeRound__videoTile} ${styles["TribeRound__videoTile--feed"]}`}
+              className={styles.TribeRound__videoTile}
             >
               {createElement(TRIBE_ROUND_MEDIA.imageElementTag, {
                 alt: "",
@@ -4240,7 +4259,7 @@ function TribeRoundContent({
           ) : (
             <span
               aria-hidden="true"
-              className={`${styles.TribeRound__videoTile} ${styles["TribeRound__videoTile--feed"]}`}
+              className={styles.TribeRound__videoTile}
             >
               {renderVideoThumbnailFallback(false)}
             </span>

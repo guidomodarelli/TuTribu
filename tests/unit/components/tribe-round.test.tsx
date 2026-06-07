@@ -930,6 +930,100 @@ describe("TribeRound", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows a play hint below the modal placeholder when the video has no thumbnail", async () => {
+    const user = userEvent.setup();
+    const noThumbnailRound = {
+      ...round,
+      messages: [
+        {
+          ...round.messages[0],
+          media: [
+            {
+              externalId: "123456789",
+              id: "modal-video-play-hint",
+              kind: "video" as const,
+              provider: "vimeo" as const,
+              sortOrder: 0,
+              thumbnailUrl: null,
+            },
+          ],
+          title: "Mensaje con video sin miniatura",
+        },
+      ],
+    };
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={noThumbnailRound}
+      />
+    );
+
+    expect(
+      screen.queryByText("Tocá para ver el video")
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Abrir mensaje: Mensaje con video sin miniatura/i,
+      })
+    );
+
+    const messageDetailsDialog = screen.getByRole("dialog", {
+      name: "Mensaje",
+    });
+
+    expect(
+      within(messageDetailsDialog).getByText("Tocá para ver el video")
+    ).toBeInTheDocument();
+  });
+
+  it("does not show the play hint in the modal when the video has a thumbnail", async () => {
+    const user = userEvent.setup();
+    const youtubeRound = {
+      ...round,
+      messages: [
+        {
+          ...round.messages[0],
+          media: [
+            {
+              externalId: "dQw4w9WgXcQ",
+              id: "modal-video-with-thumbnail",
+              kind: "video" as const,
+              provider: "youtube" as const,
+              sortOrder: 0,
+              thumbnailUrl: null,
+            },
+          ],
+          title: "Mensaje con video con miniatura",
+        },
+      ],
+    };
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={youtubeRound}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Abrir mensaje: Mensaje con video con miniatura/i,
+      })
+    );
+
+    const messageDetailsDialog = screen.getByRole("dialog", {
+      name: "Mensaje",
+    });
+
+    expect(
+      within(messageDetailsDialog).queryByText("Tocá para ver el video")
+    ).not.toBeInTheDocument();
+  });
+
   it("opens message images in a fullscreen carousel from message details only", async () => {
     const user = userEvent.setup();
 
