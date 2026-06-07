@@ -8,6 +8,9 @@ import {
   SITEPING_IDENTITY_ENDPOINT,
 } from "@/src/modules/siteping/constants/siteping";
 import type { SitepingIdentityResult } from "@/src/modules/siteping/application/results/siteping-feedback-result";
+import { installSitepingDismissGuard } from "@/components/providers/siteping-provider/siteping-dismiss-guard";
+
+import "./siteping-overlay.scss";
 
 const SITEPING_PROVIDER_CONFIG = {
   captureDiagnostics: true,
@@ -21,6 +24,8 @@ const SITEPING_PROVIDER_CONFIG = {
 type SitepingProviderState = SitepingIdentityResult | null;
 
 function SitepingWidgetMount({ config }: { config: SitepingIdentityResult }) {
+  useEffect(() => installSitepingDismissGuard(), []);
+
   useEffect(() => {
     let isMounted = true;
     let sitepingInstance: SitepingInstance | null = null;

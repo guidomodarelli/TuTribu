@@ -1,0 +1,74 @@
+/*
+ * SitePing x Radix overlay coexistence (global on purpose, intentionally not
+ * BEM-scoped). These selectors target SitePing's OWN body-level elements, which
+ * ship inside a third-party bundle with no class or id we control. The only
+ * stable signal we have is the inline max z-index SitePing stamps on them
+ * (2147483647 / 2147483646) and the `data-siteping-ignore` marker on its panel.
+ *
+ * GOTCHA — inline-style normalization: the browser reparses and re-serializes
+ * the `style` attribute, so values gain spaces and units (`top:0` becomes
+ * `top: 0px`). Substring selectors must match the SERIALIZED form. The bare
+ * integers `2147483647` / `2147483646` survive verbatim, but positional anchors
+ * like `top` must be matched as `top: 0px`, not `top:0`.
+ *
+ * Why this file exists:
+ *
+ * A Radix modal `Dialog` (every shadcn Dialog is modal by default) sets
+ * `body { pointer-events: none }` while open. SitePing appends its annotation
+ * overlay, its instruction toolbar and its feedback panel as light-DOM children
+ * of `<body>`. Any of them lacking its own `pointer-events` then inherits `none`
+ * and becomes click-through, so reporting on top of an open modal silently
+ * fails. We restore `pointer-events: auto` on those surfaces, while leaving any
+ * element SitePing intentionally marks `pointer-events: none` (the markers layer
+ * and cursor hints) untouched so they stay click-through. The drawing rectangle
+ * is a grandchild of the overlay (not a `body > div`), so these rules never
+ * touch it.
+ */
+
+// Max z-index values SitePing stamps inline on its body-level surfaces.
+// `2147483647` is the signed 32-bit integer max (2^31 - 1); the toolbar and the
+// feedback panel use it, the annotation overlay sits one below at `...46`. We
+// match on these inline values because SitePing's elements expose no class or id
+// we control. They come from the pinned `@siteping/widget` version — revalidate
+// this file if that dependency is upgraded.
+$siteping-top-layer-z-index: 2147483647;
+$siteping-overlay-z-index: 2147483646;
+
+// `data-siteping-ignore="true"` marks the SitePing feedback panel.
+$siteping-ignored-surface-selector: '[data-siteping-ignore="true"]';
+
+// Surfaces SitePing intentionally keeps click-through (markers layer, cursor
+// hints). Excluding the serialized `pointer-events: none` is more robust than
+// excluding a single id and future-proofs against new pass-through layers.
+$siteping-clickthrough-surface-selector: '[style*="pointer-events: none"]';
+
+body > div[style*="#{$siteping-top-layer-z-index}"]:not(#{$siteping-clickthrough-surface-selector}),
+body > div[style*="#{$siteping-overlay-z-index}"]:not(#{$siteping-clickthrough-surface-selector}),
+body > #{$siteping-ignored-surface-selector} {
+  pointer-events: auto !important;
+}
+
+/*
+ * SitePing's instruction toolbar is pinned to `top: 0`. On top of a modal it
+ * covers the dialog header, so the user cannot draw a rectangle over it to
+ * report a problem there. While a shadcn `Dialog` is open, move the toolbar to
+ * the bottom of the viewport to free the header. The toolbar is the only
+ * body-level div carrying the max z-index AND the `top: 0px` anchor and without
+ * the panel's `data-siteping-ignore` marker. Engines without `:has()` simply
+ * keep the default top placement (graceful, same as today).
+ */
+// `data-slot="dialog-content"` is set by the shadcn `DialogContent`; it only
+// exists in the DOM while a Dialog is open (the portal unmounts on close).
+$shadcn-dialog-content-selector: '[data-slot="dialog-content"]';
+
+// The toolbar's inline anchor, in the browser-serialized form (see the
+// normalization gotcha above): the widget sets `top:0`, the DOM reports
+// `top: 0px`. Only the toolbar carries the top-layer z-index AND this anchor,
+// and (unlike the panel) lacks the ignore marker.
+$siteping-toolbar-top-anchor: "top: 0px";
+
+body:has(#{$shadcn-dialog-content-selector})
+  > div[style*="#{$siteping-top-layer-z-index}"][style*="#{$siteping-toolbar-top-anchor}"]:not(#{$siteping-ignored-surface-selector}) {
+  top: auto !important;
+  bottom: 0 !important;
+}
