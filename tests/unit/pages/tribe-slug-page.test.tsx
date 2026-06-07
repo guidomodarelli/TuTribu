@@ -545,6 +545,137 @@ describe("TribePage", () => {
     expect(screen.getByText("Plan mensual")).toBeInTheDocument();
   });
 
+  it("renders the public join offer for a payment-blocked member so a failed payment can be retried", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "retry@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      blockedReason: "payment_blocked",
+      reason: "blocked_hidden",
+    });
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
+    });
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      })
+    );
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(listTribeRound).not.toHaveBeenCalled();
+    expect(getTribeCurrentSubscriptionOffer).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+    expect(
+      screen.getByRole("heading", { name: "Completá tu suscripción" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Continuar con el pago" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Plan mensual")).toBeInTheDocument();
+  });
+
+  it("renders the public join offer for a subscription-inactive removed member so a failed payment can be retried", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "retry@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      blockedReason: "subscription_inactive",
+      reason: "blocked_hidden",
+    });
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
+    });
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      })
+    );
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(listTribeRound).not.toHaveBeenCalled();
+    expect(getTribeCurrentSubscriptionOffer).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+    expect(
+      screen.getByRole("heading", { name: "Completá tu suscripción" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Continuar con el pago" })
+    ).toBeInTheDocument();
+  });
+
+  it("returns 404 for a conduct-blocked member even when a current paid plan exists", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "blocked@example.com",
+      name: "Blocked User",
+      role: "tribemate",
+      avatarFallback: "BU",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      blockedReason: "conduct_blocked",
+      reason: "blocked_hidden",
+    });
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
+    });
+    (notFound as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(
+      TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      })
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(notFound).toHaveBeenCalled();
+    expect(getTribeCurrentSubscriptionOffer).not.toHaveBeenCalled();
+    expect(listTribeRound).not.toHaveBeenCalled();
+  });
+
   it("returns 404 for an authenticated non-member when there is no current paid plan", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",

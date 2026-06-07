@@ -561,8 +561,18 @@ export async function TribePageContent({
       return joinStatusScreen;
     }
 
+    // A member blocked or removed by a failed payment can recover paid access by
+    // re-subscribing through the same tokenless open-join offer, so surface it
+    // instead of a 404. Conduct blocks (and any non-payment reason) stay hidden:
+    // SUBSCRIPTION_RETURN_BLOCKED_REASONS only covers payment_blocked and
+    // subscription_inactive, mirroring the RLS open-join recovery policies.
+    const canRecoverPaidAccessViaOpenJoin =
+      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden &&
+      SUBSCRIPTION_RETURN_BLOCKED_REASONS.has(accessResult.blockedReason);
+
     if (
-      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible
+      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible ||
+      canRecoverPaidAccessViaOpenJoin
     ) {
       const offer = await modules.subscriptions.useCases
         .getTribeCurrentSubscriptionOffer({ tribeSlug: slug })
