@@ -402,6 +402,11 @@ const TRIBE_ROUND_CAROUSEL = {
   transitionDuration: 14,
 } as const;
 
+const COMPOSER_BODY_SCROLL = {
+  bottomBehavior: "smooth",
+  pollBlockAlignment: "end",
+} as const;
+
 const COLLAPSED_CONTENT_PATTERN = {
   trailingWhitespaceBoundary: /\s\S*$/,
   whitespaceRun: /\s+/g,
@@ -1717,7 +1722,50 @@ function TribeRoundContent({
   const pendingCreateMessageIntentRef =
     useRef<PendingCreateMessageIntent | null>(null);
   const mediaDraftCounterRef = useRef(0);
+  const composerBodyRef = useRef<HTMLDivElement | null>(null);
+  const pollComposerRef = useRef<HTMLElement | null>(null);
   const isBusy = Boolean(pendingActionId);
+
+  /**
+   * Scrolls the composer body to its bottom edge so a freshly appended media
+   * draft (image preview or video link field) becomes visible. The scroll is
+   * deferred to the next animation frame so React has committed the new draft
+   * to the DOM and `scrollHeight` reflects the taller content. `scrollTo`'s
+   * options form and the `smooth` behavior degrade gracefully to an instant
+   * jump on older WebKit, keeping the bottom in view on both engines.
+   */
+  const scrollComposerBodyToBottom = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      const composerBody = composerBodyRef.current;
+
+      if (!composerBody) {
+        return;
+      }
+
+      composerBody.scrollTo({
+        top: composerBody.scrollHeight,
+        behavior: COMPOSER_BODY_SCROLL.bottomBehavior,
+      });
+    });
+  }, []);
+
+  /**
+   * Scrolls the poll composer into view. Unlike media drafts, the poll composer
+   * is inserted above the media draft list instead of being appended at the
+   * bottom, so scrolling the body to its bottom edge would skip past it.
+   * Aligning the section's bottom edge with the scrollport reveals both a
+   * freshly enabled composer and a newly appended option. Deferred to the next
+   * frame so the section is in the DOM and taller; `scrollIntoView` degrades to
+   * an instant alignment on older WebKit, keeping it visible on both engines.
+   */
+  const scrollPollComposerIntoView = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      pollComposerRef.current?.scrollIntoView({
+        behavior: COMPOSER_BODY_SCROLL.bottomBehavior,
+        block: COMPOSER_BODY_SCROLL.pollBlockAlignment,
+      });
+    });
+  }, []);
 
   /**
    * Image projection of the unified media draft list. The Cloudflare upload and
@@ -2350,6 +2398,7 @@ function TribeRoundContent({
       void uploadMessageImage(file, localId);
     });
     setMessageComposerErrors([]);
+    scrollComposerBodyToBottom();
   };
 
   const removeMessageImageDraft = (imageDraft: ComposerImageDraft) => {
@@ -2383,6 +2432,7 @@ function TribeRoundContent({
       { kind: MESSAGE_MEDIA_KIND.video, localId, url: "" },
     ]);
     setMessageComposerErrors([]);
+    scrollComposerBodyToBottom();
   };
 
   const updateVideoMediaDraftUrl = (localId: string, url: string) => {
@@ -4811,7 +4861,10 @@ function TribeRoundContent({
               className={styles.TribeRound__composer}
               onSubmit={handleCreateMessage}
             >
-              <div className={styles.TribeRound__composerBody}>
+              <div
+                className={styles.TribeRound__composerBody}
+                ref={composerBodyRef}
+              >
                 <input
                   aria-describedby={
                     hasMessageComposerErrors
@@ -4855,7 +4908,10 @@ function TribeRoundContent({
                   placeholder={TRIBE_ROUND_COPY.messagePlaceholder}
                 />
                 {isPollComposerEnabled ? (
-                  <section className={styles.TribeRound__pollComposer}>
+                  <section
+                    className={styles.TribeRound__pollComposer}
+                    ref={pollComposerRef}
+                  >
                   <div className={styles.TribeRound__pollComposerHeader}>
                     {!isEditingMessage ? (
                       <Button
@@ -4934,6 +4990,7 @@ function TribeRoundContent({
                           ...currentOptions,
                           "",
                         ]);
+                        scrollPollComposerIntoView();
                       }}
                       type={TRIBE_ROUND_FORM.buttonType}
                       variant={TRIBE_ROUND_FORM.ghostVariant}
@@ -5014,6 +5071,7 @@ function TribeRoundContent({
                     disabled={isBusy}
                     onClick={() => {
                       setIsPollComposerEnabled(true);
+                      scrollPollComposerIntoView();
                     }}
                     size={TRIBE_ROUND_FORM.iconSize}
                     type={TRIBE_ROUND_FORM.buttonType}

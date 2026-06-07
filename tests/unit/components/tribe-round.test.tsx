@@ -6849,6 +6849,197 @@ describe("TribeRound", () => {
     });
   });
 
+  it("scrolls the composer body to the bottom when a video draft is added", async () => {
+    const user = userEvent.setup();
+    const scrollToSpy = jest.fn();
+    const originalScrollTo = HTMLElement.prototype.scrollTo;
+    HTMLElement.prototype.scrollTo =
+      scrollToSpy as unknown as typeof HTMLElement.prototype.scrollTo;
+
+    try {
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      scrollToSpy.mockClear();
+      await user.click(screen.getByRole("button", { name: "Agregar video" }));
+
+      await waitFor(() => {
+        expect(scrollToSpy).toHaveBeenCalled();
+      });
+
+      const [scrollOptions] = scrollToSpy.mock.calls.at(-1) ?? [];
+      expect(scrollOptions).toMatchObject({ behavior: "smooth" });
+
+      const scrolledElement = scrollToSpy.mock.instances.at(
+        -1
+      ) as unknown as HTMLElement;
+      expect(
+        within(scrolledElement).getByRole("textbox", {
+          name: "Link del video",
+        })
+      ).toBeInTheDocument();
+    } finally {
+      HTMLElement.prototype.scrollTo = originalScrollTo;
+    }
+  });
+
+  it("scrolls the composer body to the bottom when an image draft is added", async () => {
+    const user = userEvent.setup();
+    const scrollToSpy = jest.fn();
+    const originalScrollTo = HTMLElement.prototype.scrollTo;
+    HTMLElement.prototype.scrollTo =
+      scrollToSpy as unknown as typeof HTMLElement.prototype.scrollTo;
+    const imageFile = new File(["image"], "captura.png", {
+      type: "image/png",
+    });
+
+    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+      if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
+        return {
+          json: async () => ({
+            assetId: "asset-scroll-1",
+            imageId: "cloudflare-image-scroll-1",
+            uploadUrl: "https://upload.imagedelivery.net/direct-upload",
+          }),
+          ok: true,
+          statusText: "Created",
+        };
+      }
+
+      if (url === "https://upload.imagedelivery.net/direct-upload") {
+        return { json: async () => ({}), ok: true, statusText: "OK" };
+      }
+
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    try {
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      scrollToSpy.mockClear();
+      await user.upload(
+        screen.getByLabelText("Agregar imagen"),
+        imageFile
+      );
+
+      await waitFor(() => {
+        expect(scrollToSpy).toHaveBeenCalled();
+      });
+
+      const [scrollOptions] = scrollToSpy.mock.calls.at(-1) ?? [];
+      expect(scrollOptions).toMatchObject({ behavior: "smooth" });
+
+      const scrolledElement = scrollToSpy.mock.instances.at(
+        -1
+      ) as unknown as HTMLElement;
+      expect(
+        within(scrolledElement).getByRole("textbox", {
+          name: "Descripción de la imagen",
+        })
+      ).toBeInTheDocument();
+    } finally {
+      HTMLElement.prototype.scrollTo = originalScrollTo;
+    }
+  });
+
+  it("scrolls the poll composer into view when the poll composer is enabled", async () => {
+    const user = userEvent.setup();
+    const scrollIntoViewSpy = jest.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView =
+      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+
+    try {
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      scrollIntoViewSpy.mockClear();
+      await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
+
+      await waitFor(() => {
+        expect(scrollIntoViewSpy).toHaveBeenCalled();
+      });
+
+      const [scrollOptions] = scrollIntoViewSpy.mock.calls.at(-1) ?? [];
+      expect(scrollOptions).toMatchObject({ behavior: "smooth", block: "end" });
+
+      const scrolledElement = scrollIntoViewSpy.mock.instances.at(
+        -1
+      ) as unknown as HTMLElement;
+      expect(
+        within(scrolledElement).getByRole("textbox", { name: "Opción 1" })
+      ).toBeInTheDocument();
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    }
+  });
+
+  it("scrolls the poll composer into view when a poll option is added", async () => {
+    const user = userEvent.setup();
+    const scrollIntoViewSpy = jest.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView =
+      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+
+    try {
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
+      scrollIntoViewSpy.mockClear();
+      await user.click(screen.getByRole("button", { name: "Agregar opción" }));
+
+      await waitFor(() => {
+        expect(scrollIntoViewSpy).toHaveBeenCalled();
+      });
+
+      const [scrollOptions] = scrollIntoViewSpy.mock.calls.at(-1) ?? [];
+      expect(scrollOptions).toMatchObject({ behavior: "smooth", block: "end" });
+
+      const scrolledElement = scrollIntoViewSpy.mock.instances.at(
+        -1
+      ) as unknown as HTMLElement;
+      expect(
+        within(scrolledElement).getByRole("textbox", { name: "Opción 3" })
+      ).toBeInTheDocument();
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    }
+  });
+
   it("blocks submission when the video URL is not recognized", async () => {
     const user = userEvent.setup();
 
