@@ -41,7 +41,8 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="section">
   <div class="section-num">01</div>
   <div class="section-title">Objetivo</div>
-<p>En el feed y en el modal del mensaje, cada video adjunto muestra su <strong>thumbnail/preview</strong>; la <strong>reproduccion</strong> ocurre exclusivamente dentro del carrusel de medios, donde se monta el <code>iframe</code> del proveedor. Fuera del carrusel nunca hay reproduccion: solo una imagen con un badge de play que abre el carrusel.</p>
+<p>Los medios adjuntos muestran su <strong>thumbnail/preview</strong>, nunca reproduccion fuera del carrusel. En el <strong>feed</strong> cada mensaje muestra solo el <strong>primer medio</strong> (<code>media[0]</code>, imagen o video) como una miniatura cuadrada <strong>1:1</strong> a la derecha del contenido; si ese primer medio es un video, se ve su thumbnail con el badge de play. En el <strong>modal del mensaje</strong> se renderiza la galeria unificada completa y cada video adjunto muestra su thumbnail. La <strong>reproduccion</strong> ocurre exclusivamente dentro del carrusel de medios, donde se monta el <code>iframe</code> del proveedor. Fuera del carrusel nunca hay reproduccion: solo una imagen con un badge de play que abre el carrusel.</p>
+<p>Cuando un video todavia <strong>no tiene thumbnail</strong> (proveedor no-YouTube con <code>thumbnail_url</code> aun sin resolver), el tile cae a un fallback: el icono de video con el texto <strong>Video adjunto</strong>, tanto en el feed como en el modal. El modal agrega ademas el texto <strong>Miniatura no disponible</strong> para explicitar el motivo; ese segundo texto no se muestra en el feed para no recargar la miniatura compacta. El fallback es decorativo (<code>aria-hidden</code>): el card y el carrusel ya exponen su propio <code>aria-label</code>.</p>
 </div>
 
 <div class="section">

@@ -745,6 +745,191 @@ describe("TribeRound", () => {
     ).toHaveAttribute("loading", "lazy");
   });
 
+  it("shows only the first message media as a single feed thumbnail", () => {
+    const multiImageRound = {
+      ...round,
+      messages: [
+        {
+          ...round.messages[0],
+          media: [
+            {
+              altText: "",
+              id: "feed-image-first",
+              kind: "image" as const,
+              sortOrder: 0,
+              url: "https://imagedelivery.net/account-hash/feed-image-first/public",
+            },
+            {
+              altText: "",
+              id: "feed-image-second",
+              kind: "image" as const,
+              sortOrder: 1,
+              url: "https://imagedelivery.net/account-hash/feed-image-second/public",
+            },
+          ],
+          title: "Mensaje con varias imagenes",
+        },
+      ],
+    };
+
+    const { container } = render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={multiImageRound}
+      />
+    );
+
+    const feedMedia = container.querySelectorAll(".TribeRound__feedMedia");
+
+    expect(feedMedia).toHaveLength(1);
+    const feedImages = feedMedia[0].querySelectorAll("img");
+    expect(feedImages).toHaveLength(1);
+    expect(feedImages[0]).toHaveAttribute("alt", "Mensaje con varias imagenes");
+  });
+
+  it("shows the first message video as a single feed thumbnail with a play badge", () => {
+    const videoFeedRound = {
+      ...round,
+      messages: [
+        {
+          ...round.messages[0],
+          media: [
+            {
+              externalId: "dQw4w9WgXcQ",
+              id: "feed-video-first",
+              kind: "video" as const,
+              provider: "youtube" as const,
+              sortOrder: 0,
+              thumbnailUrl: null,
+            },
+            {
+              altText: "",
+              id: "feed-image-after-video",
+              kind: "image" as const,
+              sortOrder: 1,
+              url: "https://imagedelivery.net/account-hash/feed-image-after-video/public",
+            },
+          ],
+          title: "Mensaje con video al inicio",
+        },
+      ],
+    };
+
+    const { container } = render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={videoFeedRound}
+      />
+    );
+
+    const feedMedia = container.querySelectorAll(".TribeRound__feedMedia");
+
+    expect(feedMedia).toHaveLength(1);
+    const thumbnails = feedMedia[0].querySelectorAll(".TribeRound__videoThumbnail");
+    expect(thumbnails).toHaveLength(1);
+    expect(thumbnails[0]).toHaveAttribute(
+      "src",
+      "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"
+    );
+    expect(
+      feedMedia[0].querySelector(".TribeRound__videoPlayBadge")
+    ).not.toBeNull();
+    expect(feedMedia[0].querySelectorAll("img")).toHaveLength(1);
+  });
+
+  it("shows a 'Video adjunto' fallback in the feed when the first video has no thumbnail", () => {
+    const noThumbnailRound = {
+      ...round,
+      messages: [
+        {
+          ...round.messages[0],
+          media: [
+            {
+              externalId: "123456789",
+              id: "feed-video-no-thumbnail",
+              kind: "video" as const,
+              provider: "vimeo" as const,
+              sortOrder: 0,
+              thumbnailUrl: null,
+            },
+          ],
+          title: "Mensaje con video sin miniatura",
+        },
+      ],
+    };
+
+    const { container } = render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={noThumbnailRound}
+      />
+    );
+
+    const feedMedia = container.querySelector(".TribeRound__feedMedia");
+
+    expect(feedMedia).not.toBeNull();
+    expect(
+      within(feedMedia as HTMLElement).getByText("Video adjunto")
+    ).toBeInTheDocument();
+    expect(
+      within(feedMedia as HTMLElement).queryByText("Miniatura no disponible")
+    ).not.toBeInTheDocument();
+    expect(
+      (feedMedia as HTMLElement).querySelector(".TribeRound__videoThumbnail")
+    ).toBeNull();
+  });
+
+  it("shows a thumbnail-unavailable hint in the message modal when the video has no thumbnail", async () => {
+    const user = userEvent.setup();
+    const noThumbnailRound = {
+      ...round,
+      messages: [
+        {
+          ...round.messages[0],
+          media: [
+            {
+              externalId: "123456789",
+              id: "modal-video-no-thumbnail",
+              kind: "video" as const,
+              provider: "vimeo" as const,
+              sortOrder: 0,
+              thumbnailUrl: null,
+            },
+          ],
+          title: "Mensaje con video sin miniatura",
+        },
+      ],
+    };
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={noThumbnailRound}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Abrir mensaje: Mensaje con video sin miniatura/i,
+      })
+    );
+
+    const messageDetailsDialog = screen.getByRole("dialog", {
+      name: "Mensaje",
+    });
+
+    expect(
+      within(messageDetailsDialog).getByText("Video adjunto")
+    ).toBeInTheDocument();
+    expect(
+      within(messageDetailsDialog).getByText("Miniatura no disponible")
+    ).toBeInTheDocument();
+  });
+
   it("opens message images in a fullscreen carousel from message details only", async () => {
     const user = userEvent.setup();
 

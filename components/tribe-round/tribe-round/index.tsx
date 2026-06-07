@@ -294,6 +294,8 @@ const TRIBE_ROUND_COPY = {
   imageUploadPendingError: "Esperá a que termine de subir la imagen.",
   imageUploadingLabel: "Subiendo imagen",
   videoAddButton: "Agregar video",
+  videoAttachedFallbackLabel: "Video adjunto",
+  videoThumbnailUnavailableLabel: "Miniatura no disponible",
   videoComposerHeading: "Link del video",
   videoEmbedTitlePrefix: "Video adjunto al mensaje",
   videoInvalidUrl:
@@ -356,6 +358,12 @@ const TRIBE_ROUND_FORM = {
   outlineVariant: "outline",
   submitType: "submit",
   urlInputType: "url",
+} as const;
+
+const TRIBE_ROUND_MEDIA = {
+  eagerLoading: "eager",
+  imageElementTag: "img",
+  lazyLoading: "lazy",
 } as const;
 
 const TRIBE_ROUND_ATTRIBUTES = {
@@ -4047,6 +4055,20 @@ function TribeRoundContent({
     message.title ||
     TRIBE_ROUND_COPY.messageDetailsDialogTitle;
 
+  const renderVideoThumbnailFallback = (shouldShowThumbnailHint: boolean) => (
+    <>
+      <VideoIcon />
+      <span className={styles.TribeRound__videoFallbackLabel}>
+        {TRIBE_ROUND_COPY.videoAttachedFallbackLabel}
+      </span>
+      {shouldShowThumbnailHint ? (
+        <span className={styles.TribeRound__videoFallbackHint}>
+          {TRIBE_ROUND_COPY.videoThumbnailUnavailableLabel}
+        </span>
+      ) : null}
+    </>
+  );
+
   const renderMessageMedia = (
     message: TribeRoundMessageResult,
     {
@@ -4079,11 +4101,11 @@ function TribeRoundContent({
                 aria-hidden="true"
                 className={`${styles.TribeRound__videoTile} ${styles["TribeRound__videoTile--preview"]}`}
               >
-                {createElement("img", {
+                {createElement(TRIBE_ROUND_MEDIA.imageElementTag, {
                   alt: "",
                   className: styles.TribeRound__videoThumbnail,
                   decoding: "async",
-                  loading: "lazy",
+                  loading: TRIBE_ROUND_MEDIA.lazyLoading,
                   src: videoThumbnailSource,
                 })}
                 <span className={styles.TribeRound__videoPlayBadge}>
@@ -4095,7 +4117,7 @@ function TribeRoundContent({
                 aria-hidden="true"
                 className={styles.TribeRound__videoTile}
               >
-                <VideoIcon />
+                {renderVideoThumbnailFallback(true)}
               </span>
             );
 
@@ -4129,7 +4151,9 @@ function TribeRoundContent({
             TRIBE_ROUND_SYMBOLS.blobUrlPrefix
           );
           const imageLoading =
-            shouldLoadFirstImageEagerly && mediaIndex === 0 ? "eager" : "lazy";
+            shouldLoadFirstImageEagerly && mediaIndex === 0
+              ? TRIBE_ROUND_MEDIA.eagerLoading
+              : TRIBE_ROUND_MEDIA.lazyLoading;
           const imageAlt = getMessageMediaAltText(mediaItem, message);
 
           const messageImage = (
@@ -4168,6 +4192,78 @@ function TribeRoundContent({
             </div>
           );
         })}
+      </div>
+    );
+  };
+
+  const renderMessageFeedMedia = (
+    message: TribeRoundMessageResult,
+    { shouldLoadEagerly = false }: { shouldLoadEagerly?: boolean } = {}
+  ) => {
+    const [firstMediaItem] = message.media ?? [];
+
+    if (!firstMediaItem) {
+      return null;
+    }
+
+    const mediaLoading = shouldLoadEagerly
+      ? TRIBE_ROUND_MEDIA.eagerLoading
+      : TRIBE_ROUND_MEDIA.lazyLoading;
+
+    if (firstMediaItem.kind === MESSAGE_MEDIA_KIND.video) {
+      const videoThumbnailSource =
+        buildVideoThumbnailSource(
+          firstMediaItem.provider,
+          firstMediaItem.externalId
+        ) ??
+        firstMediaItem.thumbnailUrl ??
+        null;
+
+      return (
+        <div className={styles.TribeRound__feedMedia}>
+          {videoThumbnailSource ? (
+            <span
+              aria-hidden="true"
+              className={`${styles.TribeRound__videoTile} ${styles["TribeRound__videoTile--feed"]}`}
+            >
+              {createElement(TRIBE_ROUND_MEDIA.imageElementTag, {
+                alt: "",
+                className: styles.TribeRound__videoThumbnail,
+                decoding: "async",
+                loading: mediaLoading,
+                src: videoThumbnailSource,
+              })}
+              <span className={styles.TribeRound__videoPlayBadge}>
+                <PlayIcon />
+              </span>
+            </span>
+          ) : (
+            <span
+              aria-hidden="true"
+              className={`${styles.TribeRound__videoTile} ${styles["TribeRound__videoTile--feed"]}`}
+            >
+              {renderVideoThumbnailFallback(false)}
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    const isTemporaryImage = firstMediaItem.url.startsWith(
+      TRIBE_ROUND_SYMBOLS.blobUrlPrefix
+    );
+
+    return (
+      <div className={styles.TribeRound__feedMedia}>
+        <Image
+          alt={getMessageMediaAltText(firstMediaItem, message)}
+          className={styles.TribeRound__feedMediaImage}
+          fill
+          loading={mediaLoading}
+          sizes="(max-width: 768px) 28vw, 8.5rem"
+          src={firstMediaItem.url}
+          unoptimized={isTemporaryImage}
+        />
       </div>
     );
   };
@@ -4396,12 +4492,12 @@ function TribeRoundContent({
                     key={mediaItem.id}
                   >
                     <div className={styles.TribeRound__imageCarouselFrame}>
-                      {createElement("img", {
+                      {createElement(TRIBE_ROUND_MEDIA.imageElementTag, {
                         alt: imageAlt,
                         className: styles.TribeRound__imageCarouselImage,
                         decoding: TRIBE_ROUND_CAROUSEL.imageDecoding,
                         fetchPriority: TRIBE_ROUND_CAROUSEL.imageFetchPriority,
-                        loading: "eager",
+                        loading: TRIBE_ROUND_MEDIA.eagerLoading,
                         src: mediaItem.url,
                       })}
                     </div>
@@ -5068,90 +5164,98 @@ function TribeRoundContent({
                   openMessageDetails(message.id);
                 }}
               >
-                <article className={styles.TribeRound__messageArticle}>
+                <article
+                  className={
+                    (message.media?.length ?? 0) > 0
+                      ? `${styles.TribeRound__messageArticle} ${styles["TribeRound__messageArticle--withMedia"]}`
+                      : styles.TribeRound__messageArticle
+                  }
+                >
                   <div className={styles.TribeRound__messageMeta}>
                     {renderMessagePinControl(message, true)}
                     {renderMessageActionsMenu(message, true)}
                   </div>
-                  <button
-                    aria-label={`${TRIBE_ROUND_COPY.openMessageDetailsAriaLabelPrefix}: ${message.title || message.content}`}
-                    className={styles.TribeRound__messageDetailsTrigger}
-                    disabled={isPendingMessage(message)}
-                    type={TRIBE_ROUND_FORM.buttonType}
-                  >
-                    <CardHeader className={styles.TribeRound__messageHeader}>
-                      {renderRoundAuthorAvatar(
-                        message.author,
-                        styles.TribeRound__avatar,
-                        getAvatarRoleModifierClassName(message.author.role)
-                      )}
-                      <div className={styles.TribeRound__author}>
-                        {renderAuthorIdentity(message.author)}
-                        {renderMessageCreatedTime(
-                          message.createdAt,
-                          message.channel
-                        )}
-                      </div>
-                    </CardHeader>
-                  </button>
-                  <CardContent className={styles.TribeRound__messageContent}>
-                    {message.title ? (
-                      <h3 className={styles.TribeRound__messageTitle}>
-                        {message.title}
-                      </h3>
-                    ) : null}
-                    {renderMessageContent(
-                      message,
-                      "",
-                      true,
-                      TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round,
-                      true
-                    )}
-                    {renderMessageMedia(message, {
-                      shouldLoadFirstImageEagerly: messageIndex === 0,
-                    })}
-                  </CardContent>
-                  {renderMessagePoll(message, true)}
-
-                  <div className={styles.TribeRound__messageActions}>
-                    <MessageLikesHoverCard
-                      isTriggerDisabled={isLikeButtonDisabled(message)}
-                      likeCount={message.likeCount}
-                      messageId={message.id}
-                      onTriggerClick={stopMessageDetailsOpening}
-                      tribeSlug={tribeSlug}
+                  <div className={styles.TribeRound__messageBody}>
+                    <button
+                      aria-label={`${TRIBE_ROUND_COPY.openMessageDetailsAriaLabelPrefix}: ${message.title || message.content}`}
+                      className={styles.TribeRound__messageDetailsTrigger}
+                      disabled={isPendingMessage(message)}
+                      type={TRIBE_ROUND_FORM.buttonType}
                     >
+                      <CardHeader className={styles.TribeRound__messageHeader}>
+                        {renderRoundAuthorAvatar(
+                          message.author,
+                          styles.TribeRound__avatar,
+                          getAvatarRoleModifierClassName(message.author.role)
+                        )}
+                        <div className={styles.TribeRound__author}>
+                          {renderAuthorIdentity(message.author)}
+                          {renderMessageCreatedTime(
+                            message.createdAt,
+                            message.channel
+                          )}
+                        </div>
+                      </CardHeader>
+                    </button>
+                    <CardContent className={styles.TribeRound__messageContent}>
+                      {message.title ? (
+                        <h3 className={styles.TribeRound__messageTitle}>
+                          {message.title}
+                        </h3>
+                      ) : null}
+                      {renderMessageContent(
+                        message,
+                        "",
+                        true,
+                        TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round,
+                        true
+                      )}
+                    </CardContent>
+                    {renderMessagePoll(message, true)}
+
+                    <div className={styles.TribeRound__messageActions}>
+                      <MessageLikesHoverCard
+                        isTriggerDisabled={isLikeButtonDisabled(message)}
+                        likeCount={message.likeCount}
+                        messageId={message.id}
+                        onTriggerClick={stopMessageDetailsOpening}
+                        tribeSlug={tribeSlug}
+                      >
+                        <Button
+                          aria-label={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${message.likeCount}`}
+                          className={getLikeButtonClassName(message.likedByViewer)}
+                          disabled={isLikeButtonDisabled(message)}
+                          onClick={(event) => {
+                            stopMessageDetailsOpening(event);
+                            handleToggleLike(message.id);
+                          }}
+                          type={TRIBE_ROUND_FORM.buttonType}
+                          variant={TRIBE_ROUND_FORM.outlineVariant}
+                        >
+                          <HeartIcon />
+                          {message.likeCount}
+                        </Button>
+                      </MessageLikesHoverCard>
                       <Button
-                        aria-label={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${message.likeCount}`}
-                        className={getLikeButtonClassName(message.likedByViewer)}
-                        disabled={isLikeButtonDisabled(message)}
+                        aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(message)}`}
+                        className={styles.TribeRound__commentButton}
+                        disabled={isPendingMessage(message)}
                         onClick={(event) => {
                           stopMessageDetailsOpening(event);
-                          handleToggleLike(message.id);
+                          openMessageDetails(message.id);
                         }}
                         type={TRIBE_ROUND_FORM.buttonType}
                         variant={TRIBE_ROUND_FORM.outlineVariant}
                       >
-                        <HeartIcon />
-                        {message.likeCount}
+                        <MessageCircleIcon />
+                        {getCommentCount(message)}
                       </Button>
-                    </MessageLikesHoverCard>
-                    <Button
-                      aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(message)}`}
-                      className={styles.TribeRound__commentButton}
-                      disabled={isPendingMessage(message)}
-                      onClick={(event) => {
-                        stopMessageDetailsOpening(event);
-                        openMessageDetails(message.id);
-                      }}
-                      type={TRIBE_ROUND_FORM.buttonType}
-                      variant={TRIBE_ROUND_FORM.outlineVariant}
-                    >
-                      <MessageCircleIcon />
-                      {getCommentCount(message)}
-                    </Button>
-                    {renderCommentAuthorsPreview(message)}
+                      {renderCommentAuthorsPreview(message)}
+                    </div>
                   </div>
+                  {renderMessageFeedMedia(message, {
+                    shouldLoadEagerly: messageIndex === 0,
+                  })}
               </article>
               </Card>
             </li>
