@@ -1270,13 +1270,28 @@ export class PostgresTribeMemberSubscriptionRepository
       input.idempotencyKey,
     ].join(":");
 
+    // An open-join visitor is not a member and has no invitation token, so the
+    // tribes SELECT policies hide the tribe row and the direct slug read returns
+    // null. Fall back to the SECURITY DEFINER resolver, which exposes only the
+    // tribe id for a tribe that offers its current paid plan as the live option,
+    // so the checkout can resolve the target tribe without widening tribe row
+    // visibility through RLS. Invitation and retry checkouts keep relying on the
+    // RLS-scoped read.
+    const openJoinTribeIdFallback = input.allowOpenJoin
+      ? sql`, public.tribe_open_join_id_by_slug(${input.tribeSlug})`
+      : sql``;
+
     const context = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${input.tribeSlug}
-          limit 1
+          select coalesce(
+            (
+              select tribes.id
+              from public.tribes
+              where tribes.slug = ${input.tribeSlug}
+              limit 1
+            )${openJoinTribeIdFallback}
+          ) as id
         ),
         checkout_context as (
           select

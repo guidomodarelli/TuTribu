@@ -407,6 +407,20 @@
       "when": 1780747200000,
       "tag": "20260606120000_allow_open_join_subscription",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1780750800000,
+      "tag": "20260606130000_expose_open_join_current_offer",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1780754400000,
+      "tag": "20260606140000_expose_open_join_checkout_tribe",
+      "breakpoints": true
     }
   ]
 }

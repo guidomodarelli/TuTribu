@@ -1147,6 +1147,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(getSqlText(execute.mock.calls[0]?.[0])).not.toMatch(
+      /tribe_open_join_id_by_slug/
+    );
   });
 
   it("starts an open-join checkout for a brand-new visitor without an invitation or recoverable membership", async () => {
@@ -1195,6 +1198,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       "provider-plan-1"
     );
     expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(/current_price as \(/);
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
+      /public\.tribe_open_join_id_by_slug\(/
+    );
   });
 
   it("rejects an open-join checkout with missingCurrentPrice when the tribe has no paid current plan", async () => {
