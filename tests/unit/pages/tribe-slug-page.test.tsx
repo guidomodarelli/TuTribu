@@ -599,6 +599,80 @@ describe("TribePage", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders the payment-unavailable status from the open-join query for a payment-blocked membership instead of 404", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "newcomer@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      blockedReason: "payment_blocked",
+      reason: "blocked_hidden",
+    });
+    (notFound as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          join_status: "payment_unavailable",
+        }),
+      })
+    );
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(getTribeCurrentSubscriptionOffer).not.toHaveBeenCalled();
+    expect(listTribeRound).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: "No pudimos iniciar el pago" })
+    ).toBeInTheDocument();
+  });
+
+  it("renders the blocked status from the open-join query for a conduct-blocked membership instead of 404", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "blocked@example.com",
+      name: "Blocked User",
+      role: "tribemate",
+      avatarFallback: "BU",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      blockedReason: "conduct_blocked",
+      reason: "blocked_hidden",
+    });
+    (notFound as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          join_status: "blocked",
+        }),
+      })
+    );
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(getTribeCurrentSubscriptionOffer).not.toHaveBeenCalled();
+    expect(listTribeRound).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: "No pudimos sumar tu cuenta" })
+    ).toBeInTheDocument();
+  });
+
   it("redirects unauthenticated Mercado Pago returns to sign-in when the visitor is not on iOS or Android", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({

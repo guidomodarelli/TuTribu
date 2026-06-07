@@ -543,20 +543,25 @@ export async function TribePageContent({
       redirect(buildJoinSignInRedirect(slug));
     }
 
+    // The open-join action redirects non-checkout outcomes back with a
+    // join_status query. A failed checkout can leave the member blocked or
+    // payment-blocked, so this terminal status screen must render for both the
+    // not_found_or_not_visible and blocked_hidden reasons, not just for
+    // non-members, otherwise blocked members fall through to a misleading 404.
+    const joinStatusScreen = renderOpenJoinStatusScreen(
+      readFirstSearchParamValue(
+        resolvedSearchParams[TRIBE_PAGE_QUERY.joinStatus]
+      ),
+      slug
+    );
+
+    if (joinStatusScreen) {
+      return joinStatusScreen;
+    }
+
     if (
       accessResult.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible
     ) {
-      const joinStatusScreen = renderOpenJoinStatusScreen(
-        readFirstSearchParamValue(
-          resolvedSearchParams[TRIBE_PAGE_QUERY.joinStatus]
-        ),
-        slug
-      );
-
-      if (joinStatusScreen) {
-        return joinStatusScreen;
-      }
-
       const offer = await modules.subscriptions.useCases
         .getTribeCurrentSubscriptionOffer({ tribeSlug: slug })
         .catch(() => ({
