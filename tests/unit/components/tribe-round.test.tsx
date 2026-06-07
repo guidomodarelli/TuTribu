@@ -6886,6 +6886,12 @@ describe("TribeRound", () => {
           name: "Link del video",
         })
       ).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("textbox", { name: "Link del video" })
+        ).toHaveFocus();
+      });
     } finally {
       HTMLElement.prototype.scrollTo = originalScrollTo;
     }
@@ -6954,49 +6960,38 @@ describe("TribeRound", () => {
           name: "Descripción de la imagen",
         })
       ).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("textbox", { name: "Descripción de la imagen" })
+        ).toHaveFocus();
+      });
     } finally {
       HTMLElement.prototype.scrollTo = originalScrollTo;
     }
   });
 
-  it("scrolls the poll composer into view when the poll composer is enabled", async () => {
+  it("focuses the first poll option when the poll composer is enabled", async () => {
     const user = userEvent.setup();
-    const scrollIntoViewSpy = jest.fn();
-    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
-    HTMLElement.prototype.scrollIntoView =
-      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
 
-    try {
-      render(
-        <TribeRound
-          authenticatedMember={authenticatedMember}
-          tribeSlug="matematica-pro"
-          round={round}
-        />
-      );
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
 
-      await user.click(
-        screen.getByRole("button", { name: "Compartí algo en la ronda" })
-      );
-      scrollIntoViewSpy.mockClear();
-      await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
+    await user.click(
+      screen.getByRole("button", { name: "Compartí algo en la ronda" })
+    );
+    await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
 
-      await waitFor(() => {
-        expect(scrollIntoViewSpy).toHaveBeenCalled();
-      });
-
-      const [scrollOptions] = scrollIntoViewSpy.mock.calls.at(-1) ?? [];
-      expect(scrollOptions).toMatchObject({ behavior: "smooth", block: "end" });
-
-      const scrolledElement = scrollIntoViewSpy.mock.instances.at(
-        -1
-      ) as unknown as HTMLElement;
+    await waitFor(() => {
       expect(
-        within(scrolledElement).getByRole("textbox", { name: "Opción 1" })
-      ).toBeInTheDocument();
-    } finally {
-      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
-    }
+        screen.getByRole("textbox", { name: "Opción 1" })
+      ).toHaveFocus();
+    });
   });
 
   it("scrolls the poll composer into view when a poll option is added", async () => {
@@ -7019,6 +7014,11 @@ describe("TribeRound", () => {
         screen.getByRole("button", { name: "Compartí algo en la ronda" })
       );
       await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
+      await waitFor(() => {
+        expect(
+          screen.getByRole("textbox", { name: "Opción 1" })
+        ).toHaveFocus();
+      });
       scrollIntoViewSpy.mockClear();
       await user.click(screen.getByRole("button", { name: "Agregar opción" }));
 

@@ -405,6 +405,7 @@ const TRIBE_ROUND_CAROUSEL = {
 const COMPOSER_BODY_SCROLL = {
   bottomBehavior: "smooth",
   pollBlockAlignment: "end",
+  focusBlockAlignment: "nearest",
 } as const;
 
 const COLLAPSED_CONTENT_PATTERN = {
@@ -438,6 +439,7 @@ const DATE_TIME_LOCAL_INPUT = {
 
 const TRIBE_ROUND_POLL = {
   draftKeyPrefix: "poll-option-",
+  firstOptionIndex: 0,
   initialOptionCount: 2,
   minimumOptionCount: 2,
   multipleInputType: "checkbox",
@@ -1768,6 +1770,64 @@ function TribeRoundContent({
   }, []);
 
   /**
+   * Registry of composer inputs that should receive focus right after being
+   * added, keyed by a stable token. Media drafts register by their `localId`;
+   * poll options register by their draft key. Using element refs instead of a
+   * DOM query avoids fragile attribute-selector escaping for file-name-derived
+   * image ids.
+   */
+  const composerFocusTargetsRef = useRef(
+    new Map<string, HTMLInputElement | null>()
+  );
+
+  /**
+   * Returns a ref callback that registers (or unregisters on unmount) a composer
+   * input under {@link focusKey} so {@link focusComposerInput} can move the caret
+   * to it once it mounts.
+   */
+  const registerComposerFocusTarget = useCallback(
+    (focusKey: string) => (node: HTMLInputElement | null) => {
+      if (node) {
+        composerFocusTargetsRef.current.set(focusKey, node);
+      } else {
+        composerFocusTargetsRef.current.delete(focusKey);
+      }
+    },
+    []
+  );
+
+  /**
+   * Moves focus to a just-added composer input on the next frame, after React
+   * has committed it to the DOM. Focus always runs with `preventScroll` so it
+   * never overrides the surrounding smooth scroll with an instant jump: media
+   * drafts are revealed by the explicit scroll to the bottom, while the poll
+   * composer — inserted above the media list — opts into smoothly scrolling its
+   * first option into view here. Older WebKit that ignores `preventScroll` falls
+   * back to native focus scrolling, which still reveals the input.
+   */
+  const focusComposerInput = useCallback(
+    (focusKey: string, { shouldScrollIntoView = false } = {}) => {
+      window.requestAnimationFrame(() => {
+        const input = composerFocusTargetsRef.current.get(focusKey);
+
+        if (!input) {
+          return;
+        }
+
+        if (shouldScrollIntoView) {
+          input.scrollIntoView({
+            behavior: COMPOSER_BODY_SCROLL.bottomBehavior,
+            block: COMPOSER_BODY_SCROLL.focusBlockAlignment,
+          });
+        }
+
+        input.focus({ preventScroll: true });
+      });
+    },
+    []
+  );
+
+  /**
    * Image projection of the unified media draft list. The Cloudflare upload and
    * cleanup machinery reads and writes this view; updates are merged back into
    * `mediaDrafts` so the author-chosen global order is preserved.
@@ -2375,11 +2435,17 @@ function TribeRoundContent({
       return;
     }
 
+    let firstAddedImageLocalId: string | null = null;
+
     selectedFiles.forEach((file) => {
       messageImageCounterRef.current += 1;
       const localId = `${file.name}-${String(file.lastModified)}-${String(
         messageImageCounterRef.current
       )}`;
+
+      if (firstAddedImageLocalId === null) {
+        firstAddedImageLocalId = localId;
+      }
       const previewUrl =
         typeof URL.createObjectURL === "function"
           ? URL.createObjectURL(file)
@@ -2399,6 +2465,10 @@ function TribeRoundContent({
     });
     setMessageComposerErrors([]);
     scrollComposerBodyToBottom();
+
+    if (firstAddedImageLocalId !== null) {
+      focusComposerInput(firstAddedImageLocalId);
+    }
   };
 
   const removeMessageImageDraft = (imageDraft: ComposerImageDraft) => {
@@ -2433,6 +2503,7 @@ function TribeRoundContent({
     ]);
     setMessageComposerErrors([]);
     scrollComposerBodyToBottom();
+    focusComposerInput(localId);
   };
 
   const updateVideoMediaDraftUrl = (localId: string, url: string) => {
@@ -4367,6 +4438,7 @@ function TribeRoundContent({
       <input
         aria-label={TRIBE_ROUND_COPY.imageAltInputLabel}
         className={styles.TribeRound__imageAltInput}
+        ref={registerComposerFocusTarget(mediaDraft.localId)}
         disabled={isBusy}
         onChange={(event) => {
           const altText = event.currentTarget.value;
@@ -4432,6 +4504,7 @@ function TribeRoundContent({
               }
               aria-invalid={showVideoParseError}
               className={styles.TribeRound__videoInput}
+              ref={registerComposerFocusTarget(mediaDraft.localId)}
               disabled={isBusy}
               onChange={(event) => {
                 updateVideoMediaDraftUrl(
@@ -4940,6 +5013,10 @@ function TribeRoundContent({
                               optionIndex + 1
                             }`}
                             className={styles.TribeRound__pollInput}
+                            ref={registerComposerFocusTarget(
+                              TRIBE_ROUND_POLL.draftKeyPrefix +
+                                String(optionIndex)
+                            )}
                             disabled={isBusy}
                             onChange={(event) => {
                               const nextValue = event.currentTarget.value;
@@ -5071,7 +5148,11 @@ function TribeRoundContent({
                     disabled={isBusy}
                     onClick={() => {
                       setIsPollComposerEnabled(true);
-                      scrollPollComposerIntoView();
+                      focusComposerInput(
+                        TRIBE_ROUND_POLL.draftKeyPrefix +
+                          String(TRIBE_ROUND_POLL.firstOptionIndex),
+                        { shouldScrollIntoView: true }
+                      );
                     }}
                     size={TRIBE_ROUND_FORM.iconSize}
                     type={TRIBE_ROUND_FORM.buttonType}
