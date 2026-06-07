@@ -12,6 +12,7 @@ const listTribeRound = jest.fn();
 const resolveTribeMemberSubscriptionReturn = jest.fn();
 const reconcileCurrentTribeMemberSubscription = jest.fn();
 const validatePendingTribeMemberSubscriptionReturn = jest.fn();
+const getTribeCurrentSubscriptionOffer = jest.fn();
 const infoMock = jest.fn();
 const errorMock = jest.fn();
 
@@ -46,6 +47,13 @@ jest.mock("next/headers", () => ({
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
 }));
+
+jest.mock(
+  "@/src/modules/auth/infrastructure/better-auth/server-auth-context",
+  () => ({
+    getServerBetterAuthSession: jest.fn(async () => null),
+  })
+);
 
 jest.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
@@ -99,6 +107,8 @@ describe("TribePage", () => {
     resolveTribeMemberSubscriptionReturn.mockReset();
     reconcileCurrentTribeMemberSubscription.mockReset();
     validatePendingTribeMemberSubscriptionReturn.mockReset();
+    getTribeCurrentSubscriptionOffer.mockReset();
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({ status: "unavailable" });
     infoMock.mockReset();
     errorMock.mockReset();
 
@@ -120,6 +130,7 @@ describe("TribePage", () => {
       },
       subscriptions: {
         useCases: {
+          getTribeCurrentSubscriptionOffer,
           resolveTribeMemberSubscriptionReturn: undefined,
           reconcileCurrentTribeMemberSubscription: undefined,
           validatePendingTribeMemberSubscriptionReturn,
@@ -453,12 +464,94 @@ describe("TribePage", () => {
     });
   });
 
-  it("returns 404 and logs unauthenticated hidden access", async () => {
+  it("redirects unauthenticated visitors to sign-in so the public join link can resolve", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
       status: "hidden",
       reason: "unauthenticated_hidden",
     });
+
+    await expect(
+      TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith(
+      "/auth/signin?callbackUrl=%2Fmatematica-pro"
+    );
+    expect(infoMock).toHaveBeenCalledWith({
+      message: "Tribe access hidden",
+      metadata: expect.objectContaining({
+        reason: "unauthenticated_hidden",
+        slug: "matematica-pro",
+        viewerId: null,
+      }),
+    });
+  });
+
+  it("renders the public join offer for an authenticated non-member when a current paid plan exists", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "newcomer@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      reason: "not_found_or_not_visible",
+    });
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
+    });
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      })
+    );
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(listTribeRound).not.toHaveBeenCalled();
+    expect(getTribeCurrentSubscriptionOffer).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+    expect(
+      screen.getByRole("heading", { name: "Completá tu suscripción" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Continuar con el pago" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Plan mensual")).toBeInTheDocument();
+  });
+
+  it("returns 404 for an authenticated non-member when there is no current paid plan", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "newcomer@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      reason: "not_found_or_not_visible",
+    });
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({ status: "unavailable" });
     (notFound as unknown as jest.Mock).mockImplementation(() => {
       throw new Error("NEXT_NOT_FOUND");
     });
@@ -472,14 +565,38 @@ describe("TribePage", () => {
     ).rejects.toThrow("NEXT_NOT_FOUND");
 
     expect(notFound).toHaveBeenCalled();
-    expect(infoMock).toHaveBeenCalledWith({
-      message: "Tribe access hidden",
-      metadata: expect.objectContaining({
-        reason: "unauthenticated_hidden",
-        slug: "matematica-pro",
-        viewerId: null,
-      }),
+  });
+
+  it("renders the payment-unavailable status from the open-join status query without fetching the offer", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "newcomer@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
     });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      reason: "not_found_or_not_visible",
+    });
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          join_status: "payment_unavailable",
+        }),
+      })
+    );
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(getTribeCurrentSubscriptionOffer).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: "No pudimos iniciar el pago" })
+    ).toBeInTheDocument();
   });
 
   it("redirects unauthenticated Mercado Pago returns to sign-in when the visitor is not on iOS or Android", async () => {

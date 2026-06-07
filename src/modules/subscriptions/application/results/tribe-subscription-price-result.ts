@@ -6,6 +6,7 @@
 
 import type {
   MERCADO_PAGO_CONNECTION_STATUS,
+  TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS,
   TRIBE_SUBSCRIPTION_CURRENCY,
   TRIBE_SUBSCRIPTION_FREQUENCY,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
@@ -57,6 +58,22 @@ export type TribeSubscriptionPriceListResult = {
     canViewPrices: boolean;
   };
 };
+
+export type TribeCurrentSubscriptionOfferPriceResult = {
+  amountCents: number;
+  currency: string;
+  frequency: string;
+  name: string;
+};
+
+export type TribeCurrentSubscriptionOfferResult =
+  | {
+      price: TribeCurrentSubscriptionOfferPriceResult;
+      status: typeof TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.available;
+    }
+  | {
+      status: typeof TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.unavailable;
+    };
 
 export type TribeFreeJoinMutationResult = {
   status:

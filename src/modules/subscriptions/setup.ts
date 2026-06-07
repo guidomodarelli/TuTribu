@@ -12,6 +12,7 @@ import {
   createTribeSubscriptionPrice,
   deleteTribeSubscriptionPrice,
   deleteTribeSubscriptionPriceWithInvitationActions,
+  getTribeCurrentSubscriptionOffer,
   listTribeSubscriptionPrices,
   makeTribeSubscriptionPriceCurrent,
   setTribeFreeJoinAsCurrent,
@@ -33,6 +34,7 @@ import {
   resolveTribeMemberSubscriptionReturnPath,
   retryTribeMemberSubscriptionPayment,
   startTribeMemberSubscription,
+  startTribeOpenJoinSubscription,
   validatePendingTribeMemberSubscriptionReturn,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
 import type { TribeProviderSubscriberReconciliationRepository } from "@/src/modules/subscriptions/application/ports/tribe-provider-subscriber-reconciliation-repository";
@@ -93,6 +95,9 @@ export function buildSubscriptionsModule({
       listTribeSubscriptionPrices: listTribeSubscriptionPrices({
         tribeSubscriptionPriceRepository,
       }),
+      getTribeCurrentSubscriptionOffer: getTribeCurrentSubscriptionOffer({
+        tribeSubscriptionPriceRepository,
+      }),
       makeTribeSubscriptionPriceCurrent: makeTribeSubscriptionPriceCurrent({
         tribeSubscriptionPriceRepository,
       }),
@@ -126,6 +131,9 @@ export function buildSubscriptionsModule({
           tribeSubscriptionPriceRepository,
         }),
       startTribeMemberSubscription: startTribeMemberSubscription({
+        tribeMemberSubscriptionRepository,
+      }),
+      startTribeOpenJoinSubscription: startTribeOpenJoinSubscription({
         tribeMemberSubscriptionRepository,
       }),
       validatePendingTribeMemberSubscriptionReturn:

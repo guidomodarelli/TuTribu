@@ -330,6 +330,21 @@ export function listTribeSubscriptionPrices({
 }
 
 /**
+ * Reads the current paid subscription offer for a tokenless public join.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that returns the tribe current paid offer by slug.
+ */
+export function getTribeCurrentSubscriptionOffer({
+  tribeSubscriptionPriceRepository,
+}: TribeSubscriptionPriceDependencies) {
+  return async (query: TribeSubscriptionPriceListQuery) =>
+    tribeSubscriptionPriceRepository.getCurrentSubscriptionOffer({
+      tribeSlug: normalizeText(query.tribeSlug),
+    });
+}
+
+/**
  * Creates a new subscription price.
  *
  * @param dependencies - Repository dependencies for the use case.

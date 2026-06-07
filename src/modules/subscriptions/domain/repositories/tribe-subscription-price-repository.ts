@@ -5,6 +5,7 @@
  */
 
 import type {
+  TribeCurrentSubscriptionOfferResult,
   TribeFreeJoinMutationResult,
   TribeSubscriptionProviderPlanVerificationResult,
   TribeSubscriptionProviderPlansVerificationResult,
@@ -94,6 +95,9 @@ export type TribeSubscriptionPriceRepository = {
   delete(
     command: TribeSubscriptionPriceIdentity
   ): Promise<TribeSubscriptionPriceMutationResult>;
+  getCurrentSubscriptionOffer(
+    query: TribeSubscriptionPriceListQuery
+  ): Promise<TribeCurrentSubscriptionOfferResult>;
   deleteWithInvitationActions(
     command: DeleteTribeSubscriptionPriceWithInvitationActionsCommand
   ): Promise<TribeSubscriptionPriceMutationResult>;

@@ -277,5 +277,31 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
 <p>Las suscripciones de miembros se desprenden de <code>price_id</code> y conservan un snapshot mínimo del plan para que los webhooks y la auditoría sigan funcionando sin dejar referencias al plan eliminado.</p>
 </div>
 
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Ingreso público por plan actual (open join)</div>
+<p>El link "crudo" de la tribu (<code>tutribu.app/&lt;slug&gt;</code>) permite que una persona que no es miembro se suscriba usando el <strong>plan pago marcado como actual</strong>, sin necesidad de un token de invitación.</p>
+<ul>
+  <li>Un visitante <strong>autenticado</strong> que no es miembro y abre el link recibe la pantalla de pago cuando existe un precio <code>is_current = true</code> y la tribu lo ofrece como vigente (<code>free_join_is_current = false</code>). Si no hay plan pago actual, el link no hace nada (<code>notFound</code>).</li>
+  <li>Un visitante <strong>no autenticado</strong> es redirigido a <code>sign-in</code> con <code>callbackUrl</code> al link de la tribu; al volver autenticado ve la oferta o <code>notFound</code> según corresponda.</li>
+  <li>El checkout reusa el motor existente de Mercado Pago a través del nuevo caso de uso <code>startTribeOpenJoinSubscription</code>, que arranca el checkout <strong>sin invitación</strong> y sin exigir una membresía recuperable previa.</li>
+</ul>
+<p>El entrypoint de la ruta lee la oferta con <code>getTribeCurrentSubscriptionOffer</code>, que apoya en la política de lectura ya existente para precios <code>is_current</code> activos, sin requerir token.</p>
+<div class="callout c-warn">
+  <strong>RLS:</strong> los inserts tokenless de la suscripción pendiente y de la membresía pendiente se autorizan con la función <code>SECURITY DEFINER</code> <code>can_open_join_tribe_paid_plan(tribe_id)</code>. La función es necesaria porque la RLS de <code>tribes</code> oculta la tribu privada al no-miembro; al ser <code>SECURITY DEFINER</code> puede evaluar <code>free_join_is_current = false</code> y la existencia del precio actual. Además rechaza a un visitante <code>blocked / conduct_blocked</code>.
+</div>
+</div>
+
+<div class="section">
+  <div class="section-num">10</div>
+  <div class="section-title">Auto-marcado del único plan pago</div>
+<p>Cuando una tribu queda con <strong>exactamente un</strong> precio pago activo (<code>status = 'active'</code> con plan de proveedor), ese precio se marca automáticamente como actual (<code>is_current = true</code>) y la tribu pasa a <code>free_join_is_current = false</code>.</p>
+<ul>
+  <li>Se dispara al <strong>activar</strong> un precio recién creado (cuando el plan de proveedor queda enlazado), que es el caso típico del <em>leader</em> que se olvida de marcar el pago como actual.</li>
+  <li>La promoción es atómica en la capa de infraestructura (<code>markSoleActivePaidPriceAsCurrent</code>), respeta el índice único parcial del precio actual y la autorización de <code>leader</code>.</li>
+  <li>Con dos o más precios pagos activos no se promueve ninguno: la elección del precio actual queda en manos del <em>leader</em>.</li>
+</ul>
+</div>
+
 </body>
 </html>

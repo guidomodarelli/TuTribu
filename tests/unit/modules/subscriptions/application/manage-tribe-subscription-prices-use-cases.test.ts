@@ -1,6 +1,7 @@
 import {
   createTribeSubscriptionPrice,
   deleteTribeSubscriptionPrice,
+  getTribeCurrentSubscriptionOffer,
   listTribeSubscriptionPrices,
   makeTribeSubscriptionPriceCurrent,
   syncMercadoPagoSubscriptionProviderPlanWebhook,
@@ -8,6 +9,7 @@ import {
   verifyTribeSubscriptionProviderPlan,
   verifyTribeSubscriptionProviderPlans,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-subscription-prices-use-cases";
+import { TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import {
   getTribeSubscriberDiagnostics,
   reconcileTribeSubscriberDiagnostics,
@@ -24,6 +26,7 @@ function createRepository(
   return {
     create: jest.fn(),
     delete: jest.fn(),
+    getCurrentSubscriptionOffer: jest.fn(),
     getUpdateTrialPolicy: jest.fn(),
     listByTribeSlug: jest.fn(),
     makeCurrent: jest.fn(),
@@ -426,6 +429,59 @@ describe("manage tribe subscription prices use cases", () => {
         canManagePrices: false,
         canViewPrices: true,
       },
+    });
+  });
+
+  it("returns the current paid offer for a tokenless public join with normalized slug", async () => {
+    const getCurrentSubscriptionOffer = jest.fn(async () => ({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.available,
+    }));
+    const execute = getTribeCurrentSubscriptionOffer({
+      tribeSubscriptionPriceRepository: createRepository({
+        getCurrentSubscriptionOffer,
+      }),
+    });
+
+    await expect(
+      execute({
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toEqual({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.available,
+    });
+    expect(getCurrentSubscriptionOffer).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("returns an unavailable offer when the tribe has no current paid plan", async () => {
+    const getCurrentSubscriptionOffer = jest.fn(async () => ({
+      status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.unavailable,
+    }));
+    const execute = getTribeCurrentSubscriptionOffer({
+      tribeSubscriptionPriceRepository: createRepository({
+        getCurrentSubscriptionOffer,
+      }),
+    });
+
+    await expect(
+      execute({
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.unavailable,
     });
   });
 

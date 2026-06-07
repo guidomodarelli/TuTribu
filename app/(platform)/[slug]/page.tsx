@@ -1,12 +1,22 @@
+import { createHash } from "node:crypto";
+
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { OpenInExternalBrowser } from "@/components/subscriptions/open-in-external-browser";
 import { SubscriptionReturnStatus } from "@/components/subscriptions/subscription-return-status";
+import {
+  TribeOpenJoin,
+  TribeOpenJoinStatus,
+} from "@/components/subscriptions/tribe-open-join";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
-import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import { getServerBetterAuthSession as getSession } from "@/src/modules/auth/infrastructure/better-auth/server-auth-context";
+import {
+  TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS,
+  TRIBE_MEMBER_SUBSCRIPTION_STATUS,
+} from "@/src/modules/subscriptions/constants/subscriptions";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 import {
@@ -42,6 +52,7 @@ const TRIBE_PAGE_LOG = {
 
 const TRIBE_PAGE_QUERY = {
   channel: "channel",
+  joinStatus: "join_status",
   mercadoPagoPreapprovalId: "preapproval_id",
   page: "page",
 } as const;
@@ -49,6 +60,34 @@ const TRIBE_PAGE_QUERY = {
 const SIGN_IN_REDIRECT_URL_TOKEN = {
   querySeparator: "?",
   valueSeparator: "=",
+} as const;
+
+const OPEN_JOIN_IDEMPOTENCY = {
+  hashAlgorithm: "sha256",
+  hashEncoding: "hex",
+  scope: "open-join",
+  separator: ":",
+} as const;
+
+const OPEN_JOIN_STATUS = {
+  alreadySubscribed: "already_subscribed",
+  blocked: "blocked",
+  paymentUnavailable: "payment_unavailable",
+} as const;
+
+const OPEN_JOIN_CHECKOUT_URL_PROPERTY = "checkoutUrl";
+
+const OPEN_JOIN_COPY = {
+  alreadySubscribedButton: "Ir a la tribu",
+  alreadySubscribedDescription:
+    "Tu suscripción está activa. Entrá a la tribu para continuar.",
+  alreadySubscribedTitle: "Ya estás suscripto a esta tribu",
+  blockedDescription:
+    "Tu cuenta no puede acceder a esta tribu. Si creés que es un error, contactá a quien administra el espacio.",
+  blockedTitle: "No pudimos sumar tu cuenta",
+  paymentUnavailableDescription:
+    "No pudimos iniciar el pago en este momento. Intentá de nuevo más tarde o pedí ayuda a quien administra la tribu.",
+  paymentUnavailableTitle: "No pudimos iniciar el pago",
 } as const;
 
 const USER_AGENT_HEADER = "user-agent";
@@ -71,6 +110,7 @@ const SUBSCRIPTION_RETURN_VISIBLE_STATUSES: ReadonlySet<string> = new Set([
 
 type TribePageSearchParams = {
   [TRIBE_PAGE_QUERY.channel]?: string | string[];
+  [TRIBE_PAGE_QUERY.joinStatus]?: string | string[];
   [TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId]?: string | string[];
   [TRIBE_PAGE_QUERY.page]?: string | string[];
 };
@@ -189,6 +229,168 @@ function renderOpenInExternalBrowserHandoff(
       />
     </main>
   );
+}
+
+/**
+ * Builds the sign-in redirect that returns to the tribe link after authentication.
+ *
+ * @param slug - Tribe slug used as the post-login callback target.
+ * @returns Sign-in URL with the tribe link as the callback.
+ */
+function buildJoinSignInRedirect(slug: string): string {
+  const signInSearchParams = new URLSearchParams({
+    [QUERY_PARAMS.auth.callbackUrl]: ROUTES.tribes.bySlug(slug),
+  });
+
+  return (
+    ROUTES.auth.signIn +
+    SIGN_IN_REDIRECT_URL_TOKEN.querySeparator +
+    signInSearchParams.toString()
+  );
+}
+
+/**
+ * Builds a stable idempotency key for a member open-join checkout attempt.
+ *
+ * @param input - Authenticated member id and tribe slug.
+ * @returns Idempotency key scoped to the member, tribe, and open-join flow.
+ */
+function buildOpenJoinIdempotencyKey(input: {
+  memberId: string;
+  slug: string;
+}): string {
+  const slugHash = createHash(OPEN_JOIN_IDEMPOTENCY.hashAlgorithm)
+    .update(input.slug)
+    .digest(OPEN_JOIN_IDEMPOTENCY.hashEncoding);
+
+  return [input.memberId, slugHash, OPEN_JOIN_IDEMPOTENCY.scope].join(
+    OPEN_JOIN_IDEMPOTENCY.separator
+  );
+}
+
+/**
+ * Builds the tribe link with an open-join status query for non-checkout outcomes.
+ *
+ * @param slug - Tribe slug.
+ * @param joinStatus - Mapped open-join status value.
+ * @returns Tribe link carrying the open-join status query.
+ */
+function buildOpenJoinStatusPath(slug: string, joinStatus: string): string {
+  return (
+    ROUTES.tribes.bySlug(slug) +
+    SIGN_IN_REDIRECT_URL_TOKEN.querySeparator +
+    TRIBE_PAGE_QUERY.joinStatus +
+    SIGN_IN_REDIRECT_URL_TOKEN.valueSeparator +
+    joinStatus
+  );
+}
+
+/**
+ * Maps a member subscription start status to a safe open-join status value.
+ *
+ * @param status - Member subscription start status from the use case.
+ * @returns Open-join status value used in the tribe link query.
+ */
+function mapOpenJoinStatus(status: string): string {
+  if (status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.alreadySubscribed) {
+    return OPEN_JOIN_STATUS.alreadySubscribed;
+  }
+
+  if (status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked) {
+    return OPEN_JOIN_STATUS.blocked;
+  }
+
+  return OPEN_JOIN_STATUS.paymentUnavailable;
+}
+
+/**
+ * Starts a tokenless open-join checkout for the tribe current paid price.
+ *
+ * @param input - Tribe slug bound to the form action.
+ */
+async function startOpenJoinSubscriptionAction({ slug }: { slug: string }) {
+  "use server";
+
+  const session = await getSession();
+
+  if (!session) {
+    redirect(buildJoinSignInRedirect(slug));
+  }
+
+  const modules = await createRequestModules();
+  const authenticatedMember =
+    await modules.auth.useCases.getAuthenticatedMember();
+
+  if (!authenticatedMember) {
+    redirect(buildJoinSignInRedirect(slug));
+  }
+
+  const idempotencyKey = buildOpenJoinIdempotencyKey({
+    memberId: authenticatedMember.id,
+    slug,
+  });
+  const result = await modules.subscriptions.useCases
+    .startTribeOpenJoinSubscription({
+      idempotencyKey,
+      tribeSlug: slug,
+    })
+    .catch(() => ({
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
+    }));
+
+  if (OPEN_JOIN_CHECKOUT_URL_PROPERTY in result) {
+    redirect(result.checkoutUrl);
+  }
+
+  redirect(buildOpenJoinStatusPath(slug, mapOpenJoinStatus(result.status)));
+}
+
+/**
+ * Renders a terminal open-join status screen for non-checkout outcomes.
+ *
+ * @param joinStatus - Open-join status value from the tribe link query.
+ * @param slug - Tribe slug used for the optional call to action.
+ * @returns Status screen element, or null when there is no status to show.
+ */
+function renderOpenJoinStatusScreen(joinStatus: string | null, slug: string) {
+  if (joinStatus === OPEN_JOIN_STATUS.alreadySubscribed) {
+    return (
+      <main className={styles.TribePage}>
+        <TribeOpenJoinStatus
+          cta={{
+            href: ROUTES.tribes.bySlug(slug),
+            label: OPEN_JOIN_COPY.alreadySubscribedButton,
+          }}
+          description={OPEN_JOIN_COPY.alreadySubscribedDescription}
+          title={OPEN_JOIN_COPY.alreadySubscribedTitle}
+        />
+      </main>
+    );
+  }
+
+  if (joinStatus === OPEN_JOIN_STATUS.blocked) {
+    return (
+      <main className={styles.TribePage}>
+        <TribeOpenJoinStatus
+          description={OPEN_JOIN_COPY.blockedDescription}
+          title={OPEN_JOIN_COPY.blockedTitle}
+        />
+      </main>
+    );
+  }
+
+  if (joinStatus === OPEN_JOIN_STATUS.paymentUnavailable) {
+    return (
+      <main className={styles.TribePage}>
+        <TribeOpenJoinStatus
+          description={OPEN_JOIN_COPY.paymentUnavailableDescription}
+          title={OPEN_JOIN_COPY.paymentUnavailableTitle}
+        />
+      </main>
+    );
+  }
+
+  return null;
 }
 
 export async function TribePageContent({
@@ -332,6 +534,47 @@ export async function TribePageContent({
         SUBSCRIPTION_RETURN_VISIBLE_STATUSES.has(subscriptionReturn.status)
       ) {
         return renderSubscriptionReturnStatus();
+      }
+    }
+
+    if (
+      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.unauthenticatedHidden
+    ) {
+      redirect(buildJoinSignInRedirect(slug));
+    }
+
+    if (
+      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible
+    ) {
+      const joinStatusScreen = renderOpenJoinStatusScreen(
+        readFirstSearchParamValue(
+          resolvedSearchParams[TRIBE_PAGE_QUERY.joinStatus]
+        ),
+        slug
+      );
+
+      if (joinStatusScreen) {
+        return joinStatusScreen;
+      }
+
+      const offer = await modules.subscriptions.useCases
+        .getTribeCurrentSubscriptionOffer({ tribeSlug: slug })
+        .catch(() => ({
+          status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.unavailable,
+        }));
+
+      if (
+        offer.status === TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.available
+      ) {
+        const startOpenJoin = startOpenJoinSubscriptionAction.bind(null, {
+          slug,
+        });
+
+        return (
+          <main className={styles.TribePage}>
+            <TribeOpenJoin offer={offer.price} startAction={startOpenJoin} />
+          </main>
+        );
       }
     }
 

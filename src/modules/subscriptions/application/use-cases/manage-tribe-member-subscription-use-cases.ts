@@ -10,6 +10,7 @@ import type {
   ProviderSubscriptionReturnPathQuery,
   RetryCurrentPriceSubscriptionPaymentCommand,
   StartCurrentPriceSubscriptionCommand,
+  StartOpenJoinSubscriptionCommand,
   TribeMemberSubscriptionStatusQuery,
   TribeMemberSubscriptionRepository,
 } from "@/src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository";
@@ -41,6 +42,26 @@ export function startTribeMemberSubscription({
     tribeMemberSubscriptionRepository.startCurrentPriceSubscription({
       idempotencyKey: normalizeText(command.idempotencyKey),
       invitationToken: normalizeText(command.invitationToken),
+      tribeSlug: normalizeText(command.tribeSlug),
+    });
+}
+
+/**
+ * Starts a member subscription from a public tribe link with no invitation token.
+ *
+ * Lets a non-member subscribe to the tribe current paid price directly from the
+ * tribe URL. The tribe must have a paid price flagged as current; otherwise the
+ * repository returns a stable rejection status and nothing is created.
+ *
+ * @param dependencies - Repository dependencies for the use case.
+ * @returns Executable use case that starts a Mercado Pago subscription without an invitation.
+ */
+export function startTribeOpenJoinSubscription({
+  tribeMemberSubscriptionRepository,
+}: TribeMemberSubscriptionDependencies) {
+  return async (command: StartOpenJoinSubscriptionCommand) =>
+    tribeMemberSubscriptionRepository.startOpenJoinSubscription({
+      idempotencyKey: normalizeText(command.idempotencyKey),
       tribeSlug: normalizeText(command.tribeSlug),
     });
 }

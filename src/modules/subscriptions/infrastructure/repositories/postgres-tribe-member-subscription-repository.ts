@@ -23,6 +23,7 @@ import type {
   ProviderSubscriptionReturnPathQuery,
   RetryCurrentPriceSubscriptionPaymentCommand,
   StartCurrentPriceSubscriptionCommand,
+  StartOpenJoinSubscriptionCommand,
   TribeMemberSubscriptionStatusQuery,
   TribeMemberSubscriptionRepository,
 } from "@/src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository";
@@ -107,6 +108,7 @@ type WebhookSubscriptionContextRow = {
 };
 
 type StartSubscriptionCheckoutInput = {
+  allowOpenJoin?: boolean;
   idempotencyKey: string;
   invitationTokenHash: string;
   requiresActiveInvitation: boolean;
@@ -1236,6 +1238,29 @@ export class PostgresTribeMemberSubscriptionRepository
     });
   }
 
+  /**
+   * Starts a current-price subscription from a public tribe link without a token.
+   *
+   * Unlike the retry flow, this path does not require a pre-existing recoverable
+   * membership: a brand-new visitor can subscribe to the tribe current paid
+   * price. The checkout still requires a paid price flagged as current and a
+   * connected provider plan; otherwise it returns a stable rejection status.
+   *
+   * @param command - Tribe slug and idempotency key.
+   * @returns Checkout URL or a stable rejection status.
+   */
+  async startOpenJoinSubscription(
+    command: StartOpenJoinSubscriptionCommand
+  ): Promise<TribeMemberSubscriptionStartResult> {
+    return this.startCurrentPriceSubscriptionCheckout({
+      allowOpenJoin: true,
+      idempotencyKey: command.idempotencyKey,
+      invitationTokenHash: "",
+      requiresActiveInvitation: false,
+      tribeSlug: command.tribeSlug,
+    });
+  }
+
   private async startCurrentPriceSubscriptionCheckout(
     input: StartSubscriptionCheckoutInput
   ): Promise<TribeMemberSubscriptionStartResult> {
@@ -1415,7 +1440,11 @@ export class PostgresTribeMemberSubscriptionRepository
           TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive &&
         !hasRetryBlockingMemberSubscription);
 
-    if (!input.requiresActiveInvitation && !hasRecoverablePaymentMembership) {
+    if (
+      !input.requiresActiveInvitation &&
+      !input.allowOpenJoin &&
+      !hasRecoverablePaymentMembership
+    ) {
       const retryRejectionStatus =
         context?.existing_membership_status ===
           MEMBER_SUBSCRIPTION_RECOVERY_MEMBERSHIP_STATUS.blocked &&

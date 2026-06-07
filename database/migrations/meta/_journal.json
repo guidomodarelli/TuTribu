@@ -400,6 +400,13 @@
       "when": 1780662000000,
       "tag": "20260605122000_drop_message_external_video_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1780747200000,
+      "tag": "20260606120000_allow_open_join_subscription",
+      "breakpoints": true
     }
   ]
 }

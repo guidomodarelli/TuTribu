@@ -17,6 +17,8 @@ const SUBSCRIPTION_ASSOCIATION_MIGRATION_PATH =
   "database/migrations/20260525120000_add_subscription_association_to_tribe_invitations.sql";
 const REFERRAL_METADATA_MIGRATION_PATH =
   "database/migrations/20260528120000_add_referral_metadata_to_invitations.sql";
+const OPEN_JOIN_MIGRATION_PATH =
+  "database/migrations/20260606120000_allow_open_join_subscription.sql";
 
 function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -319,6 +321,42 @@ describe("Subscription SQL guardrails", () => {
     expect(updatePolicy).toMatch(
       /tribe_subscription_prices\.mercado_pago_preapproval_plan_id IS NOT NULL/
     );
+  });
+
+  it("gates tokenless open-join inserts behind a current paid plan and a non-conduct-blocked visitor", () => {
+    const migration = readWorkspaceFile(OPEN_JOIN_MIGRATION_PATH);
+    const subscriptionPolicy = readPolicyBlock(
+      migration,
+      "Members can create own pending subscription rows"
+    );
+    const pendingMembershipPolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can create paid pending memberships"
+    );
+
+    // The authorization helper bypasses tribe RLS through SECURITY DEFINER so a
+    // non-member can be evaluated against the private tribe state.
+    expect(migration).toContain(
+      "CREATE OR REPLACE FUNCTION public.can_open_join_tribe_paid_plan"
+    );
+    expect(migration).toContain("SECURITY DEFINER");
+    expect(migration).toMatch(/free_join_is_current = false/);
+    expect(migration).toMatch(/is_current = true/);
+    expect(migration).toMatch(
+      /mercado_pago_preapproval_plan_id IS NOT NULL/
+    );
+    expect(migration).toMatch(/status_reason = 'conduct_blocked'/);
+
+    // Both INSERT policies must expose the tokenless open-join branch while
+    // keeping the original invitation branches intact.
+    expect(subscriptionPolicy).toMatch(
+      /public\.can_open_join_tribe_paid_plan\(\s*tribe_member_subscriptions\.tribe_id\s*\)/
+    );
+    expect(subscriptionPolicy).toMatch(/current_setting\('app\.current_invitation_hash', true\)/);
+    expect(pendingMembershipPolicy).toMatch(
+      /public\.can_open_join_tribe_paid_plan\(\s*tribe_members\.tribe_id\s*\)/
+    );
+    expect(pendingMembershipPolicy).toMatch(/joined_via_invitation_id IS NULL/);
   });
 
   it("adds referral metadata without adding payment integration to invitations", () => {
