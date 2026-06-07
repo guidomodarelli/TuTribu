@@ -1073,8 +1073,11 @@ export class PostgresTribeSubscriptionPriceRepository
    *
    * Returns the price flagged as current only when the tribe offers it as the
    * live option (free_join_is_current is false) and the price has a synchronized
-   * provider plan. Any authenticated visitor can read it through the existing
-   * "current active price" RLS policy, so no invitation token is required.
+   * provider plan. The read goes through the SECURITY DEFINER function
+   * public.tribe_open_join_current_paid_offer because the tribes SELECT policies
+   * hide the tribe row from an authenticated non-member without an invitation
+   * token; resolving the slug through RLS would yield no row and report the
+   * offer as unavailable even when a current paid plan exists.
    *
    * @param query - Tribe slug query.
    * @returns The available current paid offer, or an unavailable result.
@@ -1084,27 +1087,13 @@ export class PostgresTribeSubscriptionPriceRepository
   ): Promise<TribeCurrentSubscriptionOfferResult> {
     const offerRow = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        with target_tribe as (
-          select
-            tribes.id,
-            tribes.free_join_is_current
-          from public.tribes
-          where tribes.slug = ${query.tribeSlug}
-          limit 1
-        )
         select
-          tribe_subscription_prices.amount_cents,
-          tribe_subscription_prices.currency,
-          tribe_subscription_prices.frequency,
-          tribe_subscription_prices.name
-        from public.tribe_subscription_prices
-        inner join target_tribe
-          on target_tribe.id = tribe_subscription_prices.tribe_id
-        where tribe_subscription_prices.status = 'active'
-          and tribe_subscription_prices.is_current = true
-          and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
-          and target_tribe.free_join_is_current = false
-        limit 1
+          open_join_offer.amount_cents,
+          open_join_offer.currency,
+          open_join_offer.frequency,
+          open_join_offer.name
+        from public.tribe_open_join_current_paid_offer(${query.tribeSlug})
+          as open_join_offer
       `);
 
       return (result.rows?.[0] ?? null) as CurrentSubscriptionOfferRow | null;

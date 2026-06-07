@@ -1034,11 +1034,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
-    expect(sqlText).toMatch(/tribe_subscription_prices\.is_current = true/);
     expect(sqlText).toMatch(
-      /tribe_subscription_prices\.mercado_pago_preapproval_plan_id is not null/
+      /public\.tribe_open_join_current_paid_offer\(/
     );
-    expect(sqlText).toMatch(/target_tribe\.free_join_is_current = false/);
+    expect(sqlText).not.toMatch(/from public\.tribes/);
   });
 
   it("returns an unavailable offer when no current paid price is exposed", async () => {
