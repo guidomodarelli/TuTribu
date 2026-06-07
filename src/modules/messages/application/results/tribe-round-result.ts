@@ -64,6 +64,13 @@ export type MessageVideoResult = {
    * from the id) and `null` until a lazy resolution has run for the others.
    */
   thumbnailUrl?: string | null;
+  /**
+   * Whether a thumbnail resolution has already been attempted for this video.
+   * It is `true` even when the attempt found no thumbnail (private, deleted, or
+   * transiently failed), so the lazy backfill is not re-scheduled on every
+   * render for a video that has no available thumbnail.
+   */
+  thumbnailResolved?: boolean;
 };
 
 export type MessageImageResult = {

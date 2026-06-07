@@ -94,6 +94,8 @@ export type MessageVideoRow = {
   sortOrder?: number | string | null;
   thumbnail_url?: string | null;
   thumbnailUrl?: string | null;
+  thumbnail_resolved?: boolean | null;
+  thumbnailResolved?: boolean | null;
 };
 
 type ReplyAuthorPreviewRow = {
@@ -160,6 +162,9 @@ export function createMessageMediaFromRows(
         kind: MESSAGE_MEDIA_KIND.video,
         provider,
         sortOrder: Number(row.sortOrder ?? row.sort_order ?? 0),
+        thumbnailResolved: Boolean(
+          row.thumbnailResolved ?? row.thumbnail_resolved ?? false
+        ),
         thumbnailUrl: row.thumbnailUrl ?? row.thumbnail_url ?? null,
       },
     ];
@@ -740,7 +745,8 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
                   'external_video_provider', video_assets.external_video_provider,
                   'id', video_assets.id,
                   'sort_order', video_assets.sort_order,
-                  'thumbnail_url', video_assets.thumbnail_url
+                  'thumbnail_url', video_assets.thumbnail_url,
+                  'thumbnail_resolved', (video_assets.thumbnail_resolved_at is not null)
                 )
                 order by video_assets.sort_order asc, video_assets.created_at asc
               ) as message_videos

@@ -32,6 +32,12 @@ export type ResolveMissingVideoThumbnailsQuery = {
  * Outcome of a backfill pass.
  */
 export type ResolveMissingVideoThumbnailsResult = {
+  /**
+   * Number of videos whose first resolution attempt was recorded in this pass,
+   * whether or not a thumbnail was found. Drives cache revalidation so the
+   * attempted flag propagates and the video is not re-scheduled next render.
+   */
+  attemptedCount: number;
   /** Number of videos that gained a usable thumbnail in this pass. */
   resolvedCount: number;
 };
@@ -53,7 +59,8 @@ function isVideoNeedingThumbnail(mediaItem: MessageMediaResult): boolean {
   return (
     mediaItem.kind === MESSAGE_MEDIA_KIND.video &&
     mediaItem.provider !== VIDEO_PROVIDER.youtube &&
-    !mediaItem.thumbnailUrl
+    !mediaItem.thumbnailUrl &&
+    !mediaItem.thumbnailResolved
   );
 }
 
@@ -98,14 +105,14 @@ export function resolveMissingVideoThumbnails({
     );
 
     if (messageIds.length === 0) {
-      return { resolvedCount: 0 };
+      return { attemptedCount: 0, resolvedCount: 0 };
     }
 
     const candidates =
       await messageVideoThumbnailRepository.listUnresolvedVideos({ messageIds });
 
     if (candidates.length === 0) {
-      return { resolvedCount: 0 };
+      return { attemptedCount: 0, resolvedCount: 0 };
     }
 
     const batch = candidates.slice(
@@ -134,12 +141,13 @@ export function resolveMissingVideoThumbnails({
           videoId: candidate.id,
         });
 
-        return persisted && thumbnailUrl !== null;
+        return { hasThumbnail: persisted && thumbnailUrl !== null, persisted };
       })
     );
 
     return {
-      resolvedCount: outcomes.filter(Boolean).length,
+      attemptedCount: outcomes.filter((outcome) => outcome.persisted).length,
+      resolvedCount: outcomes.filter((outcome) => outcome.hasThumbnail).length,
     };
   };
 }

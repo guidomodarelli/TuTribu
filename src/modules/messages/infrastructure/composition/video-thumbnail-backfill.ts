@@ -123,10 +123,14 @@ export function scheduleMissingVideoThumbnailBackfill({
 
   after(async () => {
     try {
-      const { resolvedCount }: ResolveMissingVideoThumbnailsResult =
+      const { attemptedCount }: ResolveMissingVideoThumbnailsResult =
         await resolveBackfill({ messageIds });
 
-      if (resolvedCount > 0) {
+      // Revalidate on any first attempt, not only when a thumbnail was found:
+      // a recorded attempt without a thumbnail must still propagate so the
+      // round view model carries `thumbnailResolved` and the video is not
+      // re-scheduled on every subsequent render.
+      if (attemptedCount > 0) {
         revalidateTribeRoundCache(tribeSlug);
       }
     } catch (error) {

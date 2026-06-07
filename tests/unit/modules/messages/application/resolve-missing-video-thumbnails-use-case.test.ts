@@ -39,7 +39,7 @@ describe("resolveMissingVideoThumbnails", () => {
       videoThumbnailResolver: resolver,
     })({ messageIds: ["message-1"] });
 
-    expect(result).toEqual({ resolvedCount: 2 });
+    expect(result).toEqual({ attemptedCount: 2, resolvedCount: 2 });
     expect(repository.persistThumbnail).toHaveBeenCalledWith({
       thumbnailUrl: "https://thumb.example/123456789.jpg",
       videoId: "video-1",
@@ -63,7 +63,7 @@ describe("resolveMissingVideoThumbnails", () => {
       videoThumbnailResolver: resolver,
     })({ messageIds: ["message-1"] });
 
-    expect(result).toEqual({ resolvedCount: 0 });
+    expect(result).toEqual({ attemptedCount: 1, resolvedCount: 0 });
     expect(repository.persistThumbnail).toHaveBeenCalledWith({
       thumbnailUrl: null,
       videoId: "video-1",
@@ -79,7 +79,7 @@ describe("resolveMissingVideoThumbnails", () => {
       videoThumbnailResolver: resolver,
     })({ messageIds: [] });
 
-    expect(result).toEqual({ resolvedCount: 0 });
+    expect(result).toEqual({ attemptedCount: 0, resolvedCount: 0 });
     expect(repository.listUnresolvedVideos).not.toHaveBeenCalled();
   });
 
@@ -151,7 +151,22 @@ describe("selectMessageIdsNeedingVideoThumbnail", () => {
             kind: "video" as const,
             provider: "wistia" as const,
             sortOrder: 0,
+            thumbnailResolved: true,
             thumbnailUrl: "https://thumb.example/wistia.jpg",
+          },
+        ],
+      },
+      {
+        id: "attempted-without-thumbnail",
+        media: [
+          {
+            externalId: "789",
+            id: "v2b",
+            kind: "video" as const,
+            provider: "loom" as const,
+            sortOrder: 0,
+            thumbnailResolved: true,
+            thumbnailUrl: null,
           },
         ],
       },
