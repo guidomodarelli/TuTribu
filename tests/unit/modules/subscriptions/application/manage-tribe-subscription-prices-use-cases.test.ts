@@ -466,6 +466,31 @@ describe("manage tribe subscription prices use cases", () => {
     });
   });
 
+  it("lowercases a mixed-case slug before reading the open-join offer", async () => {
+    const getCurrentSubscriptionOffer = jest.fn(async () => ({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.available,
+    }));
+    const execute = getTribeCurrentSubscriptionOffer({
+      tribeSubscriptionPriceRepository: createRepository({
+        getCurrentSubscriptionOffer,
+      }),
+    });
+
+    await execute({
+      tribeSlug: " Matematica-Pro ",
+    });
+
+    expect(getCurrentSubscriptionOffer).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+  });
+
   it("returns an unavailable offer when the tribe has no current paid plan", async () => {
     const getCurrentSubscriptionOffer = jest.fn(async () => ({
       status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.unavailable,

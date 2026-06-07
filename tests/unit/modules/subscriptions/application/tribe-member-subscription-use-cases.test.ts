@@ -126,6 +126,28 @@ describe("tribe member subscription use cases", () => {
     });
   });
 
+  it("lowercases a mixed-case slug before starting the open-join checkout", async () => {
+    const startOpenJoinSubscription = jest.fn(async () => ({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+    }));
+    const execute = startTribeOpenJoinSubscription({
+      tribeMemberSubscriptionRepository: createRepository({
+        startOpenJoinSubscription,
+      }),
+    });
+
+    await execute({
+      idempotencyKey: " Open-Join-1 ",
+      tribeSlug: " Matematica-Pro ",
+    });
+
+    expect(startOpenJoinSubscription).toHaveBeenCalledWith({
+      idempotencyKey: "Open-Join-1",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
   it("forwards missingCurrentPrice when the tribe has no paid current plan for an open join", async () => {
     const startOpenJoinSubscription = jest.fn(async () => ({
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice,

@@ -30,6 +30,22 @@ function normalizeText(value: string): string {
 }
 
 /**
+ * Normalizes a tribe slug to its canonical form.
+ *
+ * Tribe slugs are stored lowercase (the tribe-slug value object lowercases them
+ * at creation), and the tribe read paths resolve them case-insensitively. A
+ * public open-join link can arrive with a different casing in the route param,
+ * so the slug is trimmed and lowercased here to match the stored slug before it
+ * reaches the case-sensitive open-join SQL functions.
+ *
+ * @param value - Tribe slug received from a route param.
+ * @returns Trimmed, lowercased tribe slug.
+ */
+function normalizeSlug(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/**
  * Starts a member subscription against the current tribe price.
  *
  * @param dependencies - Repository dependencies for the use case.
@@ -62,7 +78,7 @@ export function startTribeOpenJoinSubscription({
   return async (command: StartOpenJoinSubscriptionCommand) =>
     tribeMemberSubscriptionRepository.startOpenJoinSubscription({
       idempotencyKey: normalizeText(command.idempotencyKey),
-      tribeSlug: normalizeText(command.tribeSlug),
+      tribeSlug: normalizeSlug(command.tribeSlug),
     });
 }
 
