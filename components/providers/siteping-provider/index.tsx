@@ -9,6 +9,7 @@ import {
 } from "@/src/modules/siteping/constants/siteping";
 import type { SitepingIdentityResult } from "@/src/modules/siteping/application/results/siteping-feedback-result";
 import { installSitepingDismissGuard } from "@/components/providers/siteping-provider/siteping-dismiss-guard";
+import { dismissOpenSitepingCommentForm } from "@/components/providers/siteping-provider/siteping-comment-form";
 
 import "./siteping-overlay.scss";
 
@@ -37,6 +38,9 @@ function SitepingWidgetMount({ config }: { config: SitepingIdentityResult }) {
       forceShow: config.enabled,
       identity: config.identity ?? undefined,
       locale: SITEPING_PROVIDER_CONFIG.locale,
+      // Ending annotation mode (toolbar "Cancelar" / Escape) leaves SitePing's
+      // comment form orphaned; close it so the form does not linger on screen.
+      onAnnotationEnd: () => dismissOpenSitepingCommentForm(),
       position: SITEPING_PROVIDER_CONFIG.position,
       projectName: config.projectName,
       theme: SITEPING_PROVIDER_CONFIG.theme,
