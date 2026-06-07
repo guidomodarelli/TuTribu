@@ -426,7 +426,14 @@
       "idx": 60,
       "version": "7",
       "when": 1780758000000,
-      "tag": "20260606150000_add_message_video_thumbnail",
+      "tag": "20260606150000_allow_open_join_attribution_update",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1780761600000,
+      "tag": "20260606160000_add_message_video_thumbnail",
       "breakpoints": true
     }
   ]

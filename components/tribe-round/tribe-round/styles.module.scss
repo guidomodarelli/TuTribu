@@ -79,18 +79,31 @@
 
   &__composer {
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto auto;
     min-height: 0;
     gap: 0;
   }
 
   &__composerBody {
-    display: grid;
+    // A flex column (instead of grid) keeps every child at its natural,
+    // content-driven height. In a height-constrained grid scroll container the
+    // `auto` row tracks shrink toward their `min-content` under space pressure;
+    // the `contentEditable` editor then collapses toward a single line while its
+    // real content stays tall, so its text overflowed downward and overlapped
+    // the poll composer, media drafts, and action bar. `flex-shrink: 0` on the
+    // children stops that collapse and lets the body scroll instead, identically
+    // on Chromium and WebKit.
+    display: flex;
+    flex-direction: column;
     gap: 12px;
     min-height: 0;
     overflow-y: auto;
     padding-bottom: 0.75rem;
     padding-right: 0.25rem;
+
+    > * {
+      flex-shrink: 0;
+    }
     scrollbar-color: color-mix(in oklch, var(--muted-foreground) 34%, transparent)
       transparent;
     scrollbar-gutter: stable;
@@ -294,9 +307,8 @@
     flex-direction: row;
     gap: 0.75rem;
     justify-content: flex-end;
-    border-top: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
-    background: transparent;
-    padding-top: 1rem;
+    background: var(--background);
+    padding-top: 0.75rem;
     flex-shrink: 0;
   }
 
@@ -336,7 +348,10 @@
     gap: 0.75rem;
     align-items: center;
     justify-content: space-between;
-    padding: 0.25rem;
+    flex-shrink: 0;
+    border-top: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+    background: var(--background);
+    padding: 0.75rem 0.25rem 0;
   }
 
   &__channelPicker {

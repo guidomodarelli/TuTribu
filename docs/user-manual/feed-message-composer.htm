@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compositor de mensajes del feed</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">Manual de usuario</div>
+  <div class="doc-title">Compositor de mensajes del feed</div>
+  <div class="doc-sub">Cómo se organiza el diálogo para crear y editar mensajes en la ronda.</div>
+  <div class="doc-meta"><span>Área: Feed</span><span>Estado: Implementado</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Estructura del compositor</div>
+  <p>Al compartir un mensaje en la ronda se abre el compositor, dividido en dos zonas claras:</p>
+  <ul>
+    <li><strong>Área de contenido</strong>: contiene el título, el editor del mensaje, la encuesta (si se agregó) y las miniaturas de los medios adjuntos. Cuando el contenido es más alto que el diálogo, esta zona scrollea de forma independiente.</li>
+    <li><strong>Barra de acciones</strong>: queda fija justo encima del pie y siempre visible, sin importar cuánto se haya escrito ni hasta dónde se haya scrolleado.</li>
+    <li><strong>Pie</strong>: agrupa <strong>Cancelar</strong> y la acción principal (<strong>Compartir</strong> al crear o <strong>Guardar</strong> al editar).</li>
+  </ul>
+  <div class="callout c-info">La barra de acciones y el pie funcionan como un único bloque inferior. El texto del mensaje siempre scrollea dentro del área de contenido y nunca se superpone con la barra ni queda visible por debajo de ella.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Barra de acciones</div>
+  <p>Desde la barra fija se controlan los recursos del mensaje:</p>
+  <ul>
+    <li><strong>Agregar imagen</strong>: adjunta una o varias imágenes al mensaje.</li>
+    <li><strong>Agregar encuesta</strong>: habilita la encuesta dentro del área de contenido. Disponible solo al crear un mensaje.</li>
+    <li><strong>Agregar video</strong>: agrega el campo para pegar el link de un video.</li>
+    <li><strong>Elegir canal</strong>: abre el selector de canal de la tribu. Disponible solo al crear un mensaje.</li>
+  </ul>
+  <p>Al editar un mensaje propio, la barra muestra únicamente las acciones de imagen y video, ya que el canal y la encuesta no se modifican desde la edición.</p>
+  <p>Los detalles de cada recurso se documentan por separado: imágenes en <code>feed-message-images.htm</code> y links de video o texto en <code>events-and-feed-links.htm</code>.</p>
+</div>
+</body>
+</html>
