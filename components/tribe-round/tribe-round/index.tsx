@@ -315,6 +315,7 @@ const TRIBE_ROUND_COPY = {
   pollAddOptionButton: "Agregar opción",
   pollAllowMultipleVotesLabel: "Voto múltiple",
   pollOptionPlaceholder: "Opción",
+  pollOptionRequired: "Completar esta opción",
   pollRemoveButton: "Quitar encuesta",
   pollRemoveOptionButton: "Quitar opción",
   pollSubmitButton: "Votar",
@@ -449,6 +450,28 @@ const TRIBE_ROUND_POLL = {
   percentageSuffix: "%",
   singleInputType: "radio",
 } as const;
+
+/**
+ * Stable keys under which the title, content and channel fields register their
+ * DOM nodes in the composer block registry, so a failed validation can scroll
+ * the offending field into view.
+ */
+const MESSAGE_COMPOSER_FIELD_ANCHOR_KEY = {
+  channel: "composer-field-channel",
+  content: "composer-field-content",
+  title: "composer-field-title",
+} as const;
+
+/**
+ * Poll requirement copies grouped together so the poll composer can render its
+ * inline error and the scroll logic can detect a poll-scoped failure.
+ */
+const MESSAGE_COMPOSER_POLL_ERROR_COPIES = [
+  TRIBE_ROUND_COPY.messageComposerPollOptionsRequired,
+  TRIBE_ROUND_COPY.messageComposerPollOptionsLimit,
+  TRIBE_ROUND_COPY.messageComposerPollOptionTooLong,
+  TRIBE_ROUND_COPY.messageComposerDuplicatePollOptions,
+] as const;
 
 const TRIBE_ROUND_AUTHOR_ROLE = {
   guardian: "guardian",
@@ -2274,6 +2297,135 @@ function TribeRoundContent({
     return null;
   };
 
+  /**
+   * Resolves the DOM node of the first field, in top-to-bottom visual order,
+   * that the given validation errors point to, so the composer can bring it into
+   * view. Media errors resolve to the specific offending draft; field-level
+   * errors resolve to the registered title, content, poll or channel node.
+   */
+  const getFirstComposerErrorAnchor = (
+    errors: string[]
+  ): HTMLElement | null | undefined => {
+    const blockTargets = composerBlockTargetsRef.current;
+
+    if (errors.includes(TRIBE_ROUND_COPY.messageComposerMissingTitle)) {
+      return blockTargets.get(MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.title);
+    }
+
+    if (errors.includes(TRIBE_ROUND_COPY.messageComposerMissingContent)) {
+      return blockTargets.get(MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.content);
+    }
+
+    if (MESSAGE_COMPOSER_POLL_ERROR_COPIES.some((copy) => errors.includes(copy))) {
+      return blockTargets.get(TRIBE_ROUND_POLL.composerBlockKey);
+    }
+
+    if (errors.includes(TRIBE_ROUND_COPY.videoMissing)) {
+      const invalidVideoDraft = mediaDrafts.find(
+        (mediaDraft) =>
+          mediaDraft.kind === MESSAGE_MEDIA_KIND.video &&
+          !safeParseVideoUrl(mediaDraft.url)
+      );
+
+      return invalidVideoDraft
+        ? blockTargets.get(invalidVideoDraft.localId)
+        : undefined;
+    }
+
+    if (
+      errors.includes(TRIBE_ROUND_COPY.imageUploadPendingError) ||
+      errors.includes(TRIBE_ROUND_COPY.imageUploadError)
+    ) {
+      const problemImageDraft = messageImageDrafts.find(
+        (imageDraft) =>
+          imageDraft.status === COMPOSER_IMAGE_UPLOAD_STATUS.uploading ||
+          imageDraft.status === COMPOSER_IMAGE_UPLOAD_STATUS.error
+      );
+
+      return problemImageDraft
+        ? blockTargets.get(problemImageDraft.localId)
+        : undefined;
+    }
+
+    if (errors.includes(TRIBE_ROUND_COPY.mediaLimitError)) {
+      const lastMediaDraft = mediaDrafts.at(-1);
+
+      return lastMediaDraft ? blockTargets.get(lastMediaDraft.localId) : undefined;
+    }
+
+    if (errors.includes(TRIBE_ROUND_COPY.messageComposerMissingChannel)) {
+      return blockTargets.get(MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.channel);
+    }
+
+    return undefined;
+  };
+
+  /**
+   * Scrolls the first field that failed validation into view on the next frame,
+   * after the inline errors have rendered, so the user notices the problem even
+   * when it sits outside the visible area of the modal.
+   */
+  const scrollToFirstComposerError = (errors: string[]) => {
+    window.requestAnimationFrame(() => {
+      getFirstComposerErrorAnchor(errors)?.scrollIntoView({
+        behavior: COMPOSER_BODY_SCROLL.bottomBehavior,
+        block: COMPOSER_BODY_SCROLL.focusBlockAlignment,
+      });
+    });
+  };
+
+  /**
+   * Publishes a failed validation: lists the errors in the summary and inline,
+   * and scrolls the first offending field into view so the user notices it.
+   */
+  const reportComposerErrors = (errors: string[]) => {
+    setMessageComposerErrors(errors);
+    scrollToFirstComposerError(errors);
+  };
+
+  /**
+   * Renders the inline error message for a single composer field next to it,
+   * shown only while that field's requirement is part of the active errors. The
+   * general "Falta completar" summary keeps listing every error in parallel.
+   */
+  const renderComposerFieldError = (errorCopy: string) =>
+    messageComposerErrors.includes(errorCopy) ? (
+      <p className={styles.TribeRound__fieldError}>{errorCopy}</p>
+    ) : null;
+
+  /**
+   * Whether an empty option shows its own "complete this option" error inline.
+   * Only the first {@link TRIBE_ROUND_POLL.minimumOptionCount} options are
+   * mandatory, and the error surfaces once the required-option validation fails,
+   * so the user sees exactly which mandatory options are still empty.
+   */
+  const shouldShowPollOptionRequiredError = (
+    optionIndex: number,
+    optionValue: string
+  ) =>
+    messageComposerErrors.includes(
+      TRIBE_ROUND_COPY.messageComposerPollOptionsRequired
+    ) &&
+    optionIndex < TRIBE_ROUND_POLL.minimumOptionCount &&
+    optionValue.trim().length === 0;
+
+  /**
+   * Renders the poll requirements that are not tied to a single option (option
+   * count limit, options too long, duplicate options) inline at the foot of the
+   * poll composer. The "missing required option" case is rendered per option
+   * instead, by {@link shouldShowPollOptionRequiredError}.
+   */
+  const renderComposerPollErrors = () =>
+    MESSAGE_COMPOSER_POLL_ERROR_COPIES.filter(
+      (errorCopy) =>
+        errorCopy !== TRIBE_ROUND_COPY.messageComposerPollOptionsRequired &&
+        messageComposerErrors.includes(errorCopy)
+    ).map((errorCopy) => (
+      <p className={styles.TribeRound__fieldError} key={errorCopy}>
+        {errorCopy}
+      </p>
+    ));
+
   const markMessageImagesAsPersisting = (assetIds: string[]) => {
     assetIds.forEach((assetId) => {
       persistingMessageImageAssetIdsRef.current.add(assetId);
@@ -2412,7 +2564,7 @@ function TribeRoundContent({
     }
 
     if (mediaDrafts.length + selectedFiles.length > MESSAGE_MEDIA.maxCount) {
-      setMessageComposerErrors([TRIBE_ROUND_COPY.mediaLimitError]);
+      reportComposerErrors([TRIBE_ROUND_COPY.mediaLimitError]);
       return;
     }
 
@@ -2468,7 +2620,7 @@ function TribeRoundContent({
 
   const addVideoMediaDraft = () => {
     if (mediaDrafts.length >= MESSAGE_MEDIA.maxCount) {
-      setMessageComposerErrors([TRIBE_ROUND_COPY.mediaLimitError]);
+      reportComposerErrors([TRIBE_ROUND_COPY.mediaLimitError]);
       return;
     }
 
@@ -2544,13 +2696,13 @@ function TribeRoundContent({
     });
 
     if (missingRequirements.length > 0) {
-      setMessageComposerErrors(missingRequirements);
+      reportComposerErrors(missingRequirements);
       return;
     }
 
     const imageDraftValidationError = getMessageImageDraftValidationError();
     if (imageDraftValidationError) {
-      setMessageComposerErrors([imageDraftValidationError]);
+      reportComposerErrors([imageDraftValidationError]);
       return;
     }
 
@@ -2846,13 +2998,13 @@ function TribeRoundContent({
     });
 
     if (missingRequirements.length > 0) {
-      setMessageComposerErrors(missingRequirements);
+      reportComposerErrors(missingRequirements);
       return;
     }
 
     const imageDraftValidationError = getMessageImageDraftValidationError();
     if (imageDraftValidationError) {
-      setMessageComposerErrors([imageDraftValidationError]);
+      reportComposerErrors([imageDraftValidationError]);
       return;
     }
 
@@ -4473,6 +4625,14 @@ function TribeRoundContent({
     const detectedVideo = safeParseVideoUrl(mediaDraft.url);
     const trimmedVideoUrl = mediaDraft.url.trim();
     const showVideoParseError = trimmedVideoUrl.length > 0 && !detectedVideo;
+    const showVideoMissingError =
+      trimmedVideoUrl.length === 0 &&
+      messageComposerErrors.includes(TRIBE_ROUND_COPY.videoMissing);
+    const videoErrorMessage = showVideoParseError
+      ? TRIBE_ROUND_COPY.videoInvalidUrl
+      : showVideoMissingError
+        ? TRIBE_ROUND_COPY.videoMissing
+        : null;
 
     return (
       <div
@@ -4489,7 +4649,7 @@ function TribeRoundContent({
                   ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
                   : undefined
               }
-              aria-invalid={showVideoParseError}
+              aria-invalid={showVideoParseError || showVideoMissingError}
               className={styles.TribeRound__videoInput}
               ref={registerComposerTarget(composerFocusTargetsRef, mediaDraft.localId)}
               disabled={isBusy}
@@ -4523,9 +4683,11 @@ function TribeRoundContent({
             {TRIBE_ROUND_COPY.videoProviderLabel[detectedVideo.provider]}
           </p>
         ) : null}
-        {showVideoParseError ? (
-          <p className={styles.TribeRound__videoComposerError}>
-            {TRIBE_ROUND_COPY.videoInvalidUrl}
+        {videoErrorMessage ? (
+          <p
+            className={`${styles.TribeRound__fieldError} ${styles["TribeRound__fieldError--video"]}`}
+          >
+            {videoErrorMessage}
           </p>
         ) : null}
       </div>
@@ -4922,48 +5084,69 @@ function TribeRoundContent({
               onSubmit={handleCreateMessage}
             >
               <div className={styles.TribeRound__composerBody}>
-                <input
-                  aria-describedby={
-                    hasMessageComposerErrors
-                      ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
-                      : undefined
-                  }
-                  aria-label={TRIBE_ROUND_COPY.messageComposerTitleLabel}
-                  aria-invalid={isMessageTitleInvalid}
-                  className={
-                    isMessageTitleInvalid
-                      ? `${styles.TribeRound__titleInput} ${styles["TribeRound__titleInput--invalid"]}`
-                      : styles.TribeRound__titleInput
-                  }
-                  disabled={isBusy}
-                  onChange={(event) => {
-                    setMessageTitle(event.currentTarget.value);
-                    setMessageComposerErrors([]);
-                  }}
-                  placeholder={TRIBE_ROUND_COPY.messageComposerTitlePlaceholder}
-                  value={messageTitle}
-                />
-                <RichLinkEditor
-                  ariaDescribedBy={
-                    hasMessageComposerErrors
-                      ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
-                      : undefined
-                  }
-                  ariaLabel={TRIBE_ROUND_COPY.messageComposerLabel}
-                  copy={{
-                    editAction: TRIBE_ROUND_COPY.messageLinkEditAction,
-                    editCancel: TRIBE_ROUND_COPY.messageLinkEditCancel,
-                    editSave: TRIBE_ROUND_COPY.messageLinkEditSave,
-                    popoverTextLabel:
-                      TRIBE_ROUND_COPY.messageLinkPopoverTextLabel,
-                    popoverUrlLabel: TRIBE_ROUND_COPY.messageLinkPopoverUrlLabel,
-                    removeAction: TRIBE_ROUND_COPY.messageLinkRemoveAction,
-                  }}
-                  editor={messageEditor}
-                  isDisabled={isBusy}
-                  isInvalid={isMessageContentInvalid}
-                  placeholder={TRIBE_ROUND_COPY.messagePlaceholder}
-                />
+                <div
+                  ref={registerComposerTarget(
+                    composerBlockTargetsRef,
+                    MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.title
+                  )}
+                >
+                  <input
+                    aria-describedby={
+                      hasMessageComposerErrors
+                        ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                        : undefined
+                    }
+                    aria-label={TRIBE_ROUND_COPY.messageComposerTitleLabel}
+                    aria-invalid={isMessageTitleInvalid}
+                    className={
+                      isMessageTitleInvalid
+                        ? `${styles.TribeRound__titleInput} ${styles["TribeRound__titleInput--invalid"]}`
+                        : styles.TribeRound__titleInput
+                    }
+                    disabled={isBusy}
+                    onChange={(event) => {
+                      setMessageTitle(event.currentTarget.value);
+                      setMessageComposerErrors([]);
+                    }}
+                    placeholder={TRIBE_ROUND_COPY.messageComposerTitlePlaceholder}
+                    value={messageTitle}
+                  />
+                  {renderComposerFieldError(
+                    TRIBE_ROUND_COPY.messageComposerMissingTitle
+                  )}
+                </div>
+                <div
+                  ref={registerComposerTarget(
+                    composerBlockTargetsRef,
+                    MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.content
+                  )}
+                >
+                  <RichLinkEditor
+                    ariaDescribedBy={
+                      hasMessageComposerErrors
+                        ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                        : undefined
+                    }
+                    ariaLabel={TRIBE_ROUND_COPY.messageComposerLabel}
+                    copy={{
+                      editAction: TRIBE_ROUND_COPY.messageLinkEditAction,
+                      editCancel: TRIBE_ROUND_COPY.messageLinkEditCancel,
+                      editSave: TRIBE_ROUND_COPY.messageLinkEditSave,
+                      popoverTextLabel:
+                        TRIBE_ROUND_COPY.messageLinkPopoverTextLabel,
+                      popoverUrlLabel:
+                        TRIBE_ROUND_COPY.messageLinkPopoverUrlLabel,
+                      removeAction: TRIBE_ROUND_COPY.messageLinkRemoveAction,
+                    }}
+                    editor={messageEditor}
+                    isDisabled={isBusy}
+                    isInvalid={isMessageContentInvalid}
+                    placeholder={TRIBE_ROUND_COPY.messagePlaceholder}
+                  />
+                  {renderComposerFieldError(
+                    TRIBE_ROUND_COPY.messageComposerMissingContent
+                  )}
+                </div>
                 {isPollComposerEnabled ? (
                   <section
                     className={styles.TribeRound__pollComposer}
@@ -5043,6 +5226,16 @@ function TribeRoundContent({
                             </Button>
                           ) : null}
                         </div>
+                        {shouldShowPollOptionRequiredError(
+                          optionIndex,
+                          option
+                        ) ? (
+                          <p
+                            className={`${styles.TribeRound__fieldError} ${styles["TribeRound__fieldError--pollOption"]}`}
+                          >
+                            {TRIBE_ROUND_COPY.pollOptionRequired}
+                          </p>
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -5075,9 +5268,15 @@ function TribeRoundContent({
                       <span>{TRIBE_ROUND_COPY.pollAllowMultipleVotesLabel}</span>
                     </label>
                   </div>
+                  {renderComposerPollErrors()}
                   </section>
                 ) : null}
                 {renderComposerMediaDrafts()}
+                {renderComposerFieldError(
+                  TRIBE_ROUND_COPY.imageUploadPendingError
+                )}
+                {renderComposerFieldError(TRIBE_ROUND_COPY.imageUploadError)}
+                {renderComposerFieldError(TRIBE_ROUND_COPY.mediaLimitError)}
                 {hasMessageComposerErrors ? (
                   <div
                     className={styles.TribeRound__composerError}
@@ -5180,6 +5379,10 @@ function TribeRoundContent({
                           : styles.TribeRound__channelTrigger
                       }
                       disabled={isBusy}
+                      ref={registerComposerTarget(
+                        composerBlockTargetsRef,
+                        MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.channel
+                      )}
                       type={TRIBE_ROUND_FORM.buttonType}
                     >
                       <span>
@@ -5216,6 +5419,9 @@ function TribeRoundContent({
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+                {renderComposerFieldError(
+                  TRIBE_ROUND_COPY.messageComposerMissingChannel
+                )}
                 </div>
                 ) : null}
               </div>

@@ -7075,6 +7075,104 @@ describe("TribeRound", () => {
     }
   });
 
+  it("shows the required-option error inline on each of the first two poll options and keeps the summary", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Compartí algo en la ronda" })
+    );
+    await user.click(screen.getByRole("button", { name: "Agregar encuesta" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    expect(screen.getAllByText("Completar esta opción")).toHaveLength(2);
+
+    const missingRequirements = screen.getByRole("list", {
+      name: "Requisitos pendientes",
+    });
+
+    expect(
+      within(missingRequirements).getByText("Agregar al menos 2 opciones")
+    ).toBeInTheDocument();
+  });
+
+  it("shows the missing-video error inline next to the video input and keeps the summary", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Compartí algo en la ronda" })
+    );
+    await user.click(screen.getByRole("button", { name: "Agregar video" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    expect(
+      screen.getAllByText("Pegar un link de video válido")
+    ).toHaveLength(2);
+    expect(
+      screen.getByRole("textbox", { name: "Link del video" })
+    ).toBeInvalid();
+  });
+
+  it("scrolls the first errored field into view on a failed submit", async () => {
+    const user = userEvent.setup();
+    const scrollIntoViewSpy = jest.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView =
+      scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+
+    try {
+      render(
+        <TribeRound
+          authenticatedMember={authenticatedMember}
+          tribeSlug="matematica-pro"
+          round={round}
+        />
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartí algo en la ronda" })
+      );
+      scrollIntoViewSpy.mockClear();
+      await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+      await waitFor(() => {
+        expect(scrollIntoViewSpy).toHaveBeenCalled();
+      });
+
+      const [scrollOptions] = scrollIntoViewSpy.mock.calls.at(-1) ?? [];
+      expect(scrollOptions).toMatchObject({
+        behavior: "smooth",
+        block: "nearest",
+      });
+
+      const scrolledElement = scrollIntoViewSpy.mock.instances.at(
+        -1
+      ) as unknown as HTMLElement;
+      expect(
+        within(scrolledElement).getByRole("textbox", {
+          name: "Título del mensaje",
+        })
+      ).toBeInTheDocument();
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    }
+  });
+
   it("blocks submission when the video URL is not recognized", async () => {
     const user = userEvent.setup();
 
@@ -7209,8 +7307,12 @@ describe("TribeRound", () => {
 
       await user.upload(screen.getByLabelText("Agregar imagen"), twoImageFiles);
 
+      const missingRequirements = screen.getByRole("list", {
+        name: "Requisitos pendientes",
+      });
+
       expect(
-        screen.getByText(
+        within(missingRequirements).getByText(
           "Podés adjuntar hasta 10 archivos entre imágenes y videos."
         )
       ).toBeInTheDocument();
