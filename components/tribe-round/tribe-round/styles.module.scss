@@ -1971,9 +1971,18 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
       padding-right: 0;
     }
 
-    &__composerDialog--messageDetails &__messageDetailsHeader,
     &__composerDialog--messageDetails &__messageContent {
       padding-inline: 1rem;
+    }
+
+    &__composerDialog--messageDetails &__messageDetailsHeader {
+      padding-inline-start: 1rem;
+      // At this width the modal spans the full viewport, so the dialog's fixed
+      // close button (`right: 1rem`, `size-7` = 1.75rem wide) sits flush against
+      // the same trailing edge where the header grid places the actions menu
+      // (`...`), and the two collide. Reserve the close button's span plus a
+      // 0.5rem gap on the trailing edge so the `...` lands just to its left.
+      padding-inline-end: 2.25rem;
     }
 
     &__composerDialog--messageDetails &__modalReplysSection {
