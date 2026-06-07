@@ -561,8 +561,24 @@ export async function TribePageContent({
       return joinStatusScreen;
     }
 
+    // A member blocked or removed by a failed payment can recover paid access by
+    // re-subscribing through the same tokenless open-join offer, so surface it
+    // instead of a 404. Conduct blocks (and any non-payment reason) stay hidden:
+    // SUBSCRIPTION_RETURN_BLOCKED_REASONS only covers payment_blocked and
+    // subscription_inactive, mirroring the RLS open-join recovery policies.
+    const canRecoverPaidAccessViaOpenJoin =
+      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden &&
+      SUBSCRIPTION_RETURN_BLOCKED_REASONS.has(accessResult.blockedReason);
+
+    // The open-join offer is the raw-link entry point only. When a Mercado Pago
+    // return is in flight (preapproval_id present) its terminal return handling
+    // ran above; if it could not be resolved we fall through to notFound instead
+    // of a fresh "Completá tu suscripción" prompt, so a bad or transient return
+    // never turns into a duplicate checkout.
     if (
-      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible
+      !mercadoPagoPreapprovalId &&
+      (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible ||
+        canRecoverPaidAccessViaOpenJoin)
     ) {
       const offer = await modules.subscriptions.useCases
         .getTribeCurrentSubscriptionOffer({ tribeSlug: slug })
