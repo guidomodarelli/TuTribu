@@ -19,6 +19,8 @@ const REFERRAL_METADATA_MIGRATION_PATH =
   "database/migrations/20260528120000_add_referral_metadata_to_invitations.sql";
 const OPEN_JOIN_MIGRATION_PATH =
   "database/migrations/20260606120000_allow_open_join_subscription.sql";
+const OPEN_JOIN_ATTRIBUTION_UPDATE_MIGRATION_PATH =
+  "database/migrations/20260606150000_allow_open_join_attribution_update.sql";
 
 function readWorkspaceFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -357,6 +359,33 @@ describe("Subscription SQL guardrails", () => {
       /public\.can_open_join_tribe_paid_plan\(\s*tribe_members\.tribe_id\s*\)/
     );
     expect(pendingMembershipPolicy).toMatch(/joined_via_invitation_id IS NULL/);
+  });
+
+  it("exposes the tokenless open-join branch on the pending attribution update policy", () => {
+    const migration = readWorkspaceFile(
+      OPEN_JOIN_ATTRIBUTION_UPDATE_MIGRATION_PATH
+    );
+    const attributionPolicy = readPolicyBlock(
+      migration,
+      "Authenticated users can update pending invitation attribution"
+    );
+
+    // The attribution UPDATE policy must keep gating blocked/payment_blocked rows
+    // and the invitation branch, while adding the tokenless open-join branch so
+    // persistReservedPlanCheckout's conflict update no longer depends on the
+    // recover-retry policy's coincidental WITH CHECK coverage.
+    expect(attributionPolicy).toMatch(/status = 'blocked'/);
+    expect(attributionPolicy).toMatch(/status_reason = 'payment_blocked'/);
+    expect(attributionPolicy).toMatch(
+      /tribe_invitations\.id = joined_via_invitation_id/
+    );
+    expect(attributionPolicy).toMatch(
+      /current_setting\('app\.current_invitation_hash', true\)/
+    );
+    expect(attributionPolicy).toMatch(/joined_via_invitation_id IS NULL/);
+    expect(attributionPolicy).toMatch(
+      /public\.can_open_join_tribe_paid_plan\(\s*tribe_members\.tribe_id\s*\)/
+    );
   });
 
   it("adds referral metadata without adding payment integration to invitations", () => {
