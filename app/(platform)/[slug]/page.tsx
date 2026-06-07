@@ -570,9 +570,15 @@ export async function TribePageContent({
       accessResult.reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden &&
       SUBSCRIPTION_RETURN_BLOCKED_REASONS.has(accessResult.blockedReason);
 
+    // The open-join offer is the raw-link entry point only. When a Mercado Pago
+    // return is in flight (preapproval_id present) its terminal return handling
+    // ran above; if it could not be resolved we fall through to notFound instead
+    // of a fresh "Completá tu suscripción" prompt, so a bad or transient return
+    // never turns into a duplicate checkout.
     if (
-      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible ||
-      canRecoverPaidAccessViaOpenJoin
+      !mercadoPagoPreapprovalId &&
+      (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.notFoundOrNotVisible ||
+        canRecoverPaidAccessViaOpenJoin)
     ) {
       const offer = await modules.subscriptions.useCases
         .getTribeCurrentSubscriptionOffer({ tribeSlug: slug })

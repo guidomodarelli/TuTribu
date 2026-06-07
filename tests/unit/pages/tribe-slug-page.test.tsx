@@ -636,6 +636,54 @@ describe("TribePage", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps an unresolved payment-blocked Mercado Pago return as a 404 instead of a fresh open-join offer", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "retry@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden",
+      blockedReason: "payment_blocked",
+      reason: "blocked_hidden",
+    });
+    validatePendingTribeMemberSubscriptionReturn.mockResolvedValue(false);
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
+    });
+    (notFound as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(
+      TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+        searchParams: Promise.resolve({
+          preapproval_id: "preapproval-fake",
+        }),
+      })
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(notFound).toHaveBeenCalled();
+    expect(validatePendingTribeMemberSubscriptionReturn).toHaveBeenCalledWith({
+      providerSubscriptionId: "preapproval-fake",
+      tribeSlug: "matematica-pro",
+    });
+    expect(getTribeCurrentSubscriptionOffer).not.toHaveBeenCalled();
+    expect(listTribeRound).not.toHaveBeenCalled();
+  });
+
   it("returns 404 for a conduct-blocked member even when a current paid plan exists", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
