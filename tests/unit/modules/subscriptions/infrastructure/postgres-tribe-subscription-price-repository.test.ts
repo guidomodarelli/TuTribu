@@ -878,6 +878,177 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     );
   });
 
+  it("promotes the only active paid price to current when activation finishes", async () => {
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (sqlText.includes("sole_active_paid_price")) {
+        return { rows: [{ promoted_price_id: "price-1" }] };
+      }
+
+      if (sqlText.includes("reserved_price")) {
+        return {
+          rows: [
+            {
+              reserved_price_id: "price-1",
+              status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+            },
+          ],
+        };
+      }
+
+      if (sqlText.includes("mercado_pago_preapproval_plan_id =")) {
+        return {
+          rows: [
+            createSubscriptionPriceRow({
+              is_current: false,
+              status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+            }),
+          ],
+        };
+      }
+
+      return {
+        rows: [
+          {
+            access_token: "access-token",
+            can_manage_prices: true,
+            existing_price_count: 0,
+            tribe_id: "tribe-1",
+          },
+        ],
+      };
+    });
+    const repository = createRepository(execute);
+
+    const result = await repository.create({
+      amountCents: 500000,
+      currency: "ARS",
+      frequency: "monthly",
+      name: "Plan mensual",
+      trialFrequency: 7,
+      trialFrequencyType: "days",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result).toMatchObject({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+      price: expect.objectContaining({ id: "price-1", isCurrent: true }),
+    });
+
+    const autoMarkSql = execute.mock.calls
+      .map((call) => getSqlText(call[0]))
+      .find((sqlText) => sqlText.includes("sole_active_paid_price"));
+
+    expect(autoMarkSql).toMatch(/set is_current = true/);
+    expect(autoMarkSql).toMatch(/free_join_is_current = false/);
+    expect(autoMarkSql).toMatch(
+      /count\(\*\) from sole_active_paid_price\) = 1/
+    );
+  });
+
+  it("keeps the new price non-current when other active paid prices already exist", async () => {
+    const execute = jest.fn(async (statement) => {
+      const sqlText = getSqlText(statement);
+
+      if (sqlText.includes("sole_active_paid_price")) {
+        return { rows: [{ promoted_price_id: null }] };
+      }
+
+      if (sqlText.includes("reserved_price")) {
+        return {
+          rows: [
+            {
+              reserved_price_id: "price-2",
+              status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+            },
+          ],
+        };
+      }
+
+      if (sqlText.includes("mercado_pago_preapproval_plan_id =")) {
+        return {
+          rows: [
+            createSubscriptionPriceRow({
+              id: "price-2",
+              is_current: false,
+              status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+            }),
+          ],
+        };
+      }
+
+      return {
+        rows: [
+          {
+            access_token: "access-token",
+            can_manage_prices: true,
+            existing_price_count: 1,
+            tribe_id: "tribe-1",
+          },
+        ],
+      };
+    });
+    const repository = createRepository(execute);
+
+    const result = await repository.create({
+      amountCents: 500000,
+      currency: "ARS",
+      frequency: "monthly",
+      name: "Plan adicional",
+      trialFrequency: 7,
+      trialFrequencyType: "days",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result).toMatchObject({
+      status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
+      price: expect.objectContaining({ id: "price-2", isCurrent: false }),
+    });
+  });
+
+  it("returns the current paid offer by slug only when free join is not the current option", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          amount_cents: 500000,
+          currency: "ARS",
+          frequency: "monthly",
+          name: "Plan mensual",
+        },
+      ],
+    }));
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.getCurrentSubscriptionOffer({ tribeSlug: "matematica-pro" })
+    ).resolves.toEqual({
+      price: {
+        amountCents: 500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(sqlText).toMatch(
+      /public\.tribe_open_join_current_paid_offer\(/
+    );
+    expect(sqlText).not.toMatch(/from public\.tribes/);
+  });
+
+  it("returns an unavailable offer when no current paid price is exposed", async () => {
+    const execute = jest.fn(async () => ({ rows: [] }));
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.getCurrentSubscriptionOffer({ tribeSlug: "matematica-pro" })
+    ).resolves.toEqual({ status: "unavailable" });
+  });
+
   it("should keep Mercado Pago account metadata in created price responses", async () => {
     const execute = jest.fn(async (statement) => {
       const sqlText = getSqlText(statement);

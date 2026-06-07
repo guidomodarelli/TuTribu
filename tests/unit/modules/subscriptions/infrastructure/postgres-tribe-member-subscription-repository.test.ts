@@ -1147,6 +1147,133 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(getSqlText(execute.mock.calls[0]?.[0])).not.toMatch(
+      /tribe_open_join_id_by_slug/
+    );
+  });
+
+  it("starts an open-join checkout for a brand-new visitor without an invitation or recoverable membership", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "newcomer@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: null,
+            existing_membership_status_reason: null,
+            has_active_invitation: false,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
+      () => PROVIDER_PLAN_CHECKOUT_URL
+    );
+    const repository = createRepository(execute, {
+      buildMercadoPagoPlanCheckoutUrl,
+    });
+
+    await expect(
+      repository.startOpenJoinSubscription({
+        idempotencyKey: "open-join-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      status: "pending",
+    });
+
+    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
+      "provider-plan-1"
+    );
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(/current_price as \(/);
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
+      /public\.tribe_open_join_id_by_slug\(/
+    );
+  });
+
+  it("rejects an open-join checkout with missingCurrentPrice when the tribe has no paid current plan", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          access_token: "access-token",
+          current_price_amount_cents: null,
+          current_price_currency: null,
+          current_price_id: null,
+          current_price_name: null,
+          current_price_provider_plan_id: null,
+          current_user_email: "newcomer@example.com",
+          existing_checkout_url: null,
+          existing_membership_status: null,
+          existing_membership_status_reason: null,
+          has_active_invitation: false,
+          tribe_id: "tribe-1",
+        },
+      ],
+    });
+    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const repository = createRepository(execute, {
+      buildMercadoPagoPlanCheckoutUrl,
+    });
+
+    await expect(
+      repository.startOpenJoinSubscription({
+        idempotencyKey: "open-join-2",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "missing_current_price",
+    });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+  });
+
+  it("keeps conduct-blocked visitors out of the open-join flow", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          access_token: "access-token",
+          current_price_amount_cents: 1500,
+          current_price_currency: "ARS",
+          current_price_id: "price-1",
+          current_price_name: "Plan mensual",
+          current_price_provider_plan_id: "provider-plan-1",
+          current_user_email: "banned@example.com",
+          existing_checkout_url: null,
+          existing_membership_status: "blocked",
+          existing_membership_status_reason: "conduct_blocked",
+          has_active_invitation: false,
+          tribe_id: "tribe-1",
+        },
+      ],
+    });
+    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const repository = createRepository(execute, {
+      buildMercadoPagoPlanCheckoutUrl,
+    });
+
+    await expect(
+      repository.startOpenJoinSubscription({
+        idempotencyKey: "open-join-3",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "conduct_blocked",
+    });
+
+    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
   });
 
   it("restores removed subscription memberships when reserving a new paid checkout", async () => {

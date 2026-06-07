@@ -6,6 +6,7 @@ import {
   resolveTribeMemberSubscriptionReturnPath,
   retryTribeMemberSubscriptionPayment,
   startTribeMemberSubscription,
+  startTribeOpenJoinSubscription,
   validatePendingTribeMemberSubscriptionReturn,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
@@ -23,6 +24,7 @@ function createRepository(
     resolveSubscriptionReturn: jest.fn(),
     retryCurrentPriceSubscriptionPayment: jest.fn(),
     startCurrentPriceSubscription: jest.fn(),
+    startOpenJoinSubscription: jest.fn(),
     ...overrides,
   };
 }
@@ -95,6 +97,74 @@ describe("tribe member subscription use cases", () => {
       })
     ).resolves.toEqual({
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked,
+    });
+  });
+
+  it("starts an open-join subscription with normalized input and no invitation token", async () => {
+    const startOpenJoinSubscription = jest.fn(async () => ({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+    }));
+    const execute = startTribeOpenJoinSubscription({
+      tribeMemberSubscriptionRepository: createRepository({
+        startOpenJoinSubscription,
+      }),
+    });
+
+    await expect(
+      execute({
+        idempotencyKey: " open-join-1 ",
+        tribeSlug: " matematica-pro ",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+    });
+    expect(startOpenJoinSubscription).toHaveBeenCalledWith({
+      idempotencyKey: "open-join-1",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("lowercases a mixed-case slug before starting the open-join checkout", async () => {
+    const startOpenJoinSubscription = jest.fn(async () => ({
+      checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+    }));
+    const execute = startTribeOpenJoinSubscription({
+      tribeMemberSubscriptionRepository: createRepository({
+        startOpenJoinSubscription,
+      }),
+    });
+
+    await execute({
+      idempotencyKey: " Open-Join-1 ",
+      tribeSlug: " Matematica-Pro ",
+    });
+
+    expect(startOpenJoinSubscription).toHaveBeenCalledWith({
+      idempotencyKey: "Open-Join-1",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("forwards missingCurrentPrice when the tribe has no paid current plan for an open join", async () => {
+    const startOpenJoinSubscription = jest.fn(async () => ({
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice,
+    }));
+    const execute = startTribeOpenJoinSubscription({
+      tribeMemberSubscriptionRepository: createRepository({
+        startOpenJoinSubscription,
+      }),
+    });
+
+    await expect(
+      execute({
+        idempotencyKey: "open-join-2",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice,
     });
   });
 

@@ -9,6 +9,7 @@ import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 
 import type {
+  TribeCurrentSubscriptionOfferResult,
   TribeFreeJoinMutationResult,
   TribeProviderSubscriberReconciliationResult,
   TribeSubscriberDiagnosticsReconciliationResult,
@@ -23,6 +24,7 @@ import type {
 import {
   MERCADO_PAGO_CONNECTION_STATUS,
   SUBSCRIPTION_PRICE_INVITATION_ACTION,
+  TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON,
   TRIBE_SUBSCRIPTION_CURRENCY,
@@ -197,6 +199,13 @@ type PriceVerificationContextRow = {
 type PriceReservationRow = {
   reserved_price_id: string | null;
   status_result: string | null;
+};
+
+type CurrentSubscriptionOfferRow = {
+  amount_cents: number | string;
+  currency: string;
+  frequency: string;
+  name: string;
 };
 
 type PriceUpdateContextRow = SubscriptionProviderPlanRow & {
@@ -1060,6 +1069,50 @@ export class PostgresTribeSubscriptionPriceRepository
   ) {}
 
   /**
+   * Reads the tribe current paid subscription offer for a tokenless public join.
+   *
+   * Returns the price flagged as current only when the tribe offers it as the
+   * live option (free_join_is_current is false) and the price has a synchronized
+   * provider plan. The read goes through the SECURITY DEFINER function
+   * public.tribe_open_join_current_paid_offer because the tribes SELECT policies
+   * hide the tribe row from an authenticated non-member without an invitation
+   * token; resolving the slug through RLS would yield no row and report the
+   * offer as unavailable even when a current paid plan exists.
+   *
+   * @param query - Tribe slug query.
+   * @returns The available current paid offer, or an unavailable result.
+   */
+  async getCurrentSubscriptionOffer(
+    query: TribeSubscriptionPriceListQuery
+  ): Promise<TribeCurrentSubscriptionOfferResult> {
+    const offerRow = await this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select
+          open_join_offer.amount_cents,
+          open_join_offer.currency,
+          open_join_offer.frequency,
+          open_join_offer.name
+        from public.tribe_open_join_current_paid_offer(${query.tribeSlug})
+          as open_join_offer
+      `);
+
+      return (result.rows?.[0] ?? null) as CurrentSubscriptionOfferRow | null;
+    });
+
+    return offerRow
+      ? {
+          price: {
+            amountCents: Number(offerRow.amount_cents),
+            currency: offerRow.currency,
+            frequency: offerRow.frequency,
+            name: offerRow.name,
+          },
+          status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.available,
+        }
+      : { status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.unavailable };
+  }
+
+  /**
    * Lists subscription prices visible to subscription admins.
    *
    * @param query - Tribe slug query.
@@ -1558,11 +1611,88 @@ export class PostgresTribeSubscriptionPriceRepository
       throw error;
     }
 
-    return this.attachProviderPlanToReservedPrice({
+    const activationResult = await this.attachProviderPlanToReservedPrice({
       mercadoPagoPlanId,
       priceId: reservation.reserved_price_id,
       trialFrequency: command.trialFrequency,
       trialFrequencyType: command.trialFrequencyType,
+    });
+
+    if (
+      activationResult.status === TRIBE_SUBSCRIPTION_PRICE_STATUS.created &&
+      "price" in activationResult
+    ) {
+      const promotedPriceId = await this.markSoleActivePaidPriceAsCurrent(
+        creationContext.tribe_id
+      );
+
+      if (promotedPriceId === activationResult.price.id) {
+        return {
+          ...activationResult,
+          price: { ...activationResult.price, isCurrent: true },
+        };
+      }
+    }
+
+    return activationResult;
+  }
+
+  /**
+   * Marks a price as current when it is the tribe's only active paid price.
+   *
+   * Owners frequently forget to flag their single plan as current, which leaves
+   * the tribe without a live paid offering. When exactly one active price with a
+   * provider plan exists, it is promoted to current and the synthetic free-join
+   * option is cleared, mirroring {@link makeCurrent} atomically and respecting
+   * the partial unique index on the current price.
+   *
+   * The candidate is matched with `in` (not a scalar `= (select ...)`) so that
+   * when a tribe already has several active paid prices the predicate stays a
+   * safe no-op instead of raising "more than one row returned by a subquery";
+   * the `count(*) = 1` guard then keeps the promotion exclusive to the sole
+   * active paid price.
+   *
+   * @param tribeId - Identifier of the tribe that owns the price.
+   * @returns Identifier of the promoted price, or null when none was promoted.
+   */
+  private async markSoleActivePaidPriceAsCurrent(
+    tribeId: string
+  ): Promise<string | null> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        with sole_active_paid_price as (
+          select tribe_subscription_prices.id
+          from public.tribe_subscription_prices
+          where tribe_subscription_prices.tribe_id = ${tribeId}
+            and tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
+        ),
+        promoted_price as (
+          update public.tribe_subscription_prices
+          set is_current = true
+          where tribe_subscription_prices.id in (
+              select id from sole_active_paid_price
+            )
+            and (select count(*) from sole_active_paid_price) = 1
+            and tribe_subscription_prices.is_current = false
+            and public.can_manage_tribe_subscription_prices(${tribeId})
+          returning id
+        ),
+        cleared_free_join as (
+          update public.tribes
+          set free_join_is_current = false
+          where tribes.id = ${tribeId}
+            and exists (select 1 from promoted_price)
+            and public.can_manage_tribe_subscription_prices(tribes.id)
+          returning id
+        )
+        select (select id from promoted_price) as promoted_price_id
+      `);
+
+      return (
+        (result?.rows?.[0] as { promoted_price_id?: string | null } | undefined)
+          ?.promoted_price_id ?? null
+      );
     });
   }
 

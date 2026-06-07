@@ -23,6 +23,7 @@ import type {
   ProviderSubscriptionReturnPathQuery,
   RetryCurrentPriceSubscriptionPaymentCommand,
   StartCurrentPriceSubscriptionCommand,
+  StartOpenJoinSubscriptionCommand,
   TribeMemberSubscriptionStatusQuery,
   TribeMemberSubscriptionRepository,
 } from "@/src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository";
@@ -107,6 +108,7 @@ type WebhookSubscriptionContextRow = {
 };
 
 type StartSubscriptionCheckoutInput = {
+  allowOpenJoin?: boolean;
   idempotencyKey: string;
   invitationTokenHash: string;
   requiresActiveInvitation: boolean;
@@ -1236,6 +1238,29 @@ export class PostgresTribeMemberSubscriptionRepository
     });
   }
 
+  /**
+   * Starts a current-price subscription from a public tribe link without a token.
+   *
+   * Unlike the retry flow, this path does not require a pre-existing recoverable
+   * membership: a brand-new visitor can subscribe to the tribe current paid
+   * price. The checkout still requires a paid price flagged as current and a
+   * connected provider plan; otherwise it returns a stable rejection status.
+   *
+   * @param command - Tribe slug and idempotency key.
+   * @returns Checkout URL or a stable rejection status.
+   */
+  async startOpenJoinSubscription(
+    command: StartOpenJoinSubscriptionCommand
+  ): Promise<TribeMemberSubscriptionStartResult> {
+    return this.startCurrentPriceSubscriptionCheckout({
+      allowOpenJoin: true,
+      idempotencyKey: command.idempotencyKey,
+      invitationTokenHash: "",
+      requiresActiveInvitation: false,
+      tribeSlug: command.tribeSlug,
+    });
+  }
+
   private async startCurrentPriceSubscriptionCheckout(
     input: StartSubscriptionCheckoutInput
   ): Promise<TribeMemberSubscriptionStartResult> {
@@ -1245,13 +1270,28 @@ export class PostgresTribeMemberSubscriptionRepository
       input.idempotencyKey,
     ].join(":");
 
+    // An open-join visitor is not a member and has no invitation token, so the
+    // tribes SELECT policies hide the tribe row and the direct slug read returns
+    // null. Fall back to the SECURITY DEFINER resolver, which exposes only the
+    // tribe id for a tribe that offers its current paid plan as the live option,
+    // so the checkout can resolve the target tribe without widening tribe row
+    // visibility through RLS. Invitation and retry checkouts keep relying on the
+    // RLS-scoped read.
+    const openJoinTribeIdFallback = input.allowOpenJoin
+      ? sql`, public.tribe_open_join_id_by_slug(${input.tribeSlug})`
+      : sql``;
+
     const context = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${input.tribeSlug}
-          limit 1
+          select coalesce(
+            (
+              select tribes.id
+              from public.tribes
+              where tribes.slug = ${input.tribeSlug}
+              limit 1
+            )${openJoinTribeIdFallback}
+          ) as id
         ),
         checkout_context as (
           select
@@ -1415,7 +1455,11 @@ export class PostgresTribeMemberSubscriptionRepository
           TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive &&
         !hasRetryBlockingMemberSubscription);
 
-    if (!input.requiresActiveInvitation && !hasRecoverablePaymentMembership) {
+    if (
+      !input.requiresActiveInvitation &&
+      !input.allowOpenJoin &&
+      !hasRecoverablePaymentMembership
+    ) {
       const retryRejectionStatus =
         context?.existing_membership_status ===
           MEMBER_SUBSCRIPTION_RECOVERY_MEMBERSHIP_STATUS.blocked &&

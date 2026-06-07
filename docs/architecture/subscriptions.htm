@@ -277,5 +277,33 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
 <p>Las suscripciones de miembros se desprenden de <code>price_id</code> y conservan un snapshot mínimo del plan para que los webhooks y la auditoría sigan funcionando sin dejar referencias al plan eliminado.</p>
 </div>
 
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Ingreso público por plan actual (open join)</div>
+<p>El link "crudo" de la tribu (<code>tutribu.app/&lt;slug&gt;</code>) permite que una persona que no es miembro se suscriba usando el <strong>plan pago marcado como actual</strong>, sin necesidad de un token de invitación.</p>
+<ul>
+  <li>Un visitante <strong>autenticado</strong> que no es miembro y abre el link recibe la pantalla de pago cuando existe un precio <code>is_current = true</code> y la tribu lo ofrece como vigente (<code>free_join_is_current = false</code>). Si no hay plan pago actual, el link no hace nada (<code>notFound</code>).</li>
+  <li>Un visitante <strong>no autenticado</strong> es redirigido a <code>sign-in</code> con <code>callbackUrl</code> al link de la tribu; al volver autenticado ve la oferta o <code>notFound</code> según corresponda.</li>
+  <li>El checkout reusa el motor existente de Mercado Pago a través del nuevo caso de uso <code>startTribeOpenJoinSubscription</code>, que arranca el checkout <strong>sin invitación</strong> y sin exigir una membresía recuperable previa.</li>
+</ul>
+<p>El entrypoint de la ruta lee la oferta con <code>getTribeCurrentSubscriptionOffer</code>, que se apoya en la función <code>SECURITY DEFINER</code> <code>tribe_open_join_current_paid_offer(slug)</code>. La función resuelve la tribu por <code>slug</code> y devuelve el precio actual (nombre, monto, moneda, frecuencia) solo cuando la tribu lo ofrece como vigente (<code>free_join_is_current = false</code>) y el precio tiene plan de proveedor sincronizado, sin requerir token.</p>
+<p>Las funciones de open join comparan <code>tribes.slug</code> de forma sensible a mayúsculas. Los slugs se guardan en minúscula (el value object <code>tribe-slug</code> los normaliza al crearlos) y las lecturas de la tribu (<code>getTribePageAccess</code>, <code>getTribeBySlug</code>) resuelven el slug sin distinguir mayúsculas. Para que un link con otra capitalización (por ejemplo <code>/Matematica-Pro</code>) llegue a la misma tribu, los casos de uso <code>getTribeCurrentSubscriptionOffer</code> y <code>startTribeOpenJoinSubscription</code> normalizan el slug del route param (lo recortan y pasan a minúscula) antes de invocar las funciones <code>SECURITY DEFINER</code>; de lo contrario la oferta quedaría como no disponible y el checkout colapsaría a pago no disponible aunque exista un plan pago actual.</p>
+<p>El checkout (<code>startCurrentPriceSubscriptionCheckout</code>, usado por <code>startTribeOpenJoinSubscription</code>) parte de la misma lectura de <code>public.tribes</code> por <code>slug</code> para resolver <code>target_tribe</code>. Para el visitante de open join esa lectura queda oculta por RLS y, sin tribu, <code>current_price_id</code> y el resto del contexto colapsaban a <code>null</code>, devolviendo <code>missing_current_price</code> en lugar de reservar la suscripción y la membresía pendientes. Por eso, solo en la rama de open join, <code>target_tribe</code> hace <code>coalesce</code> de la lectura RLS con la función <code>SECURITY DEFINER</code> <code>tribe_open_join_id_by_slug(slug)</code>, que devuelve únicamente el id de la tribu cuando ofrece su plan pago actual como vigente. Los flujos de invitación y de reintento siguen usando la lectura RLS directa.</p>
+<div class="callout c-warn">
+  <strong>RLS:</strong> la lectura de la oferta, la resolución de la tribu en el checkout y los inserts tokenless de la suscripción pendiente y de la membresía pendiente se autorizan con funciones <code>SECURITY DEFINER</code>. Son necesarias porque la RLS de <code>tribes</code> oculta la tribu privada al no-miembro sin invitación: resolver el <code>slug</code> a través de RLS no devuelve fila y la oferta quedaría como no disponible (la ruta haría <code>notFound</code>) y el checkout colapsaría a <code>missing_current_price</code> aunque exista un plan pago actual. <code>tribe_open_join_current_paid_offer(slug)</code> habilita la lectura pública de la oferta y <code>tribe_open_join_id_by_slug(slug)</code> resuelve el id de la tribu en el checkout, ambas sin exponer la fila privada de <code>tribes</code>; <code>can_open_join_tribe_paid_plan(tribe_id)</code> autoriza los inserts, evalúa <code>free_join_is_current = false</code> y la existencia del precio actual, y rechaza a un visitante <code>blocked / conduct_blocked</code>.
+</div>
+</div>
+
+<div class="section">
+  <div class="section-num">10</div>
+  <div class="section-title">Auto-marcado del único plan pago</div>
+<p>Cuando una tribu queda con <strong>exactamente un</strong> precio pago activo (<code>status = 'active'</code> con plan de proveedor), ese precio se marca automáticamente como actual (<code>is_current = true</code>) y la tribu pasa a <code>free_join_is_current = false</code>.</p>
+<ul>
+  <li>Se dispara al <strong>activar</strong> un precio recién creado (cuando el plan de proveedor queda enlazado), que es el caso típico del <em>leader</em> que se olvida de marcar el pago como actual.</li>
+  <li>La promoción es atómica en la capa de infraestructura (<code>markSoleActivePaidPriceAsCurrent</code>), respeta el índice único parcial del precio actual y la autorización de <code>leader</code>.</li>
+  <li>Con dos o más precios pagos activos no se promueve ninguno: la elección del precio actual queda en manos del <em>leader</em>.</li>
+</ul>
+</div>
+
 </body>
 </html>

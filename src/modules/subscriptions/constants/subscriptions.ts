@@ -27,6 +27,18 @@ export const TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE = {
 } as const;
 
 /**
+ * Defines the availability of the tokenless public-join subscription offer.
+ *
+ * A tribe exposes its current paid price through the public tribe link only
+ * when a paid plan is flagged as current; otherwise the offer is unavailable
+ * and the public link does nothing.
+ */
+export const TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS = {
+  available: "available",
+  unavailable: "unavailable",
+} as const;
+
+/**
  * Defines the maximum number of active prices allowed per tribe.
  */
 export const TRIBE_SUBSCRIPTION_PRICE_LIMIT = 30;
