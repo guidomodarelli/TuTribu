@@ -49,6 +49,13 @@ jest.mock("@/src/modules/setup", () => ({
 }));
 
 jest.mock(
+  "@/src/modules/messages/infrastructure/composition/video-thumbnail-backfill",
+  () => ({
+    scheduleMissingVideoThumbnailBackfill: jest.fn(),
+  })
+);
+
+jest.mock(
   "@/src/modules/auth/infrastructure/better-auth/server-auth-context",
   () => ({
     getServerBetterAuthSession: jest.fn(async () => null),

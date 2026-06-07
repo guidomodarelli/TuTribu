@@ -421,6 +421,13 @@
       "when": 1780754400000,
       "tag": "20260606140000_expose_open_join_checkout_tribe",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1780758000000,
+      "tag": "20260606150000_add_message_video_thumbnail",
+      "breakpoints": true
     }
   ]
 }

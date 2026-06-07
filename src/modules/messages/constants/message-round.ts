@@ -47,6 +47,16 @@ export const MESSAGE_MEDIA_KIND = {
   video: "video",
 } as const;
 
+/**
+ * Maximum number of external video thumbnails resolved through oEmbed in a
+ * single lazy-backfill pass. Bounds the background `after()` work so a large
+ * legacy backlog cannot trigger a fetch storm; any remainder is resolved on
+ * subsequent renders.
+ */
+export const MESSAGE_VIDEO_THUMBNAIL_BACKFILL = {
+  maxPerRequest: 12,
+} as const;
+
 export const MESSAGE_IMAGE_STATUS = {
   attached: "attached",
   deleted: "deleted",

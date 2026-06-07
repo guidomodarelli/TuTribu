@@ -58,6 +58,12 @@ export type MessagePollResult = {
 export type MessageVideoResult = {
   externalId: string;
   provider: VideoProvider;
+  /**
+   * Persisted preview/thumbnail URL resolved through the provider's oEmbed
+   * endpoint. Absent for YouTube (whose thumbnail is derived deterministically
+   * from the id) and `null` until a lazy resolution has run for the others.
+   */
+  thumbnailUrl?: string | null;
 };
 
 export type MessageImageResult = {

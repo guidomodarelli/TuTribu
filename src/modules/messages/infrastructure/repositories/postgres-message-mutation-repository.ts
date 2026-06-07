@@ -1334,6 +1334,7 @@ export class PostgresMessageMutationRepository
       kind: MESSAGE_MEDIA_KIND.video,
       provider: video.external_video_provider as VideoProvider,
       sortOrder: Number(video.sort_order ?? 0),
+      thumbnailUrl: null,
     }));
   }
 

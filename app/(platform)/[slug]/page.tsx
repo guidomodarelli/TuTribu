@@ -13,6 +13,8 @@ import {
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { getServerBetterAuthSession as getSession } from "@/src/modules/auth/infrastructure/better-auth/server-auth-context";
+import { selectMessageIdsNeedingVideoThumbnail } from "@/src/modules/messages/application/use-cases/resolve-missing-video-thumbnails-use-case";
+import { scheduleMissingVideoThumbnailBackfill } from "@/src/modules/messages/infrastructure/composition/video-thumbnail-backfill";
 import {
   TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS,
@@ -610,6 +612,12 @@ export async function TribePageContent({
       },
     });
     notFound();
+  });
+
+  scheduleMissingVideoThumbnailBackfill({
+    messageIds: selectMessageIdsNeedingVideoThumbnail(round.messages),
+    tribeSlug: accessResult.tribe.slug,
+    viewerId: authenticatedMember.id,
   });
 
   return (

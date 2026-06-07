@@ -27,6 +27,7 @@ import {
   MoreHorizontalIcon,
   PencilIcon,
   PinIcon,
+  PlayIcon,
   TrashIcon,
   SendIcon,
   VideoIcon,
@@ -115,6 +116,7 @@ import {
   PLAYER_IFRAME_ALLOW,
   buildPlayerEmbedSource,
 } from "@/src/modules/shared/application/video/build-player-embed-source";
+import { buildVideoThumbnailSource } from "@/src/modules/shared/application/video/build-video-thumbnail-source";
 import styles from "./styles.module.scss";
 
 const TRIBE_ROUND_ROUTE = {
@@ -4065,7 +4067,30 @@ function TribeRoundContent({
       <div className={styles.TribeRound__imageGallery}>
         {messageMedia.map((mediaItem, mediaIndex) => {
           if (mediaItem.kind === MESSAGE_MEDIA_KIND.video) {
-            const videoTile = (
+            const videoThumbnailSource =
+              buildVideoThumbnailSource(
+                mediaItem.provider,
+                mediaItem.externalId
+              ) ??
+              mediaItem.thumbnailUrl ??
+              null;
+            const videoTile = videoThumbnailSource ? (
+              <span
+                aria-hidden="true"
+                className={`${styles.TribeRound__videoTile} ${styles["TribeRound__videoTile--preview"]}`}
+              >
+                {createElement("img", {
+                  alt: "",
+                  className: styles.TribeRound__videoThumbnail,
+                  decoding: "async",
+                  loading: "lazy",
+                  src: videoThumbnailSource,
+                })}
+                <span className={styles.TribeRound__videoPlayBadge}>
+                  <PlayIcon />
+                </span>
+              </span>
+            ) : (
               <span
                 aria-hidden="true"
                 className={styles.TribeRound__videoTile}
