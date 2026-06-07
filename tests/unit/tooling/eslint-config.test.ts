@@ -109,4 +109,18 @@ describe("eslint generated output boundaries", () => {
       ])
     );
   });
+
+  it("ignores agent-generated worktrees", () => {
+    expect(
+      lintImport(
+        "// @ts-ignore\nconst generatedValue = 1;",
+        ".claude/worktrees/review-copy/components/example.tsx"
+      )
+    ).not.toEqual(
+      expect.arrayContaining([
+        "@typescript-eslint/ban-ts-comment",
+        "@typescript-eslint/no-unused-vars",
+      ])
+    );
+  });
 });
