@@ -28,6 +28,12 @@
 // `.TribeRound` root and would not inherit a scoped variable.
 $media-thumbnail-size: clamp(5rem, 26vw, 8.5rem);
 
+// Feed-only 1:1 media thumbnail size. Smaller than the shared size so the
+// right-aligned square stays compact and, when vertically centered in a short
+// message card, its top edge clears the absolutely-positioned pin/actions meta
+// at the top-right instead of rendering underneath it.
+$feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
+
 .TribeRound {
   display: flex;
   flex-direction: column;
@@ -1391,7 +1397,7 @@ $media-thumbnail-size: clamp(5rem, 26vw, 8.5rem);
     position: relative;
     flex: 0 0 auto;
     align-self: center;
-    width: $media-thumbnail-size;
+    width: $feed-media-thumbnail-size;
     aspect-ratio: 1;
     overflow: hidden;
     border-radius: 0.5rem;
