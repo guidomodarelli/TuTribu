@@ -18,9 +18,11 @@ export type UnresolvedMessageVideo = {
  */
 export type MessageVideoThumbnailRepository = {
   /**
-   * Lists attached videos in the given messages that still need a thumbnail
-   * resolution attempt (no thumbnail and no prior attempt), excluding providers
-   * resolved deterministically in the application layer.
+   * Lists attached videos in the given messages that are still candidates for a
+   * thumbnail resolution attempt: no thumbnail, not yet terminal (a prior
+   * attempt that found nothing is retryable until the attempt cap), and past the
+   * retry cooldown since the last attempt. Excludes providers resolved
+   * deterministically in the application layer.
    *
    * @param query - Messages whose videos should be inspected.
    * @returns The videos pending a thumbnail resolution.
@@ -30,12 +32,13 @@ export type MessageVideoThumbnailRepository = {
   }): Promise<UnresolvedMessageVideo[]>;
 
   /**
-   * Persists a resolved thumbnail (or marks the attempt when none was found)
-   * for a single video, idempotently.
+   * Records a resolution attempt for a single video, idempotently. A found
+   * thumbnail (or reaching the attempt cap) makes the row terminal; an
+   * unsuccessful attempt below the cap leaves it retryable on a later render.
    *
    * @param command - The video and the thumbnail URL to persist (`null` when no
    *   thumbnail is available; the attempt is still recorded).
-   * @returns Whether a row was updated (false when it was already resolved).
+   * @returns Whether a row was updated (false when it was already terminal).
    */
   persistThumbnail(command: {
     thumbnailUrl: string | null;

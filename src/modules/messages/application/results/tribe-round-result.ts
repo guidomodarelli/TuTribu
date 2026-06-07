@@ -65,10 +65,11 @@ export type MessageVideoResult = {
    */
   thumbnailUrl?: string | null;
   /**
-   * Whether a thumbnail resolution has already been attempted for this video.
-   * It is `true` even when the attempt found no thumbnail (private, deleted, or
-   * transiently failed), so the lazy backfill is not re-scheduled on every
-   * render for a video that has no available thumbnail.
+   * Whether thumbnail resolution for this video has reached a terminal state:
+   * a thumbnail was found, or the lazy backfill gave up after exhausting its
+   * retry attempts (private, deleted, or persistently failing). A miss that is
+   * still within its retry budget keeps this `false` so the backfill picks the
+   * video up again on a later render, without re-fetching on every render.
    */
   thumbnailResolved?: boolean;
 };

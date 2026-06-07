@@ -48,13 +48,23 @@ export const MESSAGE_MEDIA_KIND = {
 } as const;
 
 /**
- * Maximum number of external video thumbnails resolved through oEmbed in a
- * single lazy-backfill pass. Bounds the background `after()` work so a large
- * legacy backlog cannot trigger a fetch storm; any remainder is resolved on
- * subsequent renders.
+ * Bounds the lazy oEmbed thumbnail backfill so a failed resolution is retried a
+ * few times across renders without turning into a per-render fetch storm.
+ *
+ * - `maxPerRequest`: thumbnails resolved through oEmbed in a single backfill
+ *   pass. Bounds the background `after()` work so a large legacy backlog cannot
+ *   trigger a fetch storm; any remainder is resolved on subsequent renders.
+ * - `maxAttempts`: how many resolution attempts a video gets before the backfill
+ *   gives up permanently. A transient oEmbed failure (provider down, media still
+ *   processing) is retried; a genuinely unresolvable video (private, deleted)
+ *   stops being re-fetched once the cap is reached.
+ * - `retryCooldownMinutes`: minimum delay between two attempts for the same
+ *   video, so concurrent and back-to-back renders do not re-hit the provider.
  */
 export const MESSAGE_VIDEO_THUMBNAIL_BACKFILL = {
+  maxAttempts: 3,
   maxPerRequest: 12,
+  retryCooldownMinutes: 60,
 } as const;
 
 export const MESSAGE_IMAGE_STATUS = {

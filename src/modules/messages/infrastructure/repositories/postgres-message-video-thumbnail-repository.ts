@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 
+import { MESSAGE_VIDEO_THUMBNAIL_BACKFILL } from "@/src/modules/messages/constants/message-round";
 import type {
   MessageVideoThumbnailRepository,
   UnresolvedMessageVideo,
@@ -55,7 +56,9 @@ export class PostgresMessageVideoThumbnailRepository
 
   /**
    * Lists attached videos pending a thumbnail resolution attempt for the given
-   * messages, excluding YouTube (resolved deterministically in the app).
+   * messages, excluding YouTube (resolved deterministically in the app). A video
+   * whose previous attempt found no thumbnail is included again once the retry
+   * cooldown has elapsed and it has not become terminal.
    *
    * @param query - Messages whose videos should be inspected.
    * @returns The videos pending a thumbnail resolution.
@@ -78,6 +81,12 @@ export class PostgresMessageVideoThumbnailRepository
           and message_videos.thumbnail_url is null
           and message_videos.thumbnail_resolved_at is null
           and message_videos.external_video_provider <> ${VIDEO_PROVIDER.youtube}
+          and (
+            message_videos.thumbnail_last_attempt_at is null
+            or message_videos.thumbnail_last_attempt_at
+              < timezone('utc', now())
+                - make_interval(mins => ${sql.param(MESSAGE_VIDEO_THUMBNAIL_BACKFILL.retryCooldownMinutes)}::integer)
+          )
       `);
 
       const rows = (result.rows ?? []) as UnresolvedVideoRow[];
@@ -99,8 +108,8 @@ export class PostgresMessageVideoThumbnailRepository
   }
 
   /**
-   * Persists a resolved thumbnail (or records the attempt when none was found)
-   * for a single video through the SECURITY DEFINER function.
+   * Records a resolution attempt for a single video through the SECURITY DEFINER
+   * function, passing the attempt cap so a miss below the cap stays retryable.
    *
    * @param command - The video and the thumbnail URL to persist.
    * @returns Whether the function updated a row.
@@ -113,7 +122,8 @@ export class PostgresMessageVideoThumbnailRepository
       const result = await database.execute(sql`
         select public.set_message_video_thumbnail(
           ${command.videoId}::uuid,
-          ${command.thumbnailUrl}
+          ${command.thumbnailUrl}::text,
+          ${sql.param(MESSAGE_VIDEO_THUMBNAIL_BACKFILL.maxAttempts)}::integer
         ) as persisted
       `);
 

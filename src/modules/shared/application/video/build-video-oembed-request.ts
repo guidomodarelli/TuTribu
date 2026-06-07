@@ -27,11 +27,17 @@ const OEMBED_ENDPOINT = {
 /**
  * Public video URL prefixes used to reconstruct the canonical URL each oEmbed
  * endpoint expects from the stored external identifier.
+ *
+ * Wistia's oEmbed endpoint only accepts target URLs whose host matches
+ * `*.wistia.com` or `*.wi.st` (path under `/medias/` or `/embed/`); any other
+ * host returns 404. The iframe player is served from `fast.wistia.net`, but the
+ * oEmbed `url` must use `fast.wistia.com` so the lookup resolves instead of
+ * being rejected and persisting an empty attempt.
  */
 const VIDEO_PAGE_URL = {
   loomShare: "https://www.loom.com/share/",
   vimeo: "https://vimeo.com/",
-  wistiaEmbedIframe: "https://fast.wistia.net/embed/iframe/",
+  wistiaEmbedIframe: "https://fast.wistia.com/embed/iframe/",
 } as const;
 
 /**

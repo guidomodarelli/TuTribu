@@ -53,6 +53,8 @@ describe("PostgresMessageVideoThumbnailRepository", () => {
     expect(sqlText).toContain("message_videos.thumbnail_url is null");
     expect(sqlText).toContain("message_videos.thumbnail_resolved_at is null");
     expect(sqlText).toContain("message_videos.external_video_provider <>");
+    expect(sqlText).toContain("message_videos.thumbnail_last_attempt_at is null");
+    expect(sqlText).toContain("make_interval(mins =>");
   });
 
   it("returns an empty list without querying when there are no message ids", async () => {

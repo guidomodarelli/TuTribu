@@ -24,11 +24,11 @@ describe("buildVideoOEmbedRequestUrl", () => {
     );
   });
 
-  it("builds the Wistia oEmbed request from the embed iframe URL", () => {
+  it("builds the Wistia oEmbed request from a wistia.com embed iframe URL the endpoint accepts", () => {
     expect(
       buildVideoOEmbedRequestUrl(VIDEO_PROVIDER.wistia, "abc123def456")
     ).toBe(
-      "https://fast.wistia.com/oembed.json?url=https%3A%2F%2Ffast.wistia.net%2Fembed%2Fiframe%2Fabc123def456"
+      "https://fast.wistia.com/oembed.json?url=https%3A%2F%2Ffast.wistia.com%2Fembed%2Fiframe%2Fabc123def456"
     );
   });
 
