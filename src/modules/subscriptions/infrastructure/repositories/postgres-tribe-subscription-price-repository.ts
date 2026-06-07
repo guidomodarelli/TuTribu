@@ -1646,6 +1646,12 @@ export class PostgresTribeSubscriptionPriceRepository
    * option is cleared, mirroring {@link makeCurrent} atomically and respecting
    * the partial unique index on the current price.
    *
+   * The candidate is matched with `in` (not a scalar `= (select ...)`) so that
+   * when a tribe already has several active paid prices the predicate stays a
+   * safe no-op instead of raising "more than one row returned by a subquery";
+   * the `count(*) = 1` guard then keeps the promotion exclusive to the sole
+   * active paid price.
+   *
    * @param tribeId - Identifier of the tribe that owns the price.
    * @returns Identifier of the promoted price, or null when none was promoted.
    */
@@ -1664,7 +1670,7 @@ export class PostgresTribeSubscriptionPriceRepository
         promoted_price as (
           update public.tribe_subscription_prices
           set is_current = true
-          where tribe_subscription_prices.id = (
+          where tribe_subscription_prices.id in (
               select id from sole_active_paid_price
             )
             and (select count(*) from sole_active_paid_price) = 1
