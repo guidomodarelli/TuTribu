@@ -118,6 +118,7 @@ import {
   buildPlayerEmbedSource,
 } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { buildVideoThumbnailSource } from "@/src/modules/shared/application/video/build-video-thumbnail-source";
+import { resolveSettledImageCarouselSlideIndexOnReInit } from "./image-carousel-slide-indices";
 import styles from "./styles.module.scss";
 
 const TRIBE_ROUND_ROUTE = {
@@ -1759,6 +1760,12 @@ function TribeRoundContent({
   const [imageCarouselApi, setImageCarouselApi] = useState<CarouselApi | null>(
     null
   );
+  // Tracks whether Embla is mid-scroll. `select` opens this window (the target
+  // snap changed) and `settle` closes it. A `reInit` that lands inside the
+  // window must not advance the iframe-driving settled index, or it would
+  // mount/unmount a cross-origin player while the scroll animation is still
+  // running.
+  const isImageCarouselScrollInProgressRef = useRef(false);
   const [isMessageDetailsOpen, setIsMessageDetailsOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [messagePendingDeletion, setMessagePendingDeletion] =
@@ -2048,49 +2055,70 @@ function TribeRoundContent({
       return;
     }
 
-    // `select` fires as soon as the target snap changes (animation start) and
-    // keeps the progress indicator responsive. `settle` fires once the scroll
+    // `select` fires as soon as the target snap changes (scroll start) and keeps
+    // the progress indicator responsive. `settle` fires once the scroll
     // animation has finished; gating video iframe mounting on it avoids tearing
-    // down a cross-origin player while Embla is still animating.
+    // down a cross-origin player while Embla is still animating. A `reInit`
+    // (image preload decode or relayout during navigation) can fire mid-scroll,
+    // so it refreshes the responsive active index but leaves the iframe-driving
+    // settled index frozen until the in-flight scroll settles. The settled index
+    // only advances on `settle` or on the known non-animated initial sync.
     const updateActiveImageCarouselSlideIndex = () => {
       setActiveImageCarouselSlideIndex(imageCarouselApi.selectedScrollSnap());
     };
 
-    const updateSettledImageCarouselSlideIndex = () => {
-      setSettledImageCarouselSlideIndex(imageCarouselApi.selectedScrollSnap());
-    };
-
-    const syncImageCarouselSlideIndices = () => {
+    const beginImageCarouselScroll = () => {
+      isImageCarouselScrollInProgressRef.current = true;
       updateActiveImageCarouselSlideIndex();
-      updateSettledImageCarouselSlideIndex();
     };
 
-    syncImageCarouselSlideIndices();
+    const settleImageCarouselSlideIndices = () => {
+      isImageCarouselScrollInProgressRef.current = false;
+      const settledSnapIndex = imageCarouselApi.selectedScrollSnap();
+      setActiveImageCarouselSlideIndex(settledSnapIndex);
+      setSettledImageCarouselSlideIndex(settledSnapIndex);
+    };
+
+    const syncImageCarouselSlideIndicesOnReInit = () => {
+      const selectedSnapIndex = imageCarouselApi.selectedScrollSnap();
+      const isScrollInProgress = isImageCarouselScrollInProgressRef.current;
+      setActiveImageCarouselSlideIndex(selectedSnapIndex);
+      setSettledImageCarouselSlideIndex((currentSettledSlideIndex) =>
+        resolveSettledImageCarouselSlideIndexOnReInit({
+          selectedSnapIndex,
+          currentSettledSlideIndex,
+          isScrollInProgress,
+        })
+      );
+    };
+
+    // Known non-animated initialization: sync both indices from a settled state.
+    settleImageCarouselSlideIndices();
     imageCarouselApi.on(
       TRIBE_ROUND_CAROUSEL_EVENT.reInit,
-      syncImageCarouselSlideIndices
+      syncImageCarouselSlideIndicesOnReInit
     );
     imageCarouselApi.on(
       TRIBE_ROUND_CAROUSEL_EVENT.select,
-      updateActiveImageCarouselSlideIndex
+      beginImageCarouselScroll
     );
     imageCarouselApi.on(
       TRIBE_ROUND_CAROUSEL_EVENT.settle,
-      updateSettledImageCarouselSlideIndex
+      settleImageCarouselSlideIndices
     );
 
     return () => {
       imageCarouselApi.off(
         TRIBE_ROUND_CAROUSEL_EVENT.reInit,
-        syncImageCarouselSlideIndices
+        syncImageCarouselSlideIndicesOnReInit
       );
       imageCarouselApi.off(
         TRIBE_ROUND_CAROUSEL_EVENT.select,
-        updateActiveImageCarouselSlideIndex
+        beginImageCarouselScroll
       );
       imageCarouselApi.off(
         TRIBE_ROUND_CAROUSEL_EVENT.settle,
-        updateSettledImageCarouselSlideIndex
+        settleImageCarouselSlideIndices
       );
     };
   }, [activeImageCarousel, imageCarouselApi]);
