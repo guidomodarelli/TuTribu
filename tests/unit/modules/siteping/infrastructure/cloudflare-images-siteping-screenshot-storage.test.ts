@@ -429,6 +429,46 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it("does not trust a delete 404 as cleared when the caller opts out of treating a 404 as cleared", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async () => buildResponse({ success: false }, false, 404)
+    );
+    const storage = buildStorageWithReservedId(fetcher);
+
+    // A reserved delivery URL whose unconfirmed upload could still be racing: the
+    // feedback is being deleted within the upload race window, so a 404 may just
+    // be this DELETE racing ahead of a create that has not landed yet. The caller
+    // passes treatNotFoundAsCleared: false, so the orphan is reported uncleared
+    // and the feedback row survives to retry once the create has certainly
+    // resolved, instead of being removed and stranding a soon-to-exist orphan.
+    await expect(
+      storage.delete({
+        screenshotUrl: STORED_DELIVERY_URL,
+        treatNotFoundAsCleared: false,
+      })
+    ).resolves.toEqual({ screenshotCleared: false });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const [, init] = fetcher.mock.calls[0] ?? [];
+    expect(init).toMatchObject({ method: HTTP_METHOD.delete });
+  });
+
+  it("still clears on an ok delete even when the caller opts out of treating a 404 as cleared", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async () => buildResponse({ success: true })
+    );
+    const storage = buildStorageWithReservedId(fetcher);
+
+    // Opting out of trusting a 404 never weakens a real deletion: an `ok` DELETE
+    // confirms the image is gone regardless of the race-window decision.
+    await expect(
+      storage.delete({
+        screenshotUrl: STORED_DELIVERY_URL,
+        treatNotFoundAsCleared: false,
+      })
+    ).resolves.toEqual({ screenshotCleared: true });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it("reports the screenshot cleared without calling Cloudflare for an inline data URL", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
     const storage = buildStorageWithReservedId(fetcher);

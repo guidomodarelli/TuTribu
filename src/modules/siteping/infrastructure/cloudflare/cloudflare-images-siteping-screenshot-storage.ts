@@ -135,14 +135,17 @@ type CloudflareImageUploadResponse = {
 type DeleteImageOptions = {
   /**
    * Whether a `DELETE` `404` confirms the orphan is cleared. `true` (the
-   * default) whenever the image was already created before this delete — the
+   * default) whenever the image was already created before this delete — a
+   * reclaim after a response-bearing upload, and the
    * {@link CloudflareImagesSitepingScreenshotStorage.delete} orphan-cleanup flow
-   * (the id comes from a persisted delivery URL) and a reclaim after a
-   * response-bearing upload. `false` for a reclaim after an aborted upload, where
-   * no response arrived and the non-idempotent create may still be running on
-   * Cloudflare: a fast `DELETE` can race ahead of that create and `404` before
-   * the image appears, so a `404` is not confirmation the orphan is gone and the
-   * reserved delivery URL must be kept for a later retry.
+   * for a feedback created long enough ago that its upload cannot still be in
+   * flight. `false` whenever the non-idempotent create may still be running on
+   * Cloudflare: a reclaim after an aborted upload (no response arrived), or a
+   * `delete` of a reserved delivery URL whose unconfirmed upload could still be
+   * racing because the feedback is being deleted within the upload race window. A
+   * fast `DELETE` can race ahead of that create and `404` before the image
+   * appears, so a `404` is not confirmation the orphan is gone and the reserved
+   * delivery URL must be kept for a later retry.
    */
   treatNotFoundAsCleared?: boolean;
 };
@@ -419,7 +422,14 @@ export class CloudflareImagesSitepingScreenshotStorage
       return { screenshotCleared: false };
     }
 
-    return this.deleteImageById(environment, classification.imageId);
+    // Honor the caller's race-window decision: when the stored value is a
+    // reserved delivery URL whose upload was never confirmed and the feedback is
+    // deleted before the create could have landed, the caller passes
+    // `treatNotFoundAsCleared: false` so a `404` here is not trusted as a
+    // confirmed clear. Omitted (the common case) it defaults to `true`.
+    return this.deleteImageById(environment, classification.imageId, {
+      treatNotFoundAsCleared: command.treatNotFoundAsCleared,
+    });
   }
 
   /**
@@ -454,12 +464,14 @@ export class CloudflareImagesSitepingScreenshotStorage
     }
 
     // `ok` always confirms the orphan is gone (deleted now). A `404` confirms it
-    // only when the image was already created before this delete — true for the
-    // delete() orphan-cleanup flow and a reclaim after a response-bearing upload,
-    // but not for a reclaim after an aborted upload whose create may still be
-    // running (a fast DELETE can `404` before the image appears), where the
-    // caller passes `treatNotFoundAsCleared: false` to keep the reserved URL. Any
-    // other status (auth/`4xx`/`5xx`) may have left the image, so report it
+    // only when the image was already created before this delete — true for a
+    // reclaim after a response-bearing upload and for a delete() of a feedback
+    // whose upload can no longer be in flight. It is NOT confirmation while the
+    // non-idempotent create may still be running (a reclaim after an aborted
+    // upload, or a delete() within the upload race window): a fast DELETE can
+    // `404` before the image appears, so the caller passes
+    // `treatNotFoundAsCleared: false` to keep the reserved URL for a later retry.
+    // Any other status (auth/`4xx`/`5xx`) may have left the image, so report it
     // uncleared so the feedback row survives for a later retry.
     const screenshotCleared =
       response.ok ||

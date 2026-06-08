@@ -6,6 +6,17 @@ export type StoreSitepingScreenshotCommand = {
 export type DeleteSitepingScreenshotCommand = {
   /** Stored value of `screenshot_url`: either a durable public URL or an inline `data:` URL fallback. */
   screenshotUrl: string;
+  /**
+   * Whether a `DELETE` `404` may be trusted as "already gone" and thus a
+   * confirmed clear. Defaults to `true` (omit it) once the screenshot's upload
+   * can no longer be in flight: a `404` then means the image is genuinely
+   * absent. Pass `false` while the original non-idempotent upload could still be
+   * racing — a reserved delivery URL persisted by an unconfirmed reclaim, deleted
+   * within the upload race window — because a `404` may only mean the create has
+   * not landed yet, and trusting it would let the caller remove the only row
+   * referencing the soon-to-exist public image and strand an orphan.
+   */
+  treatNotFoundAsCleared?: boolean;
 };
 
 export type DeleteSitepingScreenshotResult = {

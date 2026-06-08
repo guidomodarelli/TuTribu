@@ -6,6 +6,7 @@ import type {
 import {
   SITEPING_FEEDBACK_GITHUB_STATUS,
   SITEPING_PROJECT,
+  SITEPING_SCREENSHOT_UPLOAD_RACE_WINDOW_MS,
 } from "@/src/modules/siteping/constants/siteping";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { isPrivilegedTribeMemberRole } from "@/src/modules/tribes/constants/tribe-member-role";
@@ -497,10 +498,17 @@ export function updateSitepingFeedbackStatus({
 
 export function deleteSitepingFeedback({
   githubIssuePublisher,
+  now = () => Date.now(),
   screenshotStorage,
   sitepingFeedbackRepository,
 }: {
   githubIssuePublisher: GitHubIssuePublisher;
+  /**
+   * Current time source, injectable for deterministic tests. Used only to decide
+   * whether the screenshot upload race window has elapsed since the feedback was
+   * created; defaults to the system clock.
+   */
+  now?: () => number;
   screenshotStorage: SitepingScreenshotStorage;
   sitepingFeedbackRepository: SitepingFeedbackRepository;
 }) {
@@ -513,12 +521,25 @@ export function deleteSitepingFeedback({
 
     const { id: feedbackId, screenshotUrl } = feedback;
 
+    // A reserved delivery URL persisted by an unconfirmed reclaim may point at an
+    // image whose non-idempotent Cloudflare create was still racing the aborted
+    // upload. Until that create can no longer be in flight, a screenshot DELETE
+    // that returns 404 may just be the delete racing ahead of a create that has
+    // not landed yet, not proof the image is gone. Only trust a 404 as a
+    // confirmed clear once the upload race window has elapsed since the row was
+    // created; within it, keep the row so the deletion stays retryable instead of
+    // removing the only handle to a soon-to-exist public orphan.
+    const uploadRaceWindowElapsed =
+      now() - new Date(feedback.createdAt).getTime() >=
+      SITEPING_SCREENSHOT_UPLOAD_RACE_WINDOW_MS;
+
     // Delete the durable screenshot before removing the row so an interrupted
     // deletion stays retryable: while the row still exists, a later attempt
     // reloads it and re-runs the idempotent screenshot delete, avoiding an orphan
     // that a clear-last ordering would strand with no trigger to reclaim it. An
-    // unconfirmed delete (storage unconfigured, an auth/4xx/5xx response, or a
-    // timeout) throws so the caller can surface the failure and keep the row — the
+    // unconfirmed delete (storage unconfigured, an auth/4xx/5xx response, a
+    // timeout, or a 404 that is not yet trustworthy within the upload race
+    // window) throws so the caller can surface the failure and keep the row — the
     // only record of the delivery URL — in a status the admin/widget flow can
     // still reach to retry, instead of orphaning the image.
     async function clearScreenshotOrThrow(): Promise<void> {
@@ -528,6 +549,7 @@ export function deleteSitepingFeedback({
 
       const { screenshotCleared } = await screenshotStorage.delete({
         screenshotUrl,
+        treatNotFoundAsCleared: uploadRaceWindowElapsed,
       });
 
       if (!screenshotCleared) {
@@ -560,8 +582,9 @@ export function deleteSitepingFeedback({
       // hides, so deferring the clear until then never strands a visible row next
       // to a closed issue: an unconfirmed clear after the confirmed close throws
       // with the row hidden in deletion_completed, and the deletion_completed
-      // branch above retries the idempotent clear + remove (a 404 counts as
-      // cleared), so re-clearing an already-deleted screenshot is safe.
+      // branch above retries the idempotent clear + remove (by then the upload
+      // race window has long elapsed, so a 404 counts as cleared), so re-clearing
+      // an already-deleted screenshot is safe.
       if (
         feedback.githubIssueStatus !==
         SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending

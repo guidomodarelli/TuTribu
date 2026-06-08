@@ -11,6 +11,7 @@ import type { SitepingScreenshotStorage } from "@/src/modules/siteping/domain/re
 import {
   SITEPING_FEEDBACK_GITHUB_STATUS,
   SITEPING_FEEDBACK_TYPE,
+  SITEPING_SCREENSHOT_UPLOAD_RACE_WINDOW_MS,
 } from "@/src/modules/siteping/constants/siteping";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
@@ -1229,7 +1230,10 @@ describe("manage Siteping feedback use cases", () => {
       projectName: "tutribu",
     });
 
-    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl,
+      treatNotFoundAsCleared: true,
+    });
     expect(repository.remove).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
       projectName: "tutribu",
@@ -1280,7 +1284,10 @@ describe("manage Siteping feedback use cases", () => {
       projectName: "tutribu",
     });
 
-    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl,
+      treatNotFoundAsCleared: true,
+    });
     expect(repository.markGitHubIssueDeletionCompleted).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
     });
@@ -1426,7 +1433,10 @@ describe("manage Siteping feedback use cases", () => {
     expect(repository.markGitHubIssueDeletionCompleted).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
     });
-    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl,
+      treatNotFoundAsCleared: true,
+    });
     expect(repository.remove).not.toHaveBeenCalled();
     expect(repository.restoreGitHubIssuePublished).not.toHaveBeenCalled();
   });
@@ -1477,7 +1487,10 @@ describe("manage Siteping feedback use cases", () => {
     // risks stranding it, so the screenshot is cleared while the row is visible
     // and the row is removed without ever being marked pending.
     expect(repository.markGitHubIssueDeletionPending).not.toHaveBeenCalled();
-    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl,
+      treatNotFoundAsCleared: true,
+    });
     expect(repository.remove).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
       projectName: "tutribu",
@@ -1531,7 +1544,10 @@ describe("manage Siteping feedback use cases", () => {
       })
     ).rejects.toThrow(/screenshot deletion was not confirmed/i);
 
-    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl,
+      treatNotFoundAsCleared: true,
+    });
     // The clear runs before any status change, so the unconfirmed failure leaves
     // the row in its original, listable status: never marked deletion_pending and
     // never removed, so the normal admin/widget flow can still retry the delete.
@@ -1583,7 +1599,10 @@ describe("manage Siteping feedback use cases", () => {
       })
     ).rejects.toThrow(/screenshot deletion was not confirmed/i);
 
-    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl,
+      treatNotFoundAsCleared: true,
+    });
     expect(repository.remove).not.toHaveBeenCalled();
   });
 
@@ -1602,6 +1621,127 @@ describe("manage Siteping feedback use cases", () => {
     });
 
     expect(screenshotStorage.delete).not.toHaveBeenCalled();
+    expect(repository.remove).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+  });
+
+  it("does not trust a screenshot 404 within the upload race window, keeping the row to retry", async () => {
+    const screenshotUrl = "https://imagedelivery.net/hash/reserved-image-1/public";
+    const createdAt = new Date("2026-05-31T12:00:00.000Z");
+    const repository = buildRepository({
+      findById: jest.fn(async () => ({
+        annotations: [],
+        authorEmail: "leader@example.com",
+        authorName: "Leader Example",
+        clientId: "client-feedback-1",
+        createdAt,
+        createdBy: "member-1",
+        diagnostics: null,
+        githubIssueNumber: null,
+        githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.skipped,
+        githubIssueUrl: null,
+        id: FEEDBACK_ID,
+        message: "No puedo guardar el precio",
+        projectName: "tutribu",
+        resolvedAt: null,
+        screenshotUrl,
+        status: "open",
+        type: SITEPING_FEEDBACK_TYPE.bug,
+        updatedAt: createdAt,
+        url: "https://tutribu.example.com/matematica/precios",
+        urlPattern: "/[slug]/precios",
+        userAgent: "Jest Browser",
+        viewport: "1280x800",
+      })),
+    });
+    // Faithful port double of the storage adapter's 404 contract: the reserved
+    // image returns 404 on DELETE, which only counts as cleared when the caller
+    // trusts a 404 as already gone.
+    const screenshotStorage = buildScreenshotStorage({
+      delete: jest.fn(async (command) => ({
+        screenshotCleared: command.treatNotFoundAsCleared === true,
+      })),
+    });
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      // Deleting one second after creation: the aborted upload's non-idempotent
+      // create may still be racing, so a 404 is not yet proof the image is gone.
+      now: () => createdAt.getTime() + 1000,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        feedbackId: FEEDBACK_ID,
+        projectName: "tutribu",
+      })
+    ).rejects.toThrow(/screenshot deletion was not confirmed/i);
+
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl,
+      treatNotFoundAsCleared: false,
+    });
+    // The row survives so a later retry (after the create has certainly resolved)
+    // can reclaim a possibly-live orphan instead of removing its only handle.
+    expect(repository.remove).not.toHaveBeenCalled();
+  });
+
+  it("trusts a screenshot 404 as cleared once the upload race window has elapsed", async () => {
+    const screenshotUrl = "https://imagedelivery.net/hash/reserved-image-1/public";
+    const createdAt = new Date("2026-05-31T12:00:00.000Z");
+    const repository = buildRepository({
+      findById: jest.fn(async () => ({
+        annotations: [],
+        authorEmail: "leader@example.com",
+        authorName: "Leader Example",
+        clientId: "client-feedback-1",
+        createdAt,
+        createdBy: "member-1",
+        diagnostics: null,
+        githubIssueNumber: null,
+        githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.skipped,
+        githubIssueUrl: null,
+        id: FEEDBACK_ID,
+        message: "No puedo guardar el precio",
+        projectName: "tutribu",
+        resolvedAt: null,
+        screenshotUrl,
+        status: "open",
+        type: SITEPING_FEEDBACK_TYPE.bug,
+        updatedAt: createdAt,
+        url: "https://tutribu.example.com/matematica/precios",
+        urlPattern: "/[slug]/precios",
+        userAgent: "Jest Browser",
+        viewport: "1280x800",
+      })),
+    });
+    const screenshotStorage = buildScreenshotStorage({
+      delete: jest.fn(async (command) => ({
+        screenshotCleared: command.treatNotFoundAsCleared === true,
+      })),
+    });
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      // Deleting after the race window has fully elapsed: the create has certainly
+      // resolved, so a 404 is now proof the image is gone and the row is removable.
+      now: () =>
+        createdAt.getTime() + SITEPING_SCREENSHOT_UPLOAD_RACE_WINDOW_MS,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl,
+      treatNotFoundAsCleared: true,
+    });
     expect(repository.remove).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
       projectName: "tutribu",
