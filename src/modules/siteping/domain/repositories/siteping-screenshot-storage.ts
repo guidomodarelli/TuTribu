@@ -8,6 +8,19 @@ export type DeleteSitepingScreenshotCommand = {
   screenshotUrl: string;
 };
 
+export type DeleteSitepingScreenshotResult = {
+  /**
+   * `true` when the durable screenshot is confirmed gone — deleted now, already
+   * absent (`404`), or never a remote image we own (an inline `data:` fallback
+   * or a URL from another account) — so the caller may safely remove the
+   * feedback row. `false` when the remote image may still exist (storage
+   * unconfigured, an auth/`4xx`/`5xx` response, or a timeout/network error), so
+   * the caller must keep the row to let a later deletion retry reclaim the
+   * orphan.
+   */
+  screenshotCleared: boolean;
+};
+
 /**
  * Port for persisting a SitePing screenshot to durable object storage and
  * returning a public URL to render. Implementations return `null` when storage
@@ -18,10 +31,13 @@ export interface SitepingScreenshotStorage {
   store(command: StoreSitepingScreenshotCommand): Promise<string | null>;
   /**
    * Deletes the durable screenshot backing `screenshotUrl` so deleting feedback
-   * does not leave an orphaned public image. Resolves without throwing when
-   * storage is unconfigured, the URL is an inline `data:` fallback, the remote
-   * image is already gone, or the remote delete fails, so it never blocks the
-   * feedback deletion flow.
+   * does not leave an orphaned public image. Resolves without throwing and
+   * reports whether the screenshot is confirmed cleared through
+   * {@link DeleteSitepingScreenshotResult.screenshotCleared}: the caller must
+   * only remove the feedback row once deletion is confirmed, and otherwise keep
+   * the row so a later retry can reclaim the orphan.
    */
-  delete(command: DeleteSitepingScreenshotCommand): Promise<void>;
+  delete(
+    command: DeleteSitepingScreenshotCommand
+  ): Promise<DeleteSitepingScreenshotResult>;
 }

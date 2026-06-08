@@ -14,9 +14,17 @@ import {
 } from "@/src/modules/shared/infrastructure/http/fetch-with-resilience";
 import type {
   DeleteSitepingScreenshotCommand,
+  DeleteSitepingScreenshotResult,
   SitepingScreenshotStorage,
   StoreSitepingScreenshotCommand,
 } from "@/src/modules/siteping/domain/repositories/siteping-screenshot-storage";
+
+/**
+ * A `DELETE` on a missing image returns `404`, which Cloudflare uses to signal
+ * the image is already gone — equivalent to a successful deletion for our
+ * orphan-cleanup purpose.
+ */
+const HTTP_STATUS_NOT_FOUND = 404;
 
 const CLOUDFLARE_IMAGES_API = {
   baseUrl: "https://api.cloudflare.com/client/v4/accounts",
@@ -171,10 +179,15 @@ export class CloudflareImagesSitepingScreenshotStorage
     });
   }
 
-  async delete(command: DeleteSitepingScreenshotCommand): Promise<void> {
+  async delete(
+    command: DeleteSitepingScreenshotCommand
+  ): Promise<DeleteSitepingScreenshotResult> {
     const environment = readCloudflareImagesEnvironment();
     if (!environment) {
-      return;
+      // Without credentials we cannot reach the remote image to confirm it is
+      // gone; report it uncleared so the caller keeps the feedback row for a
+      // later retry once storage is configured.
+      return { screenshotCleared: false };
     }
 
     const imageId = extractCloudflareImagesIdFromDeliveryUrl({
@@ -182,17 +195,15 @@ export class CloudflareImagesSitepingScreenshotStorage
       deliveryUrl: command.screenshotUrl,
     });
     if (!imageId) {
-      // Inline `data:` fallback or a URL we did not produce — no remote image
-      // to delete, so deleting feedback is a clean no-op here.
-      return;
+      // Inline `data:` fallback or a URL we did not produce — there is no remote
+      // image we own, so the screenshot is already effectively cleared and the
+      // feedback row can be removed.
+      return { screenshotCleared: true };
     }
 
+    let response: HttpResponse;
     try {
-      // Any resolved response is accepted: `ok` and `404` (already gone) both
-      // mean the orphan is cleared, and any other status leaves it for a later
-      // deletion retry. Only a timeout/network error rejects, which we swallow
-      // so the feedback record can still be removed.
-      await fetchWithResilience(
+      response = await fetchWithResilience(
         this.fetcher,
         buildImageResourceUrl(environment, imageId),
         {
@@ -204,9 +215,18 @@ export class CloudflareImagesSitepingScreenshotStorage
         SCREENSHOT_DELETE_RESILIENCE
       );
     } catch {
-      // Timeout or network error — leave the orphan rather than block feedback
-      // deletion; a later deletion retry can reclaim it.
-      return;
+      // Timeout or network error — the image may still exist, so report it
+      // uncleared to keep the feedback row retryable rather than stranding an
+      // orphan with no trigger to reclaim it.
+      return { screenshotCleared: false };
     }
+
+    // `ok` (deleted now) and `404` (already gone) both confirm the orphan is
+    // cleared. Any other status (auth/`4xx`/`5xx`) may have left the image, so
+    // report it uncleared so the feedback row survives for a later retry.
+    const screenshotCleared =
+      response.ok || response.status === HTTP_STATUS_NOT_FOUND;
+
+    return { screenshotCleared };
   }
 }

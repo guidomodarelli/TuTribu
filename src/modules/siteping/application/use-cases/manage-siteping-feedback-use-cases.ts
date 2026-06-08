@@ -33,6 +33,8 @@ import type {
 import { redactSitepingSensitiveText } from "@/src/modules/siteping/domain/services/siteping-sensitive-text-redaction";
 
 const SITEPING_ERROR_MESSAGE = {
+  screenshotDeletionUnconfirmed:
+    "SitePing screenshot deletion was not confirmed; feedback kept for a later retry",
   unknownGitHubFailure: "Unknown GitHub issue publication failure",
 } as const;
 
@@ -396,15 +398,27 @@ export function deleteSitepingFeedback({
       return;
     }
 
-    const { screenshotUrl } = feedback;
+    const { id: feedbackId, screenshotUrl } = feedback;
 
     // Delete the durable screenshot before removing the record so an interrupted
     // deletion is retryable: while the row still exists, a later attempt reloads
     // it and re-runs the idempotent screenshot delete, avoiding an orphan that a
-    // remove-first ordering would strand with no trigger to reclaim it.
+    // remove-first ordering would strand with no trigger to reclaim it. The row
+    // is only removed once the screenshot delete is confirmed; an unconfirmed
+    // delete (storage unconfigured, an auth/4xx/5xx response, or a timeout)
+    // keeps the row — the only record of the delivery URL — and surfaces the
+    // failure so the deletion can be retried instead of orphaning the image.
     async function removeFeedbackAndScreenshot(): Promise<void> {
       if (screenshotUrl) {
-        await screenshotStorage.delete({ screenshotUrl });
+        const { screenshotCleared } = await screenshotStorage.delete({
+          screenshotUrl,
+        });
+
+        if (!screenshotCleared) {
+          throw new Error(
+            `${SITEPING_ERROR_MESSAGE.screenshotDeletionUnconfirmed} (feedbackId=${feedbackId})`
+          );
+        }
       }
 
       await sitepingFeedbackRepository.remove(command);

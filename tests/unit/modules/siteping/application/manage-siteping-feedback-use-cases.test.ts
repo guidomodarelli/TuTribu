@@ -189,7 +189,7 @@ function buildScreenshotStorage(
   overrides: Partial<SitepingScreenshotStorage> = {}
 ): SitepingScreenshotStorage {
   return {
-    delete: jest.fn(async () => undefined),
+    delete: jest.fn(async () => ({ screenshotCleared: true })),
     store: jest.fn(async () => null),
     ...overrides,
   };
@@ -979,6 +979,54 @@ describe("manage Siteping feedback use cases", () => {
     expect(
       (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
     ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
+  });
+
+  it("keeps the feedback row when the screenshot deletion is not confirmed", async () => {
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      findById: jest.fn(async () => ({
+        annotations: [],
+        authorEmail: "leader@example.com",
+        authorName: "Leader Example",
+        clientId: "client-feedback-1",
+        createdAt: new Date("2026-05-31T12:00:00.000Z"),
+        createdBy: "member-1",
+        diagnostics: null,
+        githubIssueNumber: 42,
+        githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted,
+        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        id: FEEDBACK_ID,
+        message: "No puedo guardar el precio",
+        projectName: "tutribu",
+        resolvedAt: null,
+        screenshotUrl,
+        status: "open",
+        type: SITEPING_FEEDBACK_TYPE.bug,
+        updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+        url: "https://tutribu.example.com/matematica/precios",
+        urlPattern: "/[slug]/precios",
+        userAgent: "Jest Browser",
+        viewport: "1280x800",
+      })),
+    });
+    const screenshotStorage = buildScreenshotStorage({
+      delete: jest.fn(async () => ({ screenshotCleared: false })),
+    });
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        feedbackId: FEEDBACK_ID,
+        projectName: "tutribu",
+      })
+    ).rejects.toThrow(/screenshot deletion was not confirmed/i);
+
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(repository.remove).not.toHaveBeenCalled();
   });
 
   it("does not attempt screenshot deletion when the feedback has no screenshot", async () => {

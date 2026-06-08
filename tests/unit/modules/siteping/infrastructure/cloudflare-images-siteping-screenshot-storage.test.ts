@@ -110,7 +110,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
     await expect(
       storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ screenshotCleared: true });
 
     expect(fetcher).toHaveBeenCalledTimes(1);
     const [requestUrl, init] = fetcher.mock.calls[0] ?? [];
@@ -118,7 +118,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     expect(init).toMatchObject({ method: "DELETE" });
   });
 
-  it("treats a 404 as already deleted without throwing", async () => {
+  it("treats a 404 as already deleted and reports the screenshot cleared", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
       async () => buildResponse({ success: false }, false, 404)
     );
@@ -126,21 +126,21 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
     await expect(
       storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ screenshotCleared: true });
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
-  it("does not call Cloudflare when the stored value is an inline data URL", async () => {
+  it("reports the screenshot cleared without calling Cloudflare for an inline data URL", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
     const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
 
     await expect(
       storage.delete({ screenshotUrl: VALID_SCREENSHOT_DATA_URL })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ screenshotCleared: true });
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("does not call Cloudflare for a delivery URL from another account", async () => {
+  it("reports the screenshot cleared without calling Cloudflare for a delivery URL from another account", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
     const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
 
@@ -148,22 +148,46 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
       storage.delete({
         screenshotUrl: "https://imagedelivery.net/other-hash/image-1/public",
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ screenshotCleared: true });
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("does not call Cloudflare to delete when credentials are missing", async () => {
+  it("reports the screenshot uncleared without calling Cloudflare when credentials are missing", async () => {
     delete process.env.CLOUDFLARE_IMAGES_API_TOKEN;
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
     const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
 
     await expect(
       storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ screenshotCleared: false });
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("swallows a network error so feedback deletion is never blocked", async () => {
+  it("reports the screenshot uncleared when Cloudflare rejects the delete with an auth error", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async () => buildResponse({ success: false }, false, 403)
+    );
+    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+
+    await expect(
+      storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
+    ).resolves.toEqual({ screenshotCleared: false });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports the screenshot uncleared when Cloudflare returns a server error", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async () => buildResponse({ success: false }, false, 500)
+    );
+    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+
+    await expect(
+      storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
+    ).resolves.toEqual({ screenshotCleared: false });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports the screenshot uncleared on a network error so the feedback is kept for retry", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
       async () => {
         throw new Error("network down");
@@ -173,7 +197,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
     await expect(
       storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ screenshotCleared: false });
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });
