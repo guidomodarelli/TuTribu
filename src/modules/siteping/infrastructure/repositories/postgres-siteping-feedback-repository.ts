@@ -13,6 +13,7 @@ import type {
   RestoreGitHubIssuePublishedCommand,
   SitepingAnnotation,
   SitepingFeedback,
+  SitepingFeedbackIdempotencyCommand,
   SitepingFeedbackPage,
   SitepingFeedbackProjectCommand,
   SitepingFeedbackQuery,
@@ -72,12 +73,6 @@ type AnnotationRow = {
   xpath: string;
   x_pct: number | string;
   y_pct: number | string;
-};
-
-type SitepingIdempotencyKey = {
-  clientId: string;
-  createdBy: string;
-  projectName: string;
 };
 
 const SITEPING_PAGINATION = {
@@ -184,7 +179,7 @@ export class PostgresSitepingFeedbackRepository
         createdBy: command.createdBy,
         projectName: command.projectName,
       };
-      const existingFeedback = await this.findByIdempotencyKey(
+      const existingFeedback = await this.loadByIdempotencyKey(
         database,
         idempotencyKey
       );
@@ -237,7 +232,7 @@ export class PostgresSitepingFeedbackRepository
       const [feedbackRow] = feedbackRows.rows as FeedbackRow[];
 
       if (!feedbackRow) {
-        const feedback = await this.findByIdempotencyKey(database, idempotencyKey);
+        const feedback = await this.loadByIdempotencyKey(database, idempotencyKey);
 
         if (feedback) {
           return {
@@ -302,7 +297,7 @@ export class PostgresSitepingFeedbackRepository
         );
       }
 
-      const feedback = await this.findByIdempotencyKey(database, idempotencyKey);
+      const feedback = await this.loadByIdempotencyKey(database, idempotencyKey);
 
       if (!feedback) {
         throw new Error("Siteping feedback could not be loaded after insert.");
@@ -506,9 +501,25 @@ export class PostgresSitepingFeedbackRepository
     });
   }
 
-  private async findByIdempotencyKey(
+  /**
+   * Loads existing feedback matching the idempotency key without uploading or
+   * mutating any data, so callers can short-circuit expensive side effects such
+   * as a screenshot upload before attempting an insert.
+   *
+   * @param command - Project, owner, and client identifiers for the submission.
+   * @returns The persisted feedback, or `null` when no submission matches.
+   */
+  async findByIdempotencyKey(
+    command: SitepingFeedbackIdempotencyCommand
+  ): Promise<SitepingFeedback | null> {
+    return this.executeWithRequestContext((database) =>
+      this.loadByIdempotencyKey(database, command)
+    );
+  }
+
+  private async loadByIdempotencyKey(
     database: RequestDatabase,
-    idempotencyKey: SitepingIdempotencyKey
+    idempotencyKey: SitepingFeedbackIdempotencyCommand
   ): Promise<SitepingFeedback | null> {
     const rows = await database.execute(sql`
       select *

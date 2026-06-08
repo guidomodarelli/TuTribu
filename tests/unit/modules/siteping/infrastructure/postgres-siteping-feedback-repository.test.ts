@@ -364,6 +364,34 @@ describe("PostgresSitepingFeedbackRepository", () => {
     expect(feedbackRows).toHaveLength(3);
   });
 
+  it("finds existing feedback by its idempotency key scoped to project and owner", async () => {
+    const { repository } = createRepositoryHarness();
+
+    await repository.create(createFeedbackCommand());
+
+    await expect(repository.findByIdempotencyKey({
+      clientId: "client-feedback-1",
+      createdBy: "member-1",
+      projectName: "tutribu",
+    })).resolves.toMatchObject({
+      clientId: "client-feedback-1",
+      createdBy: "member-1",
+      projectName: "tutribu",
+    });
+
+    await expect(repository.findByIdempotencyKey({
+      clientId: "client-feedback-1",
+      createdBy: "member-1",
+      projectName: "another-project",
+    })).resolves.toBeNull();
+
+    await expect(repository.findByIdempotencyKey({
+      clientId: "client-feedback-2",
+      createdBy: "member-1",
+      projectName: "tutribu",
+    })).resolves.toBeNull();
+  });
+
   it("returns the concurrent duplicate feedback without aborting the transaction", async () => {
     const { feedbackRows, repository } = createRepositoryHarness({
       beforeFeedbackInsert: (command, rows) => {

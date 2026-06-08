@@ -264,6 +264,22 @@ export function createSitepingFeedback({
     command,
     requestUrl,
   }: CreateSitepingFeedbackInput): Promise<SitepingFeedbackResult> => {
+    const idempotencyKey = {
+      clientId: normalizeText(command.clientId),
+      createdBy: authenticatedMember.id,
+      projectName: normalizeText(command.projectName),
+    };
+
+    // Short-circuit idempotent retries (for example after a client timeout)
+    // before uploading the screenshot, so a duplicate submission never pays the
+    // upload latency nor leaves an orphan image in object storage.
+    const existingFeedback =
+      await sitepingFeedbackRepository.findByIdempotencyKey(idempotencyKey);
+
+    if (existingFeedback) {
+      return serializeSitepingFeedback(existingFeedback);
+    }
+
     const screenshotUrl = await resolveScreenshotUrl(
       screenshotStorage,
       command.screenshotDataUrl
@@ -272,11 +288,11 @@ export function createSitepingFeedback({
       annotations: command.annotations.map(flattenAnnotation),
       authorEmail: normalizeEmail(authenticatedMember.email),
       authorName: normalizeText(authenticatedMember.name),
-      clientId: normalizeText(command.clientId),
-      createdBy: authenticatedMember.id,
+      clientId: idempotencyKey.clientId,
+      createdBy: idempotencyKey.createdBy,
       diagnostics: sanitizeDiagnostics(command.diagnostics),
       message: redactSitepingSensitiveText(normalizeText(command.message)),
-      projectName: normalizeText(command.projectName),
+      projectName: idempotencyKey.projectName,
       screenshotUrl,
       type: command.type,
       url: redactSitepingSensitiveText(normalizeText(command.url)),

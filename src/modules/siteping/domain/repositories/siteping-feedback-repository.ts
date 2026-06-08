@@ -30,6 +30,12 @@ export type CreateSitepingFeedbackRecordResult = {
   wasCreated: boolean;
 };
 
+export type SitepingFeedbackIdempotencyCommand = {
+  clientId: string;
+  createdBy: string;
+  projectName: string;
+};
+
 export type SitepingFeedbackQuery = {
   limit?: number;
   page?: number;
@@ -80,6 +86,9 @@ export type SitepingFeedbackRepository = {
   create(
     command: CreateSitepingFeedbackRecordCommand
   ): Promise<CreateSitepingFeedbackRecordResult>;
+  findByIdempotencyKey(
+    command: SitepingFeedbackIdempotencyCommand
+  ): Promise<SitepingFeedback | null>;
   findById(command: SitepingFeedbackProjectCommand): Promise<SitepingFeedback | null>;
   findPage(query: SitepingFeedbackQuery): Promise<SitepingFeedbackPage>;
   markGitHubIssueDeletionCompleted(

@@ -159,6 +159,7 @@ function buildRepository(
       userAgent: "Jest Browser",
       viewport: "1280x800",
     })),
+    findByIdempotencyKey: jest.fn(async () => null),
     findPage: jest.fn(),
     markGitHubIssueDeletionCompleted: jest.fn(),
     markGitHubIssueDeletionPending: jest.fn(),
@@ -645,6 +646,90 @@ describe("manage Siteping feedback use cases", () => {
 
     expect(publisher.publish).not.toHaveBeenCalled();
     expect(repository.markGitHubIssuePublished).not.toHaveBeenCalled();
+  });
+
+  it("reuses the existing idempotent feedback without uploading another screenshot", async () => {
+    const existingFeedback = {
+      annotations: [],
+      authorEmail: "leader@example.com",
+      authorName: "Leader Example",
+      clientId: "client-feedback-1",
+      createdAt: new Date("2026-05-31T12:00:00.000Z"),
+      createdBy: "member-1",
+      diagnostics: null,
+      githubIssueNumber: 42,
+      githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
+      githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+      id: FEEDBACK_ID,
+      message: "No puedo guardar el precio",
+      projectName: "tutribu",
+      resolvedAt: null,
+      screenshotUrl: "https://imagedelivery.net/hash/image-1/public",
+      status: "open" as const,
+      type: SITEPING_FEEDBACK_TYPE.bug,
+      updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+      url: "https://tutribu.example.com/matematica/precios",
+      urlPattern: "/[slug]/precios",
+      userAgent: "Jest Browser",
+      viewport: "1280x800",
+    };
+    const repository = buildRepository({
+      findByIdempotencyKey: jest.fn(async () => existingFeedback),
+    });
+    const publisher = buildPublisher();
+    const screenshotStorage = buildScreenshotStorage();
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: publisher,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    const result = await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command: buildFeedbackCommand(),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    expect(repository.findByIdempotencyKey).toHaveBeenCalledWith({
+      clientId: "client-feedback-1",
+      createdBy: "member-1",
+      projectName: "tutribu",
+    });
+    expect(screenshotStorage.store).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(publisher.publish).not.toHaveBeenCalled();
+    expect(result).toEqual(expect.objectContaining({ id: FEEDBACK_ID }));
+  });
+
+  it("uploads the screenshot only after confirming the submission is new", async () => {
+    const repository = buildRepository();
+    const screenshotStorage = buildScreenshotStorage({
+      store: jest.fn(async () => "https://imagedelivery.net/hash/image-1/public"),
+    });
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command: buildFeedbackCommand(),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    expect(repository.findByIdempotencyKey).toHaveBeenCalledWith({
+      clientId: "client-feedback-1",
+      createdBy: "member-1",
+      projectName: "tutribu",
+    });
+    expect(screenshotStorage.store).toHaveBeenCalledTimes(1);
+    expect(
+      (repository.findByIdempotencyKey as jest.Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan((screenshotStorage.store as jest.Mock).mock.invocationCallOrder[0]);
+    expect((screenshotStorage.store as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (repository.create as jest.Mock).mock.invocationCallOrder[0]
+    );
   });
 
   it("keeps the feedback when GitHub issue creation fails", async () => {
