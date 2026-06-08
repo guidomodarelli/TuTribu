@@ -449,6 +449,13 @@
       "when": 1780837200000,
       "tag": "20260607130000_cooldown_message_video_thumbnail_attempt",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1780920000000,
+      "tag": "20260608120000_enforce_unique_provider_subscription_link",
+      "breakpoints": true
     }
   ]
 }
