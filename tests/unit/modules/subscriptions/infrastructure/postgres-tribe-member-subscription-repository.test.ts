@@ -1,4 +1,7 @@
+import { PgDialect } from "drizzle-orm/pg-core";
 import { PostgresTribeMemberSubscriptionRepository } from "@/src/modules/subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
+
+const pgDialect = new PgDialect();
 
 function getSqlText(statement: unknown): string {
   return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
@@ -27,6 +30,55 @@ function getSqlText(statement: unknown): string {
       return "";
     })
     .join("");
+}
+
+function getSqlParams(statement: unknown): unknown[] {
+  if (!statement || typeof statement !== "object") {
+    return [];
+  }
+
+  try {
+    return pgDialect.sqlToQuery(statement as never).params;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Finds the JSON body persisted into an idempotency operation insert by parsing
+ * the bound parameters of the matching statement.
+ *
+ * @param calls - Recorded `execute` mock calls.
+ * @returns Parsed `response_body` object, or null when no insert is found.
+ */
+function findPersistedIdempotencyResponseBody(
+  calls: unknown[][]
+): Record<string, unknown> | null {
+  for (const call of calls) {
+    const sqlText = getSqlText(call?.[0]);
+    if (
+      !sqlText.includes("insert into public.subscription_idempotency_operations")
+    ) {
+      continue;
+    }
+
+    for (const param of getSqlParams(call?.[0])) {
+      if (typeof param !== "string") {
+        continue;
+      }
+
+      try {
+        const parsed = JSON.parse(param) as Record<string, unknown>;
+        if (parsed && typeof parsed === "object" && "checkoutUrl" in parsed) {
+          return parsed;
+        }
+      } catch {
+        // Not the JSON response_body parameter; keep scanning.
+      }
+    }
+  }
+
+  return null;
 }
 
 function createRepository(
@@ -526,6 +578,16 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       /mercado_pago_preapproval_id/
     );
     expect(getSqlText(execute.mock.calls[4]?.[0])).toMatch(/pending/);
+
+    // The recent-checkout proof must read the persisted plan id, because an
+    // API-created init_point no longer embeds preapproval_plan_id in the URL.
+    const recoveryContextSql = execute.mock.calls
+      .map((call) => getSqlText(call?.[0]))
+      .find((sqlText) => sqlText.includes("recent_plan_checkout"));
+
+    expect(recoveryContextSql).toMatch(
+      /response_body->>'preapprovalPlanId'/
+    );
   });
 
   it("does not recover a missing local reservation from a different provider plan", async () => {
@@ -1228,6 +1290,53 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
       expect.objectContaining({ preapprovalPlanId: "provider-plan-1" })
     );
+  });
+
+  it("persists the provider plan id alongside the checkout URL for return recovery", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: false,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription,
+    });
+
+    await expect(
+      repository.retryCurrentPriceSubscriptionPayment({
+        idempotencyKey: "retry-payment",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
+      status: "pending",
+    });
+
+    expect(findPersistedIdempotencyResponseBody(execute.mock.calls)).toEqual({
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
+      preapprovalPlanId: "provider-plan-1",
+    });
   });
 
   it("allows removed subscription-inactive members to retry payment directly", async () => {

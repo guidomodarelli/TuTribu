@@ -1080,10 +1080,19 @@ export class PostgresTribeMemberSubscriptionRepository
             and subscription_idempotency_operations.response_body ? 'checkoutUrl'
             and subscription_idempotency_operations.created_at >=
               timezone('utc', now()) - ${SUBSCRIPTION_RESERVATION.returnRecoveryInterval}::interval
-            and position(
-              'preapproval_plan_id=' || (select mercado_pago_preapproval_plan_id from current_price)
-              in subscription_idempotency_operations.response_body->>'checkoutUrl'
-            ) > 0
+            and (
+              -- API-created checkouts persist the provider plan id explicitly
+              -- because their stored init_point only carries the preapproval_id,
+              -- not the preapproval_plan_id.
+              subscription_idempotency_operations.response_body->>'preapprovalPlanId'
+                = (select mercado_pago_preapproval_plan_id from current_price)
+              -- Legacy hosted preapproval-plan checkouts only stored the URL, whose
+              -- query string still embeds preapproval_plan_id=<plan>.
+              or position(
+                'preapproval_plan_id=' || (select mercado_pago_preapproval_plan_id from current_price)
+                in coalesce(subscription_idempotency_operations.response_body->>'checkoutUrl', '')
+              ) > 0
+            )
           limit 1
         )
         select
@@ -2155,7 +2164,10 @@ export class PostgresTribeMemberSubscriptionRepository
           ${input.tribeId},
           public.current_app_user_id(),
           ${hashPayload({ tribeSlug: input.tribeSlug })},
-          ${JSON.stringify({ checkoutUrl: input.checkoutUrl })}::jsonb,
+          ${JSON.stringify({
+            checkoutUrl: input.checkoutUrl,
+            preapprovalPlanId: input.providerPlanId,
+          })}::jsonb,
           timezone('utc', now())
         )
         on conflict (operation_key) do update
