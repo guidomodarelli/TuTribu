@@ -258,6 +258,60 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     expect(reclaimInit).toMatchObject({ method: HTTP_METHOD.delete });
   });
 
+  it("persists the reserved delivery URL when the upload times out and the reclaim delete returns 404 because the still-running create may complete after the abort", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async (_input, init) => {
+        if (init?.method === HTTP_METHOD.post) {
+          throw new Error("Request timed out");
+        }
+
+        // No upload response arrived, so Cloudflare's non-idempotent create may
+        // still be running. A fast reclaim DELETE can race ahead of it and get a
+        // 404 before the image appears, so this 404 is NOT confirmation the
+        // orphan is gone.
+        return buildResponse({ success: false }, false, 404);
+      }
+    );
+    const storage = buildStorageWithReservedId(fetcher);
+
+    const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
+
+    // The aborted upload may still complete on Cloudflare, so a reclaim 404 is
+    // not treated as a confirmed clear: the reserved delivery URL is persisted as
+    // the only retryable handle to the possibly-live public image instead of
+    // dropped, so a later deletion retry can reclaim it.
+    expect(url).toBe(RESERVED_DELIVERY_URL);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const [reclaimUrl, reclaimInit] = fetcher.mock.calls[1] ?? [];
+    expect(reclaimUrl).toBe(RESERVED_IMAGE_RESOURCE_URL);
+    expect(reclaimInit).toMatchObject({ method: HTTP_METHOD.delete });
+  });
+
+  it("drops the screenshot when a 5xx upload's reclaim delete returns 404 because the answered request is a confirmed absence", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async (_input, init) => {
+        if (init?.method === HTTP_METHOD.post) {
+          return buildResponse({ success: false }, false, 500);
+        }
+
+        return buildResponse({ success: false }, false, 404);
+      }
+    );
+    const storage = buildStorageWithReservedId(fetcher);
+
+    const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
+
+    // Unlike an aborted upload, a `5xx` means Cloudflare answered the request, so
+    // there is no create still racing the reclaim: a reclaim 404 is a confirmed
+    // absence (the image was never created) and the screenshot is dropped rather
+    // than persisting a delivery URL for an image that does not exist.
+    expect(url).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const [reclaimUrl, reclaimInit] = fetcher.mock.calls[1] ?? [];
+    expect(reclaimUrl).toBe(RESERVED_IMAGE_RESOURCE_URL);
+    expect(reclaimInit).toMatchObject({ method: HTTP_METHOD.delete });
+  });
+
   it("persists the reserved delivery URL when the upload times out and the reclaim delete also times out", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
       async () => {

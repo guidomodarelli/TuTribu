@@ -129,6 +129,24 @@ type CloudflareImageUploadResponse = {
   success?: boolean;
 };
 
+/**
+ * Controls how a `404` from the orphan-reclaim `DELETE` is interpreted.
+ */
+type DeleteImageOptions = {
+  /**
+   * Whether a `DELETE` `404` confirms the orphan is cleared. `true` (the
+   * default) whenever the image was already created before this delete — the
+   * {@link CloudflareImagesSitepingScreenshotStorage.delete} orphan-cleanup flow
+   * (the id comes from a persisted delivery URL) and a reclaim after a
+   * response-bearing upload. `false` for a reclaim after an aborted upload, where
+   * no response arrived and the non-idempotent create may still be running on
+   * Cloudflare: a fast `DELETE` can race ahead of that create and `404` before
+   * the image appears, so a `404` is not confirmation the orphan is gone and the
+   * reserved delivery URL must be kept for a later retry.
+   */
+  treatNotFoundAsCleared?: boolean;
+};
+
 function decodeImageDataUrl(
   dataUrl: string
 ): { blob: Blob; contentType: string } | null {
@@ -232,11 +250,17 @@ export class CloudflareImagesSitepingScreenshotStorage
         SCREENSHOT_UPLOAD_RESILIENCE
       );
     } catch {
-      // Timeout, abort, or network error — the upload may still complete on
-      // Cloudflare after we abandon the read, so reclaim the reserved id instead
-      // of treating the lost response as a safe no-op that would strand a public
-      // orphan.
-      return this.reclaimReservedImageId(environment, reservedImageId);
+      // Timeout, abort, or network error — no response arrived, so the
+      // non-idempotent upload may still be completing on Cloudflare after we
+      // abandon the read. Reclaim the reserved id, but a reclaim `404` is not a
+      // confirmed clear here: a fast DELETE can race ahead of the still-running
+      // create and `404` before the image appears, after which dropping the
+      // reserved delivery URL would strand an unaddressable public orphan with no
+      // row to drive cleanup. Keep the URL unless a real deletion confirms the
+      // orphan is gone, instead of treating the lost response as a safe no-op.
+      return this.reclaimReservedImageId(environment, reservedImageId, {
+        treatNotFoundAsCleared: false,
+      });
     }
 
     const deliveryUrl = await this.resolveUploadedDeliveryUrl(
@@ -268,22 +292,31 @@ export class CloudflareImagesSitepingScreenshotStorage
   /**
    * Reclaims the reserved id after an unconfirmed upload and resolves to the
    * value to persist in `screenshot_url`. Returns `null` when the best-effort
-   * delete confirms the orphan is gone (deleted now or already `404`), so no
-   * screenshot is persisted. When the delete cannot confirm the orphan is
-   * cleared (an auth/`4xx`/`5xx` response, a timeout, or a network error) the
-   * upload may have completed on Cloudflare and left a live public image, so it
-   * returns the reserved delivery URL: persisting it makes the feedback row the
-   * only record of that URL and lets a later deletion retry reclaim the orphan,
-   * instead of dropping the reference and stranding an unaddressable public
-   * image with no row to ever drive its cleanup.
+   * delete confirms the orphan is gone, so no screenshot is persisted. When the
+   * delete cannot confirm the orphan is cleared (an auth/`4xx`/`5xx` response, a
+   * timeout, or a network error) the upload may have completed on Cloudflare and
+   * left a live public image, so it returns the reserved delivery URL: persisting
+   * it makes the feedback row the only record of that URL and lets a later
+   * deletion retry reclaim the orphan, instead of dropping the reference and
+   * stranding an unaddressable public image with no row to ever drive its
+   * cleanup.
+   *
+   * What counts as confirmed depends on
+   * {@link DeleteImageOptions.treatNotFoundAsCleared}: a real deletion (`ok`)
+   * always confirms, while a `404` confirms only for a reclaim after a
+   * response-bearing upload. For a reclaim after an aborted upload the create may
+   * still be running, so a `404` can be the delete racing ahead of it and is then
+   * not treated as confirmation, keeping the reserved delivery URL.
    */
   private async reclaimReservedImageId(
     environment: CloudflareImagesEnvironment,
-    reservedImageId: string
+    reservedImageId: string,
+    options: DeleteImageOptions = {}
   ): Promise<string | null> {
     const { screenshotCleared } = await this.deleteImageById(
       environment,
-      reservedImageId
+      reservedImageId,
+      options
     );
 
     if (screenshotCleared) {
@@ -397,7 +430,8 @@ export class CloudflareImagesSitepingScreenshotStorage
    */
   private async deleteImageById(
     environment: CloudflareImagesEnvironment,
-    imageId: string
+    imageId: string,
+    { treatNotFoundAsCleared = true }: DeleteImageOptions = {}
   ): Promise<DeleteSitepingScreenshotResult> {
     let response: HttpResponse;
     try {
@@ -419,11 +453,17 @@ export class CloudflareImagesSitepingScreenshotStorage
       return { screenshotCleared: false };
     }
 
-    // `ok` (deleted now) and `404` (already gone) both confirm the orphan is
-    // cleared. Any other status (auth/`4xx`/`5xx`) may have left the image, so
-    // report it uncleared so the feedback row survives for a later retry.
+    // `ok` always confirms the orphan is gone (deleted now). A `404` confirms it
+    // only when the image was already created before this delete — true for the
+    // delete() orphan-cleanup flow and a reclaim after a response-bearing upload,
+    // but not for a reclaim after an aborted upload whose create may still be
+    // running (a fast DELETE can `404` before the image appears), where the
+    // caller passes `treatNotFoundAsCleared: false` to keep the reserved URL. Any
+    // other status (auth/`4xx`/`5xx`) may have left the image, so report it
+    // uncleared so the feedback row survives for a later retry.
     const screenshotCleared =
-      response.ok || response.status === HTTP_STATUS_NOT_FOUND;
+      response.ok ||
+      (treatNotFoundAsCleared && response.status === HTTP_STATUS_NOT_FOUND);
 
     return { screenshotCleared };
   }
