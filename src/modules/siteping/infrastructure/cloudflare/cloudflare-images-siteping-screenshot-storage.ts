@@ -142,8 +142,11 @@ function buildImageResourceUrl(
 /**
  * Uploads a SitePing screenshot to Cloudflare Images server-side and returns its
  * public delivery URL. Reuses the shared Cloudflare configuration already used
- * for message attachments; returns `null` when unconfigured or on any failure so
- * the use case persists no screenshot instead of inlining the data URL.
+ * for message attachments; returns `null` when unconfigured or when a failed
+ * upload is confirmed reclaimed, so the use case persists no screenshot instead
+ * of inlining the data URL. When an unconfirmed upload's reclaim delete also
+ * cannot be confirmed, it returns the reserved delivery URL so the feedback row
+ * keeps a retryable reference to a possibly-live public image.
  */
 export class CloudflareImagesSitepingScreenshotStorage
   implements SitepingScreenshotStorage
@@ -202,12 +205,10 @@ export class CloudflareImagesSitepingScreenshotStorage
       );
     } catch {
       // Timeout, abort, or network error — the upload may still complete on
-      // Cloudflare after we abandon the read, so reclaim the reserved id with a
-      // best-effort delete instead of treating the lost response as a safe no-op
-      // that would strand a public orphan. Then map to a stable null so the
-      // caller drops the screenshot instead of inlining the data URL.
-      await this.deleteImageById(environment, reservedImageId);
-      return null;
+      // Cloudflare after we abandon the read, so reclaim the reserved id instead
+      // of treating the lost response as a safe no-op that would strand a public
+      // orphan.
+      return this.reclaimReservedImageId(environment, reservedImageId);
     }
 
     const deliveryUrl = await this.resolveUploadedDeliveryUrl(
@@ -220,11 +221,42 @@ export class CloudflareImagesSitepingScreenshotStorage
       // or an OK response with a malformed body), and either case may still have
       // created the image. Reclaim the reserved id before dropping the screenshot
       // so a partially created image cannot orphan.
-      await this.deleteImageById(environment, reservedImageId);
-      return null;
+      return this.reclaimReservedImageId(environment, reservedImageId);
     }
 
     return deliveryUrl;
+  }
+
+  /**
+   * Reclaims the reserved id after an unconfirmed upload and resolves to the
+   * value to persist in `screenshot_url`. Returns `null` when the best-effort
+   * delete confirms the orphan is gone (deleted now or already `404`), so no
+   * screenshot is persisted. When the delete cannot confirm the orphan is
+   * cleared (an auth/`4xx`/`5xx` response, a timeout, or a network error) the
+   * upload may have completed on Cloudflare and left a live public image, so it
+   * returns the reserved delivery URL: persisting it makes the feedback row the
+   * only record of that URL and lets a later deletion retry reclaim the orphan,
+   * instead of dropping the reference and stranding an unaddressable public
+   * image with no row to ever drive its cleanup.
+   */
+  private async reclaimReservedImageId(
+    environment: CloudflareImagesEnvironment,
+    reservedImageId: string
+  ): Promise<string | null> {
+    const { screenshotCleared } = await this.deleteImageById(
+      environment,
+      reservedImageId
+    );
+
+    if (screenshotCleared) {
+      return null;
+    }
+
+    return buildCloudflareImagesDeliveryUrl({
+      accountHash: environment.accountHash,
+      deliveryVariant: environment.deliveryVariant,
+      imageId: reservedImageId,
+    });
   }
 
   /**

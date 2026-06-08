@@ -13,6 +13,8 @@ const DELETE_ENDPOINT =
 const RESERVED_IMAGE_ID = "reserved-image-1";
 const RESERVED_IMAGE_RESOURCE_URL =
   "https://api.cloudflare.com/client/v4/accounts/account-id/images/v1/reserved-image-1";
+const RESERVED_DELIVERY_URL =
+  "https://imagedelivery.net/account-hash/reserved-image-1/public";
 const HTTP_METHOD = { delete: "DELETE", post: "POST" } as const;
 /**
  * Cloudflare rejects a custom image id that is in UUID format with "Custom ID is
@@ -194,6 +196,64 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     const [reclaimUrl, reclaimInit] = fetcher.mock.calls[1] ?? [];
     expect(reclaimUrl).toBe(RESERVED_IMAGE_RESOURCE_URL);
     expect(reclaimInit).toMatchObject({ method: HTTP_METHOD.delete });
+  });
+
+  it("persists the reserved delivery URL when the upload times out and the reclaim delete returns a server error", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async (_input, init) => {
+        if (init?.method === HTTP_METHOD.post) {
+          throw new Error("Request timed out");
+        }
+
+        return buildResponse({ success: false }, false, 500);
+      }
+    );
+    const storage = buildStorageWithReservedId(fetcher);
+
+    const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
+
+    // The upload may have completed on Cloudflare and the reclaim delete could
+    // not confirm the orphan is gone, so the reserved delivery URL is persisted
+    // as a retryable reference instead of dropped: the feedback row becomes the
+    // only record of the possibly-live public image and a later deletion retry
+    // can reclaim it.
+    expect(url).toBe(RESERVED_DELIVERY_URL);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const [reclaimUrl, reclaimInit] = fetcher.mock.calls[1] ?? [];
+    expect(reclaimUrl).toBe(RESERVED_IMAGE_RESOURCE_URL);
+    expect(reclaimInit).toMatchObject({ method: HTTP_METHOD.delete });
+  });
+
+  it("persists the reserved delivery URL when the upload times out and the reclaim delete also times out", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async () => {
+        throw new Error("Request timed out");
+      }
+    );
+    const storage = buildStorageWithReservedId(fetcher);
+
+    const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
+
+    expect(url).toBe(RESERVED_DELIVERY_URL);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("persists the reserved delivery URL when Cloudflare rejects the upload and the reclaim delete fails auth", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async (_input, init) => {
+        if (init?.method === HTTP_METHOD.post) {
+          return buildResponse({ success: false }, false, 401);
+        }
+
+        return buildResponse({ success: false }, false, 403);
+      }
+    );
+    const storage = buildStorageWithReservedId(fetcher);
+
+    const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
+
+    expect(url).toBe(RESERVED_DELIVERY_URL);
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
   it("returns null when Cloudflare reports the upload unsuccessful", async () => {
