@@ -105,7 +105,6 @@ type SubscriptionStartContextRow = {
   current_price_name: string | null;
   current_price_provider_plan_id: string | null;
   current_user_email: string | null;
-  existing_checkout_price_id: string | null;
   existing_checkout_subscription_id: string | null;
   existing_checkout_url: string | null;
   existing_live_provider_subscription_id: string | null;
@@ -1428,7 +1427,6 @@ export class PostgresTribeMemberSubscriptionRepository
           select
             subscription_idempotency_operations.response_body->>'checkoutUrl' as checkout_url,
             tribe_member_subscriptions.id as subscription_id,
-            tribe_member_subscriptions.price_id as price_id,
             tribe_member_subscriptions.mercado_pago_preapproval_id as provider_subscription_id
           from public.tribe_member_subscriptions
           inner join target_tribe
@@ -1468,7 +1466,6 @@ export class PostgresTribeMemberSubscriptionRepository
           exists (select 1 from retry_blocking_member_subscription) as has_retry_blocking_member_subscription,
           (select subscription_id from existing_pending_checkout) as existing_checkout_subscription_id,
           (select checkout_url from existing_pending_checkout) as existing_checkout_url,
-          (select price_id from existing_pending_checkout) as existing_checkout_price_id,
           (select provider_subscription_id from existing_pending_checkout) as existing_provider_subscription_id,
           (select provider_subscription_id from existing_live_subscription) as existing_live_provider_subscription_id,
           public.current_app_user_email() as current_user_email,
@@ -1630,13 +1627,17 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     // Reuse an in-flight checkout when the member already has a pending row that
-    // is linked to a provider preapproval for the current price. Because the
-    // preapproval id is now persisted before the redirect, reuse is decided by a
-    // local price match instead of parsing the (provider-owned) checkout URL.
+    // is linked to a provider preapproval, regardless of whether the tribe's
+    // current price changed since the checkout was created. The linked
+    // preapproval already encodes its own price/plan and a verified webhook can
+    // activate the membership from it, so the member must be able to finish the
+    // existing checkout. Tying reuse to a current-price match left a member whose
+    // tribe switched its current price unable to either finish the linked
+    // checkout or replace it (the partial unique index blocks reserving a second
+    // pending row), falling through to payment_blocked instead.
     if (
       context.existing_checkout_url &&
-      context.existing_provider_subscription_id &&
-      context.existing_checkout_price_id === context.current_price_id
+      context.existing_provider_subscription_id
     ) {
       await this.updatePendingCheckoutInvitationAttribution({
         invitationTokenHash: input.invitationTokenHash,
@@ -1663,8 +1664,10 @@ export class PostgresTribeMemberSubscriptionRepository
     }
 
     // A pending reservation that has a stored checkout URL but no linked provider
-    // subscription is a stale or price-mismatched reservation: cancel it so a
-    // fresh provider preapproval can be created for the current price.
+    // subscription is a stale reservation that never reached a provider
+    // preapproval: cancel it so a fresh provider preapproval can be created for
+    // the current price. A reservation that is already linked to a preapproval is
+    // reused above instead, even across a current-price change.
     const reusableCheckoutSubscriptionId =
       context.existing_checkout_subscription_id &&
       context.existing_checkout_url &&
