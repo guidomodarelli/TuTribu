@@ -11,6 +11,7 @@ import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-pa
 import { isPrivilegedTribeMemberRole } from "@/src/modules/tribes/constants/tribe-member-role";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import type { GitHubIssuePublisher } from "@/src/modules/siteping/domain/repositories/github-issue-publisher";
+import type { SitepingScreenshotStorage } from "@/src/modules/siteping/domain/repositories/siteping-screenshot-storage";
 import type {
   SitepingAnnotation,
   SitepingFeedback,
@@ -51,6 +52,7 @@ const SAFE_DIAGNOSTIC_FALLBACK = "[redacted]";
 
 type CreateSitepingFeedbackDependencies = {
   githubIssuePublisher: GitHubIssuePublisher;
+  screenshotStorage: SitepingScreenshotStorage;
   sitepingFeedbackRepository: SitepingFeedbackRepository;
 };
 
@@ -237,8 +239,24 @@ export function getSitepingIdentity({
   };
 }
 
+async function resolveScreenshotUrl(
+  screenshotStorage: SitepingScreenshotStorage,
+  screenshotDataUrl: string | null | undefined
+): Promise<string | null> {
+  if (!screenshotDataUrl) {
+    return null;
+  }
+
+  // Prefer the durable Cloudflare URL; fall back to the inline data URL when
+  // storage is unconfigured or the upload fails so the capture is never lost.
+  const storedUrl = await screenshotStorage.store({ dataUrl: screenshotDataUrl });
+
+  return storedUrl ?? screenshotDataUrl;
+}
+
 export function createSitepingFeedback({
   githubIssuePublisher,
+  screenshotStorage,
   sitepingFeedbackRepository,
 }: CreateSitepingFeedbackDependencies) {
   return async ({
@@ -246,6 +264,10 @@ export function createSitepingFeedback({
     command,
     requestUrl,
   }: CreateSitepingFeedbackInput): Promise<SitepingFeedbackResult> => {
+    const screenshotUrl = await resolveScreenshotUrl(
+      screenshotStorage,
+      command.screenshotDataUrl
+    );
     const result = await sitepingFeedbackRepository.create({
       annotations: command.annotations.map(flattenAnnotation),
       authorEmail: normalizeEmail(authenticatedMember.email),
@@ -255,7 +277,7 @@ export function createSitepingFeedback({
       diagnostics: sanitizeDiagnostics(command.diagnostics),
       message: redactSitepingSensitiveText(normalizeText(command.message)),
       projectName: normalizeText(command.projectName),
-      screenshotUrl: null,
+      screenshotUrl,
       type: command.type,
       url: redactSitepingSensitiveText(normalizeText(command.url)),
       urlPattern: normalizeOptionalText(command.urlPattern),

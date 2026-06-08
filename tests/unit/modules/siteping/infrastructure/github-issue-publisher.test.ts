@@ -102,6 +102,38 @@ describe("FetchGitHubIssuePublisher", () => {
     expect(requestBody.body).not.toContain("refresh=def");
   });
 
+  it("embeds the screenshot when the feedback has a public image URL", async () => {
+    const publisher = new FetchGitHubIssuePublisher();
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+
+    await publisher.publish({
+      feedback: buildFeedback({ screenshotUrl }),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      body: string;
+    };
+
+    expect(requestBody.body).toContain(`![Screenshot](${screenshotUrl})`);
+  });
+
+  it("does not embed inline data-URL screenshots in the GitHub issue", async () => {
+    const publisher = new FetchGitHubIssuePublisher();
+
+    await publisher.publish({
+      feedback: buildFeedback({ screenshotUrl: "data:image/jpeg;base64,AAAA" }),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      body: string;
+    };
+
+    expect(requestBody.body).not.toContain("![Screenshot]");
+    expect(requestBody.body).not.toContain("data:image");
+  });
+
   it("builds GitHub deep links from relative widget URLs", async () => {
     const publisher = new FetchGitHubIssuePublisher();
 

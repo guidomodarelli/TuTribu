@@ -234,6 +234,42 @@ describe("Siteping routes", () => {
     });
   });
 
+  it("drops a screenshot that is not an image data URL", async () => {
+    const response = await POST(
+      buildRequest({
+        ...buildPayload(),
+        screenshotDataUrl: "https://evil.example.com/not-an-image",
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(createFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: expect.objectContaining({ screenshotDataUrl: null }),
+      })
+    );
+  });
+
+  it("drops a screenshot that exceeds the size cap", async () => {
+    const SCREENSHOT_SIZE_CAP = 2_000_000;
+    const oversizedScreenshot =
+      "data:image/jpeg;base64," + "A".repeat(SCREENSHOT_SIZE_CAP + 1);
+
+    const response = await POST(
+      buildRequest({
+        ...buildPayload(),
+        screenshotDataUrl: oversizedScreenshot,
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(createFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: expect.objectContaining({ screenshotDataUrl: null }),
+      })
+    );
+  });
+
   it("uses the authorized Siteping project instead of the submitted project", async () => {
     const response = await POST(buildRequest({
       ...buildPayload(),

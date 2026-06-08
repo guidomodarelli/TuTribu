@@ -33,7 +33,7 @@ describe("SitepingProvider", () => {
     expect(initSitepingMock).not.toHaveBeenCalled();
   });
 
-  it("initializes Siteping with diagnostics and without screenshots for authorized members", async () => {
+  it("initializes Siteping with diagnostics and screenshots for authorized members", async () => {
     fetchMock.mockResolvedValueOnce({
       json: jest.fn(async () => ({
         enabled: true,
@@ -53,7 +53,7 @@ describe("SitepingProvider", () => {
         expect.objectContaining({
           captureDiagnostics: true,
           deepLink: true,
-          enableScreenshot: false,
+          enableScreenshot: true,
           endpoint: "/api/siteping",
           forceShow: true,
           identity: {

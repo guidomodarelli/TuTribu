@@ -33,6 +33,7 @@ const GITHUB_ISSUE_COPY = {
   message: "Message",
   networkDiagnostics: "Network diagnostics",
   pageUrl: "URL",
+  screenshot: "Screenshot",
   titlePrefix: "[SitePing]",
   userAgent: "User agent",
   viewport: "Viewport",
@@ -67,6 +68,9 @@ const REDACTION = {
   maxDiagnosticEntries: 5,
   maxMessageLength: 500,
 } as const;
+
+/** Blank line between Markdown sections in the GitHub issue body. */
+const ISSUE_SECTION_SEPARATOR = "\n\n";
 
 function redactText(value: string): string {
   return redactSitepingSensitiveText(value);
@@ -109,13 +113,35 @@ function buildDiagnosticsSummary(feedback: SitepingFeedback): string {
     consoleEntries.length > 0 ? consoleEntries.join("\n") : "- none",
     `### ${GITHUB_ISSUE_COPY.networkDiagnostics}`,
     networkEntries.length > 0 ? networkEntries.join("\n") : "- none",
-  ].join("\n\n");
+  ].join(ISSUE_SECTION_SEPARATOR);
+}
+
+const SCREENSHOT_PUBLIC_URL_PREFIX = "https://";
+
+/**
+ * Embeds the screenshot as a Markdown image only when it is a public URL.
+ * Inline `data:` URLs do not render on GitHub, so they are omitted.
+ *
+ * @param feedback - Persisted SitePing feedback that may carry a screenshot URL.
+ * @returns A Markdown screenshot section, or null when there is nothing to embed.
+ */
+function buildScreenshotSection(feedback: SitepingFeedback): string | null {
+  const screenshotUrl = feedback.screenshotUrl;
+
+  if (!screenshotUrl || !screenshotUrl.startsWith(SCREENSHOT_PUBLIC_URL_PREFIX)) {
+    return null;
+  }
+
+  return [
+    `## ${GITHUB_ISSUE_COPY.screenshot}`,
+    `![${GITHUB_ISSUE_COPY.screenshot}](${screenshotUrl})`,
+  ].join(ISSUE_SECTION_SEPARATOR);
 }
 
 function buildIssueBody(command: PublishGitHubIssueCommand): string {
   const { feedback, requestUrl } = command;
 
-  return [
+  const sections = [
     `## ${GITHUB_ISSUE_COPY.message}`,
     redactText(feedback.message),
     `## ${GITHUB_ISSUE_COPY.feedbackType}`,
@@ -132,7 +158,14 @@ function buildIssueBody(command: PublishGitHubIssueCommand): string {
     `${feedback.authorName} <${feedback.authorEmail}>`,
     `## ${GITHUB_ISSUE_COPY.diagnostics}`,
     buildDiagnosticsSummary(feedback),
-  ].join("\n\n");
+  ];
+
+  const screenshotSection = buildScreenshotSection(feedback);
+  if (screenshotSection) {
+    sections.push(screenshotSection);
+  }
+
+  return sections.join(ISSUE_SECTION_SEPARATOR);
 }
 
 /**

@@ -17,7 +17,7 @@ import "./siteping-overlay.scss";
 const SITEPING_PROVIDER_CONFIG = {
   captureDiagnostics: true,
   deepLink: true,
-  enableScreenshot: false,
+  enableScreenshot: true,
   locale: "es",
   position: "bottom-right",
   theme: "auto",

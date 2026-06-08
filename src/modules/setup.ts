@@ -36,6 +36,7 @@ import {
 import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
 import { createServerLogger } from "./shared/infrastructure/observability/server-logger";
 import { FetchGitHubIssuePublisher } from "./siteping/infrastructure/github/github-issue-publisher";
+import { CloudflareImagesSitepingScreenshotStorage } from "./siteping/infrastructure/cloudflare/cloudflare-images-siteping-screenshot-storage";
 import { PostgresSitepingFeedbackRepository } from "./siteping/infrastructure/repositories/postgres-siteping-feedback-repository";
 
 type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
@@ -163,6 +164,7 @@ export async function createRequestModules(
     }),
     siteping: buildSitepingModule({
       githubIssuePublisher: new FetchGitHubIssuePublisher(),
+      screenshotStorage: new CloudflareImagesSitepingScreenshotStorage(),
       sitepingFeedbackRepository: new PostgresSitepingFeedbackRepository(
         executeWithRequestContext
       ),

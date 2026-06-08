@@ -7,6 +7,7 @@ import {
 } from "@/src/modules/siteping/application/use-cases/manage-siteping-feedback-use-cases";
 import type { SitepingFeedbackRepository } from "@/src/modules/siteping/domain/repositories/siteping-feedback-repository";
 import type { GitHubIssuePublisher } from "@/src/modules/siteping/domain/repositories/github-issue-publisher";
+import type { SitepingScreenshotStorage } from "@/src/modules/siteping/domain/repositories/siteping-screenshot-storage";
 import {
   SITEPING_FEEDBACK_GITHUB_STATUS,
   SITEPING_FEEDBACK_TYPE,
@@ -183,6 +184,15 @@ function buildPublisher(
   };
 }
 
+function buildScreenshotStorage(
+  overrides: Partial<SitepingScreenshotStorage> = {}
+): SitepingScreenshotStorage {
+  return {
+    store: jest.fn(async () => null),
+    ...overrides,
+  };
+}
+
 describe("manage Siteping feedback use cases", () => {
   it("enables identity when the member email is allowed", () => {
     const useCase = getSitepingIdentity({
@@ -264,6 +274,7 @@ describe("manage Siteping feedback use cases", () => {
     const publisher = buildPublisher();
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
+      screenshotStorage: buildScreenshotStorage(),
       sitepingFeedbackRepository: repository,
     });
 
@@ -291,7 +302,7 @@ describe("manage Siteping feedback use cases", () => {
           ],
         },
         message: "No puedo guardar el precio",
-        screenshotUrl: null,
+        screenshotUrl: "data:image/jpeg;base64,secret",
         url: "https://tutribu.example.com/matematica/precios?refresh_token=[redacted]",
       })
     );
@@ -316,11 +327,38 @@ describe("manage Siteping feedback use cases", () => {
     });
   });
 
+  it("persists the Cloudflare URL when the screenshot upload succeeds", async () => {
+    const repository = buildRepository();
+    const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
+    const screenshotStorage = buildScreenshotStorage({
+      store: jest.fn(async () => deliveryUrl),
+    });
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command: buildFeedbackCommand(),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    expect(screenshotStorage.store).toHaveBeenCalledWith({
+      dataUrl: "data:image/jpeg;base64,secret",
+    });
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ screenshotUrl: deliveryUrl })
+    );
+  });
+
   it("clamps untrusted network diagnostic methods before persisting feedback", async () => {
     const repository = buildRepository();
     const publisher = buildPublisher();
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
+      screenshotStorage: buildScreenshotStorage(),
       sitepingFeedbackRepository: repository,
     });
     const command = buildFeedbackCommand();
@@ -362,6 +400,7 @@ describe("manage Siteping feedback use cases", () => {
     const publisher = buildPublisher();
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
+      screenshotStorage: buildScreenshotStorage(),
       sitepingFeedbackRepository: repository,
     });
     const command = buildFeedbackCommand();
@@ -489,6 +528,7 @@ describe("manage Siteping feedback use cases", () => {
     const publisher = buildPublisher();
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
+      screenshotStorage: buildScreenshotStorage(),
       sitepingFeedbackRepository: repository,
     });
     const command = buildFeedbackCommand();
@@ -568,6 +608,7 @@ describe("manage Siteping feedback use cases", () => {
     const publisher = buildPublisher();
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
+      screenshotStorage: buildScreenshotStorage(),
       sitepingFeedbackRepository: repository,
     });
 
@@ -590,6 +631,7 @@ describe("manage Siteping feedback use cases", () => {
     });
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
+      screenshotStorage: buildScreenshotStorage(),
       sitepingFeedbackRepository: repository,
     });
 
@@ -616,6 +658,7 @@ describe("manage Siteping feedback use cases", () => {
     const publisher = buildPublisher();
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
+      screenshotStorage: buildScreenshotStorage(),
       sitepingFeedbackRepository: repository,
     });
 

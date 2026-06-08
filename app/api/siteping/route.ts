@@ -81,6 +81,28 @@ function readOptionalText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+const SITEPING_SCREENSHOT = {
+  // SitePing captures the annotated area as a base64 image `data:` URL.
+  dataUrlPrefix: "data:image/",
+  // Cap the persisted data URL length so an oversized capture is dropped
+  // instead of bloating the database or the panel list response.
+  maxLength: 2_000_000,
+} as const;
+
+/**
+ * Accepts the SitePing screenshot only when it is a base64 image `data:` URL
+ * within the size cap; otherwise drops it so the feedback still saves without it.
+ */
+function readScreenshotDataUrl(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  const isImageDataUrl = trimmed.startsWith(SITEPING_SCREENSHOT.dataUrlPrefix);
+  const isWithinSizeCap = trimmed.length <= SITEPING_SCREENSHOT.maxLength;
+  return isImageDataUrl && isWithinSizeCap ? trimmed : null;
+}
+
 function isFeedbackType(value: unknown): value is SitepingFeedbackType {
   return Object.values(SITEPING_FEEDBACK_TYPE).includes(value as SitepingFeedbackType);
 }
@@ -237,7 +259,7 @@ function parseFeedbackCommand(body: unknown): SitepingFeedbackCommand | null {
     diagnostics,
     message,
     projectName,
-    screenshotDataUrl: readOptionalText(body.screenshotDataUrl),
+    screenshotDataUrl: readScreenshotDataUrl(body.screenshotDataUrl),
     type,
     url,
     urlPattern: readOptionalText(body.urlPattern),

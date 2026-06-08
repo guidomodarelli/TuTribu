@@ -17,7 +17,7 @@ export type CreateSitepingFeedbackRecordCommand = {
   diagnostics: SitepingDiagnosticsSnapshot | null;
   message: string;
   projectName: string;
-  screenshotUrl: null;
+  screenshotUrl: string | null;
   type: SitepingFeedbackType;
   url: string;
   urlPattern: string | null;
