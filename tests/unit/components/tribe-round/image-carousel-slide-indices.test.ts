@@ -1,33 +1,24 @@
-import { resolveSettledImageCarouselSlideIndexOnReInit } from "@/components/tribe-round/tribe-round/image-carousel-slide-indices";
+import { resolveImageCarouselSlideIndicesOnReInit } from "@/components/tribe-round/tribe-round/image-carousel-slide-indices";
 
-describe("resolveSettledImageCarouselSlideIndexOnReInit", () => {
-  it("freezes the settled index while a scroll is in progress so the video iframe is not remounted mid-transition", () => {
-    const settledSlideIndex = resolveSettledImageCarouselSlideIndexOnReInit({
-      selectedSnapIndex: 2,
-      currentSettledSlideIndex: 0,
-      isScrollInProgress: true,
-    });
+describe("resolveImageCarouselSlideIndicesOnReInit", () => {
+  it("finalizes both indices to the selected snap so a video reached mid-scroll mounts its iframe instead of being stranded on its poster", () => {
+    const resolution = resolveImageCarouselSlideIndicesOnReInit(2);
 
-    expect(settledSlideIndex).toBe(0);
+    expect(resolution.activeSlideIndex).toBe(2);
+    expect(resolution.settledSlideIndex).toBe(2);
   });
 
-  it("advances the settled index to the selected snap when the carousel is settled", () => {
-    const settledSlideIndex = resolveSettledImageCarouselSlideIndexOnReInit({
-      selectedSnapIndex: 2,
-      currentSettledSlideIndex: 0,
-      isScrollInProgress: false,
-    });
+  it("closes the scroll window because a reInit aborts the in-flight scroll and emits no follow-up settle", () => {
+    const resolution = resolveImageCarouselSlideIndicesOnReInit(1);
 
-    expect(settledSlideIndex).toBe(2);
+    expect(resolution.isScrollInProgress).toBe(false);
   });
 
-  it("keeps the settled index unchanged when a settled reInit reports the same selected snap", () => {
-    const settledSlideIndex = resolveSettledImageCarouselSlideIndexOnReInit({
-      selectedSnapIndex: 1,
-      currentSettledSlideIndex: 1,
-      isScrollInProgress: false,
-    });
+  it("keeps the indices on the selected snap when the carousel reInitializes already settled", () => {
+    const resolution = resolveImageCarouselSlideIndicesOnReInit(0);
 
-    expect(settledSlideIndex).toBe(1);
+    expect(resolution.activeSlideIndex).toBe(0);
+    expect(resolution.settledSlideIndex).toBe(0);
+    expect(resolution.isScrollInProgress).toBe(false);
   });
 });

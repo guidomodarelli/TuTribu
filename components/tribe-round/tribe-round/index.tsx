@@ -118,7 +118,7 @@ import {
   buildPlayerEmbedSource,
 } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { buildVideoThumbnailSource } from "@/src/modules/shared/application/video/build-video-thumbnail-source";
-import { resolveSettledImageCarouselSlideIndexOnReInit } from "./image-carousel-slide-indices";
+import { resolveImageCarouselSlideIndicesOnReInit } from "./image-carousel-slide-indices";
 import styles from "./styles.module.scss";
 
 const TRIBE_ROUND_ROUTE = {
@@ -1761,11 +1761,15 @@ function TribeRoundContent({
     null
   );
   // Tracks whether Embla is mid-scroll. `select` opens this window (the target
-  // snap changed) and `settle` closes it. A `reInit` that lands inside the
-  // window must not advance the iframe-driving settled index, or it would
-  // mount/unmount a cross-origin player while the scroll animation is still
-  // running.
+  // snap changed); `settle` closes it, and so does a `reInit`, which aborts any
+  // in-flight scroll. While the window is open, the post-decode image-preload
+  // `reInit` is deferred so it never recreates the engine mid-animation and cuts
+  // arrow navigation short.
   const isImageCarouselScrollInProgressRef = useRef(false);
+  // Holds a post-decode image-preload `reInit` that arrived mid-scroll. Embla's
+  // `reInit` recreates the engine and aborts the running scroll, so it is parked
+  // here and flushed once the scroll settles, keeping arrow navigation smooth.
+  const pendingImageCarouselReInitRef = useRef(false);
   const [isMessageDetailsOpen, setIsMessageDetailsOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [messagePendingDeletion, setMessagePendingDeletion] =
@@ -2059,17 +2063,24 @@ function TribeRoundContent({
     // the progress indicator responsive. `settle` fires once the scroll
     // animation has finished; gating video iframe mounting on it avoids tearing
     // down a cross-origin player while Embla is still animating. A `reInit`
-    // (image preload decode or relayout during navigation) can fire mid-scroll,
-    // so it refreshes the responsive active index but leaves the iframe-driving
-    // settled index frozen until the in-flight scroll settles. The settled index
-    // only advances on `settle` or on the known non-animated initial sync.
-    const updateActiveImageCarouselSlideIndex = () => {
+    // (image preload decode or relayout during navigation) recreates the engine
+    // at rest on the selected snap and emits no follow-up `settle`, so it ends
+    // any in-flight scroll and finalizes the iframe-driving settled index.
+    const beginImageCarouselScroll = () => {
+      isImageCarouselScrollInProgressRef.current = true;
       setActiveImageCarouselSlideIndex(imageCarouselApi.selectedScrollSnap());
     };
 
-    const beginImageCarouselScroll = () => {
-      isImageCarouselScrollInProgressRef.current = true;
-      updateActiveImageCarouselSlideIndex();
+    // Runs a post-decode image-preload `reInit` that was deferred because it
+    // arrived mid-scroll, now that the carousel is at rest. The follow-up
+    // `reInit` event finalizes the indices again (a no-op at the settled snap).
+    const flushPendingImageCarouselReInit = () => {
+      if (!pendingImageCarouselReInitRef.current) {
+        return;
+      }
+
+      pendingImageCarouselReInitRef.current = false;
+      imageCarouselApi.reInit();
     };
 
     const settleImageCarouselSlideIndices = () => {
@@ -2077,26 +2088,24 @@ function TribeRoundContent({
       const settledSnapIndex = imageCarouselApi.selectedScrollSnap();
       setActiveImageCarouselSlideIndex(settledSnapIndex);
       setSettledImageCarouselSlideIndex(settledSnapIndex);
+      flushPendingImageCarouselReInit();
     };
 
-    const syncImageCarouselSlideIndicesOnReInit = () => {
-      const selectedSnapIndex = imageCarouselApi.selectedScrollSnap();
-      const isScrollInProgress = isImageCarouselScrollInProgressRef.current;
-      setActiveImageCarouselSlideIndex(selectedSnapIndex);
-      setSettledImageCarouselSlideIndex((currentSettledSlideIndex) =>
-        resolveSettledImageCarouselSlideIndexOnReInit({
-          selectedSnapIndex,
-          currentSettledSlideIndex,
-          isScrollInProgress,
-        })
-      );
+    const finalizeImageCarouselSlideIndicesOnReInit = () => {
+      const { activeSlideIndex, settledSlideIndex, isScrollInProgress } =
+        resolveImageCarouselSlideIndicesOnReInit(
+          imageCarouselApi.selectedScrollSnap()
+        );
+      isImageCarouselScrollInProgressRef.current = isScrollInProgress;
+      setActiveImageCarouselSlideIndex(activeSlideIndex);
+      setSettledImageCarouselSlideIndex(settledSlideIndex);
     };
 
     // Known non-animated initialization: sync both indices from a settled state.
     settleImageCarouselSlideIndices();
     imageCarouselApi.on(
       TRIBE_ROUND_CAROUSEL_EVENT.reInit,
-      syncImageCarouselSlideIndicesOnReInit
+      finalizeImageCarouselSlideIndicesOnReInit
     );
     imageCarouselApi.on(
       TRIBE_ROUND_CAROUSEL_EVENT.select,
@@ -2108,9 +2117,11 @@ function TribeRoundContent({
     );
 
     return () => {
+      isImageCarouselScrollInProgressRef.current = false;
+      pendingImageCarouselReInitRef.current = false;
       imageCarouselApi.off(
         TRIBE_ROUND_CAROUSEL_EVENT.reInit,
-        syncImageCarouselSlideIndicesOnReInit
+        finalizeImageCarouselSlideIndicesOnReInit
       );
       imageCarouselApi.off(
         TRIBE_ROUND_CAROUSEL_EVENT.select,
@@ -2149,9 +2160,19 @@ function TribeRoundContent({
         preloadedImage.decode ? preloadedImage.decode() : Promise.resolve()
       )
     ).then(() => {
-      if (!isCancelled) {
-        imageCarouselApi?.reInit();
+      if (isCancelled) {
+        return;
       }
+
+      // A `reInit` recreates the Embla engine and aborts any running scroll, so
+      // firing it mid-navigation would cut a scroll short. Park it until the
+      // scroll settles; the settle handler flushes the pending reInit at rest.
+      if (isImageCarouselScrollInProgressRef.current) {
+        pendingImageCarouselReInitRef.current = true;
+        return;
+      }
+
+      imageCarouselApi?.reInit();
     });
 
     return () => {

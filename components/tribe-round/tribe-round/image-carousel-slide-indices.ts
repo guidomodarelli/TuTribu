@@ -1,37 +1,37 @@
 /**
- * Inputs needed to decide the settled carousel slide index after Embla emits a
- * `reInit` (image preload decode or a relayout during navigation).
+ * Resolved carousel slide indices after Embla emits a `reInit` (image preload
+ * decode finishing, or a relayout during navigation).
  */
-export type SettledImageCarouselSlideIndexOnReInitInput = {
-  /** The slide Embla currently reports as selected. */
-  selectedSnapIndex: number;
-  /** The settled index that currently drives video iframe mounting. */
-  currentSettledSlideIndex: number;
-  /**
-   * Whether Embla is mid-scroll, i.e. a `select` opened a scroll window that no
-   * `settle` has closed yet.
-   */
+export type ImageCarouselSlideIndicesOnReInit = {
+  /** The slide that drives the responsive progress indicator. */
+  activeSlideIndex: number;
+  /** The slide that drives video iframe mounting. */
+  settledSlideIndex: number;
+  /** Whether a scroll window remains open after the `reInit`. */
   isScrollInProgress: boolean;
 };
 
 /**
- * Resolves the next settled carousel slide index when a `reInit` fires.
+ * Resolves the carousel slide indices when a `reInit` fires.
  *
- * The settled index drives video iframe mount/unmount, so it must stay frozen
- * while Embla is mid-scroll. Otherwise a `reInit` triggered while a scroll
- * animation is still running (image preload decode finishing, or a relayout
- * during navigation) would mount or tear down a cross-origin player
- * mid-transition, which stalls Embla's rAF animation and makes the arrow
- * controls appear stuck. From a settled (non-animated) state the index follows
- * the currently selected snap so the active video slide mounts its player.
+ * In Embla 8.6.0 a `reInit` runs `reActivate`, which captures the currently
+ * selected snap, destroys the engine (stopping its `requestAnimationFrame`
+ * animation), and recreates it **at rest** on that snap, emitting only `reInit`
+ * and never a follow-up `settle`. A `reInit` therefore ends any in-flight scroll:
+ * by the time this resolution is applied the carousel is already idle, so the
+ * iframe-driving settled index must finalize to the selected snap. Freezing it
+ * here would strand a video on its poster (or keep a stale iframe mounted) until
+ * the next scroll, because no `settle` will arrive to advance it.
  *
- * @param input - The selected snap, current settled index, and scroll state.
- * @returns The settled slide index the `reInit` may apply.
+ * @param selectedSnapIndex - The slide Embla reports as selected after the reInit.
+ * @returns The active and settled indices to apply, with the scroll window closed.
  */
-export function resolveSettledImageCarouselSlideIndexOnReInit({
-  selectedSnapIndex,
-  currentSettledSlideIndex,
-  isScrollInProgress,
-}: SettledImageCarouselSlideIndexOnReInitInput): number {
-  return isScrollInProgress ? currentSettledSlideIndex : selectedSnapIndex;
+export function resolveImageCarouselSlideIndicesOnReInit(
+  selectedSnapIndex: number
+): ImageCarouselSlideIndicesOnReInit {
+  return {
+    activeSlideIndex: selectedSnapIndex,
+    settledSlideIndex: selectedSnapIndex,
+    isScrollInProgress: false,
+  };
 }
