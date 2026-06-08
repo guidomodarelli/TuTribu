@@ -30,14 +30,23 @@ const CLOUDFLARE_IMAGES_API = {
   baseUrl: "https://api.cloudflare.com/client/v4/accounts",
   fileField: "file",
   fileName: "siteping-screenshot",
+  /**
+   * Optional multipart field that pins a custom image identifier on `POST`. We
+   * reserve the id before uploading so the delivery URL is known up front and a
+   * lost response can never leave an unaddressable orphan.
+   */
+  idField: "id",
   imagePath: "images/v1",
   tokenPrefix: "Bearer",
 } as const;
 
 /**
- * A `POST` to `images/v1` creates a new image, so a retry could upload a
- * duplicate. We keep a bounded timeout with no retries and let the caller fall
- * back rather than ever blocking feedback creation on a slow upload.
+ * A `POST` to `images/v1` is not idempotent, so we keep a bounded timeout with
+ * no retries and let the caller fall back rather than ever blocking feedback
+ * creation on a slow upload. Because we pin a reserved id on the request, a lost
+ * response is no longer a safe no-op: the upload may still complete on
+ * Cloudflare after we abort the read, so the caller reclaims the reserved id
+ * instead of stranding a public orphan with no row to drive cleanup.
  */
 const SCREENSHOT_UPLOAD_RESILIENCE: FetchResilienceOptions = {
   maxRetries: 0,
@@ -58,6 +67,14 @@ const SCREENSHOT_DELETE_RESILIENCE: FetchResilienceOptions = {
 };
 
 const IMAGE_DATA_URL_PATTERN = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/;
+
+/**
+ * Generates a reserved Cloudflare image id. Injectable so tests can pin a
+ * deterministic id; defaults to a random UUID, which never collides with an
+ * existing image and so makes reclaiming the reserved id on an unconfirmed
+ * upload safe (it can only ever delete the image this request created).
+ */
+export type SitepingScreenshotImageIdGenerator = () => string;
 
 type CloudflareImageUploadResponse = {
   result?: { id?: string };
@@ -111,8 +128,15 @@ export class CloudflareImagesSitepingScreenshotStorage
 {
   private readonly fetcher: HttpFetcher;
 
-  constructor(fetcher: HttpFetcher = (input, init) => fetch(input, init)) {
+  private readonly generateImageId: SitepingScreenshotImageIdGenerator;
+
+  constructor(
+    fetcher: HttpFetcher = (input, init) => fetch(input, init),
+    generateImageId: SitepingScreenshotImageIdGenerator = () =>
+      crypto.randomUUID()
+  ) {
     this.fetcher = fetcher;
+    this.generateImageId = generateImageId;
   }
 
   async store(command: StoreSitepingScreenshotCommand): Promise<string | null> {
@@ -126,12 +150,20 @@ export class CloudflareImagesSitepingScreenshotStorage
       return null;
     }
 
+    // Reserve the image id before uploading so the upload identity is known even
+    // when the response is lost. A `POST` to `images/v1` is not idempotent and
+    // Cloudflare can still finish creating the image after we abort a slow
+    // response, so without a known id that image would orphan publicly with no
+    // feedback row to ever drive its cleanup.
+    const reservedImageId = this.generateImageId();
+
     const body = new FormData();
     body.set(
       CLOUDFLARE_IMAGES_API.fileField,
       decoded.blob,
       CLOUDFLARE_IMAGES_API.fileName
     );
+    body.set(CLOUDFLARE_IMAGES_API.idField, reservedImageId);
 
     let response: HttpResponse;
     try {
@@ -148,11 +180,44 @@ export class CloudflareImagesSitepingScreenshotStorage
         SCREENSHOT_UPLOAD_RESILIENCE
       );
     } catch {
-      // Timeout or network error — map to a stable null so the caller drops the
-      // screenshot instead of inlining the data URL.
+      // Timeout, abort, or network error — the upload may still complete on
+      // Cloudflare after we abandon the read, so reclaim the reserved id with a
+      // best-effort delete instead of treating the lost response as a safe no-op
+      // that would strand a public orphan. Then map to a stable null so the
+      // caller drops the screenshot instead of inlining the data URL.
+      await this.deleteImageById(environment, reservedImageId);
       return null;
     }
 
+    const deliveryUrl = await this.resolveUploadedDeliveryUrl(
+      environment,
+      response,
+      reservedImageId
+    );
+    if (!deliveryUrl) {
+      // The upload was rejected or its outcome is unconfirmed (a non-OK status
+      // or an OK response with a malformed body), and either case may still have
+      // created the image. Reclaim the reserved id before dropping the screenshot
+      // so a partially created image cannot orphan.
+      await this.deleteImageById(environment, reservedImageId);
+      return null;
+    }
+
+    return deliveryUrl;
+  }
+
+  /**
+   * Maps a completed upload response to the reserved delivery URL, or `null`
+   * when the upload was not confirmed. The id is the one we pinned on the
+   * request, not the one echoed in the body, so even a malformed-but-OK response
+   * (which may still have created the image) is treated as unconfirmed and lets
+   * the caller reclaim the orphan.
+   */
+  private async resolveUploadedDeliveryUrl(
+    environment: CloudflareImagesEnvironment,
+    response: HttpResponse,
+    reservedImageId: string
+  ): Promise<string | null> {
     if (!response.ok) {
       return null;
     }
@@ -162,20 +227,22 @@ export class CloudflareImagesSitepingScreenshotStorage
       payload = (await response.json()) as CloudflareImageUploadResponse;
     } catch {
       // An intermediary (e.g. Cloudflare) can return an OK response with a
-      // malformed, non-JSON body. Map it to a stable null so the caller falls
-      // back rather than letting the parse error block feedback creation.
+      // malformed, non-JSON body. Treat the upload as unconfirmed so the caller
+      // reclaims the reserved id rather than letting the parse error block
+      // feedback creation or strand a possibly-created orphan.
       return null;
     }
 
-    const imageId = payload.result?.id;
-    if (!payload.success || !imageId) {
+    if (!payload.success) {
       return null;
     }
 
+    // Build the URL from the reserved id we pinned on the request, not the one
+    // echoed in the body, so the delivery URL is the one we already control.
     return buildCloudflareImagesDeliveryUrl({
       accountHash: environment.accountHash,
       deliveryVariant: environment.deliveryVariant,
-      imageId,
+      imageId: reservedImageId,
     });
   }
 
@@ -201,6 +268,19 @@ export class CloudflareImagesSitepingScreenshotStorage
       return { screenshotCleared: true };
     }
 
+    return this.deleteImageById(environment, imageId);
+  }
+
+  /**
+   * Issues the idempotent `DELETE` for a Cloudflare image id and reports whether
+   * the orphan is confirmed cleared. Shared by {@link delete} and by the
+   * store-time reclaim of a reserved id on an unconfirmed upload; it never
+   * throws, so a reclaim cannot mask the upload failure that triggered it.
+   */
+  private async deleteImageById(
+    environment: CloudflareImagesEnvironment,
+    imageId: string
+  ): Promise<DeleteSitepingScreenshotResult> {
     let response: HttpResponse;
     try {
       response = await fetchWithResilience(

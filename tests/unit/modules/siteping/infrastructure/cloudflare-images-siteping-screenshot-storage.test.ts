@@ -10,6 +10,10 @@ const STORED_DELIVERY_URL =
   "https://imagedelivery.net/account-hash/image-1/public";
 const DELETE_ENDPOINT =
   "https://api.cloudflare.com/client/v4/accounts/account-id/images/v1/image-1";
+const RESERVED_IMAGE_ID = "reserved-image-1";
+const RESERVED_IMAGE_RESOURCE_URL =
+  "https://api.cloudflare.com/client/v4/accounts/account-id/images/v1/reserved-image-1";
+const HTTP_METHOD = { delete: "DELETE", post: "POST" } as const;
 
 function configureCloudflareImagesEnvironment() {
   process.env.CLOUDFLARE_IMAGES_ACCOUNT_HASH = "account-hash";
@@ -29,6 +33,13 @@ function buildResponse(body: unknown, ok = true, status = 200): HttpResponse {
   return { json: async () => body, ok, status };
 }
 
+function buildStorageWithReservedId(fetcher: HttpFetcher) {
+  return new CloudflareImagesSitepingScreenshotStorage(
+    fetcher,
+    () => RESERVED_IMAGE_ID
+  );
+}
+
 describe("CloudflareImagesSitepingScreenshotStorage", () => {
   beforeEach(() => {
     configureCloudflareImagesEnvironment();
@@ -39,24 +50,29 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     jest.restoreAllMocks();
   });
 
-  it("uploads the screenshot and returns the Cloudflare delivery URL", async () => {
+  it("uploads the screenshot pinning the reserved id and returns its delivery URL", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => buildResponse({ result: { id: "image-1" }, success: true })
+      async () =>
+        buildResponse({ result: { id: RESERVED_IMAGE_ID }, success: true })
     );
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
 
-    expect(url).toBe("https://imagedelivery.net/account-hash/image-1/public");
+    expect(url).toBe(
+      "https://imagedelivery.net/account-hash/reserved-image-1/public"
+    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
     const [requestUrl, init] = fetcher.mock.calls[0] ?? [];
     expect(requestUrl).toBe(UPLOAD_ENDPOINT);
-    expect(init).toMatchObject({ method: "POST" });
+    expect(init).toMatchObject({ method: HTTP_METHOD.post });
+    expect((init?.body as FormData).get("id")).toBe(RESERVED_IMAGE_ID);
   });
 
   it("returns null without calling Cloudflare when credentials are missing", async () => {
     delete process.env.CLOUDFLARE_IMAGES_API_TOKEN;
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
 
@@ -66,7 +82,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("returns null without calling Cloudflare for a non-image data URL", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     const url = await storage.store({ dataUrl: "https://example.com/x.png" });
 
@@ -74,28 +90,89 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("returns null when Cloudflare rejects the upload", async () => {
+  it("reclaims the reserved id when the upload response is lost to a timeout", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => buildResponse({ success: false }, false, 401)
+      async (_input, init) => {
+        if (init?.method === HTTP_METHOD.post) {
+          throw new Error("Request timed out");
+        }
+
+        return buildResponse({ success: true });
+      }
     );
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
 
     expect(url).toBeNull();
+    // The lost response is not treated as a safe no-op: the reserved id is
+    // reclaimed so a server-side upload that completes after the abort cannot
+    // orphan a public image with no feedback row to drive cleanup.
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const [reclaimUrl, reclaimInit] = fetcher.mock.calls[1] ?? [];
+    expect(reclaimUrl).toBe(RESERVED_IMAGE_RESOURCE_URL);
+    expect(reclaimInit).toMatchObject({ method: HTTP_METHOD.delete });
   });
 
-  it("returns null when an OK response carries a malformed non-JSON body", async () => {
+  it("reclaims the reserved id when Cloudflare rejects the upload", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => ({
-        json: async () => {
-          throw new SyntaxError("Unexpected token < in JSON at position 0");
-        },
-        ok: true,
-        status: 200,
-      })
+      async (_input, init) => {
+        if (init?.method === HTTP_METHOD.post) {
+          return buildResponse({ success: false }, false, 401);
+        }
+
+        return buildResponse({ success: true });
+      }
     );
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
+
+    const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
+
+    expect(url).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const [reclaimUrl, reclaimInit] = fetcher.mock.calls[1] ?? [];
+    expect(reclaimUrl).toBe(RESERVED_IMAGE_RESOURCE_URL);
+    expect(reclaimInit).toMatchObject({ method: HTTP_METHOD.delete });
+  });
+
+  it("reclaims the reserved id when an OK upload response carries a malformed non-JSON body", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async (_input, init) => {
+        if (init?.method === HTTP_METHOD.post) {
+          return {
+            json: async () => {
+              throw new SyntaxError("Unexpected token < in JSON at position 0");
+            },
+            ok: true,
+            status: 200,
+          };
+        }
+
+        return buildResponse({ success: true });
+      }
+    );
+    const storage = buildStorageWithReservedId(fetcher);
+
+    const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
+
+    expect(url).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const [reclaimUrl, reclaimInit] = fetcher.mock.calls[1] ?? [];
+    expect(reclaimUrl).toBe(RESERVED_IMAGE_RESOURCE_URL);
+    expect(reclaimInit).toMatchObject({ method: HTTP_METHOD.delete });
+  });
+
+  it("returns null when Cloudflare reports the upload unsuccessful", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async (_input, init) => {
+        if (init?.method === HTTP_METHOD.post) {
+          return buildResponse({ success: false });
+        }
+
+        return buildResponse({ success: true });
+      }
+    );
+    const storage = buildStorageWithReservedId(fetcher);
 
     const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
 
@@ -106,7 +183,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
       async () => buildResponse({ success: true })
     );
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
       storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
@@ -115,14 +192,14 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     const [requestUrl, init] = fetcher.mock.calls[0] ?? [];
     expect(requestUrl).toBe(DELETE_ENDPOINT);
-    expect(init).toMatchObject({ method: "DELETE" });
+    expect(init).toMatchObject({ method: HTTP_METHOD.delete });
   });
 
   it("treats a 404 as already deleted and reports the screenshot cleared", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
       async () => buildResponse({ success: false }, false, 404)
     );
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
       storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
@@ -132,7 +209,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("reports the screenshot cleared without calling Cloudflare for an inline data URL", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
       storage.delete({ screenshotUrl: VALID_SCREENSHOT_DATA_URL })
@@ -142,7 +219,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("reports the screenshot cleared without calling Cloudflare for a delivery URL from another account", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
       storage.delete({
@@ -155,7 +232,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   it("reports the screenshot uncleared without calling Cloudflare when credentials are missing", async () => {
     delete process.env.CLOUDFLARE_IMAGES_API_TOKEN;
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
       storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
@@ -167,7 +244,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
       async () => buildResponse({ success: false }, false, 403)
     );
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
       storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
@@ -179,7 +256,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
       async () => buildResponse({ success: false }, false, 500)
     );
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
       storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
@@ -193,7 +270,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
         throw new Error("network down");
       }
     );
-    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+    const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
       storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
