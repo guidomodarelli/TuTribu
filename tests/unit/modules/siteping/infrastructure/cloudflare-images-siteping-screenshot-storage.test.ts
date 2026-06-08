@@ -80,4 +80,21 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
     expect(url).toBeNull();
   });
+
+  it("returns null when an OK response carries a malformed non-JSON body", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async () => ({
+        json: async () => {
+          throw new SyntaxError("Unexpected token < in JSON at position 0");
+        },
+        ok: true,
+        status: 200,
+      })
+    );
+    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+
+    const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
+
+    expect(url).toBeNull();
+  });
 });

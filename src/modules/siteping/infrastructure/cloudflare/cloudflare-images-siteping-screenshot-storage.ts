@@ -127,7 +127,16 @@ export class CloudflareImagesSitepingScreenshotStorage
       return null;
     }
 
-    const payload = (await response.json()) as CloudflareImageUploadResponse;
+    let payload: CloudflareImageUploadResponse;
+    try {
+      payload = (await response.json()) as CloudflareImageUploadResponse;
+    } catch {
+      // An intermediary (e.g. Cloudflare) can return an OK response with a
+      // malformed, non-JSON body. Map it to a stable null so the caller falls
+      // back rather than letting the parse error block feedback creation.
+      return null;
+    }
+
     const imageId = payload.result?.id;
     if (!payload.success || !imageId) {
       return null;
