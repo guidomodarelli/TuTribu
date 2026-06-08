@@ -5,6 +5,8 @@ import {
   SITEPING_FEEDBACK_STATUS,
 } from "@/src/modules/siteping/constants/siteping";
 import type {
+  AttachSitepingScreenshotCommand,
+  AttachSitepingScreenshotResult,
   CreateSitepingFeedbackRecordCommand,
   CreateSitepingFeedbackRecordResult,
   MarkGitHubIssueDeletionCompletedCommand,
@@ -13,6 +15,7 @@ import type {
   RestoreGitHubIssuePublishedCommand,
   SitepingAnnotation,
   SitepingFeedback,
+  SitepingFeedbackIdempotencyCommand,
   SitepingFeedbackPage,
   SitepingFeedbackProjectCommand,
   SitepingFeedbackQuery,
@@ -72,12 +75,6 @@ type AnnotationRow = {
   xpath: string;
   x_pct: number | string;
   y_pct: number | string;
-};
-
-type SitepingIdempotencyKey = {
-  clientId: string;
-  createdBy: string;
-  projectName: string;
 };
 
 const SITEPING_PAGINATION = {
@@ -184,7 +181,7 @@ export class PostgresSitepingFeedbackRepository
         createdBy: command.createdBy,
         projectName: command.projectName,
       };
-      const existingFeedback = await this.findByIdempotencyKey(
+      const existingFeedback = await this.loadByIdempotencyKey(
         database,
         idempotencyKey
       );
@@ -237,7 +234,7 @@ export class PostgresSitepingFeedbackRepository
       const [feedbackRow] = feedbackRows.rows as FeedbackRow[];
 
       if (!feedbackRow) {
-        const feedback = await this.findByIdempotencyKey(database, idempotencyKey);
+        const feedback = await this.loadByIdempotencyKey(database, idempotencyKey);
 
         if (feedback) {
           return {
@@ -302,7 +299,7 @@ export class PostgresSitepingFeedbackRepository
         );
       }
 
-      const feedback = await this.findByIdempotencyKey(database, idempotencyKey);
+      const feedback = await this.loadByIdempotencyKey(database, idempotencyKey);
 
       if (!feedback) {
         throw new Error("Siteping feedback could not be loaded after insert.");
@@ -312,6 +309,39 @@ export class PostgresSitepingFeedbackRepository
         feedback,
         wasCreated: true,
       };
+    });
+  }
+
+  /**
+   * Links an uploaded durable screenshot URL to an existing feedback row.
+   *
+   * Scoped by `id` only; the ownership RLS policy
+   * (`created_by = current_app_user_id()`) already confines the UPDATE to the
+   * requesting owner's row, mirroring the other status updates.
+   *
+   * The UPDATE matches no row when the feedback was deleted between `create()`
+   * and this link (or is no longer visible to the owner under RLS); Postgres
+   * still resolves it without error, so the `returning` clause is what tells the
+   * caller the screenshot was not persisted and the uploaded image must be
+   * reclaimed instead of stranded.
+   *
+   * @param command - Target feedback id and the durable delivery URL to persist.
+   * @returns Whether a row was updated with the screenshot URL.
+   */
+  async attachScreenshotUrl({
+    feedbackId,
+    screenshotUrl,
+  }: AttachSitepingScreenshotCommand): Promise<AttachSitepingScreenshotResult> {
+    return this.executeWithRequestContext(async (database) => {
+      const rows = await database.execute(sql`
+        update public.siteping_feedbacks
+        set screenshot_url = ${screenshotUrl},
+            updated_at = timezone('utc', now())
+        where id = ${feedbackId}
+        returning id
+      `);
+
+      return { screenshotAttached: rows.rows.length > 0 };
     });
   }
 
@@ -506,9 +536,25 @@ export class PostgresSitepingFeedbackRepository
     });
   }
 
-  private async findByIdempotencyKey(
+  /**
+   * Loads existing feedback matching the idempotency key without uploading or
+   * mutating any data, so callers can short-circuit expensive side effects such
+   * as a screenshot upload before attempting an insert.
+   *
+   * @param command - Project, owner, and client identifiers for the submission.
+   * @returns The persisted feedback, or `null` when no submission matches.
+   */
+  async findByIdempotencyKey(
+    command: SitepingFeedbackIdempotencyCommand
+  ): Promise<SitepingFeedback | null> {
+    return this.executeWithRequestContext((database) =>
+      this.loadByIdempotencyKey(database, command)
+    );
+  }
+
+  private async loadByIdempotencyKey(
     database: RequestDatabase,
-    idempotencyKey: SitepingIdempotencyKey
+    idempotencyKey: SitepingFeedbackIdempotencyCommand
   ): Promise<SitepingFeedback | null> {
     const rows = await database.execute(sql`
       select *

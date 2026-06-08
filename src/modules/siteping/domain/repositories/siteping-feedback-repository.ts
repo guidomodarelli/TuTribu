@@ -17,7 +17,7 @@ export type CreateSitepingFeedbackRecordCommand = {
   diagnostics: SitepingDiagnosticsSnapshot | null;
   message: string;
   projectName: string;
-  screenshotUrl: null;
+  screenshotUrl: string | null;
   type: SitepingFeedbackType;
   url: string;
   urlPattern: string | null;
@@ -28,6 +28,12 @@ export type CreateSitepingFeedbackRecordCommand = {
 export type CreateSitepingFeedbackRecordResult = {
   feedback: SitepingFeedback;
   wasCreated: boolean;
+};
+
+export type SitepingFeedbackIdempotencyCommand = {
+  clientId: string;
+  createdBy: string;
+  projectName: string;
 };
 
 export type SitepingFeedbackQuery = {
@@ -57,6 +63,15 @@ export type SitepingFeedbackProjectCommand = {
   projectName: string;
 };
 
+export type AttachSitepingScreenshotCommand = {
+  feedbackId: string;
+  screenshotUrl: string;
+};
+
+export type AttachSitepingScreenshotResult = {
+  screenshotAttached: boolean;
+};
+
 export type MarkGitHubIssuePublishedCommand = {
   feedbackId: string;
   issueNumber: number;
@@ -77,9 +92,27 @@ export type RestoreGitHubIssuePublishedCommand = {
 };
 
 export type SitepingFeedbackRepository = {
+  /**
+   * Links a just-uploaded durable screenshot URL to an already-created feedback
+   * row. Kept separate from {@link SitepingFeedbackRepository.create} so the
+   * screenshot is uploaded only after the row exists: a failed insert or a lost
+   * idempotency race can then never strand a public image with no row to drive
+   * its cleanup.
+   *
+   * @returns Whether the UPDATE matched a row. A concurrent delete between
+   * `create()` and this link leaves no row to update, so the UPDATE resolves
+   * without error yet persists nothing; the caller must reclaim the orphaned
+   * image instead of treating the screenshot as attached.
+   */
+  attachScreenshotUrl(
+    command: AttachSitepingScreenshotCommand
+  ): Promise<AttachSitepingScreenshotResult>;
   create(
     command: CreateSitepingFeedbackRecordCommand
   ): Promise<CreateSitepingFeedbackRecordResult>;
+  findByIdempotencyKey(
+    command: SitepingFeedbackIdempotencyCommand
+  ): Promise<SitepingFeedback | null>;
   findById(command: SitepingFeedbackProjectCommand): Promise<SitepingFeedback | null>;
   findPage(query: SitepingFeedbackQuery): Promise<SitepingFeedbackPage>;
   markGitHubIssueDeletionCompleted(

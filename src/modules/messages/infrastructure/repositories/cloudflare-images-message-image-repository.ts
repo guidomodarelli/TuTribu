@@ -11,7 +11,7 @@ import {
   buildCloudflareImagesDeliveryUrl,
   readCloudflareImagesEnvironment,
   type CloudflareImagesEnvironment,
-} from "@/src/modules/messages/infrastructure/cloudflare/cloudflare-images-config";
+} from "@/src/modules/shared/infrastructure/cloudflare/cloudflare-images-config";
 import type {
   CreateMessageImageUploadCommand,
   DeleteMessageImageCommand,

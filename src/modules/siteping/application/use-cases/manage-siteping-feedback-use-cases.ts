@@ -6,11 +6,13 @@ import type {
 import {
   SITEPING_FEEDBACK_GITHUB_STATUS,
   SITEPING_PROJECT,
+  SITEPING_SCREENSHOT_UPLOAD_RACE_WINDOW_MS,
 } from "@/src/modules/siteping/constants/siteping";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { isPrivilegedTribeMemberRole } from "@/src/modules/tribes/constants/tribe-member-role";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import type { GitHubIssuePublisher } from "@/src/modules/siteping/domain/repositories/github-issue-publisher";
+import type { SitepingScreenshotStorage } from "@/src/modules/siteping/domain/repositories/siteping-screenshot-storage";
 import type {
   SitepingAnnotation,
   SitepingFeedback,
@@ -32,8 +34,22 @@ import type {
 import { redactSitepingSensitiveText } from "@/src/modules/siteping/domain/services/siteping-sensitive-text-redaction";
 
 const SITEPING_ERROR_MESSAGE = {
+  orphanScreenshotCleanupUnconfirmed:
+    "SitePing screenshot cleanup was not confirmed after linking failed; the public image may be orphaned and needs manual reclaim",
+  screenshotDeletionUnconfirmed:
+    "SitePing screenshot deletion was not confirmed; feedback kept for a later retry",
   unknownGitHubFailure: "Unknown GitHub issue publication failure",
 } as const;
+
+/**
+ * Minimal logger surface used to surface a screenshot orphan whose best-effort
+ * cleanup could not be confirmed. Structural so any structured server logger
+ * (or a test double) satisfies it without coupling the application layer to a
+ * concrete logging implementation.
+ */
+export type SitepingFeedbackLogger = {
+  warn(input: { message: string; metadata?: Record<string, unknown> }): void;
+};
 
 const SAFE_HTTP_METHODS = new Set([
   "CONNECT",
@@ -51,6 +67,8 @@ const SAFE_DIAGNOSTIC_FALLBACK = "[redacted]";
 
 type CreateSitepingFeedbackDependencies = {
   githubIssuePublisher: GitHubIssuePublisher;
+  logger?: SitepingFeedbackLogger;
+  screenshotStorage: SitepingScreenshotStorage;
   sitepingFeedbackRepository: SitepingFeedbackRepository;
 };
 
@@ -237,8 +255,119 @@ export function getSitepingIdentity({
   };
 }
 
+async function resolveScreenshotUrl(
+  screenshotStorage: SitepingScreenshotStorage,
+  screenshotDataUrl: string | null | undefined
+): Promise<string | null> {
+  if (!screenshotDataUrl) {
+    return null;
+  }
+
+  // Persist only the durable object-storage URL. When storage is unconfigured
+  // or the upload fails, drop the screenshot (persist null) instead of inlining
+  // the multi-MB data URL: GET /api/siteping serializes screenshotUrl for every
+  // feedback in a page, so an inline payload would bloat list responses.
+  return screenshotStorage.store({ dataUrl: screenshotDataUrl });
+}
+
+type AttachUploadedScreenshotInput = {
+  feedback: SitepingFeedback;
+  logger?: SitepingFeedbackLogger;
+  screenshotDataUrl: string | null | undefined;
+  screenshotStorage: SitepingScreenshotStorage;
+  sitepingFeedbackRepository: SitepingFeedbackRepository;
+};
+
+/**
+ * Uploads the screenshot and links it to the already-created feedback row,
+ * returning the feedback with its durable screenshot URL when the upload
+ * succeeds, or the unchanged feedback otherwise.
+ *
+ * Running after the row exists is what keeps an orphan from outliving its
+ * trigger: when the upload fails, {@link resolveScreenshotUrl} returns null (the
+ * adapter reclaims its own reserved id), so the feedback simply keeps no
+ * screenshot. When linking the uploaded URL does not persist — the attach throws,
+ * or it matches no row because the feedback was deleted between create() and this
+ * link — the image is reclaimed best-effort and the feedback keeps no screenshot,
+ * because the bug report itself is durable and the screenshot is non-essential.
+ * The only irreducible orphan window left is an upload that succeeds, this link
+ * that fails to persist, AND that best-effort delete itself coming back
+ * unconfirmed — far narrower than uploading before any row exists, which orphaned
+ * on every failed insert. That last window is surfaced (not dropped) through the
+ * logger so the public image can be reclaimed manually.
+ */
+async function attachUploadedScreenshot({
+  feedback,
+  logger,
+  screenshotDataUrl,
+  screenshotStorage,
+  sitepingFeedbackRepository,
+}: AttachUploadedScreenshotInput): Promise<SitepingFeedback> {
+  const screenshotUrl = await resolveScreenshotUrl(
+    screenshotStorage,
+    screenshotDataUrl
+  );
+
+  if (!screenshotUrl) {
+    return feedback;
+  }
+
+  // Reclaim an uploaded image that ended up referenced by no row (the attach
+  // threw, or it matched no row because the feedback was deleted between create()
+  // and this link). delete() never throws and reports whether the orphan is
+  // confirmed gone; when it is not, the attach left the row with screenshot_url
+  // null, so there is no persisted delivery URL to drive a later retry. Surface
+  // the orphan (feedback id + the public, non-sensitive delivery URL) through the
+  // logger instead of dropping it silently, so it can be reclaimed manually.
+  async function reclaimOrphanScreenshot(orphanUrl: string): Promise<void> {
+    const { screenshotCleared } = await screenshotStorage.delete({
+      screenshotUrl: orphanUrl,
+    });
+
+    if (!screenshotCleared) {
+      logger?.warn({
+        message: SITEPING_ERROR_MESSAGE.orphanScreenshotCleanupUnconfirmed,
+        metadata: { feedbackId: feedback.id, screenshotUrl: orphanUrl },
+      });
+    }
+  }
+
+  let screenshotAttached: boolean;
+
+  try {
+    ({ screenshotAttached } = await sitepingFeedbackRepository.attachScreenshotUrl({
+      feedbackId: feedback.id,
+      screenshotUrl,
+    }));
+  } catch {
+    // Linking the uploaded screenshot to the durable row threw, so the public
+    // image would orphan with no row referencing it. Reclaim it best-effort and
+    // drop the screenshot from this response; the feedback row and its GitHub
+    // issue still ship.
+    await reclaimOrphanScreenshot(screenshotUrl);
+
+    return feedback;
+  }
+
+  if (!screenshotAttached) {
+    // The feedback row was deleted (or is no longer visible to this owner under
+    // RLS) between create() and this link, so the UPDATE matched no row and
+    // resolved without error. Treating the screenshot as attached would publish a
+    // GitHub issue carrying a delivery URL that no row references, stranding a
+    // public image with nothing to drive its cleanup. Reclaim it best-effort and
+    // keep no screenshot.
+    await reclaimOrphanScreenshot(screenshotUrl);
+
+    return feedback;
+  }
+
+  return { ...feedback, screenshotUrl };
+}
+
 export function createSitepingFeedback({
   githubIssuePublisher,
+  logger,
+  screenshotStorage,
   sitepingFeedbackRepository,
 }: CreateSitepingFeedbackDependencies) {
   return async ({
@@ -246,15 +375,38 @@ export function createSitepingFeedback({
     command,
     requestUrl,
   }: CreateSitepingFeedbackInput): Promise<SitepingFeedbackResult> => {
+    const idempotencyKey = {
+      clientId: normalizeText(command.clientId),
+      createdBy: authenticatedMember.id,
+      projectName: normalizeText(command.projectName),
+    };
+
+    // Short-circuit idempotent retries (for example after a client timeout)
+    // before creating a row or uploading, so a duplicate submission never pays
+    // the upload latency nor leaves an orphan image in object storage.
+    const existingFeedback =
+      await sitepingFeedbackRepository.findByIdempotencyKey(idempotencyKey);
+
+    if (existingFeedback) {
+      return serializeSitepingFeedback(existingFeedback);
+    }
+
+    // Create the durable feedback row WITHOUT a screenshot first, then upload and
+    // link the image only once the row exists. Uploading before the row would let
+    // a failed insert (transient database error, RLS failure, or an annotation
+    // insert failure) or a lost idempotency race strand a public image with no
+    // row to drive its cleanup — and a best-effort delete that itself returns
+    // screenshotCleared: false could never reclaim it. With this order, neither
+    // failure has uploaded anything to orphan.
     const result = await sitepingFeedbackRepository.create({
       annotations: command.annotations.map(flattenAnnotation),
       authorEmail: normalizeEmail(authenticatedMember.email),
       authorName: normalizeText(authenticatedMember.name),
-      clientId: normalizeText(command.clientId),
-      createdBy: authenticatedMember.id,
+      clientId: idempotencyKey.clientId,
+      createdBy: idempotencyKey.createdBy,
       diagnostics: sanitizeDiagnostics(command.diagnostics),
       message: redactSitepingSensitiveText(normalizeText(command.message)),
-      projectName: normalizeText(command.projectName),
+      projectName: idempotencyKey.projectName,
       screenshotUrl: null,
       type: command.type,
       url: redactSitepingSensitiveText(normalizeText(command.url)),
@@ -264,28 +416,40 @@ export function createSitepingFeedback({
     });
 
     if (!result.wasCreated) {
+      // A concurrent submission with the same idempotency key won the insert
+      // race (ON CONFLICT DO NOTHING). This request uploaded nothing, so there is
+      // no orphan to clean up and the surviving feedback keeps its own screenshot.
       return serializeSitepingFeedback(result.feedback);
     }
+
+    // The row is durable now, so it is safe to upload the screenshot and link it.
+    const feedback = await attachUploadedScreenshot({
+      feedback: result.feedback,
+      logger,
+      screenshotDataUrl: command.screenshotDataUrl,
+      screenshotStorage,
+      sitepingFeedbackRepository,
+    });
 
     let publication: Awaited<ReturnType<GitHubIssuePublisher["publish"]>>;
 
     try {
       publication = await githubIssuePublisher.publish({
-        feedback: result.feedback,
+        feedback,
         requestUrl,
       });
     } catch (error) {
       await sitepingFeedbackRepository.markGitHubIssueFailed({
         errorMessage: readErrorMessage(error),
-        feedbackId: result.feedback.id,
+        feedbackId: feedback.id,
       });
 
-      return serializeSitepingFeedback(result.feedback);
+      return serializeSitepingFeedback(feedback);
     }
 
     try {
       await sitepingFeedbackRepository.markGitHubIssuePublished({
-        feedbackId: result.feedback.id,
+        feedbackId: feedback.id,
         issueNumber: publication.issueNumber,
         issueUrl: publication.issueUrl,
       });
@@ -293,7 +457,7 @@ export function createSitepingFeedback({
       // Keep the feedback pending because GitHub already created the issue.
     }
 
-    return serializeSitepingFeedback(result.feedback);
+    return serializeSitepingFeedback(feedback);
   };
 }
 
@@ -334,9 +498,18 @@ export function updateSitepingFeedbackStatus({
 
 export function deleteSitepingFeedback({
   githubIssuePublisher,
+  now = () => Date.now(),
+  screenshotStorage,
   sitepingFeedbackRepository,
 }: {
   githubIssuePublisher: GitHubIssuePublisher;
+  /**
+   * Current time source, injectable for deterministic tests. Used only to decide
+   * whether the screenshot upload race window has elapsed since the feedback was
+   * created; defaults to the system clock.
+   */
+  now?: () => number;
+  screenshotStorage: SitepingScreenshotStorage;
   sitepingFeedbackRepository: SitepingFeedbackRepository;
 }) {
   return async (command: SitepingFeedbackProjectCommand): Promise<void> => {
@@ -346,22 +519,79 @@ export function deleteSitepingFeedback({
       return;
     }
 
+    const { id: feedbackId, screenshotUrl } = feedback;
+
+    // A reserved delivery URL persisted by an unconfirmed reclaim may point at an
+    // image whose non-idempotent Cloudflare create was still racing the aborted
+    // upload. Until that create can no longer be in flight, a screenshot DELETE
+    // that returns 404 may just be the delete racing ahead of a create that has
+    // not landed yet, not proof the image is gone. Only trust a 404 as a
+    // confirmed clear once the upload race window has elapsed since the row was
+    // created; within it, keep the row so the deletion stays retryable instead of
+    // removing the only handle to a soon-to-exist public orphan.
+    const uploadRaceWindowElapsed =
+      now() - new Date(feedback.createdAt).getTime() >=
+      SITEPING_SCREENSHOT_UPLOAD_RACE_WINDOW_MS;
+
+    // Delete the durable screenshot before removing the row so an interrupted
+    // deletion stays retryable: while the row still exists, a later attempt
+    // reloads it and re-runs the idempotent screenshot delete, avoiding an orphan
+    // that a clear-last ordering would strand with no trigger to reclaim it. An
+    // unconfirmed delete (storage unconfigured, an auth/4xx/5xx response, a
+    // timeout, or a 404 that is not yet trustworthy within the upload race
+    // window) throws so the caller can surface the failure and keep the row — the
+    // only record of the delivery URL — in a status the admin/widget flow can
+    // still reach to retry, instead of orphaning the image.
+    async function clearScreenshotOrThrow(): Promise<void> {
+      if (!screenshotUrl) {
+        return;
+      }
+
+      const { screenshotCleared } = await screenshotStorage.delete({
+        screenshotUrl,
+        treatNotFoundAsCleared: uploadRaceWindowElapsed,
+      });
+
+      if (!screenshotCleared) {
+        throw new Error(
+          `${SITEPING_ERROR_MESSAGE.screenshotDeletionUnconfirmed} (feedbackId=${feedbackId})`
+        );
+      }
+    }
+
     if (
       feedback.githubIssueStatus ===
       SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted
     ) {
+      await clearScreenshotOrThrow();
       await sitepingFeedbackRepository.remove(command);
 
       return;
     }
 
-    if (
-      feedback.githubIssueStatus !== SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending
-    ) {
-      await sitepingFeedbackRepository.markGitHubIssueDeletionPending(command);
-    }
-
     if (feedback.githubIssueNumber) {
+      // Hide the row in deletion_pending, then close the GitHub issue, and only
+      // AFTER the close is confirmed clear the durable screenshot. Deleting the
+      // screenshot is irreversible, so it must never run before the close: a close
+      // failure (a common, transient GitHub timeout or 5xx) would otherwise leave
+      // an undeleted, still-visible feedback pointing at a deleted screenshotUrl
+      // while its still-open issue embeds a broken image. Closing first means a
+      // failed close restores the row to published with the screenshot intact —
+      // no broken link anywhere — and rethrows so the admin/widget flow can retry.
+      // A confirmed close moves the row to deletion_completed, which findPage()
+      // hides, so deferring the clear until then never strands a visible row next
+      // to a closed issue: an unconfirmed clear after the confirmed close throws
+      // with the row hidden in deletion_completed, and the deletion_completed
+      // branch above retries the idempotent clear + remove (by then the upload
+      // race window has long elapsed, so a 404 counts as cleared), so re-clearing
+      // an already-deleted screenshot is safe.
+      if (
+        feedback.githubIssueStatus !==
+        SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending
+      ) {
+        await sitepingFeedbackRepository.markGitHubIssueDeletionPending(command);
+      }
+
       try {
         await githubIssuePublisher.close({
           feedbackId: feedback.id,
@@ -378,6 +608,18 @@ export function deleteSitepingFeedback({
       await sitepingFeedbackRepository.markGitHubIssueDeletionCompleted({
         feedbackId: feedback.id,
       });
+
+      // The close is confirmed and the row is hidden in deletion_completed, so it
+      // is finally safe to run the irreversible screenshot delete. If it throws,
+      // the row stays hidden and the deletion_completed branch retries the clear.
+      await clearScreenshotOrThrow();
+    } else {
+      // No linked GitHub issue, so there is no two-phase close to checkpoint.
+      // Clear the screenshot while the row is still in its original, listable
+      // status and never mark it deletion_pending, which findPage() would hide. An
+      // unconfirmed clear then throws with the row untouched, so the normal
+      // admin/widget flow can still reach it to retry the deletion.
+      await clearScreenshotOrThrow();
     }
 
     await sitepingFeedbackRepository.remove(command);

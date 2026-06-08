@@ -1789,21 +1789,35 @@ function TribeRoundContent({
 
   /**
    * Returns a ref callback that registers (or unregisters on unmount) a composer
-   * element under {@link key} in {@link registry}, so it can later be scrolled
-   * into view or focused once it mounts.
+   * block under {@link key} in {@link composerBlockTargetsRef}, so the whole
+   * block can later be scrolled into view once it mounts. The registry is read
+   * only inside the returned ref callback (commit phase), never during render.
    */
-  const registerComposerTarget = useCallback(
-    <ElementType extends HTMLElement>(
-      registry: { current: Map<string, ElementType | null> },
-      key: string
-    ) =>
-      (node: ElementType | null) => {
-        if (node) {
-          registry.current.set(key, node);
-        } else {
-          registry.current.delete(key);
-        }
-      },
+  const registerComposerBlockTarget = useCallback(
+    (key: string) => (node: HTMLElement | null) => {
+      if (node) {
+        composerBlockTargetsRef.current.set(key, node);
+      } else {
+        composerBlockTargetsRef.current.delete(key);
+      }
+    },
+    []
+  );
+
+  /**
+   * Returns a ref callback that registers (or unregisters on unmount) a composer
+   * input under {@link key} in {@link composerFocusTargetsRef}, so it can later
+   * receive focus once it mounts. The registry is read only inside the returned
+   * ref callback (commit phase), never during render.
+   */
+  const registerComposerFocusTarget = useCallback(
+    (key: string) => (node: HTMLInputElement | null) => {
+      if (node) {
+        composerFocusTargetsRef.current.set(key, node);
+      } else {
+        composerFocusTargetsRef.current.delete(key);
+      }
+    },
     []
   );
 
@@ -4545,7 +4559,7 @@ function TribeRoundContent({
     <div
       className={styles.TribeRound__imageDraft}
       key={mediaDraft.localId}
-      ref={registerComposerTarget(composerBlockTargetsRef, mediaDraft.localId)}
+      ref={registerComposerBlockTarget(mediaDraft.localId)}
     >
       <div className={styles.TribeRound__imageDraftPreview}>
         {mediaDraft.previewUrl ? (
@@ -4573,7 +4587,7 @@ function TribeRoundContent({
       <input
         aria-label={TRIBE_ROUND_COPY.imageAltInputLabel}
         className={styles.TribeRound__imageAltInput}
-        ref={registerComposerTarget(composerFocusTargetsRef, mediaDraft.localId)}
+        ref={registerComposerFocusTarget(mediaDraft.localId)}
         disabled={isBusy}
         onChange={(event) => {
           const altText = event.currentTarget.value;
@@ -4638,7 +4652,7 @@ function TribeRoundContent({
       <div
         className={styles.TribeRound__videoComposer}
         key={mediaDraft.localId}
-        ref={registerComposerTarget(composerBlockTargetsRef, mediaDraft.localId)}
+        ref={registerComposerBlockTarget(mediaDraft.localId)}
       >
         <div className={styles.TribeRound__videoComposerHeader}>
           <label className={styles.TribeRound__videoComposerLabel}>
@@ -4651,7 +4665,7 @@ function TribeRoundContent({
               }
               aria-invalid={showVideoParseError || showVideoMissingError}
               className={styles.TribeRound__videoInput}
-              ref={registerComposerTarget(composerFocusTargetsRef, mediaDraft.localId)}
+              ref={registerComposerFocusTarget(mediaDraft.localId)}
               disabled={isBusy}
               onChange={(event) => {
                 updateVideoMediaDraftUrl(
@@ -5085,8 +5099,7 @@ function TribeRoundContent({
             >
               <div className={styles.TribeRound__composerBody}>
                 <div
-                  ref={registerComposerTarget(
-                    composerBlockTargetsRef,
+                  ref={registerComposerBlockTarget(
                     MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.title
                   )}
                 >
@@ -5116,8 +5129,7 @@ function TribeRoundContent({
                   )}
                 </div>
                 <div
-                  ref={registerComposerTarget(
-                    composerBlockTargetsRef,
+                  ref={registerComposerBlockTarget(
                     MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.content
                   )}
                 >
@@ -5150,8 +5162,7 @@ function TribeRoundContent({
                 {isPollComposerEnabled ? (
                   <section
                     className={styles.TribeRound__pollComposer}
-                    ref={registerComposerTarget(
-                      composerBlockTargetsRef,
+                    ref={registerComposerBlockTarget(
                       TRIBE_ROUND_POLL.composerBlockKey
                     )}
                   >
@@ -5183,8 +5194,7 @@ function TribeRoundContent({
                               optionIndex + 1
                             }`}
                             className={styles.TribeRound__pollInput}
-                            ref={registerComposerTarget(
-                              composerFocusTargetsRef,
+                            ref={registerComposerFocusTarget(
                               TRIBE_ROUND_POLL.draftKeyPrefix +
                                 String(optionIndex)
                             )}
@@ -5379,8 +5389,7 @@ function TribeRoundContent({
                           : styles.TribeRound__channelTrigger
                       }
                       disabled={isBusy}
-                      ref={registerComposerTarget(
-                        composerBlockTargetsRef,
+                      ref={registerComposerBlockTarget(
                         MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.channel
                       )}
                       type={TRIBE_ROUND_FORM.buttonType}

@@ -27,7 +27,7 @@ type FeedbackRow = {
   message: string;
   project_name: string;
   resolved_at: null;
-  screenshot_url: null;
+  screenshot_url: string | null;
   status: string;
   type: string;
   updated_at: Date;
@@ -257,6 +257,17 @@ function createRepositoryHarness(options: RepositoryHarnessOptions = {}) {
     }
 
     if (operation === SQL_OPERATION.updateFeedback) {
+      if (query.sql.includes("screenshot_url")) {
+        const [screenshotUrl, feedbackId] = query.params;
+        const feedbackRow = feedbackRows.find((row) => row.id === feedbackId);
+
+        if (feedbackRow) {
+          feedbackRow.screenshot_url = screenshotUrl as string;
+        }
+
+        return { rows: feedbackRow ? [feedbackRow] : [] };
+      }
+
       if (query.sql.includes("github_issue_status")) {
         const projectName = query.sql.includes("project_name")
           ? query.params.at(-1)
@@ -362,6 +373,68 @@ describe("PostgresSitepingFeedbackRepository", () => {
     });
 
     expect(feedbackRows).toHaveLength(3);
+  });
+
+  it("attaches an uploaded screenshot URL to an existing feedback row", async () => {
+    const { feedbackRows, repository } = createRepositoryHarness();
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+
+    await repository.create(createFeedbackCommand());
+    expect(feedbackRows[0].screenshot_url).toBeNull();
+
+    await expect(
+      repository.attachScreenshotUrl({
+        feedbackId: feedbackRows[0].id,
+        screenshotUrl,
+      })
+    ).resolves.toEqual({ screenshotAttached: true });
+
+    expect(feedbackRows[0].screenshot_url).toBe(screenshotUrl);
+  });
+
+  it("reports no attachment when the feedback row no longer exists", async () => {
+    const { feedbackRows, repository } = createRepositoryHarness();
+
+    await repository.create(createFeedbackCommand());
+    const feedbackId = feedbackRows[0].id;
+    // A concurrent delete between create() and the attach leaves no row for the
+    // screenshot UPDATE to match, so it must report the link did not persist.
+    await repository.remove({ feedbackId, projectName: "tutribu" });
+
+    await expect(
+      repository.attachScreenshotUrl({
+        feedbackId,
+        screenshotUrl: "https://imagedelivery.net/hash/image-1/public",
+      })
+    ).resolves.toEqual({ screenshotAttached: false });
+  });
+
+  it("finds existing feedback by its idempotency key scoped to project and owner", async () => {
+    const { repository } = createRepositoryHarness();
+
+    await repository.create(createFeedbackCommand());
+
+    await expect(repository.findByIdempotencyKey({
+      clientId: "client-feedback-1",
+      createdBy: "member-1",
+      projectName: "tutribu",
+    })).resolves.toMatchObject({
+      clientId: "client-feedback-1",
+      createdBy: "member-1",
+      projectName: "tutribu",
+    });
+
+    await expect(repository.findByIdempotencyKey({
+      clientId: "client-feedback-1",
+      createdBy: "member-1",
+      projectName: "another-project",
+    })).resolves.toBeNull();
+
+    await expect(repository.findByIdempotencyKey({
+      clientId: "client-feedback-2",
+      createdBy: "member-1",
+      projectName: "tutribu",
+    })).resolves.toBeNull();
   });
 
   it("returns the concurrent duplicate feedback without aborting the transaction", async () => {
