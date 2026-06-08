@@ -548,19 +548,20 @@ export function deleteSitepingFeedback({
     }
 
     if (feedback.githubIssueNumber) {
-      // Clear the durable screenshot BEFORE touching the GitHub issue, while the
-      // row is still in its original, listable status. Closing the issue is
-      // irreversible from this flow (the publisher exposes no reopen), so an
-      // unconfirmed clear must never run after the close: that would leave the
-      // issue closed forever while the catch restores the row to a visible,
-      // retryable status, permanently desyncing the panel from its tracked issue
-      // whenever storage stays unfixable. Clearing first means an unconfirmed
-      // clear throws with the row untouched and the issue still open, so the
-      // admin/widget flow can retry. delete() is idempotent (a 404 counts as
-      // cleared), so re-clearing an already-deleted screenshot on a later retry —
-      // for example after a close failure restored the row — is safe.
-      await clearScreenshotOrThrow();
-
+      // Hide the row in deletion_pending, then close the GitHub issue, and only
+      // AFTER the close is confirmed clear the durable screenshot. Deleting the
+      // screenshot is irreversible, so it must never run before the close: a close
+      // failure (a common, transient GitHub timeout or 5xx) would otherwise leave
+      // an undeleted, still-visible feedback pointing at a deleted screenshotUrl
+      // while its still-open issue embeds a broken image. Closing first means a
+      // failed close restores the row to published with the screenshot intact —
+      // no broken link anywhere — and rethrows so the admin/widget flow can retry.
+      // A confirmed close moves the row to deletion_completed, which findPage()
+      // hides, so deferring the clear until then never strands a visible row next
+      // to a closed issue: an unconfirmed clear after the confirmed close throws
+      // with the row hidden in deletion_completed, and the deletion_completed
+      // branch above retries the idempotent clear + remove (a 404 counts as
+      // cleared), so re-clearing an already-deleted screenshot is safe.
       if (
         feedback.githubIssueStatus !==
         SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending
@@ -584,6 +585,11 @@ export function deleteSitepingFeedback({
       await sitepingFeedbackRepository.markGitHubIssueDeletionCompleted({
         feedbackId: feedback.id,
       });
+
+      // The close is confirmed and the row is hidden in deletion_completed, so it
+      // is finally safe to run the irreversible screenshot delete. If it throws,
+      // the row stays hidden and the deletion_completed branch retries the clear.
+      await clearScreenshotOrThrow();
     } else {
       // No linked GitHub issue, so there is no two-phase close to checkpoint.
       // Clear the screenshot while the row is still in its original, listable

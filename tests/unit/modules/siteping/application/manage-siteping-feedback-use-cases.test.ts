@@ -1239,7 +1239,7 @@ describe("manage Siteping feedback use cases", () => {
     ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
   });
 
-  it("clears the screenshot before closing the linked GitHub issue", async () => {
+  it("clears the screenshot only after confirming the linked GitHub issue close", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
       findById: jest.fn(async () => ({
@@ -1284,16 +1284,11 @@ describe("manage Siteping feedback use cases", () => {
     expect(repository.markGitHubIssueDeletionCompleted).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
     });
-    // The screenshot is cleared first, while the row is still in its original,
-    // listable status (before it is hidden in deletion_pending and before the
-    // irreversible issue close), so an unconfirmed clear can never leave the
-    // issue closed while the feedback stays visible.
-    expect(
-      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
-    ).toBeLessThan(
-      (repository.markGitHubIssueDeletionPending as jest.Mock).mock
-        .invocationCallOrder[0]
-    );
+    // The irreversible screenshot delete runs LAST, only after the issue close is
+    // confirmed: hide the row (deletion_pending), close the issue, mark
+    // deletion_completed, and only then clear the screenshot before removing the
+    // row. Deferring the clear until the close is confirmed means a failed close
+    // never destroys the screenshot of an undeleted, still-visible feedback.
     expect(
       (repository.markGitHubIssueDeletionPending as jest.Mock).mock
         .invocationCallOrder[0]
@@ -1307,10 +1302,74 @@ describe("manage Siteping feedback use cases", () => {
     expect(
       (repository.markGitHubIssueDeletionCompleted as jest.Mock).mock
         .invocationCallOrder[0]
+    ).toBeLessThan(
+      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
+    );
+    expect(
+      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
     ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
   });
 
-  it("does not close the linked GitHub issue when the screenshot clear is unconfirmed", async () => {
+  it("never deletes the screenshot when closing the linked GitHub issue fails", async () => {
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      findById: jest.fn(async () => ({
+        annotations: [],
+        authorEmail: "leader@example.com",
+        authorName: "Leader Example",
+        clientId: "client-feedback-1",
+        createdAt: new Date("2026-05-31T12:00:00.000Z"),
+        createdBy: "member-1",
+        diagnostics: null,
+        githubIssueNumber: 42,
+        githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
+        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        id: FEEDBACK_ID,
+        message: "No puedo guardar el precio",
+        projectName: "tutribu",
+        resolvedAt: null,
+        screenshotUrl,
+        status: "open",
+        type: SITEPING_FEEDBACK_TYPE.bug,
+        updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+        url: "https://tutribu.example.com/matematica/precios",
+        urlPattern: "/[slug]/precios",
+        userAgent: "Jest Browser",
+        viewport: "1280x800",
+      })),
+    });
+    const screenshotStorage = buildScreenshotStorage();
+    const publisher = buildPublisher({
+      close: jest.fn(async () => {
+        throw new Error("github_close_failed");
+      }),
+    });
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: publisher,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        feedbackId: FEEDBACK_ID,
+        projectName: "tutribu",
+      })
+    ).rejects.toThrow("github_close_failed");
+
+    // The close failed (a common, transient GitHub fault), so the irreversible
+    // screenshot delete must NOT have run: the still-visible feedback keeps its
+    // screenshot intact and its open issue keeps a working image. The row is
+    // restored to published so the admin/widget flow can retry the whole delete.
+    expect(screenshotStorage.delete).not.toHaveBeenCalled();
+    expect(repository.markGitHubIssueDeletionCompleted).not.toHaveBeenCalled();
+    expect(repository.remove).not.toHaveBeenCalled();
+    expect(repository.restoreGitHubIssuePublished).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+    });
+  });
+
+  it("keeps the issue closed and retryable when the screenshot clear fails after closing the issue", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
       findById: jest.fn(async () => ({
@@ -1355,16 +1414,19 @@ describe("manage Siteping feedback use cases", () => {
       })
     ).rejects.toThrow(/screenshot deletion was not confirmed/i);
 
+    // The close already succeeded, so the issue is closed and the row is marked
+    // deletion_completed (hidden by findPage) BEFORE the unconfirmed clear throws.
+    // The row is never restored to a visible status, so a closed issue is never
+    // paired with a visible row; the deletion_completed branch retries the
+    // idempotent clear + remove on a later attempt.
+    expect(publisher.close).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      issueNumber: 42,
+    });
+    expect(repository.markGitHubIssueDeletionCompleted).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+    });
     expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
-    // The clear runs first, while the row is still in its original, listable
-    // status. An unconfirmed clear must leave the GitHub issue OPEN: closing it
-    // before the screenshot is cleared would strand the still-visible panel
-    // feedback next to a permanently closed issue whenever storage stays
-    // unfixable. So the issue is never closed, the row is never hidden, and there
-    // is no status to restore — the normal admin/widget flow can simply retry.
-    expect(publisher.close).not.toHaveBeenCalled();
-    expect(repository.markGitHubIssueDeletionPending).not.toHaveBeenCalled();
-    expect(repository.markGitHubIssueDeletionCompleted).not.toHaveBeenCalled();
     expect(repository.remove).not.toHaveBeenCalled();
     expect(repository.restoreGitHubIssuePublished).not.toHaveBeenCalled();
   });
