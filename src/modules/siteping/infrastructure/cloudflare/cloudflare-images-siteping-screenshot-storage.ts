@@ -75,7 +75,7 @@ function buildUploadUrl(environment: CloudflareImagesEnvironment): string {
  * Uploads a SitePing screenshot to Cloudflare Images server-side and returns its
  * public delivery URL. Reuses the shared Cloudflare configuration already used
  * for message attachments; returns `null` when unconfigured or on any failure so
- * the use case can fall back to inline persistence.
+ * the use case persists no screenshot instead of inlining the data URL.
  */
 export class CloudflareImagesSitepingScreenshotStorage
   implements SitepingScreenshotStorage
@@ -119,7 +119,8 @@ export class CloudflareImagesSitepingScreenshotStorage
         SCREENSHOT_UPLOAD_RESILIENCE
       );
     } catch {
-      // Timeout or network error — map to a stable null so the caller falls back.
+      // Timeout or network error — map to a stable null so the caller drops the
+      // screenshot instead of inlining the data URL.
       return null;
     }
 

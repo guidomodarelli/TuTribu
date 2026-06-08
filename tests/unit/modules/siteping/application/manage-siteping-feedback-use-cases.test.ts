@@ -302,7 +302,7 @@ describe("manage Siteping feedback use cases", () => {
           ],
         },
         message: "No puedo guardar el precio",
-        screenshotUrl: "data:image/jpeg;base64,secret",
+        screenshotUrl: null,
         url: "https://tutribu.example.com/matematica/precios?refresh_token=[redacted]",
       })
     );
@@ -350,6 +350,31 @@ describe("manage Siteping feedback use cases", () => {
     });
     expect(repository.create).toHaveBeenCalledWith(
       expect.objectContaining({ screenshotUrl: deliveryUrl })
+    );
+  });
+
+  it("persists null instead of the inline data URL when the screenshot upload fails", async () => {
+    const repository = buildRepository();
+    const screenshotStorage = buildScreenshotStorage({
+      store: jest.fn(async () => null),
+    });
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command: buildFeedbackCommand(),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    expect(screenshotStorage.store).toHaveBeenCalledWith({
+      dataUrl: "data:image/jpeg;base64,secret",
+    });
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ screenshotUrl: null })
     );
   });
 

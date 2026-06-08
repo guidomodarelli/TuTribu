@@ -247,11 +247,11 @@ async function resolveScreenshotUrl(
     return null;
   }
 
-  // Prefer the durable Cloudflare URL; fall back to the inline data URL when
-  // storage is unconfigured or the upload fails so the capture is never lost.
-  const storedUrl = await screenshotStorage.store({ dataUrl: screenshotDataUrl });
-
-  return storedUrl ?? screenshotDataUrl;
+  // Persist only the durable object-storage URL. When storage is unconfigured
+  // or the upload fails, drop the screenshot (persist null) instead of inlining
+  // the multi-MB data URL: GET /api/siteping serializes screenshotUrl for every
+  // feedback in a page, so an inline payload would bloat list responses.
+  return screenshotStorage.store({ dataUrl: screenshotDataUrl });
 }
 
 export function createSitepingFeedback({
