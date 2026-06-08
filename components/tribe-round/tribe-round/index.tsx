@@ -13,6 +13,7 @@ import type {
   ChangeEvent,
   CSSProperties,
   FormEvent,
+  KeyboardEvent,
   MouseEvent,
 } from "react";
 import {
@@ -403,6 +404,16 @@ const TRIBE_ROUND_CAROUSEL = {
   transitionDuration: 14,
 } as const;
 
+/**
+ * Arrow keys that drive the media carousel. The dialog intercepts them at the
+ * capture phase so navigation works regardless of which element inside the
+ * dialog holds focus (close button, dialog body, or a carousel control).
+ */
+const TRIBE_ROUND_CAROUSEL_KEY = {
+  next: "ArrowRight",
+  previous: "ArrowLeft",
+} as const;
+
 const COMPOSER_BODY_SCROLL = {
   bottomBehavior: "smooth",
   pollBlockAlignment: "end",
@@ -695,6 +706,11 @@ type TribeRoundMessageMediaResult = NonNullable<
 type TribeRoundMessageImageResult = Extract<
   TribeRoundMessageMediaResult,
   { kind: typeof MESSAGE_MEDIA_KIND.image }
+>;
+
+type TribeRoundMessageVideoResult = Extract<
+  TribeRoundMessageMediaResult,
+  { kind: typeof MESSAGE_MEDIA_KIND.video }
 >;
 
 type ActiveMessageMediaCarousel = {
@@ -4314,6 +4330,69 @@ function TribeRoundContent({
     }
   };
 
+  /**
+   * Drives the media carousel with the arrow keys from the dialog level. The
+   * handler runs in the capture phase and stops propagation so the carousel's
+   * own key handler does not fire twice, and so arrows work even when focus
+   * sits on the close button or anywhere else inside the dialog. It cannot
+   * recover keystrokes routed to a focused cross-origin video iframe, but the
+   * carousel only ever mounts the active slide's iframe, so navigating away
+   * unmounts it and returns key control to the document.
+   */
+  const handleImageCarouselKeyDown = (
+    event: KeyboardEvent<HTMLDivElement>
+  ) => {
+    if (activeImageCarouselMedia.length <= 1) {
+      return;
+    }
+
+    if (event.key === TRIBE_ROUND_CAROUSEL_KEY.previous) {
+      event.preventDefault();
+      event.stopPropagation();
+      imageCarouselApi?.scrollPrev();
+    } else if (event.key === TRIBE_ROUND_CAROUSEL_KEY.next) {
+      event.preventDefault();
+      event.stopPropagation();
+      imageCarouselApi?.scrollNext();
+    }
+  };
+
+  /**
+   * Renders the lightweight poster shown for inactive video slides. Only the
+   * active slide mounts the heavy provider iframe, so inactive videos fall back
+   * to their thumbnail (or a safe placeholder) to avoid booting several
+   * third-party players at once and stealing keyboard focus.
+   */
+  const renderCarouselVideoPoster = (
+    mediaItem: TribeRoundMessageVideoResult
+  ) => {
+    const videoThumbnailSource =
+      buildVideoThumbnailSource(mediaItem.provider, mediaItem.externalId) ??
+      mediaItem.thumbnailUrl ??
+      null;
+
+    return (
+      <span aria-hidden="true" className={styles.TribeRound__videoTile}>
+        {videoThumbnailSource ? (
+          <>
+            {createElement(TRIBE_ROUND_MEDIA.imageElementTag, {
+              alt: "",
+              className: styles.TribeRound__videoThumbnail,
+              decoding: TRIBE_ROUND_CAROUSEL.imageDecoding,
+              loading: TRIBE_ROUND_MEDIA.lazyLoading,
+              src: videoThumbnailSource,
+            })}
+            <span className={styles.TribeRound__videoPlayBadge}>
+              <PlayIcon />
+            </span>
+          </>
+        ) : (
+          renderVideoThumbnailFallback(true)
+        )}
+      </span>
+    );
+  };
+
   const getMessageMediaAltText = (
     mediaItem: TribeRoundMessageImageResult,
     message: TribeRoundMessageResult
@@ -4737,6 +4816,7 @@ function TribeRoundContent({
       >
         <DialogContent
           className={styles.TribeRound__imageCarouselDialog}
+          onKeyDownCapture={handleImageCarouselKeyDown}
           showCloseButton
         >
           <DialogHeader className={styles.TribeRound__imageCarouselHeader}>
@@ -4757,12 +4837,10 @@ function TribeRoundContent({
             setApi={setImageCarouselApi}
           >
             <CarouselContent className={styles.TribeRound__imageCarouselContent}>
-              {messageMedia.map((mediaItem) => {
+              {messageMedia.map((mediaItem, mediaIndex) => {
                 if (mediaItem.kind === MESSAGE_MEDIA_KIND.video) {
-                  const embedSource = buildPlayerEmbedSource(
-                    mediaItem.provider,
-                    mediaItem.externalId
-                  );
+                  const isActiveSlide =
+                    mediaIndex === activeImageCarouselSlideIndex;
 
                   return (
                     <CarouselItem
@@ -4770,17 +4848,24 @@ function TribeRoundContent({
                       key={mediaItem.id}
                     >
                       <div className={styles.TribeRound__videoEmbed}>
-                        <iframe
-                          allow={PLAYER_IFRAME_ALLOW}
-                          allowFullScreen
-                          className={styles.TribeRound__videoEmbedIframe}
-                          src={embedSource}
-                          title={`${TRIBE_ROUND_COPY.videoEmbedTitlePrefix}${
-                            activeImageCarouselMessage?.title
-                              ? `: ${activeImageCarouselMessage.title}`
-                              : ""
-                          }`}
-                        />
+                        {isActiveSlide ? (
+                          <iframe
+                            allow={PLAYER_IFRAME_ALLOW}
+                            allowFullScreen
+                            className={styles.TribeRound__videoEmbedIframe}
+                            src={buildPlayerEmbedSource(
+                              mediaItem.provider,
+                              mediaItem.externalId
+                            )}
+                            title={`${TRIBE_ROUND_COPY.videoEmbedTitlePrefix}${
+                              activeImageCarouselMessage?.title
+                                ? `: ${activeImageCarouselMessage.title}`
+                                : ""
+                            }`}
+                          />
+                        ) : (
+                          renderCarouselVideoPoster(mediaItem)
+                        )}
                       </div>
                     </CarouselItem>
                   );
