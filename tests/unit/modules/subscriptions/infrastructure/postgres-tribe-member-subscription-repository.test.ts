@@ -1,4 +1,7 @@
+import { PgDialect } from "drizzle-orm/pg-core";
 import { PostgresTribeMemberSubscriptionRepository } from "@/src/modules/subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
+
+const pgDialect = new PgDialect();
 
 function getSqlText(statement: unknown): string {
   return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
@@ -29,27 +32,78 @@ function getSqlText(statement: unknown): string {
     .join("");
 }
 
+function getSqlParams(statement: unknown): unknown[] {
+  if (!statement || typeof statement !== "object") {
+    return [];
+  }
+
+  try {
+    return pgDialect.sqlToQuery(statement as never).params;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Finds the JSON body persisted into an idempotency operation insert by parsing
+ * the bound parameters of the matching statement.
+ *
+ * @param calls - Recorded `execute` mock calls.
+ * @returns Parsed `response_body` object, or null when no insert is found.
+ */
+function findPersistedIdempotencyResponseBody(
+  calls: unknown[][]
+): Record<string, unknown> | null {
+  for (const call of calls) {
+    const sqlText = getSqlText(call?.[0]);
+    if (
+      !sqlText.includes("insert into public.subscription_idempotency_operations")
+    ) {
+      continue;
+    }
+
+    for (const param of getSqlParams(call?.[0])) {
+      if (typeof param !== "string") {
+        continue;
+      }
+
+      try {
+        const parsed = JSON.parse(param) as Record<string, unknown>;
+        if (parsed && typeof parsed === "object" && "checkoutUrl" in parsed) {
+          return parsed;
+        }
+      } catch {
+        // Not the JSON response_body parameter; keep scanning.
+      }
+    }
+  }
+
+  return null;
+}
+
 function createRepository(
   execute: jest.Mock,
   options: {
-    buildMercadoPagoPlanCheckoutUrl?: jest.Mock;
+    createMercadoPagoPreapprovalSubscription?: jest.Mock;
     getMercadoPagoPreapprovalDetails?: jest.Mock;
     getMercadoPagoPreapprovalStatus?: jest.Mock;
     updateMercadoPagoPreapprovalStatus?: jest.Mock;
+    updateMercadoPagoPreapprovalBackUrl?: jest.Mock;
     refreshMercadoPagoAccessToken?: jest.Mock;
   } = {}
 ) {
   return new PostgresTribeMemberSubscriptionRepository(
     async (callback) => callback({ execute } as never),
-    options.buildMercadoPagoPlanCheckoutUrl ??
-      jest.fn(
-        (preapprovalPlanId: string) =>
-          "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=" +
-          preapprovalPlanId
-      ),
+    options.createMercadoPagoPreapprovalSubscription ??
+      jest.fn(async () => ({
+        checkoutUrl:
+          "https://www.mercadopago.com.ar/subscriptions/checkout/congrats?preapproval_id=preapproval-created",
+        providerSubscriptionId: "preapproval-created",
+      })),
     options.getMercadoPagoPreapprovalDetails ?? jest.fn(),
     options.getMercadoPagoPreapprovalStatus ?? jest.fn(),
     options.updateMercadoPagoPreapprovalStatus ?? jest.fn(),
+    options.updateMercadoPagoPreapprovalBackUrl ?? jest.fn(async () => undefined),
     options.refreshMercadoPagoAccessToken ?? jest.fn()
   );
 }
@@ -65,6 +119,24 @@ const PREVIOUS_PROVIDER_PLAN_CHECKOUT_URL =
 
 const PROVIDER_MEMBER_PREAPPROVAL_CHECKOUT_URL =
   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_id=preapproval-1";
+
+const CREATED_PREAPPROVAL_CHECKOUT_URL =
+  "https://www.mercadopago.com.ar/subscriptions/checkout/congrats?preapproval_id=preapproval-created";
+
+const CREATED_PREAPPROVAL_ID = "preapproval-created";
+
+/**
+ * Builds a Mercado Pago preapproval creator double returning a known provider
+ * subscription id and checkout URL, matching the API-first checkout flow.
+ *
+ * @returns Jest mock for createMercadoPagoPreapprovalSubscription.
+ */
+function createPreapprovalSubscriptionDouble(): jest.Mock {
+  return jest.fn(async () => ({
+    checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
+    providerSubscriptionId: CREATED_PREAPPROVAL_ID,
+  }));
+}
 
 describe("PostgresTribeMemberSubscriptionRepository", () => {
   const previousBaseUrl = process.env.BETTER_AUTH_URL;
@@ -318,6 +390,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [
           {
             access_token: "access-token",
+            price_id: "price-1",
+            provider_plan_id: "provider-plan-1",
             refresh_token: null,
             reserved_subscription_id: "subscription-2",
             token_expires_at: null,
@@ -327,9 +401,14 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       })
       .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] })
       .mockResolvedValueOnce({ rows: [] });
-    const getMercadoPagoPreapprovalStatus = jest.fn(async () => "authorized");
+    const getMercadoPagoPreapprovalDetails = jest.fn(async () => ({
+      externalReference: "tutribu:price:price-1",
+      id: "preapproval-2",
+      preapprovalPlanId: "provider-plan-1",
+      status: "authorized",
+    }));
     const repository = createRepository(execute, {
-      getMercadoPagoPreapprovalStatus,
+      getMercadoPagoPreapprovalDetails,
     });
 
     await expect(
@@ -341,7 +420,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       status: "pending",
     });
 
-    expect(getMercadoPagoPreapprovalStatus).toHaveBeenCalledWith({
+    expect(getMercadoPagoPreapprovalDetails).toHaveBeenCalledWith({
       accessToken: "access-token",
       preapprovalId: "preapproval-2",
     });
@@ -353,6 +432,76 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
     expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
       /status = .*pending/
+    );
+  });
+
+  it("does not attach a returned preapproval that belongs to a different plan than the pending checkout", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            mercado_pago_preapproval_id: null,
+            refresh_token: null,
+            subscription_found: false,
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            price_id: "price-1",
+            provider_plan_id: "provider-plan-1",
+            refresh_token: null,
+            reserved_subscription_id: "subscription-2",
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_id: null,
+            current_price_provider_plan_id: null,
+            has_recent_plan_checkout: false,
+            refresh_token: null,
+            token_expires_at: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      });
+    const getMercadoPagoPreapprovalDetails = jest.fn(async () => ({
+      externalReference: "tutribu:price:other-price",
+      id: "preapproval-2",
+      preapprovalPlanId: "other-provider-plan",
+      status: "authorized",
+    }));
+    const repository = createRepository(execute, {
+      getMercadoPagoPreapprovalDetails,
+    });
+
+    await expect(
+      repository.resolveSubscriptionReturn({
+        providerSubscriptionId: "preapproval-2",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "not_found",
+    });
+
+    // The mismatched preapproval is rejected before any attach UPDATE runs.
+    const attemptedSql = execute.mock.calls
+      .map((call) => getSqlText(call?.[0]))
+      .join("\n");
+
+    expect(attemptedSql).not.toMatch(
+      /update public\.tribe_member_subscriptions[\s\S]*mercado_pago_preapproval_id = /
     );
   });
 
@@ -431,6 +580,16 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       /mercado_pago_preapproval_id/
     );
     expect(getSqlText(execute.mock.calls[4]?.[0])).toMatch(/pending/);
+
+    // The recent-checkout proof must read the persisted plan id, because an
+    // API-created init_point no longer embeds preapproval_plan_id in the URL.
+    const recoveryContextSql = execute.mock.calls
+      .map((call) => getSqlText(call?.[0]))
+      .find((sqlText) => sqlText.includes("recent_plan_checkout"));
+
+    expect(recoveryContextSql).toMatch(
+      /response_body->>'preapprovalPlanId'/
+    );
   });
 
   it("does not recover a missing local reservation from a different provider plan", async () => {
@@ -513,7 +672,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_price_provider_plan_id: "provider-plan-1",
             current_user_email: "member@example.com",
             existing_checkout_url: PROVIDER_PLAN_CHECKOUT_URL,
-            existing_provider_subscription_id: null,
+            existing_provider_subscription_id: "preapproval-existing",
             existing_membership_status: "blocked",
             existing_membership_status_reason: "payment_blocked",
             has_active_invitation: true,
@@ -522,9 +681,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         ],
       })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -547,7 +707,51 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
       /cross join checkout_context[\s\S]*current_setting\([\s\S]*app\.current_invitation_hash/
     );
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
+  });
+
+  it("reuses a linked pending plan checkout even after the tribe current price changed", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 2500,
+            current_price_currency: "ARS",
+            current_price_id: "price-current",
+            current_price_name: "Plan mensual nuevo",
+            current_price_provider_plan_id: "provider-plan-current",
+            current_user_email: "member@example.com",
+            existing_checkout_subscription_id: "subscription-1",
+            existing_checkout_url: PROVIDER_PLAN_CHECKOUT_URL,
+            existing_provider_subscription_id: "preapproval-existing",
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "new-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      status: "pending",
+    });
+
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
   });
 
   it("replaces pending plan checkout URLs when they target an old provider plan", async () => {
@@ -577,11 +781,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -591,14 +794,14 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
-    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
-      "provider-plan-1"
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ preapprovalPlanId: "provider-plan-1" })
     );
-    expect(getSqlText(execute.mock.calls[4]?.[0])).toMatch(
+    expect(getSqlText(execute.mock.calls[5]?.[0])).toMatch(
       /on conflict \(operation_key\) do update[\s\S]*response_body = excluded\.response_body/
     );
   });
@@ -631,11 +834,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -645,14 +847,14 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
-    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
-      "provider-plan-1"
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ preapprovalPlanId: "provider-plan-1" })
     );
-    expect(getSqlText(execute.mock.calls[4]?.[0])).toContain(
+    expect(getSqlText(execute.mock.calls[5]?.[0])).toContain(
       "start_member_subscription"
     );
   });
@@ -682,11 +884,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
       })
       .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -696,15 +897,16 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
-    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
-      "provider-plan-1"
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ preapprovalPlanId: "provider-plan-1" })
     );
     const reservationSql = getSqlText(execute.mock.calls[1]?.[0]);
-    const persistedMembershipSql = getSqlText(execute.mock.calls[2]?.[0]);
+    const attachPreapprovalSql = getSqlText(execute.mock.calls[2]?.[0]);
+    const persistedMembershipSql = getSqlText(execute.mock.calls[3]?.[0]);
     const targetInvitationCheckoutContextPattern =
       /target_invitation as \([\s\S]*from public\.tribe_invitations\s+cross join checkout_context[\s\S]*current_setting/;
 
@@ -712,14 +914,178 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(reservationSql).toMatch(
       /where \(\s*tribe_members\.status = 'removed'[\s\S]*status_reason = .*subscription_inactive[\s\S]*or\s*\(\s*tribe_members\.status = 'blocked'[\s\S]*status_reason = .*payment_blocked/
     );
+    // The reserved row is linked to the provider preapproval before the redirect.
+    expect(attachPreapprovalSql).toMatch(
+      /update public\.tribe_member_subscriptions[\s\S]*mercado_pago_preapproval_id =[\s\S]*mercado_pago_preapproval_id is null/
+    );
     expect(persistedMembershipSql).toMatch(
       targetInvitationCheckoutContextPattern
     );
     expect(persistedMembershipSql).toMatch(
       /where \(\s*tribe_members\.status = 'removed'[\s\S]*status_reason = .*subscription_inactive[\s\S]*or\s*\(\s*tribe_members\.status = 'blocked'[\s\S]*status_reason = .*payment_blocked/
     );
-    expect(getSqlText(execute.mock.calls[2]?.[0])).not.toMatch(
+    expect(persistedMembershipSql).not.toMatch(
       /mercado_pago_preapproval_id\s*=/
+    );
+  });
+
+  it("links the authoritative preapproval id into the provider back URL before the redirect", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
+    const updateMercadoPagoPreapprovalBackUrl = jest.fn(async () => undefined);
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription:
+        createPreapprovalSubscriptionDouble(),
+      updateMercadoPagoPreapprovalBackUrl,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "link-back-url-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
+      status: "pending",
+    });
+
+    expect(updateMercadoPagoPreapprovalBackUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "access-token",
+        backUrl: `https://tutribu.example.com/matematica-pro?preapproval_id=${CREATED_PREAPPROVAL_ID}`,
+        preapprovalId: CREATED_PREAPPROVAL_ID,
+      })
+    );
+  });
+
+  it("still completes the checkout when linking the return back URL fails", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
+    const updateMercadoPagoPreapprovalBackUrl = jest.fn(async () => {
+      throw new Error("provider rejected back url update");
+    });
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription:
+        createPreapprovalSubscriptionDouble(),
+      updateMercadoPagoPreapprovalBackUrl,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "link-back-url-failure",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
+      status: "pending",
+    });
+
+    expect(updateMercadoPagoPreapprovalBackUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("links the reserved row to the provider preapproval before attempting the best-effort back URL update", async () => {
+    const callOrder: string[] = [];
+    const attachPreapprovalPattern =
+      /update public\.tribe_member_subscriptions[\s\S]*mercado_pago_preapproval_id =[\s\S]*mercado_pago_preapproval_id is null/;
+    const execute = jest
+      .fn()
+      .mockImplementationOnce(async () => ({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      }))
+      .mockImplementationOnce(async () => ({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      }))
+      .mockImplementation(async (statement: unknown) => {
+        if (attachPreapprovalPattern.test(getSqlText(statement))) {
+          callOrder.push("attachPreapproval");
+        }
+
+        return { rows: [] };
+      });
+    const updateMercadoPagoPreapprovalBackUrl = jest.fn(async () => {
+      callOrder.push("backUrlUpdate");
+    });
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription:
+        createPreapprovalSubscriptionDouble(),
+      updateMercadoPagoPreapprovalBackUrl,
+    });
+
+    await repository.startCurrentPriceSubscription({
+      idempotencyKey: "attach-before-back-url",
+      invitationToken: "invitation-token-1",
+      tribeSlug: "matematica-pro",
+    });
+
+    // The reserved row must carry mercado_pago_preapproval_id before the slow,
+    // best-effort back URL PUT runs: a webhook delivered during that network
+    // round-trip must be able to match the local row by preapproval id instead
+    // of returning retryable_webhook/503 for an otherwise valid payment.
+    expect(callOrder).toContain("attachPreapproval");
+    expect(callOrder).toContain("backUrlUpdate");
+    expect(callOrder.indexOf("attachPreapproval")).toBeLessThan(
+      callOrder.indexOf("backUrlUpdate")
     );
   });
 
@@ -748,11 +1114,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
       })
       .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => SPECIFIC_PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -762,12 +1127,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: SPECIFIC_PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
-    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
-      "specific-provider-plan"
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ preapprovalPlanId: "specific-provider-plan" })
     );
     const contextSql = getSqlText(execute.mock.calls[0]?.[0]);
 
@@ -808,11 +1173,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => SPECIFIC_PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -822,7 +1186,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: SPECIFIC_PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
@@ -834,8 +1198,115 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(cancellationSql).not.toMatch(/price_id =/);
     expect(cancellationSql).toMatch(/mercado_pago_preapproval_id is null/);
     expect(reservationSql).toMatch(/specific-price-1/);
-    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
-      "specific-provider-plan"
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ preapprovalPlanId: "specific-provider-plan" })
+    );
+  });
+
+  it("releases the reserved pending subscription when the provider preapproval request fails", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
+    const createMercadoPagoPreapprovalSubscription = jest.fn(async () => {
+      throw new Error("provider checkout timed out");
+    });
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "failed-provider-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "payment_blocked",
+    });
+
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledTimes(1);
+    // The reserved pending row is canceled so an immediate retry is not blocked
+    // by the orphaned reservation until the stale-reservation window expires.
+    const releaseSql = getSqlText(execute.mock.calls[2]?.[0]);
+
+    expect(releaseSql).toMatch(/update public\.tribe_member_subscriptions/);
+    expect(releaseSql).toMatch(/status = .*canceled/);
+    expect(releaseSql).toMatch(
+      /status = .*pending[\s\S]*mercado_pago_preapproval_id is null/
+    );
+  });
+
+  it("releases the reserved pending subscription when the provider access token cannot be resolved", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: null,
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            refresh_token: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "missing-token-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "payment_blocked",
+    });
+
+    // The provider checkout is never attempted without a usable access token,
+    // and the reserved pending row is released for an immediate retry.
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
+    const releaseSql = getSqlText(execute.mock.calls[2]?.[0]);
+
+    expect(releaseSql).toMatch(/update public\.tribe_member_subscriptions/);
+    expect(releaseSql).toMatch(/status = .*canceled/);
+    expect(releaseSql).toMatch(
+      /status = .*pending[\s\S]*mercado_pago_preapproval_id is null/
     );
   });
 
@@ -863,9 +1334,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         ],
       })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -879,7 +1350,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(execute).toHaveBeenCalledTimes(2);
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
 
     const contextSql = getSqlText(execute.mock.calls[0]?.[0]);
     const reconcileSql = getSqlText(execute.mock.calls[1]?.[0]);
@@ -919,9 +1390,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         ],
       })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -934,7 +1405,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(execute).toHaveBeenCalledTimes(2);
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
     expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
       /mercado_pago_preapproval_id = .*preapproval-live-1/
     );
@@ -961,9 +1432,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         },
       ],
     });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -977,7 +1448,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(execute).toHaveBeenCalledTimes(1);
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
   });
 
   it("starts direct payment retry for payment-blocked members", async () => {
@@ -1005,11 +1476,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
       })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1018,13 +1488,60 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
-    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
-      "provider-plan-1"
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ preapprovalPlanId: "provider-plan-1" })
     );
+  });
+
+  it("persists the provider plan id alongside the checkout URL for return recovery", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: false,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription,
+    });
+
+    await expect(
+      repository.retryCurrentPriceSubscriptionPayment({
+        idempotencyKey: "retry-payment",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
+      status: "pending",
+    });
+
+    expect(findPersistedIdempotencyResponseBody(execute.mock.calls)).toEqual({
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
+      preapprovalPlanId: "provider-plan-1",
+    });
   });
 
   it("allows removed subscription-inactive members to retry payment directly", async () => {
@@ -1053,11 +1570,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
       })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1066,12 +1582,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
-    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
-      "provider-plan-1"
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ preapprovalPlanId: "provider-plan-1" })
     );
   });
 
@@ -1095,9 +1611,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         },
       ],
     });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1110,7 +1626,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(execute).toHaveBeenCalledTimes(1);
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
   });
 
   it("rejects direct payment retry for conduct-blocked members", async () => {
@@ -1132,9 +1648,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         },
       ],
     });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1146,7 +1662,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       status: "conduct_blocked",
     });
 
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
     expect(getSqlText(execute.mock.calls[0]?.[0])).not.toMatch(
       /tribe_open_join_id_by_slug/
     );
@@ -1177,11 +1693,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
       })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1190,12 +1705,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
-    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
-      "provider-plan-1"
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ preapprovalPlanId: "provider-plan-1" })
     );
     expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(/current_price as \(/);
     expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
@@ -1222,9 +1737,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         },
       ],
     });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1237,7 +1752,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(execute).toHaveBeenCalledTimes(1);
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
   });
 
   it("keeps conduct-blocked visitors out of the open-join flow", async () => {
@@ -1259,9 +1774,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         },
       ],
     });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1273,7 +1788,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       status: "conduct_blocked",
     });
 
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
   });
 
   it("restores removed subscription memberships when reserving a new paid checkout", async () => {
@@ -1301,11 +1816,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
       })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1315,12 +1829,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
     const reservationSql = getSqlText(execute.mock.calls[1]?.[0]);
-    const membershipPersistenceSql = getSqlText(execute.mock.calls[2]?.[0]);
+    const membershipPersistenceSql = getSqlText(execute.mock.calls[3]?.[0]);
 
     expect(reservationSql).toMatch(
       /on conflict \(tribe_id, user_id\) do update[\s\S]*status = 'blocked'[\s\S]*status_reason = .*payment_blocked[\s\S]*status = 'removed'[\s\S]*status_reason = .*subscription_inactive/
@@ -1350,9 +1864,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         },
       ],
     });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1369,7 +1883,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
 
     expect(sqlText).toMatch(/tribe_members\.status_reason/);
     expect(sqlText).not.toMatch(/existing_subscription/);
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
   });
 
   it("does not create a provider checkout when another request already reserved the subscription", async () => {
@@ -1395,9 +1909,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         ],
       })
       .mockResolvedValueOnce({ rows: [{ reserved_subscription_id: null }] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1413,7 +1927,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
       /insert into public\.tribe_member_subscriptions/
     );
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
   });
 
   it("recovers stale pending reservations that never reached Mercado Pago", async () => {
@@ -1447,11 +1961,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         ],
       })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1461,7 +1974,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
@@ -1470,12 +1983,12 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(reservationSql).toMatch(/existing_recoverable_reservation/);
     expect(reservationSql).toMatch(/mercado_pago_preapproval_id is null/);
     expect(reservationSql).toMatch(/5 minutes/);
-    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
-      "provider-plan-1"
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ preapprovalPlanId: "provider-plan-1" })
     );
   });
 
-  it("starts provider plan checkouts without refreshing expired Mercado Pago tokens", async () => {
+  it("refreshes an expired Mercado Pago token before creating the checkout preapproval", async () => {
     const expiredTokenDate = new Date(Date.now() - 60_000).toISOString();
     const execute = jest
       .fn()
@@ -1486,6 +1999,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
             current_price_amount_cents: 1500,
             current_price_currency: "ARS",
             current_price_id: "price-1",
+            current_price_payment_integration_id: "integration-1",
             current_price_plan_id: "plan-1",
             current_price_name: "Plan mensual",
             current_price_provider_plan_id: "provider-plan-1",
@@ -1503,9 +2017,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
       })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const refreshMercadoPagoAccessToken = jest.fn(async () => ({
       accessToken: "fresh-access-token",
       expiresIn: 3600,
@@ -1513,7 +2026,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       refreshToken: "new-refresh-token",
     }));
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
       refreshMercadoPagoAccessToken,
     });
 
@@ -1524,13 +2037,17 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
-    expect(refreshMercadoPagoAccessToken).not.toHaveBeenCalled();
-    expect(buildMercadoPagoPlanCheckoutUrl).toHaveBeenCalledWith(
-      "provider-plan-1"
+    // The API-first checkout needs a usable token, so an expired one is refreshed.
+    expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith("refresh-token");
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "fresh-access-token",
+        preapprovalPlanId: "provider-plan-1",
+      })
     );
   });
 
@@ -1560,11 +2077,10 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
       })
       .mockResolvedValueOnce({ rows: [] });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
-      () => PROVIDER_PLAN_CHECKOUT_URL
-    );
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1574,22 +2090,86 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      checkoutUrl: PROVIDER_PLAN_CHECKOUT_URL,
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending",
     });
 
+    // The reserved row is linked to the provider preapproval before the redirect.
     expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
+      /update public\.tribe_member_subscriptions[\s\S]*mercado_pago_preapproval_id =/
+    );
+    expect(getSqlText(execute.mock.calls[3]?.[0])).toMatch(
       /insert into public\.tribe_members/
     );
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toMatch(
+    expect(getSqlText(execute.mock.calls[3]?.[0])).toMatch(
       /set_config\([\s\S]*app\.current_invitation_hash/
     );
-    expect(getSqlText(execute.mock.calls[3]?.[0])).toMatch(
+    expect(getSqlText(execute.mock.calls[4]?.[0])).toMatch(
       /start_member_subscription/
     );
-    expect(getSqlText(execute.mock.calls[3]?.[0])).toMatch(
-      /preapproval_plan_id/
+    expect(getSqlText(execute.mock.calls[4]?.[0])).toMatch(/preapproval-created/);
+  });
+
+  it("creates the provider preapproval with a reservation-scoped idempotency key and price external reference", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const createMercadoPagoPreapprovalSubscription =
+      createPreapprovalSubscriptionDouble();
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "new-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
+      status: "pending",
+    });
+
+    // The preapproval is created up front (API-first), keyed to the reserved row
+    // so retries do not create duplicate preapprovals, and tied to the price via
+    // the external reference so the return-path fallback can validate ownership.
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: "access-token",
+        amountCents: 1500,
+        currency: "ARS",
+        externalReference: "tutribu:price:price-1",
+        idempotencyKey: "mercado-pago-preapproval:subscription-2",
+        payerEmail: "member@example.com",
+        preapprovalPlanId: "provider-plan-1",
+        reason: "Plan mensual",
+      })
     );
+    expect(
+      createMercadoPagoPreapprovalSubscription.mock.calls[0]?.[0]?.backUrl
+    ).toContain("/matematica-pro");
   });
 
   it("rejects checkout starts when no local subscription can be reserved", async () => {
@@ -1616,11 +2196,11 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       .mockResolvedValueOnce({
         rows: [{ checkout_url: null, reserved_subscription_id: null }],
       });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn(
+    const createMercadoPagoPreapprovalSubscription = jest.fn(
       () => PROVIDER_PLAN_CHECKOUT_URL
     );
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1633,7 +2213,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       status: "payment_blocked",
     });
 
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
   });
 
   it("rejects checkout starts when the invitation is not active for the tribe", async () => {
@@ -1657,9 +2237,9 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         },
       ],
     });
-    const buildMercadoPagoPlanCheckoutUrl = jest.fn();
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
     const repository = createRepository(execute, {
-      buildMercadoPagoPlanCheckoutUrl,
+      createMercadoPagoPreapprovalSubscription,
     });
 
     await expect(
@@ -1672,7 +2252,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       status: "invalid_invitation",
     });
 
-    expect(buildMercadoPagoPlanCheckoutUrl).not.toHaveBeenCalled();
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
   });
 
   it("checks the provider preapproval status before processing created webhooks", async () => {

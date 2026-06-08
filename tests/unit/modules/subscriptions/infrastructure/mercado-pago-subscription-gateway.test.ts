@@ -1,13 +1,13 @@
 import {
   createMercadoPagoPreapprovalPlan,
   createMercadoPagoPreapprovalSubscription,
-  buildMercadoPagoPreapprovalPlanCheckoutUrl,
   getMercadoPagoPreapprovalDetails,
   getMercadoPagoPreapprovalPlan,
   getMercadoPagoPreapprovalPlanStatus,
   getMercadoPagoPreapprovalStatus,
   refreshMercadoPagoAccessToken,
   searchMercadoPagoPreapprovalPlans,
+  updateMercadoPagoPreapprovalBackUrl,
   updateMercadoPagoPreapprovalPlan,
   updateMercadoPagoPreapprovalSubscriptionStatus,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
@@ -472,12 +472,6 @@ describe("mercado pago subscription gateway", () => {
     ).not.toContain("plan-secret-1234567890");
   });
 
-  it("builds Mercado Pago checkout URLs from the provider preapproval plan", () => {
-    expect(buildMercadoPagoPreapprovalPlanCheckoutUrl("plan-1")).toBe(
-      "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=plan-1"
-    );
-  });
-
   it("creates pending subscriptions associated to the current Mercado Pago plan", async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
@@ -556,6 +550,58 @@ describe("mercado pago subscription gateway", () => {
         method: "PUT",
       })
     );
+  });
+
+  it("links the authoritative preapproval id into the provider back URL", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        id: "preapproval-1",
+        status: "pending",
+      }),
+      ok: true,
+    });
+
+    await expect(
+      updateMercadoPagoPreapprovalBackUrl({
+        accessToken: "access-token",
+        backUrl:
+          "https://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1",
+        preapprovalId: "preapproval-1",
+      })
+    ).resolves.toBeUndefined();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.mercadopago.com/preapproval/preapproval-1",
+      expect.objectContaining({
+        body: JSON.stringify({
+          back_url:
+            "https://tutribu.example.com/matematica-pro?preapproval_id=preapproval-1",
+        }),
+        headers: {
+          Authorization: "Bearer access-token",
+          "Content-Type": "application/json",
+        },
+        method: "PUT",
+      })
+    );
+  });
+
+  it("throws when the provider rejects the back URL update", async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        message: "Invalid back_url",
+      }),
+      ok: false,
+      status: 400,
+    });
+
+    await expect(
+      updateMercadoPagoPreapprovalBackUrl({
+        accessToken: "access-token",
+        backUrl: "https://tutribu.example.com/matematica-pro?preapproval_id=x",
+        preapprovalId: "preapproval-1",
+      })
+    ).rejects.toThrow("Mercado Pago request failed with status 400");
   });
 
   it("includes safe Mercado Pago rejection details when plan creation fails", async () => {

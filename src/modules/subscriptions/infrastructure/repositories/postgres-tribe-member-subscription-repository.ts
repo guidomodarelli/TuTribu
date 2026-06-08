@@ -37,6 +37,7 @@ import {
   logPaymentOperation,
   type PaymentOperationTraceContext,
 } from "@/src/modules/subscriptions/infrastructure/observability/payment-operation-logger";
+import { SERVER_LOG_LEVEL } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import {
   resolveMercadoPagoAccessToken,
   type MercadoPagoAccessTokenRefresher,
@@ -46,6 +47,7 @@ import {
   mapMercadoPagoSubscriptionStatus,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-status-mapper";
 import { ROUTES } from "@/src/constants/routes";
+import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
@@ -55,7 +57,26 @@ type MercadoPagoPreapprovalStatusGetter = (
   input: MercadoPagoPreapprovalStatusInput
 ) => Promise<string | null>;
 
-type MercadoPagoPlanCheckoutUrlBuilder = (preapprovalPlanId: string) => string;
+/**
+ * Creates a Mercado Pago preapproval subscription through the provider API and
+ * returns the authoritative provider subscription id together with the hosted
+ * checkout URL (`init_point`). Unlike the hosted preapproval-plan checkout, this
+ * yields the `preapproval_id` before the redirect, so it can be persisted on the
+ * local pending row and matched by webhooks even if the member never returns to
+ * the app from the provider checkout.
+ */
+type MercadoPagoPreapprovalSubscriptionCreator = (input: {
+  accessToken: string;
+  amountCents: number;
+  backUrl: string;
+  currency: string;
+  externalReference: string;
+  idempotencyKey: string;
+  payerEmail: string;
+  preapprovalPlanId: string;
+  reason: string;
+  traceContext?: PaymentOperationTraceContext;
+}) => Promise<{ checkoutUrl: string; providerSubscriptionId: string }>;
 
 type MercadoPagoPreapprovalDetailsGetter = (
   input: MercadoPagoPreapprovalDetailsInput
@@ -67,6 +88,13 @@ type MercadoPagoPreapprovalStatusUpdater = (input: {
   status: "canceled";
   traceContext?: PaymentOperationTraceContext;
 }) => Promise<string>;
+
+type MercadoPagoPreapprovalBackUrlUpdater = (input: {
+  accessToken: string;
+  backUrl: string;
+  preapprovalId: string;
+  traceContext?: PaymentOperationTraceContext;
+}) => Promise<void>;
 
 type SubscriptionStartContextRow = {
   access_token: string | null;
@@ -144,6 +172,7 @@ type PendingSubscriptionReturnAttachmentContextRow = {
   access_token: string | null;
   payment_integration_id: string | null;
   price_id: string | null;
+  provider_plan_id: string | null;
   refresh_token: string | null;
   reserved_subscription_id: string | null;
   token_expires_at: Date | string | null;
@@ -182,6 +211,14 @@ const SUBSCRIPTION_RESERVATION = {
   returnRecoveryInterval: "24 hours",
   staleReservationInterval: "5 minutes",
 } as const;
+
+/**
+ * Prefixes the Mercado Pago `X-Idempotency-Key` for a checkout, joined with the
+ * reserved local subscription id so retries of the same reservation return the
+ * same provider preapproval instead of creating a duplicate one.
+ */
+const MEMBER_SUBSCRIPTION_PREAPPROVAL_IDEMPOTENCY_PREFIX =
+  "mercado-pago-preapproval:";
 
 /**
  * Bounds how stale the locally stored subscription status may be before access
@@ -235,6 +272,7 @@ const LIVE_PROVIDER_SUBSCRIPTION_STATUSES = sql`(
 const MEMBER_SUBSCRIPTION_PAYMENT_OPERATION = {
   cancelSubscription: "cancel-member-subscription",
   confirmReturn: "confirm-member-subscription-return",
+  linkReturnBackUrl: "link-member-subscription-return-back-url",
   reconcileSubscription: "reconcile-member-subscription",
   startCheckout: "start-member-subscription-checkout",
   startCheckoutAlreadyActive: "start-member-subscription-already-active",
@@ -268,6 +306,12 @@ const MEMBER_SUBSCRIPTION_RECOVERY_MEMBERSHIP_STATUS = {
 
 const MEMBER_SUBSCRIPTION_PAYMENT_LOG = {
   completedMessage: "Member subscription payment operation completed",
+  returnBackUrlLinkFailedMessage:
+    "Failed to link preapproval id into the subscription return back URL",
+} as const;
+
+const MEMBER_SUBSCRIPTION_BACK_URL_LINK_RESULT = {
+  failed: "back_url_link_failed",
 } as const;
 
 /**
@@ -356,25 +400,6 @@ function hashInvitationToken(token: string): string {
 }
 
 /**
- * Reads the Mercado Pago plan identifier from a stored checkout URL.
- *
- * @param checkoutUrl - Previously persisted checkout URL.
- * @returns Mercado Pago preapproval plan id, or null when the URL is not a plan checkout.
- */
-function readProviderPlanIdFromCheckoutUrl(checkoutUrl: string): string | null {
-  try {
-    const parsedCheckoutUrl = new URL(checkoutUrl);
-    const providerPlanId = parsedCheckoutUrl.searchParams
-      .get("preapproval_plan_id")
-      ?.trim();
-
-    return providerPlanId || null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Builds the internal tribe return path for a Mercado Pago subscription result.
  *
  * @param input - Tribe slug and provider subscription identifier.
@@ -425,19 +450,21 @@ export class PostgresTribeMemberSubscriptionRepository
    * Creates a member subscription repository with provider adapters and trace context.
    *
    * @param executeWithDatabase - Request-scoped database executor.
-   * @param buildMercadoPagoPlanCheckoutUrl - Adapter that builds provider checkout URLs.
+   * @param createMercadoPagoPreapprovalSubscription - Adapter that creates a provider preapproval and returns its id plus checkout URL.
    * @param getMercadoPagoPreapprovalDetails - Adapter that reads provider preapproval details.
    * @param getMercadoPagoPreapprovalStatus - Adapter that reads provider preapproval status.
    * @param updateMercadoPagoPreapprovalStatus - Adapter that updates provider preapproval status.
+   * @param updateMercadoPagoPreapprovalBackUrl - Adapter that links the authoritative preapproval id into the provider back URL.
    * @param refreshMercadoPagoAccessToken - Adapter that refreshes provider tokens.
    * @param requestId - Optional request correlation identifier for payment traces.
    */
   constructor(
     private readonly executeWithDatabase: DatabaseExecutor,
-    private readonly buildMercadoPagoPlanCheckoutUrl: MercadoPagoPlanCheckoutUrlBuilder,
+    private readonly createMercadoPagoPreapprovalSubscription: MercadoPagoPreapprovalSubscriptionCreator,
     private readonly getMercadoPagoPreapprovalDetails: MercadoPagoPreapprovalDetailsGetter,
     private readonly getMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusGetter,
     private readonly updateMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusUpdater,
+    private readonly updateMercadoPagoPreapprovalBackUrl: MercadoPagoPreapprovalBackUrlUpdater,
     private readonly refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher,
     private readonly requestId?: string
   ) {}
@@ -762,7 +789,7 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
     }
 
-    let providerStatus: string | null;
+    let providerSubscription: MercadoPagoPreapprovalDetailsResult | null;
     const operationKey = buildMemberSubscriptionOperationKey({
       operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION_KEY.confirmReturn,
       tribeSlug: query.tribeSlug,
@@ -771,12 +798,13 @@ export class PostgresTribeMemberSubscriptionRepository
       operationKey,
       preapprovalId: query.providerSubscriptionId,
       priceId: context.price_id,
+      providerPlanId: context.provider_plan_id,
       requestId: this.requestId,
       tribeSlug: query.tribeSlug,
     });
 
     try {
-      providerStatus = await this.getMercadoPagoPreapprovalStatus({
+      providerSubscription = await this.getMercadoPagoPreapprovalDetails({
         accessToken,
         preapprovalId: query.providerSubscriptionId,
         ...(traceContext ? { traceContext } : {}),
@@ -785,7 +813,20 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable };
     }
 
-    if (!providerStatus) {
+    // Parity with recoverMissingPlanCheckoutReturn: only attach a provider
+    // preapproval that actually belongs to this pending checkout's price, so a
+    // client-supplied preapproval_id from a return URL cannot be bound to an
+    // unrelated reservation. The unique index on mercado_pago_preapproval_id is
+    // the database backstop; this is the application-layer guard.
+    if (
+      !providerSubscription ||
+      !context.price_id ||
+      !context.provider_plan_id ||
+      providerSubscription.preapprovalPlanId !== context.provider_plan_id ||
+      (providerSubscription.externalReference !== null &&
+        providerSubscription.externalReference !==
+          buildPriceExternalReference(context.price_id))
+    ) {
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.notFound };
     }
 
@@ -1002,6 +1043,11 @@ export class PostgresTribeMemberSubscriptionRepository
           tribe_payment_integrations.access_token,
           tribe_payment_integrations.refresh_token,
           (select price_id from pending_subscription) as price_id,
+          (
+            select tribe_subscription_prices.mercado_pago_preapproval_plan_id
+            from public.tribe_subscription_prices
+            where tribe_subscription_prices.id = (select price_id from pending_subscription)
+          ) as provider_plan_id,
           (select id from pending_subscription) as reserved_subscription_id,
           tribe_payment_integrations.token_expires_at,
           (select id from target_tribe) as tribe_id
@@ -1050,10 +1096,19 @@ export class PostgresTribeMemberSubscriptionRepository
             and subscription_idempotency_operations.response_body ? 'checkoutUrl'
             and subscription_idempotency_operations.created_at >=
               timezone('utc', now()) - ${SUBSCRIPTION_RESERVATION.returnRecoveryInterval}::interval
-            and position(
-              'preapproval_plan_id=' || (select mercado_pago_preapproval_plan_id from current_price)
-              in subscription_idempotency_operations.response_body->>'checkoutUrl'
-            ) > 0
+            and (
+              -- API-created checkouts persist the provider plan id explicitly
+              -- because their stored init_point only carries the preapproval_id,
+              -- not the preapproval_plan_id.
+              subscription_idempotency_operations.response_body->>'preapprovalPlanId'
+                = (select mercado_pago_preapproval_plan_id from current_price)
+              -- Legacy hosted preapproval-plan checkouts only stored the URL, whose
+              -- query string still embeds preapproval_plan_id=<plan>.
+              or position(
+                'preapproval_plan_id=' || (select mercado_pago_preapproval_plan_id from current_price)
+                in coalesce(subscription_idempotency_operations.response_body->>'checkoutUrl', '')
+              ) > 0
+            )
           limit 1
         )
         select
@@ -1571,13 +1626,18 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.alreadySubscribed };
     }
 
-    const existingCheckoutProviderPlanId = context.existing_checkout_url
-      ? readProviderPlanIdFromCheckoutUrl(context.existing_checkout_url)
-      : null;
-
+    // Reuse an in-flight checkout when the member already has a pending row that
+    // is linked to a provider preapproval, regardless of whether the tribe's
+    // current price changed since the checkout was created. The linked
+    // preapproval already encodes its own price/plan and a verified webhook can
+    // activate the membership from it, so the member must be able to finish the
+    // existing checkout. Tying reuse to a current-price match left a member whose
+    // tribe switched its current price unable to either finish the linked
+    // checkout or replace it (the partial unique index blocks reserving a second
+    // pending row), falling through to payment_blocked instead.
     if (
       context.existing_checkout_url &&
-      existingCheckoutProviderPlanId === context.current_price_provider_plan_id
+      context.existing_provider_subscription_id
     ) {
       await this.updatePendingCheckoutInvitationAttribution({
         invitationTokenHash: input.invitationTokenHash,
@@ -1603,6 +1663,11 @@ export class PostgresTribeMemberSubscriptionRepository
       };
     }
 
+    // A pending reservation that has a stored checkout URL but no linked provider
+    // subscription is a stale reservation that never reached a provider
+    // preapproval: cancel it so a fresh provider preapproval can be created for
+    // the current price. A reservation that is already linked to a preapproval is
+    // reused above instead, even across a current-price change.
     const reusableCheckoutSubscriptionId =
       context.existing_checkout_subscription_id &&
       context.existing_checkout_url &&
@@ -1610,7 +1675,7 @@ export class PostgresTribeMemberSubscriptionRepository
         ? context.existing_checkout_subscription_id
         : null;
     if (reusableCheckoutSubscriptionId) {
-      await this.cancelReusablePendingSubscriptionReservation({
+      await this.cancelPendingSubscriptionReservation({
         subscriptionId: reusableCheckoutSubscriptionId,
         tribeId: context.tribe_id,
       });
@@ -1623,53 +1688,31 @@ export class PostgresTribeMemberSubscriptionRepository
       tribeId: context.tribe_id,
     });
 
+    // The reservation only returns a stored checkout URL for a pending row of the
+    // current price that already issued a provider checkout, so it is safe to
+    // reuse without re-creating a provider preapproval.
     if (reservation.checkout_url) {
-      const reservationCheckoutProviderPlanId = readProviderPlanIdFromCheckoutUrl(
-        reservation.checkout_url
-      );
+      await this.updatePendingCheckoutInvitationAttribution({
+        invitationTokenHash: input.invitationTokenHash,
+        tribeId: context.tribe_id,
+      });
 
-      if (
-        reservationCheckoutProviderPlanId ===
-        context.current_price_provider_plan_id
-      ) {
-        await this.updatePendingCheckoutInvitationAttribution({
-          invitationTokenHash: input.invitationTokenHash,
-          tribeId: context.tribe_id,
-        });
+      logMemberSubscriptionPaymentResult({
+        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
+        result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+        traceContext: buildMemberSubscriptionPaymentTraceContext({
+          operationKey,
+          priceId: context.current_price_id,
+          providerPlanId: context.current_price_provider_plan_id,
+          requestId: this.requestId,
+          tribeSlug: input.tribeSlug,
+        }),
+      });
 
-        logMemberSubscriptionPaymentResult({
-          operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
-          result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
-          traceContext: buildMemberSubscriptionPaymentTraceContext({
-            operationKey,
-            priceId: context.current_price_id,
-            providerPlanId: context.current_price_provider_plan_id,
-            requestId: this.requestId,
-            tribeSlug: input.tribeSlug,
-          }),
-        });
-
-        return {
-          checkoutUrl: reservation.checkout_url,
-          status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
-        };
-      }
-
-      if (!reservation.reserved_subscription_id) {
-        logMemberSubscriptionPaymentResult({
-          operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
-          result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
-          traceContext: buildMemberSubscriptionPaymentTraceContext({
-            operationKey,
-            priceId: context.current_price_id,
-            providerPlanId: context.current_price_provider_plan_id,
-            requestId: this.requestId,
-            tribeSlug: input.tribeSlug,
-          }),
-        });
-
-        return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
-      }
+      return {
+        checkoutUrl: reservation.checkout_url,
+        status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
+      };
     }
 
     if (!reservation.reserved_subscription_id) {
@@ -1688,29 +1731,182 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
     }
 
-    const checkoutUrl = this.buildMercadoPagoPlanCheckoutUrl(
-      context.current_price_provider_plan_id
-    );
-
-    return this.persistReservedPlanCheckout({
-      checkoutUrl,
-      invitationTokenHash: input.invitationTokenHash,
+    const checkoutTraceContext = buildMemberSubscriptionPaymentTraceContext({
       operationKey,
       priceId: context.current_price_id,
       providerPlanId: context.current_price_provider_plan_id,
       requestId: this.requestId,
+      tribeSlug: input.tribeSlug,
+    });
+
+    // Resolve the provider access token and create the preapproval through the
+    // API so the authoritative preapproval id is known before the redirect. This
+    // is the core of the fix: the provider subscription is linked to the local
+    // pending row up front, so a verified webhook can activate the membership
+    // even if the member never returns to the app from the provider checkout.
+    const accessToken = await resolveMercadoPagoAccessToken({
+      executeWithDatabase: this.executeWithDatabase,
+      refreshMercadoPagoAccessToken: this.refreshMercadoPagoAccessToken,
+      storedToken: {
+        accessToken: context.access_token,
+        paymentIntegrationId: context.current_price_payment_integration_id,
+        refreshToken: context.refresh_token,
+        tokenExpiresAt: context.token_expires_at,
+        tribeId: context.tribe_id,
+      },
+    }).catch(() => null);
+
+    if (!accessToken) {
+      // Release the just-reserved pending row so an immediate retry can reserve
+      // again instead of waiting out the stale-reservation window.
+      await this.cancelPendingSubscriptionReservation({
+        subscriptionId: reservation.reserved_subscription_id,
+        tribeId: context.tribe_id,
+      });
+
+      logMemberSubscriptionPaymentResult({
+        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
+        result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
+        traceContext: checkoutTraceContext,
+      });
+
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+    }
+
+    let providerSubscription: {
+      checkoutUrl: string;
+      providerSubscriptionId: string;
+    };
+    try {
+      providerSubscription = await this.createMercadoPagoPreapprovalSubscription({
+        accessToken,
+        amountCents: context.current_price_amount_cents,
+        backUrl:
+          resolvePublicAppBaseUrl() + ROUTES.tribes.bySlug(input.tribeSlug),
+        currency: context.current_price_currency,
+        externalReference: buildPriceExternalReference(context.current_price_id),
+        idempotencyKey:
+          MEMBER_SUBSCRIPTION_PREAPPROVAL_IDEMPOTENCY_PREFIX +
+          reservation.reserved_subscription_id,
+        payerEmail: context.current_user_email,
+        preapprovalPlanId: context.current_price_provider_plan_id,
+        reason: context.current_price_name,
+        ...(checkoutTraceContext
+          ? { traceContext: checkoutTraceContext }
+          : {}),
+      });
+    } catch {
+      // A provider timeout or rejection leaves the reserved pending row orphaned
+      // with no checkout URL or linked preapproval. Release it so an immediate
+      // retry can reserve a fresh row instead of being blocked until the
+      // stale-reservation window expires.
+      await this.cancelPendingSubscriptionReservation({
+        subscriptionId: reservation.reserved_subscription_id,
+        tribeId: context.tribe_id,
+      });
+
+      logMemberSubscriptionPaymentResult({
+        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
+        result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
+        traceContext: checkoutTraceContext,
+      });
+
+      return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
+    }
+
+    // Persist the checkout first so the authoritative preapproval id is linked
+    // onto the local pending row before anything else runs. The back URL update
+    // below is a provider network round-trip; if Mercado Pago delivers the
+    // subscription webhook during that window, handleWebhook can only find the
+    // row by mercado_pago_preapproval_id, so the link must happen before the
+    // PUT to avoid a retryable_webhook/503 for an otherwise valid payment that
+    // the provider might not retry.
+    const checkoutResult = await this.persistReservedPlanCheckout({
+      checkoutUrl: providerSubscription.checkoutUrl,
+      invitationTokenHash: input.invitationTokenHash,
+      operationKey,
+      priceId: context.current_price_id,
+      providerPlanId: context.current_price_provider_plan_id,
+      providerSubscriptionId: providerSubscription.providerSubscriptionId,
+      requestId: this.requestId,
+      reservedSubscriptionId: reservation.reserved_subscription_id,
       tribeId: context.tribe_id,
       tribeSlug: input.tribeSlug,
+    });
+
+    // The preapproval was created with a bare tribe back URL because the
+    // authoritative preapproval_id is only known after creation. Link it back
+    // into the back URL now, before the redirect, so an immediate return (the
+    // buyer lands on /slug before the webhook lands) still carries the id and
+    // the tribe page runs its pending-return handling instead of falling
+    // through to the blocked/hidden state. This is best-effort UX hardening:
+    // the local row is already linked above and the verified webhook already
+    // activates the membership, so a failed update must not block the redirect.
+    await this.linkSubscriptionReturnBackUrl({
+      accessToken,
+      providerSubscriptionId: providerSubscription.providerSubscriptionId,
+      traceContext: checkoutTraceContext,
+      tribeSlug: input.tribeSlug,
+    });
+
+    return checkoutResult;
+  }
+
+  /**
+   * Links the authoritative preapproval id into the provider back URL after the
+   * subscription is created, before the checkout redirect.
+   *
+   * Best-effort: a provider failure here only degrades the return experience to
+   * the bare back URL, while the verified webhook still activates the
+   * membership, so the failure is logged and swallowed instead of blocking the
+   * checkout redirect.
+   *
+   * @param input - Provider access token, created preapproval id, trace context, and tribe slug.
+   * @returns Promise that resolves after the back URL link is attempted.
+   */
+  private async linkSubscriptionReturnBackUrl(input: {
+    accessToken: string;
+    providerSubscriptionId: string;
+    traceContext?: PaymentOperationTraceContext;
+    tribeSlug: string;
+  }): Promise<void> {
+    const backUrl =
+      resolvePublicAppBaseUrl() +
+      buildProviderSubscriptionReturnPath({
+        providerSubscriptionId: input.providerSubscriptionId,
+        tribeSlug: input.tribeSlug,
+      });
+
+    await this.updateMercadoPagoPreapprovalBackUrl({
+      accessToken: input.accessToken,
+      backUrl,
+      preapprovalId: input.providerSubscriptionId,
+      ...(input.traceContext ? { traceContext: input.traceContext } : {}),
+    }).catch((error: unknown) => {
+      logPaymentOperation({
+        context: input.traceContext,
+        error,
+        level: SERVER_LOG_LEVEL.warn,
+        message: MEMBER_SUBSCRIPTION_PAYMENT_LOG.returnBackUrlLinkFailedMessage,
+        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.linkReturnBackUrl,
+        preapprovalId: input.providerSubscriptionId,
+        result: MEMBER_SUBSCRIPTION_BACK_URL_LINK_RESULT.failed,
+      });
     });
   }
 
   /**
-   * Cancels a reusable pending checkout reservation before issuing a new provider URL.
+   * Cancels a pending checkout reservation that has no linked provider preapproval.
+   *
+   * Used both to replace a stale reusable reservation before issuing a new
+   * provider URL and to release a just-reserved row when provider checkout
+   * creation fails, so an immediate retry is not blocked by the orphaned pending
+   * row until the stale-reservation window expires.
    *
    * @param input - Existing pending subscription identifiers.
-   * @returns Canceled subscription id, or null when the reservation is no longer reusable.
+   * @returns Canceled subscription id, or null when the reservation is no longer cancelable.
    */
-  private async cancelReusablePendingSubscriptionReservation(input: {
+  private async cancelPendingSubscriptionReservation(input: {
     subscriptionId: string;
     tribeId: string | null;
   }): Promise<string | null> {
@@ -1924,6 +2120,8 @@ export class PostgresTribeMemberSubscriptionRepository
               where tribe_member_subscriptions.tribe_id = ${input.tribeId}
                 and tribe_member_subscriptions.user_id = public.current_app_user_id()
                 and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+                and tribe_member_subscriptions.price_id = ${input.currentPriceId}
+                and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
             )
           order by subscription_idempotency_operations.created_at desc
           limit 1
@@ -1944,9 +2142,14 @@ export class PostgresTribeMemberSubscriptionRepository
   }
 
   /**
-   * Persists the provider plan checkout idempotently before redirecting to Mercado Pago.
+   * Links the provider preapproval to the reserved row and persists the checkout
+   * idempotently before redirecting to Mercado Pago.
    *
-   * @param input - Provider plan checkout data and local subscription identity.
+   * The provider subscription id is attached to the reserved pending row up front
+   * so a verified webhook can match and activate it without depending on the
+   * member returning to the app from the provider checkout.
+   *
+   * @param input - Provider preapproval checkout data and local subscription identity.
    * @returns Start result containing the checkout URL.
    */
   private async persistReservedPlanCheckout(input: {
@@ -1955,11 +2158,24 @@ export class PostgresTribeMemberSubscriptionRepository
     operationKey: string;
     priceId: string;
     providerPlanId: string;
+    providerSubscriptionId: string;
     requestId?: string;
+    reservedSubscriptionId: string;
     tribeId: string | null;
     tribeSlug: string;
   }): Promise<TribeMemberSubscriptionStartResult> {
     return this.executeWithDatabase(async (database) => {
+      await database.execute(sql`
+        update public.tribe_member_subscriptions
+        set
+          mercado_pago_preapproval_id = ${input.providerSubscriptionId},
+          updated_at = timezone('utc', now())
+        where tribe_member_subscriptions.id = ${input.reservedSubscriptionId}
+          and tribe_member_subscriptions.user_id = public.current_app_user_id()
+          and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+          and tribe_member_subscriptions.mercado_pago_preapproval_id is null
+      `);
+
       await database.execute(sql`
         with checkout_context as (
           select set_config(
@@ -2035,7 +2251,10 @@ export class PostgresTribeMemberSubscriptionRepository
           ${input.tribeId},
           public.current_app_user_id(),
           ${hashPayload({ tribeSlug: input.tribeSlug })},
-          ${JSON.stringify({ checkoutUrl: input.checkoutUrl })}::jsonb,
+          ${JSON.stringify({
+            checkoutUrl: input.checkoutUrl,
+            preapprovalPlanId: input.providerPlanId,
+          })}::jsonb,
           timezone('utc', now())
         )
         on conflict (operation_key) do update
