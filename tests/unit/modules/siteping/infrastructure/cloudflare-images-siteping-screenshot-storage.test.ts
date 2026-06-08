@@ -6,6 +6,10 @@ import type { HttpFetcher, HttpResponse } from "@/src/modules/shared/infrastruct
 const VALID_SCREENSHOT_DATA_URL = "data:image/jpeg;base64,SGVsbG8=";
 const UPLOAD_ENDPOINT =
   "https://api.cloudflare.com/client/v4/accounts/account-id/images/v1";
+const STORED_DELIVERY_URL =
+  "https://imagedelivery.net/account-hash/image-1/public";
+const DELETE_ENDPOINT =
+  "https://api.cloudflare.com/client/v4/accounts/account-id/images/v1/image-1";
 
 function configureCloudflareImagesEnvironment() {
   process.env.CLOUDFLARE_IMAGES_ACCOUNT_HASH = "account-hash";
@@ -96,5 +100,80 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
 
     expect(url).toBeNull();
+  });
+
+  it("deletes the Cloudflare image parsed from the stored delivery URL", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async () => buildResponse({ success: true })
+    );
+    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+
+    await expect(
+      storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
+    ).resolves.toBeUndefined();
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const [requestUrl, init] = fetcher.mock.calls[0] ?? [];
+    expect(requestUrl).toBe(DELETE_ENDPOINT);
+    expect(init).toMatchObject({ method: "DELETE" });
+  });
+
+  it("treats a 404 as already deleted without throwing", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async () => buildResponse({ success: false }, false, 404)
+    );
+    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+
+    await expect(
+      storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
+    ).resolves.toBeUndefined();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call Cloudflare when the stored value is an inline data URL", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+
+    await expect(
+      storage.delete({ screenshotUrl: VALID_SCREENSHOT_DATA_URL })
+    ).resolves.toBeUndefined();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("does not call Cloudflare for a delivery URL from another account", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+
+    await expect(
+      storage.delete({
+        screenshotUrl: "https://imagedelivery.net/other-hash/image-1/public",
+      })
+    ).resolves.toBeUndefined();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("does not call Cloudflare to delete when credentials are missing", async () => {
+    delete process.env.CLOUDFLARE_IMAGES_API_TOKEN;
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+
+    await expect(
+      storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
+    ).resolves.toBeUndefined();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("swallows a network error so feedback deletion is never blocked", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async () => {
+        throw new Error("network down");
+      }
+    );
+    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+
+    await expect(
+      storage.delete({ screenshotUrl: STORED_DELIVERY_URL })
+    ).resolves.toBeUndefined();
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });

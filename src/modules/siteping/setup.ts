@@ -32,6 +32,7 @@ export function buildSitepingModule({
       }),
       deleteFeedback: deleteSitepingFeedback({
         githubIssuePublisher,
+        screenshotStorage,
         sitepingFeedbackRepository,
       }),
       getIdentity: getSitepingIdentity({

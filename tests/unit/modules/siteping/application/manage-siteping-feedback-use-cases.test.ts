@@ -189,6 +189,7 @@ function buildScreenshotStorage(
   overrides: Partial<SitepingScreenshotStorage> = {}
 ): SitepingScreenshotStorage {
   return {
+    delete: jest.fn(async () => undefined),
     store: jest.fn(async () => null),
     ...overrides,
   };
@@ -793,6 +794,7 @@ describe("manage Siteping feedback use cases", () => {
     const publisher = buildPublisher();
     const useCase = deleteSitepingFeedback({
       githubIssuePublisher: publisher,
+      screenshotStorage: buildScreenshotStorage(),
       sitepingFeedbackRepository: repository,
     });
 
@@ -858,6 +860,7 @@ describe("manage Siteping feedback use cases", () => {
     const publisher = buildPublisher();
     const useCase = deleteSitepingFeedback({
       githubIssuePublisher: publisher,
+      screenshotStorage: buildScreenshotStorage(),
       sitepingFeedbackRepository: repository,
     });
 
@@ -875,6 +878,77 @@ describe("manage Siteping feedback use cases", () => {
     });
   });
 
+  it("deletes the stored screenshot before removing the feedback record", async () => {
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      findById: jest.fn(async () => ({
+        annotations: [],
+        authorEmail: "leader@example.com",
+        authorName: "Leader Example",
+        clientId: "client-feedback-1",
+        createdAt: new Date("2026-05-31T12:00:00.000Z"),
+        createdBy: "member-1",
+        diagnostics: null,
+        githubIssueNumber: 42,
+        githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted,
+        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        id: FEEDBACK_ID,
+        message: "No puedo guardar el precio",
+        projectName: "tutribu",
+        resolvedAt: null,
+        screenshotUrl,
+        status: "open",
+        type: SITEPING_FEEDBACK_TYPE.bug,
+        updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+        url: "https://tutribu.example.com/matematica/precios",
+        urlPattern: "/[slug]/precios",
+        userAgent: "Jest Browser",
+        viewport: "1280x800",
+      })),
+    });
+    const screenshotStorage = buildScreenshotStorage();
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(repository.remove).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+    expect(
+      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
+  });
+
+  it("does not attempt screenshot deletion when the feedback has no screenshot", async () => {
+    const repository = buildRepository();
+    const screenshotStorage = buildScreenshotStorage();
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+
+    expect(screenshotStorage.delete).not.toHaveBeenCalled();
+    expect(repository.remove).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+  });
+
   it("does not delete local feedback when closing the linked GitHub issue fails", async () => {
     const repository = buildRepository();
     const publisher = buildPublisher({
@@ -884,6 +958,7 @@ describe("manage Siteping feedback use cases", () => {
     });
     const useCase = deleteSitepingFeedback({
       githubIssuePublisher: publisher,
+      screenshotStorage: buildScreenshotStorage(),
       sitepingFeedbackRepository: repository,
     });
 

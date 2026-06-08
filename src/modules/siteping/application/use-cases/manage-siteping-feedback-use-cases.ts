@@ -372,9 +372,11 @@ export function updateSitepingFeedbackStatus({
 
 export function deleteSitepingFeedback({
   githubIssuePublisher,
+  screenshotStorage,
   sitepingFeedbackRepository,
 }: {
   githubIssuePublisher: GitHubIssuePublisher;
+  screenshotStorage: SitepingScreenshotStorage;
   sitepingFeedbackRepository: SitepingFeedbackRepository;
 }) {
   return async (command: SitepingFeedbackProjectCommand): Promise<void> => {
@@ -384,11 +386,25 @@ export function deleteSitepingFeedback({
       return;
     }
 
+    const { screenshotUrl } = feedback;
+
+    // Delete the durable screenshot before removing the record so an interrupted
+    // deletion is retryable: while the row still exists, a later attempt reloads
+    // it and re-runs the idempotent screenshot delete, avoiding an orphan that a
+    // remove-first ordering would strand with no trigger to reclaim it.
+    async function removeFeedbackAndScreenshot(): Promise<void> {
+      if (screenshotUrl) {
+        await screenshotStorage.delete({ screenshotUrl });
+      }
+
+      await sitepingFeedbackRepository.remove(command);
+    }
+
     if (
       feedback.githubIssueStatus ===
       SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted
     ) {
-      await sitepingFeedbackRepository.remove(command);
+      await removeFeedbackAndScreenshot();
 
       return;
     }
@@ -418,6 +434,6 @@ export function deleteSitepingFeedback({
       });
     }
 
-    await sitepingFeedbackRepository.remove(command);
+    await removeFeedbackAndScreenshot();
   };
 }

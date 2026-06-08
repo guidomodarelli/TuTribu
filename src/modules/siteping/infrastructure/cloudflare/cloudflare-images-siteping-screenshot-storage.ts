@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   buildCloudflareImagesDeliveryUrl,
+  extractCloudflareImagesIdFromDeliveryUrl,
   readCloudflareImagesEnvironment,
   type CloudflareImagesEnvironment,
 } from "@/src/modules/shared/infrastructure/cloudflare/cloudflare-images-config";
@@ -12,11 +13,12 @@ import {
   type HttpResponse,
 } from "@/src/modules/shared/infrastructure/http/fetch-with-resilience";
 import type {
+  DeleteSitepingScreenshotCommand,
   SitepingScreenshotStorage,
   StoreSitepingScreenshotCommand,
 } from "@/src/modules/siteping/domain/repositories/siteping-screenshot-storage";
 
-const CLOUDFLARE_IMAGES_UPLOAD = {
+const CLOUDFLARE_IMAGES_API = {
   baseUrl: "https://api.cloudflare.com/client/v4/accounts",
   fileField: "file",
   fileName: "siteping-screenshot",
@@ -30,6 +32,18 @@ const CLOUDFLARE_IMAGES_UPLOAD = {
  * back rather than ever blocking feedback creation on a slow upload.
  */
 const SCREENSHOT_UPLOAD_RESILIENCE: FetchResilienceOptions = {
+  maxRetries: 0,
+  retryDelayMs: 0,
+  timeoutMs: 5000,
+};
+
+/**
+ * A `DELETE` on `images/v1/{id}` is idempotent (a missing image returns 404,
+ * which we treat as already deleted), but we keep a bounded timeout with no
+ * retries so a slow Cloudflare never blocks the feedback deletion flow. A
+ * remaining orphan is reclaimable on a later deletion retry.
+ */
+const SCREENSHOT_DELETE_RESILIENCE: FetchResilienceOptions = {
   maxRetries: 0,
   retryDelayMs: 0,
   timeoutMs: 5000,
@@ -68,7 +82,14 @@ function decodeImageDataUrl(
 }
 
 function buildUploadUrl(environment: CloudflareImagesEnvironment): string {
-  return `${CLOUDFLARE_IMAGES_UPLOAD.baseUrl}/${environment.accountId}/${CLOUDFLARE_IMAGES_UPLOAD.imagePath}`;
+  return `${CLOUDFLARE_IMAGES_API.baseUrl}/${environment.accountId}/${CLOUDFLARE_IMAGES_API.imagePath}`;
+}
+
+function buildImageResourceUrl(
+  environment: CloudflareImagesEnvironment,
+  imageId: string
+): string {
+  return `${CLOUDFLARE_IMAGES_API.baseUrl}/${environment.accountId}/${CLOUDFLARE_IMAGES_API.imagePath}/${imageId}`;
 }
 
 /**
@@ -99,9 +120,9 @@ export class CloudflareImagesSitepingScreenshotStorage
 
     const body = new FormData();
     body.set(
-      CLOUDFLARE_IMAGES_UPLOAD.fileField,
+      CLOUDFLARE_IMAGES_API.fileField,
       decoded.blob,
-      CLOUDFLARE_IMAGES_UPLOAD.fileName
+      CLOUDFLARE_IMAGES_API.fileName
     );
 
     let response: HttpResponse;
@@ -112,7 +133,7 @@ export class CloudflareImagesSitepingScreenshotStorage
         {
           body,
           headers: {
-            Authorization: `${CLOUDFLARE_IMAGES_UPLOAD.tokenPrefix} ${environment.apiToken}`,
+            Authorization: `${CLOUDFLARE_IMAGES_API.tokenPrefix} ${environment.apiToken}`,
           },
           method: "POST",
         },
@@ -148,5 +169,44 @@ export class CloudflareImagesSitepingScreenshotStorage
       deliveryVariant: environment.deliveryVariant,
       imageId,
     });
+  }
+
+  async delete(command: DeleteSitepingScreenshotCommand): Promise<void> {
+    const environment = readCloudflareImagesEnvironment();
+    if (!environment) {
+      return;
+    }
+
+    const imageId = extractCloudflareImagesIdFromDeliveryUrl({
+      accountHash: environment.accountHash,
+      deliveryUrl: command.screenshotUrl,
+    });
+    if (!imageId) {
+      // Inline `data:` fallback or a URL we did not produce — no remote image
+      // to delete, so deleting feedback is a clean no-op here.
+      return;
+    }
+
+    try {
+      // Any resolved response is accepted: `ok` and `404` (already gone) both
+      // mean the orphan is cleared, and any other status leaves it for a later
+      // deletion retry. Only a timeout/network error rejects, which we swallow
+      // so the feedback record can still be removed.
+      await fetchWithResilience(
+        this.fetcher,
+        buildImageResourceUrl(environment, imageId),
+        {
+          headers: {
+            Authorization: `${CLOUDFLARE_IMAGES_API.tokenPrefix} ${environment.apiToken}`,
+          },
+          method: "DELETE",
+        },
+        SCREENSHOT_DELETE_RESILIENCE
+      );
+    } catch {
+      // Timeout or network error — leave the orphan rather than block feedback
+      // deletion; a later deletion retry can reclaim it.
+      return;
+    }
   }
 }
