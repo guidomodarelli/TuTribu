@@ -1038,7 +1038,7 @@ describe("manage Siteping feedback use cases", () => {
     ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
   });
 
-  it("clears the screenshot before marking the GitHub deletion completed", async () => {
+  it("clears the screenshot before closing the linked GitHub issue", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
       findById: jest.fn(async () => ({
@@ -1083,13 +1083,22 @@ describe("manage Siteping feedback use cases", () => {
     expect(repository.markGitHubIssueDeletionCompleted).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
     });
+    // The screenshot is cleared first, while the row is still in its original,
+    // listable status (before it is hidden in deletion_pending and before the
+    // irreversible issue close), so an unconfirmed clear can never leave the
+    // issue closed while the feedback stays visible.
     expect(
-      (publisher.close as jest.Mock).mock.invocationCallOrder[0]
-    ).toBeLessThan(
       (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      (repository.markGitHubIssueDeletionPending as jest.Mock).mock
+        .invocationCallOrder[0]
     );
     expect(
-      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
+      (repository.markGitHubIssueDeletionPending as jest.Mock).mock
+        .invocationCallOrder[0]
+    ).toBeLessThan((publisher.close as jest.Mock).mock.invocationCallOrder[0]);
+    expect(
+      (publisher.close as jest.Mock).mock.invocationCallOrder[0]
     ).toBeLessThan(
       (repository.markGitHubIssueDeletionCompleted as jest.Mock).mock
         .invocationCallOrder[0]
@@ -1100,7 +1109,7 @@ describe("manage Siteping feedback use cases", () => {
     ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
   });
 
-  it("keeps a GitHub-linked feedback visible when the screenshot clear is unconfirmed", async () => {
+  it("does not close the linked GitHub issue when the screenshot clear is unconfirmed", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
       findById: jest.fn(async () => ({
@@ -1145,19 +1154,18 @@ describe("manage Siteping feedback use cases", () => {
       })
     ).rejects.toThrow(/screenshot deletion was not confirmed/i);
 
-    expect(publisher.close).toHaveBeenCalledWith({
-      feedbackId: FEEDBACK_ID,
-      issueNumber: 42,
-    });
     expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    // The clear runs first, while the row is still in its original, listable
+    // status. An unconfirmed clear must leave the GitHub issue OPEN: closing it
+    // before the screenshot is cleared would strand the still-visible panel
+    // feedback next to a permanently closed issue whenever storage stays
+    // unfixable. So the issue is never closed, the row is never hidden, and there
+    // is no status to restore — the normal admin/widget flow can simply retry.
+    expect(publisher.close).not.toHaveBeenCalled();
+    expect(repository.markGitHubIssueDeletionPending).not.toHaveBeenCalled();
     expect(repository.markGitHubIssueDeletionCompleted).not.toHaveBeenCalled();
     expect(repository.remove).not.toHaveBeenCalled();
-    // The row was marked deletion_pending before the (failed) clear, which
-    // findPage() hides. Restoring the published status puts it back on the panel
-    // so the admin/widget flow can retry instead of stranding the screenshot URL.
-    expect(repository.restoreGitHubIssuePublished).toHaveBeenCalledWith({
-      feedbackId: FEEDBACK_ID,
-    });
+    expect(repository.restoreGitHubIssuePublished).not.toHaveBeenCalled();
   });
 
   it("deletes a feedback without a GitHub issue without marking it deletion pending", async () => {

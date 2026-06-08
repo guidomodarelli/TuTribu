@@ -451,6 +451,19 @@ export function deleteSitepingFeedback({
     }
 
     if (feedback.githubIssueNumber) {
+      // Clear the durable screenshot BEFORE touching the GitHub issue, while the
+      // row is still in its original, listable status. Closing the issue is
+      // irreversible from this flow (the publisher exposes no reopen), so an
+      // unconfirmed clear must never run after the close: that would leave the
+      // issue closed forever while the catch restores the row to a visible,
+      // retryable status, permanently desyncing the panel from its tracked issue
+      // whenever storage stays unfixable. Clearing first means an unconfirmed
+      // clear throws with the row untouched and the issue still open, so the
+      // admin/widget flow can retry. delete() is idempotent (a 404 counts as
+      // cleared), so re-clearing an already-deleted screenshot on a later retry —
+      // for example after a close failure restored the row — is safe.
+      await clearScreenshotOrThrow();
+
       if (
         feedback.githubIssueStatus !==
         SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending
@@ -463,24 +476,6 @@ export function deleteSitepingFeedback({
           feedbackId: feedback.id,
           issueNumber: feedback.githubIssueNumber,
         });
-      } catch (error) {
-        await sitepingFeedbackRepository.restoreGitHubIssuePublished({
-          feedbackId: feedback.id,
-        });
-
-        throw error;
-      }
-
-      // The row is already deletion_pending here (markGitHubIssueDeletionPending
-      // ran above), which findPage() hides, so the screenshot must be cleared
-      // BEFORE markGitHubIssueDeletionCompleted and an unconfirmed clear must
-      // restore the published (visible) status — mirroring the close-failure
-      // recovery — so the admin/widget flow can still reach the row to retry
-      // instead of stranding the only screenshot URL on a hidden row. The close is
-      // idempotent, so re-closing on retry is safe, and a completed row never
-      // retains a live screenshot.
-      try {
-        await clearScreenshotOrThrow();
       } catch (error) {
         await sitepingFeedbackRepository.restoreGitHubIssuePublished({
           feedbackId: feedback.id,
