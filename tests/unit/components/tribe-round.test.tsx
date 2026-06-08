@@ -7523,12 +7523,14 @@ describe("TribeRound", () => {
     expect(
       within(carouselDialog).getByRole("img", { name: "Captura del recurso" })
     ).toBeInTheDocument();
+    // The carousel opens on the image (slide 0). The inactive video slide must
+    // not mount its provider iframe yet; it shows a lightweight poster instead.
     expect(
       carouselDialog.querySelector(".TribeRound__videoEmbedIframe")
-    ).toHaveAttribute(
-      "src",
-      "https://www.youtube.com/embed/dQw4w9WgXcQ"
-    );
+    ).toBeNull();
+    expect(
+      carouselDialog.querySelector(".TribeRound__videoThumbnail")
+    ).toHaveAttribute("src", "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg");
     expect(within(carouselDialog).getByText("Medio 1 de 2")).toHaveClass(
       "TribeRound__srOnly"
     );
@@ -7607,8 +7609,98 @@ describe("TribeRound", () => {
       name: "Medios del mensaje",
     });
 
-    expect(
-      carouselDialog.querySelector(".TribeRound__videoEmbedIframe")
-    ).toHaveAttribute("src", "https://www.youtube.com/embed/dQw4w9WgXcQ");
+    // The carousel opens on the YouTube video (active slide), so only that
+    // provider iframe mounts. The inactive Vimeo slide stays a poster, proving
+    // the carousel never boots every player at once.
+    const carouselIframes = carouselDialog.querySelectorAll(
+      ".TribeRound__videoEmbedIframe"
+    );
+
+    expect(carouselIframes).toHaveLength(1);
+    expect(carouselIframes[0]).toHaveAttribute(
+      "src",
+      "https://www.youtube.com/embed/dQw4w9WgXcQ"
+    );
+
+    const carouselPosters = carouselDialog.querySelectorAll(
+      ".TribeRound__videoThumbnail"
+    );
+
+    expect(carouselPosters).toHaveLength(1);
+    expect(carouselPosters[0]).toHaveAttribute(
+      "src",
+      "https://i.vimeocdn.com/video/123456789.jpg"
+    );
+  });
+
+  it("navega el carrusel con las flechas aunque el foco no esté en un control del carrusel", async () => {
+    const user = userEvent.setup();
+    const mixedMediaRound = {
+      ...round,
+      messages: [
+        {
+          ...round.messages[0],
+          media: [
+            {
+              altText: "Captura del recurso",
+              id: "message-image-1",
+              kind: "image" as const,
+              sortOrder: 0,
+              url: "https://imagedelivery.net/account-hash/message-image-1/public",
+            },
+            {
+              externalId: "dQw4w9WgXcQ",
+              id: "message-video-1",
+              kind: "video" as const,
+              provider: "youtube" as const,
+              sortOrder: 1,
+              thumbnailUrl: null,
+            },
+          ],
+          title: "Mensaje con media mixto",
+        },
+      ],
+    };
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={mixedMediaRound}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Abrir mensaje: Mensaje con media mixto/i,
+      })
+    );
+
+    const messageDetailsDialog = screen.getByRole("dialog", {
+      name: "Mensaje",
+    });
+
+    await user.click(
+      within(messageDetailsDialog).getByRole("button", {
+        name: "Abrir imagen 1: Captura del recurso",
+      })
+    );
+
+    const carouselDialog = screen.getByRole("dialog", {
+      name: "Medios del mensaje",
+    });
+    const closeButton = within(carouselDialog).getByRole("button", {
+      name: "Cerrar",
+    });
+
+    closeButton.focus();
+
+    // With focus outside the carousel controls, the dialog still intercepts the
+    // arrow keys (handled = preventDefault), so navigation does not depend on
+    // where focus landed inside the dialog.
+    expect(fireEvent.keyDown(closeButton, { key: "ArrowRight" })).toBe(false);
+    expect(fireEvent.keyDown(closeButton, { key: "ArrowLeft" })).toBe(false);
+
+    expect(carouselDialog).toBeInTheDocument();
   });
 });
