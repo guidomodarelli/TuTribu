@@ -164,3 +164,48 @@ describe("installSitepingRetryQueueGuard", () => {
     ).toBe(widgetWrite);
   });
 });
+
+describe("installSitepingRetryQueueGuard when Web Storage access is blocked", () => {
+  /**
+   * Storage-disabled WebKit/iOS contexts and sandboxed/opaque origins throw a
+   * `SecurityError` from the mere act of reading `window.localStorage`, before
+   * any per-operation guard can run. The mount calls the guard from an effect,
+   * so the read must not be allowed to escape and crash the SitePing mount.
+   */
+  it("degrades to a no-op instead of throwing when reading window.localStorage throws", () => {
+    const hadOwnLocalStorage = Object.prototype.hasOwnProperty.call(
+      window,
+      "localStorage"
+    );
+    const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "localStorage"
+    );
+
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new DOMException("The operation is insecure.", "SecurityError");
+      },
+    });
+
+    try {
+      let restore: (() => void) | undefined;
+      expect(() => {
+        restore = installSitepingRetryQueueGuard();
+      }).not.toThrow();
+      expect(restore).toBeInstanceOf(Function);
+      expect(() => restore?.()).not.toThrow();
+    } finally {
+      if (hadOwnLocalStorage && originalLocalStorageDescriptor) {
+        Object.defineProperty(
+          window,
+          "localStorage",
+          originalLocalStorageDescriptor
+        );
+      } else {
+        delete (window as { localStorage?: Storage }).localStorage;
+      }
+    }
+  });
+});

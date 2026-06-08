@@ -87,24 +87,47 @@ export function stripScreenshotsFromRetryQueue(serializedQueue: string): string 
  * forwards `this`, so only the targeted key is rewritten and every other write
  * passes through untouched.
  *
+ * Acquiring the storage is itself best-effort: storage-disabled WebKit/iOS
+ * contexts and sandboxed/opaque origins throw a `SecurityError` from the mere
+ * act of reading `window.localStorage`, before any per-operation guard can run.
+ * Since the mount installs this guard from an effect, that read must not escape
+ * — an unavailable storage degrades to losing retry-queue persistence, never to
+ * crashing the SitePing mount. The same defense covers the prototype-patch seam.
+ *
  * @param storage - Storage to read the pre-existing queue from. Defaults to the
- *   global `localStorage`; injectable for testing.
- * @returns A cleanup function that restores the original `setItem`.
+ *   global `localStorage` (resolved lazily so a blocked read no-ops instead of
+ *   throwing); injectable for testing.
+ * @returns A cleanup function that restores the original `setItem`, or a no-op
+ *   when Web Storage is unavailable.
  */
 export function installSitepingRetryQueueGuard(
-  storage: Storage = window.localStorage
+  storage?: Storage
 ): () => void {
-  const storagePrototype = Object.getPrototypeOf(storage) as Storage;
-  const originalSetItem = storagePrototype.setItem;
+  const noop = (): void => undefined;
+
+  let resolvedStorage: Storage;
+  let storagePrototype: Storage;
+  let originalSetItem: Storage["setItem"];
+  try {
+    // `?? window.localStorage` keeps the global read lazy: an injected storage
+    // short-circuits it, and a blocked read throws here where it is caught.
+    resolvedStorage = storage ?? window.localStorage;
+    storagePrototype = Object.getPrototypeOf(resolvedStorage) as Storage;
+    originalSetItem = storagePrototype.setItem;
+  } catch {
+    // Web Storage is unavailable (SecurityError on access, or no prototype seam
+    // to patch). Skip persistence guarding entirely rather than crash the mount.
+    return noop;
+  }
 
   // Reclaim a screenshot left by a queue persisted before this guard installed,
   // so the next guarded write starts from a quota-safe baseline.
   try {
-    const existing = storage.getItem(SITEPING_RETRY_QUEUE_STORAGE_KEY);
+    const existing = resolvedStorage.getItem(SITEPING_RETRY_QUEUE_STORAGE_KEY);
     if (existing !== null) {
       const sanitized = stripScreenshotsFromRetryQueue(existing);
       if (sanitized !== existing) {
-        originalSetItem.call(storage, SITEPING_RETRY_QUEUE_STORAGE_KEY, sanitized);
+        originalSetItem.call(resolvedStorage, SITEPING_RETRY_QUEUE_STORAGE_KEY, sanitized);
       }
     }
   } catch {
