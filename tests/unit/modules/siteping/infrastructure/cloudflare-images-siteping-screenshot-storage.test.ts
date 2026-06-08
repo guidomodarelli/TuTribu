@@ -156,7 +156,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     expect(reclaimInit).toMatchObject({ method: HTTP_METHOD.delete });
   });
 
-  it("reclaims the reserved id when Cloudflare rejects the upload", async () => {
+  it("drops the screenshot without reclaiming when Cloudflare rejects the upload with a client error", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
       async (_input, init) => {
         if (init?.method === HTTP_METHOD.post) {
@@ -170,6 +170,34 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
     const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
 
+    // A `4xx` upload rejection (bad credentials or a validation error) is a
+    // confirmed outcome: Cloudflare refused the request and never created the
+    // image, so there is nothing to reclaim. The screenshot is dropped and no
+    // reclaim DELETE is issued.
+    expect(url).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
+      method: HTTP_METHOD.post,
+    });
+  });
+
+  it("reclaims the reserved id when Cloudflare returns a server error on upload because the image may still exist", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async (_input, init) => {
+        if (init?.method === HTTP_METHOD.post) {
+          return buildResponse({ success: false }, false, 500);
+        }
+
+        return buildResponse({ success: true });
+      }
+    );
+    const storage = buildStorageWithReservedId(fetcher);
+
+    const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
+
+    // A `5xx` is not a confirmed rejection: the non-idempotent upload may have
+    // completed on Cloudflare, so the reserved id is reclaimed. Here the reclaim
+    // DELETE confirms the orphan is gone, so no screenshot is persisted.
     expect(url).toBeNull();
     expect(fetcher).toHaveBeenCalledTimes(2);
     const [reclaimUrl, reclaimInit] = fetcher.mock.calls[1] ?? [];
@@ -244,22 +272,25 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  it("persists the reserved delivery URL when Cloudflare rejects the upload and the reclaim delete fails auth", async () => {
+  it("drops the screenshot on a client upload rejection instead of persisting a delivery URL for an image Cloudflare never accepted", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async (_input, init) => {
-        if (init?.method === HTTP_METHOD.post) {
-          return buildResponse({ success: false }, false, 401);
-        }
-
-        return buildResponse({ success: false }, false, 403);
-      }
+      async () =>
+        // The upload is rejected for bad credentials and a reclaim DELETE would
+        // fail auth with those same broken credentials. The reclaim must never
+        // run: the upload was definitively rejected, so there is no image to
+        // preserve. Persisting its reserved delivery URL would later block
+        // deleting the feedback row for an image that does not exist.
+        buildResponse({ success: false }, false, 403)
     );
     const storage = buildStorageWithReservedId(fetcher);
 
     const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
 
-    expect(url).toBe(RESERVED_DELIVERY_URL);
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(url).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0]?.[1]).toMatchObject({
+      method: HTTP_METHOD.post,
+    });
   });
 
   it("reclaims the reserved id when an OK upload response stalls the body stream", async () => {

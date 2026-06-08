@@ -29,6 +29,31 @@ import type {
  */
 const HTTP_STATUS_NOT_FOUND = 404;
 
+/**
+ * Cloudflare answers an upload it refuses outright — bad credentials (`401`/
+ * `403`) or a validation error — with a `4xx` status. A client error is a
+ * confirmed outcome: the request was rejected and no image was created. A `5xx`
+ * (or a lost/stalled response) is instead genuinely unconfirmed because the
+ * non-idempotent upload may still have completed, so only the `4xx` range is
+ * treated as a definitive rejection.
+ */
+const HTTP_STATUS_CLIENT_ERROR_RANGE = { maxExclusive: 500, min: 400 } as const;
+
+/**
+ * Reports whether an upload response status is a definitive client/auth
+ * rejection (`4xx`). A definitive rejection means Cloudflare never created the
+ * image, so the caller drops the screenshot instead of reclaiming the reserved
+ * id or persisting a delivery URL for an image that does not exist. An absent
+ * status is treated as not definitive so an unknown outcome stays reclaimable.
+ */
+function isDefinitiveUploadRejection(status: number | undefined): boolean {
+  return (
+    status !== undefined &&
+    status >= HTTP_STATUS_CLIENT_ERROR_RANGE.min &&
+    status < HTTP_STATUS_CLIENT_ERROR_RANGE.maxExclusive
+  );
+}
+
 const CLOUDFLARE_IMAGES_API = {
   baseUrl: "https://api.cloudflare.com/client/v4/accounts",
   fileField: "file",
@@ -143,11 +168,13 @@ function buildImageResourceUrl(
 /**
  * Uploads a SitePing screenshot to Cloudflare Images server-side and returns its
  * public delivery URL. Reuses the shared Cloudflare configuration already used
- * for message attachments; returns `null` when unconfigured or when a failed
- * upload is confirmed reclaimed, so the use case persists no screenshot instead
- * of inlining the data URL. When an unconfirmed upload's reclaim delete also
- * cannot be confirmed, it returns the reserved delivery URL so the feedback row
- * keeps a retryable reference to a possibly-live public image.
+ * for message attachments; returns `null` when unconfigured, when Cloudflare
+ * confirms the upload was rejected (a `4xx` client/auth error, where no image
+ * was ever created), or when an unconfirmed upload is confirmed reclaimed, so
+ * the use case persists no screenshot instead of inlining the data URL. Only
+ * when an unconfirmed upload's reclaim delete also cannot be confirmed does it
+ * return the reserved delivery URL, so the feedback row keeps a retryable
+ * reference to a possibly-live public image.
  */
 export class CloudflareImagesSitepingScreenshotStorage
   implements SitepingScreenshotStorage
@@ -217,15 +244,25 @@ export class CloudflareImagesSitepingScreenshotStorage
       response,
       reservedImageId
     );
-    if (!deliveryUrl) {
-      // The upload was rejected or its outcome is unconfirmed (a non-OK status
-      // or an OK response with a malformed body), and either case may still have
-      // created the image. Reclaim the reserved id before dropping the screenshot
-      // so a partially created image cannot orphan.
-      return this.reclaimReservedImageId(environment, reservedImageId);
+    if (deliveryUrl) {
+      return deliveryUrl;
     }
 
-    return deliveryUrl;
+    if (isDefinitiveUploadRejection(response.status)) {
+      // A `4xx` client/auth rejection is a confirmed outcome: Cloudflare refused
+      // the request and never created the image, so there is nothing to reclaim
+      // and no screenshot to preserve. Reclaiming here would reuse the same
+      // failing credentials and could persist a reserved delivery URL for an
+      // image that does not exist, which would then block deleting the feedback
+      // row until the credentials are fixed. Drop the screenshot instead.
+      return null;
+    }
+
+    // The outcome is genuinely unconfirmed (a `5xx`, or an OK response with a
+    // malformed or stalled body): the non-idempotent upload may still have
+    // completed on Cloudflare, so reclaim the reserved id before dropping the
+    // screenshot rather than letting a partially created image orphan.
+    return this.reclaimReservedImageId(environment, reservedImageId);
   }
 
   /**
