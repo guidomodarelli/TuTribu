@@ -416,35 +416,36 @@ export function deleteSitepingFeedback({
 
     const { id: feedbackId, screenshotUrl } = feedback;
 
-    // Delete the durable screenshot before removing the record so an interrupted
-    // deletion is retryable: while the row still exists, a later attempt reloads
-    // it and re-runs the idempotent screenshot delete, avoiding an orphan that a
-    // remove-first ordering would strand with no trigger to reclaim it. The row
-    // is only removed once the screenshot delete is confirmed; an unconfirmed
-    // delete (storage unconfigured, an auth/4xx/5xx response, or a timeout)
-    // keeps the row — the only record of the delivery URL — and surfaces the
-    // failure so the deletion can be retried instead of orphaning the image.
-    async function removeFeedbackAndScreenshot(): Promise<void> {
-      if (screenshotUrl) {
-        const { screenshotCleared } = await screenshotStorage.delete({
-          screenshotUrl,
-        });
-
-        if (!screenshotCleared) {
-          throw new Error(
-            `${SITEPING_ERROR_MESSAGE.screenshotDeletionUnconfirmed} (feedbackId=${feedbackId})`
-          );
-        }
+    // Delete the durable screenshot before any step that hides or removes the row
+    // so an interrupted deletion stays retryable: while the row still exists, a
+    // later attempt reloads it and re-runs the idempotent screenshot delete,
+    // avoiding an orphan that a clear-last ordering would strand with no trigger to
+    // reclaim it. An unconfirmed delete (storage unconfigured, an auth/4xx/5xx
+    // response, or a timeout) throws, keeping the row — the only record of the
+    // delivery URL — and surfacing the failure so the deletion can be retried
+    // instead of orphaning the image.
+    async function clearScreenshotOrThrow(): Promise<void> {
+      if (!screenshotUrl) {
+        return;
       }
 
-      await sitepingFeedbackRepository.remove(command);
+      const { screenshotCleared } = await screenshotStorage.delete({
+        screenshotUrl,
+      });
+
+      if (!screenshotCleared) {
+        throw new Error(
+          `${SITEPING_ERROR_MESSAGE.screenshotDeletionUnconfirmed} (feedbackId=${feedbackId})`
+        );
+      }
     }
 
     if (
       feedback.githubIssueStatus ===
       SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted
     ) {
-      await removeFeedbackAndScreenshot();
+      await clearScreenshotOrThrow();
+      await sitepingFeedbackRepository.remove(command);
 
       return;
     }
@@ -469,11 +470,22 @@ export function deleteSitepingFeedback({
         throw error;
       }
 
+      // Clear and confirm the screenshot BEFORE marking the deletion completed.
+      // markGitHubIssueDeletionCompleted hides the row from findPage(), so an
+      // unconfirmed clear afterwards would strand the only screenshot URL on a row
+      // the admin/widget flow can no longer reach to retry. Clearing first keeps
+      // the row visible (status stays deletionPending) and retryable until the
+      // screenshot is confirmed gone, and guarantees a completed row never retains
+      // a live screenshot.
+      await clearScreenshotOrThrow();
+
       await sitepingFeedbackRepository.markGitHubIssueDeletionCompleted({
         feedbackId: feedback.id,
       });
+    } else {
+      await clearScreenshotOrThrow();
     }
 
-    await removeFeedbackAndScreenshot();
+    await sitepingFeedbackRepository.remove(command);
   };
 }

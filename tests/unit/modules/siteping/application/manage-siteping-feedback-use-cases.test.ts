@@ -1038,6 +1038,122 @@ describe("manage Siteping feedback use cases", () => {
     ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
   });
 
+  it("clears the screenshot before marking the GitHub deletion completed", async () => {
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      findById: jest.fn(async () => ({
+        annotations: [],
+        authorEmail: "leader@example.com",
+        authorName: "Leader Example",
+        clientId: "client-feedback-1",
+        createdAt: new Date("2026-05-31T12:00:00.000Z"),
+        createdBy: "member-1",
+        diagnostics: null,
+        githubIssueNumber: 42,
+        githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
+        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        id: FEEDBACK_ID,
+        message: "No puedo guardar el precio",
+        projectName: "tutribu",
+        resolvedAt: null,
+        screenshotUrl,
+        status: "open",
+        type: SITEPING_FEEDBACK_TYPE.bug,
+        updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+        url: "https://tutribu.example.com/matematica/precios",
+        urlPattern: "/[slug]/precios",
+        userAgent: "Jest Browser",
+        viewport: "1280x800",
+      })),
+    });
+    const screenshotStorage = buildScreenshotStorage();
+    const publisher = buildPublisher();
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: publisher,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(repository.markGitHubIssueDeletionCompleted).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+    });
+    expect(
+      (publisher.close as jest.Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
+    );
+    expect(
+      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan(
+      (repository.markGitHubIssueDeletionCompleted as jest.Mock).mock
+        .invocationCallOrder[0]
+    );
+    expect(
+      (repository.markGitHubIssueDeletionCompleted as jest.Mock).mock
+        .invocationCallOrder[0]
+    ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
+  });
+
+  it("keeps a GitHub-linked feedback visible when the screenshot clear is unconfirmed", async () => {
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      findById: jest.fn(async () => ({
+        annotations: [],
+        authorEmail: "leader@example.com",
+        authorName: "Leader Example",
+        clientId: "client-feedback-1",
+        createdAt: new Date("2026-05-31T12:00:00.000Z"),
+        createdBy: "member-1",
+        diagnostics: null,
+        githubIssueNumber: 42,
+        githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
+        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        id: FEEDBACK_ID,
+        message: "No puedo guardar el precio",
+        projectName: "tutribu",
+        resolvedAt: null,
+        screenshotUrl,
+        status: "open",
+        type: SITEPING_FEEDBACK_TYPE.bug,
+        updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+        url: "https://tutribu.example.com/matematica/precios",
+        urlPattern: "/[slug]/precios",
+        userAgent: "Jest Browser",
+        viewport: "1280x800",
+      })),
+    });
+    const screenshotStorage = buildScreenshotStorage({
+      delete: jest.fn(async () => ({ screenshotCleared: false })),
+    });
+    const publisher = buildPublisher();
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: publisher,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        feedbackId: FEEDBACK_ID,
+        projectName: "tutribu",
+      })
+    ).rejects.toThrow(/screenshot deletion was not confirmed/i);
+
+    expect(publisher.close).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      issueNumber: 42,
+    });
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(repository.markGitHubIssueDeletionCompleted).not.toHaveBeenCalled();
+    expect(repository.remove).not.toHaveBeenCalled();
+  });
+
   it("keeps the feedback row when the screenshot deletion is not confirmed", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
