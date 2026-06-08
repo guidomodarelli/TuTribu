@@ -68,6 +68,10 @@ export type AttachSitepingScreenshotCommand = {
   screenshotUrl: string;
 };
 
+export type AttachSitepingScreenshotResult = {
+  screenshotAttached: boolean;
+};
+
 export type MarkGitHubIssuePublishedCommand = {
   feedbackId: string;
   issueNumber: number;
@@ -94,8 +98,15 @@ export type SitepingFeedbackRepository = {
    * screenshot is uploaded only after the row exists: a failed insert or a lost
    * idempotency race can then never strand a public image with no row to drive
    * its cleanup.
+   *
+   * @returns Whether the UPDATE matched a row. A concurrent delete between
+   * `create()` and this link leaves no row to update, so the UPDATE resolves
+   * without error yet persists nothing; the caller must reclaim the orphaned
+   * image instead of treating the screenshot as attached.
    */
-  attachScreenshotUrl(command: AttachSitepingScreenshotCommand): Promise<void>;
+  attachScreenshotUrl(
+    command: AttachSitepingScreenshotCommand
+  ): Promise<AttachSitepingScreenshotResult>;
   create(
     command: CreateSitepingFeedbackRecordCommand
   ): Promise<CreateSitepingFeedbackRecordResult>;

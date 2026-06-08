@@ -382,12 +382,31 @@ describe("PostgresSitepingFeedbackRepository", () => {
     await repository.create(createFeedbackCommand());
     expect(feedbackRows[0].screenshot_url).toBeNull();
 
-    await repository.attachScreenshotUrl({
-      feedbackId: feedbackRows[0].id,
-      screenshotUrl,
-    });
+    await expect(
+      repository.attachScreenshotUrl({
+        feedbackId: feedbackRows[0].id,
+        screenshotUrl,
+      })
+    ).resolves.toEqual({ screenshotAttached: true });
 
     expect(feedbackRows[0].screenshot_url).toBe(screenshotUrl);
+  });
+
+  it("reports no attachment when the feedback row no longer exists", async () => {
+    const { feedbackRows, repository } = createRepositoryHarness();
+
+    await repository.create(createFeedbackCommand());
+    const feedbackId = feedbackRows[0].id;
+    // A concurrent delete between create() and the attach leaves no row for the
+    // screenshot UPDATE to match, so it must report the link did not persist.
+    await repository.remove({ feedbackId, projectName: "tutribu" });
+
+    await expect(
+      repository.attachScreenshotUrl({
+        feedbackId,
+        screenshotUrl: "https://imagedelivery.net/hash/image-1/public",
+      })
+    ).resolves.toEqual({ screenshotAttached: false });
   });
 
   it("finds existing feedback by its idempotency key scoped to project and owner", async () => {

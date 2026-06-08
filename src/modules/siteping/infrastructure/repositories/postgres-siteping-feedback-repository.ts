@@ -6,6 +6,7 @@ import {
 } from "@/src/modules/siteping/constants/siteping";
 import type {
   AttachSitepingScreenshotCommand,
+  AttachSitepingScreenshotResult,
   CreateSitepingFeedbackRecordCommand,
   CreateSitepingFeedbackRecordResult,
   MarkGitHubIssueDeletionCompletedCommand,
@@ -318,19 +319,29 @@ export class PostgresSitepingFeedbackRepository
    * (`created_by = current_app_user_id()`) already confines the UPDATE to the
    * requesting owner's row, mirroring the other status updates.
    *
+   * The UPDATE matches no row when the feedback was deleted between `create()`
+   * and this link (or is no longer visible to the owner under RLS); Postgres
+   * still resolves it without error, so the `returning` clause is what tells the
+   * caller the screenshot was not persisted and the uploaded image must be
+   * reclaimed instead of stranded.
+   *
    * @param command - Target feedback id and the durable delivery URL to persist.
+   * @returns Whether a row was updated with the screenshot URL.
    */
   async attachScreenshotUrl({
     feedbackId,
     screenshotUrl,
-  }: AttachSitepingScreenshotCommand): Promise<void> {
-    await this.executeWithRequestContext(async (database) => {
-      await database.execute(sql`
+  }: AttachSitepingScreenshotCommand): Promise<AttachSitepingScreenshotResult> {
+    return this.executeWithRequestContext(async (database) => {
+      const rows = await database.execute(sql`
         update public.siteping_feedbacks
         set screenshot_url = ${screenshotUrl},
             updated_at = timezone('utc', now())
         where id = ${feedbackId}
+        returning id
       `);
+
+      return { screenshotAttached: rows.rows.length > 0 };
     });
   }
 

@@ -110,7 +110,7 @@ function buildRepository(
   overrides: Partial<SitepingFeedbackRepository> = {}
 ): SitepingFeedbackRepository {
   return {
-    attachScreenshotUrl: jest.fn(),
+    attachScreenshotUrl: jest.fn(async () => ({ screenshotAttached: true })),
     create: jest.fn(async () => ({
       feedback: {
         annotations: [],
@@ -424,6 +424,46 @@ describe("manage Siteping feedback use cases", () => {
 
     // Linking failed after a successful upload, so the orphan is reclaimed
     // best-effort and the feedback still ships without a screenshot.
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl: deliveryUrl,
+    });
+    expect(result.screenshotUrl).toBeNull();
+    expect(publisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feedback: expect.objectContaining({ screenshotUrl: null }),
+      })
+    );
+  });
+
+  it("reclaims the screenshot and keeps no screenshot when the attach matches no row", async () => {
+    const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      attachScreenshotUrl: jest.fn(async () => ({ screenshotAttached: false })),
+    });
+    const screenshotStorage = buildScreenshotStorage({
+      store: jest.fn(async () => deliveryUrl),
+    });
+    const publisher = buildPublisher();
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: publisher,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    const result = await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command: buildFeedbackCommand(),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    // The feedback row was deleted between create() and the attach, so the
+    // UPDATE matched no row and resolved without error. The just-uploaded public
+    // image is reclaimed best-effort and never reaches the GitHub issue, so no
+    // orphan outlives a row that could drive its cleanup.
+    expect(repository.attachScreenshotUrl).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      screenshotUrl: deliveryUrl,
+    });
     expect(screenshotStorage.delete).toHaveBeenCalledWith({
       screenshotUrl: deliveryUrl,
     });

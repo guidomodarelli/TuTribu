@@ -271,12 +271,14 @@ type AttachUploadedScreenshotInput = {
  * Running after the row exists is what keeps an orphan from outliving its
  * trigger: when the upload fails, {@link resolveScreenshotUrl} returns null (the
  * adapter reclaims its own reserved id), so the feedback simply keeps no
- * screenshot. When linking the uploaded URL fails, the image is reclaimed
- * best-effort and the feedback keeps no screenshot, because the bug report
- * itself is durable and the screenshot is non-essential. The only irreducible
- * orphan window left is an upload that succeeds, this link that fails, AND that
- * best-effort delete itself coming back unconfirmed — far narrower than
- * uploading before any row exists, which orphaned on every failed insert.
+ * screenshot. When linking the uploaded URL does not persist — the attach throws,
+ * or it matches no row because the feedback was deleted between create() and this
+ * link — the image is reclaimed best-effort and the feedback keeps no screenshot,
+ * because the bug report itself is durable and the screenshot is non-essential.
+ * The only irreducible orphan window left is an upload that succeeds, this link
+ * that fails to persist, AND that best-effort delete itself coming back
+ * unconfirmed — far narrower than uploading before any row exists, which orphaned
+ * on every failed insert.
  */
 async function attachUploadedScreenshot({
   feedback,
@@ -293,16 +295,30 @@ async function attachUploadedScreenshot({
     return feedback;
   }
 
+  let screenshotAttached: boolean;
+
   try {
-    await sitepingFeedbackRepository.attachScreenshotUrl({
+    ({ screenshotAttached } = await sitepingFeedbackRepository.attachScreenshotUrl({
       feedbackId: feedback.id,
       screenshotUrl,
-    });
+    }));
   } catch {
-    // Linking the uploaded screenshot to the durable row failed, so the public
+    // Linking the uploaded screenshot to the durable row threw, so the public
     // image would orphan with no row referencing it. Reclaim it best-effort and
     // drop the screenshot from this response; the feedback row and its GitHub
     // issue still ship. delete() never throws, so it cannot mask anything.
+    await screenshotStorage.delete({ screenshotUrl });
+
+    return feedback;
+  }
+
+  if (!screenshotAttached) {
+    // The feedback row was deleted (or is no longer visible to this owner under
+    // RLS) between create() and this link, so the UPDATE matched no row and
+    // resolved without error. Treating the screenshot as attached would publish a
+    // GitHub issue carrying a delivery URL that no row references, stranding a
+    // public image with nothing to drive its cleanup. Reclaim it best-effort and
+    // keep no screenshot.
     await screenshotStorage.delete({ screenshotUrl });
 
     return feedback;
