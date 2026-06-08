@@ -14,6 +14,14 @@ const RESERVED_IMAGE_ID = "reserved-image-1";
 const RESERVED_IMAGE_RESOURCE_URL =
   "https://api.cloudflare.com/client/v4/accounts/account-id/images/v1/reserved-image-1";
 const HTTP_METHOD = { delete: "DELETE", post: "POST" } as const;
+/**
+ * Cloudflare rejects a custom image id that is in UUID format with "Custom ID is
+ * not valid: Must not be UUID", so the default-generated id pinned on the upload
+ * must never match this shape.
+ */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CLOUDFLARE_MAX_CUSTOM_ID_LENGTH = 32;
 
 function configureCloudflareImagesEnvironment() {
   process.env.CLOUDFLARE_IMAGES_ACCOUNT_HASH = "account-hash";
@@ -67,6 +75,32 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     expect(requestUrl).toBe(UPLOAD_ENDPOINT);
     expect(init).toMatchObject({ method: HTTP_METHOD.post });
     expect((init?.body as FormData).get("id")).toBe(RESERVED_IMAGE_ID);
+  });
+
+  it("pins a Cloudflare-valid non-UUID custom id with the default generator", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      async () => buildResponse({ success: true })
+    );
+    // No injected id generator: exercise the production default so a regression
+    // back to a raw UUID (which Cloudflare rejects, dropping every screenshot)
+    // is caught here.
+    const storage = new CloudflareImagesSitepingScreenshotStorage(fetcher);
+
+    const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
+
+    expect(url).not.toBeNull();
+    const [, init] = fetcher.mock.calls[0] ?? [];
+    const pinnedId = (init?.body as FormData).get("id");
+    expect(typeof pinnedId).toBe("string");
+    expect((pinnedId as string).length).toBeLessThanOrEqual(
+      CLOUDFLARE_MAX_CUSTOM_ID_LENGTH
+    );
+    expect(pinnedId).not.toMatch(UUID_PATTERN);
+    // The reserved id drives the returned delivery URL, so the upload must be
+    // addressed by exactly the id we pinned.
+    expect(url).toBe(
+      `https://imagedelivery.net/account-hash/${pinnedId as string}/public`
+    );
   });
 
   it("returns null without calling Cloudflare when credentials are missing", async () => {

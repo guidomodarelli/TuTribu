@@ -69,10 +69,30 @@ const SCREENSHOT_DELETE_RESILIENCE: FetchResilienceOptions = {
 const IMAGE_DATA_URL_PATTERN = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/;
 
 /**
+ * Cloudflare rejects a custom image id that is in UUID format with "Custom ID is
+ * not valid: Must not be UUID", because that shape is reserved for the ids it
+ * auto-generates. Stripping the hyphens from a random UUID yields a 32-character
+ * hex id that is collision-free yet not in UUID format, so Cloudflare accepts it
+ * as a pinned custom id.
+ */
+const UUID_HYPHEN_PATTERN = /-/g;
+
+/**
+ * Builds the default reserved Cloudflare image id: a random UUID with its
+ * hyphens removed. A raw `crypto.randomUUID()` is in UUID format and Cloudflare
+ * would reject it on upload, silently dropping every screenshot, so the hyphens
+ * must be stripped to keep the id collision-free while staying a valid custom id.
+ */
+function generateCloudflareCustomImageId(): string {
+  return crypto.randomUUID().replace(UUID_HYPHEN_PATTERN, "");
+}
+
+/**
  * Generates a reserved Cloudflare image id. Injectable so tests can pin a
- * deterministic id; defaults to a random UUID, which never collides with an
- * existing image and so makes reclaiming the reserved id on an unconfirmed
- * upload safe (it can only ever delete the image this request created).
+ * deterministic id; defaults to a hyphen-stripped random UUID, which never
+ * collides with an existing image and is not in UUID format (which Cloudflare
+ * rejects as a custom id), so reclaiming the reserved id on an unconfirmed
+ * upload stays safe — it can only ever delete the image this request created.
  */
 export type SitepingScreenshotImageIdGenerator = () => string;
 
@@ -132,8 +152,7 @@ export class CloudflareImagesSitepingScreenshotStorage
 
   constructor(
     fetcher: HttpFetcher = (input, init) => fetch(input, init),
-    generateImageId: SitepingScreenshotImageIdGenerator = () =>
-      crypto.randomUUID()
+    generateImageId: SitepingScreenshotImageIdGenerator = generateCloudflareCustomImageId
   ) {
     this.fetcher = fetcher;
     this.generateImageId = generateImageId;
