@@ -302,6 +302,16 @@ export function createSitepingFeedback({
     });
 
     if (!result.wasCreated) {
+      // A concurrent submission with the same idempotency key won the insert
+      // race (ON CONFLICT DO NOTHING), so this request's just-uploaded
+      // screenshot is not referenced by any feedback row and would orphan a
+      // public image in object storage. Delete it; the surviving feedback keeps
+      // its own screenshot. delete() is best-effort and never throws, so it
+      // cannot break the idempotent response.
+      if (screenshotUrl) {
+        await screenshotStorage.delete({ screenshotUrl });
+      }
+
       return serializeSitepingFeedback(result.feedback);
     }
 

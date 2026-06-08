@@ -353,6 +353,7 @@ describe("manage Siteping feedback use cases", () => {
     expect(repository.create).toHaveBeenCalledWith(
       expect.objectContaining({ screenshotUrl: deliveryUrl })
     );
+    expect(screenshotStorage.delete).not.toHaveBeenCalled();
   });
 
   it("persists null instead of the inline data URL when the screenshot upload fails", async () => {
@@ -633,9 +634,10 @@ describe("manage Siteping feedback use cases", () => {
       })),
     });
     const publisher = buildPublisher();
+    const screenshotStorage = buildScreenshotStorage();
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
-      screenshotStorage: buildScreenshotStorage(),
+      screenshotStorage,
       sitepingFeedbackRepository: repository,
     });
 
@@ -647,6 +649,57 @@ describe("manage Siteping feedback use cases", () => {
 
     expect(publisher.publish).not.toHaveBeenCalled();
     expect(repository.markGitHubIssuePublished).not.toHaveBeenCalled();
+    expect(screenshotStorage.delete).not.toHaveBeenCalled();
+  });
+
+  it("deletes the just-uploaded screenshot when the create resolves an idempotency conflict", async () => {
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      create: jest.fn(async () => ({
+        feedback: {
+          annotations: [],
+          authorEmail: "leader@example.com",
+          authorName: "Leader Example",
+          clientId: "client-feedback-1",
+          createdAt: new Date("2026-05-31T12:00:00.000Z"),
+          createdBy: "member-1",
+          diagnostics: null,
+          githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
+          id: FEEDBACK_ID,
+          message: "No puedo guardar el precio",
+          projectName: "tutribu",
+          resolvedAt: null,
+          screenshotUrl: "https://imagedelivery.net/hash/winning-image/public",
+          status: "open",
+          type: SITEPING_FEEDBACK_TYPE.bug,
+          updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+          url: "https://tutribu.example.com/matematica/precios",
+          urlPattern: "/[slug]/precios",
+          userAgent: "Jest Browser",
+          viewport: "1280x800",
+        },
+        wasCreated: false,
+      })),
+    });
+    const publisher = buildPublisher();
+    const screenshotStorage = buildScreenshotStorage({
+      store: jest.fn(async () => screenshotUrl),
+    });
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: publisher,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command: buildFeedbackCommand(),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    expect(screenshotStorage.store).toHaveBeenCalledTimes(1);
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(publisher.publish).not.toHaveBeenCalled();
   });
 
   it("reuses the existing idempotent feedback without uploading another screenshot", async () => {
