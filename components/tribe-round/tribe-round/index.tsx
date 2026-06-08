@@ -118,6 +118,7 @@ import {
   buildPlayerEmbedSource,
 } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { buildVideoThumbnailSource } from "@/src/modules/shared/application/video/build-video-thumbnail-source";
+import { resolveImageCarouselSlideIndicesOnReInit } from "./image-carousel-slide-indices";
 import styles from "./styles.module.scss";
 
 const TRIBE_ROUND_ROUTE = {
@@ -412,6 +413,17 @@ const TRIBE_ROUND_CAROUSEL = {
 const TRIBE_ROUND_CAROUSEL_KEY = {
   next: "ArrowRight",
   previous: "ArrowLeft",
+} as const;
+
+/**
+ * Embla carousel event names the media dialog subscribes to. `select` fires at
+ * the start of a scroll (responsive progress), `settle` once it finishes (safe
+ * point to mount/unmount the active video iframe), and `reInit` on re-layout.
+ */
+const TRIBE_ROUND_CAROUSEL_EVENT = {
+  reInit: "reInit",
+  select: "select",
+  settle: "settle",
 } as const;
 
 const COMPOSER_BODY_SCROLL = {
@@ -1739,9 +1751,25 @@ function TribeRoundContent({
     useState<ActiveMessageMediaCarousel | null>(null);
   const [activeImageCarouselSlideIndex, setActiveImageCarouselSlideIndex] =
     useState(0);
+  // The slide that drives video iframe mounting. It only follows the carousel
+  // once a scroll animation has fully settled, so the heavy mount/unmount of a
+  // cross-origin player never runs mid-transition (which stalled Embla's rAF
+  // animation and made the arrow controls appear stuck).
+  const [settledImageCarouselSlideIndex, setSettledImageCarouselSlideIndex] =
+    useState(0);
   const [imageCarouselApi, setImageCarouselApi] = useState<CarouselApi | null>(
     null
   );
+  // Tracks whether Embla is mid-scroll. `select` opens this window (the target
+  // snap changed); `settle` closes it, and so does a `reInit`, which aborts any
+  // in-flight scroll. While the window is open, the post-decode image-preload
+  // `reInit` is deferred so it never recreates the engine mid-animation and cuts
+  // arrow navigation short.
+  const isImageCarouselScrollInProgressRef = useRef(false);
+  // Holds a post-decode image-preload `reInit` that arrived mid-scroll. Embla's
+  // `reInit` recreates the engine and aborts the running scroll, so it is parked
+  // here and flushed once the scroll settles, keeping arrow navigation smooth.
+  const pendingImageCarouselReInitRef = useRef(false);
   const [isMessageDetailsOpen, setIsMessageDetailsOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [messagePendingDeletion, setMessagePendingDeletion] =
@@ -2031,17 +2059,78 @@ function TribeRoundContent({
       return;
     }
 
-    const updateImageCarouselSlideIndex = () => {
+    // `select` fires as soon as the target snap changes (scroll start) and keeps
+    // the progress indicator responsive. `settle` fires once the scroll
+    // animation has finished; gating video iframe mounting on it avoids tearing
+    // down a cross-origin player while Embla is still animating. A `reInit`
+    // (image preload decode or relayout during navigation) recreates the engine
+    // at rest on the selected snap and emits no follow-up `settle`, so it ends
+    // any in-flight scroll and finalizes the iframe-driving settled index.
+    const beginImageCarouselScroll = () => {
+      isImageCarouselScrollInProgressRef.current = true;
       setActiveImageCarouselSlideIndex(imageCarouselApi.selectedScrollSnap());
     };
 
-    updateImageCarouselSlideIndex();
-    imageCarouselApi.on("reInit", updateImageCarouselSlideIndex);
-    imageCarouselApi.on("select", updateImageCarouselSlideIndex);
+    // Runs a post-decode image-preload `reInit` that was deferred because it
+    // arrived mid-scroll, now that the carousel is at rest. The follow-up
+    // `reInit` event finalizes the indices again (a no-op at the settled snap).
+    const flushPendingImageCarouselReInit = () => {
+      if (!pendingImageCarouselReInitRef.current) {
+        return;
+      }
+
+      pendingImageCarouselReInitRef.current = false;
+      imageCarouselApi.reInit();
+    };
+
+    const settleImageCarouselSlideIndices = () => {
+      isImageCarouselScrollInProgressRef.current = false;
+      const settledSnapIndex = imageCarouselApi.selectedScrollSnap();
+      setActiveImageCarouselSlideIndex(settledSnapIndex);
+      setSettledImageCarouselSlideIndex(settledSnapIndex);
+      flushPendingImageCarouselReInit();
+    };
+
+    const finalizeImageCarouselSlideIndicesOnReInit = () => {
+      const { activeSlideIndex, settledSlideIndex, isScrollInProgress } =
+        resolveImageCarouselSlideIndicesOnReInit(
+          imageCarouselApi.selectedScrollSnap()
+        );
+      isImageCarouselScrollInProgressRef.current = isScrollInProgress;
+      setActiveImageCarouselSlideIndex(activeSlideIndex);
+      setSettledImageCarouselSlideIndex(settledSlideIndex);
+    };
+
+    // Known non-animated initialization: sync both indices from a settled state.
+    settleImageCarouselSlideIndices();
+    imageCarouselApi.on(
+      TRIBE_ROUND_CAROUSEL_EVENT.reInit,
+      finalizeImageCarouselSlideIndicesOnReInit
+    );
+    imageCarouselApi.on(
+      TRIBE_ROUND_CAROUSEL_EVENT.select,
+      beginImageCarouselScroll
+    );
+    imageCarouselApi.on(
+      TRIBE_ROUND_CAROUSEL_EVENT.settle,
+      settleImageCarouselSlideIndices
+    );
 
     return () => {
-      imageCarouselApi.off("reInit", updateImageCarouselSlideIndex);
-      imageCarouselApi.off("select", updateImageCarouselSlideIndex);
+      isImageCarouselScrollInProgressRef.current = false;
+      pendingImageCarouselReInitRef.current = false;
+      imageCarouselApi.off(
+        TRIBE_ROUND_CAROUSEL_EVENT.reInit,
+        finalizeImageCarouselSlideIndicesOnReInit
+      );
+      imageCarouselApi.off(
+        TRIBE_ROUND_CAROUSEL_EVENT.select,
+        beginImageCarouselScroll
+      );
+      imageCarouselApi.off(
+        TRIBE_ROUND_CAROUSEL_EVENT.settle,
+        settleImageCarouselSlideIndices
+      );
     };
   }, [activeImageCarousel, imageCarouselApi]);
 
@@ -2071,9 +2160,19 @@ function TribeRoundContent({
         preloadedImage.decode ? preloadedImage.decode() : Promise.resolve()
       )
     ).then(() => {
-      if (!isCancelled) {
-        imageCarouselApi?.reInit();
+      if (isCancelled) {
+        return;
       }
+
+      // A `reInit` recreates the Embla engine and aborts any running scroll, so
+      // firing it mid-navigation would cut a scroll short. Park it until the
+      // scroll settles; the settle handler flushes the pending reInit at rest.
+      if (isImageCarouselScrollInProgressRef.current) {
+        pendingImageCarouselReInitRef.current = true;
+        return;
+      }
+
+      imageCarouselApi?.reInit();
     });
 
     return () => {
@@ -4319,6 +4418,7 @@ function TribeRoundContent({
   }) => {
     stopMessageDetailsOpening(event);
     setActiveImageCarouselSlideIndex(mediaIndex);
+    setSettledImageCarouselSlideIndex(mediaIndex);
     setActiveImageCarousel({ mediaIndex, messageId });
   };
 
@@ -4326,6 +4426,7 @@ function TribeRoundContent({
     if (!isOpen) {
       setActiveImageCarousel(null);
       setActiveImageCarouselSlideIndex(0);
+      setSettledImageCarouselSlideIndex(0);
       setImageCarouselApi(null);
     }
   };
@@ -4833,6 +4934,11 @@ function TribeRoundContent({
               duration: TRIBE_ROUND_CAROUSEL.transitionDuration,
               loop: messageMedia.length > 1,
               startIndex: activeImageCarousel?.mediaIndex ?? 0,
+              // Embla auto-scrolls to whichever slide holds focus. A focused
+              // video iframe would keep snapping the carousel back to its
+              // slide, cancelling arrow navigation. Media slides are navigated
+              // explicitly, so focus must not drive scroll position.
+              watchFocus: false,
             }}
             setApi={setImageCarouselApi}
           >
@@ -4840,7 +4946,7 @@ function TribeRoundContent({
               {messageMedia.map((mediaItem, mediaIndex) => {
                 if (mediaItem.kind === MESSAGE_MEDIA_KIND.video) {
                   const isActiveSlide =
-                    mediaIndex === activeImageCarouselSlideIndex;
+                    mediaIndex === settledImageCarouselSlideIndex;
 
                   return (
                     <CarouselItem
