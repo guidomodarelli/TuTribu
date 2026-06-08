@@ -414,6 +414,17 @@ const TRIBE_ROUND_CAROUSEL_KEY = {
   previous: "ArrowLeft",
 } as const;
 
+/**
+ * Embla carousel event names the media dialog subscribes to. `select` fires at
+ * the start of a scroll (responsive progress), `settle` once it finishes (safe
+ * point to mount/unmount the active video iframe), and `reInit` on re-layout.
+ */
+const TRIBE_ROUND_CAROUSEL_EVENT = {
+  reInit: "reInit",
+  select: "select",
+  settle: "settle",
+} as const;
+
 const COMPOSER_BODY_SCROLL = {
   bottomBehavior: "smooth",
   pollBlockAlignment: "end",
@@ -1739,6 +1750,12 @@ function TribeRoundContent({
     useState<ActiveMessageMediaCarousel | null>(null);
   const [activeImageCarouselSlideIndex, setActiveImageCarouselSlideIndex] =
     useState(0);
+  // The slide that drives video iframe mounting. It only follows the carousel
+  // once a scroll animation has fully settled, so the heavy mount/unmount of a
+  // cross-origin player never runs mid-transition (which stalled Embla's rAF
+  // animation and made the arrow controls appear stuck).
+  const [settledImageCarouselSlideIndex, setSettledImageCarouselSlideIndex] =
+    useState(0);
   const [imageCarouselApi, setImageCarouselApi] = useState<CarouselApi | null>(
     null
   );
@@ -2031,17 +2048,50 @@ function TribeRoundContent({
       return;
     }
 
-    const updateImageCarouselSlideIndex = () => {
+    // `select` fires as soon as the target snap changes (animation start) and
+    // keeps the progress indicator responsive. `settle` fires once the scroll
+    // animation has finished; gating video iframe mounting on it avoids tearing
+    // down a cross-origin player while Embla is still animating.
+    const updateActiveImageCarouselSlideIndex = () => {
       setActiveImageCarouselSlideIndex(imageCarouselApi.selectedScrollSnap());
     };
 
-    updateImageCarouselSlideIndex();
-    imageCarouselApi.on("reInit", updateImageCarouselSlideIndex);
-    imageCarouselApi.on("select", updateImageCarouselSlideIndex);
+    const updateSettledImageCarouselSlideIndex = () => {
+      setSettledImageCarouselSlideIndex(imageCarouselApi.selectedScrollSnap());
+    };
+
+    const syncImageCarouselSlideIndices = () => {
+      updateActiveImageCarouselSlideIndex();
+      updateSettledImageCarouselSlideIndex();
+    };
+
+    syncImageCarouselSlideIndices();
+    imageCarouselApi.on(
+      TRIBE_ROUND_CAROUSEL_EVENT.reInit,
+      syncImageCarouselSlideIndices
+    );
+    imageCarouselApi.on(
+      TRIBE_ROUND_CAROUSEL_EVENT.select,
+      updateActiveImageCarouselSlideIndex
+    );
+    imageCarouselApi.on(
+      TRIBE_ROUND_CAROUSEL_EVENT.settle,
+      updateSettledImageCarouselSlideIndex
+    );
 
     return () => {
-      imageCarouselApi.off("reInit", updateImageCarouselSlideIndex);
-      imageCarouselApi.off("select", updateImageCarouselSlideIndex);
+      imageCarouselApi.off(
+        TRIBE_ROUND_CAROUSEL_EVENT.reInit,
+        syncImageCarouselSlideIndices
+      );
+      imageCarouselApi.off(
+        TRIBE_ROUND_CAROUSEL_EVENT.select,
+        updateActiveImageCarouselSlideIndex
+      );
+      imageCarouselApi.off(
+        TRIBE_ROUND_CAROUSEL_EVENT.settle,
+        updateSettledImageCarouselSlideIndex
+      );
     };
   }, [activeImageCarousel, imageCarouselApi]);
 
@@ -4319,6 +4369,7 @@ function TribeRoundContent({
   }) => {
     stopMessageDetailsOpening(event);
     setActiveImageCarouselSlideIndex(mediaIndex);
+    setSettledImageCarouselSlideIndex(mediaIndex);
     setActiveImageCarousel({ mediaIndex, messageId });
   };
 
@@ -4326,6 +4377,7 @@ function TribeRoundContent({
     if (!isOpen) {
       setActiveImageCarousel(null);
       setActiveImageCarouselSlideIndex(0);
+      setSettledImageCarouselSlideIndex(0);
       setImageCarouselApi(null);
     }
   };
@@ -4833,6 +4885,11 @@ function TribeRoundContent({
               duration: TRIBE_ROUND_CAROUSEL.transitionDuration,
               loop: messageMedia.length > 1,
               startIndex: activeImageCarousel?.mediaIndex ?? 0,
+              // Embla auto-scrolls to whichever slide holds focus. A focused
+              // video iframe would keep snapping the carousel back to its
+              // slide, cancelling arrow navigation. Media slides are navigated
+              // explicitly, so focus must not drive scroll position.
+              watchFocus: false,
             }}
             setApi={setImageCarouselApi}
           >
@@ -4840,7 +4897,7 @@ function TribeRoundContent({
               {messageMedia.map((mediaItem, mediaIndex) => {
                 if (mediaItem.kind === MESSAGE_MEDIA_KIND.video) {
                   const isActiveSlide =
-                    mediaIndex === activeImageCarouselSlideIndex;
+                    mediaIndex === settledImageCarouselSlideIndex;
 
                   return (
                     <CarouselItem
