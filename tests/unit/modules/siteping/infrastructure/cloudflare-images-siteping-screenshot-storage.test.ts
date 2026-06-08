@@ -17,6 +17,12 @@ const RESERVED_DELIVERY_URL =
   "https://imagedelivery.net/account-hash/reserved-image-1/public";
 const HTTP_METHOD = { delete: "DELETE", post: "POST" } as const;
 /**
+ * Mirrors `SCREENSHOT_UPLOAD_RESILIENCE.timeoutMs` in the storage adapter, which
+ * also bounds the upload body read. Advancing fake timers by this budget fires
+ * the stalled-body fallback.
+ */
+const SCREENSHOT_UPLOAD_TIMEOUT_MS = 5000;
+/**
  * Cloudflare rejects a custom image id that is in UUID format with "Custom ID is
  * not valid: Must not be UUID", so the default-generated id pinned on the upload
  * must never match this shape.
@@ -254,6 +260,43 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
     expect(url).toBe(RESERVED_DELIVERY_URL);
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("reclaims the reserved id when an OK upload response stalls the body stream", async () => {
+    jest.useFakeTimers();
+    try {
+      const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+        async (_input, init) => {
+          if (init?.method === HTTP_METHOD.post) {
+            // Headers arrive but the body never streams. The header-fetch
+            // timeout is already cleared, so an unbounded read would hang
+            // feedback creation; the bounded read must fall back instead.
+            return {
+              json: () => new Promise<unknown>(() => {}),
+              ok: true,
+              status: 200,
+            };
+          }
+
+          return buildResponse({ success: true });
+        }
+      );
+      const storage = buildStorageWithReservedId(fetcher);
+
+      const storePromise = storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
+      await jest.advanceTimersByTimeAsync(SCREENSHOT_UPLOAD_TIMEOUT_MS);
+      const url = await storePromise;
+
+      expect(url).toBeNull();
+      // The stalled read is treated as an unconfirmed upload, so the reserved id
+      // is reclaimed exactly like a lost response or a malformed body.
+      expect(fetcher).toHaveBeenCalledTimes(2);
+      const [reclaimUrl, reclaimInit] = fetcher.mock.calls[1] ?? [];
+      expect(reclaimUrl).toBe(RESERVED_IMAGE_RESOURCE_URL);
+      expect(reclaimInit).toMatchObject({ method: HTTP_METHOD.delete });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("returns null when Cloudflare reports the upload unsuccessful", async () => {

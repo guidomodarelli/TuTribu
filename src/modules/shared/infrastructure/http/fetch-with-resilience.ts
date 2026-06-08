@@ -56,6 +56,7 @@ const defaultOptions: FetchResilienceOptions = {
 const FETCH_RESILIENCE_ABORT_ERROR_NAME = "AbortError";
 const FETCH_RESILIENCE_ABORT_EVENT_NAME = "abort";
 const FETCH_RESILIENCE_ERROR_MESSAGE = {
+  bodyReadTimedOut: "Response body read timed out",
   requestAborted: "Request aborted",
   requestFailed: "Request failed",
   requestTimedOut: "Request timed out",
@@ -267,4 +268,38 @@ export async function fetchWithResilience(
   }
 
   return executeAttempt(0);
+}
+
+/**
+ * Reads the JSON body of an already-received response under a bounded timeout.
+ *
+ * {@link fetchWithResilience} only times out the header fetch: once the response
+ * arrives its timeout is cleared. An intermediary (e.g. Cloudflare) can stream
+ * the headers and then stall the body, so a bare `response.json()` would hang
+ * indefinitely with no timeout left to abort it. Racing the read against a fresh
+ * timeout lets the caller fall back instead of blocking the surrounding flow.
+ *
+ * The abandoned read is left to settle on its own; the rejection is what
+ * unblocks the caller, which is the whole point. The rejection message is
+ * intentionally generic so callers can collapse a stalled body into the same
+ * fallback branch they already use for a malformed body.
+ */
+export async function readJsonWithTimeout(
+  response: HttpResponse,
+  timeoutMs: number
+): Promise<unknown> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const bodyReadTimeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(FETCH_RESILIENCE_ERROR_MESSAGE.bodyReadTimedOut));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([response.json(), bodyReadTimeout]);
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  }
 }

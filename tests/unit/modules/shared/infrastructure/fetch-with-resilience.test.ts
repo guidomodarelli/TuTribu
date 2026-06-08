@@ -1,8 +1,12 @@
 import {
   fetchWithResilience,
+  readJsonWithTimeout,
   type FetchLifecycleLogger,
   type HttpFetcher,
+  type HttpResponse,
 } from "@/src/modules/shared/infrastructure/http/fetch-with-resilience";
+
+const BODY_READ_TIMEOUT_MS = 5000;
 
 const retryableServerErrorCases = [
   {
@@ -206,5 +210,40 @@ describe("fetchWithResilience", () => {
         reason: "caller-abort",
       })
     );
+  });
+});
+
+describe("readJsonWithTimeout", () => {
+  it("resolves the parsed body when the read settles before the timeout", async () => {
+    const response: HttpResponse = {
+      json: async () => ({ success: true }),
+      ok: true,
+      status: 200,
+    };
+
+    await expect(readJsonWithTimeout(response, BODY_READ_TIMEOUT_MS)).resolves.toEqual({
+      success: true,
+    });
+  });
+
+  it("rejects when the body stream stalls past the timeout so the caller can fall back", async () => {
+    jest.useFakeTimers();
+    try {
+      // Headers arrived but the body never streams: `json()` never settles.
+      const response: HttpResponse = {
+        json: () => new Promise<unknown>(() => {}),
+        ok: true,
+        status: 200,
+      };
+
+      const readPromise = readJsonWithTimeout(response, BODY_READ_TIMEOUT_MS);
+      const assertion = expect(readPromise).rejects.toThrow("Response body read timed out");
+
+      await jest.advanceTimersByTimeAsync(BODY_READ_TIMEOUT_MS);
+
+      await assertion;
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

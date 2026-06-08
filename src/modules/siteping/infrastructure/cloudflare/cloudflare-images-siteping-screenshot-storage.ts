@@ -10,6 +10,7 @@ import {
 } from "@/src/modules/shared/infrastructure/cloudflare/cloudflare-images-config";
 import {
   fetchWithResilience,
+  readJsonWithTimeout,
   type FetchResilienceOptions,
   type HttpFetcher,
   type HttpResponse,
@@ -277,12 +278,18 @@ export class CloudflareImagesSitepingScreenshotStorage
 
     let payload: CloudflareImageUploadResponse;
     try {
-      payload = (await response.json()) as CloudflareImageUploadResponse;
+      // The upload timeout in `fetchWithResilience` only covers the header
+      // fetch and is already cleared once this response arrives, so an
+      // intermediary (e.g. Cloudflare) that sends headers and then stalls the
+      // body stream would hang a bare `response.json()` forever and block
+      // feedback creation. Bound the body read on the same upload budget so a
+      // stalled — or malformed, non-JSON — body both surface as an unconfirmed
+      // upload that lets the caller reclaim the reserved id instead.
+      payload = (await readJsonWithTimeout(
+        response,
+        SCREENSHOT_UPLOAD_RESILIENCE.timeoutMs
+      )) as CloudflareImageUploadResponse;
     } catch {
-      // An intermediary (e.g. Cloudflare) can return an OK response with a
-      // malformed, non-JSON body. Treat the upload as unconfirmed so the caller
-      // reclaims the reserved id rather than letting the parse error block
-      // feedback creation or strand a possibly-created orphan.
       return null;
     }
 
