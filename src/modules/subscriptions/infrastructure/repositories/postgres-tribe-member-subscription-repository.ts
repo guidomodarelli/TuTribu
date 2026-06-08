@@ -1814,22 +1814,14 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
     }
 
-    // The preapproval was created with a bare tribe back URL because the
-    // authoritative preapproval_id is only known after creation. Link it back
-    // into the back URL now, before the redirect, so an immediate return (the
-    // buyer lands on /slug before the webhook lands) still carries the id and
-    // the tribe page runs its pending-return handling instead of falling
-    // through to the blocked/hidden state. This is best-effort UX hardening:
-    // webhook-based linking already activates the membership, so a failed
-    // update must not block the checkout redirect.
-    await this.linkSubscriptionReturnBackUrl({
-      accessToken,
-      providerSubscriptionId: providerSubscription.providerSubscriptionId,
-      traceContext: checkoutTraceContext,
-      tribeSlug: input.tribeSlug,
-    });
-
-    return this.persistReservedPlanCheckout({
+    // Persist the checkout first so the authoritative preapproval id is linked
+    // onto the local pending row before anything else runs. The back URL update
+    // below is a provider network round-trip; if Mercado Pago delivers the
+    // subscription webhook during that window, handleWebhook can only find the
+    // row by mercado_pago_preapproval_id, so the link must happen before the
+    // PUT to avoid a retryable_webhook/503 for an otherwise valid payment that
+    // the provider might not retry.
+    const checkoutResult = await this.persistReservedPlanCheckout({
       checkoutUrl: providerSubscription.checkoutUrl,
       invitationTokenHash: input.invitationTokenHash,
       operationKey,
@@ -1841,6 +1833,23 @@ export class PostgresTribeMemberSubscriptionRepository
       tribeId: context.tribe_id,
       tribeSlug: input.tribeSlug,
     });
+
+    // The preapproval was created with a bare tribe back URL because the
+    // authoritative preapproval_id is only known after creation. Link it back
+    // into the back URL now, before the redirect, so an immediate return (the
+    // buyer lands on /slug before the webhook lands) still carries the id and
+    // the tribe page runs its pending-return handling instead of falling
+    // through to the blocked/hidden state. This is best-effort UX hardening:
+    // the local row is already linked above and the verified webhook already
+    // activates the membership, so a failed update must not block the redirect.
+    await this.linkSubscriptionReturnBackUrl({
+      accessToken,
+      providerSubscriptionId: providerSubscription.providerSubscriptionId,
+      traceContext: checkoutTraceContext,
+      tribeSlug: input.tribeSlug,
+    });
+
+    return checkoutResult;
   }
 
   /**

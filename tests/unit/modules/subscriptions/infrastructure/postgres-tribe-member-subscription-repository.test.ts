@@ -1029,6 +1029,66 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(updateMercadoPagoPreapprovalBackUrl).toHaveBeenCalledTimes(1);
   });
 
+  it("links the reserved row to the provider preapproval before attempting the best-effort back URL update", async () => {
+    const callOrder: string[] = [];
+    const attachPreapprovalPattern =
+      /update public\.tribe_member_subscriptions[\s\S]*mercado_pago_preapproval_id =[\s\S]*mercado_pago_preapproval_id is null/;
+    const execute = jest
+      .fn()
+      .mockImplementationOnce(async () => ({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      }))
+      .mockImplementationOnce(async () => ({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      }))
+      .mockImplementation(async (statement: unknown) => {
+        if (attachPreapprovalPattern.test(getSqlText(statement))) {
+          callOrder.push("attachPreapproval");
+        }
+
+        return { rows: [] };
+      });
+    const updateMercadoPagoPreapprovalBackUrl = jest.fn(async () => {
+      callOrder.push("backUrlUpdate");
+    });
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription:
+        createPreapprovalSubscriptionDouble(),
+      updateMercadoPagoPreapprovalBackUrl,
+    });
+
+    await repository.startCurrentPriceSubscription({
+      idempotencyKey: "attach-before-back-url",
+      invitationToken: "invitation-token-1",
+      tribeSlug: "matematica-pro",
+    });
+
+    // The reserved row must carry mercado_pago_preapproval_id before the slow,
+    // best-effort back URL PUT runs: a webhook delivered during that network
+    // round-trip must be able to match the local row by preapproval id instead
+    // of returning retryable_webhook/503 for an otherwise valid payment.
+    expect(callOrder).toContain("attachPreapproval");
+    expect(callOrder).toContain("backUrlUpdate");
+    expect(callOrder.indexOf("attachPreapproval")).toBeLessThan(
+      callOrder.indexOf("backUrlUpdate")
+    );
+  });
+
   it("starts the checkout for the specific price associated with the invitation token", async () => {
     const execute = jest
       .fn()
