@@ -2,7 +2,8 @@ import "server-only";
 
 import {
   buildCloudflareImagesDeliveryUrl,
-  extractCloudflareImagesIdFromDeliveryUrl,
+  classifyCloudflareImagesDeliveryUrl,
+  CLOUDFLARE_IMAGES_DELIVERY_URL_KIND,
   readCloudflareImagesEnvironment,
   type CloudflareImagesEnvironment,
 } from "@/src/modules/shared/infrastructure/cloudflare/cloudflare-images-config";
@@ -276,18 +277,31 @@ export class CloudflareImagesSitepingScreenshotStorage
       return { screenshotCleared: false };
     }
 
-    const imageId = extractCloudflareImagesIdFromDeliveryUrl({
+    const classification = classifyCloudflareImagesDeliveryUrl({
       accountHash: environment.accountHash,
       deliveryUrl: command.screenshotUrl,
     });
-    if (!imageId) {
-      // Inline `data:` fallback or a URL we did not produce — there is no remote
-      // image we own, so the screenshot is already effectively cleared and the
-      // feedback row can be removed.
+
+    if (classification.kind === CLOUDFLARE_IMAGES_DELIVERY_URL_KIND.notDelivery) {
+      // Inline `data:` fallback or a value on a host we never write — there is no
+      // remote image we own, so the screenshot is already effectively cleared and
+      // the feedback row can be removed.
       return { screenshotCleared: true };
     }
 
-    return this.deleteImageById(environment, imageId);
+    if (
+      classification.kind === CLOUDFLARE_IMAGES_DELIVERY_URL_KIND.foreignAccount
+    ) {
+      // A Cloudflare delivery URL under a different account hash (a rotation or
+      // an env typo). Since this app is the source of persisted screenshot URLs,
+      // the public image is likely a real orphan we cannot confirm gone with the
+      // current credentials. Report it uncleared so the caller keeps the row —
+      // the only record of the delivery URL — for a later retry once the account
+      // hash is realigned, instead of silently orphaning the screenshot.
+      return { screenshotCleared: false };
+    }
+
+    return this.deleteImageById(environment, classification.imageId);
   }
 
   /**

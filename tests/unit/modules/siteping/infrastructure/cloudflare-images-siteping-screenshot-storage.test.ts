@@ -251,15 +251,31 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("reports the screenshot cleared without calling Cloudflare for a delivery URL from another account", async () => {
+  it("reports the screenshot cleared without calling Cloudflare for a URL on a host it never writes", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
     const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
       storage.delete({
-        screenshotUrl: "https://imagedelivery.net/other-hash/image-1/public",
+        screenshotUrl: "https://example.com/some/other/image.png",
       })
     ).resolves.toEqual({ screenshotCleared: true });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("reports the screenshot uncleared without calling Cloudflare for a delivery URL under a mismatched account hash", async () => {
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const storage = buildStorageWithReservedId(fetcher);
+
+    // A delivery URL on the Cloudflare Images host whose account hash does not
+    // match the configured one (an account-hash rotation or env typo). The app
+    // is the source of these URLs, so it is a real public orphan we cannot
+    // confirm gone — the row must survive for a later retry, not be removed.
+    await expect(
+      storage.delete({
+        screenshotUrl: "https://imagedelivery.net/other-hash/image-1/public",
+      })
+    ).resolves.toEqual({ screenshotCleared: false });
     expect(fetcher).not.toHaveBeenCalled();
   });
 
