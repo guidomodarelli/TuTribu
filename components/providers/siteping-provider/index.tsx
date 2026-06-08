@@ -11,6 +11,7 @@ import type { SitepingIdentityResult } from "@/src/modules/siteping/application/
 import { installSitepingDismissGuard } from "@/components/providers/siteping-provider/siteping-dismiss-guard";
 import { dismissOpenSitepingCommentForm } from "@/components/providers/siteping-provider/siteping-comment-form";
 import { installSitepingFormViewportClamp } from "@/components/providers/siteping-provider/siteping-form-placement";
+import { installSitepingRetryQueueGuard } from "@/components/providers/siteping-provider/siteping-retry-queue-guard";
 
 import "./siteping-overlay.scss";
 
@@ -26,6 +27,7 @@ const SITEPING_PROVIDER_CONFIG = {
 type SitepingProviderState = SitepingIdentityResult | null;
 
 function SitepingWidgetMount({ config }: { config: SitepingIdentityResult }) {
+  useEffect(() => installSitepingRetryQueueGuard(), []);
   useEffect(() => installSitepingDismissGuard(), []);
   useEffect(() => installSitepingFormViewportClamp(), []);
 
