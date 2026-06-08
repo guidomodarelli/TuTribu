@@ -416,14 +416,14 @@ export function deleteSitepingFeedback({
 
     const { id: feedbackId, screenshotUrl } = feedback;
 
-    // Delete the durable screenshot before any step that hides or removes the row
-    // so an interrupted deletion stays retryable: while the row still exists, a
-    // later attempt reloads it and re-runs the idempotent screenshot delete,
-    // avoiding an orphan that a clear-last ordering would strand with no trigger to
-    // reclaim it. An unconfirmed delete (storage unconfigured, an auth/4xx/5xx
-    // response, or a timeout) throws, keeping the row — the only record of the
-    // delivery URL — and surfacing the failure so the deletion can be retried
-    // instead of orphaning the image.
+    // Delete the durable screenshot before removing the row so an interrupted
+    // deletion stays retryable: while the row still exists, a later attempt
+    // reloads it and re-runs the idempotent screenshot delete, avoiding an orphan
+    // that a clear-last ordering would strand with no trigger to reclaim it. An
+    // unconfirmed delete (storage unconfigured, an auth/4xx/5xx response, or a
+    // timeout) throws so the caller can surface the failure and keep the row — the
+    // only record of the delivery URL — in a status the admin/widget flow can
+    // still reach to retry, instead of orphaning the image.
     async function clearScreenshotOrThrow(): Promise<void> {
       if (!screenshotUrl) {
         return;
@@ -450,13 +450,14 @@ export function deleteSitepingFeedback({
       return;
     }
 
-    if (
-      feedback.githubIssueStatus !== SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending
-    ) {
-      await sitepingFeedbackRepository.markGitHubIssueDeletionPending(command);
-    }
-
     if (feedback.githubIssueNumber) {
+      if (
+        feedback.githubIssueStatus !==
+        SITEPING_FEEDBACK_GITHUB_STATUS.deletionPending
+      ) {
+        await sitepingFeedbackRepository.markGitHubIssueDeletionPending(command);
+      }
+
       try {
         await githubIssuePublisher.close({
           feedbackId: feedback.id,
@@ -470,19 +471,33 @@ export function deleteSitepingFeedback({
         throw error;
       }
 
-      // Clear and confirm the screenshot BEFORE marking the deletion completed.
-      // markGitHubIssueDeletionCompleted hides the row from findPage(), so an
-      // unconfirmed clear afterwards would strand the only screenshot URL on a row
-      // the admin/widget flow can no longer reach to retry. Clearing first keeps
-      // the row visible (status stays deletionPending) and retryable until the
-      // screenshot is confirmed gone, and guarantees a completed row never retains
-      // a live screenshot.
-      await clearScreenshotOrThrow();
+      // The row is already deletion_pending here (markGitHubIssueDeletionPending
+      // ran above), which findPage() hides, so the screenshot must be cleared
+      // BEFORE markGitHubIssueDeletionCompleted and an unconfirmed clear must
+      // restore the published (visible) status — mirroring the close-failure
+      // recovery — so the admin/widget flow can still reach the row to retry
+      // instead of stranding the only screenshot URL on a hidden row. The close is
+      // idempotent, so re-closing on retry is safe, and a completed row never
+      // retains a live screenshot.
+      try {
+        await clearScreenshotOrThrow();
+      } catch (error) {
+        await sitepingFeedbackRepository.restoreGitHubIssuePublished({
+          feedbackId: feedback.id,
+        });
+
+        throw error;
+      }
 
       await sitepingFeedbackRepository.markGitHubIssueDeletionCompleted({
         feedbackId: feedback.id,
       });
     } else {
+      // No linked GitHub issue, so there is no two-phase close to checkpoint.
+      // Clear the screenshot while the row is still in its original, listable
+      // status and never mark it deletion_pending, which findPage() would hide. An
+      // unconfirmed clear then throws with the row untouched, so the normal
+      // admin/widget flow can still reach it to retry the deletion.
       await clearScreenshotOrThrow();
     }
 

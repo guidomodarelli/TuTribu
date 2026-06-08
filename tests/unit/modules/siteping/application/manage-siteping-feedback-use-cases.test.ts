@@ -1152,6 +1152,120 @@ describe("manage Siteping feedback use cases", () => {
     expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
     expect(repository.markGitHubIssueDeletionCompleted).not.toHaveBeenCalled();
     expect(repository.remove).not.toHaveBeenCalled();
+    // The row was marked deletion_pending before the (failed) clear, which
+    // findPage() hides. Restoring the published status puts it back on the panel
+    // so the admin/widget flow can retry instead of stranding the screenshot URL.
+    expect(repository.restoreGitHubIssuePublished).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+    });
+  });
+
+  it("deletes a feedback without a GitHub issue without marking it deletion pending", async () => {
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      findById: jest.fn(async () => ({
+        annotations: [],
+        authorEmail: "leader@example.com",
+        authorName: "Leader Example",
+        clientId: "client-feedback-1",
+        createdAt: new Date("2026-05-31T12:00:00.000Z"),
+        createdBy: "member-1",
+        diagnostics: null,
+        githubIssueNumber: null,
+        githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.skipped,
+        githubIssueUrl: null,
+        id: FEEDBACK_ID,
+        message: "No puedo guardar el precio",
+        projectName: "tutribu",
+        resolvedAt: null,
+        screenshotUrl,
+        status: "open",
+        type: SITEPING_FEEDBACK_TYPE.bug,
+        updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+        url: "https://tutribu.example.com/matematica/precios",
+        urlPattern: "/[slug]/precios",
+        userAgent: "Jest Browser",
+        viewport: "1280x800",
+      })),
+    });
+    const screenshotStorage = buildScreenshotStorage();
+    const publisher = buildPublisher();
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: publisher,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+
+    expect(publisher.close).not.toHaveBeenCalled();
+    // No GitHub two-phase to checkpoint: hiding the row in deletion_pending only
+    // risks stranding it, so the screenshot is cleared while the row is visible
+    // and the row is removed without ever being marked pending.
+    expect(repository.markGitHubIssueDeletionPending).not.toHaveBeenCalled();
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(repository.remove).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      projectName: "tutribu",
+    });
+    expect(
+      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
+  });
+
+  it("keeps a feedback without a GitHub issue visible when the screenshot clear is unconfirmed", async () => {
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      findById: jest.fn(async () => ({
+        annotations: [],
+        authorEmail: "leader@example.com",
+        authorName: "Leader Example",
+        clientId: "client-feedback-1",
+        createdAt: new Date("2026-05-31T12:00:00.000Z"),
+        createdBy: "member-1",
+        diagnostics: null,
+        githubIssueNumber: null,
+        githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.skipped,
+        githubIssueUrl: null,
+        id: FEEDBACK_ID,
+        message: "No puedo guardar el precio",
+        projectName: "tutribu",
+        resolvedAt: null,
+        screenshotUrl,
+        status: "open",
+        type: SITEPING_FEEDBACK_TYPE.bug,
+        updatedAt: new Date("2026-05-31T12:00:00.000Z"),
+        url: "https://tutribu.example.com/matematica/precios",
+        urlPattern: "/[slug]/precios",
+        userAgent: "Jest Browser",
+        viewport: "1280x800",
+      })),
+    });
+    const screenshotStorage = buildScreenshotStorage({
+      delete: jest.fn(async () => ({ screenshotCleared: false })),
+    });
+    const useCase = deleteSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        feedbackId: FEEDBACK_ID,
+        projectName: "tutribu",
+      })
+    ).rejects.toThrow(/screenshot deletion was not confirmed/i);
+
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    // The clear runs before any status change, so the unconfirmed failure leaves
+    // the row in its original, listable status: never marked deletion_pending and
+    // never removed, so the normal admin/widget flow can still retry the delete.
+    expect(repository.markGitHubIssueDeletionPending).not.toHaveBeenCalled();
+    expect(repository.remove).not.toHaveBeenCalled();
   });
 
   it("keeps the feedback row when the screenshot deletion is not confirmed", async () => {
