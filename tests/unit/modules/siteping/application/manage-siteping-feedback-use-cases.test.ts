@@ -110,6 +110,7 @@ function buildRepository(
   overrides: Partial<SitepingFeedbackRepository> = {}
 ): SitepingFeedbackRepository {
   return {
+    attachScreenshotUrl: jest.fn(),
     create: jest.fn(async () => ({
       feedback: {
         annotations: [],
@@ -329,19 +330,20 @@ describe("manage Siteping feedback use cases", () => {
     });
   });
 
-  it("persists the Cloudflare URL when the screenshot upload succeeds", async () => {
+  it("creates the row without a screenshot, then attaches the uploaded Cloudflare URL", async () => {
     const repository = buildRepository();
     const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
     const screenshotStorage = buildScreenshotStorage({
       store: jest.fn(async () => deliveryUrl),
     });
+    const publisher = buildPublisher();
     const useCase = createSitepingFeedback({
-      githubIssuePublisher: buildPublisher(),
+      githubIssuePublisher: publisher,
       screenshotStorage,
       sitepingFeedbackRepository: repository,
     });
 
-    await useCase({
+    const result = await useCase({
       authenticatedMember: buildAuthenticatedMember(),
       command: buildFeedbackCommand(),
       requestUrl: "https://tutribu.example.com/api/siteping",
@@ -350,13 +352,26 @@ describe("manage Siteping feedback use cases", () => {
     expect(screenshotStorage.store).toHaveBeenCalledWith({
       dataUrl: "data:image/jpeg;base64,secret",
     });
+    // The row is created without a screenshot first, so a failed insert never
+    // strands a just-uploaded public image with no row to drive its cleanup.
     expect(repository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ screenshotUrl: deliveryUrl })
+      expect.objectContaining({ screenshotUrl: null })
     );
+    expect(repository.attachScreenshotUrl).toHaveBeenCalledWith({
+      feedbackId: FEEDBACK_ID,
+      screenshotUrl: deliveryUrl,
+    });
     expect(screenshotStorage.delete).not.toHaveBeenCalled();
+    // The attached URL reaches the GitHub issue and the response view model.
+    expect(publisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feedback: expect.objectContaining({ screenshotUrl: deliveryUrl }),
+      })
+    );
+    expect(result.screenshotUrl).toBe(deliveryUrl);
   });
 
-  it("persists null instead of the inline data URL when the screenshot upload fails", async () => {
+  it("keeps no screenshot without attaching when the upload fails", async () => {
     const repository = buildRepository();
     const screenshotStorage = buildScreenshotStorage({
       store: jest.fn(async () => null),
@@ -367,7 +382,7 @@ describe("manage Siteping feedback use cases", () => {
       sitepingFeedbackRepository: repository,
     });
 
-    await useCase({
+    const result = await useCase({
       authenticatedMember: buildAuthenticatedMember(),
       command: buildFeedbackCommand(),
       requestUrl: "https://tutribu.example.com/api/siteping",
@@ -378,6 +393,45 @@ describe("manage Siteping feedback use cases", () => {
     });
     expect(repository.create).toHaveBeenCalledWith(
       expect.objectContaining({ screenshotUrl: null })
+    );
+    expect(repository.attachScreenshotUrl).not.toHaveBeenCalled();
+    expect(screenshotStorage.delete).not.toHaveBeenCalled();
+    expect(result.screenshotUrl).toBeNull();
+  });
+
+  it("keeps the feedback and reclaims the orphan when attaching the screenshot fails", async () => {
+    const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      attachScreenshotUrl: jest.fn(async () => {
+        throw new Error("database_connection_interrupted");
+      }),
+    });
+    const screenshotStorage = buildScreenshotStorage({
+      store: jest.fn(async () => deliveryUrl),
+    });
+    const publisher = buildPublisher();
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: publisher,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    const result = await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command: buildFeedbackCommand(),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    // Linking failed after a successful upload, so the orphan is reclaimed
+    // best-effort and the feedback still ships without a screenshot.
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl: deliveryUrl,
+    });
+    expect(result.screenshotUrl).toBeNull();
+    expect(publisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feedback: expect.objectContaining({ screenshotUrl: null }),
+      })
     );
   });
 
@@ -649,11 +703,11 @@ describe("manage Siteping feedback use cases", () => {
 
     expect(publisher.publish).not.toHaveBeenCalled();
     expect(repository.markGitHubIssuePublished).not.toHaveBeenCalled();
+    expect(screenshotStorage.store).not.toHaveBeenCalled();
     expect(screenshotStorage.delete).not.toHaveBeenCalled();
   });
 
-  it("deletes the just-uploaded screenshot when the create resolves an idempotency conflict", async () => {
-    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+  it("does not upload a screenshot when the create resolves an idempotency conflict", async () => {
     const repository = buildRepository({
       create: jest.fn(async () => ({
         feedback: {
@@ -683,7 +737,7 @@ describe("manage Siteping feedback use cases", () => {
     });
     const publisher = buildPublisher();
     const screenshotStorage = buildScreenshotStorage({
-      store: jest.fn(async () => screenshotUrl),
+      store: jest.fn(async () => "https://imagedelivery.net/hash/image-1/public"),
     });
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
@@ -697,13 +751,15 @@ describe("manage Siteping feedback use cases", () => {
       requestUrl: "https://tutribu.example.com/api/siteping",
     });
 
-    expect(screenshotStorage.store).toHaveBeenCalledTimes(1);
-    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    // The losing race never uploads, so there is no orphan to clean up and the
+    // winning feedback keeps its own screenshot.
+    expect(screenshotStorage.store).not.toHaveBeenCalled();
+    expect(repository.attachScreenshotUrl).not.toHaveBeenCalled();
+    expect(screenshotStorage.delete).not.toHaveBeenCalled();
     expect(publisher.publish).not.toHaveBeenCalled();
   });
 
-  it("deletes the just-uploaded screenshot when persisting the feedback throws", async () => {
-    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+  it("does not upload a screenshot when persisting the feedback throws", async () => {
     const repository = buildRepository({
       create: jest.fn(async () => {
         throw new Error("database_connection_interrupted");
@@ -711,7 +767,7 @@ describe("manage Siteping feedback use cases", () => {
     });
     const publisher = buildPublisher();
     const screenshotStorage = buildScreenshotStorage({
-      store: jest.fn(async () => screenshotUrl),
+      store: jest.fn(async () => "https://imagedelivery.net/hash/image-1/public"),
     });
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
@@ -727,36 +783,11 @@ describe("manage Siteping feedback use cases", () => {
       })
     ).rejects.toThrow("database_connection_interrupted");
 
-    expect(screenshotStorage.store).toHaveBeenCalledTimes(1);
-    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
-    expect(publisher.publish).not.toHaveBeenCalled();
-  });
-
-  it("does not attempt screenshot deletion when persisting throws without an uploaded screenshot", async () => {
-    const repository = buildRepository({
-      create: jest.fn(async () => {
-        throw new Error("database_connection_interrupted");
-      }),
-    });
-    const screenshotStorage = buildScreenshotStorage({
-      store: jest.fn(async () => null),
-    });
-    const useCase = createSitepingFeedback({
-      githubIssuePublisher: buildPublisher(),
-      screenshotStorage,
-      sitepingFeedbackRepository: repository,
-    });
-
-    await expect(
-      useCase({
-        authenticatedMember: buildAuthenticatedMember(),
-        command: buildFeedbackCommand(),
-        requestUrl: "https://tutribu.example.com/api/siteping",
-      })
-    ).rejects.toThrow("database_connection_interrupted");
-
-    expect(screenshotStorage.store).toHaveBeenCalledTimes(1);
+    // create() runs before any upload, so a failed insert leaves no public image
+    // to orphan and nothing to delete.
+    expect(screenshotStorage.store).not.toHaveBeenCalled();
     expect(screenshotStorage.delete).not.toHaveBeenCalled();
+    expect(publisher.publish).not.toHaveBeenCalled();
   });
 
   it("reuses the existing idempotent feedback without uploading another screenshot", async () => {
@@ -812,10 +843,11 @@ describe("manage Siteping feedback use cases", () => {
     expect(result).toEqual(expect.objectContaining({ id: FEEDBACK_ID }));
   });
 
-  it("uploads the screenshot only after confirming the submission is new", async () => {
+  it("uploads and attaches the screenshot only after the durable row is created", async () => {
+    const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository();
     const screenshotStorage = buildScreenshotStorage({
-      store: jest.fn(async () => "https://imagedelivery.net/hash/image-1/public"),
+      store: jest.fn(async () => deliveryUrl),
     });
     const useCase = createSitepingFeedback({
       githubIssuePublisher: buildPublisher(),
@@ -835,12 +867,19 @@ describe("manage Siteping feedback use cases", () => {
       projectName: "tutribu",
     });
     expect(screenshotStorage.store).toHaveBeenCalledTimes(1);
-    expect(
-      (repository.findByIdempotencyKey as jest.Mock).mock.invocationCallOrder[0]
-    ).toBeLessThan((screenshotStorage.store as jest.Mock).mock.invocationCallOrder[0]);
-    expect((screenshotStorage.store as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
-      (repository.create as jest.Mock).mock.invocationCallOrder[0]
-    );
+    // idempotency check -> create durable row -> upload -> attach URL.
+    const findOrder = (repository.findByIdempotencyKey as jest.Mock).mock
+      .invocationCallOrder[0];
+    const createOrder = (repository.create as jest.Mock).mock
+      .invocationCallOrder[0];
+    const storeOrder = (screenshotStorage.store as jest.Mock).mock
+      .invocationCallOrder[0];
+    const attachOrder = (repository.attachScreenshotUrl as jest.Mock).mock
+      .invocationCallOrder[0];
+
+    expect(findOrder).toBeLessThan(createOrder);
+    expect(createOrder).toBeLessThan(storeOrder);
+    expect(storeOrder).toBeLessThan(attachOrder);
   });
 
   it("keeps the feedback when GitHub issue creation fails", async () => {

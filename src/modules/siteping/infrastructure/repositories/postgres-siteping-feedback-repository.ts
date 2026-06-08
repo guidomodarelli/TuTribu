@@ -5,6 +5,7 @@ import {
   SITEPING_FEEDBACK_STATUS,
 } from "@/src/modules/siteping/constants/siteping";
 import type {
+  AttachSitepingScreenshotCommand,
   CreateSitepingFeedbackRecordCommand,
   CreateSitepingFeedbackRecordResult,
   MarkGitHubIssueDeletionCompletedCommand,
@@ -307,6 +308,29 @@ export class PostgresSitepingFeedbackRepository
         feedback,
         wasCreated: true,
       };
+    });
+  }
+
+  /**
+   * Links an uploaded durable screenshot URL to an existing feedback row.
+   *
+   * Scoped by `id` only; the ownership RLS policy
+   * (`created_by = current_app_user_id()`) already confines the UPDATE to the
+   * requesting owner's row, mirroring the other status updates.
+   *
+   * @param command - Target feedback id and the durable delivery URL to persist.
+   */
+  async attachScreenshotUrl({
+    feedbackId,
+    screenshotUrl,
+  }: AttachSitepingScreenshotCommand): Promise<void> {
+    await this.executeWithRequestContext(async (database) => {
+      await database.execute(sql`
+        update public.siteping_feedbacks
+        set screenshot_url = ${screenshotUrl},
+            updated_at = timezone('utc', now())
+        where id = ${feedbackId}
+      `);
     });
   }
 

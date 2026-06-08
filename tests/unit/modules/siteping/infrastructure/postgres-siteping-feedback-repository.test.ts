@@ -27,7 +27,7 @@ type FeedbackRow = {
   message: string;
   project_name: string;
   resolved_at: null;
-  screenshot_url: null;
+  screenshot_url: string | null;
   status: string;
   type: string;
   updated_at: Date;
@@ -257,6 +257,17 @@ function createRepositoryHarness(options: RepositoryHarnessOptions = {}) {
     }
 
     if (operation === SQL_OPERATION.updateFeedback) {
+      if (query.sql.includes("screenshot_url")) {
+        const [screenshotUrl, feedbackId] = query.params;
+        const feedbackRow = feedbackRows.find((row) => row.id === feedbackId);
+
+        if (feedbackRow) {
+          feedbackRow.screenshot_url = screenshotUrl as string;
+        }
+
+        return { rows: feedbackRow ? [feedbackRow] : [] };
+      }
+
       if (query.sql.includes("github_issue_status")) {
         const projectName = query.sql.includes("project_name")
           ? query.params.at(-1)
@@ -362,6 +373,21 @@ describe("PostgresSitepingFeedbackRepository", () => {
     });
 
     expect(feedbackRows).toHaveLength(3);
+  });
+
+  it("attaches an uploaded screenshot URL to an existing feedback row", async () => {
+    const { feedbackRows, repository } = createRepositoryHarness();
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+
+    await repository.create(createFeedbackCommand());
+    expect(feedbackRows[0].screenshot_url).toBeNull();
+
+    await repository.attachScreenshotUrl({
+      feedbackId: feedbackRows[0].id,
+      screenshotUrl,
+    });
+
+    expect(feedbackRows[0].screenshot_url).toBe(screenshotUrl);
   });
 
   it("finds existing feedback by its idempotency key scoped to project and owner", async () => {

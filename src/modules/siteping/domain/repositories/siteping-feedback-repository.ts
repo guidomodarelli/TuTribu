@@ -63,6 +63,11 @@ export type SitepingFeedbackProjectCommand = {
   projectName: string;
 };
 
+export type AttachSitepingScreenshotCommand = {
+  feedbackId: string;
+  screenshotUrl: string;
+};
+
 export type MarkGitHubIssuePublishedCommand = {
   feedbackId: string;
   issueNumber: number;
@@ -83,6 +88,14 @@ export type RestoreGitHubIssuePublishedCommand = {
 };
 
 export type SitepingFeedbackRepository = {
+  /**
+   * Links a just-uploaded durable screenshot URL to an already-created feedback
+   * row. Kept separate from {@link SitepingFeedbackRepository.create} so the
+   * screenshot is uploaded only after the row exists: a failed insert or a lost
+   * idempotency race can then never strand a public image with no row to drive
+   * its cleanup.
+   */
+  attachScreenshotUrl(command: AttachSitepingScreenshotCommand): Promise<void>;
   create(
     command: CreateSitepingFeedbackRecordCommand
   ): Promise<CreateSitepingFeedbackRecordResult>;

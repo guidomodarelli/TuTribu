@@ -256,6 +256,61 @@ async function resolveScreenshotUrl(
   return screenshotStorage.store({ dataUrl: screenshotDataUrl });
 }
 
+type AttachUploadedScreenshotInput = {
+  feedback: SitepingFeedback;
+  screenshotDataUrl: string | null | undefined;
+  screenshotStorage: SitepingScreenshotStorage;
+  sitepingFeedbackRepository: SitepingFeedbackRepository;
+};
+
+/**
+ * Uploads the screenshot and links it to the already-created feedback row,
+ * returning the feedback with its durable screenshot URL when the upload
+ * succeeds, or the unchanged feedback otherwise.
+ *
+ * Running after the row exists is what keeps an orphan from outliving its
+ * trigger: when the upload fails, {@link resolveScreenshotUrl} returns null (the
+ * adapter reclaims its own reserved id), so the feedback simply keeps no
+ * screenshot. When linking the uploaded URL fails, the image is reclaimed
+ * best-effort and the feedback keeps no screenshot, because the bug report
+ * itself is durable and the screenshot is non-essential. The only irreducible
+ * orphan window left is an upload that succeeds, this link that fails, AND that
+ * best-effort delete itself coming back unconfirmed — far narrower than
+ * uploading before any row exists, which orphaned on every failed insert.
+ */
+async function attachUploadedScreenshot({
+  feedback,
+  screenshotDataUrl,
+  screenshotStorage,
+  sitepingFeedbackRepository,
+}: AttachUploadedScreenshotInput): Promise<SitepingFeedback> {
+  const screenshotUrl = await resolveScreenshotUrl(
+    screenshotStorage,
+    screenshotDataUrl
+  );
+
+  if (!screenshotUrl) {
+    return feedback;
+  }
+
+  try {
+    await sitepingFeedbackRepository.attachScreenshotUrl({
+      feedbackId: feedback.id,
+      screenshotUrl,
+    });
+  } catch {
+    // Linking the uploaded screenshot to the durable row failed, so the public
+    // image would orphan with no row referencing it. Reclaim it best-effort and
+    // drop the screenshot from this response; the feedback row and its GitHub
+    // issue still ship. delete() never throws, so it cannot mask anything.
+    await screenshotStorage.delete({ screenshotUrl });
+
+    return feedback;
+  }
+
+  return { ...feedback, screenshotUrl };
+}
+
 export function createSitepingFeedback({
   githubIssuePublisher,
   screenshotStorage,
@@ -273,8 +328,8 @@ export function createSitepingFeedback({
     };
 
     // Short-circuit idempotent retries (for example after a client timeout)
-    // before uploading the screenshot, so a duplicate submission never pays the
-    // upload latency nor leaves an orphan image in object storage.
+    // before creating a row or uploading, so a duplicate submission never pays
+    // the upload latency nor leaves an orphan image in object storage.
     const existingFeedback =
       await sitepingFeedbackRepository.findByIdempotencyKey(idempotencyKey);
 
@@ -282,76 +337,64 @@ export function createSitepingFeedback({
       return serializeSitepingFeedback(existingFeedback);
     }
 
-    const screenshotUrl = await resolveScreenshotUrl(
-      screenshotStorage,
-      command.screenshotDataUrl
-    );
-
-    let result: Awaited<ReturnType<SitepingFeedbackRepository["create"]>>;
-
-    try {
-      result = await sitepingFeedbackRepository.create({
-        annotations: command.annotations.map(flattenAnnotation),
-        authorEmail: normalizeEmail(authenticatedMember.email),
-        authorName: normalizeText(authenticatedMember.name),
-        clientId: idempotencyKey.clientId,
-        createdBy: idempotencyKey.createdBy,
-        diagnostics: sanitizeDiagnostics(command.diagnostics),
-        message: redactSitepingSensitiveText(normalizeText(command.message)),
-        projectName: idempotencyKey.projectName,
-        screenshotUrl,
-        type: command.type,
-        url: redactSitepingSensitiveText(normalizeText(command.url)),
-        urlPattern: normalizeOptionalText(command.urlPattern),
-        userAgent: redactSitepingSensitiveText(normalizeText(command.userAgent)),
-        viewport: normalizeText(command.viewport),
-      });
-    } catch (error) {
-      // create() threw after the screenshot upload (transient database error,
-      // RLS failure, or annotation insert failure), so no feedback row exists to
-      // drive a later cleanup retry and the just-uploaded public image would
-      // orphan in object storage. Delete it before rethrowing; delete() is
-      // best-effort and never throws, so it cannot mask the original failure.
-      if (screenshotUrl) {
-        await screenshotStorage.delete({ screenshotUrl });
-      }
-
-      throw error;
-    }
+    // Create the durable feedback row WITHOUT a screenshot first, then upload and
+    // link the image only once the row exists. Uploading before the row would let
+    // a failed insert (transient database error, RLS failure, or an annotation
+    // insert failure) or a lost idempotency race strand a public image with no
+    // row to drive its cleanup — and a best-effort delete that itself returns
+    // screenshotCleared: false could never reclaim it. With this order, neither
+    // failure has uploaded anything to orphan.
+    const result = await sitepingFeedbackRepository.create({
+      annotations: command.annotations.map(flattenAnnotation),
+      authorEmail: normalizeEmail(authenticatedMember.email),
+      authorName: normalizeText(authenticatedMember.name),
+      clientId: idempotencyKey.clientId,
+      createdBy: idempotencyKey.createdBy,
+      diagnostics: sanitizeDiagnostics(command.diagnostics),
+      message: redactSitepingSensitiveText(normalizeText(command.message)),
+      projectName: idempotencyKey.projectName,
+      screenshotUrl: null,
+      type: command.type,
+      url: redactSitepingSensitiveText(normalizeText(command.url)),
+      urlPattern: normalizeOptionalText(command.urlPattern),
+      userAgent: redactSitepingSensitiveText(normalizeText(command.userAgent)),
+      viewport: normalizeText(command.viewport),
+    });
 
     if (!result.wasCreated) {
       // A concurrent submission with the same idempotency key won the insert
-      // race (ON CONFLICT DO NOTHING), so this request's just-uploaded
-      // screenshot is not referenced by any feedback row and would orphan a
-      // public image in object storage. Delete it; the surviving feedback keeps
-      // its own screenshot. delete() is best-effort and never throws, so it
-      // cannot break the idempotent response.
-      if (screenshotUrl) {
-        await screenshotStorage.delete({ screenshotUrl });
-      }
-
+      // race (ON CONFLICT DO NOTHING). This request uploaded nothing, so there is
+      // no orphan to clean up and the surviving feedback keeps its own screenshot.
       return serializeSitepingFeedback(result.feedback);
     }
+
+    // The row is durable now, so it is safe to upload the screenshot and link it.
+    const feedback = await attachUploadedScreenshot({
+      feedback: result.feedback,
+      screenshotDataUrl: command.screenshotDataUrl,
+      screenshotStorage,
+      sitepingFeedbackRepository,
+    });
 
     let publication: Awaited<ReturnType<GitHubIssuePublisher["publish"]>>;
 
     try {
       publication = await githubIssuePublisher.publish({
-        feedback: result.feedback,
+        feedback,
         requestUrl,
       });
     } catch (error) {
       await sitepingFeedbackRepository.markGitHubIssueFailed({
         errorMessage: readErrorMessage(error),
-        feedbackId: result.feedback.id,
+        feedbackId: feedback.id,
       });
 
-      return serializeSitepingFeedback(result.feedback);
+      return serializeSitepingFeedback(feedback);
     }
 
     try {
       await sitepingFeedbackRepository.markGitHubIssuePublished({
-        feedbackId: result.feedback.id,
+        feedbackId: feedback.id,
         issueNumber: publication.issueNumber,
         issueUrl: publication.issueUrl,
       });
@@ -359,7 +402,7 @@ export function createSitepingFeedback({
       // Keep the feedback pending because GitHub already created the issue.
     }
 
-    return serializeSitepingFeedback(result.feedback);
+    return serializeSitepingFeedback(feedback);
   };
 }
 
