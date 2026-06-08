@@ -164,6 +164,11 @@ export async function createRequestModules(
     }),
     siteping: buildSitepingModule({
       githubIssuePublisher: new FetchGitHubIssuePublisher(),
+      logger: createServerLogger({
+        feature: "siteping",
+        operation: "siteping-feedback",
+        requestId: requestId ?? "request",
+      }),
       screenshotStorage: new CloudflareImagesSitepingScreenshotStorage(),
       sitepingFeedbackRepository: new PostgresSitepingFeedbackRepository(
         executeWithRequestContext

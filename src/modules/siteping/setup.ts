@@ -4,6 +4,7 @@ import {
   getSitepingIdentity,
   listSitepingFeedback,
   updateSitepingFeedbackStatus,
+  type SitepingFeedbackLogger,
 } from "@/src/modules/siteping/application/use-cases/manage-siteping-feedback-use-cases";
 import { getSitepingEnvironment } from "@/src/modules/siteping/infrastructure/environment/siteping-environment";
 import type { GitHubIssuePublisher } from "@/src/modules/siteping/domain/repositories/github-issue-publisher";
@@ -12,12 +13,14 @@ import type { SitepingScreenshotStorage } from "@/src/modules/siteping/domain/re
 
 type SitepingModuleDependencies = {
   githubIssuePublisher: GitHubIssuePublisher;
+  logger?: SitepingFeedbackLogger;
   screenshotStorage: SitepingScreenshotStorage;
   sitepingFeedbackRepository: SitepingFeedbackRepository;
 };
 
 export function buildSitepingModule({
   githubIssuePublisher,
+  logger,
   screenshotStorage,
   sitepingFeedbackRepository,
 }: SitepingModuleDependencies) {
@@ -27,6 +30,7 @@ export function buildSitepingModule({
     useCases: {
       createFeedback: createSitepingFeedback({
         githubIssuePublisher,
+        logger,
         screenshotStorage,
         sitepingFeedbackRepository,
       }),

@@ -33,10 +33,22 @@ import type {
 import { redactSitepingSensitiveText } from "@/src/modules/siteping/domain/services/siteping-sensitive-text-redaction";
 
 const SITEPING_ERROR_MESSAGE = {
+  orphanScreenshotCleanupUnconfirmed:
+    "SitePing screenshot cleanup was not confirmed after linking failed; the public image may be orphaned and needs manual reclaim",
   screenshotDeletionUnconfirmed:
     "SitePing screenshot deletion was not confirmed; feedback kept for a later retry",
   unknownGitHubFailure: "Unknown GitHub issue publication failure",
 } as const;
+
+/**
+ * Minimal logger surface used to surface a screenshot orphan whose best-effort
+ * cleanup could not be confirmed. Structural so any structured server logger
+ * (or a test double) satisfies it without coupling the application layer to a
+ * concrete logging implementation.
+ */
+export type SitepingFeedbackLogger = {
+  warn(input: { message: string; metadata?: Record<string, unknown> }): void;
+};
 
 const SAFE_HTTP_METHODS = new Set([
   "CONNECT",
@@ -54,6 +66,7 @@ const SAFE_DIAGNOSTIC_FALLBACK = "[redacted]";
 
 type CreateSitepingFeedbackDependencies = {
   githubIssuePublisher: GitHubIssuePublisher;
+  logger?: SitepingFeedbackLogger;
   screenshotStorage: SitepingScreenshotStorage;
   sitepingFeedbackRepository: SitepingFeedbackRepository;
 };
@@ -258,6 +271,7 @@ async function resolveScreenshotUrl(
 
 type AttachUploadedScreenshotInput = {
   feedback: SitepingFeedback;
+  logger?: SitepingFeedbackLogger;
   screenshotDataUrl: string | null | undefined;
   screenshotStorage: SitepingScreenshotStorage;
   sitepingFeedbackRepository: SitepingFeedbackRepository;
@@ -278,10 +292,12 @@ type AttachUploadedScreenshotInput = {
  * The only irreducible orphan window left is an upload that succeeds, this link
  * that fails to persist, AND that best-effort delete itself coming back
  * unconfirmed — far narrower than uploading before any row exists, which orphaned
- * on every failed insert.
+ * on every failed insert. That last window is surfaced (not dropped) through the
+ * logger so the public image can be reclaimed manually.
  */
 async function attachUploadedScreenshot({
   feedback,
+  logger,
   screenshotDataUrl,
   screenshotStorage,
   sitepingFeedbackRepository,
@@ -295,6 +311,26 @@ async function attachUploadedScreenshot({
     return feedback;
   }
 
+  // Reclaim an uploaded image that ended up referenced by no row (the attach
+  // threw, or it matched no row because the feedback was deleted between create()
+  // and this link). delete() never throws and reports whether the orphan is
+  // confirmed gone; when it is not, the attach left the row with screenshot_url
+  // null, so there is no persisted delivery URL to drive a later retry. Surface
+  // the orphan (feedback id + the public, non-sensitive delivery URL) through the
+  // logger instead of dropping it silently, so it can be reclaimed manually.
+  async function reclaimOrphanScreenshot(orphanUrl: string): Promise<void> {
+    const { screenshotCleared } = await screenshotStorage.delete({
+      screenshotUrl: orphanUrl,
+    });
+
+    if (!screenshotCleared) {
+      logger?.warn({
+        message: SITEPING_ERROR_MESSAGE.orphanScreenshotCleanupUnconfirmed,
+        metadata: { feedbackId: feedback.id, screenshotUrl: orphanUrl },
+      });
+    }
+  }
+
   let screenshotAttached: boolean;
 
   try {
@@ -306,8 +342,8 @@ async function attachUploadedScreenshot({
     // Linking the uploaded screenshot to the durable row threw, so the public
     // image would orphan with no row referencing it. Reclaim it best-effort and
     // drop the screenshot from this response; the feedback row and its GitHub
-    // issue still ship. delete() never throws, so it cannot mask anything.
-    await screenshotStorage.delete({ screenshotUrl });
+    // issue still ship.
+    await reclaimOrphanScreenshot(screenshotUrl);
 
     return feedback;
   }
@@ -319,7 +355,7 @@ async function attachUploadedScreenshot({
     // GitHub issue carrying a delivery URL that no row references, stranding a
     // public image with nothing to drive its cleanup. Reclaim it best-effort and
     // keep no screenshot.
-    await screenshotStorage.delete({ screenshotUrl });
+    await reclaimOrphanScreenshot(screenshotUrl);
 
     return feedback;
   }
@@ -329,6 +365,7 @@ async function attachUploadedScreenshot({
 
 export function createSitepingFeedback({
   githubIssuePublisher,
+  logger,
   screenshotStorage,
   sitepingFeedbackRepository,
 }: CreateSitepingFeedbackDependencies) {
@@ -387,6 +424,7 @@ export function createSitepingFeedback({
     // The row is durable now, so it is safe to upload the screenshot and link it.
     const feedback = await attachUploadedScreenshot({
       feedback: result.feedback,
+      logger,
       screenshotDataUrl: command.screenshotDataUrl,
       screenshotStorage,
       sitepingFeedbackRepository,

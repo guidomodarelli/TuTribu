@@ -196,6 +196,10 @@ function buildScreenshotStorage(
   };
 }
 
+function buildFeedbackLogger() {
+  return { warn: jest.fn() };
+}
+
 describe("manage Siteping feedback use cases", () => {
   it("enables identity when the member email is allowed", () => {
     const useCase = getSitepingIdentity({
@@ -473,6 +477,124 @@ describe("manage Siteping feedback use cases", () => {
         feedback: expect.objectContaining({ screenshotUrl: null }),
       })
     );
+  });
+
+  it("surfaces the orphaned screenshot when the reclaim is unconfirmed after attaching fails", async () => {
+    const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      attachScreenshotUrl: jest.fn(async () => {
+        throw new Error("database_connection_interrupted");
+      }),
+    });
+    const screenshotStorage = buildScreenshotStorage({
+      delete: jest.fn(async () => ({ screenshotCleared: false })),
+      store: jest.fn(async () => deliveryUrl),
+    });
+    const logger = buildFeedbackLogger();
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      logger,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    // The feedback still ships without a screenshot; the bug report is durable.
+    const result = await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command: buildFeedbackCommand(),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    expect(result.screenshotUrl).toBeNull();
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl: deliveryUrl,
+    });
+    // The attach failure left screenshot_url null on the row, so there is no
+    // persisted delivery URL to drive a later retry. With the reclaim also
+    // unconfirmed, surface the orphan with its delivery URL instead of dropping
+    // it, so an operator can reclaim the public image.
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          feedbackId: FEEDBACK_ID,
+          screenshotUrl: deliveryUrl,
+        }),
+      })
+    );
+  });
+
+  it("surfaces the orphaned screenshot when the reclaim is unconfirmed after the attach matches no row", async () => {
+    const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      attachScreenshotUrl: jest.fn(async () => ({ screenshotAttached: false })),
+    });
+    const screenshotStorage = buildScreenshotStorage({
+      delete: jest.fn(async () => ({ screenshotCleared: false })),
+      store: jest.fn(async () => deliveryUrl),
+    });
+    const logger = buildFeedbackLogger();
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      logger,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    const result = await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command: buildFeedbackCommand(),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    expect(result.screenshotUrl).toBeNull();
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl: deliveryUrl,
+    });
+    // The attach matched no row, so screenshot_url stayed null with no delivery
+    // URL persisted; with the reclaim also unconfirmed, the orphan is surfaced
+    // instead of dropped so it can be reclaimed manually.
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          feedbackId: FEEDBACK_ID,
+          screenshotUrl: deliveryUrl,
+        }),
+      })
+    );
+  });
+
+  it("does not surface an orphan when the reclaim is confirmed after attaching fails", async () => {
+    const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      attachScreenshotUrl: jest.fn(async () => {
+        throw new Error("database_connection_interrupted");
+      }),
+    });
+    const screenshotStorage = buildScreenshotStorage({
+      delete: jest.fn(async () => ({ screenshotCleared: true })),
+      store: jest.fn(async () => deliveryUrl),
+    });
+    const logger = buildFeedbackLogger();
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      logger,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await useCase({
+      authenticatedMember: buildAuthenticatedMember(),
+      command: buildFeedbackCommand(),
+      requestUrl: "https://tutribu.example.com/api/siteping",
+    });
+
+    // The reclaim confirmed the orphan is gone, so there is nothing to surface.
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({
+      screenshotUrl: deliveryUrl,
+    });
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 
   it("clamps untrusted network diagnostic methods before persisting feedback", async () => {
