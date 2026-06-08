@@ -223,6 +223,10 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
 </div>
 
 <div class="callout c-warn">
+  Si la creación de la preaprobación en Mercado Pago falla (timeout o rechazo del proveedor) o no se puede resolver el <code>access_token</code> antes de redirigir, el checkout libera la fila <code>pending</code> recién reservada cancelándola (<code>status = canceled</code>). Como el índice único parcial de estados activos (<code>active</code>, <code>pending</code>, <code>grace_period</code>, <code>past_due</code>, <code>payment_blocked</code>, <code>paused</code>) no incluye <code>canceled</code>, la fila sale del índice y un reintento inmediato puede reservar de nuevo sin quedar bloqueado hasta que expire la ventana de reserva obsoleta.
+</div>
+
+<div class="callout c-warn">
   La página de retorno solo muestra el estado local; no es el camino de vinculación primario. Como fallback, si el <code>preapproval_id</code> todavía no estuviera asociado, puede consultar a Mercado Pago para vincular o recuperar una fila local pendiente siempre que: (a) exista una operación reciente de checkout del mismo usuario para el plan actual, y (b) el <code>preapproval_id</code> pertenezca al <code>mercado_pago_preapproval_plan_id</code> actual de la tribu.
 </div>
 

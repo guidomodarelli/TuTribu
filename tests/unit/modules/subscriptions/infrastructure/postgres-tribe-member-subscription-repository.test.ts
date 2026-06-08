@@ -936,6 +936,113 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     );
   });
 
+  it("releases the reserved pending subscription when the provider preapproval request fails", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: "access-token",
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
+    const createMercadoPagoPreapprovalSubscription = jest.fn(async () => {
+      throw new Error("provider checkout timed out");
+    });
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "failed-provider-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "payment_blocked",
+    });
+
+    expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledTimes(1);
+    // The reserved pending row is canceled so an immediate retry is not blocked
+    // by the orphaned reservation until the stale-reservation window expires.
+    const releaseSql = getSqlText(execute.mock.calls[2]?.[0]);
+
+    expect(releaseSql).toMatch(/update public\.tribe_member_subscriptions/);
+    expect(releaseSql).toMatch(/status = .*canceled/);
+    expect(releaseSql).toMatch(
+      /status = .*pending[\s\S]*mercado_pago_preapproval_id is null/
+    );
+  });
+
+  it("releases the reserved pending subscription when the provider access token cannot be resolved", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            access_token: null,
+            current_price_amount_cents: 1500,
+            current_price_currency: "ARS",
+            current_price_id: "price-1",
+            current_price_name: "Plan mensual",
+            current_price_provider_plan_id: "provider-plan-1",
+            current_user_email: "member@example.com",
+            existing_checkout_url: null,
+            existing_membership_status: "blocked",
+            existing_membership_status_reason: "payment_blocked",
+            has_active_invitation: true,
+            refresh_token: null,
+            tribe_id: "tribe-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ checkout_url: null, reserved_subscription_id: "subscription-2" }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] });
+    const createMercadoPagoPreapprovalSubscription = jest.fn();
+    const repository = createRepository(execute, {
+      createMercadoPagoPreapprovalSubscription,
+    });
+
+    await expect(
+      repository.startCurrentPriceSubscription({
+        idempotencyKey: "missing-token-attempt",
+        invitationToken: "invitation-token-1",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      status: "payment_blocked",
+    });
+
+    // The provider checkout is never attempted without a usable access token,
+    // and the reserved pending row is released for an immediate retry.
+    expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
+    const releaseSql = getSqlText(execute.mock.calls[2]?.[0]);
+
+    expect(releaseSql).toMatch(/update public\.tribe_member_subscriptions/);
+    expect(releaseSql).toMatch(/status = .*canceled/);
+    expect(releaseSql).toMatch(
+      /status = .*pending[\s\S]*mercado_pago_preapproval_id is null/
+    );
+  });
+
   it("short-circuits with alreadySubscribed and reconciles membership when the member already has a live provider subscription", async () => {
     const execute = jest
       .fn()

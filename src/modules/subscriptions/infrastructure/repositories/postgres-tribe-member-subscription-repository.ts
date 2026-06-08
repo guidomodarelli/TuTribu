@@ -1646,7 +1646,7 @@ export class PostgresTribeMemberSubscriptionRepository
         ? context.existing_checkout_subscription_id
         : null;
     if (reusableCheckoutSubscriptionId) {
-      await this.cancelReusablePendingSubscriptionReservation({
+      await this.cancelPendingSubscriptionReservation({
         subscriptionId: reusableCheckoutSubscriptionId,
         tribeId: context.tribe_id,
       });
@@ -1728,6 +1728,13 @@ export class PostgresTribeMemberSubscriptionRepository
     }).catch(() => null);
 
     if (!accessToken) {
+      // Release the just-reserved pending row so an immediate retry can reserve
+      // again instead of waiting out the stale-reservation window.
+      await this.cancelPendingSubscriptionReservation({
+        subscriptionId: reservation.reserved_subscription_id,
+        tribeId: context.tribe_id,
+      });
+
       logMemberSubscriptionPaymentResult({
         operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
         result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
@@ -1760,6 +1767,15 @@ export class PostgresTribeMemberSubscriptionRepository
           : {}),
       });
     } catch {
+      // A provider timeout or rejection leaves the reserved pending row orphaned
+      // with no checkout URL or linked preapproval. Release it so an immediate
+      // retry can reserve a fresh row instead of being blocked until the
+      // stale-reservation window expires.
+      await this.cancelPendingSubscriptionReservation({
+        subscriptionId: reservation.reserved_subscription_id,
+        tribeId: context.tribe_id,
+      });
+
       logMemberSubscriptionPaymentResult({
         operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.startCheckout,
         result: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked,
@@ -1784,12 +1800,17 @@ export class PostgresTribeMemberSubscriptionRepository
   }
 
   /**
-   * Cancels a reusable pending checkout reservation before issuing a new provider URL.
+   * Cancels a pending checkout reservation that has no linked provider preapproval.
+   *
+   * Used both to replace a stale reusable reservation before issuing a new
+   * provider URL and to release a just-reserved row when provider checkout
+   * creation fails, so an immediate retry is not blocked by the orphaned pending
+   * row until the stale-reservation window expires.
    *
    * @param input - Existing pending subscription identifiers.
-   * @returns Canceled subscription id, or null when the reservation is no longer reusable.
+   * @returns Canceled subscription id, or null when the reservation is no longer cancelable.
    */
-  private async cancelReusablePendingSubscriptionReservation(input: {
+  private async cancelPendingSubscriptionReservation(input: {
     subscriptionId: string;
     tribeId: string | null;
   }): Promise<string | null> {
