@@ -290,6 +290,35 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
+  it("reports the screenshot cleared for an inline data URL even when credentials are missing", async () => {
+    delete process.env.CLOUDFLARE_IMAGES_API_TOKEN;
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const storage = buildStorageWithReservedId(fetcher);
+
+    // A legacy row with an inline `data:` screenshot has no remote image we own,
+    // so it is already effectively cleared. Requiring credentials first would
+    // throw on delete and strand the feedback row forever even though there is
+    // nothing remote to preserve.
+    await expect(
+      storage.delete({ screenshotUrl: VALID_SCREENSHOT_DATA_URL })
+    ).resolves.toEqual({ screenshotCleared: true });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("reports the screenshot cleared for a URL on a host it never writes even when credentials are missing", async () => {
+    delete process.env.CLOUDFLARE_IMAGES_API_TOKEN;
+    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const storage = buildStorageWithReservedId(fetcher);
+
+    // A non-delivery URL the adapter already treats as nothing remote to delete
+    // must be classified before requiring the Cloudflare environment, so the row
+    // is removable instead of being kept forever.
+    await expect(
+      storage.delete({ screenshotUrl: "https://example.com/some/other/image.png" })
+    ).resolves.toEqual({ screenshotCleared: true });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("reports the screenshot uncleared when Cloudflare rejects the delete with an auth error", async () => {
     const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
       async () => buildResponse({ success: false }, false, 403)

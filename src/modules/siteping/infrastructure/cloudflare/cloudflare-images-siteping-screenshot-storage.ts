@@ -4,6 +4,7 @@ import {
   buildCloudflareImagesDeliveryUrl,
   classifyCloudflareImagesDeliveryUrl,
   CLOUDFLARE_IMAGES_DELIVERY_URL_KIND,
+  isCloudflareImagesDeliveryUrl,
   readCloudflareImagesEnvironment,
   type CloudflareImagesEnvironment,
 } from "@/src/modules/shared/infrastructure/cloudflare/cloudflare-images-config";
@@ -269,11 +270,20 @@ export class CloudflareImagesSitepingScreenshotStorage
   async delete(
     command: DeleteSitepingScreenshotCommand
   ): Promise<DeleteSitepingScreenshotResult> {
+    if (!isCloudflareImagesDeliveryUrl(command.screenshotUrl)) {
+      // Inline `data:` fallback or a value on a host we never write — there is no
+      // remote image we own, so the screenshot is already effectively cleared and
+      // the feedback row can be removed. Classify this before requiring the
+      // Cloudflare environment so a legacy non-delivery URL does not strand the
+      // feedback row forever just because storage is unconfigured.
+      return { screenshotCleared: true };
+    }
+
     const environment = readCloudflareImagesEnvironment();
     if (!environment) {
-      // Without credentials we cannot reach the remote image to confirm it is
-      // gone; report it uncleared so the caller keeps the feedback row for a
-      // later retry once storage is configured.
+      // A delivery-host URL we cannot reach without credentials; report it
+      // uncleared so the caller keeps the feedback row for a later retry once
+      // storage is configured.
       return { screenshotCleared: false };
     }
 
@@ -283,9 +293,8 @@ export class CloudflareImagesSitepingScreenshotStorage
     });
 
     if (classification.kind === CLOUDFLARE_IMAGES_DELIVERY_URL_KIND.notDelivery) {
-      // Inline `data:` fallback or a value on a host we never write — there is no
-      // remote image we own, so the screenshot is already effectively cleared and
-      // the feedback row can be removed.
+      // A delivery-host URL with no usable image segment (a bare host or missing
+      // path) — nothing remote we own, so the feedback row can be removed.
       return { screenshotCleared: true };
     }
 

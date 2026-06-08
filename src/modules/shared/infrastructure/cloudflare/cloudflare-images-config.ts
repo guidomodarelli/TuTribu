@@ -64,6 +64,30 @@ export function buildCloudflareImagesDeliveryUrl({
 }
 
 /**
+ * Reports whether a stored screenshot value is an absolute URL on the Cloudflare
+ * Images delivery host, independent of the configured account hash. This app
+ * only ever persists Cloudflare delivery URLs (or inline `data:` fallbacks) as
+ * screenshot URLs, so a value that is not on this host has no remote image we
+ * own and needs no credentials to be considered cleared. Callers use it to skip
+ * non-delivery values before requiring the Cloudflare environment, instead of
+ * keeping a feedback row forever just because storage is unconfigured.
+ *
+ * @param value - Stored screenshot URL to inspect.
+ * @returns `true` when the value is an absolute URL on the delivery host.
+ */
+export function isCloudflareImagesDeliveryUrl(value: string): boolean {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(value);
+  } catch {
+    // Not an absolute URL (e.g. an inline `data:` fallback) — nothing remote.
+    return false;
+  }
+
+  return parsedUrl.host === CLOUDFLARE_IMAGES_DELIVERY.host;
+}
+
+/**
  * Outcome of inspecting a stored screenshot URL against the configured account,
  * so the caller can decide whether the remote image is owned and deletable, an
  * unconfirmed orphan, or nothing it owns at all.
