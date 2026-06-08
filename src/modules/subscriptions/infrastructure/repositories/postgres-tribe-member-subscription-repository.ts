@@ -37,6 +37,7 @@ import {
   logPaymentOperation,
   type PaymentOperationTraceContext,
 } from "@/src/modules/subscriptions/infrastructure/observability/payment-operation-logger";
+import { SERVER_LOG_LEVEL } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import {
   resolveMercadoPagoAccessToken,
   type MercadoPagoAccessTokenRefresher,
@@ -87,6 +88,13 @@ type MercadoPagoPreapprovalStatusUpdater = (input: {
   status: "canceled";
   traceContext?: PaymentOperationTraceContext;
 }) => Promise<string>;
+
+type MercadoPagoPreapprovalBackUrlUpdater = (input: {
+  accessToken: string;
+  backUrl: string;
+  preapprovalId: string;
+  traceContext?: PaymentOperationTraceContext;
+}) => Promise<void>;
 
 type SubscriptionStartContextRow = {
   access_token: string | null;
@@ -265,6 +273,7 @@ const LIVE_PROVIDER_SUBSCRIPTION_STATUSES = sql`(
 const MEMBER_SUBSCRIPTION_PAYMENT_OPERATION = {
   cancelSubscription: "cancel-member-subscription",
   confirmReturn: "confirm-member-subscription-return",
+  linkReturnBackUrl: "link-member-subscription-return-back-url",
   reconcileSubscription: "reconcile-member-subscription",
   startCheckout: "start-member-subscription-checkout",
   startCheckoutAlreadyActive: "start-member-subscription-already-active",
@@ -298,6 +307,12 @@ const MEMBER_SUBSCRIPTION_RECOVERY_MEMBERSHIP_STATUS = {
 
 const MEMBER_SUBSCRIPTION_PAYMENT_LOG = {
   completedMessage: "Member subscription payment operation completed",
+  returnBackUrlLinkFailedMessage:
+    "Failed to link preapproval id into the subscription return back URL",
+} as const;
+
+const MEMBER_SUBSCRIPTION_BACK_URL_LINK_RESULT = {
+  failed: "back_url_link_failed",
 } as const;
 
 /**
@@ -440,6 +455,7 @@ export class PostgresTribeMemberSubscriptionRepository
    * @param getMercadoPagoPreapprovalDetails - Adapter that reads provider preapproval details.
    * @param getMercadoPagoPreapprovalStatus - Adapter that reads provider preapproval status.
    * @param updateMercadoPagoPreapprovalStatus - Adapter that updates provider preapproval status.
+   * @param updateMercadoPagoPreapprovalBackUrl - Adapter that links the authoritative preapproval id into the provider back URL.
    * @param refreshMercadoPagoAccessToken - Adapter that refreshes provider tokens.
    * @param requestId - Optional request correlation identifier for payment traces.
    */
@@ -449,6 +465,7 @@ export class PostgresTribeMemberSubscriptionRepository
     private readonly getMercadoPagoPreapprovalDetails: MercadoPagoPreapprovalDetailsGetter,
     private readonly getMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusGetter,
     private readonly updateMercadoPagoPreapprovalStatus: MercadoPagoPreapprovalStatusUpdater,
+    private readonly updateMercadoPagoPreapprovalBackUrl: MercadoPagoPreapprovalBackUrlUpdater,
     private readonly refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher,
     private readonly requestId?: string
   ) {}
@@ -1794,6 +1811,21 @@ export class PostgresTribeMemberSubscriptionRepository
       return { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked };
     }
 
+    // The preapproval was created with a bare tribe back URL because the
+    // authoritative preapproval_id is only known after creation. Link it back
+    // into the back URL now, before the redirect, so an immediate return (the
+    // buyer lands on /slug before the webhook lands) still carries the id and
+    // the tribe page runs its pending-return handling instead of falling
+    // through to the blocked/hidden state. This is best-effort UX hardening:
+    // webhook-based linking already activates the membership, so a failed
+    // update must not block the checkout redirect.
+    await this.linkSubscriptionReturnBackUrl({
+      accessToken,
+      providerSubscriptionId: providerSubscription.providerSubscriptionId,
+      traceContext: checkoutTraceContext,
+      tribeSlug: input.tribeSlug,
+    });
+
     return this.persistReservedPlanCheckout({
       checkoutUrl: providerSubscription.checkoutUrl,
       invitationTokenHash: input.invitationTokenHash,
@@ -1805,6 +1837,49 @@ export class PostgresTribeMemberSubscriptionRepository
       reservedSubscriptionId: reservation.reserved_subscription_id,
       tribeId: context.tribe_id,
       tribeSlug: input.tribeSlug,
+    });
+  }
+
+  /**
+   * Links the authoritative preapproval id into the provider back URL after the
+   * subscription is created, before the checkout redirect.
+   *
+   * Best-effort: a provider failure here only degrades the return experience to
+   * the bare back URL, while the verified webhook still activates the
+   * membership, so the failure is logged and swallowed instead of blocking the
+   * checkout redirect.
+   *
+   * @param input - Provider access token, created preapproval id, trace context, and tribe slug.
+   * @returns Promise that resolves after the back URL link is attempted.
+   */
+  private async linkSubscriptionReturnBackUrl(input: {
+    accessToken: string;
+    providerSubscriptionId: string;
+    traceContext?: PaymentOperationTraceContext;
+    tribeSlug: string;
+  }): Promise<void> {
+    const backUrl =
+      resolvePublicAppBaseUrl() +
+      buildProviderSubscriptionReturnPath({
+        providerSubscriptionId: input.providerSubscriptionId,
+        tribeSlug: input.tribeSlug,
+      });
+
+    await this.updateMercadoPagoPreapprovalBackUrl({
+      accessToken: input.accessToken,
+      backUrl,
+      preapprovalId: input.providerSubscriptionId,
+      ...(input.traceContext ? { traceContext: input.traceContext } : {}),
+    }).catch((error: unknown) => {
+      logPaymentOperation({
+        context: input.traceContext,
+        error,
+        level: SERVER_LOG_LEVEL.warn,
+        message: MEMBER_SUBSCRIPTION_PAYMENT_LOG.returnBackUrlLinkFailedMessage,
+        operation: MEMBER_SUBSCRIPTION_PAYMENT_OPERATION.linkReturnBackUrl,
+        preapprovalId: input.providerSubscriptionId,
+        result: MEMBER_SUBSCRIPTION_BACK_URL_LINK_RESULT.failed,
+      });
     });
   }
 

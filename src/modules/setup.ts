@@ -30,6 +30,7 @@ import {
   getMercadoPagoPreapprovalPlanStatus,
   getMercadoPagoPreapprovalStatus,
   refreshMercadoPagoAccessToken,
+  updateMercadoPagoPreapprovalBackUrl,
   updateMercadoPagoPreapprovalPlan,
   updateMercadoPagoPreapprovalSubscriptionStatus,
 } from "./subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
@@ -182,6 +183,7 @@ export async function createRequestModules(
           getMercadoPagoPreapprovalDetails,
           getMercadoPagoPreapprovalStatus,
           updateMercadoPagoPreapprovalSubscriptionStatus,
+          updateMercadoPagoPreapprovalBackUrl,
           refreshMercadoPagoAccessToken,
           requestId
         ),
