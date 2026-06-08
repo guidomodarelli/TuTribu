@@ -218,11 +218,19 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
   <div class="section-title">Retorno del checkout y reconciliación</div>
 <p>Cuando Mercado Pago vuelve con un <code>preapproval_id</code> desde el checkout de un plan, el retorno del usuario <strong>no da acceso por sí mismo</strong>.</p>
 
+<div class="callout c-ok">
+  <strong>Vinculación en el checkout (no en el retorno).</strong> El checkout crea la preaprobación por API con <code>createMercadoPagoPreapprovalSubscription</code> (no usa la URL hosteada del plan) y persiste el <code>mercado_pago_preapproval_id</code> autoritativo sobre la fila local <code>pending</code> <strong>antes</strong> de redirigir al usuario, vía la policy de attach del miembro (que exige <code>preapproval_id IS NULL</code>). Así el webhook verificado puede matchear por <code>mercado_pago_preapproval_id</code> y activar la membresía <strong>aunque el usuario nunca vuelva a la app</strong> desde el checkout del proveedor (in-app browser de Mercado Pago, iOS Safari, deep-link roto). La clave de idempotencia de Mercado Pago se deriva del id de la reserva local para que un reintento devuelva la misma preaprobación en lugar de crear una duplicada.
+</div>
+
 <div class="callout c-warn">
-  La página de retorno solo muestra el estado local. Si el <code>preapproval_id</code> todavía no está asociado, puede consultar a Mercado Pago para vincular o recuperar una fila local pendiente siempre que: (a) exista una operación reciente de checkout del mismo usuario para el plan actual, y (b) el <code>preapproval_id</code> pertenezca al <code>mercado_pago_preapproval_plan_id</code> actual de la tribu.
+  La página de retorno solo muestra el estado local; no es el camino de vinculación primario. Como fallback, si el <code>preapproval_id</code> todavía no estuviera asociado, puede consultar a Mercado Pago para vincular o recuperar una fila local pendiente siempre que: (a) exista una operación reciente de checkout del mismo usuario para el plan actual, y (b) el <code>preapproval_id</code> pertenezca al <code>mercado_pago_preapproval_plan_id</code> actual de la tribu.
 </div>
 
 <p>Esa reparación conserva la suscripción local como <code>pending</code>; la activación o remoción de acceso queda a cargo del webhook verificado o de una reconciliación server-side posterior.</p>
+
+<div class="callout c-red">
+  <strong>Integridad del vínculo preapproval ↔ fila local.</strong> Un índice único parcial sobre <code>tribe_member_subscriptions(mercado_pago_preapproval_id) WHERE mercado_pago_preapproval_id IS NOT NULL</code> garantiza que una preaprobación mapee a exactamente una fila. Esto impide que un miembro adjunte a su propia reserva pendiente el <code>preapproval_id</code> de otro usuario (visible en URLs de retorno) y se active con el pago ajeno: el <code>UPDATE</code> del webhook no filtra por usuario, así que sin esta restricción un solo webhook activaría ambas filas.
+</div>
 
 <p>La reconciliación de suscriptores de un precio es un <strong>caso de uso reusable</strong>, no una regla propia de la pantalla de precios. Puede dispararse desde el botón manual, un webhook, un job periódico o una reparación puntual de admin. El caso de uso consulta cada <code>mercado_pago_preapproval_id</code> local contra Mercado Pago y reconcilia la base local antes de responder.</p>
 

@@ -33,7 +33,6 @@ const MERCADO_PAGO_URL = {
   oauthToken: "https://api.mercadopago.com/oauth/token",
   preapproval: "https://api.mercadopago.com/preapproval",
   preapprovalPlan: "https://api.mercadopago.com/preapproval_plan",
-  subscriptionCheckout: "https://www.mercadopago.com.ar/subscriptions/checkout",
 } as const;
 
 const MERCADO_PAGO_HTTP = {
@@ -628,22 +627,6 @@ export function buildMercadoPagoAuthorizationUrl(state: string): string {
   authorizationUrl.searchParams.set("state", state);
 
   return authorizationUrl.toString();
-}
-
-/**
- * Builds the hosted checkout URL for a Mercado Pago preapproval plan.
- *
- * @param preapprovalPlanId - Provider subscription plan identifier.
- * @returns Mercado Pago hosted checkout URL.
- */
-export function buildMercadoPagoPreapprovalPlanCheckoutUrl(
-  preapprovalPlanId: string
-): string {
-  const checkoutUrl = new URL(MERCADO_PAGO_URL.subscriptionCheckout);
-
-  checkoutUrl.searchParams.set("preapproval_plan_id", preapprovalPlanId);
-
-  return checkoutUrl.toString();
 }
 
 /**

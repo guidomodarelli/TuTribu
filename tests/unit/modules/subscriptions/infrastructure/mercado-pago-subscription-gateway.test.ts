@@ -1,7 +1,6 @@
 import {
   createMercadoPagoPreapprovalPlan,
   createMercadoPagoPreapprovalSubscription,
-  buildMercadoPagoPreapprovalPlanCheckoutUrl,
   getMercadoPagoPreapprovalDetails,
   getMercadoPagoPreapprovalPlan,
   getMercadoPagoPreapprovalPlanStatus,
@@ -470,12 +469,6 @@ describe("mercado pago subscription gateway", () => {
         .map(([serializedEntry]) => serializedEntry)
         .join("\n")
     ).not.toContain("plan-secret-1234567890");
-  });
-
-  it("builds Mercado Pago checkout URLs from the provider preapproval plan", () => {
-    expect(buildMercadoPagoPreapprovalPlanCheckoutUrl("plan-1")).toBe(
-      "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=plan-1"
-    );
   });
 
   it("creates pending subscriptions associated to the current Mercado Pago plan", async () => {
