@@ -702,6 +702,63 @@ describe("manage Siteping feedback use cases", () => {
     expect(publisher.publish).not.toHaveBeenCalled();
   });
 
+  it("deletes the just-uploaded screenshot when persisting the feedback throws", async () => {
+    const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
+    const repository = buildRepository({
+      create: jest.fn(async () => {
+        throw new Error("database_connection_interrupted");
+      }),
+    });
+    const publisher = buildPublisher();
+    const screenshotStorage = buildScreenshotStorage({
+      store: jest.fn(async () => screenshotUrl),
+    });
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: publisher,
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        authenticatedMember: buildAuthenticatedMember(),
+        command: buildFeedbackCommand(),
+        requestUrl: "https://tutribu.example.com/api/siteping",
+      })
+    ).rejects.toThrow("database_connection_interrupted");
+
+    expect(screenshotStorage.store).toHaveBeenCalledTimes(1);
+    expect(screenshotStorage.delete).toHaveBeenCalledWith({ screenshotUrl });
+    expect(publisher.publish).not.toHaveBeenCalled();
+  });
+
+  it("does not attempt screenshot deletion when persisting throws without an uploaded screenshot", async () => {
+    const repository = buildRepository({
+      create: jest.fn(async () => {
+        throw new Error("database_connection_interrupted");
+      }),
+    });
+    const screenshotStorage = buildScreenshotStorage({
+      store: jest.fn(async () => null),
+    });
+    const useCase = createSitepingFeedback({
+      githubIssuePublisher: buildPublisher(),
+      screenshotStorage,
+      sitepingFeedbackRepository: repository,
+    });
+
+    await expect(
+      useCase({
+        authenticatedMember: buildAuthenticatedMember(),
+        command: buildFeedbackCommand(),
+        requestUrl: "https://tutribu.example.com/api/siteping",
+      })
+    ).rejects.toThrow("database_connection_interrupted");
+
+    expect(screenshotStorage.store).toHaveBeenCalledTimes(1);
+    expect(screenshotStorage.delete).not.toHaveBeenCalled();
+  });
+
   it("reuses the existing idempotent feedback without uploading another screenshot", async () => {
     const existingFeedback = {
       annotations: [],

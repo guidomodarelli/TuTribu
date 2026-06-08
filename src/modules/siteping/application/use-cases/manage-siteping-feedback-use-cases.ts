@@ -286,22 +286,38 @@ export function createSitepingFeedback({
       screenshotStorage,
       command.screenshotDataUrl
     );
-    const result = await sitepingFeedbackRepository.create({
-      annotations: command.annotations.map(flattenAnnotation),
-      authorEmail: normalizeEmail(authenticatedMember.email),
-      authorName: normalizeText(authenticatedMember.name),
-      clientId: idempotencyKey.clientId,
-      createdBy: idempotencyKey.createdBy,
-      diagnostics: sanitizeDiagnostics(command.diagnostics),
-      message: redactSitepingSensitiveText(normalizeText(command.message)),
-      projectName: idempotencyKey.projectName,
-      screenshotUrl,
-      type: command.type,
-      url: redactSitepingSensitiveText(normalizeText(command.url)),
-      urlPattern: normalizeOptionalText(command.urlPattern),
-      userAgent: redactSitepingSensitiveText(normalizeText(command.userAgent)),
-      viewport: normalizeText(command.viewport),
-    });
+
+    let result: Awaited<ReturnType<SitepingFeedbackRepository["create"]>>;
+
+    try {
+      result = await sitepingFeedbackRepository.create({
+        annotations: command.annotations.map(flattenAnnotation),
+        authorEmail: normalizeEmail(authenticatedMember.email),
+        authorName: normalizeText(authenticatedMember.name),
+        clientId: idempotencyKey.clientId,
+        createdBy: idempotencyKey.createdBy,
+        diagnostics: sanitizeDiagnostics(command.diagnostics),
+        message: redactSitepingSensitiveText(normalizeText(command.message)),
+        projectName: idempotencyKey.projectName,
+        screenshotUrl,
+        type: command.type,
+        url: redactSitepingSensitiveText(normalizeText(command.url)),
+        urlPattern: normalizeOptionalText(command.urlPattern),
+        userAgent: redactSitepingSensitiveText(normalizeText(command.userAgent)),
+        viewport: normalizeText(command.viewport),
+      });
+    } catch (error) {
+      // create() threw after the screenshot upload (transient database error,
+      // RLS failure, or annotation insert failure), so no feedback row exists to
+      // drive a later cleanup retry and the just-uploaded public image would
+      // orphan in object storage. Delete it before rethrowing; delete() is
+      // best-effort and never throws, so it cannot mask the original failure.
+      if (screenshotUrl) {
+        await screenshotStorage.delete({ screenshotUrl });
+      }
+
+      throw error;
+    }
 
     if (!result.wasCreated) {
       // A concurrent submission with the same idempotency key won the insert
