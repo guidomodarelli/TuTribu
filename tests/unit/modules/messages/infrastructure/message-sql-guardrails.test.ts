@@ -178,4 +178,105 @@ describe("Message SQL guardrails", () => {
       ])
     );
   });
+
+  it("locks the orphan-image cleanup definer functions to maintenance callers only", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260609120000_create_orphan_image_cleanup.sql"
+    );
+    const migrationJournal = JSON.parse(
+      readWorkspaceFile("database/migrations/meta/_journal.json")
+    ) as { entries: Array<{ tag: string }> };
+    const maintenanceGuard =
+      "nullif(current_setting('app.current_user_id', true), '') IS NULL";
+    const definerFunctions = [
+      "enqueue_tribe_message_images_for_remote_deletion",
+      "enqueue_user_message_images_for_remote_deletion",
+      "reclaim_abandoned_draft_message_images",
+      "list_message_images_pending_remote_deletion",
+      "confirm_message_image_remote_deleted",
+      "list_queued_remote_image_deletions",
+      "delete_queued_remote_image_deletion",
+    ];
+
+    // PostgreSQL grants EXECUTE to PUBLIC by default, which would expose every
+    // SECURITY DEFINER primitive to any request-scoped role. Each function must
+    // revoke that default so only the function owner (the cron sweep) keeps it.
+    for (const functionName of definerFunctions) {
+      expect(migration).toMatch(
+        new RegExp(
+          `REVOKE EXECUTE ON FUNCTION public\\.${functionName}\\([^)]*\\)\\s*FROM PUBLIC;`
+        )
+      );
+    }
+
+    // The remote-deletion confirmation must never flip an attached or draft image
+    // to deleted; it only finalizes rows already slated for deletion.
+    expect(migration).toContain("AND status = 'pending_delete'");
+
+    // The persistent callable entrypoints self-authorize as maintenance work by
+    // acting only when no app user context is present. The single-argument listing
+    // function is dropped and replaced in 20260609130000, so its guard lives there.
+    const guardedEntrypoints = [
+      "reclaim_abandoned_draft_message_images",
+      "confirm_message_image_remote_deleted",
+      "list_queued_remote_image_deletions",
+      "delete_queued_remote_image_deletion",
+    ];
+    for (const functionName of guardedEntrypoints) {
+      const functionStart = migration.indexOf(
+        `CREATE FUNCTION public.${functionName}(`
+      );
+      const functionEnd = migration.indexOf("$$;", functionStart);
+      expect(functionStart).toBeGreaterThan(-1);
+      expect(migration.slice(functionStart, functionEnd)).toContain(
+        maintenanceGuard
+      );
+    }
+
+    // The runtime-role grant stays guarded so the migration is portable to
+    // deployments that do not provision the role, and never re-grants the
+    // trigger-only functions.
+    expect(migration).toContain(
+      "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated')"
+    );
+    expect(migration).not.toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.enqueue_[a-z_]+\([^)]*\) TO authenticated/
+    );
+
+    expect(migrationJournal.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "20260609120000_create_orphan_image_cleanup",
+        }),
+      ])
+    );
+  });
+
+  it("re-locks the grace-window listing function after the drop and recreate", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260609130000_guard_pending_image_cleanup_window.sql"
+    );
+    const migrationJournal = JSON.parse(
+      readWorkspaceFile("database/migrations/meta/_journal.json")
+    ) as { entries: Array<{ tag: string }> };
+
+    // DROP + CREATE resets the function's privileges to the PUBLIC default, so the
+    // recreated grace-window form must revoke PUBLIC and re-apply the guard.
+    expect(migration).toMatch(
+      /REVOKE EXECUTE ON FUNCTION public\.list_message_images_pending_remote_deletion\(integer, interval\)\s*FROM PUBLIC;/
+    );
+    expect(migration).toContain(
+      "nullif(current_setting('app.current_user_id', true), '') IS NULL"
+    );
+    expect(migration).toContain(
+      "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated')"
+    );
+    expect(migrationJournal.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "20260609130000_guard_pending_image_cleanup_window",
+        }),
+      ])
+    );
+  });
 });

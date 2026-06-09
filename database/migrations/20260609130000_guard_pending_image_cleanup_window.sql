@@ -36,6 +36,25 @@ AS $$
   WHERE message_images.status = 'pending_delete'
     AND message_images.updated_at
       < timezone('utc', now()) - interactive_delete_grace
+    -- Maintenance-only: return nothing inside an app user context so this never
+    -- leaks pending cloudflare_image_id values to a request-scoped role. The
+    -- DROP above reset the single-argument form's privileges, so this recreated
+    -- function must lock itself down again (see 20260609120000 for the rationale).
+    AND nullif(current_setting('app.current_user_id', true), '') IS NULL
   ORDER BY message_images.updated_at ASC
   LIMIT batch_limit;
+$$;
+
+-- CREATE FUNCTION grants EXECUTE to PUBLIC by default; revoke it so this stays an
+-- owner-only (cron sweep) primitive, and re-grant to the runtime role behind the
+-- same guarded pattern used in 20260609120000.
+REVOKE EXECUTE ON FUNCTION public.list_message_images_pending_remote_deletion(integer, interval)
+  FROM PUBLIC;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    GRANT EXECUTE ON FUNCTION public.list_message_images_pending_remote_deletion(integer, interval) TO authenticated;
+  END IF;
+END;
 $$;
