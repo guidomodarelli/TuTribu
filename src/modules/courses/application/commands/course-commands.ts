@@ -21,27 +21,40 @@ export type DeleteCourseModuleCommand = {
   tribeSlug: string;
 };
 
+/**
+ * A single file attachment draft for a lesson. The array index expresses the
+ * leader-chosen slot (`sortOrder`) within the lesson material list.
+ */
+export type LessonFileDraftCommand = {
+  assetId: string;
+};
+
 export type CreateLessonCommand = {
   courseModuleId: string;
   description: string;
   externalVideoUrl: string;
+  files?: LessonFileDraftCommand[];
   sortOrder: number;
   title: string;
   tribeSlug: string;
+  userId: string;
 };
 
 export type UpdateLessonCommand = {
   courseModuleId: string;
   description: string;
   externalVideoUrl: string;
+  files?: LessonFileDraftCommand[];
   isActive: boolean;
   lessonId: string;
   sortOrder: number;
   title: string;
   tribeSlug: string;
+  userId: string;
 };
 
 export type DeleteLessonCommand = {
   lessonId: string;
   tribeSlug: string;
+  userId: string;
 };

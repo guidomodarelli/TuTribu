@@ -1,11 +1,15 @@
 import {
+  MESSAGE_FILES,
   MESSAGE_MEDIA,
   MESSAGE_MEDIA_KIND,
   MESSAGE_MUTATION_STATUS,
   MESSAGE_POLL_OPTION_TEXT,
   MESSAGE_POLL_OPTIONS,
 } from "@/src/modules/messages/constants/message-round";
-import type { MessageMediaDraftCommand } from "@/src/modules/messages/application/commands/tribe-message-command";
+import type {
+  MessageFileDraftCommand,
+  MessageMediaDraftCommand,
+} from "@/src/modules/messages/application/commands/tribe-message-command";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -15,6 +19,7 @@ const CREATE_MESSAGE_ROUTE_FIELD = {
   allowMultipleVotes: "allowMultipleVotes",
   channelId: "channelId",
   content: "content",
+  files: "files",
   media: "media",
   kind: "kind",
   altText: "altText",
@@ -69,6 +74,8 @@ const CREATE_MESSAGE_ROUTE_RESPONSE = {
   invalidPollTooManyOptionsMessage: "Usá menos opciones para publicar la encuesta.",
   invalidVideoUrlMessage:
     "No pudimos reconocer ese link de video. Probá con YouTube, Vimeo, Wistia o Loom.",
+  invalidFileMessage:
+    "No pudimos adjuntar esos archivos. Revisá el tipo y el tamaño, y volvé a subirlos.",
   successMessage: "Mensaje creado.",
   unexpectedMessage: "No pudimos crear el mensaje. Intentalo de nuevo.",
   unauthorizedMessage: "Inicia sesion para publicar.",
@@ -188,6 +195,66 @@ function readMediaFromBody(body: unknown): CreateMessageRouteMediaReadResult {
   };
 }
 
+/**
+ * Classifies the outcome of reading the file attachment list from a payload.
+ */
+const CREATE_MESSAGE_ROUTE_FILES_READ_STATUS = {
+  absent: "absent",
+  invalidFile: "invalidFile",
+  valid: "valid",
+} as const;
+
+type CreateMessageRouteFilesReadResult =
+  | { status: typeof CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.absent }
+  | { status: typeof CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.invalidFile }
+  | {
+      files: MessageFileDraftCommand[];
+      status: typeof CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.valid;
+    };
+
+/**
+ * Reads and validates the optional file attachment list from a message
+ * payload. The array index expresses the author-chosen download slot.
+ *
+ * @param body - Parsed request body that may contain a `files` array.
+ * @returns Whether the payload omits files, contains an invalid item, or
+ *   contains a normalized file draft list.
+ */
+function readFilesFromBody(body: unknown): CreateMessageRouteFilesReadResult {
+  if (!body || typeof body !== "object" || !(CREATE_MESSAGE_ROUTE_FIELD.files in body)) {
+    return { status: CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.absent };
+  }
+
+  const files = (body as Record<string, unknown>)[CREATE_MESSAGE_ROUTE_FIELD.files];
+
+  if (!Array.isArray(files) || files.length > MESSAGE_FILES.maxCount) {
+    return { status: CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.invalidFile };
+  }
+
+  const drafts: MessageFileDraftCommand[] = [];
+
+  for (const item of files) {
+    if (!item || typeof item !== "object") {
+      return { status: CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.invalidFile };
+    }
+
+    const assetId = (item as Record<string, unknown>)[
+      CREATE_MESSAGE_ROUTE_FIELD.assetId
+    ];
+
+    if (typeof assetId !== "string") {
+      return { status: CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.invalidFile };
+    }
+
+    drafts.push({ assetId });
+  }
+
+  return {
+    files: drafts,
+    status: CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.valid,
+  };
+}
+
 function readPollFromBody(body: unknown) {
   if (!body || typeof body !== "object" || !(CREATE_MESSAGE_ROUTE_FIELD.poll in body)) {
     return null;
@@ -272,6 +339,16 @@ export async function POST(
     const body = await request.json().catch(() => null);
     const poll = readPollFromBody(body);
     const mediaResult = readMediaFromBody(body);
+    const filesResult = readFilesFromBody(body);
+
+    if (
+      filesResult.status === CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.invalidFile
+    ) {
+      return createJsonResponse(
+        { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidFileMessage },
+        HTTP_STATUS.badRequest
+      );
+    }
 
     if (mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.invalidImage) {
       return createJsonResponse(
@@ -298,11 +375,16 @@ export async function POST(
       mediaResult.status === CREATE_MESSAGE_ROUTE_MEDIA_READ_STATUS.valid
         ? mediaResult.media
         : undefined;
+    const files =
+      filesResult.status === CREATE_MESSAGE_ROUTE_FILES_READ_STATUS.valid
+        ? filesResult.files
+        : undefined;
     const result = await modules.messages.useCases.createTribeMessage({
       authorId: authenticatedMember.id,
       channelId: readChannelIdFromBody(body),
       tribeSlug: slug,
       content: readContentFromBody(body),
+      ...(files !== undefined ? { files } : {}),
       ...(media !== undefined ? { media } : {}),
       ...(poll ? { poll } : {}),
       title: readTitleFromBody(body),
@@ -347,6 +429,11 @@ export async function POST(
       case MESSAGE_MUTATION_STATUS.invalidVideoUrl:
         return createJsonResponse(
           { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidVideoUrlMessage },
+          HTTP_STATUS.badRequest
+        );
+      case MESSAGE_MUTATION_STATUS.invalidFile:
+        return createJsonResponse(
+          { message: CREATE_MESSAGE_ROUTE_RESPONSE.invalidFileMessage },
           HTTP_STATUS.badRequest
         );
       case MESSAGE_MUTATION_STATUS.notFound:

@@ -164,6 +164,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 1,
       title: "  Lección 1  ",
       tribeSlug: " matematica-pro ",
+      userId: "leader-1",
     });
 
     expect(repository.createLesson).toHaveBeenCalledWith({
@@ -188,6 +189,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 0,
       title: "Lección con link",
       tribeSlug: "matematica-pro",
+      userId: "leader-1",
     });
 
     expect(repository.createLesson).toHaveBeenCalledWith(
@@ -208,6 +210,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 0,
       title: "Lección larga",
       tribeSlug: "matematica-pro",
+      userId: "leader-1",
     });
 
     expect(repository.createLesson).toHaveBeenCalled();
@@ -224,6 +227,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 0,
       title: "Lección demasiado larga",
       tribeSlug: "matematica-pro",
+      userId: "leader-1",
     });
 
     expect(result).toEqual({ status: "invalid_input" });
@@ -243,6 +247,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 0,
       title: "Lección",
       tribeSlug: "matematica-pro",
+      userId: "leader-1",
     });
 
     expect(result).toEqual({ status: "invalid_input" });
@@ -260,6 +265,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 0,
       title: "Lección YT",
       tribeSlug: "matematica-pro",
+      userId: "leader-1",
     });
 
     expect(repository.createLesson).toHaveBeenCalledWith(
@@ -281,6 +287,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 0,
       title: "Lección Wistia",
       tribeSlug: "matematica-pro",
+      userId: "leader-1",
     });
 
     expect(repository.createLesson).toHaveBeenCalledWith(
@@ -303,6 +310,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 0,
       title: "Lección Loom",
       tribeSlug: "matematica-pro",
+      userId: "leader-1",
     });
 
     expect(repository.createLesson).toHaveBeenCalledWith(
@@ -324,6 +332,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 0,
       title: "Lección 1",
       tribeSlug: "matematica-pro",
+      userId: "leader-1",
     });
 
     expect(repository.createLesson).toHaveBeenCalledWith(
@@ -342,6 +351,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 0,
       title: "Lección 1",
       tribeSlug: "matematica-pro",
+      userId: "leader-1",
     });
 
     expect(result).toEqual({ status: "invalid_video_url" });
@@ -359,6 +369,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 0,
       title: "   ",
       tribeSlug: "matematica-pro",
+      userId: "leader-1",
     });
 
     expect(result).toEqual({ status: "invalid_input" });
@@ -379,6 +390,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 3,
       title: "  Nuevo título  ",
       tribeSlug: " matematica-pro ",
+      userId: "leader-1",
     });
 
     expect(repository.updateLesson).toHaveBeenCalledWith({
@@ -401,6 +413,7 @@ describe("manage tribe courses use cases", () => {
     await useCase({
       lessonId: " l1 ",
       tribeSlug: " matematica-pro ",
+      userId: "leader-1",
     });
 
     expect(repository.deleteLesson).toHaveBeenCalledWith({

@@ -10,6 +10,7 @@ import type {
   TribeRoundSharedMessageResult,
   TribeRoundViewerStateResult,
   MessageMembershipStatus,
+  MessageFileResult,
   MessageMediaResult,
   MessagePollResult,
   TribeRoundAuthorResult,
@@ -69,10 +70,23 @@ type MessageRoundSharedRow = {
   poll_total_vote_count: number | string | null;
   message_content: string | null;
   message_created_at: Date | string | null;
+  message_files: MessageFileRow[] | null;
   message_id: string | null;
   message_images: MessageImageRow[] | null;
   message_title: string | null;
   message_videos: MessageVideoRow[] | null;
+};
+
+export type MessageFileRow = {
+  file_name?: string | null;
+  file_size_bytes?: number | string | null;
+  fileName?: string | null;
+  fileSizeBytes?: number | string | null;
+  id: string;
+  mime_type?: string | null;
+  mimeType?: string | null;
+  sort_order?: number | string | null;
+  sortOrder?: number | string | null;
 };
 
 export type MessageImageRow = {
@@ -171,6 +185,37 @@ export function createMessageMediaFromRows(
   });
 
   return sortMessageMediaBySortOrder([...imageMedia, ...videoMedia]);
+}
+
+/**
+ * Maps persisted attached file rows into the ordered downloads list consumed
+ * by the round view model.
+ *
+ * @param fileRows - Attached file rows (with their `sort_order`).
+ * @returns File results sorted ascending by `sortOrder`.
+ */
+export function createMessageFilesFromRows(
+  fileRows: MessageFileRow[] | null | undefined
+): MessageFileResult[] {
+  return (fileRows ?? [])
+    .flatMap((row) => {
+      const fileName = row.fileName ?? row.file_name;
+
+      if (!fileName) {
+        return [];
+      }
+
+      return [
+        {
+          fileName,
+          fileSizeBytes: Number(row.fileSizeBytes ?? row.file_size_bytes ?? 0),
+          id: row.id,
+          mimeType: row.mimeType ?? row.mime_type ?? "",
+          sortOrder: Number(row.sortOrder ?? row.sort_order ?? 0),
+        },
+      ];
+    })
+    .sort((first, second) => first.sortOrder - second.sortOrder);
 }
 
 function createReplyAuthorsPreviewFromRows(
@@ -404,6 +449,7 @@ function mapRowsToSharedData(
         }),
         content: row.message_content,
         createdAt: formatMessageDateTimeValue(row.message_created_at),
+        files: createMessageFilesFromRows(row.message_files),
         id: row.message_id,
         isPinned: Boolean(row.message_pinned_at),
         likeCount: Number(row.like_count),
@@ -715,6 +761,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
               messages.tribe_id,
               coalesce(message_images.message_images, '[]'::jsonb) as message_images,
               coalesce(message_videos.message_videos, '[]'::jsonb) as message_videos,
+              coalesce(message_files.message_files, '[]'::jsonb) as message_files,
               coalesce(message_like_counts.like_count, 0) as like_count,
               message_pins.pinned_at as pinned_at
             from public.messages
@@ -753,6 +800,21 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
               from public.message_videos video_assets
               where video_assets.message_id = messages.id
             ) message_videos on true
+            left join lateral (
+              select jsonb_agg(
+                jsonb_build_object(
+                  'file_name', file_assets.file_name,
+                  'file_size_bytes', file_assets.file_size_bytes,
+                  'id', file_assets.id,
+                  'mime_type', file_assets.mime_type,
+                  'sort_order', file_assets.sort_order
+                )
+                order by file_assets.sort_order asc, file_assets.created_at asc
+              ) as message_files
+              from public.message_files file_assets
+              where file_assets.message_id = messages.id
+                and file_assets.status = 'attached'
+            ) message_files on true
             where messages.channel_id is not null
               and (
                 ${activeChannel?.slug ?? null}::text is null
@@ -781,6 +843,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             messages.created_at as message_created_at,
             messages.message_images as message_images,
             messages.message_videos as message_videos,
+            messages.message_files as message_files,
             tribe_channels.id as channel_id,
             tribe_channels.name as channel_name,
             tribe_channels.slug as channel_slug,
@@ -867,6 +930,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             messages.created_at,
             messages.message_images,
             messages.message_videos,
+            messages.message_files,
             messages.channel_id,
             messages.author_id,
             messages.tribe_id,

@@ -152,6 +152,83 @@ describe("TribeCoursesView", () => {
     expect(bareLink).toHaveAttribute("href", "https://www.ejemplo.com");
   });
 
+  it("renders lesson material as download links ordered by sort order", () => {
+    const modulesWithFiles: CourseModuleWithLessonsResult[] = [
+      {
+        id: "module-1",
+        isActive: true,
+        lessons: [
+          {
+            courseModuleId: "module-1",
+            description: null,
+            externalVideoId: "video-1",
+            files: [
+              {
+                fileName: "planilla.xlsx",
+                fileSizeBytes: 2048,
+                id: "file-planilla",
+                mimeType:
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                sortOrder: 1,
+              },
+              {
+                fileName: "apunte.pdf",
+                fileSizeBytes: 1024,
+                id: "file-apunte",
+                mimeType: "application/pdf",
+                sortOrder: 0,
+              },
+            ],
+            id: "lesson-1",
+            isActive: true,
+            sortOrder: 0,
+            title: "Primera clase",
+            videoProvider: "youtube",
+          },
+        ],
+        sortOrder: 0,
+        title: "Módulo inicial",
+      },
+    ];
+
+    render(
+      <TribeCoursesView
+        modules={modulesWithFiles}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    const downloadLinks = screen.getAllByRole("link", { name: /Descargar/ });
+    expect(downloadLinks).toHaveLength(2);
+    expect(downloadLinks[0]).toHaveAccessibleName("Descargar apunte.pdf");
+    expect(downloadLinks[0]).toHaveAttribute(
+      "href",
+      `/api/tribes/${TRIBE_SLUG}/courses/lessons/files/file-apunte/download`
+    );
+    expect(downloadLinks[1]).toHaveAccessibleName("Descargar planilla.xlsx");
+    expect(downloadLinks[1]).toHaveAttribute(
+      "href",
+      `/api/tribes/${TRIBE_SLUG}/courses/lessons/files/file-planilla/download`
+    );
+  });
+
+  it("does not render the lesson material block when the lesson has no files", () => {
+    render(
+      <TribeCoursesView
+        modules={courseModules}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    expect(
+      screen.queryByRole("link", { name: /Descargar/ })
+    ).not.toBeInTheDocument();
+  });
+
   it("hydrates the sidebar management link without recoverable errors", async () => {
     const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");

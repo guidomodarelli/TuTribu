@@ -1,8 +1,12 @@
 import {
+  MESSAGE_FILES,
   MESSAGE_MEDIA_KIND,
   MESSAGE_MUTATION_STATUS,
 } from "@/src/modules/messages/constants/message-round";
-import type { MessageMediaDraftCommand } from "@/src/modules/messages/application/commands/tribe-message-command";
+import type {
+  MessageFileDraftCommand,
+  MessageMediaDraftCommand,
+} from "@/src/modules/messages/application/commands/tribe-message-command";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
 import { isUuidRouteParam } from "@/src/modules/messages/infrastructure/http/message-route-params";
 import { createRequestModules } from "@/src/modules/setup";
@@ -31,6 +35,8 @@ const UPDATE_MESSAGE_ROUTE_LOG = {
 
 const UPDATE_MESSAGE_ROUTE_RESPONSE = {
   forbiddenMessage: "No tenes permisos para editar este mensaje.",
+  invalidFileMessage:
+    "No pudimos guardar esos archivos adjuntos. Volvé a subirlos.",
   invalidImageMessage: "No pudimos guardar esas imagenes. Volvé a subirlas.",
   invalidMediaMessage:
     "Podés adjuntar hasta 10 archivos entre imágenes y videos.",
@@ -68,6 +74,7 @@ type UpdateMessagePollPayload = {
 
 type UpdateMessageInputPayload = {
   content: string;
+  files?: MessageFileDraftCommand[];
   media?: MessageMediaDraftCommand[];
   poll?: UpdateMessagePollPayload;
   title: string;
@@ -75,6 +82,7 @@ type UpdateMessageInputPayload = {
 
 type UpdateMessageRequestBody = {
   content?: unknown;
+  files?: unknown;
   media?: unknown;
   poll?: unknown;
   title?: unknown;
@@ -159,6 +167,39 @@ function readMediaPayload(value: unknown): MessageMediaDraftCommand[] | null {
   return drafts;
 }
 
+/**
+ * Reads the optional file attachment list from an update payload. The array
+ * index expresses the author-chosen download slot.
+ *
+ * @param value - Raw `files` field from the request body.
+ * @returns The file drafts, or `null` when the field is malformed.
+ */
+function readFilesPayload(value: unknown): MessageFileDraftCommand[] | null {
+  if (!Array.isArray(value) || value.length > MESSAGE_FILES.maxCount) {
+    return null;
+  }
+
+  const drafts: MessageFileDraftCommand[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object") {
+      return null;
+    }
+
+    const assetId = (item as Record<string, unknown>)[
+      UPDATE_MESSAGE_MEDIA_FIELD.assetId
+    ];
+
+    if (typeof assetId !== "string") {
+      return null;
+    }
+
+    drafts.push({ assetId });
+  }
+
+  return drafts;
+}
+
 function readUpdateMessagePayload(
   body: UpdateMessageRequestBody | null
 ): UpdateMessageInputPayload | null {
@@ -193,6 +234,16 @@ function readUpdateMessagePayload(
     }
 
     payload.media = media;
+  }
+
+  if (body.files !== undefined) {
+    const files = readFilesPayload(body.files);
+
+    if (!files) {
+      return null;
+    }
+
+    payload.files = files;
   }
 
   return payload;
@@ -328,6 +379,7 @@ export async function PATCH(
   try {
     const result = await modules.messages.useCases.updateTribeMessageContent({
       content: payload.content,
+      ...(payload.files !== undefined ? { files: payload.files } : {}),
       ...(payload.media !== undefined ? { media: payload.media } : {}),
       messageId,
       ...(payload.poll ? { poll: payload.poll } : {}),
@@ -345,6 +397,7 @@ export async function PATCH(
             content: result.content,
             message: UPDATE_MESSAGE_ROUTE_RESPONSE.successMessage,
             messageId: result.messageId,
+            ...(result.files !== undefined ? { files: result.files } : {}),
             ...(result.media !== undefined ? { media: result.media } : {}),
             ...(result.poll !== undefined ? { poll: result.poll } : {}),
             title: result.title,
@@ -374,6 +427,11 @@ export async function PATCH(
       case MESSAGE_MUTATION_STATUS.invalidVideoUrl:
         return createJsonResponse(
           { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidVideoMessage },
+          HTTP_STATUS.badRequest
+        );
+      case MESSAGE_MUTATION_STATUS.invalidFile:
+        return createJsonResponse(
+          { message: UPDATE_MESSAGE_ROUTE_RESPONSE.invalidFileMessage },
           HTTP_STATUS.badRequest
         );
       case MESSAGE_MUTATION_STATUS.pollHasVotes:

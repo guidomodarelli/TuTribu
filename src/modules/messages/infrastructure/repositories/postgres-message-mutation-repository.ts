@@ -28,10 +28,12 @@ import type {
   MessagePinToggleResult,
 } from "@/src/modules/messages/application/results/message-mutation-result";
 import type {
+  MessageFileResult,
   MessageMediaResult,
   MessagePollResult,
 } from "@/src/modules/messages/application/results/tribe-round-result";
 import {
+  MESSAGE_FILE_STATUS,
   MESSAGE_MEDIA_KIND,
   MESSAGE_MUTATION_STATUS,
   MESSAGE_IMAGE_STATUS,
@@ -53,6 +55,7 @@ import {
 import { sortMessageMediaBySortOrder } from "@/src/modules/messages/infrastructure/repositories/postgres-message-round-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessageImageAttachmentDraft } from "@/src/modules/messages/domain/repositories/message-image-repository";
+import type { MessageFileAttachmentDraft } from "@/src/modules/messages/domain/repositories/message-file-repository";
 import type { MessageVideoRepositoryDraft } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
 
@@ -78,6 +81,16 @@ class MessageVideoAttachmentConflictError extends Error {
   constructor() {
     super("Message video attachment conflict");
     this.name = "MessageVideoAttachmentConflictError";
+  }
+}
+
+/**
+ * Signals a file attachment conflict that must abort the current transaction.
+ */
+class MessageFileAttachmentConflictError extends Error {
+  constructor() {
+    super("Message file attachment conflict");
+    this.name = "MessageFileAttachmentConflictError";
   }
 }
 
@@ -206,6 +219,18 @@ type PersistedMessageVideosRow = {
   message_videos: PersistedMessageVideoRow[] | null;
 };
 
+type PersistedMessageFileRow = {
+  file_name: string;
+  file_size_bytes: number | string | null;
+  id: string;
+  mime_type: string;
+  sort_order: number | string | null;
+};
+
+type PersistedMessageFilesRow = {
+  message_files: PersistedMessageFileRow[] | null;
+};
+
 type PollVoteCountRow = {
   poll_vote_count: number | string | null;
 };
@@ -261,7 +286,8 @@ function mapFallbackReplyCreationStatus(
 
 function mapCreatedMessage(
   row: CreatedMessageRow | null,
-  media: MessageMediaResult[] = []
+  media: MessageMediaResult[] = [],
+  files: MessageFileResult[] = []
 ): MessageCreationResult {
   if (
     row?.status === MESSAGE_MUTATION_STATUS.created &&
@@ -290,6 +316,7 @@ function mapCreatedMessage(
         },
         content: row.message_content,
         createdAt: row.message_created_at,
+        files,
         likedByViewer: false,
         likeCount: 0,
         media,
@@ -836,6 +863,16 @@ export class PostgresMessageMutationRepository
 
       let updatedPoll: MessagePollResult | undefined;
       let updatedMedia: MessageMediaResult[] | undefined;
+      let updatedFiles: MessageFileResult[] | undefined;
+
+      if (command.files !== undefined) {
+        updatedFiles = await this.replaceMessageFiles(database, {
+          files: command.files,
+          messageId: command.messageId,
+          tribeId: targetMessage.tribe_id,
+          userId: command.userId,
+        });
+      }
 
       if (command.images !== undefined || command.videos !== undefined) {
         const attachedImages =
@@ -927,6 +964,7 @@ export class PostgresMessageMutationRepository
 
       return {
         content: command.content,
+        ...(updatedFiles !== undefined ? { files: updatedFiles } : {}),
         ...(updatedMedia !== undefined ? { media: updatedMedia } : {}),
         messageId: command.messageId,
         ...(updatedPoll !== undefined ? { poll: updatedPoll } : {}),
@@ -941,6 +979,10 @@ export class PostgresMessageMutationRepository
 
       if (error instanceof MessageVideoAttachmentConflictError) {
         return { status: MESSAGE_MUTATION_STATUS.invalidMedia };
+      }
+
+      if (error instanceof MessageFileAttachmentConflictError) {
+        return { status: MESSAGE_MUTATION_STATUS.invalidFile };
       }
 
       throw error;
@@ -1075,9 +1117,23 @@ export class PostgresMessageMutationRepository
       }
 
       const media = sortMessageMediaBySortOrder(mediaItems);
+      let attachedFiles: MessageFileResult[] = [];
+
+      if (command.files?.length) {
+        if (!createdMessage.message_tribe_id) {
+          return { status: MESSAGE_MUTATION_STATUS.invalidFile };
+        }
+
+        attachedFiles = await this.replaceMessageFiles(database, {
+          files: command.files,
+          messageId: createdMessage.message_id,
+          tribeId: createdMessage.message_tribe_id,
+          userId: command.authorId,
+        });
+      }
 
       if (!command.poll) {
-        return mapCreatedMessage(createdMessage, media);
+        return mapCreatedMessage(createdMessage, media, attachedFiles);
       }
 
       const pollResult = await database.execute(sql`
@@ -1137,7 +1193,8 @@ export class PostgresMessageMutationRepository
           poll_id: insertedPoll.poll_id,
           poll_options: pollOptions,
         },
-        media
+        media,
+        attachedFiles
       );
       });
     } catch (error) {
@@ -1149,8 +1206,105 @@ export class PostgresMessageMutationRepository
         return { status: MESSAGE_MUTATION_STATUS.invalidMedia };
       }
 
+      if (error instanceof MessageFileAttachmentConflictError) {
+        return { status: MESSAGE_MUTATION_STATUS.invalidFile };
+      }
+
       throw error;
     }
+  }
+
+  private async replaceMessageFiles(
+    database: RequestDatabase,
+    command: {
+      files: MessageFileAttachmentDraft[];
+      messageId: string;
+      tribeId: string;
+      userId: string;
+    }
+  ): Promise<MessageFileResult[]> {
+    const fileIds = command.files.map((file) => file.assetId);
+
+    await database.execute(sql`
+      update public.message_files
+      set status = ${MESSAGE_FILE_STATUS.pendingDelete},
+          sort_order = null,
+          updated_at = timezone('utc', now())
+      where message_files.message_id = ${command.messageId}
+        and message_files.tribe_id = ${command.tribeId}
+        and message_files.status = ${MESSAGE_FILE_STATUS.attached}
+    `);
+
+    if (command.files.length === 0) {
+      return [];
+    }
+
+    const sortOrders = command.files.map((file) => file.sortOrder);
+    const attachedFilesResult = await database.execute(sql`
+      with file_input as (
+        select
+          file_input.asset_id,
+          file_input.sort_order::integer as sort_order
+        from unnest(
+          ${sql.param(fileIds)}::uuid[],
+          ${sql.param(sortOrders)}::int[]
+        ) as file_input(asset_id, sort_order)
+      ),
+      updated_files as (
+        update public.message_files
+        set message_id = ${command.messageId},
+            status = ${MESSAGE_FILE_STATUS.attached},
+            sort_order = file_input.sort_order,
+            updated_at = timezone('utc', now())
+        from file_input
+        where message_files.id = file_input.asset_id
+          and message_files.tribe_id = ${command.tribeId}
+          and message_files.uploaded_by = ${command.userId}
+          and (
+            message_files.status = ${MESSAGE_FILE_STATUS.draft}
+            or (
+              message_files.status = ${MESSAGE_FILE_STATUS.pendingDelete}
+              and message_files.message_id = ${command.messageId}
+            )
+          )
+        returning
+          message_files.id,
+          message_files.file_name,
+          message_files.file_size_bytes,
+          message_files.mime_type,
+          message_files.sort_order
+      )
+      select
+        coalesce(
+          json_agg(
+            json_build_object(
+              'file_name', updated_files.file_name,
+              'file_size_bytes', updated_files.file_size_bytes,
+              'id', updated_files.id,
+              'mime_type', updated_files.mime_type,
+              'sort_order', updated_files.sort_order
+            )
+            order by updated_files.sort_order
+          ),
+          '[]'::json
+        ) as message_files
+      from updated_files
+    `);
+    const attachedFiles =
+      ((attachedFilesResult.rows?.[0] ?? null) as PersistedMessageFilesRow | null)
+        ?.message_files ?? [];
+
+    if (attachedFiles.length !== command.files.length) {
+      throw new MessageFileAttachmentConflictError();
+    }
+
+    return attachedFiles.map((file) => ({
+      fileName: file.file_name,
+      fileSizeBytes: Number(file.file_size_bytes ?? 0),
+      id: file.id,
+      mimeType: file.mime_type,
+      sortOrder: Number(file.sort_order ?? 0),
+    }));
   }
 
   private async replaceMessageImages(

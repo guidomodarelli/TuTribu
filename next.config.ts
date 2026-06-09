@@ -32,6 +32,10 @@ function resolveWorkspaceRoot(startDir: string): string {
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "dev-tutribu.app"],
   cacheComponents: true,
+  // files-sdk ships ESM-only conditional exports; transpiling it lets
+  // next/jest derive a transformIgnorePatterns exception so Jest's CJS
+  // runtime can load the R2 storage adapter without mocking it.
+  transpilePackages: ["files-sdk"],
   // Pin the workspace root explicitly. A checked-in `pnpm-workspace.yaml` exists
   // in both the main checkout and every git worktree, so Next.js otherwise infers
   // the root and warns about multiple lockfiles. The root must be where

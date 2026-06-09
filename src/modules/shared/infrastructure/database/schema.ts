@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   doublePrecision,
   foreignKey,
@@ -418,6 +419,82 @@ export const pendingRemoteImageDeletions = pgTable(
   })
 );
 
+export const messageFiles = pgTable("message_files", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  messageId: uuid("message_id").references(() => messages.id, {
+    onDelete: "set null",
+  }),
+  deletedMessageId: uuid("deleted_message_id"),
+  uploadedBy: text("uploaded_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  storageKey: text("storage_key").notNull(),
+  fileName: text("file_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  fileSizeBytes: bigint("file_size_bytes", { mode: "number" }).notNull(),
+  status: text("status").notNull().default("draft"),
+  sortOrder: integer("sort_order"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  storageKeyKey: uniqueIndex("message_files_storage_key_key").on(
+    table.storageKey
+  ),
+  messageSortKey: uniqueIndex("message_files_message_sort_key").on(
+    table.messageId,
+    table.sortOrder
+  ).where(sql`${table.status} = 'attached'`),
+  messageStatusSortIndex: index("idx_message_files_message_status_sort").on(
+    table.messageId,
+    table.status,
+    table.sortOrder
+  ),
+  tribeUploadedByStatusIndex: index(
+    "idx_message_files_tribe_uploaded_by_status"
+  ).on(table.tribeId, table.uploadedBy, table.status),
+  pendingDeleteIndex: index("idx_message_files_pending_delete")
+    .on(table.status, table.updatedAt)
+    .where(sql`${table.status} = 'pending_delete'`),
+  deletedMessageStatusIndex: index("idx_message_files_deleted_message_status")
+    .on(table.deletedMessageId, table.status)
+    .where(sql`${table.deletedMessageId} IS NOT NULL`),
+}));
+
+/**
+ * Decoupled queue of R2 storage keys whose owning `message_files` or
+ * `course_lesson_files` row is about to be removed by a tribe or user
+ * `ON DELETE CASCADE`. It carries no foreign keys so it survives that cascade;
+ * the scheduled maintenance sweep reads it and deletes each object from R2.
+ * Triggers, the RLS lockdown, and the sweep functions live in the SQL
+ * migration, which is the source of truth.
+ */
+export const pendingRemoteFileDeletions = pgTable(
+  "pending_remote_file_deletions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    storageKey: text("storage_key").notNull(),
+    origin: text("origin").notNull(),
+    enqueuedAt: timestamp("enqueued_at", { withTimezone: true })
+      .notNull()
+      .default(UTC_NOW_SQL),
+  },
+  (table) => ({
+    storageKeyKey: uniqueIndex(
+      "pending_remote_file_deletions_storage_key_key"
+    ).on(table.storageKey),
+    enqueuedAtIndex: index(
+      "idx_pending_remote_file_deletions_enqueued_at"
+    ).on(table.enqueuedAt),
+  })
+);
+
 export const messageVideos = pgTable("message_videos", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")
@@ -567,6 +644,56 @@ export const courseLessons = pgTable("course_lessons", {
     table.sortOrder
   ),
   tribeIndex: index("idx_course_lessons_tribe").on(table.tribeId),
+}));
+
+export const courseLessonFiles = pgTable("course_lesson_files", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  lessonId: uuid("lesson_id").references(() => courseLessons.id, {
+    onDelete: "set null",
+  }),
+  deletedLessonId: uuid("deleted_lesson_id"),
+  uploadedBy: text("uploaded_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  storageKey: text("storage_key").notNull(),
+  fileName: text("file_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  fileSizeBytes: bigint("file_size_bytes", { mode: "number" }).notNull(),
+  status: text("status").notNull().default("draft"),
+  sortOrder: integer("sort_order"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  storageKeyKey: uniqueIndex("course_lesson_files_storage_key_key").on(
+    table.storageKey
+  ),
+  lessonSortKey: uniqueIndex("course_lesson_files_lesson_sort_key").on(
+    table.lessonId,
+    table.sortOrder
+  ).where(sql`${table.status} = 'attached'`),
+  lessonStatusSortIndex: index("idx_course_lesson_files_lesson_status_sort").on(
+    table.lessonId,
+    table.status,
+    table.sortOrder
+  ),
+  tribeUploadedByStatusIndex: index(
+    "idx_course_lesson_files_tribe_uploaded_by_status"
+  ).on(table.tribeId, table.uploadedBy, table.status),
+  pendingDeleteIndex: index("idx_course_lesson_files_pending_delete")
+    .on(table.status, table.updatedAt)
+    .where(sql`${table.status} = 'pending_delete'`),
+  deletedLessonStatusIndex: index(
+    "idx_course_lesson_files_deleted_lesson_status"
+  )
+    .on(table.deletedLessonId, table.status)
+    .where(sql`${table.deletedLessonId} IS NOT NULL`),
 }));
 
 export const events = pgTable("events", {

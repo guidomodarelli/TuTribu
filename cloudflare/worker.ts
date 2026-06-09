@@ -17,18 +17,19 @@
 
 import { default as openNextHandler } from "../.open-next/worker.js";
 
-import { runScheduledImageCleanup } from "../config/cloudflare-scheduled-maintenance";
+import { runScheduledMaintenanceCleanup } from "../config/cloudflare-scheduled-maintenance";
 
 export default {
   fetch: openNextHandler.fetch,
 
   async scheduled(
-    _event: ScheduledController,
+    event: ScheduledController,
     env: CloudflareEnv,
     context: ExecutionContext
   ): Promise<void> {
-    const sweep = runScheduledImageCleanup({
+    const sweep = runScheduledMaintenanceCleanup({
       context,
+      cron: event.cron,
       env,
       fetchHandler: openNextHandler.fetch,
     });

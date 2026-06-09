@@ -21,14 +21,17 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDownIcon,
+  FileIcon,
   HeartIcon,
   ImageIcon,
   ListPlusIcon,
   MessageCircleIcon,
   MoreHorizontalIcon,
+  PaperclipIcon,
   PencilIcon,
   PinIcon,
   PlayIcon,
+  RotateCcwIcon,
   TrashIcon,
   SendIcon,
   VideoIcon,
@@ -70,6 +73,7 @@ import { RichLinkEditor } from "@/components/rich-text/rich-link-editor";
 import { useRichLinkEditor } from "@/components/rich-text/rich-link-editor/use-rich-link-editor";
 import { RichTextContent } from "@/components/rich-text/rich-text-content";
 import type { RichLink } from "@/lib/rich-text/link-markdown-types";
+import { formatFileSize } from "@/lib/format-file-size";
 import {
   Tooltip,
   TooltipContent,
@@ -93,15 +97,22 @@ import {
 } from "@/components/ui/carousel";
 import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
 import { MessageLikesHoverCard } from "@/components/tribe-round/message-likes-hover-card";
+import {
+  ATTACHMENT_FILE,
+  ATTACHMENT_FILE_INPUT_ACCEPT,
+  isAllowedAttachmentMimeType,
+} from "@/src/constants/attachment-files";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import {
+  MESSAGE_FILES,
   MESSAGE_POLL_OPTION_TEXT,
   MESSAGE_POLL_OPTIONS,
   MESSAGE_MEDIA,
   MESSAGE_MEDIA_KIND,
 } from "@/src/modules/messages/constants/message-round";
 import type {
+  MessageFileResult,
   MessageMediaResult,
   TribeRoundReplyResult,
   TribeRoundMessageResult,
@@ -135,6 +146,9 @@ const TRIBE_ROUND_ROUTE = {
   pollVotesSegment: "/votes",
   imageUploadsSegment: "/images/uploads",
   imagesSegment: "/images/",
+  fileDownloadSegment: "/download",
+  fileUploadsSegment: "/files/uploads",
+  filesSegment: "/files/",
   messagesBaseSegment: "/messages",
   messagesSegment: "/messages/",
 } as const;
@@ -179,6 +193,20 @@ const TRIBE_ROUND_ENDPOINT = {
     TRIBE_ROUND_ROUTE.messagesBaseSegment +
     TRIBE_ROUND_ROUTE.imagesSegment +
     assetId,
+  messageFileUploads: (tribeSlug: string) =>
+    TRIBE_ROUND_ROUTE.apiTribes +
+    tribeSlug +
+    TRIBE_ROUND_ROUTE.messagesBaseSegment +
+    TRIBE_ROUND_ROUTE.fileUploadsSegment,
+  messageFileItem: (tribeSlug: string, assetId: string) =>
+    TRIBE_ROUND_ROUTE.apiTribes +
+    tribeSlug +
+    TRIBE_ROUND_ROUTE.messagesBaseSegment +
+    TRIBE_ROUND_ROUTE.filesSegment +
+    assetId,
+  messageFileDownload: (tribeSlug: string, fileId: string) =>
+    TRIBE_ROUND_ENDPOINT.messageFileItem(tribeSlug, fileId) +
+    TRIBE_ROUND_ROUTE.fileDownloadSegment,
   poll: (tribeSlug: string, messageId: string) =>
     TRIBE_ROUND_ROUTE.apiTribes +
     tribeSlug +
@@ -295,6 +323,21 @@ const TRIBE_ROUND_COPY = {
   imageUploadError: "No pudimos subir la imagen.",
   imageUploadPendingError: "Esperá a que termine de subir la imagen.",
   imageUploadingLabel: "Subiendo imagen",
+  fileAddButton: "Adjuntar archivo",
+  fileDownloadAriaLabelPrefix: "Descargar archivo",
+  fileLimitError: `Podés adjuntar hasta ${String(
+    MESSAGE_FILES.maxCount
+  )} archivos.`,
+  fileListLabel: "Archivos adjuntos",
+  fileRemoveButton: "Quitar archivo",
+  fileRetryButton: "Reintentar subida",
+  fileTooLargeError: `El archivo supera los ${formatFileSize(
+    ATTACHMENT_FILE.maxFileSizeBytes
+  )}.`,
+  fileTypeNotAllowedError: "Ese tipo de archivo no está permitido.",
+  fileUploadError: "No pudimos subir el archivo.",
+  fileUploadPendingError: "Esperá a que termine de subir el archivo.",
+  fileUploadingLabel: "Subiendo archivo",
   videoAddButton: "Agregar video",
   videoAttachedFallbackLabel: "Video adjunto",
   videoThumbnailUnavailableLabel: "Miniatura no disponible",
@@ -359,6 +402,7 @@ const TRIBE_ROUND_FORM = {
   deleteMethod: "DELETE",
   method: "POST",
   patchMethod: "PATCH",
+  putMethod: "PUT",
   outlineVariant: "outline",
   submitType: "submit",
   urlInputType: "url",
@@ -446,6 +490,7 @@ const TRIBE_ROUND_OPTIMISTIC = {
   messageIdPrefix: "optimistic-message-",
   messageImageIdPrefix: "optimistic-message-image-",
   messageVideoIdPrefix: "optimistic-message-video-",
+  fileLocalIdPrefix: "composer-file-",
   mediaVideoLocalIdPrefix: "composer-video-",
   pollIdPrefix: "optimistic-poll-",
   pollOptionIdPrefix: "optimistic-poll-option-",
@@ -624,6 +669,7 @@ type UpdateCreatedAtResponse = {
 
 type UpdateMessageContentResponse = {
   content?: string;
+  files?: TribeRoundMessageResult["files"];
   media?: TribeRoundMessageResult["media"];
   message?: string;
   messageId?: string;
@@ -635,6 +681,13 @@ type MessageImageUploadResponse = {
   assetId?: string;
   imageId?: string;
   message?: string;
+  uploadUrl?: string;
+};
+
+type MessageFileUploadResponse = {
+  assetId?: string;
+  message?: string;
+  uploadHeaders?: Record<string, string>;
   uploadUrl?: string;
 };
 
@@ -654,6 +707,37 @@ type ComposerImageDraft = {
   previewUrl: string;
   status: ComposerImageUploadStatus;
   isPersisted: boolean;
+};
+
+const COMPOSER_FILE_UPLOAD_STATUS = {
+  error: "error",
+  uploaded: "uploaded",
+  uploading: "uploading",
+} as const;
+
+type ComposerFileUploadStatus =
+  (typeof COMPOSER_FILE_UPLOAD_STATUS)[keyof typeof COMPOSER_FILE_UPLOAD_STATUS];
+
+/**
+ * A single file attachment draft of the composer's downloads list. The array
+ * index expresses the author-chosen download slot, mirroring the `sortOrder`
+ * the server assigns on submit.
+ */
+type ComposerFileDraft = {
+  /** Draft asset id reserved by the upload endpoint once it responds. */
+  assetId?: string;
+  fileName: string;
+  fileSizeBytes: number;
+  /** Whether the file is already attached to the message being edited. */
+  isPersisted: boolean;
+  localId: string;
+  mimeType: string;
+  /**
+   * Original browser file, kept so a failed upload can be retried. Absent for
+   * drafts hydrated from an existing message's attachments.
+   */
+  sourceFile?: File;
+  status: ComposerFileUploadStatus;
 };
 
 /**
@@ -684,7 +768,7 @@ type ComposerVideoMediaDraft = {
 type ComposerMediaDraft = ComposerImageMediaDraft | ComposerVideoMediaDraft;
 
 type ResetMessageComposerOptions = {
-  shouldCleanupTransientImages?: boolean;
+  shouldCleanupTransientUploads?: boolean;
   shouldRevokeImagePreviewUrls?: boolean;
 };
 
@@ -1731,6 +1815,7 @@ function TribeRoundContent({
   );
   const [pollAllowsMultipleVotes, setPollAllowsMultipleVotes] = useState(false);
   const [mediaDrafts, setMediaDrafts] = useState<ComposerMediaDraft[]>([]);
+  const [fileDrafts, setFileDrafts] = useState<ComposerFileDraft[]>([]);
   const [selectedPollOptionIds, setSelectedPollOptionIds] = useState<
     Record<string, string[] | undefined>
   >({});
@@ -1787,6 +1872,12 @@ function TribeRoundContent({
   const persistingMessageImageAssetIdsRef = useRef<Set<string>>(new Set());
   const queuedMessageImageCleanupAssetIdsRef = useRef<Set<string>>(new Set());
   const messageImageCounterRef = useRef(0);
+  const discardedMessageFileLocalIdsRef = useRef<Set<string>>(new Set());
+  const cleanedMessageFileAssetIdsRef = useRef<Set<string>>(new Set());
+  const inFlightMessageFileCleanupAssetIdsRef = useRef<Set<string>>(new Set());
+  const persistingMessageFileAssetIdsRef = useRef<Set<string>>(new Set());
+  const queuedMessageFileCleanupAssetIdsRef = useRef<Set<string>>(new Set());
+  const messageFileCounterRef = useRef(0);
   const optimisticMessageCounterRef = useRef(0);
   const optimisticReplyCounterRef = useRef(0);
   const pendingCreateMessageIntentRef =
@@ -2015,6 +2106,54 @@ function TribeRoundContent({
         } while (shouldRetryQueuedCleanup);
 
         inFlightMessageImageCleanupAssetIdsRef.current.delete(assetId);
+      })();
+    },
+    []
+  );
+
+  /**
+   * Best-effort deletion of a draft file asset, mirroring
+   * {@link deleteMessageImageAsset}: it deduplicates concurrent calls per
+   * asset and retries once when a deletion was queued while another was in
+   * flight.
+   */
+  const deleteMessageFileAsset = useCallback(
+    (
+      assetId: string,
+      actionTribeSlug: string = currentTribeSlugRef.current
+    ) => {
+      if (cleanedMessageFileAssetIdsRef.current.has(assetId)) {
+        return;
+      }
+
+      if (inFlightMessageFileCleanupAssetIdsRef.current.has(assetId)) {
+        queuedMessageFileCleanupAssetIdsRef.current.add(assetId);
+        return;
+      }
+
+      inFlightMessageFileCleanupAssetIdsRef.current.add(assetId);
+      void (async () => {
+        let shouldRetryQueuedCleanup = false;
+
+        do {
+          shouldRetryQueuedCleanup = false;
+
+          try {
+            await submitJsonRequest(
+              TRIBE_ROUND_ENDPOINT.messageFileItem(actionTribeSlug, assetId),
+              undefined,
+              undefined,
+              TRIBE_ROUND_FORM.deleteMethod
+            );
+            cleanedMessageFileAssetIdsRef.current.add(assetId);
+            queuedMessageFileCleanupAssetIdsRef.current.delete(assetId);
+          } catch {
+            shouldRetryQueuedCleanup =
+              queuedMessageFileCleanupAssetIdsRef.current.delete(assetId);
+          }
+        } while (shouldRetryQueuedCleanup);
+
+        inFlightMessageFileCleanupAssetIdsRef.current.delete(assetId);
       })();
     },
     []
@@ -2335,12 +2474,41 @@ function TribeRoundContent({
       });
   };
 
+  /**
+   * Discards every transient file draft that is not being persisted by an
+   * in-flight message submission: drafts still uploading are marked discarded
+   * so their upload callback cleans the reserved asset, and drafts with a
+   * reserved asset get a best-effort server-side deletion.
+   */
+  const cleanupTransientMessageFileDrafts = (
+    transientCandidateFileDrafts: ComposerFileDraft[]
+  ) => {
+    const persistingMessageFileAssetIds =
+      persistingMessageFileAssetIdsRef.current;
+
+    transientCandidateFileDrafts
+      .filter(
+        (fileDraft) =>
+          !fileDraft.isPersisted &&
+          (!fileDraft.assetId ||
+            !persistingMessageFileAssetIds.has(fileDraft.assetId))
+      )
+      .forEach((fileDraft) => {
+        discardedMessageFileLocalIdsRef.current.add(fileDraft.localId);
+
+        if (fileDraft.assetId) {
+          deleteMessageFileAsset(fileDraft.assetId);
+        }
+      });
+  };
+
   const resetMessageComposer = ({
-    shouldCleanupTransientImages = false,
+    shouldCleanupTransientUploads = false,
     shouldRevokeImagePreviewUrls = true,
   }: ResetMessageComposerOptions = {}) => {
-    if (shouldCleanupTransientImages) {
+    if (shouldCleanupTransientUploads) {
       cleanupTransientMessageImageDrafts(messageImageDrafts);
+      cleanupTransientMessageFileDrafts(fileDrafts);
     }
 
     if (shouldRevokeImagePreviewUrls) {
@@ -2355,6 +2523,7 @@ function TribeRoundContent({
     );
     setPollAllowsMultipleVotes(false);
     setMediaDrafts([]);
+    setFileDrafts([]);
     setSelectedChannelId("");
     setMessageComposerErrors([]);
     setEditingMessageId(null);
@@ -2362,7 +2531,7 @@ function TribeRoundContent({
 
   const handleMessageComposerOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
-      resetMessageComposer({ shouldCleanupTransientImages: true });
+      resetMessageComposer({ shouldCleanupTransientUploads: true });
     }
 
     setIsMessageComposerOpen(isOpen);
@@ -2427,6 +2596,49 @@ function TribeRoundContent({
   };
 
   /**
+   * Projects the ready file drafts to the `files` payload of the create and
+   * edit endpoints. The array index expresses the author-chosen download slot.
+   */
+  const buildMessageFilesPayload = (): { assetId: string }[] =>
+    fileDrafts.flatMap((fileDraft) =>
+      fileDraft.status === COMPOSER_FILE_UPLOAD_STATUS.uploaded &&
+      fileDraft.assetId
+        ? [{ assetId: fileDraft.assetId }]
+        : []
+    );
+
+  const getPersistingTransientMessageFileAssetIds = () =>
+    fileDrafts
+      .filter(
+        (fileDraft) =>
+          !fileDraft.isPersisted &&
+          fileDraft.status === COMPOSER_FILE_UPLOAD_STATUS.uploaded &&
+          Boolean(fileDraft.assetId)
+      )
+      .map((fileDraft) => fileDraft.assetId ?? "");
+
+  const getMessageFileDraftValidationError = () => {
+    if (
+      fileDrafts.some(
+        (fileDraft) =>
+          fileDraft.status === COMPOSER_FILE_UPLOAD_STATUS.uploading
+      )
+    ) {
+      return TRIBE_ROUND_COPY.fileUploadPendingError;
+    }
+
+    if (
+      fileDrafts.some(
+        (fileDraft) => fileDraft.status === COMPOSER_FILE_UPLOAD_STATUS.error
+      )
+    ) {
+      return TRIBE_ROUND_COPY.fileUploadError;
+    }
+
+    return null;
+  };
+
+  /**
    * Resolves the DOM node of the first field, in top-to-bottom visual order,
    * that the given validation errors point to, so the composer can bring it into
    * view. Media errors resolve to the specific offending draft; field-level
@@ -2473,6 +2685,21 @@ function TribeRoundContent({
 
       return problemImageDraft
         ? blockTargets.get(problemImageDraft.localId)
+        : undefined;
+    }
+
+    if (
+      errors.includes(TRIBE_ROUND_COPY.fileUploadPendingError) ||
+      errors.includes(TRIBE_ROUND_COPY.fileUploadError)
+    ) {
+      const problemFileDraft = fileDrafts.find(
+        (fileDraft) =>
+          fileDraft.status === COMPOSER_FILE_UPLOAD_STATUS.uploading ||
+          fileDraft.status === COMPOSER_FILE_UPLOAD_STATUS.error
+      );
+
+      return problemFileDraft
+        ? blockTargets.get(problemFileDraft.localId)
         : undefined;
     }
 
@@ -2588,6 +2815,34 @@ function TribeRoundContent({
     revokeMessageImageDraftPreviewUrls(transientImageDrafts);
     currentMessageImageDraftsRef.current = persistedImageDrafts;
     setMessageImageDrafts(persistedImageDrafts);
+  };
+
+  const markMessageFilesAsPersisting = (assetIds: string[]) => {
+    assetIds.forEach((assetId) => {
+      persistingMessageFileAssetIdsRef.current.add(assetId);
+    });
+  };
+
+  const clearPersistingMessageFiles = (assetIds: string[]) => {
+    assetIds.forEach((assetId) => {
+      persistingMessageFileAssetIdsRef.current.delete(assetId);
+    });
+  };
+
+  const cleanupPersistingMessageFiles = (
+    assetIds: string[],
+    actionTribeSlug: string
+  ) => {
+    assetIds.forEach((assetId) => {
+      persistingMessageFileAssetIdsRef.current.delete(assetId);
+      deleteMessageFileAsset(assetId, actionTribeSlug);
+    });
+  };
+
+  const removeTransientMessageFileDraftsFromComposer = () => {
+    setFileDrafts((currentFileDrafts) =>
+      currentFileDrafts.filter((fileDraft) => fileDraft.isPersisted)
+    );
   };
 
   const uploadMessageImage = async (file: File, localId: string) => {
@@ -2747,6 +3002,235 @@ function TribeRoundContent({
     }
   };
 
+  /**
+   * Reserves a draft asset for {@link file} and uploads the raw bytes to the
+   * signed URL, mirroring {@link uploadMessageImage}: the draft is marked
+   * `uploaded` on success, `error` on failure (keeping the reserved asset id
+   * for cleanup), and a draft discarded mid-flight deletes its asset instead
+   * of updating state.
+   */
+  const uploadMessageFile = async (file: File, localId: string) => {
+    let createdAssetId: string | null = null;
+
+    try {
+      const upload = await submitJsonRequest<MessageFileUploadResponse>(
+        TRIBE_ROUND_ENDPOINT.messageFileUploads(tribeSlug),
+        {
+          fileName: file.name,
+          fileSizeBytes: file.size,
+          mimeType: file.type,
+        }
+      );
+
+      if (!upload.assetId || !upload.uploadUrl) {
+        throw new Error(TRIBE_ROUND_COPY.fileUploadError);
+      }
+
+      createdAssetId = upload.assetId;
+
+      if (discardedMessageFileLocalIdsRef.current.delete(localId)) {
+        if (!cleanedMessageFileAssetIdsRef.current.has(upload.assetId)) {
+          deleteMessageFileAsset(upload.assetId);
+        }
+
+        return;
+      }
+
+      setFileDrafts((currentFileDrafts) =>
+        currentFileDrafts.map((fileDraft) =>
+          fileDraft.localId === localId
+            ? {
+                ...fileDraft,
+                assetId: upload.assetId,
+              }
+            : fileDraft
+        )
+      );
+
+      const uploadResponse = await fetch(upload.uploadUrl, {
+        body: file,
+        headers: {
+          [TRIBE_ROUND_FORM.contentTypeHeader]: file.type,
+          ...(upload.uploadHeaders ?? {}),
+        },
+        method: TRIBE_ROUND_FORM.putMethod,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(TRIBE_ROUND_COPY.fileUploadError);
+      }
+
+      if (discardedMessageFileLocalIdsRef.current.delete(localId)) {
+        if (!cleanedMessageFileAssetIdsRef.current.has(upload.assetId)) {
+          deleteMessageFileAsset(upload.assetId);
+        }
+
+        return;
+      }
+
+      setFileDrafts((currentFileDrafts) =>
+        currentFileDrafts.map((fileDraft) =>
+          fileDraft.localId === localId
+            ? {
+                ...fileDraft,
+                status: COMPOSER_FILE_UPLOAD_STATUS.uploaded,
+              }
+            : fileDraft
+        )
+      );
+    } catch (error) {
+      if (discardedMessageFileLocalIdsRef.current.delete(localId)) {
+        if (
+          createdAssetId &&
+          !cleanedMessageFileAssetIdsRef.current.has(createdAssetId)
+        ) {
+          deleteMessageFileAsset(createdAssetId);
+        }
+
+        return;
+      }
+
+      setFileDrafts((currentFileDrafts) =>
+        currentFileDrafts.map((fileDraft) =>
+          fileDraft.localId === localId
+            ? {
+                ...fileDraft,
+                ...(createdAssetId ? { assetId: createdAssetId } : {}),
+                status: COMPOSER_FILE_UPLOAD_STATUS.error,
+              }
+            : fileDraft
+        )
+      );
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : TRIBE_ROUND_COPY.fileUploadError
+      );
+    }
+  };
+
+  /**
+   * Validates the picked files against the shared attachment contract before
+   * any network call: disallowed types and oversized files are rejected with a
+   * toast, and the whole selection is rejected when it would exceed the
+   * per-message attachment limit.
+   */
+  const handleMessageFileSelection = (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const selectedFiles = Array.from(event.currentTarget.files ?? []);
+
+    event.currentTarget.value = "";
+
+    if (selectedFiles.length === 0) {
+      return;
+    }
+
+    const acceptedFiles: File[] = [];
+
+    selectedFiles.forEach((file) => {
+      if (!isAllowedAttachmentMimeType(file.type)) {
+        toast.error(TRIBE_ROUND_COPY.fileTypeNotAllowedError);
+        return;
+      }
+
+      if (file.size > ATTACHMENT_FILE.maxFileSizeBytes) {
+        toast.error(TRIBE_ROUND_COPY.fileTooLargeError);
+        return;
+      }
+
+      acceptedFiles.push(file);
+    });
+
+    if (acceptedFiles.length === 0) {
+      return;
+    }
+
+    if (fileDrafts.length + acceptedFiles.length > MESSAGE_FILES.maxCount) {
+      toast.error(TRIBE_ROUND_COPY.fileLimitError);
+      return;
+    }
+
+    let firstAddedFileLocalId: string | null = null;
+
+    acceptedFiles.forEach((file) => {
+      messageFileCounterRef.current += 1;
+      const localId =
+        TRIBE_ROUND_OPTIMISTIC.fileLocalIdPrefix +
+        String(messageFileCounterRef.current);
+
+      if (firstAddedFileLocalId === null) {
+        firstAddedFileLocalId = localId;
+      }
+
+      setFileDrafts((currentFileDrafts) => [
+        ...currentFileDrafts,
+        {
+          fileName: file.name,
+          fileSizeBytes: file.size,
+          isPersisted: false,
+          localId,
+          mimeType: file.type,
+          sourceFile: file,
+          status: COMPOSER_FILE_UPLOAD_STATUS.uploading,
+        },
+      ]);
+      void uploadMessageFile(file, localId);
+    });
+    setMessageComposerErrors([]);
+
+    if (firstAddedFileLocalId !== null) {
+      revealComposerBlock(firstAddedFileLocalId, firstAddedFileLocalId);
+    }
+  };
+
+  const removeMessageFileDraft = (fileDraft: ComposerFileDraft) => {
+    setFileDrafts((currentFileDrafts) =>
+      currentFileDrafts.filter(
+        (currentFileDraft) => currentFileDraft.localId !== fileDraft.localId
+      )
+    );
+
+    if (!fileDraft.isPersisted) {
+      discardedMessageFileLocalIdsRef.current.add(fileDraft.localId);
+
+      if (fileDraft.assetId) {
+        deleteMessageFileAsset(fileDraft.assetId);
+      }
+    }
+  };
+
+  /**
+   * Retries a failed file upload from its kept source file. The stale asset
+   * reserved by the failed attempt (if any) is deleted best-effort and the
+   * draft restarts the reserve-and-upload flow with a fresh asset.
+   */
+  const retryMessageFileDraftUpload = (fileDraft: ComposerFileDraft) => {
+    const sourceFile = fileDraft.sourceFile;
+
+    if (!sourceFile) {
+      return;
+    }
+
+    if (fileDraft.assetId) {
+      deleteMessageFileAsset(fileDraft.assetId);
+    }
+
+    setFileDrafts((currentFileDrafts) =>
+      currentFileDrafts.map((currentFileDraft) =>
+        currentFileDraft.localId === fileDraft.localId
+          ? {
+              ...currentFileDraft,
+              assetId: undefined,
+              status: COMPOSER_FILE_UPLOAD_STATUS.uploading,
+            }
+          : currentFileDraft
+      )
+    );
+    setMessageComposerErrors([]);
+    void uploadMessageFile(sourceFile, fileDraft.localId);
+  };
+
   const addVideoMediaDraft = () => {
     if (mediaDrafts.length >= MESSAGE_MEDIA.maxCount) {
       reportComposerErrors([TRIBE_ROUND_COPY.mediaLimitError]);
@@ -2802,6 +3286,19 @@ function TribeRoundContent({
   }) => {
     const editingMessage = messages.find((message) => message.id === messageId);
     const mediaPayload = buildMessageMediaPayload();
+    const filesPayload = buildMessageFilesPayload();
+    // Sending `files` replaces the whole attachment set, so the field is only
+    // included when the author actually changed it; omitting it leaves the
+    // server-side attachments untouched.
+    const baselineFileAssetIds = [...(editingMessage?.files ?? [])]
+      .sort((firstFile, secondFile) => firstFile.sortOrder - secondFile.sortOrder)
+      .map((messageFile) => messageFile.id);
+    const hasFileDraftChanges =
+      filesPayload.length !== baselineFileAssetIds.length ||
+      filesPayload.some(
+        (filePayload, fileIndex) =>
+          filePayload.assetId !== baselineFileAssetIds[fileIndex]
+      );
     const canEditPoll = Boolean(
       editingMessage?.poll && editingMessage.poll.totalVoteCount === 0
     );
@@ -2835,12 +3332,20 @@ function TribeRoundContent({
       return;
     }
 
+    const fileDraftValidationError = getMessageFileDraftValidationError();
+    if (fileDraftValidationError) {
+      reportComposerErrors([fileDraftValidationError]);
+      return;
+    }
+
     const actionTribeSlug = tribeSlug;
     const actionToken = currentActionTokenRef.current + 1;
     const persistingImageAssetIds = getPersistingTransientMessageImageAssetIds();
+    const persistingFileAssetIds = getPersistingTransientMessageFileAssetIds();
 
     currentActionTokenRef.current = actionToken;
     markMessageImagesAsPersisting(persistingImageAssetIds);
+    markMessageFilesAsPersisting(persistingFileAssetIds);
     setPendingActionId(messageId);
 
     try {
@@ -2848,6 +3353,7 @@ function TribeRoundContent({
         TRIBE_ROUND_ENDPOINT.messageItem(actionTribeSlug, messageId),
         {
           content,
+          ...(hasFileDraftChanges ? { files: filesPayload } : {}),
           media: mediaPayload,
           ...(pollPayload ? { poll: pollPayload } : {}),
           title,
@@ -2871,6 +3377,7 @@ function TribeRoundContent({
             ? {
                 ...message,
                 content: appliedContent,
+                ...(response.files !== undefined ? { files: response.files } : {}),
                 ...(response.media !== undefined ? { media: response.media } : {}),
                 ...(response.poll !== undefined ? { poll: response.poll } : {}),
                 title: appliedTitle,
@@ -2880,16 +3387,20 @@ function TribeRoundContent({
       );
       resetMessageComposer();
       clearPersistingMessageImages(persistingImageAssetIds);
+      clearPersistingMessageFiles(persistingFileAssetIds);
       setIsMessageComposerOpen(false);
       toast.success(response.message ?? TRIBE_ROUND_COPY.messageEditSuccess);
     } catch (error) {
       if (!isCurrentAction(actionToken, actionTribeSlug)) {
         cleanupPersistingMessageImages(persistingImageAssetIds, actionTribeSlug);
+        cleanupPersistingMessageFiles(persistingFileAssetIds, actionTribeSlug);
         return;
       }
 
       cleanupPersistingMessageImages(persistingImageAssetIds, actionTribeSlug);
+      cleanupPersistingMessageFiles(persistingFileAssetIds, actionTribeSlug);
       removeTransientMessageImageDraftsFromComposer();
+      removeTransientMessageFileDraftsFromComposer();
       toast.error(
         error instanceof Error
           ? error.message
@@ -3033,6 +3544,23 @@ function TribeRoundContent({
       });
     });
 
+    // Ready file drafts already own their final asset id, so the optimistic
+    // download list matches what the server attaches on creation.
+    const optimisticFiles: MessageFileResult[] = fileDrafts
+      .flatMap((fileDraft) =>
+        fileDraft.status === COMPOSER_FILE_UPLOAD_STATUS.uploaded &&
+        fileDraft.assetId
+          ? [{ ...fileDraft, assetId: fileDraft.assetId }]
+          : []
+      )
+      .map((readyFileDraft, fileIndex) => ({
+        fileName: readyFileDraft.fileName,
+        fileSizeBytes: readyFileDraft.fileSizeBytes,
+        id: readyFileDraft.assetId,
+        mimeType: readyFileDraft.mimeType,
+        sortOrder: fileIndex,
+      }));
+
     return {
       author: {
         avatarFallback:
@@ -3048,6 +3576,7 @@ function TribeRoundContent({
       content,
       createdAt: new Date().toISOString(),
       id: optimisticMessageId,
+      ...(optimisticFiles.length > 0 ? { files: optimisticFiles } : {}),
       ...(optimisticMedia.length > 0 ? { media: optimisticMedia } : {}),
       likedByViewer: false,
       likeCount: 0,
@@ -3105,6 +3634,7 @@ function TribeRoundContent({
     const displayContent = messageEditor.content.trim();
     const content = messageEditor.serialize().trim();
     const mediaPayload = buildMessageMediaPayload();
+    const filesPayload = buildMessageFilesPayload();
 
     if (editingMessageId) {
       await submitEditMessage({
@@ -3137,9 +3667,16 @@ function TribeRoundContent({
       return;
     }
 
+    const fileDraftValidationError = getMessageFileDraftValidationError();
+    if (fileDraftValidationError) {
+      reportComposerErrors([fileDraftValidationError]);
+      return;
+    }
+
     const actionTribeSlug = tribeSlug;
     const actionToken = currentActionTokenRef.current + 1;
     const persistingImageAssetIds = getPersistingTransientMessageImageAssetIds();
+    const persistingFileAssetIds = getPersistingTransientMessageFileAssetIds();
     optimisticMessageCounterRef.current += 1;
     const optimisticMessageId =
       TRIBE_ROUND_OPTIMISTIC.messageIdPrefix +
@@ -3168,6 +3705,7 @@ function TribeRoundContent({
     currentActionTokenRef.current = actionToken;
     pendingCreateMessageIntentRef.current = createMessageIntent;
     markMessageImagesAsPersisting(persistingImageAssetIds);
+    markMessageFilesAsPersisting(persistingFileAssetIds);
     if (optimisticMessage && shouldShowOptimisticMessageInCurrentView) {
       setVisiblePagination((currentPagination) =>
         getPaginationAfterVisibleMessageCreation({
@@ -3203,6 +3741,7 @@ function TribeRoundContent({
                 },
               }
             : {}),
+          ...(filesPayload.length > 0 ? { files: filesPayload } : {}),
           ...(mediaPayload.length > 0 ? { media: mediaPayload } : {}),
           title,
         }
@@ -3234,6 +3773,7 @@ function TribeRoundContent({
         );
       }
       clearPersistingMessageImages(persistingImageAssetIds);
+      clearPersistingMessageFiles(persistingFileAssetIds);
       pendingCreateMessageIntentRef.current = null;
       if (!shouldShowOptimisticMessageInCurrentView) {
         resetMessageComposer({ shouldRevokeImagePreviewUrls: false });
@@ -3243,6 +3783,7 @@ function TribeRoundContent({
     } catch (error) {
       if (!isCurrentAction(actionToken, actionTribeSlug)) {
         cleanupPersistingMessageImages(persistingImageAssetIds, actionTribeSlug);
+        cleanupPersistingMessageFiles(persistingFileAssetIds, actionTribeSlug);
         return;
       }
 
@@ -3255,6 +3796,7 @@ function TribeRoundContent({
       );
       setVisiblePagination(createMessageIntent.baselinePagination);
       cleanupPersistingMessageImages(persistingImageAssetIds, actionTribeSlug);
+      cleanupPersistingMessageFiles(persistingFileAssetIds, actionTribeSlug);
       pendingCreateMessageIntentRef.current = null;
       revokeMessageImageDraftPreviewUrls(
         getImageDraftsFromMediaDrafts(createMessageIntent.draft.mediaDrafts)
@@ -3265,6 +3807,9 @@ function TribeRoundContent({
           (mediaDraft) => mediaDraft.kind === MESSAGE_MEDIA_KIND.video
         ),
       });
+      // Like the image drafts above, transient file drafts cannot be restored:
+      // their draft assets were just cleaned up server-side.
+      removeTransientMessageFileDraftsFromComposer();
       setIsMessageComposerOpen(true);
       toast.error(
         error instanceof Error ? error.message : TRIBE_ROUND_COPY.submitMessageError
@@ -4091,7 +4636,7 @@ function TribeRoundContent({
   };
 
   const openEditMessageDialog = (message: TribeRoundMessageResult) => {
-    resetMessageComposer({ shouldCleanupTransientImages: true });
+    resetMessageComposer({ shouldCleanupTransientUploads: true });
     setEditingMessageId(message.id);
     setMessageTitle(message.title ?? "");
     messageEditor.reset(message.content);
@@ -4124,6 +4669,20 @@ function TribeRoundContent({
     setMediaDrafts(hydratedMediaDrafts);
     currentMessageImageDraftsRef.current =
       getImageDraftsFromMediaDrafts(hydratedMediaDrafts);
+    const hydratedFileDrafts: ComposerFileDraft[] = [...(message.files ?? [])]
+      .sort(
+        (firstFile, secondFile) => firstFile.sortOrder - secondFile.sortOrder
+      )
+      .map((messageFile) => ({
+        assetId: messageFile.id,
+        fileName: messageFile.fileName,
+        fileSizeBytes: messageFile.fileSizeBytes,
+        isPersisted: true,
+        localId: messageFile.id,
+        mimeType: messageFile.mimeType,
+        status: COMPOSER_FILE_UPLOAD_STATUS.uploaded,
+      }));
+    setFileDrafts(hydratedFileDrafts);
 
     if (message.poll && message.poll.totalVoteCount === 0) {
       setIsPollComposerEnabled(true);
@@ -4904,6 +5463,136 @@ function TribeRoundContent({
     );
   };
 
+  const renderComposerFileDraft = (fileDraft: ComposerFileDraft) => {
+    const isUploadingFileDraft =
+      fileDraft.status === COMPOSER_FILE_UPLOAD_STATUS.uploading;
+    const hasFileDraftUploadFailed =
+      fileDraft.status === COMPOSER_FILE_UPLOAD_STATUS.error;
+    const canRetryFileDraftUpload =
+      hasFileDraftUploadFailed && Boolean(fileDraft.sourceFile);
+
+    return (
+      <div
+        className={styles.TribeRound__fileDraft}
+        key={fileDraft.localId}
+        ref={registerComposerBlockTarget(fileDraft.localId)}
+      >
+        <span aria-hidden="true" className={styles.TribeRound__fileDraftIcon}>
+          <FileIcon />
+        </span>
+        <span className={styles.TribeRound__fileDraftName}>
+          {fileDraft.fileName}
+        </span>
+        <span className={styles.TribeRound__fileDraftSize}>
+          {formatFileSize(fileDraft.fileSizeBytes)}
+        </span>
+        <span className={styles.TribeRound__fileDraftStatus} role="status">
+          {isUploadingFileDraft
+            ? TRIBE_ROUND_COPY.fileUploadingLabel
+            : hasFileDraftUploadFailed
+              ? TRIBE_ROUND_COPY.fileUploadError
+              : ""}
+        </span>
+        <span className={styles.TribeRound__fileDraftActions}>
+          {canRetryFileDraftUpload ? (
+            <Button
+              aria-label={TRIBE_ROUND_COPY.fileRetryButton}
+              className={styles.TribeRound__fileDraftRetryButton}
+              disabled={isBusy}
+              onClick={() => {
+                retryMessageFileDraftUpload(fileDraft);
+              }}
+              size={TRIBE_ROUND_FORM.iconSize}
+              type={TRIBE_ROUND_FORM.buttonType}
+              variant={TRIBE_ROUND_FORM.ghostVariant}
+            >
+              <RotateCcwIcon />
+            </Button>
+          ) : null}
+          <Button
+            aria-label={TRIBE_ROUND_COPY.fileRemoveButton}
+            className={styles.TribeRound__fileRemoveButton}
+            disabled={isBusy}
+            onClick={() => {
+              removeMessageFileDraft(fileDraft);
+            }}
+            size={TRIBE_ROUND_FORM.iconSize}
+            type={TRIBE_ROUND_FORM.buttonType}
+            variant={TRIBE_ROUND_FORM.ghostVariant}
+          >
+            <XIcon />
+          </Button>
+        </span>
+      </div>
+    );
+  };
+
+  const renderComposerFileDrafts = () => {
+    if (fileDrafts.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className={styles.TribeRound__fileDraftList}>
+        {fileDrafts.map((fileDraft) => renderComposerFileDraft(fileDraft))}
+      </div>
+    );
+  };
+
+  /**
+   * Renders the message's downloadable attachments as a list of plain links
+   * to the authorized download route, shown under the message content and
+   * separate from the image/video gallery.
+   */
+  const renderMessageFiles = (
+    message: TribeRoundMessageResult,
+    shouldStopDetailsOpening = false
+  ) => {
+    const messageFiles = message.files ?? [];
+
+    if (messageFiles.length === 0) {
+      return null;
+    }
+
+    const sortedMessageFiles = [...messageFiles].sort(
+      (firstFile, secondFile) => firstFile.sortOrder - secondFile.sortOrder
+    );
+
+    return (
+      <ul
+        aria-label={TRIBE_ROUND_COPY.fileListLabel}
+        className={styles.TribeRound__fileList}
+      >
+        {sortedMessageFiles.map((messageFile) => (
+          <li className={styles.TribeRound__fileItem} key={messageFile.id}>
+            <a
+              aria-label={`${TRIBE_ROUND_COPY.fileDownloadAriaLabelPrefix}: ${messageFile.fileName} (${formatFileSize(messageFile.fileSizeBytes)})`}
+              className={styles.TribeRound__fileLink}
+              href={TRIBE_ROUND_ENDPOINT.messageFileDownload(
+                tribeSlug,
+                messageFile.id
+              )}
+              onClick={
+                shouldStopDetailsOpening ? stopMessageDetailsOpening : undefined
+              }
+            >
+              <FileIcon
+                aria-hidden="true"
+                className={styles.TribeRound__fileLinkIcon}
+              />
+              <span className={styles.TribeRound__fileLinkName}>
+                {messageFile.fileName}
+              </span>
+              <span className={styles.TribeRound__fileLinkSize}>
+                {formatFileSize(messageFile.fileSizeBytes)}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
   const renderMessageImageCarouselDialog = () => {
     const messageMedia = activeImageCarouselMedia;
     const activeImageCarouselSlideNumber = Math.min(
@@ -5473,10 +6162,15 @@ function TribeRoundContent({
                   </section>
                 ) : null}
                 {renderComposerMediaDrafts()}
+                {renderComposerFileDrafts()}
                 {renderComposerFieldError(
                   TRIBE_ROUND_COPY.imageUploadPendingError
                 )}
                 {renderComposerFieldError(TRIBE_ROUND_COPY.imageUploadError)}
+                {renderComposerFieldError(
+                  TRIBE_ROUND_COPY.fileUploadPendingError
+                )}
+                {renderComposerFieldError(TRIBE_ROUND_COPY.fileUploadError)}
                 {renderComposerFieldError(TRIBE_ROUND_COPY.mediaLimitError)}
                 {hasMessageComposerErrors ? (
                   <div
@@ -5526,6 +6220,22 @@ function TribeRoundContent({
                     }
                     multiple
                     onChange={handleMessageImageSelection}
+                    type={TRIBE_ROUND_FORM.fileInputType}
+                  />
+                </label>
+                <label
+                  aria-label={TRIBE_ROUND_COPY.fileAddButton}
+                  className={styles.TribeRound__fileAddButton}
+                >
+                  <PaperclipIcon />
+                  <input
+                    accept={ATTACHMENT_FILE_INPUT_ACCEPT}
+                    className={styles.TribeRound__fileInput}
+                    disabled={
+                      isBusy || fileDrafts.length >= MESSAGE_FILES.maxCount
+                    }
+                    multiple
+                    onChange={handleMessageFileSelection}
                     type={TRIBE_ROUND_FORM.fileInputType}
                   />
                 </label>
@@ -5762,6 +6472,7 @@ function TribeRoundContent({
                         TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round,
                         true
                       )}
+                      {renderMessageFiles(message, true)}
                     </CardContent>
                     {renderMessagePoll(message, true)}
 
@@ -5924,6 +6635,7 @@ function TribeRoundContent({
                 ) : null}
                 {renderMessageContent(selectedMessage)}
                 {renderMessageMedia(selectedMessage, { canOpenCarousel: true })}
+                {renderMessageFiles(selectedMessage)}
                 {renderMessagePoll(selectedMessage)}
                 <div
                   className={`${styles.TribeRound__messageActions} ${styles["TribeRound__messageActions--dialog"]}`}

@@ -141,6 +141,7 @@ describe("PostgresMessageRoundRepository", () => {
           content: "Bienvenida",
           createdAt: "2026-04-26T12:00:00.000Z",
           likedByViewer: true,
+          files: [],
           media: [],
           permissions: {
             canDelete: true,

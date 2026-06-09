@@ -4,12 +4,14 @@ import type {
 } from "@/src/modules/messages/application/commands/tribe-message-command";
 import type { MessageContentUpdateResult } from "@/src/modules/messages/application/results/message-mutation-result";
 import type { MessageImageAttachmentDraft } from "@/src/modules/messages/domain/repositories/message-image-repository";
+import type { MessageFileAttachmentDraft } from "@/src/modules/messages/domain/repositories/message-file-repository";
 import type { MessageVideoRepositoryDraft } from "@/src/modules/messages/domain/repositories/message-creation-repository";
 
 export type UpdateTribeMessageContentRepositoryCommand = Omit<
   UpdateTribeMessageContentCommand,
-  "media" | "poll"
+  "files" | "media" | "poll"
 > & {
+  files?: MessageFileAttachmentDraft[];
   images?: MessageImageAttachmentDraft[];
   poll?: MessagePollDraftCommand;
   videos?: MessageVideoRepositoryDraft[];

@@ -484,6 +484,13 @@
       "when": 1781017200000,
       "tag": "20260609150000_allow_owner_maintenance_message_images_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1781020800000,
+      "tag": "20260609160000_create_message_and_lesson_files",
+      "breakpoints": true
     }
   ]
 }

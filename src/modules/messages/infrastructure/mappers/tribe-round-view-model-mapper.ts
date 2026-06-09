@@ -1,5 +1,6 @@
 import type {
   MessagePollResult,
+  MessageFileResult,
   MessageMediaResult,
   TribeRoundAuthorResult,
   TribeRoundReplyResult,
@@ -37,6 +38,7 @@ export type TribeRoundMessageProjection = {
   channel: TribeChannelProjection;
   content: string;
   createdAt: Date | string;
+  files?: MessageFileResult[];
   id: string;
   isPinned?: boolean;
   likedByViewer: boolean;
@@ -143,6 +145,7 @@ export function createTribeRoundMessage({
   channel,
   content,
   createdAt,
+  files = [],
   id,
   isPinned = false,
   likedByViewer,
@@ -162,6 +165,7 @@ export function createTribeRoundMessage({
     replies: [],
     content,
     createdAt: formatMessageDateTimeValue(createdAt),
+    files,
     id,
     isPinned,
     likedByViewer,

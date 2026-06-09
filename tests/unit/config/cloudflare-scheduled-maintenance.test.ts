@@ -1,9 +1,13 @@
 /** @jest-environment node */
 
 import {
+  FILE_CLEANUP_MAINTENANCE_PATH,
   IMAGE_CLEANUP_MAINTENANCE_PATH,
+  MAINTENANCE_CRON_SCHEDULE,
   buildImageCleanupCronRequest,
+  resolveMaintenancePathForCron,
   runScheduledImageCleanup,
+  runScheduledMaintenanceCleanup,
 } from "@/config/cloudflare-scheduled-maintenance";
 
 const CRON_SECRET = "cron-secret-value";
@@ -41,6 +45,64 @@ describe("buildImageCleanupCronRequest", () => {
     expect(captured.pathname).toBe(IMAGE_CLEANUP_MAINTENANCE_PATH);
     expect(captured.method).toBe("GET");
     expect(captured.authorization).toBe(`Bearer ${CRON_SECRET}`);
+  });
+});
+
+describe("resolveMaintenancePathForCron", () => {
+  it("maps each installed cron expression to its maintenance route", () => {
+    expect(
+      resolveMaintenancePathForCron(MAINTENANCE_CRON_SCHEDULE.imageCleanup)
+    ).toBe(IMAGE_CLEANUP_MAINTENANCE_PATH);
+    expect(
+      resolveMaintenancePathForCron(MAINTENANCE_CRON_SCHEDULE.fileCleanup)
+    ).toBe(FILE_CLEANUP_MAINTENANCE_PATH);
+  });
+
+  it("falls back to the image cleanup route for unknown expressions", () => {
+    expect(resolveMaintenancePathForCron("15 7 * * *")).toBe(
+      IMAGE_CLEANUP_MAINTENANCE_PATH
+    );
+  });
+});
+
+describe("runScheduledMaintenanceCleanup", () => {
+  it("re-enters the file cleanup route when the file cron fires", async () => {
+    const env = { CRON_SECRET };
+    let captured: CapturedRequest | undefined;
+    const fetchHandler = jest.fn((request: Request) => {
+      captured = captureRequest(request);
+      return new Response(null, { status: 200 });
+    });
+
+    await runScheduledMaintenanceCleanup({
+      context: createExecutionContextStub(),
+      cron: MAINTENANCE_CRON_SCHEDULE.fileCleanup,
+      env,
+      fetchHandler,
+    });
+
+    expect(captured).toEqual({
+      authorization: `Bearer ${CRON_SECRET}`,
+      method: "GET",
+      pathname: FILE_CLEANUP_MAINTENANCE_PATH,
+    });
+  });
+
+  it("re-enters the image cleanup route when the image cron fires", async () => {
+    let captured: CapturedRequest | undefined;
+    const fetchHandler = jest.fn((request: Request) => {
+      captured = captureRequest(request);
+      return new Response(null, { status: 200 });
+    });
+
+    await runScheduledMaintenanceCleanup({
+      context: createExecutionContextStub(),
+      cron: MAINTENANCE_CRON_SCHEDULE.imageCleanup,
+      env: { CRON_SECRET },
+      fetchHandler,
+    });
+
+    expect(captured?.pathname).toBe(IMAGE_CLEANUP_MAINTENANCE_PATH);
   });
 });
 

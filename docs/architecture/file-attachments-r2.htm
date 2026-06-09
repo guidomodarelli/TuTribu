@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archivos adjuntos en R2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">Architecture</div>
+  <div class="doc-title">Archivos adjuntos en R2</div>
+  <div class="doc-sub">Almacenamiento, autorización y borrado de los archivos adjuntos genéricos: documentos en mensajes del fogón (<code>message_files</code>) y material de lecciones de cursos (<code>course_lesson_files</code>), guardados en Cloudflare R2 vía <code>files-sdk</code>.</div>
+  <div class="doc-meta"><span>Scope: Messages + Courses</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Decisión</div>
+  <p>Los adjuntos genéricos (PDF, documentos, planillas, audio, imágenes, archivos comprimidos) se guardan en un bucket privado de <strong>Cloudflare R2</strong> usando la librería <code>files-sdk</code> con su adapter <code>r2</code> sobre credenciales S3 HTTP (<code>CLOUDFLARE_R2_*</code>), que funciona igual en Node (Vercel) y en Cloudflare Workers (OpenNext).</p>
+  <p>El flujo es de subida directa desde el browser: el servidor reserva la fila draft y firma un <strong>PUT presignado</strong> (con el <code>Content-Type</code> atado a la firma); el browser sube el binario directo a R2. Las credenciales nunca salen del servidor: el cliente solo recibe <code>assetId</code>, <code>uploadUrl</code> y <code>uploadHeaders</code>.</p>
+  <p>El adapter compartido vive en <code>src/modules/shared/infrastructure/storage/</code> (<code>cloudflare-r2-config.ts</code> + <code>r2-file-object-storage.ts</code>); cada módulo lo consume desde su propio repositorio de infraestructura (<code>R2MessageFileRepository</code>, <code>R2LessonFileRepository</code>).</p>
+  <div class="callout c-info">El contrato de tipos y tamaño es compartido: <code>src/constants/attachment-files.ts</code> define la allowlist de MIME types y el tope de <strong>25 MB</strong>. Un mensaje admite hasta <strong>5 archivos</strong> (<code>MESSAGE_FILES.maxCount</code>) y una lección hasta <strong>10</strong> (<code>LESSON_FILES.maxCount</code>), con orden propio (lista de descargas, separada de la galería de medios).</div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Modelo de datos y ciclo de vida</div>
+  <p>Ambas tablas son espejo de <code>message_images</code>: <code>tribe_id</code> ancla el aislamiento multi-tenant, la FK al dueño (<code>message_id</code> / <code>lesson_id</code>) es nullable para drafts y <code>storage_key</code> (único) identifica el objeto en R2 (<code>message-files/{tribeId}/{id}</code> y <code>course-lesson-files/{tribeId}/{id}</code>).</p>
+  <ul>
+    <li><code>draft</code>: fila reservada, el objeto puede o no existir todavía en R2.</li>
+    <li><code>attached</code>: visible en el mensaje o lección, con <code>sort_order</code>.</li>
+    <li><code>pending_delete</code>: oculto, a la espera del borrado remoto.</li>
+    <li><code>deleted</code>: objeto remoto confirmado como borrado.</li>
+  </ul>
+  <p>R2 no implementa POST policies, así que el PUT presignado <strong>no puede limitar el tamaño en el borde</strong>. El tope se verifica server-side en <code>prepareForAttachment</code>: antes de adjuntar un draft se hace <code>head()</code> del objeto y se rechaza si no existe o supera el máximo; el tamaño real reemplaza al declarado.</p>
+  <p>El adjuntado es transaccional dentro de la mutación del mensaje o lección (replace set: lo previo pasa a <code>pending_delete</code>, los drafts pasan a <code>attached</code>). Un conflicto (fila ajena, estado inválido, RLS) aborta con estado <code>invalid_file</code> y los drafts preparados se reclaman vía <code>deleteFile</code>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Autorización y descarga</div>
+  <p>RLS (FORCE) es la frontera: en <code>message_files</code> los miembros activos crean drafts y leen adjuntos de su tribu; en <code>course_lesson_files</code> solo los líderes (<code>can_manage_tribe_courses</code>) crean y gestionan, y los miembros leen únicamente archivos <code>attached</code> de lecciones activas en módulos activos.</p>
+  <p>El bucket es privado y nunca se expone una URL de R2. La descarga pasa por una ruta autorizada (<code>/api/tribes/{slug}/messages/files/{id}/download</code> y <code>/api/tribes/{slug}/courses/lessons/files/{id}/download</code>) que valida sesión + visibilidad por RLS y redirige (302) a una <strong>URL firmada de 60 segundos</strong> con <code>Content-Disposition: attachment</code> forzado, para que contenido subido por usuarios (HTML, SVG) jamás se renderice inline en el origen del bucket.</p>
+  <div class="callout c-warn">El PUT presignado desde el browser requiere reglas <strong>CORS en el bucket</strong> (método PUT desde los orígenes de la app). Se configuran con <code>node scripts/configure-r2-cors.mjs</code>, que aplica <code>PutBucketCors</code> con los orígenes pasados por argumento o derivados de <code>BETTER_AUTH_URL</code> + localhost. Requiere un token R2 con permiso de configuración del bucket: el token de solo objetos del runtime responde <code>Access Denied</code>.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Huérfanos y barrido programado</div>
+  <p>Mismo blindaje que el de imágenes (ver <code>message-images.htm</code>), portado a R2 en la migración <code>20260609160000_create_message_and_lesson_files.sql</code>:</p>
+  <ul>
+    <li>Triggers <code>BEFORE DELETE</code> en <code>messages</code> y <code>course_lessons</code> pasan los adjuntos a <code>pending_delete</code> (también cuando el borrado llega por CASCADE de módulo).</li>
+    <li>Borrar una tribu o un usuario encola las <code>storage_key</code> vivas de <strong>ambas tablas</strong> en la cola desacoplada <code>pending_remote_file_deletions</code> (sin FKs, sobrevive al CASCADE).</li>
+    <li>Funciones SECURITY DEFINER owner-only (REVOKE FROM PUBLIC + guard de <code>app.current_user_id</code> vacío) son el único cruce de mantenimiento, con policies de owner-exception para deployments cuyo owner no tiene BYPASSRLS.</li>
+  </ul>
+  <p>El cron <code>/api/maintenance/file-cleanup</code> (Vercel <code>vercel.json</code> 04:30 UTC; Cloudflare <code>wrangler.jsonc</code> + dispatch por expresión en <code>config/cloudflare-scheduled-maintenance.ts</code>) compone con <code>createMaintenanceModules</code> y ejecuta dos barridos: <code>cleanupOrphanMessageFiles</code> (drafts abandonados &gt; 24 h, <code>pending_delete</code> fuera de la ventana de gracia de 15 min, y <strong>la cola compartida</strong>, que drena solo este barrido) y <code>cleanupOrphanLessonFiles</code> (drafts y pendientes de lecciones). Cada fuente está acotada por lote de 100 y solo confirma la fila local cuando el DELETE remoto fue exitoso.</p>
+</div>
+</body>
+</html>

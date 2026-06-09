@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ATTACHMENT_FILE } from "@/src/constants/attachment-files";
 
 const refreshMock = jest.fn();
 const originalConsoleError = console.error;
@@ -2192,6 +2193,536 @@ describe("TribeRound", () => {
         value: originalCreateObjectUrl,
       });
     }
+  });
+
+  it("uploads a file attachment and submits its asset id in the message payload", async () => {
+    const user = userEvent.setup();
+    const attachmentFile = new File(["doc"], "guia.pdf", {
+      type: "application/pdf",
+    });
+
+    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+      if (url === "/api/tribes/matematica-pro/messages/files/uploads") {
+        return {
+          json: async () => ({
+            assetId: "file-asset-1",
+            uploadHeaders: { "x-upload-token": "upload-token-1" },
+            uploadUrl: "https://uploads.example.com/file-asset-1",
+          }),
+          ok: true,
+          statusText: "Created",
+        };
+      }
+
+      if (url === "https://uploads.example.com/file-asset-1") {
+        return {
+          json: async () => ({}),
+          ok: true,
+          statusText: "OK",
+        };
+      }
+
+      if (url === "/api/tribes/matematica-pro/messages") {
+        return {
+          json: async () => ({
+            message: "Mensaje creado.",
+            tribeMessage: {
+              ...createdMessage,
+              files: [
+                {
+                  fileName: "guia.pdf",
+                  fileSizeBytes: 3,
+                  id: "file-asset-1",
+                  mimeType: "application/pdf",
+                  sortOrder: 0,
+                },
+              ],
+            },
+          }),
+          ok: true,
+          statusText: "Created",
+        };
+      }
+
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Compartí algo en la ronda" })
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    setMessageEditorContent(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Sumate al encuentro"
+    );
+    await user.upload(screen.getByLabelText("Adjuntar archivo"), attachmentFile);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://uploads.example.com/file-asset-1",
+        expect.objectContaining({
+          body: attachmentFile,
+          headers: expect.objectContaining({
+            "Content-Type": "application/pdf",
+            "x-upload-token": "upload-token-1",
+          }),
+          method: "PUT",
+        })
+      );
+    });
+
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages",
+        expect.objectContaining({
+          body: JSON.stringify({
+            channelId: "channel-intro",
+            content: "Sumate al encuentro",
+            files: [{ assetId: "file-asset-1" }],
+            title: "Nuevo encuentro",
+          }),
+          method: "POST",
+        })
+      );
+    });
+
+    expect(
+      screen.getByRole("link", { name: "Descargar archivo: guia.pdf (3 B)" })
+    ).toHaveAttribute(
+      "href",
+      "/api/tribes/matematica-pro/messages/files/file-asset-1/download"
+    );
+  });
+
+  it("blocks submission while a file attachment is still uploading", async () => {
+    const user = userEvent.setup();
+    const directUploadResponse = createDeferredResponse();
+    const attachmentFile = new File(["doc"], "guia.pdf", {
+      type: "application/pdf",
+    });
+
+    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+      if (url === "/api/tribes/matematica-pro/messages/files/uploads") {
+        return {
+          json: async () => ({
+            assetId: "file-asset-1",
+            uploadHeaders: {},
+            uploadUrl: "https://uploads.example.com/file-asset-1",
+          }),
+          ok: true,
+          statusText: "Created",
+        };
+      }
+
+      if (url === "https://uploads.example.com/file-asset-1") {
+        return directUploadResponse.promise;
+      }
+
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Compartí algo en la ronda" })
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Título del mensaje" }),
+      "Nuevo encuentro"
+    );
+    setMessageEditorContent(
+      screen.getByRole("textbox", { name: "Contenido del mensaje" }),
+      "Sumate al encuentro"
+    );
+    await user.upload(screen.getByLabelText("Adjuntar archivo"), attachmentFile);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://uploads.example.com/file-asset-1",
+        expect.objectContaining({ method: "PUT" })
+      );
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Subiendo archivo");
+
+    await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
+    await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
+    await user.click(screen.getByRole("button", { name: "Compartir" }));
+
+    const missingRequirements = screen.getByRole("list", {
+      name: "Requisitos pendientes",
+    });
+
+    expect(
+      within(missingRequirements).getByText(
+        "Esperá a que termine de subir el archivo."
+      )
+    ).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      "/api/tribes/matematica-pro/messages",
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+
+    await act(async () => {
+      directUploadResponse.resolve({
+        json: async () => ({}),
+        ok: true,
+        statusText: "OK",
+      } as Response);
+    });
+  });
+
+  it("rejects disallowed and oversized files with a toast before uploading", async () => {
+    // `applyAccept: false` lets the test hand the input a file the picker
+    // filter would normally exclude, exercising the client-side validation.
+    const user = userEvent.setup({ applyAccept: false });
+    const executableFile = new File(["binary"], "instalador.exe", {
+      type: "application/x-msdownload",
+    });
+    const oversizedFile = new File(["pdf"], "manual.pdf", {
+      type: "application/pdf",
+    });
+
+    Object.defineProperty(oversizedFile, "size", {
+      configurable: true,
+      value: ATTACHMENT_FILE.maxFileSizeBytes + 1,
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Compartí algo en la ronda" })
+    );
+    await user.upload(
+      screen.getByLabelText("Adjuntar archivo"),
+      executableFile
+    );
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "Ese tipo de archivo no está permitido."
+    );
+
+    await user.upload(screen.getByLabelText("Adjuntar archivo"), oversizedFile);
+
+    expect(toast.error).toHaveBeenCalledWith("El archivo supera los 25 MB.");
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      "/api/tribes/matematica-pro/messages/files/uploads",
+      expect.anything()
+    );
+  });
+
+  it("retries a failed file upload with a fresh draft asset", async () => {
+    const user = userEvent.setup();
+    let uploadReservationCount = 0;
+    const attachmentFile = new File(["doc"], "guia.pdf", {
+      type: "application/pdf",
+    });
+
+    (global.fetch as jest.Mock).mockImplementation(
+      async (url: string, init?: RequestInit) => {
+        if (url === "/api/tribes/matematica-pro/messages/files/uploads") {
+          uploadReservationCount += 1;
+          return {
+            json: async () => ({
+              assetId: `file-asset-${uploadReservationCount}`,
+              uploadHeaders: {},
+              uploadUrl: `https://uploads.example.com/file-asset-${uploadReservationCount}`,
+            }),
+            ok: true,
+            statusText: "Created",
+          };
+        }
+
+        if (url === "https://uploads.example.com/file-asset-1") {
+          return {
+            json: async () => ({}),
+            ok: false,
+            statusText: "Forbidden",
+          };
+        }
+
+        if (url === "https://uploads.example.com/file-asset-2") {
+          return {
+            json: async () => ({}),
+            ok: true,
+            statusText: "OK",
+          };
+        }
+
+        if (
+          url === "/api/tribes/matematica-pro/messages/files/file-asset-1" &&
+          init?.method === "DELETE"
+        ) {
+          return {
+            json: async () => ({}),
+            ok: true,
+            statusText: "OK",
+          };
+        }
+
+        throw new Error(`Unexpected fetch ${url}`);
+      }
+    );
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Compartí algo en la ronda" })
+    );
+    await user.upload(screen.getByLabelText("Adjuntar archivo"), attachmentFile);
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("No pudimos subir el archivo.");
+    });
+    expect(screen.getByText("No pudimos subir el archivo.")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Reintentar subida" })
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://uploads.example.com/file-asset-2",
+        expect.objectContaining({ method: "PUT" })
+      );
+    });
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/files/file-asset-1",
+        expect.objectContaining({ method: "DELETE" })
+      );
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByText("No pudimos subir el archivo.")
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("renders message attachments as download links with name and size", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              files: [
+                {
+                  fileName: "guia-algebra.pdf",
+                  fileSizeBytes: 1536,
+                  id: "persisted-file-1",
+                  mimeType: "application/pdf",
+                  sortOrder: 0,
+                },
+              ],
+            },
+          ],
+        }}
+      />
+    );
+
+    const attachmentList = screen.getByRole("list", {
+      name: "Archivos adjuntos",
+    });
+    const downloadLink = within(attachmentList).getByRole("link", {
+      name: "Descargar archivo: guia-algebra.pdf (1,5 KB)",
+    });
+
+    expect(downloadLink).toHaveAttribute(
+      "href",
+      "/api/tribes/matematica-pro/messages/files/persisted-file-1/download"
+    );
+    expect(downloadLink).toHaveTextContent("guia-algebra.pdf");
+    expect(downloadLink).toHaveTextContent("1,5 KB");
+  });
+
+  it("omits the files field when editing without touching attachments", async () => {
+    const user = userEvent.setup();
+
+    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+      if (url === "/api/tribes/matematica-pro/messages/message-1") {
+        return {
+          json: async () => ({
+            content: "Bienvenida a la tribu",
+            message: "Mensaje actualizado.",
+            messageId: "message-1",
+            title: "Anuncio inicial",
+          }),
+          ok: true,
+          statusText: "OK",
+        };
+      }
+
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              files: [
+                {
+                  fileName: "guia-algebra.pdf",
+                  fileSizeBytes: 1536,
+                  id: "persisted-file-1",
+                  mimeType: "application/pdf",
+                  sortOrder: 0,
+                },
+              ],
+              permissions: {
+                canDelete: false,
+                canEdit: true,
+              },
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Acciones del mensaje" })
+    );
+    await user.click(screen.getByRole("menuitem", { name: "Editar mensaje" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/message-1",
+        expect.objectContaining({
+          body: JSON.stringify({
+            content: "Bienvenida a la tribu",
+            media: [],
+            title: "Anuncio inicial",
+          }),
+          method: "PATCH",
+        })
+      );
+    });
+  });
+
+  it("sends the updated files list after removing an attachment while editing", async () => {
+    const user = userEvent.setup();
+
+    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+      if (url === "/api/tribes/matematica-pro/messages/message-1") {
+        return {
+          json: async () => ({
+            content: "Bienvenida a la tribu",
+            files: [],
+            message: "Mensaje actualizado.",
+            messageId: "message-1",
+            title: "Anuncio inicial",
+          }),
+          ok: true,
+          statusText: "OK",
+        };
+      }
+
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              files: [
+                {
+                  fileName: "guia-algebra.pdf",
+                  fileSizeBytes: 1536,
+                  id: "persisted-file-1",
+                  mimeType: "application/pdf",
+                  sortOrder: 0,
+                },
+              ],
+              permissions: {
+                canDelete: false,
+                canEdit: true,
+              },
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Acciones del mensaje" })
+    );
+    await user.click(screen.getByRole("menuitem", { name: "Editar mensaje" }));
+    await user.click(screen.getByRole("button", { name: "Quitar archivo" }));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/messages/message-1",
+        expect.objectContaining({
+          body: JSON.stringify({
+            content: "Bienvenida a la tribu",
+            files: [],
+            media: [],
+            title: "Anuncio inicial",
+          }),
+          method: "PATCH",
+        })
+      );
+    });
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      "/api/tribes/matematica-pro/messages/files/persisted-file-1",
+      expect.objectContaining({ method: "DELETE" })
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("link", {
+          name: "Descargar archivo: guia-algebra.pdf (1,5 KB)",
+        })
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("shows a new message optimistically before the create message request resolves", async () => {

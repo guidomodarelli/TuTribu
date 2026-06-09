@@ -1,6 +1,7 @@
 import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
 import type { CourseModule } from "@/src/modules/courses/domain/entities/course-module";
 import type { Lesson } from "@/src/modules/courses/domain/entities/lesson";
+import type { LessonFileAttachmentDraft } from "@/src/modules/courses/domain/repositories/lesson-file-repository";
 
 export type GetTribeCoursesQuery = {
   tribeSlug: string;
@@ -33,9 +34,12 @@ type LessonRepositoryCommandBase = {
   videoProvider: VideoProvider;
 };
 
-export type CreateLessonRepositoryCommand = LessonRepositoryCommandBase;
+export type CreateLessonRepositoryCommand = LessonRepositoryCommandBase & {
+  files?: LessonFileAttachmentDraft[];
+};
 
 export type UpdateLessonRepositoryCommand = LessonRepositoryCommandBase & {
+  files?: LessonFileAttachmentDraft[];
   isActive: boolean;
   lessonId: string;
 };
@@ -90,7 +94,12 @@ export type LessonCreationResult =
       status: "created";
     }
   | {
-      status: "forbidden" | "invalid_input" | "invalid_video_url" | "not_found";
+      status:
+        | "forbidden"
+        | "invalid_file"
+        | "invalid_input"
+        | "invalid_video_url"
+        | "not_found";
     };
 
 export type LessonUpdateResult =
@@ -99,7 +108,12 @@ export type LessonUpdateResult =
       status: "updated";
     }
   | {
-      status: "forbidden" | "invalid_input" | "invalid_video_url" | "not_found";
+      status:
+        | "forbidden"
+        | "invalid_file"
+        | "invalid_input"
+        | "invalid_video_url"
+        | "not_found";
     };
 
 export type LessonDeletionResult = {

@@ -15,6 +15,12 @@ import {
   deleteMessageImage,
 } from "@/src/modules/messages/application/use-cases/message-images-use-cases";
 import {
+  createMessageFileDownloadUrl,
+  createMessageFileUpload,
+  deleteMessageFile,
+} from "@/src/modules/messages/application/use-cases/message-files-use-cases";
+import { cleanupOrphanMessageFiles } from "@/src/modules/messages/application/use-cases/cleanup-orphan-message-files-use-case";
+import {
   createTribeChannel,
   deleteTribeChannel,
   listTribeChannels,
@@ -81,6 +87,16 @@ import type {
   MessageImageRepository,
   MessageImageUploadCreationResult,
 } from "@/src/modules/messages/domain/repositories/message-image-repository";
+import type {
+  CleanupOrphanMessageFilesResult,
+  CreateMessageFileDownloadUrlCommand,
+  CreateMessageFileUploadCommand,
+  DeleteMessageFileCommand,
+  MessageFileDeletionResult,
+  MessageFileDownloadUrlResult,
+  MessageFileRepository,
+  MessageFileUploadCreationResult,
+} from "@/src/modules/messages/domain/repositories/message-file-repository";
 
 type MessagesModuleDependencies = {
   tribeChannelRepository: TribeChannelRepository;
@@ -96,11 +112,13 @@ type MessagesModuleDependencies = {
   messageDeletionRepository: MessageDeletionRepository;
   messageCreatedAtUpdateRepository: MessageCreatedAtUpdateRepository;
   messageContentUpdateRepository: MessageContentUpdateRepository;
+  messageFileRepository: MessageFileRepository;
   messageImageRepository: MessageImageRepository;
 };
 
 type MessagesModule = {
   useCases: {
+    cleanupOrphanMessageFiles: () => Promise<CleanupOrphanMessageFilesResult>;
     cleanupOrphanMessageImages: () => Promise<CleanupOrphanMessageImagesResult>;
     createTribeMessage: (
       command: CreateTribeMessageCommand
@@ -123,6 +141,15 @@ type MessagesModule = {
     deleteMessageImage: (
       command: DeleteMessageImageCommand
     ) => Promise<MessageImageDeletionResult>;
+    createMessageFileDownloadUrl: (
+      command: CreateMessageFileDownloadUrlCommand
+    ) => Promise<MessageFileDownloadUrlResult>;
+    createMessageFileUpload: (
+      command: CreateMessageFileUploadCommand
+    ) => Promise<MessageFileUploadCreationResult>;
+    deleteMessageFile: (
+      command: DeleteMessageFileCommand
+    ) => Promise<MessageFileDeletionResult>;
     listTribeRound: (query: ListTribeRoundQuery) => Promise<TribeRoundResult>;
     listMessageReplies: (
       query: ListMessageRepliesQuery
@@ -162,15 +189,20 @@ export function buildMessagesModule({
   messageDeletionRepository,
   messageCreatedAtUpdateRepository,
   messageContentUpdateRepository,
+  messageFileRepository,
   messageImageRepository,
 }: MessagesModuleDependencies): MessagesModule {
   return {
     useCases: {
+      cleanupOrphanMessageFiles: cleanupOrphanMessageFiles({
+        messageFileRepository,
+      }),
       cleanupOrphanMessageImages: cleanupOrphanMessageImages({
         messageImageRepository,
       }),
       createTribeMessage: createTribeMessage({
         messageCreationRepository,
+        messageFileRepository,
         messageImageRepository,
       }),
       createTribeChannel: createTribeChannel({
@@ -181,6 +213,7 @@ export function buildMessagesModule({
       }),
       deleteTribeMessage: deleteTribeMessage({
         messageDeletionRepository,
+        messageFileRepository,
         messageImageRepository,
       }),
       createMessageReply: createMessageReply({ messageReplyRepository }),
@@ -188,6 +221,13 @@ export function buildMessagesModule({
         messageImageRepository,
       }),
       deleteMessageImage: deleteMessageImage({ messageImageRepository }),
+      createMessageFileDownloadUrl: createMessageFileDownloadUrl({
+        messageFileRepository,
+      }),
+      createMessageFileUpload: createMessageFileUpload({
+        messageFileRepository,
+      }),
+      deleteMessageFile: deleteMessageFile({ messageFileRepository }),
       listTribeRound: listTribeRound({
         listCachedTribeRoundSharedData,
         messageRoundReadRepository,
@@ -209,6 +249,7 @@ export function buildMessagesModule({
       }),
       updateTribeMessageContent: updateTribeMessageContent({
         messageContentUpdateRepository,
+        messageFileRepository,
         messageImageRepository,
       }),
       updateTribeMessageCreatedAt: updateTribeMessageCreatedAt({

@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
 
 import { TribeCoursesManagement } from "@/components/courses/tribe-courses-management";
+import { ATTACHMENT_FILE } from "@/src/constants/attachment-files";
 import { COURSE_LESSON_DESCRIPTION } from "@/src/modules/courses/constants/courses";
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import type { CourseModuleWithLessonsResult } from "@/src/modules/courses/application/results/course-results";
@@ -625,6 +626,339 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
             sortOrder: 0,
             title: "Lección intro",
             videoProvider: VIDEO_PROVIDER.vimeo,
+          },
+          message: "Lección actualizada.",
+        })
+      );
+      await pending.promise;
+    });
+  });
+
+  it("uploads an attached file and includes it in the lesson create payload", async () => {
+    const pendingReservation = createDeferredResponse();
+    (global.fetch as jest.Mock).mockReturnValueOnce(
+      pendingReservation.promise
+    );
+
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        initialModules={seedModules}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const moduleItem = screen
+      .getByRole("heading", { level: 2, name: /Empezar acá/ })
+      .closest("li") as HTMLElement;
+
+    await user.click(
+      within(moduleItem).getByRole("button", { name: "Agregar lección" })
+    );
+    await user.type(
+      screen.getByPlaceholderText("Ej: Qué dinero invertir"),
+      "Con material"
+    );
+    await user.type(
+      screen.getByPlaceholderText("https://vimeo.com/123456789"),
+      "https://vimeo.com/987654321"
+    );
+
+    const attachedFile = new File(["contenido"], "apunte.pdf", {
+      type: "application/pdf",
+    });
+    fireEvent.change(screen.getByLabelText("Adjuntar archivo"), {
+      target: { files: [attachedFile] },
+    });
+
+    // While the upload is in flight, the row reports it and saving is blocked.
+    expect(await screen.findByText("Subiendo…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crear" })).toBeDisabled();
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce(
+      buildJsonResponse(200, {})
+    );
+    await act(async () => {
+      pendingReservation.resolveWith(
+        buildJsonResponse(201, {
+          assetId: "asset-apunte",
+          uploadHeaders: { "x-meta-prueba": "1" },
+          uploadUrl: "https://uploads.example/asset-apunte",
+        })
+      );
+      await pendingReservation.promise;
+    });
+
+    expect(await screen.findByText("Listo")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crear" })).toBeEnabled();
+
+    const [reservationUrl, reservationInit] = (global.fetch as jest.Mock).mock
+      .calls[0];
+    expect(reservationUrl).toBe(
+      `/api/tribes/${TRIBE_SLUG}/courses/lessons/files/uploads`
+    );
+    expect(
+      JSON.parse((reservationInit as { body: string }).body)
+    ).toEqual({
+      fileName: "apunte.pdf",
+      fileSizeBytes: attachedFile.size,
+      mimeType: "application/pdf",
+    });
+
+    const [uploadUrl, uploadInit] = (global.fetch as jest.Mock).mock.calls[1];
+    expect(uploadUrl).toBe("https://uploads.example/asset-apunte");
+    expect((uploadInit as { method: string }).method).toBe("PUT");
+    expect((uploadInit as { headers: Record<string, string> }).headers).toEqual(
+      {
+        "Content-Type": "application/pdf",
+        "x-meta-prueba": "1",
+      }
+    );
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce(
+      buildJsonResponse(201, {
+        lesson: {
+          courseModuleId: "module-empezar-aca",
+          description: "",
+          externalVideoId: "987654321",
+          files: [
+            {
+              fileName: "apunte.pdf",
+              fileSizeBytes: attachedFile.size,
+              id: "file-apunte",
+              mimeType: "application/pdf",
+              sortOrder: 0,
+            },
+          ],
+          id: "lesson-con-material",
+          isActive: true,
+          sortOrder: 1,
+          title: "Con material",
+          videoProvider: VIDEO_PROVIDER.vimeo,
+        },
+        message: "Lección creada.",
+      })
+    );
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { level: 3, name: /Con material/ })
+      ).toBeInTheDocument();
+    });
+    const [, createLessonInit] = (global.fetch as jest.Mock).mock.calls[2];
+    const createLessonBody = JSON.parse(
+      (createLessonInit as { body: string }).body
+    );
+    expect(createLessonBody.files).toEqual([{ assetId: "asset-apunte" }]);
+  });
+
+  it("rejects oversized and disallowed files before reserving an upload", async () => {
+    const { toast } = jest.requireMock("sonner") as {
+      toast: { error: jest.Mock };
+    };
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        initialModules={seedModules}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const moduleItem = screen
+      .getByRole("heading", { level: 2, name: /Empezar acá/ })
+      .closest("li") as HTMLElement;
+    await user.click(
+      within(moduleItem).getByRole("button", { name: "Agregar lección" })
+    );
+
+    const executableFile = new File(["x"], "programa.exe", {
+      type: "application/x-msdownload",
+    });
+    const oversizedFile = new File(["x"], "enorme.pdf", {
+      type: "application/pdf",
+    });
+    Object.defineProperty(oversizedFile, "size", {
+      value: ATTACHMENT_FILE.maxFileSizeBytes + 1,
+    });
+
+    fireEvent.change(screen.getByLabelText("Adjuntar archivo"), {
+      target: { files: [executableFile, oversizedFile] },
+    });
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledTimes(2);
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(screen.queryByText("programa.exe")).not.toBeInTheDocument();
+    expect(screen.queryByText("enorme.pdf")).not.toBeInTheDocument();
+  });
+
+  it("removes an uploaded draft and best-effort deletes its reserved asset", async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(
+        buildJsonResponse(201, {
+          assetId: "asset-apunte",
+          uploadHeaders: {},
+          uploadUrl: "https://uploads.example/asset-apunte",
+        })
+      )
+      .mockResolvedValueOnce(buildJsonResponse(200, {}))
+      .mockResolvedValueOnce(buildJsonResponse(200, { message: "Listo." }));
+
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        initialModules={seedModules}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const moduleItem = screen
+      .getByRole("heading", { level: 2, name: /Empezar acá/ })
+      .closest("li") as HTMLElement;
+    await user.click(
+      within(moduleItem).getByRole("button", { name: "Agregar lección" })
+    );
+
+    fireEvent.change(screen.getByLabelText("Adjuntar archivo"), {
+      target: {
+        files: [
+          new File(["contenido"], "apunte.pdf", { type: "application/pdf" }),
+        ],
+      },
+    });
+    expect(await screen.findByText("Listo")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Quitar apunte.pdf" })
+    );
+
+    expect(screen.queryByText("apunte.pdf")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        `/api/tribes/${TRIBE_SLUG}/courses/lessons/files/asset-apunte`,
+        { method: "DELETE" }
+      );
+    });
+  });
+
+  it("omits the files field when saving an edited lesson without touching attachments", async () => {
+    const modulesWithLessonFiles: CourseModuleWithLessonsResult[] = [
+      {
+        ...seedModules[0],
+        lessons: [
+          {
+            ...seedModules[0].lessons[0],
+            files: [
+              {
+                fileName: "guia.pdf",
+                fileSizeBytes: 2048,
+                id: "file-guia",
+                mimeType: "application/pdf",
+                sortOrder: 0,
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const pending = createDeferredResponse();
+    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        initialModules={modulesWithLessonFiles}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const lessonActions = screen.getByRole("group", {
+      name: "Acciones de la lección Lección intro",
+    });
+    await user.click(
+      within(lessonActions).getByRole("button", { name: "Editar" })
+    );
+
+    // The existing attachment is listed in the form as already uploaded.
+    expect(screen.getByText("guia.pdf")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const requestBody = JSON.parse((requestInit as { body: string }).body);
+    expect("files" in requestBody).toBe(false);
+
+    await act(async () => {
+      pending.resolveWith(
+        buildJsonResponse(200, {
+          lesson: {
+            ...modulesWithLessonFiles[0].lessons[0],
+          },
+          message: "Lección actualizada.",
+        })
+      );
+      await pending.promise;
+    });
+  });
+
+  it("sends the replacement files set when an already-attached file is removed", async () => {
+    const modulesWithLessonFiles: CourseModuleWithLessonsResult[] = [
+      {
+        ...seedModules[0],
+        lessons: [
+          {
+            ...seedModules[0].lessons[0],
+            files: [
+              {
+                fileName: "guia.pdf",
+                fileSizeBytes: 2048,
+                id: "file-guia",
+                mimeType: "application/pdf",
+                sortOrder: 0,
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const pending = createDeferredResponse();
+    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        initialModules={modulesWithLessonFiles}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const lessonActions = screen.getByRole("group", {
+      name: "Acciones de la lección Lección intro",
+    });
+    await user.click(
+      within(lessonActions).getByRole("button", { name: "Editar" })
+    );
+
+    await user.click(screen.getByRole("button", { name: "Quitar guia.pdf" }));
+
+    // Already-attached files are detached by the PATCH replacement, so no
+    // direct DELETE request fires when removing them from the form.
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const requestBody = JSON.parse((requestInit as { body: string }).body);
+    expect(requestBody.files).toEqual([]);
+
+    await act(async () => {
+      pending.resolveWith(
+        buildJsonResponse(200, {
+          lesson: {
+            ...modulesWithLessonFiles[0].lessons[0],
+            files: [],
           },
           message: "Lección actualizada.",
         })

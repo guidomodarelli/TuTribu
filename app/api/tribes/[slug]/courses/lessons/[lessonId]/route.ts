@@ -10,6 +10,7 @@ import {
   createJsonResponse,
   mapMutationStatusResponse,
   readBooleanField,
+  readLessonFilesField,
   readNumberField,
   readStringField,
   readUuidField,
@@ -56,6 +57,15 @@ export async function PATCH(
       return mapMutationStatusResponse(COURSE_MUTATION_STATUS.invalidInput);
     }
 
+    const files = readLessonFilesField(body);
+
+    if (files === null) {
+      return createJsonResponse(
+        { message: COURSE_ROUTE_RESPONSE.invalidFileMessage },
+        HTTP_STATUS.badRequest
+      );
+    }
+
     const result = await modules.courses.useCases.updateLesson({
       courseModuleId,
       description: readStringField(body, COURSE_ROUTE_FIELD.description),
@@ -63,11 +73,13 @@ export async function PATCH(
         body,
         COURSE_ROUTE_FIELD.externalVideoUrl
       ),
+      ...(files !== undefined ? { files } : {}),
       isActive,
       lessonId: targetLessonId,
       sortOrder: readNumberField(body, COURSE_ROUTE_FIELD.sortOrder),
       title: readStringField(body, COURSE_ROUTE_FIELD.title),
       tribeSlug: slug,
+      userId: authenticatedMember.id,
     });
 
     if (result.status === COURSE_MUTATION_STATUS.updated) {
@@ -127,6 +139,7 @@ export async function DELETE(
     const result = await modules.courses.useCases.deleteLesson({
       lessonId: targetLessonId,
       tribeSlug: slug,
+      userId: authenticatedMember.id,
     });
 
     if (result.status === COURSE_MUTATION_STATUS.deleted) {

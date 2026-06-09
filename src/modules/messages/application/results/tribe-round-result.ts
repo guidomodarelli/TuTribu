@@ -97,6 +97,19 @@ export type MessageMediaResult =
       sortOrder: number;
     } & MessageVideoResult);
 
+/**
+ * A file attachment of a message, projected for the downloads list rendered
+ * under the message body. The binary lives in R2 and is reachable only through
+ * the authorized download route, so no storage URL is ever exposed here.
+ */
+export type MessageFileResult = {
+  fileName: string;
+  fileSizeBytes: number;
+  id: string;
+  mimeType: string;
+  sortOrder: number;
+};
+
 export type TribeRoundMessagePermissionsResult = {
   canDelete: boolean;
   canEdit: boolean;
@@ -107,6 +120,7 @@ export type TribeRoundSharedMessageResult = {
   channel: TribeChannelResult;
   content: string;
   createdAt: string;
+  files?: MessageFileResult[];
   id: string;
   isPinned?: boolean;
   likeCount: number;

@@ -48,6 +48,40 @@ export const MESSAGE_MEDIA_KIND = {
 } as const;
 
 /**
+ * Ceiling for file attachments per message. Files live outside the unified
+ * image/video gallery (they render as a download list), so they have their own
+ * `sortOrder` slot space bounded by this count. Type and size limits come from
+ * the shared attachment contract in `src/constants/attachment-files.ts`.
+ */
+export const MESSAGE_FILES = {
+  maxCount: 5,
+} as const;
+
+export const MESSAGE_FILE_STATUS = {
+  attached: "attached",
+  deleted: "deleted",
+  draft: "draft",
+  pendingDelete: "pending_delete",
+} as const;
+
+/**
+ * Bounds the scheduled orphan-file cleanup so no R2 object outlives the row
+ * that referenced it. Same semantics as {@link MESSAGE_IMAGE_CLEANUP}: drafts
+ * past the TTL are reclaimed, every source drains in bounded batches, and
+ * `pending_delete` rows inside the interactive delete grace window are left to
+ * the in-flight request that marked them.
+ */
+export const MESSAGE_FILE_CLEANUP = {
+  abandonedDraftTtlHours: 24,
+  batchLimit: 100,
+  interactiveDeleteGraceMinutes: 15,
+} as const;
+
+export const MESSAGE_FILE_PREPARATION_STATUS = {
+  ready: "ready",
+} as const;
+
+/**
  * Bounds the lazy oEmbed thumbnail backfill so a failed resolution is retried a
  * few times across renders without turning into a per-render fetch storm.
  *
@@ -147,6 +181,7 @@ export const MESSAGE_MUTATION_STATUS = {
   forbidden: "forbidden",
   invalidChannel: "invalid_channel",
   invalidContent: "invalid_content",
+  invalidFile: "invalid_file",
   invalidImage: "invalid_image",
   invalidMedia: "invalid_media",
   invalidPoll: "invalid_poll",

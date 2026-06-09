@@ -3,9 +3,11 @@ import type { MessageDeletionResult } from "@/src/modules/messages/application/r
 import { MESSAGE_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
 import type { MessageDeletionRepository } from "@/src/modules/messages/domain/repositories/message-deletion-repository";
 import type { MessageImageRepository } from "@/src/modules/messages/domain/repositories/message-image-repository";
+import type { MessageFileRepository } from "@/src/modules/messages/domain/repositories/message-file-repository";
 
 type DeleteTribeMessageDependencies = {
   messageDeletionRepository: MessageDeletionRepository;
+  messageFileRepository?: Pick<MessageFileRepository, "deletePendingFiles">;
   messageImageRepository?: Pick<MessageImageRepository, "deletePendingImages">;
 };
 
@@ -17,6 +19,7 @@ type DeleteTribeMessageDependencies = {
  */
 export function deleteTribeMessage({
   messageDeletionRepository,
+  messageFileRepository,
   messageImageRepository,
 }: DeleteTribeMessageDependencies) {
   return async (
@@ -32,11 +35,18 @@ export function deleteTribeMessage({
     });
 
     if (result.status === MESSAGE_MUTATION_STATUS.deleted) {
-      await messageImageRepository?.deletePendingImages({
-        messageId,
-        tribeSlug,
-        userId,
-      });
+      await Promise.all([
+        messageImageRepository?.deletePendingImages({
+          messageId,
+          tribeSlug,
+          userId,
+        }),
+        messageFileRepository?.deletePendingFiles({
+          messageId,
+          tribeSlug,
+          userId,
+        }),
+      ]);
     }
 
     return result;
