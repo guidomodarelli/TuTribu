@@ -948,8 +948,6 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   &__imageCarouselPrevious,
   &__imageCarouselNext {
     z-index: 3;
-    width: 2.5rem;
-    height: 2.5rem;
     border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
     background: color-mix(in oklch, var(--background) 84%, transparent);
     color: var(--foreground);
