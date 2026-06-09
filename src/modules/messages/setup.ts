@@ -1,3 +1,4 @@
+import { cleanupOrphanMessageImages } from "@/src/modules/messages/application/use-cases/cleanup-orphan-message-images-use-case";
 import { createTribeMessage } from "@/src/modules/messages/application/use-cases/create-tribe-message-use-case";
 import { createMessageReply } from "@/src/modules/messages/application/use-cases/create-message-reply-use-case";
 import { deleteTribeMessage } from "@/src/modules/messages/application/use-cases/delete-tribe-message-use-case";
@@ -73,6 +74,7 @@ import type { MessagePinRepository } from "@/src/modules/messages/domain/reposit
 import type { MessagePollRepository } from "@/src/modules/messages/domain/repositories/message-poll-repository";
 import type { MessageDeletionRepository } from "@/src/modules/messages/domain/repositories/message-deletion-repository";
 import type {
+  CleanupOrphanMessageImagesResult,
   CreateMessageImageUploadCommand,
   DeleteMessageImageCommand,
   MessageImageDeletionResult,
@@ -99,6 +101,7 @@ type MessagesModuleDependencies = {
 
 type MessagesModule = {
   useCases: {
+    cleanupOrphanMessageImages: () => Promise<CleanupOrphanMessageImagesResult>;
     createTribeMessage: (
       command: CreateTribeMessageCommand
     ) => Promise<MessageCreationResult>;
@@ -163,6 +166,9 @@ export function buildMessagesModule({
 }: MessagesModuleDependencies): MessagesModule {
   return {
     useCases: {
+      cleanupOrphanMessageImages: cleanupOrphanMessageImages({
+        messageImageRepository,
+      }),
       createTribeMessage: createTribeMessage({
         messageCreationRepository,
         messageImageRepository,

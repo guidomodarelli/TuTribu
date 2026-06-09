@@ -456,6 +456,13 @@
       "when": 1780920000000,
       "tag": "20260608120000_enforce_unique_provider_subscription_link",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1781006400000,
+      "tag": "20260609120000_create_orphan_image_cleanup",
+      "breakpoints": true
     }
   ]
 }

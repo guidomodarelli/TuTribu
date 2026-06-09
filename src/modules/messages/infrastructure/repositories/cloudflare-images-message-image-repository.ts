@@ -13,6 +13,8 @@ import {
   type CloudflareImagesEnvironment,
 } from "@/src/modules/shared/infrastructure/cloudflare/cloudflare-images-config";
 import type {
+  CleanupOrphanMessageImagesCommand,
+  CleanupOrphanMessageImagesResult,
   CreateMessageImageUploadCommand,
   DeleteMessageImageCommand,
   DeletePendingMessageImagesCommand,
@@ -62,6 +64,24 @@ type MarkedMessageImageRow = {
   asset_id: string;
 };
 
+type PendingRemoteImageRow = {
+  asset_id: string;
+  cloudflare_image_id: string;
+};
+
+type QueuedRemoteImageRow = {
+  cloudflare_image_id: string;
+  queue_id: string;
+};
+
+type ReclaimedDraftsRow = {
+  reclaimed: number | string;
+};
+
+type BooleanResultRow = {
+  result: boolean | null;
+};
+
 type CloudflareDirectUploadResponse = {
   result?: {
     id?: string;
@@ -104,6 +124,11 @@ const HTTP_STATUS = {
 
 const MESSAGE_IMAGE_LOG_RESULT = {
   failed: "failed",
+} as const;
+
+const MESSAGE_IMAGE_CLEANUP_LOG = {
+  pendingFailed: "Message image remote cleanup failed",
+  queuedFailed: "Queued image remote cleanup failed",
 } as const;
 
 const MESSAGE_IMAGE_READINESS_RETRY = {
@@ -321,6 +346,88 @@ export class CloudflareImagesMessageImageRepository
     }
   }
 
+  /**
+   * Scheduled sweep that deletes from Cloudflare every image asset whose owning
+   * row is gone or abandoned, so no remote asset is ever orphaned.
+   *
+   * It reclaims abandoned draft uploads past their TTL into `pending_delete`,
+   * then drains a bounded batch of `pending_delete` message images (failed or
+   * never-retried direct deletions) and a bounded batch of the decoupled queue
+   * fed by the tribe and user delete triggers. Each source confirms the local
+   * record only after the remote delete succeeds, so a transient Cloudflare
+   * failure simply leaves the entry for the next run.
+   *
+   * @param command - Abandoned-draft TTL and per-source batch size.
+   * @returns Counters describing the work performed in this sweep.
+   */
+  async cleanupOrphanImages(
+    command: CleanupOrphanMessageImagesCommand
+  ): Promise<CleanupOrphanMessageImagesResult> {
+    const result: CleanupOrphanMessageImagesResult = {
+      reclaimedDrafts: 0,
+      remoteDeletedPending: 0,
+      remoteDeletedQueued: 0,
+      remoteFailures: 0,
+    };
+    const environment = readCloudflareImagesEnvironment();
+
+    if (!environment) {
+      return result;
+    }
+
+    result.reclaimedDrafts = await this.reclaimAbandonedDrafts(
+      command.abandonedDraftTtlHours
+    );
+
+    const pendingImages = await this.listPendingRemoteDeletions(
+      command.batchLimit
+    );
+
+    for (const image of pendingImages) {
+      if (
+        await this.deleteRemoteImage(environment, image.cloudflare_image_id)
+      ) {
+        if (await this.confirmRemoteDeleted(image.asset_id)) {
+          result.remoteDeletedPending += 1;
+        }
+      } else {
+        result.remoteFailures += 1;
+        this.logger?.warn({
+          message: MESSAGE_IMAGE_CLEANUP_LOG.pendingFailed,
+          metadata: {
+            assetId: image.asset_id,
+            result: MESSAGE_IMAGE_LOG_RESULT.failed,
+          },
+        });
+      }
+    }
+
+    const queuedImages = await this.listQueuedRemoteDeletions(
+      command.batchLimit
+    );
+
+    for (const queued of queuedImages) {
+      if (
+        await this.deleteRemoteImage(environment, queued.cloudflare_image_id)
+      ) {
+        if (await this.dequeueRemoteDeletion(queued.queue_id)) {
+          result.remoteDeletedQueued += 1;
+        }
+      } else {
+        result.remoteFailures += 1;
+        this.logger?.warn({
+          message: MESSAGE_IMAGE_CLEANUP_LOG.queuedFailed,
+          metadata: {
+            queueId: queued.queue_id,
+            result: MESSAGE_IMAGE_LOG_RESULT.failed,
+          },
+        });
+      }
+    }
+
+    return result;
+  }
+
   async prepareForAttachment(
     command: PrepareMessageImagesForAttachmentCommand
   ): Promise<PreparedMessageImageAttachmentResult> {
@@ -352,6 +459,70 @@ export class CloudflareImagesMessageImageRepository
       images: command.images,
       status: MESSAGE_IMAGE_PREPARATION_STATUS.ready,
     };
+  }
+
+  private async confirmRemoteDeleted(assetId: string): Promise<boolean> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select public.confirm_message_image_remote_deleted(${assetId}) as result
+      `);
+
+      return Boolean(
+        ((result.rows?.[0] ?? null) as BooleanResultRow | null)?.result
+      );
+    });
+  }
+
+  private async dequeueRemoteDeletion(queueId: string): Promise<boolean> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select public.delete_queued_remote_image_deletion(${queueId}) as result
+      `);
+
+      return Boolean(
+        ((result.rows?.[0] ?? null) as BooleanResultRow | null)?.result
+      );
+    });
+  }
+
+  private async listPendingRemoteDeletions(
+    batchLimit: number
+  ): Promise<PendingRemoteImageRow[]> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select asset_id, cloudflare_image_id
+        from public.list_message_images_pending_remote_deletion(${batchLimit})
+      `);
+
+      return (result.rows ?? []) as PendingRemoteImageRow[];
+    });
+  }
+
+  private async listQueuedRemoteDeletions(
+    batchLimit: number
+  ): Promise<QueuedRemoteImageRow[]> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select queue_id, cloudflare_image_id
+        from public.list_queued_remote_image_deletions(${batchLimit})
+      `);
+
+      return (result.rows ?? []) as QueuedRemoteImageRow[];
+    });
+  }
+
+  private async reclaimAbandonedDrafts(ttlHours: number): Promise<number> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select public.reclaim_abandoned_draft_message_images(
+          make_interval(hours => ${ttlHours})
+        ) as reclaimed
+      `);
+      const reclaimed = ((result.rows?.[0] ?? null) as ReclaimedDraftsRow | null)
+        ?.reclaimed;
+
+      return Number(reclaimed ?? 0);
+    });
   }
 
   private async createDirectUpload(

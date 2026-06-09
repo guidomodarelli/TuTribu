@@ -77,5 +77,21 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <p>Las policies de <code>message_images</code> permiten que quien subió la imagen administre sus drafts y que los roles autorizados por <code>public.can_pin_tribe_messages</code> muevan assets desde <code>attached</code> a <code>pending_delete</code> durante borrados moderados y luego a <code>deleted</code> durante la limpieza remota.</p>
   <div class="callout c-warn">Si el borrado remoto falla durante una eliminación directa, el adapter restaura el estado local previo para que una imagen adjunta siga visible y el usuario pueda reintentar. Durante la limpieza de assets ya pendientes, el sistema conserva <code>pending_delete</code> para permitir reintentos posteriores.</div>
 </div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Limpieza de huérfanos en Cloudflare</div>
+  <p>Ningún asset de Cloudflare debe sobrevivir a la fila que lo referenciaba. Cuatro caminos podían dejar huérfanos y un único barrido programado los cierra:</p>
+  <ul>
+    <li><strong>Reintento de <code>pending_delete</code>:</strong> un borrado remoto fallido dejaba el asset vivo y la fila en <code>pending_delete</code> sin nadie que lo reintentara.</li>
+    <li><strong>Drafts abandonados:</strong> una subida directa que el autor nunca publicó (cerró la pestaña) conservaba el asset y la fila en <code>draft</code> para siempre.</li>
+    <li><strong>Borrado de usuario:</strong> el <code>uploaded_by ON DELETE CASCADE</code> borra las filas <code>message_images</code> antes de que nada borre el asset remoto.</li>
+    <li><strong>Borrado de tribu:</strong> el <code>tribe_id ON DELETE CASCADE</code> hace lo mismo; <code>tribe_id</code> es <code>NOT NULL</code> y ancla RLS, así que la fila no puede sobrevivir.</li>
+  </ul>
+  <p>Los dos primeros se barren directo desde <code>public.message_images</code>: <code>reclaim_abandoned_draft_message_images</code> mueve a <code>pending_delete</code> los drafts más viejos que <code>MESSAGE_IMAGE_CLEANUP.abandonedDraftTtlHours</code> (24&nbsp;h), y el barrido toma un lote acotado de <code>pending_delete</code>.</p>
+  <p>Los dos del CASCADE no pueden conservar la fila, así que triggers <code>BEFORE DELETE</code> en <code>public.tribes</code> y <code>public."user"</code> copian cada <code>cloudflare_image_id</code> aún vivo a una cola desacoplada sin claves foráneas, <code>public.pending_remote_image_deletions</code>, que sobrevive al CASCADE. El barrido drena esa cola con la misma lógica: borra en Cloudflare y recién entonces confirma o desencola, de modo que un fallo transitorio simplemente deja la entrada para la próxima corrida.</p>
+  <div class="callout c-info">El barrido corre sin usuario autenticado, por lo que no puede satisfacer las policies <code>FORCE RLS</code> de <code>message_images</code>. Sus entrypoints son funciones <code>SECURITY DEFINER</code> (mismo patrón que el trigger de borrado de mensaje), y la cola está bajo <code>FORCE RLS</code> sin policies: solo esas funciones la tocan, los roles de request no tienen acceso directo.</div>
+  <div class="callout c-warn">El barrido se dispara con el Cron de Vercel definido en <code>vercel.json</code> sobre <code>/api/maintenance/image-cleanup</code>, protegido por el bearer compartido <code>CRON_SECRET</code> (comparado en tiempo constante). No es un endpoint de UI: responde un resumen JSON con los contadores del barrido y nunca corre en nombre de un usuario.</div>
+</div>
 </body>
 </html>

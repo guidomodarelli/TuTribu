@@ -74,6 +74,23 @@ export const MESSAGE_IMAGE_STATUS = {
   pendingDelete: "pending_delete",
 } as const;
 
+/**
+ * Bounds the scheduled orphan-image cleanup so no Cloudflare asset outlives the
+ * row that referenced it.
+ *
+ * - `abandonedDraftTtlHours`: a draft upload never attached to a message within
+ *   this window is treated as abandoned and queued for remote deletion. The
+ *   window must stay well above any realistic compose-then-publish flow so a
+ *   slow author is never stripped of an in-progress upload.
+ * - `batchLimit`: assets pulled from each cleanup source (pending message images
+ *   and the CASCADE-orphan queue) per sweep, so a large backlog drains across
+ *   runs instead of one unbounded pass.
+ */
+export const MESSAGE_IMAGE_CLEANUP = {
+  abandonedDraftTtlHours: 24,
+  batchLimit: 100,
+} as const;
+
 export const MESSAGE_IMAGE_PREPARATION_STATUS = {
   ready: "ready",
 } as const;
