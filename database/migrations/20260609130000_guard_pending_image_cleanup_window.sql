@@ -46,15 +46,11 @@ AS $$
 $$;
 
 -- CREATE FUNCTION grants EXECUTE to PUBLIC by default; revoke it so this stays an
--- owner-only (cron sweep) primitive, and re-grant to the runtime role behind the
--- same guarded pattern used in 20260609120000.
+-- owner-only (cron sweep) primitive. It is not re-granted to a general request
+-- role: granting the grace-window listing function to a shared request/Data API
+-- role such as `authenticated` would let that role list pending Cloudflare ids
+-- directly, because it never sets `app.current_user_id` and so satisfies the
+-- maintenance guard above. The cron sweep runs as the function owner and keeps
+-- EXECUTE after the revoke, so owner-only never breaks it (see 20260609120000).
 REVOKE EXECUTE ON FUNCTION public.list_message_images_pending_remote_deletion(integer, interval)
   FROM PUBLIC;
-
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-    GRANT EXECUTE ON FUNCTION public.list_message_images_pending_remote_deletion(integer, interval) TO authenticated;
-  END IF;
-END;
-$$;

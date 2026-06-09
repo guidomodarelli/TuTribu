@@ -29,17 +29,31 @@
 -- anonymous Data API role) drive these definer-rights primitives directly. Every
 -- function below therefore REVOKEs EXECUTE FROM PUBLIC. The cron sweep runs as
 -- the function owner, which retains EXECUTE after the revoke, so the lockdown
--- never breaks the sweep; the callable entrypoints are additionally granted to a
--- dedicated runtime role (`authenticated`) where the deployment exposes one. On
--- top of the privilege lockdown the callable entrypoints self-authorize as
+-- never breaks the sweep: the owner is the only maintenance principal and needs
+-- no extra grant.
+--
+-- These primitives are deliberately NOT granted to a general request role such
+-- as `authenticated`. A deployment that provisions `authenticated` as the
+-- Neon Data API / request role would let an ordinary authenticated database
+-- caller invoke them over RPC/SQL, and the maintenance guard below is not a
+-- boundary against that caller: the Data API authenticates as `authenticated`
+-- and never goes through the app, so it never sets `app.current_user_id`. The
+-- functions treat a missing `app.current_user_id` as maintenance context, so a
+-- direct caller with no GUC would satisfy the guard and reclaim drafts, list
+-- queued Cloudflare ids, confirm pending rows, or dequeue orphan entries. Owner-
+-- only EXECUTE is the real boundary; a dedicated maintenance role would be the
+-- alternative, never the shared request role.
+--
+-- On top of the privilege lockdown the callable entrypoints self-authorize as
 -- maintenance work by refusing to act whenever a request carries an app user
 -- context (`app.current_user_id`), the same GUC the rest of the RLS policies key
--- on, so even a granted request-scoped role does nothing. The cron sweep has no
--- app user, so it is the only caller that ever does work. As extra defense in
--- depth, the remote-deletion confirmation only ever transitions rows that are
--- already `pending_delete`, so it can never hide an `attached` or `draft` image.
--- The trigger functions get no EXECUTE grant at all: triggers fire with the
--- owner's rights regardless of the caller's EXECUTE privilege.
+-- on. With EXECUTE held to the owner this guard is defense in depth (it no-ops a
+-- maintenance primitive accidentally reached inside a user-context owner call),
+-- not the access boundary. As extra defense in depth, the remote-deletion
+-- confirmation only ever transitions rows that are already `pending_delete`, so
+-- it can never hide an `attached` or `draft` image. The trigger functions get no
+-- EXECUTE grant at all: triggers fire with the owner's rights regardless of the
+-- caller's EXECUTE privilege.
 
 -- Decoupled remote-deletion queue. No foreign keys: it must outlive the tribe or
 -- user rows whose CASCADE wipes the owning message_images rows.
@@ -258,19 +272,10 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.delete_queued_remote_image_deletion(uuid)
   FROM PUBLIC;
 
--- Grant the callable maintenance entrypoints to a dedicated runtime role where
--- the deployment provisions one, behind the guarded pattern used across the other
--- migrations (skipped when the role is absent; the cron sweep runs as the owner
--- regardless). The single-argument listing function is intentionally excluded:
--- migration 20260609130000 drops it and grants its grace-window replacement. The
--- trigger functions are excluded too: triggers never need a caller EXECUTE grant.
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-    GRANT EXECUTE ON FUNCTION public.reclaim_abandoned_draft_message_images(interval, integer) TO authenticated;
-    GRANT EXECUTE ON FUNCTION public.confirm_message_image_remote_deleted(uuid) TO authenticated;
-    GRANT EXECUTE ON FUNCTION public.list_queued_remote_image_deletions(integer) TO authenticated;
-    GRANT EXECUTE ON FUNCTION public.delete_queued_remote_image_deletion(uuid) TO authenticated;
-  END IF;
-END;
-$$;
+-- No EXECUTE grant to a general request role. The cron sweep runs as the function
+-- owner, which keeps EXECUTE after the PUBLIC revoke, so these stay owner-only
+-- maintenance primitives. Granting them to a shared request/Data API role such as
+-- `authenticated` would re-expose the RLS bypass: that role never sets
+-- `app.current_user_id`, so the maintenance guard inside each function would treat
+-- it as maintenance context and let it act. A dedicated maintenance role would be
+-- the only acceptable extra grantee; the trigger functions need no grant at all.

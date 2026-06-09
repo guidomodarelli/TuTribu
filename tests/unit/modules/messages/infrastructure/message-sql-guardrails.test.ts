@@ -233,14 +233,13 @@ describe("Message SQL guardrails", () => {
       );
     }
 
-    // The runtime-role grant stays guarded so the migration is portable to
-    // deployments that do not provision the role, and never re-grants the
-    // trigger-only functions.
-    expect(migration).toContain(
-      "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated')"
-    );
+    // Owner-only: these definer maintenance primitives must never be granted to a
+    // shared request/Data API role. A role such as `authenticated` would reach the
+    // RLS bypass directly, because it never sets `app.current_user_id` and so
+    // satisfies the maintenance guard. The cron sweep runs as the function owner,
+    // which keeps EXECUTE after the PUBLIC revoke, so no request-role grant exists.
     expect(migration).not.toMatch(
-      /GRANT EXECUTE ON FUNCTION public\.enqueue_[a-z_]+\([^)]*\) TO authenticated/
+      /GRANT EXECUTE ON FUNCTION public\.[a-z_]+\([^)]*\) TO authenticated/
     );
 
     expect(migrationJournal.entries).toEqual(
@@ -268,8 +267,10 @@ describe("Message SQL guardrails", () => {
     expect(migration).toContain(
       "nullif(current_setting('app.current_user_id', true), '') IS NULL"
     );
-    expect(migration).toContain(
-      "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated')"
+    // Owner-only after the recreate: the grace-window listing function must not be
+    // re-granted to a shared request/Data API role such as `authenticated`.
+    expect(migration).not.toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.list_message_images_pending_remote_deletion\(integer, interval\) TO authenticated/
     );
     expect(migrationJournal.entries).toEqual(
       expect.arrayContaining([
