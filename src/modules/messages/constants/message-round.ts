@@ -85,10 +85,19 @@ export const MESSAGE_IMAGE_STATUS = {
  * - `batchLimit`: assets pulled from each cleanup source (pending message images
  *   and the CASCADE-orphan queue) per sweep, so a large backlog drains across
  *   runs instead of one unbounded pass.
+ * - `interactiveDeleteGraceMinutes`: how long a freshly `pending_delete` message
+ *   image is shielded from the sweep. The interactive `deleteImage` path marks a
+ *   row `pending_delete`, deletes the remote asset, then confirms it or — on a
+ *   transient Cloudflare failure — rolls the row back to its visible state. The
+ *   sweep must not race that in-flight request, so it only drains
+ *   `pending_delete` rows untouched for longer than this window. It must stay
+ *   well above the longest possible `deleteImage` request lifetime (including the
+ *   serverless timeout) so an interactive delete is always finished first.
  */
 export const MESSAGE_IMAGE_CLEANUP = {
   abandonedDraftTtlHours: 24,
   batchLimit: 100,
+  interactiveDeleteGraceMinutes: 15,
 } as const;
 
 export const MESSAGE_IMAGE_PREPARATION_STATUS = {

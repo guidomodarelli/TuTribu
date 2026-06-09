@@ -360,7 +360,12 @@ export class CloudflareImagesMessageImageRepository
    * succeeds, so a transient Cloudflare failure simply leaves the entry for the
    * next run.
    *
-   * @param command - Abandoned-draft TTL and per-source batch size.
+   * The `pending_delete` source is scoped to rows untouched for longer than the
+   * interactive delete grace window, so the sweep never deletes and confirms an
+   * asset that an in-flight interactive `deleteImage` is still rolling back.
+   *
+   * @param command - Abandoned-draft TTL, per-source batch size, and interactive
+   *   delete grace window.
    * @returns Counters describing the work performed in this sweep.
    */
   async cleanupOrphanImages(
@@ -384,7 +389,8 @@ export class CloudflareImagesMessageImageRepository
     );
 
     const pendingImages = await this.listPendingRemoteDeletions(
-      command.batchLimit
+      command.batchLimit,
+      command.interactiveDeleteGraceMinutes
     );
 
     for (const image of pendingImages) {
@@ -490,12 +496,16 @@ export class CloudflareImagesMessageImageRepository
   }
 
   private async listPendingRemoteDeletions(
-    batchLimit: number
+    batchLimit: number,
+    interactiveDeleteGraceMinutes: number
   ): Promise<PendingRemoteImageRow[]> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         select asset_id, cloudflare_image_id
-        from public.list_message_images_pending_remote_deletion(${batchLimit})
+        from public.list_message_images_pending_remote_deletion(
+          ${batchLimit},
+          make_interval(mins => ${interactiveDeleteGraceMinutes})
+        )
       `);
 
       return (result.rows ?? []) as PendingRemoteImageRow[];
@@ -830,6 +840,19 @@ export class CloudflareImagesMessageImageRepository
     });
   }
 
+  /**
+   * Rolls a message image back to its pre-deletion state after a transient
+   * remote delete failure, but only while the row is still `pending_delete`.
+   *
+   * The guard keeps the rollback from resurrecting a row that a concurrent
+   * cron sweep already deleted from Cloudflare and confirmed as `deleted`:
+   * restoring `attached`/`draft` there would leave a visible row pointing at an
+   * already-deleted asset. When the row is no longer this request's
+   * `pending_delete`, the update affects no rows and the caller logs the skipped
+   * rollback.
+   *
+   * @returns Whether the row was still `pending_delete` and was restored.
+   */
   private async restoreImageDeletionState({
     assetId,
     sortOrder,
@@ -846,6 +869,7 @@ export class CloudflareImagesMessageImageRepository
             sort_order = ${sortOrder},
             updated_at = timezone('utc', now())
         where message_images.id = ${assetId}
+          and message_images.status = ${MESSAGE_IMAGE_STATUS.pendingDelete}
         returning message_images.id as asset_id
       `);
 

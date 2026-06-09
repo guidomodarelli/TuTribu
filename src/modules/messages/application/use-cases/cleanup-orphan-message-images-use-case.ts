@@ -26,5 +26,7 @@ export function cleanupOrphanMessageImages({
     messageImageRepository.cleanupOrphanImages({
       abandonedDraftTtlHours: MESSAGE_IMAGE_CLEANUP.abandonedDraftTtlHours,
       batchLimit: MESSAGE_IMAGE_CLEANUP.batchLimit,
+      interactiveDeleteGraceMinutes:
+        MESSAGE_IMAGE_CLEANUP.interactiveDeleteGraceMinutes,
     });
 }

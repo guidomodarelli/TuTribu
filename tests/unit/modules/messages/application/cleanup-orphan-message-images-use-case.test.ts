@@ -2,7 +2,7 @@ import { cleanupOrphanMessageImages } from "@/src/modules/messages/application/u
 import { MESSAGE_IMAGE_CLEANUP } from "@/src/modules/messages/constants/message-round";
 
 describe("cleanupOrphanMessageImages", () => {
-  it("runs the sweep with the configured TTL and batch size and returns its result", async () => {
+  it("runs the sweep with the configured TTL, batch size, and interactive delete grace and returns its result", async () => {
     const sweepResult = {
       reclaimedDrafts: 3,
       remoteDeletedPending: 2,
@@ -19,6 +19,8 @@ describe("cleanupOrphanMessageImages", () => {
     expect(cleanupOrphanImages).toHaveBeenCalledWith({
       abandonedDraftTtlHours: MESSAGE_IMAGE_CLEANUP.abandonedDraftTtlHours,
       batchLimit: MESSAGE_IMAGE_CLEANUP.batchLimit,
+      interactiveDeleteGraceMinutes:
+        MESSAGE_IMAGE_CLEANUP.interactiveDeleteGraceMinutes,
     });
   });
 });

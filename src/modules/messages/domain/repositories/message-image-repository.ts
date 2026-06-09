@@ -34,6 +34,7 @@ export type DeletePendingMessageImagesCommand = {
 export type CleanupOrphanMessageImagesCommand = {
   abandonedDraftTtlHours: number;
   batchLimit: number;
+  interactiveDeleteGraceMinutes: number;
 };
 
 export type CleanupOrphanMessageImagesResult = {

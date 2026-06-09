@@ -401,8 +401,56 @@ describe("CloudflareImagesMessageImageRepository", () => {
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("pending_delete");
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("sort_order");
     expect(getSqlQuery(execute.mock.calls[2]?.[0]).params).toEqual(
-      expect.arrayContaining(["attached", 2])
+      expect.arrayContaining(["attached", 2, "pending_delete"])
     );
+  });
+
+  it("does not restore a row a concurrent sweep already finalized when remote deletion fails", async () => {
+    const fetcher = jest.fn(async () => ({
+      json: async () => ({}),
+      ok: false,
+    }) as Response);
+    const logger = { warn: jest.fn() };
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_delete: true,
+            cloudflare_image_id: "cloudflare-image-1",
+            id: "asset-1",
+            sort_order: 2,
+            status: "attached",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ asset_id: "asset-1" }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = new CloudflareImagesMessageImageRepository(
+      async (callback) => callback({ execute } as never),
+      { fetcher, logger }
+    );
+
+    await expect(
+      repository.deleteImage({
+        assetId: "asset-1",
+        tribeSlug: "matematica-pro",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({ status: "invalid_image" });
+
+    expect(execute).toHaveBeenCalledTimes(3);
+    expect(getSqlQuery(execute.mock.calls[2]?.[0]).params).toEqual(
+      expect.arrayContaining(["pending_delete"])
+    );
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: "Message image local delete rollback failed",
+      metadata: {
+        assetId: "asset-1",
+        result: MESSAGE_IMAGE_LOG_RESULT.failed,
+        tribeSlug: "matematica-pro",
+      },
+    });
   });
 
   it("keeps pending image cleanup best effort when remote deletion rejects", async () => {
@@ -508,6 +556,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
       repository.cleanupOrphanImages({
         abandonedDraftTtlHours: 24,
         batchLimit: 100,
+        interactiveDeleteGraceMinutes: 15,
       })
     ).resolves.toEqual({
       reclaimedDrafts: 2,
@@ -516,6 +565,10 @@ describe("CloudflareImagesMessageImageRepository", () => {
       remoteFailures: 0,
     });
 
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("make_interval");
+    expect(getSqlQuery(execute.mock.calls[1]?.[0]).params).toEqual(
+      expect.arrayContaining([15])
+    );
     expect(fetcher).toHaveBeenCalledWith(
       "https://api.cloudflare.com/client/v4/accounts/account-id/images/v1/cf-pending-1",
       expect.objectContaining({ method: "DELETE" })
@@ -566,6 +619,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
       repository.cleanupOrphanImages({
         abandonedDraftTtlHours: 24,
         batchLimit: 100,
+        interactiveDeleteGraceMinutes: 15,
       })
     ).resolves.toEqual({
       reclaimedDrafts: 0,
@@ -598,6 +652,7 @@ describe("CloudflareImagesMessageImageRepository", () => {
       repository.cleanupOrphanImages({
         abandonedDraftTtlHours: 24,
         batchLimit: 100,
+        interactiveDeleteGraceMinutes: 15,
       })
     ).resolves.toEqual({
       reclaimedDrafts: 0,
