@@ -527,6 +527,9 @@ describe("CloudflareImagesMessageImageRepository", () => {
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
       "reclaim_abandoned_draft_message_images"
     );
+    expect(getSqlQuery(execute.mock.calls[0]?.[0]).params).toEqual(
+      expect.arrayContaining([24, 100])
+    );
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
       "list_message_images_pending_remote_deletion"
     );

@@ -350,12 +350,15 @@ export class CloudflareImagesMessageImageRepository
    * Scheduled sweep that deletes from Cloudflare every image asset whose owning
    * row is gone or abandoned, so no remote asset is ever orphaned.
    *
-   * It reclaims abandoned draft uploads past their TTL into `pending_delete`,
-   * then drains a bounded batch of `pending_delete` message images (failed or
-   * never-retried direct deletions) and a bounded batch of the decoupled queue
-   * fed by the tribe and user delete triggers. Each source confirms the local
-   * record only after the remote delete succeeds, so a transient Cloudflare
-   * failure simply leaves the entry for the next run.
+   * It reclaims a bounded batch of abandoned draft uploads past their TTL into
+   * `pending_delete`, then drains a bounded batch of `pending_delete` message
+   * images (failed or never-retried direct deletions) and a bounded batch of the
+   * decoupled queue fed by the tribe and user delete triggers. Every source is
+   * capped by the same per-run batch limit, so a large backlog drains across runs
+   * instead of letting the reclaim step rewrite most of `message_images` in one
+   * pass. Each source confirms the local record only after the remote delete
+   * succeeds, so a transient Cloudflare failure simply leaves the entry for the
+   * next run.
    *
    * @param command - Abandoned-draft TTL and per-source batch size.
    * @returns Counters describing the work performed in this sweep.
@@ -376,7 +379,8 @@ export class CloudflareImagesMessageImageRepository
     }
 
     result.reclaimedDrafts = await this.reclaimAbandonedDrafts(
-      command.abandonedDraftTtlHours
+      command.abandonedDraftTtlHours,
+      command.batchLimit
     );
 
     const pendingImages = await this.listPendingRemoteDeletions(
@@ -511,11 +515,15 @@ export class CloudflareImagesMessageImageRepository
     });
   }
 
-  private async reclaimAbandonedDrafts(ttlHours: number): Promise<number> {
+  private async reclaimAbandonedDrafts(
+    ttlHours: number,
+    batchLimit: number
+  ): Promise<number> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         select public.reclaim_abandoned_draft_message_images(
-          make_interval(hours => ${ttlHours})
+          make_interval(hours => ${ttlHours}),
+          ${batchLimit}
         ) as reclaimed
       `);
       const reclaimed = ((result.rows?.[0] ?? null) as ReclaimedDraftsRow | null)

@@ -96,8 +96,13 @@ EXECUTE FUNCTION public.enqueue_user_message_images_for_remote_deletion();
 
 -- Reclaim abandoned drafts: a draft upload older than the TTL was never attached
 -- to a message, so it becomes pending_delete and joins the remote-deletion sweep.
+-- Bounded by batch_limit so a large backlog of abandoned drafts is reclaimed
+-- oldest-first across several runs instead of locking and rewriting most of
+-- message_images in one unbounded UPDATE, matching the per-source batch the rest
+-- of the sweep drains afterward.
 CREATE FUNCTION public.reclaim_abandoned_draft_message_images(
-  abandoned_draft_ttl interval
+  abandoned_draft_ttl interval,
+  batch_limit integer
 )
 RETURNS integer
 LANGUAGE plpgsql
@@ -112,8 +117,14 @@ BEGIN
       message_id = NULL,
       sort_order = NULL,
       updated_at = timezone('utc', now())
-  WHERE status = 'draft'
-    AND created_at < timezone('utc', now()) - abandoned_draft_ttl;
+  WHERE id IN (
+    SELECT id
+    FROM public.message_images
+    WHERE status = 'draft'
+      AND created_at < timezone('utc', now()) - abandoned_draft_ttl
+    ORDER BY created_at ASC
+    LIMIT batch_limit
+  );
 
   GET DIAGNOSTICS reclaimed_count = ROW_COUNT;
   RETURN reclaimed_count;
