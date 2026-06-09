@@ -948,10 +948,31 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   &__imageCarouselPrevious,
   &__imageCarouselNext {
     z-index: 3;
+    width: 2.5rem;
+    height: 2.5rem;
     border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
     background: color-mix(in oklch, var(--background) 84%, transparent);
     color: var(--foreground);
     backdrop-filter: blur(8px);
+
+    // The round control floats over the active slide, which for videos is a
+    // cross-origin player iframe. A circular button leaves the corners of its
+    // bounding box transparent to pointer events, so a near-miss click on the
+    // visible ring is hit-tested through to the iframe behind and plays the
+    // video instead of navigating — the control only responds when the pointer
+    // lands squarely on the icon. This transparent, rectangular hit area
+    // extends the interactive surface to a comfortable 44px target (also the
+    // accessible minimum) so the whole control advances the carousel, not just
+    // its center.
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 2.75rem;
+      height: 2.75rem;
+      transform: translate(-50%, -50%);
+    }
 
     &:disabled {
       opacity: 0.35;
