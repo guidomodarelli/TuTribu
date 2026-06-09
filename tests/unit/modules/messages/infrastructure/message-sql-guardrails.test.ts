@@ -280,4 +280,56 @@ describe("Message SQL guardrails", () => {
       ])
     );
   });
+
+  it("lets the table owner cross the remote-deletion queue without relying on BYPASSRLS", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260609140000_allow_owner_maintenance_queue_rls.sql"
+    );
+    const migrationJournal = JSON.parse(
+      readWorkspaceFile("database/migrations/meta/_journal.json")
+    ) as { entries: Array<{ tag: string }> };
+
+    // The queue stays locked under FORCE ROW LEVEL SECURITY; this migration must
+    // not weaken that by disabling or un-forcing RLS to make the owner fit.
+    expect(migration).not.toMatch(/DISABLE ROW LEVEL SECURITY/i);
+    expect(migration).not.toMatch(/NO FORCE ROW LEVEL SECURITY/i);
+
+    // Each crossing the SECURITY DEFINER maintenance functions need (enqueue =
+    // INSERT, list = SELECT, dequeue = DELETE) gets a policy scoped to the table
+    // owner via pg_class.relowner, so a non-bypass owner is authorized while every
+    // other principal stays denied. Matching relowner dynamically keeps it correct
+    // whatever role owns the table in a given deployment.
+    const ownerExceptionTargets: Array<{ policyName: string; clause: string }> = [
+      {
+        policyName: "Owner maintenance can enqueue remote image deletions",
+        clause: "WITH CHECK",
+      },
+      {
+        policyName: "Owner maintenance can read remote image deletions",
+        clause: "USING",
+      },
+      {
+        policyName: "Owner maintenance can delete remote image deletions",
+        clause: "USING",
+      },
+    ];
+
+    for (const { policyName, clause } of ownerExceptionTargets) {
+      const policyBlock = readPolicyBlock(migration, policyName);
+      expect(policyBlock).toContain(clause);
+      expect(policyBlock).toContain("current_user =");
+      expect(policyBlock).toContain("pg_get_userbyid(pg_class.relowner)");
+      expect(policyBlock).toContain(
+        "'public.pending_remote_image_deletions'::regclass"
+      );
+    }
+
+    expect(migrationJournal.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "20260609140000_allow_owner_maintenance_queue_rls",
+        }),
+      ])
+    );
+  });
 });
