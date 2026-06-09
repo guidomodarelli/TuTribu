@@ -9,7 +9,7 @@
 
 import { timingSafeEqual } from "node:crypto";
 
-import { createRequestModules } from "@/src/modules/setup";
+import { createMaintenanceModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -99,7 +99,7 @@ export async function GET(request: Request) {
   });
 
   try {
-    const modules = await createRequestModules({ requestId });
+    const modules = await createMaintenanceModules({ requestId });
     const summary =
       await modules.messages.useCases.cleanupOrphanMessageImages();
 

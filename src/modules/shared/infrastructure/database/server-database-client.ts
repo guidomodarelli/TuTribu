@@ -8,7 +8,26 @@ import {
   createPostgresPool,
   IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS,
 } from "./postgres-pool";
-import { getServerDatabaseEnvironment } from "./server-environment";
+import {
+  getServerDatabaseEnvironment,
+  getServerMaintenanceDatabaseEnvironment,
+} from "./server-environment";
+
+/**
+ * Selects which database connection a server database client uses.
+ *
+ * `request` is the least-privilege runtime connection used by user-facing
+ * request flows. `maintenance` is the privileged connection used by scheduled
+ * maintenance work (the orphan-image cleanup cron), which must run as a role
+ * that retains EXECUTE on the owner-only SECURITY DEFINER maintenance functions.
+ */
+export const DATABASE_CONNECTION_USAGE = {
+  maintenance: "maintenance",
+  request: "request",
+} as const;
+
+export type DatabaseConnectionUsage =
+  (typeof DATABASE_CONNECTION_USAGE)[keyof typeof DATABASE_CONNECTION_USAGE];
 
 const DATABASE_CONTEXT_SETTING = {
   currentUserEmail: "app.current_user_email",
@@ -28,10 +47,12 @@ const DATABASE_TRANSACTION_SETTING = {
 
 const DATABASE_POOL_OPERATION = {
   idleError: "runtime_database_pool_idle_error",
+  maintenanceIdleError: "maintenance_database_pool_idle_error",
 } as const;
 
 type GlobalDatabase = typeof globalThis & {
   __tuTribuDatabasePool?: Pool;
+  __tuTribuMaintenanceDatabasePool?: Pool;
 };
 
 export type RequestDatabaseContext = {
@@ -46,8 +67,22 @@ function createRequestDatabase(client: PoolClient) {
 
 export type RequestDatabase = ReturnType<typeof createRequestDatabase>;
 
-function getDatabasePool() {
+function getDatabasePool(
+  usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request
+) {
   const globalDatabase = globalThis as GlobalDatabase;
+
+  if (usage === DATABASE_CONNECTION_USAGE.maintenance) {
+    if (!globalDatabase.__tuTribuMaintenanceDatabasePool) {
+      const { connectionString } = getServerMaintenanceDatabaseEnvironment();
+      globalDatabase.__tuTribuMaintenanceDatabasePool = createPostgresPool({
+        connectionString,
+        operation: DATABASE_POOL_OPERATION.maintenanceIdleError,
+      });
+    }
+
+    return globalDatabase.__tuTribuMaintenanceDatabasePool;
+  }
 
   if (!globalDatabase.__tuTribuDatabasePool) {
     const { connectionString } = getServerDatabaseEnvironment();
@@ -127,8 +162,10 @@ export async function runWithGuardedTransaction<T>(
   }
 }
 
-export async function createServerDatabaseClient() {
-  const pool = getDatabasePool();
+export async function createServerDatabaseClient(
+  usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request
+) {
+  const pool = getDatabasePool(usage);
 
   return {
     async withRequestContext<T>(

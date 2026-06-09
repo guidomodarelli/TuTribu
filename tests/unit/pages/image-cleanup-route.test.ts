@@ -1,5 +1,5 @@
 import { GET } from "@/app/api/maintenance/image-cleanup/route";
-import { createRequestModules } from "@/src/modules/setup";
+import { createMaintenanceModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const cleanupOrphanMessageImages = jest.fn();
@@ -9,7 +9,7 @@ const loggerInfo = jest.fn();
 const CRON_SECRET = "cron-secret-value";
 
 jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+  createMaintenanceModules: jest.fn(),
 }));
 
 jest.mock(
@@ -57,7 +57,7 @@ describe("Orphan image cleanup route", () => {
     process.env.CRON_SECRET = CRON_SECRET;
     global.Response = MockJsonResponse as unknown as typeof Response;
 
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createMaintenanceModules as jest.Mock).mockResolvedValue({
       messages: {
         useCases: {
           cleanupOrphanMessageImages,
@@ -81,7 +81,7 @@ describe("Orphan image cleanup route", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ status: "unauthorized" });
-    expect(createRequestModules).not.toHaveBeenCalled();
+    expect(createMaintenanceModules).not.toHaveBeenCalled();
     expect(cleanupOrphanMessageImages).not.toHaveBeenCalled();
   });
 
@@ -131,6 +131,7 @@ describe("Orphan image cleanup route", () => {
       remoteFailures: 0,
       status: "ok",
     });
+    expect(createMaintenanceModules).toHaveBeenCalledTimes(1);
     expect(cleanupOrphanMessageImages).toHaveBeenCalledTimes(1);
   });
 
