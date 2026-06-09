@@ -146,6 +146,10 @@ const eslintConfig = defineConfig([
     // Default ignores of eslint-config-next:
     ".next/**",
     ".open-next/**",
+    // Cloudflare Workers entrypoint: imports the generated `.open-next/worker.js`
+    // and relies on ambient Workers types, so it is validated by the Cloudflare
+    // build, not by ESLint. Testable logic lives in `config/`.
+    "cloudflare/**",
     ".claude/**",
     "out/**",
     "build/**",

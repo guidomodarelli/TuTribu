@@ -177,6 +177,8 @@ npm run deploy:cloudflare
 
 OpenNext warns that Windows local builds can hit runtime-specific failures. Prefer Linux, WSL with Node.js installed, or the Cloudflare build environment for final Cloudflare validation.
 
+The orphan-image cleanup sweep runs as a scheduled job on both targets against `/api/maintenance/image-cleanup`: Vercel installs it from `vercel.json`, and Cloudflare installs the matching schedule from `wrangler.jsonc` (`triggers.crons`) through the `cloudflare/worker.ts` entrypoint. Configure `CRON_SECRET` as a Cloudflare Worker secret so the scheduled sweep is authorized; without it the sweep is skipped and the cron fails visibly. Keep both schedules in sync. See `docs/architecture/deployment-targets.htm`.
+
 Notes:
 
 - Never colocate test files under `app/` — App Router can treat colocated special files as route artifacts.
