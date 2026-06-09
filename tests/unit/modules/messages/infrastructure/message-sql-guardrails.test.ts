@@ -332,4 +332,57 @@ describe("Message SQL guardrails", () => {
       ])
     );
   });
+
+  it("lets the table owner read and update message images for maintenance without BYPASSRLS", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260609150000_allow_owner_maintenance_message_images_rls.sql"
+    );
+    const migrationJournal = JSON.parse(
+      readWorkspaceFile("database/migrations/meta/_journal.json")
+    ) as { entries: Array<{ tag: string }> };
+
+    // message_images stays under FORCE ROW LEVEL SECURITY; this migration must not
+    // weaken that by disabling or un-forcing RLS to let the owner cross.
+    expect(migration).not.toMatch(/DISABLE ROW LEVEL SECURITY/i);
+    expect(migration).not.toMatch(/NO FORCE ROW LEVEL SECURITY/i);
+
+    // The SECURITY DEFINER maintenance functions read message_images (enqueue
+    // triggers, reclaim subquery, pending-deletion listing) and update it (reclaim,
+    // remote-deletion confirm, message-delete pending mark). Each crossing gets a
+    // policy scoped to the table owner via pg_class.relowner, so a non-bypass owner
+    // is authorized while every other principal stays denied. The UPDATE crossing
+    // needs both USING (rows the maintenance UPDATE can target) and WITH CHECK (the
+    // rewritten row the maintenance UPDATE produces).
+    const ownerExceptionTargets: Array<{
+      policyName: string;
+      clauses: string[];
+    }> = [
+      {
+        policyName: "Owner maintenance can read message images",
+        clauses: ["USING"],
+      },
+      {
+        policyName: "Owner maintenance can update message images",
+        clauses: ["USING", "WITH CHECK"],
+      },
+    ];
+
+    for (const { policyName, clauses } of ownerExceptionTargets) {
+      const policyBlock = readPolicyBlock(migration, policyName);
+      for (const clause of clauses) {
+        expect(policyBlock).toContain(clause);
+      }
+      expect(policyBlock).toContain("current_user =");
+      expect(policyBlock).toContain("pg_get_userbyid(pg_class.relowner)");
+      expect(policyBlock).toContain("'public.message_images'::regclass");
+    }
+
+    expect(migrationJournal.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "20260609150000_allow_owner_maintenance_message_images_rls",
+        }),
+      ])
+    );
+  });
 });
