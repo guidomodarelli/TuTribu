@@ -94,6 +94,23 @@ describe("Orphan image cleanup route", () => {
     expect(cleanupOrphanMessageImages).not.toHaveBeenCalled();
   });
 
+  it("rejects a non-ASCII token matching the expected string length without throwing", async () => {
+    const expectedHeader = `Bearer ${CRON_SECRET}`;
+    const sameStringLengthNonAsciiHeader = "ñ".repeat(expectedHeader.length);
+
+    expect(sameStringLengthNonAsciiHeader.length).toBe(expectedHeader.length);
+    expect(Buffer.byteLength(sameStringLengthNonAsciiHeader)).not.toBe(
+      Buffer.byteLength(expectedHeader)
+    );
+
+    const response = (await GET(
+      buildCronRequest(sameStringLengthNonAsciiHeader)
+    )) as unknown as MockJsonResponse;
+
+    expect(response.status).toBe(401);
+    expect(cleanupOrphanMessageImages).not.toHaveBeenCalled();
+  });
+
   it("runs the sweep and returns its counters for an authorized cron request", async () => {
     cleanupOrphanMessageImages.mockResolvedValue({
       reclaimedDrafts: 1,

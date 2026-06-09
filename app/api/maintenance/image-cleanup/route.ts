@@ -62,15 +62,18 @@ function isAuthorizedCronRequest(request: Request): boolean {
   }
 
   const providedHeader = request.headers.get("authorization");
-  const expectedHeader = `${CRON_AUTHORIZATION_SCHEME} ${expectedSecret}`;
 
-  if (!providedHeader || providedHeader.length !== expectedHeader.length) {
+  if (!providedHeader) {
     return false;
   }
 
-  return timingSafeEqual(
-    Buffer.from(providedHeader),
-    Buffer.from(expectedHeader)
+  const expectedHeader = `${CRON_AUTHORIZATION_SCHEME} ${expectedSecret}`;
+  const providedBuffer = Buffer.from(providedHeader);
+  const expectedBuffer = Buffer.from(expectedHeader);
+
+  return (
+    providedBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(providedBuffer, expectedBuffer)
   );
 }
 
