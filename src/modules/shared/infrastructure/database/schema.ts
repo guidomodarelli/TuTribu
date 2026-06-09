@@ -391,6 +391,33 @@ export const messageImages = pgTable("message_images", {
     .where(sql`${table.deletedMessageId} IS NOT NULL`),
 }));
 
+/**
+ * Decoupled queue of Cloudflare image ids whose owning `message_images` row is
+ * about to be removed by a tribe or user `ON DELETE CASCADE`. It carries no
+ * foreign keys so it survives that cascade; a scheduled maintenance sweep reads
+ * it and deletes each asset from Cloudflare. Triggers, the RLS lockdown, and the
+ * sweep functions live in the SQL migration, which is the source of truth.
+ */
+export const pendingRemoteImageDeletions = pgTable(
+  "pending_remote_image_deletions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    cloudflareImageId: text("cloudflare_image_id").notNull(),
+    origin: text("origin").notNull(),
+    enqueuedAt: timestamp("enqueued_at", { withTimezone: true })
+      .notNull()
+      .default(UTC_NOW_SQL),
+  },
+  (table) => ({
+    cloudflareImageKey: uniqueIndex(
+      "pending_remote_image_deletions_image_key"
+    ).on(table.cloudflareImageId),
+    enqueuedAtIndex: index(
+      "idx_pending_remote_image_deletions_enqueued_at"
+    ).on(table.enqueuedAt),
+  })
+);
+
 export const messageVideos = pgTable("message_videos", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")

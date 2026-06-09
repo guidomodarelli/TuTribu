@@ -178,4 +178,211 @@ describe("Message SQL guardrails", () => {
       ])
     );
   });
+
+  it("locks the orphan-image cleanup definer functions to maintenance callers only", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260609120000_create_orphan_image_cleanup.sql"
+    );
+    const migrationJournal = JSON.parse(
+      readWorkspaceFile("database/migrations/meta/_journal.json")
+    ) as { entries: Array<{ tag: string }> };
+    const maintenanceGuard =
+      "nullif(current_setting('app.current_user_id', true), '') IS NULL";
+    const definerFunctions = [
+      "enqueue_tribe_message_images_for_remote_deletion",
+      "enqueue_user_message_images_for_remote_deletion",
+      "reclaim_abandoned_draft_message_images",
+      "list_message_images_pending_remote_deletion",
+      "confirm_message_image_remote_deleted",
+      "list_queued_remote_image_deletions",
+      "delete_queued_remote_image_deletion",
+    ];
+
+    // PostgreSQL grants EXECUTE to PUBLIC by default, which would expose every
+    // SECURITY DEFINER primitive to any request-scoped role. Each function must
+    // revoke that default so only the function owner (the cron sweep) keeps it.
+    for (const functionName of definerFunctions) {
+      expect(migration).toMatch(
+        new RegExp(
+          `REVOKE EXECUTE ON FUNCTION public\\.${functionName}\\([^)]*\\)\\s*FROM PUBLIC;`
+        )
+      );
+    }
+
+    // The remote-deletion confirmation must never flip an attached or draft image
+    // to deleted; it only finalizes rows already slated for deletion.
+    expect(migration).toContain("AND status = 'pending_delete'");
+
+    // The persistent callable entrypoints self-authorize as maintenance work by
+    // acting only when no app user context is present. The single-argument listing
+    // function is dropped and replaced in 20260609130000, so its guard lives there.
+    const guardedEntrypoints = [
+      "reclaim_abandoned_draft_message_images",
+      "confirm_message_image_remote_deleted",
+      "list_queued_remote_image_deletions",
+      "delete_queued_remote_image_deletion",
+    ];
+    for (const functionName of guardedEntrypoints) {
+      const functionStart = migration.indexOf(
+        `CREATE FUNCTION public.${functionName}(`
+      );
+      const functionEnd = migration.indexOf("$$;", functionStart);
+      expect(functionStart).toBeGreaterThan(-1);
+      expect(migration.slice(functionStart, functionEnd)).toContain(
+        maintenanceGuard
+      );
+    }
+
+    // Owner-only: these definer maintenance primitives must never be granted to a
+    // shared request/Data API role. A role such as `authenticated` would reach the
+    // RLS bypass directly, because it never sets `app.current_user_id` and so
+    // satisfies the maintenance guard. The cron sweep runs as the function owner,
+    // which keeps EXECUTE after the PUBLIC revoke, so no request-role grant exists.
+    expect(migration).not.toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.[a-z_]+\([^)]*\) TO authenticated/
+    );
+
+    expect(migrationJournal.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "20260609120000_create_orphan_image_cleanup",
+        }),
+      ])
+    );
+  });
+
+  it("re-locks the grace-window listing function after the drop and recreate", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260609130000_guard_pending_image_cleanup_window.sql"
+    );
+    const migrationJournal = JSON.parse(
+      readWorkspaceFile("database/migrations/meta/_journal.json")
+    ) as { entries: Array<{ tag: string }> };
+
+    // DROP + CREATE resets the function's privileges to the PUBLIC default, so the
+    // recreated grace-window form must revoke PUBLIC and re-apply the guard.
+    expect(migration).toMatch(
+      /REVOKE EXECUTE ON FUNCTION public\.list_message_images_pending_remote_deletion\(integer, interval\)\s*FROM PUBLIC;/
+    );
+    expect(migration).toContain(
+      "nullif(current_setting('app.current_user_id', true), '') IS NULL"
+    );
+    // Owner-only after the recreate: the grace-window listing function must not be
+    // re-granted to a shared request/Data API role such as `authenticated`.
+    expect(migration).not.toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.list_message_images_pending_remote_deletion\(integer, interval\) TO authenticated/
+    );
+    expect(migrationJournal.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "20260609130000_guard_pending_image_cleanup_window",
+        }),
+      ])
+    );
+  });
+
+  it("lets the table owner cross the remote-deletion queue without relying on BYPASSRLS", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260609140000_allow_owner_maintenance_queue_rls.sql"
+    );
+    const migrationJournal = JSON.parse(
+      readWorkspaceFile("database/migrations/meta/_journal.json")
+    ) as { entries: Array<{ tag: string }> };
+
+    // The queue stays locked under FORCE ROW LEVEL SECURITY; this migration must
+    // not weaken that by disabling or un-forcing RLS to make the owner fit.
+    expect(migration).not.toMatch(/DISABLE ROW LEVEL SECURITY/i);
+    expect(migration).not.toMatch(/NO FORCE ROW LEVEL SECURITY/i);
+
+    // Each crossing the SECURITY DEFINER maintenance functions need (enqueue =
+    // INSERT, list = SELECT, dequeue = DELETE) gets a policy scoped to the table
+    // owner via pg_class.relowner, so a non-bypass owner is authorized while every
+    // other principal stays denied. Matching relowner dynamically keeps it correct
+    // whatever role owns the table in a given deployment.
+    const ownerExceptionTargets: Array<{ policyName: string; clause: string }> = [
+      {
+        policyName: "Owner maintenance can enqueue remote image deletions",
+        clause: "WITH CHECK",
+      },
+      {
+        policyName: "Owner maintenance can read remote image deletions",
+        clause: "USING",
+      },
+      {
+        policyName: "Owner maintenance can delete remote image deletions",
+        clause: "USING",
+      },
+    ];
+
+    for (const { policyName, clause } of ownerExceptionTargets) {
+      const policyBlock = readPolicyBlock(migration, policyName);
+      expect(policyBlock).toContain(clause);
+      expect(policyBlock).toContain("current_user =");
+      expect(policyBlock).toContain("pg_get_userbyid(pg_class.relowner)");
+      expect(policyBlock).toContain(
+        "'public.pending_remote_image_deletions'::regclass"
+      );
+    }
+
+    expect(migrationJournal.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "20260609140000_allow_owner_maintenance_queue_rls",
+        }),
+      ])
+    );
+  });
+
+  it("lets the table owner read and update message images for maintenance without BYPASSRLS", () => {
+    const migration = readWorkspaceFile(
+      "database/migrations/20260609150000_allow_owner_maintenance_message_images_rls.sql"
+    );
+    const migrationJournal = JSON.parse(
+      readWorkspaceFile("database/migrations/meta/_journal.json")
+    ) as { entries: Array<{ tag: string }> };
+
+    // message_images stays under FORCE ROW LEVEL SECURITY; this migration must not
+    // weaken that by disabling or un-forcing RLS to let the owner cross.
+    expect(migration).not.toMatch(/DISABLE ROW LEVEL SECURITY/i);
+    expect(migration).not.toMatch(/NO FORCE ROW LEVEL SECURITY/i);
+
+    // The SECURITY DEFINER maintenance functions read message_images (enqueue
+    // triggers, reclaim subquery, pending-deletion listing) and update it (reclaim,
+    // remote-deletion confirm, message-delete pending mark). Each crossing gets a
+    // policy scoped to the table owner via pg_class.relowner, so a non-bypass owner
+    // is authorized while every other principal stays denied. The UPDATE crossing
+    // needs both USING (rows the maintenance UPDATE can target) and WITH CHECK (the
+    // rewritten row the maintenance UPDATE produces).
+    const ownerExceptionTargets: Array<{
+      policyName: string;
+      clauses: string[];
+    }> = [
+      {
+        policyName: "Owner maintenance can read message images",
+        clauses: ["USING"],
+      },
+      {
+        policyName: "Owner maintenance can update message images",
+        clauses: ["USING", "WITH CHECK"],
+      },
+    ];
+
+    for (const { policyName, clauses } of ownerExceptionTargets) {
+      const policyBlock = readPolicyBlock(migration, policyName);
+      for (const clause of clauses) {
+        expect(policyBlock).toContain(clause);
+      }
+      expect(policyBlock).toContain("current_user =");
+      expect(policyBlock).toContain("pg_get_userbyid(pg_class.relowner)");
+      expect(policyBlock).toContain("'public.message_images'::regclass");
+    }
+
+    expect(migrationJournal.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "20260609150000_allow_owner_maintenance_message_images_rls",
+        }),
+      ])
+    );
+  });
 });

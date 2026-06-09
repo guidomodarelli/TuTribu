@@ -1,7 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "tutribu",
-  "main": ".open-next/worker.js",
+  // Custom entrypoint that re-uses the generated OpenNext `fetch` handler and
+  // adds the `scheduled` handler for the maintenance cron below. It imports
+  // `.open-next/worker.js`, produced by `opennextjs-cloudflare build`.
+  "main": "cloudflare/worker.ts",
   "compatibility_date": "2026-05-31",
   "compatibility_flags": [
     "nodejs_compat",
@@ -16,5 +19,11 @@
       "binding": "WORKER_SELF_REFERENCE",
       "service": "tutribu"
     }
-  ]
+  ],
+  // Parity with the Vercel cron in `vercel.json`: sweep orphaned Cloudflare
+  // image assets daily at 04:00 UTC through `/api/maintenance/image-cleanup`.
+  // Keep this schedule in sync with `vercel.json`.
+  "triggers": {
+    "crons": ["0 4 * * *"]
+  }
 }

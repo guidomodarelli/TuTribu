@@ -456,6 +456,34 @@
       "when": 1780920000000,
       "tag": "20260608120000_enforce_unique_provider_subscription_link",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1781006400000,
+      "tag": "20260609120000_create_orphan_image_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1781010000000,
+      "tag": "20260609130000_guard_pending_image_cleanup_window",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1781013600000,
+      "tag": "20260609140000_allow_owner_maintenance_queue_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1781017200000,
+      "tag": "20260609150000_allow_owner_maintenance_message_images_rls",
+      "breakpoints": true
     }
   ]
 }

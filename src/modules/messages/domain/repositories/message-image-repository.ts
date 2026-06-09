@@ -31,6 +31,19 @@ export type DeletePendingMessageImagesCommand = {
   userId: string;
 };
 
+export type CleanupOrphanMessageImagesCommand = {
+  abandonedDraftTtlHours: number;
+  batchLimit: number;
+  interactiveDeleteGraceMinutes: number;
+};
+
+export type CleanupOrphanMessageImagesResult = {
+  reclaimedDrafts: number;
+  remoteDeletedPending: number;
+  remoteDeletedQueued: number;
+  remoteFailures: number;
+};
+
 export type MessageImageUploadCreationResult =
   | {
       assetId: string;
@@ -65,6 +78,9 @@ export type MessageImageDeletionResult = {
 };
 
 export interface MessageImageRepository {
+  cleanupOrphanImages(
+    command: CleanupOrphanMessageImagesCommand
+  ): Promise<CleanupOrphanMessageImagesResult>;
   createUpload(
     command: CreateMessageImageUploadCommand
   ): Promise<MessageImageUploadCreationResult>;

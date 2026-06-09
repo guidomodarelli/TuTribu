@@ -122,6 +122,7 @@ Neon role and schema guidance:
 - Keep `public` unless the application needs stronger separation between apps, modules, tenants, or permission scopes within the same database.
 - For production-like environments, prefer separate credentials by responsibility: `DATABASE_URL` should use a runtime role with limited permissions over a direct Neon connection, while `DATABASE_MIGRATION_URL` can use the owner or migration role needed for schema changes.
 - Do not run the application runtime with an owner/admin role once least-privilege credentials are available.
+- Scheduled maintenance (the orphan-image cleanup cron at `/api/maintenance/image-cleanup`) drives owner-only `SECURITY DEFINER` functions whose `EXECUTE` the migrations hold to the schema owner or a dedicated maintenance role, never the shared request role. So that the sweep does not fail with `permission denied` when `DATABASE_URL` is the least-privilege runtime role, set `DATABASE_MAINTENANCE_URL` to a connection whose role retains `EXECUTE` on those functions (the owner or a dedicated maintenance role). When it is unset, maintenance falls back to `DATABASE_MIGRATION_URL` and then to `DATABASE_URL`, which only works where the runtime role already owns the schema (local and early setup).
 - To keep Neon warm, disable Scale to Zero in the Neon compute settings when the plan supports it. Free plan computes keep the fixed Scale to Zero behavior.
 - Runtime Postgres pools use explicit connection, idle, and lifetime limits so serverless instances do not keep broad direct pools alive indefinitely.
 
@@ -175,6 +176,8 @@ npm run deploy:cloudflare
 ```
 
 OpenNext warns that Windows local builds can hit runtime-specific failures. Prefer Linux, WSL with Node.js installed, or the Cloudflare build environment for final Cloudflare validation.
+
+The orphan-image cleanup sweep runs as a scheduled job on both targets against `/api/maintenance/image-cleanup`: Vercel installs it from `vercel.json`, and Cloudflare installs the matching schedule from `wrangler.jsonc` (`triggers.crons`) through the `cloudflare/worker.ts` entrypoint. Configure `CRON_SECRET` as a Cloudflare Worker secret so the scheduled sweep is authorized; without it the sweep is skipped and the cron fails visibly. Keep both schedules in sync. See `docs/architecture/deployment-targets.htm`.
 
 Notes:
 

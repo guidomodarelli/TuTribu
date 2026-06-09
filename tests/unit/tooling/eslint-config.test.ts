@@ -110,6 +110,20 @@ describe("eslint generated output boundaries", () => {
     );
   });
 
+  it("ignores the Cloudflare Workers entrypoint", () => {
+    expect(
+      lintImport(
+        "// @ts-ignore\nconst generatedValue = 1;",
+        "cloudflare/worker.ts"
+      )
+    ).not.toEqual(
+      expect.arrayContaining([
+        "@typescript-eslint/ban-ts-comment",
+        "@typescript-eslint/no-unused-vars",
+      ])
+    );
+  });
+
   it("ignores agent-generated worktrees", () => {
     expect(
       lintImport(

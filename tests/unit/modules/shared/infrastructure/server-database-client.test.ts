@@ -8,8 +8,12 @@ describe("createServerDatabaseClient", () => {
   beforeEach(() => {
     jest.resetModules();
     process.env.DATABASE_URL = "postgres://tutribu.example.com/db";
+    delete process.env.DATABASE_MAINTENANCE_URL;
+    delete process.env.DATABASE_MIGRATION_URL;
     delete (globalThis as { __tuTribuDatabasePool?: unknown })
       .__tuTribuDatabasePool;
+    delete (globalThis as { __tuTribuMaintenanceDatabasePool?: unknown })
+      .__tuTribuMaintenanceDatabasePool;
   });
 
   afterEach(() => {
@@ -170,5 +174,106 @@ describe("createServerDatabaseClient", () => {
     expect(executedStatements).toEqual(["BEGIN", "COMMIT"]);
     expect(release).toHaveBeenCalledTimes(1);
     expect(release).toHaveBeenCalledWith(undefined);
+  });
+
+  function buildPoolSpy() {
+    const poolConnectionStrings: Array<string | undefined> = [];
+    const release = jest.fn();
+    const client = Object.assign(new EventEmitter(), {
+      query: jest.fn(async () => ({ rows: [] })),
+      release,
+    });
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn((configuration: { connectionString?: string }) => {
+        poolConnectionStrings.push(configuration.connectionString);
+
+        return {
+          connect: jest.fn(async () => client),
+          on: jest.fn(),
+        };
+      }),
+    }));
+    jest.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: (databaseClient: { query: () => Promise<unknown> }) => ({
+        execute: () => databaseClient.query(),
+      }),
+    }));
+
+    return { poolConnectionStrings };
+  }
+
+  it("checks out the maintenance pool from the maintenance connection when usage is maintenance", async () => {
+    process.env.DATABASE_MAINTENANCE_URL =
+      "postgres://maintenance.tutribu.example.com/db";
+    const { poolConnectionStrings } = buildPoolSpy();
+
+    const { createServerDatabaseClient, DATABASE_CONNECTION_USAGE } =
+      await import(
+        "@/src/modules/shared/infrastructure/database/server-database-client"
+      );
+
+    const databaseClient = await createServerDatabaseClient(
+      DATABASE_CONNECTION_USAGE.maintenance
+    );
+    await databaseClient.withRequestContext(
+      { email: null, userId: null },
+      async () => "ok"
+    );
+
+    expect(poolConnectionStrings).toEqual([
+      "postgres://maintenance.tutribu.example.com/db",
+    ]);
+  });
+
+  it("checks out the runtime pool from DATABASE_URL by default", async () => {
+    process.env.DATABASE_MAINTENANCE_URL =
+      "postgres://maintenance.tutribu.example.com/db";
+    const { poolConnectionStrings } = buildPoolSpy();
+
+    const { createServerDatabaseClient } = await import(
+      "@/src/modules/shared/infrastructure/database/server-database-client"
+    );
+
+    const databaseClient = await createServerDatabaseClient();
+    await databaseClient.withRequestContext(
+      { email: null, userId: null },
+      async () => "ok"
+    );
+
+    expect(poolConnectionStrings).toEqual([
+      "postgres://tutribu.example.com/db",
+    ]);
+  });
+
+  it("keeps the request and maintenance pools on separate cached connections", async () => {
+    process.env.DATABASE_MAINTENANCE_URL =
+      "postgres://maintenance.tutribu.example.com/db";
+    const { poolConnectionStrings } = buildPoolSpy();
+
+    const { createServerDatabaseClient, DATABASE_CONNECTION_USAGE } =
+      await import(
+        "@/src/modules/shared/infrastructure/database/server-database-client"
+      );
+
+    const runStatements = async () => "ok";
+    const requestContext = { email: null, userId: null };
+
+    await (await createServerDatabaseClient()).withRequestContext(
+      requestContext,
+      runStatements
+    );
+    await (
+      await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance)
+    ).withRequestContext(requestContext, runStatements);
+    await (
+      await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance)
+    ).withRequestContext(requestContext, runStatements);
+
+    // One request pool + one maintenance pool, each constructed once and reused.
+    expect(poolConnectionStrings).toEqual([
+      "postgres://tutribu.example.com/db",
+      "postgres://maintenance.tutribu.example.com/db",
+    ]);
   });
 });

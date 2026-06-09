@@ -105,6 +105,17 @@ tr:last-child td{border-bottom:none;}
   <div class="section-title">Validacion operativa</div>
   <p>Para validar el target de Cloudflare se debe ejecutar <code>pnpm run build:cloudflare</code>. Para preview local del runtime de Workers se debe usar <code>pnpm run preview:cloudflare</code>.</p>
   <div class="callout c-warn"><strong>Advertencia de entorno:</strong> OpenNext advierte que los builds locales en Windows pueden fallar por comportamiento especifico del sistema operativo. La validacion final de Cloudflare debe correr en Linux, WSL con Node.js instalado o el entorno de build de Cloudflare.</div>
+  <div class="divider"></div>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Mantenimiento programado (cron)</div>
+  <p>El barrido de imagenes huerfanas de Cloudflare corre como tarea programada en <strong>ambos targets</strong> contra el mismo endpoint <code>/api/maintenance/image-cleanup</code>. Sin esta tarea, los drafts abandonados y la cola de huerfanos en cascada se acumulan.</p>
+  <p>En Vercel el cron se declara en <code>vercel.json</code> con <code>crons</code>. En Cloudflare Workers no existe equivalente automatico, por lo que se declara el mismo schedule en <code>wrangler.jsonc</code> bajo <code>triggers.crons</code>. Ambos schedules deben mantenerse sincronizados (hoy <code>0 4 * * *</code>, diario a las 04:00 UTC).</p>
+  <p>Como OpenNext genera el worker en <code>.open-next/worker.js</code> y ese artefacto solo expone <code>fetch</code>, Cloudflare necesita un entrypoint propio. El campo <code>main</code> de <code>wrangler.jsonc</code> apunta a <code>cloudflare/worker.ts</code>, que reutiliza el <code>fetch</code> generado por OpenNext y agrega un handler <code>scheduled</code>. Ese handler vuelve a entrar a la misma ruta con el token <code>Authorization: Bearer &lt;CRON_SECRET&gt;</code>, de modo que la autorizacion del barrido es identica a la del cron de Vercel.</p>
+  <p>La logica testeable de ese disparo vive en <code>config/cloudflare-scheduled-maintenance.ts</code> (inyecta el <code>fetch</code> handler para poder probarse sin el worker generado). El entrypoint <code>cloudflare/worker.ts</code> importa output de build, por lo que se excluye del typecheck de la app y de ESLint y se valida en el build de Cloudflare.</p>
+  <div class="callout c-warn"><strong>Requisito:</strong> el cron de Cloudflare necesita <code>CRON_SECRET</code> configurado como secret del Worker. Si falta, el barrido se omite y la invocacion del cron falla de forma visible en Cloudflare, en lugar de correr sin autorizacion.</div>
 </div>
 
 <div class="part-header">

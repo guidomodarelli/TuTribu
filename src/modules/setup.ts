@@ -34,7 +34,11 @@ import {
   updateMercadoPagoPreapprovalPlan,
   updateMercadoPagoPreapprovalSubscriptionStatus,
 } from "./subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
-import { createServerDatabaseClient } from "./shared/infrastructure/database/server-database-client";
+import {
+  createServerDatabaseClient,
+  DATABASE_CONNECTION_USAGE,
+  type DatabaseConnectionUsage,
+} from "./shared/infrastructure/database/server-database-client";
 import { createServerLogger } from "./shared/infrastructure/observability/server-logger";
 import { FetchGitHubIssuePublisher } from "./siteping/infrastructure/github/github-issue-publisher";
 import { CloudflareImagesSitepingScreenshotStorage } from "./siteping/infrastructure/cloudflare/cloudflare-images-siteping-screenshot-storage";
@@ -42,9 +46,14 @@ import { PostgresSitepingFeedbackRepository } from "./siteping/infrastructure/re
 
 type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
 type RequestModuleContextOverrides = {
+  databaseConnectionUsage?: DatabaseConnectionUsage;
   mercadoPagoWebhookVerified?: boolean;
   requestId?: string;
 };
+type MaintenanceModuleContextOverrides = Omit<
+  RequestModuleContextOverrides,
+  "databaseConnectionUsage"
+>;
 
 /**
  * Builds request-scoped modules with database context and optional tracing metadata.
@@ -55,9 +64,12 @@ type RequestModuleContextOverrides = {
 export async function createRequestModules(
   contextOverrides: RequestModuleContextOverrides = {}
 ) {
-  const { requestId, ...databaseContextOverrides } = contextOverrides;
+  const { requestId, databaseConnectionUsage, ...databaseContextOverrides } =
+    contextOverrides;
+  const connectionUsage =
+    databaseConnectionUsage ?? DATABASE_CONNECTION_USAGE.request;
   const [databaseClient, authContext] = await Promise.all([
-    createServerDatabaseClient(),
+    createServerDatabaseClient(connectionUsage),
     import("./auth/infrastructure/better-auth/server-auth-context").then(
       ({ getRequestAuthContext }) => getRequestAuthContext()
     ),
@@ -196,4 +208,28 @@ export async function createRequestModules(
         tribeSubscriptionPriceRepository,
     }),
   };
+}
+
+/**
+ * Builds modules for scheduled maintenance work, wired to the privileged
+ * maintenance database connection instead of the least-privilege request
+ * connection.
+ *
+ * The orphan-image cleanup cron drives owner-only SECURITY DEFINER maintenance
+ * functions whose EXECUTE the migrations hold to the schema owner or a dedicated
+ * maintenance role. Running them through the request connection would fail with
+ * `permission denied` wherever `DATABASE_URL` is a least-privilege runtime role,
+ * so maintenance entrypoints must compose through this helper rather than
+ * `createRequestModules`.
+ *
+ * @param contextOverrides - Tracing correlation data for infrastructure adapters.
+ * @returns Composed application modules bound to the maintenance connection.
+ */
+export async function createMaintenanceModules(
+  contextOverrides: MaintenanceModuleContextOverrides = {}
+) {
+  return createRequestModules({
+    ...contextOverrides,
+    databaseConnectionUsage: DATABASE_CONNECTION_USAGE.maintenance,
+  });
 }

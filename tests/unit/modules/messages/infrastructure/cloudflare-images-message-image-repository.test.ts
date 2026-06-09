@@ -401,8 +401,56 @@ describe("CloudflareImagesMessageImageRepository", () => {
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("pending_delete");
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("sort_order");
     expect(getSqlQuery(execute.mock.calls[2]?.[0]).params).toEqual(
-      expect.arrayContaining(["attached", 2])
+      expect.arrayContaining(["attached", 2, "pending_delete"])
     );
+  });
+
+  it("does not restore a row a concurrent sweep already finalized when remote deletion fails", async () => {
+    const fetcher = jest.fn(async () => ({
+      json: async () => ({}),
+      ok: false,
+    }) as Response);
+    const logger = { warn: jest.fn() };
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_delete: true,
+            cloudflare_image_id: "cloudflare-image-1",
+            id: "asset-1",
+            sort_order: 2,
+            status: "attached",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ asset_id: "asset-1" }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = new CloudflareImagesMessageImageRepository(
+      async (callback) => callback({ execute } as never),
+      { fetcher, logger }
+    );
+
+    await expect(
+      repository.deleteImage({
+        assetId: "asset-1",
+        tribeSlug: "matematica-pro",
+        userId: "member-1",
+      })
+    ).resolves.toEqual({ status: "invalid_image" });
+
+    expect(execute).toHaveBeenCalledTimes(3);
+    expect(getSqlQuery(execute.mock.calls[2]?.[0]).params).toEqual(
+      expect.arrayContaining(["pending_delete"])
+    );
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: "Message image local delete rollback failed",
+      metadata: {
+        assetId: "asset-1",
+        result: MESSAGE_IMAGE_LOG_RESULT.failed,
+        tribeSlug: "matematica-pro",
+      },
+    });
   });
 
   it("keeps pending image cleanup best effort when remote deletion rejects", async () => {
@@ -484,6 +532,137 @@ describe("CloudflareImagesMessageImageRepository", () => {
     expect(execute).toHaveBeenCalledTimes(2);
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("deleted");
     expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("sweeps pending images and the orphan queue, deleting each remote asset", async () => {
+    const fetcher = jest.fn(async () => createFetchResponse({}));
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ reclaimed: 2 }] })
+      .mockResolvedValueOnce({
+        rows: [{ asset_id: "asset-1", cloudflare_image_id: "cf-pending-1" }],
+      })
+      .mockResolvedValueOnce({ rows: [{ result: true }] })
+      .mockResolvedValueOnce({
+        rows: [{ cloudflare_image_id: "cf-queued-1", queue_id: "queue-1" }],
+      })
+      .mockResolvedValueOnce({ rows: [{ result: true }] });
+    const repository = new CloudflareImagesMessageImageRepository(
+      async (callback) => callback({ execute } as never),
+      { fetcher }
+    );
+
+    await expect(
+      repository.cleanupOrphanImages({
+        abandonedDraftTtlHours: 24,
+        batchLimit: 100,
+        interactiveDeleteGraceMinutes: 15,
+      })
+    ).resolves.toEqual({
+      reclaimedDrafts: 2,
+      remoteDeletedPending: 1,
+      remoteDeletedQueued: 1,
+      remoteFailures: 0,
+    });
+
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("make_interval");
+    expect(getSqlQuery(execute.mock.calls[1]?.[0]).params).toEqual(
+      expect.arrayContaining([15])
+    );
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://api.cloudflare.com/client/v4/accounts/account-id/images/v1/cf-pending-1",
+      expect.objectContaining({ method: "DELETE" })
+    );
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://api.cloudflare.com/client/v4/accounts/account-id/images/v1/cf-queued-1",
+      expect.objectContaining({ method: "DELETE" })
+    );
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
+      "reclaim_abandoned_draft_message_images"
+    );
+    expect(getSqlQuery(execute.mock.calls[0]?.[0]).params).toEqual(
+      expect.arrayContaining([24, 100])
+    );
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+      "list_message_images_pending_remote_deletion"
+    );
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
+      "confirm_message_image_remote_deleted"
+    );
+    expect(getSqlText(execute.mock.calls[3]?.[0])).toContain(
+      "list_queued_remote_image_deletions"
+    );
+    expect(getSqlText(execute.mock.calls[4]?.[0])).toContain(
+      "delete_queued_remote_image_deletion"
+    );
+  });
+
+  it("keeps a pending asset for the next sweep when its remote deletion fails", async () => {
+    const fetcher = jest.fn(async () => ({
+      json: async () => ({}),
+      ok: false,
+    }) as Response);
+    const logger = { warn: jest.fn() };
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ reclaimed: 0 }] })
+      .mockResolvedValueOnce({
+        rows: [{ asset_id: "asset-1", cloudflare_image_id: "cf-pending-1" }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = new CloudflareImagesMessageImageRepository(
+      async (callback) => callback({ execute } as never),
+      { fetcher, logger }
+    );
+
+    await expect(
+      repository.cleanupOrphanImages({
+        abandonedDraftTtlHours: 24,
+        batchLimit: 100,
+        interactiveDeleteGraceMinutes: 15,
+      })
+    ).resolves.toEqual({
+      reclaimedDrafts: 0,
+      remoteDeletedPending: 0,
+      remoteDeletedQueued: 0,
+      remoteFailures: 1,
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledTimes(3);
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: "Message image remote cleanup failed",
+      metadata: {
+        assetId: "asset-1",
+        result: MESSAGE_IMAGE_LOG_RESULT.failed,
+      },
+    });
+  });
+
+  it("does nothing when Cloudflare Images is not configured", async () => {
+    clearCloudflareImagesEnvironment();
+    const fetcher = jest.fn();
+    const execute = jest.fn();
+    const repository = new CloudflareImagesMessageImageRepository(
+      async (callback) => callback({ execute } as never),
+      { fetcher }
+    );
+
+    await expect(
+      repository.cleanupOrphanImages({
+        abandonedDraftTtlHours: 24,
+        batchLimit: 100,
+        interactiveDeleteGraceMinutes: 15,
+      })
+    ).resolves.toEqual({
+      reclaimedDrafts: 0,
+      remoteDeletedPending: 0,
+      remoteDeletedQueued: 0,
+      remoteFailures: 0,
+    });
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });
 
