@@ -20,10 +20,14 @@
       "service": "tutribu"
     }
   ],
-  // Parity with the Vercel cron in `vercel.json`: sweep orphaned Cloudflare
-  // image assets daily at 04:00 UTC through `/api/maintenance/image-cleanup`.
-  // Keep this schedule in sync with `vercel.json`.
+  // Parity with the Vercel crons in `vercel.json`: sweep orphaned Cloudflare
+  // image assets daily at 04:00 UTC through `/api/maintenance/image-cleanup`,
+  // and orphaned R2 attachment files at 04:30 UTC through
+  // `/api/maintenance/file-cleanup`. Keep these schedules in sync with
+  // `vercel.json` and with `MAINTENANCE_CRON_SCHEDULE` in
+  // `config/cloudflare-scheduled-maintenance.ts`, which maps each firing
+  // expression to its route.
   "triggers": {
-    "crons": ["0 4 * * *"]
+    "crons": ["0 4 * * *", "30 4 * * *"]
   }
 }

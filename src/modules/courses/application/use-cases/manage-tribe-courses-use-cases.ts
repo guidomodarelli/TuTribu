@@ -19,8 +19,17 @@ import type {
 import {
   COURSE_LESSON_DESCRIPTION,
   COURSE_MUTATION_STATUS,
+  LESSON_FILE_PREPARATION_STATUS,
 } from "@/src/modules/courses/constants/courses";
 import type { CourseRepository } from "@/src/modules/courses/domain/repositories/course-repository";
+import type {
+  LessonFileAttachmentDraft,
+  LessonFileRepository,
+} from "@/src/modules/courses/domain/repositories/lesson-file-repository";
+import {
+  NORMALIZED_LESSON_FILES_STATUS,
+  normalizeLessonFileDrafts,
+} from "@/src/modules/courses/application/use-cases/lesson-files-use-cases";
 import {
   InvalidVideoUrlError,
   parseExternalVideoUrl,
@@ -29,6 +38,13 @@ import {
 
 type CourseRepositoryDependencies = {
   courseRepository: CourseRepository;
+};
+
+type LessonMutationDependencies = CourseRepositoryDependencies & {
+  lessonFileRepository?: Pick<
+    LessonFileRepository,
+    "deleteFile" | "deletePendingFiles" | "prepareForAttachment"
+  >;
 };
 
 const COURSE_MODULE_TITLE_MAX_LENGTH = 120;
@@ -148,9 +164,38 @@ export function deleteCourseModule({
     });
 }
 
+async function cleanupPreparedLessonFiles({
+  files,
+  lessonFileRepository,
+  tribeSlug,
+  userId,
+}: {
+  files: LessonFileAttachmentDraft[];
+  lessonFileRepository?: Partial<Pick<LessonFileRepository, "deleteFile">>;
+  tribeSlug: string;
+  userId: string;
+}): Promise<void> {
+  if (!lessonFileRepository?.deleteFile || files.length === 0) {
+    return;
+  }
+
+  const deleteFile = lessonFileRepository.deleteFile;
+
+  await Promise.allSettled(
+    files.map((file) =>
+      deleteFile({
+        fileId: file.assetId,
+        tribeSlug,
+        userId,
+      })
+    )
+  );
+}
+
 export function createLesson({
   courseRepository,
-}: CourseRepositoryDependencies) {
+  lessonFileRepository,
+}: LessonMutationDependencies) {
   return async (
     command: CreateLessonCommand
   ): Promise<LessonCreationResult> => {
@@ -169,22 +214,82 @@ export function createLesson({
       return { status: COURSE_MUTATION_STATUS.invalidVideoUrl };
     }
 
-    return courseRepository.createLesson({
-      courseModuleId: normalizeText(command.courseModuleId),
-      description: normalizeOptionalText(command.description),
-      externalVideoId: parsedVideo.value.externalId,
-      sortOrder: command.sortOrder,
-      title,
-      tribeSlug: normalizeText(command.tribeSlug),
-      videoProvider: parsedVideo.value.provider,
-    });
+    const normalizedFiles = normalizeLessonFileDrafts(command.files);
+
+    if (normalizedFiles.status !== NORMALIZED_LESSON_FILES_STATUS.valid) {
+      return { status: normalizedFiles.status };
+    }
+
+    const tribeSlug = normalizeText(command.tribeSlug);
+    const userId = normalizeText(command.userId);
+    let files = normalizedFiles.files;
+
+    if (files.length > 0) {
+      const preparedFiles = await lessonFileRepository?.prepareForAttachment({
+        files,
+        tribeSlug,
+        userId,
+      });
+
+      if (
+        !preparedFiles ||
+        preparedFiles.status !== LESSON_FILE_PREPARATION_STATUS.ready
+      ) {
+        await cleanupPreparedLessonFiles({
+          files,
+          lessonFileRepository,
+          tribeSlug,
+          userId,
+        });
+
+        return { status: COURSE_MUTATION_STATUS.invalidFile };
+      }
+
+      files = preparedFiles.files;
+    }
+
+    try {
+      const result = await courseRepository.createLesson({
+        courseModuleId: normalizeText(command.courseModuleId),
+        description: normalizeOptionalText(command.description),
+        externalVideoId: parsedVideo.value.externalId,
+        ...(files.length > 0 ? { files } : {}),
+        sortOrder: command.sortOrder,
+        title,
+        tribeSlug,
+        videoProvider: parsedVideo.value.provider,
+      });
+
+      if (result.status !== COURSE_MUTATION_STATUS.created) {
+        await cleanupPreparedLessonFiles({
+          files,
+          lessonFileRepository,
+          tribeSlug,
+          userId,
+        });
+      }
+
+      return result;
+    } catch (error) {
+      await cleanupPreparedLessonFiles({
+        files,
+        lessonFileRepository,
+        tribeSlug,
+        userId,
+      });
+
+      throw error;
+    }
   };
 }
 
 export function updateLesson({
   courseRepository,
-}: CourseRepositoryDependencies) {
-  return async (command: UpdateLessonCommand): Promise<LessonUpdateResult> => {
+  lessonFileRepository,
+}: LessonMutationDependencies) {
+  return async (
+    command: UpdateLessonCommand
+  ): Promise<LessonUpdateResult> => {
     const title = normalizeText(command.title);
 
     if (!isValidLessonTitle(title)) {
@@ -200,28 +305,94 @@ export function updateLesson({
       return { status: COURSE_MUTATION_STATUS.invalidVideoUrl };
     }
 
-    return courseRepository.updateLesson({
+    const normalizedFiles =
+      command.files === undefined
+        ? undefined
+        : normalizeLessonFileDrafts(command.files);
+
+    if (
+      normalizedFiles &&
+      normalizedFiles.status !== NORMALIZED_LESSON_FILES_STATUS.valid
+    ) {
+      return { status: normalizedFiles.status };
+    }
+
+    const tribeSlug = normalizeText(command.tribeSlug);
+    const userId = normalizeText(command.userId);
+    const lessonId = normalizeText(command.lessonId);
+    let files =
+      normalizedFiles?.status === NORMALIZED_LESSON_FILES_STATUS.valid
+        ? normalizedFiles.files
+        : undefined;
+
+    if (files && files.length > 0) {
+      const preparedFiles = await lessonFileRepository?.prepareForAttachment({
+        files,
+        lessonId,
+        tribeSlug,
+        userId,
+      });
+
+      if (
+        !preparedFiles ||
+        preparedFiles.status !== LESSON_FILE_PREPARATION_STATUS.ready
+      ) {
+        return { status: COURSE_MUTATION_STATUS.invalidFile };
+      }
+
+      files = preparedFiles.files;
+    }
+
+    const result = await courseRepository.updateLesson({
       courseModuleId: normalizeText(command.courseModuleId),
       description: normalizeOptionalText(command.description),
       externalVideoId: parsedVideo.value.externalId,
+      ...(files !== undefined ? { files } : {}),
       isActive: command.isActive,
-      lessonId: normalizeText(command.lessonId),
+      lessonId,
       sortOrder: command.sortOrder,
       title,
-      tribeSlug: normalizeText(command.tribeSlug),
+      tribeSlug,
       videoProvider: parsedVideo.value.provider,
     });
+
+    if (
+      result.status === COURSE_MUTATION_STATUS.updated &&
+      command.files !== undefined
+    ) {
+      await lessonFileRepository?.deletePendingFiles({
+        lessonId,
+        tribeSlug,
+        userId,
+      });
+    }
+
+    return result;
   };
 }
 
 export function deleteLesson({
   courseRepository,
-}: CourseRepositoryDependencies) {
+  lessonFileRepository,
+}: LessonMutationDependencies) {
   return async (
     command: DeleteLessonCommand
-  ): Promise<LessonDeletionResult> =>
-    courseRepository.deleteLesson({
-      lessonId: normalizeText(command.lessonId),
-      tribeSlug: normalizeText(command.tribeSlug),
+  ): Promise<LessonDeletionResult> => {
+    const lessonId = normalizeText(command.lessonId);
+    const tribeSlug = normalizeText(command.tribeSlug);
+    const result = await courseRepository.deleteLesson({
+      lessonId,
+      tribeSlug,
     });
+
+    if (result.status === COURSE_MUTATION_STATUS.deleted) {
+      await lessonFileRepository?.deletePendingFiles({
+        lessonId,
+        tribeSlug,
+        userId: normalizeText(command.userId),
+      });
+    }
+
+    return result;
+  };
 }

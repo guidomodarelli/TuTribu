@@ -13,6 +13,8 @@ export const COURSE_ROUTE_RESPONSE = {
   createSuccessMessage: "Contenido creado.",
   deleteSuccessMessage: "Contenido eliminado.",
   forbiddenMessage: "No tenés permisos para gestionar los cursos.",
+  invalidFileMessage:
+    "No pudimos adjuntar esos archivos a la lección. Revisá el tipo y el tamaño, y volvé a subirlos.",
   invalidInputMessage:
     "Completá el título y los campos requeridos del contenido.",
   invalidVideoUrlMessage:
@@ -29,9 +31,11 @@ export const COURSE_ROUTE_RESPONSE = {
 } as const;
 
 export const COURSE_ROUTE_FIELD = {
+  assetId: "assetId",
   courseModuleId: "courseModuleId",
   description: "description",
   externalVideoUrl: "externalVideoUrl",
+  files: "files",
   isActive: "isActive",
   sortOrder: "sortOrder",
   title: "title",
@@ -49,6 +53,7 @@ export const HTTP_STATUS = {
 
 const COURSE_MUTATION_STATUS = {
   forbidden: "forbidden",
+  invalidFile: "invalid_file",
   invalidInput: "invalid_input",
   invalidVideoUrl: "invalid_video_url",
   notFound: "not_found",
@@ -134,11 +139,57 @@ export function readUuidField(body: unknown, field: string): string | null {
   return readUuidValue(readStringField(body, field));
 }
 
+/**
+ * Reads the optional lesson `files` field from a payload: an array of
+ * `{ assetId }` entries whose index expresses the leader-chosen slot.
+ *
+ * @param body - Parsed request body that may contain a `files` array.
+ * @returns `undefined` when absent, `null` when malformed, or the drafts.
+ */
+export function readLessonFilesField(
+  body: unknown
+): { assetId: string }[] | null | undefined {
+  if (!body || typeof body !== "object" || !(COURSE_ROUTE_FIELD.files in body)) {
+    return undefined;
+  }
+
+  const files = (body as Record<string, unknown>)[COURSE_ROUTE_FIELD.files];
+
+  if (!Array.isArray(files)) {
+    return null;
+  }
+
+  const drafts: { assetId: string }[] = [];
+
+  for (const item of files) {
+    if (!item || typeof item !== "object") {
+      return null;
+    }
+
+    const assetId = (item as Record<string, unknown>)[
+      COURSE_ROUTE_FIELD.assetId
+    ];
+
+    if (typeof assetId !== "string") {
+      return null;
+    }
+
+    drafts.push({ assetId });
+  }
+
+  return drafts;
+}
+
 export function mapMutationStatusResponse(status: string): Response {
   switch (status) {
     case COURSE_MUTATION_STATUS.invalidInput:
       return createJsonResponse(
         { message: COURSE_ROUTE_RESPONSE.invalidInputMessage },
+        HTTP_STATUS.badRequest
+      );
+    case COURSE_MUTATION_STATUS.invalidFile:
+      return createJsonResponse(
+        { message: COURSE_ROUTE_RESPONSE.invalidFileMessage },
         HTTP_STATUS.badRequest
       );
     case COURSE_MUTATION_STATUS.invalidVideoUrl:

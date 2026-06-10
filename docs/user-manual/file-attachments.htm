@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archivos adjuntos en el fogón y los cursos</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">Manual de usuario</div>
+  <div class="doc-title">Archivos adjuntos en el fogón y los cursos</div>
+  <div class="doc-sub">Cómo adjuntar documentos y otros archivos a un mensaje del fogón, y cómo los líderes agregan material descargable a las lecciones de un curso.</div>
+  <div class="doc-meta"><span>Área: Feed + Cursos</span><span>Estado: Implementado</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Qué se puede adjuntar</div>
+  <p>Además de imágenes y videos, ahora podés adjuntar <strong>archivos</strong>: PDF, documentos de Word, planillas, presentaciones, texto plano, CSV, Markdown, archivos comprimidos (ZIP, EPUB), imágenes y audio.</p>
+  <ul>
+    <li>Tamaño máximo por archivo: <strong>25 MB</strong>.</li>
+    <li>Hasta <strong>5 archivos por mensaje</strong> del fogón.</li>
+    <li>Hasta <strong>10 archivos por lección</strong> de un curso.</li>
+  </ul>
+  <div class="callout c-warn">Por seguridad no se aceptan ejecutables ni scripts. Si el tipo de archivo no está permitido o supera el tamaño, la app lo avisa antes de subirlo.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Adjuntar archivos a un mensaje del fogón</div>
+  <p>Cualquier miembro activo de la tribu puede adjuntar archivos al crear o editar un mensaje:</p>
+  <ul>
+    <li>En el editor del mensaje, tocá el botón de <strong>adjuntar archivo</strong> (clip) y elegí uno o varios archivos.</li>
+    <li>Cada archivo se sube al instante y muestra su estado: subiendo, listo o error (con opción de reintentar o quitar).</li>
+    <li>Publicá el mensaje cuando todos los archivos estén listos; el botón de publicar espera a que terminen las subidas.</li>
+    <li>Al editar el mensaje podés quitar archivos o agregar nuevos; al guardar, la lista del mensaje queda exactamente como la dejaste.</li>
+  </ul>
+  <p>Los archivos aparecen debajo del contenido del mensaje como una lista de descargas con el nombre y el tamaño. Tocar un archivo lo descarga.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Material de la lección (cursos)</div>
+  <p>Los <strong>líderes</strong> pueden adjuntar material descargable a cada lección desde la gestión de cursos:</p>
+  <ul>
+    <li>En el formulario de la lección (nueva o existente) hay una sección <strong>"Material de la lección"</strong> con el botón de adjuntar.</li>
+    <li>El material se guarda junto con la lección; mientras un archivo se está subiendo no se puede guardar.</li>
+    <li>Quitar un archivo de la lista y guardar lo elimina de la lección.</li>
+  </ul>
+  <p>Los miembros ven el material debajo de la descripción de la lección y pueden descargarlo. Solo se muestra material de <strong>lecciones activas en módulos activos</strong>; el material de lecciones ocultas no es visible ni descargable para los miembros.</p>
+  <div class="callout c-info">Las descargas siempre piden sesión iniciada y verifican la membresía: un link de descarga compartido fuera de la tribu no funciona.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Qué pasa al borrar</div>
+  <ul>
+    <li>Quitar un archivo de un mensaje o lección lo elimina también del almacenamiento.</li>
+    <li>Borrar un mensaje o una lección elimina sus archivos adjuntos.</li>
+    <li>Las subidas que quedan a medias (por ejemplo, si cerrás la pestaña sin publicar) se limpian automáticamente después de 24 horas.</li>
+  </ul>
+</div>
+</body>
+</html>

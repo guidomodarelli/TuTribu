@@ -12,9 +12,11 @@ import { PostgresMessageRoundRepository } from "./messages/infrastructure/reposi
 import { PostgresTribeChannelRepository } from "./messages/infrastructure/repositories/postgres-tribe-channel-repository";
 import { PostgresMessageMutationRepository } from "./messages/infrastructure/repositories/postgres-message-mutation-repository";
 import { CloudflareImagesMessageImageRepository } from "./messages/infrastructure/repositories/cloudflare-images-message-image-repository";
+import { R2MessageFileRepository } from "./messages/infrastructure/repositories/r2-message-file-repository";
 import { buildMessagesModule } from "./messages/setup";
 import { buildCoursesModule } from "./courses/setup";
 import { PostgresCourseRepository } from "./courses/infrastructure/repositories/postgres-course-repository";
+import { R2LessonFileRepository } from "./courses/infrastructure/repositories/r2-lesson-file-repository";
 import { buildEventsModule } from "./events/setup";
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
@@ -43,6 +45,12 @@ import { createServerLogger } from "./shared/infrastructure/observability/server
 import { FetchGitHubIssuePublisher } from "./siteping/infrastructure/github/github-issue-publisher";
 import { CloudflareImagesSitepingScreenshotStorage } from "./siteping/infrastructure/cloudflare/cloudflare-images-siteping-screenshot-storage";
 import { PostgresSitepingFeedbackRepository } from "./siteping/infrastructure/repositories/postgres-siteping-feedback-repository";
+
+/**
+ * Correlation id used by infrastructure loggers when the caller did not
+ * propagate one for the current request.
+ */
+const FALLBACK_REQUEST_ID = "request";
 
 type RequestScopedDatabaseClient = Awaited<ReturnType<typeof createServerDatabaseClient>>;
 type RequestModuleContextOverrides = {
@@ -101,7 +109,17 @@ export async function createRequestModules(
       logger: createServerLogger({
         feature: "messages",
         operation: "message_images",
-        requestId: requestId ?? "request",
+        requestId: requestId ?? FALLBACK_REQUEST_ID,
+      }),
+    }
+  );
+  const messageFileRepository = new R2MessageFileRepository(
+    executeWithRequestContext,
+    {
+      logger: createServerLogger({
+        feature: "messages",
+        operation: "message_files",
+        requestId: requestId ?? FALLBACK_REQUEST_ID,
       }),
     }
   );
@@ -165,10 +183,21 @@ export async function createRequestModules(
       messageContentUpdateRepository: new PostgresMessageMutationRepository(
         executeWithRequestContext
       ),
+      messageFileRepository,
       messageImageRepository,
     }),
     courses: buildCoursesModule({
       courseRepository: new PostgresCourseRepository(executeWithRequestContext),
+      lessonFileRepository: new R2LessonFileRepository(
+        executeWithRequestContext,
+        {
+          logger: createServerLogger({
+            feature: "courses",
+            operation: "lesson_files",
+            requestId: requestId ?? FALLBACK_REQUEST_ID,
+          }),
+        }
+      ),
     }),
     events: buildEventsModule({
       tribeEventRepository: new PostgresTribeEventRepository(
@@ -180,7 +209,7 @@ export async function createRequestModules(
       logger: createServerLogger({
         feature: "siteping",
         operation: "siteping-feedback",
-        requestId: requestId ?? "request",
+        requestId: requestId ?? FALLBACK_REQUEST_ID,
       }),
       screenshotStorage: new CloudflareImagesSitepingScreenshotStorage(),
       sitepingFeedbackRepository: new PostgresSitepingFeedbackRepository(

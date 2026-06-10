@@ -1,5 +1,6 @@
 import type { MESSAGE_MUTATION_STATUS } from "@/src/modules/messages/constants/message-round";
 import type {
+  MessageFileResult,
   MessageMediaResult,
   MessagePollResult,
   TribeRoundReplyResult,
@@ -16,6 +17,7 @@ export type MessageCreationResult =
         | typeof MESSAGE_MUTATION_STATUS.forbidden
         | typeof MESSAGE_MUTATION_STATUS.invalidChannel
         | typeof MESSAGE_MUTATION_STATUS.invalidContent
+        | typeof MESSAGE_MUTATION_STATUS.invalidFile
         | typeof MESSAGE_MUTATION_STATUS.invalidImage
         | typeof MESSAGE_MUTATION_STATUS.invalidMedia
         | typeof MESSAGE_MUTATION_STATUS.invalidPoll
@@ -86,6 +88,7 @@ export type MessageCreatedAtUpdateResult =
 export type MessageContentUpdateResult =
   | {
       content: string;
+      files?: MessageFileResult[];
       media?: MessageMediaResult[];
       messageId: string;
       poll?: MessagePollResult | null;
@@ -96,6 +99,7 @@ export type MessageContentUpdateResult =
       status:
         | typeof MESSAGE_MUTATION_STATUS.forbidden
         | typeof MESSAGE_MUTATION_STATUS.invalidContent
+        | typeof MESSAGE_MUTATION_STATUS.invalidFile
         | typeof MESSAGE_MUTATION_STATUS.invalidImage
         | typeof MESSAGE_MUTATION_STATUS.invalidMedia
         | typeof MESSAGE_MUTATION_STATUS.invalidPoll

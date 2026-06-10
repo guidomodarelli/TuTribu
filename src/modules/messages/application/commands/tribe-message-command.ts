@@ -5,9 +5,18 @@ export type CreateTribeMessageCommand = {
   channelId: string;
   tribeSlug: string;
   content: string;
+  files?: MessageFileDraftCommand[] | null;
   media?: MessageMediaDraftCommand[] | null;
   poll?: MessagePollDraftCommand | null;
   title: string;
+};
+
+/**
+ * A single file attachment draft submitted by the composer. The array index
+ * expresses the author-chosen slot (`sortOrder`) within the downloads list.
+ */
+export type MessageFileDraftCommand = {
+  assetId: string;
 };
 
 export type MessageImageDraftCommand = {
@@ -62,6 +71,7 @@ export type UpdateTribeMessageCreatedAtCommand = {
 
 export type UpdateTribeMessageContentCommand = {
   content: string;
+  files?: MessageFileDraftCommand[];
   media?: MessageMediaDraftCommand[];
   messageId: string;
   poll?: MessagePollDraftCommand;

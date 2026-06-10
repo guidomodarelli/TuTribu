@@ -186,4 +186,68 @@
     gap: 0.5rem;
     margin-top: 0.5rem;
   }
+
+  &__fileList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.375rem;
+  }
+
+  &__fileItem {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding: 0.375rem 0.625rem;
+    border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border-radius: var(--radius-md);
+    background-color: color-mix(in oklch, var(--muted) 35%, transparent);
+    font-size: 0.8125rem;
+  }
+
+  &__fileName {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  &__fileSize {
+    flex-shrink: 0;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  &__fileStatus {
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999rem;
+    background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+    color: var(--muted-foreground);
+
+    &--ready {
+      background-color: color-mix(in oklch, var(--primary) 14%, transparent);
+      color: var(--primary);
+    }
+
+    &--error {
+      background-color: color-mix(in oklch, var(--destructive) 18%, transparent);
+      color: var(--destructive);
+    }
+  }
+
+  &__fileActions {
+    display: flex;
+    gap: 0.375rem;
+    margin-left: auto;
+  }
+
+  &__fileInput {
+    display: none;
+  }
 }

@@ -9,6 +9,7 @@ import {
   HTTP_STATUS,
   createJsonResponse,
   mapMutationStatusResponse,
+  readLessonFilesField,
   readNumberField,
   readStringField,
   readUuidValue,
@@ -44,6 +45,15 @@ export async function POST(
 
   try {
     const body = await request.json().catch(() => null);
+    const files = readLessonFilesField(body);
+
+    if (files === null) {
+      return createJsonResponse(
+        { message: COURSE_ROUTE_RESPONSE.invalidFileMessage },
+        HTTP_STATUS.badRequest
+      );
+    }
+
     const result = await modules.courses.useCases.createLesson({
       courseModuleId,
       description: readStringField(body, COURSE_ROUTE_FIELD.description),
@@ -51,9 +61,11 @@ export async function POST(
         body,
         COURSE_ROUTE_FIELD.externalVideoUrl
       ),
+      ...(files !== undefined ? { files } : {}),
       sortOrder: readNumberField(body, COURSE_ROUTE_FIELD.sortOrder),
       title: readStringField(body, COURSE_ROUTE_FIELD.title),
       tribeSlug: slug,
+      userId: authenticatedMember.id,
     });
 
     if (result.status === COURSE_MUTATION_STATUS.created) {

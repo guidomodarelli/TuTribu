@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Link } from "@/components/navigation/link";
@@ -9,8 +9,17 @@ import { useRichLinkEditor } from "@/components/rich-text/rich-link-editor/use-r
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { formatFileSize } from "@/lib/format-file-size";
+import {
+  ATTACHMENT_FILE,
+  ATTACHMENT_FILE_INPUT_ACCEPT,
+  isAllowedAttachmentMimeType,
+} from "@/src/constants/attachment-files";
 import { ROUTES } from "@/src/constants/routes";
-import { COURSE_LESSON_DESCRIPTION } from "@/src/modules/courses/constants/courses";
+import {
+  COURSE_LESSON_DESCRIPTION,
+  LESSON_FILES,
+} from "@/src/modules/courses/constants/courses";
 import type {
   CourseModuleResult,
   CourseModuleWithLessonsResult,
@@ -42,6 +51,7 @@ import styles from "./styles.module.scss";
 
 const COURSES_MANAGEMENT_COPY = {
   activeLabel: "Activo",
+  attachFileButton: "Adjuntar archivo",
   backLink: "Ver vista pública",
   cancelButton: "Cancelar",
   createModuleHeading: "Nuevo módulo",
@@ -56,11 +66,18 @@ const COURSES_MANAGEMENT_COPY = {
     "La descripción supera el máximo de caracteres permitido.",
   editButton: "Editar",
   emptyState: "Todavía no creaste ningún módulo.",
+  fileStatusError: "Error",
+  fileStatusReady: "Listo",
+  fileStatusUploading: "Subiendo…",
+  fileUploadErrorMessage: "No pudimos subir el archivo. Intentá de nuevo.",
+  fileUploadFailedBlockMessage:
+    "Hay archivos con error. Retinalos o volvé a intentarlos antes de guardar.",
   inactiveBadge: "Inactivo",
   invalidVideoUrlMessage:
     "La URL del video no es válida. Revisá el enlace e intentá de nuevo.",
   lessonCreatedMessage: "Lección creada.",
   lessonDeletedMessage: "Lección eliminada.",
+  lessonFilesHeading: "Material de la lección",
   lessonUpdatedMessage: "Lección actualizada.",
   moduleCreatedMessage: "Módulo creado.",
   moduleDeletedMessage: "Módulo eliminado.",
@@ -70,7 +87,10 @@ const COURSES_MANAGEMENT_COPY = {
   newModuleButton: "Nuevo módulo",
   pageHeading: "Gestionar cursos",
   pendingBadge: "Guardando…",
+  removeFileButton: "Quitar",
+  retryFileButton: "Reintentar",
   saveButton: "Guardar",
+  tooManyFilesMessage: `Podés adjuntar hasta ${LESSON_FILES.maxCount} archivos por lección.`,
   sortOrderLabel: "Orden",
   titleLabel: "Título",
   titleLessonPlaceholder: "Ej: Qué dinero invertir",
@@ -154,6 +174,7 @@ const HTTP_METHOD = {
   delete: "DELETE",
   patch: "PATCH",
   post: "POST",
+  put: "PUT",
 } as const;
 
 const HTTP_HEADER_NAME = {
@@ -166,6 +187,8 @@ const HTTP_CONTENT_TYPE = {
 
 const COURSES_API = {
   apiTribesPrefix: "/api/tribes/",
+  coursesLessonFiles: "/courses/lessons/files/",
+  coursesLessonFileUploads: "/courses/lessons/files/uploads",
   coursesLessons: "/courses/lessons/",
   coursesModules: "/courses/modules",
   coursesModulesById: "/courses/modules/",
@@ -177,9 +200,47 @@ const BUTTON_VARIANT = {
   outline: "outline",
 } as const;
 
+const BUTTON_SIZE = {
+  small: "sm",
+} as const;
+
 const INPUT_TYPE = {
+  file: "file",
   number: "number",
 } as const;
+
+const LESSON_FILE_DRAFT_STATUS = {
+  error: "error",
+  ready: "ready",
+  uploading: "uploading",
+} as const;
+
+type LessonFileDraftStatus =
+  (typeof LESSON_FILE_DRAFT_STATUS)[keyof typeof LESSON_FILE_DRAFT_STATUS];
+
+const LESSON_FILE_STATUS_LABEL: Record<LessonFileDraftStatus, string> = {
+  [LESSON_FILE_DRAFT_STATUS.error]: COURSES_MANAGEMENT_COPY.fileStatusError,
+  [LESSON_FILE_DRAFT_STATUS.ready]: COURSES_MANAGEMENT_COPY.fileStatusReady,
+  [LESSON_FILE_DRAFT_STATUS.uploading]:
+    COURSES_MANAGEMENT_COPY.fileStatusUploading,
+};
+
+const LESSON_FILE_STATUS_CLASS_NAME: Record<LessonFileDraftStatus, string> = {
+  [LESSON_FILE_DRAFT_STATUS.error]: `${styles.TribeCoursesManagement__fileStatus} ${styles["TribeCoursesManagement__fileStatus--error"]}`,
+  [LESSON_FILE_DRAFT_STATUS.ready]: `${styles.TribeCoursesManagement__fileStatus} ${styles["TribeCoursesManagement__fileStatus--ready"]}`,
+  [LESSON_FILE_DRAFT_STATUS.uploading]:
+    styles.TribeCoursesManagement__fileStatus,
+};
+
+const LESSON_FILES_HELP_TEXT = `Hasta ${LESSON_FILES.maxCount} archivos de hasta ${formatFileSize(ATTACHMENT_FILE.maxFileSizeBytes)} cada uno.`;
+
+function buildFileTypeNotAllowedMessage(fileName: string): string {
+  return `El tipo de archivo de "${fileName}" no está permitido.`;
+}
+
+function buildFileTooLargeMessage(fileName: string): string {
+  return `"${fileName}" supera el máximo de ${formatFileSize(ATTACHMENT_FILE.maxFileSizeBytes)}.`;
+}
 
 const FORM_BUTTON_TYPE = {
   button: "button",
@@ -199,9 +260,36 @@ type ModuleFormState = {
   title: string;
 };
 
+type LessonFileResult = NonNullable<LessonResult["files"]>[number];
+
+type LessonFileAttachmentPayload = {
+  assetId: string;
+};
+
+type LessonFileDraft = {
+  assetId: string | null;
+  fileName: string;
+  fileSizeBytes: number;
+  localId: string;
+  status: LessonFileDraftStatus;
+  wasAlreadyAttached: boolean;
+};
+
+type LessonFileUploadReservation = {
+  assetId: string;
+  uploadHeaders: Record<string, string>;
+  uploadUrl: string;
+};
+
 type LessonFormState = {
   description: string;
   externalVideoUrl: string;
+  /**
+   * Replacement set of attachments, in display order. `undefined` means the
+   * attachments section was never touched, so the request must omit the field
+   * and leave the persisted set untouched.
+   */
+  files?: LessonFileAttachmentPayload[];
   isActive: boolean;
   sortOrder: number;
   title: string;
@@ -221,6 +309,14 @@ function buildLessonsApiUrl(tribeSlug: string, moduleId: string): string {
 
 function buildLessonApiUrl(tribeSlug: string, lessonId: string): string {
   return `${COURSES_API.apiTribesPrefix}${tribeSlug}${COURSES_API.coursesLessons}${lessonId}`;
+}
+
+function buildLessonFileUploadsApiUrl(tribeSlug: string): string {
+  return `${COURSES_API.apiTribesPrefix}${tribeSlug}${COURSES_API.coursesLessonFileUploads}`;
+}
+
+function buildLessonFileApiUrl(tribeSlug: string, fileId: string): string {
+  return `${COURSES_API.apiTribesPrefix}${tribeSlug}${COURSES_API.coursesLessonFiles}${fileId}`;
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
@@ -272,6 +368,68 @@ function readModuleFromResponse(
   };
 }
 
+function readLessonFilesFromResponse(
+  value: unknown
+): LessonFileResult[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const files: LessonFileResult[] = [];
+  for (const candidate of value) {
+    if (!candidate || typeof candidate !== "object") {
+      return undefined;
+    }
+    const entry = candidate as Record<string, unknown>;
+    if (
+      typeof entry.fileName !== "string" ||
+      typeof entry.fileSizeBytes !== "number" ||
+      typeof entry.id !== "string" ||
+      typeof entry.mimeType !== "string" ||
+      typeof entry.sortOrder !== "number"
+    ) {
+      return undefined;
+    }
+    files.push({
+      fileName: entry.fileName,
+      fileSizeBytes: entry.fileSizeBytes,
+      id: entry.id,
+      mimeType: entry.mimeType,
+      sortOrder: entry.sortOrder,
+    });
+  }
+  return files;
+}
+
+function readUploadReservationFromResponse(
+  payload: unknown
+): LessonFileUploadReservation | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const entry = payload as Record<string, unknown>;
+  if (
+    typeof entry.assetId !== "string" ||
+    typeof entry.uploadUrl !== "string"
+  ) {
+    return null;
+  }
+  const uploadHeaders: Record<string, string> = {};
+  if (entry.uploadHeaders && typeof entry.uploadHeaders === "object") {
+    for (const [headerName, headerValue] of Object.entries(
+      entry.uploadHeaders as Record<string, unknown>
+    )) {
+      if (typeof headerValue === "string") {
+        uploadHeaders[headerName] = headerValue;
+      }
+    }
+  }
+  return {
+    assetId: entry.assetId,
+    uploadHeaders,
+    uploadUrl: entry.uploadUrl,
+  };
+}
+
 function readLessonFromResponse(payload: unknown): LessonResult | null {
   if (!payload || typeof payload !== "object") {
     return null;
@@ -297,6 +455,9 @@ function readLessonFromResponse(payload: unknown): LessonResult | null {
     description:
       typeof entry.description === "string" ? entry.description : null,
     externalVideoId: entry.externalVideoId,
+    ...(entry.files !== undefined
+      ? { files: readLessonFilesFromResponse(entry.files) }
+      : {}),
     id: entry.id,
     isActive: entry.isActive,
     sortOrder: entry.sortOrder,
@@ -604,6 +765,7 @@ export function TribeCoursesManagement({
           body: JSON.stringify({
             description: form.description,
             externalVideoUrl: form.externalVideoUrl,
+            ...(form.files !== undefined ? { files: form.files } : {}),
             sortOrder: form.sortOrder,
             title: form.title,
           }),
@@ -687,6 +849,7 @@ export function TribeCoursesManagement({
           courseModuleId: lesson.courseModuleId,
           description: form.description,
           externalVideoUrl: form.externalVideoUrl,
+          ...(form.files !== undefined ? { files: form.files } : {}),
           isActive: form.isActive,
           sortOrder: form.sortOrder,
           title: form.title,
@@ -929,6 +1092,7 @@ export function TribeCoursesManagement({
                       {editingLessonId === lesson.id ? (
                         <LessonForm
                           headingLabel={`${EDIT_HEADING_PREFIX}${lesson.title}`}
+                          initialFiles={lesson.files ?? []}
                           initialState={{
                             description: lesson.description ?? "",
                             externalVideoUrl: buildCanonicalVideoUrl(
@@ -942,6 +1106,7 @@ export function TribeCoursesManagement({
                           isEditing
                           onCancel={() => setEditingLessonId(null)}
                           onSubmit={(form) => submitLessonUpdate(lesson, form)}
+                          tribeSlug={tribeSlug}
                         />
                       ) : (
                         <div
@@ -1015,6 +1180,7 @@ export function TribeCoursesManagement({
               {creatingLessonModuleId === courseModule.id ? (
                 <LessonForm
                   headingLabel={COURSES_MANAGEMENT_COPY.newLessonHeading}
+                  initialFiles={[]}
                   initialState={{
                     description: "",
                     externalVideoUrl: "",
@@ -1025,6 +1191,7 @@ export function TribeCoursesManagement({
                   isEditing={false}
                   onCancel={() => setCreatingLessonModuleId(null)}
                   onSubmit={(form) => submitNewLesson(courseModule.id, form)}
+                  tribeSlug={tribeSlug}
                 />
               ) : (
                 <Button
@@ -1131,18 +1298,22 @@ function ModuleForm({
 
 type LessonFormProps = {
   headingLabel: string;
+  initialFiles: LessonFileResult[];
   initialState: LessonFormState;
   isEditing: boolean;
   onCancel: () => void;
   onSubmit: (form: LessonFormState) => Promise<void>;
+  tribeSlug: string;
 };
 
 function LessonForm({
   headingLabel,
+  initialFiles,
   initialState,
   isEditing,
   onCancel,
   onSubmit,
+  tribeSlug,
 }: LessonFormProps) {
   const [title, setTitle] = useState(initialState.title);
   const [externalVideoUrl, setExternalVideoUrl] = useState(
@@ -1154,6 +1325,26 @@ function LessonForm({
   const [sortOrder, setSortOrder] = useState(initialState.sortOrder);
   const [isActive, setIsActive] = useState(initialState.isActive);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fileDrafts, setFileDrafts] = useState<LessonFileDraft[]>(() =>
+    [...initialFiles]
+      .sort((leftFile, rightFile) => leftFile.sortOrder - rightFile.sortOrder)
+      .map((lessonFile) => ({
+        assetId: lessonFile.id,
+        fileName: lessonFile.fileName,
+        fileSizeBytes: lessonFile.fileSizeBytes,
+        localId: lessonFile.id,
+        status: LESSON_FILE_DRAFT_STATUS.ready,
+        wasAlreadyAttached: true,
+      }))
+  );
+  const [filesTouched, setFilesTouched] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Selected `File` objects, kept outside React state so a failed upload can
+  // be retried without asking the author to pick the file again.
+  const pendingUploadFilesRef = useRef(new Map<string, File>());
+  // Drafts removed while their upload was still in flight: the upload flow
+  // checks this set after each await and cleans up the reserved asset.
+  const discardedFileLocalIdsRef = useRef(new Set<string>());
 
   const detectedProvider = detectProviderFromInput(externalVideoUrl);
   // Mirror the backend's `normalizeText`/`normalizeOptionalText`: trim before
@@ -1162,19 +1353,259 @@ function LessonForm({
   const descriptionLength = descriptionEditor.serialize().trim().length;
   const isDescriptionTooLong =
     descriptionLength > COURSE_LESSON_DESCRIPTION.maxLength;
+  const hasUploadsInFlight = fileDrafts.some(
+    (draft) => draft.status === LESSON_FILE_DRAFT_STATUS.uploading
+  );
+  const hasFailedUploads = fileDrafts.some(
+    (draft) => draft.status === LESSON_FILE_DRAFT_STATUS.error
+  );
+
+  const deleteLessonFileAssetBestEffort = (assetId: string) => {
+    void fetch(buildLessonFileApiUrl(tribeSlug, assetId), {
+      method: HTTP_METHOD.delete,
+    }).catch(() => {
+      // Best-effort cleanup: a draft that survives an unreachable delete is
+      // reclaimed by the scheduled orphan sweep, so the author flow stays
+      // silent here on purpose.
+    });
+  };
+
+  const markFileDraftFailed = (localId: string) => {
+    setFileDrafts((current) =>
+      current.map((draft) =>
+        draft.localId === localId
+          ? { ...draft, status: LESSON_FILE_DRAFT_STATUS.error }
+          : draft
+      )
+    );
+  };
+
+  const uploadLessonFile = async (localId: string, file: File) => {
+    let reservedAssetId: string | null = null;
+    try {
+      const reservationResponse = await fetch(
+        buildLessonFileUploadsApiUrl(tribeSlug),
+        {
+          body: JSON.stringify({
+            fileName: file.name,
+            fileSizeBytes: file.size,
+            mimeType: file.type,
+          }),
+          headers: {
+            [HTTP_HEADER_NAME.contentType]: HTTP_CONTENT_TYPE.applicationJson,
+          },
+          method: HTTP_METHOD.post,
+        }
+      );
+
+      if (!reservationResponse.ok) {
+        const message = await readErrorMessage(reservationResponse);
+        if (discardedFileLocalIdsRef.current.delete(localId)) {
+          pendingUploadFilesRef.current.delete(localId);
+          return;
+        }
+        markFileDraftFailed(localId);
+        toast.error(message);
+        return;
+      }
+
+      const payload = await reservationResponse.json().catch(() => null);
+      const reservation = readUploadReservationFromResponse(payload);
+      if (!reservation) {
+        if (discardedFileLocalIdsRef.current.delete(localId)) {
+          pendingUploadFilesRef.current.delete(localId);
+          return;
+        }
+        markFileDraftFailed(localId);
+        toast.error(COURSES_MANAGEMENT_COPY.fileUploadErrorMessage);
+        return;
+      }
+      reservedAssetId = reservation.assetId;
+
+      if (discardedFileLocalIdsRef.current.delete(localId)) {
+        deleteLessonFileAssetBestEffort(reservation.assetId);
+        pendingUploadFilesRef.current.delete(localId);
+        return;
+      }
+
+      const uploadResponse = await fetch(reservation.uploadUrl, {
+        body: file,
+        headers: {
+          [HTTP_HEADER_NAME.contentType]: file.type,
+          ...reservation.uploadHeaders,
+        },
+        method: HTTP_METHOD.put,
+      });
+
+      if (discardedFileLocalIdsRef.current.delete(localId)) {
+        deleteLessonFileAssetBestEffort(reservation.assetId);
+        pendingUploadFilesRef.current.delete(localId);
+        return;
+      }
+
+      if (!uploadResponse.ok) {
+        deleteLessonFileAssetBestEffort(reservation.assetId);
+        markFileDraftFailed(localId);
+        toast.error(COURSES_MANAGEMENT_COPY.fileUploadErrorMessage);
+        return;
+      }
+
+      pendingUploadFilesRef.current.delete(localId);
+      setFileDrafts((current) =>
+        current.map((draft) =>
+          draft.localId === localId
+            ? {
+                ...draft,
+                assetId: reservation.assetId,
+                status: LESSON_FILE_DRAFT_STATUS.ready,
+              }
+            : draft
+        )
+      );
+    } catch {
+      if (reservedAssetId) {
+        deleteLessonFileAssetBestEffort(reservedAssetId);
+      }
+      if (discardedFileLocalIdsRef.current.delete(localId)) {
+        pendingUploadFilesRef.current.delete(localId);
+        return;
+      }
+      markFileDraftFailed(localId);
+      toast.error(COURSES_MANAGEMENT_COPY.fileUploadErrorMessage);
+    }
+  };
+
+  const handleAttachFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInputChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    // Reset the input so picking the same file again re-triggers `change`.
+    event.target.value = "";
+    if (selectedFiles.length === 0) {
+      return;
+    }
+
+    let projectedCount = fileDrafts.length;
+    let capacityToastShown = false;
+    const acceptedEntries: { file: File; localId: string }[] = [];
+
+    for (const file of selectedFiles) {
+      if (!isAllowedAttachmentMimeType(file.type)) {
+        toast.error(buildFileTypeNotAllowedMessage(file.name));
+        continue;
+      }
+      if (file.size > ATTACHMENT_FILE.maxFileSizeBytes) {
+        toast.error(buildFileTooLargeMessage(file.name));
+        continue;
+      }
+      if (projectedCount >= LESSON_FILES.maxCount) {
+        if (!capacityToastShown) {
+          toast.error(COURSES_MANAGEMENT_COPY.tooManyFilesMessage);
+          capacityToastShown = true;
+        }
+        continue;
+      }
+      projectedCount += 1;
+      acceptedEntries.push({ file, localId: generateOptimisticId() });
+    }
+
+    if (acceptedEntries.length === 0) {
+      return;
+    }
+
+    setFilesTouched(true);
+    setFileDrafts((current) => [
+      ...current,
+      ...acceptedEntries.map(({ file, localId }) => ({
+        assetId: null,
+        fileName: file.name,
+        fileSizeBytes: file.size,
+        localId,
+        status: LESSON_FILE_DRAFT_STATUS.uploading,
+        wasAlreadyAttached: false,
+      })),
+    ]);
+    for (const { file, localId } of acceptedEntries) {
+      pendingUploadFilesRef.current.set(localId, file);
+      void uploadLessonFile(localId, file);
+    }
+  };
+
+  const handleRemoveFileDraft = (draftToRemove: LessonFileDraft) => {
+    setFilesTouched(true);
+    setFileDrafts((current) =>
+      current.filter((draft) => draft.localId !== draftToRemove.localId)
+    );
+    if (draftToRemove.status === LESSON_FILE_DRAFT_STATUS.uploading) {
+      discardedFileLocalIdsRef.current.add(draftToRemove.localId);
+      return;
+    }
+    pendingUploadFilesRef.current.delete(draftToRemove.localId);
+    // Already-attached files are detached server-side by the PATCH replace,
+    // so only unsaved drafts need their reserved asset cleaned up.
+    if (draftToRemove.assetId && !draftToRemove.wasAlreadyAttached) {
+      deleteLessonFileAssetBestEffort(draftToRemove.assetId);
+    }
+  };
+
+  const handleRetryFileUpload = (draftToRetry: LessonFileDraft) => {
+    const file = pendingUploadFilesRef.current.get(draftToRetry.localId);
+    if (!file) {
+      return;
+    }
+    setFileDrafts((current) =>
+      current.map((draft) =>
+        draft.localId === draftToRetry.localId
+          ? { ...draft, status: LESSON_FILE_DRAFT_STATUS.uploading }
+          : draft
+      )
+    );
+    void uploadLessonFile(draftToRetry.localId, file);
+  };
+
+  const handleCancel = () => {
+    for (const draft of fileDrafts) {
+      if (draft.status === LESSON_FILE_DRAFT_STATUS.uploading) {
+        discardedFileLocalIdsRef.current.add(draft.localId);
+        continue;
+      }
+      if (draft.assetId && !draft.wasAlreadyAttached) {
+        deleteLessonFileAssetBestEffort(draft.assetId);
+      }
+    }
+    onCancel();
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (hasUploadsInFlight) {
+      return;
+    }
+    if (hasFailedUploads) {
+      toast.error(COURSES_MANAGEMENT_COPY.fileUploadFailedBlockMessage);
+      return;
+    }
     const description = descriptionEditor.serialize().trim();
     if (description.length > COURSE_LESSON_DESCRIPTION.maxLength) {
       toast.error(COURSES_MANAGEMENT_COPY.descriptionTooLongMessage);
       return;
+    }
+    const readyFiles: LessonFileAttachmentPayload[] = [];
+    for (const draft of fileDrafts) {
+      if (draft.status === LESSON_FILE_DRAFT_STATUS.ready && draft.assetId) {
+        readyFiles.push({ assetId: draft.assetId });
+      }
     }
     setIsSubmitting(true);
     try {
       await onSubmit({
         description,
         externalVideoUrl,
+        ...(filesTouched ? { files: readyFiles } : {}),
         isActive,
         sortOrder,
         title,
@@ -1230,6 +1661,79 @@ function LessonForm({
           {descriptionLength}/{COURSE_LESSON_DESCRIPTION.maxLength}
         </small>
       </label>
+      <div className={styles.TribeCoursesManagement__formField}>
+        <span>{COURSES_MANAGEMENT_COPY.lessonFilesHeading}</span>
+        {fileDrafts.length > 0 ? (
+          <ul className={styles.TribeCoursesManagement__fileList}>
+            {fileDrafts.map((draft) => {
+              return (
+                <li
+                  className={styles.TribeCoursesManagement__fileItem}
+                  key={draft.localId}
+                >
+                  <span className={styles.TribeCoursesManagement__fileName}>
+                    {draft.fileName}
+                  </span>
+                  <span className={styles.TribeCoursesManagement__fileSize}>
+                    {formatFileSize(draft.fileSizeBytes)}
+                  </span>
+                  <span className={LESSON_FILE_STATUS_CLASS_NAME[draft.status]}>
+                    {LESSON_FILE_STATUS_LABEL[draft.status]}
+                  </span>
+                  <div className={styles.TribeCoursesManagement__fileActions}>
+                    {draft.status === LESSON_FILE_DRAFT_STATUS.error ? (
+                      <Button
+                        aria-label={`Reintentar subida de ${draft.fileName}`}
+                        disabled={isSubmitting}
+                        onClick={() => handleRetryFileUpload(draft)}
+                        size={BUTTON_SIZE.small}
+                        type={FORM_BUTTON_TYPE.button}
+                        variant={BUTTON_VARIANT.outline}
+                      >
+                        {COURSES_MANAGEMENT_COPY.retryFileButton}
+                      </Button>
+                    ) : null}
+                    <Button
+                      aria-label={`Quitar ${draft.fileName}`}
+                      disabled={isSubmitting}
+                      onClick={() => handleRemoveFileDraft(draft)}
+                      size={BUTTON_SIZE.small}
+                      type={FORM_BUTTON_TYPE.button}
+                      variant={BUTTON_VARIANT.outline}
+                    >
+                      {COURSES_MANAGEMENT_COPY.removeFileButton}
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+        <div>
+          <Button
+            disabled={
+              isSubmitting || fileDrafts.length >= LESSON_FILES.maxCount
+            }
+            onClick={handleAttachFileClick}
+            type={FORM_BUTTON_TYPE.button}
+            variant={BUTTON_VARIANT.outline}
+          >
+            {COURSES_MANAGEMENT_COPY.attachFileButton}
+          </Button>
+          <input
+            accept={ATTACHMENT_FILE_INPUT_ACCEPT}
+            aria-label={COURSES_MANAGEMENT_COPY.attachFileButton}
+            className={styles.TribeCoursesManagement__fileInput}
+            multiple
+            onChange={handleFileInputChange}
+            ref={fileInputRef}
+            type={INPUT_TYPE.file}
+          />
+        </div>
+        <small className={styles.TribeCoursesManagement__formHelp}>
+          {LESSON_FILES_HELP_TEXT}
+        </small>
+      </div>
       <label className={styles.TribeCoursesManagement__formField}>
         <span>{COURSES_MANAGEMENT_COPY.sortOrderLabel}</span>
         <Input
@@ -1250,14 +1754,17 @@ function LessonForm({
         </label>
       ) : null}
       <div className={styles.TribeCoursesManagement__formActions}>
-        <Button disabled={isSubmitting} type={FORM_BUTTON_TYPE.submit}>
+        <Button
+          disabled={isSubmitting || hasUploadsInFlight || hasFailedUploads}
+          type={FORM_BUTTON_TYPE.submit}
+        >
           {isEditing
             ? COURSES_MANAGEMENT_COPY.saveButton
             : COURSES_MANAGEMENT_COPY.createButton}
         </Button>
         <Button
           disabled={isSubmitting}
-          onClick={onCancel}
+          onClick={handleCancel}
           type={FORM_BUTTON_TYPE.button}
           variant={BUTTON_VARIANT.outline}
         >

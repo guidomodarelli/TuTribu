@@ -1,10 +1,11 @@
 "use client";
 
-import { Settings } from "lucide-react";
+import { FileText, Settings } from "lucide-react";
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 
 import { Link } from "@/components/navigation/link";
 import { RichTextContent } from "@/components/rich-text/rich-text-content";
+import { formatFileSize } from "@/lib/format-file-size";
 import { ROUTES } from "@/src/constants/routes";
 import type {
   CourseModuleWithLessonsResult,
@@ -28,11 +29,34 @@ const PRIMARY_MOUSE_BUTTON = 0;
 function buildLessonHref(tribeSlug: string, lessonId: string): string {
   return `${ROUTES.tribes.courses(tribeSlug)}${QUERY_STRING_PREFIX}${LESSON_QUERY_PARAM}${QUERY_PARAM_VALUE_SEPARATOR}${lessonId}`;
 }
+
+const LESSON_FILES_API = {
+  apiTribesPrefix: "/api/tribes/",
+  downloadSuffix: "/download",
+  lessonFilesPrefix: "/courses/lessons/files/",
+} as const;
+
+function buildLessonFileDownloadHref(
+  tribeSlug: string,
+  fileId: string
+): string {
+  return `${LESSON_FILES_API.apiTribesPrefix}${tribeSlug}${LESSON_FILES_API.lessonFilesPrefix}${fileId}${LESSON_FILES_API.downloadSuffix}`;
+}
+
+type LessonFileResult = NonNullable<LessonResult["files"]>[number];
+
+function sortLessonFiles(files: LessonFileResult[]): LessonFileResult[] {
+  return [...files].sort(
+    (leftFile, rightFile) => leftFile.sortOrder - rightFile.sortOrder
+  );
+}
+
 const COURSES_COPY = {
   emptyDescription:
     "Todavía no hay módulos cargados para esta tribu.",
   emptyHeading: "Aún no hay cursos",
   inactiveBadge: "Inactivo",
+  lessonFilesHeading: "Material de la lección",
   manageCta: "Gestionar",
   selectLessonPrompt: "Elegí una lección de la barra lateral para empezar.",
   sidebarHeading: "Contenido",
@@ -168,6 +192,48 @@ export function TribeCoursesView({
                       <RichTextContent content={activeLesson.description} />
                     </p>
                   </div>
+                ) : null}
+                {activeLesson.files?.length ? (
+                  <section
+                    aria-label={COURSES_COPY.lessonFilesHeading}
+                    className={styles.TribeCoursesView__lessonFiles}
+                  >
+                    <h3 className={styles.TribeCoursesView__lessonFilesHeading}>
+                      {COURSES_COPY.lessonFilesHeading}
+                    </h3>
+                    <ul className={styles.TribeCoursesView__fileList}>
+                      {sortLessonFiles(activeLesson.files).map((lessonFile) => (
+                        <li
+                          className={styles.TribeCoursesView__fileItem}
+                          key={lessonFile.id}
+                        >
+                          <a
+                            aria-label={`Descargar ${lessonFile.fileName}`}
+                            className={styles.TribeCoursesView__fileLink}
+                            href={buildLessonFileDownloadHref(
+                              tribeSlug,
+                              lessonFile.id
+                            )}
+                          >
+                            <FileText
+                              aria-hidden
+                              className={styles.TribeCoursesView__fileIcon}
+                            />
+                            <span
+                              className={styles.TribeCoursesView__fileName}
+                            >
+                              {lessonFile.fileName}
+                            </span>
+                            <span
+                              className={styles.TribeCoursesView__fileSize}
+                            >
+                              {formatFileSize(lessonFile.fileSizeBytes)}
+                            </span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
                 ) : null}
               </>
             ) : (

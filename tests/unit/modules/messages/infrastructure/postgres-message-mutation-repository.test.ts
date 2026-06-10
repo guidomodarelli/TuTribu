@@ -99,6 +99,7 @@ describe("PostgresMessageMutationRepository", () => {
         likedByViewer: false,
         isPinned: false,
         likeCount: 0,
+        files: [],
         media: [],
         pinnedAt: null,
         poll: null,
