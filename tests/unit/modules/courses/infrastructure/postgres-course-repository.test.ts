@@ -337,4 +337,108 @@ describe("PostgresCourseRepository", () => {
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
     expect(sqlText).toContain("delete from public.course_lessons");
   });
+
+  it("returns invalid_file and propagates error out of executor callback when createLesson file attachment fails", async () => {
+    // Call 1: INSERT lesson → created
+    // Call 2: UPDATE to detach existing files (replaceLessonFiles step 1)
+    // Call 3: UPDATE + SELECT to attach new files → returns fewer rows than requested, triggering the conflict error
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            course_module_id: "m1",
+            description: null,
+            external_video_id: "abc12345xy",
+            id: "l1",
+            is_active: true,
+            sort_order: 0,
+            status: "created",
+            title: "Lección Wistia",
+            tribe_id: "tribe-1",
+            video_provider: "wistia",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ lesson_files: [] }] });
+
+    let callbackThrewError = false;
+    const executor = async (callback: (db: never) => Promise<unknown>) => {
+      try {
+        return await callback({ execute } as never);
+      } catch (error) {
+        callbackThrewError = true;
+        throw error;
+      }
+    };
+    const repository = new PostgresCourseRepository(executor);
+
+    const result = await repository.createLesson({
+      courseModuleId: "m1",
+      description: null,
+      externalVideoId: "abc12345xy",
+      files: [{ assetId: "file-uuid-1", sortOrder: 0 }],
+      sortOrder: 0,
+      title: "Lección Wistia",
+      tribeSlug: "matematica-pro",
+      videoProvider: VIDEO_PROVIDER.wistia,
+    });
+
+    expect(result).toEqual({ status: "invalid_file" });
+    expect(callbackThrewError).toBe(true);
+  });
+
+  it("returns invalid_file and propagates error out of executor callback when updateLesson file attachment fails", async () => {
+    // Call 1: UPDATE lesson → updated
+    // Call 2: UPDATE to detach existing files (replaceLessonFiles step 1)
+    // Call 3: UPDATE + SELECT to attach new files → returns fewer rows than requested, triggering the conflict error
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            course_module_id: "m1",
+            description: null,
+            external_video_id: "abc12345xy",
+            id: "l1",
+            is_active: true,
+            sort_order: 0,
+            status: "updated",
+            title: "Lección Wistia",
+            tribe_id: "tribe-1",
+            video_provider: "wistia",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ lesson_files: [] }] });
+
+    let callbackThrewError = false;
+    const executor = async (callback: (db: never) => Promise<unknown>) => {
+      try {
+        return await callback({ execute } as never);
+      } catch (error) {
+        callbackThrewError = true;
+        throw error;
+      }
+    };
+    const repository = new PostgresCourseRepository(executor);
+
+    const result = await repository.updateLesson({
+      courseModuleId: "m1",
+      description: null,
+      externalVideoId: "abc12345xy",
+      files: [{ assetId: "file-uuid-1", sortOrder: 0 }],
+      isActive: true,
+      lessonId: "l1",
+      sortOrder: 0,
+      title: "Lección Wistia",
+      tribeSlug: "matematica-pro",
+      videoProvider: VIDEO_PROVIDER.wistia,
+    });
+
+    expect(result).toEqual({ status: "invalid_file" });
+    expect(callbackThrewError).toBe(true);
+  });
 });

@@ -472,194 +472,194 @@ export class PostgresCourseRepository implements CourseRepository {
   async createLesson(
     command: CreateLessonRepositoryCommand
   ): Promise<LessonCreationResult> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${command.tribeSlug}
-          limit 1
-        ),
-        target_module as (
-          select course_modules.id
-          from public.course_modules
-          inner join target_tribe
-            on target_tribe.id = course_modules.tribe_id
-          where course_modules.id = ${command.courseModuleId}
-          limit 1
-        ),
-        inserted_lesson as (
-          insert into public.course_lessons (
-            course_module_id,
-            tribe_id,
-            title,
-            video_provider,
-            external_video_id,
-            description,
-            sort_order,
-            is_active,
-            created_at,
-            updated_at
+    try {
+      return await this.executeWithDatabase(async (database) => {
+        const result = await database.execute(sql`
+          with target_tribe as (
+            select tribes.id
+            from public.tribes
+            where tribes.slug = ${command.tribeSlug}
+            limit 1
+          ),
+          target_module as (
+            select course_modules.id
+            from public.course_modules
+            inner join target_tribe
+              on target_tribe.id = course_modules.tribe_id
+            where course_modules.id = ${command.courseModuleId}
+            limit 1
+          ),
+          inserted_lesson as (
+            insert into public.course_lessons (
+              course_module_id,
+              tribe_id,
+              title,
+              video_provider,
+              external_video_id,
+              description,
+              sort_order,
+              is_active,
+              created_at,
+              updated_at
+            )
+            select
+              target_module.id,
+              target_tribe.id,
+              ${command.title},
+              ${command.videoProvider},
+              ${command.externalVideoId},
+              ${command.description},
+              ${command.sortOrder},
+              true,
+              timezone('utc', now()),
+              timezone('utc', now())
+            from target_module, target_tribe
+            where public.can_manage_tribe_courses(target_tribe.id)
+            returning id, tribe_id, course_module_id, title, video_provider, external_video_id, description, sort_order, is_active
           )
           select
-            target_module.id,
-            target_tribe.id,
-            ${command.title},
-            ${command.videoProvider},
-            ${command.externalVideoId},
-            ${command.description},
-            ${command.sortOrder},
-            true,
-            timezone('utc', now()),
-            timezone('utc', now())
-          from target_module, target_tribe
-          where public.can_manage_tribe_courses(target_tribe.id)
-          returning id, tribe_id, course_module_id, title, video_provider, external_video_id, description, sort_order, is_active
-        )
-        select
-          case
-            when exists (select 1 from inserted_lesson) then ${COURSE_MUTATION_STATUS.created}
-            when not exists (select 1 from target_tribe) then ${COURSE_MUTATION_STATUS.notFound}
-            when not exists (select 1 from target_module) then ${COURSE_MUTATION_STATUS.notFound}
-            else ${COURSE_MUTATION_STATUS.forbidden}
-          end as status,
-          inserted_lesson.id,
-          inserted_lesson.tribe_id,
-          inserted_lesson.course_module_id,
-          inserted_lesson.title,
-          inserted_lesson.video_provider,
-          inserted_lesson.external_video_id,
-          inserted_lesson.description,
-          inserted_lesson.sort_order,
-          inserted_lesson.is_active
-        from (select 1) result
-        left join inserted_lesson
-          on true
-      `);
-      const lessonRow = (result.rows?.[0] ?? null) as
-        | (LessonMutationRow & { tribe_id: string | null })
-        | null;
-      let attachedFiles: LessonFile[] = [];
+            case
+              when exists (select 1 from inserted_lesson) then ${COURSE_MUTATION_STATUS.created}
+              when not exists (select 1 from target_tribe) then ${COURSE_MUTATION_STATUS.notFound}
+              when not exists (select 1 from target_module) then ${COURSE_MUTATION_STATUS.notFound}
+              else ${COURSE_MUTATION_STATUS.forbidden}
+            end as status,
+            inserted_lesson.id,
+            inserted_lesson.tribe_id,
+            inserted_lesson.course_module_id,
+            inserted_lesson.title,
+            inserted_lesson.video_provider,
+            inserted_lesson.external_video_id,
+            inserted_lesson.description,
+            inserted_lesson.sort_order,
+            inserted_lesson.is_active
+          from (select 1) result
+          left join inserted_lesson
+            on true
+        `);
+        const lessonRow = (result.rows?.[0] ?? null) as
+          | (LessonMutationRow & { tribe_id: string | null })
+          | null;
+        let attachedFiles: LessonFile[] = [];
 
-      if (
-        lessonRow?.status === COURSE_MUTATION_STATUS.created &&
-        lessonRow.id &&
-        lessonRow.tribe_id &&
-        command.files?.length
-      ) {
-        try {
+        if (
+          lessonRow?.status === COURSE_MUTATION_STATUS.created &&
+          lessonRow.id &&
+          lessonRow.tribe_id &&
+          command.files?.length
+        ) {
           attachedFiles = await this.replaceLessonFiles(database, {
             files: command.files,
             lessonId: lessonRow.id,
             tribeId: lessonRow.tribe_id,
           });
-        } catch (error) {
-          if (error instanceof LessonFileAttachmentConflictError) {
-            return { status: COURSE_MUTATION_STATUS.invalidFile };
-          }
-
-          throw error;
         }
+
+        return mapLessonCreationResult(lessonRow, attachedFiles);
+      });
+    } catch (error) {
+      if (error instanceof LessonFileAttachmentConflictError) {
+        return { status: COURSE_MUTATION_STATUS.invalidFile };
       }
 
-      return mapLessonCreationResult(lessonRow, attachedFiles);
-    });
+      throw error;
+    }
   }
 
   async updateLesson(
     command: UpdateLessonRepositoryCommand
   ): Promise<LessonUpdateResult> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
-        with target_tribe as (
-          select tribes.id
-          from public.tribes
-          where tribes.slug = ${command.tribeSlug}
-          limit 1
-        ),
-        target_module as (
-          select course_modules.id
-          from public.course_modules
-          inner join target_tribe
-            on target_tribe.id = course_modules.tribe_id
-          where course_modules.id = ${command.courseModuleId}
-          limit 1
-        ),
-        target_lesson as (
-          select course_lessons.id
-          from public.course_lessons
-          inner join target_tribe
-            on target_tribe.id = course_lessons.tribe_id
-          where course_lessons.id = ${command.lessonId}
-          limit 1
-        ),
-        updated_lesson as (
-          update public.course_lessons
-          set
-            course_module_id = ${command.courseModuleId},
-            title = ${command.title},
-            video_provider = ${command.videoProvider},
-            external_video_id = ${command.externalVideoId},
-            description = ${command.description},
-            sort_order = ${command.sortOrder},
-            is_active = ${command.isActive},
-            updated_at = timezone('utc', now())
-          from target_tribe, target_module
-          where course_lessons.id = ${command.lessonId}
-            and course_lessons.tribe_id = target_tribe.id
-            and target_module.id = ${command.courseModuleId}
-            and public.can_manage_tribe_courses(target_tribe.id)
-          returning course_lessons.id, course_lessons.tribe_id, course_lessons.course_module_id, course_lessons.title, course_lessons.video_provider, course_lessons.external_video_id, course_lessons.description, course_lessons.sort_order, course_lessons.is_active
-        )
-        select
-          case
-            when exists (select 1 from updated_lesson) then ${COURSE_MUTATION_STATUS.updated}
-            when not exists (select 1 from target_tribe) then ${COURSE_MUTATION_STATUS.notFound}
-            when not exists (select 1 from target_module) then ${COURSE_MUTATION_STATUS.notFound}
-            when not exists (select 1 from target_lesson) then ${COURSE_MUTATION_STATUS.notFound}
-            else ${COURSE_MUTATION_STATUS.forbidden}
-          end as status,
-          updated_lesson.id,
-          updated_lesson.tribe_id,
-          updated_lesson.course_module_id,
-          updated_lesson.title,
-          updated_lesson.video_provider,
-          updated_lesson.external_video_id,
-          updated_lesson.description,
-          updated_lesson.sort_order,
-          updated_lesson.is_active
-        from (select 1) result
-        left join updated_lesson
-          on true
-      `);
-      const lessonRow = (result.rows?.[0] ?? null) as
-        | (LessonMutationRow & { tribe_id: string | null })
-        | null;
-      let attachedFiles: LessonFile[] = [];
+    try {
+      return await this.executeWithDatabase(async (database) => {
+        const result = await database.execute(sql`
+          with target_tribe as (
+            select tribes.id
+            from public.tribes
+            where tribes.slug = ${command.tribeSlug}
+            limit 1
+          ),
+          target_module as (
+            select course_modules.id
+            from public.course_modules
+            inner join target_tribe
+              on target_tribe.id = course_modules.tribe_id
+            where course_modules.id = ${command.courseModuleId}
+            limit 1
+          ),
+          target_lesson as (
+            select course_lessons.id
+            from public.course_lessons
+            inner join target_tribe
+              on target_tribe.id = course_lessons.tribe_id
+            where course_lessons.id = ${command.lessonId}
+            limit 1
+          ),
+          updated_lesson as (
+            update public.course_lessons
+            set
+              course_module_id = ${command.courseModuleId},
+              title = ${command.title},
+              video_provider = ${command.videoProvider},
+              external_video_id = ${command.externalVideoId},
+              description = ${command.description},
+              sort_order = ${command.sortOrder},
+              is_active = ${command.isActive},
+              updated_at = timezone('utc', now())
+            from target_tribe, target_module
+            where course_lessons.id = ${command.lessonId}
+              and course_lessons.tribe_id = target_tribe.id
+              and target_module.id = ${command.courseModuleId}
+              and public.can_manage_tribe_courses(target_tribe.id)
+            returning course_lessons.id, course_lessons.tribe_id, course_lessons.course_module_id, course_lessons.title, course_lessons.video_provider, course_lessons.external_video_id, course_lessons.description, course_lessons.sort_order, course_lessons.is_active
+          )
+          select
+            case
+              when exists (select 1 from updated_lesson) then ${COURSE_MUTATION_STATUS.updated}
+              when not exists (select 1 from target_tribe) then ${COURSE_MUTATION_STATUS.notFound}
+              when not exists (select 1 from target_module) then ${COURSE_MUTATION_STATUS.notFound}
+              when not exists (select 1 from target_lesson) then ${COURSE_MUTATION_STATUS.notFound}
+              else ${COURSE_MUTATION_STATUS.forbidden}
+            end as status,
+            updated_lesson.id,
+            updated_lesson.tribe_id,
+            updated_lesson.course_module_id,
+            updated_lesson.title,
+            updated_lesson.video_provider,
+            updated_lesson.external_video_id,
+            updated_lesson.description,
+            updated_lesson.sort_order,
+            updated_lesson.is_active
+          from (select 1) result
+          left join updated_lesson
+            on true
+        `);
+        const lessonRow = (result.rows?.[0] ?? null) as
+          | (LessonMutationRow & { tribe_id: string | null })
+          | null;
+        let attachedFiles: LessonFile[] = [];
 
-      if (
-        lessonRow?.status === COURSE_MUTATION_STATUS.updated &&
-        lessonRow.id &&
-        lessonRow.tribe_id &&
-        command.files !== undefined
-      ) {
-        try {
+        if (
+          lessonRow?.status === COURSE_MUTATION_STATUS.updated &&
+          lessonRow.id &&
+          lessonRow.tribe_id &&
+          command.files !== undefined
+        ) {
           attachedFiles = await this.replaceLessonFiles(database, {
             files: command.files,
             lessonId: lessonRow.id,
             tribeId: lessonRow.tribe_id,
           });
-        } catch (error) {
-          if (error instanceof LessonFileAttachmentConflictError) {
-            return { status: COURSE_MUTATION_STATUS.invalidFile };
-          }
-
-          throw error;
         }
+
+        return mapLessonUpdateResult(lessonRow, attachedFiles);
+      });
+    } catch (error) {
+      if (error instanceof LessonFileAttachmentConflictError) {
+        return { status: COURSE_MUTATION_STATUS.invalidFile };
       }
 
-      return mapLessonUpdateResult(lessonRow, attachedFiles);
-    });
+      throw error;
+    }
   }
 
   /**
