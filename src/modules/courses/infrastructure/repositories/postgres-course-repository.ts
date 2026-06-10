@@ -150,12 +150,12 @@ function mapCourseModule(row: CourseModuleRow): CourseModuleResult {
   };
 }
 
-function mapLesson(row: LessonRow, files: LessonFile[] = []): LessonResult {
+function mapLesson(row: LessonRow, files?: LessonFile[]): LessonResult {
   return {
     courseModuleId: row.course_module_id,
     description: row.description,
     externalVideoId: row.external_video_id,
-    files,
+    ...(files !== undefined ? { files } : {}),
     id: row.id,
     isActive: row.is_active,
     sortOrder: row.sort_order,
@@ -234,7 +234,7 @@ function mapLessonCreationResult(
 
 function mapLessonUpdateResult(
   row: LessonMutationRow | null,
-  files: LessonFile[] = []
+  files: LessonFile[] | undefined
 ): LessonUpdateResult {
   if (row?.status === COURSE_MUTATION_STATUS.updated) {
     return {
@@ -636,7 +636,7 @@ export class PostgresCourseRepository implements CourseRepository {
         const lessonRow = (result.rows?.[0] ?? null) as
           | (LessonMutationRow & { tribe_id: string | null })
           | null;
-        let attachedFiles: LessonFile[] = [];
+        let attachedFiles: LessonFile[] | undefined = undefined;
 
         if (
           lessonRow?.status === COURSE_MUTATION_STATUS.updated &&

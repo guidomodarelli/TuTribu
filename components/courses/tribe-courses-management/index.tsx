@@ -455,7 +455,9 @@ function readLessonFromResponse(payload: unknown): LessonResult | null {
     description:
       typeof entry.description === "string" ? entry.description : null,
     externalVideoId: entry.externalVideoId,
-    files: readLessonFilesFromResponse(entry.files),
+    ...(entry.files !== undefined
+      ? { files: readLessonFilesFromResponse(entry.files) }
+      : {}),
     id: entry.id,
     isActive: entry.isActive,
     sortOrder: entry.sortOrder,

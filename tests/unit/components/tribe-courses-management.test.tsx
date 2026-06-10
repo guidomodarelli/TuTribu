@@ -985,6 +985,74 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     });
   });
 
+  it("preserves existing lesson files when the update response omits the files field", async () => {
+    const modulesWithLessonFiles: CourseModuleWithLessonsResult[] = [
+      {
+        ...seedModules[0],
+        lessons: [
+          {
+            ...seedModules[0].lessons[0],
+            files: [
+              {
+                fileName: "guia.pdf",
+                fileSizeBytes: 2048,
+                id: "file-guia",
+                mimeType: "application/pdf",
+                sortOrder: 0,
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    (global.fetch as jest.Mock).mockResolvedValueOnce(
+      buildJsonResponse(200, {
+        lesson: {
+          courseModuleId: "module-empezar-aca",
+          description: null,
+          externalVideoId: "111",
+          id: "lesson-intro",
+          isActive: true,
+          sortOrder: 0,
+          title: "Lección intro",
+          videoProvider: VIDEO_PROVIDER.vimeo,
+          // No `files` field: server omits it on title-only updates
+        },
+        message: "Lección actualizada.",
+      })
+    );
+
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        initialModules={modulesWithLessonFiles}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const lessonActions = screen.getByRole("group", {
+      name: "Acciones de la lección Lección intro",
+    });
+    await user.click(within(lessonActions).getByRole("button", { name: "Editar" }));
+    expect(screen.getByText("guia.pdf")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Guardando…")).not.toBeInTheDocument();
+    });
+
+    // Re-open the form: query a fresh reference since the header DOM node was
+    // replaced when the form mounted and unmounted during the save cycle.
+    const lessonActionsAfterSave = screen.getByRole("group", {
+      name: "Acciones de la lección Lección intro",
+    });
+    await user.click(
+      within(lessonActionsAfterSave).getByRole("button", { name: "Editar" })
+    );
+    expect(await screen.findByText("guia.pdf")).toBeInTheDocument();
+  });
+
   it("sends the replacement files set when an already-attached file is removed", async () => {
     const modulesWithLessonFiles: CourseModuleWithLessonsResult[] = [
       {
