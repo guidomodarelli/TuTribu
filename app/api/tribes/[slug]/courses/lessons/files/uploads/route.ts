@@ -56,7 +56,8 @@ function readUploadDeclaration(body: unknown): UploadDeclaration | null {
   if (
     typeof fileName !== "string" ||
     typeof mimeType !== "string" ||
-    typeof fileSizeBytes !== "number"
+    typeof fileSizeBytes !== "number" ||
+    !Number.isSafeInteger(fileSizeBytes)
   ) {
     return null;
   }
