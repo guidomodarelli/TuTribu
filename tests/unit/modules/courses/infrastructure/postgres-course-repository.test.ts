@@ -302,6 +302,102 @@ describe("PostgresCourseRepository", () => {
     expect(sqlText).toContain("external_video_id");
   });
 
+  it("returns invalid_file when a stale asset id cannot be attached during lesson creation", async () => {
+    const execute = jest
+      .fn()
+      // createLesson SQL: lesson inserted successfully
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            course_module_id: "m1",
+            description: null,
+            external_video_id: "abc12345xy",
+            id: "l1",
+            is_active: true,
+            sort_order: 0,
+            status: "created",
+            title: "Lección Wistia",
+            tribe_id: "t1",
+            video_provider: "wistia",
+          },
+        ],
+      })
+      // replaceLessonFiles: pending_delete UPDATE (no rows to detach on a new lesson)
+      .mockResolvedValueOnce({ rows: [] })
+      // replaceLessonFiles: attach UPDATE returns 0 rows — stale asset id
+      .mockResolvedValueOnce({ rows: [{ lesson_files: [] }] });
+    const repository = new PostgresCourseRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    const result = await repository.createLesson({
+      courseModuleId: "m1",
+      description: null,
+      externalVideoId: "abc12345xy",
+      files: [
+        {
+          assetId: "00000000-0000-4000-8000-000000000001",
+          sortOrder: 0,
+        },
+      ],
+      sortOrder: 0,
+      title: "Lección Wistia",
+      tribeSlug: "matematica-pro",
+      videoProvider: VIDEO_PROVIDER.wistia,
+    });
+
+    expect(result).toEqual({ status: "invalid_file" });
+  });
+
+  it("returns invalid_file when a stale asset id cannot be attached during lesson update", async () => {
+    const execute = jest
+      .fn()
+      // updateLesson SQL: lesson updated successfully
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            course_module_id: "m1",
+            description: null,
+            external_video_id: "abc12345xy",
+            id: "l1",
+            is_active: true,
+            sort_order: 0,
+            status: "updated",
+            title: "Lección Wistia",
+            tribe_id: "t1",
+            video_provider: "wistia",
+          },
+        ],
+      })
+      // replaceLessonFiles: pending_delete detaches existing attached files
+      .mockResolvedValueOnce({ rows: [] })
+      // replaceLessonFiles: attach UPDATE returns 0 rows — stale asset id
+      .mockResolvedValueOnce({ rows: [{ lesson_files: [] }] });
+    const repository = new PostgresCourseRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    const result = await repository.updateLesson({
+      courseModuleId: "m1",
+      description: null,
+      externalVideoId: "abc12345xy",
+      files: [
+        {
+          assetId: "00000000-0000-4000-8000-000000000001",
+          sortOrder: 0,
+        },
+      ],
+      isActive: true,
+      lessonId: "l1",
+      sortOrder: 0,
+      title: "Lección Wistia",
+      tribeSlug: "matematica-pro",
+      videoProvider: VIDEO_PROVIDER.wistia,
+    });
+
+    expect(result).toEqual({ status: "invalid_file" });
+  });
+
   it("returns deleted status when a course module is deleted", async () => {
     const execute = jest.fn(async () => ({
       rows: [{ status: "deleted" }],
