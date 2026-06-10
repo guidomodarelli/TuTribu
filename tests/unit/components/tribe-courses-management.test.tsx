@@ -843,6 +843,88 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     });
   });
 
+  it("disables submit and blocks the save when a file draft is in the error state", async () => {
+    const { toast } = jest.requireMock("sonner") as {
+      toast: { error: jest.Mock };
+    };
+    (global.fetch as jest.Mock).mockResolvedValueOnce(
+      buildJsonResponse(500, { message: "Error del servidor." })
+    );
+
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        initialModules={seedModules}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const moduleItem = screen
+      .getByRole("heading", { level: 2, name: /Empezar acá/ })
+      .closest("li") as HTMLElement;
+    await user.click(
+      within(moduleItem).getByRole("button", { name: "Agregar lección" })
+    );
+
+    fireEvent.change(screen.getByLabelText("Adjuntar archivo"), {
+      target: {
+        files: [new File(["x"], "fallo.pdf", { type: "application/pdf" })],
+      },
+    });
+
+    // Wait for the upload to fail and the draft to reach the error state.
+    expect(await screen.findByText("Error")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crear" })).toBeDisabled();
+
+    // Programmatically submitting the form must not reach the server.
+    const fetchCallsBefore = (global.fetch as jest.Mock).mock.calls.length;
+    const form = screen
+      .getByRole("button", { name: "Crear" })
+      .closest("form") as HTMLFormElement;
+    fireEvent.submit(form);
+    expect((global.fetch as jest.Mock).mock.calls.length).toBe(fetchCallsBefore);
+    expect(toast.error).toHaveBeenCalledWith(
+      "Hay archivos con error. Retinalos o volvé a intentarlos antes de guardar."
+    );
+  });
+
+  it("re-enables submit after removing a failed file draft", async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(
+        buildJsonResponse(500, { message: "Error del servidor." })
+      )
+      .mockResolvedValueOnce(buildJsonResponse(200, { message: "Eliminado." }));
+
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        initialModules={seedModules}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const moduleItem = screen
+      .getByRole("heading", { level: 2, name: /Empezar acá/ })
+      .closest("li") as HTMLElement;
+    await user.click(
+      within(moduleItem).getByRole("button", { name: "Agregar lección" })
+    );
+
+    fireEvent.change(screen.getByLabelText("Adjuntar archivo"), {
+      target: {
+        files: [new File(["x"], "fallo.pdf", { type: "application/pdf" })],
+      },
+    });
+
+    expect(await screen.findByText("Error")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crear" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Quitar fallo.pdf" }));
+
+    expect(screen.queryByText("fallo.pdf")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crear" })).toBeEnabled();
+  });
+
   it("omits the files field when saving an edited lesson without touching attachments", async () => {
     const modulesWithLessonFiles: CourseModuleWithLessonsResult[] = [
       {

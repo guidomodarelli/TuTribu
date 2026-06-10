@@ -70,6 +70,8 @@ const COURSES_MANAGEMENT_COPY = {
   fileStatusReady: "Listo",
   fileStatusUploading: "Subiendo…",
   fileUploadErrorMessage: "No pudimos subir el archivo. Intentá de nuevo.",
+  fileUploadFailedBlockMessage:
+    "Hay archivos con error. Retinalos o volvé a intentarlos antes de guardar.",
   inactiveBadge: "Inactivo",
   invalidVideoUrlMessage:
     "La URL del video no es válida. Revisá el enlace e intentá de nuevo.",
@@ -1352,6 +1354,9 @@ function LessonForm({
   const hasUploadsInFlight = fileDrafts.some(
     (draft) => draft.status === LESSON_FILE_DRAFT_STATUS.uploading
   );
+  const hasFailedUploads = fileDrafts.some(
+    (draft) => draft.status === LESSON_FILE_DRAFT_STATUS.error
+  );
 
   const deleteLessonFileAssetBestEffort = (assetId: string) => {
     void fetch(buildLessonFileApiUrl(tribeSlug, assetId), {
@@ -1578,6 +1583,10 @@ function LessonForm({
     if (hasUploadsInFlight) {
       return;
     }
+    if (hasFailedUploads) {
+      toast.error(COURSES_MANAGEMENT_COPY.fileUploadFailedBlockMessage);
+      return;
+    }
     const description = descriptionEditor.serialize().trim();
     if (description.length > COURSE_LESSON_DESCRIPTION.maxLength) {
       toast.error(COURSES_MANAGEMENT_COPY.descriptionTooLongMessage);
@@ -1744,7 +1753,7 @@ function LessonForm({
       ) : null}
       <div className={styles.TribeCoursesManagement__formActions}>
         <Button
-          disabled={isSubmitting || hasUploadsInFlight}
+          disabled={isSubmitting || hasUploadsInFlight || hasFailedUploads}
           type={FORM_BUTTON_TYPE.submit}
         >
           {isEditing
