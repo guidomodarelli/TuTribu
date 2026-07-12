@@ -32,6 +32,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
@@ -81,6 +82,7 @@ const tribeMemberNavigation = [
       isSameOrNestedPath(pathname, ROUTES.tribes.tribe(tribeSlug)),
   },
   {
+    comingSoon: true,
     hrefBuilder: ROUTES.tribes.merits,
     icon: MedalIcon,
     label: "Méritos",
@@ -88,6 +90,7 @@ const tribeMemberNavigation = [
       isSameOrNestedPath(pathname, ROUTES.tribes.merits(tribeSlug)),
   },
   {
+    comingSoon: true,
     hrefBuilder: ROUTES.tribes.history,
     icon: ScrollTextIcon,
     label: "Historia",
@@ -123,6 +126,7 @@ const APP_SIDEBAR_UI = {
   brandMarkLength: 2,
   adminSectionLabel: "Gestión",
   collapsible: "icon",
+  comingSoonBadgeLabel: "Pronto",
   createTribeTooltip: "Nueva tribu",
   nestedRouteSeparator: "/",
   variant: "sidebar",
@@ -254,6 +258,13 @@ export function AppSidebar({
                             {item.label}
                           </span>
                         </SidebarMenuButton>
+                        {"comingSoon" in item && item.comingSoon ? (
+                          <SidebarMenuBadge
+                            className={styles.AppSidebar__comingSoonBadge}
+                          >
+                            {APP_SIDEBAR_UI.comingSoonBadgeLabel}
+                          </SidebarMenuBadge>
+                        ) : null}
                       </SidebarMenuItem>
                     );
                   })}

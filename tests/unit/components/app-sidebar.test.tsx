@@ -60,6 +60,13 @@ jest.mock("@/components/ui/sidebar", () => ({
       {children}
     </button>
   ),
+  SidebarMenuBadge: ({
+    children,
+    className,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) => <span className={className}>{children}</span>,
   SidebarMenuItem: ({ children }: { children: React.ReactNode }) => <li>{children}</li>,
   SidebarRail: () => null,
   SidebarSeparator: ({ className }: { className?: string }) => (
@@ -433,6 +440,47 @@ describe("AppSidebar", () => {
     expect(
       screen.getByRole("button", { name: /méritos/i }).querySelector(".lucide-medal")
     ).toBeInTheDocument();
+  });
+
+  it("shows a coming soon badge only on Méritos and Historia", () => {
+    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+
+    render(
+      <AppSidebar
+        authenticatedMember={{
+          id: "member-1",
+          email: "member@example.com",
+          name: "Ada Lovelace",
+          role: "tribemate",
+          avatarFallback: "AL",
+          image: null,
+        }}
+        memberTribes={[
+          {
+            tribeId: "tribe-1",
+            name: "Matematica Pro",
+            role: "tribemate",
+            slug: "matematica-pro",
+          },
+        ]}
+      />
+    );
+
+    const comingSoonBadges = screen.getAllByText("Pronto");
+
+    expect(comingSoonBadges).toHaveLength(2);
+    comingSoonBadges.forEach((badge) => {
+      expect(badge).toHaveClass("AppSidebar__comingSoonBadge");
+    });
+    expect(
+      screen.getByRole("button", { name: /méritos/i }).closest("li")
+    ).toContainElement(comingSoonBadges[0]);
+    expect(
+      screen.getByRole("button", { name: /historia/i }).closest("li")
+    ).toContainElement(comingSoonBadges[1]);
+    expect(
+      screen.getByRole("button", { name: /fogón/i }).closest("li")
+    ).not.toHaveTextContent("Pronto");
   });
 
   it("does not prefetch tribe section routes before navigation intent", () => {

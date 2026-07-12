@@ -47,6 +47,18 @@
     margin-left: auto;
   }
 
+  &__comingSoonBadge {
+    border: 1px solid color-mix(in oklch, var(--coming-soon) 45%, transparent);
+    border-radius: 999rem;
+    padding-inline: 0.45rem;
+    background-color: color-mix(in oklch, var(--coming-soon) 16%, transparent);
+    color: var(--coming-soon-foreground);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
   &__emptyState {
     margin: 0.5rem 0 0;
     padding-inline: 0.5rem;

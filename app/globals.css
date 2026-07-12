@@ -78,6 +78,8 @@
   --free: oklch(0.7 0.149 162.48);
   --free-foreground: oklch(0.52 0.118 163.23);
   --free-strong: oklch(0.5 0.103 162.6);
+  --coming-soon: oklch(0.795 0.162 86.047);
+  --coming-soon-foreground: oklch(0.554 0.135 66.442);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -119,6 +121,8 @@
   --chart-5: oklch(0.438 0.218 303.724);
   --free: oklch(0.77 0.149 162.48);
   --free-foreground: oklch(0.86 0.118 164.03);
+  --coming-soon: oklch(0.795 0.162 86.047);
+  --coming-soon-foreground: oklch(0.879 0.169 91.605);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.623 0.214 259.815);
