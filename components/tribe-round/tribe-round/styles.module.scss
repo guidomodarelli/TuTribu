@@ -1042,6 +1042,10 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   }
 
   &__imageCarouselItem {
+    // Size container so the video embed can fit BOTH axes of the slide via
+    // `cqh` (a 16:9 box sized only by width overflows short viewports and the
+    // dialog's `overflow: hidden` crops the player's top and bottom).
+    container-type: size;
     display: grid;
     min-height: 0;
     height: 100%;
@@ -1242,11 +1246,24 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
 
   &__videoEmbed {
     position: relative;
+    // Fallback for engines without container-query units: cap the box to the
+    // slide height so the player is never cropped (the provider letterboxes
+    // inside the iframe instead).
     width: 100%;
+    max-height: 100%;
     aspect-ratio: 16 / 9;
     border-radius: 0.75rem;
     overflow: hidden;
     background-color: var(--muted);
+
+    // Fit-both-axes sizing: take the full slide width unless the 16:9 height
+    // would exceed the slide height (`100cqh`), in which case derive the width
+    // from that height so the whole player stays visible, centered, and 16:9
+    // on Chromium and WebKit alike.
+    @supports (width: 1cqh) {
+      width: min(100%, calc(100cqh * 16 / 9));
+      max-height: none;
+    }
   }
 
   &__videoEmbedIframe {
