@@ -68,10 +68,12 @@ function buildJsonResponse(
 
 const seedModules: CourseModuleWithLessonsResult[] = [
   {
+    courseId: "course-1",
     id: "module-empezar-aca",
     isActive: true,
     lessons: [
       {
+        completed: false,
         courseModuleId: "module-empezar-aca",
         description: "Intro lesson",
         externalVideoId: "111",
@@ -84,6 +86,8 @@ const seedModules: CourseModuleWithLessonsResult[] = [
     ],
     sortOrder: 0,
     title: "Empezar acá",
+    unlockAfterDays: null,
+    viewerAccess: { isLocked: false, unlocksAt: null },
   },
 ];
 
@@ -102,6 +106,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -123,10 +129,12 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
       pending.resolveWith(
         buildJsonResponse(201, {
           courseModule: {
+            courseId: "course-1",
             id: "module-profundizar-server",
             isActive: true,
             sortOrder: 1,
             title: "Profundizar",
+            unlockAfterDays: null,
           },
           message: "Módulo creado.",
         })
@@ -146,6 +154,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -178,6 +188,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -212,15 +224,20 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
   it("replaces local modules when fresh server props arrive", async () => {
     const refreshedModules: CourseModuleWithLessonsResult[] = [
       {
+        courseId: "course-1",
         id: "module-avanzar",
         isActive: true,
         lessons: [],
         sortOrder: 0,
         title: "Avanzar",
+        unlockAfterDays: null,
+        viewerAccess: { isLocked: false, unlocksAt: null },
       },
     ];
     const { rerender } = render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -232,6 +249,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
     rerender(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={refreshedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -251,10 +270,12 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce(
       buildJsonResponse(201, {
         courseModule: {
+          courseId: "course-1",
           id: "module-server-id",
           isActive: true,
           sortOrder: 1,
           title: "Profundizar",
+          unlockAfterDays: null,
         },
         message: "Módulo creado.",
       })
@@ -263,6 +284,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -291,6 +314,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -312,10 +337,12 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
       pending.resolveWith(
         buildJsonResponse(200, {
           courseModule: {
+            courseId: "course-1",
             id: "module-empezar-aca",
             isActive: true,
             sortOrder: 0,
             title: "Onboarding",
+            unlockAfterDays: null,
           },
           message: "Módulo actualizado.",
         })
@@ -338,6 +365,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -378,6 +407,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -418,6 +449,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -475,6 +508,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -529,6 +564,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={modulesWithLinkDescription}
         tribeSlug={TRIBE_SLUG}
       />
@@ -592,6 +629,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={modulesWithWhitespaceDescription}
         tribeSlug={TRIBE_SLUG}
       />
@@ -643,6 +682,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -760,6 +801,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -809,6 +852,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -854,6 +899,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -898,6 +945,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />
@@ -951,6 +1000,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={modulesWithLessonFiles}
         tribeSlug={TRIBE_SLUG}
       />
@@ -1025,6 +1076,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={modulesWithLessonFiles}
         tribeSlug={TRIBE_SLUG}
       />
@@ -1079,6 +1132,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={modulesWithLessonFiles}
         tribeSlug={TRIBE_SLUG}
       />
@@ -1125,6 +1180,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
         initialModules={seedModules}
         tribeSlug={TRIBE_SLUG}
       />

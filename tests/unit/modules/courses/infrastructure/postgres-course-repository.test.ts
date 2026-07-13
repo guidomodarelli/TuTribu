@@ -17,6 +17,17 @@ function getSqlText(statement: unknown): string {
         return (chunk as { value: string[] }).value.join("");
       }
 
+      if (
+        chunk &&
+        typeof chunk === "object" &&
+        "queryChunks" in chunk &&
+        Array.isArray((chunk as { queryChunks: unknown }).queryChunks)
+      ) {
+        // Nested sql`` fragments (e.g. the completion insert/delete branch)
+        // carry their own chunk list.
+        return getSqlText(chunk);
+      }
+
       return "";
     })
     .join("");
@@ -28,6 +39,14 @@ describe("PostgresCourseRepository", () => {
       rows: [
         {
           can_manage_courses: true,
+          course_cover_image_url: null,
+          course_description: "Curso base",
+          course_id: "c1",
+          course_is_active: true,
+          course_last_viewed_lesson_id: "l2",
+          course_sort_order: 0,
+          course_title: "Inversiones",
+          lesson_completed: true,
           lesson_course_module_id: "m1",
           lesson_description: "Texto",
           lesson_external_video_id: "123",
@@ -36,13 +55,25 @@ describe("PostgresCourseRepository", () => {
           lesson_sort_order: 0,
           lesson_title: "Lección Vimeo",
           lesson_video_provider: "vimeo",
+          module_course_id: "c1",
           module_id: "m1",
           module_is_active: true,
+          module_is_locked: false,
           module_sort_order: 0,
           module_title: "Empezar acá",
+          module_unlock_after_days: null,
+          module_unlocks_at: null,
         },
         {
           can_manage_courses: true,
+          course_cover_image_url: null,
+          course_description: "Curso base",
+          course_id: "c1",
+          course_is_active: true,
+          course_last_viewed_lesson_id: "l2",
+          course_sort_order: 0,
+          course_title: "Inversiones",
+          lesson_completed: false,
           lesson_course_module_id: "m1",
           lesson_description: null,
           lesson_external_video_id: "dQw4w9WgXcQ",
@@ -51,13 +82,25 @@ describe("PostgresCourseRepository", () => {
           lesson_sort_order: 1,
           lesson_title: "Lección YT",
           lesson_video_provider: "youtube",
+          module_course_id: "c1",
           module_id: "m1",
           module_is_active: true,
+          module_is_locked: false,
           module_sort_order: 0,
           module_title: "Empezar acá",
+          module_unlock_after_days: null,
+          module_unlocks_at: null,
         },
         {
           can_manage_courses: true,
+          course_cover_image_url: null,
+          course_description: "Curso base",
+          course_id: "c1",
+          course_is_active: true,
+          course_last_viewed_lesson_id: "l2",
+          course_sort_order: 0,
+          course_title: "Inversiones",
+          lesson_completed: null,
           lesson_course_module_id: null,
           lesson_description: null,
           lesson_external_video_id: null,
@@ -66,10 +109,14 @@ describe("PostgresCourseRepository", () => {
           lesson_sort_order: null,
           lesson_title: null,
           lesson_video_provider: null,
+          module_course_id: "c1",
           module_id: "m2",
           module_is_active: true,
+          module_is_locked: true,
           module_sort_order: 1,
           module_title: "Renta fija",
+          module_unlock_after_days: 14,
+          module_unlocks_at: "2026-07-20T00:00:00Z",
         },
       ],
     }));
@@ -82,43 +129,65 @@ describe("PostgresCourseRepository", () => {
     });
 
     expect(result).toEqual({
-      modules: [
+      courses: [
         {
-          id: "m1",
+          coverImageUrl: null,
+          description: "Curso base",
+          id: "c1",
           isActive: true,
-          lessons: [
+          lastViewedLessonId: "l2",
+          modules: [
             {
-              courseModuleId: "m1",
-              description: "Texto",
-              externalVideoId: "123",
-              files: [],
-              id: "l1",
+              courseId: "c1",
+              id: "m1",
               isActive: true,
+              lessons: [
+                {
+                  completed: true,
+                  courseModuleId: "m1",
+                  description: "Texto",
+                  externalVideoId: "123",
+                  files: [],
+                  id: "l1",
+                  isActive: true,
+                  sortOrder: 0,
+                  title: "Lección Vimeo",
+                  videoProvider: VIDEO_PROVIDER.vimeo,
+                },
+                {
+                  completed: false,
+                  courseModuleId: "m1",
+                  description: null,
+                  externalVideoId: "dQw4w9WgXcQ",
+                  files: [],
+                  id: "l2",
+                  isActive: true,
+                  sortOrder: 1,
+                  title: "Lección YT",
+                  videoProvider: VIDEO_PROVIDER.youtube,
+                },
+              ],
               sortOrder: 0,
-              title: "Lección Vimeo",
-              videoProvider: VIDEO_PROVIDER.vimeo,
+              title: "Empezar acá",
+              unlockAfterDays: null,
+              viewerAccess: { isLocked: false, unlocksAt: null },
             },
             {
-              courseModuleId: "m1",
-              description: null,
-              externalVideoId: "dQw4w9WgXcQ",
-              files: [],
-              id: "l2",
+              courseId: "c1",
+              id: "m2",
               isActive: true,
+              lessons: [],
               sortOrder: 1,
-              title: "Lección YT",
-              videoProvider: VIDEO_PROVIDER.youtube,
+              title: "Renta fija",
+              unlockAfterDays: 14,
+              viewerAccess: {
+                isLocked: true,
+                unlocksAt: "2026-07-20T00:00:00Z",
+              },
             },
           ],
           sortOrder: 0,
-          title: "Empezar acá",
-        },
-        {
-          id: "m2",
-          isActive: true,
-          lessons: [],
-          sortOrder: 1,
-          title: "Renta fija",
+          title: "Inversiones",
         },
       ],
       viewerPermissions: { canManageCourses: true },
@@ -128,13 +197,23 @@ describe("PostgresCourseRepository", () => {
     expect(sqlText).toContain("public.can_manage_tribe_courses");
     expect(sqlText).toContain("lesson_video_provider");
     expect(sqlText).toContain("lesson_external_video_id");
+    expect(sqlText).toContain("course_last_viewed_lesson_id");
+    expect(sqlText).toContain("module_is_locked");
   });
 
-  it("returns an empty tree when the tribe has no modules", async () => {
+  it("returns an empty tree when the tribe has no courses", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
           can_manage_courses: false,
+          course_cover_image_url: null,
+          course_description: null,
+          course_id: null,
+          course_is_active: null,
+          course_last_viewed_lesson_id: null,
+          course_sort_order: null,
+          course_title: null,
+          lesson_completed: null,
           lesson_course_module_id: null,
           lesson_description: null,
           lesson_external_video_id: null,
@@ -143,10 +222,14 @@ describe("PostgresCourseRepository", () => {
           lesson_sort_order: null,
           lesson_title: null,
           lesson_video_provider: null,
+          module_course_id: null,
           module_id: null,
           module_is_active: null,
+          module_is_locked: null,
           module_sort_order: null,
           module_title: null,
+          module_unlock_after_days: null,
+          module_unlocks_at: null,
         },
       ],
     }));
@@ -159,20 +242,126 @@ describe("PostgresCourseRepository", () => {
     });
 
     expect(result).toEqual({
-      modules: [],
+      courses: [],
       viewerPermissions: { canManageCourses: false },
     });
+  });
+
+  it("returns a created status with the new course", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [
+        {
+          cover_image_url: "https://example.com/portada.jpg",
+          description: "Curso base",
+          id: "c1",
+          is_active: true,
+          sort_order: 0,
+          status: "created",
+          title: "Inversiones",
+        },
+      ],
+    }));
+    const repository = new PostgresCourseRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    const result = await repository.createCourse({
+      coverImageUrl: "https://example.com/portada.jpg",
+      description: "Curso base",
+      sortOrder: 0,
+      title: "Inversiones",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result).toEqual({
+      course: {
+        coverImageUrl: "https://example.com/portada.jpg",
+        description: "Curso base",
+        id: "c1",
+        isActive: true,
+        sortOrder: 0,
+        title: "Inversiones",
+      },
+      status: "created",
+    });
+
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain("insert into public.courses");
+    expect(sqlText).toContain("public.can_manage_tribe_courses");
+  });
+
+  it("marks a lesson as completed guarding membership and drip unlock", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [{ mutated: true, status: "completed" }],
+    }));
+    const repository = new PostgresCourseRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    const result = await repository.setLessonCompletion({
+      completed: true,
+      lessonId: "l1",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result).toEqual({ status: "completed" });
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain("insert into public.course_lesson_completions");
+    expect(sqlText).toContain("public.can_read_tribe_courses");
+    expect(sqlText).toContain("public.is_course_module_unlocked");
+  });
+
+  it("removes a completion when toggling off", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [{ mutated: true, status: "uncompleted" }],
+    }));
+    const repository = new PostgresCourseRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    const result = await repository.setLessonCompletion({
+      completed: false,
+      lessonId: "l1",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result).toEqual({ status: "uncompleted" });
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain("delete from public.course_lesson_completions");
+  });
+
+  it("upserts the last viewed lesson with authorization guards", async () => {
+    const execute = jest.fn(async () => ({
+      rows: [{ status: "recorded" }],
+    }));
+    const repository = new PostgresCourseRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    const result = await repository.recordLastViewedLesson({
+      courseId: "c1",
+      lessonId: "l1",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result).toEqual({ status: "recorded" });
+    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
+    expect(sqlText).toContain("insert into public.course_last_viewed_lessons");
+    expect(sqlText).toContain("on conflict (course_id, user_id) do update");
+    expect(sqlText).toContain("public.is_course_module_unlocked");
   });
 
   it("returns a created status with the new course module", async () => {
     const execute = jest.fn(async () => ({
       rows: [
         {
+          course_id: "c1",
           id: "m1",
           is_active: true,
           sort_order: 0,
           status: "created",
           title: "Empezar acá",
+          unlock_after_days: null,
         },
       ],
     }));
@@ -181,17 +370,21 @@ describe("PostgresCourseRepository", () => {
     );
 
     const result = await repository.createCourseModule({
+      courseId: "c1",
       sortOrder: 0,
       title: "Empezar acá",
       tribeSlug: "matematica-pro",
+      unlockAfterDays: null,
     });
 
     expect(result).toEqual({
       courseModule: {
+        courseId: "c1",
         id: "m1",
         isActive: true,
         sortOrder: 0,
         title: "Empezar acá",
+        unlockAfterDays: null,
       },
       status: "created",
     });
@@ -218,9 +411,11 @@ describe("PostgresCourseRepository", () => {
     );
 
     const result = await repository.createCourseModule({
+      courseId: "c1",
       sortOrder: 0,
       title: "Empezar acá",
       tribeSlug: "matematica-pro",
+      unlockAfterDays: null,
     });
 
     expect(result).toEqual({ status: "forbidden" });
@@ -243,9 +438,11 @@ describe("PostgresCourseRepository", () => {
     );
 
     const result = await repository.createCourseModule({
+      courseId: "c1",
       sortOrder: 0,
       title: "Empezar acá",
       tribeSlug: "unknown-tribe",
+      unlockAfterDays: null,
     });
 
     expect(result).toEqual({ status: "not_found" });

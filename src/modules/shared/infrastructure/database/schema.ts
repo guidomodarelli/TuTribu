@@ -590,13 +590,42 @@ export const messagePins = pgTable("message_pins", {
   ),
 }));
 
-export const courseModules = pgTable("course_modules", {
+export const courses = pgTable("courses", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")
     .notNull()
     .references(() => tribes.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
+  description: text("description"),
+  coverImageUrl: text("cover_image_url"),
   sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  courseTribeKey: uniqueIndex("courses_id_tribe_id_key").on(
+    table.id,
+    table.tribeId
+  ),
+  tribeSortIndex: index("idx_courses_tribe_sort").on(
+    table.tribeId,
+    table.sortOrder
+  ),
+}));
+
+export const courseModules = pgTable("course_modules", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  courseId: uuid("course_id").notNull(),
+  title: text("title").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+  unlockAfterDays: integer("unlock_after_days"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -611,6 +640,15 @@ export const courseModules = pgTable("course_modules", {
   ),
   tribeSortIndex: index("idx_course_modules_tribe_sort").on(
     table.tribeId,
+    table.sortOrder
+  ),
+  courseTribeForeignKey: foreignKey({
+    columns: [table.courseId, table.tribeId],
+    foreignColumns: [courses.id, courses.tribeId],
+    name: "course_modules_course_tribe_fkey",
+  }).onDelete("cascade"),
+  courseSortIndex: index("idx_course_modules_course_sort").on(
+    table.courseId,
     table.sortOrder
   ),
 }));
@@ -694,6 +732,81 @@ export const courseLessonFiles = pgTable("course_lesson_files", {
   )
     .on(table.deletedLessonId, table.status)
     .where(sql`${table.deletedLessonId} IS NOT NULL`),
+}));
+
+export const courseLessonCompletions = pgTable("course_lesson_completions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  lessonId: uuid("lesson_id")
+    .notNull()
+    .references(() => courseLessons.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  completedAt: timestamp("completed_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  lessonUserKey: uniqueIndex("course_lesson_completions_lesson_user_key").on(
+    table.lessonId,
+    table.userId
+  ),
+  tribeUserIndex: index("idx_course_lesson_completions_tribe_user").on(
+    table.tribeId,
+    table.userId
+  ),
+}));
+
+export const courseLastViewedLessons = pgTable("course_last_viewed_lessons", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  courseId: uuid("course_id")
+    .notNull()
+    .references(() => courses.id, { onDelete: "cascade" }),
+  lessonId: uuid("lesson_id")
+    .notNull()
+    .references(() => courseLessons.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  viewedAt: timestamp("viewed_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  courseUserKey: uniqueIndex("course_last_viewed_lessons_course_user_key").on(
+    table.courseId,
+    table.userId
+  ),
+  tribeUserIndex: index("idx_course_last_viewed_lessons_tribe_user").on(
+    table.tribeId,
+    table.userId
+  ),
+}));
+
+export const courseLessonComments = pgTable("course_lesson_comments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  lessonId: uuid("lesson_id")
+    .notNull()
+    .references(() => courseLessons.id, { onDelete: "cascade" }),
+  authorId: text("author_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  lessonCreatedAtIndex: index("idx_course_lesson_comments_lesson_created_at").on(
+    table.lessonId,
+    table.createdAt
+  ),
 }));
 
 export const events = pgTable("events", {

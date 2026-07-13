@@ -491,6 +491,34 @@
       "when": 1781020800000,
       "tag": "20260609160000_create_message_and_lesson_files",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1783850400000,
+      "tag": "20260712100000_create_courses_level",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1783854000000,
+      "tag": "20260712110000_create_course_progress",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1783857600000,
+      "tag": "20260712120000_add_course_module_drip",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1783861200000,
+      "tag": "20260712130000_create_course_lesson_comments",
+      "breakpoints": true
     }
   ]
 }

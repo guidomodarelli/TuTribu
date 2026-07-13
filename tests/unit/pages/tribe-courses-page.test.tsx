@@ -23,20 +23,20 @@ jest.mock("next/headers", () => ({
   headers: jest.fn(),
 }));
 
-jest.mock("@/components/courses/tribe-courses-view", () => ({
-  TribeCoursesView: ({
-    modules,
+jest.mock("@/components/courses/tribe-courses-catalog", () => ({
+  TribeCoursesCatalog: ({
+    courses,
     tribeSlug,
     viewerPermissions,
   }: {
-    modules: unknown[];
+    courses: unknown[];
     tribeSlug: string;
     viewerPermissions: { canManageCourses: boolean };
   }) => (
     <section>
       <h1>Cursos</h1>
       <p>{tribeSlug}</p>
-      <p>modules:{modules.length}</p>
+      <p>courses:{courses.length}</p>
       <p data-testid="course-management-permission">
         canManageCourses:{String(viewerPermissions.canManageCourses)}
       </p>
@@ -44,16 +44,52 @@ jest.mock("@/components/courses/tribe-courses-view", () => ({
   ),
 }));
 
-jest.mock("@/components/courses/tribe-courses-management", () => ({
-  TribeCoursesManagement: ({
-    initialModules,
+jest.mock("@/components/courses/tribe-courses-view", () => ({
+  TribeCoursesView: ({
+    course,
+    selectedLessonId,
     tribeSlug,
   }: {
-    initialModules: unknown[];
+    course: { id: string; title: string };
+    selectedLessonId: string | null;
+    tribeSlug: string;
+  }) => (
+    <section>
+      <h1>Curso: {course.title}</h1>
+      <p>{tribeSlug}</p>
+      <p>lesson:{selectedLessonId ?? "none"}</p>
+    </section>
+  ),
+}));
+
+jest.mock("@/components/courses/tribe-courses-catalog-management", () => ({
+  TribeCoursesCatalogManagement: ({
+    initialCourses,
+    tribeSlug,
+  }: {
+    initialCourses: unknown[];
     tribeSlug: string;
   }) => (
     <section>
       <h1>Gestionar cursos</h1>
+      <p>{tribeSlug}</p>
+      <p>courses:{initialCourses.length}</p>
+    </section>
+  ),
+}));
+
+jest.mock("@/components/courses/tribe-courses-management", () => ({
+  TribeCoursesManagement: ({
+    courseTitle,
+    initialModules,
+    tribeSlug,
+  }: {
+    courseTitle: string;
+    initialModules: unknown[];
+    tribeSlug: string;
+  }) => (
+    <section>
+      <h1>Gestionar contenido: {courseTitle}</h1>
       <p>{tribeSlug}</p>
       <p>modules:{initialModules.length}</p>
     </section>
@@ -93,12 +129,46 @@ const visibleTribeAccess = {
   },
 };
 
-function buildPageProps() {
+const courseFixture = {
+  coverImageUrl: null,
+  description: null,
+  id: "course-1",
+  isActive: true,
+  lastViewedLessonId: null,
+  modules: [
+    {
+      courseId: "course-1",
+      id: "module-1",
+      isActive: true,
+      lessons: [
+        {
+          completed: false,
+          courseModuleId: "module-1",
+          description: null,
+          externalVideoId: "video-1",
+          id: "lesson-1",
+          isActive: true,
+          sortOrder: 0,
+          title: "Primera clase",
+          videoProvider: "youtube",
+        },
+      ],
+      sortOrder: 0,
+      title: "Módulo inicial",
+      unlockAfterDays: null,
+      viewerAccess: { isLocked: false, unlocksAt: null },
+    },
+  ],
+  sortOrder: 0,
+  title: "Inversiones",
+};
+
+function buildPageProps(searchParams: Record<string, string> = {}) {
   return {
     params: Promise.resolve({
       slug: "matematica-pro",
     }),
-    searchParams: Promise.resolve({}),
+    searchParams: Promise.resolve(searchParams),
   };
 }
 
@@ -118,11 +188,11 @@ describe("tribe courses pages", () => {
       },
     ]);
     getTribeCourses.mockResolvedValue({
-      modules: [],
+      courses: [],
       viewerPermissions: { canManageCourses: false },
     });
     getEditableTribeCourses.mockResolvedValue({
-      modules: [],
+      courses: [],
       viewerPermissions: { canManageCourses: false },
     });
     (headers as jest.Mock).mockResolvedValue(new Headers());
@@ -148,7 +218,7 @@ describe("tribe courses pages", () => {
     });
   });
 
-  it("marks active leaders as course managers when the course tree is empty", async () => {
+  it("marks active leaders as course managers on the empty catalog", async () => {
     render(await TribeCoursesPage(buildPageProps()));
 
     expect(screen.getByRole("heading", { name: "Cursos" })).toBeInTheDocument();
@@ -157,7 +227,7 @@ describe("tribe courses pages", () => {
     );
   });
 
-  it("keeps regular members from managing an empty course tree", async () => {
+  it("keeps regular members from managing an empty catalog", async () => {
     getMemberTribes.mockResolvedValue([
       {
         membershipStatus: "active",
@@ -175,13 +245,68 @@ describe("tribe courses pages", () => {
     );
   });
 
-  it("renders the management page for active leaders even before courses exist", async () => {
+  it("renders the course view when the curso query param matches a course", async () => {
+    getTribeCourses.mockResolvedValue({
+      courses: [courseFixture],
+      viewerPermissions: { canManageCourses: false },
+    });
+
+    render(await TribeCoursesPage(buildPageProps({ curso: "course-1" })));
+
+    expect(
+      screen.getByRole("heading", { name: "Curso: Inversiones" })
+    ).toBeInTheDocument();
+  });
+
+  it("resolves legacy lesson links to the course that owns the lesson", async () => {
+    getTribeCourses.mockResolvedValue({
+      courses: [courseFixture],
+      viewerPermissions: { canManageCourses: false },
+    });
+
+    render(await TribeCoursesPage(buildPageProps({ leccion: "lesson-1" })));
+
+    expect(
+      screen.getByRole("heading", { name: "Curso: Inversiones" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("lesson:lesson-1")).toBeInTheDocument();
+  });
+
+  it("returns 404 when the curso query param does not match a course", async () => {
+    (notFound as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(
+      TribeCoursesPage(buildPageProps({ curso: "missing-course" }))
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(notFound).toHaveBeenCalled();
+  });
+
+  it("renders the course catalog management page for active leaders", async () => {
     render(await TribeCoursesManagePage(buildPageProps()));
 
     expect(
       screen.getByRole("heading", { name: "Gestionar cursos" })
     ).toBeInTheDocument();
-    expect(screen.getByText("modules:0")).toBeInTheDocument();
+    expect(screen.getByText("courses:0")).toBeInTheDocument();
+  });
+
+  it("renders the module management page scoped to the selected course", async () => {
+    getEditableTribeCourses.mockResolvedValue({
+      courses: [courseFixture],
+      viewerPermissions: { canManageCourses: true },
+    });
+
+    render(
+      await TribeCoursesManagePage(buildPageProps({ curso: "course-1" }))
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Gestionar contenido: Inversiones" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("modules:1")).toBeInTheDocument();
   });
 
   it("returns 404 when a regular member opens the course management page", async () => {

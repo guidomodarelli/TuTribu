@@ -1,0 +1,229 @@
+.TribeCoursesCatalog {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+  width: 100%;
+  padding: clamp(1rem, 3vw, 2rem);
+
+  &__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+  }
+
+  &__heading {
+    font-size: clamp(1.25rem, 2vw, 1.5rem);
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 0;
+  }
+
+  &__managementLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 1.75rem;
+    padding: 0 0.625rem;
+    border: 1px solid transparent;
+    border-radius: min(var(--radius-md), 0.75rem);
+    color: var(--foreground);
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color 120ms ease, color 120ms ease;
+
+    &:hover {
+      background-color: var(--muted);
+    }
+
+    &:focus-visible {
+      outline: none;
+      border-color: var(--ring);
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+    }
+
+    svg {
+      width: 0.875rem;
+      height: 0.875rem;
+      flex-shrink: 0;
+      pointer-events: none;
+    }
+  }
+
+  &__grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  }
+
+  &__cardItem {
+    margin: 0;
+    min-width: 0;
+  }
+
+  &__card {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    color: var(--foreground);
+    text-decoration: none;
+    background-color: var(--card);
+    transition: border-color 120ms ease, box-shadow 120ms ease,
+      transform 120ms ease;
+
+    &:hover {
+      border-color: color-mix(in oklch, var(--primary) 40%, var(--border));
+      box-shadow: 0 4px 16px color-mix(in oklch, var(--foreground) 8%, transparent);
+    }
+
+    &:focus-visible {
+      outline: none;
+      border-color: var(--ring);
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+    }
+  }
+
+  &__coverFrame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background-color: var(--muted);
+    overflow: hidden;
+  }
+
+  &__coverImage {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &__coverFallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--muted-foreground);
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklch, var(--primary) 14%, var(--muted)),
+      var(--muted)
+    );
+  }
+
+  &__cardBody {
+    display: grid;
+    gap: 0.5rem;
+    align-content: start;
+    padding: 1rem 1.125rem 1.125rem;
+  }
+
+  &__cardTitle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0;
+  }
+
+  &__inactiveBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999rem;
+    background-color: var(--muted);
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__cardDescription {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  &__cardMeta {
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    margin: 0;
+  }
+
+  &__progressTrack {
+    position: relative;
+    width: 100%;
+    height: 0.375rem;
+    border-radius: 999rem;
+    background-color: var(--muted);
+    overflow: hidden;
+  }
+
+  &__progressFill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    display: block;
+    border-radius: 999rem;
+    background-color: var(--primary);
+  }
+
+  &__progressLabel {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    margin: 0;
+  }
+
+  &__cardCta {
+    justify-self: start;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary);
+  }
+
+  &__emptyState {
+    display: grid;
+    gap: 0.5rem;
+    padding: 2rem;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg);
+    text-align: center;
+  }
+
+  &__emptyHeading {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  &__emptyDescription {
+    color: var(--muted-foreground);
+    margin: 0;
+  }
+}

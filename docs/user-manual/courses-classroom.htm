@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cursos: grilla, progreso y comentarios</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+.steps{display:flex;flex-direction:column;gap:0;margin:16px 0;}
+.step-item{display:flex;gap:16px;padding-bottom:24px;position:relative;}
+.step-item::before{content:'';position:absolute;left:15px;top:32px;bottom:0;width:1px;background:#e0ddd6;}
+.step-item:last-child::before{display:none;}
+.step-circle{width:32px;height:32px;border-radius:50%;background:#1a1a2e;color:white;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;flex-shrink:0;}
+.step-body{padding-top:4px;flex:1;}
+.step-label{font-size:14px;font-weight:600;margin-bottom:4px;}
+.step-desc{font-size:13px;color:#555;line-height:1.6;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">TuTribu — Manual de usuario</div>
+  <div class="doc-title">Cursos: grilla, progreso y comentarios</div>
+  <div class="doc-sub">Cómo se navega la sección de cursos y qué puede gestionar cada rol.</div>
+  <div class="doc-meta"><span>Fecha: 2026-07-12</span><span>Audiencia: miembros y líderes</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">La grilla de cursos</div>
+  <p>Al entrar a <strong>Cursos</strong> ves una grilla de tarjetas, una por curso, con su imagen de portada, título, descripción, cantidad de lecciones y tu barra de avance. Si ya empezaste un curso la tarjeta dice <strong>Continuar</strong>; si no, dice <strong>Empezar</strong>.</p>
+  <p>Al abrir un curso ves el video de la lección a la izquierda y el índice de módulos y lecciones a la derecha, con el link <strong>Todos los cursos</strong> para volver a la grilla.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Tu progreso</div>
+  <ul>
+    <li>Debajo del título de cada lección tenés el botón <strong>Marcar como completada</strong>. Las lecciones completadas muestran una tilde en el índice y suman a tu porcentaje del curso.</li>
+    <li>Podés desmarcar una lección con el mismo botón (<strong>Marcar como no completada</strong>).</li>
+    <li>El curso recuerda la última lección que abriste: la próxima vez que entres, retomás desde ahí.</li>
+    <li>Al pie de cada lección tenés <strong>Lección anterior</strong> y <strong>Siguiente lección</strong> para avanzar sin usar el índice.</li>
+  </ul>
+  <div class="callout c-info">Tu progreso es personal: nadie más ve qué lecciones completaste.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Módulos que se desbloquean con el tiempo</div>
+  <p>Algunos módulos aparecen con un candado y la leyenda <strong>"Se desbloquea el …"</strong>. Se habilitan automáticamente cuando pasa la cantidad de días configurada desde tu ingreso a la tribu. Hasta entonces, sus lecciones no son accesibles.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Comentarios en las lecciones</div>
+  <p>Debajo de cada lección hay un hilo de <strong>Comentarios</strong> para preguntas y aportes entre miembros. Podés borrar tus propios comentarios; quienes lideran la tribu pueden borrar cualquiera.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Gestión (solo líderes)</div>
+  <p>Desde <strong>Gestionar</strong> (visible solo para líderes) se administra el classroom en dos niveles:</p>
+  <div class="steps">
+    <div class="step-item">
+      <div class="step-circle">1</div>
+      <div class="step-body">
+        <div class="step-label">Cursos</div>
+        <div class="step-desc">Crear, editar y eliminar cursos: título, descripción, URL de la imagen de portada, orden y estado activo. Eliminar un curso borra también sus módulos y lecciones.</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle">2</div>
+      <div class="step-body">
+        <div class="step-label">Contenido del curso</div>
+        <div class="step-desc">Con "Gestionar contenido" entrás a los módulos y lecciones de ese curso: videos (Vimeo, Wistia, Loom o YouTube), descripción, material adjunto, orden, estado activo y el campo "Desbloquear a los (días desde el ingreso)" para el goteo de contenido. Vacío significa disponible desde el primer día.</div>
+      </div>
+    </div>
+  </div>
+  <div class="callout c-warn">Los cursos, módulos y lecciones inactivos solo son visibles para líderes (con la etiqueta "Inactivo"); el resto de la tribu no los ve.</div>
+</div>
+
+</body>
+</html>

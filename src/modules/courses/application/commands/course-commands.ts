@@ -2,10 +2,30 @@ export type GetTribeCoursesQuery = {
   tribeSlug: string;
 };
 
-export type CreateCourseModuleCommand = {
+export type CreateCourseCommand = {
+  coverImageUrl: string;
+  description: string;
   sortOrder: number;
   title: string;
   tribeSlug: string;
+};
+
+export type UpdateCourseCommand = CreateCourseCommand & {
+  courseId: string;
+  isActive: boolean;
+};
+
+export type DeleteCourseCommand = {
+  courseId: string;
+  tribeSlug: string;
+};
+
+export type CreateCourseModuleCommand = {
+  courseId: string;
+  sortOrder: number;
+  title: string;
+  tribeSlug: string;
+  unlockAfterDays: number | null;
 };
 
 export type UpdateCourseModuleCommand = {
@@ -14,10 +34,39 @@ export type UpdateCourseModuleCommand = {
   sortOrder: number;
   title: string;
   tribeSlug: string;
+  unlockAfterDays: number | null;
 };
 
 export type DeleteCourseModuleCommand = {
   courseModuleId: string;
+  tribeSlug: string;
+};
+
+export type SetLessonCompletionCommand = {
+  completed: boolean;
+  lessonId: string;
+  tribeSlug: string;
+};
+
+export type RecordLastViewedLessonCommand = {
+  courseId: string;
+  lessonId: string;
+  tribeSlug: string;
+};
+
+export type ListLessonCommentsQuery = {
+  lessonId: string;
+  tribeSlug: string;
+};
+
+export type CreateLessonCommentCommand = {
+  content: string;
+  lessonId: string;
+  tribeSlug: string;
+};
+
+export type DeleteLessonCommentCommand = {
+  commentId: string;
   tribeSlug: string;
 };
 

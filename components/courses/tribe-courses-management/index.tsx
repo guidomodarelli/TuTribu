@@ -24,6 +24,7 @@ import type {
   CourseModuleResult,
   CourseModuleWithLessonsResult,
   LessonResult,
+  LessonWithViewerStateResult,
 } from "@/src/modules/courses/application/results/course-results";
 import {
   VIDEO_PROVIDER,
@@ -85,9 +86,13 @@ const COURSES_MANAGEMENT_COPY = {
   newLessonButton: "Agregar lección",
   newLessonHeading: "Nueva lección",
   newModuleButton: "Nuevo módulo",
-  pageHeading: "Gestionar cursos",
+  pageHeading: "Gestionar contenido",
   pendingBadge: "Guardando…",
   removeFileButton: "Quitar",
+  backToCoursesLink: "Volver a cursos",
+  unlockAfterDaysHelp:
+    "Dejalo vacío para que el módulo esté disponible desde el primer día.",
+  unlockAfterDaysLabel: "Desbloquear a los (días desde el ingreso)",
   retryFileButton: "Reintentar",
   saveButton: "Guardar",
   tooManyFilesMessage: `Podés adjuntar hasta ${LESSON_FILES.maxCount} archivos por lección.`,
@@ -250,6 +255,8 @@ const FORM_BUTTON_TYPE = {
 const NUMERIC_PARSE_RADIX = 10;
 
 type TribeCoursesManagementProps = {
+  courseId: string;
+  courseTitle: string;
   initialModules: CourseModuleWithLessonsResult[];
   tribeSlug: string;
 };
@@ -258,6 +265,7 @@ type ModuleFormState = {
   isActive: boolean;
   sortOrder: number;
   title: string;
+  unlockAfterDays: number | null;
 };
 
 type LessonFileResult = NonNullable<LessonResult["files"]>[number];
@@ -356,15 +364,19 @@ function readModuleFromResponse(
     typeof entry.id !== "string" ||
     typeof entry.title !== "string" ||
     typeof entry.sortOrder !== "number" ||
-    typeof entry.isActive !== "boolean"
+    typeof entry.isActive !== "boolean" ||
+    typeof entry.courseId !== "string"
   ) {
     return null;
   }
   return {
+    courseId: entry.courseId,
     id: entry.id,
     isActive: entry.isActive,
     sortOrder: entry.sortOrder,
     title: entry.title,
+    unlockAfterDays:
+      typeof entry.unlockAfterDays === "number" ? entry.unlockAfterDays : null,
   };
 }
 
@@ -467,6 +479,8 @@ function readLessonFromResponse(payload: unknown): LessonResult | null {
 }
 
 export function TribeCoursesManagement({
+  courseId,
+  courseTitle,
   initialModules,
   tribeSlug,
 }: TribeCoursesManagementProps) {
@@ -571,11 +585,14 @@ export function TribeCoursesManagement({
   const submitNewModule = async (form: ModuleFormState) => {
     const optimisticId = generateOptimisticId();
     const optimisticModule: CourseModuleWithLessonsResult = {
+      courseId,
       id: optimisticId,
       isActive: true,
       lessons: [],
       sortOrder: form.sortOrder,
       title: form.title,
+      unlockAfterDays: form.unlockAfterDays,
+      viewerAccess: { isLocked: false, unlocksAt: null },
     };
     setModules((current) => appendModule(current, optimisticModule));
     markModulePending(optimisticId);
@@ -583,8 +600,10 @@ export function TribeCoursesManagement({
     try {
       const response = await fetch(buildModulesApiUrl(tribeSlug), {
         body: JSON.stringify({
+          courseId,
           sortOrder: form.sortOrder,
           title: form.title,
+          unlockAfterDays: form.unlockAfterDays,
         }),
         headers: {
           [HTTP_HEADER_NAME.contentType]: HTTP_CONTENT_TYPE.applicationJson,
@@ -635,6 +654,7 @@ export function TribeCoursesManagement({
         isActive: form.isActive,
         sortOrder: form.sortOrder,
         title: form.title,
+        unlockAfterDays: form.unlockAfterDays,
       })
     );
     markModulePending(moduleId);
@@ -645,6 +665,7 @@ export function TribeCoursesManagement({
           isActive: form.isActive,
           sortOrder: form.sortOrder,
           title: form.title,
+          unlockAfterDays: form.unlockAfterDays,
         }),
         headers: {
           [HTTP_HEADER_NAME.contentType]: HTTP_CONTENT_TYPE.applicationJson,
@@ -658,6 +679,7 @@ export function TribeCoursesManagement({
             isActive: snapshot.module.isActive,
             sortOrder: snapshot.module.sortOrder,
             title: snapshot.module.title,
+            unlockAfterDays: snapshot.module.unlockAfterDays,
           })
         );
         clearModulePending(moduleId);
@@ -674,6 +696,7 @@ export function TribeCoursesManagement({
             isActive: serverModule.isActive,
             sortOrder: serverModule.sortOrder,
             title: serverModule.title,
+            unlockAfterDays: serverModule.unlockAfterDays,
           })
         );
       }
@@ -686,6 +709,7 @@ export function TribeCoursesManagement({
           isActive: snapshot.module.isActive,
           sortOrder: snapshot.module.sortOrder,
           title: snapshot.module.title,
+          unlockAfterDays: snapshot.module.unlockAfterDays,
         })
       );
       clearModulePending(moduleId);
@@ -743,7 +767,8 @@ export function TribeCoursesManagement({
     }
 
     const optimisticId = generateOptimisticId();
-    const optimisticLesson: LessonResult = {
+    const optimisticLesson: LessonWithViewerStateResult = {
+      completed: false,
       courseModuleId,
       description: form.description,
       externalVideoId: parsedVideo.externalId,
@@ -797,7 +822,10 @@ export function TribeCoursesManagement({
         return;
       }
       setModules((current) =>
-        replaceLessonId(current, courseModuleId, optimisticId, serverLesson)
+        replaceLessonId(current, courseModuleId, optimisticId, {
+          ...serverLesson,
+          completed: false,
+        })
       );
       swapLessonPending(optimisticId, serverLesson.id);
       clearLessonPending(serverLesson.id);
@@ -955,8 +983,15 @@ export function TribeCoursesManagement({
       <header className={styles.TribeCoursesManagement__header}>
         <div>
           <h1 className={styles.TribeCoursesManagement__heading}>
-            {COURSES_MANAGEMENT_COPY.pageHeading}
+            {COURSES_MANAGEMENT_COPY.pageHeading}: {courseTitle}
           </h1>
+          <Link
+            className={styles.TribeCoursesManagement__backLink}
+            href={ROUTES.tribes.coursesManage(tribeSlug)}
+          >
+            {COURSES_MANAGEMENT_COPY.backToCoursesLink}
+          </Link>
+          {" · "}
           <Link
             className={styles.TribeCoursesManagement__backLink}
             href={ROUTES.tribes.courses(tribeSlug)}
@@ -980,6 +1015,7 @@ export function TribeCoursesManagement({
             isActive: true,
             sortOrder: modules.length,
             title: "",
+            unlockAfterDays: null,
           }}
           isEditing={false}
           onCancel={() => setShowNewModuleForm(false)}
@@ -1011,6 +1047,7 @@ export function TribeCoursesManagement({
                     isActive: courseModule.isActive,
                     sortOrder: courseModule.sortOrder,
                     title: courseModule.title,
+                    unlockAfterDays: courseModule.unlockAfterDays,
                   }}
                   isEditing
                   onCancel={() => setEditingModuleId(null)}
@@ -1050,6 +1087,9 @@ export function TribeCoursesManagement({
                       }
                     >
                       Orden: {courseModule.sortOrder}
+                      {courseModule.unlockAfterDays !== null
+                        ? ` · Se desbloquea a los ${courseModule.unlockAfterDays} días`
+                        : ""}
                     </p>
                   </div>
                   <div
@@ -1229,13 +1269,16 @@ function ModuleForm({
   const [title, setTitle] = useState(initialState.title);
   const [sortOrder, setSortOrder] = useState(initialState.sortOrder);
   const [isActive, setIsActive] = useState(initialState.isActive);
+  const [unlockAfterDays, setUnlockAfterDays] = useState<number | null>(
+    initialState.unlockAfterDays
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
     try {
-      await onSubmit({ isActive, sortOrder, title });
+      await onSubmit({ isActive, sortOrder, title, unlockAfterDays });
     } finally {
       setIsSubmitting(false);
     }
@@ -1267,6 +1310,26 @@ function ModuleForm({
           type={INPUT_TYPE.number}
           value={sortOrder}
         />
+      </label>
+      <label className={styles.TribeCoursesManagement__formField}>
+        <span>{COURSES_MANAGEMENT_COPY.unlockAfterDaysLabel}</span>
+        <Input
+          min={0}
+          onChange={(event) => {
+            const parsedValue = Number.parseInt(
+              event.target.value,
+              NUMERIC_PARSE_RADIX
+            );
+            setUnlockAfterDays(
+              Number.isFinite(parsedValue) ? parsedValue : null
+            );
+          }}
+          type={INPUT_TYPE.number}
+          value={unlockAfterDays ?? ""}
+        />
+        <span className={styles.TribeCoursesManagement__formHelp}>
+          {COURSES_MANAGEMENT_COPY.unlockAfterDaysHelp}
+        </span>
       </label>
       {isEditing ? (
         <label className={styles.TribeCoursesManagement__formField}>

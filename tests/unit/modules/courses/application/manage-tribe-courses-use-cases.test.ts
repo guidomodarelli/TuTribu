@@ -1,22 +1,52 @@
 import {
+  createCourse,
   createCourseModule,
   createLesson,
+  deleteCourse,
   deleteCourseModule,
   deleteLesson,
   getEditableTribeCourses,
   getTribeCourses,
+  updateCourse,
   updateCourseModule,
   updateLesson,
 } from "@/src/modules/courses/application/use-cases/manage-tribe-courses-use-cases";
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import type { CourseRepository } from "@/src/modules/courses/domain/repositories/course-repository";
 
+const COURSE_FIXTURE = {
+  coverImageUrl: null,
+  description: null,
+  id: "c1",
+  isActive: true,
+  sortOrder: 0,
+  title: "C",
+};
+
 function buildRepository(
   overrides: Partial<CourseRepository> = {}
 ): CourseRepository {
   return {
+    createCourse: jest.fn(async () => ({
+      course: COURSE_FIXTURE,
+      status: "created",
+    })),
+    updateCourse: jest.fn(async () => ({
+      course: COURSE_FIXTURE,
+      status: "updated",
+    })),
+    deleteCourse: jest.fn(async () => ({ status: "deleted" })),
+    recordLastViewedLesson: jest.fn(async () => ({ status: "recorded" })),
+    setLessonCompletion: jest.fn(async () => ({ status: "completed" })),
     createCourseModule: jest.fn(async () => ({
-      courseModule: { id: "m1", isActive: true, sortOrder: 0, title: "M" },
+      courseModule: {
+        courseId: "c1",
+        id: "m1",
+        isActive: true,
+        sortOrder: 0,
+        title: "M",
+        unlockAfterDays: null,
+      },
       status: "created",
     })),
     createLesson: jest.fn(async () => ({
@@ -35,15 +65,22 @@ function buildRepository(
     deleteCourseModule: jest.fn(async () => ({ status: "deleted" })),
     deleteLesson: jest.fn(async () => ({ status: "deleted" })),
     getEditableTreeByTribeSlug: jest.fn(async () => ({
-      modules: [],
+      courses: [],
       viewerPermissions: { canManageCourses: true },
     })),
     getTreeByTribeSlug: jest.fn(async () => ({
-      modules: [],
+      courses: [],
       viewerPermissions: { canManageCourses: false },
     })),
     updateCourseModule: jest.fn(async () => ({
-      courseModule: { id: "m1", isActive: true, sortOrder: 0, title: "M" },
+      courseModule: {
+        courseId: "c1",
+        id: "m1",
+        isActive: true,
+        sortOrder: 0,
+        title: "M",
+        unlockAfterDays: null,
+      },
       status: "updated",
     })),
     updateLesson: jest.fn(async () => ({
@@ -86,20 +123,114 @@ describe("manage tribe courses use cases", () => {
     });
   });
 
+  it("creates a course with trimmed and normalized fields", async () => {
+    const repository = buildRepository();
+    const useCase = createCourse({ courseRepository: repository });
+
+    await useCase({
+      coverImageUrl: " https://example.com/portada.jpg ",
+      description: "  Curso base  ",
+      sortOrder: 1,
+      title: "  Inversiones  ",
+      tribeSlug: " matematica-pro ",
+    });
+
+    expect(repository.createCourse).toHaveBeenCalledWith({
+      coverImageUrl: "https://example.com/portada.jpg",
+      description: "Curso base",
+      sortOrder: 1,
+      title: "Inversiones",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("rejects creating a course with an invalid cover image URL", async () => {
+    const repository = buildRepository();
+    const useCase = createCourse({ courseRepository: repository });
+
+    const result = await useCase({
+      coverImageUrl: "javascript:alert(1)",
+      description: "",
+      sortOrder: 0,
+      title: "Inversiones",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result).toEqual({ status: "invalid_input" });
+    expect(repository.createCourse).not.toHaveBeenCalled();
+  });
+
+  it("rejects creating a course with a blank title", async () => {
+    const repository = buildRepository();
+    const useCase = createCourse({ courseRepository: repository });
+
+    const result = await useCase({
+      coverImageUrl: "",
+      description: "",
+      sortOrder: 0,
+      title: "   ",
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result).toEqual({ status: "invalid_input" });
+    expect(repository.createCourse).not.toHaveBeenCalled();
+  });
+
+  it("updates a course keeping empty optional fields as null", async () => {
+    const repository = buildRepository();
+    const useCase = updateCourse({ courseRepository: repository });
+
+    await useCase({
+      courseId: " c1 ",
+      coverImageUrl: "",
+      description: "  ",
+      isActive: false,
+      sortOrder: 3,
+      title: "  Renta fija  ",
+      tribeSlug: " matematica-pro ",
+    });
+
+    expect(repository.updateCourse).toHaveBeenCalledWith({
+      courseId: "c1",
+      coverImageUrl: null,
+      description: null,
+      isActive: false,
+      sortOrder: 3,
+      title: "Renta fija",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("deletes a course with trimmed identifiers", async () => {
+    const repository = buildRepository();
+    const useCase = deleteCourse({ courseRepository: repository });
+
+    await useCase({ courseId: " c1 ", tribeSlug: " matematica-pro " });
+
+    expect(repository.deleteCourse).toHaveBeenCalledWith({
+      courseId: "c1",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
   it("creates a course module with trimmed title", async () => {
     const repository = buildRepository();
     const useCase = createCourseModule({ courseRepository: repository });
 
     await useCase({
+      courseId: " c1 ",
       sortOrder: 2,
       title: "  Empezar acá  ",
       tribeSlug: " matematica-pro ",
+      unlockAfterDays: null,
     });
 
     expect(repository.createCourseModule).toHaveBeenCalledWith({
+      courseId: "c1",
       sortOrder: 2,
       title: "Empezar acá",
       tribeSlug: "matematica-pro",
+      unlockAfterDays: null,
     });
   });
 
@@ -108,16 +239,34 @@ describe("manage tribe courses use cases", () => {
     const useCase = createCourseModule({ courseRepository: repository });
 
     const result = await useCase({
+      courseId: "c1",
       sortOrder: 0,
       title: "   ",
       tribeSlug: "matematica-pro",
+      unlockAfterDays: null,
     });
 
     expect(result).toEqual({ status: "invalid_input" });
     expect(repository.createCourseModule).not.toHaveBeenCalled();
   });
 
-  it("updates a course module with trimmed inputs", async () => {
+  it("rejects creating a course module with a negative unlock window", async () => {
+    const repository = buildRepository();
+    const useCase = createCourseModule({ courseRepository: repository });
+
+    const result = await useCase({
+      courseId: "c1",
+      sortOrder: 0,
+      title: "Empezar acá",
+      tribeSlug: "matematica-pro",
+      unlockAfterDays: -1,
+    });
+
+    expect(result).toEqual({ status: "invalid_input" });
+    expect(repository.createCourseModule).not.toHaveBeenCalled();
+  });
+
+  it("updates a course module with trimmed inputs and drip window", async () => {
     const repository = buildRepository();
     const useCase = updateCourseModule({ courseRepository: repository });
 
@@ -127,6 +276,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 5,
       title: "  Renta fija  ",
       tribeSlug: " matematica-pro ",
+      unlockAfterDays: 7,
     });
 
     expect(repository.updateCourseModule).toHaveBeenCalledWith({
@@ -135,6 +285,7 @@ describe("manage tribe courses use cases", () => {
       sortOrder: 5,
       title: "Renta fija",
       tribeSlug: "matematica-pro",
+      unlockAfterDays: 7,
     });
   });
 

@@ -10,17 +10,16 @@ import {
   createJsonResponse,
   mapMutationStatusResponse,
   readBooleanField,
-  readNullableNumberField,
   readNumberField,
   readStringField,
   readUuidValue,
-} from "../../route-helpers";
+} from "../route-helpers";
 
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ moduleId: string; slug: string }> }
+  context: { params: Promise<{ courseId: string; slug: string }> }
 ) {
-  const { moduleId, slug } = await context.params;
+  const { courseId: rawCourseId, slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: COURSE_ROUTE_LOG.feature,
@@ -38,37 +37,34 @@ export async function PATCH(
     );
   }
 
-  const courseModuleId = readUuidValue(moduleId);
+  const courseId = readUuidValue(rawCourseId);
 
-  if (!courseModuleId) {
+  if (!courseId) {
     return mapMutationStatusResponse(COURSE_MUTATION_STATUS.invalidInput);
   }
 
   try {
     const body = await request.json().catch(() => null);
     const isActive = readBooleanField(body, COURSE_ROUTE_FIELD.isActive);
-    const unlockAfterDays = readNullableNumberField(
-      body,
-      COURSE_ROUTE_FIELD.unlockAfterDays
-    );
 
-    if (isActive === null || unlockAfterDays === undefined) {
+    if (isActive === null) {
       return mapMutationStatusResponse(COURSE_MUTATION_STATUS.invalidInput);
     }
 
-    const result = await modules.courses.useCases.updateCourseModule({
-      courseModuleId,
+    const result = await modules.courses.useCases.updateCourse({
+      courseId,
+      coverImageUrl: readStringField(body, COURSE_ROUTE_FIELD.coverImageUrl),
+      description: readStringField(body, COURSE_ROUTE_FIELD.description),
       isActive,
       sortOrder: readNumberField(body, COURSE_ROUTE_FIELD.sortOrder),
       title: readStringField(body, COURSE_ROUTE_FIELD.title),
       tribeSlug: slug,
-      unlockAfterDays,
     });
 
     if (result.status === COURSE_MUTATION_STATUS.updated) {
       return createJsonResponse(
         {
-          courseModule: result.courseModule,
+          course: result.course,
           message: COURSE_ROUTE_RESPONSE.updateSuccessMessage,
         },
         HTTP_STATUS.ok
@@ -78,9 +74,9 @@ export async function PATCH(
     return mapMutationStatusResponse(result.status);
   } catch (error) {
     logger.error({
-      message: COURSE_ROUTE_LOG.updateCourseModuleFailureMessage,
+      message: COURSE_ROUTE_LOG.updateCourseFailureMessage,
       error,
-      metadata: { moduleId, slug, viewerId: authenticatedMember.id },
+      metadata: { courseId: rawCourseId, slug, viewerId: authenticatedMember.id },
     });
 
     return createJsonResponse(
@@ -92,9 +88,9 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  context: { params: Promise<{ moduleId: string; slug: string }> }
+  context: { params: Promise<{ courseId: string; slug: string }> }
 ) {
-  const { moduleId, slug } = await context.params;
+  const { courseId: rawCourseId, slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: COURSE_ROUTE_LOG.feature,
@@ -112,15 +108,15 @@ export async function DELETE(
     );
   }
 
-  const courseModuleId = readUuidValue(moduleId);
+  const courseId = readUuidValue(rawCourseId);
 
-  if (!courseModuleId) {
+  if (!courseId) {
     return mapMutationStatusResponse(COURSE_MUTATION_STATUS.invalidInput);
   }
 
   try {
-    const result = await modules.courses.useCases.deleteCourseModule({
-      courseModuleId,
+    const result = await modules.courses.useCases.deleteCourse({
+      courseId,
       tribeSlug: slug,
     });
 
@@ -134,9 +130,9 @@ export async function DELETE(
     return mapMutationStatusResponse(result.status);
   } catch (error) {
     logger.error({
-      message: COURSE_ROUTE_LOG.deleteCourseModuleFailureMessage,
+      message: COURSE_ROUTE_LOG.deleteCourseFailureMessage,
       error,
-      metadata: { moduleId, slug, viewerId: authenticatedMember.id },
+      metadata: { courseId: rawCourseId, slug, viewerId: authenticatedMember.id },
     });
 
     return createJsonResponse(

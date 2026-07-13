@@ -1,4 +1,5 @@
 import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
+import type { Course } from "@/src/modules/courses/domain/entities/course";
 import type { CourseModule } from "@/src/modules/courses/domain/entities/course-module";
 import type { Lesson } from "@/src/modules/courses/domain/entities/lesson";
 import type { LessonFileAttachmentDraft } from "@/src/modules/courses/domain/repositories/lesson-file-repository";
@@ -7,17 +8,40 @@ export type GetTribeCoursesQuery = {
   tribeSlug: string;
 };
 
-export type CreateCourseModuleRepositoryCommand = {
+export type CreateCourseRepositoryCommand = {
+  coverImageUrl: string | null;
+  description: string | null;
   sortOrder: number;
   title: string;
   tribeSlug: string;
 };
 
-export type UpdateCourseModuleRepositoryCommand =
-  CreateCourseModuleRepositoryCommand & {
-    courseModuleId: string;
-    isActive: boolean;
-  };
+export type UpdateCourseRepositoryCommand = CreateCourseRepositoryCommand & {
+  courseId: string;
+  isActive: boolean;
+};
+
+export type DeleteCourseRepositoryCommand = {
+  courseId: string;
+  tribeSlug: string;
+};
+
+export type CreateCourseModuleRepositoryCommand = {
+  courseId: string;
+  sortOrder: number;
+  title: string;
+  tribeSlug: string;
+  unlockAfterDays: number | null;
+};
+
+export type UpdateCourseModuleRepositoryCommand = {
+  courseModuleId: string;
+  isActive: boolean;
+  sortOrder: number;
+  title: string;
+  tribeSlug: string;
+  unlockAfterDays: number | null;
+};
 
 export type DeleteCourseModuleRepositoryCommand = {
   courseModuleId: string;
@@ -49,12 +73,45 @@ export type DeleteLessonRepositoryCommand = {
   tribeSlug: string;
 };
 
+export type SetLessonCompletionRepositoryCommand = {
+  completed: boolean;
+  lessonId: string;
+  tribeSlug: string;
+};
+
+export type RecordLastViewedLessonRepositoryCommand = {
+  courseId: string;
+  lessonId: string;
+  tribeSlug: string;
+};
+
+export type CourseResult = Course;
+
 export type CourseModuleResult = CourseModule;
 
 export type LessonResult = Lesson;
 
+export type LessonWithViewerStateResult = LessonResult & {
+  /** Whether the current viewer marked the lesson as completed. */
+  completed: boolean;
+};
+
+export type CourseModuleViewerAccessResult = {
+  /** True when the drip window keeps the module locked for the viewer. */
+  isLocked: boolean;
+  /** ISO-8601 unlock timestamp for locked modules, otherwise `null`. */
+  unlocksAt: string | null;
+};
+
 export type CourseModuleWithLessonsResult = CourseModuleResult & {
-  lessons: LessonResult[];
+  lessons: LessonWithViewerStateResult[];
+  viewerAccess: CourseModuleViewerAccessResult;
+};
+
+export type CourseWithModulesResult = CourseResult & {
+  /** Last lesson the viewer opened inside this course, when any. */
+  lastViewedLessonId: string | null;
+  modules: CourseModuleWithLessonsResult[];
 };
 
 export type CourseTreeViewerPermissionsResult = {
@@ -62,8 +119,30 @@ export type CourseTreeViewerPermissionsResult = {
 };
 
 export type CourseTreeResult = {
-  modules: CourseModuleWithLessonsResult[];
+  courses: CourseWithModulesResult[];
   viewerPermissions: CourseTreeViewerPermissionsResult;
+};
+
+export type CourseCreationResult =
+  | {
+      course: CourseResult;
+      status: "created";
+    }
+  | {
+      status: "forbidden" | "invalid_input" | "not_found";
+    };
+
+export type CourseUpdateResult =
+  | {
+      course: CourseResult;
+      status: "updated";
+    }
+  | {
+      status: "forbidden" | "invalid_input" | "not_found";
+    };
+
+export type CourseDeletionResult = {
+  status: "deleted" | "forbidden" | "not_found";
 };
 
 export type CourseModuleCreationResult =
@@ -120,16 +199,30 @@ export type LessonDeletionResult = {
   status: "deleted" | "forbidden" | "not_found";
 };
 
+export type LessonCompletionResult = {
+  status: "completed" | "forbidden" | "not_found" | "uncompleted";
+};
+
+export type LastViewedLessonRecordingResult = {
+  status: "forbidden" | "not_found" | "recorded";
+};
+
 /**
  * Domain-owned repository port for reading and mutating tribe course content.
  */
 export type CourseRepository = {
+  createCourse: (
+    command: CreateCourseRepositoryCommand
+  ) => Promise<CourseCreationResult>;
   createCourseModule: (
     command: CreateCourseModuleRepositoryCommand
   ) => Promise<CourseModuleCreationResult>;
   createLesson: (
     command: CreateLessonRepositoryCommand
   ) => Promise<LessonCreationResult>;
+  deleteCourse: (
+    command: DeleteCourseRepositoryCommand
+  ) => Promise<CourseDeletionResult>;
   deleteCourseModule: (
     command: DeleteCourseModuleRepositoryCommand
   ) => Promise<CourseModuleDeletionResult>;
@@ -140,6 +233,15 @@ export type CourseRepository = {
     query: GetTribeCoursesQuery
   ) => Promise<CourseTreeResult>;
   getTreeByTribeSlug: (query: GetTribeCoursesQuery) => Promise<CourseTreeResult>;
+  recordLastViewedLesson: (
+    command: RecordLastViewedLessonRepositoryCommand
+  ) => Promise<LastViewedLessonRecordingResult>;
+  setLessonCompletion: (
+    command: SetLessonCompletionRepositoryCommand
+  ) => Promise<LessonCompletionResult>;
+  updateCourse: (
+    command: UpdateCourseRepositoryCommand
+  ) => Promise<CourseUpdateResult>;
   updateCourseModule: (
     command: UpdateCourseModuleRepositoryCommand
   ) => Promise<CourseModuleUpdateResult>;

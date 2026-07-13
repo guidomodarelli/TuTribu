@@ -1,24 +1,34 @@
 import type {
+  CreateCourseCommand,
   CreateCourseModuleCommand,
   CreateLessonCommand,
+  DeleteCourseCommand,
   DeleteCourseModuleCommand,
   DeleteLessonCommand,
   GetTribeCoursesQuery,
+  UpdateCourseCommand,
   UpdateCourseModuleCommand,
   UpdateLessonCommand,
 } from "@/src/modules/courses/application/commands/course-commands";
 import type {
+  CourseCreationResult,
+  CourseDeletionResult,
   CourseModuleCreationResult,
   CourseModuleDeletionResult,
   CourseModuleUpdateResult,
   CourseTreeResult,
+  CourseUpdateResult,
   LessonCreationResult,
   LessonDeletionResult,
   LessonUpdateResult,
 } from "@/src/modules/courses/application/results/course-results";
 import {
+  COURSE_COVER_IMAGE_URL,
+  COURSE_DESCRIPTION,
   COURSE_LESSON_DESCRIPTION,
+  COURSE_MODULE_UNLOCK_AFTER_DAYS,
   COURSE_MUTATION_STATUS,
+  COURSE_TITLE,
   LESSON_FILE_PREPARATION_STATUS,
 } from "@/src/modules/courses/constants/courses";
 import type { CourseRepository } from "@/src/modules/courses/domain/repositories/course-repository";
@@ -49,6 +59,7 @@ type LessonMutationDependencies = CourseRepositoryDependencies & {
 
 const COURSE_MODULE_TITLE_MAX_LENGTH = 120;
 const COURSE_LESSON_TITLE_MAX_LENGTH = 160;
+const HTTP_URL_PROTOCOLS = ["http:", "https:"] as const;
 
 function normalizeText(value: string): string {
   return value.trim();
@@ -62,6 +73,43 @@ function normalizeOptionalText(value: string): string | null {
 
 function isValidModuleTitle(title: string): boolean {
   return title.length > 0 && title.length <= COURSE_MODULE_TITLE_MAX_LENGTH;
+}
+
+function isValidCourseTitle(title: string): boolean {
+  return title.length > 0 && title.length <= COURSE_TITLE.maxLength;
+}
+
+function isValidCourseDescription(description: string): boolean {
+  return normalizeText(description).length <= COURSE_DESCRIPTION.maxLength;
+}
+
+function isValidCoverImageUrl(coverImageUrl: string | null): boolean {
+  if (coverImageUrl === null) {
+    return true;
+  }
+
+  if (coverImageUrl.length > COURSE_COVER_IMAGE_URL.maxLength) {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(coverImageUrl);
+
+    return HTTP_URL_PROTOCOLS.some(
+      (protocol) => protocol === parsedUrl.protocol
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isValidUnlockAfterDays(unlockAfterDays: number | null): boolean {
+  return (
+    unlockAfterDays === null ||
+    (Number.isInteger(unlockAfterDays) &&
+      unlockAfterDays >= COURSE_MODULE_UNLOCK_AFTER_DAYS.min &&
+      unlockAfterDays <= COURSE_MODULE_UNLOCK_AFTER_DAYS.max)
+  );
 }
 
 function isValidLessonTitle(title: string): boolean {
@@ -110,6 +158,74 @@ export function getEditableTribeCourses({
     });
 }
 
+export function createCourse({
+  courseRepository,
+}: CourseRepositoryDependencies) {
+  return async (
+    command: CreateCourseCommand
+  ): Promise<CourseCreationResult> => {
+    const title = normalizeText(command.title);
+    const description = normalizeOptionalText(command.description);
+    const coverImageUrl = normalizeOptionalText(command.coverImageUrl);
+
+    if (
+      !isValidCourseTitle(title) ||
+      !isValidCourseDescription(command.description) ||
+      !isValidCoverImageUrl(coverImageUrl)
+    ) {
+      return { status: COURSE_MUTATION_STATUS.invalidInput };
+    }
+
+    return courseRepository.createCourse({
+      coverImageUrl,
+      description,
+      sortOrder: command.sortOrder,
+      title,
+      tribeSlug: normalizeText(command.tribeSlug),
+    });
+  };
+}
+
+export function updateCourse({
+  courseRepository,
+}: CourseRepositoryDependencies) {
+  return async (command: UpdateCourseCommand): Promise<CourseUpdateResult> => {
+    const title = normalizeText(command.title);
+    const description = normalizeOptionalText(command.description);
+    const coverImageUrl = normalizeOptionalText(command.coverImageUrl);
+
+    if (
+      !isValidCourseTitle(title) ||
+      !isValidCourseDescription(command.description) ||
+      !isValidCoverImageUrl(coverImageUrl)
+    ) {
+      return { status: COURSE_MUTATION_STATUS.invalidInput };
+    }
+
+    return courseRepository.updateCourse({
+      courseId: normalizeText(command.courseId),
+      coverImageUrl,
+      description,
+      isActive: command.isActive,
+      sortOrder: command.sortOrder,
+      title,
+      tribeSlug: normalizeText(command.tribeSlug),
+    });
+  };
+}
+
+export function deleteCourse({
+  courseRepository,
+}: CourseRepositoryDependencies) {
+  return async (
+    command: DeleteCourseCommand
+  ): Promise<CourseDeletionResult> =>
+    courseRepository.deleteCourse({
+      courseId: normalizeText(command.courseId),
+      tribeSlug: normalizeText(command.tribeSlug),
+    });
+}
+
 export function createCourseModule({
   courseRepository,
 }: CourseRepositoryDependencies) {
@@ -117,15 +233,22 @@ export function createCourseModule({
     command: CreateCourseModuleCommand
   ): Promise<CourseModuleCreationResult> => {
     const title = normalizeText(command.title);
+    const courseId = normalizeText(command.courseId);
 
-    if (!isValidModuleTitle(title)) {
+    if (
+      !isValidModuleTitle(title) ||
+      courseId.length === 0 ||
+      !isValidUnlockAfterDays(command.unlockAfterDays)
+    ) {
       return { status: COURSE_MUTATION_STATUS.invalidInput };
     }
 
     return courseRepository.createCourseModule({
+      courseId,
       sortOrder: command.sortOrder,
       title,
       tribeSlug: normalizeText(command.tribeSlug),
+      unlockAfterDays: command.unlockAfterDays,
     });
   };
 }
@@ -138,7 +261,10 @@ export function updateCourseModule({
   ): Promise<CourseModuleUpdateResult> => {
     const title = normalizeText(command.title);
 
-    if (!isValidModuleTitle(title)) {
+    if (
+      !isValidModuleTitle(title) ||
+      !isValidUnlockAfterDays(command.unlockAfterDays)
+    ) {
       return { status: COURSE_MUTATION_STATUS.invalidInput };
     }
 
@@ -148,6 +274,7 @@ export function updateCourseModule({
       sortOrder: command.sortOrder,
       title,
       tribeSlug: normalizeText(command.tribeSlug),
+      unlockAfterDays: command.unlockAfterDays,
     });
   };
 }

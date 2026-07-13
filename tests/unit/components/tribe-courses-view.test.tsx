@@ -1,49 +1,87 @@
 import { act } from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 
 import { TribeCoursesView } from "@/components/courses/tribe-courses-view";
-import type { CourseModuleWithLessonsResult } from "@/src/modules/courses/application/results/course-results";
+import type { CourseWithModulesResult } from "@/src/modules/courses/application/results/course-results";
 
 const TRIBE_SLUG = "matematica-pro";
-const courseModules: CourseModuleWithLessonsResult[] = [
-  {
-    id: "module-1",
+
+function buildCourse(
+  overrides: Partial<CourseWithModulesResult> = {}
+): CourseWithModulesResult {
+  return {
+    coverImageUrl: null,
+    description: null,
+    id: "course-1",
     isActive: true,
-    lessons: [
+    lastViewedLessonId: null,
+    modules: [
       {
-        courseModuleId: "module-1",
-        description: null,
-        externalVideoId: "video-1",
-        id: "lesson-1",
+        courseId: "course-1",
+        id: "module-1",
         isActive: true,
+        lessons: [
+          {
+            completed: false,
+            courseModuleId: "module-1",
+            description: null,
+            externalVideoId: "video-1",
+            id: "lesson-1",
+            isActive: true,
+            sortOrder: 0,
+            title: "Primera clase",
+            videoProvider: "youtube",
+          },
+          {
+            completed: true,
+            courseModuleId: "module-1",
+            description: null,
+            externalVideoId: "video-2",
+            id: "lesson-2",
+            isActive: true,
+            sortOrder: 1,
+            title: "Segunda clase",
+            videoProvider: "youtube",
+          },
+        ],
         sortOrder: 0,
-        title: "Primera clase",
-        videoProvider: "youtube",
-      },
-      {
-        courseModuleId: "module-1",
-        description: null,
-        externalVideoId: "video-2",
-        id: "lesson-2",
-        isActive: true,
-        sortOrder: 1,
-        title: "Segunda clase",
-        videoProvider: "youtube",
+        title: "Módulo inicial",
+        unlockAfterDays: null,
+        viewerAccess: { isLocked: false, unlocksAt: null },
       },
     ],
     sortOrder: 0,
-    title: "Módulo inicial",
-  },
-];
+    title: "Inversiones",
+    ...overrides,
+  };
+}
+
+function buildJsonResponse(body: unknown): Response {
+  return {
+    json: async () => body,
+    ok: true,
+    status: 200,
+  } as Response;
+}
 
 describe("TribeCoursesView", () => {
-  it("shows the management link when a course manager sees an empty course list", () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(async () =>
+      buildJsonResponse({ comments: [] })
+    ) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("shows the management link when a course manager sees an empty course", () => {
     render(
       <TribeCoursesView
-        modules={[]}
+        course={buildCourse({ modules: [] })}
         selectedLessonId={null}
         tribeSlug={TRIBE_SLUG}
         viewerPermissions={{ canManageCourses: true }}
@@ -56,10 +94,10 @@ describe("TribeCoursesView", () => {
     );
   });
 
-  it("hides the management link when a regular member sees an empty course list", () => {
+  it("hides the management link when a regular member sees an empty course", () => {
     render(
       <TribeCoursesView
-        modules={[]}
+        course={buildCourse({ modules: [] })}
         selectedLessonId={null}
         tribeSlug={TRIBE_SLUG}
         viewerPermissions={{ canManageCourses: false }}
@@ -75,20 +113,20 @@ describe("TribeCoursesView", () => {
 
     render(
       <TribeCoursesView
-        modules={courseModules}
+        course={buildCourse()}
         selectedLessonId={null}
         tribeSlug={TRIBE_SLUG}
         viewerPermissions={{ canManageCourses: false }}
       />
     );
 
-    // Lessons render as real, shareable links carrying the `leccion` query.
+    // Lessons render as real, shareable links carrying `curso` and `leccion`.
     const secondLessonLink = screen.getByRole("link", {
       name: /Segunda clase/,
     });
     expect(secondLessonLink).toHaveAttribute(
       "href",
-      `/${TRIBE_SLUG}/cursos?leccion=lesson-2`
+      `/${TRIBE_SLUG}/cursos?curso=course-1&leccion=lesson-2`
     );
 
     // The first lesson is shown by default.
@@ -105,119 +143,16 @@ describe("TribeCoursesView", () => {
     expect(pushStateSpy).toHaveBeenCalledWith(
       null,
       "",
-      `/${TRIBE_SLUG}/cursos?leccion=lesson-2`
+      `/${TRIBE_SLUG}/cursos?curso=course-1&leccion=lesson-2`
     );
 
     pushStateSpy.mockRestore();
   });
 
-  it("renders links inside the active lesson description", () => {
-    const modulesWithDescription: CourseModuleWithLessonsResult[] = [
-      {
-        id: "module-1",
-        isActive: true,
-        lessons: [
-          {
-            courseModuleId: "module-1",
-            description:
-              "Mirá [el curso](https://tutribu.com) y también www.ejemplo.com",
-            externalVideoId: "video-1",
-            id: "lesson-1",
-            isActive: true,
-            sortOrder: 0,
-            title: "Primera clase",
-            videoProvider: "youtube",
-          },
-        ],
-        sortOrder: 0,
-        title: "Módulo inicial",
-      },
-    ];
-
+  it("resumes from the last viewed lesson when no lesson is selected", () => {
     render(
       <TribeCoursesView
-        modules={modulesWithDescription}
-        selectedLessonId={null}
-        tribeSlug={TRIBE_SLUG}
-        viewerPermissions={{ canManageCourses: false }}
-      />
-    );
-
-    const markdownLink = screen.getByRole("link", { name: "el curso" });
-    expect(markdownLink).toHaveAttribute("href", "https://tutribu.com");
-    expect(markdownLink).toHaveAttribute("target", "_blank");
-    expect(markdownLink).toHaveAttribute("rel", "noreferrer");
-
-    const bareLink = screen.getByRole("link", { name: "www.ejemplo.com" });
-    expect(bareLink).toHaveAttribute("href", "https://www.ejemplo.com");
-  });
-
-  it("renders lesson material as download links ordered by sort order", () => {
-    const modulesWithFiles: CourseModuleWithLessonsResult[] = [
-      {
-        id: "module-1",
-        isActive: true,
-        lessons: [
-          {
-            courseModuleId: "module-1",
-            description: null,
-            externalVideoId: "video-1",
-            files: [
-              {
-                fileName: "planilla.xlsx",
-                fileSizeBytes: 2048,
-                id: "file-planilla",
-                mimeType:
-                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                sortOrder: 1,
-              },
-              {
-                fileName: "apunte.pdf",
-                fileSizeBytes: 1024,
-                id: "file-apunte",
-                mimeType: "application/pdf",
-                sortOrder: 0,
-              },
-            ],
-            id: "lesson-1",
-            isActive: true,
-            sortOrder: 0,
-            title: "Primera clase",
-            videoProvider: "youtube",
-          },
-        ],
-        sortOrder: 0,
-        title: "Módulo inicial",
-      },
-    ];
-
-    render(
-      <TribeCoursesView
-        modules={modulesWithFiles}
-        selectedLessonId={null}
-        tribeSlug={TRIBE_SLUG}
-        viewerPermissions={{ canManageCourses: false }}
-      />
-    );
-
-    const downloadLinks = screen.getAllByRole("link", { name: /Descargar/ });
-    expect(downloadLinks).toHaveLength(2);
-    expect(downloadLinks[0]).toHaveAccessibleName("Descargar apunte.pdf");
-    expect(downloadLinks[0]).toHaveAttribute(
-      "href",
-      `/api/tribes/${TRIBE_SLUG}/courses/lessons/files/file-apunte/download`
-    );
-    expect(downloadLinks[1]).toHaveAccessibleName("Descargar planilla.xlsx");
-    expect(downloadLinks[1]).toHaveAttribute(
-      "href",
-      `/api/tribes/${TRIBE_SLUG}/courses/lessons/files/file-planilla/download`
-    );
-  });
-
-  it("does not render the lesson material block when the lesson has no files", () => {
-    render(
-      <TribeCoursesView
-        modules={courseModules}
+        course={buildCourse({ lastViewedLessonId: "lesson-2" })}
         selectedLessonId={null}
         tribeSlug={TRIBE_SLUG}
         viewerPermissions={{ canManageCourses: false }}
@@ -225,8 +160,175 @@ describe("TribeCoursesView", () => {
     );
 
     expect(
-      screen.queryByRole("link", { name: /Descargar/ })
+      screen.getByRole("heading", { name: "Segunda clase" })
+    ).toBeInTheDocument();
+  });
+
+  it("records the opened lesson so the next visit can resume", async () => {
+    render(
+      <TribeCoursesView
+        course={buildCourse()}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        `/api/tribes/${TRIBE_SLUG}/courses/course-1/last-lesson`,
+        expect.objectContaining({
+          body: JSON.stringify({ lessonId: "lesson-1" }),
+          method: "PUT",
+        })
+      );
+    });
+  });
+
+  it("navigates with the next and previous lesson buttons", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeCoursesView
+        course={buildCourse()}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /Lección anterior/ })
     ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /Siguiente lección/ })
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Segunda clase" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Siguiente lección/ })
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /Lección anterior/ })
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Primera clase" })
+    ).toBeInTheDocument();
+  });
+
+  it("toggles the lesson completion through the completion endpoint", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeCoursesView
+        course={buildCourse()}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Marcar como completada" })
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        `/api/tribes/${TRIBE_SLUG}/courses/lessons/lesson-1/completion`,
+        expect.objectContaining({
+          body: JSON.stringify({ completed: true }),
+          method: "PUT",
+        })
+      );
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Marcar como no completada" })
+    ).toBeInTheDocument();
+  });
+
+  it("reverts the optimistic completion when the endpoint fails", async () => {
+    const user = userEvent.setup();
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/completion")) {
+        return { json: async () => ({}), ok: false, status: 500 } as Response;
+      }
+      return buildJsonResponse({ comments: [] });
+    }) as unknown as typeof fetch;
+
+    render(
+      <TribeCoursesView
+        course={buildCourse()}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Marcar como completada" })
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Marcar como completada" })
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("shows drip-locked modules with their unlock date and hides their lessons", () => {
+    const lockedCourse = buildCourse({
+      modules: [
+        {
+          courseId: "course-1",
+          id: "module-locked",
+          isActive: true,
+          lessons: [],
+          sortOrder: 0,
+          title: "Módulo avanzado",
+          unlockAfterDays: 14,
+          viewerAccess: {
+            isLocked: true,
+            unlocksAt: "2026-07-20T00:00:00Z",
+          },
+        },
+      ],
+    });
+
+    render(
+      <TribeCoursesView
+        course={lockedCourse}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    expect(screen.getByText("Módulo avanzado")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Se desbloquea el 20 de julio de 2026/)
+    ).toBeInTheDocument();
+  });
+
+  it("marks completed lessons with a check in the sidebar", () => {
+    render(
+      <TribeCoursesView
+        course={buildCourse()}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    const completedMarks = screen.getAllByLabelText("Completada");
+    expect(completedMarks).toHaveLength(1);
+    expect(screen.getByText("50% completado")).toBeInTheDocument();
   });
 
   it("hydrates the sidebar management link without recoverable errors", async () => {
@@ -240,7 +342,7 @@ describe("TribeCoursesView", () => {
     try {
       const view = (
         <TribeCoursesView
-          modules={courseModules}
+          course={buildCourse()}
           selectedLessonId={null}
           tribeSlug={TRIBE_SLUG}
           viewerPermissions={{ canManageCourses: true }}

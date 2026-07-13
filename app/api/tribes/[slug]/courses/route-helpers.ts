@@ -1,10 +1,18 @@
 export const COURSE_ROUTE_LOG = {
+  createCourseFailureMessage: "Course creation failed",
   createCourseModuleFailureMessage: "Course module creation failed",
+  createLessonCommentFailureMessage: "Lesson comment creation failed",
   createLessonFailureMessage: "Course lesson creation failed",
+  deleteCourseFailureMessage: "Course deletion failed",
   deleteCourseModuleFailureMessage: "Course module deletion failed",
+  deleteLessonCommentFailureMessage: "Lesson comment deletion failed",
   deleteLessonFailureMessage: "Course lesson deletion failed",
   feature: "courses",
+  listLessonCommentsFailureMessage: "Lesson comment listing failed",
   operation: "manage-tribe-courses",
+  recordLastViewedLessonFailureMessage: "Last viewed lesson recording failed",
+  setLessonCompletionFailureMessage: "Lesson completion toggle failed",
+  updateCourseFailureMessage: "Course update failed",
   updateCourseModuleFailureMessage: "Course module update failed",
   updateLessonFailureMessage: "Course lesson update failed",
 } as const;
@@ -28,17 +36,34 @@ export const COURSE_ROUTE_RESPONSE = {
   unexpectedUpdateMessage:
     "No pudimos actualizar el contenido. Intentá de nuevo.",
   updateSuccessMessage: "Contenido actualizado.",
+  commentCreatedMessage: "Comentario publicado.",
+  commentDeletedMessage: "Comentario eliminado.",
+  commentForbiddenMessage: "No podés comentar en esta lección.",
+  completionSavedMessage: "Progreso guardado.",
+  completionForbiddenMessage: "No podés actualizar el progreso de esta lección.",
+  invalidCommentMessage:
+    "Escribí un comentario de hasta 2000 caracteres.",
+  unexpectedCommentMessage:
+    "No pudimos publicar el comentario. Intentá de nuevo.",
+  unexpectedCompletionMessage:
+    "No pudimos guardar tu progreso. Intentá de nuevo.",
 } as const;
 
 export const COURSE_ROUTE_FIELD = {
   assetId: "assetId",
+  completed: "completed",
+  content: "content",
+  courseId: "courseId",
   courseModuleId: "courseModuleId",
+  coverImageUrl: "coverImageUrl",
   description: "description",
   externalVideoUrl: "externalVideoUrl",
   files: "files",
   isActive: "isActive",
+  lessonId: "lessonId",
   sortOrder: "sortOrder",
   title: "title",
+  unlockAfterDays: "unlockAfterDays",
 } as const;
 
 export const HTTP_STATUS = {
@@ -96,6 +121,40 @@ export function readNumberField(body: unknown, field: string): number {
   }
 
   return 0;
+}
+
+/**
+ * Reads an optional non-negative integer field: `null` when absent or blank,
+ * `undefined` when present but malformed.
+ *
+ * @param body - Parsed request body.
+ * @param field - Field name to read.
+ * @returns The integer, `null` for "unset", or `undefined` on invalid input.
+ */
+export function readNullableNumberField(
+  body: unknown,
+  field: string
+): number | null | undefined {
+  if (!body || typeof body !== "object" || !(field in body)) {
+    return null;
+  }
+
+  const value = (body as Record<string, unknown>)[field];
+
+  if (value === null || value === "") {
+    return null;
+  }
+
+  if (typeof value === "number" && Number.isInteger(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
 }
 
 export function readBooleanField(body: unknown, field: string): boolean | null {

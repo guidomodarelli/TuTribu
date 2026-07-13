@@ -1,7 +1,7 @@
 import type {
   CourseModuleResult,
   CourseModuleWithLessonsResult,
-  LessonResult,
+  LessonWithViewerStateResult,
 } from "@/src/modules/courses/application/results/course-results";
 
 export type ModuleSnapshot = {
@@ -11,7 +11,7 @@ export type ModuleSnapshot = {
 
 export type LessonSnapshot = {
   index: number;
-  lesson: LessonResult;
+  lesson: LessonWithViewerStateResult;
   moduleId: string;
 };
 
@@ -26,7 +26,9 @@ function sortModules(
   );
 }
 
-function sortLessons(lessons: LessonResult[]): LessonResult[] {
+function sortLessons(
+  lessons: LessonWithViewerStateResult[]
+): LessonWithViewerStateResult[] {
   return [...lessons].sort(
     (leftLesson, rightLesson) => leftLesson.sortOrder - rightLesson.sortOrder
   );
@@ -63,9 +65,7 @@ export function replaceModuleId(
 ): CourseModuleWithLessonsResult[] {
   return sortModules(
     modules.map((entry) =>
-      entry.id === fromModuleId
-        ? { ...serverModule, lessons: entry.lessons }
-        : entry
+      entry.id === fromModuleId ? { ...entry, ...serverModule } : entry
     )
   );
 }
@@ -96,7 +96,7 @@ export function findModuleSnapshot(
 export function appendLesson(
   modules: CourseModuleWithLessonsResult[],
   moduleId: string,
-  lesson: LessonResult
+  lesson: LessonWithViewerStateResult
 ): CourseModuleWithLessonsResult[] {
   return modules.map((entry) =>
     entry.id === moduleId
@@ -108,7 +108,7 @@ export function appendLesson(
 export function insertLessonAt(
   modules: CourseModuleWithLessonsResult[],
   moduleId: string,
-  lesson: LessonResult,
+  lesson: LessonWithViewerStateResult,
   index: number
 ): CourseModuleWithLessonsResult[] {
   return modules.map((entry) => {
@@ -140,7 +140,7 @@ export function replaceLessonId(
   modules: CourseModuleWithLessonsResult[],
   moduleId: string,
   fromLessonId: string,
-  serverLesson: LessonResult
+  serverLesson: LessonWithViewerStateResult
 ): CourseModuleWithLessonsResult[] {
   return modules.map((entry) => {
     if (entry.id !== moduleId) {
@@ -161,7 +161,7 @@ export function patchLessonFields(
   modules: CourseModuleWithLessonsResult[],
   moduleId: string,
   lessonId: string,
-  patch: Partial<LessonResult>
+  patch: Partial<LessonWithViewerStateResult>
 ): CourseModuleWithLessonsResult[] {
   return modules.map((entry) => {
     if (entry.id !== moduleId) {

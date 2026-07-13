@@ -9,11 +9,9 @@ import {
   HTTP_STATUS,
   createJsonResponse,
   mapMutationStatusResponse,
-  readNullableNumberField,
   readNumberField,
   readStringField,
-  readUuidField,
-} from "../route-helpers";
+} from "./route-helpers";
 
 export async function POST(
   request: Request,
@@ -39,28 +37,18 @@ export async function POST(
 
   try {
     const body = await request.json().catch(() => null);
-    const courseId = readUuidField(body, COURSE_ROUTE_FIELD.courseId);
-    const unlockAfterDays = readNullableNumberField(
-      body,
-      COURSE_ROUTE_FIELD.unlockAfterDays
-    );
-
-    if (!courseId || unlockAfterDays === undefined) {
-      return mapMutationStatusResponse(COURSE_MUTATION_STATUS.invalidInput);
-    }
-
-    const result = await modules.courses.useCases.createCourseModule({
-      courseId,
+    const result = await modules.courses.useCases.createCourse({
+      coverImageUrl: readStringField(body, COURSE_ROUTE_FIELD.coverImageUrl),
+      description: readStringField(body, COURSE_ROUTE_FIELD.description),
       sortOrder: readNumberField(body, COURSE_ROUTE_FIELD.sortOrder),
       title: readStringField(body, COURSE_ROUTE_FIELD.title),
       tribeSlug: slug,
-      unlockAfterDays,
     });
 
     if (result.status === COURSE_MUTATION_STATUS.created) {
       return createJsonResponse(
         {
-          courseModule: result.courseModule,
+          course: result.course,
           message: COURSE_ROUTE_RESPONSE.createSuccessMessage,
         },
         HTTP_STATUS.created
@@ -70,7 +58,7 @@ export async function POST(
     return mapMutationStatusResponse(result.status);
   } catch (error) {
     logger.error({
-      message: COURSE_ROUTE_LOG.createCourseModuleFailureMessage,
+      message: COURSE_ROUTE_LOG.createCourseFailureMessage,
       error,
       metadata: { slug, viewerId: authenticatedMember.id },
     });

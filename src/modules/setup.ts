@@ -16,6 +16,7 @@ import { R2MessageFileRepository } from "./messages/infrastructure/repositories/
 import { buildMessagesModule } from "./messages/setup";
 import { buildCoursesModule } from "./courses/setup";
 import { PostgresCourseRepository } from "./courses/infrastructure/repositories/postgres-course-repository";
+import { PostgresLessonCommentRepository } from "./courses/infrastructure/repositories/postgres-lesson-comment-repository";
 import { R2LessonFileRepository } from "./courses/infrastructure/repositories/r2-lesson-file-repository";
 import { buildEventsModule } from "./events/setup";
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
@@ -188,6 +189,9 @@ export async function createRequestModules(
     }),
     courses: buildCoursesModule({
       courseRepository: new PostgresCourseRepository(executeWithRequestContext),
+      lessonCommentRepository: new PostgresLessonCommentRepository(
+        executeWithRequestContext
+      ),
       lessonFileRepository: new R2LessonFileRepository(
         executeWithRequestContext,
         {

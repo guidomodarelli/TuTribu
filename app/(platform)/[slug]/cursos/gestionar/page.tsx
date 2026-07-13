@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { TribeCoursesCatalogManagement } from "@/components/courses/tribe-courses-catalog-management";
 import { TribeCoursesManagement } from "@/components/courses/tribe-courses-management";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { resolveVisibleTribePageAccess } from "../../tribe-page-access";
@@ -15,10 +16,15 @@ const COURSE_MANAGER_ROLE = {
 
 export default async function TribeCoursesManagePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ curso?: string }>;
 }) {
-  const { slug } = await params;
+  const [{ slug }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const { authenticatedMember, logger, modules, tribe } =
     await resolveVisibleTribePageAccess({
       operation: TRIBE_COURSES_MANAGE_PAGE.operation,
@@ -46,9 +52,30 @@ export default async function TribeCoursesManagePage({
       notFound();
     });
 
+  const requestedCourseId = resolvedSearchParams?.curso ?? null;
+  const selectedCourse = requestedCourseId
+    ? (courseTree.courses.find((course) => course.id === requestedCourseId) ??
+      null)
+    : null;
+
+  if (requestedCourseId && !selectedCourse) {
+    notFound();
+  }
+
+  if (selectedCourse) {
+    return (
+      <TribeCoursesManagement
+        courseId={selectedCourse.id}
+        courseTitle={selectedCourse.title}
+        initialModules={selectedCourse.modules}
+        tribeSlug={tribe.slug}
+      />
+    );
+  }
+
   return (
-    <TribeCoursesManagement
-      initialModules={courseTree.modules}
+    <TribeCoursesCatalogManagement
+      initialCourses={courseTree.courses}
       tribeSlug={tribe.slug}
     />
   );

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classroom de cursos: nivel curso, progreso, drip y comentarios</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">TuTribu — Arquitectura</div>
+  <div class="doc-title">Classroom de cursos: nivel curso, progreso, drip y comentarios</div>
+  <div class="doc-sub">Modelo de datos, autorización y flujo de la sección de cursos estilo Skool.</div>
+  <div class="doc-meta"><span>Fecha: 2026-07-12</span><span>Estado: Vigente</span><span>Módulo: src/modules/courses</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Decisión y modelo de datos</div>
+  <p>La sección de cursos deja de ser un árbol plano de módulos y pasa a un modelo de tres niveles: <strong>curso → módulo → lección</strong>. El curso es la nueva entidad raíz visible en la grilla de <code>/[slug]/cursos</code>.</p>
+  <table>
+    <tr><th>Tabla</th><th>Rol</th><th>Columnas clave</th></tr>
+    <tr><td><code>courses</code></td><td>Nivel curso con portada</td><td><code>title</code>, <code>description</code>, <code>cover_image_url</code> (CHECK http/https), <code>sort_order</code>, <code>is_active</code></td></tr>
+    <tr><td><code>course_modules</code></td><td>Agrupa lecciones dentro de un curso</td><td><code>course_id</code> (FK compuesta <code>(course_id, tribe_id)</code> → <code>courses</code>, CASCADE), <code>unlock_after_days</code> (drip, nullable)</td></tr>
+    <tr><td><code>course_lesson_completions</code></td><td>Progreso por miembro</td><td><code>UNIQUE (lesson_id, user_id)</code>; CASCADE por lección y usuario</td></tr>
+    <tr><td><code>course_last_viewed_lessons</code></td><td>Retomar donde dejó</td><td><code>UNIQUE (course_id, user_id)</code>; upsert en cada apertura de lección</td></tr>
+    <tr><td><code>course_lesson_comments</code></td><td>Hilo de discusión por lección</td><td><code>author_id</code>, <code>content</code> (CHECK no vacío), índice <code>(lesson_id, created_at)</code></td></tr>
+  </table>
+  <p>Migraciones versionadas: <code>20260712100000_create_courses_level.sql</code>, <code>20260712110000_create_course_progress.sql</code>, <code>20260712120000_add_course_module_drip.sql</code> y <code>20260712130000_create_course_lesson_comments.sql</code>. La primera hace el <strong>backfill</strong>: cada tribu con módulos preexistentes recibe un curso por defecto ("Curso general") que los adopta, y recién después <code>course_id</code> pasa a <code>NOT NULL</code>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Autorización y drip</div>
+  <p>Se mantiene el modelo RLS simple existente: <code>can_read_tribe_courses</code> (miembro <code>active</code>/<code>muted</code>) para lectura y <code>can_manage_tribe_courses</code> (líder activo) para gestión. Las tablas nuevas de progreso usan <strong>ownership</strong>: solo el propio miembro (<code>current_app_user_id()</code>) lee, inserta y borra sus filas.</p>
+  <p>El drip se resuelve con la función <code>public.is_course_module_unlocked(module_id)</code> (SECURITY DEFINER): un módulo está desbloqueado cuando no tiene <code>unlock_after_days</code>, cuando el miembro es líder, o cuando <code>tribe_members.created_at + unlock_after_days</code> ya pasó. La policy de SELECT de <code>course_lessons</code> exige módulo desbloqueado, y las policies de completions y comentarios también lo verifican al insertar.</p>
+  <div class="callout c-warn">El rol de runtime (<code>neondb_owner</code>) bypassea RLS, por lo que la aplicación replica cada guarda dentro de las CTEs del repositorio (<code>PostgresCourseRepository</code> y <code>PostgresLessonCommentRepository</code>): lectura del árbol excluye lecciones de módulos bloqueados, y toda mutación valida membresía, permiso de gestión y drip en SQL. RLS queda como defensa en profundidad para roles sin bypass.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Flujo de datos y rutas</div>
+  <p>La página <code>app/(platform)/[slug]/cursos/page.tsx</code> sigue siendo el único entrypoint de lectura: resuelve el árbol completo (cursos, módulos con estado de bloqueo, lecciones con flag <code>completed</code> del viewer, y la última lección vista por curso) con una sola query. Sin query params renderiza la grilla (<code>TribeCoursesCatalog</code>); con <code>?curso=&lt;id&gt;</code> renderiza la vista del curso (<code>TribeCoursesView</code>); los links legacy <code>?leccion=&lt;id&gt;</code> se resuelven al curso dueño de la lección.</p>
+  <table>
+    <tr><th>Ruta API</th><th>Método</th><th>Uso</th></tr>
+    <tr><td><code>/api/tribes/[slug]/courses</code></td><td>POST</td><td>Crear curso (líder)</td></tr>
+    <tr><td><code>/api/tribes/[slug]/courses/[courseId]</code></td><td>PATCH · DELETE</td><td>Editar / eliminar curso (líder)</td></tr>
+    <tr><td><code>/api/tribes/[slug]/courses/[courseId]/last-lesson</code></td><td>PUT</td><td>Upsert de última lección vista (best-effort desde el cliente)</td></tr>
+    <tr><td><code>/api/tribes/[slug]/courses/lessons/[lessonId]/completion</code></td><td>PUT</td><td>Marcar / desmarcar lección completada (mutación optimista)</td></tr>
+    <tr><td><code>/api/tribes/[slug]/courses/lessons/[lessonId]/comments</code></td><td>GET · POST</td><td>Hilo de comentarios de la lección</td></tr>
+    <tr><td><code>/api/tribes/[slug]/courses/comments/[commentId]</code></td><td>DELETE</td><td>Borrar comentario (autor o líder)</td></tr>
+  </table>
+  <p>Las mutaciones interactivas devuelven el view model mínimo (curso, módulo, lección o comentario creado) y el cliente actualiza el estado local sin refrescar la ruta, siguiendo la convención de mutaciones incrementales. El registro de "última lección vista" es deliberadamente best-effort: su fallo nunca interrumpe la reproducción.</p>
+  <div class="callout c-info">El porcentaje de avance se calcula en el cliente (<code>src/modules/courses/application/course-progress.ts</code>) sobre las lecciones visibles para el viewer: las lecciones de módulos bloqueados por drip no integran el denominador.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Gestión para líderes</div>
+  <p><code>/[slug]/cursos/gestionar</code> sin parámetros administra los cursos (CRUD con portada, descripción, orden y activo). Con <code>?curso=&lt;id&gt;</code> reutiliza la gestión existente de módulos y lecciones, ahora scopeada al curso, con el campo nuevo <code>unlock_after_days</code> por módulo (vacío = disponible desde el ingreso).</p>
+  <div class="callout c-ok">Validación: las cuatro migraciones se aplicaron sobre un Postgres real (PGlite) junto con la migración base de cursos; se ejercieron backfill, cascadas, unicidad, guardas de drip y todas las policies RLS con un rol sin bypass (30 verificaciones). Ver también los tests unitarios de <code>tests/unit/modules/courses/</code>.</div>
+</div>
+
+</body>
+</html>

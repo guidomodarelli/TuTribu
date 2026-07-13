@@ -3,6 +3,35 @@ export const COURSE_LESSON_DESCRIPTION = {
   minLength: 0,
 } as const;
 
+export const COURSE_TITLE = {
+  maxLength: 120,
+} as const;
+
+export const COURSE_DESCRIPTION = {
+  maxLength: 500,
+} as const;
+
+export const COURSE_COVER_IMAGE_URL = {
+  maxLength: 2048,
+} as const;
+
+export const COURSE_MODULE_UNLOCK_AFTER_DAYS = {
+  max: 3650,
+  min: 0,
+} as const;
+
+export const LESSON_COMMENT_CONTENT = {
+  maxLength: 2000,
+  minLength: 1,
+} as const;
+
+export const COURSE_ENGAGEMENT_STATUS = {
+  completed: "completed",
+  ok: "ok",
+  recorded: "recorded",
+  uncompleted: "uncompleted",
+} as const;
+
 export const COURSE_MUTATION_STATUS = {
   created: "created",
   deleted: "deleted",

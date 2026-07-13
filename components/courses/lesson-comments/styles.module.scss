@@ -1,0 +1,130 @@
+.LessonComments {
+  display: grid;
+  gap: 0.875rem;
+  border-top: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+  padding-top: 1rem;
+
+  &__heading {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  &__form {
+    display: grid;
+    gap: 0.5rem;
+    justify-items: end;
+  }
+
+  &__input {
+    width: 100%;
+    resize: vertical;
+    min-height: 3rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border-radius: var(--radius-md);
+    background-color: var(--background);
+    color: var(--foreground);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    font-family: inherit;
+
+    &:focus-visible {
+      outline: none;
+      border-color: var(--ring);
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+    }
+  }
+
+  &__errorMessage {
+    color: var(--destructive);
+    font-size: 0.875rem;
+    margin: 0;
+  }
+
+  &__emptyState {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    margin: 0;
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.875rem;
+  }
+
+  &__item {
+    display: grid;
+    gap: 0.375rem;
+    margin: 0;
+  }
+
+  &__itemHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  &__authorName {
+    font-size: 0.875rem;
+    font-weight: 600;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  &__date {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  &__deleteButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+
+    &:hover {
+      background-color: var(--muted);
+      color: var(--destructive);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    svg {
+      width: 0.875rem;
+      height: 0.875rem;
+      pointer-events: none;
+    }
+  }
+
+  &__content {
+    color: var(--foreground);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}

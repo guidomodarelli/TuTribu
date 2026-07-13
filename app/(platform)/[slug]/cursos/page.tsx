@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 
+import { TribeCoursesCatalog } from "@/components/courses/tribe-courses-catalog";
 import { TribeCoursesView } from "@/components/courses/tribe-courses-view";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import type { CourseWithModulesResult } from "@/src/modules/courses/application/results/course-results";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
 const TRIBE_COURSES_PAGE = {
@@ -20,12 +22,32 @@ function canReadTribeCourses(membershipStatus: string | null): boolean {
   );
 }
 
+function findCourseById(
+  courses: CourseWithModulesResult[],
+  courseId: string
+): CourseWithModulesResult | null {
+  return courses.find((course) => course.id === courseId) ?? null;
+}
+
+function findCourseByLessonId(
+  courses: CourseWithModulesResult[],
+  lessonId: string
+): CourseWithModulesResult | null {
+  return (
+    courses.find((course) =>
+      course.modules.some((courseModule) =>
+        courseModule.lessons.some((lesson) => lesson.id === lessonId)
+      )
+    ) ?? null
+  );
+}
+
 export default async function TribeCoursesPage({
   params,
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ leccion?: string }>;
+  searchParams?: Promise<{ curso?: string; leccion?: string }>;
 }) {
   const [{ slug }, resolvedSearchParams] = await Promise.all([
     params,
@@ -59,17 +81,39 @@ export default async function TribeCoursesPage({
       });
       notFound();
     });
+  const viewerPermissions = {
+    ...courseTree.viewerPermissions,
+    canManageCourses:
+      courseTree.viewerPermissions.canManageCourses || canManageCourses,
+  };
+  const requestedCourseId = resolvedSearchParams?.curso ?? null;
+  const requestedLessonId = resolvedSearchParams?.leccion ?? null;
+  const selectedCourse = requestedCourseId
+    ? findCourseById(courseTree.courses, requestedCourseId)
+    : requestedLessonId
+      ? findCourseByLessonId(courseTree.courses, requestedLessonId)
+      : null;
+
+  if (requestedCourseId && !selectedCourse) {
+    notFound();
+  }
+
+  if (selectedCourse) {
+    return (
+      <TribeCoursesView
+        course={selectedCourse}
+        selectedLessonId={requestedLessonId}
+        tribeSlug={tribe.slug}
+        viewerPermissions={viewerPermissions}
+      />
+    );
+  }
 
   return (
-    <TribeCoursesView
-      modules={courseTree.modules}
-      selectedLessonId={resolvedSearchParams?.leccion ?? null}
+    <TribeCoursesCatalog
+      courses={courseTree.courses}
       tribeSlug={tribe.slug}
-      viewerPermissions={{
-        ...courseTree.viewerPermissions,
-        canManageCourses:
-          courseTree.viewerPermissions.canManageCourses || canManageCourses,
-      }}
+      viewerPermissions={viewerPermissions}
     />
   );
 }
