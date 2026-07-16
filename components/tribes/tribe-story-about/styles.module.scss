@@ -1,0 +1,104 @@
+$tribe-story-about-desktop-min: 64rem;
+$tribe-story-about-sidebar-width: 20rem;
+
+.TribeStoryAbout {
+  width: 100%;
+
+  &__layout {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: minmax(0, 1fr);
+
+    @media (min-width: $tribe-story-about-desktop-min) {
+      align-items: start;
+      grid-template-columns: minmax(0, 1fr) $tribe-story-about-sidebar-width;
+    }
+  }
+
+  &__main {
+    display: grid;
+    gap: 1.5rem;
+    min-width: 0;
+  }
+
+  &__header {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  &__title {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    margin: 0;
+  }
+
+  &__emptyState {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    font-style: italic;
+    margin: 0;
+  }
+
+  &__sidebar {
+    border-top: 1px solid var(--border);
+    display: grid;
+    gap: 1rem;
+    padding-top: 1.25rem;
+
+    @media (min-width: $tribe-story-about-desktop-min) {
+      border-left: 1px solid var(--border);
+      border-top: 0;
+      padding-left: 1.5rem;
+      padding-top: 0;
+      position: sticky;
+      top: 1.5rem;
+    }
+  }
+
+  &__tribeName {
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 0;
+  }
+
+  &__facts {
+    display: grid;
+    gap: 0.6rem;
+    margin: 0;
+  }
+
+  &__fact {
+    align-items: baseline;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+  }
+
+  &__factTerm {
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+  }
+
+  &__factValue {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0;
+    text-align: right;
+  }
+
+  &__websiteLink {
+    color: var(--primary);
+    font-size: 0.9rem;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    width: fit-content;
+    word-break: break-word;
+  }
+
+  &__joinAction {
+    display: flex;
+  }
+}

@@ -11,6 +11,8 @@ const getTribePageAccess = jest.fn();
 const getCurrentTribeMembershipStatus = jest.fn();
 const getMemberTribes = jest.fn();
 const getTribeStory = jest.fn();
+const getTribeStoryStats = jest.fn();
+const getTribeCurrentSubscriptionOffer = jest.fn();
 
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(),
@@ -53,6 +55,13 @@ const authenticatedMember = {
   role: "tribemate",
 };
 
+const storyStats = {
+  adminCount: 2,
+  createdAt: "2026-01-10T00:00:00.000Z",
+  memberCount: 128,
+  name: "Matematica Pro",
+};
+
 function buildPageProps() {
   return {
     params: Promise.resolve({
@@ -70,12 +79,18 @@ describe("TribeHistoryPage", () => {
           getAuthenticatedMember,
         },
       },
+      subscriptions: {
+        useCases: {
+          getTribeCurrentSubscriptionOffer,
+        },
+      },
       tribes: {
         useCases: {
           getCurrentTribeMembershipStatus,
           getMemberTribes,
           getTribePageAccess,
           getTribeStory,
+          getTribeStoryStats,
         },
       },
     });
@@ -97,16 +112,24 @@ describe("TribeHistoryPage", () => {
     ]);
     getTribeStory.mockResolvedValue({
       content: "Nacimos en 2020.",
+      media: [],
+      websiteUrl: null,
+    });
+    getTribeStoryStats.mockResolvedValue(storyStats);
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({
+      status: "unavailable",
     });
   });
 
-  it("renders the story as read-only for tribemates", async () => {
+  it("renders the read-only about view for tribemates", async () => {
     render(await TribeHistoryPage(buildPageProps()));
 
     expect(
       screen.getByRole("heading", { name: "Historia" })
     ).toBeInTheDocument();
     expect(screen.getByText("Nacimos en 2020.")).toBeInTheDocument();
+    expect(screen.getByText("Miembros")).toBeInTheDocument();
+    expect(screen.getByText("128")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Guardar" })
     ).not.toBeInTheDocument();
@@ -135,7 +158,74 @@ describe("TribeHistoryPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("returns 404 when the viewer is not a member", async () => {
+  it("renders the visitor about view with a join call to action when the tribe has an open-join offer", async () => {
+    getTribePageAccess.mockResolvedValue({
+      reason: "not_found_or_not_visible",
+      status: "hidden",
+    });
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({
+      price: {
+        amountCents: 1500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
+    });
+
+    render(await TribeHistoryPage(buildPageProps()));
+
+    expect(
+      screen.getByRole("heading", { name: "Historia" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Nacimos en 2020.")).toBeInTheDocument();
+    expect(screen.getByText("Precio")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Unirse a la tribu" })
+    ).toHaveAttribute("href", "/matematica-pro");
+  });
+
+  it("returns 404 for a non-member when the tribe has no open-join offer", async () => {
+    getTribePageAccess.mockResolvedValue({
+      reason: "not_found_or_not_visible",
+      status: "hidden",
+    });
+    (notFound as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(TribeHistoryPage(buildPageProps())).rejects.toThrow(
+      "NEXT_NOT_FOUND"
+    );
+    expect(getTribeStory).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for conduct-blocked viewers even with an offer", async () => {
+    getTribePageAccess.mockResolvedValue({
+      blockedReason: "conduct_blocked",
+      reason: "blocked_hidden",
+      status: "hidden",
+    });
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({
+      price: {
+        amountCents: 1500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
+    });
+    (notFound as unknown as jest.Mock).mockImplementation(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(TribeHistoryPage(buildPageProps())).rejects.toThrow(
+      "NEXT_NOT_FOUND"
+    );
+    expect(getTribeCurrentSubscriptionOffer).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when the viewer has a pending non-member status", async () => {
     getCurrentTribeMembershipStatus.mockResolvedValue(null);
     (notFound as unknown as jest.Mock).mockImplementation(() => {
       throw new Error("NEXT_NOT_FOUND");

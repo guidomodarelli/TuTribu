@@ -23,69 +23,23 @@ describe("TribeStoryManagement", () => {
     });
   });
 
-  it("renders the story as read-only for non-leaders", () => {
-    render(
-      <TribeStoryManagement
-        canEdit={false}
-        story={{ content: "Nacimos en 2020 para invertir mejor." }}
-        tribeSlug="matematica-pro"
-      />
-    );
-
-    expect(
-      screen.getByRole("heading", { name: "Historia" })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Nacimos en 2020 para invertir mejor.")
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /guardar/i })
-    ).not.toBeInTheDocument();
-  });
-
-  it("renders links inside the story content as safe anchors", () => {
-    render(
-      <TribeStoryManagement
-        canEdit={false}
-        story={{ content: "Mirá [nuestro manifiesto](https://tribu.example.com)." }}
-        tribeSlug="matematica-pro"
-      />
-    );
-
-    const link = screen.getByRole("link", { name: "nuestro manifiesto" });
-
-    expect(link).toHaveAttribute("href", "https://tribu.example.com");
-    expect(link).toHaveAttribute("rel", "noreferrer");
-  });
-
-  it("shows an empty state when there is no story and the viewer cannot edit", () => {
-    render(
-      <TribeStoryManagement
-        canEdit={false}
-        story={null}
-        tribeSlug="matematica-pro"
-      />
-    );
-
-    expect(
-      screen.getByText("El líder todavía no escribió la historia de la tribu.")
-    ).toBeInTheDocument();
-  });
-
-  it("lets the leader edit and save the story", async () => {
+  it("lets the leader edit and save the story with website and media", async () => {
     const user = userEvent.setup();
 
-    render(
-      <TribeStoryManagement
-        canEdit
-        story={null}
-        tribeSlug="matematica-pro"
-      />
-    );
+    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
 
     await user.type(
       screen.getByLabelText("Historia de la tribu"),
       "Nacimos en 2020."
+    );
+    await user.type(
+      screen.getByLabelText("Sitio web"),
+      "https://tribu.example.com"
+    );
+    await user.click(screen.getByRole("button", { name: /agregar recurso/i }));
+    await user.type(
+      screen.getByLabelText("URL de la imagen"),
+      "https://images.example.com/tribu.jpg"
     );
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
@@ -93,7 +47,16 @@ describe("TribeStoryManagement", () => {
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/tribes/matematica-pro/story",
         expect.objectContaining({
-          body: JSON.stringify({ content: "Nacimos en 2020." }),
+          body: JSON.stringify({
+            content: "Nacimos en 2020.",
+            media: [
+              {
+                mediaType: "image",
+                url: "https://images.example.com/tribu.jpg",
+              },
+            ],
+            websiteUrl: "https://tribu.example.com",
+          }),
           method: "PUT",
         })
       );
@@ -108,8 +71,11 @@ describe("TribeStoryManagement", () => {
 
     render(
       <TribeStoryManagement
-        canEdit
-        story={{ content: "Nacimos en 2020." }}
+        story={{
+          content: "Nacimos en 2020.",
+          media: [],
+          websiteUrl: null,
+        }}
         tribeSlug="matematica-pro"
       />
     );
@@ -123,6 +89,61 @@ describe("TribeStoryManagement", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("blocks saving an unparseable video link with a visible error", async () => {
+    const user = userEvent.setup();
+
+    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+
+    await user.type(
+      screen.getByLabelText("Historia de la tribu"),
+      "Nacimos en 2020."
+    );
+    await user.click(screen.getByRole("button", { name: /agregar recurso/i }));
+    await user.selectOptions(screen.getByLabelText("Tipo"), "video");
+    await user.type(
+      screen.getByLabelText("Link del video"),
+      "https://example.com/video"
+    );
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(
+      screen.getByText(
+        "Ingresá un link de video de YouTube, Vimeo, Wistia o Loom."
+      )
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("limits the gallery to five media items", async () => {
+    const user = userEvent.setup();
+
+    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+
+    const addButton = screen.getByRole("button", { name: /agregar recurso/i });
+
+    for (let clickIndex = 0; clickIndex < 5; clickIndex += 1) {
+      await user.click(addButton);
+    }
+
+    expect(addButton).toBeDisabled();
+    expect(screen.getAllByLabelText("URL de la imagen")).toHaveLength(5);
+  });
+
+  it("renders a bold and list preview of the story content", async () => {
+    const user = userEvent.setup();
+
+    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+
+    await user.type(
+      screen.getByLabelText("Historia de la tribu"),
+      "Somos **una tribu**\n- Honestidad"
+    );
+
+    expect(screen.getByText("Vista previa")).toBeInTheDocument();
+    expect(screen.getByText("una tribu").tagName).toBe("STRONG");
+    expect(screen.getByRole("listitem")).toHaveTextContent("Honestidad");
+  });
+
   it("shows the server error message when the save fails", async () => {
     const user = userEvent.setup();
 
@@ -133,13 +154,7 @@ describe("TribeStoryManagement", () => {
       ok: false,
     });
 
-    render(
-      <TribeStoryManagement
-        canEdit
-        story={null}
-        tribeSlug="matematica-pro"
-      />
-    );
+    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
 
     await user.type(
       screen.getByLabelText("Historia de la tribu"),

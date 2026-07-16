@@ -225,6 +225,7 @@ export const tribeStorySettings = pgTable("tribe_story_settings", {
     .notNull()
     .references(() => tribes.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
+  websiteUrl: text("website_url"),
   updatedBy: text("updated_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -234,6 +235,29 @@ export const tribeStorySettings = pgTable("tribe_story_settings", {
     .default(UTC_NOW_SQL),
 }, (table) => ({
   tribeKey: uniqueIndex("tribe_story_settings_tribe_key").on(table.tribeId),
+}));
+
+export const tribeStoryMedia = pgTable("tribe_story_media", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  mediaType: text("media_type").notNull(),
+  url: text("url"),
+  videoProvider: text("video_provider"),
+  externalVideoId: text("external_video_id"),
+  sortOrder: integer("sort_order").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  tribeSortIndex: index("idx_tribe_story_media_tribe_sort").on(
+    table.tribeId,
+    table.sortOrder
+  ),
 }));
 
 export const tribeWelcomeRules = pgTable("tribe_welcome_rules", {

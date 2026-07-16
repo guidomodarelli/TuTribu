@@ -1,7 +1,31 @@
-import type { TRIBE_STORY_SAVE_STATUS } from "@/src/modules/tribes/constants/tribe-story";
+import type {
+  TRIBE_STORY_MEDIA_TYPE,
+  TRIBE_STORY_SAVE_STATUS,
+} from "@/src/modules/tribes/constants/tribe-story";
+
+export type TribeStoryMediaType =
+  (typeof TRIBE_STORY_MEDIA_TYPE)[keyof typeof TRIBE_STORY_MEDIA_TYPE];
+
+export type TribeStoryMediaItem = {
+  externalVideoId: string | null;
+  id: string;
+  mediaType: TribeStoryMediaType;
+  sortOrder: number;
+  url: string | null;
+  videoProvider: string | null;
+};
 
 export type TribeStorySettings = {
   content: string;
+  media: TribeStoryMediaItem[];
+  websiteUrl: string | null;
+};
+
+export type TribeStoryStats = {
+  adminCount: number;
+  createdAt: string;
+  memberCount: number;
+  name: string;
 };
 
 export type TribeStorySaveStatus =
@@ -18,12 +42,23 @@ export type GetTribeStoryQuery = {
   tribeSlug: string;
 };
 
+export type SaveTribeStoryMediaItem = {
+  externalVideoId: string | null;
+  mediaType: TribeStoryMediaType;
+  sortOrder: number;
+  url: string | null;
+  videoProvider: string | null;
+};
+
 export type SaveTribeStoryCommand = {
   content: string;
+  media: SaveTribeStoryMediaItem[];
   tribeSlug: string;
+  websiteUrl: string | null;
 };
 
 export type TribeStoryRepository = {
   getByTribeSlug(query: GetTribeStoryQuery): Promise<TribeStorySettings | null>;
+  getStatsByTribeSlug(query: GetTribeStoryQuery): Promise<TribeStoryStats | null>;
   save(command: SaveTribeStoryCommand): Promise<TribeStorySaveResult>;
 };

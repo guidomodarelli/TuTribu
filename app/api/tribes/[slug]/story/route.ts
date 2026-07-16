@@ -1,6 +1,9 @@
 import { createRequestModules } from "@/src/modules/setup";
+import { parseExternalVideoUrl } from "@/src/modules/shared/domain/value-objects/external-video-url";
 import {
   TRIBE_STORY_CONTENT_MAX_LENGTH,
+  TRIBE_STORY_MEDIA_MAX_ITEMS,
+  TRIBE_STORY_MEDIA_TYPE,
   TRIBE_STORY_SAVE_STATUS,
 } from "@/src/modules/tribes/constants/tribe-story";
 import {
@@ -10,6 +13,7 @@ import {
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import type { TribeStoryResult } from "@/src/modules/tribes/application/results/tribe-story-result";
+import type { SaveTribeStoryMediaItem } from "@/src/modules/tribes/domain/repositories/tribe-story-repository";
 
 const STORY_ROUTE_LOG = {
   feature: "tribes",
@@ -23,9 +27,16 @@ const STORY_ROUTE_RESPONSE = {
   contentTooLongMessage: `La historia no puede superar los ${TRIBE_STORY_CONTENT_MAX_LENGTH} caracteres.`,
   forbiddenMessage: "Solo el líder puede editar la historia de la tribu.",
   invalidBodyMessage: "Revisá el contenido de la historia antes de guardar.",
+  invalidImageUrlMessage:
+    "Ingresá una URL de imagen válida que empiece con http:// o https://",
+  invalidVideoUrlMessage:
+    "Ingresá un link de video de YouTube, Vimeo, Wistia o Loom.",
+  invalidWebsiteUrlMessage:
+    "Ingresá una URL de sitio web válida que empiece con http:// o https://",
   missingContentMessage: "Escribí la historia antes de guardar.",
   notFoundMessage: "No pudimos encontrar la tribu.",
   savedMessage: "Historia actualizada.",
+  tooManyMediaItemsMessage: `La galería admite hasta ${TRIBE_STORY_MEDIA_MAX_ITEMS} recursos.`,
   unauthorizedMessage: "Iniciá sesión para gestionar la historia.",
   unexpectedGetMessage: "No pudimos cargar la historia. Intentá de nuevo.",
   unexpectedSaveMessage: "No pudimos guardar la historia. Intentá de nuevo.",
@@ -39,6 +50,15 @@ const HTTP_STATUS = {
   serverError: 500,
   unauthorized: 401,
 } as const;
+
+const STORY_URL_PROTOCOL = {
+  http: "http:",
+  https: "https:",
+} as const;
+
+type MediaValidationResult =
+  | { errorMessage: string; ok: false }
+  | { media: SaveTribeStoryMediaItem[]; ok: true };
 
 function createJsonResponse(
   body: Record<string, unknown>,
@@ -71,9 +91,118 @@ function readRequiredText(value: unknown): string | null {
     : null;
 }
 
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsedUrl = new URL(value);
+
+    return (
+      parsedUrl.protocol === STORY_URL_PROTOCOL.http ||
+      parsedUrl.protocol === STORY_URL_PROTOCOL.https
+    );
+  } catch {
+    return false;
+  }
+}
+
+function validateMediaItems(value: unknown): MediaValidationResult {
+  if (value === undefined) {
+    return { media: [], ok: true };
+  }
+
+  if (!Array.isArray(value)) {
+    return {
+      errorMessage: STORY_ROUTE_RESPONSE.invalidBodyMessage,
+      ok: false,
+    };
+  }
+
+  if (value.length > TRIBE_STORY_MEDIA_MAX_ITEMS) {
+    return {
+      errorMessage: STORY_ROUTE_RESPONSE.tooManyMediaItemsMessage,
+      ok: false,
+    };
+  }
+
+  const media: SaveTribeStoryMediaItem[] = [];
+
+  for (const [mediaIndex, mediaCandidate] of value.entries()) {
+    if (!isPayloadObject(mediaCandidate)) {
+      return {
+        errorMessage: STORY_ROUTE_RESPONSE.invalidBodyMessage,
+        ok: false,
+      };
+    }
+
+    const mediaUrl = readRequiredText(mediaCandidate.url);
+
+    if (mediaCandidate.mediaType === TRIBE_STORY_MEDIA_TYPE.video) {
+      if (!mediaUrl) {
+        return {
+          errorMessage: STORY_ROUTE_RESPONSE.invalidVideoUrlMessage,
+          ok: false,
+        };
+      }
+
+      try {
+        const parsedVideo = parseExternalVideoUrl(mediaUrl);
+
+        media.push({
+          externalVideoId: parsedVideo.externalId,
+          mediaType: TRIBE_STORY_MEDIA_TYPE.video,
+          sortOrder: mediaIndex,
+          url: null,
+          videoProvider: parsedVideo.provider,
+        });
+      } catch {
+        return {
+          errorMessage: STORY_ROUTE_RESPONSE.invalidVideoUrlMessage,
+          ok: false,
+        };
+      }
+
+      continue;
+    }
+
+    if (mediaCandidate.mediaType === TRIBE_STORY_MEDIA_TYPE.image) {
+      if (!mediaUrl || !isHttpUrl(mediaUrl)) {
+        return {
+          errorMessage: STORY_ROUTE_RESPONSE.invalidImageUrlMessage,
+          ok: false,
+        };
+      }
+
+      media.push({
+        externalVideoId: null,
+        mediaType: TRIBE_STORY_MEDIA_TYPE.image,
+        sortOrder: mediaIndex,
+        url: mediaUrl,
+        videoProvider: null,
+      });
+
+      continue;
+    }
+
+    return {
+      errorMessage: STORY_ROUTE_RESPONSE.invalidBodyMessage,
+      ok: false,
+    };
+  }
+
+  return { media, ok: true };
+}
+
 function serializeStory(story: TribeStoryResult) {
   return {
     content: story.content,
+    media: story.media.map((mediaItem) => ({
+      externalVideoId: mediaItem.externalVideoId,
+      id: mediaItem.id,
+      mediaType: mediaItem.mediaType,
+      sortOrder: mediaItem.sortOrder,
+      url: mediaItem.url,
+      videoProvider: mediaItem.videoProvider,
+    })),
+    websiteUrl: story.websiteUrl,
   };
 }
 
@@ -190,9 +319,29 @@ export async function PUT(
       );
     }
 
+    const websiteUrl = readRequiredText(parsedBody.websiteUrl);
+
+    if (websiteUrl && !isHttpUrl(websiteUrl)) {
+      return createJsonResponse(
+        { message: STORY_ROUTE_RESPONSE.invalidWebsiteUrlMessage },
+        HTTP_STATUS.badRequest
+      );
+    }
+
+    const mediaValidation = validateMediaItems(parsedBody.media);
+
+    if (!mediaValidation.ok) {
+      return createJsonResponse(
+        { message: mediaValidation.errorMessage },
+        HTTP_STATUS.badRequest
+      );
+    }
+
     const result = await modules.tribes.useCases.saveTribeStory({
       content,
+      media: mediaValidation.media,
       tribeSlug: slug,
+      websiteUrl,
     });
 
     switch (result.status) {

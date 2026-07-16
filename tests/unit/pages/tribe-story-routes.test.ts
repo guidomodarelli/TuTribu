@@ -88,6 +88,8 @@ describe("Tribe story routes", () => {
       status: TRIBE_STORY_SAVE_STATUS.updated,
       story: {
         content: "Nacimos en 2020.",
+        media: [],
+        websiteUrl: null,
       },
     });
     (createRequestModules as jest.Mock).mockResolvedValue({
@@ -113,13 +115,39 @@ describe("Tribe story routes", () => {
   });
 
   it("returns the saved story when the tribe has one", async () => {
-    getTribeStory.mockResolvedValue({ content: "Nacimos en 2020." });
+    getTribeStory.mockResolvedValue({
+      content: "Nacimos en 2020.",
+      media: [
+        {
+          externalVideoId: "dQw4w9WgXcQ",
+          id: "media-1",
+          mediaType: "video",
+          sortOrder: 0,
+          url: null,
+          videoProvider: "youtube",
+        },
+      ],
+      websiteUrl: "https://tribu.example.com",
+    });
 
     const response = await GET(buildRequest(undefined, "GET"), buildContext());
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      story: { content: "Nacimos en 2020." },
+      story: {
+        content: "Nacimos en 2020.",
+        media: [
+          {
+            externalVideoId: "dQw4w9WgXcQ",
+            id: "media-1",
+            mediaType: "video",
+            sortOrder: 0,
+            url: null,
+            videoProvider: "youtube",
+          },
+        ],
+        websiteUrl: "https://tribu.example.com",
+      },
     });
   });
 
@@ -164,19 +192,104 @@ describe("Tribe story routes", () => {
 
   it("saves valid PUT payloads and returns the new story", async () => {
     const response = await PUT(
-      buildRequest({ content: "  Nacimos en 2020.  " }),
+      buildRequest({
+        content: "  Nacimos en 2020.  ",
+        media: [
+          {
+            mediaType: "video",
+            url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          },
+          {
+            mediaType: "image",
+            url: "https://images.example.com/tribu.jpg",
+          },
+        ],
+        websiteUrl: " https://tribu.example.com ",
+      }),
       buildContext()
     );
 
     expect(response.status).toBe(200);
     expect(saveTribeStory).toHaveBeenCalledWith({
       content: "Nacimos en 2020.",
+      media: [
+        {
+          externalVideoId: "dQw4w9WgXcQ",
+          mediaType: "video",
+          sortOrder: 0,
+          url: null,
+          videoProvider: "youtube",
+        },
+        {
+          externalVideoId: null,
+          mediaType: "image",
+          sortOrder: 1,
+          url: "https://images.example.com/tribu.jpg",
+          videoProvider: null,
+        },
+      ],
       tribeSlug: "matematica-pro",
+      websiteUrl: "https://tribu.example.com",
     });
     await expect(response.json()).resolves.toEqual({
       message: "Historia actualizada.",
-      story: { content: "Nacimos en 2020." },
+      story: { content: "Nacimos en 2020.", media: [], websiteUrl: null },
     });
+  });
+
+  it("rejects PUT with an unparseable video URL", async () => {
+    const response = await PUT(
+      buildRequest({
+        content: "Nacimos en 2020.",
+        media: [{ mediaType: "video", url: "https://example.com/video" }],
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(400);
+    expect(saveTribeStory).not.toHaveBeenCalled();
+  });
+
+  it("rejects PUT with an invalid image URL", async () => {
+    const response = await PUT(
+      buildRequest({
+        content: "Nacimos en 2020.",
+        media: [{ mediaType: "image", url: "not-a-url" }],
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(400);
+    expect(saveTribeStory).not.toHaveBeenCalled();
+  });
+
+  it("rejects PUT with more media items than allowed", async () => {
+    const response = await PUT(
+      buildRequest({
+        content: "Nacimos en 2020.",
+        media: Array.from({ length: 6 }, () => ({
+          mediaType: "image",
+          url: "https://images.example.com/tribu.jpg",
+        })),
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(400);
+    expect(saveTribeStory).not.toHaveBeenCalled();
+  });
+
+  it("rejects PUT with an invalid website URL", async () => {
+    const response = await PUT(
+      buildRequest({
+        content: "Nacimos en 2020.",
+        websiteUrl: "javascript:alert(1)",
+      }),
+      buildContext()
+    );
+
+    expect(response.status).toBe(400);
+    expect(saveTribeStory).not.toHaveBeenCalled();
   });
 
   it("returns forbidden when the repository rejects a non-leader save", async () => {

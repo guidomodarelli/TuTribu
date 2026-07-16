@@ -48,44 +48,70 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="section">
   <div class="section-num">01</div>
   <div class="section-title">Qué es la Historia</div>
-  <p>Cada tribu tiene una página <strong>Historia</strong>, accesible desde la barra lateral. Es un texto largo, escrito por el líder, que presenta la identidad de la tribu a sus miembros.</p>
+  <p>Cada tribu tiene una página <strong>Historia</strong>, accesible desde la barra lateral. Es la página de presentación de la tribu: una galería de imágenes y videos, un texto largo escrito por el líder y un panel lateral con los datos principales de la comunidad.</p>
   <ul>
     <li>Todos los miembros activos (y silenciados) de la tribu pueden leerla.</li>
+    <li>Una persona que <strong>no es miembro</strong> también puede verla cuando la tribu ofrece una suscripción abierta de pago; en ese caso ve además el precio y el botón <strong>Unirse a la tribu</strong>.</li>
     <li><strong>Solo el líder puede editarla.</strong> Guardianes y tribemates la ven en modo lectura.</li>
-    <li>Si el líder todavía no escribió nada, los miembros ven el mensaje <em>"El líder todavía no escribió la historia de la tribu."</em></li>
+    <li>Si el líder todavía no escribió nada, se muestra el mensaje <em>"El líder todavía no escribió la historia de la tribu."</em></li>
   </ul>
 </div>
 
 <div class="section">
   <div class="section-num">02</div>
-  <div class="section-title">Editar la historia (solo líder)</div>
-  <p>Cuando el líder entra a la página Historia, ve un editor con un área de texto, un contador de caracteres y el botón <strong>Guardar</strong>.</p>
+  <div class="section-title">Panel de datos de la tribu</div>
+  <p>Al costado de la historia (o debajo, en el teléfono) aparece un panel con:</p>
   <ul>
-    <li>El texto admite hasta <strong>10.000 caracteres</strong> y conserva los saltos de línea y párrafos tal como se escriben.</li>
-    <li>Se pueden agregar links con el formato <code>[texto](https://...)</code>; se muestran como enlaces que abren en una pestaña nueva.</li>
-    <li>Debajo del editor aparece una <strong>vista previa</strong> con el texto tal como lo verán los miembros.</li>
+    <li><strong>Miembros</strong>: cantidad de integrantes de la tribu.</li>
+    <li><strong>Administradores</strong>: líderes y guardianes activos.</li>
+    <li><strong>Creada en</strong>: mes y año de creación de la tribu.</li>
+    <li><strong>Privacidad</strong>: hoy todas las tribus son privadas.</li>
+    <li><strong>Precio</strong>: solo para visitantes, cuando la tribu tiene una suscripción abierta (por ejemplo <em>$15.000/mes</em>).</li>
+    <li><strong>Sitio web</strong>: link externo opcional definido por el líder.</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Editar la historia (solo líder)</div>
+  <p>Cuando el líder entra a la página Historia, ve un editor con el texto, el link del sitio web, la galería y el botón <strong>Guardar</strong>.</p>
+  <ul>
+    <li>El texto admite hasta <strong>10.000 caracteres</strong> y conserva saltos de línea y párrafos.</li>
+    <li>Formato disponible: <strong>negrita</strong> con <code>**texto**</code>, listas empezando la línea con <code>-</code>, y links con <code>[texto](https://...)</code>.</li>
+    <li>La <strong>galería</strong> admite hasta <strong>5 recursos</strong> entre imágenes (URL directa) y videos de <strong>YouTube, Vimeo, Wistia o Loom</strong> (pegando el link del video). Se muestran en un carrusel arriba de la historia.</li>
+    <li>El <strong>sitio web</strong> es opcional y debe empezar con <code>http://</code> o <code>https://</code>.</li>
+    <li>Debajo del editor aparece una <strong>vista previa</strong> del texto con el formato aplicado.</li>
     <li>No se puede guardar una historia vacía: aparece el aviso <em>"Escribí la historia antes de guardar."</em></li>
     <li>Al guardar con éxito se muestra la notificación <em>"Historia actualizada."</em> sin recargar la página.</li>
   </ul>
   <div class="example-box">
     <div class="example-label">Ejemplo</div>
     <div class="example-body">
-      <p>Nacimos en 2020 como un grupo de amigos que quería aprender a invertir. Hoy somos cientos. Conocé [nuestro manifiesto](https://tribu.example.com/manifiesto).</p>
+      <p>Somos **una tribu de inversores**. Nuestros valores:<br>- Honestidad<br>- Comunidad<br>Conocé [nuestro manifiesto](https://tribu.example.com/manifiesto).</p>
     </div>
   </div>
 </div>
 
 <div class="section">
-  <div class="section-num">03</div>
+  <div class="section-num">04</div>
+  <div class="section-title">Visitantes y unirse a la tribu</div>
+  <p>Si una persona con sesión iniciada entra a la página Historia de una tribu de la que no es miembro, y esa tribu tiene una <strong>suscripción abierta de pago</strong>, ve la misma presentación que los miembros más el precio y el botón <strong>Unirse a la tribu</strong>, que la lleva al checkout.</p>
+  <ul>
+    <li>Quien fue bloqueado por un problema de pago o tiene la suscripción vencida también puede ver esta página para volver a suscribirse.</li>
+    <li>Quien fue bloqueado por conducta no puede ver la página.</li>
+    <li>Si la tribu no ofrece suscripción abierta, la página no existe para quien no es miembro.</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
   <div class="section-title">Permisos y seguridad</div>
   <ul>
-    <li>La edición está protegida en el servidor y en la base de datos: aunque alguien intente guardar por fuera de la interfaz, solo un <strong>líder activo</strong> de esa tribu puede escribir la historia.</li>
-    <li>Quien no es miembro de la tribu no puede leer la historia.</li>
+    <li>La edición está protegida en el servidor y en la base de datos: aunque alguien intente guardar por fuera de la interfaz, solo un <strong>líder activo</strong> de esa tribu puede escribir la historia o la galería.</li>
+    <li>La lectura para visitantes pasa por funciones seguras de la base de datos que solo exponen la historia, la galería y los datos del panel; el resto de la tribu sigue oculto.</li>
     <li>Si un no-líder intenta guardar, recibe el mensaje <em>"Solo el líder puede editar la historia de la tribu."</em></li>
+    <li>El texto nunca interpreta HTML: lo que se escribe se muestra como texto, salvo el formato soportado.</li>
   </ul>
-  <div class="callout">
-    <p>La visibilidad de la página Historia sigue las mismas reglas de acceso que el resto de las secciones internas de la tribu: requiere sesión iniciada y membresía visible.</p>
-  </div>
 </div>
 </body>
 </html>

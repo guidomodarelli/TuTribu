@@ -33,6 +33,7 @@ import {
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-support-use-cases";
 import {
   getTribeStory,
+  getTribeStoryStats,
   saveTribeStory,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-story-use-cases";
 import type { TribeCreationRepository } from "@/src/modules/tribes/domain/repositories/tribe-creation-repository";
@@ -148,6 +149,9 @@ export function buildTribesModule({
         tribeSupportRepository,
       }),
       getTribeStory: getTribeStory({
+        tribeStoryRepository,
+      }),
+      getTribeStoryStats: getTribeStoryStats({
         tribeStoryRepository,
       }),
       saveTribeStory: saveTribeStory({

@@ -1,0 +1,30 @@
+.RichStoryContent {
+  display: grid;
+  gap: 0.9rem;
+
+  &__paragraph {
+    line-height: 1.7;
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  &__list {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+    padding-left: 1.4rem;
+  }
+
+  &__listItem {
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+
+  &__link {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    word-break: break-word;
+  }
+}

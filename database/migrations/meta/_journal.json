@@ -526,6 +526,13 @@
       "when": 1784192400000,
       "tag": "20260716090000_create_tribe_story_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1784203200000,
+      "tag": "20260716120000_extend_tribe_story_about",
+      "breakpoints": true
     }
   ]
 }
