@@ -2,7 +2,6 @@ import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import TribeHistoryPage from "@/app/(platform)/[slug]/historia/page";
 import TribeEventsPage from "@/app/(platform)/[slug]/eventos/page";
 import TribeMeritsPage from "@/app/(platform)/[slug]/meritos/page";
 import { createRequestModules } from "@/src/modules/setup";
@@ -148,7 +147,6 @@ describe("tribe coming soon pages", () => {
 
     const pages = [
       TribeMeritsPage(pageProps),
-      TribeHistoryPage(pageProps),
     ];
 
     for (const renderedPage of await Promise.all(pages)) {
@@ -201,7 +199,7 @@ describe("tribe coming soon pages", () => {
     });
 
     await expect(
-      TribeHistoryPage({
+      TribeMeritsPage({
         params: Promise.resolve({
           slug: "matematica-pro",
         }),

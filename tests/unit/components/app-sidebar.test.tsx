@@ -442,7 +442,7 @@ describe("AppSidebar", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows a coming soon badge only on Méritos and Historia", () => {
+  it("shows a coming soon badge only on Méritos", () => {
     (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
 
     render(
@@ -468,7 +468,7 @@ describe("AppSidebar", () => {
 
     const comingSoonBadges = screen.getAllByText("Pronto");
 
-    expect(comingSoonBadges).toHaveLength(2);
+    expect(comingSoonBadges).toHaveLength(1);
     comingSoonBadges.forEach((badge) => {
       expect(badge).toHaveClass("AppSidebar__comingSoonBadge");
     });
@@ -477,7 +477,7 @@ describe("AppSidebar", () => {
     ).toContainElement(comingSoonBadges[0]);
     expect(
       screen.getByRole("button", { name: /historia/i }).closest("li")
-    ).toContainElement(comingSoonBadges[1]);
+    ).not.toHaveTextContent("Pronto");
     expect(
       screen.getByRole("button", { name: /fogón/i }).closest("li")
     ).not.toHaveTextContent("Pronto");

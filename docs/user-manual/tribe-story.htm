@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Historia de la tribu</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;line-height:1.3;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;color:#1a1a1a;}
+.example-box{background:#fff;border:1.5px solid #d0cdc6;border-radius:10px;padding:18px 22px;margin:16px 0;}
+.example-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:10px;}
+.example-body{font-size:14px;line-height:1.7;color:#333;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid #5a9fd4;background:#eaf3fb;color:#1a4f7a;}
+.callout p{font-size:13px;color:inherit;margin-bottom:0;}
+@media (max-width:720px){
+  body{padding:32px 16px 60px;}
+  .doc-title{font-size:24px;}
+  .section-title{font-size:18px;}
+}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">Manual de usuario</div>
+  <div class="doc-title">Historia de la tribu</div>
+  <div class="doc-sub">Una página donde el líder cuenta de dónde viene la tribu, qué la mueve y hacia dónde va, al estilo de la página "About" de comunidades como Skool.</div>
+  <div class="doc-meta">
+    <span>Fecha: 2026-07-16</span>
+    <span>Estado: Vigente</span>
+    <span>Alcance: Tribus / Historia</span>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Qué es la Historia</div>
+  <p>Cada tribu tiene una página <strong>Historia</strong>, accesible desde la barra lateral. Es un texto largo, escrito por el líder, que presenta la identidad de la tribu a sus miembros.</p>
+  <ul>
+    <li>Todos los miembros activos (y silenciados) de la tribu pueden leerla.</li>
+    <li><strong>Solo el líder puede editarla.</strong> Guardianes y tribemates la ven en modo lectura.</li>
+    <li>Si el líder todavía no escribió nada, los miembros ven el mensaje <em>"El líder todavía no escribió la historia de la tribu."</em></li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Editar la historia (solo líder)</div>
+  <p>Cuando el líder entra a la página Historia, ve un editor con un área de texto, un contador de caracteres y el botón <strong>Guardar</strong>.</p>
+  <ul>
+    <li>El texto admite hasta <strong>10.000 caracteres</strong> y conserva los saltos de línea y párrafos tal como se escriben.</li>
+    <li>Se pueden agregar links con el formato <code>[texto](https://...)</code>; se muestran como enlaces que abren en una pestaña nueva.</li>
+    <li>Debajo del editor aparece una <strong>vista previa</strong> con el texto tal como lo verán los miembros.</li>
+    <li>No se puede guardar una historia vacía: aparece el aviso <em>"Escribí la historia antes de guardar."</em></li>
+    <li>Al guardar con éxito se muestra la notificación <em>"Historia actualizada."</em> sin recargar la página.</li>
+  </ul>
+  <div class="example-box">
+    <div class="example-label">Ejemplo</div>
+    <div class="example-body">
+      <p>Nacimos en 2020 como un grupo de amigos que quería aprender a invertir. Hoy somos cientos. Conocé [nuestro manifiesto](https://tribu.example.com/manifiesto).</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Permisos y seguridad</div>
+  <ul>
+    <li>La edición está protegida en el servidor y en la base de datos: aunque alguien intente guardar por fuera de la interfaz, solo un <strong>líder activo</strong> de esa tribu puede escribir la historia.</li>
+    <li>Quien no es miembro de la tribu no puede leer la historia.</li>
+    <li>Si un no-líder intenta guardar, recibe el mensaje <em>"Solo el líder puede editar la historia de la tribu."</em></li>
+  </ul>
+  <div class="callout">
+    <p>La visibilidad de la página Historia sigue las mismas reglas de acceso que el resto de las secciones internas de la tribu: requiere sesión iniciada y membresía visible.</p>
+  </div>
+</div>
+</body>
+</html>

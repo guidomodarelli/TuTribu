@@ -1,0 +1,12 @@
+$tribe-story-page-desktop-min: 1024px;
+$tribe-story-page-desktop-max-width: 1400px;
+
+.TribeStoryPage {
+  width: 100%;
+}
+
+@media (min-width: $tribe-story-page-desktop-min) {
+  .TribeStoryPage {
+    max-width: $tribe-story-page-desktop-max-width;
+  }
+}

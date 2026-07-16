@@ -31,10 +31,15 @@ import {
   getTribeSupport,
   saveTribeSupport,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-support-use-cases";
+import {
+  getTribeStory,
+  saveTribeStory,
+} from "@/src/modules/tribes/application/use-cases/manage-tribe-story-use-cases";
 import type { TribeCreationRepository } from "@/src/modules/tribes/domain/repositories/tribe-creation-repository";
 import type { TribeCreatorWhitelistRepository } from "@/src/modules/tribes/domain/repositories/tribe-creator-whitelist-repository";
 import type { TribeInvitationRepository } from "@/src/modules/tribes/domain/repositories/tribe-invitation-repository";
 import type { TribeReadRepository } from "@/src/modules/tribes/domain/repositories/tribe-read-repository";
+import type { TribeStoryRepository } from "@/src/modules/tribes/domain/repositories/tribe-story-repository";
 import type { TribeSupportRepository } from "@/src/modules/tribes/domain/repositories/tribe-support-repository";
 import type { TribeWelcomeRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-repository";
 import type { TribeWelcomeSelectionRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-selection-repository";
@@ -44,6 +49,7 @@ type TribesModuleDependencies = {
   tribeCreationRepository: TribeCreationRepository;
   tribeCreatorWhitelistRepository: TribeCreatorWhitelistRepository;
   tribeInvitationRepository: TribeInvitationRepository;
+  tribeStoryRepository: TribeStoryRepository;
   tribeSupportRepository: TribeSupportRepository;
   tribeWelcomeRepository: TribeWelcomeRepository;
   tribeWelcomeSelectionRepository: TribeWelcomeSelectionRepository;
@@ -54,6 +60,7 @@ export function buildTribesModule({
   tribeCreationRepository,
   tribeCreatorWhitelistRepository,
   tribeInvitationRepository,
+  tribeStoryRepository,
   tribeSupportRepository,
   tribeWelcomeRepository,
   tribeWelcomeSelectionRepository,
@@ -139,6 +146,12 @@ export function buildTribesModule({
       }),
       saveTribeSupport: saveTribeSupport({
         tribeSupportRepository,
+      }),
+      getTribeStory: getTribeStory({
+        tribeStoryRepository,
+      }),
+      saveTribeStory: saveTribeStory({
+        tribeStoryRepository,
       }),
     },
   };

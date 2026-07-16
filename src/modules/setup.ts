@@ -5,6 +5,7 @@ import { PostgresTribeCreationRepository } from "./tribes/infrastructure/reposit
 import { PostgresTribeCreatorWhitelistRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creator-whitelist-repository";
 import { PostgresTribeInvitationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-invitation-repository";
 import { PostgresTribeReadRepository } from "./tribes/infrastructure/repositories/postgres-tribe-read-repository";
+import { PostgresTribeStoryRepository } from "./tribes/infrastructure/repositories/postgres-tribe-story-repository";
 import { PostgresTribeSupportRepository } from "./tribes/infrastructure/repositories/postgres-tribe-support-repository";
 import { PostgresTribeWelcomeRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-repository";
 import { PostgresTribeWelcomeSelectionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository";
@@ -139,6 +140,9 @@ export async function createRequestModules(
       tribeCreatorWhitelistRepository:
         new PostgresTribeCreatorWhitelistRepository(executeWithRequestContext),
       tribeInvitationRepository: new PostgresTribeInvitationRepository(
+        executeWithRequestContext
+      ),
+      tribeStoryRepository: new PostgresTribeStoryRepository(
         executeWithRequestContext
       ),
       tribeSupportRepository: new PostgresTribeSupportRepository(

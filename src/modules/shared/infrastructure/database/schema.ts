@@ -219,6 +219,23 @@ export const tribeSupportSettings = pgTable("tribe_support_settings", {
   tribeKey: uniqueIndex("tribe_support_settings_tribe_key").on(table.tribeId),
 }));
 
+export const tribeStorySettings = pgTable("tribe_story_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  updatedBy: text("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  tribeKey: uniqueIndex("tribe_story_settings_tribe_key").on(table.tribeId),
+}));
+
 export const tribeWelcomeRules = pgTable("tribe_welcome_rules", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")

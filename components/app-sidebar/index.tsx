@@ -90,7 +90,6 @@ const tribeMemberNavigation = [
       isSameOrNestedPath(pathname, ROUTES.tribes.merits(tribeSlug)),
   },
   {
-    comingSoon: true,
     hrefBuilder: ROUTES.tribes.history,
     icon: ScrollTextIcon,
     label: "Historia",

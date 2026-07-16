@@ -519,6 +519,13 @@
       "when": 1783861200000,
       "tag": "20260712130000_create_course_lesson_comments",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1784192400000,
+      "tag": "20260716090000_create_tribe_story_settings",
+      "breakpoints": true
     }
   ]
 }
