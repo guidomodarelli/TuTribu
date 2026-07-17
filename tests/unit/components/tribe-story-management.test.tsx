@@ -153,7 +153,7 @@ describe("TribeStoryManagement", () => {
     expect(screen.getAllByLabelText("URL de la imagen")).toHaveLength(5);
   });
 
-  it("renders a bold and list preview of the story content", async () => {
+  it("switches between edit and preview modes with a visible tab switch", async () => {
     const user = userEvent.setup();
 
     render(
@@ -169,9 +169,38 @@ describe("TribeStoryManagement", () => {
       "Somos **una tribu**\n- Honestidad"
     );
 
-    expect(screen.getByText("Vista previa")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Vista previa" }));
+
     expect(screen.getByText("una tribu").tagName).toBe("STRONG");
     expect(screen.getByRole("listitem")).toHaveTextContent("Honestidad");
+    expect(
+      screen.queryByRole("button", { name: "Guardar" })
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Edición" }));
+
+    expect(screen.getByLabelText("Historia de la tribu")).toHaveValue(
+      "Somos **una tribu**\n- Honestidad"
+    );
+    expect(screen.getByRole("button", { name: "Guardar" })).toBeInTheDocument();
+  });
+
+  it("shows an empty preview hint when there is no content yet", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeStoryManagement
+        openFreeJoinEnabled={false}
+        story={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Vista previa" }));
+
+    expect(
+      screen.getByText("Escribí la historia para ver la vista previa.")
+    ).toBeInTheDocument();
   });
 
   it("wraps the selection in bold from the toolbar", async () => {

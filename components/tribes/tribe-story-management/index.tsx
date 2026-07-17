@@ -13,11 +13,20 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import Image from "next/image";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { RichStoryContent } from "@/components/rich-text/rich-story-content";
+import { TribeStoryGallery } from "@/components/tribes/tribe-story-gallery";
 import { buildPlayerEmbedSource } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { parseExternalVideoUrl } from "@/src/modules/shared/domain/value-objects/external-video-url";
 import {
@@ -25,7 +34,10 @@ import {
   TRIBE_STORY_MEDIA_MAX_ITEMS,
   TRIBE_STORY_MEDIA_TYPE,
 } from "@/src/modules/tribes/constants/tribe-story";
-import type { TribeStoryResult } from "@/src/modules/tribes/application/results/tribe-story-result";
+import type {
+  TribeStoryMediaResult,
+  TribeStoryResult,
+} from "@/src/modules/tribes/application/results/tribe-story-result";
 import type { TribeStoryMediaType } from "@/src/modules/tribes/domain/repositories/tribe-story-repository";
 import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
 import styles from "./styles.module.scss";
@@ -72,7 +84,10 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   mediaUrlVideoPlaceholder: "https://www.youtube.com/watch?v=...",
   moveDownLabel: "Bajar",
   moveUpLabel: "Subir",
-  previewEyebrow: "Vista previa",
+  coverPreviewAlt: "Vista previa de la portada",
+  editTabLabel: "Edición",
+  previewEmpty: "Escribí la historia para ver la vista previa.",
+  previewTabLabel: "Vista previa",
   removeMediaLabel: "Eliminar",
   removeMediaTitle: "Eliminar recurso",
   requiredContent: "Escribí la historia antes de guardar.",
@@ -137,6 +152,13 @@ const UPLOAD_TARGET = {
   cover: "cover",
   logo: "logo",
 } as const;
+
+const STORY_MODE_TAB = {
+  edit: "edit",
+  preview: "preview",
+} as const;
+
+const COVER_PREVIEW_SIZES = "(min-width: 64rem) 42rem, 100vw";
 
 type EditableStoryMediaItem = {
   clientId: string;
@@ -234,6 +256,56 @@ function buildLegend(index: number, total: number): string {
     TRIBE_STORY_MANAGEMENT_COPY.legendOf +
     MEDIA_LEGEND_SEPARATOR +
     String(total)
+  );
+}
+
+/**
+ * Builds the read-only gallery items for the preview tab from the editable
+ * draft: only valid entries render (parseable video links, http image URLs), so
+ * the preview mirrors what would be saved.
+ */
+function buildPreviewMedia(
+  mediaItems: EditableStoryMediaItem[]
+): TribeStoryMediaResult[] {
+  return mediaItems.flatMap(
+    (mediaItem, mediaIndex): TribeStoryMediaResult[] => {
+      const trimmedUrl = mediaItem.url.trim();
+
+      if (mediaItem.mediaType === TRIBE_STORY_MEDIA_TYPE.video) {
+        try {
+          const parsedVideo = parseExternalVideoUrl(trimmedUrl);
+
+          return [
+            {
+              externalVideoId: parsedVideo.externalId,
+              id: mediaItem.clientId,
+              mediaType: TRIBE_STORY_MEDIA_TYPE.video,
+              sortOrder: mediaIndex,
+              url: null,
+              videoProvider: parsedVideo.provider,
+            },
+          ];
+        } catch {
+          // Invalid drafts are skipped from the preview instead of breaking it.
+          return [];
+        }
+      }
+
+      if (trimmedUrl.length > 0 && isHttpUrl(trimmedUrl)) {
+        return [
+          {
+            externalVideoId: null,
+            id: mediaItem.clientId,
+            mediaType: TRIBE_STORY_MEDIA_TYPE.image,
+            sortOrder: mediaIndex,
+            url: trimmedUrl,
+            videoProvider: null,
+          },
+        ];
+      }
+
+      return [];
+    }
   );
 }
 
@@ -621,6 +693,20 @@ export function TribeStoryManagement({
         </p>
       </header>
 
+      <Tabs
+        className={styles.TribeStoryManagement__modeTabs}
+        defaultValue={STORY_MODE_TAB.edit}
+      >
+        <TabsList className={styles.TribeStoryManagement__modeTabsList}>
+          <TabsTrigger value={STORY_MODE_TAB.edit}>
+            {TRIBE_STORY_MANAGEMENT_COPY.editTabLabel}
+          </TabsTrigger>
+          <TabsTrigger value={STORY_MODE_TAB.preview}>
+            {TRIBE_STORY_MANAGEMENT_COPY.previewTabLabel}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={STORY_MODE_TAB.edit}>
       <form
         className={styles.TribeStoryManagement__form}
         onSubmit={(event) => {
@@ -1038,15 +1124,33 @@ export function TribeStoryManagement({
           </Button>
         </div>
       </form>
+        </TabsContent>
 
-      {trimmedContent ? (
-        <section className={styles.TribeStoryManagement__preview}>
-          <span className={styles.TribeStoryManagement__previewEyebrow}>
-            {TRIBE_STORY_MANAGEMENT_COPY.previewEyebrow}
-          </span>
-          <RichStoryContent content={trimmedContent} />
-        </section>
-      ) : null}
+        <TabsContent value={STORY_MODE_TAB.preview}>
+          <section className={styles.TribeStoryManagement__preview}>
+            {coverUrl.trim() && isHttpUrl(coverUrl.trim()) ? (
+              <div className={styles.TribeStoryManagement__previewCover}>
+                <Image
+                  alt={TRIBE_STORY_MANAGEMENT_COPY.coverPreviewAlt}
+                  className={styles.TribeStoryManagement__previewCoverImage}
+                  fill
+                  sizes={COVER_PREVIEW_SIZES}
+                  src={coverUrl.trim()}
+                  unoptimized
+                />
+              </div>
+            ) : null}
+            <TribeStoryGallery media={buildPreviewMedia(mediaItems)} />
+            {trimmedContent ? (
+              <RichStoryContent content={trimmedContent} />
+            ) : (
+              <p className={styles.TribeStoryManagement__emptyState}>
+                {TRIBE_STORY_MANAGEMENT_COPY.previewEmpty}
+              </p>
+            )}
+          </section>
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }
