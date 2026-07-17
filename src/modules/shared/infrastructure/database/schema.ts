@@ -93,6 +93,9 @@ export const tribes = pgTable("tribes", {
   freeJoinIsCurrent: boolean("free_join_is_current")
     .notNull()
     .default(true),
+  openFreeJoinEnabled: boolean("open_free_join_enabled")
+    .notNull()
+    .default(false),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),
@@ -119,6 +122,7 @@ export const tribeMembers = pgTable("tribe_members", {
     () => tribeInvitations.id,
     { onDelete: "set null" }
   ),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
@@ -226,6 +230,8 @@ export const tribeStorySettings = pgTable("tribe_story_settings", {
     .references(() => tribes.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   websiteUrl: text("website_url"),
+  logoUrl: text("logo_url"),
+  coverUrl: text("cover_url"),
   updatedBy: text("updated_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -257,6 +263,30 @@ export const tribeStoryMedia = pgTable("tribe_story_media", {
   tribeSortIndex: index("idx_tribe_story_media_tribe_sort").on(
     table.tribeId,
     table.sortOrder
+  ),
+}));
+
+export const tribeStoryImages = pgTable("tribe_story_images", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  cloudflareImageId: text("cloudflare_image_id").notNull(),
+  deliveryUrl: text("delivery_url").notNull(),
+  status: text("status").notNull().default("draft"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  cloudflareKey: uniqueIndex("tribe_story_images_cloudflare_key").on(
+    table.cloudflareImageId
+  ),
+  tribeStatusIndex: index("idx_tribe_story_images_tribe_status").on(
+    table.tribeId,
+    table.status
   ),
 }));
 

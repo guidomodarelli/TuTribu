@@ -18,6 +18,8 @@ function buildStory(
 ): TribeStorySettings {
   return {
     content: "Nacimos en 2020 para acompañarnos a invertir mejor.",
+    coverUrl: null,
+    logoUrl: null,
     media: [],
     websiteUrl: null,
     ...overrides,
@@ -32,6 +34,9 @@ function buildStats(
     createdAt: "2026-01-10T00:00:00.000Z",
     memberCount: 128,
     name: "Matematica Pro",
+    onlineCount: 7,
+    openFreeJoinAvailable: false,
+    openFreeJoinEnabled: false,
     ...overrides,
   };
 }
@@ -121,6 +126,8 @@ describe("manage tribe story use cases", () => {
 
     const result = await useCase({
       content: "  Nuestra historia arranca acá.  ",
+      coverUrl: "   ",
+      logoUrl: " https://images.example.com/logo.png ",
       media: [
         {
           externalVideoId: null,
@@ -130,12 +137,15 @@ describe("manage tribe story use cases", () => {
           videoProvider: null,
         },
       ],
+      openFreeJoinEnabled: true,
       tribeSlug: " matematica-pro ",
       websiteUrl: "   ",
     });
 
     expect(repository.save).toHaveBeenCalledWith({
       content: "Nuestra historia arranca acá.",
+      coverUrl: null,
+      logoUrl: "https://images.example.com/logo.png",
       media: [
         {
           externalVideoId: null,
@@ -145,6 +155,7 @@ describe("manage tribe story use cases", () => {
           videoProvider: null,
         },
       ],
+      openFreeJoinEnabled: true,
       tribeSlug: "matematica-pro",
       websiteUrl: null,
     });
@@ -160,6 +171,8 @@ describe("manage tribe story use cases", () => {
 
     await useCase({
       content: "Historia",
+      coverUrl: null,
+      logoUrl: null,
       media: [
         {
           externalVideoId: "dQw4w9WgXcQ",
@@ -176,6 +189,7 @@ describe("manage tribe story use cases", () => {
           videoProvider: null,
         },
       ],
+      openFreeJoinEnabled: false,
       tribeSlug: "matematica-pro",
       websiteUrl: "https://tribu.example.com",
     });
@@ -205,7 +219,10 @@ describe("manage tribe story use cases", () => {
 
     const result = await useCase({
       content: " Historia actualizada. ",
+      coverUrl: null,
+      logoUrl: null,
       media: [],
+      openFreeJoinEnabled: false,
       tribeSlug: "matematica-pro",
       websiteUrl: null,
     });

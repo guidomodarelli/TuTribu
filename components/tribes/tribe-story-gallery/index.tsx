@@ -7,10 +7,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import {
-  PLAYER_IFRAME_ALLOW,
-  buildPlayerEmbedSource,
-} from "@/src/modules/shared/application/video/build-player-embed-source";
+import { TribeStoryVideoSlide } from "@/components/tribes/tribe-story-video-slide";
 import { TRIBE_STORY_MEDIA_TYPE } from "@/src/modules/tribes/constants/tribe-story";
 import type { TribeStoryMediaResult } from "@/src/modules/tribes/application/results/tribe-story-result";
 import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
@@ -46,15 +43,10 @@ export function TribeStoryGallery({ media }: TribeStoryGalleryProps) {
                 {mediaItem.mediaType === TRIBE_STORY_MEDIA_TYPE.video &&
                 mediaItem.videoProvider &&
                 mediaItem.externalVideoId ? (
-                  <iframe
-                    allow={PLAYER_IFRAME_ALLOW}
-                    allowFullScreen
-                    className={styles.TribeStoryGallery__video}
-                    src={buildPlayerEmbedSource(
-                      mediaItem.videoProvider as VideoProvider,
-                      mediaItem.externalVideoId
-                    )}
+                  <TribeStoryVideoSlide
+                    externalVideoId={mediaItem.externalVideoId}
                     title={TRIBE_STORY_GALLERY_COPY.videoTitle(mediaIndex + 1)}
+                    videoProvider={mediaItem.videoProvider as VideoProvider}
                   />
                 ) : mediaItem.url ? (
                   <Image

@@ -180,4 +180,70 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
+
+  &__toolbar {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  &__uploadRow {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+
+    > :first-child {
+      flex: 1;
+      min-width: 12rem;
+    }
+  }
+
+  &__uploadButton {
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 0.85rem;
+    font-weight: 500;
+    gap: 0.4rem;
+    padding: 0.45rem 0.75rem;
+    white-space: nowrap;
+
+    &:hover {
+      background: color-mix(in srgb, var(--muted) 60%, transparent);
+    }
+  }
+
+  &__uploadIcon {
+    height: 1rem;
+    width: 1rem;
+  }
+
+  &__uploadInput {
+    border: 0;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+
+  &__switchLabel {
+    align-items: center;
+    display: inline-flex;
+    font-size: 0.95rem;
+    font-weight: 600;
+    gap: 0.6rem;
+  }
+
+  &__mediaActions {
+    align-items: center;
+    display: flex;
+    gap: 0.35rem;
+    justify-content: flex-end;
+  }
 }

@@ -1,0 +1,40 @@
+.TribeStoryVideoSlide {
+  align-items: center;
+  background: color-mix(in srgb, var(--foreground) 85%, transparent);
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  width: 100%;
+
+  &__thumbnail {
+    object-fit: cover;
+  }
+
+  &__video {
+    border: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  &__playBadge {
+    align-items: center;
+    background: color-mix(in srgb, var(--background) 85%, transparent);
+    border-radius: 999px;
+    display: flex;
+    height: 3.5rem;
+    justify-content: center;
+    position: relative;
+    width: 3.5rem;
+    z-index: 1;
+  }
+
+  &__playIcon {
+    color: var(--foreground);
+    height: 1.5rem;
+    width: 1.5rem;
+  }
+}

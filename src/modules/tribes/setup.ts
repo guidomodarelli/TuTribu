@@ -36,10 +36,19 @@ import {
   getTribeStoryStats,
   saveTribeStory,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-story-use-cases";
+import { joinTribeFree } from "@/src/modules/tribes/application/use-cases/join-tribe-free-use-case";
+import { touchTribePresence } from "@/src/modules/tribes/application/use-cases/manage-tribe-presence-use-cases";
+import {
+  createTribeStoryImageUpload,
+  deleteTribeStoryImageUpload,
+} from "@/src/modules/tribes/application/use-cases/manage-tribe-story-image-use-cases";
 import type { TribeCreationRepository } from "@/src/modules/tribes/domain/repositories/tribe-creation-repository";
 import type { TribeCreatorWhitelistRepository } from "@/src/modules/tribes/domain/repositories/tribe-creator-whitelist-repository";
 import type { TribeInvitationRepository } from "@/src/modules/tribes/domain/repositories/tribe-invitation-repository";
 import type { TribeReadRepository } from "@/src/modules/tribes/domain/repositories/tribe-read-repository";
+import type { TribeFreeJoinRepository } from "@/src/modules/tribes/domain/repositories/tribe-free-join-repository";
+import type { TribePresenceRepository } from "@/src/modules/tribes/domain/repositories/tribe-presence-repository";
+import type { TribeStoryImageRepository } from "@/src/modules/tribes/domain/repositories/tribe-story-image-repository";
 import type { TribeStoryRepository } from "@/src/modules/tribes/domain/repositories/tribe-story-repository";
 import type { TribeSupportRepository } from "@/src/modules/tribes/domain/repositories/tribe-support-repository";
 import type { TribeWelcomeRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-repository";
@@ -50,6 +59,9 @@ type TribesModuleDependencies = {
   tribeCreationRepository: TribeCreationRepository;
   tribeCreatorWhitelistRepository: TribeCreatorWhitelistRepository;
   tribeInvitationRepository: TribeInvitationRepository;
+  tribeFreeJoinRepository: TribeFreeJoinRepository;
+  tribePresenceRepository: TribePresenceRepository;
+  tribeStoryImageRepository: TribeStoryImageRepository;
   tribeStoryRepository: TribeStoryRepository;
   tribeSupportRepository: TribeSupportRepository;
   tribeWelcomeRepository: TribeWelcomeRepository;
@@ -61,6 +73,9 @@ export function buildTribesModule({
   tribeCreationRepository,
   tribeCreatorWhitelistRepository,
   tribeInvitationRepository,
+  tribeFreeJoinRepository,
+  tribePresenceRepository,
+  tribeStoryImageRepository,
   tribeStoryRepository,
   tribeSupportRepository,
   tribeWelcomeRepository,
@@ -153,6 +168,18 @@ export function buildTribesModule({
       }),
       getTribeStoryStats: getTribeStoryStats({
         tribeStoryRepository,
+      }),
+      joinTribeFree: joinTribeFree({
+        tribeFreeJoinRepository,
+      }),
+      touchTribePresence: touchTribePresence({
+        tribePresenceRepository,
+      }),
+      createTribeStoryImageUpload: createTribeStoryImageUpload({
+        tribeStoryImageRepository,
+      }),
+      deleteTribeStoryImageUpload: deleteTribeStoryImageUpload({
+        tribeStoryImageRepository,
       }),
       saveTribeStory: saveTribeStory({
         tribeStoryRepository,

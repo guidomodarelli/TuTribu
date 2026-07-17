@@ -66,7 +66,10 @@ export function saveTribeStory({
   ): Promise<TribeStorySaveResult> =>
     tribeStoryRepository.save({
       content: normalizeText(command.content),
+      coverUrl: normalizeNullableText(command.coverUrl),
+      logoUrl: normalizeNullableText(command.logoUrl),
       media: normalizeMediaItems(command.media),
+      openFreeJoinEnabled: command.openFreeJoinEnabled,
       tribeSlug: normalizeText(command.tribeSlug),
       websiteUrl: normalizeNullableText(command.websiteUrl),
     });

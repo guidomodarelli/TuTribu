@@ -1,0 +1,166 @@
+import { POST as touchPresence } from "@/app/api/tribes/[slug]/presence/route";
+import { POST as createStoryImage } from "@/app/api/tribes/[slug]/story/images/route";
+import { DELETE as deleteStoryImage } from "@/app/api/tribes/[slug]/story/images/[imageId]/route";
+import { createRequestModules } from "@/src/modules/setup";
+import { TRIBE_STORY_IMAGE_UPLOAD_STATUS } from "@/src/modules/tribes/constants/tribe-story";
+
+const getAuthenticatedMember = jest.fn();
+const touchTribePresence = jest.fn();
+const createTribeStoryImageUpload = jest.fn();
+const deleteTribeStoryImageUpload = jest.fn();
+
+jest.mock("@/src/modules/setup", () => ({
+  createRequestModules: jest.fn(),
+}));
+
+jest.mock(
+  "@/src/modules/shared/infrastructure/observability/server-logger",
+  () => ({
+    createServerLogger: jest.fn(() => ({
+      error: jest.fn(),
+      info: jest.fn(),
+    })),
+  })
+);
+
+class MockJsonResponse {
+  status: number;
+
+  constructor(
+    private readonly body: Record<string, unknown>,
+    init?: ResponseInit
+  ) {
+    this.status = init?.status ?? 200;
+  }
+
+  static json(body: Record<string, unknown>, init?: ResponseInit) {
+    return new MockJsonResponse(body, init);
+  }
+
+  async json() {
+    return this.body;
+  }
+}
+
+function buildRequest(): Request {
+  return {
+    headers: new Headers(),
+    method: "POST",
+    url: "https://tutribu.example.com/api/tribes/matematica-pro/presence",
+  } as unknown as Request;
+}
+
+function buildContext(params: Record<string, string>) {
+  return { params: Promise.resolve(params) };
+}
+
+describe("Tribe presence and story image routes", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.Response = MockJsonResponse as unknown as typeof Response;
+    getAuthenticatedMember.mockResolvedValue({
+      avatarFallback: "GH",
+      email: "leader@example.com",
+      id: "member-1",
+      image: null,
+      name: "Grace Hopper",
+      role: "tribemate",
+    });
+    touchTribePresence.mockResolvedValue(true);
+    createTribeStoryImageUpload.mockResolvedValue({
+      deliveryUrl: "https://imagedelivery.net/hash/image-1/public",
+      imageId: "image-1",
+      status: TRIBE_STORY_IMAGE_UPLOAD_STATUS.created,
+      uploadUrl: "https://upload.example.com/image-1",
+    });
+    deleteTribeStoryImageUpload.mockResolvedValue(true);
+    (createRequestModules as jest.Mock).mockResolvedValue({
+      auth: {
+        useCases: { getAuthenticatedMember },
+      },
+      tribes: {
+        useCases: {
+          createTribeStoryImageUpload,
+          deleteTribeStoryImageUpload,
+          touchTribePresence,
+        },
+      },
+    });
+  });
+
+  it("touches the viewer presence", async () => {
+    const response = await touchPresence(
+      buildRequest(),
+      buildContext({ slug: "matematica-pro" })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ touched: true });
+    expect(touchTribePresence).toHaveBeenCalledWith({
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("rejects an anonymous presence touch", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+
+    const response = await touchPresence(
+      buildRequest(),
+      buildContext({ slug: "matematica-pro" })
+    );
+
+    expect(response.status).toBe(401);
+    expect(touchTribePresence).not.toHaveBeenCalled();
+  });
+
+  it("reserves a story image direct upload for the leader", async () => {
+    const response = await createStoryImage(
+      buildRequest(),
+      buildContext({ slug: "matematica-pro" })
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      deliveryUrl: "https://imagedelivery.net/hash/image-1/public",
+      imageId: "image-1",
+      uploadUrl: "https://upload.example.com/image-1",
+    });
+  });
+
+  it("maps a forbidden story image upload to 403", async () => {
+    createTribeStoryImageUpload.mockResolvedValue({
+      status: TRIBE_STORY_IMAGE_UPLOAD_STATUS.forbidden,
+    });
+
+    const response = await createStoryImage(
+      buildRequest(),
+      buildContext({ slug: "matematica-pro" })
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it("deletes a reserved story image draft", async () => {
+    const response = await deleteStoryImage(
+      buildRequest(),
+      buildContext({ imageId: "image-1", slug: "matematica-pro" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(deleteTribeStoryImageUpload).toHaveBeenCalledWith({
+      imageId: "image-1",
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("returns 404 when the story image draft cannot be deleted", async () => {
+    deleteTribeStoryImageUpload.mockResolvedValue(false);
+
+    const response = await deleteStoryImage(
+      buildRequest(),
+      buildContext({ imageId: "image-1", slug: "matematica-pro" })
+    );
+
+    expect(response.status).toBe(404);
+  });
+});

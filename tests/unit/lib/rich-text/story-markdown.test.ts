@@ -1,8 +1,27 @@
 import {
   STORY_BLOCK_TYPE,
   STORY_INLINE_TYPE,
+  buildStoryPlainTextExcerpt,
   parseStoryBlocks,
 } from "@/lib/rich-text/story-markdown";
+
+describe("buildStoryPlainTextExcerpt", () => {
+  it("strips formatting and keeps the plain text", () => {
+    expect(
+      buildStoryPlainTextExcerpt(
+        "Somos **una tribu**\n- Honestidad\nMirá [el manifiesto](https://tribu.example.com)",
+        160
+      )
+    ).toBe("Somos una tribu Honestidad Mirá el manifiesto");
+  });
+
+  it("trims long content with an ellipsis within the limit", () => {
+    const excerpt = buildStoryPlainTextExcerpt("a".repeat(300), 160);
+
+    expect(excerpt.length).toBeLessThanOrEqual(160);
+    expect(excerpt.endsWith("…")).toBe(true);
+  });
+});
 
 describe("parseStoryBlocks", () => {
   it("splits paragraphs on blank lines and keeps single line breaks inside a paragraph", () => {

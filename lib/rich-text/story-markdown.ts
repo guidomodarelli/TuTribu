@@ -65,6 +65,37 @@ function parseInlineSegments(text: string): StoryInlineSegment[] {
   return segments;
 }
 
+const EXCERPT_SEGMENT_SEPARATOR = " ";
+const EXCERPT_ELLIPSIS = "…";
+
+/**
+ * Flattens the parsed story into plain text (formatting stripped) and trims it
+ * to `maxLength`, for SEO descriptions and previews.
+ */
+export function buildStoryPlainTextExcerpt(
+  content: string,
+  maxLength: number
+): string {
+  const plainText = parseStoryBlocks(content)
+    .flatMap((block) =>
+      block.type === STORY_BLOCK_TYPE.paragraph
+        ? block.segments.map((segment) => segment.text)
+        : block.items.flatMap((itemSegments) =>
+            itemSegments.map((segment) => segment.text)
+          )
+    )
+    .join(EXCERPT_SEGMENT_SEPARATOR)
+    .replace(/\s+/g, EXCERPT_SEGMENT_SEPARATOR)
+    .trim();
+
+  if (plainText.length <= maxLength) {
+    return plainText;
+  }
+
+  return plainText.slice(0, maxLength - EXCERPT_ELLIPSIS.length).trimEnd() +
+    EXCERPT_ELLIPSIS;
+}
+
 export function parseStoryBlocks(content: string): StoryBlock[] {
   const blocks: StoryBlock[] = [];
   let paragraphLines: string[] = [];

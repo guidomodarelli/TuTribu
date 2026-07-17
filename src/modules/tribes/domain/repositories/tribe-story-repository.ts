@@ -17,6 +17,8 @@ export type TribeStoryMediaItem = {
 
 export type TribeStorySettings = {
   content: string;
+  coverUrl: string | null;
+  logoUrl: string | null;
   media: TribeStoryMediaItem[];
   websiteUrl: string | null;
 };
@@ -26,6 +28,9 @@ export type TribeStoryStats = {
   createdAt: string;
   memberCount: number;
   name: string;
+  onlineCount: number;
+  openFreeJoinAvailable: boolean;
+  openFreeJoinEnabled: boolean;
 };
 
 export type TribeStorySaveStatus =
@@ -52,7 +57,10 @@ export type SaveTribeStoryMediaItem = {
 
 export type SaveTribeStoryCommand = {
   content: string;
+  coverUrl: string | null;
+  logoUrl: string | null;
   media: SaveTribeStoryMediaItem[];
+  openFreeJoinEnabled: boolean;
   tribeSlug: string;
   websiteUrl: string | null;
 };

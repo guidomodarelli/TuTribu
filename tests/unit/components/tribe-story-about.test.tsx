@@ -44,6 +44,9 @@ const STATS = {
   createdAt: "2026-01-10T00:00:00.000Z",
   memberCount: 128,
   name: "Matematica Pro",
+  onlineCount: 7,
+  openFreeJoinAvailable: false,
+  openFreeJoinEnabled: false,
 };
 
 describe("TribeStoryAbout", () => {
@@ -55,6 +58,8 @@ describe("TribeStoryAbout", () => {
         story={{
           content:
             "Somos **una tribu** de inversores\n- Honestidad\n- Comunidad\nMirá [el manifiesto](https://tribu.example.com/manifiesto)",
+          coverUrl: "https://images.example.com/cover.jpg",
+          logoUrl: "https://images.example.com/logo.png",
           media: [
             {
               externalVideoId: "dQw4w9WgXcQ",
@@ -88,7 +93,7 @@ describe("TribeStoryAbout", () => {
       screen.getByRole("link", { name: "el manifiesto" })
     ).toHaveAttribute("href", "https://tribu.example.com/manifiesto");
     expect(
-      screen.getByTitle("Video 1 de la tribu")
+      screen.getByRole("button", { name: "Reproducir Video 1 de la tribu" })
     ).toBeInTheDocument();
     expect(
       screen.getByAltText("Imagen 2 de la tribu")
@@ -98,6 +103,14 @@ describe("TribeStoryAbout", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Miembros")).toBeInTheDocument();
     expect(screen.getByText("128")).toBeInTheDocument();
+    expect(screen.getByText("En línea")).toBeInTheDocument();
+    expect(screen.getByText("7")).toBeInTheDocument();
+    expect(
+      screen.getByAltText("Portada de Matematica Pro")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByAltText("Logo de Matematica Pro")
+    ).toBeInTheDocument();
     expect(screen.getByText("Administradores")).toBeInTheDocument();
     expect(screen.getByText("Privada")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Sitio web" })).toHaveAttribute(
@@ -117,6 +130,8 @@ describe("TribeStoryAbout", () => {
         stats={STATS}
         story={{
           content: "Nacimos en 2020.",
+          coverUrl: null,
+          logoUrl: null,
           media: [],
           websiteUrl: null,
         }}
@@ -129,6 +144,33 @@ describe("TribeStoryAbout", () => {
     expect(
       screen.getByRole("link", { name: "Unirse a la tribu" })
     ).toHaveAttribute("href", "/matematica-pro");
+  });
+
+  it("renders a free join form when the tribe allows tokenless free joins", () => {
+    const freeJoinAction = jest.fn(async () => undefined);
+
+    render(
+      <TribeStoryAbout
+        freeJoinAction={freeJoinAction}
+        offerPrice={null}
+        stats={{ ...STATS, openFreeJoinAvailable: true }}
+        story={{
+          content: "Nacimos en 2020.",
+          coverUrl: null,
+          logoUrl: null,
+          media: [],
+          websiteUrl: null,
+        }}
+        tribeName="Matematica Pro"
+      />
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Unirse gratis" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Unirse a la tribu" })
+    ).not.toBeInTheDocument();
   });
 
   it("shows the empty state when there is no story yet", () => {

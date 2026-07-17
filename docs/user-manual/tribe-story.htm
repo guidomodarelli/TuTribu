@@ -60,15 +60,17 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="section">
   <div class="section-num">02</div>
   <div class="section-title">Panel de datos de la tribu</div>
-  <p>Al costado de la historia (o debajo, en el teléfono) aparece un panel con:</p>
+  <p>Al costado de la historia (o debajo, en el teléfono) aparece un panel con el <strong>logo</strong> y el nombre de la tribu, y estos datos:</p>
   <ul>
     <li><strong>Miembros</strong>: cantidad de integrantes de la tribu.</li>
+    <li><strong>En línea</strong>: miembros activos en los últimos minutos (se actualiza mientras navegan la tribu).</li>
     <li><strong>Administradores</strong>: líderes y guardianes activos.</li>
     <li><strong>Creada en</strong>: mes y año de creación de la tribu.</li>
     <li><strong>Privacidad</strong>: hoy todas las tribus son privadas.</li>
     <li><strong>Precio</strong>: solo para visitantes, cuando la tribu tiene una suscripción abierta (por ejemplo <em>$15.000/mes</em>).</li>
     <li><strong>Sitio web</strong>: link externo opcional definido por el líder.</li>
   </ul>
+  <p>Si el líder cargó una <strong>portada</strong>, se muestra como imagen ancha arriba de toda la página.</p>
 </div>
 
 <div class="section">
@@ -77,9 +79,12 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <p>Cuando el líder entra a la página Historia, ve un editor con el texto, el link del sitio web, la galería y el botón <strong>Guardar</strong>.</p>
   <ul>
     <li>El texto admite hasta <strong>10.000 caracteres</strong> y conserva saltos de línea y párrafos.</li>
-    <li>Formato disponible: <strong>negrita</strong> con <code>**texto**</code>, listas empezando la línea con <code>-</code>, y links con <code>[texto](https://...)</code>.</li>
-    <li>La <strong>galería</strong> admite hasta <strong>5 recursos</strong> entre imágenes (URL directa) y videos de <strong>YouTube, Vimeo, Wistia o Loom</strong> (pegando el link del video). Se muestran en un carrusel arriba de la historia.</li>
+    <li>Formato disponible: <strong>negrita</strong> con <code>**texto**</code>, listas empezando la línea con <code>-</code>, y links con <code>[texto](https://...)</code>. Una <strong>barra de formato</strong> sobre el texto aplica negrita, lista o link a la selección.</li>
+    <li>La <strong>galería</strong> admite hasta <strong>5 recursos</strong> entre imágenes y videos de <strong>YouTube, Vimeo, Wistia o Loom</strong> (pegando el link del video). Se muestran en un carrusel arriba de la historia; los videos arrancan al tocar el botón de reproducción.</li>
+    <li>Las imágenes de la galería, el <strong>logo</strong> y la <strong>portada</strong> se pueden cargar con el botón <strong>Subir imagen</strong> (se suben directo al almacenamiento) o pegando una URL.</li>
+    <li>Los recursos de la galería se <strong>reordenan</strong> con las flechas Subir/Bajar.</li>
     <li>El <strong>sitio web</strong> es opcional y debe empezar con <code>http://</code> o <code>https://</code>.</li>
+    <li>El switch <strong>"Permitir unirse gratis"</strong> habilita que cualquier persona con sesión se una sin invitación desde esta página (solo tribus gratuitas; viene desactivado por defecto).</li>
     <li>Debajo del editor aparece una <strong>vista previa</strong> del texto con el formato aplicado.</li>
     <li>No se puede guardar una historia vacía: aparece el aviso <em>"Escribí la historia antes de guardar."</em></li>
     <li>Al guardar con éxito se muestra la notificación <em>"Historia actualizada."</em> sin recargar la página.</li>
@@ -95,11 +100,14 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="section">
   <div class="section-num">04</div>
   <div class="section-title">Visitantes y unirse a la tribu</div>
-  <p>Si una persona con sesión iniciada entra a la página Historia de una tribu de la que no es miembro, y esa tribu tiene una <strong>suscripción abierta de pago</strong>, ve la misma presentación que los miembros más el precio y el botón <strong>Unirse a la tribu</strong>, que la lleva al checkout.</p>
+  <p>Si una persona entra a la página Historia de una tribu de la que no es miembro, y esa tribu se puede unir públicamente, ve la misma presentación que los miembros más el llamado a unirse:</p>
   <ul>
+    <li>Con <strong>suscripción abierta de pago</strong>: ve el precio y el botón <strong>Unirse a la tribu</strong>, que lleva al checkout.</li>
+    <li>Con <strong>"Permitir unirse gratis"</strong> activado: ve el botón <strong>Unirse gratis</strong>, que la incorpora a la tribu en el momento.</li>
+    <li><strong>Sin sesión iniciada</strong> también se puede ver la página; el botón de unirse lleva primero a iniciar sesión y vuelve a la historia. La página expone título, descripción e imagen para compartir en redes (Open Graph).</li>
     <li>Quien fue bloqueado por un problema de pago o tiene la suscripción vencida también puede ver esta página para volver a suscribirse.</li>
-    <li>Quien fue bloqueado por conducta no puede ver la página.</li>
-    <li>Si la tribu no ofrece suscripción abierta, la página no existe para quien no es miembro.</li>
+    <li>Quien fue bloqueado por conducta no puede ver la página ni unirse.</li>
+    <li>Si la tribu no ofrece ninguna forma de unirse, la página no existe para quien no es miembro.</li>
   </ul>
 </div>
 

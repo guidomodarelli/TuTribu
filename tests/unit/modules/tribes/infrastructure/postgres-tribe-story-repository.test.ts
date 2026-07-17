@@ -43,6 +43,8 @@ describe("PostgresTribeStoryRepository", () => {
         rows: [
           {
             content: "Nacimos en 2020 para acompañarnos a invertir mejor.",
+            cover_url: "https://images.example.com/cover.jpg",
+            logo_url: null,
             website_url: "https://tribu.example.com",
           },
         ],
@@ -75,6 +77,8 @@ describe("PostgresTribeStoryRepository", () => {
       repository.getByTribeSlug({ tribeSlug: "matematica-pro" })
     ).resolves.toEqual({
       content: "Nacimos en 2020 para acompañarnos a invertir mejor.",
+      coverUrl: "https://images.example.com/cover.jpg",
+      logoUrl: null,
       media: [
         {
           externalVideoId: "dQw4w9WgXcQ",
@@ -136,6 +140,9 @@ describe("PostgresTribeStoryRepository", () => {
           created_at: "2026-01-10T00:00:00.000Z",
           member_count: "128",
           name: "Matematica Pro",
+          online_count: "7",
+          open_free_join_available: true,
+          open_free_join_enabled: true,
         },
       ],
     });
@@ -150,6 +157,9 @@ describe("PostgresTribeStoryRepository", () => {
       createdAt: "2026-01-10T00:00:00.000Z",
       memberCount: 128,
       name: "Matematica Pro",
+      onlineCount: 7,
+      openFreeJoinAvailable: true,
+      openFreeJoinEnabled: true,
     });
     expect(readQueryText(execute.mock.calls[0][0])).toContain(
       "tribe_story_about_stats"
@@ -168,31 +178,38 @@ describe("PostgresTribeStoryRepository", () => {
   });
 
   it("guards the save behind the leader management function and maps saved media", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
-      rows: [
-        {
-          content: "Historia actualizada.",
-          media: [
-            {
-              external_video_id: null,
-              id: "media-1",
-              media_type: TRIBE_STORY_MEDIA_TYPE.image,
-              sort_order: 0,
-              url: "https://images.example.com/tribu.jpg",
-              video_provider: null,
-            },
-          ],
-          status: TRIBE_STORY_SAVE_STATUS.updated,
-          website_url: "https://tribu.example.com",
-        },
-      ],
-    });
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            content: "Historia actualizada.",
+            cover_url: "https://images.example.com/cover.jpg",
+            logo_url: "https://images.example.com/logo.png",
+            media: [
+              {
+                external_video_id: null,
+                id: "media-1",
+                media_type: TRIBE_STORY_MEDIA_TYPE.image,
+                sort_order: 0,
+                url: "https://images.example.com/tribu.jpg",
+                video_provider: null,
+              },
+            ],
+            status: TRIBE_STORY_SAVE_STATUS.updated,
+            website_url: "https://tribu.example.com",
+          },
+        ],
+      })
+      .mockResolvedValue({ rows: [] });
     const repository = new PostgresTribeStoryRepository(async (callback) =>
       callback({ execute } as never)
     );
 
     const result = await repository.save({
       content: "Historia actualizada.",
+      coverUrl: "https://images.example.com/cover.jpg",
+      logoUrl: "https://images.example.com/logo.png",
       media: [
         {
           externalVideoId: null,
@@ -202,6 +219,7 @@ describe("PostgresTribeStoryRepository", () => {
           videoProvider: null,
         },
       ],
+      openFreeJoinEnabled: true,
       tribeSlug: "matematica-pro",
       websiteUrl: "https://tribu.example.com",
     });
@@ -210,6 +228,8 @@ describe("PostgresTribeStoryRepository", () => {
       status: TRIBE_STORY_SAVE_STATUS.updated,
       story: {
         content: "Historia actualizada.",
+        coverUrl: "https://images.example.com/cover.jpg",
+        logoUrl: "https://images.example.com/logo.png",
         media: [
           {
             externalVideoId: null,
@@ -228,6 +248,12 @@ describe("PostgresTribeStoryRepository", () => {
     );
     expect(readQueryText(execute.mock.calls[0][0])).toContain(
       "tribe_story_media"
+    );
+    expect(readQueryText(execute.mock.calls[1][0])).toContain(
+      "set_tribe_open_free_join"
+    );
+    expect(readQueryText(execute.mock.calls[2][0])).toContain(
+      "tribe_story_images"
     );
   });
 
@@ -249,7 +275,10 @@ describe("PostgresTribeStoryRepository", () => {
     await expect(
       repository.save({
         content: "Historia nueva.",
+        coverUrl: null,
+        logoUrl: null,
         media: [],
+        openFreeJoinEnabled: false,
         tribeSlug: "tribu-inexistente",
         websiteUrl: null,
       })
@@ -277,7 +306,10 @@ describe("PostgresTribeStoryRepository", () => {
     await expect(
       repository.save({
         content: "Historia nueva.",
+        coverUrl: null,
+        logoUrl: null,
         media: [],
+        openFreeJoinEnabled: false,
         tribeSlug: "matematica-pro",
         websiteUrl: null,
       })

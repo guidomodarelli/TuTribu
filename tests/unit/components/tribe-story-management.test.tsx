@@ -26,7 +26,13 @@ describe("TribeStoryManagement", () => {
   it("lets the leader edit and save the story with website and media", async () => {
     const user = userEvent.setup();
 
-    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+    render(
+      <TribeStoryManagement
+        openFreeJoinEnabled={false}
+        story={null}
+        tribeSlug="matematica-pro"
+      />
+    );
 
     await user.type(
       screen.getByLabelText("Historia de la tribu"),
@@ -49,12 +55,15 @@ describe("TribeStoryManagement", () => {
         expect.objectContaining({
           body: JSON.stringify({
             content: "Nacimos en 2020.",
+            coverUrl: null,
+            logoUrl: null,
             media: [
               {
                 mediaType: "image",
                 url: "https://images.example.com/tribu.jpg",
               },
             ],
+            openFreeJoinEnabled: false,
             websiteUrl: "https://tribu.example.com",
           }),
           method: "PUT",
@@ -71,8 +80,11 @@ describe("TribeStoryManagement", () => {
 
     render(
       <TribeStoryManagement
+        openFreeJoinEnabled={false}
         story={{
           content: "Nacimos en 2020.",
+          coverUrl: null,
+          logoUrl: null,
           media: [],
           websiteUrl: null,
         }}
@@ -92,7 +104,13 @@ describe("TribeStoryManagement", () => {
   it("blocks saving an unparseable video link with a visible error", async () => {
     const user = userEvent.setup();
 
-    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+    render(
+      <TribeStoryManagement
+        openFreeJoinEnabled={false}
+        story={null}
+        tribeSlug="matematica-pro"
+      />
+    );
 
     await user.type(
       screen.getByLabelText("Historia de la tribu"),
@@ -117,7 +135,13 @@ describe("TribeStoryManagement", () => {
   it("limits the gallery to five media items", async () => {
     const user = userEvent.setup();
 
-    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+    render(
+      <TribeStoryManagement
+        openFreeJoinEnabled={false}
+        story={null}
+        tribeSlug="matematica-pro"
+      />
+    );
 
     const addButton = screen.getByRole("button", { name: /agregar recurso/i });
 
@@ -132,7 +156,13 @@ describe("TribeStoryManagement", () => {
   it("renders a bold and list preview of the story content", async () => {
     const user = userEvent.setup();
 
-    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+    render(
+      <TribeStoryManagement
+        openFreeJoinEnabled={false}
+        story={null}
+        tribeSlug="matematica-pro"
+      />
+    );
 
     await user.type(
       screen.getByLabelText("Historia de la tribu"),
@@ -142,6 +172,66 @@ describe("TribeStoryManagement", () => {
     expect(screen.getByText("Vista previa")).toBeInTheDocument();
     expect(screen.getByText("una tribu").tagName).toBe("STRONG");
     expect(screen.getByRole("listitem")).toHaveTextContent("Honestidad");
+  });
+
+  it("wraps the selection in bold from the toolbar", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeStoryManagement
+        openFreeJoinEnabled={false}
+        story={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.type(
+      screen.getByLabelText("Historia de la tribu"),
+      "Nacimos en 2020."
+    );
+    await user.click(screen.getByRole("button", { name: "Negrita" }));
+
+    expect(screen.getByLabelText("Historia de la tribu")).toHaveValue(
+      "Nacimos en 2020.****"
+    );
+  });
+
+  it("sends the free open join toggle in the save payload", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeStoryManagement
+        openFreeJoinEnabled={false}
+        story={{
+          content: "Nacimos en 2020.",
+          coverUrl: null,
+          logoUrl: null,
+          media: [],
+          websiteUrl: null,
+        }}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/story",
+        expect.objectContaining({
+          body: JSON.stringify({
+            content: "Nacimos en 2020.",
+            coverUrl: null,
+            logoUrl: null,
+            media: [],
+            openFreeJoinEnabled: true,
+            websiteUrl: null,
+          }),
+          method: "PUT",
+        })
+      );
+    });
   });
 
   it("shows the server error message when the save fails", async () => {
@@ -154,7 +244,13 @@ describe("TribeStoryManagement", () => {
       ok: false,
     });
 
-    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+    render(
+      <TribeStoryManagement
+        openFreeJoinEnabled={false}
+        story={null}
+        tribeSlug="matematica-pro"
+      />
+    );
 
     await user.type(
       screen.getByLabelText("Historia de la tribu"),

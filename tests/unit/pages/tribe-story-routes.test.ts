@@ -88,6 +88,8 @@ describe("Tribe story routes", () => {
       status: TRIBE_STORY_SAVE_STATUS.updated,
       story: {
         content: "Nacimos en 2020.",
+        coverUrl: null,
+        logoUrl: null,
         media: [],
         websiteUrl: null,
       },
@@ -117,6 +119,8 @@ describe("Tribe story routes", () => {
   it("returns the saved story when the tribe has one", async () => {
     getTribeStory.mockResolvedValue({
       content: "Nacimos en 2020.",
+      coverUrl: "https://images.example.com/cover.jpg",
+      logoUrl: null,
       media: [
         {
           externalVideoId: "dQw4w9WgXcQ",
@@ -136,6 +140,8 @@ describe("Tribe story routes", () => {
     await expect(response.json()).resolves.toEqual({
       story: {
         content: "Nacimos en 2020.",
+        coverUrl: "https://images.example.com/cover.jpg",
+        logoUrl: null,
         media: [
           {
             externalVideoId: "dQw4w9WgXcQ",
@@ -204,6 +210,8 @@ describe("Tribe story routes", () => {
             url: "https://images.example.com/tribu.jpg",
           },
         ],
+        logoUrl: " https://images.example.com/logo.png ",
+        openFreeJoinEnabled: true,
         websiteUrl: " https://tribu.example.com ",
       }),
       buildContext()
@@ -212,6 +220,8 @@ describe("Tribe story routes", () => {
     expect(response.status).toBe(200);
     expect(saveTribeStory).toHaveBeenCalledWith({
       content: "Nacimos en 2020.",
+      coverUrl: null,
+      logoUrl: "https://images.example.com/logo.png",
       media: [
         {
           externalVideoId: "dQw4w9WgXcQ",
@@ -228,12 +238,19 @@ describe("Tribe story routes", () => {
           videoProvider: null,
         },
       ],
+      openFreeJoinEnabled: true,
       tribeSlug: "matematica-pro",
       websiteUrl: "https://tribu.example.com",
     });
     await expect(response.json()).resolves.toEqual({
       message: "Historia actualizada.",
-      story: { content: "Nacimos en 2020.", media: [], websiteUrl: null },
+      story: {
+        content: "Nacimos en 2020.",
+        coverUrl: null,
+        logoUrl: null,
+        media: [],
+        websiteUrl: null,
+      },
     });
   });
 

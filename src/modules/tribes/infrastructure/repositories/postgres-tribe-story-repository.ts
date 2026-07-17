@@ -21,6 +21,8 @@ type DatabaseExecutor = <T>(
 
 type StoryRow = {
   content: string;
+  cover_url: string | null;
+  logo_url: string | null;
   website_url: string | null;
 };
 
@@ -38,10 +40,15 @@ type StoryStatsRow = {
   created_at: string | Date;
   member_count: number | string;
   name: string;
+  online_count: number | string;
+  open_free_join_available: boolean;
+  open_free_join_enabled: boolean;
 };
 
 type StorySaveRow = {
   content: string | null;
+  cover_url: string | null;
+  logo_url: string | null;
   media: StoryMediaRow[] | null;
   status: string | null;
   website_url: string | null;
@@ -90,6 +97,9 @@ function mapStats(row: StoryStatsRow): TribeStoryStats {
     createdAt: new Date(row.created_at).toISOString(),
     memberCount: Number(row.member_count),
     name: row.name,
+    onlineCount: Number(row.online_count),
+    openFreeJoinAvailable: Boolean(row.open_free_join_available),
+    openFreeJoinEnabled: Boolean(row.open_free_join_enabled),
   };
 }
 
@@ -103,7 +113,9 @@ export class PostgresTribeStoryRepository implements TribeStoryRepository {
       const storyResult = await database.execute(sql`
         select
           story_about.content,
-          story_about.website_url
+          story_about.website_url,
+          story_about.logo_url,
+          story_about.cover_url
         from public.tribe_story_about(${tribeSlug}) as story_about
       `);
       const storyRow = (storyResult.rows?.[0] ?? null) as StoryRow | null;
@@ -126,6 +138,8 @@ export class PostgresTribeStoryRepository implements TribeStoryRepository {
 
       return {
         content: storyRow.content,
+        coverUrl: storyRow.cover_url,
+        logoUrl: storyRow.logo_url,
         media: mediaRows.map(mapMediaRow),
         websiteUrl: storyRow.website_url,
       };
@@ -147,7 +161,10 @@ export class PostgresTribeStoryRepository implements TribeStoryRepository {
           story_stats.name,
           story_stats.member_count,
           story_stats.admin_count,
-          story_stats.created_at
+          story_stats.online_count,
+          story_stats.created_at,
+          story_stats.open_free_join_available,
+          story_stats.open_free_join_enabled
         from public.tribe_story_about_stats(${tribeSlug}) as story_stats
       `);
       const row = (result.rows?.[0] ?? null) as StoryStatsRow | null;
@@ -190,6 +207,8 @@ export class PostgresTribeStoryRepository implements TribeStoryRepository {
             tribe_id,
             content,
             website_url,
+            logo_url,
+            cover_url,
             updated_by,
             created_at,
             updated_at
@@ -198,6 +217,8 @@ export class PostgresTribeStoryRepository implements TribeStoryRepository {
             editable_tribe.id,
             ${command.content},
             ${command.websiteUrl},
+            ${command.logoUrl},
+            ${command.coverUrl},
             public.current_app_user_id(),
             timezone('utc', now()),
             timezone('utc', now())
@@ -206,9 +227,11 @@ export class PostgresTribeStoryRepository implements TribeStoryRepository {
           set
             content = excluded.content,
             website_url = excluded.website_url,
+            logo_url = excluded.logo_url,
+            cover_url = excluded.cover_url,
             updated_by = excluded.updated_by,
             updated_at = excluded.updated_at
-          returning content, website_url
+          returning content, website_url, logo_url, cover_url
         ),
         removed_media as (
           delete from public.tribe_story_media
@@ -259,6 +282,8 @@ export class PostgresTribeStoryRepository implements TribeStoryRepository {
           end as status,
           (select content from upserted_story) as content,
           (select website_url from upserted_story) as website_url,
+          (select logo_url from upserted_story) as logo_url,
+          (select cover_url from upserted_story) as cover_url,
           (
             select coalesce(
               jsonb_agg(
@@ -285,10 +310,47 @@ export class PostgresTribeStoryRepository implements TribeStoryRepository {
           return { status: TRIBE_STORY_SAVE_STATUS.forbidden, story: null };
         }
 
+        await database.execute(sql`
+          select public.set_tribe_open_free_join(
+            ${command.tribeSlug},
+            ${command.openFreeJoinEnabled}
+          ) as applied
+        `);
+
+        const referencedImageUrls = JSON.stringify(
+          [
+            ...command.media
+              .map((mediaItem) => mediaItem.url)
+              .filter((url): url is string => Boolean(url)),
+            command.logoUrl,
+            command.coverUrl,
+          ].filter((url): url is string => Boolean(url))
+        );
+
+        await database.execute(sql`
+          update public.tribe_story_images
+          set
+            status = case
+              when tribe_story_images.delivery_url in (
+                select jsonb_array_elements_text(${referencedImageUrls}::jsonb)
+              ) then 'attached'
+              else 'draft'
+            end,
+            updated_at = timezone('utc', now())
+          where tribe_story_images.tribe_id = (
+            select tribes.id
+            from public.tribes
+            where tribes.slug = ${command.tribeSlug}
+            limit 1
+          )
+        `);
+
         return {
           status: TRIBE_STORY_SAVE_STATUS.updated,
           story: {
             content: row.content,
+            coverUrl: row.cover_url,
+            logoUrl: row.logo_url,
             media: (row.media ?? []).map(mapMediaRow),
             websiteUrl: row.website_url,
           },

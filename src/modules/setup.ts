@@ -5,6 +5,9 @@ import { PostgresTribeCreationRepository } from "./tribes/infrastructure/reposit
 import { PostgresTribeCreatorWhitelistRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creator-whitelist-repository";
 import { PostgresTribeInvitationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-invitation-repository";
 import { PostgresTribeReadRepository } from "./tribes/infrastructure/repositories/postgres-tribe-read-repository";
+import { CloudflareImagesTribeStoryImageRepository } from "./tribes/infrastructure/repositories/cloudflare-images-tribe-story-image-repository";
+import { PostgresTribeFreeJoinRepository } from "./tribes/infrastructure/repositories/postgres-tribe-free-join-repository";
+import { PostgresTribePresenceRepository } from "./tribes/infrastructure/repositories/postgres-tribe-presence-repository";
 import { PostgresTribeStoryRepository } from "./tribes/infrastructure/repositories/postgres-tribe-story-repository";
 import { PostgresTribeSupportRepository } from "./tribes/infrastructure/repositories/postgres-tribe-support-repository";
 import { PostgresTribeWelcomeRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-repository";
@@ -144,6 +147,22 @@ export async function createRequestModules(
       ),
       tribeStoryRepository: new PostgresTribeStoryRepository(
         executeWithRequestContext
+      ),
+      tribeFreeJoinRepository: new PostgresTribeFreeJoinRepository(
+        executeWithRequestContext
+      ),
+      tribePresenceRepository: new PostgresTribePresenceRepository(
+        executeWithRequestContext
+      ),
+      tribeStoryImageRepository: new CloudflareImagesTribeStoryImageRepository(
+        executeWithRequestContext,
+        {
+          logger: createServerLogger({
+            feature: "tribes",
+            operation: "tribe_story_images",
+            requestId: requestId ?? FALLBACK_REQUEST_ID,
+          }),
+        }
       ),
       tribeSupportRepository: new PostgresTribeSupportRepository(
         executeWithRequestContext

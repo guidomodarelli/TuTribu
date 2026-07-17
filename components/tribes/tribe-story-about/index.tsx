@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { Link } from "@/components/navigation/link";
 import { Button } from "@/components/ui/button";
 import { RichStoryContent } from "@/components/rich-text/rich-story-content";
@@ -10,10 +12,14 @@ import styles from "./styles.module.scss";
 
 const TRIBE_STORY_ABOUT_COPY = {
   adminsLabel: "Administradores",
+  coverAlt: (tribeName: string) => `Portada de ${tribeName}`,
   createdLabel: "Creada en",
   emptyState: "El líder todavía no escribió la historia de la tribu.",
+  freeJoinButton: "Unirse gratis",
   joinButton: "Unirse a la tribu",
+  logoAlt: (tribeName: string) => `Logo de ${tribeName}`,
   membersLabel: "Miembros",
+  onlineLabel: "En línea",
   priceLabel: "Precio",
   privacyLabel: "Privacidad",
   privacyPrivate: "Privada",
@@ -37,6 +43,8 @@ const ABOUT_AMOUNT_DIVISOR = 100;
 const ABOUT_PRICE_SUFFIX = "/mes";
 const ABOUT_LINK_TARGET = "_blank";
 const ABOUT_LINK_REL = "noreferrer";
+const ABOUT_COVER_SIZES = "(min-width: 64rem) 42rem, 100vw";
+const ABOUT_LOGO_SIZE = 56;
 
 export type TribeStoryAboutOfferPrice = {
   amountCents: number;
@@ -44,6 +52,7 @@ export type TribeStoryAboutOfferPrice = {
 };
 
 type TribeStoryAboutProps = {
+  freeJoinAction?: () => Promise<void>;
   joinHref?: string;
   offerPrice: TribeStoryAboutOfferPrice | null;
   stats: TribeStoryStatsResult | null;
@@ -68,11 +77,14 @@ function formatOfferPrice(offerPrice: TribeStoryAboutOfferPrice): string {
 }
 
 /**
- * Read-only "About" view of the tribe story: media gallery, formatted story
- * content, and a side panel with tribe facts (members, admins, privacy,
- * creation date, price) plus a join call to action for visitors.
+ * Read-only "About" view of the tribe story: cover, media gallery, formatted
+ * story content, and a side panel with the tribe identity (logo, name) and
+ * facts (members, online, admins, privacy, creation date, price) plus a join
+ * call to action for visitors — a free-join form when the tribe allows
+ * tokenless free joins, or a link to the paid checkout page otherwise.
  */
 export function TribeStoryAbout({
+  freeJoinAction,
   joinHref,
   offerPrice,
   stats,
@@ -81,6 +93,18 @@ export function TribeStoryAbout({
 }: TribeStoryAboutProps) {
   return (
     <section className={styles.TribeStoryAbout}>
+      {story?.coverUrl ? (
+        <div className={styles.TribeStoryAbout__cover}>
+          <Image
+            alt={TRIBE_STORY_ABOUT_COPY.coverAlt(tribeName)}
+            className={styles.TribeStoryAbout__coverImage}
+            fill
+            sizes={ABOUT_COVER_SIZES}
+            src={story.coverUrl}
+            unoptimized
+          />
+        </div>
+      ) : null}
       <div className={styles.TribeStoryAbout__layout}>
         <article className={styles.TribeStoryAbout__main}>
           <header className={styles.TribeStoryAbout__header}>
@@ -104,7 +128,19 @@ export function TribeStoryAbout({
           aria-label={TRIBE_STORY_ABOUT_COPY.sidebarAriaLabel}
           className={styles.TribeStoryAbout__sidebar}
         >
-          <h2 className={styles.TribeStoryAbout__tribeName}>{tribeName}</h2>
+          <div className={styles.TribeStoryAbout__identity}>
+            {story?.logoUrl ? (
+              <Image
+                alt={TRIBE_STORY_ABOUT_COPY.logoAlt(tribeName)}
+                className={styles.TribeStoryAbout__logo}
+                height={ABOUT_LOGO_SIZE}
+                src={story.logoUrl}
+                unoptimized
+                width={ABOUT_LOGO_SIZE}
+              />
+            ) : null}
+            <h2 className={styles.TribeStoryAbout__tribeName}>{tribeName}</h2>
+          </div>
           <dl className={styles.TribeStoryAbout__facts}>
             {stats ? (
               <>
@@ -114,6 +150,14 @@ export function TribeStoryAbout({
                   </dt>
                   <dd className={styles.TribeStoryAbout__factValue}>
                     {stats.memberCount}
+                  </dd>
+                </div>
+                <div className={styles.TribeStoryAbout__fact}>
+                  <dt className={styles.TribeStoryAbout__factTerm}>
+                    {TRIBE_STORY_ABOUT_COPY.onlineLabel}
+                  </dt>
+                  <dd className={styles.TribeStoryAbout__factValue}>
+                    {stats.onlineCount}
                   </dd>
                 </div>
                 <div className={styles.TribeStoryAbout__fact}>
@@ -163,7 +207,16 @@ export function TribeStoryAbout({
               {TRIBE_STORY_ABOUT_COPY.websiteLabel}
             </a>
           ) : null}
-          {joinHref ? (
+          {freeJoinAction ? (
+            <form
+              action={freeJoinAction}
+              className={styles.TribeStoryAbout__joinAction}
+            >
+              <Button type="submit">
+                {TRIBE_STORY_ABOUT_COPY.freeJoinButton}
+              </Button>
+            </form>
+          ) : joinHref ? (
             <div className={styles.TribeStoryAbout__joinAction}>
               <Button asChild>
                 <Link href={joinHref}>

@@ -60,6 +60,9 @@ const storyStats = {
   createdAt: "2026-01-10T00:00:00.000Z",
   memberCount: 128,
   name: "Matematica Pro",
+  onlineCount: 7,
+  openFreeJoinAvailable: false,
+  openFreeJoinEnabled: false,
 };
 
 function buildPageProps() {
@@ -112,6 +115,8 @@ describe("TribeHistoryPage", () => {
     ]);
     getTribeStory.mockResolvedValue({
       content: "Nacimos en 2020.",
+      coverUrl: null,
+      logoUrl: null,
       media: [],
       websiteUrl: null,
     });
@@ -197,7 +202,53 @@ describe("TribeHistoryPage", () => {
     await expect(TribeHistoryPage(buildPageProps())).rejects.toThrow(
       "NEXT_NOT_FOUND"
     );
-    expect(getTribeStory).not.toHaveBeenCalled();
+  });
+
+  it("renders the visitor view with a free join button when free open join is available", async () => {
+    getTribePageAccess.mockResolvedValue({
+      reason: "not_found_or_not_visible",
+      status: "hidden",
+    });
+    getTribeStoryStats.mockResolvedValue({
+      ...storyStats,
+      openFreeJoinAvailable: true,
+      openFreeJoinEnabled: true,
+    });
+
+    render(await TribeHistoryPage(buildPageProps()));
+
+    expect(
+      screen.getByRole("button", { name: "Unirse gratis" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Unirse a la tribu" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the visitor view for an anonymous viewer linking the join to sign in", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+    getTribePageAccess.mockResolvedValue({
+      reason: "unauthenticated_hidden",
+      status: "hidden",
+    });
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({
+      price: {
+        amountCents: 1500000,
+        currency: "ARS",
+        frequency: "monthly",
+        name: "Plan mensual",
+      },
+      status: "available",
+    });
+
+    render(await TribeHistoryPage(buildPageProps()));
+
+    expect(
+      screen.getByRole("link", { name: "Unirse a la tribu" })
+    ).toHaveAttribute(
+      "href",
+      "/auth/signin?callbackUrl=%2Fmatematica-pro%2Fhistoria"
+    );
   });
 
   it("returns 404 for conduct-blocked viewers even with an offer", async () => {
