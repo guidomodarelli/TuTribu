@@ -8,6 +8,7 @@ import type {
   SaveTribeStoryCommand,
   TribeStoryMediaItem,
   TribeStoryMediaType,
+  TribeStoryOnlineMember,
   TribeStoryRepository,
   TribeStorySaveResult,
   TribeStorySettings,
@@ -173,6 +174,51 @@ export class PostgresTribeStoryRepository implements TribeStoryRepository {
     }).catch((error: unknown) => {
       if (isMissingStoryStorageError(error)) {
         return null;
+      }
+
+      throw error;
+    });
+  }
+
+  async listOnlineMembersByTribeSlug({
+    tribeSlug,
+  }: GetTribeStoryQuery): Promise<TribeStoryOnlineMember[]> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select
+          online_members.name,
+          online_members.image
+        from public.tribe_story_about_online_members(${tribeSlug}) as online_members
+      `);
+
+      return ((result.rows ?? []) as Array<{
+        image: string | null;
+        name: string | null;
+      }>).flatMap((row) =>
+        row.name ? [{ image: row.image, name: row.name }] : []
+      );
+    }).catch((error: unknown) => {
+      if (isMissingStoryStorageError(error)) {
+        return [];
+      }
+
+      throw error;
+    });
+  }
+
+  async listPublicStorySlugs(): Promise<string[]> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select public_story.slug
+        from public.list_public_tribe_story_slugs() as public_story
+      `);
+
+      return ((result.rows ?? []) as Array<{ slug: string | null }>).flatMap(
+        (row) => (row.slug ? [row.slug] : [])
+      );
+    }).catch((error: unknown) => {
+      if (isMissingStoryStorageError(error)) {
+        return [];
       }
 
       throw error;

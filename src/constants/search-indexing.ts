@@ -23,6 +23,9 @@ export const INDEXABLE_ROUTES = {
 
 /**
  * Route patterns that should not be indexed by crawlers.
+ *
+ * The tribe story page (`/*\/historia`) is intentionally NOT listed: it is the
+ * public "About" of joinable tribes, indexed through the sitemap.
  */
 export const DISALLOWED_CRAWLER_ROUTES = [
   "/api/",
@@ -33,7 +36,6 @@ export const DISALLOWED_CRAWLER_ROUTES = [
   "/*/canales",
   "/*/cursos",
   "/*/eventos",
-  "/*/historia",
   "/*/invitaciones",
   "/*/precios",
   "/*/suscripcion",

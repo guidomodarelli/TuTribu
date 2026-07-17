@@ -179,6 +179,7 @@ describe("PostgresTribeReadRepository", () => {
     await expect(repository.listVisibleMembershipTribes()).resolves.toEqual([
       {
         tribeId: "tribe-1",
+        logoUrl: null,
         membershipStatus: "active",
         name: "Alpha Club",
         role: "leader",
@@ -186,6 +187,7 @@ describe("PostgresTribeReadRepository", () => {
       },
       {
         tribeId: "tribe-2",
+        logoUrl: null,
         membershipStatus: "muted",
         name: "Beta Club",
         role: "tribemate",

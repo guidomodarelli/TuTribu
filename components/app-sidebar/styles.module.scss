@@ -1,4 +1,12 @@
 .AppSidebar {
+  &__brandLogo {
+    height: 2rem;
+    width: 2rem;
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+    object-fit: cover;
+  }
+
   &__brandMark {
     display: inline-flex;
     height: 2rem;

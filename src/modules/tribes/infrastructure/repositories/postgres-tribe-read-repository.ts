@@ -255,10 +255,13 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           tribe_members.role,
           tribes.id as tribe_row_id,
           tribes.name,
-          tribes.slug
+          tribes.slug,
+          tribe_story_settings.logo_url
         from public.tribe_members
         inner join public.tribes
           on tribes.id = tribe_members.tribe_id
+        left join public.tribe_story_settings
+          on tribe_story_settings.tribe_id = tribes.id
         where tribe_members.status in (
           ${TRIBE_MEMBERSHIP_STATUS.active},
           ${TRIBE_MEMBERSHIP_STATUS.muted}
@@ -270,6 +273,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
       return ((result.rows ?? []) as Array<
         PostgresMembershipTribeRow & {
           tribe_row_id?: string | null;
+          logo_url?: string | null;
           name?: string | null;
           slug?: string | null;
         }
@@ -277,6 +281,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
         if (row.name && row.slug) {
           membershipTribes.push({
             tribeId: row.tribe_row_id ?? row.tribe_id,
+            logoUrl: row.logo_url ?? null,
             membershipStatus: row.membership_status,
             name: row.name,
             role: row.role,

@@ -115,6 +115,37 @@ $tribe-story-about-sidebar-width: 20rem;
     text-align: right;
   }
 
+  &__onlineMembers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__onlineMember {
+    display: inline-flex;
+  }
+
+  &__onlineAvatar {
+    border-radius: 999px;
+    object-fit: cover;
+  }
+
+  &__onlineInitials {
+    align-items: center;
+    background: color-mix(in srgb, var(--muted) 70%, transparent);
+    border-radius: 999px;
+    color: var(--muted-foreground);
+    display: inline-flex;
+    font-size: 0.7rem;
+    font-weight: 600;
+    height: 1.75rem;
+    justify-content: center;
+    width: 1.75rem;
+  }
+
   &__websiteLink {
     color: var(--primary);
     font-size: 0.9rem;

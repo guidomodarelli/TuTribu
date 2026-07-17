@@ -8,6 +8,7 @@ import type {
   TribeStoryResult,
   TribeStoryStatsResult,
 } from "@/src/modules/tribes/application/results/tribe-story-result";
+import type { TribeStoryOnlineMember } from "@/src/modules/tribes/domain/repositories/tribe-story-repository";
 import styles from "./styles.module.scss";
 
 const TRIBE_STORY_ABOUT_COPY = {
@@ -55,10 +56,23 @@ type TribeStoryAboutProps = {
   freeJoinAction?: () => Promise<void>;
   joinHref?: string;
   offerPrice: TribeStoryAboutOfferPrice | null;
+  onlineMembers?: TribeStoryOnlineMember[];
   stats: TribeStoryStatsResult | null;
   story: TribeStoryResult | null;
   tribeName: string;
 };
+
+const ONLINE_AVATAR_SIZE = 28;
+const ONLINE_INITIALS_MAX_PARTS = 2;
+
+function buildOnlineMemberInitials(memberName: string): string {
+  return memberName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, ONLINE_INITIALS_MAX_PARTS)
+    .map((namePart) => namePart[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 function formatCreatedAt(createdAt: string): string {
   return new Intl.DateTimeFormat(ABOUT_DATE_FORMAT.locale, {
@@ -87,6 +101,7 @@ export function TribeStoryAbout({
   freeJoinAction,
   joinHref,
   offerPrice,
+  onlineMembers = [],
   stats,
   story,
   tribeName,
@@ -197,6 +212,32 @@ export function TribeStoryAbout({
               </div>
             ) : null}
           </dl>
+          {onlineMembers.length > 0 ? (
+            <ul className={styles.TribeStoryAbout__onlineMembers}>
+              {onlineMembers.map((onlineMember, onlineMemberIndex) => (
+                <li
+                  className={styles.TribeStoryAbout__onlineMember}
+                  key={onlineMember.name + String(onlineMemberIndex)}
+                  title={onlineMember.name}
+                >
+                  {onlineMember.image ? (
+                    <Image
+                      alt={onlineMember.name}
+                      className={styles.TribeStoryAbout__onlineAvatar}
+                      height={ONLINE_AVATAR_SIZE}
+                      src={onlineMember.image}
+                      unoptimized
+                      width={ONLINE_AVATAR_SIZE}
+                    />
+                  ) : (
+                    <span className={styles.TribeStoryAbout__onlineInitials}>
+                      {buildOnlineMemberInitials(onlineMember.name)}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {story?.websiteUrl ? (
             <a
               className={styles.TribeStoryAbout__websiteLink}

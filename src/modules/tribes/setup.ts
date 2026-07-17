@@ -33,12 +33,15 @@ import {
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-support-use-cases";
 import {
   getTribeStory,
+  getTribeStoryOnlineMembers,
   getTribeStoryStats,
+  listPublicTribeStorySlugs,
   saveTribeStory,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-story-use-cases";
 import { joinTribeFree } from "@/src/modules/tribes/application/use-cases/join-tribe-free-use-case";
 import { touchTribePresence } from "@/src/modules/tribes/application/use-cases/manage-tribe-presence-use-cases";
 import {
+  cleanupOrphanTribeStoryImages,
   createTribeStoryImageUpload,
   deleteTribeStoryImageUpload,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-story-image-use-cases";
@@ -168,6 +171,15 @@ export function buildTribesModule({
       }),
       getTribeStoryStats: getTribeStoryStats({
         tribeStoryRepository,
+      }),
+      getTribeStoryOnlineMembers: getTribeStoryOnlineMembers({
+        tribeStoryRepository,
+      }),
+      listPublicTribeStorySlugs: listPublicTribeStorySlugs({
+        tribeStoryRepository,
+      }),
+      cleanupOrphanTribeStoryImages: cleanupOrphanTribeStoryImages({
+        tribeStoryImageRepository,
       }),
       joinTribeFree: joinTribeFree({
         tribeFreeJoinRepository,

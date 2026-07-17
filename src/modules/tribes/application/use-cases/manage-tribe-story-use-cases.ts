@@ -58,6 +58,22 @@ export function getTribeStoryStats({
     });
 }
 
+export function getTribeStoryOnlineMembers({
+  tribeStoryRepository,
+}: TribeStoryDependencies) {
+  return async (query: GetTribeStoryQuery) =>
+    tribeStoryRepository.listOnlineMembersByTribeSlug({
+      tribeSlug: normalizeText(query.tribeSlug),
+    });
+}
+
+export function listPublicTribeStorySlugs({
+  tribeStoryRepository,
+}: TribeStoryDependencies) {
+  return async (): Promise<string[]> =>
+    tribeStoryRepository.listPublicStorySlugs();
+}
+
 export function saveTribeStory({
   tribeStoryRepository,
 }: TribeStoryDependencies) {

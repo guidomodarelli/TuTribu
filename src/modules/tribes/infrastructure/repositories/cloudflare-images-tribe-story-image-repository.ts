@@ -8,6 +8,7 @@ import {
 import type {
   CreateTribeStoryImageUploadCommand,
   DeleteTribeStoryImageUploadCommand,
+  TribeStoryImageCleanupSummary,
   TribeStoryImageRepository,
   TribeStoryImageUploadResult,
 } from "@/src/modules/tribes/domain/repositories/tribe-story-image-repository";
@@ -61,6 +62,14 @@ const STORY_IMAGE_LOG = {
 } as const;
 
 const STORY_IMAGE_STATUS_DRAFT = "draft";
+
+/**
+ * Ceiling of concurrent reserved drafts per tribe: enough for a whole gallery
+ * plus logo and cover retries, low enough to stop a runaway reservation loop.
+ */
+const STORY_IMAGE_MAX_DRAFTS_PER_TRIBE = 20;
+
+const STORY_IMAGE_CLEANUP_BATCH_SIZE = 50;
 
 const POSTGRES_ERROR_CODE = {
   insufficientPrivilege: "42501",
@@ -209,6 +218,84 @@ export class CloudflareImagesTribeStoryImageRepository
     return true;
   }
 
+  /**
+   * Maintenance sweep: reclaims abandoned drafts through the owner-only
+   * definer function and deletes their remote Cloudflare assets best-effort.
+   * Runs on the scheduled cron with the maintenance connection, never on
+   * behalf of an end user.
+   */
+  async cleanupOrphanUploads(): Promise<TribeStoryImageCleanupSummary> {
+    const reclaimedImages = await this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select
+          reclaimed_images.id,
+          reclaimed_images.cloudflare_image_id
+        from public.reclaim_abandoned_tribe_story_images(
+          ${STORY_IMAGE_CLEANUP_BATCH_SIZE}
+        ) as reclaimed_images
+      `);
+
+      return (result.rows ?? []) as StoredImageRow[];
+    });
+
+    if (reclaimedImages.length === 0) {
+      return { deletedCount: 0, failedRemoteDeleteCount: 0 };
+    }
+
+    const environment = readCloudflareImagesEnvironment();
+    let failedRemoteDeleteCount = 0;
+
+    if (environment) {
+      for (const reclaimedImage of reclaimedImages) {
+        const remoteDeleted = await this.deleteRemoteImageReporting(
+          environment,
+          reclaimedImage.cloudflare_image_id
+        );
+
+        if (!remoteDeleted) {
+          failedRemoteDeleteCount += 1;
+        }
+      }
+    } else {
+      failedRemoteDeleteCount = reclaimedImages.length;
+    }
+
+    return {
+      deletedCount: reclaimedImages.length,
+      failedRemoteDeleteCount,
+    };
+  }
+
+  private async deleteRemoteImageReporting(
+    environment: { accountId: string; apiToken: string },
+    remoteImageId: string
+  ): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `${CLOUDFLARE_IMAGES_API.baseUrl}/${environment.accountId}/${CLOUDFLARE_IMAGES_API.imagePath}/${remoteImageId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${environment.apiToken}`,
+          },
+          method: "DELETE",
+        }
+      );
+
+      return (
+        response.ok ||
+        response.status === CLOUDFLARE_IMAGES_API.deleteNotFoundStatus
+      );
+    } catch (deleteError) {
+      this.options.logger.error({
+        error: deleteError,
+        message: STORY_IMAGE_LOG.remoteDeleteFailedMessage,
+        metadata: { remoteImageId },
+      });
+
+      return false;
+    }
+  }
+
   private async insertDraftImage({
     cloudflareImageId,
     deliveryUrl,
@@ -237,6 +324,12 @@ export class CloudflareImagesTribeStoryImageRepository
           timezone('utc', now())
         from public.tribes
         where tribes.slug = ${tribeSlug}
+          and (
+            select count(*)
+            from public.tribe_story_images as reserved_drafts
+            where reserved_drafts.tribe_id = tribes.id
+              and reserved_drafts.status = ${STORY_IMAGE_STATUS_DRAFT}
+          ) < ${STORY_IMAGE_MAX_DRAFTS_PER_TRIBE}
         returning tribe_story_images.id
       `);
       const row = (result.rows?.[0] ?? null) as InsertedImageRow | null;

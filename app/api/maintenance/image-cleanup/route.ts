@@ -102,14 +102,20 @@ export async function GET(request: Request) {
     const modules = await createMaintenanceModules({ requestId });
     const summary =
       await modules.messages.useCases.cleanupOrphanMessageImages();
+    const storyImagesSummary =
+      await modules.tribes.useCases.cleanupOrphanTribeStoryImages();
 
     logger.info({
       message: IMAGE_CLEANUP_ROUTE_LOG.completedMessage,
-      metadata: { ...summary },
+      metadata: { ...summary, storyImages: storyImagesSummary },
     });
 
     return createJsonResponse(
-      { status: IMAGE_CLEANUP_ROUTE_RESPONSE.ok, ...summary },
+      {
+        status: IMAGE_CLEANUP_ROUTE_RESPONSE.ok,
+        ...summary,
+        storyImages: storyImagesSummary,
+      },
       HTTP_STATUS.ok
     );
   } catch (error) {

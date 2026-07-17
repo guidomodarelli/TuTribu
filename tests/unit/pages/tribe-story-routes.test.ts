@@ -18,6 +18,12 @@ jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
 }));
 
+jest.mock("next/cache", () => ({
+  cacheLife: jest.fn(),
+  cacheTag: jest.fn(),
+  revalidateTag: jest.fn(),
+}));
+
 jest.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({

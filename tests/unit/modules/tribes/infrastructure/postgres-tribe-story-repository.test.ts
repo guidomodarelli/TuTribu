@@ -177,6 +177,45 @@ describe("PostgresTribeStoryRepository", () => {
     ).resolves.toBeNull();
   });
 
+  it("lists online members through the members-only definer function", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [
+        { image: "https://images.example.com/ada.png", name: "Ada" },
+        { image: null, name: "Grace Hopper" },
+      ],
+    });
+    const repository = new PostgresTribeStoryRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listOnlineMembersByTribeSlug({ tribeSlug: "matematica-pro" })
+    ).resolves.toEqual([
+      { image: "https://images.example.com/ada.png", name: "Ada" },
+      { image: null, name: "Grace Hopper" },
+    ]);
+    expect(readQueryText(execute.mock.calls[0][0])).toContain(
+      "tribe_story_about_online_members"
+    );
+  });
+
+  it("lists public story slugs for the sitemap", async () => {
+    const execute = jest.fn().mockResolvedValueOnce({
+      rows: [{ slug: "matematica-pro" }, { slug: "tribu-libre" }],
+    });
+    const repository = new PostgresTribeStoryRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(repository.listPublicStorySlugs()).resolves.toEqual([
+      "matematica-pro",
+      "tribu-libre",
+    ]);
+    expect(readQueryText(execute.mock.calls[0][0])).toContain(
+      "list_public_tribe_story_slugs"
+    );
+  });
+
   it("guards the save behind the leader management function and maps saved media", async () => {
     const execute = jest
       .fn()

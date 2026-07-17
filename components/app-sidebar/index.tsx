@@ -16,6 +16,7 @@ import {
   SignpostBigIcon,
   UsersIcon,
 } from "lucide-react";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
@@ -131,6 +132,8 @@ const APP_SIDEBAR_UI = {
   variant: "sidebar",
 } as const;
 
+const TRIBE_LOGO_SIZE = 32;
+
 const TRIBE_ADMIN_ROLE = {
   guardian: "guardian",
   leader: "leader",
@@ -208,7 +211,18 @@ export function AppSidebar({
                     size={APP_SIDEBAR_UI.brandButtonSize}
                     isActive={pathname === brandPath}
                   >
-                    <span className={styles.AppSidebar__brandMark}>{brandMark}</span>
+                    {activeTribe?.logoUrl ? (
+                      <Image
+                        alt=""
+                        className={styles.AppSidebar__brandLogo}
+                        height={TRIBE_LOGO_SIZE}
+                        src={activeTribe.logoUrl}
+                        unoptimized
+                        width={TRIBE_LOGO_SIZE}
+                      />
+                    ) : (
+                      <span className={styles.AppSidebar__brandMark}>{brandMark}</span>
+                    )}
                     <span className={styles.AppSidebar__brandName}>{brandName}</span>
                     <ChevronDownIcon className={styles.AppSidebar__brandChevron} />
                   </SidebarMenuButton>

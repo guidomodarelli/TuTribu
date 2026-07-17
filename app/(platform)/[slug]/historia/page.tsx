@@ -4,6 +4,7 @@ import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
 import { TribeStoryManagement } from "@/components/tribes/tribe-story-management";
 import { buildStoryPlainTextExcerpt } from "@/lib/rich-text/story-markdown";
 import { createRequestModules } from "@/src/modules/setup";
+import { getCachedPublicTribeStoryAbout } from "@/src/modules/tribes/infrastructure/cache/tribe-story-about-cache";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
@@ -67,11 +68,9 @@ export async function generateMetadata({
   const { slug } = await params;
 
   try {
-    const modules = await createRequestModules();
-    const [story, stats] = await Promise.all([
-      modules.tribes.useCases.getTribeStory({ tribeSlug: slug }),
-      modules.tribes.useCases.getTribeStoryStats({ tribeSlug: slug }),
-    ]);
+    // Crawlers and shares are anonymous: the cached anonymous snapshot answers
+    // them without per-request queries, and it is exactly the public RLS view.
+    const { stats, story } = await getCachedPublicTribeStoryAbout(slug);
 
     if (!stats) {
       return { title: TRIBE_STORY_PAGE.metadataTitleSuffix };
@@ -164,10 +163,16 @@ export default async function TribeHistoryPage({
       notFound();
     }
 
-    const [story, stats] = await Promise.all([
-      modules.tribes.useCases.getTribeStory({ tribeSlug: slug }),
-      modules.tribes.useCases.getTribeStoryStats({ tribeSlug: slug }),
-    ]).catch((error: unknown) => {
+    const isAnonymousVisitor = !authenticatedMember;
+    const [story, stats] = await (isAnonymousVisitor
+      ? getCachedPublicTribeStoryAbout(slug).then(
+          (snapshot) => [snapshot.story, snapshot.stats] as const
+        )
+      : Promise.all([
+          modules.tribes.useCases.getTribeStory({ tribeSlug: slug }),
+          modules.tribes.useCases.getTribeStoryStats({ tribeSlug: slug }),
+        ])
+    ).catch((error: unknown) => {
       logger.error({
         error,
         message: TRIBE_STORY_PAGE.resolveStoryFailureMessage,
@@ -212,7 +217,6 @@ export default async function TribeHistoryPage({
       notFound();
     }
 
-    const isAnonymousVisitor = !authenticatedMember;
     const freeJoinAction =
       !isAnonymousVisitor && stats.openFreeJoinAvailable
         ? joinTribeFreeAction.bind(null, { slug })
@@ -253,9 +257,12 @@ export default async function TribeHistoryPage({
   const canEdit =
     membershipStatus === TRIBE_MEMBERSHIP_STATUS.active &&
     currentMembership?.role === TRIBE_MEMBER_ROLE.leader;
-  const [story, stats] = await Promise.all([
+  const [story, stats, onlineMembers] = await Promise.all([
     modules.tribes.useCases.getTribeStory({ tribeSlug: tribe.slug }),
     modules.tribes.useCases.getTribeStoryStats({ tribeSlug: tribe.slug }),
+    modules.tribes.useCases.getTribeStoryOnlineMembers({
+      tribeSlug: tribe.slug,
+    }),
   ]).catch((error: unknown) => {
     logger.error({
       error,
@@ -279,6 +286,7 @@ export default async function TribeHistoryPage({
       ) : (
         <TribeStoryAbout
           offerPrice={null}
+          onlineMembers={onlineMembers}
           stats={stats}
           story={story}
           tribeName={tribe.name}

@@ -1,5 +1,6 @@
 import { createRequestModules } from "@/src/modules/setup";
 import { parseExternalVideoUrl } from "@/src/modules/shared/domain/value-objects/external-video-url";
+import { revalidateTribeStoryAboutCache } from "@/src/modules/tribes/infrastructure/cache/tribe-story-about-cache-revalidation";
 import {
   TRIBE_STORY_CONTENT_MAX_LENGTH,
   TRIBE_STORY_MEDIA_MAX_ITEMS,
@@ -375,6 +376,8 @@ export async function PUT(
 
     switch (result.status) {
       case TRIBE_STORY_SAVE_STATUS.updated:
+        revalidateTribeStoryAboutCache(slug);
+
         return createJsonResponse(
           {
             message: STORY_ROUTE_RESPONSE.savedMessage,

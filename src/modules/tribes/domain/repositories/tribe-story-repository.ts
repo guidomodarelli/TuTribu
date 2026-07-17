@@ -65,8 +65,17 @@ export type SaveTribeStoryCommand = {
   websiteUrl: string | null;
 };
 
+export type TribeStoryOnlineMember = {
+  image: string | null;
+  name: string;
+};
+
 export type TribeStoryRepository = {
   getByTribeSlug(query: GetTribeStoryQuery): Promise<TribeStorySettings | null>;
   getStatsByTribeSlug(query: GetTribeStoryQuery): Promise<TribeStoryStats | null>;
+  listOnlineMembersByTribeSlug(
+    query: GetTribeStoryQuery
+  ): Promise<TribeStoryOnlineMember[]>;
+  listPublicStorySlugs(): Promise<string[]>;
   save(command: SaveTribeStoryCommand): Promise<TribeStorySaveResult>;
 };

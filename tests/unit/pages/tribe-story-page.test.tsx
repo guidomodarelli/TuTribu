@@ -12,6 +12,7 @@ const getCurrentTribeMembershipStatus = jest.fn();
 const getMemberTribes = jest.fn();
 const getTribeStory = jest.fn();
 const getTribeStoryStats = jest.fn();
+const getTribeStoryOnlineMembers = jest.fn();
 const getTribeCurrentSubscriptionOffer = jest.fn();
 
 jest.mock("next/navigation", () => ({
@@ -28,6 +29,16 @@ jest.mock("next/headers", () => ({
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
 }));
+
+jest.mock(
+  "@/src/modules/tribes/infrastructure/cache/tribe-story-about-cache",
+  () => ({
+    getCachedPublicTribeStoryAbout: jest.fn(async (tribeSlug: string) => ({
+      stats: await getTribeStoryStats({ tribeSlug }),
+      story: await getTribeStory({ tribeSlug }),
+    })),
+  })
+);
 
 jest.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
@@ -93,6 +104,7 @@ describe("TribeHistoryPage", () => {
           getMemberTribes,
           getTribePageAccess,
           getTribeStory,
+          getTribeStoryOnlineMembers,
           getTribeStoryStats,
         },
       },
@@ -121,6 +133,9 @@ describe("TribeHistoryPage", () => {
       websiteUrl: null,
     });
     getTribeStoryStats.mockResolvedValue(storyStats);
+    getTribeStoryOnlineMembers.mockResolvedValue([
+      { image: null, name: "Grace Hopper" },
+    ]);
     getTribeCurrentSubscriptionOffer.mockResolvedValue({
       status: "unavailable",
     });

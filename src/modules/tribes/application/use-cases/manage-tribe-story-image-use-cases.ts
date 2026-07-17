@@ -24,6 +24,12 @@ export function createTribeStoryImageUpload({
     });
 }
 
+export function cleanupOrphanTribeStoryImages({
+  tribeStoryImageRepository,
+}: TribeStoryImageDependencies) {
+  return async () => tribeStoryImageRepository.cleanupOrphanUploads();
+}
+
 export function deleteTribeStoryImageUpload({
   tribeStoryImageRepository,
 }: TribeStoryImageDependencies) {

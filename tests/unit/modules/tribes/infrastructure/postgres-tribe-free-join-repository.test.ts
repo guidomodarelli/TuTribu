@@ -16,10 +16,32 @@ describe("PostgresTribeFreeJoinRepository", () => {
     ).resolves.toEqual({ status: TRIBE_FREE_JOIN_STATUS.joined });
   });
 
-  it("returns alreadyMember when the tribe is joinable but no row was inserted", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
-      rows: [{ joined: false, tribe_available: true }],
-    });
+  it("reactivates a removed membership when the insert conflicts", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [{ joined: false, tribe_available: true }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ id: "member-row-1" }],
+      });
+    const repository = new PostgresTribeFreeJoinRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.join({ tribeSlug: "matematica-pro" })
+    ).resolves.toEqual({ status: TRIBE_FREE_JOIN_STATUS.joined });
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns alreadyMember when the conflicting membership cannot be reactivated", async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [{ joined: false, tribe_available: true }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
     const repository = new PostgresTribeFreeJoinRepository(async (callback) =>
       callback({ execute } as never)
     );

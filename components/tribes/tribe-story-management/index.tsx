@@ -58,6 +58,9 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   emptyMedia: "Aún no agregaste imágenes ni videos.",
   fallbackSaveError: "No pudimos guardar la historia.",
   fallbackUploadError: "No pudimos subir la imagen. Intentá de nuevo.",
+  invalidUploadTypeError: "Elegí un archivo de imagen (JPG, PNG, GIF o WebP).",
+  uploadTooLargeError: (maxMegabytes: number) =>
+    `La imagen no puede superar los ${maxMegabytes} MB.`,
   freeJoinHint:
     "Cuando está activado, cualquier persona con sesión puede unirse gratis desde la página de historia, sin invitación. Solo aplica si la tribu es gratuita.",
   freeJoinLabel: "Permitir unirse gratis",
@@ -159,6 +162,12 @@ const STORY_MODE_TAB = {
 } as const;
 
 const COVER_PREVIEW_SIZES = "(min-width: 64rem) 42rem, 100vw";
+
+const UPLOAD_IMAGE_MIME_PREFIX = "image/";
+const UPLOAD_MAX_MEGABYTES = 10;
+const BYTES_PER_KIBIBYTE = 1024;
+const UPLOAD_MAX_BYTES =
+  UPLOAD_MAX_MEGABYTES * BYTES_PER_KIBIBYTE * BYTES_PER_KIBIBYTE;
 
 type EditableStoryMediaItem = {
   clientId: string;
@@ -448,6 +457,7 @@ export function TribeStoryManagement({
   >(() => new Set());
   const [isSaving, setIsSaving] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
+  const draggedMediaIndexRef = useRef<number | null>(null);
   const contentId = useId();
   const contentErrorId = useId();
   const websiteId = useId();
@@ -480,6 +490,18 @@ export function TribeStoryManagement({
     applyDeliveryUrl: (deliveryUrl: string) => void
   ) => {
     if (!imageFile) {
+      return;
+    }
+
+    if (!imageFile.type.startsWith(UPLOAD_IMAGE_MIME_PREFIX)) {
+      toast.error(TRIBE_STORY_MANAGEMENT_COPY.invalidUploadTypeError);
+      return;
+    }
+
+    if (imageFile.size > UPLOAD_MAX_BYTES) {
+      toast.error(
+        TRIBE_STORY_MANAGEMENT_COPY.uploadTooLargeError(UPLOAD_MAX_MEGABYTES)
+      );
       return;
     }
 
@@ -587,6 +609,22 @@ export function TribeStoryManagement({
   const handleMoveMediaItem = (mediaIndex: number, direction: number) => {
     setMediaItems((currentItems) =>
       moveItem(currentItems, mediaIndex, mediaIndex + direction)
+    );
+  };
+  const handleMediaDragStart = (mediaIndex: number) => {
+    draggedMediaIndexRef.current = mediaIndex;
+  };
+  const handleMediaDrop = (targetIndex: number) => {
+    const draggedIndex = draggedMediaIndexRef.current;
+
+    draggedMediaIndexRef.current = null;
+
+    if (draggedIndex === null || draggedIndex === targetIndex) {
+      return;
+    }
+
+    setMediaItems((currentItems) =>
+      moveItem(currentItems, draggedIndex, targetIndex)
     );
   };
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -969,7 +1007,11 @@ export function TribeStoryManagement({
             return (
               <fieldset
                 className={styles.TribeStoryManagement__mediaRow}
+                draggable
                 key={mediaItem.clientId}
+                onDragOver={(event) => event.preventDefault()}
+                onDragStart={() => handleMediaDragStart(mediaIndex)}
+                onDrop={() => handleMediaDrop(mediaIndex)}
               >
                 <legend className={styles.TribeStoryManagement__legend}>
                   {legend}

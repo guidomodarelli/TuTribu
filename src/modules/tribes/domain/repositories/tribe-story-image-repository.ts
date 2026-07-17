@@ -23,7 +23,13 @@ export type DeleteTribeStoryImageUploadCommand = {
   tribeSlug: string;
 };
 
+export type TribeStoryImageCleanupSummary = {
+  deletedCount: number;
+  failedRemoteDeleteCount: number;
+};
+
 export type TribeStoryImageRepository = {
+  cleanupOrphanUploads(): Promise<TribeStoryImageCleanupSummary>;
   createUpload(
     command: CreateTribeStoryImageUploadCommand
   ): Promise<TribeStoryImageUploadResult>;

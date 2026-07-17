@@ -23,6 +23,7 @@ type FreeJoinRow = {
 };
 
 const MEMBERSHIP_STATUS_REASON_NONE = "none";
+const TRIBE_MEMBERSHIP_STATUS_REMOVED = "removed";
 
 const POSTGRES_ERROR_CODE = {
   insufficientPrivilege: "42501",
@@ -90,6 +91,26 @@ export class PostgresTribeFreeJoinRepository implements TribeFreeJoinRepository 
       }
 
       if (row?.tribe_available) {
+        // The insert conflicted with an existing membership row. A previously
+        // removed member can re-enter through the reactivation UPDATE policy;
+        // any other state (already active, blocked) stays untouched.
+        const reactivation = await database.execute(sql`
+          update public.tribe_members
+          set
+            role = ${TRIBE_MEMBER_ROLE.tribemate},
+            status = ${TRIBE_MEMBERSHIP_STATUS.active},
+            status_reason = ${MEMBERSHIP_STATUS_REASON_NONE},
+            joined_via = ${TRIBE_MEMBER_FREE_OPEN_JOIN_SOURCE}
+          where tribe_members.tribe_id = public.tribe_free_open_join_id_by_slug(${tribeSlug})
+            and tribe_members.user_id = public.current_app_user_id()
+            and tribe_members.status = ${TRIBE_MEMBERSHIP_STATUS_REMOVED}
+          returning tribe_members.id
+        `);
+
+        if ((reactivation.rows ?? []).length > 0) {
+          return { status: TRIBE_FREE_JOIN_STATUS.joined };
+        }
+
         return { status: TRIBE_FREE_JOIN_STATUS.alreadyMember };
       }
 
