@@ -8,16 +8,13 @@ import {
   LinkIcon,
   ListIcon,
   PlusIcon,
-  Trash2Icon,
   UploadIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import Image from "next/image";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import {
   Tabs,
   TabsContent,
@@ -50,9 +47,6 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   contentLabel: "Historia de la tribu",
   contentPlaceholder:
     "Ej.: Nacimos en 2020 como un grupo de amigos que quería aprender a invertir...",
-  coverHint:
-    "Imagen ancha que se muestra arriba de la página de presentación.",
-  coverLabel: "Portada",
   editDescription:
     "Definí la página de presentación que ven los miembros y visitantes de la tribu. Solo el líder puede editarla.",
   emptyMedia: "Aún no agregaste imágenes ni videos.",
@@ -61,10 +55,6 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   invalidUploadTypeError: "Elegí un archivo de imagen (JPG, PNG, GIF o WebP).",
   uploadTooLargeError: (maxMegabytes: number) =>
     `La imagen no puede superar los ${maxMegabytes} MB.`,
-  freeJoinHint:
-    "Cuando está activado, cualquier persona con sesión puede unirse gratis desde la página de historia, sin invitación. Solo aplica si la tribu es gratuita.",
-  freeJoinLabel: "Permitir unirse gratis",
-  identityHeading: "Identidad",
   invalidImageUrl:
     "Ingresá una URL de imagen válida que empiece con http:// o https://",
   invalidVideoUrl:
@@ -72,8 +62,6 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   invalidWebsiteUrl:
     "Ingresá una URL válida que empiece con http:// o https://",
   legendOf: "de",
-  logoHint: "Logo cuadrado que identifica a la tribu en el panel de datos.",
-  logoLabel: "Logo",
   mediaHeading: "Galería",
   mediaHint: (max: number) =>
     `Hasta ${max} imágenes o videos que se muestran arriba de la historia. Podés reordenarlos con las flechas.`,
@@ -87,7 +75,6 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   mediaUrlVideoPlaceholder: "https://www.youtube.com/watch?v=...",
   moveDownLabel: "Bajar",
   moveUpLabel: "Subir",
-  coverPreviewAlt: "Vista previa de la portada",
   editTabLabel: "Edición",
   previewEmpty: "Escribí la historia para ver la vista previa.",
   previewTabLabel: "Vista previa",
@@ -113,7 +100,7 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
 
 const STORY_MANAGEMENT_ROUTE = {
   apiPrefix: "/api/tribes/",
-  imagesSegment: "/story/images",
+  imagesSegment: "/images",
   pathSeparator: "/",
   storySegment: "/story",
 } as const;
@@ -151,17 +138,10 @@ const STORY_FORMAT = {
   listPrefix: "- ",
 } as const;
 
-const UPLOAD_TARGET = {
-  cover: "cover",
-  logo: "logo",
-} as const;
-
 const STORY_MODE_TAB = {
   edit: "edit",
   preview: "preview",
 } as const;
-
-const COVER_PREVIEW_SIZES = "(min-width: 64rem) 42rem, 100vw";
 
 const UPLOAD_IMAGE_MIME_PREFIX = "image/";
 const UPLOAD_MAX_MEGABYTES = 10;
@@ -176,7 +156,6 @@ type EditableStoryMediaItem = {
 };
 
 type TribeStoryManagementProps = {
-  openFreeJoinEnabled: boolean;
   story: TribeStoryResult | null;
   tribeSlug: string;
 };
@@ -197,7 +176,7 @@ function buildStoryEndpoint(tribeSlug: string): string {
   );
 }
 
-function buildStoryImagesEndpoint(tribeSlug: string): string {
+function buildTribeImagesEndpoint(tribeSlug: string): string {
   return (
     STORY_MANAGEMENT_ROUTE.apiPrefix +
     tribeSlug +
@@ -339,10 +318,7 @@ async function submitStoryUpdate(
   tribeSlug: string,
   payload: {
     content: string;
-    coverUrl: string | null;
-    logoUrl: string | null;
     media: Array<{ mediaType: TribeStoryMediaType; url: string }>;
-    openFreeJoinEnabled: boolean;
     websiteUrl: string | null;
   }
 ): Promise<string> {
@@ -376,7 +352,7 @@ async function uploadStoryImage(
   tribeSlug: string,
   imageFile: File
 ): Promise<string> {
-  const reserveResponse = await fetch(buildStoryImagesEndpoint(tribeSlug), {
+  const reserveResponse = await fetch(buildTribeImagesEndpoint(tribeSlug), {
     method: STORY_MANAGEMENT_REQUEST.postMethod,
   });
   const reserveBody = (await reserveResponse.json().catch(() => ({}))) as {
@@ -408,7 +384,7 @@ async function uploadStoryImage(
 
   if (!uploadResponse.ok) {
     void fetch(
-      buildStoryImagesEndpoint(tribeSlug) +
+      buildTribeImagesEndpoint(tribeSlug) +
         STORY_MANAGEMENT_ROUTE.pathSeparator +
         reserveBody.imageId,
       { method: STORY_MANAGEMENT_REQUEST.deleteMethod }
@@ -429,17 +405,11 @@ async function uploadStoryImage(
  * videos (uploaded or linked, reorderable), and the free open join toggle.
  */
 export function TribeStoryManagement({
-  openFreeJoinEnabled: initialOpenFreeJoinEnabled,
   story,
   tribeSlug,
 }: TribeStoryManagementProps) {
   const [content, setContent] = useState(story?.content ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(story?.websiteUrl ?? "");
-  const [logoUrl, setLogoUrl] = useState(story?.logoUrl ?? "");
-  const [coverUrl, setCoverUrl] = useState(story?.coverUrl ?? "");
-  const [openFreeJoinEnabled, setOpenFreeJoinEnabled] = useState(
-    initialOpenFreeJoinEnabled
-  );
   const [mediaItems, setMediaItems] = useState<EditableStoryMediaItem[]>(() =>
     buildEditableMediaItems(story)
   );
@@ -450,8 +420,6 @@ export function TribeStoryManagement({
     ReadonlySet<string>
   >(() => new Set());
   const [isWebsiteInvalid, setIsWebsiteInvalid] = useState(false);
-  const [isLogoInvalid, setIsLogoInvalid] = useState(false);
-  const [isCoverInvalid, setIsCoverInvalid] = useState(false);
   const [uploadingTargets, setUploadingTargets] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -462,10 +430,6 @@ export function TribeStoryManagement({
   const contentErrorId = useId();
   const websiteId = useId();
   const websiteErrorId = useId();
-  const logoId = useId();
-  const logoErrorId = useId();
-  const coverId = useId();
-  const coverErrorId = useId();
   const mediaErrorIdPrefix = useId();
   const trimmedContent = content.trim();
   const showContentError =
@@ -636,31 +600,18 @@ export function TribeStoryManagement({
         .map((mediaItem) => mediaItem.clientId)
     );
     const trimmedWebsiteUrl = websiteUrl.trim();
-    const trimmedLogoUrl = logoUrl.trim();
-    const trimmedCoverUrl = coverUrl.trim();
     const nextWebsiteInvalid =
       trimmedWebsiteUrl.length > 0 && !isHttpUrl(trimmedWebsiteUrl);
-    const nextLogoInvalid =
-      trimmedLogoUrl.length > 0 && !isHttpUrl(trimmedLogoUrl);
-    const nextCoverInvalid =
-      trimmedCoverUrl.length > 0 && !isHttpUrl(trimmedCoverUrl);
 
     setInvalidMediaClientIds(nextInvalidMediaIds);
     setIsWebsiteInvalid(nextWebsiteInvalid);
-    setIsLogoInvalid(nextLogoInvalid);
-    setIsCoverInvalid(nextCoverInvalid);
 
     if (!trimmedContent) {
       setValidationMessage(TRIBE_STORY_MANAGEMENT_COPY.requiredContent);
       return;
     }
 
-    if (
-      nextInvalidMediaIds.size > 0 ||
-      nextWebsiteInvalid ||
-      nextLogoInvalid ||
-      nextCoverInvalid
-    ) {
+    if (nextInvalidMediaIds.size > 0 || nextWebsiteInvalid) {
       setValidationMessage(TRIBE_STORY_MANAGEMENT_COPY.validationSummary);
       return;
     }
@@ -671,13 +622,10 @@ export function TribeStoryManagement({
     try {
       const message = await submitStoryUpdate(tribeSlug, {
         content: trimmedContent,
-        coverUrl: trimmedCoverUrl.length > 0 ? trimmedCoverUrl : null,
-        logoUrl: trimmedLogoUrl.length > 0 ? trimmedLogoUrl : null,
         media: mediaItems.map((mediaItem) => ({
           mediaType: mediaItem.mediaType,
           url: mediaItem.url.trim(),
         })),
-        openFreeJoinEnabled,
         websiteUrl: trimmedWebsiteUrl.length > 0 ? trimmedWebsiteUrl : null,
       });
 
@@ -830,90 +778,6 @@ export function TribeStoryManagement({
           ) : null}
         </div>
 
-        <section className={styles.TribeStoryManagement__collection}>
-          <h2 className={styles.TribeStoryManagement__subtitle}>
-            {TRIBE_STORY_MANAGEMENT_COPY.identityHeading}
-          </h2>
-          <div className={styles.TribeStoryManagement__field}>
-            <label
-              className={styles.TribeStoryManagement__fieldLabel}
-              htmlFor={logoId}
-            >
-              {TRIBE_STORY_MANAGEMENT_COPY.logoLabel}
-            </label>
-            <span className={styles.TribeStoryManagement__fieldHelper}>
-              {TRIBE_STORY_MANAGEMENT_COPY.logoHint}
-            </span>
-            <div className={styles.TribeStoryManagement__uploadRow}>
-              <Input
-                aria-describedby={isLogoInvalid ? logoErrorId : undefined}
-                aria-invalid={isLogoInvalid}
-                id={logoId}
-                onChange={(event) => {
-                  setLogoUrl(event.target.value);
-                  setIsLogoInvalid(false);
-                  setValidationMessage(null);
-                }}
-                placeholder={
-                  TRIBE_STORY_MANAGEMENT_COPY.mediaUrlImagePlaceholder
-                }
-                value={logoUrl}
-              />
-              {renderImageUploadButton(UPLOAD_TARGET.logo, (deliveryUrl) => {
-                setLogoUrl(deliveryUrl);
-                setIsLogoInvalid(false);
-              })}
-            </div>
-            {isLogoInvalid ? (
-              <span
-                className={styles.TribeStoryManagement__fieldError}
-                id={logoErrorId}
-              >
-                {TRIBE_STORY_MANAGEMENT_COPY.invalidImageUrl}
-              </span>
-            ) : null}
-          </div>
-          <div className={styles.TribeStoryManagement__field}>
-            <label
-              className={styles.TribeStoryManagement__fieldLabel}
-              htmlFor={coverId}
-            >
-              {TRIBE_STORY_MANAGEMENT_COPY.coverLabel}
-            </label>
-            <span className={styles.TribeStoryManagement__fieldHelper}>
-              {TRIBE_STORY_MANAGEMENT_COPY.coverHint}
-            </span>
-            <div className={styles.TribeStoryManagement__uploadRow}>
-              <Input
-                aria-describedby={isCoverInvalid ? coverErrorId : undefined}
-                aria-invalid={isCoverInvalid}
-                id={coverId}
-                onChange={(event) => {
-                  setCoverUrl(event.target.value);
-                  setIsCoverInvalid(false);
-                  setValidationMessage(null);
-                }}
-                placeholder={
-                  TRIBE_STORY_MANAGEMENT_COPY.mediaUrlImagePlaceholder
-                }
-                value={coverUrl}
-              />
-              {renderImageUploadButton(UPLOAD_TARGET.cover, (deliveryUrl) => {
-                setCoverUrl(deliveryUrl);
-                setIsCoverInvalid(false);
-              })}
-            </div>
-            {isCoverInvalid ? (
-              <span
-                className={styles.TribeStoryManagement__fieldError}
-                id={coverErrorId}
-              >
-                {TRIBE_STORY_MANAGEMENT_COPY.invalidImageUrl}
-              </span>
-            ) : null}
-          </div>
-        </section>
-
         <div className={styles.TribeStoryManagement__field}>
           <label
             className={styles.TribeStoryManagement__fieldLabel}
@@ -944,22 +808,6 @@ export function TribeStoryManagement({
               {TRIBE_STORY_MANAGEMENT_COPY.invalidWebsiteUrl}
             </span>
           ) : null}
-        </div>
-
-        <div className={styles.TribeStoryManagement__field}>
-          <label className={styles.TribeStoryManagement__switchLabel}>
-            <Switch
-              checked={openFreeJoinEnabled}
-              onCheckedChange={(checked) => {
-                setOpenFreeJoinEnabled(checked === true);
-                setValidationMessage(null);
-              }}
-            />
-            {TRIBE_STORY_MANAGEMENT_COPY.freeJoinLabel}
-          </label>
-          <span className={styles.TribeStoryManagement__fieldHelper}>
-            {TRIBE_STORY_MANAGEMENT_COPY.freeJoinHint}
-          </span>
         </div>
 
         <section className={styles.TribeStoryManagement__collection}>
@@ -1170,18 +1018,6 @@ export function TribeStoryManagement({
 
         <TabsContent value={STORY_MODE_TAB.preview}>
           <section className={styles.TribeStoryManagement__preview}>
-            {coverUrl.trim() && isHttpUrl(coverUrl.trim()) ? (
-              <div className={styles.TribeStoryManagement__previewCover}>
-                <Image
-                  alt={TRIBE_STORY_MANAGEMENT_COPY.coverPreviewAlt}
-                  className={styles.TribeStoryManagement__previewCoverImage}
-                  fill
-                  sizes={COVER_PREVIEW_SIZES}
-                  src={coverUrl.trim()}
-                  unoptimized
-                />
-              </div>
-            ) : null}
             <TribeStoryGallery media={buildPreviewMedia(mediaItems)} />
             {trimmedContent ? (
               <RichStoryContent content={trimmedContent} />

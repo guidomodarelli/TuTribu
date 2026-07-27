@@ -440,6 +440,16 @@ export function makeTribeSubscriptionPriceCurrent({
  * @param dependencies - Repository dependencies for the use case.
  * @returns Executable use case that toggles the tribe to free-join mode.
  */
+export function setTribeOpenFreeJoin({
+  tribeSubscriptionPriceRepository,
+}: TribeSubscriptionPriceDependencies) {
+  return async (command: { enabled: boolean; tribeSlug: string }) =>
+    tribeSubscriptionPriceRepository.setOpenFreeJoin({
+      enabled: command.enabled,
+      tribeSlug: normalizeText(command.tribeSlug),
+    });
+}
+
 export function setTribeFreeJoinAsCurrent({
   tribeSubscriptionPriceRepository,
 }: TribeSubscriptionPriceDependencies) {

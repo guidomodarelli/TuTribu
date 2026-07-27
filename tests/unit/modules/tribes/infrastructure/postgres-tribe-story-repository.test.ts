@@ -43,8 +43,6 @@ describe("PostgresTribeStoryRepository", () => {
         rows: [
           {
             content: "Nacimos en 2020 para acompañarnos a invertir mejor.",
-            cover_url: "https://images.example.com/cover.jpg",
-            logo_url: null,
             website_url: "https://tribu.example.com",
           },
         ],
@@ -77,8 +75,6 @@ describe("PostgresTribeStoryRepository", () => {
       repository.getByTribeSlug({ tribeSlug: "matematica-pro" })
     ).resolves.toEqual({
       content: "Nacimos en 2020 para acompañarnos a invertir mejor.",
-      coverUrl: "https://images.example.com/cover.jpg",
-      logoUrl: null,
       media: [
         {
           externalVideoId: "dQw4w9WgXcQ",
@@ -139,6 +135,8 @@ describe("PostgresTribeStoryRepository", () => {
           admin_count: "2",
           created_at: "2026-01-10T00:00:00.000Z",
           member_count: "128",
+          cover_url: "https://images.example.com/cover.jpg",
+          logo_url: "https://images.example.com/logo.png",
           name: "Matematica Pro",
           online_count: "7",
           open_free_join_available: true,
@@ -156,6 +154,8 @@ describe("PostgresTribeStoryRepository", () => {
       adminCount: 2,
       createdAt: "2026-01-10T00:00:00.000Z",
       memberCount: 128,
+      coverUrl: "https://images.example.com/cover.jpg",
+      logoUrl: "https://images.example.com/logo.png",
       name: "Matematica Pro",
       onlineCount: 7,
       openFreeJoinAvailable: true,
@@ -223,8 +223,6 @@ describe("PostgresTribeStoryRepository", () => {
         rows: [
           {
             content: "Historia actualizada.",
-            cover_url: "https://images.example.com/cover.jpg",
-            logo_url: "https://images.example.com/logo.png",
             media: [
               {
                 external_video_id: null,
@@ -247,8 +245,6 @@ describe("PostgresTribeStoryRepository", () => {
 
     const result = await repository.save({
       content: "Historia actualizada.",
-      coverUrl: "https://images.example.com/cover.jpg",
-      logoUrl: "https://images.example.com/logo.png",
       media: [
         {
           externalVideoId: null,
@@ -258,7 +254,6 @@ describe("PostgresTribeStoryRepository", () => {
           videoProvider: null,
         },
       ],
-      openFreeJoinEnabled: true,
       tribeSlug: "matematica-pro",
       websiteUrl: "https://tribu.example.com",
     });
@@ -267,8 +262,6 @@ describe("PostgresTribeStoryRepository", () => {
       status: TRIBE_STORY_SAVE_STATUS.updated,
       story: {
         content: "Historia actualizada.",
-        coverUrl: "https://images.example.com/cover.jpg",
-        logoUrl: "https://images.example.com/logo.png",
         media: [
           {
             externalVideoId: null,
@@ -289,10 +282,7 @@ describe("PostgresTribeStoryRepository", () => {
       "tribe_story_media"
     );
     expect(readQueryText(execute.mock.calls[1][0])).toContain(
-      "set_tribe_open_free_join"
-    );
-    expect(readQueryText(execute.mock.calls[2][0])).toContain(
-      "tribe_story_images"
+      "refresh_tribe_image_attachments"
     );
   });
 
@@ -314,10 +304,7 @@ describe("PostgresTribeStoryRepository", () => {
     await expect(
       repository.save({
         content: "Historia nueva.",
-        coverUrl: null,
-        logoUrl: null,
         media: [],
-        openFreeJoinEnabled: false,
         tribeSlug: "tribu-inexistente",
         websiteUrl: null,
       })
@@ -345,10 +332,7 @@ describe("PostgresTribeStoryRepository", () => {
     await expect(
       repository.save({
         content: "Historia nueva.",
-        coverUrl: null,
-        logoUrl: null,
         media: [],
-        openFreeJoinEnabled: false,
         tribeSlug: "matematica-pro",
         websiteUrl: null,
       })

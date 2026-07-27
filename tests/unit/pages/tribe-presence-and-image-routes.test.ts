@@ -1,13 +1,13 @@
 import { POST as touchPresence } from "@/app/api/tribes/[slug]/presence/route";
-import { POST as createStoryImage } from "@/app/api/tribes/[slug]/story/images/route";
-import { DELETE as deleteStoryImage } from "@/app/api/tribes/[slug]/story/images/[imageId]/route";
+import { POST as createTribeImage } from "@/app/api/tribes/[slug]/images/route";
+import { DELETE as deleteTribeImage } from "@/app/api/tribes/[slug]/images/[imageId]/route";
 import { createRequestModules } from "@/src/modules/setup";
-import { TRIBE_STORY_IMAGE_UPLOAD_STATUS } from "@/src/modules/tribes/constants/tribe-story";
+import { TRIBE_IMAGE_UPLOAD_STATUS } from "@/src/modules/tribes/constants/tribe-images";
 
 const getAuthenticatedMember = jest.fn();
 const touchTribePresence = jest.fn();
-const createTribeStoryImageUpload = jest.fn();
-const deleteTribeStoryImageUpload = jest.fn();
+const createTribeImageUpload = jest.fn();
+const deleteTribeImageUpload = jest.fn();
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
@@ -54,7 +54,7 @@ function buildContext(params: Record<string, string>) {
   return { params: Promise.resolve(params) };
 }
 
-describe("Tribe presence and story image routes", () => {
+describe("Tribe presence and image routes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     global.Response = MockJsonResponse as unknown as typeof Response;
@@ -67,21 +67,21 @@ describe("Tribe presence and story image routes", () => {
       role: "tribemate",
     });
     touchTribePresence.mockResolvedValue(true);
-    createTribeStoryImageUpload.mockResolvedValue({
+    createTribeImageUpload.mockResolvedValue({
       deliveryUrl: "https://imagedelivery.net/hash/image-1/public",
       imageId: "image-1",
-      status: TRIBE_STORY_IMAGE_UPLOAD_STATUS.created,
+      status: TRIBE_IMAGE_UPLOAD_STATUS.created,
       uploadUrl: "https://upload.example.com/image-1",
     });
-    deleteTribeStoryImageUpload.mockResolvedValue(true);
+    deleteTribeImageUpload.mockResolvedValue(true);
     (createRequestModules as jest.Mock).mockResolvedValue({
       auth: {
         useCases: { getAuthenticatedMember },
       },
       tribes: {
         useCases: {
-          createTribeStoryImageUpload,
-          deleteTribeStoryImageUpload,
+          createTribeImageUpload,
+          deleteTribeImageUpload,
           touchTribePresence,
         },
       },
@@ -113,8 +113,8 @@ describe("Tribe presence and story image routes", () => {
     expect(touchTribePresence).not.toHaveBeenCalled();
   });
 
-  it("reserves a story image direct upload for the leader", async () => {
-    const response = await createStoryImage(
+  it("reserves a tribe image direct upload for the leader", async () => {
+    const response = await createTribeImage(
       buildRequest(),
       buildContext({ slug: "matematica-pro" })
     );
@@ -127,12 +127,12 @@ describe("Tribe presence and story image routes", () => {
     });
   });
 
-  it("maps a forbidden story image upload to 403", async () => {
-    createTribeStoryImageUpload.mockResolvedValue({
-      status: TRIBE_STORY_IMAGE_UPLOAD_STATUS.forbidden,
+  it("maps a forbidden tribe image upload to 403", async () => {
+    createTribeImageUpload.mockResolvedValue({
+      status: TRIBE_IMAGE_UPLOAD_STATUS.forbidden,
     });
 
-    const response = await createStoryImage(
+    const response = await createTribeImage(
       buildRequest(),
       buildContext({ slug: "matematica-pro" })
     );
@@ -140,23 +140,23 @@ describe("Tribe presence and story image routes", () => {
     expect(response.status).toBe(403);
   });
 
-  it("deletes a reserved story image draft", async () => {
-    const response = await deleteStoryImage(
+  it("deletes a reserved tribe image draft", async () => {
+    const response = await deleteTribeImage(
       buildRequest(),
       buildContext({ imageId: "image-1", slug: "matematica-pro" })
     );
 
     expect(response.status).toBe(200);
-    expect(deleteTribeStoryImageUpload).toHaveBeenCalledWith({
+    expect(deleteTribeImageUpload).toHaveBeenCalledWith({
       imageId: "image-1",
       tribeSlug: "matematica-pro",
     });
   });
 
-  it("returns 404 when the story image draft cannot be deleted", async () => {
-    deleteTribeStoryImageUpload.mockResolvedValue(false);
+  it("returns 404 when the tribe image draft cannot be deleted", async () => {
+    deleteTribeImageUpload.mockResolvedValue(false);
 
-    const response = await deleteStoryImage(
+    const response = await deleteTribeImage(
       buildRequest(),
       buildContext({ imageId: "image-1", slug: "matematica-pro" })
     );

@@ -547,6 +547,13 @@
       "when": 1784278800000,
       "tag": "20260717090000_tribe_story_about_refinements",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1784289600000,
+      "tag": "20260717120000_move_tribe_identity_out_of_story",
+      "breakpoints": true
     }
   ]
 }

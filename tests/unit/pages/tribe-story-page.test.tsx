@@ -69,6 +69,8 @@ const authenticatedMember = {
 const storyStats = {
   adminCount: 2,
   createdAt: "2026-01-10T00:00:00.000Z",
+  coverUrl: null,
+  logoUrl: null,
   memberCount: 128,
   name: "Matematica Pro",
   onlineCount: 7,
@@ -127,8 +129,6 @@ describe("TribeHistoryPage", () => {
     ]);
     getTribeStory.mockResolvedValue({
       content: "Nacimos en 2020.",
-      coverUrl: null,
-      logoUrl: null,
       media: [],
       websiteUrl: null,
     });

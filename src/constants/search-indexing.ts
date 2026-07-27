@@ -37,6 +37,7 @@ export const DISALLOWED_CRAWLER_ROUTES = [
   "/*/cursos",
   "/*/eventos",
   "/*/invitaciones",
+  "/*/ajustes",
   "/*/precios",
   "/*/suscripcion",
   "/*/meritos",

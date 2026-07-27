@@ -68,6 +68,11 @@ export type SetTribeFreeJoinAsCurrentCommand = {
   tribeSlug: string;
 };
 
+export type SetTribeOpenFreeJoinCommand = {
+  enabled: boolean;
+  tribeSlug: string;
+};
+
 export type DeleteTribeSubscriptionPriceWithInvitationActionsCommand =
   TribeSubscriptionPriceIdentity & {
     invitationActions: DeleteTribeSubscriptionPriceInvitationAction[];
@@ -112,6 +117,9 @@ export type TribeSubscriptionPriceRepository = {
   ): Promise<TribeSubscriptionPriceMutationResult>;
   setFreeJoinAsCurrent(
     command: SetTribeFreeJoinAsCurrentCommand
+  ): Promise<TribeFreeJoinMutationResult>;
+  setOpenFreeJoin(
+    command: SetTribeOpenFreeJoinCommand
   ): Promise<TribeFreeJoinMutationResult>;
   syncProviderPlan(
     command: SyncTribeSubscriptionProviderPlanCommand

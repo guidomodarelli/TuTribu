@@ -42,6 +42,8 @@ Object.defineProperty(window, "matchMedia", {
 const STATS = {
   adminCount: 2,
   createdAt: "2026-01-10T00:00:00.000Z",
+  coverUrl: "https://images.example.com/cover.jpg",
+  logoUrl: "https://images.example.com/logo.png",
   memberCount: 128,
   name: "Matematica Pro",
   onlineCount: 7,
@@ -58,8 +60,6 @@ describe("TribeStoryAbout", () => {
         story={{
           content:
             "Somos **una tribu** de inversores\n- Honestidad\n- Comunidad\nMirá [el manifiesto](https://tribu.example.com/manifiesto)",
-          coverUrl: "https://images.example.com/cover.jpg",
-          logoUrl: "https://images.example.com/logo.png",
           media: [
             {
               externalVideoId: "dQw4w9WgXcQ",
@@ -130,8 +130,6 @@ describe("TribeStoryAbout", () => {
         stats={STATS}
         story={{
           content: "Nacimos en 2020.",
-          coverUrl: null,
-          logoUrl: null,
           media: [],
           websiteUrl: null,
         }}
@@ -156,8 +154,6 @@ describe("TribeStoryAbout", () => {
         stats={{ ...STATS, openFreeJoinAvailable: true }}
         story={{
           content: "Nacimos en 2020.",
-          coverUrl: null,
-          logoUrl: null,
           media: [],
           websiteUrl: null,
         }}

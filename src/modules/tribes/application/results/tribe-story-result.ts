@@ -7,8 +7,6 @@ export type TribeStoryMediaResult = TribeStoryMediaItem;
 
 export type TribeStoryResult = {
   content: string;
-  coverUrl: string | null;
-  logoUrl: string | null;
   media: TribeStoryMediaResult[];
   websiteUrl: string | null;
 };

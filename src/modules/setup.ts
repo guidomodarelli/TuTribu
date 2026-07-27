@@ -5,7 +5,8 @@ import { PostgresTribeCreationRepository } from "./tribes/infrastructure/reposit
 import { PostgresTribeCreatorWhitelistRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creator-whitelist-repository";
 import { PostgresTribeInvitationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-invitation-repository";
 import { PostgresTribeReadRepository } from "./tribes/infrastructure/repositories/postgres-tribe-read-repository";
-import { CloudflareImagesTribeStoryImageRepository } from "./tribes/infrastructure/repositories/cloudflare-images-tribe-story-image-repository";
+import { CloudflareImagesTribeImageRepository } from "./tribes/infrastructure/repositories/cloudflare-images-tribe-image-repository";
+import { PostgresTribeIdentityRepository } from "./tribes/infrastructure/repositories/postgres-tribe-identity-repository";
 import { PostgresTribeFreeJoinRepository } from "./tribes/infrastructure/repositories/postgres-tribe-free-join-repository";
 import { PostgresTribePresenceRepository } from "./tribes/infrastructure/repositories/postgres-tribe-presence-repository";
 import { PostgresTribeStoryRepository } from "./tribes/infrastructure/repositories/postgres-tribe-story-repository";
@@ -154,12 +155,15 @@ export async function createRequestModules(
       tribePresenceRepository: new PostgresTribePresenceRepository(
         executeWithRequestContext
       ),
-      tribeStoryImageRepository: new CloudflareImagesTribeStoryImageRepository(
+      tribeIdentityRepository: new PostgresTribeIdentityRepository(
+        executeWithRequestContext
+      ),
+      tribeImageRepository: new CloudflareImagesTribeImageRepository(
         executeWithRequestContext,
         {
           logger: createServerLogger({
             feature: "tribes",
-            operation: "tribe_story_images",
+            operation: "tribe_images",
             requestId: requestId ?? FALLBACK_REQUEST_ID,
           }),
         }

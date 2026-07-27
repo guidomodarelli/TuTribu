@@ -96,6 +96,8 @@ export const tribes = pgTable("tribes", {
   openFreeJoinEnabled: boolean("open_free_join_enabled")
     .notNull()
     .default(false),
+  logoUrl: text("logo_url"),
+  coverUrl: text("cover_url"),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),
@@ -230,8 +232,6 @@ export const tribeStorySettings = pgTable("tribe_story_settings", {
     .references(() => tribes.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   websiteUrl: text("website_url"),
-  logoUrl: text("logo_url"),
-  coverUrl: text("cover_url"),
   updatedBy: text("updated_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -266,7 +266,7 @@ export const tribeStoryMedia = pgTable("tribe_story_media", {
   ),
 }));
 
-export const tribeStoryImages = pgTable("tribe_story_images", {
+export const tribeImages = pgTable("tribe_images", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")
     .notNull()
@@ -281,10 +281,10 @@ export const tribeStoryImages = pgTable("tribe_story_images", {
     .notNull()
     .default(UTC_NOW_SQL),
 }, (table) => ({
-  cloudflareKey: uniqueIndex("tribe_story_images_cloudflare_key").on(
+  cloudflareKey: uniqueIndex("tribe_images_cloudflare_key").on(
     table.cloudflareImageId
   ),
-  tribeStatusIndex: index("idx_tribe_story_images_tribe_status").on(
+  tribeStatusIndex: index("idx_tribe_images_tribe_status").on(
     table.tribeId,
     table.status
   ),

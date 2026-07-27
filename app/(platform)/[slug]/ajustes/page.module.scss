@@ -1,0 +1,12 @@
+$tribe-settings-page-desktop-min: 1024px;
+$tribe-settings-page-desktop-max-width: 1400px;
+
+.TribeSettingsPage {
+  width: 100%;
+}
+
+@media (min-width: $tribe-settings-page-desktop-min) {
+  .TribeSettingsPage {
+    max-width: $tribe-settings-page-desktop-max-width;
+  }
+}

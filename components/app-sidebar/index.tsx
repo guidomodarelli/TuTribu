@@ -13,6 +13,7 @@ import {
   ReceiptTextIcon,
   PlusCircleIcon,
   ScrollTextIcon,
+  SettingsIcon,
   SignpostBigIcon,
   UsersIcon,
 } from "lucide-react";
@@ -119,6 +120,14 @@ const tribeAdminNavigation = [
     label: "Canales",
     matchPath: (pathname: string, tribeSlug: string) =>
       isSameOrNestedPath(pathname, ROUTES.tribes.channels(tribeSlug)),
+  },
+  {
+    hrefBuilder: ROUTES.tribes.settings,
+    icon: SettingsIcon,
+    label: "Ajustes",
+    leaderOnly: true,
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.settings(tribeSlug)),
   },
 ] as const;
 const APP_SIDEBAR_UI = {
@@ -291,7 +300,13 @@ export function AppSidebar({
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {tribeAdminNavigation.map((item) => {
+                    {tribeAdminNavigation
+                      .filter(
+                        (item) =>
+                          !("leaderOnly" in item && item.leaderOnly) ||
+                          activeTribe.role === TRIBE_ADMIN_ROLE.leader
+                      )
+                      .map((item) => {
                       const sectionPath = item.hrefBuilder(activeTribe.slug);
                       const isSectionActive = item.matchPath(
                         pathname,

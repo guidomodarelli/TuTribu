@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -112,6 +113,11 @@ const PRICE_MANAGEMENT_COPY = {
   fallbackMakeCurrentError: "No pudimos marcar el precio como actual.",
   fallbackFreeJoinError: "No pudimos marcar la entrada gratis como actual.",
   freeJoinName: "Entrada gratis",
+  openFreeJoinLabel: "Permitir unirse sin invitación",
+  openFreeJoinHint:
+    "Con la entrada gratis como actual, cualquier persona con sesión puede unirse desde la página de historia. Si está desactivado, solo se entra con un link de invitación.",
+  openFreeJoinFallbackError:
+    "No pudimos guardar el cambio de entrada abierta.",
   freeJoinMeta:
     "Los invitados entran directo a la tribu, sin Mercado Pago ni suscripción.",
   freeJoinPlaceholder: "—",
@@ -175,6 +181,7 @@ const PRICE_MANAGEMENT_ROUTE = {
   apiTribes: "/api/tribes/",
   connectSegment: "/mercado-pago/oauth/start",
   freeJoinMakeCurrentSegment: "/free-join/make-current",
+  openFreeJoinSegment: "/free-join/open",
   makeCurrentSegment: "/make-current",
   mercadoPagoAccountsSegment: "/subscriptions/mercado-pago-accounts",
   pricesSegment: "/subscriptions/prices",
@@ -197,6 +204,7 @@ const PRICE_MANAGEMENT_REQUEST = {
   jsonContentType: "application/json",
   postMethod: "POST",
   patchMethod: "PATCH",
+  putMethod: "PUT",
   pricesProperty: "prices",
   submitType: "submit",
   outlineVariant: "outline",
@@ -316,6 +324,7 @@ type TribeSubscriptionPriceManagementProps = {
   canManagePrices: boolean;
   freeJoinIsCurrent: boolean;
   isMercadoPagoConnected: boolean;
+  openFreeJoinEnabled: boolean;
   navigateToMercadoPagoConnection?: (connectionEndpoint: string) => void;
   prices: TribeSubscriptionPriceResult[];
   shouldAutoConnectMercadoPago?: boolean;
@@ -733,6 +742,7 @@ export function TribeSubscriptionPriceManagement({
   canManagePrices,
   freeJoinIsCurrent,
   isMercadoPagoConnected,
+  openFreeJoinEnabled: initialOpenFreeJoinEnabled,
   navigateToMercadoPagoConnection,
   prices,
   shouldAutoConnectMercadoPago = true,
@@ -759,6 +769,10 @@ export function TribeSubscriptionPriceManagement({
   ] = useState(false);
   const [isFreeJoinCurrent, setIsFreeJoinCurrent] =
     useState(freeJoinIsCurrent);
+  const [isOpenFreeJoinEnabled, setIsOpenFreeJoinEnabled] = useState(
+    initialOpenFreeJoinEnabled
+  );
+  const [isSavingOpenFreeJoin, setIsSavingOpenFreeJoin] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [isTrialEnabled, setIsTrialEnabled] = useState(false);
@@ -1445,6 +1459,42 @@ export function TribeSubscriptionPriceManagement({
       );
     } finally {
       setPendingAction(null);
+    }
+  };
+
+  /**
+   * Toggles whether a free tribe can be joined without an invitation link.
+   *
+   * @param enabled - Whether the tokenless free join is allowed.
+   * @returns Promise resolved after the request completes.
+   */
+  const handleToggleOpenFreeJoin = async (enabled: boolean) => {
+    const previousValue = isOpenFreeJoinEnabled;
+
+    setIsOpenFreeJoinEnabled(enabled);
+    setIsSavingOpenFreeJoin(true);
+
+    try {
+      const response = await submitPriceRequest(
+        PRICE_MANAGEMENT_ROUTE.apiTribes +
+          tribeSlug +
+          PRICE_MANAGEMENT_ROUTE.openFreeJoinSegment,
+        PRICE_MANAGEMENT_REQUEST.putMethod,
+        { enabled }
+      );
+
+      toast.success(
+        response.message ?? PRICE_MANAGEMENT_COPY.freeJoinSuccess
+      );
+    } catch (error) {
+      setIsOpenFreeJoinEnabled(previousValue);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : PRICE_MANAGEMENT_COPY.openFreeJoinFallbackError
+      );
+    } finally {
+      setIsSavingOpenFreeJoin(false);
     }
   };
 
@@ -2287,6 +2337,43 @@ export function TribeSubscriptionPriceManagement({
               ) : null}
             </TableCell>
           </TableRow>
+          {canManagePrices ? (
+            <TableRow
+              className={styles.TribeSubscriptionPriceManagement__tableRow}
+            >
+              <TableCell
+                colSpan={PRICE_MANAGEMENT_REQUEST.tableColumnCount}
+              >
+                <div
+                  className={
+                    styles.TribeSubscriptionPriceManagement__openFreeJoin
+                  }
+                >
+                  <label
+                    className={
+                      styles.TribeSubscriptionPriceManagement__openFreeJoinLabel
+                    }
+                  >
+                    <Switch
+                      checked={isOpenFreeJoinEnabled}
+                      disabled={!isFreeJoinCurrent || isSavingOpenFreeJoin}
+                      onCheckedChange={(checked) => {
+                        void handleToggleOpenFreeJoin(checked === true);
+                      }}
+                    />
+                    {PRICE_MANAGEMENT_COPY.openFreeJoinLabel}
+                  </label>
+                  <span
+                    className={
+                      styles.TribeSubscriptionPriceManagement__meta
+                    }
+                  >
+                    {PRICE_MANAGEMENT_COPY.openFreeJoinHint}
+                  </span>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : null}
           {sortedPrices.map((price) => (
             <Fragment key={price.id}>
               <TableRow className={styles.TribeSubscriptionPriceManagement__tableRow}>

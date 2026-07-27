@@ -34,10 +34,6 @@ const STORY_ROUTE_RESPONSE = {
     "Ingresá un link de video de YouTube, Vimeo, Wistia o Loom.",
   invalidWebsiteUrlMessage:
     "Ingresá una URL de sitio web válida que empiece con http:// o https://",
-  invalidLogoUrlMessage:
-    "Ingresá una URL de logo válida que empiece con http:// o https://",
-  invalidCoverUrlMessage:
-    "Ingresá una URL de portada válida que empiece con http:// o https://",
   missingContentMessage: "Escribí la historia antes de guardar.",
   notFoundMessage: "No pudimos encontrar la tribu.",
   savedMessage: "Historia actualizada.",
@@ -199,8 +195,6 @@ function validateMediaItems(value: unknown): MediaValidationResult {
 function serializeStory(story: TribeStoryResult) {
   return {
     content: story.content,
-    coverUrl: story.coverUrl,
-    logoUrl: story.logoUrl,
     media: story.media.map((mediaItem) => ({
       externalVideoId: mediaItem.externalVideoId,
       id: mediaItem.id,
@@ -335,26 +329,6 @@ export async function PUT(
       );
     }
 
-    const logoUrl = readRequiredText(parsedBody.logoUrl);
-
-    if (logoUrl && !isHttpUrl(logoUrl)) {
-      return createJsonResponse(
-        { message: STORY_ROUTE_RESPONSE.invalidLogoUrlMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const coverUrl = readRequiredText(parsedBody.coverUrl);
-
-    if (coverUrl && !isHttpUrl(coverUrl)) {
-      return createJsonResponse(
-        { message: STORY_ROUTE_RESPONSE.invalidCoverUrlMessage },
-        HTTP_STATUS.badRequest
-      );
-    }
-
-    const openFreeJoinEnabled = parsedBody.openFreeJoinEnabled === true;
-
     const mediaValidation = validateMediaItems(parsedBody.media);
 
     if (!mediaValidation.ok) {
@@ -366,10 +340,7 @@ export async function PUT(
 
     const result = await modules.tribes.useCases.saveTribeStory({
       content,
-      coverUrl,
-      logoUrl,
       media: mediaValidation.media,
-      openFreeJoinEnabled,
       tribeSlug: slug,
       websiteUrl,
     });

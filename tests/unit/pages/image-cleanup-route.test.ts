@@ -3,7 +3,7 @@ import { createMaintenanceModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const cleanupOrphanMessageImages = jest.fn();
-const cleanupOrphanTribeStoryImages = jest.fn();
+const cleanupOrphanTribeImages = jest.fn();
 const loggerError = jest.fn();
 const loggerInfo = jest.fn();
 
@@ -58,7 +58,7 @@ describe("Orphan image cleanup route", () => {
     process.env.CRON_SECRET = CRON_SECRET;
     global.Response = MockJsonResponse as unknown as typeof Response;
 
-    cleanupOrphanTribeStoryImages.mockResolvedValue({
+    cleanupOrphanTribeImages.mockResolvedValue({
       deletedCount: 0,
       failedRemoteDeleteCount: 0,
     });
@@ -70,7 +70,7 @@ describe("Orphan image cleanup route", () => {
       },
       tribes: {
         useCases: {
-          cleanupOrphanTribeStoryImages,
+          cleanupOrphanTribeImages,
         },
       },
     });
@@ -140,14 +140,14 @@ describe("Orphan image cleanup route", () => {
       remoteDeletedQueued: 3,
       remoteFailures: 0,
       status: "ok",
-      storyImages: {
+      tribeImages: {
         deletedCount: 0,
         failedRemoteDeleteCount: 0,
       },
     });
     expect(createMaintenanceModules).toHaveBeenCalledTimes(1);
     expect(cleanupOrphanMessageImages).toHaveBeenCalledTimes(1);
-    expect(cleanupOrphanTribeStoryImages).toHaveBeenCalledTimes(1);
+    expect(cleanupOrphanTribeImages).toHaveBeenCalledTimes(1);
   });
 
   it("returns a safe error status when the sweep throws", async () => {

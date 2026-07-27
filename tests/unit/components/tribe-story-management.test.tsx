@@ -28,7 +28,6 @@ describe("TribeStoryManagement", () => {
 
     render(
       <TribeStoryManagement
-        openFreeJoinEnabled={false}
         story={null}
         tribeSlug="matematica-pro"
       />
@@ -55,15 +54,12 @@ describe("TribeStoryManagement", () => {
         expect.objectContaining({
           body: JSON.stringify({
             content: "Nacimos en 2020.",
-            coverUrl: null,
-            logoUrl: null,
             media: [
               {
                 mediaType: "image",
                 url: "https://images.example.com/tribu.jpg",
               },
             ],
-            openFreeJoinEnabled: false,
             websiteUrl: "https://tribu.example.com",
           }),
           method: "PUT",
@@ -80,11 +76,8 @@ describe("TribeStoryManagement", () => {
 
     render(
       <TribeStoryManagement
-        openFreeJoinEnabled={false}
         story={{
           content: "Nacimos en 2020.",
-          coverUrl: null,
-          logoUrl: null,
           media: [],
           websiteUrl: null,
         }}
@@ -106,7 +99,6 @@ describe("TribeStoryManagement", () => {
 
     render(
       <TribeStoryManagement
-        openFreeJoinEnabled={false}
         story={null}
         tribeSlug="matematica-pro"
       />
@@ -137,7 +129,6 @@ describe("TribeStoryManagement", () => {
 
     render(
       <TribeStoryManagement
-        openFreeJoinEnabled={false}
         story={null}
         tribeSlug="matematica-pro"
       />
@@ -158,7 +149,6 @@ describe("TribeStoryManagement", () => {
 
     render(
       <TribeStoryManagement
-        openFreeJoinEnabled={false}
         story={null}
         tribeSlug="matematica-pro"
       />
@@ -190,7 +180,6 @@ describe("TribeStoryManagement", () => {
 
     render(
       <TribeStoryManagement
-        openFreeJoinEnabled={false}
         story={null}
         tribeSlug="matematica-pro"
       />
@@ -208,7 +197,6 @@ describe("TribeStoryManagement", () => {
 
     render(
       <TribeStoryManagement
-        openFreeJoinEnabled={false}
         story={null}
         tribeSlug="matematica-pro"
       />
@@ -225,44 +213,6 @@ describe("TribeStoryManagement", () => {
     );
   });
 
-  it("sends the free open join toggle in the save payload", async () => {
-    const user = userEvent.setup();
-
-    render(
-      <TribeStoryManagement
-        openFreeJoinEnabled={false}
-        story={{
-          content: "Nacimos en 2020.",
-          coverUrl: null,
-          logoUrl: null,
-          media: [],
-          websiteUrl: null,
-        }}
-        tribeSlug="matematica-pro"
-      />
-    );
-
-    await user.click(screen.getByRole("switch"));
-    await user.click(screen.getByRole("button", { name: "Guardar" }));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/tribes/matematica-pro/story",
-        expect.objectContaining({
-          body: JSON.stringify({
-            content: "Nacimos en 2020.",
-            coverUrl: null,
-            logoUrl: null,
-            media: [],
-            openFreeJoinEnabled: true,
-            websiteUrl: null,
-          }),
-          method: "PUT",
-        })
-      );
-    });
-  });
-
   it("shows the server error message when the save fails", async () => {
     const user = userEvent.setup();
 
@@ -275,7 +225,6 @@ describe("TribeStoryManagement", () => {
 
     render(
       <TribeStoryManagement
-        openFreeJoinEnabled={false}
         story={null}
         tribeSlug="matematica-pro"
       />

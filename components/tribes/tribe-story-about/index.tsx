@@ -108,14 +108,14 @@ export function TribeStoryAbout({
 }: TribeStoryAboutProps) {
   return (
     <section className={styles.TribeStoryAbout}>
-      {story?.coverUrl ? (
+      {stats?.coverUrl ? (
         <div className={styles.TribeStoryAbout__cover}>
           <Image
             alt={TRIBE_STORY_ABOUT_COPY.coverAlt(tribeName)}
             className={styles.TribeStoryAbout__coverImage}
             fill
             sizes={ABOUT_COVER_SIZES}
-            src={story.coverUrl}
+            src={stats.coverUrl}
             unoptimized
           />
         </div>
@@ -144,12 +144,12 @@ export function TribeStoryAbout({
           className={styles.TribeStoryAbout__sidebar}
         >
           <div className={styles.TribeStoryAbout__identity}>
-            {story?.logoUrl ? (
+            {stats?.logoUrl ? (
               <Image
                 alt={TRIBE_STORY_ABOUT_COPY.logoAlt(tribeName)}
                 className={styles.TribeStoryAbout__logo}
                 height={ABOUT_LOGO_SIZE}
-                src={story.logoUrl}
+                src={stats.logoUrl}
                 unoptimized
                 width={ABOUT_LOGO_SIZE}
               />

@@ -186,6 +186,7 @@ export default async function TribePricesPage({
       return {
         availableMercadoPagoAccounts: [],
         freeJoinIsCurrent: false,
+        openFreeJoinEnabled: false,
         hasMercadoPagoIntegration: false,
         mercadoPagoConnectionStatus:
           MERCADO_PAGO_CONNECTION_STATUS.requiresReconnection,
@@ -234,6 +235,7 @@ export default async function TribePricesPage({
         canManagePrices={priceList.viewerPermissions.canManagePrices}
         freeJoinIsCurrent={priceList.freeJoinIsCurrent}
         isMercadoPagoConnected={isMercadoPagoConnected}
+        openFreeJoinEnabled={priceList.openFreeJoinEnabled}
         prices={priceList.prices}
         shouldAutoConnectMercadoPago={priceList.shouldAutoConnectMercadoPago}
         subscriberDiagnostics={subscriberDiagnostics}

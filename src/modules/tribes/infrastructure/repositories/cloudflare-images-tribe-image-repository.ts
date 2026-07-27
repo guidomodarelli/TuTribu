@@ -1,24 +1,24 @@
 import { sql } from "drizzle-orm";
 
-import { TRIBE_STORY_IMAGE_UPLOAD_STATUS } from "@/src/modules/tribes/constants/tribe-story";
+import { TRIBE_IMAGE_UPLOAD_STATUS } from "@/src/modules/tribes/constants/tribe-images";
 import {
   buildCloudflareImagesDeliveryUrl,
   readCloudflareImagesEnvironment,
 } from "@/src/modules/shared/infrastructure/cloudflare/cloudflare-images-config";
 import type {
-  CreateTribeStoryImageUploadCommand,
-  DeleteTribeStoryImageUploadCommand,
-  TribeStoryImageCleanupSummary,
-  TribeStoryImageRepository,
-  TribeStoryImageUploadResult,
-} from "@/src/modules/tribes/domain/repositories/tribe-story-image-repository";
+  CreateTribeImageUploadCommand,
+  DeleteTribeImageUploadCommand,
+  TribeImageCleanupSummary,
+  TribeImageRepository,
+  TribeImageUploadResult,
+} from "@/src/modules/tribes/domain/repositories/tribe-image-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
 
-type StoryImageLogger = {
+type TribeImageLogger = {
   error: (entry: {
     error?: unknown;
     message: string;
@@ -26,8 +26,8 @@ type StoryImageLogger = {
   }) => void;
 };
 
-type StoryImageRepositoryOptions = {
-  logger: StoryImageLogger;
+type TribeImageRepositoryOptions = {
+  logger: TribeImageLogger;
 };
 
 type InsertedImageRow = {
@@ -56,20 +56,20 @@ const CLOUDFLARE_IMAGES_API = {
   requireSignedUrlsValue: "false",
 } as const;
 
-const STORY_IMAGE_LOG = {
-  directUploadFailedMessage: "Tribe story image direct upload creation failed",
-  remoteDeleteFailedMessage: "Tribe story image remote delete failed",
+const TRIBE_IMAGE_LOG = {
+  directUploadFailedMessage: "Tribe image direct upload creation failed",
+  remoteDeleteFailedMessage: "Tribe image remote delete failed",
 } as const;
 
-const STORY_IMAGE_STATUS_DRAFT = "draft";
+const TRIBE_IMAGE_STATUS_DRAFT = "draft";
 
 /**
  * Ceiling of concurrent reserved drafts per tribe: enough for a whole gallery
  * plus logo and cover retries, low enough to stop a runaway reservation loop.
  */
-const STORY_IMAGE_MAX_DRAFTS_PER_TRIBE = 20;
+const TRIBE_IMAGE_MAX_DRAFTS_PER_TRIBE = 20;
 
-const STORY_IMAGE_CLEANUP_BATCH_SIZE = 50;
+const TRIBE_IMAGE_CLEANUP_BATCH_SIZE = 50;
 
 const POSTGRES_ERROR_CODE = {
   insufficientPrivilege: "42501",
@@ -94,21 +94,21 @@ function readPostgresErrorCode(error: unknown): string | undefined {
     : undefined;
 }
 
-export class CloudflareImagesTribeStoryImageRepository
-  implements TribeStoryImageRepository
+export class CloudflareImagesTribeImageRepository
+  implements TribeImageRepository
 {
   constructor(
     private readonly executeWithDatabase: DatabaseExecutor,
-    private readonly options: StoryImageRepositoryOptions
+    private readonly options: TribeImageRepositoryOptions
   ) {}
 
   async createUpload({
     tribeSlug,
-  }: CreateTribeStoryImageUploadCommand): Promise<TribeStoryImageUploadResult> {
+  }: CreateTribeImageUploadCommand): Promise<TribeImageUploadResult> {
     const environment = readCloudflareImagesEnvironment();
 
     if (!environment) {
-      return { status: TRIBE_STORY_IMAGE_UPLOAD_STATUS.invalidImage };
+      return { status: TRIBE_IMAGE_UPLOAD_STATUS.invalidImage };
     }
 
     const directUpload = await this.createDirectUpload(
@@ -118,7 +118,7 @@ export class CloudflareImagesTribeStoryImageRepository
     );
 
     if (!directUpload) {
-      return { status: TRIBE_STORY_IMAGE_UPLOAD_STATUS.invalidImage };
+      return { status: TRIBE_IMAGE_UPLOAD_STATUS.invalidImage };
     }
 
     const deliveryUrl = buildCloudflareImagesDeliveryUrl({
@@ -141,13 +141,13 @@ export class CloudflareImagesTribeStoryImageRepository
           tribeSlug
         );
 
-        return { status: TRIBE_STORY_IMAGE_UPLOAD_STATUS.forbidden };
+        return { status: TRIBE_IMAGE_UPLOAD_STATUS.forbidden };
       }
 
       return {
         deliveryUrl,
         imageId: insertedImageId,
-        status: TRIBE_STORY_IMAGE_UPLOAD_STATUS.created,
+        status: TRIBE_IMAGE_UPLOAD_STATUS.created,
         uploadUrl: directUpload.uploadUrl,
       };
     } catch (insertError) {
@@ -163,7 +163,7 @@ export class CloudflareImagesTribeStoryImageRepository
         errorCode === POSTGRES_ERROR_CODE.insufficientPrivilege ||
         errorCode === POSTGRES_ERROR_CODE.undefinedTable
       ) {
-        return { status: TRIBE_STORY_IMAGE_UPLOAD_STATUS.forbidden };
+        return { status: TRIBE_IMAGE_UPLOAD_STATUS.forbidden };
       }
 
       throw insertError;
@@ -173,18 +173,18 @@ export class CloudflareImagesTribeStoryImageRepository
   async deleteUpload({
     imageId,
     tribeSlug,
-  }: DeleteTribeStoryImageUploadCommand): Promise<boolean> {
+  }: DeleteTribeImageUploadCommand): Promise<boolean> {
     const storedImage = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        delete from public.tribe_story_images
+        delete from public.tribe_images
         using public.tribes
-        where tribe_story_images.id = ${imageId}
-          and tribes.id = tribe_story_images.tribe_id
+        where tribe_images.id = ${imageId}
+          and tribes.id = tribe_images.tribe_id
           and tribes.slug = ${tribeSlug}
-          and tribe_story_images.status = ${STORY_IMAGE_STATUS_DRAFT}
+          and tribe_images.status = ${TRIBE_IMAGE_STATUS_DRAFT}
         returning
-          tribe_story_images.id,
-          tribe_story_images.cloudflare_image_id
+          tribe_images.id,
+          tribe_images.cloudflare_image_id
       `);
 
       return (result.rows?.[0] ?? null) as StoredImageRow | null;
@@ -224,14 +224,14 @@ export class CloudflareImagesTribeStoryImageRepository
    * Runs on the scheduled cron with the maintenance connection, never on
    * behalf of an end user.
    */
-  async cleanupOrphanUploads(): Promise<TribeStoryImageCleanupSummary> {
+  async cleanupOrphanUploads(): Promise<TribeImageCleanupSummary> {
     const reclaimedImages = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         select
           reclaimed_images.id,
           reclaimed_images.cloudflare_image_id
-        from public.reclaim_abandoned_tribe_story_images(
-          ${STORY_IMAGE_CLEANUP_BATCH_SIZE}
+        from public.reclaim_abandoned_tribe_images(
+          ${TRIBE_IMAGE_CLEANUP_BATCH_SIZE}
         ) as reclaimed_images
       `);
 
@@ -288,7 +288,7 @@ export class CloudflareImagesTribeStoryImageRepository
     } catch (deleteError) {
       this.options.logger.error({
         error: deleteError,
-        message: STORY_IMAGE_LOG.remoteDeleteFailedMessage,
+        message: TRIBE_IMAGE_LOG.remoteDeleteFailedMessage,
         metadata: { remoteImageId },
       });
 
@@ -307,7 +307,7 @@ export class CloudflareImagesTribeStoryImageRepository
   }): Promise<string | null> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        insert into public.tribe_story_images (
+        insert into public.tribe_images (
           tribe_id,
           cloudflare_image_id,
           delivery_url,
@@ -319,18 +319,18 @@ export class CloudflareImagesTribeStoryImageRepository
           tribes.id,
           ${cloudflareImageId},
           ${deliveryUrl},
-          ${STORY_IMAGE_STATUS_DRAFT},
+          ${TRIBE_IMAGE_STATUS_DRAFT},
           timezone('utc', now()),
           timezone('utc', now())
         from public.tribes
         where tribes.slug = ${tribeSlug}
           and (
             select count(*)
-            from public.tribe_story_images as reserved_drafts
+            from public.tribe_images as reserved_drafts
             where reserved_drafts.tribe_id = tribes.id
-              and reserved_drafts.status = ${STORY_IMAGE_STATUS_DRAFT}
-          ) < ${STORY_IMAGE_MAX_DRAFTS_PER_TRIBE}
-        returning tribe_story_images.id
+              and reserved_drafts.status = ${TRIBE_IMAGE_STATUS_DRAFT}
+          ) < ${TRIBE_IMAGE_MAX_DRAFTS_PER_TRIBE}
+        returning tribe_images.id
       `);
       const row = (result.rows?.[0] ?? null) as InsertedImageRow | null;
 
@@ -370,7 +370,7 @@ export class CloudflareImagesTribeStoryImageRepository
         !responseBody.result.uploadURL
       ) {
         this.options.logger.error({
-          message: STORY_IMAGE_LOG.directUploadFailedMessage,
+          message: TRIBE_IMAGE_LOG.directUploadFailedMessage,
           metadata: {
             responseStatus: response.status,
             tribeSlug,
@@ -387,7 +387,7 @@ export class CloudflareImagesTribeStoryImageRepository
     } catch (requestError) {
       this.options.logger.error({
         error: requestError,
-        message: STORY_IMAGE_LOG.directUploadFailedMessage,
+        message: TRIBE_IMAGE_LOG.directUploadFailedMessage,
         metadata: { tribeSlug },
       });
 
@@ -416,7 +416,7 @@ export class CloudflareImagesTribeStoryImageRepository
         response.status !== CLOUDFLARE_IMAGES_API.deleteNotFoundStatus
       ) {
         this.options.logger.error({
-          message: STORY_IMAGE_LOG.remoteDeleteFailedMessage,
+          message: TRIBE_IMAGE_LOG.remoteDeleteFailedMessage,
           metadata: {
             responseStatus: response.status,
             tribeSlug,
@@ -426,7 +426,7 @@ export class CloudflareImagesTribeStoryImageRepository
     } catch (deleteError) {
       this.options.logger.error({
         error: deleteError,
-        message: STORY_IMAGE_LOG.remoteDeleteFailedMessage,
+        message: TRIBE_IMAGE_LOG.remoteDeleteFailedMessage,
         metadata: { tribeSlug },
       });
     }

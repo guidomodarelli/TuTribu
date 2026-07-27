@@ -1,6 +1,7 @@
 const PLATFORM_ROUTE_PREFIX = "/-/";
 const TRIBE_ROUTE_SEGMENTS = {
   history: "historia",
+  settings: "ajustes",
   channels: "canales",
   courses: "cursos",
   coursesManage: "cursos/gestionar",
@@ -45,6 +46,8 @@ export const ROUTES = {
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.invitations),
     prices: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.prices),
+    settings: (slug: string) =>
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.settings),
     subscription: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.subscription),
     tribe: (slug: string) =>

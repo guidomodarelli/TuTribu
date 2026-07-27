@@ -77,6 +77,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       <TribeSubscriptionPriceManagement
         availableMercadoPagoAccounts={[mercadoPagoAccount]}
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -103,6 +104,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       <TribeSubscriptionPriceManagement
         availableMercadoPagoAccounts={[mercadoPagoAccount]}
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -139,6 +141,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -162,6 +165,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices={false}
         isMercadoPagoConnected={false}
         prices={[]}
@@ -185,6 +189,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -233,6 +238,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -286,6 +292,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -343,6 +350,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -416,6 +424,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[longTrialPrice]}
@@ -473,6 +482,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[monthlyTrialPrice]}
@@ -546,6 +556,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[monthlyTrialPrice]}
@@ -615,6 +626,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[canceledPrice]}
@@ -643,6 +655,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -685,6 +698,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -731,6 +745,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -791,6 +806,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       <TribeSubscriptionPriceManagement
         availableMercadoPagoAccounts={[mercadoPagoAccount]}
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -842,6 +858,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[priceWithLocalAssociation]}
@@ -881,6 +898,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[priceWithSubscribers]}
@@ -921,6 +939,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[pausedPrice]}
@@ -979,6 +998,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[canceledPriceWithLocalAssociation]}
@@ -1030,6 +1050,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -1070,6 +1091,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -1123,6 +1145,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -1166,6 +1189,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -1210,6 +1234,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -1287,6 +1312,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           mercadoPagoAccount,
         ]}
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -1341,6 +1367,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           },
         ]}
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -1391,6 +1418,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           },
         ]}
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[]}
@@ -1436,6 +1464,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected={false}
         navigateToMercadoPagoConnection={jest.fn()}
@@ -1473,6 +1502,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected={false}
         navigateToMercadoPagoConnection={navigateToMercadoPagoConnection}
@@ -1516,6 +1546,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected
         prices={[activePrice]}
@@ -1602,5 +1633,54 @@ describe("TribeSubscriptionPriceManagement", () => {
         screen.getAllByRole("button", { name: "Marcar como actual" })[0]
       ).toBeEnabled();
     });
+  });
+  it("saves the tokenless free open join toggle next to the free entry row", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeSubscriptionPriceManagement
+        availableMercadoPagoAccounts={[mercadoPagoAccount]}
+        canManagePrices
+        freeJoinIsCurrent
+        isMercadoPagoConnected
+        openFreeJoinEnabled={false}
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(
+      screen.getByRole("switch", { name: /permitir unirse sin invitación/i })
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/free-join/open",
+        expect.objectContaining({
+          body: JSON.stringify({ enabled: true }),
+          method: "PUT",
+        })
+      );
+    });
+  });
+
+  it("keeps the open free join toggle disabled while the free entry is not current", () => {
+    render(
+      <TribeSubscriptionPriceManagement
+        availableMercadoPagoAccounts={[mercadoPagoAccount]}
+        canManagePrices
+        freeJoinIsCurrent={false}
+        isMercadoPagoConnected
+        openFreeJoinEnabled={false}
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.getByRole("switch", { name: /permitir unirse sin invitación/i })
+    ).toBeDisabled();
   });
 });

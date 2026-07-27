@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ajustes de la tribu</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;line-height:1.3;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid #5a9fd4;background:#eaf3fb;color:#1a4f7a;}
+.callout p{font-size:13px;color:inherit;margin-bottom:0;}
+@media (max-width:720px){
+  body{padding:32px 16px 60px;}
+  .doc-title{font-size:24px;}
+  .section-title{font-size:18px;}
+}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">Manual de usuario</div>
+  <div class="doc-title">Ajustes de la tribu</div>
+  <div class="doc-sub">Dónde se configura la identidad visual de la tribu: el logo y la portada.</div>
+  <div class="doc-meta">
+    <span>Fecha: 2026-07-17</span>
+    <span>Estado: Vigente</span>
+    <span>Alcance: Tribus / Gestión</span>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Cómo llegar</div>
+  <p>En la barra lateral, dentro de <strong>Gestión</strong>, está la sección <strong>Ajustes</strong>. Solo la ve y la puede abrir el <strong>líder</strong> de la tribu; para guardianes y tribemates la página no existe.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Identidad</div>
+  <p>La identidad es de la tribu, no de una página en particular: se usa en toda la aplicación.</p>
+  <ul>
+    <li><strong>Logo</strong>: imagen cuadrada. Aparece junto al nombre de la tribu en la barra lateral y en el panel de datos de la página Historia.</li>
+    <li><strong>Portada</strong>: imagen ancha. Encabeza la página Historia y se usa como imagen al compartir la tribu en redes.</li>
+    <li>Ambas se pueden <strong>subir</strong> desde la computadora (imágenes de hasta 10 MB) o cargar pegando una URL que empiece con <code>http://</code> o <code>https://</code>.</li>
+    <li>Debajo de cada campo se ve una vista previa de la imagen cargada.</li>
+    <li>Los cambios se aplican al guardar y se reflejan enseguida en la barra lateral y en la página Historia.</li>
+  </ul>
+  <div class="callout">
+    <p>Las imágenes que se suben y después no se usan se limpian solas al día siguiente, así que no hace falta borrarlas a mano.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Qué NO se configura acá</div>
+  <ul>
+    <li>El <strong>texto y la galería</strong> de la presentación de la tribu se editan en <strong>Historia</strong>.</li>
+    <li>La forma de <strong>unirse</strong> (entrada gratis, precios y si se puede entrar sin invitación) se configura en <strong>Precios</strong>.</li>
+    <li>Los <strong>links de invitación</strong> se gestionan en <strong>Invitaciones</strong>.</li>
+  </ul>
+</div>
+</body>
+</html>

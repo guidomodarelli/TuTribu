@@ -84,8 +84,8 @@ export async function generateMetadata({
         )
       : undefined;
     const openGraphImage =
-      story?.coverUrl ??
-      story?.logoUrl ??
+      stats.coverUrl ??
+      stats.logoUrl ??
       story?.media.find((mediaItem) => mediaItem.url)?.url ??
       undefined;
 
@@ -278,11 +278,7 @@ export default async function TribeHistoryPage({
   return (
     <main className={styles.TribeStoryPage}>
       {canEdit ? (
-        <TribeStoryManagement
-          openFreeJoinEnabled={stats?.openFreeJoinEnabled ?? false}
-          story={story}
-          tribeSlug={tribe.slug}
-        />
+        <TribeStoryManagement story={story} tribeSlug={tribe.slug} />
       ) : (
         <TribeStoryAbout
           offerPrice={null}

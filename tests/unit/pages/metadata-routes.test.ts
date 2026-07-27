@@ -19,6 +19,7 @@ const EXPECTED_DISALLOWED_ROUTES = [
   "/*/cursos",
   "/*/eventos",
   "/*/invitaciones",
+  "/*/ajustes",
   "/*/precios",
   "/*/suscripcion",
   "/*/meritos",

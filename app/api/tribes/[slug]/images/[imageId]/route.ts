@@ -2,13 +2,13 @@ import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const STORY_IMAGE_ITEM_ROUTE_LOG = {
-  deleteFailureMessage: "Tribe story image upload deletion failed",
+const TRIBE_IMAGE_ITEM_ROUTE_LOG = {
+  deleteFailureMessage: "Tribe image upload deletion failed",
   feature: "tribes",
-  operation: "manage-tribe-story-images",
+  operation: "manage-tribe-images",
 } as const;
 
-const STORY_IMAGE_ITEM_ROUTE_RESPONSE = {
+const TRIBE_IMAGE_ITEM_ROUTE_RESPONSE = {
   notFoundMessage: "No pudimos encontrar la imagen.",
   unauthorizedMessage: "Iniciá sesión para gestionar imágenes.",
   unexpectedMessage: "No pudimos eliminar la imagen. Intentá de nuevo.",
@@ -40,8 +40,8 @@ export async function DELETE(
   const { imageId, slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
-    feature: STORY_IMAGE_ITEM_ROUTE_LOG.feature,
-    operation: STORY_IMAGE_ITEM_ROUTE_LOG.operation,
+    feature: TRIBE_IMAGE_ITEM_ROUTE_LOG.feature,
+    operation: TRIBE_IMAGE_ITEM_ROUTE_LOG.operation,
     requestId,
   });
   const modules = await createRequestModules();
@@ -50,20 +50,20 @@ export async function DELETE(
 
   if (!authenticatedMember) {
     return createJsonResponse(
-      { message: STORY_IMAGE_ITEM_ROUTE_RESPONSE.unauthorizedMessage },
+      { message: TRIBE_IMAGE_ITEM_ROUTE_RESPONSE.unauthorizedMessage },
       HTTP_STATUS.unauthorized
     );
   }
 
   try {
-    const deleted = await modules.tribes.useCases.deleteTribeStoryImageUpload({
+    const deleted = await modules.tribes.useCases.deleteTribeImageUpload({
       imageId,
       tribeSlug: slug,
     });
 
     if (!deleted) {
       return createJsonResponse(
-        { message: STORY_IMAGE_ITEM_ROUTE_RESPONSE.notFoundMessage },
+        { message: TRIBE_IMAGE_ITEM_ROUTE_RESPONSE.notFoundMessage },
         HTTP_STATUS.notFound
       );
     }
@@ -72,7 +72,7 @@ export async function DELETE(
   } catch (error) {
     logger.error({
       error,
-      message: STORY_IMAGE_ITEM_ROUTE_LOG.deleteFailureMessage,
+      message: TRIBE_IMAGE_ITEM_ROUTE_LOG.deleteFailureMessage,
       metadata: {
         imageId,
         slug,
@@ -81,7 +81,7 @@ export async function DELETE(
     });
 
     return createJsonResponse(
-      { message: STORY_IMAGE_ITEM_ROUTE_RESPONSE.unexpectedMessage },
+      { message: TRIBE_IMAGE_ITEM_ROUTE_RESPONSE.unexpectedMessage },
       HTTP_STATUS.serverError
     );
   }

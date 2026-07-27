@@ -43,6 +43,7 @@ import type {
   DeleteTribeSubscriptionPriceInvitationAction,
   DeleteTribeSubscriptionPriceWithInvitationActionsCommand,
   SetTribeFreeJoinAsCurrentCommand,
+  SetTribeOpenFreeJoinCommand,
   SyncTribeSubscriptionProviderPlanCommand,
   TribeSubscriptionPriceIdentity,
   TribeSubscriptionPriceListQuery,
@@ -133,6 +134,7 @@ type SubscriptionPriceListRow = SubscriptionPriceRow & {
   can_manage_prices: boolean | null;
   can_view_prices: boolean | null;
   free_join_is_current: boolean | null;
+  open_free_join_enabled?: boolean | null;
   has_mercado_pago_integration: boolean | null;
   mercado_pago_connection_payment_integration_id: string | null;
   refresh_token: string | null;
@@ -1126,7 +1128,8 @@ export class PostgresTribeSubscriptionPriceRepository
         with target_tribe as (
           select
             tribes.id,
-            tribes.free_join_is_current
+            tribes.free_join_is_current,
+            tribes.open_free_join_enabled
           from public.tribes
           where tribes.slug = ${query.tribeSlug}
           limit 1
@@ -1205,6 +1208,7 @@ export class PostgresTribeSubscriptionPriceRepository
           viewer_permissions.can_view_prices,
           viewer_permissions.can_manage_prices,
           (select free_join_is_current from target_tribe) as free_join_is_current,
+          (select open_free_join_enabled from target_tribe) as open_free_join_enabled,
           payment_integration.tribe_id,
           payment_integration.access_token,
           payment_integration.payment_integration_id as mercado_pago_connection_payment_integration_id,
@@ -1259,6 +1263,7 @@ export class PostgresTribeSubscriptionPriceRepository
         mapMercadoPagoAccount
       ),
       freeJoinIsCurrent: Boolean(rows[0]?.free_join_is_current),
+      openFreeJoinEnabled: Boolean(rows[0]?.open_free_join_enabled),
       hasMercadoPagoIntegration:
         mercadoPagoConnectionStatus === MERCADO_PAGO_CONNECTION_STATUS.connected,
       mercadoPagoConnectionStatus,
@@ -2251,6 +2256,33 @@ export class PostgresTribeSubscriptionPriceRepository
    * @param command - Tribe identity for the free-join toggle.
    * @returns Mutation outcome reflecting permission and existence checks.
    */
+  /**
+   * Toggles the tokenless free open join. The write goes through the
+   * leader-guarded definer because public.tribes has no leader UPDATE
+   * policy; a non-leader resolves to forbidden without writing.
+   */
+  async setOpenFreeJoin(
+    command: SetTribeOpenFreeJoinCommand
+  ): Promise<TribeFreeJoinMutationResult> {
+    return this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select public.set_tribe_open_free_join(
+          ${command.tribeSlug},
+          ${command.enabled}
+        ) as applied
+      `);
+      const row = (result.rows?.[0] ?? null) as {
+        applied?: boolean | null;
+      } | null;
+
+      return {
+        status: row?.applied
+          ? TRIBE_SUBSCRIPTION_PRICE_STATUS.current
+          : TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden,
+      };
+    });
+  }
+
   async setFreeJoinAsCurrent(
     command: SetTribeFreeJoinAsCurrentCommand
   ): Promise<TribeFreeJoinMutationResult> {

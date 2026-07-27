@@ -48,6 +48,7 @@ export type TribeMercadoPagoAccountResult = {
 export type TribeSubscriptionPriceListResult = {
   availableMercadoPagoAccounts?: TribeMercadoPagoAccountResult[];
   freeJoinIsCurrent: boolean;
+  openFreeJoinEnabled: boolean;
   hasMercadoPagoIntegration: boolean;
   mercadoPagoConnectionStatus:
     | typeof MERCADO_PAGO_CONNECTION_STATUS.connected

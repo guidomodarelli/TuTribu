@@ -17,15 +17,15 @@ export type TribeStoryMediaItem = {
 
 export type TribeStorySettings = {
   content: string;
-  coverUrl: string | null;
-  logoUrl: string | null;
   media: TribeStoryMediaItem[];
   websiteUrl: string | null;
 };
 
 export type TribeStoryStats = {
   adminCount: number;
+  coverUrl: string | null;
   createdAt: string;
+  logoUrl: string | null;
   memberCount: number;
   name: string;
   onlineCount: number;
@@ -57,10 +57,7 @@ export type SaveTribeStoryMediaItem = {
 
 export type SaveTribeStoryCommand = {
   content: string;
-  coverUrl: string | null;
-  logoUrl: string | null;
   media: SaveTribeStoryMediaItem[];
-  openFreeJoinEnabled: boolean;
   tribeSlug: string;
   websiteUrl: string | null;
 };
