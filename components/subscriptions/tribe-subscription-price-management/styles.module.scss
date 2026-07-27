@@ -384,6 +384,19 @@
     margin: 0.5rem 0 0;
     max-width: 34rem;
   }
+
+  &__openFreeJoin {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  &__openFreeJoinLabel {
+    align-items: center;
+    display: inline-flex;
+    font-size: 0.9rem;
+    font-weight: 600;
+    gap: 0.6rem;
+  }
 }
 
 @media (min-width: 48rem) {
@@ -421,18 +434,5 @@
       align-items: end;
       grid-template-columns: minmax(12rem, 1fr) minmax(10rem, 0.8fr) minmax(10rem, 0.6fr) minmax(14rem, 0.7fr);
     }
-  }
-
-  &__openFreeJoin {
-    display: grid;
-    gap: 0.35rem;
-  }
-
-  &__openFreeJoinLabel {
-    align-items: center;
-    display: inline-flex;
-    font-size: 0.9rem;
-    font-weight: 600;
-    gap: 0.6rem;
   }
 }
