@@ -256,12 +256,10 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           tribes.id as tribe_row_id,
           tribes.name,
           tribes.slug,
-          tribe_story_settings.logo_url
+          tribes.logo_url
         from public.tribe_members
         inner join public.tribes
           on tribes.id = tribe_members.tribe_id
-        left join public.tribe_story_settings
-          on tribe_story_settings.tribe_id = tribes.id
         where tribe_members.status in (
           ${TRIBE_MEMBERSHIP_STATUS.active},
           ${TRIBE_MEMBERSHIP_STATUS.muted}
