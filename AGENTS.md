@@ -496,6 +496,22 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 - Keep the existing safety rules: never print or persist secrets, tokens, or raw connection strings; redact sensitive values; prefer metadata-focused queries.
 - If a Neon branch cannot be created or reached (credentials, network, or MCP unavailable), state the concrete blocker and fall back to the closest validation allowed by the `pg` reproduction rule in section 5.
 
+### Local verification with portless (mandatory)
+
+- Whenever you want to try changes in the running app (manual checks, browser previews, screenshots, Playwright audits, or any request against the local server), run the dev server through `portless`. `npm run dev` already does that; never start `next dev` bare and never target `http://localhost:3000`. The only exception is `npm run dev:next`, which exists so the Playwright `webServer` (and CI, where portless is not installed) can boot a bare `next dev` on port 3000 for the e2e suite; do not use it for manual checks.
+- Start the dev server with the project script, which performs the whole sequence idempotently:
+
+```bash
+npm run dev
+```
+
+- The script (`scripts/dev-portless.mjs`) runs, in order: `portless proxy stop`, `portless proxy start --https --tld app`, adds `127.0.0.1 dev-tutribu.app` to the system hosts file when it is missing (this is the only step that asks for elevated privileges), runs `portless trust` when the local CA is not trusted yet, and finally `portless run --name dev-tutribu next dev`. Pass `--dry-run` (`npm run dev -- --dry-run`) to print the steps and the machine state without changing anything.
+- With the proxy on the `app` TLD, the `dev-tutribu` route resolves to `https://dev-tutribu.app`. That URL matches the local `BETTER_AUTH_URL` and the `allowedDevOrigins` entry in `next.config.ts`, so Google sign-in callbacks and Better Auth sessions land there. Use `https://dev-tutribu.app` as the base URL for every local check; do not use `https://dev-tutribu.localhost`.
+- `.app` is a real TLD, so unlike `.localhost` it does not resolve to loopback by itself: without the hosts entry the browser reports that the domain does not exist even though the proxy is listening on port 443. The script covers this; if it cannot write the hosts file, add the line it prints by hand from an elevated terminal.
+- Before starting a new server, run `portless list`; if the `dev-tutribu` route is already active on `https://dev-tutribu.app`, reuse it instead of starting another instance.
+- Automation that hits the local server (Playwright scripts, `curl`) must use the `https://dev-tutribu.app` base URL.
+- This is a local verification rule only; it does not replace the tests, lint, typecheck, or the GitHub Actions gate.
+
 ### Quality gate workflow
 
 - The full repository gate runs in GitHub Actions through `.github/workflows/quality-gate.yml`.
