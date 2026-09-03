@@ -58,7 +58,7 @@ const DEFAULT_SELECTION_MODAL_PAYLOAD = {
   selectionModalTitle: "Elegí cómo querés empezar",
 };
 
-function buildRequest(body: unknown = {}): Request {
+function buildRequest(body: unknown = {}, method = "PUT"): Request {
   const mergedBody =
     body && typeof body === "object" && !Array.isArray(body)
       ? { ...DEFAULT_SELECTION_MODAL_PAYLOAD, ...(body as Record<string, unknown>) }
@@ -67,7 +67,7 @@ function buildRequest(body: unknown = {}): Request {
   return {
     headers: new Headers(),
     json: jest.fn(async () => mergedBody),
-    method: "PUT",
+    method,
     url: "https://tutribu.example.com/api/tribes/matematica-pro/welcome",
   } as unknown as Request;
 }

@@ -32,6 +32,12 @@ function resolveWorkspaceRoot(startDir: string): string {
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "dev-tutribu.app"],
   cacheComponents: true,
+  // Type-check the same product scope as `pnpm run typecheck`. Since 16.3 the
+  // build checks every file `tsconfig.json` includes, which would pull in the
+  // Jest suites that run through SWC and are not part of the type-check gate.
+  typescript: {
+    tsconfigPath: "tsconfig.typecheck.json",
+  },
   // files-sdk ships ESM-only conditional exports; transpiling it lets
   // next/jest derive a transformIgnorePatterns exception so Jest's CJS
   // runtime can load the R2 storage adapter without mocking it.

@@ -516,6 +516,7 @@ npm run dev
 
 - The full repository gate runs in GitHub Actions through `.github/workflows/quality-gate.yml`.
 - The shared contract is `pnpm run ci`, which runs `lint`, `typecheck`, `test`, and `build`.
+- `typecheck` and the `build` type check share the same scope (`tsconfig.typecheck.json`, wired through `typescript.tsconfigPath` in `next.config.ts`): product code under `app`, `components`, `hooks`, `lib`, `src` and the framework entrypoints. Jest suites run through SWC and are not type-checked; keep test typings reasonable, but do not rely on the gate to catch them.
 - Agents must not duplicate this heavy gate in local Stop hooks; during a task, run only validations relevant to the change.
 - Vercel validates the deployment build and does not replace the GitHub Actions gate.
 

@@ -59,6 +59,9 @@ async function loadDrizzleConfigFromTemporaryEnvironmentFile(
   environmentFileName: ".env" | ".env.local",
   environmentFileContent: string
 ) {
+  // Next.js types `NODE_ENV` as read-only; the test swaps it on purpose to
+  // exercise the environment-file loading, so it writes through a mutable view.
+  const mutableEnvironment = process.env as Record<string, string | undefined>;
   const previousNodeEnvironment = process.env.NODE_ENV;
   const previousWorkingDirectory = process.cwd();
   const temporaryWorkspace = mkdtempSync(path.join(os.tmpdir(), "tutribu-env-"));
@@ -70,15 +73,15 @@ async function loadDrizzleConfigFromTemporaryEnvironmentFile(
   );
 
   process.chdir(temporaryWorkspace);
-  process.env.NODE_ENV = "development";
+  mutableEnvironment.NODE_ENV = "development";
 
   try {
     return await loadDrizzleConfigWithEnvironment({});
   } finally {
     if (previousNodeEnvironment === undefined) {
-      delete process.env.NODE_ENV;
+      delete mutableEnvironment.NODE_ENV;
     } else {
-      process.env.NODE_ENV = previousNodeEnvironment;
+      mutableEnvironment.NODE_ENV = previousNodeEnvironment;
     }
 
     process.chdir(previousWorkingDirectory);

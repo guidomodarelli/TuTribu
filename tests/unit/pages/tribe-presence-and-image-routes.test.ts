@@ -50,7 +50,7 @@ function buildRequest(): Request {
   } as unknown as Request;
 }
 
-function buildContext(params: Record<string, string>) {
+function buildContext<TParams extends Record<string, string>>(params: TParams) {
   return { params: Promise.resolve(params) };
 }
 

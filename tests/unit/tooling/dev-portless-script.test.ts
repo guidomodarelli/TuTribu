@@ -39,8 +39,7 @@ describe("dev portless script", () => {
   beforeAll(async () => {
     const importedModule = await import("../../../scripts/dev-portless.mjs");
 
-    devPortlessScript = (importedModule.default ??
-      importedModule) as DevPortlessScript;
+    devPortlessScript = importedModule as unknown as DevPortlessScript;
   });
 
   it("should build the dev host name from the app name and the app TLD", () => {
@@ -117,7 +116,9 @@ describe("dev portless script", () => {
 
   it("should resolve the hosts file per platform", () => {
     expect(
-      devPortlessScript.resolveHostsPath("win32", { SystemRoot: "C:\\Windows" })
+      devPortlessScript.resolveHostsPath("win32", {
+        SystemRoot: "C:\\Windows",
+      } as NodeJS.ProcessEnv)
     ).toBe(path.win32.join("C:\\Windows", "System32", "drivers", "etc", "hosts"));
     expect(devPortlessScript.resolveHostsPath("darwin")).toBe("/etc/hosts");
     expect(devPortlessScript.resolveHostsPath("linux")).toBe("/etc/hosts");
