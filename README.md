@@ -24,7 +24,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 ## Prerequisites
 
 - Node.js 20.x or newer (required by Next.js 16)
-- npm 10.x or newer
+- pnpm 12 (pinned through `packageManager`; run `corepack enable` and the pinned version is used automatically)
 - Access to a Neon Postgres database
 - Google OAuth credentials for sign-in
 

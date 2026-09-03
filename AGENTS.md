@@ -518,6 +518,7 @@ npm run dev
 - The shared contract is `pnpm run ci`, which runs `lint`, `typecheck`, `test`, and `build`.
 - `typecheck` and the `build` type check share the same scope (`tsconfig.typecheck.json`, wired through `typescript.tsconfigPath` in `next.config.ts`): product code under `app`, `components`, `hooks`, `lib`, `src` and the framework entrypoints. Jest suites run through SWC and are not type-checked; keep test typings reasonable, but do not rely on the gate to catch them.
 - Agents must not duplicate this heavy gate in local Stop hooks; during a task, run only validations relevant to the change.
+- The package manager is pnpm 12, pinned through `packageManager` (plus `engines.pnpm`). pnpm 12 enforces `minimumReleaseAge` (24 hours) by default and validates every lockfile entry, so a freshly published version is rejected until it is a day old: prefer versions older than 24 hours and always confirm with `pnpm install --frozen-lockfile`. Never regenerate the lockfile with `pnpm clean --lockfile` to get past that check; it re-resolves every caret range and drifts unrelated dependencies.
 - Vercel validates the deployment build and does not replace the GitHub Actions gate.
 
 ## 7. Concurrency, Observability, and Performance
