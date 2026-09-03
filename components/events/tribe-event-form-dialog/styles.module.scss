@@ -23,8 +23,15 @@
     width: 100%;
   }
 
+  &__toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+  }
+
   &__textarea {
-    min-height: 7rem;
+    min-height: 5rem;
     resize: vertical;
   }
 
@@ -42,13 +49,5 @@
     gap: 0.5rem;
     justify-content: flex-end;
     padding-top: 0.25rem;
-  }
-}
-
-@media (max-width: 30rem) {
-  .TribeEventFormDialog {
-    &__row {
-      grid-template-columns: minmax(0, 1fr);
-    }
   }
 }

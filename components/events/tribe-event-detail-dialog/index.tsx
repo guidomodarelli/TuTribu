@@ -1,5 +1,7 @@
 "use client";
 
+import { CalendarPlusIcon, DownloadIcon, ExternalLinkIcon } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -78,7 +80,6 @@ const COPY = {
   googleCalendar: "Agregar a Google Calendar",
   linkOpen: "Abrir link de reunión",
   pastNotice: "Este evento ya finalizó.",
-  recurrenceHeading: "Repetición",
   recurrenceUntilPrefix: " hasta el ",
   scheduleSeparator: " · ",
 } as const;
@@ -164,6 +165,7 @@ export function TribeEventDetailDialog({
                 {formatBuenosAiresLongDate(occurrence.startsAt)}
                 {COPY.scheduleSeparator}
                 {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
+                {recurrenceText ? COPY.scheduleSeparator + recurrenceText : null}
               </DialogDescription>
             </DialogHeader>
 
@@ -172,12 +174,6 @@ export function TribeEventDetailDialog({
             ) : null}
 
             <dl className={styles.TribeEventDetailDialog__facts}>
-              {recurrenceText ? (
-                <div className={styles.TribeEventDetailDialog__fact}>
-                  <dt>{COPY.recurrenceHeading}</dt>
-                  <dd>{recurrenceText}</dd>
-                </div>
-              ) : null}
               {occurrence.description ? (
                 <div className={styles.TribeEventDetailDialog__fact}>
                   <dt>{COPY.descriptionHeading}</dt>
@@ -190,32 +186,43 @@ export function TribeEventDetailDialog({
 
             <div className={styles.TribeEventDetailDialog__links}>
               {occurrence.meetingUrl ? (
-                <Button asChild variant={BUTTON_ATTRIBUTE.variantSecondary}>
+                <Button asChild className={styles.TribeEventDetailDialog__primaryLink}>
                   <a
                     href={occurrence.meetingUrl}
                     rel={LINK_ATTRIBUTE.noreferrer}
                     target={LINK_ATTRIBUTE.targetBlank}
                   >
+                    <ExternalLinkIcon aria-hidden />
                     {COPY.linkOpen}
                   </a>
                 </Button>
               ) : null}
               {googleCalendarUrl ? (
-                <a
-                  className={styles.TribeEventDetailDialog__exportLink}
-                  href={googleCalendarUrl}
-                  rel={LINK_ATTRIBUTE.noreferrer}
-                  target={LINK_ATTRIBUTE.targetBlank}
+                <Button
+                  asChild
+                  size={BUTTON_ATTRIBUTE.sizeSmall}
+                  variant={BUTTON_ATTRIBUTE.variantOutline}
                 >
-                  {COPY.googleCalendar}
-                </a>
+                  <a
+                    href={googleCalendarUrl}
+                    rel={LINK_ATTRIBUTE.noreferrer}
+                    target={LINK_ATTRIBUTE.targetBlank}
+                  >
+                    <CalendarPlusIcon aria-hidden />
+                    {COPY.googleCalendar}
+                  </a>
+                </Button>
               ) : null}
-              <a
-                className={styles.TribeEventDetailDialog__exportLink}
-                href={buildCalendarDownloadUrl(tribeSlug, occurrence.eventId)}
+              <Button
+                asChild
+                size={BUTTON_ATTRIBUTE.sizeSmall}
+                variant={BUTTON_ATTRIBUTE.variantOutline}
               >
-                {COPY.downloadIcs}
-              </a>
+                <a href={buildCalendarDownloadUrl(tribeSlug, occurrence.eventId)}>
+                  <DownloadIcon aria-hidden />
+                  {COPY.downloadIcs}
+                </a>
+              </Button>
             </div>
 
             <section

@@ -148,6 +148,9 @@ const COPY = {
   calendarTableLabel: "Calendario mensual de eventos",
   createButton: "Crear evento",
   dateColumn: "Fecha",
+  dayButtonLabel: (dayLabel: string, eventCount: number) =>
+    `${dayLabel}: ${eventCount} ${eventCount === 1 ? "evento" : "eventos"}`,
+  dayEventsLabel: "Eventos del día",
   deleteFailure: "No pudimos eliminar el evento.",
   deleteSuccess: "Evento eliminado.",
   emptyMonth: "No hay eventos este mes.",
@@ -189,6 +192,7 @@ const KEY_PREFIX = {
   week: "week-",
 } as const;
 const PILL_SEPARATOR = " ";
+const DAY_DOTS_MAX = 3;
 
 /**
  * Hydration store: the server snapshot is `false` and the client snapshot is
@@ -379,6 +383,7 @@ export function TribeEventsCalendar({
   const formSessionCounterRef = useRef(0);
 
   const [arePastEventsVisible, setArePastEventsVisible] = useState(false);
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const unsortedVisibleEvents =
     visibleEventsState.sourceEvents === events ? visibleEventsState.events : events;
   // The endpoint returns occurrences ordered, but the agenda groups by day and
@@ -395,6 +400,14 @@ export function TribeEventsCalendar({
     visibleEvents.find((occurrence) => occurrence.occurrenceKey === selectedOccurrenceKey) ??
     null;
   const todayKey = clock ? getBuenosAiresDateKey(new Date(clock.nowTime)) : null;
+  // The phone grid shows dots per day and lists the tapped day under the
+  // grid; until the viewer taps one, today's agenda is shown when it belongs
+  // to the visible month.
+  const isTodayInMonth = calendarDays.some(
+    (day) => day.isCurrentMonth && day.dateKey === todayKey
+  );
+  const activeDayKey = selectedDayKey ?? (isTodayInMonth ? todayKey : null);
+  const activeDayEvents = activeDayKey ? (eventsByDay[activeDayKey] ?? []) : [];
   const nextOccurrence = clock
     ? visibleEvents.find((occurrence) => getOccurrenceEndTime(occurrence) >= clock.nowTime) ??
       null
@@ -657,6 +670,30 @@ export function TribeEventsCalendar({
                           </span>
                         ) : null}
                       </span>
+                      {(eventsByDay[day.dateKey] ?? []).length > 0 ? (
+                        <button
+                          aria-label={COPY.dayButtonLabel(
+                            formatBuenosAiresLongDate(eventsByDay[day.dateKey][0].startsAt),
+                            eventsByDay[day.dateKey].length
+                          )}
+                          aria-pressed={activeDayKey === day.dateKey}
+                          className={styles.TribeEventsCalendar__dayButton}
+                          type={BUTTON_ATTRIBUTE.typeButton}
+                          onClick={() => setSelectedDayKey(day.dateKey)}
+                        >
+                          {eventsByDay[day.dateKey].slice(0, DAY_DOTS_MAX).map((occurrence) => (
+                            <span
+                              aria-hidden
+                              className={
+                                isPastOccurrence(occurrence)
+                                  ? styles["TribeEventsCalendar__dayDot--past"]
+                                  : styles.TribeEventsCalendar__dayDot
+                              }
+                              key={occurrence.occurrenceKey}
+                            />
+                          ))}
+                        </button>
+                      ) : null}
                       <div className={styles.TribeEventsCalendar__dayEvents}>
                         {(eventsByDay[day.dateKey] ?? []).map((occurrence) => (
                           <button
@@ -689,6 +726,17 @@ export function TribeEventsCalendar({
         </TableBody>
       </Table>
       {visibleEvents.length === 0 ? renderEmptyState() : null}
+      {activeDayKey && activeDayEvents.length > 0 ? (
+        <section
+          aria-label={COPY.dayEventsLabel}
+          className={styles.TribeEventsCalendar__daySummary}
+        >
+          {renderDayHeading(activeDayKey, activeDayEvents[0].startsAt)}
+          <ol className={styles.TribeEventsCalendar__agendaList}>
+            {activeDayEvents.map(renderAgendaItem)}
+          </ol>
+        </section>
+      ) : null}
     </>
   );
 
@@ -734,6 +782,70 @@ export function TribeEventsCalendar({
     </div>
   );
 
+  const renderAgendaItem = (occurrence: TribeEventOccurrenceResult) => {
+    const isPast = isPastOccurrence(occurrence);
+
+    return (
+      <li
+        className={
+          isPast
+            ? styles["TribeEventsCalendar__agendaItem--past"]
+            : styles.TribeEventsCalendar__agendaItem
+        }
+        key={occurrence.occurrenceKey}
+      >
+        <span className={styles.TribeEventsCalendar__agendaTime}>
+          {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
+        </span>
+        <div className={styles.TribeEventsCalendar__agendaMain}>
+          <button
+            className={styles.TribeEventsCalendar__listTitleButton}
+            type={BUTTON_ATTRIBUTE.typeButton}
+            onClick={() => setSelectedOccurrenceKey(occurrence.occurrenceKey)}
+          >
+            {occurrence.title}
+          </button>
+          <div className={styles.TribeEventsCalendar__agendaMeta}>
+            {isPast ? (
+              <Badge variant={BADGE_VARIANT.secondary}>{COPY.pastBadge}</Badge>
+            ) : (
+              renderAttendanceBadge(occurrence)
+            )}
+            {occurrence.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none ? (
+              <span className={styles.TribeEventsCalendar__agendaMetaText}>
+                {TRIBE_EVENT_RECURRENCE_LABEL[occurrence.recurrenceFrequency]}
+              </span>
+            ) : null}
+            <span className={styles.TribeEventsCalendar__agendaMetaText}>
+              {formatGoingCount(occurrence.attendance.goingCount)}
+            </span>
+          </div>
+        </div>
+        {occurrence.meetingUrl ? (
+          <a
+            aria-label={COPY.linkOpen}
+            className={styles.TribeEventsCalendar__agendaLink}
+            href={occurrence.meetingUrl}
+            rel={LINK_ATTRIBUTE.noreferrer}
+            target={LINK_ATTRIBUTE.targetBlank}
+            title={COPY.linkOpen}
+          >
+            <ExternalLinkIcon aria-hidden />
+          </a>
+        ) : null}
+      </li>
+    );
+  };
+
+  const renderDayHeading = (dayKey: string, startsAt: string) => (
+    <h2 className={styles.TribeEventsCalendar__agendaDayTitle}>
+      {formatBuenosAiresLongDate(startsAt)}
+      {dayKey === todayKey ? (
+        <Badge variant={BADGE_VARIANT.secondary}>{COPY.todayBadge}</Badge>
+      ) : null}
+    </h2>
+  );
+
   const renderListView = () =>
     visibleEvents.length === 0 ? (
       renderEmptyState()
@@ -753,80 +865,14 @@ export function TribeEventsCalendar({
               : COPY.showPastButton(pastEvents.length)}
           </Button>
         ) : null}
-        {agendaDays.map((agendaDay) => {
-          const isToday = agendaDay.dayKey === todayKey;
-
-          return (
-            <section
-              className={styles.TribeEventsCalendar__agendaDay}
-              key={agendaDay.dayKey}
-            >
-              <h2 className={styles.TribeEventsCalendar__agendaDayTitle}>
-                {formatBuenosAiresLongDate(agendaDay.dayEvents[0].startsAt)}
-                {isToday ? (
-                  <Badge variant={BADGE_VARIANT.secondary}>{COPY.todayBadge}</Badge>
-                ) : null}
-              </h2>
-              <ol className={styles.TribeEventsCalendar__agendaList}>
-                {agendaDay.dayEvents.map((occurrence) => {
-                  const isPast = isPastOccurrence(occurrence);
-
-                  return (
-                    <li
-                      className={
-                        isPast
-                          ? styles["TribeEventsCalendar__agendaItem--past"]
-                          : styles.TribeEventsCalendar__agendaItem
-                      }
-                      key={occurrence.occurrenceKey}
-                    >
-                      <span className={styles.TribeEventsCalendar__agendaTime}>
-                        {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
-                      </span>
-                      <div className={styles.TribeEventsCalendar__agendaMain}>
-                        <button
-                          className={styles.TribeEventsCalendar__listTitleButton}
-                          type={BUTTON_ATTRIBUTE.typeButton}
-                          onClick={() => setSelectedOccurrenceKey(occurrence.occurrenceKey)}
-                        >
-                          {occurrence.title}
-                        </button>
-                        <div className={styles.TribeEventsCalendar__agendaMeta}>
-                          {isPast ? (
-                            <Badge variant={BADGE_VARIANT.secondary}>{COPY.pastBadge}</Badge>
-                          ) : (
-                            renderAttendanceBadge(occurrence)
-                          )}
-                          {occurrence.recurrenceFrequency !==
-                          TRIBE_EVENT_RECURRENCE_FREQUENCY.none ? (
-                            <span className={styles.TribeEventsCalendar__agendaMetaText}>
-                              {TRIBE_EVENT_RECURRENCE_LABEL[occurrence.recurrenceFrequency]}
-                            </span>
-                          ) : null}
-                          <span className={styles.TribeEventsCalendar__agendaMetaText}>
-                            {formatGoingCount(occurrence.attendance.goingCount)}
-                          </span>
-                        </div>
-                      </div>
-                      {occurrence.meetingUrl ? (
-                        <a
-                          aria-label={COPY.linkOpen}
-                          className={styles.TribeEventsCalendar__agendaLink}
-                          href={occurrence.meetingUrl}
-                          rel={LINK_ATTRIBUTE.noreferrer}
-                          target={LINK_ATTRIBUTE.targetBlank}
-                          title={COPY.linkOpen}
-                        >
-                          <ExternalLinkIcon aria-hidden />
-                        </a>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ol>
-            </section>
-          );
-        })}
+        {agendaDays.map((agendaDay) => (
+          <section className={styles.TribeEventsCalendar__agendaDay} key={agendaDay.dayKey}>
+            {renderDayHeading(agendaDay.dayKey, agendaDay.dayEvents[0].startsAt)}
+            <ol className={styles.TribeEventsCalendar__agendaList}>
+              {agendaDay.dayEvents.map(renderAgendaItem)}
+            </ol>
+          </section>
+        ))}
       </section>
     );
 

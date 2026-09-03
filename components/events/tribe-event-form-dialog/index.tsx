@@ -3,6 +3,7 @@
 import { type FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { TRIBE_EVENT_RECURRENCE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";
 import {
+  TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
   TRIBE_EVENT_FIELD_LIMIT,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
@@ -86,6 +88,7 @@ const FIELD_ID = {
   date: "tribe-event-date",
   description: "tribe-event-description",
   endsDate: "tribe-event-ends-date",
+  endsOnAnotherDay: "tribe-event-ends-on-another-day",
   endsTime: "tribe-event-ends-time",
   meetingUrl: "tribe-event-meeting-url",
   recurrenceFrequency: "tribe-event-recurrence-frequency",
@@ -118,7 +121,8 @@ const COPY = {
   descriptionLabel: "Descripción",
   editDescription: "Los cambios se aplican a todas las repeticiones del evento.",
   editTitle: "Editar evento",
-  endsDateLabel: "Fecha de fin (opcional)",
+  endsDateLabel: "Fecha de fin",
+  endsOnAnotherDayLabel: "Termina otro día",
   endsTimeLabel: "Hora de fin",
   invalidEndDate: "La fecha de fin debe ser posterior al inicio.",
   invalidRecurrenceUntil: "La repetición debe terminar después de la fecha de inicio.",
@@ -132,6 +136,44 @@ const COPY = {
   startsTimeLabel: "Hora de inicio",
   titleLabel: "Título",
 } as const;
+
+const TIME_FORMAT = {
+  minutesPerHour: 60,
+  hoursPerDay: 24,
+  padLength: 2,
+  padCharacter: "0",
+  separator: ":",
+} as const;
+
+/**
+ * Adds minutes to a wall-clock «HH:mm» value. Returns null when the result
+ * would fall on the next day, so the caller leaves the end time to the user
+ * instead of suggesting a time that needs an end date to be valid.
+ */
+function addMinutesToTime(time: string, minutesToAdd: number): string | null {
+  const [hoursPart, minutesPart] = time.split(TIME_FORMAT.separator);
+  const hours = Number(hoursPart);
+  const minutes = Number(minutesPart);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return null;
+  }
+
+  const totalMinutes = hours * TIME_FORMAT.minutesPerHour + minutes + minutesToAdd;
+
+  if (totalMinutes >= TIME_FORMAT.hoursPerDay * TIME_FORMAT.minutesPerHour) {
+    return null;
+  }
+
+  const resultHours = Math.floor(totalMinutes / TIME_FORMAT.minutesPerHour);
+  const resultMinutes = totalMinutes % TIME_FORMAT.minutesPerHour;
+
+  return (
+    String(resultHours).padStart(TIME_FORMAT.padLength, TIME_FORMAT.padCharacter) +
+    TIME_FORMAT.separator +
+    String(resultMinutes).padStart(TIME_FORMAT.padLength, TIME_FORMAT.padCharacter)
+  );
+}
 
 function createInitialValues(
   occurrence: TribeEventOccurrenceResult | null
@@ -226,6 +268,9 @@ export function TribeEventFormDialog({
     createInitialValues(editingOccurrence)
   );
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [endsOnAnotherDay, setEndsOnAnotherDay] = useState(
+    () => createInitialValues(editingOccurrence).endsDate !== EMPTY_VALUE
+  );
   const isEditing = editingOccurrence !== null;
   const isRecurring =
     values.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none;
@@ -233,6 +278,32 @@ export function TribeEventFormDialog({
   const updateField = (field: keyof EventFormValues, value: string) => {
     setValidationError(null);
     setValues((currentValues) => ({ ...currentValues, [field]: value }));
+  };
+
+  // Picking a start suggests an end one default duration later, but only
+  // while the end is still empty so an explicit choice is never overwritten.
+  const updateStartsTime = (startsTime: string) => {
+    setValidationError(null);
+    setValues((currentValues) => {
+      const suggestedEndsTime =
+        currentValues.endsTime === EMPTY_VALUE && startsTime
+          ? addMinutesToTime(startsTime, TRIBE_EVENT_DEFAULT_DURATION_MINUTES)
+          : null;
+
+      return {
+        ...currentValues,
+        endsTime: suggestedEndsTime ?? currentValues.endsTime,
+        startsTime,
+      };
+    });
+  };
+
+  const toggleEndsOnAnotherDay = (isChecked: boolean) => {
+    setEndsOnAnotherDay(isChecked);
+
+    if (!isChecked) {
+      updateField("endsDate", EMPTY_VALUE);
+    }
   };
 
   const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
@@ -297,21 +368,11 @@ export function TribeEventFormDialog({
                 required
                 type={INPUT_TYPE.time}
                 value={values.startsTime}
-                onChange={(event) => updateField("startsTime", event.currentTarget.value)}
+                onChange={(event) => updateStartsTime(event.currentTarget.value)}
               />
             </div>
           </div>
           <div className={styles.TribeEventFormDialog__row}>
-            <div className={styles.TribeEventFormDialog__field}>
-              <label htmlFor={FIELD_ID.endsDate}>{COPY.endsDateLabel}</label>
-              <Input
-                id={FIELD_ID.endsDate}
-                min={values.date || undefined}
-                type={INPUT_TYPE.date}
-                value={values.endsDate}
-                onChange={(event) => updateField("endsDate", event.currentTarget.value)}
-              />
-            </div>
             <div className={styles.TribeEventFormDialog__field}>
               <label htmlFor={FIELD_ID.endsTime}>{COPY.endsTimeLabel}</label>
               <Input
@@ -321,6 +382,26 @@ export function TribeEventFormDialog({
                 onChange={(event) => updateField("endsTime", event.currentTarget.value)}
               />
             </div>
+            {endsOnAnotherDay ? (
+              <div className={styles.TribeEventFormDialog__field}>
+                <label htmlFor={FIELD_ID.endsDate}>{COPY.endsDateLabel}</label>
+                <Input
+                  id={FIELD_ID.endsDate}
+                  min={values.date || undefined}
+                  type={INPUT_TYPE.date}
+                  value={values.endsDate}
+                  onChange={(event) => updateField("endsDate", event.currentTarget.value)}
+                />
+              </div>
+            ) : null}
+          </div>
+          <div className={styles.TribeEventFormDialog__toggle}>
+            <Checkbox
+              checked={endsOnAnotherDay}
+              id={FIELD_ID.endsOnAnotherDay}
+              onCheckedChange={(checked) => toggleEndsOnAnotherDay(checked === true)}
+            />
+            <label htmlFor={FIELD_ID.endsOnAnotherDay}>{COPY.endsOnAnotherDayLabel}</label>
           </div>
           <div className={styles.TribeEventFormDialog__row}>
             <div className={styles.TribeEventFormDialog__field}>

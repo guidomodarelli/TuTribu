@@ -372,7 +372,7 @@ describe("TribeEventsCalendar", () => {
     );
     expect(JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)).toEqual({
       description: "",
-      endsAt: "",
+      endsAt: "2026-05-20T19:00:00.000Z",
       meetingUrl: "https://meet.google.com/abc-defg-hij",
       recurrenceFrequency: "none",
       recurrenceUntil: "",
@@ -383,6 +383,80 @@ describe("TribeEventsCalendar", () => {
       await screen.findByRole("button", { name: "15:00 Clase nueva" })
     ).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("suggests an end time one hour after the start without overriding an explicit one", async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: "Crear evento" }));
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "15:00" },
+    });
+
+    expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:00");
+
+    fireEvent.change(screen.getByLabelText("Hora de fin"), {
+      target: { value: "17:30" },
+    });
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "16:00" },
+    });
+
+    expect(screen.getByLabelText("Hora de fin")).toHaveValue("17:30");
+  });
+
+  it("lists the tapped day's events under the grid", async () => {
+    jest.setSystemTime(new Date("2026-05-05T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const laterOccurrence = createOccurrence({
+      endsAt: "2026-05-20T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-20T18:00:00.000Z",
+      title: "Cierre de mes",
+    });
+
+    renderCalendar({ events: [occurrence, laterOccurrence] });
+
+    expect(screen.queryByRole("region", { name: "Eventos del día" })).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Miércoles 20 de mayo: 1 evento" })
+    );
+
+    const daySummary = screen.getByRole("region", { name: "Eventos del día" });
+
+    expect(
+      within(daySummary).getByRole("heading", { name: "Miércoles 20 de mayo" })
+    ).toBeInTheDocument();
+    expect(within(daySummary).getByRole("button", { name: "Cierre de mes" })).toBeInTheDocument();
+    expect(within(daySummary).queryByText("Clase abierta")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Miércoles 20 de mayo: 1 evento" })
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("shows the recurrence next to the schedule in the detail header", async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    renderCalendar({
+      events: [
+        createOccurrence({
+          recurrenceFrequency: "weekly",
+          recurrenceRule: "FREQ=WEEKLY",
+          recurrenceUntil: "2026-06-30T23:59:00.000Z",
+        }),
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: "15:00 Clase abierta" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
+
+    expect(
+      within(dialog).getByText(/Miércoles 6 de mayo · 15:00 - 16:00 · Todas las semanas hasta el 30 jun/)
+    ).toBeInTheDocument();
   });
 
   it("validates the schedule inline before sending the form", async () => {
@@ -426,7 +500,9 @@ describe("TribeEventsCalendar", () => {
     fireEvent.change(screen.getByLabelText("Hora de inicio"), {
       target: { value: "23:00" },
     });
-    fireEvent.change(screen.getByLabelText("Fecha de fin (opcional)"), {
+    expect(screen.queryByLabelText("Fecha de fin")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "Termina otro día" }));
+    fireEvent.change(screen.getByLabelText("Fecha de fin"), {
       target: { value: "2026-05-21" },
     });
     fireEvent.change(screen.getByLabelText("Hora de fin"), {

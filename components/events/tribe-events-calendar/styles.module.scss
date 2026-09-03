@@ -347,6 +347,46 @@ $tribe-events-calendar-mobile-max: 767px;
     margin-top: 0.35rem;
   }
 
+  // Phone-only: the cell becomes a tap target that selects the day and shows
+  // one dot per event; hidden on wider screens where the pills carry titles.
+  &__dayButton {
+    display: none;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    width: 100%;
+    min-height: 1.5rem;
+    margin-top: 0.2rem;
+    padding: 0.2rem 0;
+    border: 0;
+    border-radius: 0.4rem;
+    background: none;
+    cursor: pointer;
+
+    &[aria-pressed="true"] {
+      background: color-mix(in oklch, var(--primary) 14%, var(--background));
+    }
+  }
+
+  &__dayDot,
+  &__dayDot--past {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: var(--primary);
+  }
+
+  &__dayDot--past {
+    background: var(--muted-foreground);
+  }
+
+  &__daySummary {
+    display: none;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
   &__eventPill,
   &__eventPill--past {
     width: 100%;
@@ -377,8 +417,8 @@ $tribe-events-calendar-mobile-max: 767px;
   }
 
   // Phones: seven columns leave ~3rem per day, so the month grid fits the
-  // viewport with compact cells and pills that show only the start time. The
-  // title stays available through the detail dialog the pill opens.
+  // viewport with compact cells that show one dot per event; tapping a day
+  // lists its events under the grid.
   @media (max-width: 47.99rem) {
     &__dayHeader {
       padding-inline: 0.15rem;
@@ -400,19 +440,15 @@ $tribe-events-calendar-mobile-max: 767px;
     }
 
     &__dayEvents {
-      gap: 0.2rem;
-      margin-top: 0.2rem;
-    }
-
-    &__eventPill,
-    &__eventPill--past {
-      padding: 0.2rem 0.15rem;
-      font-size: 0.68rem;
-      text-align: center;
-    }
-
-    &__eventPillTitle {
       display: none;
+    }
+
+    &__dayButton {
+      display: flex;
+    }
+
+    &__daySummary {
+      display: grid;
     }
   }
 
