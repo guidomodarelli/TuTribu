@@ -5,15 +5,16 @@
   width: 100%;
   max-width: 32rem;
   align-items: center;
-  padding: 3rem 1.5rem;
+  padding: clamp(1.5rem, 6vw, 3rem) 1rem;
 
   &__card {
     width: 100%;
     border-radius: var(--radius-3xl);
     border: 1px solid color-mix(in oklch, var(--destructive) 30%, transparent);
     background-color: color-mix(in oklch, var(--card) 90%, transparent);
-    padding: 2rem;
+    padding: clamp(1.25rem, 5vw, 2rem);
     box-shadow: 0 20px 60px -44px rgb(15 23 42 / 45%);
+    -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
   }
 

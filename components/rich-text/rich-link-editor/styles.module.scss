@@ -72,3 +72,15 @@
     padding: 0 0.65rem;
   }
 }
+
+// iOS Safari zooms the page when a focused editable region renders text
+// below 16px. Both the contenteditable editor and the link URL input inherit
+// 14px from their dialog/popover hosts, so pin them to 1rem on phones.
+@media (max-width: 767px) {
+  .RichLinkEditor {
+    &__editor,
+    &__input {
+      font-size: 1rem;
+    }
+  }
+}

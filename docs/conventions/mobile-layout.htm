@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobile Layout</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fbf3ea;border-color:#d4a15a;color:#7a541a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Mobile Layout</div>
+  <div class="doc-sub">Reglas para que cada pantalla y componente funcione en teléfonos (360–430px, Chromium y WebKit): diálogos que scrollean, inputs sin zoom de iOS, tablas apiladas, targets táctiles y equivalentes touch para interacciones de hover.</div>
+  <div class="doc-meta"><span>Scope: UI / Styling</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+<p>El layout de plataforma (<code>app/(platform)/layout.module.scss</code>) acota el contenido a 720px con <code>padding: clamp(1rem, 3vw, 2rem)</code> y un header sticky de 3.5rem. En un teléfono de 360px quedan ~328px útiles. Todo estilo base (sin media query) es el estilo mobile: las variantes de escritorio se agregan con <code>@media (min-width: …)</code>, nunca al revés.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Rules</div>
+<table>
+  <tr><th>Caso</th><th>Regla</th><th>Referencia</th></tr>
+  <tr><td>Diálogos (<code>DialogContent</code>)</td><td>El contenido tiene <code>max-height: calc(100svh - 2rem)</code> y <code>overflow-y: auto</code> por defecto, así el footer con la acción principal siempre es alcanzable en pantallas cortas o con teclado abierto. Un overlay artesanal (por ejemplo <code>TribeWelcomeSelectionModal</code>) debe replicar ese cap con <code>dvh</code> según <a href="viewport-units.htm">Viewport Units</a>.</td><td><code>components/ui/dialog.tsx</code></td></tr>
+  <tr><td>Overlays de edición a pantalla completa</td><td>Compositor de mensajes y modal de detalles pasan a <code>100vw × 100dvh</code> por debajo de 1024px, con <code>padding-bottom: env(safe-area-inset-bottom)</code> en la zona de acciones.</td><td><code>components/tribe-round/tribe-round/styles.module.scss</code></td></tr>
+  <tr><td>Controles de formulario</td><td>Todo <code>input</code>, <code>textarea</code>, <code>select</code> o <code>contenteditable</code> de producto renderiza a <code>1rem</code> (16px) por debajo de 48rem; la versión compacta (0.875–0.95rem) va en <code>@media (min-width: 48rem)</code>. iOS Safari hace zoom de página al enfocar texto menor a 16px. Los <code>Input</code>/<code>Textarea</code> de shadcn ya cumplen con <code>text-base md:text-sm</code>.</td><td><code>lesson-comments</code>, <code>rich-link-editor</code>, <code>tribe-channel-management</code></td></tr>
+  <tr><td>Tablas de gestión</td><td>Por debajo de 48rem la tabla se apila: <code>table</code>, <code>thead</code> y <code>tbody</code> en <code>display: block</code>, la fila de encabezado oculta, cada <code>tr</code> como grid y las celdas en bloque con <code>white-space: normal</code>. Solo las tablas de lectura (métricas, calendario) conservan el scroll horizontal del contenedor de shadcn.</td><td><code>tribe-subscription-price-management</code></td></tr>
+  <tr><td>Grillas con varias columnas fijas</td><td>Cuando la suma de columnas <code>auto</code>/<code>max-content</code> supera el ancho disponible, reorganizar con <code>grid-template-areas</code> en dos filas por debajo de 40rem en vez de dejar que la columna <code>1fr</code> colapse a cero.</td><td><code>__imageDraft</code>, <code>__fileDraft</code> en tribe-round</td></tr>
+  <tr><td>Botones flotantes</td><td>No usar <code>position: fixed</code> abajo a la derecha en mobile: tapa controles alineados a la derecha y salta con el teclado. Usar una barra sticky de ancho completo al final del formulario con fondo y <code>safe-area-inset-bottom</code>.</td><td><code>tribe-welcome-management</code></td></tr>
+  <tr><td>Carruseles</td><td>Los botones prev/next de shadcn (<code>-left-12</code>/<code>-right-12</code>) solo caben en desktop. Por debajo de 64rem se superponen al slide con <code>[data-slot="carousel-previous"]</code>/<code>[data-slot="carousel-next"]</code>, 2.5rem de tamaño y fondo translúcido.</td><td><code>tribe-story-gallery</code></td></tr>
+  <tr><td>Targets táctiles</td><td>Acciones primarias y de navegación con al menos 2.5rem de área tocable. En el header se aplica con <code>@media (pointer: coarse)</code> sin alterar el tamaño en escritorio.</td><td><code>app/(platform)/layout.module.scss</code></td></tr>
+  <tr><td>Interacciones solo hover</td><td>Un <code>HoverCard</code> o <code>Tooltip</code> nunca abre desde touch. Cuando la información es necesaria, detectar <code>(hover: none)</code> con <code>useSyncExternalStore</code> y ofrecer un <code>Popover</code> con trigger propio (el tap original conserva su acción).</td><td><code>message-likes-hover-card</code></td></tr>
+  <tr><td>Padding de página</td><td>Un módulo de página no debe redefinir el <code>padding</code> completo del <code>main</code>: si necesita ajustar el bloque, usar <code>padding-block</code> y heredar el inline del layout.</td><td><code>invitaciones/metricas</code>, <code>app/(platform)/page.module.scss</code></td></tr>
+  <tr><td>Texto mínimo</td><td>Nada por debajo de <code>0.75rem</code> (12px) en badges, hints o errores de validación.</td><td><code>app-sidebar</code>, <code>tribe-switcher</code></td></tr>
+</table>
+<div class="callout c-info">La regla base no cambia: sin <code>100vh</code>, sin <code>100vw</code> fuera de overlays fullscreen, <code>min-width: 0</code> en hijos flex/grid con texto y <code>overflow-wrap: anywhere</code> en nombres, emails y URLs.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Usage</div>
+<div class="code-block"><pre>// Control de formulario: 16px en mobile, compacto desde tablet.
+.LessonComments__textarea {
+  font-size: 1rem;
+
+  @media (min-width: 48rem) {
+    font-size: 0.875rem;
+  }
+}
+
+// Tabla de gestión apilada en mobile.
+@media (max-width: 47.99rem) {
+  .PriceManagement {
+    &amp;__table,
+    &amp;__table &gt; :where(thead, tbody) { display: block; }
+    &amp;__tableHeaderRow { display: none; }
+    &amp;__tableRow { display: grid; gap: 0.6rem; }
+    &amp;__tableRow &gt; :where(td) { display: block; padding: 0; white-space: normal; }
+  }
+}
+
+// Equivalente touch de un HoverCard.
+const hasNoHoverPointer = useSyncExternalStore(subscribe, () =&gt; window.matchMedia("(hover: none)").matches, () =&gt; false);
+return hasNoHoverPointer ? &lt;Popover&gt;…&lt;/Popover&gt; : &lt;HoverCard&gt;…&lt;/HoverCard&gt;;</pre></div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Validation</div>
+<ul>
+  <li>Antes de cerrar un cambio de UI, capturar las rutas afectadas a 375×812 con Playwright (Chromium y WebKit, <code>isMobile: true</code>, <code>hasTouch: true</code>) y verificar que <code>document.documentElement.scrollWidth</code> no supere <code>clientWidth</code>.</li>
+  <li>Abrir los diálogos y overlays del flujo en ese viewport y confirmar que el footer con la acción principal queda visible o alcanzable por scroll interno.</li>
+  <li>Si un motor no puede ejercitarse en el entorno, dejar constancia del bloqueo concreto y de la validación más cercana realizada, como exige <code>AGENTS.md</code>.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Notes</div>
+<ul>
+  <li>Esta convención complementa <a href="viewport-units.htm">Viewport Units</a> y la regla "Cross-engine compatibility (Chromium and WebKit)" de <code>AGENTS.md</code>.</li>
+  <li><code>useIsMobile</code> (<code>hooks/use-mobile.ts</code>) devuelve <code>false</code> en el servidor: un componente que elige entre dos layouts con ese hook muestra el de escritorio durante la hidratación en teléfonos. Preferir decidir el layout con CSS cuando el salto sea visible.</li>
+</ul>
+</div>
+</body>
+</html>

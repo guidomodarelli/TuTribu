@@ -1,3 +1,5 @@
+$platform-header-touch-target: 2.5rem;
+
 .PlatformLayout {
   display: flex;
   flex: 1;
@@ -76,6 +78,19 @@
 
   &__content {
     flex: 1;
+  }
+}
+
+// On touch devices the header controls (sidebar trigger, support, theme and
+// account menu) are the only navigation, so give them a comfortable hit area
+// without changing their icon size on pointer devices.
+@media (pointer: coarse) {
+  .PlatformLayout {
+    &__trigger,
+    &__accountMenu > :where(button) {
+      min-height: $platform-header-touch-target;
+      min-width: $platform-header-touch-target;
+    }
   }
 }
 

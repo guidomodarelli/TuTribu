@@ -1,6 +1,8 @@
 "use client";
 
+import { UsersIcon } from "lucide-react";
 import {
+  type MouseEvent,
   type MouseEventHandler,
   type ReactNode,
   type TouchEvent,
@@ -8,6 +10,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 
 import {
@@ -20,6 +23,11 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { MessageLikerResult } from "@/src/modules/messages/application/results/tribe-round-result";
 
 import styles from "./styles.module.scss";
@@ -35,7 +43,20 @@ const MESSAGE_LIKES_HOVER_CARD_COPY = {
   errorMessage: "No pudimos cargar las reacciones.",
   loadingMessage: "Cargando reacciones...",
   title: "Le gustó a",
+  touchTriggerLabel: "Ver quiénes dieron me gusta",
   buildMoreLabel: (remainingCount: number) => `y otros ${remainingCount}...`,
+} as const;
+
+/**
+ * Media query that matches devices whose primary pointer cannot hover (touch
+ * screens). Radix HoverCard never opens from touch, so those devices get a
+ * tap-driven popover with a dedicated trigger instead.
+ */
+const NO_HOVER_POINTER_MEDIA_QUERY = "(hover: none)";
+
+const MESSAGE_LIKES_HOVER_CARD_UI = {
+  buttonType: "button",
+  side: "top",
 } as const;
 
 const LIKERS_LOAD_STATUS = {
@@ -89,6 +110,39 @@ function stopTriggerTouchStartPropagation(
   event: TouchEvent<HTMLSpanElement>
 ) {
   event.stopPropagation();
+}
+
+function subscribeToNoHoverPointer(onStoreChange: () => void) {
+  const mediaQueryList = window.matchMedia(NO_HOVER_POINTER_MEDIA_QUERY);
+
+  mediaQueryList.addEventListener("change", onStoreChange);
+
+  return () => {
+    mediaQueryList.removeEventListener("change", onStoreChange);
+  };
+}
+
+function getNoHoverPointerSnapshot() {
+  return window.matchMedia(NO_HOVER_POINTER_MEDIA_QUERY).matches;
+}
+
+function getNoHoverPointerServerSnapshot() {
+  return false;
+}
+
+/**
+ * Reports whether the device cannot hover (touch-first). The server snapshot
+ * assumes a hovering pointer so the hover card markup hydrates unchanged; the
+ * touch variant swaps in right after hydration on phones.
+ *
+ * @returns `true` when `(hover: none)` matches.
+ */
+function useHasNoHoverPointer(): boolean {
+  return useSyncExternalStore(
+    subscribeToNoHoverPointer,
+    getNoHoverPointerSnapshot,
+    getNoHoverPointerServerSnapshot
+  );
 }
 
 /**
@@ -189,6 +243,101 @@ export function MessageLikesHoverCard({
       : []),
   ].join(" ");
 
+  const hasNoHoverPointer = useHasNoHoverPointer();
+
+  const likersContent = (
+    <>
+      <p className={styles.MessageLikesHoverCard__title}>
+        {MESSAGE_LIKES_HOVER_CARD_COPY.title}
+      </p>
+      {status === LIKERS_LOAD_STATUS.loading && !hasLikers ? (
+        <p className={styles.MessageLikesHoverCard__feedback}>
+          {MESSAGE_LIKES_HOVER_CARD_COPY.loadingMessage}
+        </p>
+      ) : null}
+      {status === LIKERS_LOAD_STATUS.error ? (
+        <p className={styles.MessageLikesHoverCard__feedback}>
+          {MESSAGE_LIKES_HOVER_CARD_COPY.errorMessage}
+        </p>
+      ) : null}
+      {isEmpty ? (
+        <p className={styles.MessageLikesHoverCard__feedback}>
+          {MESSAGE_LIKES_HOVER_CARD_COPY.emptyMessage}
+        </p>
+      ) : null}
+      {hasLikers ? (
+        <ul className={styles.MessageLikesHoverCard__list}>
+          {likers.map((liker) => (
+            <li
+              className={styles.MessageLikesHoverCard__item}
+              key={liker.id}
+            >
+              <Avatar
+                className={styles.MessageLikesHoverCard__avatar}
+                size="sm"
+              >
+                {liker.image ? (
+                  <AvatarImage alt={liker.name} src={liker.image} />
+                ) : null}
+                <AvatarFallback>{liker.avatarFallback}</AvatarFallback>
+              </Avatar>
+              <span className={styles.MessageLikesHoverCard__name}>
+                {liker.name}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {remainingCount > 0 ? (
+        <p className={styles.MessageLikesHoverCard__more}>
+          {MESSAGE_LIKES_HOVER_CARD_COPY.buildMoreLabel(remainingCount)}
+        </p>
+      ) : null}
+    </>
+  );
+
+  if (hasNoHoverPointer) {
+    // Touch devices cannot open a HoverCard: a tap on the like button must keep
+    // toggling the like, so the likers list gets its own tap target next to it.
+    const handleTouchTriggerClick = (event: MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+    };
+
+    return (
+      <span className={styles.MessageLikesHoverCard__touchGroup}>
+        <span
+          aria-disabled={isTriggerDisabled || undefined}
+          className={triggerClassName}
+          onClick={isTriggerDisabled ? onTriggerClick : undefined}
+        >
+          <span className={styles.MessageLikesHoverCard__triggerInteraction}>
+            {children}
+          </span>
+        </span>
+        {likeCount > 0 ? (
+          <Popover onOpenChange={handleOpenChange}>
+            <PopoverTrigger asChild>
+              <button
+                aria-label={MESSAGE_LIKES_HOVER_CARD_COPY.touchTriggerLabel}
+                className={styles.MessageLikesHoverCard__touchTrigger}
+                onClick={handleTouchTriggerClick}
+                type={MESSAGE_LIKES_HOVER_CARD_UI.buttonType}
+              >
+                <UsersIcon aria-hidden />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              className={styles.MessageLikesHoverCard}
+              side={MESSAGE_LIKES_HOVER_CARD_UI.side}
+            >
+              {likersContent}
+            </PopoverContent>
+          </Popover>
+        ) : null}
+      </span>
+    );
+  }
+
   return (
     <HoverCard onOpenChange={handleOpenChange}>
       <HoverCardTrigger asChild>
@@ -206,53 +355,11 @@ export function MessageLikesHoverCard({
           </span>
         </span>
       </HoverCardTrigger>
-      <HoverCardContent className={styles.MessageLikesHoverCard} side="top">
-        <p className={styles.MessageLikesHoverCard__title}>
-          {MESSAGE_LIKES_HOVER_CARD_COPY.title}
-        </p>
-        {status === LIKERS_LOAD_STATUS.loading && !hasLikers ? (
-          <p className={styles.MessageLikesHoverCard__feedback}>
-            {MESSAGE_LIKES_HOVER_CARD_COPY.loadingMessage}
-          </p>
-        ) : null}
-        {status === LIKERS_LOAD_STATUS.error ? (
-          <p className={styles.MessageLikesHoverCard__feedback}>
-            {MESSAGE_LIKES_HOVER_CARD_COPY.errorMessage}
-          </p>
-        ) : null}
-        {isEmpty ? (
-          <p className={styles.MessageLikesHoverCard__feedback}>
-            {MESSAGE_LIKES_HOVER_CARD_COPY.emptyMessage}
-          </p>
-        ) : null}
-        {hasLikers ? (
-          <ul className={styles.MessageLikesHoverCard__list}>
-            {likers.map((liker) => (
-              <li
-                className={styles.MessageLikesHoverCard__item}
-                key={liker.id}
-              >
-                <Avatar
-                  className={styles.MessageLikesHoverCard__avatar}
-                  size="sm"
-                >
-                  {liker.image ? (
-                    <AvatarImage alt={liker.name} src={liker.image} />
-                  ) : null}
-                  <AvatarFallback>{liker.avatarFallback}</AvatarFallback>
-                </Avatar>
-                <span className={styles.MessageLikesHoverCard__name}>
-                  {liker.name}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {remainingCount > 0 ? (
-          <p className={styles.MessageLikesHoverCard__more}>
-            {MESSAGE_LIKES_HOVER_CARD_COPY.buildMoreLabel(remainingCount)}
-          </p>
-        ) : null}
+      <HoverCardContent
+        className={styles.MessageLikesHoverCard}
+        side={MESSAGE_LIKES_HOVER_CARD_UI.side}
+      >
+        {likersContent}
       </HoverCardContent>
     </HoverCard>
   );

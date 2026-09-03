@@ -27,6 +27,9 @@
 // CSS custom property because the modal content is portaled outside the
 // `.TribeRound` root and would not inherit a scoped variable.
 $media-thumbnail-size: clamp(5rem, 26vw, 8.5rem);
+// Pin (2rem) + actions menu (2rem) + their gap (0.45rem) + the meta's right
+// offset (1rem) + breathing room, reserved by the feed message header on phones.
+$message-meta-mobile-reserved-width: 6rem;
 
 // Feed-only 1:1 media thumbnail size. Smaller than the shared size so the
 // right-aligned square stays compact and, when vertically centered in a short
@@ -358,7 +361,7 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   &__fieldError {
     margin: 0.3rem 0 0;
     color: var(--destructive);
-    font-size: 0.72rem;
+    font-size: 0.8rem;
     font-weight: 400;
     line-height: 1.35;
     text-align: left;
@@ -469,7 +472,9 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   &__channelMenuText {
     display: block;
     min-width: 0;
+    overflow: hidden;
     overflow-wrap: normal;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -945,7 +950,7 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
 
   &__mediaPlayHint {
     color: var(--muted-foreground);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     line-height: 1.2;
     text-align: center;
   }
@@ -1598,7 +1603,7 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
     display: grid;
     align-content: start;
     gap: 0;
-    max-height: min(72vh, 46rem);
+    max-height: min(72svh, 46rem);
     overflow-y: auto;
     // On iOS WebKit the modal is a fullscreen overlay and this is its only
     // scroll container. `contain` stops the scroll chaining that otherwise
@@ -2120,8 +2125,107 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   overscroll-behavior: contain;
 }
 
+@media (max-width: 40rem) {
+  .TribeRound {
+    // The feed header reserves room on the right for the absolutely positioned
+    // pin + actions menu. On phones `42vw` reserved ~150px for two 32px
+    // buttons, squeezing the author block into ~90px and wrapping every name.
+    // Reserve exactly the two controls plus their gap and edge offset instead.
+    &__messageHeader {
+      padding-inline-end: $message-meta-mobile-reserved-width;
+    }
+
+    // Attachment drafts: below 40rem the single-row grid leaves the name / alt
+    // text column with no width once size, status and actions claim theirs
+    // (an upload error status alone is wider than the remaining space). Split
+    // them into two rows so the main field keeps the full width.
+    &__imageDraft {
+      grid-template-areas:
+        "preview input remove"
+        "preview status status";
+      grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+    }
+
+    &__imageDraftPreview {
+      grid-area: preview;
+    }
+
+    &__imageAltInput {
+      grid-area: input;
+    }
+
+    &__imageDraftStatus {
+      grid-area: status;
+    }
+
+    &__imageRemoveButton {
+      grid-area: remove;
+    }
+
+    &__fileDraft {
+      grid-template-areas:
+        "icon name actions"
+        "icon meta meta";
+      grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+
+    &__fileDraftIcon {
+      grid-area: icon;
+    }
+
+    &__fileDraftName {
+      grid-area: name;
+    }
+
+    &__fileDraftSize {
+      grid-area: meta;
+    }
+
+    &__fileDraftStatus {
+      grid-area: meta;
+      justify-self: end;
+    }
+
+    &__fileDraftActions {
+      grid-area: actions;
+    }
+  }
+}
+
+@media (max-width: 767px) {
+  .TribeRound {
+    // iOS Safari zooms the page when a focused control renders text below
+    // 16px. Every custom composer/reply control inherits the dialog's 14px
+    // `text-sm`, so pin them to 1rem on phones (shadcn `Input`/`Textarea`
+    // already do this through `text-base md:text-sm`).
+    &__pollInput,
+    &__videoInput,
+    &__imageAltInput,
+    &__replyInput,
+    &__editCreatedAtInput {
+      font-size: 1rem;
+    }
+  }
+}
+
 @media (max-width: 1023px) {
   .TribeRound {
+    // Same fullscreen treatment as the message details modal: on phones the
+    // centered composer leaves its actions and "Publicar" footer under the
+    // on-screen keyboard and clips on short viewports. A full dynamic-viewport
+    // panel keeps the footer reachable and lets the body scroll on its own.
+    &__composerDialog:global([data-slot="dialog-content"]) {
+      inset: 0 auto auto 0;
+      margin: 0;
+      translate: var(--tribe-message-details-no-translate, none) !important;
+      width: 100vw;
+      max-width: 100vw;
+      height: 100dvh;
+      max-height: 100dvh;
+      border-radius: 0;
+      padding-bottom: calc(1.2rem + env(safe-area-inset-bottom));
+    }
+
     &__composerDialog--messageDetails:global([data-slot="dialog-content"]) {
       // On iOS WebKit the fixed-positioning containing block spans the large
       // viewport (`lvh`), while this panel is sized to the dynamic viewport

@@ -9,6 +9,8 @@ $tribe-welcome-preview-bottom: 1.25rem;
 $tribe-welcome-preview-right: 1.5rem;
 $tribe-welcome-submit-offset: 1.5rem;
 $tribe-welcome-submit-clearance: 6rem;
+// Bleed of the sticky mobile save bar so it spans the layout padding edge to edge.
+$tribe-welcome-mobile-bar-bleed: 1rem;
 
 .TribeWelcomeManagement {
   --tribe-welcome-accent: var(--primary);
@@ -289,10 +291,17 @@ $tribe-welcome-submit-clearance: 6rem;
     border: 1px solid var(--input);
     border-radius: var(--radius);
     color: var(--foreground);
+    // 16px on phones avoids the iOS focus zoom; inherits the compact field
+    // size from tablet up.
+    font-size: 1rem;
     max-width: 18rem;
     min-height: 2.25rem;
     padding: 0 0.75rem;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    @media (min-width: 48rem) {
+      font-size: inherit;
+    }
 
     &:focus-visible {
       border-color: var(--tribe-welcome-accent);
@@ -307,13 +316,16 @@ $tribe-welcome-submit-clearance: 6rem;
     line-height: 1.5;
   }
 
-  &__submit {
+  &__submitBar {
     bottom: $tribe-welcome-submit-offset;
-    box-shadow: 0 12px 32px
-      color-mix(in srgb, var(--foreground) 25%, transparent);
     position: fixed;
     right: $tribe-welcome-submit-offset;
     z-index: 10;
+  }
+
+  &__submit {
+    box-shadow: 0 12px 32px
+      color-mix(in srgb, var(--foreground) 25%, transparent);
   }
 
   &__preview {
@@ -378,7 +390,7 @@ $tribe-welcome-submit-clearance: 6rem;
       z-index: 5;
     }
 
-    &__submit {
+    &__submitBar {
       right: calc(
         #{$tribe-welcome-preview-right} + #{$tribe-welcome-preview-width} + 1rem
       );
@@ -389,6 +401,7 @@ $tribe-welcome-submit-clearance: 6rem;
 @media (max-width: $tribe-welcome-mobile-max) {
   .TribeWelcomeManagement {
     gap: 1.25rem;
+    padding-bottom: 0.25rem;
 
     &__title {
       font-size: clamp(1.35rem, 5vw, 1.75rem);
@@ -425,6 +438,34 @@ $tribe-welcome-submit-clearance: 6rem;
 
     &__select {
       max-width: 100%;
+    }
+
+    // On phones a floating bottom-right button covers the right-aligned row
+    // controls (switches and delete buttons) while scrolling and jumps over the
+    // focused textarea when the on-screen keyboard opens. Use a sticky
+    // full-width bar at the end of the form instead, which never overlaps the
+    // content above it.
+    &__submitBar {
+      background: var(--background);
+      border-top: 1px solid var(--border);
+      bottom: 0;
+      margin-inline: calc(-1 * $tribe-welcome-mobile-bar-bleed);
+      margin-top: 0.5rem;
+      padding: 0.75rem $tribe-welcome-mobile-bar-bleed
+        calc(0.75rem + env(safe-area-inset-bottom));
+      position: sticky;
+      right: auto;
+    }
+
+    &__submit {
+      box-shadow: none;
+      min-height: $tribe-welcome-touch-target;
+      width: 100%;
+    }
+
+    &__resetButton {
+      min-height: 2rem;
+      padding: 0.25rem 0;
     }
   }
 }

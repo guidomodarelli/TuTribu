@@ -90,24 +90,22 @@
     margin: 0;
   }
 
+  // Mobile-first: each metric is a compact row (icon, label, value). The tall
+  // centered card layout only applies once the five metrics sit side by side.
   &__diagnosticsItem {
-    align-items: stretch;
+    align-items: center;
     display: grid;
-    gap: 1rem;
-    grid-template-rows: minmax(0, 1fr) auto;
-    justify-items: center;
+    gap: 0.75rem 1rem;
+    grid-template-columns: minmax(0, 1fr) auto;
     min-width: 0;
-    min-height: 14rem;
-    text-align: center;
   }
 
   &__diagnosticsTerm {
     align-items: center;
-    align-self: start;
     color: var(--muted-foreground);
     display: grid;
     gap: 0.75rem;
-    justify-items: center;
+    grid-template-columns: auto minmax(0, 1fr);
     line-height: 1.35;
     min-height: 0;
   }
@@ -144,8 +142,7 @@
   }
 
   &__diagnosticsValue {
-    align-self: end;
-    font-size: 2.25rem;
+    font-size: 1.75rem;
     font-weight: 700;
     line-height: 1;
     margin: 0;
@@ -171,13 +168,9 @@
   &__aliasGroup {
     align-items: center;
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 0.5rem;
     min-width: 0;
-  }
-
-  &__aliasGroup &__aliasInput {
-    flex: 1 1 auto;
   }
 
   &__aliasInlineLabel {
@@ -186,8 +179,8 @@
   }
 
   &__aliasInput {
-    flex: 0 1 12rem;
-    min-width: 6rem;
+    flex: 1 1 10rem;
+    min-width: 0;
   }
 
   &__create {
@@ -287,7 +280,7 @@
   }
 
   &__table {
-    min-width: 52rem;
+    min-width: 0;
   }
 
   &__tableHead {
@@ -297,7 +290,9 @@
     text-transform: uppercase;
   }
 
-  &__tableRow {
+  &__tableRow,
+  &__tableHeaderRow,
+  &__editRow {
     border-color: var(--border);
   }
 
@@ -305,7 +300,7 @@
     align-items: center;
     display: flex;
     gap: 1rem;
-    min-width: 16rem;
+    min-width: 0;
   }
 
   &__priceIndicator {
@@ -345,7 +340,7 @@
     display: grid;
     gap: 0.25rem;
     justify-items: start;
-    min-width: 13rem;
+    min-width: 0;
   }
 
   &__help {
@@ -399,6 +394,44 @@
   }
 }
 
+// Below the tablet breakpoint the price table cannot fit five columns plus a
+// stack of action buttons, so each row becomes a stacked block: the header row
+// is hidden and the cells flow vertically at full width. The inline edit form
+// (a `colSpan` cell) also gets the full width instead of an 832px canvas that
+// had to be scrolled sideways to reach its save button.
+@media (max-width: 47.99rem) {
+  .TribeSubscriptionPriceManagement {
+    &__table,
+    &__table > :where(thead, tbody) {
+      display: block;
+    }
+
+    &__tableHeaderRow {
+      display: none;
+    }
+
+    &__tableRow,
+    &__editRow {
+      display: grid;
+      gap: 0.6rem;
+      padding-block: 0.85rem;
+    }
+
+    &__tableRow > :where(td),
+    &__editRow > :where(td) {
+      display: block;
+      padding: 0;
+      white-space: normal;
+    }
+
+    &__actions {
+      grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+      justify-items: stretch;
+      padding-top: 0.25rem;
+    }
+  }
+}
+
 @media (min-width: 48rem) {
   .TribeSubscriptionPriceManagement {
     &__diagnosticsHeader {
@@ -411,13 +444,42 @@
     }
 
     &__diagnosticsItem {
+      align-items: stretch;
       border-inline-start: 1px solid var(--border);
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) auto;
+      justify-items: center;
+      min-height: 14rem;
       padding-inline: 1.5rem;
+      text-align: center;
     }
 
     &__diagnosticsItem:first-child {
       border-inline-start: 0;
       padding-inline-start: 0;
+    }
+
+    &__diagnosticsTerm {
+      align-self: start;
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+    }
+
+    &__diagnosticsValue {
+      align-self: end;
+      font-size: 2.25rem;
+    }
+
+    &__table {
+      min-width: 52rem;
+    }
+
+    &__nameCell {
+      min-width: 16rem;
+    }
+
+    &__actions {
+      min-width: 13rem;
     }
 
     &__formMainRow {

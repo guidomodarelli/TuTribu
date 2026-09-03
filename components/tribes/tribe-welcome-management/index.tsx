@@ -1689,13 +1689,15 @@ export function TribeWelcomeManagement({
           </p>
         ) : null}
 
-        <Button
-          className={styles.TribeWelcomeManagement__submit}
-          disabled={isSaving || !isDirty}
-          type={WELCOME_MANAGEMENT_REQUEST.submitButtonType}
-        >
-          {TRIBE_WELCOME_MANAGEMENT_COPY.saveButton}
-        </Button>
+        <div className={styles.TribeWelcomeManagement__submitBar}>
+          <Button
+            className={styles.TribeWelcomeManagement__submit}
+            disabled={isSaving || !isDirty}
+            type={WELCOME_MANAGEMENT_REQUEST.submitButtonType}
+          >
+            {TRIBE_WELCOME_MANAGEMENT_COPY.saveButton}
+          </Button>
+        </div>
       </form>
     </section>
   );

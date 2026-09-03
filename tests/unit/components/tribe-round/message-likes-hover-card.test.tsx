@@ -275,3 +275,89 @@ describe("MessageLikesHoverCard", () => {
     expect(screen.queryByText(firstLiker.name)).not.toBeInTheDocument();
   });
 });
+
+describe("MessageLikesHoverCard on touch devices", () => {
+  const originalMatchMedia = window.matchMedia;
+
+  beforeEach(() => {
+    (global.fetch as jest.Mock).mockReset();
+    window.matchMedia = function matchMediaTouchStub(query: string): MediaQueryList {
+      return {
+        addEventListener: () => undefined,
+        addListener: () => undefined,
+        dispatchEvent: () => false,
+        matches: query === "(hover: none)",
+        media: query,
+        onchange: null,
+        removeEventListener: () => undefined,
+        removeListener: () => undefined,
+      };
+    };
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it("opens the likers list from a dedicated tap target without toggling the like", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        likers: [buildLiker("liker-1", "Ana Torres", "AT")],
+        totalCount: 1,
+      }),
+      ok: true,
+    });
+    const handleLike = jest.fn();
+    const user = userEvent.setup();
+
+    render(
+      <MessageLikesHoverCard
+        likeCount={1}
+        messageId="message-1"
+        tribeSlug="matematica-pro"
+      >
+        <button onClick={handleLike} type="button">
+          Me gusta 1
+        </button>
+      </MessageLikesHoverCard>
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Ver quiénes dieron me gusta" })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Ana Torres")).toBeInTheDocument();
+    });
+    expect(handleLike).not.toHaveBeenCalled();
+    expect(
+      document.querySelector('[data-slot="popover-content"]')
+    ).toHaveAttribute("data-side", "top");
+  });
+
+  it("keeps the like button working and hides the list trigger without likes", async () => {
+    const handleLike = jest.fn();
+    const user = userEvent.setup();
+
+    render(
+      <MessageLikesHoverCard
+        likeCount={0}
+        messageId="message-1"
+        tribeSlug="matematica-pro"
+      >
+        <button onClick={handleLike} type="button">
+          Me gusta 0
+        </button>
+      </MessageLikesHoverCard>
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Ver quiénes dieron me gusta" })
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Me gusta 0" }));
+
+    expect(handleLike).toHaveBeenCalledTimes(1);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+});

@@ -25,9 +25,14 @@
     border-radius: var(--radius-md);
     background-color: var(--background);
     color: var(--foreground);
-    font-size: 0.875rem;
+    // 16px on phones avoids the iOS focus zoom; compact size from tablet up.
+    font-size: 1rem;
     line-height: 1.5;
     font-family: inherit;
+
+    @media (min-width: 48rem) {
+      font-size: 0.875rem;
+    }
 
     &:focus-visible {
       outline: none;
@@ -87,8 +92,8 @@
     align-items: center;
     justify-content: center;
     margin-left: auto;
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 2.25rem;
+    height: 2.25rem;
     padding: 0;
     border: none;
     border-radius: var(--radius-md);

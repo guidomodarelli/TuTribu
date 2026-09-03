@@ -144,7 +144,14 @@
 
   &__listTable {
     width: 100%;
-    min-width: max-content;
+  }
+
+  // The list view is the default on phones: let the title wrap inside its
+  // cell instead of forcing the whole table to the widest title, which pushed
+  // date, schedule and link columns out of the viewport.
+  &__listTable :where(td:first-child, th:first-child) {
+    min-width: 10rem;
+    white-space: normal;
   }
 
   &__listRow--past {

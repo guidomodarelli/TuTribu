@@ -1,7 +1,16 @@
+// The handoff renders inside the platform layout, below its sticky header and
+// inside the main padding, so a full `100svh` here overshoots the viewport and
+// pushes the centered block below the fold on phones.
+$open-in-external-browser-header-height: 3.5rem;
+$open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
+
 .OpenInExternalBrowser {
   align-items: center;
   display: grid;
-  min-height: 100svh;
+  min-height: calc(
+    100svh - #{$open-in-external-browser-header-height} -
+      2 * #{$open-in-external-browser-layout-padding}
+  );
   padding: 1.5rem 1.25rem;
   place-items: center;
   width: 100%;
@@ -75,17 +84,18 @@
   }
 
   &__fallbackLink {
+    align-items: center;
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    display: inline-flex;
+    font-size: 0.9rem;
     font-weight: 400;
-    opacity: 0.6;
-    padding-top: 0.25rem;
-    text-decoration: none;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    text-decoration: underline;
+    text-underline-offset: 0.2rem;
 
     &:hover {
-      opacity: 1;
-      text-decoration: underline;
-      text-underline-offset: 0.2rem;
+      color: var(--foreground);
     }
   }
 }

@@ -5,7 +5,7 @@
   width: 100%;
   max-width: 32rem;
   align-items: center;
-  padding: 3rem 1.5rem;
+  padding: clamp(1.5rem, 6vw, 3rem) 1rem;
 
   &__card {
     position: relative;
@@ -15,8 +15,9 @@
     overflow: hidden;
     border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
     background-color: color-mix(in oklch, var(--card) 95%, transparent);
-    padding: 2rem;
+    padding: clamp(1.25rem, 5vw, 2rem);
     box-shadow: 0 24px 64px -40px oklch(0.2 0 0 / 55%);
+    -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
   }
 

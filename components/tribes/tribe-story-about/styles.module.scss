@@ -125,7 +125,10 @@ $tribe-story-about-sidebar-width: 20rem;
   }
 
   &__onlineMember {
+    border-radius: 999px;
     display: inline-flex;
+    flex-shrink: 0;
+    overflow: hidden;
   }
 
   &__onlineAvatar {

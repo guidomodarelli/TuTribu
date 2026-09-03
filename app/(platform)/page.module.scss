@@ -1,7 +1,7 @@
 .HomePage {
   display: grid;
   gap: 1.5rem;
-  padding: 2rem;
+  padding: clamp(1rem, 3vw, 2rem);
 
   &__eyebrow {
     margin: 0;

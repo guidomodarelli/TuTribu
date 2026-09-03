@@ -1,3 +1,7 @@
+$tribe-story-gallery-desktop-max: 63.99rem;
+$tribe-story-gallery-nav-size: 2.5rem;
+$tribe-story-gallery-nav-offset: clamp(0.75rem, 3vw, 1.5rem);
+
 .TribeStoryGallery {
   width: 100%;
 
@@ -26,5 +30,31 @@
 
   &__navButton {
     z-index: 1;
+  }
+}
+
+// Below the desktop layout the carousel spans the whole content width, so the
+// shadcn defaults (`-left-12` / `-right-12`) push the previous button fully
+// off-screen and the next one past the viewport edge, which also creates
+// horizontal page overflow. Overlay them on the slide with a legible backdrop
+// and a comfortable touch size instead.
+@media (max-width: $tribe-story-gallery-desktop-max) {
+  .TribeStoryGallery {
+    &__navButton:global([data-slot="carousel-previous"]),
+    &__navButton:global([data-slot="carousel-next"]) {
+      width: $tribe-story-gallery-nav-size;
+      height: $tribe-story-gallery-nav-size;
+      background: color-mix(in oklch, var(--background) 84%, transparent);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    &__navButton:global([data-slot="carousel-previous"]) {
+      left: $tribe-story-gallery-nav-offset;
+    }
+
+    &__navButton:global([data-slot="carousel-next"]) {
+      right: $tribe-story-gallery-nav-offset;
+    }
   }
 }

@@ -3,7 +3,10 @@
   gap: 1.5rem;
   margin: 0 auto;
   max-width: min(100%, 1080px);
-  padding: 0.25rem 0;
+  // Only the block padding is owned here; the inline padding must keep coming
+  // from the platform layout so the title stays aligned with the header on
+  // phones instead of touching the screen edge.
+  padding-block: 0.25rem;
   width: 100%;
 
   &__header {
@@ -30,6 +33,9 @@
   }
 
   &__table {
-    min-width: 56rem;
+    // The cells are already `nowrap`, so the intrinsic width is enough for the
+    // table container to scroll horizontally on narrow screens without forcing
+    // a fixed 56rem canvas.
+    min-width: max-content;
   }
 }

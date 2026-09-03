@@ -16,6 +16,14 @@
     display: grid;
     gap: 1rem;
     max-width: min(100%, 480px);
+    // The overlay is a fullscreen mobile surface: cap the panel to the dynamic
+    // viewport so long option lists scroll inside it instead of being clipped
+    // by the centered flex layout (which cuts both the close button and the
+    // last options off-screen on phones).
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     padding: 1.5rem;
     width: 100%;
   }
