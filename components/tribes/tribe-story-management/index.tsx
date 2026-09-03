@@ -1,20 +1,30 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import Image from "next/image";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
   BoldIcon,
+  ImageIcon,
   LinkIcon,
   ListIcon,
   PlusIcon,
   UploadIcon,
   Trash2Icon,
+  VideoIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Tabs,
   TabsContent,
@@ -22,8 +32,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { RichStoryContent } from "@/components/rich-text/rich-story-content";
-import { TribeStoryGallery } from "@/components/tribes/tribe-story-gallery";
+import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
 import { buildPlayerEmbedSource } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { parseExternalVideoUrl } from "@/src/modules/shared/domain/value-objects/external-video-url";
 import {
@@ -34,8 +43,12 @@ import {
 import type {
   TribeStoryMediaResult,
   TribeStoryResult,
+  TribeStoryStatsResult,
 } from "@/src/modules/tribes/application/results/tribe-story-result";
-import type { TribeStoryMediaType } from "@/src/modules/tribes/domain/repositories/tribe-story-repository";
+import type {
+  TribeStoryMediaType,
+  TribeStoryOnlineMember,
+} from "@/src/modules/tribes/domain/repositories/tribe-story-repository";
 import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
 import styles from "./styles.module.scss";
 
@@ -64,10 +77,14 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   legendOf: "de",
   mediaHeading: "Galería",
   mediaHint: (max: number) =>
-    `Hasta ${max} imágenes o videos que se muestran arriba de la historia. Podés reordenarlos con las flechas.`,
+    `Hasta ${max} imágenes o videos que se muestran arriba de la historia. Podés reordenarlos con las flechas o arrastrándolos.`,
   mediaLegendPrefix: "Recurso",
+  mediaThumbAlt: (position: number) => `Vista previa del recurso ${position}`,
+  mediaThumbEmpty: "Sin vista previa",
+  mediaThumbVideo: "Video",
   mediaTypeImage: "Imagen",
   mediaTypeLabel: "Tipo",
+  mediaTypePlaceholder: "Elegí un tipo...",
   mediaTypeVideo: "Video",
   mediaUrlImageLabel: "URL de la imagen",
   mediaUrlImagePlaceholder: "https://...",
@@ -77,6 +94,8 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   moveUpLabel: "Subir",
   editTabLabel: "Edición",
   previewEmpty: "Escribí la historia para ver la vista previa.",
+  previewNote:
+    "Así van a ver la página los miembros y visitantes. Los cambios se aplican cuando guardás desde la pestaña Edición.",
   previewTabLabel: "Vista previa",
   removeMediaLabel: "Eliminar",
   removeMediaTitle: "Eliminar recurso",
@@ -91,6 +110,8 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   toolbarListLabel: "Lista",
   uploadButton: "Subir imagen",
   uploadingButton: "Subiendo...",
+  uploadLimitHint: (maxMegabytes: number) =>
+    `JPG, PNG, GIF o WebP de hasta ${maxMegabytes} MB, o una URL pública.`,
   validationSummary: "Revisá los campos marcados antes de guardar.",
   websiteHint:
     "Link externo de la tribu (sitio, blog o red social). Se muestra en el panel de datos.",
@@ -131,6 +152,8 @@ const STORY_URL_PROTOCOL = {
 } as const;
 const MEDIA_LEGEND_SEPARATOR = " ";
 const MEDIA_CLIENT_ID_PREFIX = "story-media-";
+const INITIAL_MEDIA_CLIENT_ID_SEGMENT = "initial-";
+const MEDIA_THUMB_SIZES = "(min-width: 40rem) 9rem, 12rem";
 const STORY_FORMAT = {
   boldMarker: "**",
   linkPrefix: "[",
@@ -155,17 +178,43 @@ type EditableStoryMediaItem = {
   url: string;
 };
 
+/**
+ * Read-only data the preview tab needs to mirror the public story page: the
+ * tribe identity and facts panel that members see next to the story.
+ */
+export type TribeStoryPreviewContext = {
+  onlineMembers: TribeStoryOnlineMember[];
+  stats: TribeStoryStatsResult | null;
+  tribeName: string;
+};
+
 type TribeStoryManagementProps = {
+  previewContext?: TribeStoryPreviewContext;
   story: TribeStoryResult | null;
   tribeSlug: string;
 };
 
+const PREVIEW_HEADING_LEVEL = "secondary";
+
 let mediaClientIdCounter = 0;
 
+/**
+ * Client id for a gallery row added after hydration. Rows that come from the
+ * saved story use «buildInitialMediaClientId» instead, because this counter
+ * differs between the server render and the client render.
+ */
 function createMediaClientId(): string {
   mediaClientIdCounter += 1;
 
   return MEDIA_CLIENT_ID_PREFIX + String(mediaClientIdCounter);
+}
+
+/**
+ * Deterministic client id for a gallery row that exists in the saved story, so
+ * the ids the server renders into «id»/«htmlFor» match the client render.
+ */
+function buildInitialMediaClientId(idPrefix: string, mediaIndex: number): string {
+  return idPrefix + INITIAL_MEDIA_CLIENT_ID_SEGMENT + String(mediaIndex);
 }
 
 function buildStoryEndpoint(tribeSlug: string): string {
@@ -185,10 +234,11 @@ function buildTribeImagesEndpoint(tribeSlug: string): string {
 }
 
 function buildEditableMediaItems(
-  story: TribeStoryResult | null
+  story: TribeStoryResult | null,
+  idPrefix: string
 ): EditableStoryMediaItem[] {
-  return (story?.media ?? []).map((mediaItem) => ({
-    clientId: createMediaClientId(),
+  return (story?.media ?? []).map((mediaItem, mediaIndex) => ({
+    clientId: buildInitialMediaClientId(idPrefix, mediaIndex),
     mediaType: mediaItem.mediaType,
     url:
       mediaItem.mediaType === TRIBE_STORY_MEDIA_TYPE.video &&
@@ -398,20 +448,110 @@ async function uploadStoryImage(
   return reserveBody.deliveryUrl;
 }
 
+type ImageUploadButtonProps = {
+  isUploading: boolean;
+  onFileSelected: (imageFile: File | undefined) => void;
+};
+
+/**
+ * Outline button wrapping a visually hidden file input, so the upload control
+ * looks like every other button while staying keyboard and screen-reader
+ * accessible.
+ */
+function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonProps) {
+  return (
+    <Button
+      asChild
+      className={styles.TribeStoryManagement__uploadButton}
+      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
+    >
+      <label data-disabled={isUploading ? true : undefined}>
+        <UploadIcon />
+        {isUploading
+          ? TRIBE_STORY_MANAGEMENT_COPY.uploadingButton
+          : TRIBE_STORY_MANAGEMENT_COPY.uploadButton}
+        <input
+          accept={STORY_MANAGEMENT_REQUEST.imageAcceptTypes}
+          className={styles.TribeStoryManagement__uploadInput}
+          disabled={isUploading}
+          onChange={(event) => {
+            const [selectedFile] = event.target.files ?? [];
+
+            event.target.value = "";
+            onFileSelected(selectedFile);
+          }}
+          type="file"
+        />
+      </label>
+    </Button>
+  );
+}
+
+type MediaThumbnailProps = {
+  mediaItem: EditableStoryMediaItem;
+  position: number;
+};
+
+/**
+ * Small preview of a gallery resource: the image itself when its URL is a
+ * valid http(s) link, a video marker for video rows, and an empty placeholder
+ * while the URL is still missing or invalid.
+ */
+function MediaThumbnail({ mediaItem, position }: MediaThumbnailProps) {
+  const trimmedUrl = mediaItem.url.trim();
+  const isVideoItem = mediaItem.mediaType === TRIBE_STORY_MEDIA_TYPE.video;
+
+  if (!isVideoItem && trimmedUrl.length > 0 && isHttpUrl(trimmedUrl)) {
+    return (
+      <div className={styles.TribeStoryManagement__mediaThumb}>
+        <Image
+          alt={TRIBE_STORY_MANAGEMENT_COPY.mediaThumbAlt(position)}
+          className={styles.TribeStoryManagement__mediaThumbImage}
+          fill
+          sizes={MEDIA_THUMB_SIZES}
+          src={trimmedUrl}
+          unoptimized
+        />
+      </div>
+    );
+  }
+
+  const EmptyIcon = isVideoItem ? VideoIcon : ImageIcon;
+
+  return (
+    <div className={styles.TribeStoryManagement__mediaThumb}>
+      <span className={styles.TribeStoryManagement__mediaThumbEmpty}>
+        <EmptyIcon
+          aria-hidden
+          className={styles.TribeStoryManagement__mediaThumbEmptyIcon}
+        />
+        <span className={styles.TribeStoryManagement__mediaThumbEmptyLabel}>
+          {isVideoItem
+            ? TRIBE_STORY_MANAGEMENT_COPY.mediaThumbVideo
+            : TRIBE_STORY_MANAGEMENT_COPY.mediaThumbEmpty}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 /**
  * Leader-only editor for the tribe story "About" page: long-form content with
- * a formatting toolbar and safe markdown subset, tribe identity (logo, cover),
- * an optional external website link, a media gallery of up to five images or
- * videos (uploaded or linked, reorderable), and the free open join toggle.
+ * a formatting toolbar and safe markdown subset, an optional external website
+ * link, and a media gallery of up to five images or videos (uploaded or
+ * linked, reorderable), with an edit/preview mode switch. The preview renders
+ * the same read-only «TribeStoryAbout» view members see, fed with the draft.
  */
 export function TribeStoryManagement({
+  previewContext,
   story,
   tribeSlug,
 }: TribeStoryManagementProps) {
   const [content, setContent] = useState(story?.content ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(story?.websiteUrl ?? "");
+  const mediaClientIdPrefix = useId();
   const [mediaItems, setMediaItems] = useState<EditableStoryMediaItem[]>(() =>
-    buildEditableMediaItems(story)
+    buildEditableMediaItems(story, mediaClientIdPrefix)
   );
   const [validationMessage, setValidationMessage] = useState<string | null>(
     null
@@ -426,14 +566,32 @@ export function TribeStoryManagement({
   const [isSaving, setIsSaving] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
   const draggedMediaIndexRef = useRef<number | null>(null);
+  const contentHeadingId = useId();
   const contentId = useId();
+  const contentHintId = useId();
   const contentErrorId = useId();
+  const websiteHeadingId = useId();
   const websiteId = useId();
+  const websiteHintId = useId();
   const websiteErrorId = useId();
+  const mediaHeadingId = useId();
   const mediaErrorIdPrefix = useId();
   const trimmedContent = content.trim();
   const showContentError =
     validationMessage !== null && trimmedContent.length === 0;
+  const canAddMedia = mediaItems.length < TRIBE_STORY_MEDIA_MAX_ITEMS;
+  const trimmedWebsiteUrlForPreview = websiteUrl.trim();
+  const previewStory: TribeStoryResult | null = trimmedContent
+    ? {
+        content: trimmedContent,
+        media: buildPreviewMedia(mediaItems),
+        websiteUrl:
+          trimmedWebsiteUrlForPreview.length > 0 &&
+          isHttpUrl(trimmedWebsiteUrlForPreview)
+            ? trimmedWebsiteUrlForPreview
+            : null,
+      }
+    : null;
 
   const setUploadingTarget = (target: string, isUploading: boolean) => {
     setUploadingTargets((currentTargets) => {
@@ -640,33 +798,19 @@ export function TribeStoryManagement({
       setIsSaving(false);
     }
   };
-  const renderImageUploadButton = (
-    target: string,
-    applyDeliveryUrl: (deliveryUrl: string) => void
-  ) => {
-    const isUploading = uploadingTargets.has(target);
 
-    return (
-      <label className={styles.TribeStoryManagement__uploadButton}>
-        <UploadIcon className={styles.TribeStoryManagement__uploadIcon} />
-        {isUploading
-          ? TRIBE_STORY_MANAGEMENT_COPY.uploadingButton
-          : TRIBE_STORY_MANAGEMENT_COPY.uploadButton}
-        <input
-          accept={STORY_MANAGEMENT_REQUEST.imageAcceptTypes}
-          className={styles.TribeStoryManagement__uploadInput}
-          disabled={isUploading}
-          onChange={(event) => {
-            const [selectedFile] = event.target.files ?? [];
-
-            event.target.value = "";
-            void handleImageFileUpload(target, selectedFile, applyDeliveryUrl);
-          }}
-          type="file"
-        />
-      </label>
-    );
-  };
+  const addMediaButton = (
+    <Button
+      className={styles.TribeStoryManagement__addMedia}
+      disabled={!canAddMedia}
+      onClick={handleAddMediaItem}
+      type={STORY_MANAGEMENT_REQUEST.buttonType}
+      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
+    >
+      <PlusIcon />
+      {TRIBE_STORY_MANAGEMENT_COPY.addMediaButton}
+    </Button>
+  );
 
   return (
     <section className={styles.TribeStoryManagement}>
@@ -693,334 +837,406 @@ export function TribeStoryManagement({
         </TabsList>
 
         <TabsContent value={STORY_MODE_TAB.edit}>
-      <form
-        className={styles.TribeStoryManagement__form}
-        onSubmit={(event) => {
-          void handleSubmit(event);
-        }}
-      >
-        <div className={styles.TribeStoryManagement__field}>
-          <label
-            className={styles.TribeStoryManagement__fieldLabel}
-            htmlFor={contentId}
-          >
-            {TRIBE_STORY_MANAGEMENT_COPY.contentLabel}
-          </label>
-          <span className={styles.TribeStoryManagement__fieldHelper}>
-            {TRIBE_STORY_MANAGEMENT_COPY.contentHint}
-          </span>
-          <div
-            aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarAriaLabel}
-            className={styles.TribeStoryManagement__toolbar}
-            role="toolbar"
-          >
-            <Button
-              aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarBoldLabel}
-              onClick={handleBoldFormat}
-              size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-              title={TRIBE_STORY_MANAGEMENT_COPY.toolbarBoldLabel}
-              type={STORY_MANAGEMENT_REQUEST.buttonType}
-              variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
-            >
-              <BoldIcon />
-            </Button>
-            <Button
-              aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarListLabel}
-              onClick={handleListFormat}
-              size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-              title={TRIBE_STORY_MANAGEMENT_COPY.toolbarListLabel}
-              type={STORY_MANAGEMENT_REQUEST.buttonType}
-              variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
-            >
-              <ListIcon />
-            </Button>
-            <Button
-              aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarLinkLabel}
-              onClick={handleLinkFormat}
-              size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-              title={TRIBE_STORY_MANAGEMENT_COPY.toolbarLinkLabel}
-              type={STORY_MANAGEMENT_REQUEST.buttonType}
-              variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
-            >
-              <LinkIcon />
-            </Button>
-          </div>
-          <Textarea
-            aria-describedby={showContentError ? contentErrorId : undefined}
-            aria-invalid={showContentError}
-            aria-required
-            className={styles.TribeStoryManagement__textarea}
-            id={contentId}
-            maxLength={TRIBE_STORY_CONTENT_MAX_LENGTH}
-            onChange={(event) => {
-              setContent(event.target.value);
-              setValidationMessage(null);
+          <form
+            className={styles.TribeStoryManagement__form}
+            onSubmit={(event) => {
+              void handleSubmit(event);
             }}
-            placeholder={TRIBE_STORY_MANAGEMENT_COPY.contentPlaceholder}
-            ref={contentRef}
-            rows={STORY_TEXTAREA_ROWS}
-            value={content}
-          />
-          <span className={styles.TribeStoryManagement__counter}>
-            {TRIBE_STORY_MANAGEMENT_COPY.contentCounter(
-              content.length,
-              TRIBE_STORY_CONTENT_MAX_LENGTH
-            )}
-          </span>
-          {showContentError ? (
-            <span
-              className={styles.TribeStoryManagement__fieldError}
-              id={contentErrorId}
-              role={STORY_MANAGEMENT_ARIA.roleAlert}
-            >
-              {validationMessage}
-            </span>
-          ) : null}
-        </div>
-
-        <div className={styles.TribeStoryManagement__field}>
-          <label
-            className={styles.TribeStoryManagement__fieldLabel}
-            htmlFor={websiteId}
           >
-            {TRIBE_STORY_MANAGEMENT_COPY.websiteLabel}
-          </label>
-          <span className={styles.TribeStoryManagement__fieldHelper}>
-            {TRIBE_STORY_MANAGEMENT_COPY.websiteHint}
-          </span>
-          <Input
-            aria-describedby={isWebsiteInvalid ? websiteErrorId : undefined}
-            aria-invalid={isWebsiteInvalid}
-            id={websiteId}
-            onChange={(event) => {
-              setWebsiteUrl(event.target.value);
-              setIsWebsiteInvalid(false);
-              setValidationMessage(null);
-            }}
-            placeholder={TRIBE_STORY_MANAGEMENT_COPY.websitePlaceholder}
-            value={websiteUrl}
-          />
-          {isWebsiteInvalid ? (
-            <span
-              className={styles.TribeStoryManagement__fieldError}
-              id={websiteErrorId}
-            >
-              {TRIBE_STORY_MANAGEMENT_COPY.invalidWebsiteUrl}
-            </span>
-          ) : null}
-        </div>
-
-        <section className={styles.TribeStoryManagement__collection}>
-          <div className={styles.TribeStoryManagement__collectionHeader}>
-            <div className={styles.TribeStoryManagement__sectionTitleGroup}>
-              <h2 className={styles.TribeStoryManagement__subtitle}>
-                {TRIBE_STORY_MANAGEMENT_COPY.mediaHeading}
-              </h2>
-              <span className={styles.TribeStoryManagement__count}>
-                {mediaItems.length}
-              </span>
-            </div>
-            <Button
-              disabled={mediaItems.length >= TRIBE_STORY_MEDIA_MAX_ITEMS}
-              onClick={handleAddMediaItem}
-              type={STORY_MANAGEMENT_REQUEST.buttonType}
-              variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
-            >
-              <PlusIcon />
-              {TRIBE_STORY_MANAGEMENT_COPY.addMediaButton}
-            </Button>
-          </div>
-          <p className={styles.TribeStoryManagement__fieldHelper}>
-            {TRIBE_STORY_MANAGEMENT_COPY.mediaHint(
-              TRIBE_STORY_MEDIA_MAX_ITEMS
-            )}
-          </p>
-          {mediaItems.length === 0 ? (
-            <p className={styles.TribeStoryManagement__emptyState}>
-              {TRIBE_STORY_MANAGEMENT_COPY.emptyMedia}
-            </p>
-          ) : null}
-          {mediaItems.map((mediaItem, mediaIndex) => {
-            const mediaTypeSelectId =
-              "story-media-type-" + mediaItem.clientId;
-            const mediaUrlInputId = "story-media-url-" + mediaItem.clientId;
-            const mediaErrorId = mediaErrorIdPrefix + mediaItem.clientId;
-            const showMediaError = invalidMediaClientIds.has(
-              mediaItem.clientId
-            );
-            const isVideoItem =
-              mediaItem.mediaType === TRIBE_STORY_MEDIA_TYPE.video;
-            const legend = buildLegend(mediaIndex, mediaItems.length);
-
-            return (
-              <fieldset
-                className={styles.TribeStoryManagement__mediaRow}
-                draggable
-                key={mediaItem.clientId}
-                onDragOver={(event) => event.preventDefault()}
-                onDragStart={() => handleMediaDragStart(mediaIndex)}
-                onDrop={() => handleMediaDrop(mediaIndex)}
-              >
-                <legend className={styles.TribeStoryManagement__legend}>
-                  {legend}
-                </legend>
-                <div className={styles.TribeStoryManagement__mediaFields}>
-                  <div className={styles.TribeStoryManagement__field}>
-                    <label
-                      className={styles.TribeStoryManagement__fieldLabel}
-                      htmlFor={mediaTypeSelectId}
+            <section className={styles.TribeStoryManagement__section}>
+              <div className={styles.TribeStoryManagement__sectionIntro}>
+                <h2
+                  className={styles.TribeStoryManagement__sectionTitle}
+                  id={contentHeadingId}
+                >
+                  {TRIBE_STORY_MANAGEMENT_COPY.contentLabel}
+                </h2>
+                <p
+                  className={styles.TribeStoryManagement__sectionDescription}
+                  id={contentHintId}
+                >
+                  {TRIBE_STORY_MANAGEMENT_COPY.contentHint}
+                </p>
+              </div>
+              <div className={styles.TribeStoryManagement__sectionFields}>
+                <div className={styles.TribeStoryManagement__editor}>
+                  <div
+                    aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarAriaLabel}
+                    className={styles.TribeStoryManagement__toolbar}
+                    role="toolbar"
+                  >
+                    <Button
+                      aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarBoldLabel}
+                      onClick={handleBoldFormat}
+                      size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
+                      title={TRIBE_STORY_MANAGEMENT_COPY.toolbarBoldLabel}
+                      type={STORY_MANAGEMENT_REQUEST.buttonType}
+                      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
                     >
-                      {TRIBE_STORY_MANAGEMENT_COPY.mediaTypeLabel}
-                    </label>
-                    <select
-                      className={styles.TribeStoryManagement__select}
-                      id={mediaTypeSelectId}
-                      onChange={(event) =>
-                        updateMediaItem(mediaItem.clientId, {
-                          mediaType: event.target
-                            .value as TribeStoryMediaType,
-                        })
-                      }
-                      value={mediaItem.mediaType}
+                      <BoldIcon />
+                    </Button>
+                    <Button
+                      aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarListLabel}
+                      onClick={handleListFormat}
+                      size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
+                      title={TRIBE_STORY_MANAGEMENT_COPY.toolbarListLabel}
+                      type={STORY_MANAGEMENT_REQUEST.buttonType}
+                      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
                     >
-                      <option value={TRIBE_STORY_MEDIA_TYPE.image}>
-                        {TRIBE_STORY_MANAGEMENT_COPY.mediaTypeImage}
-                      </option>
-                      <option value={TRIBE_STORY_MEDIA_TYPE.video}>
-                        {TRIBE_STORY_MANAGEMENT_COPY.mediaTypeVideo}
-                      </option>
-                    </select>
+                      <ListIcon />
+                    </Button>
+                    <Button
+                      aria-label={TRIBE_STORY_MANAGEMENT_COPY.toolbarLinkLabel}
+                      onClick={handleLinkFormat}
+                      size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
+                      title={TRIBE_STORY_MANAGEMENT_COPY.toolbarLinkLabel}
+                      type={STORY_MANAGEMENT_REQUEST.buttonType}
+                      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
+                    >
+                      <LinkIcon />
+                    </Button>
                   </div>
-                  <div className={styles.TribeStoryManagement__field}>
-                    <label
-                      className={styles.TribeStoryManagement__fieldLabel}
-                      htmlFor={mediaUrlInputId}
-                    >
-                      {isVideoItem
-                        ? TRIBE_STORY_MANAGEMENT_COPY.mediaUrlVideoLabel
-                        : TRIBE_STORY_MANAGEMENT_COPY.mediaUrlImageLabel}
-                    </label>
-                    <div className={styles.TribeStoryManagement__uploadRow}>
-                      <Input
-                        aria-describedby={
-                          showMediaError ? mediaErrorId : undefined
-                        }
-                        aria-invalid={showMediaError}
-                        aria-required
-                        id={mediaUrlInputId}
-                        onChange={(event) =>
-                          updateMediaItem(mediaItem.clientId, {
-                            url: event.target.value,
-                          })
-                        }
-                        placeholder={
-                          isVideoItem
-                            ? TRIBE_STORY_MANAGEMENT_COPY.mediaUrlVideoPlaceholder
-                            : TRIBE_STORY_MANAGEMENT_COPY.mediaUrlImagePlaceholder
-                        }
-                        value={mediaItem.url}
-                      />
-                      {!isVideoItem
-                        ? renderImageUploadButton(
-                            mediaItem.clientId,
-                            (deliveryUrl) =>
-                              updateMediaItem(mediaItem.clientId, {
-                                url: deliveryUrl,
-                              })
-                          )
-                        : null}
-                    </div>
-                    {showMediaError ? (
-                      <span
+                  <Textarea
+                    aria-describedby={
+                      showContentError
+                        ? `${contentHintId} ${contentErrorId}`
+                        : contentHintId
+                    }
+                    aria-invalid={showContentError}
+                    aria-labelledby={contentHeadingId}
+                    aria-required
+                    className={styles.TribeStoryManagement__textarea}
+                    id={contentId}
+                    maxLength={TRIBE_STORY_CONTENT_MAX_LENGTH}
+                    onChange={(event) => {
+                      setContent(event.target.value);
+                      setValidationMessage(null);
+                    }}
+                    placeholder={TRIBE_STORY_MANAGEMENT_COPY.contentPlaceholder}
+                    ref={contentRef}
+                    rows={STORY_TEXTAREA_ROWS}
+                    value={content}
+                  />
+                  <div className={styles.TribeStoryManagement__editorFooter}>
+                    {showContentError ? (
+                      <p
                         className={styles.TribeStoryManagement__fieldError}
-                        id={mediaErrorId}
+                        id={contentErrorId}
+                        role={STORY_MANAGEMENT_ARIA.roleAlert}
                       >
-                        {isVideoItem
-                          ? TRIBE_STORY_MANAGEMENT_COPY.invalidVideoUrl
-                          : TRIBE_STORY_MANAGEMENT_COPY.invalidImageUrl}
-                      </span>
+                        {validationMessage}
+                      </p>
                     ) : null}
-                  </div>
-                  <div className={styles.TribeStoryManagement__mediaActions}>
-                    <Button
-                      aria-label={
-                        TRIBE_STORY_MANAGEMENT_COPY.moveUpLabel +
-                        MEDIA_LEGEND_SEPARATOR +
-                        legend
-                      }
-                      disabled={mediaIndex === 0}
-                      onClick={() => handleMoveMediaItem(mediaIndex, -1)}
-                      size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-                      title={TRIBE_STORY_MANAGEMENT_COPY.moveUpLabel}
-                      type={STORY_MANAGEMENT_REQUEST.buttonType}
-                      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
-                    >
-                      <ArrowUpIcon />
-                    </Button>
-                    <Button
-                      aria-label={
-                        TRIBE_STORY_MANAGEMENT_COPY.moveDownLabel +
-                        MEDIA_LEGEND_SEPARATOR +
-                        legend
-                      }
-                      disabled={mediaIndex === mediaItems.length - 1}
-                      onClick={() => handleMoveMediaItem(mediaIndex, 1)}
-                      size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-                      title={TRIBE_STORY_MANAGEMENT_COPY.moveDownLabel}
-                      type={STORY_MANAGEMENT_REQUEST.buttonType}
-                      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
-                    >
-                      <ArrowDownIcon />
-                    </Button>
-                    <Button
-                      aria-label={
-                        TRIBE_STORY_MANAGEMENT_COPY.removeMediaLabel
-                      }
-                      className={styles.TribeStoryManagement__removeButton}
-                      onClick={() =>
-                        handleRemoveMediaItem(mediaItem.clientId)
-                      }
-                      size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
-                      title={TRIBE_STORY_MANAGEMENT_COPY.removeMediaTitle}
-                      type={STORY_MANAGEMENT_REQUEST.buttonType}
-                      variant={STORY_MANAGEMENT_REQUEST.destructiveVariant}
-                    >
-                      <Trash2Icon />
-                    </Button>
+                    <p className={styles.TribeStoryManagement__counter}>
+                      {TRIBE_STORY_MANAGEMENT_COPY.contentCounter(
+                        content.length,
+                        TRIBE_STORY_CONTENT_MAX_LENGTH
+                      )}
+                    </p>
                   </div>
                 </div>
-              </fieldset>
-            );
-          })}
-        </section>
+              </div>
+            </section>
 
-        {validationMessage !== null && !showContentError ? (
-          <p
-            className={styles.TribeStoryManagement__fieldError}
-            role={STORY_MANAGEMENT_ARIA.roleAlert}
-          >
-            {validationMessage}
-          </p>
-        ) : null}
+            <section className={styles.TribeStoryManagement__section}>
+              <div className={styles.TribeStoryManagement__sectionIntro}>
+                <h2
+                  className={styles.TribeStoryManagement__sectionTitle}
+                  id={websiteHeadingId}
+                >
+                  {TRIBE_STORY_MANAGEMENT_COPY.websiteLabel}
+                </h2>
+                <p
+                  className={styles.TribeStoryManagement__sectionDescription}
+                  id={websiteHintId}
+                >
+                  {TRIBE_STORY_MANAGEMENT_COPY.websiteHint}
+                </p>
+              </div>
+              <div className={styles.TribeStoryManagement__sectionFields}>
+                <div className={styles.TribeStoryManagement__field}>
+                  <Input
+                    aria-describedby={
+                      isWebsiteInvalid
+                        ? `${websiteHintId} ${websiteErrorId}`
+                        : websiteHintId
+                    }
+                    aria-invalid={isWebsiteInvalid}
+                    aria-labelledby={websiteHeadingId}
+                    id={websiteId}
+                    onChange={(event) => {
+                      setWebsiteUrl(event.target.value);
+                      setIsWebsiteInvalid(false);
+                      setValidationMessage(null);
+                    }}
+                    placeholder={TRIBE_STORY_MANAGEMENT_COPY.websitePlaceholder}
+                    value={websiteUrl}
+                  />
+                  {isWebsiteInvalid ? (
+                    <p
+                      className={styles.TribeStoryManagement__fieldError}
+                      id={websiteErrorId}
+                    >
+                      {TRIBE_STORY_MANAGEMENT_COPY.invalidWebsiteUrl}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </section>
 
-        <div className={styles.TribeStoryManagement__actions}>
-          <Button
-            disabled={isSaving || uploadingTargets.size > 0}
-            type={STORY_MANAGEMENT_REQUEST.submitButtonType}
-          >
-            {isSaving
-              ? TRIBE_STORY_MANAGEMENT_COPY.savingButton
-              : TRIBE_STORY_MANAGEMENT_COPY.saveButton}
-          </Button>
-        </div>
-      </form>
+            <section className={styles.TribeStoryManagement__section}>
+              <div className={styles.TribeStoryManagement__sectionIntro}>
+                <div className={styles.TribeStoryManagement__sectionTitleRow}>
+                  <h2
+                    className={styles.TribeStoryManagement__sectionTitle}
+                    id={mediaHeadingId}
+                  >
+                    {TRIBE_STORY_MANAGEMENT_COPY.mediaHeading}
+                  </h2>
+                  <span className={styles.TribeStoryManagement__count}>
+                    {mediaItems.length}/{TRIBE_STORY_MEDIA_MAX_ITEMS}
+                  </span>
+                </div>
+                <p className={styles.TribeStoryManagement__sectionDescription}>
+                  {TRIBE_STORY_MANAGEMENT_COPY.mediaHint(
+                    TRIBE_STORY_MEDIA_MAX_ITEMS
+                  )}
+                </p>
+              </div>
+              <div className={styles.TribeStoryManagement__sectionFields}>
+                {mediaItems.length === 0 ? (
+                  <p className={styles.TribeStoryManagement__emptyState}>
+                    {TRIBE_STORY_MANAGEMENT_COPY.emptyMedia}
+                  </p>
+                ) : (
+                  <ol className={styles.TribeStoryManagement__mediaList}>
+                    {mediaItems.map((mediaItem, mediaIndex) => {
+                      const mediaTypeSelectId =
+                        "story-media-type-" + mediaItem.clientId;
+                      const mediaUrlInputId =
+                        "story-media-url-" + mediaItem.clientId;
+                      const mediaErrorId = mediaErrorIdPrefix + mediaItem.clientId;
+                      const showMediaError = invalidMediaClientIds.has(
+                        mediaItem.clientId
+                      );
+                      const isVideoItem =
+                        mediaItem.mediaType === TRIBE_STORY_MEDIA_TYPE.video;
+                      const legend = buildLegend(mediaIndex, mediaItems.length);
+
+                      return (
+                        <li
+                          className={styles.TribeStoryManagement__mediaItem}
+                          draggable
+                          key={mediaItem.clientId}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDragStart={() => handleMediaDragStart(mediaIndex)}
+                          onDrop={() => handleMediaDrop(mediaIndex)}
+                        >
+                          <div className={styles.TribeStoryManagement__mediaItemHeader}>
+                            <p className={styles.TribeStoryManagement__mediaLegend}>
+                              {legend}
+                            </p>
+                            <div className={styles.TribeStoryManagement__mediaActions}>
+                              <Button
+                                aria-label={
+                                  TRIBE_STORY_MANAGEMENT_COPY.moveUpLabel +
+                                  MEDIA_LEGEND_SEPARATOR +
+                                  legend
+                                }
+                                disabled={mediaIndex === 0}
+                                onClick={() => handleMoveMediaItem(mediaIndex, -1)}
+                                size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
+                                title={TRIBE_STORY_MANAGEMENT_COPY.moveUpLabel}
+                                type={STORY_MANAGEMENT_REQUEST.buttonType}
+                                variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
+                              >
+                                <ArrowUpIcon />
+                              </Button>
+                              <Button
+                                aria-label={
+                                  TRIBE_STORY_MANAGEMENT_COPY.moveDownLabel +
+                                  MEDIA_LEGEND_SEPARATOR +
+                                  legend
+                                }
+                                disabled={mediaIndex === mediaItems.length - 1}
+                                onClick={() => handleMoveMediaItem(mediaIndex, 1)}
+                                size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
+                                title={TRIBE_STORY_MANAGEMENT_COPY.moveDownLabel}
+                                type={STORY_MANAGEMENT_REQUEST.buttonType}
+                                variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
+                              >
+                                <ArrowDownIcon />
+                              </Button>
+                              <Button
+                                aria-label={
+                                  TRIBE_STORY_MANAGEMENT_COPY.removeMediaLabel
+                                }
+                                onClick={() =>
+                                  handleRemoveMediaItem(mediaItem.clientId)
+                                }
+                                size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
+                                title={TRIBE_STORY_MANAGEMENT_COPY.removeMediaTitle}
+                                type={STORY_MANAGEMENT_REQUEST.buttonType}
+                                variant={STORY_MANAGEMENT_REQUEST.destructiveVariant}
+                              >
+                                <Trash2Icon />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className={styles.TribeStoryManagement__mediaItemBody}>
+                            <MediaThumbnail
+                              mediaItem={mediaItem}
+                              position={mediaIndex + 1}
+                            />
+                            <div className={styles.TribeStoryManagement__mediaFields}>
+                              <div className={styles.TribeStoryManagement__field}>
+                                <label
+                                  className={styles.TribeStoryManagement__fieldLabel}
+                                  htmlFor={mediaTypeSelectId}
+                                >
+                                  {TRIBE_STORY_MANAGEMENT_COPY.mediaTypeLabel}
+                                </label>
+                                <Select
+                                  onValueChange={(value) =>
+                                    updateMediaItem(mediaItem.clientId, {
+                                      mediaType: value as TribeStoryMediaType,
+                                    })
+                                  }
+                                  value={mediaItem.mediaType}
+                                >
+                                  <SelectTrigger
+                                    className={styles.TribeStoryManagement__selectTrigger}
+                                    id={mediaTypeSelectId}
+                                  >
+                                    <SelectValue
+                                      placeholder={
+                                        TRIBE_STORY_MANAGEMENT_COPY.mediaTypePlaceholder
+                                      }
+                                    />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value={TRIBE_STORY_MEDIA_TYPE.image}>
+                                      {TRIBE_STORY_MANAGEMENT_COPY.mediaTypeImage}
+                                    </SelectItem>
+                                    <SelectItem value={TRIBE_STORY_MEDIA_TYPE.video}>
+                                      {TRIBE_STORY_MANAGEMENT_COPY.mediaTypeVideo}
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className={styles.TribeStoryManagement__field}>
+                                <label
+                                  className={styles.TribeStoryManagement__fieldLabel}
+                                  htmlFor={mediaUrlInputId}
+                                >
+                                  {isVideoItem
+                                    ? TRIBE_STORY_MANAGEMENT_COPY.mediaUrlVideoLabel
+                                    : TRIBE_STORY_MANAGEMENT_COPY.mediaUrlImageLabel}
+                                </label>
+                                <div className={styles.TribeStoryManagement__uploadRow}>
+                                  <Input
+                                    aria-describedby={
+                                      showMediaError ? mediaErrorId : undefined
+                                    }
+                                    aria-invalid={showMediaError}
+                                    aria-required
+                                    id={mediaUrlInputId}
+                                    onChange={(event) =>
+                                      updateMediaItem(mediaItem.clientId, {
+                                        url: event.target.value,
+                                      })
+                                    }
+                                    placeholder={
+                                      isVideoItem
+                                        ? TRIBE_STORY_MANAGEMENT_COPY.mediaUrlVideoPlaceholder
+                                        : TRIBE_STORY_MANAGEMENT_COPY.mediaUrlImagePlaceholder
+                                    }
+                                    value={mediaItem.url}
+                                  />
+                                  {!isVideoItem ? (
+                                    <ImageUploadButton
+                                      isUploading={uploadingTargets.has(
+                                        mediaItem.clientId
+                                      )}
+                                      onFileSelected={(imageFile) => {
+                                        void handleImageFileUpload(
+                                          mediaItem.clientId,
+                                          imageFile,
+                                          (deliveryUrl) =>
+                                            updateMediaItem(mediaItem.clientId, {
+                                              url: deliveryUrl,
+                                            })
+                                        );
+                                      }}
+                                    />
+                                  ) : null}
+                                </div>
+                                {showMediaError ? (
+                                  <p
+                                    className={styles.TribeStoryManagement__fieldError}
+                                    id={mediaErrorId}
+                                  >
+                                    {isVideoItem
+                                      ? TRIBE_STORY_MANAGEMENT_COPY.invalidVideoUrl
+                                      : TRIBE_STORY_MANAGEMENT_COPY.invalidImageUrl}
+                                  </p>
+                                ) : !isVideoItem ? (
+                                  <p className={styles.TribeStoryManagement__fieldNote}>
+                                    {TRIBE_STORY_MANAGEMENT_COPY.uploadLimitHint(
+                                      UPLOAD_MAX_MEGABYTES
+                                    )}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+                {addMediaButton}
+              </div>
+            </section>
+
+            <div className={styles.TribeStoryManagement__footer}>
+              {validationMessage !== null && !showContentError ? (
+                <p
+                  className={styles.TribeStoryManagement__fieldError}
+                  role={STORY_MANAGEMENT_ARIA.roleAlert}
+                >
+                  {validationMessage}
+                </p>
+              ) : null}
+              <Button
+                className={styles.TribeStoryManagement__saveButton}
+                disabled={isSaving || uploadingTargets.size > 0}
+                type={STORY_MANAGEMENT_REQUEST.submitButtonType}
+              >
+                {isSaving
+                  ? TRIBE_STORY_MANAGEMENT_COPY.savingButton
+                  : TRIBE_STORY_MANAGEMENT_COPY.saveButton}
+              </Button>
+            </div>
+          </form>
         </TabsContent>
 
         <TabsContent value={STORY_MODE_TAB.preview}>
           <section className={styles.TribeStoryManagement__preview}>
-            <TribeStoryGallery media={buildPreviewMedia(mediaItems)} />
-            {trimmedContent ? (
-              <RichStoryContent content={trimmedContent} />
+            <p className={styles.TribeStoryManagement__previewNote}>
+              {TRIBE_STORY_MANAGEMENT_COPY.previewNote}
+            </p>
+            {previewStory ? (
+              <div className={styles.TribeStoryManagement__previewFrame}>
+                <TribeStoryAbout
+                  headingLevel={PREVIEW_HEADING_LEVEL}
+                  offerPrice={null}
+                  onlineMembers={previewContext?.onlineMembers}
+                  stats={previewContext?.stats ?? null}
+                  story={previewStory}
+                  tribeName={previewContext?.tribeName ?? tribeSlug}
+                />
+              </div>
             ) : (
               <p className={styles.TribeStoryManagement__emptyState}>
                 {TRIBE_STORY_MANAGEMENT_COPY.previewEmpty}

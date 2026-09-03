@@ -52,8 +52,19 @@ export type TribeStoryAboutOfferPrice = {
   currency: string;
 };
 
+const ABOUT_TITLE_HEADING_TAG = {
+  primary: "h1",
+  secondary: "h2",
+} as const;
+
 type TribeStoryAboutProps = {
   freeJoinAction?: () => Promise<void>;
+  /**
+   * Heading level of the "Historia" title. The public page uses the primary
+   * (`h1`) level; an embedded preview inside another page passes `secondary`
+   * so the host page keeps a single `h1`.
+   */
+  headingLevel?: keyof typeof ABOUT_TITLE_HEADING_TAG;
   joinHref?: string;
   offerPrice: TribeStoryAboutOfferPrice | null;
   onlineMembers?: TribeStoryOnlineMember[];
@@ -99,6 +110,7 @@ function formatOfferPrice(offerPrice: TribeStoryAboutOfferPrice): string {
  */
 export function TribeStoryAbout({
   freeJoinAction,
+  headingLevel = "primary",
   joinHref,
   offerPrice,
   onlineMembers = [],
@@ -106,6 +118,8 @@ export function TribeStoryAbout({
   story,
   tribeName,
 }: TribeStoryAboutProps) {
+  const TitleTag = ABOUT_TITLE_HEADING_TAG[headingLevel];
+
   return (
     <section className={styles.TribeStoryAbout}>
       {stats?.coverUrl ? (
@@ -123,9 +137,9 @@ export function TribeStoryAbout({
       <div className={styles.TribeStoryAbout__layout}>
         <article className={styles.TribeStoryAbout__main}>
           <header className={styles.TribeStoryAbout__header}>
-            <h1 className={styles.TribeStoryAbout__title}>
+            <TitleTag className={styles.TribeStoryAbout__title}>
               {TRIBE_STORY_ABOUT_COPY.title}
-            </h1>
+            </TitleTag>
           </header>
           {story ? (
             <>

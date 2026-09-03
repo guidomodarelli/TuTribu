@@ -278,7 +278,15 @@ export default async function TribeHistoryPage({
   return (
     <main className={styles.TribeStoryPage}>
       {canEdit ? (
-        <TribeStoryManagement story={story} tribeSlug={tribe.slug} />
+        <TribeStoryManagement
+          previewContext={{
+            onlineMembers,
+            stats,
+            tribeName: tribe.name,
+          }}
+          story={story}
+          tribeSlug={tribe.slug}
+        />
       ) : (
         <TribeStoryAbout
           offerPrice={null}

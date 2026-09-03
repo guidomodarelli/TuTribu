@@ -1,239 +1,299 @@
 .TribeStoryManagement {
   display: grid;
-  gap: 1.5rem;
+  gap: clamp(1.5rem, 4vw, 2.25rem);
   margin: 0 auto;
-  max-width: min(100%, 980px);
+  width: min(100%, 60rem);
+  min-width: 0;
   padding: 0.25rem 0 1.5rem;
-  width: 100%;
 
-  &__header,
-  &__form {
+  &__header {
     display: grid;
-    gap: 1rem;
+    gap: 0.5rem;
+    min-width: 0;
   }
 
   &__title,
   &__description,
-  &__content,
-  &__emptyState {
+  &__sectionTitle,
+  &__sectionDescription,
+  &__fieldHelper,
+  &__fieldNote,
+  &__fieldError,
+  &__counter,
+  &__emptyState,
+  &__mediaLegend,
+  &__previewNote,
+  &__content {
     margin: 0;
   }
 
   &__title {
-    font-size: clamp(1.5rem, 3vw, 2rem);
+    color: var(--foreground);
+    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-size: clamp(2.25rem, 6vw, 3.5rem);
     font-weight: 600;
-    letter-spacing: -0.01em;
-    line-height: 1.15;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
   }
 
   &__description {
     color: var(--muted-foreground);
-    line-height: 1.6;
-    max-width: 64ch;
-  }
-
-  &__content {
-    line-height: 1.7;
-    max-width: 72ch;
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
-  }
-
-  &__emptyState {
-    color: var(--muted-foreground);
-    font-size: 0.9rem;
-    font-style: italic;
-  }
-
-  &__field {
-    color: var(--foreground);
-    display: grid;
-    font-size: 0.95rem;
-    gap: 0.4rem;
-    min-width: 0;
-  }
-
-  &__fieldLabel {
-    font-weight: 600;
-  }
-
-  &__fieldHelper {
-    color: var(--muted-foreground);
-    font-size: 0.85rem;
-    line-height: 1.5;
-  }
-
-  &__textarea {
-    min-height: 12rem;
-    resize: vertical;
-  }
-
-  &__counter {
-    color: var(--muted-foreground);
-    font-size: 0.75rem;
-    justify-self: end;
-  }
-
-  &__fieldError {
-    color: color-mix(in srgb, var(--destructive) 75%, var(--foreground));
-    font-size: 0.85rem;
-  }
-
-  &__actions {
-    display: flex;
-    justify-content: flex-start;
-  }
-
-  &__collection {
-    display: grid;
-    gap: 1rem;
-  }
-
-  &__collectionHeader {
-    align-items: center;
-    display: flex;
-    gap: 1rem;
-    justify-content: space-between;
-  }
-
-  &__sectionTitleGroup {
-    align-items: center;
-    display: inline-flex;
-    gap: 0.6rem;
-  }
-
-  &__subtitle {
-    font-size: 1.1rem;
-    font-weight: 700;
-    line-height: 1.3;
-    margin: 0;
-  }
-
-  &__count {
-    background: color-mix(in srgb, var(--muted) 70%, transparent);
-    border-radius: 999px;
-    color: var(--muted-foreground);
-    font-size: 0.75rem;
-    font-weight: 600;
-    line-height: 1;
-    min-width: 1.5rem;
-    padding: 0.2rem 0.5rem;
-    text-align: center;
-  }
-
-  &__mediaRow {
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    margin: 0;
-    min-width: 0;
-    padding: 1rem;
-  }
-
-  &__legend {
-    color: var(--muted-foreground);
-    font-size: 0.8rem;
-    font-weight: 600;
-    padding: 0 0.35rem;
-  }
-
-  &__mediaFields {
-    align-items: end;
-    display: grid;
-    gap: 0.75rem;
-    grid-template-columns: minmax(0, 1fr);
-
-    @media (min-width: 40rem) {
-      grid-template-columns: 10rem minmax(0, 1fr) auto;
-    }
-  }
-
-  &__select {
-    background: var(--background);
-    border: 1px solid var(--input);
-    border-radius: 0.5rem;
-    color: var(--foreground);
-    // 16px on phones avoids the iOS focus zoom; compact size from tablet up.
     font-size: 1rem;
-    min-height: 2.25rem;
-    padding: 0.35rem 0.6rem;
-    width: 100%;
-
-    @media (min-width: 48rem) {
-      font-size: 0.9rem;
-    }
-  }
-
-  &__removeButton {
-    justify-self: start;
-
-    @media (min-width: 40rem) {
-      justify-self: end;
-    }
+    line-height: 1.6;
+    max-width: 60ch;
   }
 
   &__modeTabs {
     display: grid;
-    gap: 1.25rem;
+    gap: 1.5rem;
+    min-width: 0;
   }
 
   &__modeTabsList {
     justify-self: start;
   }
 
-  &__preview {
+  &__form {
     display: grid;
+    gap: 1.5rem;
+    min-width: 0;
+  }
+
+  &__section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.25rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
   }
 
-  &__previewCover {
-    aspect-ratio: 3 / 1;
-    border-radius: 0.75rem;
-    overflow: hidden;
-    position: relative;
-    width: 100%;
+  &__sectionIntro {
+    display: grid;
+    gap: 0.35rem;
+    align-content: start;
+    min-width: 0;
   }
 
-  &__previewCoverImage {
-    object-fit: cover;
+  &__sectionTitleRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__sectionTitle {
+    color: var(--foreground);
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  &__sectionDescription {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    max-width: 36ch;
+    overflow-wrap: anywhere;
+  }
+
+  &__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 70%, transparent);
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  &__sectionFields {
+    display: grid;
+    gap: 1rem;
+    align-content: start;
+    min-width: 0;
+  }
+
+  &__field {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  &__fieldLabel {
+    color: var(--foreground);
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  &__fieldHelper,
+  &__fieldNote {
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  &__fieldError {
+    color: color-mix(in srgb, var(--destructive) 75%, var(--foreground));
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
+  &__editor {
+    display: grid;
+    gap: 0.5rem;
+    min-width: 0;
   }
 
   &__toolbar {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.35rem;
   }
 
-  &__uploadRow {
-    align-items: center;
+  &__textarea {
+    min-height: 14rem;
+    resize: vertical;
+  }
+
+  &__editorFooter {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+  }
 
-    > :first-child {
-      flex: 1;
-      min-width: 12rem;
-    }
+  &__counter {
+    margin-left: auto;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__emptyState {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  &__mediaList {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--border);
+  }
+
+  &__mediaItem {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+    min-width: 0;
+  }
+
+  &__mediaItemHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  &__mediaLegend {
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  &__mediaActions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  &__mediaItemBody {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  &__mediaThumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    max-width: 12rem;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--muted) 50%, transparent);
+  }
+
+  &__mediaThumbImage {
+    object-fit: cover;
+  }
+
+  &__mediaThumbEmpty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.5rem;
+    color: var(--muted-foreground);
+    text-align: center;
+  }
+
+  &__mediaThumbEmptyIcon {
+    flex: 0 0 auto;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  &__mediaThumbEmptyLabel {
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+
+  &__mediaFields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+    align-content: start;
+    min-width: 0;
+  }
+
+  &__selectTrigger {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  &__uploadRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+    min-width: 0;
   }
 
   &__uploadButton {
-    align-items: center;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
+    width: 100%;
     cursor: pointer;
-    display: inline-flex;
-    font-size: 0.85rem;
-    font-weight: 500;
-    gap: 0.4rem;
-    padding: 0.45rem 0.75rem;
-    white-space: nowrap;
 
-    &:hover {
-      background: color-mix(in srgb, var(--muted) 60%, transparent);
+    &[data-disabled] {
+      opacity: 0.6;
+      pointer-events: none;
     }
-  }
-
-  &__uploadIcon {
-    height: 1rem;
-    width: 1rem;
   }
 
   &__uploadInput {
@@ -248,18 +308,96 @@
     width: 1px;
   }
 
-  &__switchLabel {
-    align-items: center;
-    display: inline-flex;
-    font-size: 0.95rem;
-    font-weight: 600;
-    gap: 0.6rem;
+  &__addMedia {
+    justify-self: start;
+    width: 100%;
   }
 
-  &__mediaActions {
-    align-items: center;
+  &__footer {
     display: flex;
-    gap: 0.35rem;
-    justify-content: flex-end;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+
+  &__saveButton {
+    width: 100%;
+  }
+
+  &__preview {
+    display: grid;
+    gap: 1.25rem;
+    min-width: 0;
+  }
+
+  &__previewNote {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    max-width: 60ch;
+  }
+
+  &__previewFrame {
+    min-width: 0;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+
+  &__content {
+    line-height: 1.7;
+    max-width: 72ch;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+}
+
+@media (min-width: 40rem) {
+  .TribeStoryManagement {
+    &__mediaItemBody {
+      grid-template-columns: 9rem minmax(0, 1fr);
+      align-items: start;
+    }
+
+    &__mediaThumb {
+      max-width: none;
+    }
+
+    &__mediaFields {
+      grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+    }
+
+    &__uploadRow {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    &__uploadButton {
+      width: auto;
+    }
+
+    &__addMedia {
+      width: auto;
+    }
+
+    &__footer {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    &__saveButton {
+      width: auto;
+      min-width: 8rem;
+    }
+  }
+}
+
+@media (min-width: 56rem) {
+  .TribeStoryManagement {
+    &__section {
+      grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+      gap: 2.5rem;
+    }
   }
 }
