@@ -95,6 +95,46 @@
     padding: 0.2rem;
   }
 
+  &__nextEvent {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "label action"
+      "title action"
+      "schedule action";
+    align-items: center;
+    column-gap: 1rem;
+    row-gap: 0.15rem;
+    border-left: 3px solid var(--primary);
+    padding: 0.5rem 0 0.5rem 1rem;
+
+    button {
+      grid-area: action;
+    }
+  }
+
+  &__nextEventLabel {
+    grid-area: label;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__nextEventTitle {
+    grid-area: title;
+    margin: 0;
+    font-weight: 700;
+  }
+
+  &__nextEventSchedule {
+    grid-area: schedule;
+    margin: 0;
+    color: var(--muted-foreground);
+  }
+
   &__calendarTable {
     width: 100%;
     table-layout: fixed;
@@ -107,17 +147,54 @@
     min-width: max-content;
   }
 
+  &__listRow--past {
+    color: var(--muted-foreground);
+  }
+
+  &__listTitleButton {
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+    padding: 0;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+    text-underline-offset: 0.2em;
+  }
+
+  &__pastBadge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    border-radius: 999rem;
+    background: color-mix(in oklch, var(--muted) 80%, transparent);
+    color: var(--muted-foreground);
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.1rem 0.5rem;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+
   &__dayHeader {
     border-left: 1px solid var(--border);
     text-align: center;
   }
 
-  &__dayCell {
+  &__dayCell,
+  &__dayCell--today {
     width: calc(100% / 7);
     height: 8rem;
     border-left: 1px solid var(--border);
     white-space: normal;
     vertical-align: top;
+  }
+
+  &__dayCell--today {
+    background: color-mix(in oklch, var(--primary) 6%, var(--background));
+    box-shadow: inset 0 3px 0 var(--primary);
   }
 
   &__dayNumber,
@@ -140,7 +217,8 @@
     margin-top: 0.35rem;
   }
 
-  &__eventPill {
+  &__eventPill,
+  &__eventPill--past {
     width: 100%;
     border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border));
     border-radius: 0.45rem;
@@ -155,47 +233,34 @@
     text-align: left;
   }
 
-  &__rowActions,
-  &__formActions,
-  &__timeFields {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+  &__eventPill--past {
+    border-color: var(--border);
+    background: color-mix(in oklch, var(--muted) 60%, var(--background));
+    color: var(--muted-foreground);
+    font-weight: 600;
   }
 
-  &__dialog {
-    width: min(100% - 2rem, 36rem);
+  &__eventPillTime {
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
   }
 
-  &__form,
-  &__field {
+  &__emptyState {
     display: grid;
-    gap: 0.5rem;
+    gap: 0.25rem;
+    padding: 1.5rem 0;
+    text-align: center;
   }
 
-  &__field {
-    font-weight: 700;
+  &__emptyTitle {
+    margin: 0;
+    font-weight: 600;
   }
 
-  &__timeFields {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  &__textarea {
-    min-height: 7rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--background);
-    color: var(--foreground);
-    font: inherit;
-    padding: 0.75rem;
-    resize: vertical;
-  }
-
-  &__formActions {
-    justify-content: flex-end;
-    padding-top: 0.5rem;
+  &__emptyHint {
+    margin: 0;
+    color: var(--muted-foreground);
   }
 
   &__srOnly {

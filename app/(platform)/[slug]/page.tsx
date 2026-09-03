@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { UpcomingTribeEvents } from "@/components/events/upcoming-tribe-events";
 import { OpenInExternalBrowser } from "@/components/subscriptions/open-in-external-browser";
 import { SubscriptionReturnStatus } from "@/components/subscriptions/subscription-return-status";
 import {
@@ -37,6 +38,7 @@ import { resolveTribePageAccess } from "./tribe-page-access";
 import styles from "./page.module.scss";
 
 const TRIBE_PAGE_LOG_REASON = {
+  unexpectedEventRepositoryError: "unexpected_event_repository_error",
   unexpectedRoundRepositoryError: "unexpected_round_repository_error",
   unexpectedSubscriptionReturnRepositoryError:
     "unexpected_subscription_return_repository_error",
@@ -46,6 +48,7 @@ const TRIBE_PAGE_LOG = {
   hiddenAccessMessage: "Tribe access hidden",
   operation: "tribe-page",
   resolveRoundFailureMessage: "Failed to resolve tribe round",
+  resolveUpcomingEventsFailureMessage: "Failed to resolve upcoming tribe events",
   resolveSubscriptionReturnFailureMessage:
     "Failed to resolve subscription return",
   unauthenticatedSubscriptionReturnMessage:
@@ -636,8 +639,30 @@ export async function TribePageContent({
     viewerId: authenticatedMember.id,
   });
 
+  // The agenda is a secondary block: a failure to load it must never take the
+  // feed down, so it degrades to an empty list after logging the cause.
+  const upcomingEvents = await modules.events.useCases
+    .listUpcomingTribeEvents({ tribeSlug: accessResult.tribe.slug })
+    .catch((error: unknown) => {
+      logger.error({
+        message: TRIBE_PAGE_LOG.resolveUpcomingEventsFailureMessage,
+        error,
+        metadata: {
+          reason: TRIBE_PAGE_LOG_REASON.unexpectedEventRepositoryError,
+          slug,
+          viewerId: authenticatedMember.id,
+        },
+      });
+
+      return { events: [] };
+    });
+
   return (
     <main className={styles.TribePage}>
+      <UpcomingTribeEvents
+        events={upcomingEvents.events}
+        tribeSlug={accessResult.tribe.slug}
+      />
       <TribeRound
         authenticatedMember={authenticatedMember}
         tribeSlug={accessResult.tribe.slug}

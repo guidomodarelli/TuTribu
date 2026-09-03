@@ -1,0 +1,85 @@
+.UpcomingTribeEvents {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+  padding-bottom: 1rem;
+
+  &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+  }
+
+  &__heading {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+
+  &__seeAll {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  &__list {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem 1rem;
+    border-left: 3px solid var(--primary);
+    padding: 0.25rem 0 0.25rem 0.75rem;
+  }
+
+  &__itemBody {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  &__title {
+    color: var(--foreground);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    text-decoration: none;
+  }
+
+  &__schedule {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+  }
+
+  &__recurrence {
+    border-radius: 999rem;
+    background: color-mix(in oklch, var(--muted) 80%, transparent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.05rem 0.5rem;
+  }
+
+  &__meetingLink {
+    color: var(--foreground);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+}

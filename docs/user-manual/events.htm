@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eventos: calendario, asistencia y repeticiones</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">TuTribu — Manual de usuario</div>
+  <div class="doc-title">Eventos: calendario, asistencia y repeticiones</div>
+  <div class="doc-sub">Cómo ver los encuentros de la tribu, confirmar tu asistencia y, si liderás, programarlos.</div>
+  <div class="doc-meta"><span>Fecha: 2026-09-02</span><span>Audiencia: miembros y líderes</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">El calendario</div>
+  <p>En <strong>Eventos</strong> ves el mes actual como una grilla. Cada evento aparece como una etiqueta con su hora; el día de hoy queda resaltado y los eventos que ya terminaron se ven atenuados. Arriba tenés las flechas para cambiar de mes y el botón <strong>Hoy</strong> para volver al mes actual.</p>
+  <ul>
+    <li>Con los botones <strong>Ver lista</strong> y <strong>Ver calendario</strong> cambiás entre la grilla y una lista con fecha, horario, cuántas personas van y el link de reunión.</li>
+    <li>En el teléfono la sección arranca en modo lista; podés pasar a la grilla cuando quieras.</li>
+    <li>Debajo del encabezado, <strong>Próximo evento</strong> destaca el encuentro más cercano del mes.</li>
+    <li>Si un mes no tiene eventos, la sección lo indica sin más ruido.</li>
+  </ul>
+  <p>En la página principal de la tribu también aparece un bloque <strong>Próximos eventos</strong> con los tres encuentros más cercanos de los próximos 30 días.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Detalle de un evento</div>
+  <p>Al tocar un evento se abre su detalle con la fecha completa, el horario, la descripción y, si existe, el botón <strong>Abrir link de reunión</strong>.</p>
+  <ul>
+    <li><strong>Agregar a Google Calendar</strong> abre Google Calendar con el evento cargado. Si el evento se repite, se agrega la serie completa.</li>
+    <li><strong>Descargar .ics</strong> baja un archivo que podés importar en Apple Calendar, Outlook o cualquier otra app de calendario.</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Confirmar asistencia</div>
+  <p>En el detalle de cualquier evento que todavía no terminó tenés los botones <strong>Voy</strong> y <strong>No voy</strong>. Tu respuesta se guarda al instante y el contador (<em>"3 personas van"</em>) se actualiza para toda la tribu. Tocar de nuevo el botón elegido borra tu respuesta.</p>
+  <div class="callout c-info">Para eventos que se repiten, la respuesta es por fecha: podés decir que vas el miércoles 6 y no el 13.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Programar eventos (líderes y guardianes)</div>
+  <p>Quienes lideran o cuidan la tribu ven el botón <strong>Crear evento</strong> y, dentro del detalle de cada evento, <strong>Editar</strong> y <strong>Eliminar</strong>.</p>
+  <table>
+    <tr><th>Campo</th><th>Qué hace</th></tr>
+    <tr><td>Título y fecha</td><td>Obligatorios, junto con la hora de inicio. El título admite hasta 120 caracteres.</td></tr>
+    <tr><td>Fecha de fin (opcional) y hora de fin</td><td>Permiten encuentros que cruzan la medianoche, por ejemplo de 23:00 a 01:00 del día siguiente.</td></tr>
+    <tr><td>Repetición</td><td><em>No se repite</em>, <em>Todas las semanas</em>, <em>Cada dos semanas</em> o <em>Todos los meses</em>. Con <strong>Repetir hasta</strong> definís el último día de la serie; si lo dejás vacío, se repite sin límite.</td></tr>
+    <tr><td>Link de reunión</td><td>Enlace externo (Zoom, Meet, Teams…) que debe empezar con <code>http://</code> o <code>https://</code>.</td></tr>
+    <tr><td>Descripción</td><td>Texto libre de hasta 2000 caracteres que ven todos los miembros en el detalle.</td></tr>
+  </table>
+  <ul>
+    <li>Los errores del formulario se muestran debajo de los campos antes de guardar (por ejemplo, una hora de fin anterior al inicio).</li>
+    <li>Editar un evento que se repite cambia <strong>todas</strong> sus fechas. Las respuestas de asistencia ya dadas se conservan para las fechas que siguen existiendo.</li>
+    <li><strong>Eliminar</strong> pide confirmación. Borra el evento (o toda la serie) y las respuestas de asistencia; no se puede deshacer.</li>
+  </ul>
+  <div class="callout c-warn">Todos los horarios se muestran y se cargan en hora de Buenos Aires.</div>
+</div>
+</body>
+</html>

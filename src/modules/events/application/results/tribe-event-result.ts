@@ -1,15 +1,48 @@
-export type TribeEventResult = {
+import type { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import type {
+  TribeEvent,
+  TribeEventAttendanceStatus,
+  TribeEventRecurrenceFrequency,
+} from "@/src/modules/events/domain/entities/tribe-event";
+import type {
+  TribeEventAttendanceResult,
+  TribeEventAttendanceSummary,
+  TribeEventDeletionResult,
+  TribeEventViewerPermissions,
+} from "@/src/modules/events/domain/repositories/tribe-event-repository";
+
+export type TribeEventResult = TribeEvent & {
+  /**
+   * RFC 5545 RRULE value for series (without the `RRULE:` prefix), null for
+   * single events. Lets the UI build calendar links without domain logic.
+   */
+  recurrenceRule: string | null;
+};
+
+export type TribeEventAttendanceSummaryResult = TribeEventAttendanceSummary;
+
+/**
+ * One concrete slot of an event inside the requested range. `startsAt` and
+ * `endsAt` are the slot times; `seriesStartsAt` keeps the first occurrence so
+ * the edit form can show the series anchor.
+ */
+export type TribeEventOccurrenceResult = {
+  attendance: TribeEventAttendanceSummaryResult;
   description: string | null;
   endsAt: string | null;
-  id: string;
+  eventId: string;
   meetingUrl: string | null;
+  occurrenceKey: string;
+  recurrenceFrequency: TribeEventRecurrenceFrequency;
+  recurrenceRule: string | null;
+  recurrenceUntil: string | null;
+  seriesEndsAt: string | null;
+  seriesStartsAt: string;
   startsAt: string;
   title: string;
 };
 
-export type TribeEventViewerPermissionsResult = {
-  canManageEvents: boolean;
-};
+export type TribeEventViewerPermissionsResult = TribeEventViewerPermissions;
 
 export type TribeEventMonthResult = {
   current: string;
@@ -18,39 +51,45 @@ export type TribeEventMonthResult = {
 };
 
 export type TribeEventListResult = {
-  events: TribeEventResult[];
+  events: TribeEventOccurrenceResult[];
   month: TribeEventMonthResult;
   viewerPermissions: TribeEventViewerPermissionsResult;
 };
 
-export type TribeEventCreationResult =
-  | {
-      event: TribeEventResult;
-      status: "created";
-    }
-  | {
-      status:
-        | "forbidden"
-        | "invalid_date"
-        | "invalid_input"
-        | "invalid_meeting_url"
-        | "not_found";
-    };
-
-export type TribeEventUpdateResult =
-  | {
-      event: TribeEventResult;
-      status: "updated";
-    }
-  | {
-      status:
-        | "forbidden"
-        | "invalid_date"
-        | "invalid_input"
-        | "invalid_meeting_url"
-        | "not_found";
-    };
-
-export type TribeEventDeletionResult = {
-  status: "deleted" | "forbidden" | "not_found";
+export type TribeEventUpcomingListResult = {
+  events: TribeEventOccurrenceResult[];
 };
+
+export type TribeEventSaveFailureStatus =
+  | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
+  | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
+  | typeof TRIBE_EVENT_MUTATION_STATUS.invalidInput
+  | typeof TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl
+  | typeof TRIBE_EVENT_MUTATION_STATUS.invalidRecurrence
+  | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
+
+/**
+ * Outcome of creating or updating an event. `occurrences` carries the slots of
+ * the caller's visible month (empty when no month was requested).
+ */
+export type TribeEventSaveResult =
+  | {
+      event: TribeEventResult;
+      occurrences: TribeEventOccurrenceResult[];
+      status:
+        | typeof TRIBE_EVENT_MUTATION_STATUS.created
+        | typeof TRIBE_EVENT_MUTATION_STATUS.updated;
+    }
+  | {
+      status: TribeEventSaveFailureStatus;
+    };
+
+export type TribeEventDeleteResult = TribeEventDeletionResult;
+
+export type TribeEventAttendanceMutationResult =
+  | TribeEventAttendanceResult
+  | {
+      status: typeof TRIBE_EVENT_MUTATION_STATUS.invalidAttendance;
+    };
+
+export type { TribeEventAttendanceStatus };

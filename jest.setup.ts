@@ -20,6 +20,24 @@ if (!globalThis.ResizeObserver) {
   globalThis.ResizeObserver = ResizeObserverTestStub;
 }
 
+// jsdom does not implement `window.matchMedia`; components that subscribe to a
+// media query through `useSyncExternalStore` need a never-matching stub so the
+// subscription does not throw during tests.
+if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
+  window.matchMedia = function matchMediaTestStub(query: string): MediaQueryList {
+    return {
+      addEventListener: () => undefined,
+      addListener: () => undefined,
+      dispatchEvent: () => false,
+      matches: false,
+      media: query,
+      onchange: null,
+      removeEventListener: () => undefined,
+      removeListener: () => undefined,
+    };
+  };
+}
+
 if (typeof Element !== "undefined") {
   if (!Element.prototype.hasPointerCapture) {
     Element.prototype.hasPointerCapture = function hasPointerCapture(): boolean {

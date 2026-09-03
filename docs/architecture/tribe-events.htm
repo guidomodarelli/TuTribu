@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eventos de la tribu: series, asistencia y exportación a calendario</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">TuTribu — Arquitectura</div>
+  <div class="doc-title">Eventos de la tribu: series, asistencia y exportación a calendario</div>
+  <div class="doc-sub">Modelo de datos, autorización, flujo de ocurrencias y contratos HTTP de la sección de eventos.</div>
+  <div class="doc-meta"><span>Fecha: 2026-09-02</span><span>Estado: Vigente</span><span>Módulo: src/modules/events</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Decisión y modelo de datos</div>
+  <p>Un evento es una <strong>serie</strong>: guarda la primera ocurrencia (<code>starts_at</code>, <code>ends_at</code>) y una regla de repetición. Las ocurrencias concretas no se persisten; se <strong>expanden en la capa de aplicación</strong> a partir de la regla dentro del rango consultado. La asistencia sí se persiste por ocurrencia, usando el instante de inicio de esa ocurrencia como parte de la clave.</p>
+  <table>
+    <tr><th>Tabla</th><th>Rol</th><th>Columnas clave</th></tr>
+    <tr><td><code>events</code></td><td>Serie de eventos de una tribu</td><td><code>recurrence_frequency</code> (<code>none</code>, <code>weekly</code>, <code>biweekly</code>, <code>monthly</code>), <code>recurrence_until</code> (nullable, CHECK ≥ <code>starts_at</code> y solo con repetición), <code>created_by</code> nullable con <code>ON DELETE SET NULL</code>, <code>UNIQUE (id, tribe_id)</code></td></tr>
+    <tr><td><code>event_attendances</code></td><td>Respuesta de un miembro a una ocurrencia</td><td><code>event_id</code>, <code>occurrence_starts_at</code>, <code>user_id</code> (UNIQUE los tres), <code>status</code> (<code>going</code>, <code>not_going</code>), <code>tribe_id</code> con FK compuesta <code>(event_id, tribe_id)</code> → <code>events(id, tribe_id)</code> para que la asistencia no pueda apuntar a otra tribu</td></tr>
+  </table>
+  <p>Migraciones versionadas: <code>20260506120000_create_tribe_events.sql</code> (tabla base, función <code>can_manage_tribe_events</code> y policies) y <code>20260902120000_extend_tribe_events_recurrence_attendance.sql</code> (repetición, asistencia y el cambio de <code>created_by</code>).</p>
+  <div class="callout c-info">Borrar la cuenta de quien creó un evento ya no borra el evento: la agenda pertenece a la tribu, no a la persona. Solo el borrado de la tribu o del evento elimina la fila y, en cascada, sus asistencias.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Expansión de ocurrencias</div>
+  <p>El servicio de dominio <code>expandTribeEventOccurrences</code> (<code>domain/services/tribe-event-recurrence.ts</code>) recibe la serie y un rango <code>[rangeStart, rangeEnd)</code> en UTC y devuelve los inicios y fines concretos. Reglas:</p>
+  <ul>
+    <li><strong>Semanal y quincenal</strong>: suma 7 o 14 días exactos. Argentina no tiene horario de verano, así que la hora local se mantiene.</li>
+    <li><strong>Mensual</strong>: conserva el día y la hora de Buenos Aires de la primera ocurrencia; los meses que no tienen ese día (31) se omiten, igual que en RFC 5545.</li>
+    <li><strong>Hasta</strong>: la última ocurrencia es la que empieza en o antes de <code>recurrence_until</code>. El formulario guarda el fin del día de Buenos Aires elegido.</li>
+    <li>La expansión estima el primer índice candidato para no recorrer todo el historial de una serie larga, y tiene un tope de iteraciones de seguridad.</li>
+  </ul>
+  <p>El repositorio trae las series que <strong>intersectan</strong> el rango (<code>starts_at &lt; rangeEnd</code> y, para series, <code>recurrence_until</code> nulo o ≥ <code>rangeStart</code>) y en una segunda consulta las asistencias agregadas del rango (<code>going_count</code> y estado de quien mira). El caso de uso combina ambas en <code>TribeEventOccurrenceResult</code>, cuya <code>occurrenceKey</code> es <code>eventId@startsAt</code>.</p>
+  <p>Las respuestas de creación y edición aceptan <code>?month=YYYY-MM</code> y devuelven las <strong>ocurrencias del mes visible</strong>, de modo que el calendario reemplaza las filas de ese evento sin recargar la ruta. El cliente conserva la asistencia de las ocurrencias que ya existían porque editar la serie no toca esas filas.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Autorización</div>
+  <p>El rol de runtime bypasea RLS, por eso cada consulta del repositorio repite la guarda de forma explícita, además de las policies:</p>
+  <table>
+    <tr><th>Acción</th><th>Guarda explícita en SQL</th><th>Policy RLS</th></tr>
+    <tr><td>Listar eventos y asistencias, exportar ICS</td><td><code>can_read_tribe_content(tribe_id)</code></td><td>SELECT para tribemates activos o silenciados</td></tr>
+    <tr><td>Crear, editar, borrar eventos</td><td><code>can_manage_tribe_events(tribe_id)</code> (líder o guardián activo)</td><td>INSERT/UPDATE/DELETE con la misma función</td></tr>
+    <tr><td>Responder asistencia</td><td><code>is_active_tribe_member(tribe_id)</code> y <code>user_id = current_app_user_id()</code></td><td>INSERT/UPDATE/DELETE solo sobre la fila propia y siendo miembro activo</td></tr>
+  </table>
+  <p>El caso de uso de asistencia valida además que el instante enviado sea una ocurrencia real de la serie (<code>isTribeEventOccurrence</code>) y que los ids tengan forma de uuid antes de consultar, para que un parámetro malformado nunca llegue como error de cast a Postgres.</p>
+  <div class="callout c-warn">Los CTE que modifican datos no son visibles para el resto de su propia sentencia. Por eso el upsert de asistencia cuenta solo a <em>los demás</em> miembros que van y el mapper suma el voto propio; sin ese detalle el contador devuelto quedaría desfasado en uno.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Contratos HTTP</div>
+  <table>
+    <tr><th>Método y ruta</th><th>Uso</th></tr>
+    <tr><td><code>GET /api/tribes/[slug]/events?month=</code></td><td>Ocurrencias del mes con asistencia y permisos del viewer</td></tr>
+    <tr><td><code>POST /api/tribes/[slug]/events?month=</code></td><td>Crea la serie; responde <code>event</code> y <code>occurrences</code> del mes</td></tr>
+    <tr><td><code>PATCH /api/tribes/[slug]/events/[eventId]?month=</code></td><td>Edita la serie completa; misma respuesta</td></tr>
+    <tr><td><code>DELETE /api/tribes/[slug]/events/[eventId]</code></td><td>Borra la serie y sus asistencias</td></tr>
+    <tr><td><code>PUT /api/tribes/[slug]/events/[eventId]/attendance</code></td><td>Body <code>{ occurrenceStartsAt, status }</code>; responde el resumen de asistencia</td></tr>
+    <tr><td><code>DELETE /api/tribes/[slug]/events/[eventId]/attendance?occurrence=</code></td><td>Quita la respuesta propia de esa ocurrencia</td></tr>
+    <tr><td><code>GET /api/tribes/[slug]/events/[eventId]/calendar</code></td><td>Descarga un <code>.ics</code> con <code>RRULE</code> cuando la serie se repite</td></tr>
+  </table>
+  <p>Los mensajes de error y los mapeos de status viven en <code>infrastructure/api/tribe-event-route-responses.ts</code>, compartidos por las cuatro rutas. El link "Agregar a Google Calendar" se construye en el cliente con <code>lib/calendar/google-calendar-link.ts</code> a partir de la <code>recurrenceRule</code> que ya viene en el resultado.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Superficies de UI</div>
+  <ul>
+    <li><code>components/events/tribe-events-calendar</code>: contenedor cliente con grilla mensual, lista, próximo evento, estado vacío y toda la orquestación de fetch. En viewports angostos arranca en modo lista.</li>
+    <li><code>tribe-event-detail-dialog</code>: detalle de solo lectura con descripción, link, respuesta de asistencia, exportaciones y acciones de gestión.</li>
+    <li><code>tribe-event-form-dialog</code>: alta y edición con validación inline; permite fecha de fin en otro día y repetición con fecha límite.</li>
+    <li><code>tribe-event-delete-dialog</code>: confirmación previa al borrado (shadcn <code>AlertDialog</code>).</li>
+    <li><code>upcoming-tribe-events</code>: bloque "Próximos eventos" en el home de la tribu, alimentado por <code>listUpcomingTribeEvents</code> (ventana de 30 días, tres ocurrencias). Su fallo se registra y degrada a lista vacía sin afectar el feed.</li>
+  </ul>
+  <p>Toda la hora visible se calcula en Buenos Aires con <code>lib/date-time/buenos-aires-format.ts</code>. Los valores que dependen de "ahora" (hora actual, día de hoy, ocurrencias pasadas) se leen con <code>useMinuteClock</code>, que devuelve <code>null</code> durante la hidratación para evitar diferencias entre servidor y cliente.</p>
+</div>
+</body>
+</html>

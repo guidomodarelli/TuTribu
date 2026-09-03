@@ -1,19 +1,41 @@
 import type {
   CreateTribeEventCommand,
   DeleteTribeEventCommand,
+  GetTribeEventQuery,
   ListTribeEventsQuery,
   UpdateTribeEventCommand,
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
-  TribeEventCreationResult,
+  TribeEventDeleteResult,
   TribeEventListResult,
-  TribeEventUpdateResult,
+  TribeEventOccurrenceResult,
+  TribeEventResult,
+  TribeEventSaveResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
+import {
+  MONTH_OFFSET,
+  addMonths,
+  createBuenosAiresMonthRange,
+  normalizeMonthQuery,
+  parseMonth,
+} from "@/src/modules/events/application/services/buenos-aires-month";
+import {
+  buildTribeEventOccurrences,
+  toTribeEventResult,
+} from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
   TRIBE_EVENT_FIELD_LIMIT,
   TRIBE_EVENT_MUTATION_STATUS,
+  TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
-import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
+import type {
+  TribeEvent,
+  TribeEventRecurrenceFrequency,
+} from "@/src/modules/events/domain/entities/tribe-event";
+import type {
+  PersistTribeEventCommand,
+  TribeEventRepository,
+} from "@/src/modules/events/domain/repositories/tribe-event-repository";
 import {
   InvalidMeetingUrlError,
   normalizeExternalMeetingUrl,
@@ -25,150 +47,38 @@ type TribeEventDependencies = {
 
 type NormalizedEventInput =
   | {
-      description: string | null;
-      endsAt: string | null;
-      meetingUrl: string | null;
-      startsAt: string;
+      input: PersistTribeEventCommand;
       status: typeof NORMALIZED_EVENT_STATUS.valid;
-      title: string;
-      tribeSlug: string;
     }
   | {
       status:
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidInput
-        | typeof TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl;
+        | typeof TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl
+        | typeof TRIBE_EVENT_MUTATION_STATUS.invalidRecurrence;
     };
 
-const MONTH_PATTERN = /^\d{4}-\d{2}$/;
 const NORMALIZED_EVENT_STATUS = {
   valid: "valid",
 } as const;
-const DATE_FORMAT = {
-  fallbackMonth: "01",
-  fallbackYear: "2026",
-  monthStartIndex: 5,
-  padLength: 2,
-} as const;
-const MONTH_PART = {
-  base: 10,
-  buenosAiresOffsetHours: -3,
-  buenosAiresUtcHour: 3,
-  firstMonth: 1,
-  firstMonthDay: 1,
-  millisecondsPerHour: 3_600_000,
-  lastMonth: 12,
-  monthIndexOffset: 1,
-  nextMonthOffset: 1,
-  previousMonthOffset: -1,
-  yearEndIndex: 4,
-  yearStartIndex: 0,
-} as const;
+const RECURRENCE_FREQUENCIES: ReadonlySet<string> = new Set(
+  Object.values(TRIBE_EVENT_RECURRENCE_FREQUENCY)
+);
+/**
+ * Event ids are Postgres uuids; anything else is rejected before querying so a
+ * malformed route param never turns into a cast error at the database.
+ */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function formatMonth(year: number, month: number): string {
-  return `${year}-${String(month).padStart(DATE_FORMAT.padLength, "0")}`;
+export function isValidTribeEventId(eventId: string): boolean {
+  return UUID_PATTERN.test(eventId);
 }
 
-function getMonthParts(month: string): { month: number; year: number } | null {
-  if (!MONTH_PATTERN.test(month)) {
-    return null;
-  }
+function normalizeOptionalText(value: string): string | null {
+  const normalizedValue = value.trim();
 
-  const year = Number.parseInt(
-    month.slice(MONTH_PART.yearStartIndex, MONTH_PART.yearEndIndex),
-    MONTH_PART.base
-  );
-  const monthNumber = Number.parseInt(
-    month.slice(DATE_FORMAT.monthStartIndex),
-    MONTH_PART.base
-  );
-
-  if (
-    !Number.isFinite(year) ||
-    !Number.isFinite(monthNumber) ||
-    monthNumber < MONTH_PART.firstMonth ||
-    monthNumber > MONTH_PART.lastMonth
-  ) {
-    return null;
-  }
-
-  return {
-    month: monthNumber,
-    year,
-  };
-}
-
-function getFallbackMonthParts(): { month: number; year: number } {
-  return {
-    month: Number.parseInt(DATE_FORMAT.fallbackMonth, MONTH_PART.base),
-    year: Number.parseInt(DATE_FORMAT.fallbackYear, MONTH_PART.base),
-  };
-}
-
-function createMonthDate(month: string): Date {
-  const monthParts = getMonthParts(month) ?? getFallbackMonthParts();
-
-  return new Date(
-    Date.UTC(
-      monthParts.year,
-      monthParts.month - MONTH_PART.monthIndexOffset,
-      MONTH_PART.firstMonthDay,
-      MONTH_PART.buenosAiresUtcHour
-    )
-  );
-}
-
-function addMonths(month: string, offset: number): string {
-  const monthParts = getMonthParts(month) ?? getFallbackMonthParts();
-
-  const date = new Date(
-    Date.UTC(
-      monthParts.year,
-      monthParts.month - MONTH_PART.monthIndexOffset + offset,
-      MONTH_PART.firstMonthDay,
-      MONTH_PART.buenosAiresUtcHour
-    )
-  );
-
-  return formatMonth(
-    date.getUTCFullYear(),
-    date.getUTCMonth() + MONTH_PART.monthIndexOffset
-  );
-}
-
-function resolveCurrentBuenosAiresMonth(): string {
-  const buenosAiresDate = new Date(
-    Date.now() +
-      MONTH_PART.buenosAiresOffsetHours * MONTH_PART.millisecondsPerHour
-  );
-
-  return formatMonth(
-    buenosAiresDate.getUTCFullYear(),
-    buenosAiresDate.getUTCMonth() + MONTH_PART.monthIndexOffset
-  );
-}
-
-function normalizeMonth(month: string | string[] | undefined): string {
-  const monthValue = Array.isArray(month) ? month[0] : month;
-
-  if (!monthValue) {
-    return resolveCurrentBuenosAiresMonth();
-  }
-
-  if (!getMonthParts(monthValue)) {
-    return resolveCurrentBuenosAiresMonth();
-  }
-
-  return monthValue;
-}
-
-function createMonthRange(month: string) {
-  const next = addMonths(month, MONTH_PART.nextMonthOffset);
-
-  return {
-    monthEnd: createMonthDate(next).toISOString(),
-    monthStart: createMonthDate(month).toISOString(),
-  };
+  return normalizedValue.length > 0 ? normalizedValue : null;
 }
 
 function isInvalidDateRange(startsAt: string, endsAt: string | null): boolean {
@@ -187,10 +97,44 @@ function isInvalidDateRange(startsAt: string, endsAt: string | null): boolean {
   return !Number.isFinite(endsAtTime) || endsAtTime <= startsAtTime;
 }
 
-function normalizeOptionalText(value: string): string | null {
-  const normalizedValue = value.trim();
+function normalizeRecurrence(
+  rawFrequency: string,
+  rawUntil: string,
+  startsAt: string
+):
+  | {
+      recurrenceFrequency: TribeEventRecurrenceFrequency;
+      recurrenceUntil: string | null;
+    }
+  | null {
+  const frequency = rawFrequency.trim() || TRIBE_EVENT_RECURRENCE_FREQUENCY.none;
 
-  return normalizedValue.length > 0 ? normalizedValue : null;
+  if (!RECURRENCE_FREQUENCIES.has(frequency)) {
+    return null;
+  }
+
+  const recurrenceFrequency = frequency as TribeEventRecurrenceFrequency;
+
+  if (recurrenceFrequency === TRIBE_EVENT_RECURRENCE_FREQUENCY.none) {
+    return { recurrenceFrequency, recurrenceUntil: null };
+  }
+
+  const until = normalizeOptionalText(rawUntil);
+
+  if (until === null) {
+    return { recurrenceFrequency, recurrenceUntil: null };
+  }
+
+  const untilTime = Date.parse(until);
+
+  if (!Number.isFinite(untilTime) || untilTime < Date.parse(startsAt)) {
+    return null;
+  }
+
+  return {
+    recurrenceFrequency,
+    recurrenceUntil: new Date(untilTime).toISOString(),
+  };
 }
 
 function normalizeEventInput(
@@ -199,11 +143,14 @@ function normalizeEventInput(
   const title = command.title.trim();
   const startsAt = command.startsAt.trim();
   const endsAt = normalizeOptionalText(command.endsAt);
+  const description = normalizeOptionalText(command.description);
 
   if (
     title.length === 0 ||
     title.length > TRIBE_EVENT_FIELD_LIMIT.titleMaxLength ||
-    startsAt.length === 0
+    startsAt.length === 0 ||
+    (description !== null &&
+      description.length > TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength)
   ) {
     return { status: TRIBE_EVENT_MUTATION_STATUS.invalidInput };
   }
@@ -224,91 +171,168 @@ function normalizeEventInput(
     throw error;
   }
 
+  const normalizedStartsAt = new Date(startsAt).toISOString();
+  const recurrence = normalizeRecurrence(
+    command.recurrenceFrequency,
+    command.recurrenceUntil,
+    normalizedStartsAt
+  );
+
+  if (recurrence === null) {
+    return { status: TRIBE_EVENT_MUTATION_STATUS.invalidRecurrence };
+  }
+
   return {
-    description: normalizeOptionalText(command.description),
-    endsAt,
-    meetingUrl,
-    startsAt: new Date(startsAt).toISOString(),
+    input: {
+      description,
+      endsAt: endsAt === null ? null : new Date(endsAt).toISOString(),
+      meetingUrl,
+      recurrenceFrequency: recurrence.recurrenceFrequency,
+      recurrenceUntil: recurrence.recurrenceUntil,
+      startsAt: normalizedStartsAt,
+      title,
+      tribeSlug: command.tribeSlug.trim(),
+    },
     status: NORMALIZED_EVENT_STATUS.valid,
-    title,
-    tribeSlug: command.tribeSlug.trim(),
   };
+}
+
+/**
+ * Occurrences of a freshly saved event inside the month the caller is
+ * looking at, so the UI can patch its state without reloading the route.
+ */
+function buildVisibleMonthOccurrences(
+  event: TribeEvent,
+  visibleMonth: string | undefined
+): TribeEventOccurrenceResult[] {
+  const monthValue = visibleMonth?.trim() ?? "";
+
+  if (!monthValue || !parseMonth(monthValue)) {
+    return [];
+  }
+
+  return buildTribeEventOccurrences(
+    [event],
+    [],
+    createBuenosAiresMonthRange(monthValue)
+  );
 }
 
 export function listTribeEvents({ tribeEventRepository }: TribeEventDependencies) {
   return async (query: ListTribeEventsQuery): Promise<TribeEventListResult> => {
-    const current = normalizeMonth(query.month);
-    const monthRange = createMonthRange(current);
-    const result = await tribeEventRepository.listByTribeMonth({
-      ...monthRange,
+    const current = normalizeMonthQuery(query.month);
+    const currentParts = parseMonth(current);
+    const range = createBuenosAiresMonthRange(current);
+    const listing = await tribeEventRepository.listByTribeRange({
+      ...range,
       tribeSlug: query.tribeSlug.trim(),
     });
 
     return {
-      events: result.events,
+      events: buildTribeEventOccurrences(
+        listing.events,
+        listing.attendances,
+        range
+      ),
       month: {
         current,
-        next: addMonths(current, MONTH_PART.nextMonthOffset),
-        previous: addMonths(current, MONTH_PART.previousMonthOffset),
+        next: currentParts ? addMonths(currentParts, MONTH_OFFSET.next) : current,
+        previous: currentParts
+          ? addMonths(currentParts, MONTH_OFFSET.previous)
+          : current,
       },
-      viewerPermissions: result.viewerPermissions,
+      viewerPermissions: listing.viewerPermissions,
     };
+  };
+}
+
+export function getTribeEvent({ tribeEventRepository }: TribeEventDependencies) {
+  return async (query: GetTribeEventQuery): Promise<TribeEventResult | null> => {
+    const eventId = query.eventId.trim();
+
+    if (!isValidTribeEventId(eventId)) {
+      return null;
+    }
+
+    const event = await tribeEventRepository.findById({
+      eventId,
+      tribeSlug: query.tribeSlug.trim(),
+    });
+
+    return event ? toTribeEventResult(event) : null;
   };
 }
 
 export function createTribeEvent({
   tribeEventRepository,
 }: TribeEventDependencies) {
-  return async (
-    command: CreateTribeEventCommand
-  ): Promise<TribeEventCreationResult> => {
+  return async (command: CreateTribeEventCommand): Promise<TribeEventSaveResult> => {
     const normalizedInput = normalizeEventInput(command);
 
     if (normalizedInput.status !== NORMALIZED_EVENT_STATUS.valid) {
       return { status: normalizedInput.status };
     }
 
-    return tribeEventRepository.create({
-      description: normalizedInput.description,
-      endsAt: normalizedInput.endsAt,
-      meetingUrl: normalizedInput.meetingUrl,
-      startsAt: normalizedInput.startsAt,
-      title: normalizedInput.title,
-      tribeSlug: normalizedInput.tribeSlug,
-    });
+    const result = await tribeEventRepository.create(normalizedInput.input);
+
+    if (result.status !== TRIBE_EVENT_MUTATION_STATUS.created) {
+      return { status: result.status };
+    }
+
+    return {
+      event: toTribeEventResult(result.event),
+      occurrences: buildVisibleMonthOccurrences(result.event, command.visibleMonth),
+      status: result.status,
+    };
   };
 }
 
 export function updateTribeEvent({
   tribeEventRepository,
 }: TribeEventDependencies) {
-  return async (
-    command: UpdateTribeEventCommand
-  ): Promise<TribeEventUpdateResult> => {
+  return async (command: UpdateTribeEventCommand): Promise<TribeEventSaveResult> => {
+    const eventId = command.eventId.trim();
+
+    if (!isValidTribeEventId(eventId)) {
+      return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
+    }
+
     const normalizedInput = normalizeEventInput(command);
 
     if (normalizedInput.status !== NORMALIZED_EVENT_STATUS.valid) {
       return { status: normalizedInput.status };
     }
 
-    return tribeEventRepository.update({
-      description: normalizedInput.description,
-      endsAt: normalizedInput.endsAt,
-      eventId: command.eventId.trim(),
-      meetingUrl: normalizedInput.meetingUrl,
-      startsAt: normalizedInput.startsAt,
-      title: normalizedInput.title,
-      tribeSlug: normalizedInput.tribeSlug,
+    const result = await tribeEventRepository.update({
+      ...normalizedInput.input,
+      eventId,
     });
+
+    if (result.status !== TRIBE_EVENT_MUTATION_STATUS.updated) {
+      return { status: result.status };
+    }
+
+    return {
+      event: toTribeEventResult(result.event),
+      occurrences: buildVisibleMonthOccurrences(result.event, command.visibleMonth),
+      status: result.status,
+    };
   };
 }
 
 export function deleteTribeEvent({
   tribeEventRepository,
 }: TribeEventDependencies) {
-  return async (command: DeleteTribeEventCommand) =>
-    tribeEventRepository.delete({
-      eventId: command.eventId.trim(),
+  return async (command: DeleteTribeEventCommand): Promise<TribeEventDeleteResult> => {
+    const eventId = command.eventId.trim();
+
+    if (!isValidTribeEventId(eventId)) {
+      return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
+    }
+
+    return tribeEventRepository.delete({
+      eventId,
       tribeSlug: command.tribeSlug.trim(),
     });
+  };
 }

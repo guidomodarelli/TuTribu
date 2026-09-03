@@ -1,0 +1,83 @@
+.TribeEventDetailDialog {
+  width: min(100% - 2rem, 36rem);
+
+  &__notice {
+    margin: 0;
+    border-left: 3px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    padding-left: 0.75rem;
+  }
+
+  &__facts {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+  }
+
+  &__fact {
+    display: grid;
+    gap: 0.2rem;
+
+    dt {
+      color: var(--muted-foreground);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    dd {
+      margin: 0;
+    }
+  }
+
+  &__description {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  &__links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  &__exportLink {
+    color: var(--foreground);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  &__attendance {
+    display: grid;
+    gap: 0.5rem;
+    border-top: 1px solid var(--border);
+    padding-top: 0.75rem;
+  }
+
+  &__attendanceCount {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+  }
+
+  &__attendanceActions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__attendanceLegend {
+    font-weight: 600;
+  }
+
+  &__actions {
+    border-top: 1px solid var(--border);
+    padding-top: 0.75rem;
+  }
+}

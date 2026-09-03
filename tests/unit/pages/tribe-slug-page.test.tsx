@@ -9,6 +9,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 const getAuthenticatedMember = jest.fn();
 const getTribePageAccess = jest.fn();
 const listTribeRound = jest.fn();
+const listUpcomingTribeEvents = jest.fn();
 const resolveTribeMemberSubscriptionReturn = jest.fn();
 const reconcileCurrentTribeMemberSubscription = jest.fn();
 const validatePendingTribeMemberSubscriptionReturn = jest.fn();
@@ -111,6 +112,8 @@ describe("TribePage", () => {
     getAuthenticatedMember.mockReset();
     getTribePageAccess.mockReset();
     listTribeRound.mockReset();
+    listUpcomingTribeEvents.mockReset();
+    listUpcomingTribeEvents.mockResolvedValue({ events: [] });
     resolveTribeMemberSubscriptionReturn.mockReset();
     reconcileCurrentTribeMemberSubscription.mockReset();
     validatePendingTribeMemberSubscriptionReturn.mockReset();
@@ -128,6 +131,11 @@ describe("TribePage", () => {
       tribes: {
         useCases: {
           getTribePageAccess,
+        },
+      },
+      events: {
+        useCases: {
+          listUpcomingTribeEvents,
         },
       },
       messages: {
@@ -275,6 +283,119 @@ describe("TribePage", () => {
     expect(screen.queryByText("Estado de la tribu")).not.toBeInTheDocument();
   });
 
+  it("renders the upcoming events block above the round when the tribe has events", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "leader@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "visible",
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+    listTribeRound.mockResolvedValue({
+      activeChannelId: null,
+      channels: [tribeChannel],
+      viewerPermissions: {
+        canReply: true,
+        canCreateMessage: true,
+        canReact: true,
+      },
+      pagination: tribeRoundPagination,
+      messages: [],
+    });
+    listUpcomingTribeEvents.mockResolvedValue({
+      events: [
+        {
+          attendance: { goingCount: 0, viewerStatus: null },
+          description: null,
+          endsAt: "2026-05-13T19:00:00.000Z",
+          eventId: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",
+          meetingUrl: null,
+          occurrenceKey: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f@2026-05-13T18:00:00.000Z",
+          recurrenceFrequency: "none",
+          recurrenceRule: null,
+          recurrenceUntil: null,
+          seriesEndsAt: "2026-05-13T19:00:00.000Z",
+          seriesStartsAt: "2026-05-13T18:00:00.000Z",
+          startsAt: "2026-05-13T18:00:00.000Z",
+          title: "Clase abierta",
+        },
+      ],
+    });
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({ slug: "matematica-pro" }),
+      })
+    );
+
+    expect(screen.getByRole("heading", { name: "Próximos eventos" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Clase abierta" })).toHaveAttribute(
+      "href",
+      "/matematica-pro/eventos?month=2026-05"
+    );
+    expect(listUpcomingTribeEvents).toHaveBeenCalledWith({ tribeSlug: "matematica-pro" });
+  });
+
+  it("keeps the tribe home when the upcoming events cannot be loaded", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "leader@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "visible",
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+    listTribeRound.mockResolvedValue({
+      activeChannelId: null,
+      channels: [tribeChannel],
+      viewerPermissions: {
+        canReply: true,
+        canCreateMessage: true,
+        canReact: true,
+      },
+      pagination: tribeRoundPagination,
+      messages: [],
+    });
+    listUpcomingTribeEvents.mockRejectedValue(new Error("events unavailable"));
+
+    render(
+      await TribePageContent({
+        params: Promise.resolve({ slug: "matematica-pro" }),
+      })
+    );
+
+    expect(screen.queryByRole("heading", { name: "Próximos eventos" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Compartí algo en la ronda",
+      })
+    ).toBeInTheDocument();
+    expect(errorMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Failed to resolve upcoming tribe events",
+      })
+    );
+  });
+
   it("keeps local visible access when subscription reconciliation cannot reach the provider", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",
@@ -320,6 +441,11 @@ describe("TribePage", () => {
         tribes: {
           useCases: {
             getTribePageAccess,
+          },
+        },
+        events: {
+          useCases: {
+            listUpcomingTribeEvents,
           },
         },
         messages: {

@@ -885,14 +885,16 @@ export const events = pgTable("events", {
   tribeId: uuid("tribe_id")
     .notNull()
     .references(() => tribes.id, { onDelete: "cascade" }),
-  createdBy: text("created_by")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+  createdBy: text("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
   title: text("title").notNull(),
   description: text("description"),
   meetingUrl: text("meeting_url"),
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   endsAt: timestamp("ends_at", { withTimezone: true }),
+  recurrenceFrequency: text("recurrence_frequency").notNull().default("none"),
+  recurrenceUntil: timestamp("recurrence_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
@@ -903,6 +905,42 @@ export const events = pgTable("events", {
   tribeStartsAtIndex: index("idx_events_tribe_starts_at").on(
     table.tribeId,
     table.startsAt
+  ),
+  idTribeKey: uniqueIndex("events_id_tribe_id_key").on(table.id, table.tribeId),
+}));
+
+export const eventAttendances = pgTable("event_attendances", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: uuid("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  occurrenceStartsAt: timestamp("occurrence_starts_at", {
+    withTimezone: true,
+  }).notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  eventOccurrenceUserKey: uniqueIndex(
+    "event_attendances_event_occurrence_user_key"
+  ).on(table.eventId, table.occurrenceStartsAt, table.userId),
+  eventOccurrenceIndex: index("idx_event_attendances_event_occurrence").on(
+    table.eventId,
+    table.occurrenceStartsAt
+  ),
+  tribeUserIndex: index("idx_event_attendances_tribe_user").on(
+    table.tribeId,
+    table.userId
   ),
 }));
 
