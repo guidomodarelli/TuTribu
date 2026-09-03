@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invitaciones de la tribu</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;line-height:1.3;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid #5a9fd4;background:#eaf3fb;color:#1a4f7a;}
+.callout p{font-size:13px;color:inherit;margin-bottom:0;}
+.callout--warn{border-left-color:#d4a44c;background:#fdf5e0;color:#7a5510;}
+@media (max-width:720px){
+  body{padding:32px 16px 60px;}
+  .doc-title{font-size:24px;}
+  .section-title{font-size:18px;}
+}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">Manual de usuario</div>
+  <div class="doc-title">Invitaciones de la tribu</div>
+  <div class="doc-sub">Cómo crear, compartir y administrar links de invitación reutilizables para que nuevas personas entren a la tribu con Google.</div>
+  <div class="doc-meta">
+    <span>Fecha: 2026-09-03</span>
+    <span>Estado: Vigente</span>
+    <span>Alcance: Tribus / Gestión</span>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Cómo llegar</div>
+  <p>En la barra lateral, dentro de <strong>Gestión</strong>, está la sección <strong>Invitaciones</strong>. La ven y la pueden usar el <strong>líder</strong> y los <strong>guardianes</strong> con membresía activa; para tribemates la página no existe.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Crear un link</div>
+  <p>El botón <strong>Crear link</strong> está en el encabezado de la página (en teléfonos ocupa todo el ancho, debajo de la descripción). Abre un formulario con estos campos:</p>
+  <ul>
+    <li><strong>Plan asociado</strong>: el plan con el que entra quien use el link. <strong>Plan actual</strong> siempre está disponible; <strong>Plan gratuito</strong> y los planes específicos con su precio, cuenta de Mercado Pago y prueba gratis aparecen solo si podés administrar precios.</li>
+    <li><strong>Canal</strong>: por dónde vas a compartir el link (Directo, Instagram, YouTube, TikTok, WhatsApp u Otro).</li>
+    <li><strong>Campaña</strong> y <strong>Referente</strong>: datos opcionales de medición. El referente admite letras, números, puntos, guiones y un <code>@</code> inicial.</li>
+  </ul>
+  <p>Al confirmar, el link se crea, se <strong>copia solo al portapapeles</strong> y aparece primero en la lista sin recargar la página.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">La lista de links activos</div>
+  <p>Cada link activo es una fila de la lista. Arriba se ve quién lo creó y cuándo (hora de Buenos Aires), y debajo dos datos:</p>
+  <ul>
+    <li><strong>Plan</strong>: el nombre del plan seguido del precio, la cuenta de Mercado Pago y la prueba gratis. Si el link usa el plan actual o el plan gratuito, se muestra una etiqueta con ese nombre. Si el plan específico ya no existe, se marca como <strong>Plan no disponible</strong>.</li>
+    <li><strong>Canal</strong>: la etiqueta del canal y, si se cargaron, la campaña y el referente.</li>
+  </ul>
+  <p>A la derecha de cada fila (en teléfonos, debajo de los datos) están las acciones:</p>
+  <ul>
+    <li><strong>Copiar link</strong>: copia el link al portapapeles y avisa con una notificación.</li>
+    <li><strong>Más acciones</strong> (botón con tres puntos): abre un menú con <strong>Cambiar plan</strong> (solo si podés administrar precios), <strong>Editar canal</strong> y <strong>Revocar</strong>.</li>
+  </ul>
+  <div class="callout">
+    <p>Cambiar el plan o el canal no invalida el link: la misma URL sigue funcionando y quienes entren después quedan asociados al plan nuevo.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Revocar un link</div>
+  <p>Desde <strong>Más acciones → Revocar</strong> se abre una confirmación. Al confirmar con <strong>Revocar link</strong>, el link deja de servir para nuevas personas y desaparece de la lista.</p>
+  <div class="callout callout--warn">
+    <p>Revocar es definitivo: no se puede volver a activar el mismo link. Si lo necesitás de nuevo, creá uno nuevo.</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Qué NO se configura acá</div>
+  <ul>
+    <li>Los <strong>precios</strong>, la <strong>entrada gratis</strong> y si la tribu admite entrar <strong>sin invitación</strong> se configuran en <strong>Precios</strong>.</li>
+    <li>El <strong>link público</strong> de la tribu (<code>tutribu.app/&lt;nombre-de-tribu&gt;</code>) no necesita invitación: sirve para sumarse con el plan marcado como actual.</li>
+  </ul>
+</div>
+</body>
+</html>

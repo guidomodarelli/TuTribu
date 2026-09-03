@@ -1,26 +1,43 @@
 .TribeInvitationManagement {
   display: grid;
-  gap: 1.5rem;
+  gap: clamp(1.5rem, 4vw, 2.25rem);
   margin: 0 auto;
-  max-width: min(100%, 980px);
-  width: 100%;
-  padding: 0.25rem 0;
+  width: min(100%, 56rem);
+  min-width: 0;
+  padding: 0.25rem 0 1.5rem;
 
   &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+  }
+
+  &__headingGroup {
     display: grid;
+    flex: 1 1 18rem;
     gap: 0.5rem;
+    min-width: 0;
   }
 
   &__title,
   &__description,
-  &__empty,
-  &__status {
+  &__meta,
+  &__itemTitle,
+  &__emptyTitle,
+  &__emptyHint,
+  &__fieldError {
     margin: 0;
   }
 
   &__title {
-    font-size: clamp(2rem, 6vw, 4rem);
-    line-height: 0.95;
+    color: var(--foreground);
+    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-size: clamp(2.25rem, 6vw, 3.5rem);
+    font-weight: 600;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
   }
 
   &__description {
@@ -30,103 +47,249 @@
     max-width: 60ch;
   }
 
-  &__empty,
-  &__status,
-  &__meta {
-    color: var(--muted-foreground);
-    font-size: 0.95rem;
-    line-height: 1.5;
+  &__headerActions {
+    display: flex;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
-  &__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.65rem;
+  &__createButton {
+    width: 100%;
   }
 
   &__list {
     display: grid;
-    gap: 0.75rem;
     margin: 0;
     padding: 0;
     list-style: none;
+    border-top: 1px solid var(--border);
   }
 
   &__item {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 0.75rem;
-    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem 0;
     border-bottom: 1px solid var(--border);
-    padding-bottom: 0.75rem;
   }
 
-  &__itemSummary {
+  &__itemBody {
     display: grid;
-    gap: 0.2rem;
+    gap: 0.875rem;
     min-width: 0;
   }
 
-  &__itemTitle {
-    margin: 0;
-    color: var(--foreground);
-    font-size: 0.95rem;
-    font-weight: 650;
+  &__itemHeading {
+    display: grid;
+    gap: 0.2rem;
   }
 
-  &__itemActions {
+  &__itemTitle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--foreground);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  &__statusDot {
+    flex: 0 0 auto;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--free);
+    box-shadow: 0 0 0.5rem color-mix(in srgb, var(--free) 70%, transparent);
+  }
+
+  &__meta {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  &__details {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  &__detail {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+    align-items: baseline;
+  }
+
+  &__detailLabel {
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  &__detailValue {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.55rem;
-  }
-
-  &__plan {
-    display: inline-flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.35rem 0.5rem;
+    margin: 0;
+    min-width: 0;
+    color: var(--foreground);
     font-size: 0.9rem;
-    color: var(--muted-foreground);
+    line-height: 1.5;
+
+    &--stacked {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.15rem;
+    }
   }
 
-  &__planLabel {
+  &__detailValue--stacked &__detailSegment::before {
+    content: none;
+  }
+
+  &__planName {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  &__detailSegment {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+
+    &::before {
+      content: "·";
+      color: var(--muted-foreground);
+    }
   }
 
   &__planBadge--missing {
     text-transform: none;
   }
 
+  &__itemActions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  &__copyButton {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__moreButton {
+    flex: 0 0 auto;
+  }
+
+  &__menu {
+    min-width: 11rem;
+  }
+
+  &__empty {
+    display: grid;
+    gap: 0.25rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  &__emptyTitle {
+    color: var(--foreground);
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  &__emptyHint {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    max-width: 52ch;
+  }
+
   &__dialogBody {
     display: grid;
-    gap: 0.5rem;
-    padding-block: 0.5rem;
+    gap: 1rem;
+    padding-block: 0.25rem;
+  }
+
+  &__field {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
   }
 
   &__dialogLabel {
     color: var(--foreground);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 600;
+    line-height: 1.4;
   }
 
-  &__planTrigger {
+  &__selectTrigger {
     width: 100%;
     min-width: 0;
     max-width: 100%;
   }
 
   &__fieldError {
-    color: var(--destructive);
-    font-size: 0.9rem;
+    color: color-mix(in srgb, var(--destructive) 75%, var(--foreground));
+    font-size: 0.875rem;
     line-height: 1.4;
-    margin: 0;
   }
 }
 
-@media (min-width: 42rem) {
+@media (min-width: 40rem) {
+  .TribeInvitationManagement {
+    &__headerActions {
+      flex: 0 0 auto;
+    }
+
+    &__createButton {
+      width: auto;
+    }
+
+    &__detail {
+      grid-template-columns: 4rem minmax(0, 1fr);
+      gap: 0.75rem;
+    }
+
+    &__copyButton {
+      flex: 0 0 auto;
+    }
+
+    &__detailValue--stacked {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.35rem 0.5rem;
+    }
+
+    &__detailValue--stacked &__detailSegment::before {
+      content: "·";
+    }
+  }
+}
+
+@media (min-width: 52rem) {
   .TribeInvitationManagement {
     &__item {
       grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+      gap: 1.5rem;
+    }
+
+    &__itemActions {
+      justify-content: flex-end;
     }
   }
 }

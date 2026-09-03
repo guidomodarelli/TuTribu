@@ -1,7 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ClipboardIcon, LinkIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import {
+  ClipboardIcon,
+  LinkIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  TagIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +21,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -34,7 +48,7 @@ import type {
 import styles from "./styles.module.scss";
 
 const INVITATION_MANAGEMENT_COPY = {
-  associatedPlanLabel: "Plan asociado",
+  associatedPlanLabel: "Plan",
   changePlanButton: "Cambiar plan",
   changePlanDialogDescription:
     "Elegí el plan al que quedará asociado este link. El cambio se aplica de inmediato sin invalidar la invitación.",
@@ -60,6 +74,8 @@ const INVITATION_MANAGEMENT_COPY = {
   description:
     "Creá links reutilizables para que nuevas personas entren a la tribu con Google.",
   emptyState: "Todavía no hay invitaciones activas.",
+  emptyStateHint:
+    "Generá un link, compartilo y cada persona que entre quedará asociada al plan que elijas.",
   editChannelButton: "Editar canal",
   editChannelDialogDescription:
     "Actualizá los datos de medición de este link sin cambiar el plan asociado.",
@@ -73,7 +89,9 @@ const INVITATION_MANAGEMENT_COPY = {
   fallbackUpdatePlanError: "No pudimos actualizar el plan asociado.",
   freeOptionLabel: "Plan gratuito",
   itemTitle: "Link activo",
+  listLabel: "Invitaciones activas",
   missingPlanLabel: "Plan no disponible",
+  moreActionsLabel: "Más acciones",
   noTrialLabel: "Sin prueba gratis",
   planSelectorLabel: "Plan asociado",
   planSelectorPlaceholder: "Elegí un plan...",
@@ -106,11 +124,12 @@ const INVITATION_MANAGEMENT_ROUTE = {
 const INVITATION_MANAGEMENT_REQUEST = {
   buttonType: "button",
   dateStyle: "medium",
-  defaultVariant: "default",
   deleteMethod: "DELETE",
   destructiveVariant: "destructive",
+  iconSize: "icon",
   jsonContentType: "application/json",
   locale: "es",
+  menuAlign: "end",
   outlineVariant: "outline",
   patchMethod: "PATCH",
   postMethod: "POST",
@@ -222,6 +241,8 @@ const REFERRER_HANDLE_PATTERN = /^@?[A-Za-z0-9._-]+$/;
 const TRIAL_PERIOD_FORMAT = {
   frequencyUnitSeparator: " ",
 } as const;
+
+const INVITATION_PLAN_LABEL_SEPARATOR = " · ";
 
 type AvailablePriceOption = {
   amountCents: number;
@@ -443,8 +464,6 @@ function buildPlanLabelSegments(input: PlanLabelSegmentsInput): string[] {
 
   if (formattedAccount) {
     segments.push(formattedAccount);
-  } else if (input.accountLabel === null && input.accountEmail === null) {
-    // No-op: free plans or plans without payment integration omit the account segment.
   }
 
   segments.push(
@@ -452,6 +471,16 @@ function buildPlanLabelSegments(input: PlanLabelSegmentsInput): string[] {
   );
 
   return segments;
+}
+
+function buildPriceOptionLabel(price: AvailablePriceOption): string {
+  return buildPlanLabelSegments({
+    accountEmail: price.mercadoPagoAccountEmail,
+    accountLabel: price.mercadoPagoAccountLabel,
+    amountCents: price.amountCents,
+    name: price.name,
+    trial: price.trial,
+  }).join(INVITATION_PLAN_LABEL_SEPARATOR);
 }
 
 function serializeSelectorValueToAssociation(
@@ -492,14 +521,14 @@ function serializeAssociationToSelectorValue(
   return PLAN_SELECTOR_VALUE.current;
 }
 
-const INVITATION_PLAN_LABEL_SEPARATOR = " · ";
+type PlanDescription = {
+  segments: string[];
+  tone: (typeof INVITATION_MANAGEMENT_BADGE_TONE)[keyof typeof INVITATION_MANAGEMENT_BADGE_TONE];
+};
 
 function describeAssociation(
   association: TribeInvitationSubscriptionAssociationResult
-): {
-  segments: string[];
-  tone: (typeof INVITATION_MANAGEMENT_BADGE_TONE)[keyof typeof INVITATION_MANAGEMENT_BADGE_TONE];
-} {
+): PlanDescription {
   if (
     association.type === TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.specific
   ) {
@@ -535,6 +564,205 @@ function describeAssociation(
     segments: [INVITATION_MANAGEMENT_COPY.usesCurrentPlanLabel],
     tone: INVITATION_MANAGEMENT_BADGE_TONE.current,
   };
+}
+
+/**
+ * Renders the associated plan of an invitation row: a specific plan shows
+ * its name followed by the amount, account and trial details, while the
+ * generic associations (current, free, missing) render as a single badge.
+ */
+function InvitationPlanValue({ description }: { description: PlanDescription }) {
+  if (description.tone === INVITATION_MANAGEMENT_BADGE_TONE.specific) {
+    const [planName, ...planDetails] = description.segments;
+
+    return (
+      <>
+        <span className={styles.TribeInvitationManagement__planName}>
+          {planName}
+        </span>
+        {planDetails.map((planDetail, planDetailIndex) => (
+          <span
+            className={styles.TribeInvitationManagement__detailSegment}
+            key={`${planDetailIndex}-${planDetail}`}
+          >
+            {planDetail}
+          </span>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <Badge
+      className={
+        description.tone === INVITATION_MANAGEMENT_BADGE_TONE.missing
+          ? styles["TribeInvitationManagement__planBadge--missing"]
+          : undefined
+      }
+      variant={
+        description.tone === INVITATION_MANAGEMENT_BADGE_TONE.missing
+          ? INVITATION_MANAGEMENT_REQUEST.destructiveVariant
+          : INVITATION_MANAGEMENT_REQUEST.secondaryVariant
+      }
+    >
+      {description.segments.join(INVITATION_PLAN_LABEL_SEPARATOR)}
+    </Badge>
+  );
+}
+
+type PlanSelectorFieldProps = {
+  availablePrices: AvailablePriceOption[];
+  canManagePrices: boolean;
+  inputId: string;
+  onValueChange: (value: string) => void;
+  value: string;
+};
+
+/**
+ * Shared "Plan asociado" selector used by the create and change-plan
+ * dialogs. Price-specific options only appear for viewers who can manage
+ * prices.
+ */
+function PlanSelectorField({
+  availablePrices,
+  canManagePrices,
+  inputId,
+  onValueChange,
+  value,
+}: PlanSelectorFieldProps) {
+  return (
+    <div className={styles.TribeInvitationManagement__field}>
+      <label
+        className={styles.TribeInvitationManagement__dialogLabel}
+        htmlFor={inputId}
+      >
+        {INVITATION_MANAGEMENT_COPY.planSelectorLabel}
+      </label>
+      <Select onValueChange={onValueChange} value={value}>
+        <SelectTrigger
+          className={styles.TribeInvitationManagement__selectTrigger}
+          id={inputId}
+        >
+          <SelectValue
+            placeholder={INVITATION_MANAGEMENT_COPY.planSelectorPlaceholder}
+          />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={PLAN_SELECTOR_VALUE.current}>
+            {INVITATION_MANAGEMENT_COPY.usesCurrentPlanLabel}
+          </SelectItem>
+          {canManagePrices ? (
+            <>
+              <SelectItem value={PLAN_SELECTOR_VALUE.free}>
+                {INVITATION_MANAGEMENT_COPY.freeOptionLabel}
+              </SelectItem>
+              {availablePrices.map((price) => (
+                <SelectItem key={price.id} value={price.id}>
+                  {buildPriceOptionLabel(price)}
+                </SelectItem>
+              ))}
+            </>
+          ) : null}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+type ReferralMetadataFieldsProps = {
+  campaignInputId: string;
+  channelInputId: string;
+  error: string | null;
+  formState: ReferralMetadataFormState;
+  onChange: (formState: ReferralMetadataFormState) => void;
+  referrerHandleInputId: string;
+};
+
+/**
+ * Shared channel, campaign and referrer inputs used by the create and
+ * edit-channel dialogs, with the validation message rendered next to them.
+ */
+function ReferralMetadataFields({
+  campaignInputId,
+  channelInputId,
+  error,
+  formState,
+  onChange,
+  referrerHandleInputId,
+}: ReferralMetadataFieldsProps) {
+  return (
+    <>
+      <div className={styles.TribeInvitationManagement__field}>
+        <label
+          className={styles.TribeInvitationManagement__dialogLabel}
+          htmlFor={channelInputId}
+        >
+          {INVITATION_MANAGEMENT_COPY.channelLabel}
+        </label>
+        <Select
+          onValueChange={(value) => {
+            onChange({ ...formState, channel: value });
+          }}
+          value={formState.channel}
+        >
+          <SelectTrigger
+            className={styles.TribeInvitationManagement__selectTrigger}
+            id={channelInputId}
+          >
+            <SelectValue
+              placeholder={INVITATION_MANAGEMENT_COPY.channelPlaceholder}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {INVITATION_CHANNEL_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className={styles.TribeInvitationManagement__field}>
+        <label
+          className={styles.TribeInvitationManagement__dialogLabel}
+          htmlFor={campaignInputId}
+        >
+          {INVITATION_MANAGEMENT_COPY.campaignLabel}
+        </label>
+        <Input
+          id={campaignInputId}
+          maxLength={REFERRAL_METADATA_LIMIT.campaignNameMaxLength}
+          onChange={(event) => {
+            onChange({ ...formState, campaignName: event.target.value });
+          }}
+          placeholder={INVITATION_MANAGEMENT_COPY.campaignPlaceholder}
+          value={formState.campaignName}
+        />
+      </div>
+      <div className={styles.TribeInvitationManagement__field}>
+        <label
+          className={styles.TribeInvitationManagement__dialogLabel}
+          htmlFor={referrerHandleInputId}
+        >
+          {INVITATION_MANAGEMENT_COPY.referrerHandleLabel}
+        </label>
+        <Input
+          id={referrerHandleInputId}
+          maxLength={REFERRAL_METADATA_LIMIT.referrerHandleMaxLength}
+          onChange={(event) => {
+            onChange({ ...formState, referrerHandle: event.target.value });
+          }}
+          placeholder={INVITATION_MANAGEMENT_COPY.referrerHandlePlaceholder}
+          value={formState.referrerHandle}
+        />
+      </div>
+      {error ? (
+        <p className={styles.TribeInvitationManagement__fieldError} role="alert">
+          {error}
+        </p>
+      ) : null}
+    </>
+  );
 }
 
 export function TribeInvitationManagement({
@@ -826,141 +1054,177 @@ export function TribeInvitationManagement({
   return (
     <section className={styles.TribeInvitationManagement}>
       <header className={styles.TribeInvitationManagement__header}>
-        <h1 className={styles.TribeInvitationManagement__title}>
-          {INVITATION_MANAGEMENT_COPY.title}
-        </h1>
-        <p className={styles.TribeInvitationManagement__description}>
-          {INVITATION_MANAGEMENT_COPY.description}
-        </p>
+        <div className={styles.TribeInvitationManagement__headingGroup}>
+          <h1 className={styles.TribeInvitationManagement__title}>
+            {INVITATION_MANAGEMENT_COPY.title}
+          </h1>
+          <p className={styles.TribeInvitationManagement__description}>
+            {INVITATION_MANAGEMENT_COPY.description}
+          </p>
+        </div>
+        <div className={styles.TribeInvitationManagement__headerActions}>
+          <Button
+            className={styles.TribeInvitationManagement__createButton}
+            disabled={Boolean(pendingInvitationId)}
+            onClick={() => {
+              setIsCreateDialogOpen(true);
+            }}
+            type={INVITATION_MANAGEMENT_REQUEST.buttonType}
+          >
+            <LinkIcon />
+            {INVITATION_MANAGEMENT_COPY.createButton}
+          </Button>
+        </div>
       </header>
-      <div className={styles.TribeInvitationManagement__actions}>
-        <Button
-          disabled={Boolean(pendingInvitationId)}
-          onClick={() => {
-            setIsCreateDialogOpen(true);
-          }}
-          type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-        >
-          <LinkIcon />
-          {INVITATION_MANAGEMENT_COPY.createButton}
-        </Button>
-      </div>
       {hasActiveInvitations ? (
         <ol
-          aria-label="Invitaciones activas"
+          aria-label={INVITATION_MANAGEMENT_COPY.listLabel}
           className={styles.TribeInvitationManagement__list}
         >
-          {formattedInvitations.map((invitation) => (
-            <li
-              className={styles.TribeInvitationManagement__item}
-              key={invitation.id}
-            >
-              <div className={styles.TribeInvitationManagement__itemSummary}>
-                <p className={styles.TribeInvitationManagement__itemTitle}>
-                  {INVITATION_MANAGEMENT_COPY.itemTitle}
-                </p>
-                <span className={styles.TribeInvitationManagement__meta}>
-                  {invitation.createdByName ??
-                    INVITATION_MANAGEMENT_COPY.createdByFallback}{" "}
-                  · {invitation.createdAtLabel}
-                </span>
-                <span className={styles.TribeInvitationManagement__plan}>
-                  <span className={styles.TribeInvitationManagement__planLabel}>
-                    {INVITATION_MANAGEMENT_COPY.associatedPlanLabel}:
-                  </span>{" "}
-                  {invitation.planDescription.segments.map(
-                    (planSegment, planSegmentIndex) => (
-                      <Badge
-                        className={
-                          invitation.planDescription.tone ===
-                          INVITATION_MANAGEMENT_BADGE_TONE.missing
-                            ? styles[
-                                "TribeInvitationManagement__planBadge--missing"
-                              ]
-                            : undefined
-                        }
-                        key={`${invitation.id}-plan-${planSegmentIndex}`}
-                        variant={
-                          invitation.planDescription.tone ===
-                          INVITATION_MANAGEMENT_BADGE_TONE.missing
-                            ? INVITATION_MANAGEMENT_REQUEST.destructiveVariant
-                            : invitation.planDescription.tone ===
-                              INVITATION_MANAGEMENT_BADGE_TONE.specific
-                            ? INVITATION_MANAGEMENT_REQUEST.defaultVariant
-                            : INVITATION_MANAGEMENT_REQUEST.secondaryVariant
-                        }
+          {formattedInvitations.map((invitation) => {
+            const isInvitationPending = pendingInvitationId === invitation.id;
+
+            return (
+              <li
+                className={styles.TribeInvitationManagement__item}
+                key={invitation.id}
+              >
+                <div className={styles.TribeInvitationManagement__itemBody}>
+                  <div className={styles.TribeInvitationManagement__itemHeading}>
+                    <p className={styles.TribeInvitationManagement__itemTitle}>
+                      <span
+                        aria-hidden
+                        className={styles.TribeInvitationManagement__statusDot}
+                      />
+                      {INVITATION_MANAGEMENT_COPY.itemTitle}
+                    </p>
+                    <p className={styles.TribeInvitationManagement__meta}>
+                      {invitation.createdByName ??
+                        INVITATION_MANAGEMENT_COPY.createdByFallback}{" "}
+                      · {invitation.createdAtLabel}
+                    </p>
+                  </div>
+                  <dl className={styles.TribeInvitationManagement__details}>
+                    <div className={styles.TribeInvitationManagement__detail}>
+                      <dt className={styles.TribeInvitationManagement__detailLabel}>
+                        {INVITATION_MANAGEMENT_COPY.associatedPlanLabel}
+                      </dt>
+                      <dd
+                        className={`${styles.TribeInvitationManagement__detailValue} ${styles["TribeInvitationManagement__detailValue--stacked"]}`}
                       >
-                        {planSegment}
-                      </Badge>
-                    )
-                  )}
-                </span>
-                <span className={styles.TribeInvitationManagement__plan}>
-                  <span className={styles.TribeInvitationManagement__planLabel}>
-                    {INVITATION_MANAGEMENT_COPY.channelLabel}:
-                  </span>{" "}
-                  <Badge variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}>
-                    {invitation.channelLabel}
-                  </Badge>
-                </span>
-              </div>
-              <div className={styles.TribeInvitationManagement__itemActions}>
-                {invitation.invitationUrl ? (
-                  <Button
-                    disabled={pendingInvitationId === invitation.id}
-                    onClick={() => {
-                      void copyInvitationUrl(invitation.invitationUrl!);
-                    }}
-                    type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                    variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
-                  >
-                    <ClipboardIcon />
-                    {INVITATION_MANAGEMENT_COPY.copyButton}
-                  </Button>
-                ) : null}
-                {canManagePrices ? (
-                  <Button
-                    disabled={pendingInvitationId === invitation.id}
-                    onClick={() => {
-                      openEditDialog(invitation);
-                    }}
-                    type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                    variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
-                  >
-                    <PencilIcon />
-                    {INVITATION_MANAGEMENT_COPY.changePlanButton}
-                  </Button>
-                ) : null}
-                <Button
-                  disabled={pendingInvitationId === invitation.id}
-                  onClick={() => {
-                    openReferralEditDialog(invitation);
-                  }}
-                  type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                  variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
-                >
-                  <PencilIcon />
-                  {INVITATION_MANAGEMENT_COPY.editChannelButton}
-                </Button>
-                <Button
-                  disabled={pendingInvitationId === invitation.id}
-                  onClick={() => {
-                    setRevokeCandidateId(invitation.id);
-                  }}
-                  type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                  variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
-                >
-                  <Trash2Icon />
-                  {INVITATION_MANAGEMENT_COPY.revokeButton}
-                </Button>
-              </div>
-            </li>
-          ))}
+                        <InvitationPlanValue
+                          description={invitation.planDescription}
+                        />
+                      </dd>
+                    </div>
+                    <div className={styles.TribeInvitationManagement__detail}>
+                      <dt className={styles.TribeInvitationManagement__detailLabel}>
+                        {INVITATION_MANAGEMENT_COPY.channelLabel}
+                      </dt>
+                      <dd className={styles.TribeInvitationManagement__detailValue}>
+                        <Badge
+                          variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
+                        >
+                          {invitation.channelLabel}
+                        </Badge>
+                        {invitation.campaignName ? (
+                          <span
+                            className={
+                              styles.TribeInvitationManagement__detailSegment
+                            }
+                          >
+                            {invitation.campaignName}
+                          </span>
+                        ) : null}
+                        {invitation.referrerHandle ? (
+                          <span
+                            className={
+                              styles.TribeInvitationManagement__detailSegment
+                            }
+                          >
+                            {invitation.referrerHandle}
+                          </span>
+                        ) : null}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className={styles.TribeInvitationManagement__itemActions}>
+                  {invitation.invitationUrl ? (
+                    <Button
+                      className={styles.TribeInvitationManagement__copyButton}
+                      disabled={isInvitationPending}
+                      onClick={() => {
+                        void copyInvitationUrl(invitation.invitationUrl!);
+                      }}
+                      type={INVITATION_MANAGEMENT_REQUEST.buttonType}
+                      variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
+                    >
+                      <ClipboardIcon />
+                      {INVITATION_MANAGEMENT_COPY.copyButton}
+                    </Button>
+                  ) : null}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        aria-label={INVITATION_MANAGEMENT_COPY.moreActionsLabel}
+                        className={styles.TribeInvitationManagement__moreButton}
+                        disabled={isInvitationPending}
+                        size={INVITATION_MANAGEMENT_REQUEST.iconSize}
+                        type={INVITATION_MANAGEMENT_REQUEST.buttonType}
+                        variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
+                      >
+                        <MoreHorizontalIcon />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align={INVITATION_MANAGEMENT_REQUEST.menuAlign}
+                      className={styles.TribeInvitationManagement__menu}
+                    >
+                      {canManagePrices ? (
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            openEditDialog(invitation);
+                          }}
+                        >
+                          <PencilIcon />
+                          {INVITATION_MANAGEMENT_COPY.changePlanButton}
+                        </DropdownMenuItem>
+                      ) : null}
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          openReferralEditDialog(invitation);
+                        }}
+                      >
+                        <TagIcon />
+                        {INVITATION_MANAGEMENT_COPY.editChannelButton}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          setRevokeCandidateId(invitation.id);
+                        }}
+                        variant={INVITATION_MANAGEMENT_REQUEST.destructiveVariant}
+                      >
+                        <Trash2Icon />
+                        {INVITATION_MANAGEMENT_COPY.revokeButton}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </li>
+            );
+          })}
         </ol>
       ) : (
-        <p className={styles.TribeInvitationManagement__empty}>
-          {INVITATION_MANAGEMENT_COPY.emptyState}
-        </p>
+        <div className={styles.TribeInvitationManagement__empty}>
+          <p className={styles.TribeInvitationManagement__emptyTitle}>
+            {INVITATION_MANAGEMENT_COPY.emptyState}
+          </p>
+          <p className={styles.TribeInvitationManagement__emptyHint}>
+            {INVITATION_MANAGEMENT_COPY.emptyStateHint}
+          </p>
+        </div>
       )}
       <Dialog open={isCreateDialogOpen} onOpenChange={handleCreateDialogChange}>
         <DialogContent>
@@ -973,122 +1237,23 @@ export function TribeInvitationManagement({
             </DialogDescription>
           </DialogHeader>
           <div className={styles.TribeInvitationManagement__dialogBody}>
-            <label
-              className={styles.TribeInvitationManagement__dialogLabel}
-              htmlFor={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createPlan}
-            >
-              {INVITATION_MANAGEMENT_COPY.planSelectorLabel}
-            </label>
-            <Select
+            <PlanSelectorField
+              availablePrices={availablePrices}
+              canManagePrices={canManagePrices}
+              inputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createPlan}
               onValueChange={setCreateSelectorValue}
               value={createSelectorValue}
-            >
-              <SelectTrigger
-                className={styles.TribeInvitationManagement__planTrigger}
-                id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createPlan}
-              >
-                <SelectValue
-                  placeholder={INVITATION_MANAGEMENT_COPY.planSelectorPlaceholder}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={PLAN_SELECTOR_VALUE.current}>
-                  {INVITATION_MANAGEMENT_COPY.usesCurrentPlanLabel}
-                </SelectItem>
-                {canManagePrices ? (
-                  <>
-                    <SelectItem value={PLAN_SELECTOR_VALUE.free}>
-                      {INVITATION_MANAGEMENT_COPY.freeOptionLabel}
-                    </SelectItem>
-                    {availablePrices.map((price) => (
-                      <SelectItem key={price.id} value={price.id}>
-                        {buildPlanLabelSegments({
-                          accountEmail: price.mercadoPagoAccountEmail,
-                          accountLabel: price.mercadoPagoAccountLabel,
-                          amountCents: price.amountCents,
-                          name: price.name,
-                          trial: price.trial,
-                        }).join(INVITATION_PLAN_LABEL_SEPARATOR)}
-                      </SelectItem>
-                    ))}
-                  </>
-                ) : null}
-              </SelectContent>
-            </Select>
-            <label
-              className={styles.TribeInvitationManagement__dialogLabel}
-              htmlFor={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createChannel}
-            >
-              {INVITATION_MANAGEMENT_COPY.channelLabel}
-            </label>
-            <Select
-              onValueChange={(value) => {
-                setCreateReferralMetadata((currentState) => ({
-                  ...currentState,
-                  channel: value,
-                }));
-              }}
-              value={createReferralMetadata.channel}
-            >
-              <SelectTrigger
-                className={styles.TribeInvitationManagement__planTrigger}
-                id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createChannel}
-              >
-                <SelectValue
-                  placeholder={INVITATION_MANAGEMENT_COPY.channelPlaceholder}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {INVITATION_CHANNEL_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <label
-              className={styles.TribeInvitationManagement__dialogLabel}
-              htmlFor={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createCampaign}
-            >
-              {INVITATION_MANAGEMENT_COPY.campaignLabel}
-            </label>
-            <Input
-              id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createCampaign}
-              maxLength={REFERRAL_METADATA_LIMIT.campaignNameMaxLength}
-              onChange={(event) => {
-                setCreateReferralMetadata((currentState) => ({
-                  ...currentState,
-                  campaignName: event.target.value,
-                }));
-              }}
-              placeholder={INVITATION_MANAGEMENT_COPY.campaignPlaceholder}
-              value={createReferralMetadata.campaignName}
             />
-            <label
-              className={styles.TribeInvitationManagement__dialogLabel}
-              htmlFor={
+            <ReferralMetadataFields
+              campaignInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createCampaign}
+              channelInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createChannel}
+              error={createReferralMetadataError}
+              formState={createReferralMetadata}
+              onChange={setCreateReferralMetadata}
+              referrerHandleInputId={
                 INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createReferrerHandle
               }
-            >
-              {INVITATION_MANAGEMENT_COPY.referrerHandleLabel}
-            </label>
-            <Input
-              id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.createReferrerHandle}
-              maxLength={REFERRAL_METADATA_LIMIT.referrerHandleMaxLength}
-              onChange={(event) => {
-                setCreateReferralMetadata((currentState) => ({
-                  ...currentState,
-                  referrerHandle: event.target.value,
-                }));
-              }}
-              placeholder={INVITATION_MANAGEMENT_COPY.referrerHandlePlaceholder}
-              value={createReferralMetadata.referrerHandle}
             />
-            {createReferralMetadataError ? (
-              <p className={styles.TribeInvitationManagement__fieldError}>
-                {createReferralMetadataError}
-              </p>
-            ) : null}
           </div>
           <DialogFooter>
             <Button
@@ -1132,48 +1297,13 @@ export function TribeInvitationManagement({
             </DialogDescription>
           </DialogHeader>
           <div className={styles.TribeInvitationManagement__dialogBody}>
-            <label
-              className={styles.TribeInvitationManagement__dialogLabel}
-              htmlFor={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editPlan}
-            >
-              {INVITATION_MANAGEMENT_COPY.planSelectorLabel}
-            </label>
-            <Select
+            <PlanSelectorField
+              availablePrices={availablePrices}
+              canManagePrices={canManagePrices}
+              inputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editPlan}
               onValueChange={setEditSelectorValue}
               value={editSelectorValue}
-            >
-              <SelectTrigger
-                className={styles.TribeInvitationManagement__planTrigger}
-                id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editPlan}
-              >
-                <SelectValue
-                  placeholder={INVITATION_MANAGEMENT_COPY.planSelectorPlaceholder}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={PLAN_SELECTOR_VALUE.current}>
-                  {INVITATION_MANAGEMENT_COPY.usesCurrentPlanLabel}
-                </SelectItem>
-                {canManagePrices ? (
-                  <>
-                    <SelectItem value={PLAN_SELECTOR_VALUE.free}>
-                      {INVITATION_MANAGEMENT_COPY.freeOptionLabel}
-                    </SelectItem>
-                    {availablePrices.map((price) => (
-                      <SelectItem key={price.id} value={price.id}>
-                        {buildPlanLabelSegments({
-                          accountEmail: price.mercadoPagoAccountEmail,
-                          accountLabel: price.mercadoPagoAccountLabel,
-                          amountCents: price.amountCents,
-                          name: price.name,
-                          trial: price.trial,
-                        }).join(INVITATION_PLAN_LABEL_SEPARATOR)}
-                      </SelectItem>
-                    ))}
-                  </>
-                ) : null}
-              </SelectContent>
-            </Select>
+            />
           </div>
           <DialogFooter>
             <Button
@@ -1213,78 +1343,16 @@ export function TribeInvitationManagement({
             </DialogDescription>
           </DialogHeader>
           <div className={styles.TribeInvitationManagement__dialogBody}>
-            <label
-              className={styles.TribeInvitationManagement__dialogLabel}
-              htmlFor={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editChannel}
-            >
-              {INVITATION_MANAGEMENT_COPY.channelLabel}
-            </label>
-            <Select
-              onValueChange={(value) => {
-                setEditReferralMetadata((currentState) => ({
-                  ...currentState,
-                  channel: value,
-                }));
-              }}
-              value={editReferralMetadata.channel}
-            >
-              <SelectTrigger
-                className={styles.TribeInvitationManagement__planTrigger}
-                id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editChannel}
-              >
-                <SelectValue
-                  placeholder={INVITATION_MANAGEMENT_COPY.channelPlaceholder}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {INVITATION_CHANNEL_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <label
-              className={styles.TribeInvitationManagement__dialogLabel}
-              htmlFor={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editCampaign}
-            >
-              {INVITATION_MANAGEMENT_COPY.campaignLabel}
-            </label>
-            <Input
-              id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editCampaign}
-              maxLength={REFERRAL_METADATA_LIMIT.campaignNameMaxLength}
-              onChange={(event) => {
-                setEditReferralMetadata((currentState) => ({
-                  ...currentState,
-                  campaignName: event.target.value,
-                }));
-              }}
-              placeholder={INVITATION_MANAGEMENT_COPY.campaignPlaceholder}
-              value={editReferralMetadata.campaignName}
+            <ReferralMetadataFields
+              campaignInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editCampaign}
+              channelInputId={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editChannel}
+              error={editReferralMetadataError}
+              formState={editReferralMetadata}
+              onChange={setEditReferralMetadata}
+              referrerHandleInputId={
+                INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editReferrerHandle
+              }
             />
-            <label
-              className={styles.TribeInvitationManagement__dialogLabel}
-              htmlFor={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editReferrerHandle}
-            >
-              {INVITATION_MANAGEMENT_COPY.referrerHandleLabel}
-            </label>
-            <Input
-              id={INVITATION_MANAGEMENT_DIALOG_INPUT_ID.editReferrerHandle}
-              maxLength={REFERRAL_METADATA_LIMIT.referrerHandleMaxLength}
-              onChange={(event) => {
-                setEditReferralMetadata((currentState) => ({
-                  ...currentState,
-                  referrerHandle: event.target.value,
-                }));
-              }}
-              placeholder={INVITATION_MANAGEMENT_COPY.referrerHandlePlaceholder}
-              value={editReferralMetadata.referrerHandle}
-            />
-            {editReferralMetadataError ? (
-              <p className={styles.TribeInvitationManagement__fieldError}>
-                {editReferralMetadataError}
-              </p>
-            ) : null}
           </div>
           <DialogFooter>
             <Button

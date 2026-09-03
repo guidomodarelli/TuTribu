@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
 
@@ -127,7 +127,8 @@ describe("TribeInvitationManagement", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Revocar" }));
+    await user.click(screen.getByRole("button", { name: "Más acciones" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Revocar" }));
 
     expect(global.fetch).not.toHaveBeenCalled();
     expect(
@@ -169,7 +170,10 @@ describe("TribeInvitationManagement", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: "Cambiar plan" }));
+    await user.click(screen.getByRole("button", { name: "Más acciones" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Cambiar plan" })
+    );
     await user.click((await screen.findAllByRole("combobox"))[0]);
     await user.click(
       await screen.findByRole("option", { name: "Plan gratuito" })
@@ -213,9 +217,14 @@ describe("TribeInvitationManagement", () => {
       />
     );
 
+    await user.click(screen.getByRole("button", { name: "Más acciones" }));
     expect(
-      screen.queryByRole("button", { name: "Cambiar plan" })
+      await screen.findByRole("menuitem", { name: "Editar canal" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: "Cambiar plan" })
     ).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
 
     await user.click(screen.getByRole("button", { name: /Crear link/ }));
     await user.click((await screen.findAllByRole("combobox"))[0]);
@@ -322,6 +331,112 @@ describe("TribeInvitationManagement", () => {
       await screen.findByRole("option", {
         name: /\[Guido\] Test\s+·\s+15\s+ARS\s+·\s+\[Guido\] Test \(guido@example\.com\)\s+·\s+7 días gratis/,
       })
+    ).toBeInTheDocument();
+  });
+
+  it("copies the invitation link from the row action", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeInvitationManagement
+        availablePrices={[]}
+        canManagePrices
+        invitations={[baseInvitation]}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Copiar link" }));
+
+    expect(toast.success).toHaveBeenCalledWith("Link copiado.");
+    expect(await navigator.clipboard.readText()).toBe(
+      baseInvitation.invitationUrl
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("shows the channel, campaign and referrer of each invitation", () => {
+    render(
+      <TribeInvitationManagement
+        availablePrices={[]}
+        canManagePrices
+        invitations={[
+          {
+            ...baseInvitation,
+            campaignName: "Lanzamiento mayo",
+            channel: "instagram",
+            referrerHandle: "@partner",
+          },
+        ]}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const invitationList = screen.getByRole("list", {
+      name: "Invitaciones activas",
+    });
+
+    expect(within(invitationList).getByText("Instagram")).toBeInTheDocument();
+    expect(
+      within(invitationList).getByText("Lanzamiento mayo")
+    ).toBeInTheDocument();
+    expect(within(invitationList).getByText("@partner")).toBeInTheDocument();
+  });
+
+  it("edits the referral channel from the row menu", async () => {
+    const user = userEvent.setup();
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      json: async () => ({
+        invitation: {
+          ...baseInvitation,
+          campaignName: "Lanzamiento mayo",
+          channel: "direct",
+        },
+        message: "Canal actualizado.",
+      }),
+      ok: true,
+    });
+
+    render(
+      <TribeInvitationManagement
+        availablePrices={[]}
+        canManagePrices
+        invitations={[baseInvitation]}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Más acciones" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Editar canal" })
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Editar canal de referido" })
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Campaña"), "Lanzamiento mayo");
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/invitations/invitation-1",
+        expect.objectContaining({
+          body: JSON.stringify({
+            campaignName: "Lanzamiento mayo",
+            channel: "direct",
+            referrerHandle: null,
+          }),
+          method: "PATCH",
+        })
+      );
+    });
+    expect(toast.success).toHaveBeenCalledWith("Canal actualizado.");
+    expect(
+      within(
+        screen.getByRole("list", { name: "Invitaciones activas" })
+      ).getByText("Lanzamiento mayo")
     ).toBeInTheDocument();
   });
 });
