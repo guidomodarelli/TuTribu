@@ -291,6 +291,10 @@ components/<scope>/<component>/
 - Prioritize server-side data retrieval through App Router entrypoints.
 - In App Router, `page.tsx`, `layout.tsx`, and route-level async server components are the preferred inbound adapters for initial data loading.
 - A route segment should have a single primary data entrypoint whenever possible.
+- Instant navigation (Next.js 16.3+) validates every route on page loads and on client navigations: `params`, `searchParams`, `cookies()` and `headers()` are runtime data and must resolve inside a `<Suspense>` boundary that belongs to the segment being rendered. Consequences for this repository:
+  - Every page segment ships its own `loading.tsx`. A boundary in a parent segment (for example `app/(platform)/[slug]/loading.tsx`) only covers page loads; on a navigation between sibling routes only the target segment re-renders, so the parent boundary sits above the re-render scope and the page's top-level `await params` blocks the navigation. Leaf segments re-export the nearest skeleton (`export { default } from "../loading";`).
+  - A `layout.tsx` must not read `params` on the server, not even behind its own `<Suspense>`. When a layout-mounted client component needs the slug, resolve it on the client with `useParams` inside a `<Suspense>` (see `components/tribes/tribe-presence-heartbeat` and `app/(platform)/[slug]/layout.tsx`).
+  - Do not paper over the insight with `instant = false`.
 - Do not scatter external fetches across presentational components when the route can resolve them on the server.
 
 ### Middleend rule

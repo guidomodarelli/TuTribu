@@ -1,0 +1,40 @@
+.PlatformLoadingPage {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 56rem);
+  margin: 0 auto;
+  padding: 0.25rem 0 1.5rem;
+
+  &__srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  &__title,
+  &__line {
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--muted) 70%, transparent);
+  }
+
+  &__title {
+    width: min(40%, 14rem);
+    height: 2.25rem;
+  }
+
+  &__line {
+    height: 1rem;
+    width: 100%;
+
+    &:nth-child(3) {
+      width: 85%;
+    }
+
+    &:nth-child(4) {
+      width: 70%;
+    }
+  }
+}
