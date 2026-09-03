@@ -1,30 +1,35 @@
 .TribeChannelManagement {
-  --channel-surface: color-mix(in srgb, var(--background) 94%, var(--foreground) 6%);
-  --channel-surface-strong: color-mix(in srgb, var(--background) 88%, var(--foreground) 12%);
-  --channel-danger: hsl(0 72% 46%);
-
   display: grid;
-  gap: 1.5rem;
+  gap: clamp(1.5rem, 4vw, 2.25rem);
   margin: 0 auto;
-  max-width: min(100%, 980px);
-  width: 100%;
-  padding: 0.25rem 0;
+  width: min(100%, 56rem);
+  min-width: 0;
+  padding: 0.25rem 0 1.5rem;
 
   &__header {
     display: grid;
     gap: 0.5rem;
+    min-width: 0;
   }
 
   &__title,
   &__description,
-  &__empty,
-  &__sectionTitle {
+  &__sectionTitle,
+  &__sectionDescription,
+  &__fieldHelp,
+  &__fieldError,
+  &__emptyTitle,
+  &__emptyHint {
     margin: 0;
   }
 
   &__title {
-    font-size: clamp(2rem, 6vw, 4rem);
-    line-height: 0.95;
+    color: var(--foreground);
+    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-size: clamp(2.25rem, 6vw, 3.5rem);
+    font-weight: 600;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
   }
 
   &__description {
@@ -34,45 +39,85 @@
     max-width: 60ch;
   }
 
-  &__createSection,
-  &__configuredSection {
+  &__section {
     display: grid;
-    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    padding-top: 1.5rem;
     border-top: 1px solid var(--border);
-    padding-top: 1rem;
+  }
+
+  &__sectionIntro {
+    display: grid;
+    gap: 0.35rem;
+    align-content: start;
+    min-width: 0;
+  }
+
+  &__sectionTitleRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   &__sectionTitle {
     color: var(--foreground);
-    font-size: 1.05rem;
-    font-weight: 650;
-    line-height: 1.25;
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  &__sectionDescription {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    max-width: 36ch;
+  }
+
+  &__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 70%, transparent);
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  &__sectionFields {
+    display: grid;
+    gap: 1rem;
+    align-content: start;
+    min-width: 0;
   }
 
   &__createForm {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.85rem;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.5rem 0.75rem;
     align-items: start;
+    min-width: 0;
   }
 
-  &__list {
-    display: grid;
-    gap: 0.85rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+  &__createButton {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
-  &__item {
+  &__nameField {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.85rem;
-    align-items: start;
-    border: 1px solid var(--border);
-    border-radius: 0.9rem;
-    background: var(--channel-surface);
-    padding: 0.9rem;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  &__textInput {
+    width: 100%;
+    min-width: 0;
   }
 
   &__field {
@@ -82,170 +127,139 @@
   }
 
   &__fieldLabel {
-    color: var(--muted-foreground);
-    font-size: 0.82rem;
+    color: var(--foreground);
+    font-size: 0.9rem;
     font-weight: 600;
-    line-height: 1.25;
+    line-height: 1.4;
   }
 
   &__fieldHelp {
     color: var(--muted-foreground);
-    font-size: 0.78rem;
-    line-height: 1.35;
+    font-size: 0.8rem;
+    line-height: 1.45;
   }
 
-  &__emojiInput,
-  &__textInput,
-  &__select {
-    min-height: 2.7rem;
-    width: 100%;
+  &__fieldError {
+    color: color-mix(in srgb, var(--destructive) 75%, var(--foreground));
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+
+  &__list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--border);
+  }
+
+  &__item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--border);
     min-width: 0;
-    border-color: var(--border);
-    background: var(--background);
-    color: var(--foreground);
-    // 16px on phones avoids the iOS focus zoom; compact size from tablet up.
-    font-size: 1rem;
-    transition:
-      border-color 160ms ease,
-      box-shadow 160ms ease,
-      background-color 160ms ease;
-
-    @media (min-width: 48rem) {
-      font-size: 0.95rem;
-    }
-
-    &:hover {
-      border-color: var(--channel-surface-strong);
-    }
-
-    &:focus-visible {
-      border-color: var(--ring);
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 24%, transparent);
-      outline: 0;
-    }
   }
 
-  &__emojiInput {
-    text-align: center;
-  }
-
-  &__select {
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    padding: 0.55rem 0.7rem;
-
-    appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
-      linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
-    background-position: calc(100% - 1.1rem) calc(50% - 0.12rem),
-      calc(100% - 0.8rem) calc(50% - 0.12rem);
-    background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
-    background-repeat: no-repeat;
-    padding-right: 2rem;
-  }
-
-  &__createButton,
-  &__actionButton {
-    min-height: 2.7rem;
-    width: 100%;
-  }
-
-  &__createButton {
-    align-self: start;
-    font-weight: 650;
+  &__itemFields {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    min-width: 0;
   }
 
   &__actions {
-    align-self: start;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.6rem;
-    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    min-width: 0;
   }
 
-  &__actionButton {
-    background: var(--background);
-    transition:
-      border-color 160ms ease,
-      box-shadow 160ms ease,
-      background-color 160ms ease;
-
-    &:hover:not(:disabled) {
-      background: var(--channel-surface-strong);
-    }
-
-    &:focus-visible {
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 24%, transparent);
-      outline: 0;
-    }
+  &__unsaved {
+    margin-right: auto;
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    line-height: 1.4;
   }
 
-  &__actions > :last-child {
-    color: var(--channel-danger);
-    border-color: color-mix(in srgb, var(--channel-danger) 28%, var(--border));
+  &__saveButton {
+    flex: 0 0 auto;
+  }
 
-    &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--channel-danger) 8%, var(--background));
-    }
+  &__deleteButton {
+    flex: 0 0 auto;
+    color: color-mix(in srgb, var(--destructive) 80%, var(--foreground));
   }
 
   &__empty {
-    color: var(--muted-foreground);
+    display: grid;
+    gap: 0.25rem;
+    padding: 1.25rem 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  &__emptyTitle {
+    color: var(--foreground);
     font-size: 0.95rem;
+    font-weight: 600;
     line-height: 1.5;
+  }
+
+  &__emptyHint {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  &__dialogBody {
+    display: grid;
+    gap: 1rem;
+    padding-block: 0.25rem;
+  }
+
+  &__selectTrigger {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 }
 
 @media (min-width: 40rem) {
   .TribeChannelManagement {
     &__createForm {
-      grid-template-columns: max-content minmax(12rem, 1fr);
+      grid-template-columns: auto minmax(0, 1fr) auto;
     }
 
     &__createButton {
-      grid-column: 1 / -1;
-      justify-self: end;
+      grid-column: auto;
       width: auto;
     }
 
     &__item {
-      grid-template-columns: max-content minmax(12rem, 1fr);
-    }
-
-    &__targetField,
-    &__actions {
-      grid-column: 1 / -1;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
     }
 
     &__actions {
-      justify-self: end;
-      width: auto;
+      flex-wrap: nowrap;
+    }
+
+    &__unsaved {
+      margin-right: 0.25rem;
     }
   }
 }
 
 @media (min-width: 56rem) {
   .TribeChannelManagement {
-    &__createForm {
-      grid-template-columns: max-content minmax(12rem, 1fr) max-content;
-    }
-
-    &__createButton {
-      grid-column: auto;
-      margin-top: calc((0.82rem * 1.25) + 0.4rem);
-    }
-
-    &__item {
-      grid-template-columns: max-content minmax(10rem, 0.58fr) minmax(12rem, 1fr) max-content;
-    }
-
-    &__targetField,
-    &__actions {
-      grid-column: auto;
-    }
-
-    &__actions {
-      margin-top: calc((0.82rem * 1.25) + 0.4rem);
+    &__section {
+      grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+      gap: 2.5rem;
     }
   }
 }

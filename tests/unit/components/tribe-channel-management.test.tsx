@@ -1,8 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { PickerProps } from "emoji-picker-react";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 import { TribeChannelManagement } from "@/components/tribe-round/tribe-channel-management";
 
@@ -82,17 +80,6 @@ jest.mock("emoji-picker-react", () => ({
   default: mockEmojiPicker,
 }));
 
-const tribeChannelManagementStyles = readFileSync(
-  join(
-    process.cwd(),
-    "components",
-    "tribe-round",
-    "tribe-channel-management",
-    "styles.module.scss"
-  ),
-  "utf8"
-);
-
 jest.mock("sonner", () => ({
   toast: {
     error: jest.fn(),
@@ -119,13 +106,27 @@ const channels = [
   },
 ];
 
+function getChannelItem(channelName: string): HTMLElement {
+  const channelList = screen.getByRole("list", {
+    name: "Canales configurados",
+  });
+
+  return within(channelList).getByDisplayValue(channelName).closest("li") as HTMLElement;
+}
+
+function getCreateForm(): HTMLElement {
+  return screen
+    .getByRole("button", { name: "Crear canal" })
+    .closest("form") as HTMLElement;
+}
+
 describe("TribeChannelManagement", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = jest.fn();
   });
 
-  it("renders channel controls in a responsive management layout", () => {
+  it("renders the page heading, the create form and one row per channel with its actions", () => {
     render(
       <TribeChannelManagement
         channels={channels}
@@ -133,7 +134,9 @@ describe("TribeChannelManagement", () => {
       />
     );
 
-    expect(screen.getByRole("heading", { name: "Canales" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Canales" })
+    ).toBeInTheDocument();
     const createChannelButton = screen.getByRole("button", {
       name: "Crear canal",
     });
@@ -144,18 +147,28 @@ describe("TribeChannelManagement", () => {
     const channelList = screen.getByRole("list", {
       name: "Canales configurados",
     });
-    const rondaChannelItem = within(channelList)
-      .getByDisplayValue("Ronda")
-      .closest("li");
+    const rondaChannelItem = getChannelItem("Ronda");
 
     expect(channelList).toHaveClass("TribeChannelManagement__list");
-    expect(rondaChannelItem).not.toBeNull();
+    expect(within(channelList).getAllByRole("listitem")).toHaveLength(2);
     expect(rondaChannelItem).toHaveClass("TribeChannelManagement__item");
     expect(
-      within(rondaChannelItem as HTMLElement).getByRole("group", {
+      within(rondaChannelItem).getByRole("group", {
         name: "Acciones de Ronda",
       })
     ).toHaveClass("TribeChannelManagement__actions");
+    expect(screen.getByText("2")).toBeInTheDocument();
+  });
+
+  it("shows an action-oriented empty state when there are no channels", () => {
+    render(<TribeChannelManagement channels={[]} tribeSlug="matematica-pro" />);
+
+    expect(
+      screen.getByText("Todavía no hay canales configurados.")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("list", { name: "Canales configurados" })
+    ).not.toBeInTheDocument();
   });
 
   it("shows the selected channel emoji only once in the picker trigger", () => {
@@ -166,13 +179,7 @@ describe("TribeChannelManagement", () => {
       />
     );
 
-    const channelList = screen.getByRole("list", {
-      name: "Canales configurados",
-    });
-    const rondaChannelItem = within(channelList)
-      .getByDisplayValue("Ronda")
-      .closest("li") as HTMLElement;
-    const emojiTrigger = within(rondaChannelItem).getByRole("button", {
+    const emojiTrigger = within(getChannelItem("Ronda")).getByRole("button", {
       name: "Elegir ícono",
     });
     const selectedEmojiMatches = emojiTrigger.textContent?.match(/🔥/gu) ?? [];
@@ -190,11 +197,8 @@ describe("TribeChannelManagement", () => {
       />
     );
 
-    const createButton = screen.getByRole("button", { name: "Crear canal" });
-    const createForm = createButton.closest("form") as HTMLElement;
-
     await user.click(
-      within(createForm).getByRole("button", { name: "Elegir ícono" })
+      within(getCreateForm()).getByRole("button", { name: "Elegir ícono" })
     );
 
     const emojiPicker = screen.getByRole("button", { name: "Elegir estrella" });
@@ -210,102 +214,6 @@ describe("TribeChannelManagement", () => {
     expect(emojiPicker).toHaveAttribute("data-default-skin-tone", "neutral");
     expect(emojiPicker).toHaveAttribute("data-suggestions-mode", "recent");
     expect(emojiPicker).toHaveAttribute("data-skin-tone-location", "SEARCH");
-  });
-
-  it("keeps the channel form fluid across mobile and desktop widths", () => {
-    expect(tribeChannelManagementStyles).toMatch(
-      /\.TribeChannelManagement\s*{[^}]*max-width:\s*min\(100%,\s*980px\);/s
-    );
-    expect(tribeChannelManagementStyles).toMatch(
-      /\.TribeChannelManagement\s*{[^}]*width:\s*100%;/s
-    );
-    expect(tribeChannelManagementStyles).toMatch(
-      /&__createForm\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s
-    );
-    expect(tribeChannelManagementStyles).toMatch(
-      /&__item\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s
-    );
-    expect(tribeChannelManagementStyles).toMatch(
-      /&__actions\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/s
-    );
-    expect(tribeChannelManagementStyles).toMatch(
-      /@media\s*\(min-width:\s*56rem\)\s*{[^}]*\.TribeChannelManagement/s
-    );
-    expect(tribeChannelManagementStyles).toMatch(
-      /&__createForm\s*{[^}]*grid-template-columns:\s*max-content\s*minmax\(12rem,\s*1fr\)\s*max-content;/s
-    );
-    expect(tribeChannelManagementStyles).toMatch(
-      /&__item\s*{[^}]*grid-template-columns:\s*max-content\s*minmax\(10rem,\s*0\.58fr\)\s*minmax\(12rem,\s*1fr\)\s*max-content;/s
-    );
-    expect(tribeChannelManagementStyles).toMatch(
-      /&__actions\s*{[^}]*align-self:\s*start;/s
-    );
-    expect(tribeChannelManagementStyles).toMatch(
-      /&__createButton\s*{[^}]*align-self:\s*start;/s
-    );
-    expect(tribeChannelManagementStyles).toMatch(
-      /&__createButton\s*{[^}]*margin-top:\s*calc\(\(0\.82rem\s*\*\s*1\.25\)\s*\+\s*0\.4rem\);/s
-    );
-    expect(tribeChannelManagementStyles).toMatch(
-      /&__actions\s*{[^}]*margin-top:\s*calc\(\(0\.82rem\s*\*\s*1\.25\)\s*\+\s*0\.4rem\);/s
-    );
-  });
-
-  it("cleans stale target channels after deleting a channel", async () => {
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          message: "Canal eliminada.",
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          message: "Canal eliminada.",
-        }),
-      });
-
-    const user = userEvent.setup();
-
-    render(
-      <TribeChannelManagement
-        channels={channels}
-        tribeSlug="matematica-pro"
-      />
-    );
-
-    const channelList = screen.getByRole("list", {
-      name: "Canales configurados",
-    });
-    const rondaChannelItem = within(channelList)
-      .getByDisplayValue("Ronda")
-      .closest("li") as HTMLElement;
-    const resourcesChannelItem = within(channelList)
-      .getByDisplayValue("Recursos")
-      .closest("li") as HTMLElement;
-
-    await user.selectOptions(
-      within(resourcesChannelItem).getByRole("combobox", {
-        name: "Mover mensajes a",
-      }),
-      "channel-ronda"
-    );
-
-    await user.click(
-      within(rondaChannelItem).getByRole("button", {
-        name: "Eliminar",
-      })
-    );
-
-    await user.click(
-      within(resourcesChannelItem).getByRole("button", {
-        name: "Eliminar",
-      })
-    );
-
-    expect(global.fetch).toHaveBeenCalledTimes(2);
-    expect((global.fetch as jest.Mock).mock.calls[1][1].body).toBeUndefined();
   });
 
   it("creates a channel only after selecting an emoji from the picker", async () => {
@@ -334,7 +242,7 @@ describe("TribeChannelManagement", () => {
     );
 
     const createButton = screen.getByRole("button", { name: "Crear canal" });
-    const createForm = createButton.closest("form") as HTMLElement;
+    const createForm = getCreateForm();
 
     expect(createButton).toBeDisabled();
     expect(
@@ -363,6 +271,10 @@ describe("TribeChannelManagement", () => {
         method: "POST",
       })
     );
+    expect(await screen.findByDisplayValue("Novedades")).toBeInTheDocument();
+    expect(
+      within(getCreateForm()).getByRole("textbox", { name: "Nombre" })
+    ).toHaveValue("");
   });
 
   it("shows the 30 character name limit while creating and editing channels", () => {
@@ -373,22 +285,44 @@ describe("TribeChannelManagement", () => {
       />
     );
 
-    const createButton = screen.getByRole("button", { name: "Crear canal" });
-    const createForm = createButton.closest("form") as HTMLElement;
-    const channelList = screen.getByRole("list", {
-      name: "Canales configurados",
-    });
-    const rondaChannelItem = within(channelList)
-      .getByDisplayValue("Ronda")
-      .closest("li") as HTMLElement;
-
     expect(
-      within(createForm).getByRole("textbox", { name: "Nombre" })
+      within(getCreateForm()).getByRole("textbox", { name: "Nombre" })
     ).toHaveAttribute("maxlength", "30");
     expect(
-      within(rondaChannelItem).getByRole("textbox", { name: "Nombre" })
+      within(getChannelItem("Ronda")).getByRole("textbox", { name: "Nombre" })
     ).toHaveAttribute("maxlength", "30");
     expect(screen.getAllByText("Máximo 30 caracteres.")).not.toHaveLength(0);
+  });
+
+  it("keeps Guardar disabled until the channel is edited", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeChannelManagement
+        channels={channels}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const rondaChannelItem = getChannelItem("Ronda");
+    const saveButton = within(rondaChannelItem).getByRole("button", {
+      name: "Guardar",
+    });
+
+    expect(saveButton).toBeDisabled();
+    expect(
+      within(rondaChannelItem).queryByText("Cambios sin guardar")
+    ).not.toBeInTheDocument();
+
+    await user.type(
+      within(rondaChannelItem).getByRole("textbox", { name: "Nombre" }),
+      " general"
+    );
+
+    expect(saveButton).toBeEnabled();
+    expect(
+      within(rondaChannelItem).getByText("Cambios sin guardar")
+    ).toBeInTheDocument();
   });
 
   it("prevents saving an edited channel with a name over 30 characters", async () => {
@@ -407,12 +341,7 @@ describe("TribeChannelManagement", () => {
       />
     );
 
-    const channelList = screen.getByRole("list", {
-      name: "Canales configurados",
-    });
-    const longNameChannelItem = within(channelList)
-      .getByDisplayValue("Canal con nombre demasiado largo")
-      .closest("li") as HTMLElement;
+    const longNameChannelItem = getChannelItem("Canal con nombre demasiado largo");
 
     expect(
       within(longNameChannelItem).getByText("Usá 30 caracteres o menos.")
@@ -449,12 +378,7 @@ describe("TribeChannelManagement", () => {
       />
     );
 
-    const channelList = screen.getByRole("list", {
-      name: "Canales configurados",
-    });
-    const rondaChannelItem = within(channelList)
-      .getByDisplayValue("Ronda")
-      .closest("li") as HTMLElement;
+    const rondaChannelItem = getChannelItem("Ronda");
 
     await user.click(
       within(rondaChannelItem).getByRole("button", { name: "Elegir ícono" })
@@ -475,13 +399,18 @@ describe("TribeChannelManagement", () => {
         method: "PATCH",
       })
     );
+    await waitFor(() => {
+      expect(
+        within(getChannelItem("Ronda")).getByRole("button", { name: "Guardar" })
+      ).toBeDisabled();
+    });
   });
 
-  it("keeps the selected target channel when deleting a channel with messages", async () => {
+  it("asks for confirmation and a destination before deleting a channel with messages", async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        message: "Canal eliminada.",
+        message: "Canal eliminado.",
       }),
     });
 
@@ -494,32 +423,90 @@ describe("TribeChannelManagement", () => {
       />
     );
 
-    const channelList = screen.getByRole("list", {
-      name: "Canales configurados",
-    });
-    const resourcesChannelItem = within(channelList)
-      .getByDisplayValue("Recursos")
-      .closest("li") as HTMLElement;
-
-    await user.selectOptions(
-      within(resourcesChannelItem).getByRole("combobox", {
-        name: "Mover mensajes a",
-      }),
-      "channel-ronda"
-    );
-
     await user.click(
-      within(resourcesChannelItem).getByRole("button", {
+      within(getChannelItem("Recursos")).getByRole("button", {
         name: "Eliminar",
       })
     );
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      "/api/tribes/matematica-pro/channels/channel-resources",
-      expect.objectContaining({
-        body: JSON.stringify({ targetChannelId: "channel-ronda" }),
-        method: "DELETE",
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(
+      await screen.findByRole("heading", { name: "¿Eliminar el canal Recursos?" })
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("combobox", { name: "Mover mensajes a" })
+    );
+    await user.click(await screen.findByRole("option", { name: "🔥 Ronda" }));
+    await user.click(screen.getByRole("button", { name: "Eliminar canal" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/channels/channel-resources",
+        expect.objectContaining({
+          body: JSON.stringify({ targetChannelId: "channel-ronda" }),
+          method: "DELETE",
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue("Recursos")).not.toBeInTheDocument();
+    });
+  });
+
+  it("deletes without a destination and never offers a deleted channel as target", async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: "Canal eliminado." }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: "Canal eliminado." }),
+      });
+
+    const user = userEvent.setup();
+
+    render(
+      <TribeChannelManagement
+        channels={channels}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(
+      within(getChannelItem("Ronda")).getByRole("button", { name: "Eliminar" })
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Eliminar canal" })
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue("Ronda")).not.toBeInTheDocument();
+    });
+    expect((global.fetch as jest.Mock).mock.calls[0][1].body).toBeUndefined();
+
+    await user.click(
+      within(getChannelItem("Recursos")).getByRole("button", {
+        name: "Eliminar",
       })
     );
+
+    expect(
+      await screen.findByRole("heading", { name: "¿Eliminar el canal Recursos?" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Mover mensajes a" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Es el único canal: no hay otro al que mover sus mensajes.")
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Eliminar canal" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+    expect((global.fetch as jest.Mock).mock.calls[1][1].body).toBeUndefined();
   });
 });

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canales de la ronda</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;line-height:1.3;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid #5a9fd4;background:#eaf3fb;color:#1a4f7a;}
+.callout p{font-size:13px;color:inherit;margin-bottom:0;}
+.callout--warn{border-left-color:#d4a44c;background:#fdf5e0;color:#7a5510;}
+@media (max-width:720px){
+  body{padding:32px 16px 60px;}
+  .doc-title{font-size:24px;}
+  .section-title{font-size:18px;}
+}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">Manual de usuario</div>
+  <div class="doc-title">Canales de la ronda</div>
+  <div class="doc-sub">Cómo crear, renombrar y eliminar los canales en los que se organiza la ronda de mensajes de la tribu.</div>
+  <div class="doc-meta">
+    <span>Fecha: 2026-09-03</span>
+    <span>Estado: Vigente</span>
+    <span>Alcance: Tribus / Gestión</span>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Cómo llegar</div>
+  <p>En la barra lateral, dentro de <strong>Gestión</strong>, está la sección <strong>Canales</strong>. La ven y la pueden usar el <strong>líder</strong> y los <strong>guardianes</strong> con membresía activa; para tribemates la página no existe.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Crear un canal</div>
+  <p>La sección <strong>Nuevo canal</strong> tiene un selector de ícono, el campo de nombre y el botón <strong>Crear canal</strong>. En pantallas anchas van en una sola fila; en el teléfono el botón queda debajo, a ancho completo.</p>
+  <ul>
+    <li>El <strong>ícono</strong> es obligatorio: se elige desde el selector de emojis que abre el botón.</li>
+    <li>El <strong>nombre</strong> admite hasta <strong>30 caracteres</strong>. El botón queda deshabilitado hasta que haya ícono y un nombre válido.</li>
+    <li>El canal nuevo aparece al final de la lista sin recargar la página y el formulario se vacía para crear otro.</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Editar canales</div>
+  <p>La sección <strong>Canales configurados</strong> muestra el total junto al título y una fila por canal con su ícono, su nombre y las acciones a la derecha.</p>
+  <ul>
+    <li>Cambiá el ícono o el nombre directamente en la fila. Aparece la marca <em>Cambios sin guardar</em> y se habilita <strong>Guardar</strong>, que solo actúa sobre ese canal.</li>
+    <li>Mientras no toques nada, <strong>Guardar</strong> queda deshabilitado, así se ve de un vistazo qué filas tienen cambios pendientes.</li>
+    <li>Si el nombre supera los 30 caracteres, la fila muestra el error debajo del campo y no se puede guardar hasta corregirlo.</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Eliminar un canal</div>
+  <p>El botón de eliminar (ícono de papelera) de cada fila abre una confirmación.</p>
+  <ul>
+    <li>Si hay otros canales, la confirmación pide <strong>Mover mensajes a</strong>: elegí el canal que va a recibir los mensajes del que eliminás. Es opcional cuando el canal no tiene mensajes.</li>
+    <li>Si es el único canal, la confirmación avisa que no hay otro al que mover los mensajes.</li>
+    <li>Al confirmar con <strong>Eliminar canal</strong>, el canal desaparece de la lista y de la ronda.</li>
+  </ul>
+  <div class="callout callout--warn">
+    <p>Eliminar un canal es definitivo. Si tiene mensajes y no elegís destino, el servidor puede rechazar la operación para no perderlos.</p>
+  </div>
+</div>
+</body>
+</html>

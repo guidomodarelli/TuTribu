@@ -66,6 +66,11 @@ function subscribeToThemeClassChange(onStoreChange: () => void) {
 
 type ChannelEmojiPickerProps = {
   disabled?: boolean;
+  /**
+   * Keeps the label for assistive technology but hides it visually, for rows
+   * where a visible "Ícono" label next to every trigger would be noise.
+   */
+  isLabelVisuallyHidden?: boolean;
   label: string;
   onChange: (emoji: string) => void;
   value: string;
@@ -73,6 +78,7 @@ type ChannelEmojiPickerProps = {
 
 export function ChannelEmojiPicker({
   disabled = false,
+  isLabelVisuallyHidden = false,
   label,
   onChange,
   value,
@@ -92,7 +98,15 @@ export function ChannelEmojiPicker({
 
   return (
     <div className={styles.ChannelEmojiPicker}>
-      <span className={styles.ChannelEmojiPicker__label}>{label}</span>
+      <span
+        className={
+          isLabelVisuallyHidden
+            ? `${styles.ChannelEmojiPicker__label} ${styles["ChannelEmojiPicker__label--visuallyHidden"]}`
+            : styles.ChannelEmojiPicker__label
+        }
+      >
+        {label}
+      </span>
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
           <Button
