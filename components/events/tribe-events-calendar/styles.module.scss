@@ -1,3 +1,6 @@
+// Mirrors `MOBILE_BREAKPOINT` (768px) in `hooks/use-mobile.ts`.
+$tribe-events-calendar-mobile-max: 767px;
+
 .TribeEventsCalendar {
   display: grid;
   gap: 1rem;
@@ -135,11 +138,33 @@
     color: var(--muted-foreground);
   }
 
+  // Before hydration both views are in the DOM; the breakpoint mirrors
+  // `MOBILE_BREAKPOINT` in `hooks/use-mobile.ts` so the server-rendered page
+  // shows the same view the client will keep after `useIsMobile` resolves.
+  &__autoView--list {
+    display: none;
+  }
+
+  @media (max-width: $tribe-events-calendar-mobile-max) {
+    &__autoView--calendar {
+      display: none;
+    }
+
+    &__autoView--list {
+      display: block;
+    }
+  }
+
   &__calendarTable {
     width: 100%;
     table-layout: fixed;
-    min-width: 42rem;
     border: 1px solid var(--border);
+  }
+
+  @media (min-width: 48rem) {
+    &__calendarTable {
+      min-width: 42rem;
+    }
   }
 
   &__listTable {
@@ -152,6 +177,37 @@
   &__listTable :where(td:first-child, th:first-child) {
     min-width: 10rem;
     white-space: normal;
+  }
+
+  // Phones cannot fit five columns: each occurrence becomes a two-line row
+  // (title, then date · time · attendance · link) without a header row.
+  @media (max-width: 47.99rem) {
+    &__listTable,
+    &__listTable > :where(tbody) {
+      display: block;
+    }
+
+    &__listTable > :where(thead) {
+      display: none;
+    }
+
+    &__listTable :where(tbody tr) {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 1rem;
+      padding-block: 0.75rem;
+    }
+
+    &__listTable :where(td) {
+      display: block;
+      padding: 0;
+      white-space: normal;
+    }
+
+    &__listTable :where(td:first-child) {
+      flex-basis: 100%;
+      min-width: 0;
+    }
   }
 
   &__listRow--past {
@@ -251,6 +307,46 @@
     color: var(--muted-foreground);
     font-variant-numeric: tabular-nums;
     font-weight: 600;
+  }
+
+  // Phones: seven columns leave ~3rem per day, so the month grid fits the
+  // viewport with compact cells and pills that show only the start time. The
+  // title stays available through the detail dialog the pill opens.
+  @media (max-width: 47.99rem) {
+    &__dayHeader {
+      padding-inline: 0.15rem;
+      font-size: 0.7rem;
+    }
+
+    &__dayCell,
+    &__dayCell--today {
+      height: auto;
+      min-height: 3.5rem;
+      padding: 0.2rem;
+    }
+
+    &__dayNumber,
+    &__dayNumberMuted {
+      width: 1.5rem;
+      height: 1.5rem;
+      font-size: 0.8rem;
+    }
+
+    &__dayEvents {
+      gap: 0.2rem;
+      margin-top: 0.2rem;
+    }
+
+    &__eventPill,
+    &__eventPill--past {
+      padding: 0.2rem 0.15rem;
+      font-size: 0.68rem;
+      text-align: center;
+    }
+
+    &__eventPillTitle {
+      display: none;
+    }
   }
 
   &__emptyState {

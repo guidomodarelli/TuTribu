@@ -359,6 +359,8 @@ describe("TribeEventsCalendar", () => {
       endsAt: "2026-05-21T04:00:00.000Z",
       startsAt: "2026-05-21T02:00:00.000Z",
     });
+    // Let the save settle (form closes) so its state updates land inside the test.
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("prevents duplicate event creation while the save request is pending", async () => {
@@ -392,6 +394,11 @@ describe("TribeEventsCalendar", () => {
       json: async () => ({ occurrences: [occurrence] }),
       ok: true,
     });
+
+    expect(
+      await screen.findByRole("button", { name: "15:00 Clase abierta" })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("edits an event from the detail and keeps the attendance of existing slots", async () => {
@@ -488,5 +495,34 @@ describe("TribeEventsCalendar", () => {
       expect(toast.error).toHaveBeenCalledWith("No tenés permisos para gestionar eventos.")
     );
     expect(screen.getByRole("dialog", { name: "Nuevo evento" })).toBeInTheDocument();
+  });
+});
+
+describe("TribeEventsCalendar server render", () => {
+  it("ships both views so CSS can pick the layout before hydration", async () => {
+    const { renderToString } = await import("react-dom/server");
+
+    const html = renderToString(
+      <TribeEventsCalendar
+        events={[createOccurrence()]}
+        month={MAY}
+        tribeSlug="matematica-pro"
+        viewerPermissions={{ canManageEvents: false }}
+      />
+    );
+
+    expect(html).toContain('aria-label="Calendario mensual de eventos"');
+    expect(html).toContain('aria-label="Lista de eventos"');
+  });
+
+  it("keeps a single view once hydrated on the client", () => {
+    renderCalendar();
+
+    expect(
+      screen.getByRole("table", { name: "Calendario mensual de eventos" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("table", { name: "Lista de eventos" })
+    ).not.toBeInTheDocument();
   });
 });
