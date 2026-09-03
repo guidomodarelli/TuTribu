@@ -120,11 +120,44 @@ describe("TribeEventsCalendar", () => {
 
     await user.click(screen.getByRole("button", { name: "Ver lista" }));
 
-    const listTable = screen.getByRole("table", { name: "Lista de eventos" });
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
 
-    expect(within(listTable).getByRole("columnheader", { name: "Evento" })).toBeInTheDocument();
-    expect(within(listTable).getByRole("button", { name: "Clase abierta" })).toBeInTheDocument();
-    expect(within(listTable).getByRole("cell", { name: "2 van" })).toBeInTheDocument();
+    expect(
+      within(agenda).getByRole("heading", { name: "Miércoles 6 de mayo" })
+    ).toBeInTheDocument();
+    expect(within(agenda).getByRole("button", { name: "Clase abierta" })).toBeInTheDocument();
+    expect(within(agenda).getByText("15:00 - 16:00")).toBeInTheDocument();
+    expect(within(agenda).getByText("2 van")).toBeInTheDocument();
+    expect(
+      within(agenda).getByRole("link", { name: "Abrir link" })
+    ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
+  });
+
+  it("groups the agenda by day, marks today and shows the viewer answer and recurrence", async () => {
+    jest.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const weeklyOccurrence = createOccurrence({
+      attendance: { goingCount: 4, viewerStatus: "going" },
+      endsAt: "2026-05-13T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      recurrenceFrequency: "weekly",
+      recurrenceRule: "FREQ=WEEKLY",
+      startsAt: "2026-05-13T18:00:00.000Z",
+      title: "Office hours",
+    });
+
+    renderCalendar({ events: [weeklyOccurrence, occurrence] });
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+    const [firstDay, secondDay] = within(agenda).getAllByRole("heading", { level: 2 });
+
+    expect(firstDay).toHaveTextContent("Miércoles 6 de mayo");
+    expect(firstDay).toHaveTextContent("Hoy");
+    expect(secondDay).toHaveTextContent("Miércoles 13 de mayo");
+    expect(within(agenda).getByText("Vas")).toBeInTheDocument();
+    expect(within(agenda).getByText("Todas las semanas")).toBeInTheDocument();
   });
 
   it("shows a quiet empty state when the month has no events", async () => {
@@ -136,7 +169,7 @@ describe("TribeEventsCalendar", () => {
 
     await user.click(screen.getByRole("button", { name: "Ver lista" }));
 
-    expect(screen.queryByRole("table", { name: "Lista de eventos" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Lista de eventos" })).not.toBeInTheDocument();
     expect(screen.getByText("No hay eventos este mes.")).toBeInTheDocument();
   });
 
@@ -181,7 +214,54 @@ describe("TribeEventsCalendar", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Ver lista" }));
 
+    expect(screen.queryByText("Ronda pasada")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver 1 finalizado" }));
+
+    expect(screen.getByText("Ronda pasada")).toBeInTheDocument();
     expect(screen.getByText("Finalizado")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ocultar finalizados" })).toBeInTheDocument();
+  });
+
+  it("keeps every occurrence visible when browsing a month that is entirely past", async () => {
+    jest.setSystemTime(new Date("2026-06-15T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    renderCalendar();
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    expect(screen.getByRole("button", { name: "Clase abierta" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /finalizado/ })).not.toBeInTheDocument();
+  });
+
+  it("records the viewer attendance from the next event block without opening the detail", async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    renderCalendar();
+
+    const nextEvent = await screen.findByRole("region", { name: "Próximo evento" });
+    const goingButton = within(nextEvent).getByRole("button", { name: "Voy" });
+
+    expect(goingButton).toHaveAttribute("aria-pressed", "false");
+
+    mockJsonResponse({
+      attendance: { goingCount: 3, viewerStatus: "going" },
+      message: "Respuesta guardada.",
+    });
+    await user.click(goingButton);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      `/api/tribes/matematica-pro/events/${EVENT_ID}/attendance`,
+      expect.objectContaining({ method: "PUT" })
+    );
+    await waitFor(() =>
+      expect(within(nextEvent).getByRole("button", { name: "Voy" })).toHaveAttribute(
+        "aria-pressed",
+        "true"
+      )
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("opens the event detail with description, attendance, and calendar exports", async () => {
@@ -522,7 +602,7 @@ describe("TribeEventsCalendar server render", () => {
       screen.getByRole("table", { name: "Calendario mensual de eventos" })
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("table", { name: "Lista de eventos" })
+      screen.queryByRole("region", { name: "Lista de eventos" })
     ).not.toBeInTheDocument();
   });
 });

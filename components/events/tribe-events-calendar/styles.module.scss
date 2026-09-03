@@ -3,7 +3,7 @@ $tribe-events-calendar-mobile-max: 767px;
 
 .TribeEventsCalendar {
   display: grid;
-  gap: 1rem;
+  gap: 1.25rem;
   min-width: 0;
   width: 100%;
   max-width: none;
@@ -19,10 +19,34 @@ $tribe-events-calendar-mobile-max: 767px;
   &__header {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 1rem;
+    gap: 0.75rem 1.5rem;
     align-items: center;
     border-bottom: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
     padding-bottom: 1rem;
+  }
+
+  &__monthNavigation {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: center;
+    min-width: 0;
+  }
+
+  &__title,
+  &__timeLabel {
+    margin: 0;
+  }
+
+  &__title {
+    min-width: 0;
+    color: var(--foreground);
+    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-size: clamp(1.6rem, 4vw, 2.25rem);
+    font-weight: 600;
+    line-height: 1.1;
+    text-align: center;
+    overflow-wrap: anywhere;
   }
 
   &__todayLink,
@@ -33,26 +57,13 @@ $tribe-events-calendar-mobile-max: 767px;
     border: 1px solid var(--border);
     border-radius: 999rem;
     color: var(--foreground);
-    font-weight: 700;
+    font-weight: 600;
     text-decoration: none;
   }
 
-  &__todayLink {
-    width: fit-content;
-    min-height: 2.5rem;
-    padding: 0 1rem;
-  }
-
-  &__monthNavigation {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 0.75rem;
-    align-items: center;
-  }
-
   &__iconLink {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
 
     svg {
       width: 1.1rem;
@@ -60,34 +71,40 @@ $tribe-events-calendar-mobile-max: 767px;
     }
   }
 
-  &__monthTitleGroup {
-    display: grid;
-    gap: 0.2rem;
-    justify-items: center;
+  &__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
     min-width: 0;
-    text-align: center;
   }
 
-  &__title,
-  &__timeLabel {
-    margin: 0;
+  &__todayGroup {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
   }
 
-  &__title {
-    font-size: clamp(1.35rem, 3vw, 1.85rem);
-    line-height: 1.15;
+  &__todayLink {
+    min-height: 2.25rem;
+    padding: 0 0.9rem;
+    font-size: 0.9rem;
   }
 
   &__timeLabel {
     color: var(--muted-foreground);
-    font-weight: 600;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
   }
 
   &__actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
-    justify-content: flex-start;
+    align-items: center;
+    gap: 0.6rem;
   }
 
   &__viewToggle {
@@ -100,42 +117,53 @@ $tribe-events-calendar-mobile-max: 767px;
 
   &__nextEvent {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "label action"
-      "title action"
-      "schedule action";
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem 1.5rem;
     align-items: center;
-    column-gap: 1rem;
-    row-gap: 0.15rem;
     border-left: 3px solid var(--primary);
     padding: 0.5rem 0 0.5rem 1rem;
+  }
 
-    button {
-      grid-area: action;
-    }
+  &__nextEventBody {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  &__nextEventLabel,
+  &__nextEventTitle,
+  &__nextEventSchedule {
+    margin: 0;
   }
 
   &__nextEventLabel {
-    grid-area: label;
-    margin: 0;
     color: var(--muted-foreground);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
 
   &__nextEventTitle {
-    grid-area: title;
-    margin: 0;
     font-weight: 700;
+    overflow-wrap: anywhere;
   }
 
   &__nextEventSchedule {
-    grid-area: schedule;
-    margin: 0;
     color: var(--muted-foreground);
+    font-size: 0.95rem;
+  }
+
+  &__nextEventActions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+  }
+
+  &__attendanceButtons {
+    display: inline-flex;
+    gap: 0.35rem;
   }
 
   // Before hydration both views are in the DOM; the breakpoint mirrors
@@ -167,51 +195,102 @@ $tribe-events-calendar-mobile-max: 767px;
     }
   }
 
-  &__listTable {
-    width: 100%;
+  &__agenda {
+    display: grid;
+    gap: 1.25rem;
+    min-width: 0;
   }
 
-  // The list view is the default on phones: let the title wrap inside its
-  // cell instead of forcing the whole table to the widest title, which pushed
-  // date, schedule and link columns out of the viewport.
-  &__listTable :where(td:first-child, th:first-child) {
-    min-width: 10rem;
-    white-space: normal;
-  }
-
-  // Phones cannot fit five columns: each occurrence becomes a two-line row
-  // (title, then date · time · attendance · link) without a header row.
-  @media (max-width: 47.99rem) {
-    &__listTable,
-    &__listTable > :where(tbody) {
-      display: block;
-    }
-
-    &__listTable > :where(thead) {
-      display: none;
-    }
-
-    &__listTable :where(tbody tr) {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.25rem 1rem;
-      padding-block: 0.75rem;
-    }
-
-    &__listTable :where(td) {
-      display: block;
-      padding: 0;
-      white-space: normal;
-    }
-
-    &__listTable :where(td:first-child) {
-      flex-basis: 100%;
-      min-width: 0;
-    }
-  }
-
-  &__listRow--past {
+  &__pastToggle {
+    justify-self: start;
     color: var(--muted-foreground);
+  }
+
+  &__agendaDay {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  &__agendaDayTitle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--foreground);
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  &__agendaList {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__agendaItem,
+  &__agendaItem--past {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.25rem 0.75rem;
+    align-items: start;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    min-width: 0;
+  }
+
+  &__agendaItem--past {
+    color: var(--muted-foreground);
+  }
+
+  &__agendaTime {
+    grid-column: 1;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  &__agendaMain {
+    grid-column: 1;
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  &__agendaMeta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.6rem;
+  }
+
+  &__agendaMetaText {
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+  }
+
+  &__agendaLink {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    color: var(--foreground);
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+    }
   }
 
   &__listTitleButton {
@@ -223,22 +302,10 @@ $tribe-events-calendar-mobile-max: 767px;
     font-weight: 600;
     padding: 0;
     text-align: left;
+    overflow-wrap: anywhere;
     text-decoration: underline;
     text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
     text-underline-offset: 0.2em;
-  }
-
-  &__pastBadge {
-    display: inline-block;
-    margin-left: 0.5rem;
-    border-radius: 999rem;
-    background: color-mix(in oklch, var(--muted) 80%, transparent);
-    color: var(--muted-foreground);
-    font-size: 0.7rem;
-    font-weight: 600;
-    padding: 0.1rem 0.5rem;
-    text-transform: uppercase;
-    vertical-align: middle;
   }
 
   &__dayHeader {
@@ -376,13 +443,55 @@ $tribe-events-calendar-mobile-max: 767px;
   }
 }
 
+@media (min-width: 40rem) {
+  .TribeEventsCalendar {
+    &__nextEvent {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    &__nextEventActions {
+      justify-content: flex-end;
+    }
+
+    &__agendaItem,
+    &__agendaItem--past {
+      grid-template-columns: 7.5rem minmax(0, 1fr) auto;
+      align-items: center;
+      column-gap: 1rem;
+    }
+
+    &__agendaTime {
+      grid-column: 1;
+      font-size: 0.9rem;
+    }
+
+    &__agendaMain {
+      grid-column: 2;
+    }
+
+    &__agendaLink {
+      grid-column: 3;
+      grid-row: auto;
+    }
+  }
+}
+
 @media (min-width: 62rem) {
   .TribeEventsCalendar {
     &__header {
-      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-columns: auto minmax(0, 1fr);
     }
 
-    &__actions {
+    &__monthNavigation {
+      grid-template-columns: auto auto auto;
+    }
+
+    &__title {
+      text-align: left;
+      padding-inline: 0.25rem;
+    }
+
+    &__toolbar {
       justify-content: flex-end;
     }
   }

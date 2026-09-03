@@ -1,6 +1,12 @@
 "use client";
 
-import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ListIcon } from "lucide-react";
+import {
+  CalendarDaysIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ExternalLinkIcon,
+  ListIcon,
+} from "lucide-react";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
@@ -11,6 +17,7 @@ import {
   type TribeEventFormPayload,
 } from "@/components/events/tribe-event-form-dialog";
 import { Link } from "@/components/navigation/link";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
@@ -23,8 +30,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  formatBuenosAiresLongDate,
   formatBuenosAiresMonthTitle,
-  formatBuenosAiresShortDate,
   formatBuenosAiresTime,
   formatBuenosAiresTimeRange,
   getBuenosAiresDateKey,
@@ -32,6 +39,14 @@ import {
 } from "@/lib/date-time/buenos-aires-format";
 import { ROUTES } from "@/src/constants/routes";
 import { BUENOS_AIRES_UTC_OFFSET } from "@/src/constants/date-time";
+import {
+  TRIBE_EVENT_ATTENDANCE_LABEL,
+  TRIBE_EVENT_RECURRENCE_LABEL,
+} from "@/src/modules/events/constants/tribe-event-copy";
+import {
+  TRIBE_EVENT_ATTENDANCE_STATUS,
+  TRIBE_EVENT_RECURRENCE_FREQUENCY,
+} from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEventAttendanceStatus,
   TribeEventMonthResult,
@@ -111,12 +126,24 @@ const ROUTE_QUERY = {
 } as const;
 const BUTTON_ATTRIBUTE = {
   sizeIcon: "icon",
+  sizeSmall: "sm",
   typeButton: "button",
   variantGhost: "ghost",
+  variantOutline: "outline",
   variantSecondary: "secondary",
 } as const;
+const BADGE_VARIANT = {
+  default: "default",
+  outline: "outline",
+  secondary: "secondary",
+} as const;
+const ATTENDANCE_OPTIONS = [
+  TRIBE_EVENT_ATTENDANCE_STATUS.going,
+  TRIBE_EVENT_ATTENDANCE_STATUS.notGoing,
+] as const;
 const COPY = {
   attendanceFailure: "No pudimos guardar tu respuesta.",
+  attendanceLegend: "¿Vas a participar?",
   attendanceSaved: "Respuesta guardada.",
   calendarTableLabel: "Calendario mensual de eventos",
   createButton: "Crear evento",
@@ -129,8 +156,11 @@ const COPY = {
   eventSaveFailure: "No pudimos guardar el evento.",
   eventSaveFallback: "Evento guardado.",
   goingColumn: "Asistencia",
+  goingBadge: "Vas",
   goingCountSuffixPlural: " van",
   goingCountSuffixSingular: " va",
+  hidePastButton: "Ocultar finalizados",
+  notGoingBadge: "No vas",
   linkColumn: "Link",
   linkFallback: "Sin link",
   linkOpen: "Abrir link",
@@ -140,7 +170,10 @@ const COPY = {
   pastBadge: "Finalizado",
   previousMonth: "Mes anterior",
   scheduleColumn: "Horario",
+  scheduleSeparator: " · ",
   seeDetail: "Ver detalle",
+  showPastButton: (pastCount: number) =>
+    pastCount === 1 ? "Ver 1 finalizado" : `Ver ${pastCount} finalizados`,
   timeLabelSuffix: " Buenos Aires",
   today: "Hoy",
   todayBadge: "Hoy",
@@ -345,8 +378,15 @@ export function TribeEventsCalendar({
   const isSavingEventRef = useRef(false);
   const formSessionCounterRef = useRef(0);
 
-  const visibleEvents =
+  const [arePastEventsVisible, setArePastEventsVisible] = useState(false);
+  const unsortedVisibleEvents =
     visibleEventsState.sourceEvents === events ? visibleEventsState.events : events;
+  // The endpoint returns occurrences ordered, but the agenda groups by day and
+  // relies on the order inside each day, so sort defensively on the client.
+  const visibleEvents = useMemo(
+    () => [...unsortedVisibleEvents].sort(sortByStart),
+    [unsortedVisibleEvents]
+  );
   const currentMonth = month.current;
   const calendarDays = useMemo(() => createCalendarDays(currentMonth), [currentMonth]);
   const eventsByDay = useMemo(() => groupEventsByDay(visibleEvents), [visibleEvents]);
@@ -362,6 +402,29 @@ export function TribeEventsCalendar({
 
   const isPastOccurrence = (occurrence: TribeEventOccurrenceResult): boolean =>
     clock !== null && getOccurrenceEndTime(occurrence) < clock.nowTime;
+  const pastEvents = visibleEvents.filter(isPastOccurrence);
+  const upcomingEvents = visibleEvents.filter(
+    (occurrence) => !isPastOccurrence(occurrence)
+  );
+  // Past occurrences collapse only while the month still has something ahead;
+  // browsing an old month shows everything, since all of it is history.
+  const shouldCollapsePastEvents = pastEvents.length > 0 && upcomingEvents.length > 0;
+  const agendaEvents =
+    shouldCollapsePastEvents && !arePastEventsVisible ? upcomingEvents : visibleEvents;
+  const agendaDays = useMemo(() => {
+    const groups = new Map<string, TribeEventOccurrenceResult[]>();
+
+    for (const occurrence of agendaEvents) {
+      const dayKey = getBuenosAiresDateKey(occurrence.startsAt);
+
+      groups.set(dayKey, [...(groups.get(dayKey) ?? []), occurrence]);
+    }
+
+    return [...groups.entries()].map(([dayKey, dayEvents]) => ({
+      dayEvents,
+      dayKey,
+    }));
+  }, [agendaEvents]);
 
   const chooseCalendarMode = (mode: CalendarMode) => {
     setChosenMode(mode);
@@ -629,145 +692,222 @@ export function TribeEventsCalendar({
     </>
   );
 
+  const renderAttendanceBadge = (occurrence: TribeEventOccurrenceResult) => {
+    if (occurrence.attendance.viewerStatus === TRIBE_EVENT_ATTENDANCE_STATUS.going) {
+      return <Badge variant={BADGE_VARIANT.default}>{COPY.goingBadge}</Badge>;
+    }
+
+    if (occurrence.attendance.viewerStatus === TRIBE_EVENT_ATTENDANCE_STATUS.notGoing) {
+      return <Badge variant={BADGE_VARIANT.outline}>{COPY.notGoingBadge}</Badge>;
+    }
+
+    return null;
+  };
+
+  const renderAttendanceButtons = (occurrence: TribeEventOccurrenceResult) => (
+    <div
+      aria-label={COPY.attendanceLegend}
+      className={styles.TribeEventsCalendar__attendanceButtons}
+      role="group"
+    >
+      {ATTENDANCE_OPTIONS.map((status) => {
+        const isSelected = occurrence.attendance.viewerStatus === status;
+
+        return (
+          <Button
+            aria-pressed={isSelected}
+            disabled={isSavingAttendance}
+            key={status}
+            size={BUTTON_ATTRIBUTE.sizeSmall}
+            type={BUTTON_ATTRIBUTE.typeButton}
+            variant={
+              isSelected ? BUTTON_ATTRIBUTE.variantSecondary : BUTTON_ATTRIBUTE.variantOutline
+            }
+            onClick={() => {
+              void saveAttendance(occurrence, isSelected ? null : status);
+            }}
+          >
+            {TRIBE_EVENT_ATTENDANCE_LABEL[status]}
+          </Button>
+        );
+      })}
+    </div>
+  );
+
   const renderListView = () =>
     visibleEvents.length === 0 ? (
       renderEmptyState()
     ) : (
-      <Table
-        aria-label={COPY.listTableLabel}
-        className={styles.TribeEventsCalendar__listTable}
-      >
-        <TableHeader>
-          <TableRow>
-            <TableHead>{COPY.eventColumn}</TableHead>
-            <TableHead>{COPY.dateColumn}</TableHead>
-            <TableHead>{COPY.scheduleColumn}</TableHead>
-            <TableHead>{COPY.goingColumn}</TableHead>
-            <TableHead>{COPY.linkColumn}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {visibleEvents.map((occurrence) => (
-            <TableRow
-              className={
-                isPastOccurrence(occurrence)
-                  ? styles["TribeEventsCalendar__listRow--past"]
-                  : undefined
-              }
-              key={occurrence.occurrenceKey}
+      <section aria-label={COPY.listTableLabel} className={styles.TribeEventsCalendar__agenda}>
+        {shouldCollapsePastEvents ? (
+          <Button
+            aria-expanded={arePastEventsVisible}
+            className={styles.TribeEventsCalendar__pastToggle}
+            size={BUTTON_ATTRIBUTE.sizeSmall}
+            type={BUTTON_ATTRIBUTE.typeButton}
+            variant={BUTTON_ATTRIBUTE.variantGhost}
+            onClick={() => setArePastEventsVisible((currentValue) => !currentValue)}
+          >
+            {arePastEventsVisible
+              ? COPY.hidePastButton
+              : COPY.showPastButton(pastEvents.length)}
+          </Button>
+        ) : null}
+        {agendaDays.map((agendaDay) => {
+          const isToday = agendaDay.dayKey === todayKey;
+
+          return (
+            <section
+              className={styles.TribeEventsCalendar__agendaDay}
+              key={agendaDay.dayKey}
             >
-              <TableCell>
-                <button
-                  className={styles.TribeEventsCalendar__listTitleButton}
-                  type={BUTTON_ATTRIBUTE.typeButton}
-                  onClick={() => setSelectedOccurrenceKey(occurrence.occurrenceKey)}
-                >
-                  {occurrence.title}
-                </button>
-                {isPastOccurrence(occurrence) ? (
-                  <span className={styles.TribeEventsCalendar__pastBadge}>
-                    {COPY.pastBadge}
-                  </span>
+              <h2 className={styles.TribeEventsCalendar__agendaDayTitle}>
+                {formatBuenosAiresLongDate(agendaDay.dayEvents[0].startsAt)}
+                {isToday ? (
+                  <Badge variant={BADGE_VARIANT.secondary}>{COPY.todayBadge}</Badge>
                 ) : null}
-              </TableCell>
-              <TableCell>{formatBuenosAiresShortDate(occurrence.startsAt)}</TableCell>
-              <TableCell>
-                {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
-              </TableCell>
-              <TableCell>{formatGoingCount(occurrence.attendance.goingCount)}</TableCell>
-              <TableCell>
-                {occurrence.meetingUrl ? (
-                  <a
-                    href={occurrence.meetingUrl}
-                    rel={LINK_ATTRIBUTE.noreferrer}
-                    target={LINK_ATTRIBUTE.targetBlank}
-                  >
-                    {COPY.linkOpen}
-                  </a>
-                ) : (
-                  COPY.linkFallback
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+              </h2>
+              <ol className={styles.TribeEventsCalendar__agendaList}>
+                {agendaDay.dayEvents.map((occurrence) => {
+                  const isPast = isPastOccurrence(occurrence);
+
+                  return (
+                    <li
+                      className={
+                        isPast
+                          ? styles["TribeEventsCalendar__agendaItem--past"]
+                          : styles.TribeEventsCalendar__agendaItem
+                      }
+                      key={occurrence.occurrenceKey}
+                    >
+                      <span className={styles.TribeEventsCalendar__agendaTime}>
+                        {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
+                      </span>
+                      <div className={styles.TribeEventsCalendar__agendaMain}>
+                        <button
+                          className={styles.TribeEventsCalendar__listTitleButton}
+                          type={BUTTON_ATTRIBUTE.typeButton}
+                          onClick={() => setSelectedOccurrenceKey(occurrence.occurrenceKey)}
+                        >
+                          {occurrence.title}
+                        </button>
+                        <div className={styles.TribeEventsCalendar__agendaMeta}>
+                          {isPast ? (
+                            <Badge variant={BADGE_VARIANT.secondary}>{COPY.pastBadge}</Badge>
+                          ) : (
+                            renderAttendanceBadge(occurrence)
+                          )}
+                          {occurrence.recurrenceFrequency !==
+                          TRIBE_EVENT_RECURRENCE_FREQUENCY.none ? (
+                            <span className={styles.TribeEventsCalendar__agendaMetaText}>
+                              {TRIBE_EVENT_RECURRENCE_LABEL[occurrence.recurrenceFrequency]}
+                            </span>
+                          ) : null}
+                          <span className={styles.TribeEventsCalendar__agendaMetaText}>
+                            {formatGoingCount(occurrence.attendance.goingCount)}
+                          </span>
+                        </div>
+                      </div>
+                      {occurrence.meetingUrl ? (
+                        <a
+                          aria-label={COPY.linkOpen}
+                          className={styles.TribeEventsCalendar__agendaLink}
+                          href={occurrence.meetingUrl}
+                          rel={LINK_ATTRIBUTE.noreferrer}
+                          target={LINK_ATTRIBUTE.targetBlank}
+                          title={COPY.linkOpen}
+                        >
+                          <ExternalLinkIcon aria-hidden />
+                        </a>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          );
+        })}
+      </section>
     );
 
   return (
     <main className={styles.TribeEventsCalendar}>
       <header className={styles.TribeEventsCalendar__header}>
-        <Link
-          className={styles.TribeEventsCalendar__todayLink}
-          href={buildEventsRoute(tribeSlug, getBuenosAiresMonthKey(new Date()))}
-        >
-          {COPY.today}
-        </Link>
         <div className={styles.TribeEventsCalendar__monthNavigation}>
           <Link
             aria-label={COPY.previousMonth}
             className={styles.TribeEventsCalendar__iconLink}
             href={buildEventsRoute(tribeSlug, month.previous)}
+            prefetch
           >
             <ChevronLeftIcon aria-hidden />
           </Link>
-          <div className={styles.TribeEventsCalendar__monthTitleGroup}>
-            <h1 className={styles.TribeEventsCalendar__title}>
-              {formatBuenosAiresMonthTitle(month.current)}
-            </h1>
-            {clock ? (
-              <p className={styles.TribeEventsCalendar__timeLabel}>{clock.timeLabel}</p>
-            ) : null}
-          </div>
+          <h1 className={styles.TribeEventsCalendar__title}>
+            {formatBuenosAiresMonthTitle(month.current)}
+          </h1>
           <Link
             aria-label={COPY.nextMonth}
             className={styles.TribeEventsCalendar__iconLink}
             href={buildEventsRoute(tribeSlug, month.next)}
+            prefetch
           >
             <ChevronRightIcon aria-hidden />
           </Link>
         </div>
-        <div className={styles.TribeEventsCalendar__actions}>
-          <div
-            className={styles.TribeEventsCalendar__viewToggle}
-            aria-label={COPY.viewModeLabel}
-          >
-            <Button
-              aria-pressed={calendarMode === CALENDAR_MODE.list}
-              size={BUTTON_ATTRIBUTE.sizeIcon}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={
-                calendarMode === CALENDAR_MODE.list
-                  ? BUTTON_ATTRIBUTE.variantSecondary
-                  : BUTTON_ATTRIBUTE.variantGhost
-              }
-              onClick={() => chooseCalendarMode(CALENDAR_MODE.list)}
+        <div className={styles.TribeEventsCalendar__toolbar}>
+          <div className={styles.TribeEventsCalendar__todayGroup}>
+            <Link
+              className={styles.TribeEventsCalendar__todayLink}
+              href={buildEventsRoute(tribeSlug, getBuenosAiresMonthKey(new Date()))}
             >
-              <ListIcon aria-hidden />
-              <span className={styles.TribeEventsCalendar__srOnly}>{COPY.viewList}</span>
-            </Button>
-            <Button
-              aria-pressed={calendarMode === CALENDAR_MODE.calendar}
-              size={BUTTON_ATTRIBUTE.sizeIcon}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={
-                calendarMode === CALENDAR_MODE.calendar
-                  ? BUTTON_ATTRIBUTE.variantSecondary
-                  : BUTTON_ATTRIBUTE.variantGhost
-              }
-              onClick={() => chooseCalendarMode(CALENDAR_MODE.calendar)}
-            >
-              <CalendarDaysIcon aria-hidden />
-              <span className={styles.TribeEventsCalendar__srOnly}>
-                {COPY.viewCalendar}
-              </span>
-            </Button>
+              {COPY.today}
+            </Link>
+            {clock ? (
+              <p className={styles.TribeEventsCalendar__timeLabel}>{clock.timeLabel}</p>
+            ) : null}
           </div>
-          {canManageEvents ? (
-            <Button type={BUTTON_ATTRIBUTE.typeButton} onClick={openCreateForm}>
-              {COPY.createButton}
-            </Button>
-          ) : null}
+          <div className={styles.TribeEventsCalendar__actions}>
+            <div
+              className={styles.TribeEventsCalendar__viewToggle}
+              aria-label={COPY.viewModeLabel}
+            >
+              <Button
+                aria-pressed={calendarMode === CALENDAR_MODE.list}
+                size={BUTTON_ATTRIBUTE.sizeIcon}
+                type={BUTTON_ATTRIBUTE.typeButton}
+                variant={
+                  calendarMode === CALENDAR_MODE.list
+                    ? BUTTON_ATTRIBUTE.variantSecondary
+                    : BUTTON_ATTRIBUTE.variantGhost
+                }
+                onClick={() => chooseCalendarMode(CALENDAR_MODE.list)}
+              >
+                <ListIcon aria-hidden />
+                <span className={styles.TribeEventsCalendar__srOnly}>{COPY.viewList}</span>
+              </Button>
+              <Button
+                aria-pressed={calendarMode === CALENDAR_MODE.calendar}
+                size={BUTTON_ATTRIBUTE.sizeIcon}
+                type={BUTTON_ATTRIBUTE.typeButton}
+                variant={
+                  calendarMode === CALENDAR_MODE.calendar
+                    ? BUTTON_ATTRIBUTE.variantSecondary
+                    : BUTTON_ATTRIBUTE.variantGhost
+                }
+                onClick={() => chooseCalendarMode(CALENDAR_MODE.calendar)}
+              >
+                <CalendarDaysIcon aria-hidden />
+                <span className={styles.TribeEventsCalendar__srOnly}>
+                  {COPY.viewCalendar}
+                </span>
+              </Button>
+            </div>
+            {canManageEvents ? (
+              <Button type={BUTTON_ATTRIBUTE.typeButton} onClick={openCreateForm}>
+                {COPY.createButton}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -776,24 +916,30 @@ export function TribeEventsCalendar({
           aria-label={COPY.nextEventLabel}
           className={styles.TribeEventsCalendar__nextEvent}
         >
-          <p className={styles.TribeEventsCalendar__nextEventLabel}>
-            {COPY.nextEventLabel}
-          </p>
-          <p className={styles.TribeEventsCalendar__nextEventTitle}>
-            {nextOccurrence.title}
-          </p>
-          <p className={styles.TribeEventsCalendar__nextEventSchedule}>
-            {formatBuenosAiresShortDate(nextOccurrence.startsAt)}
-            {PILL_SEPARATOR}
-            {formatBuenosAiresTimeRange(nextOccurrence.startsAt, nextOccurrence.endsAt)}
-          </p>
-          <Button
-            type={BUTTON_ATTRIBUTE.typeButton}
-            variant={BUTTON_ATTRIBUTE.variantSecondary}
-            onClick={() => setSelectedOccurrenceKey(nextOccurrence.occurrenceKey)}
-          >
-            {COPY.seeDetail}
-          </Button>
+          <div className={styles.TribeEventsCalendar__nextEventBody}>
+            <p className={styles.TribeEventsCalendar__nextEventLabel}>
+              {COPY.nextEventLabel}
+            </p>
+            <p className={styles.TribeEventsCalendar__nextEventTitle}>
+              {nextOccurrence.title}
+            </p>
+            <p className={styles.TribeEventsCalendar__nextEventSchedule}>
+              {formatBuenosAiresLongDate(nextOccurrence.startsAt)}
+              {COPY.scheduleSeparator}
+              {formatBuenosAiresTimeRange(nextOccurrence.startsAt, nextOccurrence.endsAt)}
+            </p>
+          </div>
+          <div className={styles.TribeEventsCalendar__nextEventActions}>
+            {renderAttendanceButtons(nextOccurrence)}
+            <Button
+              size={BUTTON_ATTRIBUTE.sizeSmall}
+              type={BUTTON_ATTRIBUTE.typeButton}
+              variant={BUTTON_ATTRIBUTE.variantGhost}
+              onClick={() => setSelectedOccurrenceKey(nextOccurrence.occurrenceKey)}
+            >
+              {COPY.seeDetail}
+            </Button>
+          </div>
         </section>
       ) : null}
 
