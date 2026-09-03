@@ -1,7 +1,8 @@
 "use client";
 
-import { CalendarPlusIcon, DownloadIcon, ExternalLinkIcon } from "lucide-react";
+import { CalendarPlusIcon, DownloadIcon, ExternalLinkIcon, LinkIcon } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -57,6 +58,9 @@ const LINK_ATTRIBUTE = {
   noreferrer: "noreferrer",
   targetBlank: "_blank",
 } as const;
+const BADGE_VARIANT = {
+  secondary: "secondary",
+} as const;
 const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
@@ -69,8 +73,12 @@ const ATTENDANCE_OPTIONS = [
   TRIBE_EVENT_ATTENDANCE_STATUS.notGoing,
 ] as const;
 const COPY = {
+  attendanceHeading: "Asistencia",
   attendanceLegend: "¿Vas a participar?",
   attendanceNone: "Todavía nadie confirmó asistencia.",
+  attendancePastNone: "Nadie confirmó asistencia.",
+  attendancePastPlural: " personas fueron",
+  attendancePastSingular: " persona fue",
   attendancePlural: " personas van",
   attendanceSingular: " persona va",
   deleteButton: "Eliminar",
@@ -79,7 +87,8 @@ const COPY = {
   editButton: "Editar",
   googleCalendar: "Agregar a Google Calendar",
   linkOpen: "Abrir link de reunión",
-  pastNotice: "Este evento ya finalizó.",
+  meetingLinkMissing: "Sin link de reunión",
+  pastBadge: "Finalizado",
   recurrenceUntilPrefix: " hasta el ",
   scheduleSeparator: " · ",
 } as const;
@@ -96,9 +105,16 @@ function buildCalendarDownloadUrl(tribeSlug: string, eventId: string): string {
   );
 }
 
-function formatAttendanceCount(goingCount: number): string {
+function formatAttendanceCount(goingCount: number, isPast: boolean): string {
   if (goingCount === 0) {
-    return COPY.attendanceNone;
+    return isPast ? COPY.attendancePastNone : COPY.attendanceNone;
+  }
+
+  if (isPast) {
+    return (
+      String(goingCount) +
+      (goingCount === 1 ? COPY.attendancePastSingular : COPY.attendancePastPlural)
+    );
   }
 
   return (
@@ -160,7 +176,14 @@ export function TribeEventDetailDialog({
         {occurrence ? (
           <>
             <DialogHeader>
-              <DialogTitle>{occurrence.title}</DialogTitle>
+              <div className={styles.TribeEventDetailDialog__titleRow}>
+                <DialogTitle className={styles.TribeEventDetailDialog__title}>
+                  {occurrence.title}
+                </DialogTitle>
+                {isPast ? (
+                  <Badge variant={BADGE_VARIANT.secondary}>{COPY.pastBadge}</Badge>
+                ) : null}
+              </div>
               <DialogDescription>
                 {formatBuenosAiresLongDate(occurrence.startsAt)}
                 {COPY.scheduleSeparator}
@@ -169,20 +192,16 @@ export function TribeEventDetailDialog({
               </DialogDescription>
             </DialogHeader>
 
-            {isPast ? (
-              <p className={styles.TribeEventDetailDialog__notice}>{COPY.pastNotice}</p>
-            ) : null}
-
-            <dl className={styles.TribeEventDetailDialog__facts}>
-              {occurrence.description ? (
+            {occurrence.description ? (
+              <dl className={styles.TribeEventDetailDialog__facts}>
                 <div className={styles.TribeEventDetailDialog__fact}>
                   <dt>{COPY.descriptionHeading}</dt>
                   <dd className={styles.TribeEventDetailDialog__description}>
                     {occurrence.description}
                   </dd>
                 </div>
-              ) : null}
-            </dl>
+              </dl>
+            ) : null}
 
             <div className={styles.TribeEventDetailDialog__links}>
               {occurrence.meetingUrl ? (
@@ -196,7 +215,12 @@ export function TribeEventDetailDialog({
                     {COPY.linkOpen}
                   </a>
                 </Button>
-              ) : null}
+              ) : (
+                <p className={styles.TribeEventDetailDialog__missingLink}>
+                  <LinkIcon aria-hidden />
+                  {COPY.meetingLinkMissing}
+                </p>
+              )}
               {googleCalendarUrl ? (
                 <Button
                   asChild
@@ -226,11 +250,14 @@ export function TribeEventDetailDialog({
             </div>
 
             <section
-              aria-label={COPY.attendanceLegend}
+              aria-label={COPY.attendanceHeading}
               className={styles.TribeEventDetailDialog__attendance}
             >
+              <p className={styles.TribeEventDetailDialog__attendanceHeading}>
+                {COPY.attendanceHeading}
+              </p>
               <p className={styles.TribeEventDetailDialog__attendanceCount}>
-                {formatAttendanceCount(occurrence.attendance.goingCount)}
+                {formatAttendanceCount(occurrence.attendance.goingCount, isPast)}
               </p>
               {isPast ? null : (
                 <div className={styles.TribeEventDetailDialog__attendanceActions}>

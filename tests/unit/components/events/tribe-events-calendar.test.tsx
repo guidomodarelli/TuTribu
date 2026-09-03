@@ -437,6 +437,35 @@ describe("TribeEventsCalendar", () => {
     ).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("renders a finished event without link or description as a compact summary", async () => {
+    jest.setSystemTime(new Date("2026-05-10T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    renderCalendar({
+      events: [
+        createOccurrence({
+          attendance: { goingCount: 1, viewerStatus: null },
+          description: null,
+          endsAt: null,
+          meetingUrl: null,
+        }),
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: "15:00 Clase abierta" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
+
+    expect(within(dialog).getByText("Finalizado")).toBeInTheDocument();
+    expect(within(dialog).getByText("Sin link de reunión")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Descripción")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("1 persona fue")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Voy" })).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("link", { name: "Descargar .ics" })
+    ).toBeInTheDocument();
+  });
+
   it("shows the recurrence next to the schedule in the detail header", async () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 

@@ -1,12 +1,31 @@
 .TribeEventDetailDialog {
   width: min(100% - 2rem, 36rem);
 
-  &__notice {
+  &__titleRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding-right: 1.5rem;
+  }
+
+  &__title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  &__missingLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     margin: 0;
-    border-left: 3px solid var(--border);
     color: var(--muted-foreground);
     font-size: 0.9rem;
-    padding-left: 0.75rem;
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+    }
   }
 
   &__facts {
@@ -61,10 +80,20 @@
     padding-top: 0.75rem;
   }
 
-  &__attendanceCount {
+  &__attendanceHeading {
     margin: 0;
     color: var(--muted-foreground);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__attendanceCount {
+    margin: 0;
+    color: var(--foreground);
+    font-size: 0.95rem;
+    font-weight: 600;
   }
 
   &__attendanceActions {
