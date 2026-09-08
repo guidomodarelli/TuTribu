@@ -20,3 +20,6 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
   workerd: true
+minimumReleaseAgeExclude:
+  # Allow immediate adoption of the explicitly requested, checksum-verified release.
+  - beez-ui@0.4.0
