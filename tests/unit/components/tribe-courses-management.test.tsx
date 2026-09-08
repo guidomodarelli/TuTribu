@@ -23,7 +23,9 @@ jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
 }));
 
-jest.mock("sonner", () => ({
+// Preserve the existing Sonner double to isolate its timers and global notification store.
+jest.mock("beez-ui", () => ({
+  ...jest.requireActual("beez-ui"),
   toast: {
     error: jest.fn(),
     success: jest.fn(),
@@ -795,7 +797,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
   });
 
   it("rejects oversized and disallowed files before reserving an upload", async () => {
-    const { toast } = jest.requireMock("sonner") as {
+    const { toast } = jest.requireMock("beez-ui") as {
       toast: { error: jest.Mock };
     };
     const user = userEvent.setup();
@@ -889,7 +891,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
   });
 
   it("disables submit and blocks the save when a file draft is in the error state", async () => {
-    const { toast } = jest.requireMock("sonner") as {
+    const { toast } = jest.requireMock("beez-ui") as {
       toast: { error: jest.Mock };
     };
     (global.fetch as jest.Mock).mockResolvedValueOnce(

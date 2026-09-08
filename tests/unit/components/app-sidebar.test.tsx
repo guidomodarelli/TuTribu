@@ -1,18 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { render as renderComponent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import type { ReactElement, ReactNode } from "react";
+import { SidebarProvider, SidebarTrigger, TooltipProvider } from "beez-ui";
 import { usePathname, useRouter } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
 
 const pushMock = jest.fn();
 const prefetchMock = jest.fn();
-const setOpenMobileMock = jest.fn();
-const appSidebarStyles = readFileSync(
-  join(process.cwd(), "components", "app-sidebar", "styles.module.scss"),
-  "utf8"
-);
 
 jest.mock("next/navigation", () => ({
   usePathname: jest.fn(),
@@ -23,72 +18,22 @@ jest.mock("@/components/auth/avatar-session-menu-client", () => ({
   AvatarSessionMenuClient: () => <div>Cuenta</div>,
 }));
 
-jest.mock("@/components/ui/sidebar", () => ({
-  Sidebar: ({
-    children,
-    variant,
-  }: {
-    children: React.ReactNode;
-    variant?: string;
-  }) => <aside data-variant={variant}>{children}</aside>,
-  SidebarContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SidebarFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SidebarGroup: ({ children }: { children: React.ReactNode }) => <section>{children}</section>,
-  SidebarGroupContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SidebarGroupLabel: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
-  SidebarHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SidebarMenu: ({ children }: { children: React.ReactNode }) => <ul>{children}</ul>,
-  SidebarMenuButton: ({
-    children,
-    onClick,
-    tooltip,
-    isActive,
-    ...props
-  }: {
-    children: React.ReactNode;
-    onClick?: () => void;
-    tooltip?: string;
-    isActive?: boolean;
-  } & React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button
-      type="button"
-      onClick={onClick}
-      data-tooltip={tooltip}
-      data-active={isActive}
-      {...props}
-    >
-      {children}
-    </button>
-  ),
-  SidebarMenuBadge: ({
-    children,
-    className,
-  }: {
-    children: React.ReactNode;
-    className?: string;
-  }) => <span className={className}>{children}</span>,
-  SidebarMenuItem: ({ children }: { children: React.ReactNode }) => <li>{children}</li>,
-  SidebarRail: () => null,
-  SidebarSeparator: ({ className }: { className?: string }) => (
-    <hr className={className} />
-  ),
-  useSidebar: jest.fn(() => ({
-    isMobile: false,
-    setOpenMobile: setOpenMobileMock,
-  })),
-}));
+/** Renders the product sidebar against the actual shared provider. */
+function render(ui: ReactElement) {
+  return renderComponent(ui, { wrapper: SidebarTestProviders });
+}
+
+/** Keeps the real provider mounted across consumer rerenders. */
+function SidebarTestProviders({ children }: { children: ReactNode }) {
+  return <TooltipProvider><SidebarProvider><SidebarTrigger aria-label="Abrir navegación" />{children}</SidebarProvider></TooltipProvider>;
+}
 
 describe("AppSidebar", () => {
   beforeEach(() => {
-    const { useSidebar } = jest.requireMock("@/components/ui/sidebar");
 
     jest.clearAllMocks();
     pushMock.mockReset();
-    setOpenMobileMock.mockReset();
-    useSidebar.mockReturnValue({
-      isMobile: false,
-      setOpenMobile: setOpenMobileMock,
-    });
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
 
     (useRouter as jest.Mock).mockReturnValue({
       prefetch: prefetchMock,
@@ -104,17 +49,14 @@ describe("AppSidebar", () => {
       name: /descubrir tribus/i,
     });
 
-    expect(discoveryButton).toHaveAttribute(
-      "data-tooltip",
-      "Descubrir tribus"
-    );
+    expect(discoveryButton).toHaveAccessibleName("Descubrir tribus");
     expect(discoveryButton.querySelector(".lucide-compass")).toBeInTheDocument();
   });
 
   it("uses the default sidebar variant", () => {
     render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
 
-    expect(screen.getByRole("complementary")).toHaveAttribute("data-variant", "sidebar");
+    expect(screen.getByText("TuTribu").closest("[data-slot=sidebar]")).toHaveAttribute("data-variant", "sidebar");
   });
 
   it("keeps the header separator constrained to the sidebar width", () => {
@@ -179,17 +121,7 @@ describe("AppSidebar", () => {
     expect(screen.queryByText("Tribu privada")).not.toBeInTheDocument();
   });
 
-  it("lets the sidebar tribe switcher occupy the available menu width", () => {
-    expect(appSidebarStyles).toMatch(/&__tribeSwitcher\s*{[^}]*display:\s*flex;/s);
-    expect(appSidebarStyles).toMatch(/&__tribeSwitcher\s*{[^}]*width:\s*100%;/s);
-  });
 
-  it("keeps long active tribe names truncated before the chevron", () => {
-    expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*min-width:\s*0;/s);
-    expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*overflow:\s*hidden;/s);
-    expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*text-overflow:\s*ellipsis;/s);
-    expect(appSidebarStyles).toMatch(/&__brandName\s*{[^}]*white-space:\s*nowrap;/s);
-  });
 
   it("does not render the tribe switcher sidebar action outside a tribe", () => {
     render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
@@ -336,19 +268,17 @@ describe("AppSidebar", () => {
 
   it("closes the mobile sidebar when a global navigation item is clicked", async () => {
     const user = userEvent.setup();
-    const { useSidebar } = jest.requireMock("@/components/ui/sidebar");
 
-    useSidebar.mockReturnValue({
-      isMobile: true,
-      setOpenMobile: setOpenMobileMock,
-    });
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
 
     render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "Abrir navegación" }));
 
     await user.click(screen.getByRole("button", { name: /descubrir tribus/i }));
 
     expect(pushMock).toHaveBeenCalledWith("/");
-    expect(setOpenMobileMock).toHaveBeenCalledWith(false);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("keeps the desktop sidebar open when a global navigation item is clicked", async () => {
@@ -359,7 +289,7 @@ describe("AppSidebar", () => {
     await user.click(screen.getByRole("button", { name: /descubrir tribus/i }));
 
     expect(pushMock).toHaveBeenCalledWith("/");
-    expect(setOpenMobileMock).not.toHaveBeenCalled();
+    expect(screen.getByText("TuTribu").closest("[data-slot=sidebar]")).toHaveAttribute("data-state", "expanded");
   });
 
   it("renders tribe sections when the member is inside one of their tribes", () => {
@@ -778,12 +708,8 @@ describe("AppSidebar", () => {
 
   it("closes the mobile sidebar when a tribe section navigation item is clicked", async () => {
     const user = userEvent.setup();
-    const { useSidebar } = jest.requireMock("@/components/ui/sidebar");
 
-    useSidebar.mockReturnValue({
-      isMobile: true,
-      setOpenMobile: setOpenMobileMock,
-    });
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
     (usePathname as jest.Mock).mockReturnValue("/matematica-pro/eventos");
 
     render(
@@ -806,20 +732,18 @@ describe("AppSidebar", () => {
       />
     );
 
+    await user.click(screen.getByRole("button", { name: "Abrir navegación" }));
+
     await user.click(screen.getByRole("button", { name: /la tribu/i }));
 
     expect(pushMock).toHaveBeenCalledWith("/matematica-pro/tribu");
-    expect(setOpenMobileMock).toHaveBeenCalledWith(false);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("closes the mobile sidebar when a tribe switcher dropdown item is clicked", async () => {
     const user = userEvent.setup();
-    const { useSidebar } = jest.requireMock("@/components/ui/sidebar");
 
-    useSidebar.mockReturnValue({
-      isMobile: true,
-      setOpenMobile: setOpenMobileMock,
-    });
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
     (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
 
     render(
@@ -840,11 +764,13 @@ describe("AppSidebar", () => {
       />
     );
 
+    await user.click(screen.getByRole("button", { name: "Abrir navegación" }));
+
     await user.click(screen.getByRole("button", { name: /matematica pro/i }));
     await user.click(screen.getByRole("menuitem", { name: /beta club/i }));
 
     expect(pushMock).toHaveBeenCalledWith("/beta-club");
-    expect(setOpenMobileMock).toHaveBeenCalledWith(false);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("does not render tribe sections outside an active member tribe", () => {

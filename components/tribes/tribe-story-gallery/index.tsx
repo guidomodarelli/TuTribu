@@ -1,12 +1,6 @@
 import Image from "next/image";
 
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "beez-ui";
 import { TribeStoryVideoSlide } from "@/components/tribes/tribe-story-video-slide";
 import { TRIBE_STORY_MEDIA_TYPE } from "@/src/modules/tribes/constants/tribe-story";
 import type { TribeStoryMediaResult } from "@/src/modules/tribes/application/results/tribe-story-result";

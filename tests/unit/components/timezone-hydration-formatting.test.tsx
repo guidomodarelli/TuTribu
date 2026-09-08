@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { render as renderComponent, screen } from "@testing-library/react";
 
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider } from "beez-ui";
 
 const refreshMock = jest.fn();
 
@@ -11,7 +11,11 @@ jest.mock("next/navigation", () => ({
   }),
 }));
 
-jest.mock("sonner", () => ({
+// Preserve the existing notification double to isolate Sonner timers and its global toast store.
+// Actual shared component behavior is exercised in beez-ui.test.tsx.
+// Preserve the existing Sonner double to isolate its timers and global notification store.
+jest.mock("beez-ui", () => ({
+  ...jest.requireActual("beez-ui"),
   toast: {
     error: jest.fn(),
     success: jest.fn(),

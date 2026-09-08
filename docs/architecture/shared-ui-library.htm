@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Biblioteca compartida beez-ui</title><style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style></head><body>
+<header class="doc-header"><div class="doc-label">Arquitectura · UI</div><h1 class="doc-title">Una biblioteca compartida</h1>
+<p class="doc-sub">beez-ui concentra los componentes y las modificaciones reutilizables entre repositorios.</p><div class="doc-meta">Actualizado: 2026-09-07 · pnpm 12.3.4</div></header>
+<section class="section"><h2 class="section-title">Responsabilidades</h2>
+<p>El repositorio <code>beez-ui</code> es la fuente de verdad para los componentes originales de LaTribu y los componentes reutilizables de <code>agenda-mensual</code>. Incluye sus modificaciones, utilidades de clases, detección móvil, contrato de cookies del sidebar, props para integrar la navegación del consumidor y acceso a Sonner.</p>
+<p>El tema default, los tokens y las fuentes locales de LaTribu pertenecen a <code>beez-ui</code>. TuTribu conserva sus componentes de producto, SCSS Modules y preferencias de página. No contiene copias de los componentes compartidos. Las capas de dominio y aplicación no dependen de esta biblioteca de presentación.</p></section>
+<section class="section"><h2 class="section-title">Contrato de consumo</h2>
+<div class="code-block"><pre>import { Button, Dialog, Input, toast } from "beez-ui";</pre></div>
+<p>Agrupar los imports nombrados desde la raíz. El barrel no tiene <code>use client</code>: cada módulo mantiene su frontera original. Next.js configura <code>transpilePackages</code> y <code>experimental.optimizePackageImports</code> para compilar el TypeScript distribuido e importar únicamente los módulos usados.</p>
+<p>La biblioteca usa React y no depende de Next.js ni de <code>next-themes</code>. <code>AvatarImage</code> delega carga y fallback a Base UI. No se exporta un componente <code>Link</code>: el wrapper <code>@/components/navigation/link</code> vive en LaTribu, mantiene prefetch desactivado y se pasa mediante <code>component</code> a la paginación compartida.</p>
+<p>Importar <code>beez-ui/styles.css</code> después de Tailwind en la hoja global. Esa hoja registra las fuentes del paquete mediante <code>@source</code>, importa las animaciones y declara el mapeo de tokens. La hoja incluye el tema claro/oscuro de LaTribu y sus fuentes como default. El consumidor puede sobrescribir tokens y mantiene los estilos de sus pantallas.</p></section>
+<section class="section"><h2 class="section-title">Distribución reproducible</h2>
+<p>La entrega inicial usa <code>vendor/beez-ui-0.1.0.tgz</code> y un lockfile con integridad. El tarball se genera desde el repositorio de la biblioteca con <code>pnpm pack</code>. Permite instalar y construir TuTribu en CI o en otro checkout sin acceso al directorio hermano. No requiere una publicación en un registry.</p>
+<ol><li>Modificar los componentes en <code>beez-ui</code> y ejecutar <code>pnpm check</code>.</li><li>Incrementar la versión y generar el paquete con <code>pnpm pack --pack-destination ../LaTribu/vendor</code>.</li><li>Actualizar la dependencia y el lockfile del consumidor con <code>pnpm add ./vendor/beez-ui-VERSION.tgz</code>.</li><li>Ejecutar tests, typecheck, lint, build y validar los flujos visuales en Chromium y WebKit.</li></ol>
+<p>Los nuevos componentes upstream se incorporan mediante el CLI oficial de shadcn/ui dentro de <code>beez-ui</code>. Revisar sus imports internos y exportarlos desde la raíz. No ejecutar ese CLI en el consumidor.</p></section>
+<section class="section"><h2 class="section-title">Compatibilidad y pruebas</h2>
+<p>Se preservan <code>Button.asChild</code>, estados deshabilitados, fallback y reintento de avatar, preferencias del sidebar e hidratación determinista. La librería usa Vitest 5.0.0 y <code>cnfast</code> 0.2.0, y cubre esos contratos con componentes reales; TuTribu verifica su consumo desde el artefacto instalado y sus flujos de producto.</p>
+<p>Las pruebas del sidebar usan providers reales. Se conservan los dobles preexistentes de notificaciones para aislar los timers y el estado global de Sonner, con el resto de exports reales.</p></section>
+<section class="section"><h2 class="section-title">Tooling de la biblioteca</h2><p>El código y los tests de <code>beez-ui</code> se verifican con TypeScript 7 mediante configuraciones separadas. La API de TypeScript 6 se conserva mediante el alias oficial de compatibilidad para <code>typescript-eslint</code>; el comando <code>tsc</code> sigue ejecutando TypeScript 7. Las dependencias de la biblioteca usan rangos <code>^</code> y el lockfile fija las versiones verificadas.</p></section>
+<section class="section"><h2 class="section-title">Revisión de constantes</h2><p>El contrato de cookie se define una sola vez en <code>beez-ui/src/constants/sidebar.ts</code> y se exporta desde la raíz para el servidor y el cliente. Los anchos y el atajo del sidebar y el breakpoint móvil permanecen locales. El avatar ya no impone dimensiones numéricas heredadas de Next.js; su tamaño pertenece a los estilos del componente. Se preservan los nombres y valores públicos; las unidades quedan documentadas.</p></section><section class="section"><h2 class="section-title">ESLint 10</h2><p>LaTribu y beez-ui usan ESLint <code>^10.10.0</code>. En LaTribu, <code>eslint-plugin-import@2.32.0</code>, <code>eslint-plugin-jsx-a11y@6.10.2</code>, <code>eslint-plugin-react@7.37.5</code> y <code>eslint-plugin-no-eslint-disable@3.0.2</code> mantienen rangos de peers anteriores. Se admite exclusivamente ESLint 10.10.0 para esas versiones mediante <code>peerDependencyRules.allowedVersions</code>, después de ejecutar el lint completo y verificar errores de imports duplicados, imágenes sin alt, elementos sin key y comentarios de desactivación. Los presets de Next mantienen <code>fixupConfigRules</code>. Esta validación local no modifica la compatibilidad declarada por los autores: revisar y retirar las excepciones cuando publiquen soporte, y revalidarlas antes de ampliarlas.</p></section><section class="section"><h2 class="section-title">Integración de agenda-mensual</h2><p>Se incorporan Alert, AnimatedThemeToggler, Calendar, DataTable, FilterQueryBar, Form, Highlighter, InputGroup, Label, RadioGroup, TypingAnimation y ThemedToaster, junto con sus tipos y gramática. La tabla preserva agrupación, filtros configurables y memoización. Los componentes mantienen el tema de LaTribu y sus primitivas existentes.</p><p>El tema es controlado por el consumidor: AnimatedThemeToggler recibe theme, resolvedTheme y onThemeChange; ThemedToaster recibe theme. La biblioteca no resuelve ni persiste el tema por su cuenta. El sidebar ofrece storageKey opcional sin cambiar su cookie pública ni los defaults del servidor. Los paneles largos admiten scroll y los botones exponen variante y tamaño.</p><p>Las pruebas de tabla y filtros se trasladaron a Vitest conservando sus escenarios. Se agregaron pruebas de integración de las primitivas y una app React/Vite para validar interacción, tema y responsive en Chromium y WebKit. agenda-mensual se usó como fuente de lectura; su aplicación no se modificó.</p></section></body></html>
+
+

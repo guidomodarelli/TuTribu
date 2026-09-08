@@ -2,14 +2,10 @@
 
 import { Trash2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { toast } from "sonner";
+import { toast, Avatar, AvatarFallback, AvatarImage, Button } from "beez-ui";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+
+
 import { LESSON_COMMENT_CONTENT } from "@/src/modules/courses/constants/courses";
 import type { LessonCommentResult } from "@/src/modules/courses/application/results/course-results";
 import styles from "./styles.module.scss";

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { Link } from "@/components/navigation/link";
-import { Button } from "@/components/ui/button";
+import { Button } from "beez-ui";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";

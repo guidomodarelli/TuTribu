@@ -3,12 +3,12 @@
 import { useId, useMemo, useRef, useState } from "react";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { isValidPhoneNumber } from "libphonenumber-js";
-import { toast } from "sonner";
+import { toast, Button, Input, Switch, Textarea } from "beez-ui";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+
+
+
+
 import { TribeWelcomeDisplay } from "@/components/tribes/tribe-welcome-display";
 import { TribeWelcomeSelectionModal } from "@/components/tribes/tribe-welcome-selection-modal";
 import type {

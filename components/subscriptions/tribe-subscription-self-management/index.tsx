@@ -8,9 +8,9 @@
 
 import { useState } from "react";
 import { XCircleIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast, Button } from "beez-ui";
 
-import { Button } from "@/components/ui/button";
+
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import styles from "./styles.module.scss";
 

@@ -31,29 +31,16 @@ import {
   UserRoundXIcon,
   UsersRoundIcon,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, Badge, Button, Checkbox, Input, Separator, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "beez-ui";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+
+
+
+
+
+
+
+
 import type {
   TribeSubscriberDiagnosticsResult,
   TribeMercadoPagoAccountResult,

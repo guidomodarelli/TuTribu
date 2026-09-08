@@ -13,12 +13,8 @@ import {
 } from "emoji-picker-react";
 import { SmilePlusIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Button, Popover, PopoverContent, PopoverTrigger } from "beez-ui";
+
 import { DARK_THEME_CLASS_NAME } from "@/src/constants/theme-mode";
 import styles from "./styles.module.scss";
 

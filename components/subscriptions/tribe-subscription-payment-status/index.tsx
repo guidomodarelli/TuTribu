@@ -9,7 +9,7 @@
 import { useState } from "react";
 import { CreditCardIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "beez-ui";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import styles from "./styles.module.scss";
 

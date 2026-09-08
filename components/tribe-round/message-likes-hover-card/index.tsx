@@ -13,21 +13,9 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Avatar, AvatarFallback, AvatarImage, HoverCard, HoverCardContent, HoverCardTrigger, Popover, PopoverContent, PopoverTrigger } from "beez-ui";
+
+
 import type { MessageLikerResult } from "@/src/modules/messages/application/results/tribe-round-result";
 
 import styles from "./styles.module.scss";

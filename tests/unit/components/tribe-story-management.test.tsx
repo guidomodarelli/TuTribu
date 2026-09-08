@@ -3,11 +3,13 @@ import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast } from "sonner";
+import { toast } from "beez-ui";
 
 import { TribeStoryManagement } from "@/components/tribes/tribe-story-management";
 
-jest.mock("sonner", () => ({
+// Preserve the existing Sonner double to isolate its timers and global notification store.
+jest.mock("beez-ui", () => ({
+  ...jest.requireActual("beez-ui"),
   toast: {
     error: jest.fn(),
     success: jest.fn(),

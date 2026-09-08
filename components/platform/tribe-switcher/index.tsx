@@ -9,15 +9,9 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Badge, cn } from "beez-ui";
+
+
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import styles from "./styles.module.scss";

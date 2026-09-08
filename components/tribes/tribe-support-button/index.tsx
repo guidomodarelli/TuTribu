@@ -4,18 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, WhatsappIcon } from "beez-ui";
+
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import type { TribeSupportSettings } from "@/src/modules/tribes/domain/repositories/tribe-support-repository";
 import { TribeSupportConfigDialog } from "@/components/tribes/tribe-support-config-dialog";
-import { WhatsappIcon } from "@/components/ui/svgs/whatsappIcon";
+
 import styles from "./styles.module.scss";
 
 const SUPPORT_BUTTON_COPY = {

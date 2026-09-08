@@ -6,13 +6,10 @@ import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-c
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 import { TribeSupportButton } from "@/components/tribes/tribe-support-button";
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarInset, SidebarProvider, SidebarTrigger, TooltipProvider, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "beez-ui";
+
 import { ROUTES } from "@/src/constants/routes";
-import {
-  SIDEBAR_COOKIE_NAME,
-  SIDEBAR_COOKIE_OPEN_VALUE,
-} from "@/src/constants/sidebar";
+
 import { createRequestModules } from "@/src/modules/setup";
 import styles from "./layout.module.scss";
 

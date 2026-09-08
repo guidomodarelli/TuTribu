@@ -36,22 +36,21 @@ with restrained spacing and typography.
 
 ## Component Library
 
-Always prioritize `shadcn/ui` components for interface building blocks before
-creating product-specific custom UI. If a needed `shadcn/ui` component does not
-exist in `components/ui`, install it with the official CLI before using it:
+Use `beez-ui` as the shared component library. Group named imports from the
+package root, for example `import { Button, Dialog, Input } from "beez-ui"`.
+The library owns the shadcn/ui sources and all shared customizations. Add new
+upstream components with the official CLI in the `beez-ui` repository, then
+version and distribute the package. Do not run the shadcn CLI in this app or
+reintroduce local copies under `components/ui`.
 
-```bash
-npx shadcn@latest add <component>
-```
+Compose shared components with product SCSS Modules. The library provides the LaTribu palette and fonts by default. Keep page-specific
+styles and explicit overrides in this repository. Import shared component
+styles once through `beez-ui/styles.css`. Follow the integration contract in
+`docs/architecture/shared-ui-library.htm`.
 
-Do not hand-copy `shadcn/ui` component source from documentation or external
-repositories. Keep generated `shadcn/ui` files in `components/ui` close to their
-defaults, and customize screens through composition plus product SCSS Modules.
-
-Only create a product-specific custom component when no suitable `shadcn/ui`
-component exists after checking the library and CLI options. Custom components
-must respect the visual language, spacing, tokens, interaction patterns, and
-SCSS Module conventions already present in the platform.
+Only create a product-specific custom component when the shared library has
+no suitable composition. Custom components must respect the visual language,
+spacing, tokens, interaction patterns and SCSS Module conventions.
 
 ## Layout
 

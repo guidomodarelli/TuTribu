@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "beez-ui";
 import { navigateToUrl } from "@/lib/browser-navigation";
 import styles from "./styles.module.scss";
 

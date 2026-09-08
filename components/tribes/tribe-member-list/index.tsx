@@ -1,9 +1,5 @@
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage, Badge } from "beez-ui";
+
 import { FreeInvitationAvatarFrame } from "@/components/tribes/free-invitation-avatar-frame";
 import type {
   TribeMemberResult,

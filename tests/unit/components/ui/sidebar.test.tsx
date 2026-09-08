@@ -2,7 +2,7 @@ import { act } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 
-import { SidebarMenuSkeleton } from "@/components/ui/sidebar";
+import { SidebarMenuSkeleton } from "beez-ui";
 
 describe("SidebarMenuSkeleton", () => {
   it("should hydrate without recoverable errors when browser randomness differs from the server", async () => {

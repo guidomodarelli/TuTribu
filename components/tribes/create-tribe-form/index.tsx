@@ -3,8 +3,8 @@
 import { useId, useState } from "react";
 import { CheckCircle2Icon, PencilLineIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button, Input } from "beez-ui";
+
 import { normalizeTribeSlug } from "@/src/modules/tribes/domain/value-objects/tribe-slug";
 import styles from "./styles.module.scss";
 

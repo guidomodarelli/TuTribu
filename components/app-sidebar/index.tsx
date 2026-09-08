@@ -26,21 +26,7 @@ import { ROUTES } from "@/src/constants/routes";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import styles from "./styles.module.scss";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuBadge,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-  SidebarSeparator,
-  useSidebar,
-} from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarSeparator, useSidebar } from "beez-ui";
 
 const discoverTribesNavigationItem = {
   href: ROUTES.home,

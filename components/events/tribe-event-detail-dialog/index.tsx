@@ -2,16 +2,9 @@
 
 import { CalendarPlusIcon, DownloadIcon, ExternalLinkIcon, LinkIcon } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "beez-ui";
+
+
 import { buildGoogleCalendarEventUrl } from "@/lib/calendar/google-calendar-link";
 import {
   formatBuenosAiresLongDate,

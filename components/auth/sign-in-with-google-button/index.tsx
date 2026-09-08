@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "beez-ui";
 import { ROUTES } from "@/src/constants/routes";
 import { startGoogleSignIn } from "@/src/modules/auth/infrastructure/better-auth/client";
 import styles from "./styles.module.scss";

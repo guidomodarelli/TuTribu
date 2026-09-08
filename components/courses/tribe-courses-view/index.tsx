@@ -16,12 +16,12 @@ import {
   useState,
   type MouseEvent,
 } from "react";
-import { toast } from "sonner";
+import { toast, Button } from "beez-ui";
 
 import { LessonComments } from "@/components/courses/lesson-comments";
 import { Link } from "@/components/navigation/link";
 import { RichTextContent } from "@/components/rich-text/rich-text-content";
-import { Button } from "@/components/ui/button";
+
 import { formatFileSize } from "@/lib/format-file-size";
 import { ROUTES } from "@/src/constants/routes";
 import type {

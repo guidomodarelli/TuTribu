@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 import { Link } from "@/components/navigation/link";
-import { Button } from "@/components/ui/button";
+import { Button } from "beez-ui";
 import { RichStoryContent } from "@/components/rich-text/rich-story-content";
 import { TribeStoryGallery } from "@/components/tribes/tribe-story-gallery";
 import type {

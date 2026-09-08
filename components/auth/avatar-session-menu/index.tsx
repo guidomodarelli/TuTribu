@@ -3,19 +3,9 @@
 import { LogInIcon, LogOutIcon } from "lucide-react";
 
 import { Link } from "@/components/navigation/link";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "beez-ui";
 import styles from "./styles.module.scss";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 
 type AvatarSessionMenuProps = {

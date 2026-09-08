@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast, Button, Input, Switch } from "beez-ui";
 
 import { Link } from "@/components/navigation/link";
 import { RichLinkEditor } from "@/components/rich-text/rich-link-editor";
 import { useRichLinkEditor } from "@/components/rich-text/rich-link-editor/use-rich-link-editor";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+
+
+
 import { formatFileSize } from "@/lib/format-file-size";
 import {
   ATTACHMENT_FILE,

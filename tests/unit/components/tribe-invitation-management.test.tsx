@@ -1,12 +1,14 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast } from "sonner";
+import { toast } from "beez-ui";
 
 import { TribeInvitationManagement } from "@/components/tribes/tribe-invitation-management";
 
 const writeTextMock = jest.fn(async () => undefined);
 
-jest.mock("sonner", () => ({
+// Preserve the existing Sonner double to isolate its timers and global notification store.
+jest.mock("beez-ui", () => ({
+  ...jest.requireActual("beez-ui"),
   toast: {
     error: jest.fn(),
     success: jest.fn(),

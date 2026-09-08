@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 
 import { Link } from "@/components/navigation/link";
-import { Button } from "@/components/ui/button";
+import { Button } from "beez-ui";
 import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestAuthModule } from "@/src/modules/auth/setup";

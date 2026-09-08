@@ -4,7 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { TribeSubscriptionSelfManagement } from "@/components/subscriptions/tribe-subscription-self-management";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 
-jest.mock("sonner", () => ({
+// Preserve the existing Sonner double to isolate its timers and global notification store.
+jest.mock("beez-ui", () => ({
+  ...jest.requireActual("beez-ui"),
   toast: {
     error: jest.fn(),
     success: jest.fn(),

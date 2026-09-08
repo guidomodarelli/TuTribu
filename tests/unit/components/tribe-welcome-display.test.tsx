@@ -1,11 +1,13 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast } from "sonner";
+import { toast } from "beez-ui";
 
 import { TribeWelcomeDisplay } from "@/components/tribes/tribe-welcome-display";
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
 
-jest.mock("sonner", () => ({
+// Preserve the existing Sonner double to isolate its timers and global notification store.
+jest.mock("beez-ui", () => ({
+  ...jest.requireActual("beez-ui"),
   toast: {
     error: jest.fn(),
   },

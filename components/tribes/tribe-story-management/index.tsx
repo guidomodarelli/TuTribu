@@ -14,24 +14,13 @@ import {
   Trash2Icon,
   VideoIcon,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from "beez-ui";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+
+
+
+
+
 import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
 import { buildPlayerEmbedSource } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { parseExternalVideoUrl } from "@/src/modules/shared/domain/value-objects/external-video-url";

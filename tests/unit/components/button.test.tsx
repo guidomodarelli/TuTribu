@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "beez-ui";
 
 describe("Button", () => {
   it("renders an accessible button label", () => {

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google";
 import { OpenInBrowserCta } from "@/components/auth/open-in-browser-cta";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "beez-ui";
 import { siteConfig } from "@/lib/site-config";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";

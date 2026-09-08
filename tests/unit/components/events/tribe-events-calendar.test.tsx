@@ -4,7 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 
-jest.mock("sonner", () => ({
+// Preserve the existing Sonner double to isolate its timers and global notification store.
+jest.mock("beez-ui", () => ({
+  ...jest.requireActual("beez-ui"),
   toast: {
     error: jest.fn(),
     success: jest.fn(),
@@ -658,7 +660,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("shows the endpoint message when saving fails", async () => {
-    const { toast } = jest.requireMock("sonner") as { toast: { error: jest.Mock } };
+    const { toast } = jest.requireMock("beez-ui") as { toast: { error: jest.Mock } };
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
     renderCalendar({ events: [] });

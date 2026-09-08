@@ -8,14 +8,9 @@ import {
   TribeMemberList,
   type TribeMemberSelectionBadge,
 } from "@/components/tribes/tribe-member-list";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input } from "beez-ui";
+
+
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
 import {
   buildMembersCsv,

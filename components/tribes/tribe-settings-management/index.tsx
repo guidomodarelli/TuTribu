@@ -3,10 +3,10 @@
 import { useId, useState } from "react";
 import Image from "next/image";
 import { ImageIcon, UploadIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast, Button, Input } from "beez-ui";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
+
 import type { TribeIdentityResult } from "@/src/modules/tribes/application/results/tribe-identity-result";
 import styles from "./styles.module.scss";
 

@@ -3,14 +3,8 @@
 import { useEffect, useState } from "react";
 import { MonitorIcon, MoonIcon, SunIcon, SunMoonIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "beez-ui";
+
 import {
   applyThemeMode,
   getStoredThemeMode,

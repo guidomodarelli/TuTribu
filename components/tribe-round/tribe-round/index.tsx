@@ -38,63 +38,22 @@ import {
   VoteIcon,
   XIcon,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, CardContent, CardHeader, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious, Carousel, type CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "beez-ui";
 
 import { Link } from "@/components/navigation/link";
-import { Button } from "@/components/ui/button";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarGroup,
-  AvatarImage,
-} from "@/components/ui/avatar";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
+
+
+
+
 import { RichLinkEditor } from "@/components/rich-text/rich-link-editor";
 import { useRichLinkEditor } from "@/components/rich-text/rich-link-editor/use-rich-link-editor";
 import { RichTextContent } from "@/components/rich-text/rich-text-content";
 import type { RichLink } from "@/lib/rich-text/link-markdown-types";
 import { formatFileSize } from "@/lib/format-file-size";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import {
-  Carousel,
-  type CarouselApi,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
+
+
+
 import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
 import { MessageLikesHoverCard } from "@/components/tribe-round/message-likes-hover-card";
 import {
@@ -6531,6 +6490,7 @@ function TribeRoundContent({
             <PaginationItem>
               {visiblePagination.hasPreviousPage ? (
                 <PaginationPrevious
+                  component={Link}
                   aria-label={TRIBE_ROUND_PAGINATION_LABEL.previous}
                   href={buildTribeRoundPageHref({
                     channelSlug: activeChannel?.slug ?? null,
@@ -6556,6 +6516,7 @@ function TribeRoundContent({
             <PaginationItem>
               {visiblePagination.hasNextPage ? (
                 <PaginationNext
+                  component={Link}
                   aria-label={TRIBE_ROUND_PAGINATION_LABEL.next}
                   href={buildTribeRoundPageHref({
                     channelSlug: activeChannel?.slug ?? null,

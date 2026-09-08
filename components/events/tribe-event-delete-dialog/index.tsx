@@ -1,15 +1,7 @@
 "use client";
 
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button } from "beez-ui";
+
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { TRIBE_EVENT_RECURRENCE_FREQUENCY } from "@/src/modules/events/constants/tribe-events";
 import styles from "./styles.module.scss";

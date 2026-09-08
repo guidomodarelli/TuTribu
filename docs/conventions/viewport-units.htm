@@ -65,7 +65,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <ul>
   <li>No usar <code>100vh</code> en código de producto: en mobile resuelve al viewport grande y deja contenido tapado detrás de la barra de URL.</li>
   <li>No hacer un reemplazo masivo <code>svh</code> → <code>dvh</code> "para mobile": en diálogos centrados y scroll containers de desktop, <code>dvh</code> agrega jank sin beneficio.</li>
-  <li>Mantener las clases <code>min-h-svh</code> / <code>h-svh</code> generadas por shadcn/ui (por ejemplo en <code>components/ui/sidebar.tsx</code>) tal como vienen: ya cumplen la convención.</li>
+  <li>Mantener las clases <code>min-h-svh</code> / <code>h-svh</code> generadas por shadcn/ui (por ejemplo en <code>beez-ui/src/components/sidebar.tsx</code>) tal como vienen: ya cumplen la convención.</li>
 </ul>
 <div class="callout c-warn">Al combinar <code>dvh</code> con <code>env(safe-area-inset-bottom)</code> en un overlay fullscreen, validar en iOS real que la zona de acciones inferior no quede clippeada ni salte cuando la barra del navegador togglea.</div>
 </div>

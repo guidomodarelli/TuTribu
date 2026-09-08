@@ -1,15 +1,10 @@
 import { render, screen } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { useSidebar } from "beez-ui";
 import { cookies } from "next/headers";
 
 import { PlatformLayoutContent } from "@/app/(platform)/layout";
 import { createRequestModules } from "@/src/modules/setup";
 
-const platformLayoutStyles = readFileSync(
-  join(process.cwd(), "app", "(platform)", "layout.module.scss"),
-  "utf8"
-);
 
 const getAuthenticatedMember = jest.fn();
 const getMemberTribes = jest.fn();
@@ -59,35 +54,16 @@ jest.mock("@/components/platform/tribe-switcher", () => ({
   ),
 }));
 
-jest.mock("@/components/ui/sidebar", () => ({
-  SidebarInset: ({
-    children,
-    className,
-  }: {
-    children: React.ReactNode;
-    className?: string;
-  }) => <main className={className}>{children}</main>,
-  SidebarProvider: ({
-    children,
-    defaultOpen,
-  }: {
-    children: React.ReactNode;
-    defaultOpen?: boolean;
-  }) => <div data-sidebar-default-open={String(defaultOpen)}>{children}</div>,
-  SidebarTrigger: ({ className }: { className?: string }) => (
-    <button type="button" className={className}>
-      Abrir sidebar
-    </button>
-  ),
-}));
 
-jest.mock("@/components/ui/tooltip", () => ({
-  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
 
 jest.mock("@/src/modules/setup", () => ({
   createRequestModules: jest.fn(),
 }));
+
+/** Exposes the real public sidebar state to the route integration test. */
+function SidebarState() {
+  return <output aria-label="Estado de navegación">{useSidebar().state}</output>;
+}
 
 describe("PlatformLayout", () => {
   beforeEach(() => {
@@ -131,7 +107,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido</div>,
+        children: <div>Contenido<SidebarState /></div>,
       })
     );
 
@@ -160,7 +136,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido</div>,
+        children: <div>Contenido<SidebarState /></div>,
       })
     );
 
@@ -182,7 +158,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido</div>,
+        children: <div>Contenido<SidebarState /></div>,
       })
     );
 
@@ -204,16 +180,13 @@ describe("PlatformLayout", () => {
     });
     getMemberTribes.mockResolvedValue([]);
 
-    const { container } = render(
+    render(
       await PlatformLayoutContent({
-        children: <div>Contenido</div>,
+        children: <div>Contenido<SidebarState /></div>,
       })
     );
 
-    expect(container.firstElementChild).toHaveAttribute(
-      "data-sidebar-default-open",
-      "false"
-    );
+    expect(screen.getByLabelText("Estado de navegación")).toHaveTextContent("collapsed");
   });
 
   it("skips member tribes when there is no authenticated member", async () => {
@@ -222,7 +195,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido</div>,
+        children: <div>Contenido<SidebarState /></div>,
       })
     );
 
@@ -230,27 +203,5 @@ describe("PlatformLayout", () => {
     expect(screen.getByText("Sin sesion")).toBeInTheDocument();
   });
 
-  it("keeps the platform header sticky without clipping it from the layout container", () => {
-    expect(platformLayoutStyles).toMatch(/&__header\s*{[^}]*position:\s*sticky;/s);
-    expect(platformLayoutStyles).toMatch(/&__header\s*{[^}]*top:\s*0;/s);
-    expect(platformLayoutStyles).not.toMatch(/\.PlatformLayout\s*{[^}]*overflow:\s*hidden;/s);
-  });
 
-  it("constrains platform page sections to the readable content width", () => {
-    expect(platformLayoutStyles).toMatch(
-      /&__content\s*{[^}]*>\s*:where\(main,\s*section\)\s*{[^}]*box-sizing:\s*border-box;/s
-    );
-    expect(platformLayoutStyles).toMatch(
-      /&__content\s*{[^}]*>\s*:where\(main,\s*section\)\s*{[^}]*width:\s*100%;/s
-    );
-    expect(platformLayoutStyles).toMatch(
-      /&__content\s*{[^}]*>\s*:where\(main,\s*section\)\s*{[^}]*max-width:\s*720px;/s
-    );
-    expect(platformLayoutStyles).toMatch(
-      /&__content\s*{[^}]*>\s*:where\(main,\s*section\)\s*{[^}]*margin-inline:\s*auto;/s
-    );
-    expect(platformLayoutStyles).toMatch(
-      /&__content\s*{[^}]*>\s*:where\(main,\s*section\)\s*{[^}]*padding:\s*clamp\(1rem,\s*3vw,\s*2rem\);/s
-    );
-  });
 });

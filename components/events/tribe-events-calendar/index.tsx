@@ -8,7 +8,7 @@ import {
   ListIcon,
 } from "lucide-react";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { toast } from "sonner";
+import { toast, Badge, Button, useIsMobile, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "beez-ui";
 
 import { TribeEventDeleteDialog } from "@/components/events/tribe-event-delete-dialog";
 import { TribeEventDetailDialog } from "@/components/events/tribe-event-detail-dialog";
@@ -17,18 +17,11 @@ import {
   type TribeEventFormPayload,
 } from "@/components/events/tribe-event-form-dialog";
 import { Link } from "@/components/navigation/link";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useIsMobile } from "@/hooks/use-mobile";
+
+
+
 import { useMinuteClock } from "@/hooks/use-minute-clock";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+
 import {
   formatBuenosAiresLongDate,
   formatBuenosAiresMonthTitle,

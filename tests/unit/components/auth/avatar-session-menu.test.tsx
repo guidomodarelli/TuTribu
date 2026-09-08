@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "beez-ui";
 
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 
@@ -13,7 +13,9 @@ jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
 }));
 
-jest.mock("sonner", () => ({
+// Preserve the existing Sonner double to isolate its timers and global notification store.
+jest.mock("beez-ui", () => ({
+  ...jest.requireActual("beez-ui"),
   toast: {
     error: jest.fn(),
   },

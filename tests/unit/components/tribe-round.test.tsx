@@ -8,10 +8,10 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast } from "sonner";
+import { toast, TooltipProvider } from "beez-ui";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
-import { TooltipProvider } from "@/components/ui/tooltip";
+
 import { ATTACHMENT_FILE } from "@/src/constants/attachment-files";
 
 const refreshMock = jest.fn();
@@ -246,7 +246,9 @@ jest.mock("next/navigation", () => ({
   }),
 }));
 
-jest.mock("sonner", () => ({
+// Preserve the existing Sonner double to isolate its timers and global notification store.
+jest.mock("beez-ui", () => ({
+  ...jest.requireActual("beez-ui"),
   toast: {
     error: jest.fn(),
     success: jest.fn(),
@@ -4827,6 +4829,8 @@ describe("TribeRound", () => {
       />
     );
 
+    // jsdom does not load native images; the real primitive reveals them after load.
+    fireEvent.load(screen.getByAltText("Ada Lovelace"));
     expect(screen.getByRole("img", { name: "Ada Lovelace" })).toHaveAttribute(
       "src",
       "https://example.com/ada-lovelace.jpg"
@@ -4836,6 +4840,7 @@ describe("TribeRound", () => {
       screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
     );
 
+    fireEvent.load(screen.getByAltText("Grace Hopper"));
     expect(screen.getByRole("img", { name: "Grace Hopper" })).toHaveAttribute(
       "src",
       "https://example.com/grace-hopper.jpg"
@@ -4853,10 +4858,13 @@ describe("TribeRound", () => {
       />
     );
 
-    expect(screen.getByRole("img", { name: "Ada Lovelace" })).toHaveAttribute(
+    const authorImage = screen.getByAltText("Ada Lovelace");
+    expect(authorImage).toHaveAttribute(
       "src",
       "https://example.com/ada-lovelace.jpg"
     );
+    fireEvent.load(authorImage);
+    expect(screen.getByRole("img", { name: "Ada Lovelace" })).toBeInTheDocument();
   });
 
   it("renders the channel with the previous year timestamp metadata", () => {

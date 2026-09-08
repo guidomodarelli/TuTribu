@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-import { CardDescription } from "@/components/ui/card";
+import { CardDescription } from "beez-ui";
 import { ROUTES } from "@/src/constants/routes";
 import { startGoogleSignIn } from "@/src/modules/auth/infrastructure/better-auth/client";
 import { SignInWithGoogleButton } from "../sign-in-with-google-button";

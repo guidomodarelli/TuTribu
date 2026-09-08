@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "beez-ui";
 
 import type {
   TribeWelcomeLinkResult,

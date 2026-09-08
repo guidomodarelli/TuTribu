@@ -2,12 +2,8 @@
 
 import { useEffect } from "react";
 
-import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Button, Popover, PopoverContent, PopoverTrigger } from "beez-ui";
+
 import { RICH_LINK_POPOVER_MODE } from "@/lib/rich-text/link-markdown-constants";
 import { RICH_TEXT_SEGMENT_TYPE } from "@/lib/rich-text/link-markdown-constants";
 import type { RichLinkEditorController } from "./use-rich-link-editor";

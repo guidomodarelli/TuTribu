@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "beez-ui";
 
 import { AvatarSessionMenu } from "@/components/auth/avatar-session-menu";
 import { ROUTES } from "@/src/constants/routes";
