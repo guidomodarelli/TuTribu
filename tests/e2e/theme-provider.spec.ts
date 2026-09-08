@@ -1,6 +1,25 @@
 /** Verifies persisted themes and client navigation through the real application provider. */
 import { expect, test } from "@playwright/test";
 
+test("should apply the packaged component styles in production", async ({ page }) => {
+  await page.goto("/");
+  const isTouch = await page.evaluate(() => matchMedia("(pointer: coarse)").matches);
+  const trigger = page.locator('header [data-slot="sidebar-trigger"]');
+  // Flex items compute inline-flex as flex inside the application's header layout.
+  await expect(trigger).toHaveCSS("display", "flex");
+  await expect(trigger).toHaveCSS("height", isTouch ? "40px" : "28px");
+  const accessibleLabel = trigger.locator(".sr-only");
+  await expect(accessibleLabel).toHaveCSS("position", "absolute");
+  await expect(accessibleLabel).toHaveCSS("width", "1px");
+  const themeButton = page.getByRole("button", { name: "Cambiar tema" });
+  await expect(themeButton).toHaveCSS("display", "flex");
+  await expect(themeButton).toHaveCSS("height", isTouch ? "40px" : "32px");
+  await themeButton.click();
+  const menu = page.getByRole("menu");
+  await expect(menu).toHaveCSS("border-radius", "8px");
+  await expect(menu).toHaveCSS("padding", "4px");
+});
+
 test("should restore the legacy theme, persist changes and navigate without reloading", async ({ page }) => {
   const hydrationErrors: string[] = [];
   page.on("console", (message) => {

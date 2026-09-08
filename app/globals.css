@@ -1,16 +1,11 @@
-@import "tailwindcss";
 @import "beez-ui/styles.css";
 
-@source not "../.codex";
 
-@theme inline {
+:root {
   --font-sans: var(--font-geist);
   --font-mono: var(--font-ibm-plex-mono);
   --font-heading: var(--font-geist);
   --font-display: var(--font-poppins);
-}
-
-:root {
   --body-background-image:
     radial-gradient(circle at top left, oklch(0.89 0.08 303.9 / 20%), transparent 30%),
     radial-gradient(circle at top right, oklch(0.9 0.07 264.3 / 20%), transparent 28%),

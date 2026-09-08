@@ -197,7 +197,7 @@ Notes:
   - `infrastructure/` — adapters for auth, persistence, HTTP clients, and provider SDKs. Owns external DTOs and their mappers.
 - `src/modules/shared/*` — cross-module shared code (e.g. `infrastructure/database/`).
 - `beez-ui` — shared UI implementation, maintained in the sibling repository. Import named components from the package root.
-- `vendor/beez-ui-0.2.0.tgz` — versioned UI distribution used by local development and CI; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
+- `vendor/beez-ui-0.3.1.tgz` — versioned UI distribution used by local development and CI; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
 - `components/<scope>/<component>/{index.tsx,styles.module.scss}` — custom presentational components.
 - `lib/*` — framework-safe helpers, UI utilities, and client-only adapters. Off-limits to `application` and `domain`.
 - `database/migrations/*` — versioned SQL migrations (source of truth for schema and RLS policies).

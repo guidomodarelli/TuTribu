@@ -166,7 +166,7 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 - Add new shadcn/ui components through its official CLI in that library, never in this application.
 - Do not reintroduce `components/ui` source copies or a local `components.json`.
 - Prefer composition of existing shared primitives before custom product components.
-- Import `beez-ui/styles.css` once from the global stylesheet. It provides the default LaTribu theme and fonts; product SCSS Modules and explicit overrides stay here.
+- Import browser-ready `beez-ui/styles.css` once from the global stylesheet; do not add Tailwind compilation or `@source` in the consumer. It provides the default LaTribu theme and fonts; product SCSS Modules and explicit overrides stay here.
 - Use pnpm 12.3.4 and update the versioned package artifact plus lockfile when consuming a library release.
 - Follow `docs/architecture/shared-ui-library.htm` for package boundaries and distribution.
 - Structure rule for custom components :
@@ -220,7 +220,7 @@ components/<scope>/<component>/
   - `src/styles/*` for global styles, tokens, mixins, and layout primitives
 - Avoid inline styles except for rare runtime-only values.
 - Tailwind utility classes are forbidden in product code (`app`, `components`, and `src` feature modules) and must be replaced with `SCSS` classes.
-- Tailwind is allowed only for the base setup consumed by `beez-ui/styles.css`; shared component sources and the shadcn CLI configuration live in `beez-ui`.
+- Tailwind compilation belongs exclusively to `beez-ui`; the application consumes precompiled CSS. Shared component sources and the shadcn CLI configuration live in that library.
 
 ### CSS architecture baseline (BEM mandatory)
 
