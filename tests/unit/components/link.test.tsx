@@ -1,6 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { render as renderComponent, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { AppProviders } from "@/components/providers/app-providers";
 
 import { Link } from "@/components/navigation/link";
+
+/** Exercises the application link with its actual provider-selected Next adapter. */
+function render(ui: ReactElement) {
+  return renderComponent(<AppProviders isSitepingEnabled={false}>{ui}</AppProviders>);
+}
 
 /**
  * The shared `Link` only adds behavior to Next.js' `Link`: it flips the
@@ -11,7 +18,7 @@ import { Link } from "@/components/navigation/link";
  * attribute, mirroring the existing not-found page test. The mock stays minimal
  * and only renders an anchor, so the test still exercises the real wrapper.
  */
-jest.mock("next/link", () => ({
+jest.mock("next/link.js", () => ({
   __esModule: true,
   default: ({
     children,

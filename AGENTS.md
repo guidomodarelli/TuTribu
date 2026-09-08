@@ -161,6 +161,7 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 
 - Use `beez-ui` as the only shared component library consumed by product code.
 - Group named imports from `beez-ui`; do not use component-specific subpaths.
+- `components/providers/app-providers/app-ui-provider.tsx` is the composition root allowed to import `BeezUIProvider` from `beez-ui/next`. Use `useTheme` from `beez-ui` for theme consumers and preserve the `tutribu-theme` storage key. Do not reintroduce document theme scripts or independent preference state.
 - The sibling `beez-ui` repository owns the extracted shadcn/ui components and their customizations.
 - Add new shadcn/ui components through its official CLI in that library, never in this application.
 - Do not reintroduce `components/ui` source copies or a local `components.json`.
@@ -183,8 +184,8 @@ components/<scope>/<component>/
 ### Navigation links
 
 - Always use the shared `Link` component from `@/components/navigation/link` for in-app navigation. Never import `Link` from `next/link` directly in product code (`app`, `components`, and `src`).
-- The shared `Link` is a thin wrapper over Next.js `Link` that sets `prefetch` to `false` by default and forwards every other prop untouched. Prefetch is opt-in: pass `prefetch` explicitly only on the rare route that genuinely benefits from being prefetched.
-- `components/navigation/link/index.tsx` owns the Next.js adapter and is the only product file allowed to import `next/link`. beez-ui has no Link or router dependency; pass this app adapter through the pagination component prop.
+- The shared `Link` uses the provider's Next.js adapter with `prefetch` set to `false` by default. It accepts string hrefs and native anchor attributes. Prefetch is opt-in: pass `prefetch` explicitly only on routes that benefit from it.
+- `components/navigation/link/index.tsx` reexports `Link` and `LinkProps` from `beez-ui`. Product code must not import `next/link` directly; shared pagination uses the same provider automatically.
 - For details and examples, see the navigation links convention guide at `docs/conventions/navigation-links.htm`.
 
 ### Product language policy

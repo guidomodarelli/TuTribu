@@ -1,3 +1,4 @@
+import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 
@@ -15,7 +16,7 @@ jest.mock("next/headers", () => ({
   headers: jest.fn(),
 }));
 
-jest.mock("next/link", () => ({
+jest.mock("next/link.js", () => ({
   __esModule: true,
   default: ({
     children,
@@ -44,7 +45,7 @@ jest.mock(
 );
 
 async function renderNotFoundPageWithSessionAction() {
-  render(<NotFoundView sessionAction={await NotFoundSessionAction()} />);
+  render(<AppUIProvider><NotFoundView sessionAction={await NotFoundSessionAction()} /></AppUIProvider>);
 }
 
 describe("NotFoundPage", () => {

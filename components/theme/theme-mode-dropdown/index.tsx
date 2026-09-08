@@ -1,22 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { MonitorIcon, MoonIcon, SunIcon, SunMoonIcon } from "lucide-react";
 
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "beez-ui";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, useTheme } from "beez-ui";
 
-import {
-  applyThemeMode,
-  getStoredThemeMode,
-  isThemeMode,
-  storeThemeMode,
-} from "./theme-mode-preference";
+import { isThemeMode } from "@/lib/theme-mode";
 import {
   DARK_THEME_MODE,
   LIGHT_THEME_MODE,
   SYSTEM_THEME_MODE,
-  SYSTEM_THEME_MEDIA_QUERY,
-  type ThemeMode,
 } from "@/src/constants/theme-mode";
 import styles from "./styles.module.scss";
 
@@ -32,7 +24,6 @@ const THEME_MODE_DROPDOWN_UI = {
   buttonSize: "icon",
   buttonType: "button",
   buttonVariant: "ghost",
-  mediaQueryChangeEvent: "change",
   side: "bottom",
 } as const;
 
@@ -54,50 +45,13 @@ const THEME_MODE_OPTIONS = [
   },
 ] as const;
 
-function getInitialThemeMode(): ThemeMode {
-  if (typeof window === "undefined") {
-    return SYSTEM_THEME_MODE;
-  }
-
-  return getStoredThemeMode();
-}
-
+/** Renders the shared theme selection without owning storage or document mutations. */
 export function ThemeModeDropdown() {
-  const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialThemeMode);
+  const { theme = SYSTEM_THEME_MODE, setTheme } = useTheme();
 
-  useEffect(() => {
-    applyThemeMode(themeMode);
-
-    if (themeMode !== SYSTEM_THEME_MODE || !window.matchMedia) {
-      return;
-    }
-
-    const mediaQueryList = window.matchMedia(SYSTEM_THEME_MEDIA_QUERY);
-    const handleSystemThemeChange = () => {
-      applyThemeMode(SYSTEM_THEME_MODE);
-    };
-
-    mediaQueryList.addEventListener(
-      THEME_MODE_DROPDOWN_UI.mediaQueryChangeEvent,
-      handleSystemThemeChange
-    );
-
-    return () => {
-      mediaQueryList.removeEventListener(
-        THEME_MODE_DROPDOWN_UI.mediaQueryChangeEvent,
-        handleSystemThemeChange
-      );
-    };
-  }, [themeMode]);
-
+  /** Accepts only the application's public theme modes from the radio control. */
   const handleThemeModeChange = (nextThemeMode: string) => {
-    if (!isThemeMode(nextThemeMode)) {
-      return;
-    }
-
-    setThemeMode(nextThemeMode);
-    storeThemeMode(nextThemeMode);
-    applyThemeMode(nextThemeMode);
+    if (isThemeMode(nextThemeMode)) setTheme(nextThemeMode);
   };
 
   return (
@@ -119,7 +73,7 @@ export function ThemeModeDropdown() {
         className={styles.ThemeModeDropdown__content}
       >
         <DropdownMenuRadioGroup
-          value={themeMode}
+          value={theme}
           onValueChange={handleThemeModeChange}
         >
           {THEME_MODE_OPTIONS.map((themeModeOption) => {

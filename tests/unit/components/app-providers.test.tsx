@@ -1,4 +1,5 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { Avatar, AvatarImage } from "beez-ui";
 
 import { AppProviders } from "@/components/providers/app-providers";
 
@@ -8,6 +9,12 @@ describe("AppProviders", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = fetchMock as unknown as typeof fetch;
+  });
+
+  it("should activate Next Image for shared avatars", () => {
+    render(<AppProviders isSitepingEnabled={false}><Avatar><AvatarImage src="/profile.png" alt="Perfil" /></Avatar></AppProviders>);
+    expect(screen.getByAltText("Perfil")).toHaveAttribute("data-nimg", "1");
+    expect((screen.getByAltText("Perfil") as HTMLImageElement).src).toBe(new URL("/profile.png", window.location.href).href);
   });
 
   it("does not fetch Siteping identity when Siteping is disabled", () => {

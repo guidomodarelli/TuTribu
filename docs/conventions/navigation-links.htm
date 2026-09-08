@@ -43,7 +43,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="section">
   <div class="section-num">01</div>
   <div class="section-title">Overview</div>
-<p>Todo enlace de navegación interna usa el componente compartido <code>Link</code> de <code>@/components/navigation/link</code>. Es un wrapper delgado sobre el <code>Link</code> de Next.js que deja <code>prefetch</code> en <code>false</code> por defecto y reenvía el resto de las props sin cambios.</p>
+<p>Todo enlace de navegación interna usa el componente compartido <code>Link</code> de <code>@/components/navigation/link</code>. Reexporta el componente de beez-ui; el provider selecciona Next.js y deja <code>prefetch</code> en <code>false</code> por defecto.</p>
 </div>
 
 <div class="section">
@@ -61,7 +61,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <li><code>next/link</code> solo puede importarse dentro de <code>components/navigation/link/index.tsx</code>, el único wrapper permitido.</li>
   <li>El prefetch es opt-in: pasá <code>prefetch</code> de forma explícita únicamente en la ruta puntual que realmente se beneficie de ser prefetcheada.</li>
 </ul>
-<div class="callout c-info">El wrapper no aplica estilos ni markup propio: renderiza el <code>Link</code> de Next.js directamente y reenvía <code>className</code>, <code>ref</code> y todas las demás props. Por eso no lleva <code>styles.module.scss</code>.</div>
+<div class="callout c-info">El wrapper no aplica estilos ni markup propio: renderiza el <code>Link</code> de Next.js directamente y reenvía <code>className</code>, <code>ref</code> y los demás atributos de ancla. Por eso no lleva <code>styles.module.scss</code>.</div>
 </div>
 
 <div class="section">
@@ -84,5 +84,5 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <li>El cambio de comportamiento (prefetch por defecto) vive en un solo lugar, así que ajustarlo a futuro no requiere tocar cada uso.</li>
 </ul>
 </div>
-<section class="section"><h2 class="section-title">Biblioteca compartida</h2><p>La implementación de <code>Link</code> pertenece a LaTribu. <code>beez-ui</code> no exporta Link ni depende de Next.js; su paginación recibe el adaptador de la app mediante <code>component</code>. Ver <a href="../architecture/shared-ui-library.htm">el contrato compartido</a>.</p></section></body>
+<section class="section"><h2 class="section-title">Biblioteca compartida</h2><p>La implementación de <code>Link</code> pertenece a <code>beez-ui</code> y el provider de Next activa el mismo adaptador para enlaces y paginación. Ver <a href="../architecture/shared-ui-library.htm">el contrato compartido</a>.</p></section><section class="section"><h2 class="section-title">Provider de navegación</h2><p>El wrapper local reexporta <code>Link</code> y <code>LinkProps</code> desde <code>beez-ui</code>. El provider de Next se monta en el root layout y en el error global. Los enlaces compartidos usan href string y atributos HTML; el contrato común no incluye todas las props exclusivas de Next.</p></section></body>
 </html>

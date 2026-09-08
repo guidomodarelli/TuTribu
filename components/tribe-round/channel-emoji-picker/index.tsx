@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentType } from "react";
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import type { EmojiClickData, PickerProps } from "emoji-picker-react";
 import {
   EmojiStyle,
@@ -13,9 +13,9 @@ import {
 } from "emoji-picker-react";
 import { SmilePlusIcon } from "lucide-react";
 
-import { Button, Popover, PopoverContent, PopoverTrigger } from "beez-ui";
+import { Button, Popover, PopoverContent, PopoverTrigger, useTheme } from "beez-ui";
 
-import { DARK_THEME_CLASS_NAME } from "@/src/constants/theme-mode";
+import { DARK_THEME_MODE } from "@/src/constants/theme-mode";
 import styles from "./styles.module.scss";
 
 const CHANNEL_EMOJI_PICKER_COPY = {
@@ -27,7 +27,6 @@ const CHANNEL_EMOJI_PICKER_COPY = {
 const CHANNEL_EMOJI_PICKER_CONFIG = {
   align: "start",
   buttonType: "button",
-  classAttribute: "class",
   pickerHeight: 360,
   pickerWidth: 320,
   outlineVariant: "outline",
@@ -36,29 +35,6 @@ const CHANNEL_EMOJI_PICKER_CONFIG = {
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), {
   ssr: false,
 }) as ComponentType<PickerProps>;
-
-function readDocumentEmojiPickerTheme() {
-  return document.documentElement.classList.contains(DARK_THEME_CLASS_NAME)
-    ? Theme.DARK
-    : Theme.LIGHT;
-}
-
-function getServerEmojiPickerTheme() {
-  return Theme.LIGHT;
-}
-
-function subscribeToThemeClassChange(onStoreChange: () => void) {
-  const themeObserver = new MutationObserver(onStoreChange);
-
-  themeObserver.observe(document.documentElement, {
-    attributeFilter: [CHANNEL_EMOJI_PICKER_CONFIG.classAttribute],
-    attributes: true,
-  });
-
-  return () => {
-    themeObserver.disconnect();
-  };
-}
 
 type ChannelEmojiPickerProps = {
   disabled?: boolean;
@@ -80,11 +56,8 @@ export function ChannelEmojiPicker({
   value,
 }: ChannelEmojiPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const emojiPickerTheme = useSyncExternalStore(
-    subscribeToThemeClassChange,
-    readDocumentEmojiPickerTheme,
-    getServerEmojiPickerTheme
-  );
+  const { resolvedTheme } = useTheme();
+  const emojiPickerTheme = resolvedTheme === DARK_THEME_MODE ? Theme.DARK : Theme.LIGHT;
   const selectedEmoji = value.trim();
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {

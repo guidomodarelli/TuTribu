@@ -1,7 +1,22 @@
-import { render, screen, waitFor } from "@testing-library/react";
+/** Exercises the shared theme context through the actual application providers. */
+import { act, render as renderComponent, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { useTheme } from "beez-ui";
 import userEvent from "@testing-library/user-event";
 
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
+import { AppProviders } from "@/components/providers/app-providers";
+
+/** Exposes the public context observed by other theme-aware components. */
+function ThemeConsumer() {
+  const { theme, resolvedTheme } = useTheme();
+  return <output aria-label="Tema compartido">{theme}:{resolvedTheme}</output>;
+}
+
+/** Mounts the production composition instead of mocking the theme library. */
+function render(ui: ReactElement) {
+  return renderComponent(<AppProviders isSitepingEnabled={false}>{ui}<ThemeConsumer /></AppProviders>);
+}
 
 type MatchMediaListener = (event: MediaQueryListEvent) => void;
 
@@ -23,6 +38,11 @@ function installMatchMediaMock() {
     configurable: true,
     writable: true,
     value: jest.fn((query: string) => ({
+      addListener: jest.fn((listener: MatchMediaListener) => matchMediaListeners.push(listener)),
+      removeListener: jest.fn((listener: MatchMediaListener) => {
+        const index = matchMediaListeners.indexOf(listener);
+        if (index >= 0) matchMediaListeners.splice(index, 1);
+      }),
       addEventListener: jest.fn((eventName: string, listener: MatchMediaListener) => {
         if (eventName === "change") {
           matchMediaListeners.push(listener);
@@ -90,6 +110,8 @@ describe("ThemeModeDropdown", () => {
 
     expect(storedThemeMode).toBe("dark");
     expect(document.documentElement).toHaveClass("dark");
+    expect(screen.getByLabelText("Tema compartido")).toHaveTextContent("dark:dark");
+    expect(localStorage.getItem("theme")).toBeNull();
   });
 
   it("stores light mode and removes the dark document class", async () => {
@@ -115,16 +137,62 @@ describe("ThemeModeDropdown", () => {
     await user.click(screen.getByRole("button", { name: /cambiar tema/i }));
     await user.click(screen.getByRole("menuitemradio", { name: /sistema/i }));
 
-    emitSystemThemeChange(true);
+    act(() => emitSystemThemeChange(true));
 
     await waitFor(() => {
       expect(document.documentElement).toHaveClass("dark");
     });
 
-    emitSystemThemeChange(false);
+    act(() => emitSystemThemeChange(false));
 
     await waitFor(() => {
       expect(document.documentElement).not.toHaveClass("dark");
     });
+  });
+
+  it("should restore the legacy preference in the shared context", () => {
+    localStorage.setItem("tutribu-theme", "dark");
+    render(<ThemeModeDropdown />);
+    expect(screen.getByLabelText("Tema compartido")).toHaveTextContent("dark:dark");
+    expect(document.documentElement).toHaveClass("dark");
+  });
+
+  it("should keep theme selection usable when storage is blocked", async () => {
+    const storageRead = jest.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new DOMException("Blocked", "SecurityError"); });
+    const storageWrite = jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("Blocked", "SecurityError"); });
+    try {
+      render(<ThemeModeDropdown />);
+      await userEvent.click(screen.getByRole("button", { name: /cambiar tema/i }));
+      await userEvent.click(screen.getByRole("menuitemradio", { name: /oscuro/i }));
+      expect(document.documentElement).toHaveClass("dark");
+      expect(screen.getByLabelText("Tema compartido")).toHaveTextContent("dark:dark");
+    } finally {
+      storageRead.mockRestore();
+      storageWrite.mockRestore();
+    }
+  });
+
+  it("should preserve an explicit theme when the system preference changes", async () => {
+    render(<ThemeModeDropdown />);
+    await userEvent.click(screen.getByRole("button", { name: /cambiar tema/i }));
+    await userEvent.click(screen.getByRole("menuitemradio", { name: /claro/i }));
+    act(() => emitSystemThemeChange(true));
+    expect(document.documentElement).not.toHaveClass("dark");
+    expect(screen.getByLabelText("Tema compartido")).toHaveTextContent("light:light");
+  });
+
+  it("should follow a preference changed in another tab", async () => {
+    render(<ThemeModeDropdown />);
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key: "tutribu-theme", newValue: "dark" })));
+    await waitFor(() => expect(screen.getByLabelText("Tema compartido")).toHaveTextContent("dark:dark"));
+    expect(document.documentElement).toHaveClass("dark");
+  });
+
+  it("should recover an invalid stored preference using the system theme", async () => {
+    localStorage.setItem("tutribu-theme", "invalid");
+    matchesDarkSystemTheme = true;
+    render(<ThemeModeDropdown />);
+    await waitFor(() => expect(screen.getByLabelText("Tema compartido")).toHaveTextContent("system:dark"));
+    expect(document.documentElement).toHaveClass("dark");
   });
 });

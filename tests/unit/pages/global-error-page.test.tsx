@@ -47,7 +47,8 @@ describe("GlobalErrorPage", () => {
     expect(retry).toHaveBeenCalledTimes(1);
   });
 
-  it("renders the theme bootstrap without React script-tag warnings", () => {
+  it("should restore the stored theme when the root layout is unavailable", () => {
+    localStorage.setItem("tutribu-theme", "dark");
     const consoleErrorSpy = jest
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
@@ -60,12 +61,7 @@ describe("GlobalErrorPage", () => {
       />
     );
 
-    const themeBootstrapScript = document.getElementById(
-      "global-error-theme-bootstrap-script"
-    );
-
-    expect(themeBootstrapScript?.tagName).toBe("SCRIPT");
-    expect(themeBootstrapScript?.innerHTML).toContain("classList");
+    expect(document.documentElement).toHaveClass("dark");
     expect(
       consoleErrorSpy.mock.calls.some(([message]) =>
         String(message).includes("Encountered a script tag")
@@ -73,5 +69,6 @@ describe("GlobalErrorPage", () => {
     ).toBe(false);
 
     consoleErrorSpy.mockRestore();
+    localStorage.clear();
   });
 });

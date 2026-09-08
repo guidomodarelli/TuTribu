@@ -41,6 +41,19 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // Only the application composition root may select the Next adapter entrypoint.
+    files: ["components/providers/app-providers/app-ui-provider.tsx"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          ...deprecatedFeatureImportPatterns,
+          ...deprecatedUiImportPatterns,
+          "!beez-ui/next",
+        ],
+      }],
+    },
+  },
+  {
     files: ["src/modules/*/{application,domain,infrastructure,presentation}/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [

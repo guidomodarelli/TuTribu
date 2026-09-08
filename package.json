@@ -25,6 +25,7 @@
     "db:migrate": "node scripts/push-migrations.js",
     "db:migrate:force": "node scripts/push-migrations.js --force",
     "test:e2e": "playwright test",
+    "test:ui": "pnpm build && playwright test --config playwright.ui.config.ts",
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
@@ -35,7 +36,7 @@
     "@github/relative-time-element": "^5.0.0",
     "@next/env": "^16.3.4",
     "@siteping/widget": "0.9.12",
-    "beez-ui": "file:vendor/beez-ui-0.1.0.tgz",
+    "beez-ui": "file:vendor/beez-ui-0.2.0.tgz",
     "better-auth": "^1.6.11",
     "drizzle-orm": "^0.45.2",
     "emoji-picker-react": "^4.19.1",
