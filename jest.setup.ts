@@ -21,15 +21,15 @@ if (!globalThis.ResizeObserver) {
 }
 
 // jsdom does not implement `window.matchMedia`; components that subscribe to a
-// media query through `useSyncExternalStore` need a never-matching stub so the
-// subscription does not throw during tests.
+// media query through `useSyncExternalStore` need a browser API stub.
+// Reduce motion in behavioral tests; real animation lifecycles run in Playwright.
 if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
   window.matchMedia = function matchMediaTestStub(query: string): MediaQueryList {
     return {
       addEventListener: () => undefined,
       addListener: () => undefined,
       dispatchEvent: () => false,
-      matches: false,
+      matches: query === "(prefers-reduced-motion: reduce)",
       media: query,
       onchange: null,
       removeEventListener: () => undefined,

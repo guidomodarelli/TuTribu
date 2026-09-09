@@ -641,7 +641,7 @@ describe("TribeEventsCalendar", () => {
     await user.click(within(confirmation).getByRole("button", { name: "Cancelar" }));
 
     expect(global.fetch).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "15:00 Clase abierta" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "15:00 Clase abierta" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "15:00 Clase abierta" }));
     await user.click(screen.getByRole("button", { name: "Eliminar" }));

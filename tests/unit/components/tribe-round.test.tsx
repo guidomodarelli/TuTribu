@@ -51,20 +51,6 @@ class IntersectionObserverMock {
 globalThis.IntersectionObserver =
   IntersectionObserverMock as unknown as typeof IntersectionObserver;
 
-Object.defineProperty(window, "matchMedia", {
-  configurable: true,
-  value: jest.fn().mockImplementation((query: string) => ({
-    addEventListener: jest.fn(),
-    addListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-    matches: false,
-    media: query,
-    onchange: null,
-    removeEventListener: jest.fn(),
-    removeListener: jest.fn(),
-  })),
-});
-
 class ImageMock {
   complete = true;
 
@@ -2858,11 +2844,11 @@ describe("TribeRound", () => {
       );
       await user.click(screen.getByRole("button", { name: "Canal del mensaje" }));
       await user.click(screen.getByRole("menuitem", { name: "Intro and Goals" }));
-      await user.click(screen.getByRole("button", { name: "Compartir" }));
+      await user.click(await screen.findByRole("button", { name: "Compartir" }));
 
       expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
 
-      await user.click(screen.getByRole("button", { name: "Me gusta 2" }));
+      await user.click(await screen.findByRole("button", { name: "Me gusta 2" }));
 
       expect(screen.getByRole("button", { name: "Me gusta 3" })).toBeInTheDocument();
 

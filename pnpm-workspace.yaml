@@ -22,4 +22,4 @@ allowBuilds:
   workerd: true
 minimumReleaseAgeExclude:
   # Allow immediate adoption of the explicitly requested release.
-  - beez-ui@0.5.0
+  - beez-ui@0.5.0 || 0.5.4

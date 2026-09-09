@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act } from "@testing-library/react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 
@@ -20,17 +20,18 @@ describe("SidebarMenuSkeleton", () => {
 
       Math.random = jest.fn(() => 0.9);
 
-      const root = hydrateRoot(container, <SidebarMenuSkeleton showIcon />, {
-        onRecoverableError: (error) => {
-          recoverableErrors.push(error);
-        },
+      let root: ReturnType<typeof hydrateRoot>;
+      await act(async () => {
+        root = hydrateRoot(container, <SidebarMenuSkeleton showIcon />, {
+          onRecoverableError: (error) => {
+            recoverableErrors.push(error);
+          },
+        });
       });
 
       await act(async () => {
-        await Promise.resolve();
+        root.unmount();
       });
-
-      root.unmount();
       consoleErrorCalls = consoleErrorSpy.mock.calls;
     } finally {
       Math.random = originalMathRandom;
