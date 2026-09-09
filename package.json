@@ -47,8 +47,8 @@
     "next": "^16.3.4",
     "pg": "^8.21.0",
     "pg-cloudflare": "1.4.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.2",
@@ -63,8 +63,8 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^25.9.1",
     "@types/pg": "^8.20.0",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.10.0",
     "eslint-config-next": "^16.3.4",
