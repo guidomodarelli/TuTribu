@@ -134,8 +134,8 @@ importers:
         specifier: 0.9.12
         version: 0.9.12(react@19.2.8)
       beez-ui:
-        specifier: ^0.5.4
-        version: 0.5.4(@date-fns/tz@1.5.0)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.2.8))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@25.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(sass@1.100.0))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: ^0.5.5
+        version: 0.5.5(@date-fns/tz@1.5.0)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.2.8))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@25.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(sass@1.100.0))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       better-auth:
         specifier: ^1.6.11
         version: 1.6.11(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@types/pg@8.20.0)(kysely@0.28.17)(pg@8.21.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@25.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(sass@1.100.0))(pg@8.21.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -3982,8 +3982,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  beez-ui@0.5.4:
-    resolution: {integrity: sha512-OXN8NabpVB/OdJg8w/oldT6G2zM2kH20xc4xc6vGjR4BoOgnCpmeXy/OiWIyahHdpINhS25TuhlNlC4YMnXldA==}
+  beez-ui@0.5.5:
+    resolution: {integrity: sha512-3Qil3KTPXLL1Y6GtRXCuyKxw6yflhauxQKJJC/HomwyiDotPwnB+fRuGsyEwxPcQclrguAoQpOVIswlPj6o8Gw==}
     engines: {node: '>=22', pnpm: '>=12 <13'}
     peerDependencies:
       '@tanstack/react-router': ^1.170.33
@@ -10903,7 +10903,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.10: {}
 
-  beez-ui@0.5.4(@date-fns/tz@1.5.0)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.2.8))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@25.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(sass@1.100.0))(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  beez-ui@0.5.5(@date-fns/tz@1.5.0)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.2.8))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@25.9.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(sass@1.100.0))(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@base-ui/react': 1.8.0(@date-fns/tz@1.5.0)(@types/react@19.2.18)(date-fns@4.4.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tanstack/react-table': 8.21.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
