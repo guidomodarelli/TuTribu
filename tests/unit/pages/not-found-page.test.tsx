@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderServerComponent } from "@/tests/render-server-component";
 import { headers } from "next/headers";
 
 import {
@@ -46,7 +47,7 @@ vi.mock(
 );
 
 async function renderNotFoundPageWithSessionAction() {
-  render(<AppUIProvider><NotFoundView sessionAction={await NotFoundSessionAction()} /></AppUIProvider>);
+  await renderServerComponent(<AppUIProvider><NotFoundView sessionAction={<NotFoundSessionAction />} /></AppUIProvider>);
 }
 
 describe("NotFoundPage", () => {

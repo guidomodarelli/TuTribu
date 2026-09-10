@@ -1,5 +1,6 @@
 import { vi, describe, it, expect, beforeEach, beforeAll, afterAll, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
@@ -161,13 +162,9 @@ describe("TribePage", () => {
   });
 
   it("returns a Suspense route shell before resolving runtime route data", () => {
-    const routeElement = TribePage({
-      params: Promise.resolve({
-        slug: "matematica-pro",
-      }),
-    });
-
-    expect(routeElement).not.toHaveProperty("then");
+    const markup = renderToString(<TribePage params={new Promise(() => {})} />);
+    render(<div dangerouslySetInnerHTML={{ __html: markup }} />);
+    expect(screen.getByRole("status", { name: "Cargando seccion de tribu" })).toBeInTheDocument();
     expect(createRequestModules).not.toHaveBeenCalled();
   });
 

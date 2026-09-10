@@ -1,5 +1,6 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { renderServerComponent } from "@/tests/render-server-component";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
@@ -147,11 +148,11 @@ describe("tribe coming soon pages", () => {
     };
 
     const pages = [
-      TribeMeritsPage(pageProps),
+      <TribeMeritsPage {...pageProps} key="merits" />,
     ];
 
     for (const renderedPage of await Promise.all(pages)) {
-      const { unmount } = render(renderedPage);
+      const { unmount } = await renderServerComponent(renderedPage);
 
       expect(screen.getByText("Próximamente")).toBeInTheDocument();
       expect(screen.getByText("Esta sección está en construcción.")).toBeInTheDocument();
@@ -200,11 +201,7 @@ describe("tribe coming soon pages", () => {
     });
 
     await expect(
-      TribeMeritsPage({
-        params: Promise.resolve({
-          slug: "matematica-pro",
-        }),
-      })
+      renderServerComponent(<TribeMeritsPage params={Promise.resolve({ slug: "matematica-pro" })} />)
     ).rejects.toThrow("NEXT_NOT_FOUND");
 
     expect(infoMock).toHaveBeenCalledWith({

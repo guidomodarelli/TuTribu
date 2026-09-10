@@ -30,6 +30,7 @@ function resolveWorkspaceRoot(startDir: string): string {
 }
 
 const nextConfig: NextConfig = {
+  reactCompiler: true,
   allowedDevOrigins: ["127.0.0.1", "dev-tutribu.app"],
   cacheComponents: true,
   // Type-check the same product scope as `pnpm run typecheck`. Since 16.3 the
@@ -41,6 +42,8 @@ const nextConfig: NextConfig = {
   // Keep the shared UI and storage package compatible with the Next build.
   transpilePackages: ["files-sdk", "beez-ui"],
   experimental: {
+    // Use Turbopack's native React Compiler in development and production.
+    turbopackRustReactCompiler: true,
     // TypeScript 7 exposes a native CLI instead of the legacy compiler API.
     useTypeScriptCli: true,
     optimizePackageImports: ["beez-ui"],
