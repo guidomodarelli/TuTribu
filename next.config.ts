@@ -41,6 +41,8 @@ const nextConfig: NextConfig = {
   // Keep the shared UI and storage package compatible with the Next build.
   transpilePackages: ["files-sdk", "beez-ui"],
   experimental: {
+    // TypeScript 7 exposes a native CLI instead of the legacy compiler API.
+    useTypeScriptCli: true,
     optimizePackageImports: ["beez-ui"],
   },
   // Pin the workspace root explicitly. A checked-in `pnpm-workspace.yaml` exists

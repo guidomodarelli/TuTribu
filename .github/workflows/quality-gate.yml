@@ -13,20 +13,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version-file: .nvmrc
+          cache: pnpm
           registry-url: https://registry.npmjs.org
           scope: "@siteping"
-
-      - name: Enable Corepack
-        run: corepack enable
 
       - name: Install dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm install --frozen-lockfile
+
+      - name: Verify toolchain
+        run: |
+          node --version
+          pnpm --version
+          pnpm exec tsc --version
 
       - name: Run quality gate
         env:

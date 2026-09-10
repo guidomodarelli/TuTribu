@@ -548,3 +548,10 @@ A server render or an `after()` callback can be aborted mid-flight (Next.js dev 
 - Use pnpm 12.3.4 and the committed pnpm-lock.yaml. Install with `pnpm install --frozen-lockfile`.
 - Use Vitest 5 for unit and integration tests; `pnpm test` runs once and `pnpm test:watch` watches.
 - Run `pnpm typecheck:tests` against `tsconfig.test.json`; keep Vitest and Testing Library globals out of the application tsconfig.
+
+## Runtime and compiler
+
+- Use Node.js 24.21.0 from `.nvmrc` locally and in CI; `engines.node` permits only Node 24.
+- TypeScript 7 is the project compiler for application tests and Next builds. Keep the separate `tsconfig.test.json` and run `pnpm typecheck:tests`.
+- `.pnpmfile.cjs` supplies the official TypeScript 6 compatibility API privately to ESLint packages. Keep the root `typescript` dependency on version 7 and do not disable Next build type checking. Review the hook when ESLint supports the new compiler API.
+- CI reads `.nvmrc` and installs pnpm 12.3.4 explicitly. Update runtime pins, Node types and lockfiles together.

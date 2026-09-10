@@ -13,7 +13,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 
 ## Stack
 
-- Next.js 16 (App Router) and React 19 with TypeScript
+- Next.js 16 (App Router) and React 19 with TypeScript 7
 - Better Auth with Google OAuth
 - Neon Postgres accessed through Drizzle ORM and `pg`
 - beez-ui shared components (customized shadcn/ui, Base UI and Radix UI)
@@ -23,7 +23,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 
 ## Prerequisites
 
-- Node.js 20.x or newer (required by Next.js 16)
+- Node.js 24.21.0 (pinned in `.nvmrc`; use `fnm use` or `nvm use`)
 - pnpm 12 (pinned through `packageManager`; run `corepack enable` and the pinned version is used automatically)
 - Access to a Neon Postgres database
 - Google OAuth credentials for sign-in

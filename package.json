@@ -5,7 +5,7 @@
   "packageManager": "pnpm@12.3.4",
   "engines": {
     "pnpm": ">=12 <13",
-    "node": ">=22.12.0"
+    "node": ">=24 <25"
   },
   "scripts": {
     "dev": "node scripts/dev-portless.mjs",
@@ -62,7 +62,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^25.9.1",
+    "@types/node": "^24.13.4",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -74,7 +74,7 @@
     "eslint-plugin-no-magic": "^0.1.1",
     "jsdom": "^29.1.1",
     "sass": "^1.100.0",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.69.0",
     "vite": "^8.2.2",
     "vitest": "^5.0.0",

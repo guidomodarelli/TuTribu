@@ -21,10 +21,11 @@ allowBuilds:
   unrs-resolver: true
   workerd: true
 minimumReleaseAgeExclude:
-  # Allow immediate adoption of the explicitly requested releases.
   - beez-ui@0.5.0 || 0.5.4 || 0.5.5
   - react-dom@19.3.0
   - react@19.3.0
   - scheduler@0.28.0
   - '@types/react-dom@19.3.0'
   - '@types/react@19.3.0'
+  - '@types/node@24.13.4'
+  - "@types/node@26.5.1"
