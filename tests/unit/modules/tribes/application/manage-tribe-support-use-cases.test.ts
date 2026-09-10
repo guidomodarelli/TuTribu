@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   getTribeSupport,
   saveTribeSupport,
@@ -23,8 +24,8 @@ function buildRepository(
   overrides: Partial<TribeSupportRepository> = {}
 ): TribeSupportRepository {
   return {
-    getByTribeSlug: jest.fn(async () => null),
-    save: jest.fn(async () => ({
+    getByTribeSlug: vi.fn(async () => null),
+    save: vi.fn(async () => ({
       settings: buildSettings(),
       status: TRIBE_SUPPORT_SAVE_STATUS.updated,
     })),
@@ -50,7 +51,7 @@ describe("manage tribe support use cases", () => {
   it("returns the stored support configuration when present", async () => {
     const settings = buildSettings();
     const repository = buildRepository({
-      getByTribeSlug: jest.fn(async () => settings),
+      getByTribeSlug: vi.fn(async () => settings),
     });
     const useCase = getTribeSupport({
       tribeSupportRepository: repository,
@@ -63,7 +64,7 @@ describe("manage tribe support use cases", () => {
 
   it("normalizes input before saving and forwards forbidden status", async () => {
     const repository = buildRepository({
-      save: jest.fn(async () => ({
+      save: vi.fn(async () => ({
         settings: null,
         status: TRIBE_SUPPORT_SAVE_STATUS.forbidden,
       })),
@@ -92,7 +93,7 @@ describe("manage tribe support use cases", () => {
   it("returns updated settings when the repository confirms the save", async () => {
     const savedSettings = buildSettings({ message: "Hola" });
     const repository = buildRepository({
-      save: jest.fn(async () => ({
+      save: vi.fn(async () => ({
         settings: savedSettings,
         status: TRIBE_SUPPORT_SAVE_STATUS.updated,
       })),

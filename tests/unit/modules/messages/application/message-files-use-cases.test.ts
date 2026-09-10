@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   MESSAGE_FILES,
   MESSAGE_MUTATION_STATUS,
@@ -72,7 +73,7 @@ describe("createMessageFileUpload", () => {
   };
 
   it("normalizes the declaration and reserves the upload", async () => {
-    const createUpload = jest.fn(async () => ({
+    const createUpload = vi.fn(async () => ({
       assetId: ASSET_ID,
       status: MESSAGE_MUTATION_STATUS.created,
       uploadHeaders: {},
@@ -97,7 +98,7 @@ describe("createMessageFileUpload", () => {
   });
 
   it("rejects disallowed MIME types without touching the repository", async () => {
-    const createUpload = jest.fn();
+    const createUpload = vi.fn();
     const execute = createMessageFileUpload({
       messageFileRepository: { createUpload },
     });
@@ -110,7 +111,7 @@ describe("createMessageFileUpload", () => {
   });
 
   it("rejects declared sizes above the ceiling without touching the repository", async () => {
-    const createUpload = jest.fn();
+    const createUpload = vi.fn();
     const execute = createMessageFileUpload({
       messageFileRepository: { createUpload },
     });
@@ -125,7 +126,7 @@ describe("createMessageFileUpload", () => {
 
 describe("deleteMessageFile", () => {
   it("trims identifiers before delegating to the repository", async () => {
-    const deleteFile = jest.fn(async () => ({
+    const deleteFile = vi.fn(async () => ({
       status: MESSAGE_MUTATION_STATUS.deleted,
     }));
     const execute = deleteMessageFile({
@@ -150,7 +151,7 @@ describe("deleteMessageFile", () => {
 
 describe("createMessageFileDownloadUrl", () => {
   it("rejects malformed asset ids without touching the repository", async () => {
-    const createDownloadUrl = jest.fn();
+    const createDownloadUrl = vi.fn();
     const execute = createMessageFileDownloadUrl({
       messageFileRepository: { createDownloadUrl },
     });
@@ -163,7 +164,7 @@ describe("createMessageFileDownloadUrl", () => {
   });
 
   it("delegates well-formed asset ids to the repository", async () => {
-    const createDownloadUrl = jest.fn(async () => ({
+    const createDownloadUrl = vi.fn(async () => ({
       downloadUrl: "https://example.com/signed",
       status: MESSAGE_MUTATION_STATUS.created,
     }));

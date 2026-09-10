@@ -1,5 +1,6 @@
-/** @jest-environment node */
+/** @vitest-environment node */
 
+import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 

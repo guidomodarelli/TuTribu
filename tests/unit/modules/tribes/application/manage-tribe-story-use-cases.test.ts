@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   getTribeStory,
   getTribeStoryStats,
@@ -44,10 +45,10 @@ function buildStats(
 function buildRepository(
   overrides: Partial<TribeStoryRepository> = {}
 ): TribeStoryRepository {
-  return {
-    getByTribeSlug: jest.fn(async () => null),
-    getStatsByTribeSlug: jest.fn(async () => null),
-    save: jest.fn(async () => ({
+  return { listOnlineMembersByTribeSlug: vi.fn(), listPublicStorySlugs: vi.fn(),
+    getByTribeSlug: vi.fn(async () => null),
+    getStatsByTribeSlug: vi.fn(async () => null),
+    save: vi.fn(async () => ({
       status: TRIBE_STORY_SAVE_STATUS.updated,
       story: buildStory(),
     })),
@@ -85,7 +86,7 @@ describe("manage tribe story use cases", () => {
       websiteUrl: "https://tribu.example.com",
     });
     const repository = buildRepository({
-      getByTribeSlug: jest.fn(async () => story),
+      getByTribeSlug: vi.fn(async () => story),
     });
     const useCase = getTribeStory({
       tribeStoryRepository: repository,
@@ -99,7 +100,7 @@ describe("manage tribe story use cases", () => {
   it("returns the tribe story stats normalizing the slug", async () => {
     const stats = buildStats();
     const repository = buildRepository({
-      getStatsByTribeSlug: jest.fn(async () => stats),
+      getStatsByTribeSlug: vi.fn(async () => stats),
     });
     const useCase = getTribeStoryStats({
       tribeStoryRepository: repository,
@@ -115,7 +116,7 @@ describe("manage tribe story use cases", () => {
 
   it("normalizes input before saving and forwards forbidden status", async () => {
     const repository = buildRepository({
-      save: jest.fn(async () => ({
+      save: vi.fn(async () => ({
         status: TRIBE_STORY_SAVE_STATUS.forbidden,
         story: null,
       })),
@@ -199,7 +200,7 @@ describe("manage tribe story use cases", () => {
   it("returns the updated story when the repository confirms the save", async () => {
     const savedStory = buildStory({ content: "Historia actualizada." });
     const repository = buildRepository({
-      save: jest.fn(async () => ({
+      save: vi.fn(async () => ({
         status: TRIBE_STORY_SAVE_STATUS.updated,
         story: savedStory,
       })),

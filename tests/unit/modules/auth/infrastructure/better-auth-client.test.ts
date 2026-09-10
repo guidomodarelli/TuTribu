@@ -1,9 +1,10 @@
-/** @jest-environment jsdom */
+/** @vitest-environment jsdom */
 
-const socialSignInMock = jest.fn();
-const signOutMock = jest.fn();
+import { vi, describe, it, expect, beforeEach } from "vitest";
+const socialSignInMock = vi.fn();
+const signOutMock = vi.fn();
 
-jest.mock("better-auth/client", () => ({
+vi.mock("better-auth/client", () => ({
   createAuthClient: () => ({
     signIn: {
       social: (...args: unknown[]) => socialSignInMock(...args),
@@ -14,7 +15,7 @@ jest.mock("better-auth/client", () => ({
 
 describe("Better Auth client", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     socialSignInMock.mockResolvedValue({
       data: {
         redirect: true,

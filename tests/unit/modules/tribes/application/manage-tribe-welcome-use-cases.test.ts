@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   getEditableTribeWelcome,
   getTribeWelcome,
@@ -11,7 +12,7 @@ function buildRepository(
   overrides: Partial<TribeWelcomeRepository> = {}
 ): TribeWelcomeRepository {
   return {
-    getEditableByTribeSlug: jest.fn(async () => ({
+    getEditableByTribeSlug: vi.fn(async () => ({
       linksHeading: "Recursos para empezar",
       links: [],
       rules: [],
@@ -21,7 +22,7 @@ function buildRepository(
       selectionModalTitle: "Elegí cómo querés empezar",
       welcomeMessage: "Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar.",
     })),
-    getByInvitation: jest.fn(async () => ({
+    getByInvitation: vi.fn(async () => ({
       linksHeading: "Recursos para empezar",
       links: [],
       rules: [],
@@ -31,7 +32,7 @@ function buildRepository(
       selectionModalTitle: "Elegí cómo querés empezar",
       welcomeMessage: "Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar.",
     })),
-    getByTribeSlug: jest.fn(async () => ({
+    getByTribeSlug: vi.fn(async () => ({
       linksHeading: "Recursos para empezar",
       links: [],
       rules: [],
@@ -41,7 +42,7 @@ function buildRepository(
       selectionModalTitle: "Elegí cómo querés empezar",
       welcomeMessage: "Nos alegra que te sumes. Antes de activar tu acceso, leé los acuerdos y elegí cómo querés empezar.",
     })),
-    save: jest.fn(async () => ({ status: "updated" })),
+    save: vi.fn(async () => ({ status: "updated" as const })),
     ...overrides,
   };
 }

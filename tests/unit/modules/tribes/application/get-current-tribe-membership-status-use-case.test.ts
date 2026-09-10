@@ -1,14 +1,15 @@
+import { vi, describe, it, expect } from "vitest";
 import { getCurrentTribeMembershipStatus } from "@/src/modules/tribes/application/use-cases/get-current-tribe-membership-status-use-case";
 
 describe("getCurrentTribeMembershipStatus", () => {
   it("returns null when slug is empty after trimming", async () => {
-    const findCurrentMembershipStatusBySlug = jest.fn();
+    const findCurrentMembershipStatusBySlug = vi.fn();
     const execute = getCurrentTribeMembershipStatus({
-      tribeReadRepository: {
-        findBySlug: jest.fn(),
-        findCurrentMembershipAccessBySlug: jest.fn(),
+      tribeReadRepository: { listVisibleTribeMembersBySlug: vi.fn(),
+        findBySlug: vi.fn(),
+        findCurrentMembershipAccessBySlug: vi.fn(),
         findCurrentMembershipStatusBySlug,
-        listVisibleMembershipTribes: jest.fn(),
+        listVisibleMembershipTribes: vi.fn(),
       },
     });
 
@@ -17,13 +18,13 @@ describe("getCurrentTribeMembershipStatus", () => {
   });
 
   it("normalizes slug and returns active membership status", async () => {
-    const findCurrentMembershipStatusBySlug = jest.fn(async () => "active" as const);
+    const findCurrentMembershipStatusBySlug = vi.fn(async () => "active" as const);
     const execute = getCurrentTribeMembershipStatus({
-      tribeReadRepository: {
-        findBySlug: jest.fn(),
-        findCurrentMembershipAccessBySlug: jest.fn(),
+      tribeReadRepository: { listVisibleTribeMembersBySlug: vi.fn(),
+        findBySlug: vi.fn(),
+        findCurrentMembershipAccessBySlug: vi.fn(),
         findCurrentMembershipStatusBySlug,
-        listVisibleMembershipTribes: jest.fn(),
+        listVisibleMembershipTribes: vi.fn(),
       },
     });
 

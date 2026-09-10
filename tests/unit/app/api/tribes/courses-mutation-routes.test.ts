@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import {
   DELETE as DELETE_LESSON,
   PATCH as PATCH_LESSON,
@@ -9,27 +10,27 @@ import {
 import { POST as POST_LESSON } from "@/app/api/tribes/[slug]/courses/modules/[moduleId]/lessons/route";
 import { createRequestModules } from "@/src/modules/setup";
 
-const getAuthenticatedMember = jest.fn();
-const createLesson = jest.fn();
-const deleteCourseModule = jest.fn();
-const deleteLesson = jest.fn();
-const updateCourseModule = jest.fn();
-const updateLesson = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const createLesson = vi.fn();
+const deleteCourseModule = vi.fn();
+const deleteLesson = vi.fn();
+const updateCourseModule = vi.fn();
+const updateLesson = vi.fn();
 
 const VALID_COURSE_MODULE_ID = "11111111-1111-4111-8111-111111111111";
 const VALID_LESSON_ID = "22222222-2222-4222-8222-222222222222";
 const INVALID_ID = "not-a-uuid";
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
+    createServerLogger: vi.fn(() => ({
+      error: vi.fn(),
+      info: vi.fn(),
     })),
   })
 );
@@ -84,7 +85,7 @@ function buildLessonContext(lessonId: string) {
 
 describe("Course mutation routes", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -94,7 +95,7 @@ describe("Course mutation routes", () => {
       name: "Grace Hopper",
       role: "tribemate",
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,

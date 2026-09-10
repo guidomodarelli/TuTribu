@@ -1,11 +1,12 @@
+import { vi, describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { ReactElement, ReactNode } from "react";
 import { render as renderComponent, screen } from "@testing-library/react";
 
 import { TooltipProvider } from "beez-ui";
 
-const refreshMock = jest.fn();
+const refreshMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
+vi.mock("next/navigation", () => ({
   useRouter: () => ({
     refresh: refreshMock,
   }),
@@ -14,12 +15,12 @@ jest.mock("next/navigation", () => ({
 // Preserve the existing notification double to isolate Sonner timers and its global toast store.
 // Actual shared component behavior is exercised in beez-ui.test.tsx.
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
-    warning: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
+    warning: vi.fn(),
   },
 }));
 
@@ -152,7 +153,7 @@ describe("timezone-stable hydration formatting", () => {
             },
           ],
           messages: [
-            {
+            { replyCount: 0,
               author: {
                 avatarFallback: "AL",
                 id: "leader-1",

@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { resolveImageCarouselSlideIndicesOnReInit } from "@/components/tribe-round/tribe-round/image-carousel-slide-indices";
 
 describe("resolveImageCarouselSlideIndicesOnReInit", () => {

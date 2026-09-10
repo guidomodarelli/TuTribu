@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, afterEach } from "vitest";
 import { dismissOpenSitepingCommentForm } from "@/components/providers/siteping-provider/siteping-comment-form";
 
 /**
@@ -28,8 +29,8 @@ describe("dismissOpenSitepingCommentForm", () => {
 
   it("triggers the discard control of an open comment form", () => {
     const { discard, submit } = renderCommentForm();
-    const discardClick = jest.fn();
-    const submitClick = jest.fn();
+    const discardClick = vi.fn();
+    const submitClick = vi.fn();
     discard.addEventListener("click", discardClick);
     submit.addEventListener("click", submitClick);
 
@@ -43,7 +44,7 @@ describe("dismissOpenSitepingCommentForm", () => {
     const { discard } = renderCommentForm();
     (discard.closest("[data-siteping-ignore]") as HTMLElement).style.display =
       "none";
-    const discardClick = jest.fn();
+    const discardClick = vi.fn();
     discard.addEventListener("click", discardClick);
 
     dismissOpenSitepingCommentForm();
@@ -57,7 +58,7 @@ describe("dismissOpenSitepingCommentForm", () => {
     const searchInput = document.createElement("input");
     const onlyButton = document.createElement("button");
     onlyButton.textContent = "Buscar";
-    const clicked = jest.fn();
+    const clicked = vi.fn();
     onlyButton.addEventListener("click", clicked);
     listPanel.append(searchInput, onlyButton);
     document.body.appendChild(listPanel);

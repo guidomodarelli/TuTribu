@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { render as renderComponent, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { AppProviders } from "@/components/providers/app-providers";
@@ -18,7 +19,7 @@ function render(ui: ReactElement) {
  * attribute, mirroring the existing not-found page test. The mock stays minimal
  * and only renders an anchor, so the test still exercises the real wrapper.
  */
-jest.mock("next/link.js", () => ({
+vi.mock("next/link.js", () => ({
   __esModule: true,
   default: ({
     children,

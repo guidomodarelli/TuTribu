@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -6,14 +7,14 @@ import TribeTribePage from "@/app/(platform)/[slug]/tribu/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const getTribePageAccess = jest.fn();
-const getMemberTribes = jest.fn();
-const listVisibleTribeMembers = jest.fn();
-const getTribeWelcome = jest.fn();
-const listTribeWelcomeSelections = jest.fn();
-const infoMock = jest.fn();
-const errorMock = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribePageAccess = vi.fn();
+const getMemberTribes = vi.fn();
+const listVisibleTribeMembers = vi.fn();
+const getTribeWelcome = vi.fn();
+const listTribeWelcomeSelections = vi.fn();
+const infoMock = vi.fn();
+const errorMock = vi.fn();
 
 type MockTribeMemberDirectoryProps = {
   canInviteMembers: boolean;
@@ -29,7 +30,7 @@ type MockTribeMemberDirectoryProps = {
   tribeSlug: string;
 };
 
-const mockTribeMemberDirectory = jest.fn(
+const mockTribeMemberDirectory = vi.fn(
   ({ canInviteMembers, members, tribeSlug }: MockTribeMemberDirectoryProps) => (
     <section>
       <h1>Miembros</h1>
@@ -48,33 +49,33 @@ const mockTribeMemberDirectory = jest.fn(
   )
 );
 
-jest.mock("next/navigation", () => ({
-  notFound: jest.fn(),
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock("@/components/tribes/tribe-member-directory", () => ({
+vi.mock("@/components/tribes/tribe-member-directory", () => ({
   TribeMemberDirectory: (props: MockTribeMemberDirectoryProps) =>
     mockTribeMemberDirectory(props),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
 describe("TribeTribePage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockReset();
     getTribePageAccess.mockReset();
     listVisibleTribeMembers.mockReset();
@@ -93,7 +94,7 @@ describe("TribeTribePage", () => {
     listTribeWelcomeSelections.mockResolvedValue([]);
     getMemberTribes.mockReset();
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "active",
         name: "Matematica Pro",
         role: "tribemate",
@@ -105,7 +106,7 @@ describe("TribeTribePage", () => {
     infoMock.mockReset();
     errorMock.mockReset();
 
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -121,8 +122,8 @@ describe("TribeTribePage", () => {
         },
       },
     });
-    (headers as jest.Mock).mockResolvedValue(new Headers());
-    (createServerLogger as jest.Mock).mockReturnValue({
+    (headers as Mock).mockResolvedValue(new Headers());
+    (createServerLogger as Mock).mockReturnValue({
       info: infoMock,
       error: errorMock,
     });
@@ -138,7 +139,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -219,7 +220,7 @@ describe("TribeTribePage", () => {
         role: "tribemate",
       });
       getTribePageAccess.mockResolvedValue({
-        status: "visible",
+        status: "visible" as const,
         tribe: {
           id: "tribe-1",
           name: "Matematica Pro",
@@ -228,7 +229,7 @@ describe("TribeTribePage", () => {
         },
       });
       getMemberTribes.mockResolvedValue([
-        {
+        { logoUrl: null,
           membershipStatus: "active",
           name: "Matematica Pro",
           role,
@@ -262,7 +263,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -296,7 +297,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -305,7 +306,7 @@ describe("TribeTribePage", () => {
       },
     });
     listVisibleTribeMembers.mockRejectedValue(new Error("Database exploded"));
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -338,7 +339,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -347,7 +348,7 @@ describe("TribeTribePage", () => {
       },
     });
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "active",
         name: "Matematica Pro",
         role: "leader",
@@ -397,7 +398,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -406,7 +407,7 @@ describe("TribeTribePage", () => {
       },
     });
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "active",
         name: "Matematica Pro",
         role: "guardian",
@@ -458,7 +459,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -467,7 +468,7 @@ describe("TribeTribePage", () => {
       },
     });
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "active",
         name: "Matematica Pro",
         role: "leader",
@@ -487,7 +488,7 @@ describe("TribeTribePage", () => {
     ]);
     getTribeWelcome.mockResolvedValue({
       links: [
-        {
+        { description: null,
           badgeLabel: "Soporte",
           id: "link-1",
           isActive: true,
@@ -542,7 +543,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -551,7 +552,7 @@ describe("TribeTribePage", () => {
       },
     });
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "active",
         name: "Matematica Pro",
         role: "guardian",
@@ -571,7 +572,7 @@ describe("TribeTribePage", () => {
     ]);
     getTribeWelcome.mockResolvedValue({
       links: [
-        {
+        { description: null,
           badgeLabel: "cambio_asesor_iol",
           id: "link-1",
           isActive: true,
@@ -638,7 +639,7 @@ describe("TribeTribePage", () => {
         role: "tribemate",
       });
       getTribePageAccess.mockResolvedValue({
-        status: "visible",
+        status: "visible" as const,
         tribe: {
           id: "tribe-1",
           name: "Matematica Pro",
@@ -647,7 +648,7 @@ describe("TribeTribePage", () => {
         },
       });
       getMemberTribes.mockResolvedValue([
-        {
+        { logoUrl: null,
           membershipStatus: "active",
           name: "Matematica Pro",
           role,
@@ -687,7 +688,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -696,7 +697,7 @@ describe("TribeTribePage", () => {
       },
     });
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "active",
         name: "Matematica Pro",
         role: "leader",
@@ -736,7 +737,7 @@ describe("TribeTribePage", () => {
         role: "tribemate",
       });
       getTribePageAccess.mockResolvedValue({
-        status: "visible",
+        status: "visible" as const,
         tribe: {
           id: "tribe-1",
           name: "Matematica Pro",
@@ -745,7 +746,7 @@ describe("TribeTribePage", () => {
         },
       });
       getMemberTribes.mockResolvedValue([
-        {
+        { logoUrl: null,
           membershipStatus: "active",
           name: "Matematica Pro",
           role,
@@ -781,7 +782,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -790,7 +791,7 @@ describe("TribeTribePage", () => {
       },
     });
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "active",
         name: "Matematica Pro",
         role: "tribemate",
@@ -828,7 +829,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -837,7 +838,7 @@ describe("TribeTribePage", () => {
       },
     });
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "muted",
         name: "Matematica Pro",
         role: "guardian",
@@ -857,7 +858,7 @@ describe("TribeTribePage", () => {
     ]);
     getTribeWelcome.mockResolvedValue({
       links: [
-        {
+        { description: null,
           badgeLabel: "Soporte",
           id: "link-1",
           isActive: true,
@@ -917,7 +918,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -926,7 +927,7 @@ describe("TribeTribePage", () => {
       },
     });
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "active",
         name: "Matematica Pro",
         role: "tribemate",
@@ -946,7 +947,7 @@ describe("TribeTribePage", () => {
     ]);
     getTribeWelcome.mockResolvedValue({
       links: [
-        {
+        { description: null,
           badgeLabel: "Soporte",
           id: "link-1",
           isActive: true,
@@ -997,7 +998,7 @@ describe("TribeTribePage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",

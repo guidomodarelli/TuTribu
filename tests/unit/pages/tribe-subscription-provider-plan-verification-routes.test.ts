@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { POST as POST_VERIFY_ONE } from "@/app/api/tribes/[slug]/subscriptions/prices/[priceId]/verify-provider-plan/route";
 import { POST as POST_VERIFY_SUBSCRIBERS } from "@/app/api/tribes/[slug]/subscriptions/prices/[priceId]/verify-provider-subscribers/route";
 import { POST as POST_VERIFY_ALL } from "@/app/api/tribes/[slug]/subscriptions/prices/verify-provider-plans/route";
@@ -9,20 +10,20 @@ import {
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const reconcileTribeSubscriberDiagnostics = jest.fn();
-const reconcileTribeSubscriptionProviderSubscribers = jest.fn();
-const verifyTribeSubscriptionProviderPlan = jest.fn();
-const verifyTribeSubscriptionProviderPlans = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const reconcileTribeSubscriberDiagnostics = vi.fn();
+const reconcileTribeSubscriptionProviderSubscribers = vi.fn();
+const verifyTribeSubscriptionProviderPlan = vi.fn();
+const verifyTribeSubscriptionProviderPlans = vi.fn();
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -82,7 +83,7 @@ describe("tribe subscription provider plan verification routes", () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -92,11 +93,11 @@ describe("tribe subscription provider plan verification routes", () => {
       name: "Grace Hopper",
       role: "tribemate",
     });
-    (createServerLogger as jest.Mock).mockReturnValue({
-      error: jest.fn(),
-      info: jest.fn(),
+    (createServerLogger as Mock).mockReturnValue({
+      error: vi.fn(),
+      info: vi.fn(),
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -140,7 +141,7 @@ describe("tribe subscription provider plan verification routes", () => {
       price: {
         ...activePrice,
         isCurrent: false,
-        status: "canceled",
+        status: "canceled" as const,
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
@@ -154,7 +155,7 @@ describe("tribe subscription provider plan verification routes", () => {
       price: {
         ...activePrice,
         isCurrent: false,
-        status: "canceled",
+        status: "canceled" as const,
       },
     });
   });

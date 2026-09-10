@@ -1,24 +1,25 @@
-const mockListSharedDataByTribeSlug = jest.fn();
-const mockWithRequestContext = jest.fn();
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
+const mockListSharedDataByTribeSlug = vi.fn();
+const mockWithRequestContext = vi.fn();
 
-jest.mock("server-only", () => ({}));
+vi.mock("server-only", () => ({}));
 
-jest.mock("next/cache", () => ({
-  cacheLife: jest.fn(),
-  cacheTag: jest.fn(),
+vi.mock("next/cache", () => ({
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/database/server-database-client",
   () => ({
-    createServerDatabaseClient: jest.fn(),
+    createServerDatabaseClient: vi.fn(),
   })
 );
 
-jest.mock(
+vi.mock(
   "@/src/modules/messages/infrastructure/repositories/postgres-message-round-repository",
   () => ({
-    PostgresMessageRoundRepository: jest.fn(),
+    PostgresMessageRoundRepository: vi.fn(),
   })
 );
 
@@ -29,15 +30,14 @@ import { listCachedTribeRoundSharedData } from "@/src/modules/messages/infrastru
 
 describe("listCachedTribeRoundSharedData", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (createServerDatabaseClient as jest.Mock).mockResolvedValue({
+    vi.clearAllMocks();
+    (createServerDatabaseClient as Mock).mockResolvedValue({
       withRequestContext: mockWithRequestContext,
     });
-    (PostgresMessageRoundRepository as jest.Mock).mockImplementation(() => ({
+    (PostgresMessageRoundRepository as Mock).mockImplementation(function () { return ({
       listSharedDataByTribeSlug: mockListSharedDataByTribeSlug,
-    }));
-    mockWithRequestContext.mockImplementation(async (_context, callback) =>
-      callback({ execute: jest.fn() })
+    }); });
+    mockWithRequestContext.mockImplementation(async function (_context, callback) { return callback({ execute: vi.fn() }); }
     );
     mockListSharedDataByTribeSlug.mockResolvedValue({
       activeChannelId: "channel-ronda",

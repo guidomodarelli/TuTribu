@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, type Mock } from "vitest";
 import {
   createSitepingFeedback,
   deleteSitepingFeedback,
@@ -97,7 +98,7 @@ function buildFeedbackCommand() {
 function buildMemberTribe(
   overrides: Partial<MemberTribeListItemResult> = {}
 ): MemberTribeListItemResult {
-  return {
+  return { logoUrl: null,
     membershipStatus: TRIBE_MEMBERSHIP_STATUS.active,
     name: "Matematica",
     role: TRIBE_MEMBER_ROLE.leader,
@@ -111,8 +112,8 @@ function buildRepository(
   overrides: Partial<SitepingFeedbackRepository> = {}
 ): SitepingFeedbackRepository {
   return {
-    attachScreenshotUrl: jest.fn(async () => ({ screenshotAttached: true })),
-    create: jest.fn(async () => ({
+    attachScreenshotUrl: vi.fn(async () => ({ screenshotAttached: true })),
+    create: vi.fn(async () => ({
       feedback: {
         annotations: [],
         authorEmail: "leader@example.com",
@@ -127,7 +128,7 @@ function buildRepository(
         projectName: "tutribu",
         resolvedAt: null,
         screenshotUrl: null,
-        status: "open",
+        status: "open" as const,
         type: SITEPING_FEEDBACK_TYPE.bug,
         updatedAt: new Date("2026-05-31T12:00:00.000Z"),
         url: "https://tutribu.example.com/matematica/precios",
@@ -137,7 +138,7 @@ function buildRepository(
       },
       wasCreated: true,
     })),
-    findById: jest.fn(async () => ({
+    findById: vi.fn(async () => ({
       annotations: [],
       authorEmail: "leader@example.com",
       authorName: "Leader Example",
@@ -153,7 +154,7 @@ function buildRepository(
       projectName: "tutribu",
       resolvedAt: null,
       screenshotUrl: null,
-      status: "open",
+      status: "open" as const,
       type: SITEPING_FEEDBACK_TYPE.bug,
       updatedAt: new Date("2026-05-31T12:00:00.000Z"),
       url: "https://tutribu.example.com/matematica/precios",
@@ -161,15 +162,15 @@ function buildRepository(
       userAgent: "Jest Browser",
       viewport: "1280x800",
     })),
-    findByIdempotencyKey: jest.fn(async () => null),
-    findPage: jest.fn(),
-    markGitHubIssueDeletionCompleted: jest.fn(),
-    markGitHubIssueDeletionPending: jest.fn(),
-    markGitHubIssueFailed: jest.fn(),
-    markGitHubIssuePublished: jest.fn(),
-    remove: jest.fn(),
-    restoreGitHubIssuePublished: jest.fn(),
-    updateStatus: jest.fn(),
+    findByIdempotencyKey: vi.fn(async () => null),
+    findPage: vi.fn(),
+    markGitHubIssueDeletionCompleted: vi.fn(),
+    markGitHubIssueDeletionPending: vi.fn(),
+    markGitHubIssueFailed: vi.fn(),
+    markGitHubIssuePublished: vi.fn(),
+    remove: vi.fn(),
+    restoreGitHubIssuePublished: vi.fn(),
+    updateStatus: vi.fn(),
     ...overrides,
   };
 }
@@ -178,8 +179,8 @@ function buildPublisher(
   overrides: Partial<GitHubIssuePublisher> = {}
 ): GitHubIssuePublisher {
   return {
-    close: jest.fn(async () => undefined),
-    publish: jest.fn(async () => ({
+    close: vi.fn(async () => undefined),
+    publish: vi.fn(async () => ({
       issueNumber: 42,
       issueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
     })),
@@ -191,14 +192,14 @@ function buildScreenshotStorage(
   overrides: Partial<SitepingScreenshotStorage> = {}
 ): SitepingScreenshotStorage {
   return {
-    delete: jest.fn(async () => ({ screenshotCleared: true })),
-    store: jest.fn(async () => null),
+    delete: vi.fn(async () => ({ screenshotCleared: true })),
+    store: vi.fn(async () => null),
     ...overrides,
   };
 }
 
 function buildFeedbackLogger() {
-  return { warn: jest.fn() };
+  return { warn: vi.fn() };
 }
 
 describe("manage Siteping feedback use cases", () => {
@@ -339,7 +340,7 @@ describe("manage Siteping feedback use cases", () => {
     const repository = buildRepository();
     const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
     const screenshotStorage = buildScreenshotStorage({
-      store: jest.fn(async () => deliveryUrl),
+      store: vi.fn(async () => deliveryUrl),
     });
     const publisher = buildPublisher();
     const useCase = createSitepingFeedback({
@@ -379,7 +380,7 @@ describe("manage Siteping feedback use cases", () => {
   it("keeps no screenshot without attaching when the upload fails", async () => {
     const repository = buildRepository();
     const screenshotStorage = buildScreenshotStorage({
-      store: jest.fn(async () => null),
+      store: vi.fn(async () => null),
     });
     const useCase = createSitepingFeedback({
       githubIssuePublisher: buildPublisher(),
@@ -407,12 +408,12 @@ describe("manage Siteping feedback use cases", () => {
   it("keeps the feedback and reclaims the orphan when attaching the screenshot fails", async () => {
     const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      attachScreenshotUrl: jest.fn(async () => {
+      attachScreenshotUrl: vi.fn(async () => {
         throw new Error("database_connection_interrupted");
       }),
     });
     const screenshotStorage = buildScreenshotStorage({
-      store: jest.fn(async () => deliveryUrl),
+      store: vi.fn(async () => deliveryUrl),
     });
     const publisher = buildPublisher();
     const useCase = createSitepingFeedback({
@@ -443,10 +444,10 @@ describe("manage Siteping feedback use cases", () => {
   it("reclaims the screenshot and keeps no screenshot when the attach matches no row", async () => {
     const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      attachScreenshotUrl: jest.fn(async () => ({ screenshotAttached: false })),
+      attachScreenshotUrl: vi.fn(async () => ({ screenshotAttached: false })),
     });
     const screenshotStorage = buildScreenshotStorage({
-      store: jest.fn(async () => deliveryUrl),
+      store: vi.fn(async () => deliveryUrl),
     });
     const publisher = buildPublisher();
     const useCase = createSitepingFeedback({
@@ -483,13 +484,13 @@ describe("manage Siteping feedback use cases", () => {
   it("surfaces the orphaned screenshot when the reclaim is unconfirmed after attaching fails", async () => {
     const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      attachScreenshotUrl: jest.fn(async () => {
+      attachScreenshotUrl: vi.fn(async () => {
         throw new Error("database_connection_interrupted");
       }),
     });
     const screenshotStorage = buildScreenshotStorage({
-      delete: jest.fn(async () => ({ screenshotCleared: false })),
-      store: jest.fn(async () => deliveryUrl),
+      delete: vi.fn(async () => ({ screenshotCleared: false })),
+      store: vi.fn(async () => deliveryUrl),
     });
     const logger = buildFeedbackLogger();
     const useCase = createSitepingFeedback({
@@ -528,11 +529,11 @@ describe("manage Siteping feedback use cases", () => {
   it("surfaces the orphaned screenshot when the reclaim is unconfirmed after the attach matches no row", async () => {
     const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      attachScreenshotUrl: jest.fn(async () => ({ screenshotAttached: false })),
+      attachScreenshotUrl: vi.fn(async () => ({ screenshotAttached: false })),
     });
     const screenshotStorage = buildScreenshotStorage({
-      delete: jest.fn(async () => ({ screenshotCleared: false })),
-      store: jest.fn(async () => deliveryUrl),
+      delete: vi.fn(async () => ({ screenshotCleared: false })),
+      store: vi.fn(async () => deliveryUrl),
     });
     const logger = buildFeedbackLogger();
     const useCase = createSitepingFeedback({
@@ -569,13 +570,13 @@ describe("manage Siteping feedback use cases", () => {
   it("does not surface an orphan when the reclaim is confirmed after attaching fails", async () => {
     const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      attachScreenshotUrl: jest.fn(async () => {
+      attachScreenshotUrl: vi.fn(async () => {
         throw new Error("database_connection_interrupted");
       }),
     });
     const screenshotStorage = buildScreenshotStorage({
-      delete: jest.fn(async () => ({ screenshotCleared: true })),
-      store: jest.fn(async () => deliveryUrl),
+      delete: vi.fn(async () => ({ screenshotCleared: true })),
+      store: vi.fn(async () => deliveryUrl),
     });
     const logger = buildFeedbackLogger();
     const useCase = createSitepingFeedback({
@@ -691,7 +692,7 @@ describe("manage Siteping feedback use cases", () => {
 
   it("redacts sensitive persisted annotation text before returning feedback lists", async () => {
     const repository = buildRepository({
-      findPage: jest.fn(async () => ({
+      findPage: vi.fn(async () => ({
         feedbacks: [
           {
             annotations: [
@@ -733,7 +734,7 @@ describe("manage Siteping feedback use cases", () => {
             projectName: "tutribu",
             resolvedAt: null,
             screenshotUrl: null,
-            status: "open",
+            status: "open" as const,
             type: SITEPING_FEEDBACK_TYPE.bug,
             updatedAt: new Date("2026-05-31T12:00:00.000Z"),
             url: "https://tutribu.example.com/matematica/precios",
@@ -751,9 +752,8 @@ describe("manage Siteping feedback use cases", () => {
 
     const result = await useCase({
       limit: 20,
-      offset: 0,
       projectName: "tutribu",
-      status: "open",
+      status: "open" as const,
     });
 
     expect(result.feedbacks[0].annotations[0]).toEqual(
@@ -824,7 +824,7 @@ describe("manage Siteping feedback use cases", () => {
 
   it("does not publish a duplicate GitHub issue for an existing client id", async () => {
     const repository = buildRepository({
-      create: jest.fn(async () => ({
+      create: vi.fn(async () => ({
         feedback: {
           annotations: [],
           authorEmail: "leader@example.com",
@@ -839,7 +839,7 @@ describe("manage Siteping feedback use cases", () => {
           projectName: "tutribu",
           resolvedAt: null,
           screenshotUrl: null,
-          status: "open",
+          status: "open" as const,
           type: SITEPING_FEEDBACK_TYPE.bug,
           updatedAt: new Date("2026-05-31T12:00:00.000Z"),
           url: "https://tutribu.example.com/matematica/precios",
@@ -872,7 +872,7 @@ describe("manage Siteping feedback use cases", () => {
 
   it("does not upload a screenshot when the create resolves an idempotency conflict", async () => {
     const repository = buildRepository({
-      create: jest.fn(async () => ({
+      create: vi.fn(async () => ({
         feedback: {
           annotations: [],
           authorEmail: "leader@example.com",
@@ -887,7 +887,7 @@ describe("manage Siteping feedback use cases", () => {
           projectName: "tutribu",
           resolvedAt: null,
           screenshotUrl: "https://imagedelivery.net/hash/winning-image/public",
-          status: "open",
+          status: "open" as const,
           type: SITEPING_FEEDBACK_TYPE.bug,
           updatedAt: new Date("2026-05-31T12:00:00.000Z"),
           url: "https://tutribu.example.com/matematica/precios",
@@ -900,7 +900,7 @@ describe("manage Siteping feedback use cases", () => {
     });
     const publisher = buildPublisher();
     const screenshotStorage = buildScreenshotStorage({
-      store: jest.fn(async () => "https://imagedelivery.net/hash/image-1/public"),
+      store: vi.fn(async () => "https://imagedelivery.net/hash/image-1/public"),
     });
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
@@ -924,13 +924,13 @@ describe("manage Siteping feedback use cases", () => {
 
   it("does not upload a screenshot when persisting the feedback throws", async () => {
     const repository = buildRepository({
-      create: jest.fn(async () => {
+      create: vi.fn(async () => {
         throw new Error("database_connection_interrupted");
       }),
     });
     const publisher = buildPublisher();
     const screenshotStorage = buildScreenshotStorage({
-      store: jest.fn(async () => "https://imagedelivery.net/hash/image-1/public"),
+      store: vi.fn(async () => "https://imagedelivery.net/hash/image-1/public"),
     });
     const useCase = createSitepingFeedback({
       githubIssuePublisher: publisher,
@@ -979,7 +979,7 @@ describe("manage Siteping feedback use cases", () => {
       viewport: "1280x800",
     };
     const repository = buildRepository({
-      findByIdempotencyKey: jest.fn(async () => existingFeedback),
+      findByIdempotencyKey: vi.fn(async () => existingFeedback),
     });
     const publisher = buildPublisher();
     const screenshotStorage = buildScreenshotStorage();
@@ -1010,7 +1010,7 @@ describe("manage Siteping feedback use cases", () => {
     const deliveryUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository();
     const screenshotStorage = buildScreenshotStorage({
-      store: jest.fn(async () => deliveryUrl),
+      store: vi.fn(async () => deliveryUrl),
     });
     const useCase = createSitepingFeedback({
       githubIssuePublisher: buildPublisher(),
@@ -1031,13 +1031,13 @@ describe("manage Siteping feedback use cases", () => {
     });
     expect(screenshotStorage.store).toHaveBeenCalledTimes(1);
     // idempotency check -> create durable row -> upload -> attach URL.
-    const findOrder = (repository.findByIdempotencyKey as jest.Mock).mock
+    const findOrder = (repository.findByIdempotencyKey as Mock).mock
       .invocationCallOrder[0];
-    const createOrder = (repository.create as jest.Mock).mock
+    const createOrder = (repository.create as Mock).mock
       .invocationCallOrder[0];
-    const storeOrder = (screenshotStorage.store as jest.Mock).mock
+    const storeOrder = (screenshotStorage.store as Mock).mock
       .invocationCallOrder[0];
-    const attachOrder = (repository.attachScreenshotUrl as jest.Mock).mock
+    const attachOrder = (repository.attachScreenshotUrl as Mock).mock
       .invocationCallOrder[0];
 
     expect(findOrder).toBeLessThan(createOrder);
@@ -1048,7 +1048,7 @@ describe("manage Siteping feedback use cases", () => {
   it("keeps the feedback when GitHub issue creation fails", async () => {
     const repository = buildRepository();
     const publisher = buildPublisher({
-      publish: jest.fn(async () => {
+      publish: vi.fn(async () => {
         throw new Error("github_failed");
       }),
     });
@@ -1074,7 +1074,7 @@ describe("manage Siteping feedback use cases", () => {
 
   it("does not mark publication as failed when storing the created GitHub issue fails", async () => {
     const repository = buildRepository({
-      markGitHubIssuePublished: jest.fn(async () => {
+      markGitHubIssuePublished: vi.fn(async () => {
         throw new Error("database_connection_interrupted");
       }),
     });
@@ -1135,16 +1135,16 @@ describe("manage Siteping feedback use cases", () => {
       projectName: "tutribu",
     });
     expect(
-      (repository.markGitHubIssueDeletionPending as jest.Mock).mock.invocationCallOrder[0]
-    ).toBeLessThan((publisher.close as jest.Mock).mock.invocationCallOrder[0]);
-    expect((publisher.close as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
-      (repository.remove as jest.Mock).mock.invocationCallOrder[0]
+      (repository.markGitHubIssueDeletionPending as Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan((publisher.close as Mock).mock.invocationCallOrder[0]);
+    expect((publisher.close as Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (repository.remove as Mock).mock.invocationCallOrder[0]
     );
   });
 
   it("removes completed deletion feedback without closing the GitHub issue again", async () => {
     const repository = buildRepository({
-      findById: jest.fn(async () => ({
+      findById: vi.fn(async () => ({
         annotations: [],
         authorEmail: "leader@example.com",
         authorName: "Leader Example",
@@ -1160,7 +1160,7 @@ describe("manage Siteping feedback use cases", () => {
         projectName: "tutribu",
         resolvedAt: null,
         screenshotUrl: null,
-        status: "open",
+        status: "open" as const,
         type: SITEPING_FEEDBACK_TYPE.bug,
         updatedAt: new Date("2026-05-31T12:00:00.000Z"),
         url: "https://tutribu.example.com/matematica/precios",
@@ -1193,7 +1193,7 @@ describe("manage Siteping feedback use cases", () => {
   it("deletes the stored screenshot before removing the feedback record", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      findById: jest.fn(async () => ({
+      findById: vi.fn(async () => ({
         annotations: [],
         authorEmail: "leader@example.com",
         authorName: "Leader Example",
@@ -1209,7 +1209,7 @@ describe("manage Siteping feedback use cases", () => {
         projectName: "tutribu",
         resolvedAt: null,
         screenshotUrl,
-        status: "open",
+        status: "open" as const,
         type: SITEPING_FEEDBACK_TYPE.bug,
         updatedAt: new Date("2026-05-31T12:00:00.000Z"),
         url: "https://tutribu.example.com/matematica/precios",
@@ -1239,14 +1239,14 @@ describe("manage Siteping feedback use cases", () => {
       projectName: "tutribu",
     });
     expect(
-      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
-    ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
+      (screenshotStorage.delete as Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan((repository.remove as Mock).mock.invocationCallOrder[0]);
   });
 
   it("clears the screenshot only after confirming the linked GitHub issue close", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      findById: jest.fn(async () => ({
+      findById: vi.fn(async () => ({
         annotations: [],
         authorEmail: "leader@example.com",
         authorName: "Leader Example",
@@ -1262,7 +1262,7 @@ describe("manage Siteping feedback use cases", () => {
         projectName: "tutribu",
         resolvedAt: null,
         screenshotUrl,
-        status: "open",
+        status: "open" as const,
         type: SITEPING_FEEDBACK_TYPE.bug,
         updatedAt: new Date("2026-05-31T12:00:00.000Z"),
         url: "https://tutribu.example.com/matematica/precios",
@@ -1297,30 +1297,30 @@ describe("manage Siteping feedback use cases", () => {
     // row. Deferring the clear until the close is confirmed means a failed close
     // never destroys the screenshot of an undeleted, still-visible feedback.
     expect(
-      (repository.markGitHubIssueDeletionPending as jest.Mock).mock
+      (repository.markGitHubIssueDeletionPending as Mock).mock
         .invocationCallOrder[0]
-    ).toBeLessThan((publisher.close as jest.Mock).mock.invocationCallOrder[0]);
+    ).toBeLessThan((publisher.close as Mock).mock.invocationCallOrder[0]);
     expect(
-      (publisher.close as jest.Mock).mock.invocationCallOrder[0]
+      (publisher.close as Mock).mock.invocationCallOrder[0]
     ).toBeLessThan(
-      (repository.markGitHubIssueDeletionCompleted as jest.Mock).mock
+      (repository.markGitHubIssueDeletionCompleted as Mock).mock
         .invocationCallOrder[0]
     );
     expect(
-      (repository.markGitHubIssueDeletionCompleted as jest.Mock).mock
+      (repository.markGitHubIssueDeletionCompleted as Mock).mock
         .invocationCallOrder[0]
     ).toBeLessThan(
-      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
+      (screenshotStorage.delete as Mock).mock.invocationCallOrder[0]
     );
     expect(
-      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
-    ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
+      (screenshotStorage.delete as Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan((repository.remove as Mock).mock.invocationCallOrder[0]);
   });
 
   it("never deletes the screenshot when closing the linked GitHub issue fails", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      findById: jest.fn(async () => ({
+      findById: vi.fn(async () => ({
         annotations: [],
         authorEmail: "leader@example.com",
         authorName: "Leader Example",
@@ -1336,7 +1336,7 @@ describe("manage Siteping feedback use cases", () => {
         projectName: "tutribu",
         resolvedAt: null,
         screenshotUrl,
-        status: "open",
+        status: "open" as const,
         type: SITEPING_FEEDBACK_TYPE.bug,
         updatedAt: new Date("2026-05-31T12:00:00.000Z"),
         url: "https://tutribu.example.com/matematica/precios",
@@ -1347,7 +1347,7 @@ describe("manage Siteping feedback use cases", () => {
     });
     const screenshotStorage = buildScreenshotStorage();
     const publisher = buildPublisher({
-      close: jest.fn(async () => {
+      close: vi.fn(async () => {
         throw new Error("github_close_failed");
       }),
     });
@@ -1379,7 +1379,7 @@ describe("manage Siteping feedback use cases", () => {
   it("keeps the issue closed and retryable when the screenshot clear fails after closing the issue", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      findById: jest.fn(async () => ({
+      findById: vi.fn(async () => ({
         annotations: [],
         authorEmail: "leader@example.com",
         authorName: "Leader Example",
@@ -1395,7 +1395,7 @@ describe("manage Siteping feedback use cases", () => {
         projectName: "tutribu",
         resolvedAt: null,
         screenshotUrl,
-        status: "open",
+        status: "open" as const,
         type: SITEPING_FEEDBACK_TYPE.bug,
         updatedAt: new Date("2026-05-31T12:00:00.000Z"),
         url: "https://tutribu.example.com/matematica/precios",
@@ -1405,7 +1405,7 @@ describe("manage Siteping feedback use cases", () => {
       })),
     });
     const screenshotStorage = buildScreenshotStorage({
-      delete: jest.fn(async () => ({ screenshotCleared: false })),
+      delete: vi.fn(async () => ({ screenshotCleared: false })),
     });
     const publisher = buildPublisher();
     const useCase = deleteSitepingFeedback({
@@ -1444,7 +1444,7 @@ describe("manage Siteping feedback use cases", () => {
   it("deletes a feedback without a GitHub issue without marking it deletion pending", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      findById: jest.fn(async () => ({
+      findById: vi.fn(async () => ({
         annotations: [],
         authorEmail: "leader@example.com",
         authorName: "Leader Example",
@@ -1460,7 +1460,7 @@ describe("manage Siteping feedback use cases", () => {
         projectName: "tutribu",
         resolvedAt: null,
         screenshotUrl,
-        status: "open",
+        status: "open" as const,
         type: SITEPING_FEEDBACK_TYPE.bug,
         updatedAt: new Date("2026-05-31T12:00:00.000Z"),
         url: "https://tutribu.example.com/matematica/precios",
@@ -1496,14 +1496,14 @@ describe("manage Siteping feedback use cases", () => {
       projectName: "tutribu",
     });
     expect(
-      (screenshotStorage.delete as jest.Mock).mock.invocationCallOrder[0]
-    ).toBeLessThan((repository.remove as jest.Mock).mock.invocationCallOrder[0]);
+      (screenshotStorage.delete as Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan((repository.remove as Mock).mock.invocationCallOrder[0]);
   });
 
   it("keeps a feedback without a GitHub issue visible when the screenshot clear is unconfirmed", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      findById: jest.fn(async () => ({
+      findById: vi.fn(async () => ({
         annotations: [],
         authorEmail: "leader@example.com",
         authorName: "Leader Example",
@@ -1519,7 +1519,7 @@ describe("manage Siteping feedback use cases", () => {
         projectName: "tutribu",
         resolvedAt: null,
         screenshotUrl,
-        status: "open",
+        status: "open" as const,
         type: SITEPING_FEEDBACK_TYPE.bug,
         updatedAt: new Date("2026-05-31T12:00:00.000Z"),
         url: "https://tutribu.example.com/matematica/precios",
@@ -1529,7 +1529,7 @@ describe("manage Siteping feedback use cases", () => {
       })),
     });
     const screenshotStorage = buildScreenshotStorage({
-      delete: jest.fn(async () => ({ screenshotCleared: false })),
+      delete: vi.fn(async () => ({ screenshotCleared: false })),
     });
     const useCase = deleteSitepingFeedback({
       githubIssuePublisher: buildPublisher(),
@@ -1558,7 +1558,7 @@ describe("manage Siteping feedback use cases", () => {
   it("keeps the feedback row when the screenshot deletion is not confirmed", async () => {
     const screenshotUrl = "https://imagedelivery.net/hash/image-1/public";
     const repository = buildRepository({
-      findById: jest.fn(async () => ({
+      findById: vi.fn(async () => ({
         annotations: [],
         authorEmail: "leader@example.com",
         authorName: "Leader Example",
@@ -1574,7 +1574,7 @@ describe("manage Siteping feedback use cases", () => {
         projectName: "tutribu",
         resolvedAt: null,
         screenshotUrl,
-        status: "open",
+        status: "open" as const,
         type: SITEPING_FEEDBACK_TYPE.bug,
         updatedAt: new Date("2026-05-31T12:00:00.000Z"),
         url: "https://tutribu.example.com/matematica/precios",
@@ -1584,7 +1584,7 @@ describe("manage Siteping feedback use cases", () => {
       })),
     });
     const screenshotStorage = buildScreenshotStorage({
-      delete: jest.fn(async () => ({ screenshotCleared: false })),
+      delete: vi.fn(async () => ({ screenshotCleared: false })),
     });
     const useCase = deleteSitepingFeedback({
       githubIssuePublisher: buildPublisher(),
@@ -1631,7 +1631,7 @@ describe("manage Siteping feedback use cases", () => {
     const screenshotUrl = "https://imagedelivery.net/hash/reserved-image-1/public";
     const createdAt = new Date("2026-05-31T12:00:00.000Z");
     const repository = buildRepository({
-      findById: jest.fn(async () => ({
+      findById: vi.fn(async () => ({
         annotations: [],
         authorEmail: "leader@example.com",
         authorName: "Leader Example",
@@ -1647,7 +1647,7 @@ describe("manage Siteping feedback use cases", () => {
         projectName: "tutribu",
         resolvedAt: null,
         screenshotUrl,
-        status: "open",
+        status: "open" as const,
         type: SITEPING_FEEDBACK_TYPE.bug,
         updatedAt: createdAt,
         url: "https://tutribu.example.com/matematica/precios",
@@ -1660,7 +1660,7 @@ describe("manage Siteping feedback use cases", () => {
     // image returns 404 on DELETE, which only counts as cleared when the caller
     // trusts a 404 as already gone.
     const screenshotStorage = buildScreenshotStorage({
-      delete: jest.fn(async (command) => ({
+      delete: vi.fn(async (command) => ({
         screenshotCleared: command.treatNotFoundAsCleared === true,
       })),
     });
@@ -1693,7 +1693,7 @@ describe("manage Siteping feedback use cases", () => {
     const screenshotUrl = "https://imagedelivery.net/hash/reserved-image-1/public";
     const createdAt = new Date("2026-05-31T12:00:00.000Z");
     const repository = buildRepository({
-      findById: jest.fn(async () => ({
+      findById: vi.fn(async () => ({
         annotations: [],
         authorEmail: "leader@example.com",
         authorName: "Leader Example",
@@ -1709,7 +1709,7 @@ describe("manage Siteping feedback use cases", () => {
         projectName: "tutribu",
         resolvedAt: null,
         screenshotUrl,
-        status: "open",
+        status: "open" as const,
         type: SITEPING_FEEDBACK_TYPE.bug,
         updatedAt: createdAt,
         url: "https://tutribu.example.com/matematica/precios",
@@ -1719,7 +1719,7 @@ describe("manage Siteping feedback use cases", () => {
       })),
     });
     const screenshotStorage = buildScreenshotStorage({
-      delete: jest.fn(async (command) => ({
+      delete: vi.fn(async (command) => ({
         screenshotCleared: command.treatNotFoundAsCleared === true,
       })),
     });
@@ -1751,7 +1751,7 @@ describe("manage Siteping feedback use cases", () => {
   it("does not delete local feedback when closing the linked GitHub issue fails", async () => {
     const repository = buildRepository();
     const publisher = buildPublisher({
-      close: jest.fn(async () => {
+      close: vi.fn(async () => {
         throw new Error("github_close_failed");
       }),
     });
@@ -1774,7 +1774,7 @@ describe("manage Siteping feedback use cases", () => {
 
   it("returns null when feedback status update finds no matching project feedback", async () => {
     const repository = buildRepository({
-      updateStatus: jest.fn(async () => null),
+      updateStatus: vi.fn(async () => null),
     });
     const useCase = updateSitepingFeedbackStatus({
       sitepingFeedbackRepository: repository,
@@ -1783,13 +1783,13 @@ describe("manage Siteping feedback use cases", () => {
     await expect(useCase({
       feedbackId: FEEDBACK_ID,
       projectName: "another-project",
-      status: "resolved",
+      status: "resolved" as const,
     })).resolves.toBeNull();
 
     expect(repository.updateStatus).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
       projectName: "another-project",
-      status: "resolved",
+      status: "resolved" as const,
     });
   });
 });

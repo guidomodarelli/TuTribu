@@ -1,25 +1,26 @@
+import { vi, describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
 
 class ResizeObserverMock {
-  disconnect = jest.fn();
+  disconnect = vi.fn();
 
-  observe = jest.fn();
+  observe = vi.fn();
 
-  unobserve = jest.fn();
+  unobserve = vi.fn();
 }
 
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 
 class IntersectionObserverMock {
-  disconnect = jest.fn();
+  disconnect = vi.fn();
 
-  observe = jest.fn();
+  observe = vi.fn();
 
-  takeRecords = jest.fn(() => []);
+  takeRecords = vi.fn(() => []);
 
-  unobserve = jest.fn();
+  unobserve = vi.fn();
 }
 
 globalThis.IntersectionObserver =
@@ -27,16 +28,16 @@ globalThis.IntersectionObserver =
 
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
-  value: jest.fn().mockImplementation((query: string) => ({
-    addEventListener: jest.fn(),
-    addListener: jest.fn(),
-    dispatchEvent: jest.fn(),
+  value: vi.fn().mockImplementation(function (query: string) { return ({
+    addEventListener: vi.fn(),
+    addListener: vi.fn(),
+    dispatchEvent: vi.fn(),
     matches: false,
     media: query,
     onchange: null,
-    removeEventListener: jest.fn(),
-    removeListener: jest.fn(),
-  })),
+    removeEventListener: vi.fn(),
+    removeListener: vi.fn(),
+  }); }),
 });
 
 const STATS = {
@@ -145,7 +146,7 @@ describe("TribeStoryAbout", () => {
   });
 
   it("renders a free join form when the tribe allows tokenless free joins", () => {
-    const freeJoinAction = jest.fn(async () => undefined);
+    const freeJoinAction = vi.fn(async () => undefined);
 
     render(
       <TribeStoryAbout

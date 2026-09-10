@@ -1,22 +1,23 @@
+import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import { GET } from "@/app/api/maintenance/image-cleanup/route";
 import { createMaintenanceModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const cleanupOrphanMessageImages = jest.fn();
-const cleanupOrphanTribeImages = jest.fn();
-const loggerError = jest.fn();
-const loggerInfo = jest.fn();
+const cleanupOrphanMessageImages = vi.fn();
+const cleanupOrphanTribeImages = vi.fn();
+const loggerError = vi.fn();
+const loggerInfo = vi.fn();
 
 const CRON_SECRET = "cron-secret-value";
 
-jest.mock("@/src/modules/setup", () => ({
-  createMaintenanceModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createMaintenanceModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -51,7 +52,7 @@ function buildCronRequest(authorization?: string): Request {
 
 describe("Orphan image cleanup route", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     cleanupOrphanMessageImages.mockReset();
     loggerError.mockReset();
     loggerInfo.mockReset();
@@ -62,7 +63,7 @@ describe("Orphan image cleanup route", () => {
       deletedCount: 0,
       failedRemoteDeleteCount: 0,
     });
-    (createMaintenanceModules as jest.Mock).mockResolvedValue({
+    (createMaintenanceModules as Mock).mockResolvedValue({
       messages: {
         useCases: {
           cleanupOrphanMessageImages,
@@ -74,7 +75,7 @@ describe("Orphan image cleanup route", () => {
         },
       },
     });
-    (createServerLogger as jest.Mock).mockReturnValue({
+    (createServerLogger as Mock).mockReturnValue({
       error: loggerError,
       info: loggerInfo,
     });
@@ -90,7 +91,7 @@ describe("Orphan image cleanup route", () => {
     )) as unknown as MockJsonResponse;
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ status: "unauthorized" });
+    await expect(response.json()).resolves.toEqual({ status: "unauthorized" as const });
     expect(createMaintenanceModules).not.toHaveBeenCalled();
     expect(cleanupOrphanMessageImages).not.toHaveBeenCalled();
   });
@@ -139,7 +140,7 @@ describe("Orphan image cleanup route", () => {
       remoteDeletedPending: 2,
       remoteDeletedQueued: 3,
       remoteFailures: 0,
-      status: "ok",
+      status: "ok" as const,
       tribeImages: {
         deletedCount: 0,
         failedRemoteDeleteCount: 0,
@@ -158,7 +159,7 @@ describe("Orphan image cleanup route", () => {
     )) as unknown as MockJsonResponse;
 
     expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({ status: "error" });
+    await expect(response.json()).resolves.toEqual({ status: "error" as const });
     expect(loggerError).toHaveBeenCalledWith(
       expect.objectContaining({
         message: "Orphan image cleanup sweep failed",

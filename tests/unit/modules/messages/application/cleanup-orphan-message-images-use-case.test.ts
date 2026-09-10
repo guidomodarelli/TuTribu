@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { cleanupOrphanMessageImages } from "@/src/modules/messages/application/use-cases/cleanup-orphan-message-images-use-case";
 import { MESSAGE_IMAGE_CLEANUP } from "@/src/modules/messages/constants/message-round";
 
@@ -9,7 +10,7 @@ describe("cleanupOrphanMessageImages", () => {
       remoteDeletedQueued: 1,
       remoteFailures: 0,
     };
-    const cleanupOrphanImages = jest.fn(async () => sweepResult);
+    const cleanupOrphanImages = vi.fn(async () => sweepResult);
     const execute = cleanupOrphanMessageImages({
       messageImageRepository: { cleanupOrphanImages },
     });

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterAll, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { headers } from "next/headers";
 import { redirect, useRouter } from "next/navigation";
@@ -8,37 +9,37 @@ import {
 } from "@/app/auth/signin/sign-in-content";
 import { createRequestModules } from "@/src/modules/setup";
 
-const getAuthenticatedMember = jest.fn();
-const startGoogleSignInMock = jest.fn();
-const pushMock = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const startGoogleSignInMock = vi.fn();
+const pushMock = vi.fn();
 
 const SAFARI_IOS_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 const MERCADO_PAGO_IOS_WEBVIEW_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MercadoPago/12.34.5";
 
-jest.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
+vi.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
   startGoogleSignIn: (...args: unknown[]) => startGoogleSignInMock(...args),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("next/navigation", () => ({
-  redirect: jest.fn(),
-  useRouter: jest.fn(),
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
+  useRouter: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/setup",
   () => ({
-    createRequestModules: jest.fn(),
+    createRequestModules: vi.fn(),
   })
 );
 
 function mockUserAgentHeader(userAgent: string) {
-  (headers as jest.Mock).mockResolvedValue(
+  (headers as Mock).mockResolvedValue(
     new Headers({ "user-agent": userAgent })
   );
 }
@@ -63,7 +64,7 @@ describe("SignInPage", () => {
   const originalBetterAuthUrl = process.env.BETTER_AUTH_URL;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockReset();
     startGoogleSignInMock.mockReset();
     pushMock.mockReset();
@@ -71,7 +72,7 @@ describe("SignInPage", () => {
 
     process.env.BETTER_AUTH_URL = "https://tutribu.example.com";
 
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -81,7 +82,7 @@ describe("SignInPage", () => {
         useCases: {},
       },
     });
-    (useRouter as jest.Mock).mockReturnValue({
+    (useRouter as Mock).mockReturnValue({
       push: pushMock,
     });
     mockUserAgentHeader(SAFARI_IOS_USER_AGENT);
@@ -105,7 +106,7 @@ describe("SignInPage", () => {
       avatarFallback: "GH",
       image: null,
     });
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 
@@ -127,7 +128,7 @@ describe("SignInPage", () => {
       avatarFallback: "GH",
       image: null,
     });
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 
@@ -149,7 +150,7 @@ describe("SignInPage", () => {
       avatarFallback: "GH",
       image: null,
     });
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 

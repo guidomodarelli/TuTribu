@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { TRIBE_WELCOME_SELECTION_STATUS } from "@/src/modules/tribes/constants/tribe-welcome";
 import { PostgresTribeWelcomeSelectionRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository";
 
@@ -34,13 +35,13 @@ function readQueryText(query: unknown): string {
 
 describe("PostgresTribeWelcomeSelectionRepository", () => {
   it("checks active membership before recording welcome selections", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           status: TRIBE_WELCOME_SELECTION_STATUS.forbidden,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeWelcomeSelectionRepository(
       async (callback) => callback({ execute } as never)
     );
@@ -62,13 +63,13 @@ describe("PostgresTribeWelcomeSelectionRepository", () => {
   });
 
   it("classifies forbidden access before invalid welcome links", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           status: TRIBE_WELCOME_SELECTION_STATUS.forbidden,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeWelcomeSelectionRepository(
       async (callback) => callback({ execute } as never)
     );
@@ -99,7 +100,7 @@ describe("PostgresTribeWelcomeSelectionRepository", () => {
         code: "42P01",
       },
     };
-    const execute = jest.fn(async () => {
+    const execute = vi.fn(async (...args: unknown[]) => { void args;
       throw missingStorageError;
     });
     const repository = new PostgresTribeWelcomeSelectionRepository(
@@ -114,9 +115,9 @@ describe("PostgresTribeWelcomeSelectionRepository", () => {
   });
 
   it("filters current member selections in SQL", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [],
-    }));
+    }); });
     const repository = new PostgresTribeWelcomeSelectionRepository(
       async (callback) => callback({ execute } as never)
     );

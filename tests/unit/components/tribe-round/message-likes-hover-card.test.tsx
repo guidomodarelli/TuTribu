@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -37,7 +38,7 @@ function renderHoverCard(likeCount = 12) {
 }
 
 function renderDisabledHoverCard(likeCount = 3) {
-  const handleClick = jest.fn();
+  const handleClick = vi.fn();
 
   render(
     <MessageLikesHoverCard
@@ -57,18 +58,18 @@ function renderDisabledHoverCard(likeCount = 3) {
 async function openHoverCard(user: ReturnType<typeof userEvent.setup>) {
   await user.hover(screen.getByRole("button", { name: /Me gusta/ }));
   await act(async () => {
-    jest.advanceTimersByTime(HOVER_OPEN_DELAY_MS);
+    vi.advanceTimersByTime(HOVER_OPEN_DELAY_MS);
   });
 }
 
 describe("MessageLikesHoverCard", () => {
   beforeEach(() => {
-    (global.fetch as jest.Mock).mockReset();
-    jest.useFakeTimers();
+    (global.fetch as Mock).mockReset();
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("fetches likers on open and shows the preview with the collapsed remainder", async () => {
@@ -81,11 +82,11 @@ describe("MessageLikesHoverCard", () => {
       buildLiker("member-6", "Lucía Fernández", "LF"),
       buildLiker("member-7", "Diego García", "DG"),
     ];
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({ likers: previewLikers, totalCount: 12 }),
       ok: true,
     });
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderHoverCard(12);
 
@@ -108,14 +109,14 @@ describe("MessageLikesHoverCard", () => {
   });
 
   it("prefers opening the hover card above the like button", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         likers: [buildLiker("member-1", "Guido Modarelli", "GM")],
         totalCount: 1,
       }),
       ok: true,
     });
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderHoverCard(1);
     await openHoverCard(user);
@@ -131,14 +132,14 @@ describe("MessageLikesHoverCard", () => {
   });
 
   it("does not render the remainder row when all likers fit in the preview", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         likers: [buildLiker("member-1", "Guido Modarelli", "GM")],
         totalCount: 1,
       }),
       ok: true,
     });
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderHoverCard(1);
     await openHoverCard(user);
@@ -150,14 +151,14 @@ describe("MessageLikesHoverCard", () => {
   });
 
   it("opens from focus when the wrapped like button is disabled", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         likers: [buildLiker("member-1", "Guido Modarelli", "GM")],
         totalCount: 1,
       }),
       ok: true,
     });
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const { handleClick } = renderDisabledHoverCard(3);
 
     await user.tab();
@@ -169,7 +170,7 @@ describe("MessageLikesHoverCard", () => {
   });
 
   it("does not cancel touch starts on the wrapped like button", () => {
-    const handleClick = jest.fn();
+    const handleClick = vi.fn();
 
     render(
       <MessageLikesHoverCard
@@ -193,11 +194,11 @@ describe("MessageLikesHoverCard", () => {
   });
 
   it("shows the empty state when the message has no likes", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({ likers: [], totalCount: 0 }),
       ok: true,
     });
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderHoverCard(0);
     await openHoverCard(user);
@@ -208,12 +209,12 @@ describe("MessageLikesHoverCard", () => {
   });
 
   it("shows a safe error message when the request fails", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({ message: "boom" }),
       ok: false,
       statusText: "Internal Server Error",
     });
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderHoverCard(3);
     await openHoverCard(user);
@@ -231,13 +232,13 @@ describe("MessageLikesHoverCard", () => {
     const laterRequest = new Promise<never>((_, reject) => {
       rejectLaterRequest = reject;
     });
-    (global.fetch as jest.Mock)
+    (global.fetch as Mock)
       .mockResolvedValueOnce({
         json: async () => ({ likers: [firstLiker], totalCount: 1 }),
         ok: true,
       })
       .mockReturnValueOnce(laterRequest);
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderHoverCard(1);
 
@@ -249,7 +250,7 @@ describe("MessageLikesHoverCard", () => {
 
     await user.unhover(screen.getByRole("button", { name: /Me gusta/ }));
     await act(async () => {
-      jest.advanceTimersByTime(HOVER_CLOSE_DELAY_MS);
+      vi.advanceTimersByTime(HOVER_CLOSE_DELAY_MS);
     });
     await waitFor(() => {
       expect(screen.queryByText(firstLiker.name)).not.toBeInTheDocument();
@@ -257,7 +258,7 @@ describe("MessageLikesHoverCard", () => {
 
     await user.hover(screen.getByRole("button", { name: /Me gusta/ }));
     await act(async () => {
-      jest.advanceTimersByTime(HOVER_OPEN_DELAY_MS);
+      vi.advanceTimersByTime(HOVER_OPEN_DELAY_MS);
     });
 
     expect(screen.getByText("Cargando reacciones...")).toBeInTheDocument();
@@ -280,7 +281,7 @@ describe("MessageLikesHoverCard on touch devices", () => {
   const originalMatchMedia = window.matchMedia;
 
   beforeEach(() => {
-    (global.fetch as jest.Mock).mockReset();
+    (global.fetch as Mock).mockReset();
     window.matchMedia = function matchMediaTouchStub(query: string): MediaQueryList {
       return {
         addEventListener: () => undefined,
@@ -300,14 +301,14 @@ describe("MessageLikesHoverCard on touch devices", () => {
   });
 
   it("opens the likers list from a dedicated tap target without toggling the like", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         likers: [buildLiker("liker-1", "Ana Torres", "AT")],
         totalCount: 1,
       }),
       ok: true,
     });
-    const handleLike = jest.fn();
+    const handleLike = vi.fn();
     const user = userEvent.setup();
 
     render(
@@ -336,7 +337,7 @@ describe("MessageLikesHoverCard on touch devices", () => {
   });
 
   it("keeps the like button working and hides the list trigger without likes", async () => {
-    const handleLike = jest.fn();
+    const handleLike = vi.fn();
     const user = userEvent.setup();
 
     render(

@@ -1,13 +1,14 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { Avatar, AvatarImage } from "beez-ui";
 
 import { AppProviders } from "@/components/providers/app-providers";
 
-const fetchMock = jest.fn();
+const fetchMock = vi.fn();
 
 describe("AppProviders", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
@@ -29,7 +30,7 @@ describe("AppProviders", () => {
 
   it("fetches Siteping identity when Siteping is enabled", async () => {
     fetchMock.mockResolvedValueOnce({
-      json: jest.fn(async () => ({
+      json: vi.fn(async () => ({
         enabled: false,
         identity: null,
         projectName: "tutribu",

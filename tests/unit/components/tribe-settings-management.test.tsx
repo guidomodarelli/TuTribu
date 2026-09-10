@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "beez-ui";
@@ -5,11 +6,11 @@ import { toast } from "beez-ui";
 import { TribeSettingsManagement } from "@/components/tribes/tribe-settings-management";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
@@ -20,8 +21,8 @@ const identity = {
 
 describe("TribeSettingsManagement", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    global.fetch = jest.fn();
+    vi.clearAllMocks();
+    global.fetch = vi.fn();
   });
 
   it("renders the current identity with logo and cover previews", () => {
@@ -79,7 +80,7 @@ describe("TribeSettingsManagement", () => {
   it("saves the trimmed identity and clears removed images", async () => {
     const user = userEvent.setup();
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({ message: "Ajustes actualizados." }),
       ok: true,
     });
@@ -112,7 +113,7 @@ describe("TribeSettingsManagement", () => {
   it("uploads a logo file and fills the URL with its delivery link", async () => {
     const user = userEvent.setup();
 
-    (global.fetch as jest.Mock)
+    (global.fetch as Mock)
       .mockResolvedValueOnce({
         json: async () => ({
           deliveryUrl: "https://images.example.com/uploaded-logo.png",

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import {
   GET,
   POST,
@@ -13,29 +14,29 @@ import {
 } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { revalidateTag } from "next/cache";
 
-const getAuthenticatedMember = jest.fn();
-const listTribeChannels = jest.fn();
-const createTribeChannel = jest.fn();
-const updateTribeChannel = jest.fn();
-const deleteTribeChannel = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const listTribeChannels = vi.fn();
+const createTribeChannel = vi.fn();
+const updateTribeChannel = vi.fn();
+const deleteTribeChannel = vi.fn();
 const mockServerLogger = {
-  error: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
 };
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock("next/cache", () => ({
-  revalidateTag: jest.fn(),
+vi.mock("next/cache", () => ({
+  revalidateTag: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => mockServerLogger),
+    createServerLogger: vi.fn(() => mockServerLogger),
   })
 );
 
@@ -103,8 +104,8 @@ describe("Tribe channel routes", () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    (revalidateTag as jest.Mock).mockReset();
+    vi.clearAllMocks();
+    (revalidateTag as Mock).mockReset();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -114,7 +115,7 @@ describe("Tribe channel routes", () => {
       name: "Grace Hopper",
       role: "tribemate",
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -185,7 +186,7 @@ describe("Tribe channel routes", () => {
   it("creates a channel from request body fields", async () => {
     createTribeChannel.mockResolvedValue({
       channel,
-      status: "created",
+      status: "created" as const,
     });
 
     const response = await POST(
@@ -209,7 +210,7 @@ describe("Tribe channel routes", () => {
 
   it("returns a safe duplicate message when creating an existing channel slug", async () => {
     createTribeChannel.mockResolvedValue({
-      status: "duplicate_slug",
+      status: "duplicate_slug" as const,
     });
 
     const response = await POST(
@@ -238,7 +239,7 @@ describe("Tribe channel routes", () => {
 
   it("returns a specific validation message when channel creation input is invalid", async () => {
     createTribeChannel.mockResolvedValue({
-      status: "invalid_name",
+      status: "invalid_name" as const,
     });
 
     const response = await POST(
@@ -260,7 +261,7 @@ describe("Tribe channel routes", () => {
   it("updates a channel from request body fields", async () => {
     updateTribeChannel.mockResolvedValue({
       channel,
-      status: "updated",
+      status: "updated" as const,
     });
 
     const response = await PATCH(
@@ -288,7 +289,7 @@ describe("Tribe channel routes", () => {
 
   it("returns a safe duplicate message when renaming to an existing channel slug", async () => {
     updateTribeChannel.mockResolvedValue({
-      status: "duplicate_slug",
+      status: "duplicate_slug" as const,
     });
 
     const response = await PATCH(
@@ -308,7 +309,7 @@ describe("Tribe channel routes", () => {
 
   it("returns a specific validation message when channel update input is invalid", async () => {
     updateTribeChannel.mockResolvedValue({
-      status: "invalid_name",
+      status: "invalid_name" as const,
     });
 
     const response = await PATCH(
@@ -397,7 +398,7 @@ describe("Tribe channel routes", () => {
 
   it("requires a target channel when deleting a channel with messages", async () => {
     deleteTribeChannel.mockResolvedValue({
-      status: "channel_has_messages",
+      status: "channel_has_messages" as const,
     });
 
     const response = await DELETE(buildJsonRequest(), buildChannelContext());
@@ -411,7 +412,7 @@ describe("Tribe channel routes", () => {
 
   it("revalidates the tribe round cache after deleting a channel", async () => {
     deleteTribeChannel.mockResolvedValue({
-      status: "deleted",
+      status: "deleted" as const,
     });
 
     const response = await DELETE(buildJsonRequest(), buildChannelContext());

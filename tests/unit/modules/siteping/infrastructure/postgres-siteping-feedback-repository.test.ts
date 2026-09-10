@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { PostgresSitepingFeedbackRepository } from "@/src/modules/siteping/infrastructure/repositories/postgres-siteping-feedback-repository";
 import { SITEPING_FEEDBACK_GITHUB_STATUS } from "@/src/modules/siteping/constants/siteping";
 import type { CreateSitepingFeedbackRecordCommand } from "@/src/modules/siteping/domain/repositories/siteping-feedback-repository";
@@ -20,9 +21,9 @@ type FeedbackRow = {
   created_at: Date;
   created_by: string;
   diagnostics: null;
-  github_issue_number: null;
+  github_issue_number: number | null;
   github_issue_status: string;
-  github_issue_url: null;
+  github_issue_url: string | null;
   id: string;
   message: string;
   project_name: string;
@@ -133,7 +134,7 @@ function createFeedbackRow(command: CreateSitepingFeedbackRecordCommand): Feedba
     project_name: command.projectName,
     resolved_at: null,
     screenshot_url: null,
-    status: "open",
+    status: "open" as const,
     type: command.type,
     updated_at: createdAt,
     url: command.url,
@@ -146,7 +147,7 @@ function createFeedbackRow(command: CreateSitepingFeedbackRecordCommand): Feedba
 function createRepositoryHarness(options: RepositoryHarnessOptions = {}) {
   const feedbackRows: FeedbackRow[] = [];
   let isTransactionAborted = false;
-  const execute = jest.fn(async (statement: unknown) => {
+  const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement: unknown) => {
     const query = readQuery(statement);
     const operation = getSqlOperation(query.sql);
 
@@ -495,17 +496,17 @@ describe("PostgresSitepingFeedbackRepository", () => {
     await expect(repository.updateStatus({
       feedbackId: feedbackRows[0].id,
       projectName: "another-project",
-      status: "resolved",
+      status: "resolved" as const,
     })).resolves.toBeNull();
     expect(feedbackRows[0].status).toBe("open");
 
     await expect(repository.updateStatus({
       feedbackId: feedbackRows[0].id,
       projectName: "tutribu",
-      status: "resolved",
+      status: "resolved" as const,
     })).resolves.toMatchObject({
       projectName: "tutribu",
-      status: "resolved",
+      status: "resolved" as const,
     });
   });
 

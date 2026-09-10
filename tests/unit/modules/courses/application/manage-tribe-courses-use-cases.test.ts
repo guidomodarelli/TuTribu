@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   createCourse,
   createCourseModule,
@@ -27,18 +28,18 @@ function buildRepository(
   overrides: Partial<CourseRepository> = {}
 ): CourseRepository {
   return {
-    createCourse: jest.fn(async () => ({
+    createCourse: vi.fn(async () => ({
       course: COURSE_FIXTURE,
-      status: "created",
+      status: "created" as const,
     })),
-    updateCourse: jest.fn(async () => ({
+    updateCourse: vi.fn(async () => ({
       course: COURSE_FIXTURE,
-      status: "updated",
+      status: "updated" as const,
     })),
-    deleteCourse: jest.fn(async () => ({ status: "deleted" })),
-    recordLastViewedLesson: jest.fn(async () => ({ status: "recorded" })),
-    setLessonCompletion: jest.fn(async () => ({ status: "completed" })),
-    createCourseModule: jest.fn(async () => ({
+    deleteCourse: vi.fn(async () => ({ status: "deleted" as const })),
+    recordLastViewedLesson: vi.fn(async () => ({ status: "recorded" as const })),
+    setLessonCompletion: vi.fn(async () => ({ status: "completed" as const })),
+    createCourseModule: vi.fn(async () => ({
       courseModule: {
         courseId: "c1",
         id: "m1",
@@ -47,9 +48,9 @@ function buildRepository(
         title: "M",
         unlockAfterDays: null,
       },
-      status: "created",
+      status: "created" as const,
     })),
-    createLesson: jest.fn(async () => ({
+    createLesson: vi.fn(async () => ({
       lesson: {
         courseModuleId: "m1",
         description: null,
@@ -60,19 +61,19 @@ function buildRepository(
         title: "L",
         videoProvider: VIDEO_PROVIDER.vimeo,
       },
-      status: "created",
+      status: "created" as const,
     })),
-    deleteCourseModule: jest.fn(async () => ({ status: "deleted" })),
-    deleteLesson: jest.fn(async () => ({ status: "deleted" })),
-    getEditableTreeByTribeSlug: jest.fn(async () => ({
+    deleteCourseModule: vi.fn(async () => ({ status: "deleted" as const })),
+    deleteLesson: vi.fn(async () => ({ status: "deleted" as const })),
+    getEditableTreeByTribeSlug: vi.fn(async () => ({
       courses: [],
       viewerPermissions: { canManageCourses: true },
     })),
-    getTreeByTribeSlug: jest.fn(async () => ({
+    getTreeByTribeSlug: vi.fn(async () => ({
       courses: [],
       viewerPermissions: { canManageCourses: false },
     })),
-    updateCourseModule: jest.fn(async () => ({
+    updateCourseModule: vi.fn(async () => ({
       courseModule: {
         courseId: "c1",
         id: "m1",
@@ -81,9 +82,9 @@ function buildRepository(
         title: "M",
         unlockAfterDays: null,
       },
-      status: "updated",
+      status: "updated" as const,
     })),
-    updateLesson: jest.fn(async () => ({
+    updateLesson: vi.fn(async () => ({
       lesson: {
         courseModuleId: "m1",
         description: null,
@@ -94,7 +95,7 @@ function buildRepository(
         title: "L",
         videoProvider: VIDEO_PROVIDER.vimeo,
       },
-      status: "updated",
+      status: "updated" as const,
     })),
     ...overrides,
   };
@@ -156,7 +157,7 @@ describe("manage tribe courses use cases", () => {
       tribeSlug: "matematica-pro",
     });
 
-    expect(result).toEqual({ status: "invalid_input" });
+    expect(result).toEqual({ status: "invalid_input" as const });
     expect(repository.createCourse).not.toHaveBeenCalled();
   });
 
@@ -172,7 +173,7 @@ describe("manage tribe courses use cases", () => {
       tribeSlug: "matematica-pro",
     });
 
-    expect(result).toEqual({ status: "invalid_input" });
+    expect(result).toEqual({ status: "invalid_input" as const });
     expect(repository.createCourse).not.toHaveBeenCalled();
   });
 
@@ -246,7 +247,7 @@ describe("manage tribe courses use cases", () => {
       unlockAfterDays: null,
     });
 
-    expect(result).toEqual({ status: "invalid_input" });
+    expect(result).toEqual({ status: "invalid_input" as const });
     expect(repository.createCourseModule).not.toHaveBeenCalled();
   });
 
@@ -262,7 +263,7 @@ describe("manage tribe courses use cases", () => {
       unlockAfterDays: -1,
     });
 
-    expect(result).toEqual({ status: "invalid_input" });
+    expect(result).toEqual({ status: "invalid_input" as const });
     expect(repository.createCourseModule).not.toHaveBeenCalled();
   });
 
@@ -381,7 +382,7 @@ describe("manage tribe courses use cases", () => {
       userId: "leader-1",
     });
 
-    expect(result).toEqual({ status: "invalid_input" });
+    expect(result).toEqual({ status: "invalid_input" as const });
     expect(repository.createLesson).not.toHaveBeenCalled();
   });
 
@@ -401,7 +402,7 @@ describe("manage tribe courses use cases", () => {
       userId: "leader-1",
     });
 
-    expect(result).toEqual({ status: "invalid_input" });
+    expect(result).toEqual({ status: "invalid_input" as const });
     expect(repository.updateLesson).not.toHaveBeenCalled();
   });
 
@@ -505,7 +506,7 @@ describe("manage tribe courses use cases", () => {
       userId: "leader-1",
     });
 
-    expect(result).toEqual({ status: "invalid_video_url" });
+    expect(result).toEqual({ status: "invalid_video_url" as const });
     expect(repository.createLesson).not.toHaveBeenCalled();
   });
 
@@ -523,7 +524,7 @@ describe("manage tribe courses use cases", () => {
       userId: "leader-1",
     });
 
-    expect(result).toEqual({ status: "invalid_input" });
+    expect(result).toEqual({ status: "invalid_input" as const });
     expect(repository.createLesson).not.toHaveBeenCalled();
   });
 

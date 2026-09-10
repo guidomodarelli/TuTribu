@@ -1,29 +1,30 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { PUT as saveSettings } from "@/app/api/tribes/[slug]/settings/route";
 import { PUT as setOpenFreeJoin } from "@/app/api/tribes/[slug]/free-join/open/route";
 import { createRequestModules } from "@/src/modules/setup";
 import { TRIBE_IMAGE_SAVE_STATUS } from "@/src/modules/tribes/constants/tribe-images";
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 
-const getAuthenticatedMember = jest.fn();
-const saveTribeIdentity = jest.fn();
-const setTribeOpenFreeJoin = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const saveTribeIdentity = vi.fn();
+const setTribeOpenFreeJoin = vi.fn();
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock("next/cache", () => ({
-  cacheLife: jest.fn(),
-  cacheTag: jest.fn(),
-  revalidateTag: jest.fn(),
+vi.mock("next/cache", () => ({
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
+  revalidateTag: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
+    createServerLogger: vi.fn(() => ({
+      error: vi.fn(),
+      info: vi.fn(),
     })),
   })
 );
@@ -50,7 +51,7 @@ class MockJsonResponse {
 function buildRequest(body: unknown = {}): Request {
   return {
     headers: new Headers(),
-    json: jest.fn(async () => body),
+    json: vi.fn(async () => body),
     method: "PUT",
     url: "https://tutribu.example.com/api/tribes/matematica-pro/settings",
   } as unknown as Request;
@@ -62,7 +63,7 @@ function buildContext() {
 
 describe("Tribe settings routes", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -79,7 +80,7 @@ describe("Tribe settings routes", () => {
     setTribeOpenFreeJoin.mockResolvedValue({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: { useCases: { getAuthenticatedMember } },
       subscriptions: { useCases: { setTribeOpenFreeJoin } },
       tribes: { useCases: { saveTribeIdentity } },

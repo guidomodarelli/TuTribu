@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { act } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
@@ -8,22 +9,22 @@ import { toast } from "beez-ui";
 import { TribeStoryManagement } from "@/components/tribes/tribe-story-management";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
-const fetchMock = jest.fn();
+const fetchMock = vi.fn();
 
 describe("TribeStoryManagement", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.fetch = fetchMock;
     fetchMock.mockResolvedValue({
-      json: jest.fn(async () => ({ message: "Historia actualizada." })),
+      json: vi.fn(async () => ({ message: "Historia actualizada." })),
       ok: true,
     });
   });
@@ -258,9 +259,9 @@ describe("TribeStoryManagement", () => {
       <TribeStoryManagement story={storyWithMedia} tribeSlug="matematica-pro" />
     );
     const container = document.createElement("div");
-    const consoleErrorSpy = jest
+    const consoleErrorSpy = vi
       .spyOn(console, "error")
-      .mockImplementation(() => undefined);
+      .mockImplementation(function () { return undefined; });
 
     container.innerHTML = renderToString(element);
     document.body.appendChild(container);
@@ -415,7 +416,7 @@ describe("TribeStoryManagement", () => {
     const user = userEvent.setup();
 
     fetchMock.mockResolvedValue({
-      json: jest.fn(async () => ({
+      json: vi.fn(async () => ({
         message: "Solo el líder puede editar la historia de la tribu.",
       })),
       ok: false,

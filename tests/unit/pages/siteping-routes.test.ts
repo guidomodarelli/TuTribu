@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterAll, type Mock } from "vitest";
 import { DELETE, GET, PATCH, POST } from "@/app/api/siteping/route";
 import { GET as GET_IDENTITY } from "@/app/api/siteping/identity/route";
 import { createRequestModules } from "@/src/modules/setup";
@@ -8,13 +9,13 @@ import {
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 
-const getAuthenticatedMember = jest.fn();
-const createFeedback = jest.fn();
-const deleteFeedback = jest.fn();
-const getIdentity = jest.fn();
-const getMemberTribes = jest.fn();
-const listFeedback = jest.fn();
-const updateFeedbackStatus = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const createFeedback = vi.fn();
+const deleteFeedback = vi.fn();
+const getIdentity = vi.fn();
+const getMemberTribes = vi.fn();
+const listFeedback = vi.fn();
+const updateFeedbackStatus = vi.fn();
 const originalSitepingEnabled = process.env.SITEPING_ENABLED;
 
 class MockJsonResponse {
@@ -38,17 +39,17 @@ class MockJsonResponse {
   }
 }
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
+    createServerLogger: vi.fn(() => ({
+      error: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
     })),
   })
 );
@@ -59,7 +60,7 @@ function buildRequest(body?: unknown, method = "POST"): Request {
       "x-request-id": "request-1",
       "x-trace-id": "trace-1",
     }),
-    json: jest.fn(async () => body),
+    json: vi.fn(async () => body),
     method,
     url: "https://tutribu.example.com/api/siteping",
   } as unknown as Request;
@@ -115,7 +116,7 @@ function buildAnnotationPayload() {
 
 describe("Siteping routes", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.env.SITEPING_ENABLED = "true";
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
@@ -138,7 +139,7 @@ describe("Siteping routes", () => {
       projectName: "tutribu",
       resolvedAt: null,
       screenshotUrl: null,
-      status: "open",
+      status: "open" as const,
       type: SITEPING_FEEDBACK_TYPE.bug,
       updatedAt: "2026-05-31T12:00:00.000Z",
       url: "https://tutribu.example.com/matematica/precios",
@@ -156,7 +157,7 @@ describe("Siteping routes", () => {
       projectName: "tutribu",
     });
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: TRIBE_MEMBERSHIP_STATUS.active,
         name: "Matematica",
         role: TRIBE_MEMBER_ROLE.leader,
@@ -185,7 +186,7 @@ describe("Siteping routes", () => {
       userAgent: "Jest Browser",
       viewport: "1280x800",
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: { getAuthenticatedMember },
       },
@@ -321,7 +322,7 @@ describe("Siteping routes", () => {
   it("accepts widget annotations without visible text", async () => {
     const expectedAnnotationPayload = buildAnnotationPayload();
 
-    delete expectedAnnotationPayload.anchor.elementId;
+    Reflect.deleteProperty(expectedAnnotationPayload.anchor, "elementId");
 
     const response = await POST(buildRequest({
       ...buildPayload(),

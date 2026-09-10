@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { PostgresTribePaymentIntegrationRepository } from "@/src/modules/subscriptions/infrastructure/repositories/postgres-tribe-payment-integration-repository";
 
@@ -28,7 +29,7 @@ function getSqlText(statement: unknown): string {
 
 describe("PostgresTribePaymentIntegrationRepository", () => {
   it("should reconnect an anonymous Mercado Pago account without creating duplicates", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
       const handlesAnonymousAccountReconnect = sqlText.includes(
         "provider_account_id is null"

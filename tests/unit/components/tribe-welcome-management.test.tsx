@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "beez-ui";
@@ -6,15 +7,15 @@ import { TribeWelcomeManagement } from "@/components/tribes/tribe-welcome-manage
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
-const fetchMock = jest.fn();
+const fetchMock = vi.fn();
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -53,10 +54,10 @@ function buildWelcome() {
 
 describe("TribeWelcomeManagement", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.fetch = fetchMock;
     fetchMock.mockResolvedValue({
-      json: jest.fn(async () => ({ message: "Bienvenida actualizada." })),
+      json: vi.fn(async () => ({ message: "Bienvenida actualizada." })),
       ok: true,
     });
   });
@@ -259,7 +260,7 @@ describe("TribeWelcomeManagement", () => {
         welcome={{
           ...buildWelcome(),
           links: [
-            {
+            { description: null,
               badgeLabel: "Soporte",
               id: "11111111-1111-4111-8111-111111111111",
               isActive: true,
@@ -270,7 +271,7 @@ describe("TribeWelcomeManagement", () => {
               type: TRIBE_WELCOME_LINK_TYPE.customButton,
               url: "https://soporte.example.com",
             },
-            {
+            { description: null,
               badgeLabel: "Canal",
               id: "33333333-3333-4333-8333-333333333333",
               isActive: true,
@@ -351,7 +352,7 @@ describe("TribeWelcomeManagement", () => {
         welcome={{
           ...buildWelcome(),
           links: [
-            {
+            { description: null,
               badgeLabel: "Badge WA",
               id: "link-1",
               isActive: true,
@@ -449,7 +450,7 @@ describe("TribeWelcomeManagement", () => {
         welcome={{
           ...buildWelcome(),
           links: [
-            {
+            { description: null,
               badgeLabel: "Soporte",
               id: "link-1",
               isActive: true,
@@ -582,7 +583,7 @@ describe("TribeWelcomeManagement", () => {
         welcome={{
           ...buildWelcome(),
           links: [
-            {
+            { description: null,
               badgeLabel: "Soporte",
               id: "link-1",
               isActive: true,
@@ -645,7 +646,7 @@ describe("TribeWelcomeManagement", () => {
         welcome={{
           ...buildWelcome(),
           links: [
-            {
+            { description: null,
               badgeLabel: "",
               id: "link-1",
               isActive: true,
@@ -708,7 +709,7 @@ describe("TribeWelcomeManagement", () => {
         welcome={{
           ...buildWelcome(),
           links: [
-            {
+            { description: null,
               badgeLabel: "Badge WA",
               id: "link-1",
               isActive: true,
@@ -745,7 +746,7 @@ describe("TribeWelcomeManagement", () => {
         welcome={{
           ...buildWelcome(),
           links: [
-            {
+            { description: null,
               badgeLabel: "Badge WA",
               id: "link-1",
               isActive: true,
@@ -779,7 +780,7 @@ describe("TribeWelcomeManagement", () => {
         welcome={{
           ...buildWelcome(),
           links: [
-            {
+            { description: null,
               badgeLabel: "Badge WA",
               id: "link-1",
               isActive: true,
@@ -822,7 +823,7 @@ describe("TribeWelcomeManagement", () => {
         welcome={{
           ...buildWelcome(),
           links: [
-            {
+            { description: null,
               badgeLabel: "Badge WA",
               id: "link-1",
               isActive: true,

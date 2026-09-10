@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -6,49 +7,49 @@ import TribeHistoryPage from "@/app/(platform)/[slug]/historia/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const getTribePageAccess = jest.fn();
-const getCurrentTribeMembershipStatus = jest.fn();
-const getMemberTribes = jest.fn();
-const getTribeStory = jest.fn();
-const getTribeStoryStats = jest.fn();
-const getTribeStoryOnlineMembers = jest.fn();
-const getTribeCurrentSubscriptionOffer = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribePageAccess = vi.fn();
+const getCurrentTribeMembershipStatus = vi.fn();
+const getMemberTribes = vi.fn();
+const getTribeStory = vi.fn();
+const getTribeStoryStats = vi.fn();
+const getTribeStoryOnlineMembers = vi.fn();
+const getTribeCurrentSubscriptionOffer = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  notFound: jest.fn(),
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(),
   useRouter: () => ({
-    refresh: jest.fn(),
+    refresh: vi.fn(),
   }),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/tribes/infrastructure/cache/tribe-story-about-cache",
   () => ({
-    getCachedPublicTribeStoryAbout: jest.fn(async (tribeSlug: string) => ({
+    getCachedPublicTribeStoryAbout: vi.fn(async (tribeSlug: string) => ({
       stats: await getTribeStoryStats({ tribeSlug }),
       story: await getTribeStory({ tribeSlug }),
     })),
   })
 );
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
 const visibleTribeAccess = {
-  status: "visible",
+  status: "visible" as const,
   tribe: {
     id: "tribe-1",
     name: "Matematica Pro",
@@ -88,8 +89,8 @@ function buildPageProps() {
 
 describe("TribeHistoryPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    vi.clearAllMocks();
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -111,16 +112,16 @@ describe("TribeHistoryPage", () => {
         },
       },
     });
-    (headers as jest.Mock).mockResolvedValue(new Headers());
-    (createServerLogger as jest.Mock).mockReturnValue({
-      error: jest.fn(),
-      info: jest.fn(),
+    (headers as Mock).mockResolvedValue(new Headers());
+    (createServerLogger as Mock).mockReturnValue({
+      error: vi.fn(),
+      info: vi.fn(),
     });
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
     getCurrentTribeMembershipStatus.mockResolvedValue("active");
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
@@ -137,7 +138,7 @@ describe("TribeHistoryPage", () => {
       { image: null, name: "Grace Hopper" },
     ]);
     getTribeCurrentSubscriptionOffer.mockResolvedValue({
-      status: "unavailable",
+      status: "unavailable" as const,
     });
   });
 
@@ -160,7 +161,7 @@ describe("TribeHistoryPage", () => {
 
   it("renders the editor for the active leader", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "leader",
         slug: "matematica-pro",
@@ -181,7 +182,7 @@ describe("TribeHistoryPage", () => {
   it("renders the visitor about view with a join call to action when the tribe has an open-join offer", async () => {
     getTribePageAccess.mockResolvedValue({
       reason: "not_found_or_not_visible",
-      status: "hidden",
+      status: "hidden" as const,
     });
     getTribeCurrentSubscriptionOffer.mockResolvedValue({
       price: {
@@ -190,7 +191,7 @@ describe("TribeHistoryPage", () => {
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
 
     render(await TribeHistoryPage(buildPageProps()));
@@ -208,9 +209,9 @@ describe("TribeHistoryPage", () => {
   it("returns 404 for a non-member when the tribe has no open-join offer", async () => {
     getTribePageAccess.mockResolvedValue({
       reason: "not_found_or_not_visible",
-      status: "hidden",
+      status: "hidden" as const,
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -222,7 +223,7 @@ describe("TribeHistoryPage", () => {
   it("renders the visitor view with a free join button when free open join is available", async () => {
     getTribePageAccess.mockResolvedValue({
       reason: "not_found_or_not_visible",
-      status: "hidden",
+      status: "hidden" as const,
     });
     getTribeStoryStats.mockResolvedValue({
       ...storyStats,
@@ -244,7 +245,7 @@ describe("TribeHistoryPage", () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
       reason: "unauthenticated_hidden",
-      status: "hidden",
+      status: "hidden" as const,
     });
     getTribeCurrentSubscriptionOffer.mockResolvedValue({
       price: {
@@ -253,7 +254,7 @@ describe("TribeHistoryPage", () => {
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
 
     render(await TribeHistoryPage(buildPageProps()));
@@ -270,7 +271,7 @@ describe("TribeHistoryPage", () => {
     getTribePageAccess.mockResolvedValue({
       blockedReason: "conduct_blocked",
       reason: "blocked_hidden",
-      status: "hidden",
+      status: "hidden" as const,
     });
     getTribeCurrentSubscriptionOffer.mockResolvedValue({
       price: {
@@ -279,9 +280,9 @@ describe("TribeHistoryPage", () => {
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -293,7 +294,7 @@ describe("TribeHistoryPage", () => {
 
   it("returns 404 when the viewer has a pending non-member status", async () => {
     getCurrentTribeMembershipStatus.mockResolvedValue(null);
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -6,31 +7,31 @@ import TribeSettingsPage from "@/app/(platform)/[slug]/ajustes/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const getTribePageAccess = jest.fn();
-const getCurrentTribeMembershipStatus = jest.fn();
-const getMemberTribes = jest.fn();
-const getTribeIdentity = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribePageAccess = vi.fn();
+const getCurrentTribeMembershipStatus = vi.fn();
+const getMemberTribes = vi.fn();
+const getTribeIdentity = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  notFound: jest.fn(),
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(),
   useRouter: () => ({
-    refresh: jest.fn(),
+    refresh: vi.fn(),
   }),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -42,8 +43,8 @@ function buildPageProps() {
 
 describe("TribeSettingsPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    vi.clearAllMocks();
+    (createRequestModules as Mock).mockResolvedValue({
       auth: { useCases: { getAuthenticatedMember } },
       tribes: {
         useCases: {
@@ -54,10 +55,10 @@ describe("TribeSettingsPage", () => {
         },
       },
     });
-    (headers as jest.Mock).mockResolvedValue(new Headers());
-    (createServerLogger as jest.Mock).mockReturnValue({
-      error: jest.fn(),
-      info: jest.fn(),
+    (headers as Mock).mockResolvedValue(new Headers());
+    (createServerLogger as Mock).mockReturnValue({
+      error: vi.fn(),
+      info: vi.fn(),
     });
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -68,7 +69,7 @@ describe("TribeSettingsPage", () => {
       role: "tribemate",
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -78,7 +79,7 @@ describe("TribeSettingsPage", () => {
     });
     getCurrentTribeMembershipStatus.mockResolvedValue("active");
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "leader",
         slug: "matematica-pro",
@@ -108,14 +109,14 @@ describe("TribeSettingsPage", () => {
 
   it("returns 404 for a guardian", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "guardian",
         slug: "matematica-pro",
         tribeId: "tribe-1",
       },
     ]);
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -127,7 +128,7 @@ describe("TribeSettingsPage", () => {
 
   it("returns 404 when the membership is not active", async () => {
     getCurrentTribeMembershipStatus.mockResolvedValue("muted");
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 

@@ -1,28 +1,29 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 
 import { AuthErrorContent } from "@/app/auth/error/auth-error-content";
 import { createRequestModules } from "@/src/modules/setup";
 
-const getAuthenticatedMember = jest.fn();
+const getAuthenticatedMember = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  redirect: jest.fn(),
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/setup",
   () => ({
-    createRequestModules: jest.fn(),
+    createRequestModules: vi.fn(),
   })
 );
 
 describe("AuthErrorPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockReset();
 
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -43,7 +44,7 @@ describe("AuthErrorPage", () => {
       avatarFallback: "GH",
       image: null,
     });
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 

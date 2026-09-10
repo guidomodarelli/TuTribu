@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { PostgresTribeChannelRepository } from "@/src/modules/messages/infrastructure/repositories/postgres-tribe-channel-repository";
 
 function getSqlText(statement: unknown): string {
@@ -23,7 +24,7 @@ function getSqlText(statement: unknown): string {
 
 describe("PostgresTribeChannelRepository", () => {
   it("lists tribe channels ordered for the round", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           access_scope: "tribemates",
@@ -34,7 +35,7 @@ describe("PostgresTribeChannelRepository", () => {
           sort_order: "20",
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -58,7 +59,7 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("creates channels guarded by leader or guardian membership", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           access_scope: "tribemates",
@@ -67,10 +68,10 @@ describe("PostgresTribeChannelRepository", () => {
           name: "Preguntas",
           slug: "preguntas",
           sort_order: 30,
-          status: "created",
+          status: "created" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -86,7 +87,7 @@ describe("PostgresTribeChannelRepository", () => {
         id: "channel-questions",
         slug: "preguntas",
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -97,13 +98,13 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("maps duplicate channel slugs to a controlled creation status", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
-          status: "duplicate_slug",
+          status: "duplicate_slug" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -114,11 +115,11 @@ describe("PostgresTribeChannelRepository", () => {
         emoji: "🔥",
         name: "Ronda",
       })
-    ).resolves.toEqual({ status: "duplicate_slug" });
+    ).resolves.toEqual({ status: "duplicate_slug" as const });
   });
 
   it("maps unique violations to duplicate_slug during channel creation", async () => {
-    const execute = jest.fn(async () => {
+    const execute = vi.fn(async (...args: unknown[]) => { void args;
       throw {
         code: "23505",
         constraint: "tribe_channels_tribe_id_slug_key",
@@ -134,17 +135,17 @@ describe("PostgresTribeChannelRepository", () => {
         emoji: "🔥",
         name: "Ronda",
       })
-    ).resolves.toEqual({ status: "duplicate_slug" });
+    ).resolves.toEqual({ status: "duplicate_slug" as const });
   });
 
   it("maps duplicate channel slugs to a controlled update status", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
-          status: "duplicate_slug",
+          status: "duplicate_slug" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -157,13 +158,13 @@ describe("PostgresTribeChannelRepository", () => {
         name: "Ronda",
         sortOrder: 30,
       })
-    ).resolves.toEqual({ status: "duplicate_slug" });
+    ).resolves.toEqual({ status: "duplicate_slug" as const });
 
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("existing_channel");
   });
 
   it("maps unique violations to duplicate_slug during channel updates", async () => {
-    const execute = jest.fn(async () => {
+    const execute = vi.fn(async (...args: unknown[]) => { void args;
       throw {
         code: "23505",
         constraint: "tribe_channels_tribe_id_slug_key",
@@ -181,17 +182,17 @@ describe("PostgresTribeChannelRepository", () => {
         name: "Ronda",
         sortOrder: 30,
       })
-    ).resolves.toEqual({ status: "duplicate_slug" });
+    ).resolves.toEqual({ status: "duplicate_slug" as const });
   });
 
   it("returns not_found when updating a channel that does not exist", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
-          status: "not_found",
+          status: "not_found" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -204,7 +205,7 @@ describe("PostgresTribeChannelRepository", () => {
         name: "Ronda",
         sortOrder: 30,
       })
-    ).resolves.toEqual({ status: "not_found" });
+    ).resolves.toEqual({ status: "not_found" as const });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
@@ -213,13 +214,13 @@ describe("PostgresTribeChannelRepository", () => {
   });
 
   it("moves messages before deleting a channel when a target is provided", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
-          status: "moved_and_deleted",
+          status: "moved_and_deleted" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeChannelRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -230,7 +231,7 @@ describe("PostgresTribeChannelRepository", () => {
         tribeSlug: "matematica-pro",
         targetChannelId: "channel-ronda",
       })
-    ).resolves.toEqual({ status: "moved_and_deleted" });
+    ).resolves.toEqual({ status: "moved_and_deleted" as const });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 

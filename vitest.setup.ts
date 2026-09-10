@@ -1,4 +1,5 @@
-import "@testing-library/jest-dom";
+import { vi } from "vitest";
+import "@testing-library/jest-dom/vitest";
 
 const RELATIVE_TIME_ELEMENT_TAG = "relative-time";
 
@@ -75,4 +76,4 @@ if (
   );
 }
 
-global.fetch = jest.fn();
+global.fetch = vi.fn();

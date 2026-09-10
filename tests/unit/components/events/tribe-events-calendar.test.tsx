@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -5,11 +6,11 @@ import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
@@ -60,7 +61,7 @@ function renderCalendar(
 }
 
 function mockJsonResponse(body: Record<string, unknown>, ok = true) {
-  (global.fetch as jest.Mock).mockResolvedValueOnce({
+  (global.fetch as Mock).mockResolvedValueOnce({
     json: async () => body,
     ok,
   });
@@ -78,17 +79,17 @@ describe("TribeEventsCalendar", () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    global.fetch = jest.fn();
+    vi.clearAllMocks();
+    global.fetch = vi.fn();
     // The fixtures live in May 2026; pin "now" before them so the occurrences
     // are upcoming (attendance enabled) regardless of the real date.
-    jest
-      .useFakeTimers({ advanceTimers: true })
+    vi
+      .useFakeTimers({ shouldAdvanceTime: true })
       .setSystemTime(new Date("2026-05-01T12:00:00.000Z"));
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("renders a monthly calendar table with events and navigation", () => {
@@ -111,12 +112,12 @@ describe("TribeEventsCalendar", () => {
       screen.getByRole("table", { name: "Calendario mensual de eventos" })
     ).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Lun" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "15:00 Clase abierta" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /15:00\s*Clase abierta/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Crear evento" })).toBeInTheDocument();
   });
 
   it("switches to the event list table with attendance counts", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar();
 
@@ -136,8 +137,8 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("groups the agenda by day, marks today and shows the viewer answer and recurrence", async () => {
-    jest.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const weeklyOccurrence = createOccurrence({
       attendance: { goingCount: 4, viewerStatus: "going" },
       endsAt: "2026-05-13T19:00:00.000Z",
@@ -163,7 +164,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("shows a quiet empty state when the month has no events", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar({ events: [] });
 
@@ -193,13 +194,13 @@ describe("TribeEventsCalendar", () => {
 
     expect(screen.getByRole("heading", { name: "Junio 2026" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "15:00 Encuentro de junio" })
+      screen.getByRole("button", { name: /15:00\s*Encuentro de junio/ })
     ).toBeInTheDocument();
     expect(screen.queryByText("Clase abierta")).not.toBeInTheDocument();
   });
 
   it("highlights the next event, today, and finished occurrences", async () => {
-    jest.setSystemTime(new Date("2026-05-05T12:00:00.000Z"));
+    vi.setSystemTime(new Date("2026-05-05T12:00:00.000Z"));
     const pastOccurrence = createOccurrence({
       endsAt: "2026-05-03T19:00:00.000Z",
       eventId: OTHER_EVENT_ID,
@@ -226,8 +227,8 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("keeps every occurrence visible when browsing a month that is entirely past", async () => {
-    jest.setSystemTime(new Date("2026-06-15T12:00:00.000Z"));
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    vi.setSystemTime(new Date("2026-06-15T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar();
 
@@ -238,7 +239,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("records the viewer attendance from the next event block without opening the detail", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar();
 
@@ -267,11 +268,11 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("opens the event detail with description, attendance, and calendar exports", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar({ viewerPermissions: { canManageEvents: false } });
 
-    await user.click(screen.getByRole("button", { name: "15:00 Clase abierta" }));
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
 
@@ -295,11 +296,11 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("records and clears the viewer attendance from the detail", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar();
 
-    await user.click(screen.getByRole("button", { name: "15:00 Clase abierta" }));
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
     mockJsonResponse({
       attendance: { goingCount: 3, viewerStatus: "going" },
       message: "Respuesta guardada.",
@@ -310,9 +311,9 @@ describe("TribeEventsCalendar", () => {
       `/api/tribes/matematica-pro/events/${EVENT_ID}/attendance`,
       expect.objectContaining({ method: "PUT" })
     );
-    expect(JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)).toEqual({
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toEqual({
       occurrenceStartsAt: "2026-05-06T18:00:00.000Z",
-      status: "going",
+      status: "going" as const,
     });
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Voy" })).toHaveAttribute(
@@ -338,7 +339,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("creates an event through the tribe event endpoint and shows it without reloading", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const createdOccurrence = createOccurrence({
       attendance: { goingCount: 0, viewerStatus: null },
       eventId: OTHER_EVENT_ID,
@@ -372,7 +373,7 @@ describe("TribeEventsCalendar", () => {
       "/api/tribes/matematica-pro/events?month=2026-05",
       expect.objectContaining({ method: "POST" })
     );
-    expect(JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)).toEqual({
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toEqual({
       description: "",
       endsAt: "2026-05-20T19:00:00.000Z",
       meetingUrl: "https://meet.google.com/abc-defg-hij",
@@ -382,13 +383,13 @@ describe("TribeEventsCalendar", () => {
       title: "Clase nueva",
     });
     expect(
-      await screen.findByRole("button", { name: "15:00 Clase nueva" })
+      await screen.findByRole("button", { name: /15:00\s*Clase nueva/ })
     ).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("suggests an end time one hour after the start without overriding an explicit one", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar({ events: [] });
 
@@ -410,8 +411,8 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("lists the tapped day's events under the grid", async () => {
-    jest.setSystemTime(new Date("2026-05-05T12:00:00.000Z"));
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    vi.setSystemTime(new Date("2026-05-05T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const laterOccurrence = createOccurrence({
       endsAt: "2026-05-20T19:00:00.000Z",
       eventId: OTHER_EVENT_ID,
@@ -440,8 +441,8 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("renders a finished event without link or description as a compact summary", async () => {
-    jest.setSystemTime(new Date("2026-05-10T12:00:00.000Z"));
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    vi.setSystemTime(new Date("2026-05-10T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar({
       events: [
@@ -454,7 +455,7 @@ describe("TribeEventsCalendar", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "15:00 Clase abierta" }));
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
 
@@ -469,7 +470,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("shows the recurrence next to the schedule in the detail header", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar({
       events: [
@@ -481,7 +482,7 @@ describe("TribeEventsCalendar", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "15:00 Clase abierta" }));
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
 
@@ -491,7 +492,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("validates the schedule inline before sending the form", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar({ events: [] });
 
@@ -517,7 +518,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("supports events that end on a later day", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar({ events: [] });
 
@@ -542,7 +543,7 @@ describe("TribeEventsCalendar", () => {
     mockJsonResponse({ event: {}, message: "Evento creado.", occurrences: [] });
     await user.click(screen.getByRole("button", { name: "Guardar evento" }));
 
-    expect(JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
       endsAt: "2026-05-21T04:00:00.000Z",
       startsAt: "2026-05-21T02:00:00.000Z",
     });
@@ -555,13 +556,12 @@ describe("TribeEventsCalendar", () => {
       json: () => Promise<{ occurrences: TribeEventOccurrenceResult[] }>;
       ok: boolean;
     }) => void = () => undefined;
-    (global.fetch as jest.Mock).mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
+    (global.fetch as Mock).mockImplementationOnce(
+      function () { return new Promise((resolve) => {
           resolveRequest = resolve;
-        })
+        }); }
     );
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar({ events: [] });
 
@@ -583,17 +583,17 @@ describe("TribeEventsCalendar", () => {
     });
 
     expect(
-      await screen.findByRole("button", { name: "15:00 Clase abierta" })
+      await screen.findByRole("button", { name: /15:00\s*Clase abierta/ })
     ).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("edits an event from the detail and keeps the attendance of existing slots", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar();
 
-    await user.click(screen.getByRole("button", { name: "15:00 Clase abierta" }));
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
     await user.click(screen.getByRole("button", { name: "Editar" }));
 
     expect(screen.getByRole("dialog", { name: "Editar evento" })).toBeInTheDocument();
@@ -621,19 +621,19 @@ describe("TribeEventsCalendar", () => {
       `/api/tribes/matematica-pro/events/${EVENT_ID}?month=2026-05`,
       expect.objectContaining({ method: "PATCH" })
     );
-    expect(await screen.findByRole("button", { name: "15:00 Clase cerrada" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /15:00\s*Clase cerrada/ })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "15:00 Clase cerrada" }));
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase cerrada/ }));
 
     expect(screen.getByText("2 personas van")).toBeInTheDocument();
   });
 
   it("asks for confirmation before deleting an event", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar();
 
-    await user.click(screen.getByRole("button", { name: "15:00 Clase abierta" }));
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
     await user.click(screen.getByRole("button", { name: "Eliminar" }));
 
     const confirmation = screen.getByRole("alertdialog", { name: "¿Eliminar este evento?" });
@@ -641,9 +641,9 @@ describe("TribeEventsCalendar", () => {
     await user.click(within(confirmation).getByRole("button", { name: "Cancelar" }));
 
     expect(global.fetch).not.toHaveBeenCalled();
-    expect(await screen.findByRole("button", { name: "15:00 Clase abierta" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /15:00\s*Clase abierta/ })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "15:00 Clase abierta" }));
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
     await user.click(screen.getByRole("button", { name: "Eliminar" }));
     mockJsonResponse({ message: "Evento eliminado." });
     await user.click(
@@ -655,13 +655,13 @@ describe("TribeEventsCalendar", () => {
       expect.objectContaining({ method: "DELETE" })
     );
     await waitFor(() =>
-      expect(screen.queryByRole("button", { name: "15:00 Clase abierta" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: /15:00\s*Clase abierta/ })).not.toBeInTheDocument()
     );
   });
 
   it("shows the endpoint message when saving fails", async () => {
-    const { toast } = jest.requireMock("beez-ui") as { toast: { error: jest.Mock } };
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const { toast } = vi.mocked(await import("beez-ui"), true);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar({ events: [] });
 

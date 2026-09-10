@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   clearTribeEventAttendance,
   setTribeEventAttendance,
@@ -21,16 +22,16 @@ const weeklyEvent: TribeEvent = {
 
 function createRepository(overrides: Partial<TribeEventRepository> = {}) {
   return {
-    clearAttendance: jest.fn(),
-    create: jest.fn(),
-    delete: jest.fn(),
-    findById: jest.fn(async () => weeklyEvent),
-    listByTribeRange: jest.fn(),
-    setAttendance: jest.fn(async () => ({
+    clearAttendance: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
+    findById: vi.fn(async () => weeklyEvent),
+    listByTribeRange: vi.fn(),
+    setAttendance: vi.fn(async () => ({
       attendance: { goingCount: 3, viewerStatus: "going" as const },
       status: TRIBE_EVENT_MUTATION_STATUS.attendanceSaved,
     })),
-    update: jest.fn(),
+    update: vi.fn(),
     ...overrides,
   } satisfies TribeEventRepository;
 }
@@ -44,7 +45,7 @@ describe("tribe event attendance use cases", () => {
       execute({
         eventId: ` ${EVENT_ID} `,
         occurrenceStartsAt: "2026-05-13T18:00:00Z",
-        status: " going ",
+        status: " going " as const,
         tribeSlug: " matematica-pro ",
       })
     ).resolves.toEqual({
@@ -54,7 +55,7 @@ describe("tribe event attendance use cases", () => {
     expect(repository.setAttendance).toHaveBeenCalledWith({
       eventId: EVENT_ID,
       occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-      status: "going",
+      status: "going" as const,
       tribeSlug: "matematica-pro",
     });
   });
@@ -67,7 +68,7 @@ describe("tribe event attendance use cases", () => {
       execute({
         eventId: EVENT_ID,
         occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-        status: "maybe",
+        status: "maybe" as const,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance });
@@ -83,7 +84,7 @@ describe("tribe event attendance use cases", () => {
       execute({
         eventId: EVENT_ID,
         occurrenceStartsAt: "2026-05-14T18:00:00.000Z",
-        status: "going",
+        status: "going" as const,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance });
@@ -91,7 +92,7 @@ describe("tribe event attendance use cases", () => {
       execute({
         eventId: EVENT_ID,
         occurrenceStartsAt: "not-a-date",
-        status: "going",
+        status: "going" as const,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance });
@@ -99,14 +100,14 @@ describe("tribe event attendance use cases", () => {
   });
 
   it("reports not found for unknown or malformed events", async () => {
-    const repository = createRepository({ findById: jest.fn(async () => null) });
+    const repository = createRepository({ findById: vi.fn(async () => null) });
     const execute = setTribeEventAttendance({ tribeEventRepository: repository });
 
     await expect(
       execute({
         eventId: EVENT_ID,
         occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-        status: "going",
+        status: "going" as const,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.notFound });
@@ -114,7 +115,7 @@ describe("tribe event attendance use cases", () => {
       execute({
         eventId: "not-a-uuid",
         occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-        status: "going",
+        status: "going" as const,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.notFound });
@@ -123,7 +124,7 @@ describe("tribe event attendance use cases", () => {
 
   it("clears the viewer answer through the repository", async () => {
     const repository = createRepository({
-      clearAttendance: jest.fn(async () => ({
+      clearAttendance: vi.fn(async () => ({
         attendance: { goingCount: 2, viewerStatus: null },
         status: TRIBE_EVENT_MUTATION_STATUS.attendanceCleared,
       })),

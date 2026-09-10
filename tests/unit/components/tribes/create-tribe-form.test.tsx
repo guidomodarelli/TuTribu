@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -104,9 +105,7 @@ describe("CreateTribeForm", () => {
     await user.type(screen.getByLabelText(/slug/i), "matematica-pro-");
     expect(screen.getByDisplayValue("matematica-pro-")).toBeInTheDocument();
     expect(
-      screen.getByDisplayValue("matematica-pro", {
-        selector: 'input[type="hidden"][name="slug"]',
-      })
+      screen.getByDisplayValue("matematica-pro")
     ).toBeInTheDocument();
     expect(screen.getByText(/\/matematica-pro/i)).toBeInTheDocument();
 

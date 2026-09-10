@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { buildGoogleCalendarEventUrl } from "@/lib/calendar/google-calendar-link";
 
 describe("buildGoogleCalendarEventUrl", () => {

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { installSitepingDismissGuard } from "@/components/providers/siteping-provider/siteping-dismiss-guard";
 
 const RADIX_POINTER_DOWN_OUTSIDE_EVENT = "dismissableLayer.pointerDownOutside";
@@ -26,7 +27,7 @@ function focusEventReachesDocument(
   target: Element,
   relatedTarget: Element | null
 ): boolean {
-  const trapListener = jest.fn();
+  const trapListener = vi.fn();
   document.addEventListener(eventName, trapListener);
   const event = new FocusEvent(eventName, { bubbles: true, relatedTarget });
   target.dispatchEvent(event);

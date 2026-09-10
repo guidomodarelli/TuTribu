@@ -1,10 +1,11 @@
+import { vi, describe, it, expect } from "vitest";
 import { PostgresTribeFreeJoinRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-free-join-repository";
 import { PostgresTribePresenceRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-presence-repository";
 import { TRIBE_FREE_JOIN_STATUS } from "@/src/modules/tribes/constants/tribe-story";
 
 describe("PostgresTribeFreeJoinRepository", () => {
   it("returns joined when the membership insert succeeds", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [{ joined: true, tribe_available: true }],
     });
     const repository = new PostgresTribeFreeJoinRepository(async (callback) =>
@@ -17,7 +18,7 @@ describe("PostgresTribeFreeJoinRepository", () => {
   });
 
   it("reactivates a removed membership when the insert conflicts", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [{ joined: false, tribe_available: true }],
@@ -36,7 +37,7 @@ describe("PostgresTribeFreeJoinRepository", () => {
   });
 
   it("returns alreadyMember when the conflicting membership cannot be reactivated", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [{ joined: false, tribe_available: true }],
@@ -52,7 +53,7 @@ describe("PostgresTribeFreeJoinRepository", () => {
   });
 
   it("returns forbidden when the tribe does not allow free open join", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [{ joined: false, tribe_available: false }],
     });
     const repository = new PostgresTribeFreeJoinRepository(async (callback) =>
@@ -68,7 +69,7 @@ describe("PostgresTribeFreeJoinRepository", () => {
     const rlsError = Object.assign(new Error("blocked by policy"), {
       code: "42501",
     });
-    const execute = jest.fn().mockRejectedValueOnce(rlsError);
+    const execute = vi.fn().mockRejectedValueOnce(rlsError);
     const repository = new PostgresTribeFreeJoinRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -81,7 +82,7 @@ describe("PostgresTribeFreeJoinRepository", () => {
 
 describe("PostgresTribePresenceRepository", () => {
   it("reports whether the membership presence was touched", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [{ touched: true }],
     });
     const repository = new PostgresTribePresenceRepository(async (callback) =>
@@ -97,7 +98,7 @@ describe("PostgresTribePresenceRepository", () => {
     const missingFunctionError = Object.assign(new Error("missing"), {
       code: "42883",
     });
-    const execute = jest.fn().mockRejectedValueOnce(missingFunctionError);
+    const execute = vi.fn().mockRejectedValueOnce(missingFunctionError);
     const repository = new PostgresTribePresenceRepository(async (callback) =>
       callback({ execute } as never)
     );

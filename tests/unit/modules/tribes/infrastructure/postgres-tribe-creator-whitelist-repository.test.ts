@@ -1,8 +1,9 @@
+import { vi, describe, it, expect } from "vitest";
 import { PostgresTribeCreatorWhitelistRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-creator-whitelist-repository";
 
 describe("PostgresTribeCreatorWhitelistRepository", () => {
   it("checks the whitelist with a normalized email", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async () => ({
       rows: [
         {
           email: "prometido@example.com",

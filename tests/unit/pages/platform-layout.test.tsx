@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { useSidebar } from "beez-ui";
 import { cookies } from "next/headers";
@@ -6,14 +7,14 @@ import { PlatformLayoutContent } from "@/app/(platform)/layout";
 import { createRequestModules } from "@/src/modules/setup";
 
 
-const getAuthenticatedMember = jest.fn();
-const getMemberTribes = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getMemberTribes = vi.fn();
 
-jest.mock("next/headers", () => ({
-  cookies: jest.fn(),
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(),
 }));
 
-jest.mock("@/components/app-sidebar", () => ({
+vi.mock("@/components/app-sidebar", () => ({
   AppSidebar: ({
     authenticatedMember,
     memberTribes,
@@ -29,17 +30,17 @@ jest.mock("@/components/app-sidebar", () => ({
   ),
 }));
 
-jest.mock("@/components/auth/avatar-session-menu-client", () => ({
+vi.mock("@/components/auth/avatar-session-menu-client", () => ({
   AvatarSessionMenuClient: ({ authenticatedMember }: { authenticatedMember: { name: string } | null }) => (
     <span>Menu de cuenta: {authenticatedMember?.name ?? "Sin sesion"}</span>
   ),
 }));
 
-jest.mock("@/components/theme/theme-mode-dropdown", () => ({
+vi.mock("@/components/theme/theme-mode-dropdown", () => ({
   ThemeModeDropdown: () => <span>Selector de tema</span>,
 }));
 
-jest.mock("@/components/platform/tribe-switcher", () => ({
+vi.mock("@/components/platform/tribe-switcher", () => ({
   TribeSwitcher: ({
     showDropdownTrigger,
     showPrivateBadge,
@@ -56,8 +57,8 @@ jest.mock("@/components/platform/tribe-switcher", () => ({
 
 
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
 /** Exposes the real public sidebar state to the route integration test. */
@@ -67,14 +68,14 @@ function SidebarState() {
 
 describe("PlatformLayout", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockReset();
     getMemberTribes.mockReset();
-    (cookies as jest.Mock).mockResolvedValue({
-      get: jest.fn(() => undefined),
+    (cookies as Mock).mockResolvedValue({
+      get: vi.fn(() => undefined),
     });
 
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -98,7 +99,7 @@ describe("PlatformLayout", () => {
       image: null,
     });
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
         tribeId: "tribe-1",
         name: "Alpha Club",
         slug: "alpha-club",
@@ -127,7 +128,7 @@ describe("PlatformLayout", () => {
       image: null,
     });
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
         tribeId: "tribe-1",
         name: "Alpha Club",
         slug: "alpha-club",
@@ -167,8 +168,8 @@ describe("PlatformLayout", () => {
   });
 
   it("restores the collapsed sidebar state from the sidebar cookie", async () => {
-    (cookies as jest.Mock).mockResolvedValue({
-      get: jest.fn(() => ({ value: "false" })),
+    (cookies as Mock).mockResolvedValue({
+      get: vi.fn(() => ({ value: "false" })),
     });
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",

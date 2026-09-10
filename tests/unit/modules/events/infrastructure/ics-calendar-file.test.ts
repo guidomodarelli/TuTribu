@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { buildTribeEventIcsFile } from "@/src/modules/events/infrastructure/calendar/ics-calendar-file";
 
 const NOW = new Date("2026-05-01T12:00:00.000Z");

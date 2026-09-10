@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -28,13 +29,13 @@ function buildJsonResponse(body: unknown, status = 200): Response {
 
 describe("LessonComments", () => {
   beforeEach(() => {
-    global.fetch = jest.fn(async () =>
+    global.fetch = vi.fn(async () =>
       buildJsonResponse({ comments: [existingComment] })
     ) as unknown as typeof fetch;
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("loads and renders the lesson comment thread", async () => {
@@ -49,7 +50,7 @@ describe("LessonComments", () => {
   });
 
   it("shows the empty state when the lesson has no comments", async () => {
-    global.fetch = jest.fn(async () =>
+    global.fetch = vi.fn(async () =>
       buildJsonResponse({ comments: [] })
     ) as unknown as typeof fetch;
 
@@ -66,7 +67,7 @@ describe("LessonComments", () => {
       content: "Nueva consulta",
       id: "comment-2",
     };
-    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST") {
         return buildJsonResponse({ comment: createdComment }, 201);
       }
@@ -88,13 +89,13 @@ describe("LessonComments", () => {
   });
 
   it("removes a comment after a confirmed deletion", async () => {
-    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "DELETE") {
         return buildJsonResponse({ message: "Comentario eliminado." });
       }
       return buildJsonResponse({ comments: [existingComment] });
     }) as unknown as typeof fetch;
-    jest.spyOn(window, "confirm").mockReturnValue(true);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
     render(<LessonComments lessonId={LESSON_ID} tribeSlug={TRIBE_SLUG} />);
@@ -114,7 +115,7 @@ describe("LessonComments", () => {
   });
 
   it("shows a load error state when the thread request fails", async () => {
-    global.fetch = jest.fn(async () =>
+    global.fetch = vi.fn(async () =>
       buildJsonResponse({ message: "boom" }, 500)
     ) as unknown as typeof fetch;
 

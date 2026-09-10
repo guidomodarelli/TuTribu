@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { computeClampedFormPosition } from "@/components/providers/siteping-provider/siteping-form-placement";
 
 const VIEWPORT = { viewportWidth: 1440, viewportHeight: 778 };

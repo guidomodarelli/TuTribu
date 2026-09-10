@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   createTribeChannel,
   deleteTribeChannel,
@@ -15,16 +16,16 @@ describe("channel use cases", () => {
   };
 
   it("creates a channel when the name and emoji are valid", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       channel,
       status: "created" as const,
     }));
     const execute = createTribeChannel({
       tribeChannelRepository: {
         create,
-        delete: jest.fn(),
-        listByTribeSlug: jest.fn(),
-        update: jest.fn(),
+        delete: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        update: vi.fn(),
       },
     });
 
@@ -34,7 +35,7 @@ describe("channel use cases", () => {
         emoji: " 🔥 ",
         name: " Ronda ",
       })
-    ).resolves.toEqual({ channel, status: "created" });
+    ).resolves.toEqual({ channel, status: "created" as const });
     expect(create).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
       emoji: "🔥",
@@ -43,7 +44,7 @@ describe("channel use cases", () => {
   });
 
   it("creates a channel with a compound emoji", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       channel: {
         ...channel,
         emoji: "👨‍👩‍👧‍👦",
@@ -53,9 +54,9 @@ describe("channel use cases", () => {
     const execute = createTribeChannel({
       tribeChannelRepository: {
         create,
-        delete: jest.fn(),
-        listByTribeSlug: jest.fn(),
-        update: jest.fn(),
+        delete: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        update: vi.fn(),
       },
     });
 
@@ -70,7 +71,7 @@ describe("channel use cases", () => {
         ...channel,
         emoji: "👨‍👩‍👧‍👦",
       },
-      status: "created",
+      status: "created" as const,
     });
     expect(create).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
@@ -80,7 +81,7 @@ describe("channel use cases", () => {
   });
 
   it("creates a channel with a keycap emoji selected from the picker", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       channel: {
         ...channel,
         emoji: "1️⃣",
@@ -90,9 +91,9 @@ describe("channel use cases", () => {
     const execute = createTribeChannel({
       tribeChannelRepository: {
         create,
-        delete: jest.fn(),
-        listByTribeSlug: jest.fn(),
-        update: jest.fn(),
+        delete: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        update: vi.fn(),
       },
     });
 
@@ -107,7 +108,7 @@ describe("channel use cases", () => {
         ...channel,
         emoji: "1️⃣",
       },
-      status: "created",
+      status: "created" as const,
     });
     expect(create).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
@@ -117,7 +118,7 @@ describe("channel use cases", () => {
   });
 
   it("updates a channel with a symbol keycap emoji selected from the picker", async () => {
-    const update = jest.fn(async () => ({
+    const update = vi.fn(async () => ({
       channel: {
         ...channel,
         emoji: "#️⃣",
@@ -126,9 +127,9 @@ describe("channel use cases", () => {
     }));
     const execute = updateTribeChannel({
       tribeChannelRepository: {
-        create: jest.fn(),
-        delete: jest.fn(),
-        listByTribeSlug: jest.fn(),
+        create: vi.fn(),
+        delete: vi.fn(),
+        listByTribeSlug: vi.fn(),
         update,
       },
     });
@@ -146,7 +147,7 @@ describe("channel use cases", () => {
         ...channel,
         emoji: "#️⃣",
       },
-      status: "updated",
+      status: "updated" as const,
     });
     expect(update).toHaveBeenCalledWith({
       channelId: "channel-ronda",
@@ -158,13 +159,13 @@ describe("channel use cases", () => {
   });
 
   it("rejects a channel without name before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeChannel({
       tribeChannelRepository: {
         create,
-        delete: jest.fn(),
-        listByTribeSlug: jest.fn(),
-        update: jest.fn(),
+        delete: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        update: vi.fn(),
       },
     });
 
@@ -174,18 +175,18 @@ describe("channel use cases", () => {
         emoji: "🔥",
         name: "   ",
       })
-    ).resolves.toEqual({ status: "invalid_name" });
+    ).resolves.toEqual({ status: "invalid_name" as const });
     expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects a channel with text as emoji before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeChannel({
       tribeChannelRepository: {
         create,
-        delete: jest.fn(),
-        listByTribeSlug: jest.fn(),
-        update: jest.fn(),
+        delete: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        update: vi.fn(),
       },
     });
 
@@ -195,18 +196,18 @@ describe("channel use cases", () => {
         emoji: "fire",
         name: "Ronda",
       })
-    ).resolves.toEqual({ status: "invalid_name" });
+    ).resolves.toEqual({ status: "invalid_name" as const });
     expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects a channel with multiple emojis before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeChannel({
       tribeChannelRepository: {
         create,
-        delete: jest.fn(),
-        listByTribeSlug: jest.fn(),
-        update: jest.fn(),
+        delete: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        update: vi.fn(),
       },
     });
 
@@ -216,18 +217,18 @@ describe("channel use cases", () => {
         emoji: "🔥⭐",
         name: "Ronda",
       })
-    ).resolves.toEqual({ status: "invalid_name" });
+    ).resolves.toEqual({ status: "invalid_name" as const });
     expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects a channel creation when the name has more than 30 characters", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeChannel({
       tribeChannelRepository: {
         create,
-        delete: jest.fn(),
-        listByTribeSlug: jest.fn(),
-        update: jest.fn(),
+        delete: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        update: vi.fn(),
       },
     });
 
@@ -237,17 +238,17 @@ describe("channel use cases", () => {
         emoji: "🔥",
         name: "Canal con nombre demasiado largo",
       })
-    ).resolves.toEqual({ status: "invalid_name" });
+    ).resolves.toEqual({ status: "invalid_name" as const });
     expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects a channel update with text as emoji before calling the repository", async () => {
-    const update = jest.fn();
+    const update = vi.fn();
     const execute = updateTribeChannel({
       tribeChannelRepository: {
-        create: jest.fn(),
-        delete: jest.fn(),
-        listByTribeSlug: jest.fn(),
+        create: vi.fn(),
+        delete: vi.fn(),
+        listByTribeSlug: vi.fn(),
         update,
       },
     });
@@ -260,17 +261,17 @@ describe("channel use cases", () => {
         name: "Ronda",
         sortOrder: 20,
       })
-    ).resolves.toEqual({ status: "invalid_name" });
+    ).resolves.toEqual({ status: "invalid_name" as const });
     expect(update).not.toHaveBeenCalled();
   });
 
   it("rejects a channel update when the name has more than 30 characters", async () => {
-    const update = jest.fn();
+    const update = vi.fn();
     const execute = updateTribeChannel({
       tribeChannelRepository: {
-        create: jest.fn(),
-        delete: jest.fn(),
-        listByTribeSlug: jest.fn(),
+        create: vi.fn(),
+        delete: vi.fn(),
+        listByTribeSlug: vi.fn(),
         update,
       },
     });
@@ -283,20 +284,20 @@ describe("channel use cases", () => {
         name: "Canal con nombre demasiado largo",
         sortOrder: 20,
       })
-    ).resolves.toEqual({ status: "invalid_name" });
+    ).resolves.toEqual({ status: "invalid_name" as const });
     expect(update).not.toHaveBeenCalled();
   });
 
   it("updates a channel with normalized text", async () => {
-    const update = jest.fn(async () => ({
+    const update = vi.fn(async () => ({
       channel,
       status: "updated" as const,
     }));
     const execute = updateTribeChannel({
       tribeChannelRepository: {
-        create: jest.fn(),
-        delete: jest.fn(),
-        listByTribeSlug: jest.fn(),
+        create: vi.fn(),
+        delete: vi.fn(),
+        listByTribeSlug: vi.fn(),
         update,
       },
     });
@@ -309,7 +310,7 @@ describe("channel use cases", () => {
         name: " Ronda ",
         sortOrder: 20,
       })
-    ).resolves.toEqual({ channel, status: "updated" });
+    ).resolves.toEqual({ channel, status: "updated" as const });
     expect(update).toHaveBeenCalledWith({
       channelId: "channel-ronda",
       tribeSlug: "matematica-pro",
@@ -320,15 +321,15 @@ describe("channel use cases", () => {
   });
 
   it("passes the target channel when deleting a channel with messages", async () => {
-    const deleteChannel = jest.fn(async () => ({
+    const deleteChannel = vi.fn(async () => ({
       status: "moved_and_deleted" as const,
     }));
     const execute = deleteTribeChannel({
       tribeChannelRepository: {
-        create: jest.fn(),
+        create: vi.fn(),
         delete: deleteChannel,
-        listByTribeSlug: jest.fn(),
-        update: jest.fn(),
+        listByTribeSlug: vi.fn(),
+        update: vi.fn(),
       },
     });
 
@@ -338,7 +339,7 @@ describe("channel use cases", () => {
         tribeSlug: " matematica-pro ",
         targetChannelId: " channel-ronda ",
       })
-    ).resolves.toEqual({ status: "moved_and_deleted" });
+    ).resolves.toEqual({ status: "moved_and_deleted" as const });
     expect(deleteChannel).toHaveBeenCalledWith({
       channelId: "channel-questions",
       tribeSlug: "matematica-pro",
@@ -347,15 +348,15 @@ describe("channel use cases", () => {
   });
 
   it("omits targetChannelId when delete request sends an empty value", async () => {
-    const deleteChannel = jest.fn(async () => ({
+    const deleteChannel = vi.fn(async () => ({
       status: "deleted" as const,
     }));
     const execute = deleteTribeChannel({
       tribeChannelRepository: {
-        create: jest.fn(),
+        create: vi.fn(),
         delete: deleteChannel,
-        listByTribeSlug: jest.fn(),
-        update: jest.fn(),
+        listByTribeSlug: vi.fn(),
+        update: vi.fn(),
       },
     });
 
@@ -365,7 +366,7 @@ describe("channel use cases", () => {
         tribeSlug: " matematica-pro ",
         targetChannelId: "   ",
       })
-    ).resolves.toEqual({ status: "deleted" });
+    ).resolves.toEqual({ status: "deleted" as const });
     expect(deleteChannel).toHaveBeenCalledWith({
       channelId: "channel-questions",
       tribeSlug: "matematica-pro",

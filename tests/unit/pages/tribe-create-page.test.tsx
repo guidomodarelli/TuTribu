@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -7,45 +8,45 @@ import { createRequestModules } from "@/src/modules/setup";
 import { getContactEmail } from "@/src/modules/tribes/infrastructure/config/tribe-creation-contact-email";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const getTribeCreationEligibility = jest.fn();
-const errorMock = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribeCreationEligibility = vi.fn();
+const errorMock = vi.fn();
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("next/navigation", () => ({
-  redirect: jest.fn(),
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/tribes/infrastructure/config/tribe-creation-contact-email",
   () => ({
-    getContactEmail: jest.fn(),
+    getContactEmail: vi.fn(),
   })
 );
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
 describe("CreateTribePage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockReset();
     getTribeCreationEligibility.mockReset();
     errorMock.mockReset();
-    (headers as jest.Mock).mockResolvedValue(new Headers());
+    (headers as Mock).mockResolvedValue(new Headers());
 
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -57,18 +58,18 @@ describe("CreateTribePage", () => {
         },
       },
     });
-    (getContactEmail as jest.Mock).mockReturnValue(
+    (getContactEmail as Mock).mockReturnValue(
       "tribus@example.com"
     );
-    (createServerLogger as jest.Mock).mockReturnValue({
+    (createServerLogger as Mock).mockReturnValue({
       error: errorMock,
-      info: jest.fn(),
+      info: vi.fn(),
     });
   });
 
   it("redirects unauthenticated users to sign in with a callback", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 
@@ -137,7 +138,7 @@ describe("CreateTribePage", () => {
   });
 
   it("logs session resolution failures when request modules cannot be created", async () => {
-    (createRequestModules as jest.Mock).mockRejectedValue(
+    (createRequestModules as Mock).mockRejectedValue(
       new Error("module_setup_failed")
     );
 

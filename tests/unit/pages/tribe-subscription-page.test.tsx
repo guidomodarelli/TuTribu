@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -6,20 +7,20 @@ import TribeSubscriptionPage from "@/app/(platform)/[slug]/suscripcion/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const getCurrentTribeMembershipStatus = jest.fn();
-const getTribePageAccess = jest.fn();
-const reconcileCurrentTribeMemberSubscription = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getCurrentTribeMembershipStatus = vi.fn();
+const getTribePageAccess = vi.fn();
+const reconcileCurrentTribeMemberSubscription = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  notFound: jest.fn(),
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("@/components/subscriptions/tribe-subscription-self-management", () => ({
+vi.mock("@/components/subscriptions/tribe-subscription-self-management", () => ({
   TribeSubscriptionSelfManagement: ({
     subscriptionStatus,
     tribeSlug,
@@ -35,7 +36,7 @@ jest.mock("@/components/subscriptions/tribe-subscription-self-management", () =>
   ),
 }));
 
-jest.mock("@/components/subscriptions/tribe-subscription-payment-status", () => ({
+vi.mock("@/components/subscriptions/tribe-subscription-payment-status", () => ({
   TribeSubscriptionPaymentStatus: ({
     subscriptionStatus,
     tribeSlug,
@@ -51,14 +52,14 @@ jest.mock("@/components/subscriptions/tribe-subscription-payment-status", () => 
   ),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -72,7 +73,7 @@ const authenticatedMember = {
 };
 
 const visibleTribeAccess = {
-  status: "visible",
+  status: "visible" as const,
   tribe: {
     id: "tribe-1",
     name: "Matematica Pro",
@@ -91,20 +92,20 @@ function buildPageProps() {
 
 describe("TribeSubscriptionPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (notFound as unknown as jest.Mock).mockReset();
+    vi.clearAllMocks();
+    (notFound as unknown as Mock).mockReset();
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getCurrentTribeMembershipStatus.mockResolvedValue("active");
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
     reconcileCurrentTribeMemberSubscription.mockResolvedValue({
-      status: "active",
+      status: "active" as const,
     });
-    (headers as jest.Mock).mockResolvedValue(new Headers());
-    (createServerLogger as jest.Mock).mockReturnValue({
-      error: jest.fn(),
-      info: jest.fn(),
+    (headers as Mock).mockResolvedValue(new Headers());
+    (createServerLogger as Mock).mockReturnValue({
+      error: vi.fn(),
+      info: vi.fn(),
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -136,7 +137,7 @@ describe("TribeSubscriptionPage", () => {
 
   it("returns 404 for muted members with an active subscription", async () => {
     getCurrentTribeMembershipStatus.mockResolvedValue("muted");
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -158,7 +159,7 @@ describe("TribeSubscriptionPage", () => {
       expectedSubscriptionStatus
     ) => {
       getTribePageAccess.mockResolvedValue({
-        status: "hidden",
+        status: "hidden" as const,
         reason: "blocked_hidden",
         blockedReason,
       });
@@ -177,11 +178,11 @@ describe("TribeSubscriptionPage", () => {
 
   it("returns 404 for conduct-blocked members", async () => {
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "blocked_hidden",
       blockedReason: "conduct_blocked",
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -194,14 +195,14 @@ describe("TribeSubscriptionPage", () => {
     "returns 404 for conduct-blocked members even when reconciliation is %s",
     async (reconciliationStatus) => {
       getTribePageAccess.mockResolvedValue({
-        status: "hidden",
+        status: "hidden" as const,
         reason: "blocked_hidden",
         blockedReason: "conduct_blocked",
       });
       reconcileCurrentTribeMemberSubscription.mockResolvedValue({
         status: reconciliationStatus,
       });
-      (notFound as unknown as jest.Mock).mockImplementation(() => {
+      (notFound as unknown as Mock).mockImplementation(function () {
         throw new Error("NEXT_NOT_FOUND");
       });
 
@@ -214,10 +215,10 @@ describe("TribeSubscriptionPage", () => {
   it("returns 404 for unauthenticated access", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "unauthenticated_hidden",
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 

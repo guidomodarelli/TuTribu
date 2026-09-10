@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   getTribeIdentity,
   saveTribeIdentity,
@@ -9,8 +10,8 @@ function buildRepository(
   overrides: Partial<TribeIdentityRepository> = {}
 ): TribeIdentityRepository {
   return {
-    getByTribeSlug: jest.fn(async () => ({ coverUrl: null, logoUrl: null })),
-    save: jest.fn(async () => ({
+    getByTribeSlug: vi.fn(async () => ({ coverUrl: null, logoUrl: null })),
+    save: vi.fn(async () => ({
       identity: { coverUrl: null, logoUrl: null },
       status: TRIBE_IMAGE_SAVE_STATUS.updated,
     })),
@@ -21,7 +22,7 @@ function buildRepository(
 describe("manage tribe identity use cases", () => {
   it("reads the identity normalizing the slug", async () => {
     const repository = buildRepository({
-      getByTribeSlug: jest.fn(async () => ({
+      getByTribeSlug: vi.fn(async () => ({
         coverUrl: "https://images.example.com/cover.jpg",
         logoUrl: "https://images.example.com/logo.png",
       })),
@@ -56,7 +57,7 @@ describe("manage tribe identity use cases", () => {
 
   it("forwards a forbidden save", async () => {
     const repository = buildRepository({
-      save: jest.fn(async () => ({
+      save: vi.fn(async () => ({
         identity: null,
         status: TRIBE_IMAGE_SAVE_STATUS.forbidden,
       })),

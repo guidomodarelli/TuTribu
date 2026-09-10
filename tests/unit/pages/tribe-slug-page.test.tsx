@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, beforeAll, afterAll, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
@@ -6,16 +7,16 @@ import TribePage, { TribePageContent } from "@/app/(platform)/[slug]/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const getTribePageAccess = jest.fn();
-const listTribeRound = jest.fn();
-const listUpcomingTribeEvents = jest.fn();
-const resolveTribeMemberSubscriptionReturn = jest.fn();
-const reconcileCurrentTribeMemberSubscription = jest.fn();
-const validatePendingTribeMemberSubscriptionReturn = jest.fn();
-const getTribeCurrentSubscriptionOffer = jest.fn();
-const infoMock = jest.fn();
-const errorMock = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribePageAccess = vi.fn();
+const listTribeRound = vi.fn();
+const listUpcomingTribeEvents = vi.fn();
+const resolveTribeMemberSubscriptionReturn = vi.fn();
+const reconcileCurrentTribeMemberSubscription = vi.fn();
+const validatePendingTribeMemberSubscriptionReturn = vi.fn();
+const getTribeCurrentSubscriptionOffer = vi.fn();
+const infoMock = vi.fn();
+const errorMock = vi.fn();
 
 const tribeChannel = {
   accessScope: "tribemates" as const,
@@ -33,40 +34,40 @@ const tribeRoundPagination = {
   pageSize: 15,
 };
 
-jest.mock("next/navigation", () => ({
-  notFound: jest.fn(),
-  redirect: jest.fn(),
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(),
+  redirect: vi.fn(),
   useRouter: () => ({
-    refresh: jest.fn(),
+    refresh: vi.fn(),
   }),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/messages/infrastructure/composition/video-thumbnail-backfill",
   () => ({
-    scheduleMissingVideoThumbnailBackfill: jest.fn(),
+    scheduleMissingVideoThumbnailBackfill: vi.fn(),
   })
 );
 
-jest.mock(
+vi.mock(
   "@/src/modules/auth/infrastructure/better-auth/server-auth-context",
   () => ({
-    getServerBetterAuthSession: jest.fn(async () => null),
+    getServerBetterAuthSession: vi.fn(async () => null),
   })
 );
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -102,13 +103,13 @@ describe("TribePage", () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    (notFound as unknown as jest.Mock).mockReset();
-    (redirect as unknown as jest.Mock).mockReset();
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    vi.clearAllMocks();
+    (notFound as unknown as Mock).mockReset();
+    (redirect as unknown as Mock).mockReset();
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
-    (createRequestModules as jest.Mock).mockReset();
+    (createRequestModules as Mock).mockReset();
     getAuthenticatedMember.mockReset();
     getTribePageAccess.mockReset();
     listTribeRound.mockReset();
@@ -118,11 +119,11 @@ describe("TribePage", () => {
     reconcileCurrentTribeMemberSubscription.mockReset();
     validatePendingTribeMemberSubscriptionReturn.mockReset();
     getTribeCurrentSubscriptionOffer.mockReset();
-    getTribeCurrentSubscriptionOffer.mockResolvedValue({ status: "unavailable" });
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({ status: "unavailable" as const });
     infoMock.mockReset();
     errorMock.mockReset();
 
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -152,8 +153,8 @@ describe("TribePage", () => {
         },
       },
     });
-    (headers as jest.Mock).mockResolvedValue(new Headers());
-    (createServerLogger as jest.Mock).mockReturnValue({
+    (headers as Mock).mockResolvedValue(new Headers());
+    (createServerLogger as Mock).mockReturnValue({
       info: infoMock,
       error: errorMock,
     });
@@ -180,7 +181,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -198,7 +199,7 @@ describe("TribePage", () => {
       },
       pagination: tribeRoundPagination,
       messages: [
-        {
+        { replyCount: 0,
           id: "message-1",
           author: {
             id: "leader-1",
@@ -228,7 +229,7 @@ describe("TribePage", () => {
           likeCount: 2,
           title: "Anuncio inicial",
         },
-        {
+        { replyCount: 0,
           id: "message-2",
           author: {
             id: "member-2",
@@ -293,7 +294,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -356,7 +357,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -406,7 +407,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -415,7 +416,7 @@ describe("TribePage", () => {
       },
     });
     reconcileCurrentTribeMemberSubscription.mockResolvedValue({
-      status: "provider_unavailable",
+      status: "provider_unavailable" as const,
     });
     listTribeRound.mockResolvedValue({
       activeChannelId: null,
@@ -428,10 +429,10 @@ describe("TribePage", () => {
       pagination: tribeRoundPagination,
       messages: [],
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
-    (createRequestModules as jest.Mock)
+    (createRequestModules as Mock)
       .mockResolvedValueOnce({
         auth: {
           useCases: {
@@ -501,7 +502,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -552,7 +553,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -600,7 +601,7 @@ describe("TribePage", () => {
   it("redirects unauthenticated visitors to sign-in so the public join link can resolve", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "unauthenticated_hidden",
     });
 
@@ -636,7 +637,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "not_found_or_not_visible",
     });
     getTribeCurrentSubscriptionOffer.mockResolvedValue({
@@ -646,7 +647,7 @@ describe("TribePage", () => {
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
 
     render(
@@ -681,7 +682,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "payment_blocked",
       reason: "blocked_hidden",
     });
@@ -692,7 +693,7 @@ describe("TribePage", () => {
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
 
     render(
@@ -727,7 +728,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "subscription_inactive",
       reason: "blocked_hidden",
     });
@@ -738,7 +739,7 @@ describe("TribePage", () => {
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
 
     render(
@@ -772,7 +773,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "payment_blocked",
       reason: "blocked_hidden",
     });
@@ -784,9 +785,9 @@ describe("TribePage", () => {
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -820,7 +821,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "conduct_blocked",
       reason: "blocked_hidden",
     });
@@ -831,9 +832,9 @@ describe("TribePage", () => {
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -860,11 +861,11 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "not_found_or_not_visible",
     });
-    getTribeCurrentSubscriptionOffer.mockResolvedValue({ status: "unavailable" });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    getTribeCurrentSubscriptionOffer.mockResolvedValue({ status: "unavailable" as const });
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -889,7 +890,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "not_found_or_not_visible",
     });
 
@@ -921,11 +922,11 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "payment_blocked",
       reason: "blocked_hidden",
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -958,11 +959,11 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "conduct_blocked",
       reason: "blocked_hidden",
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -988,7 +989,7 @@ describe("TribePage", () => {
   it("redirects unauthenticated Mercado Pago returns to sign-in when the visitor is not on iOS or Android", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "unauthenticated_hidden",
     });
 
@@ -1013,10 +1014,10 @@ describe("TribePage", () => {
   it("renders the external browser handoff for regular iOS Safari so a lost session still recovers", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "unauthenticated_hidden",
     });
-    (headers as jest.Mock).mockResolvedValue(
+    (headers as Mock).mockResolvedValue(
       buildUserAgentHeaders(IOS_SAFARI_USER_AGENT)
     );
 
@@ -1044,10 +1045,10 @@ describe("TribePage", () => {
   it("renders the external browser handoff for regular Android Chrome so a lost session still recovers", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "unauthenticated_hidden",
     });
-    (headers as jest.Mock).mockResolvedValue(
+    (headers as Mock).mockResolvedValue(
       buildUserAgentHeaders(CHROME_ANDROID_USER_AGENT)
     );
 
@@ -1075,10 +1076,10 @@ describe("TribePage", () => {
   it("renders the external browser handoff with an x-safari-https deep link for iOS in-app browsers", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "unauthenticated_hidden",
     });
-    (headers as jest.Mock).mockResolvedValue(
+    (headers as Mock).mockResolvedValue(
       buildUserAgentHeaders(IOS_MERCADO_PAGO_USER_AGENT)
     );
 
@@ -1115,10 +1116,10 @@ describe("TribePage", () => {
   it("renders the external browser handoff with a Google Chrome deep link for Android in-app browsers", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "unauthenticated_hidden",
     });
-    (headers as jest.Mock).mockResolvedValue(
+    (headers as Mock).mockResolvedValue(
       buildUserAgentHeaders(ANDROID_MERCADO_PAGO_USER_AGENT)
     );
 
@@ -1153,10 +1154,10 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "blocked_hidden",
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -1188,7 +1189,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "payment_blocked",
       reason: "blocked_hidden",
     });
@@ -1231,14 +1232,14 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "payment_blocked",
       reason: "blocked_hidden",
     });
     resolveTribeMemberSubscriptionReturn.mockResolvedValue({
-      status: "provider_unavailable",
+      status: "provider_unavailable" as const,
     });
-    (createRequestModules as jest.Mock)
+    (createRequestModules as Mock)
       .mockResolvedValueOnce({
         auth: {
           useCases: {
@@ -1311,16 +1312,16 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "subscription_inactive",
       reason: "blocked_hidden",
     });
     resolveTribeMemberSubscriptionReturn.mockResolvedValue({
-      status: "pending",
+      status: "pending" as const,
     });
     let createModulesCallCount = 0;
 
-    (createRequestModules as jest.Mock).mockImplementation(async () => {
+    (createRequestModules as Mock).mockImplementation(async function () {
       createModulesCallCount += 1;
 
       if (createModulesCallCount === 3) {
@@ -1390,7 +1391,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -1424,16 +1425,16 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "subscription_inactive",
       reason: "blocked_hidden",
     });
     resolveTribeMemberSubscriptionReturn.mockResolvedValue({
-      status: "active",
+      status: "active" as const,
     });
     let createModulesCallCount = 0;
 
-    (createRequestModules as jest.Mock).mockImplementation(async () => {
+    (createRequestModules as Mock).mockImplementation(async function () {
       createModulesCallCount += 1;
 
       if (createModulesCallCount === 3) {
@@ -1501,16 +1502,16 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "subscription_inactive",
       reason: "blocked_hidden",
     });
     resolveTribeMemberSubscriptionReturn.mockResolvedValue({
-      status: "paused",
+      status: "paused" as const,
     });
     let createModulesCallCount = 0;
 
-    (createRequestModules as jest.Mock).mockImplementation(async () => {
+    (createRequestModules as Mock).mockImplementation(async function () {
       createModulesCallCount += 1;
 
       if (createModulesCallCount === 3) {
@@ -1578,12 +1579,12 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "payment_blocked",
       reason: "blocked_hidden",
     });
     validatePendingTribeMemberSubscriptionReturn.mockResolvedValue(false);
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -1615,11 +1616,11 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       blockedReason: "conduct_blocked",
       reason: "blocked_hidden",
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -1648,10 +1649,10 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockResolvedValue({
-      status: "hidden",
+      status: "hidden" as const,
       reason: "not_found_or_not_visible",
     });
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -1683,7 +1684,7 @@ describe("TribePage", () => {
       image: null,
     });
     getTribePageAccess.mockRejectedValue(new Error("Database exploded"));
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 

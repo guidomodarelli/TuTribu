@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   resolveMissingVideoThumbnails,
   selectMessageIdsNeedingVideoThumbnail,
@@ -10,8 +11,8 @@ function createRepository(
   overrides: Partial<MessageVideoThumbnailRepository> = {}
 ): MessageVideoThumbnailRepository {
   return {
-    listUnresolvedVideos: jest.fn().mockResolvedValue([]),
-    persistThumbnail: jest.fn().mockResolvedValue(true),
+    listUnresolvedVideos: vi.fn().mockResolvedValue([]),
+    persistThumbnail: vi.fn().mockResolvedValue(true),
     ...overrides,
   };
 }
@@ -19,13 +20,13 @@ function createRepository(
 function createResolver(
   resolve: VideoThumbnailResolver["resolveThumbnailUrl"]
 ): VideoThumbnailResolver {
-  return { resolveThumbnailUrl: jest.fn(resolve) };
+  return { resolveThumbnailUrl: vi.fn(resolve) };
 }
 
 describe("resolveMissingVideoThumbnails", () => {
   it("resolves and persists a thumbnail for each candidate", async () => {
     const repository = createRepository({
-      listUnresolvedVideos: jest.fn().mockResolvedValue([
+      listUnresolvedVideos: vi.fn().mockResolvedValue([
         { externalId: "123456789", id: "video-1", provider: "vimeo" },
         { externalId: "0123456789abcdef0123456789abcdef", id: "video-2", provider: "loom" },
       ]),
@@ -52,7 +53,7 @@ describe("resolveMissingVideoThumbnails", () => {
 
   it("records the attempt but does not count videos without an available thumbnail", async () => {
     const repository = createRepository({
-      listUnresolvedVideos: jest.fn().mockResolvedValue([
+      listUnresolvedVideos: vi.fn().mockResolvedValue([
         { externalId: "123456789", id: "video-1", provider: "vimeo" },
       ]),
     });
@@ -105,10 +106,10 @@ describe("resolveMissingVideoThumbnails", () => {
       provider: "vimeo" as const,
     }));
     const repository = createRepository({
-      listUnresolvedVideos: jest.fn().mockResolvedValue(candidates),
+      listUnresolvedVideos: vi.fn().mockResolvedValue(candidates),
     });
     const resolver = createResolver(async () => "https://thumb.example/x.jpg");
-    const logger = { info: jest.fn() };
+    const logger = { info: vi.fn() };
 
     const result = await resolveMissingVideoThumbnails({
       logger,

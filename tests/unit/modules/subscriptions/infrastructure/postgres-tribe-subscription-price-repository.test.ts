@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterAll, type Mock } from "vitest";
 import {
   TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
@@ -34,31 +35,31 @@ function getSqlText(statement: unknown): string {
 }
 
 function createRepository(
-  execute: jest.Mock,
-  createMercadoPagoPlan = jest.fn(async () => "plan-1"),
-  refreshMercadoPagoAccessToken = jest.fn(async () => ({
+  execute: Mock,
+  createMercadoPagoPlan: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[1]> = vi.fn(async () => "plan-1"),
+  refreshMercadoPagoAccessToken: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[4]> = vi.fn(async () => ({
     accessToken: "fresh-access-token",
     expiresIn: 3600,
     providerAccountId: "seller-1",
     refreshToken: "new-refresh-token",
   })),
-  getMercadoPagoPlanStatus = jest.fn(async () => "active"),
-  getMercadoPagoSubscriptionStatus = jest.fn(async () => "authorized"),
-  updateMercadoPagoPlan = jest.fn(async () => ({
+  getMercadoPagoPlanStatus: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[5]> = vi.fn(async () => "active"),
+  getMercadoPagoSubscriptionStatus: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[6]> = vi.fn(async () => "authorized"),
+  updateMercadoPagoPlan: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[2]> = vi.fn(async () => ({
     amountCents: 500000,
     currency: "ARS",
     externalReference: "tutribu:price:price-1",
     id: "plan-1",
-    reason: "Plan mensual",
-    status: "active",
+    reason: "Plan mensual", trial: null,
+    status: "active" as const,
   })),
-  getMercadoPagoPlan = jest.fn(async () => ({
+  getMercadoPagoPlan: NonNullable<ConstructorParameters<typeof PostgresTribeSubscriptionPriceRepository>[3]> = vi.fn(async () => ({
     amountCents: 500000,
     currency: "ARS",
     externalReference: "tutribu:price:price-1",
     id: "plan-1",
-    reason: "Plan mensual",
-    status: "active",
+    reason: "Plan mensual", trial: null,
+    status: "active" as const,
   }))
 ) {
   return new PostgresTribeSubscriptionPriceRepository(
@@ -85,7 +86,7 @@ function createSubscriptionPriceRow(overrides: Record<string, unknown> = {}) {
     name: "Plan mensual",
     payment_integration_id: "integration-1",
     refresh_token: null,
-    status: "active",
+    status: "active" as const,
     status_result: TRIBE_SUBSCRIPTION_PRICE_STATUS.current,
     token_expires_at: null,
     trial_frequency: 7,
@@ -118,7 +119,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should list prices with connected Mercado Pago health when token refresh succeeds", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           ...createSubscriptionPriceRow(),
@@ -133,8 +134,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           tribe_id: "tribe-1",
         },
       ],
-    }));
-    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+    }); });
+    const refreshMercadoPagoAccessToken = vi.fn(async () => ({
       accessToken: "fresh-access-token",
       expiresIn: 3600,
       providerAccountId: "seller-1",
@@ -142,7 +143,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     }));
     const repository = createRepository(
       execute,
-      jest.fn(async () => "plan-1"),
+      vi.fn(async () => "plan-1"),
       refreshMercadoPagoAccessToken
     );
 
@@ -150,7 +151,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       repository.listByTribeSlug({
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toMatchObject({
+    ).resolves.toMatchObject({ freeJoinIsCurrent: false, openFreeJoinEnabled: false,
       hasMercadoPagoIntegration: true,
       mercadoPagoConnectionStatus: "connected",
       prices: [
@@ -173,7 +174,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should prioritize connected Mercado Pago accounts after refreshing health", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -200,7 +201,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
             provider_account_email: "old@example.com",
             provider_account_id: "collector-old",
             refresh_token: "revoked-refresh-token",
-            status: "connected",
+            status: "connected" as const,
             token_expires_at: "2026-05-06T13:05:00.000Z",
             tribe_id: "tribe-1",
           },
@@ -211,14 +212,14 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
             provider_account_email: "active@example.com",
             provider_account_id: "collector-active",
             refresh_token: "active-refresh-token",
-            status: "connected",
+            status: "connected" as const,
             token_expires_at: "2026-05-06T13:05:00.000Z",
             tribe_id: "tribe-1",
           },
         ],
       })
       .mockResolvedValue({ rows: [] });
-    const refreshMercadoPagoAccessToken = jest.fn(async (refreshToken) => {
+    const refreshMercadoPagoAccessToken = vi.fn(async (refreshToken) => {
       if (refreshToken === "revoked-refresh-token") {
         throw new Error("Mercado Pago rejected refresh token");
       }
@@ -232,7 +233,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     });
     const repository = createRepository(
       execute,
-      jest.fn(async () => "plan-1"),
+      vi.fn(async () => "plan-1"),
       refreshMercadoPagoAccessToken
     );
 
@@ -244,11 +245,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       availableMercadoPagoAccounts: [
         {
           id: "active-integration",
-          status: "connected",
+          status: "connected" as const,
         },
         {
           id: "revoked-integration",
-          status: "requires_reconnection",
+          status: "requires_reconnection" as const,
         },
       ],
       hasMercadoPagoIntegration: true,
@@ -263,7 +264,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should keep paused prices visible while preserving subscriber diagnostics", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           ...createSubscriptionPriceRow({
@@ -278,7 +279,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           tribe_id: "tribe-1",
         },
       ],
-    }));
+    }); });
     const repository = createRepository(execute);
 
     await expect(
@@ -302,7 +303,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should expose update trial policy for synchronized Mercado Pago prices", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           ...createSubscriptionPriceRow({
@@ -317,7 +318,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           token_expires_at: null,
         },
       ],
-    }));
+    }); });
     const repository = createRepository(execute);
 
     await expect(
@@ -337,7 +338,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should list Mercado Pago health as requiring reconnection when token refresh fails", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           ...createSubscriptionPriceRow(),
@@ -352,13 +353,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           tribe_id: "tribe-1",
         },
       ],
-    }));
-    const refreshMercadoPagoAccessToken = jest.fn(async () => {
+    }); });
+    const refreshMercadoPagoAccessToken = vi.fn(async () => {
       throw new Error("Mercado Pago rejected refresh token");
     });
     const repository = createRepository(
       execute,
-      jest.fn(async () => "plan-1"),
+      vi.fn(async () => "plan-1"),
       refreshMercadoPagoAccessToken
     );
 
@@ -366,7 +367,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       repository.listByTribeSlug({
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toMatchObject({
+    ).resolves.toMatchObject({ freeJoinIsCurrent: false, openFreeJoinEnabled: false,
       hasMercadoPagoIntegration: false,
       mercadoPagoConnectionStatus: "requires_reconnection",
       prices: [
@@ -385,7 +386,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should keep Mercado Pago health connected when a concurrent refresh already persisted a fresh token", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (
@@ -424,12 +425,12 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         ],
       };
     });
-    const refreshMercadoPagoAccessToken = jest.fn(async () => {
+    const refreshMercadoPagoAccessToken = vi.fn(async () => {
       throw new Error("Mercado Pago rejected rotated refresh token");
     });
     const repository = createRepository(
       execute,
-      jest.fn(async () => "plan-1"),
+      vi.fn(async () => "plan-1"),
       refreshMercadoPagoAccessToken
     );
 
@@ -447,7 +448,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should list expired Mercado Pago integration without refresh token as requiring reconnection", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           ...createSubscriptionPriceRow(),
@@ -460,11 +461,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           tribe_id: "tribe-1",
         },
       ],
-    }));
-    const refreshMercadoPagoAccessToken = jest.fn();
+    }); });
+    const refreshMercadoPagoAccessToken = vi.fn();
     const repository = createRepository(
       execute,
-      jest.fn(async () => "plan-1"),
+      vi.fn(async () => "plan-1"),
       refreshMercadoPagoAccessToken
     );
 
@@ -480,7 +481,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("clears the previous current price before marking another price as current", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("set is_current = tribe_subscription_prices.id =")) {
@@ -533,7 +534,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     "clears the free-join flag while marking a paid price as current",
     async () => {
       const executedSqlTexts: string[] = [];
-      const execute = jest.fn(async (statement) => {
+      const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
         const sqlText = getSqlText(statement);
 
         executedSqlTexts.push(sqlText);
@@ -597,7 +598,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
   it("does not clear free-join mode for prices without provider plans", async () => {
     const executedSqlTexts: string[] = [];
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       executedSqlTexts.push(sqlText);
@@ -635,7 +636,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     "marks the tribe as free-join current and clears any current paid price",
     async () => {
       const executedSqlTexts: string[] = [];
-      const execute = jest.fn(async (statement) => {
+      const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
         const sqlText = getSqlText(statement);
 
         executedSqlTexts.push(sqlText);
@@ -693,7 +694,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   it(
     "returns freeJoinIsCurrent from the list query",
     async () => {
-      const execute = jest.fn(async () => ({
+      const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
         rows: [
           {
             access_token: null,
@@ -709,14 +710,14 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
             is_current: false,
             name: null,
             refresh_token: null,
-            status: "active",
+            status: "active" as const,
             token_expires_at: null,
             trial_frequency: null,
             trial_frequency_type: null,
             tribe_id: "tribe-1",
           },
         ],
-      }));
+      }); });
       const repository = createRepository(execute);
 
       await expect(
@@ -728,7 +729,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   );
 
   it("does not create a provider plan when reservation hits the price limit", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("reserved_price")) {
@@ -752,11 +753,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         ],
       };
     });
-    const createMercadoPagoPlan = jest.fn(async () => "plan-1");
+    const createMercadoPagoPlan: Mock = vi.fn(async () => "plan-1");
     const repository = createRepository(execute, createMercadoPagoPlan);
 
     await expect(
-      repository.create({
+      repository.create({ paymentIntegrationId: "integration-1", trialFrequency: null, trialFrequencyType: null,
         amountCents: 500000,
         currency: "ARS",
         frequency: "monthly",
@@ -772,11 +773,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
   it("creates the Mercado Pago plan after the local price reservation finishes", async () => {
     const transactionEvents: string[] = [];
-    const executeWithDatabase = jest.fn(async (callback) => {
+    const executeWithDatabase = vi.fn(async (callback) => {
       transactionEvents.push("transaction:start");
 
       const result = await callback({
-        execute: jest.fn(async (statement) => {
+        execute: vi.fn(async (statement) => {
           const sqlText = getSqlText(statement);
 
           if (sqlText.includes("reserved_price")) {
@@ -817,7 +818,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
       return result;
     });
-    const createMercadoPagoPlan = jest.fn(async () => {
+    const createMercadoPagoPlan: Mock = vi.fn(async () => {
       transactionEvents.push("provider:create-plan");
 
       return "plan-1";
@@ -825,28 +826,28 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     const repository = new PostgresTribeSubscriptionPriceRepository(
       executeWithDatabase,
       createMercadoPagoPlan,
-      jest.fn(async () => ({
+      vi.fn(async () => ({
         amountCents: 500000,
         currency: "ARS",
         externalReference: "tutribu:price:price-1",
         id: "plan-1",
-        reason: "Plan mensual",
-        status: "active",
+        reason: "Plan mensual", trial: null,
+        status: "active" as const,
       })),
-      jest.fn(async () => ({
+      vi.fn(async () => ({
         amountCents: 500000,
         currency: "ARS",
         externalReference: "tutribu:price:price-1",
         id: "plan-1",
-        reason: "Plan mensual",
-        status: "active",
+        reason: "Plan mensual", trial: null,
+        status: "active" as const,
       })),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized")
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized")
     );
 
-    await repository.create({
+    await repository.create({ paymentIntegrationId: "integration-1",
       amountCents: 500000,
       currency: "ARS",
       frequency: "monthly",
@@ -879,7 +880,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("promotes the only active paid price to current when activation finishes", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("sole_active_paid_price")) {
@@ -921,7 +922,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     });
     const repository = createRepository(execute);
 
-    const result = await repository.create({
+    const result = await repository.create({ paymentIntegrationId: "integration-1",
       amountCents: 500000,
       currency: "ARS",
       frequency: "monthly",
@@ -948,7 +949,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("keeps the new price non-current when other active paid prices already exist", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("sole_active_paid_price")) {
@@ -991,7 +992,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     });
     const repository = createRepository(execute);
 
-    const result = await repository.create({
+    const result = await repository.create({ paymentIntegrationId: "integration-1",
       amountCents: 500000,
       currency: "ARS",
       frequency: "monthly",
@@ -1008,7 +1009,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("returns the current paid offer by slug only when free join is not the current option", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           amount_cents: 500000,
@@ -1017,7 +1018,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           name: "Plan mensual",
         },
       ],
-    }));
+    }); });
     const repository = createRepository(execute);
 
     await expect(
@@ -1029,7 +1030,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -1041,16 +1042,16 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("returns an unavailable offer when no current paid price is exposed", async () => {
-    const execute = jest.fn(async () => ({ rows: [] }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [] }); });
     const repository = createRepository(execute);
 
     await expect(
       repository.getCurrentSubscriptionOffer({ tribeSlug: "matematica-pro" })
-    ).resolves.toEqual({ status: "unavailable" });
+    ).resolves.toEqual({ status: "unavailable" as const });
   });
 
   it("should keep Mercado Pago account metadata in created price responses", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("reserved_price")) {
@@ -1103,7 +1104,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     const repository = createRepository(execute);
 
     await expect(
-      repository.create({
+      repository.create({ trialFrequency: null, trialFrequencyType: null,
         amountCents: 500000,
         currency: "ARS",
         frequency: "monthly",
@@ -1123,7 +1124,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should update the same provider plan and local price when the amount changes", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1156,14 +1157,14 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           }),
         ],
       });
-    const createMercadoPagoPlan = jest.fn();
-    const updateMercadoPagoPlan = jest.fn(async () => ({
+    const createMercadoPagoPlan: Mock = vi.fn();
+    const updateMercadoPagoPlan: Mock = vi.fn(async () => ({
       amountCents: 600000,
       currency: "ARS",
       externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan actualizado",
-      status: "active",
+      status: "active" as const,
       trial: {
         frequency: 21,
         frequencyType: "days" as const,
@@ -1172,9 +1173,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     const repository = createRepository(
       execute,
       createMercadoPagoPlan,
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
       updateMercadoPagoPlan
     );
 
@@ -1224,7 +1225,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should update Mercado Pago and local storage when the trial period changes", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1251,13 +1252,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           }),
         ],
       });
-    const updateMercadoPagoPlan = jest.fn(async () => ({
+    const updateMercadoPagoPlan: Mock = vi.fn(async () => ({
       amountCents: 500000,
       currency: "ARS",
       externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan mensual",
-      status: "active",
+      status: "active" as const,
       trial: {
         frequency: 14,
         frequencyType: "days",
@@ -1265,10 +1266,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     }));
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
       updateMercadoPagoPlan
     );
 
@@ -1310,7 +1311,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should reject paused price updates before mutating the provider plan", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           ...createSubscriptionPriceRow({
@@ -1325,13 +1326,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         },
       ],
     });
-    const updateMercadoPagoPlan = jest.fn();
+    const updateMercadoPagoPlan: Mock = vi.fn();
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
       updateMercadoPagoPlan
     );
 
@@ -1355,7 +1356,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should preserve the stored trial period when update fields are omitted", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1382,13 +1383,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           }),
         ],
       });
-    const updateMercadoPagoPlan = jest.fn(async () => ({
+    const updateMercadoPagoPlan: Mock = vi.fn(async () => ({
       amountCents: 500000,
       currency: "ARS",
       externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan mensual actualizado",
-      status: "active",
+      status: "active" as const,
       trial: {
         frequency: 7,
         frequencyType: "days",
@@ -1396,10 +1397,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     }));
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
       updateMercadoPagoPlan
     );
 
@@ -1435,7 +1436,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
   it("refreshes expired Mercado Pago tokens before creating provider plans", async () => {
     const expiredTokenDate = new Date(Date.now() - 60_000).toISOString();
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1466,8 +1467,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           }),
         ],
       });
-    const createMercadoPagoPlan = jest.fn(async () => "plan-1");
-    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+    const createMercadoPagoPlan: Mock = vi.fn(async () => "plan-1");
+    const refreshMercadoPagoAccessToken = vi.fn(async () => ({
       accessToken: "fresh-access-token",
       expiresIn: 3600,
       providerAccountId: "seller-1",
@@ -1480,7 +1481,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     );
 
     await expect(
-      repository.create({
+      repository.create({ paymentIntegrationId: "integration-1", trialFrequency: null, trialFrequencyType: null,
         amountCents: 500000,
         currency: "ARS",
         frequency: "monthly",
@@ -1507,7 +1508,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should keep active prices when the provider plan still exists", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1530,11 +1531,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       .mockResolvedValueOnce({
         rows: [createSubscriptionPriceRow()],
       });
-    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
+    const getMercadoPagoPlanStatus: Mock = vi.fn(async () => "active");
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
       getMercadoPagoPlanStatus
     );
 
@@ -1542,7 +1543,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       repository.verifyProviderPlans({
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toMatchObject({
+    ).resolves.toMatchObject({ freeJoinIsCurrent: false,
       canceledPriceIds: [],
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
       verifiedCount: 1,
@@ -1554,7 +1555,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should mark a local price as canceled when the provider plan is missing", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1579,7 +1580,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           {
             ...createSubscriptionPriceRow({
               is_current: false,
-              status: "canceled",
+              status: "canceled" as const,
             }),
           },
         ],
@@ -1589,15 +1590,15 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           createSubscriptionPriceRow({
             free_join_is_current: true,
             is_current: false,
-            status: "canceled",
+            status: "canceled" as const,
           }),
         ],
       });
-    const getMercadoPagoPlanStatus = jest.fn(async () => null);
+    const getMercadoPagoPlanStatus: Mock = vi.fn(async () => null);
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
       getMercadoPagoPlanStatus
     );
 
@@ -1614,7 +1615,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should reactivate paused local prices when manual provider verification finds an active plan", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1646,9 +1647,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       });
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active")
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active")
     );
 
     await expect(
@@ -1679,7 +1680,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should cancel paused local prices when manual provider verification finds a canceled plan", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1720,9 +1721,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       });
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "canceled")
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "canceled")
     );
 
     await expect(
@@ -1744,7 +1745,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should restore free-join mode when provider verification pauses the current paid price", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1784,9 +1785,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       });
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "paused")
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "paused")
     );
 
     await expect(
@@ -1810,7 +1811,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should restore free-join mode when provider verification cancels the current paid price", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1850,9 +1851,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       });
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => null)
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => null)
     );
 
     await expect(
@@ -1882,7 +1883,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should keep the Mercado Pago plan identifier when provider verification cancels a local price", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("set") && sqlText.includes("mercado_pago_preapproval_plan_id = null")) {
@@ -1922,7 +1923,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         rows: [
           createSubscriptionPriceRow({
             is_current: false,
-            status: "canceled",
+            status: "canceled" as const,
             trial_frequency: returnsTrial ? 1 : null,
             trial_frequency_type: returnsTrial ? "months" : null,
           }),
@@ -1931,9 +1932,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     });
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => null)
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => null)
     );
 
     await expect(
@@ -1943,7 +1944,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       })
     ).resolves.toMatchObject({
       price: {
-        status: "canceled",
+        status: "canceled" as const,
         trial: {
           frequency: 1,
           frequencyType: "months",
@@ -1954,7 +1955,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should not query Mercado Pago when no active local provider plan exists", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1970,11 +1971,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       .mockResolvedValueOnce({
         rows: [],
       });
-    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
+    const getMercadoPagoPlanStatus: Mock = vi.fn(async () => "active");
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
       getMercadoPagoPlanStatus
     );
 
@@ -1991,7 +1992,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should read trial fields when provider plan verification returns the local price", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -2016,9 +2017,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       });
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active")
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active")
     );
 
     await expect(
@@ -2043,7 +2044,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should not call Mercado Pago when the viewer cannot manage prices", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           access_token: "access-token",
@@ -2051,12 +2052,12 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           tribe_id: "tribe-1",
         },
       ],
-    }));
-    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
+    }); });
+    const getMercadoPagoPlanStatus: Mock = vi.fn(async () => "active");
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
       getMercadoPagoPlanStatus
     );
 
@@ -2072,7 +2073,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should reconcile canceled local subscriber rows when Mercado Pago reports them as canceled", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -2112,12 +2113,12 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           }),
         ],
       });
-    const getMercadoPagoSubscriptionStatus = jest.fn(async () => "cancelled");
+    const getMercadoPagoSubscriptionStatus: Mock = vi.fn(async () => "cancelled");
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "canceled"),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "canceled"),
       getMercadoPagoSubscriptionStatus
     );
 
@@ -2161,7 +2162,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should keep authorized pending and paused provider subscriptions associated while only authorized grants access", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -2203,16 +2204,16 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           }),
         ],
       });
-    const getMercadoPagoSubscriptionStatus = jest
+    const getMercadoPagoSubscriptionStatus = vi
       .fn()
       .mockResolvedValueOnce("authorized")
       .mockResolvedValueOnce("pending")
       .mockResolvedValueOnce("paused");
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
       getMercadoPagoSubscriptionStatus
     );
 
@@ -2245,7 +2246,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should return provider subscriber count with the reconciled local association count", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -2286,16 +2287,16 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           }),
         ],
       });
-    const getMercadoPagoSubscriptionStatus = jest
+    const getMercadoPagoSubscriptionStatus = vi
       .fn()
       .mockResolvedValueOnce("authorized")
       .mockResolvedValueOnce("paused")
       .mockResolvedValueOnce("canceled");
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
       getMercadoPagoSubscriptionStatus
     );
 
@@ -2317,7 +2318,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should resolve canceled prices when reconciling provider subscribers", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -2355,10 +2356,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       });
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "canceled"),
-      jest.fn(async () => "cancelled")
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "canceled"),
+      vi.fn(async () => "cancelled")
     );
 
     await expect(
@@ -2379,7 +2380,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should restrict provider plan verification to live provider plan prices", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -2415,7 +2416,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should load provider plan verification tokens from each price account", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -2447,11 +2448,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           }),
         ],
       });
-    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
+    const getMercadoPagoPlanStatus: Mock = vi.fn(async () => "active");
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
       getMercadoPagoPlanStatus
     );
 
@@ -2470,7 +2471,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should refresh provider plan account tokens before verification", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -2497,16 +2498,16 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         ],
       })
       .mockResolvedValue({ rows: [] });
-    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+    const refreshMercadoPagoAccessToken = vi.fn(async () => ({
       accessToken: "fresh-access-token",
       expiresIn: 3600,
       providerAccountId: "collector-1",
       refreshToken: "new-refresh-token",
     }));
-    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
+    const getMercadoPagoPlanStatus: Mock = vi.fn(async () => "active");
     const repository = createRepository(
       execute,
-      jest.fn(),
+      vi.fn(),
       refreshMercadoPagoAccessToken,
       getMercadoPagoPlanStatus
     );
@@ -2521,7 +2522,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should reuse a refreshed account token when verifying multiple provider plans from the same account", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -2581,22 +2582,22 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
             provider_account_email: "leader@example.com",
             provider_account_id: "collector-1",
             refresh_token: null,
-            status: "connected",
+            status: "connected" as const,
             token_expires_at: null,
             tribe_id: "tribe-1",
           },
         ],
       });
-    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+    const refreshMercadoPagoAccessToken = vi.fn(async () => ({
       accessToken: "fresh-access-token",
       expiresIn: 3600,
       providerAccountId: "collector-1",
       refreshToken: "rotated-refresh-token",
     }));
-    const getMercadoPagoPlanStatus = jest.fn(async () => "active");
+    const getMercadoPagoPlanStatus: Mock = vi.fn(async () => "active");
     const repository = createRepository(
       execute,
-      jest.fn(),
+      vi.fn(),
       refreshMercadoPagoAccessToken,
       getMercadoPagoPlanStatus
     );
@@ -2619,7 +2620,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should refresh subscriber diagnostics account tokens before reading provider subscriptions", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -2660,18 +2661,18 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       });
-    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+    const refreshMercadoPagoAccessToken = vi.fn(async () => ({
       accessToken: "fresh-access-token",
       expiresIn: 3600,
       providerAccountId: "collector-1",
       refreshToken: "new-refresh-token",
     }));
-    const getMercadoPagoSubscriptionStatus = jest.fn(async () => "authorized");
+    const getMercadoPagoSubscriptionStatus: Mock = vi.fn(async () => "authorized");
     const repository = createRepository(
       execute,
-      jest.fn(),
+      vi.fn(),
       refreshMercadoPagoAccessToken,
-      jest.fn(),
+      vi.fn(),
       getMercadoPagoSubscriptionStatus
     );
 
@@ -2693,7 +2694,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("does not leave an idempotent lock when the provider plan call fails before registration", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
@@ -2720,16 +2721,16 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         ],
       };
     });
-    const getMercadoPagoPlan = jest.fn(async () => {
+    const getMercadoPagoPlan: Mock = vi.fn(async () => {
       throw new Error("provider unavailable");
     });
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
+      vi.fn(),
       getMercadoPagoPlan
     );
 
@@ -2762,7 +2763,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
   it("should restore free-join mode when a provider webhook cancels the current paid price", async () => {
     const executedSqlTexts: string[] = [];
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       executedSqlTexts.push(sqlText);
@@ -2807,19 +2808,19 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         ],
       };
     });
-    const getMercadoPagoPlan = jest.fn(async () => ({
+    const getMercadoPagoPlan: Mock = vi.fn(async () => ({
       externalReference: "tutribu:price:price-1",
       id: "plan-1",
-      reason: "Plan mensual",
-      status: "cancelled",
+      reason: "Plan mensual", trial: null,
+      status: "cancelled" as const,
     }));
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
+      vi.fn(),
       getMercadoPagoPlan
     );
 
@@ -2851,7 +2852,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should sync provider plan webhooks with the RLS-safe price context", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("update public.tribe_subscription_prices")) {
@@ -2917,13 +2918,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         ],
       };
     });
-    const getMercadoPagoPlan = jest.fn(async () => ({
+    const getMercadoPagoPlan: Mock = vi.fn(async () => ({
       amountCents: 700000,
       currency: "ARS",
       externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan actualizado",
-      status: "active",
+      status: "active" as const,
       trial: {
         frequency: 21,
         frequencyType: "days",
@@ -2931,11 +2932,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     }));
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
+      vi.fn(),
       getMercadoPagoPlan
     );
 
@@ -2977,7 +2978,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should pause local prices when Mercado Pago pauses provider plans", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (
@@ -3024,22 +3025,22 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
       return { rows: [] };
     });
-    const getMercadoPagoPlan = jest.fn(async () => ({
+    const getMercadoPagoPlan: Mock = vi.fn(async () => ({
       amountCents: 500000,
       currency: "ARS",
       externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan mensual",
-      status: "paused",
+      status: "paused" as const,
       trial: null,
     }));
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
+      vi.fn(),
       getMercadoPagoPlan
     );
 
@@ -3059,7 +3060,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("returns verified without writing when the provider plan webhook matches the current local price", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
@@ -3089,13 +3090,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
       return { rows: [] };
     });
-    const getMercadoPagoPlan = jest.fn(async () => ({
+    const getMercadoPagoPlan: Mock = vi.fn(async () => ({
       amountCents: 500000,
       currency: "ARS",
       externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan mensual",
-      status: "active",
+      status: "active" as const,
       trial: {
         frequency: 7,
         frequencyType: "days",
@@ -3103,11 +3104,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     }));
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
+      vi.fn(),
       getMercadoPagoPlan
     );
 
@@ -3128,7 +3129,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("re-applies provider plan changes after oscillation when the local price diverges from the target", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
@@ -3172,13 +3173,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
       return { rows: [] };
     });
-    const getMercadoPagoPlan = jest.fn(async () => ({
+    const getMercadoPagoPlan: Mock = vi.fn(async () => ({
       amountCents: 500000,
       currency: "ARS",
       externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan mensual",
-      status: "active",
+      status: "active" as const,
       trial: {
         frequency: 7,
         frequencyType: "days",
@@ -3186,11 +3187,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     }));
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
+      vi.fn(),
       getMercadoPagoPlan
     );
 
@@ -3211,7 +3212,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
   it("keys the provider plan webhook idempotency by plan and content hash", async () => {
     const insertedKeys: string[] = [];
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("insert into public.subscription_idempotency_operations")) {
@@ -3254,13 +3255,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
       return { rows: [] };
     });
-    const getMercadoPagoPlan = jest.fn(async () => ({
+    const getMercadoPagoPlan: Mock = vi.fn(async () => ({
       amountCents: 800000,
       currency: "ARS",
       externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan mensual",
-      status: "active",
+      status: "active" as const,
       trial: {
         frequency: 7,
         frequencyType: "days",
@@ -3268,11 +3269,11 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     }));
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
+      vi.fn(),
       getMercadoPagoPlan
     );
 
@@ -3290,7 +3291,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should classify active subscriber diagnostics without provider identifiers as missing", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           last_reconciled_at: "2026-05-12T01:00:00.000Z",
@@ -3339,7 +3340,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should return null when aggregate diagnostics have no authorized target tribe", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           last_reconciled_at: null,
@@ -3362,7 +3363,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should reconcile aggregate subscriber diagnostics with authorized pending paused and missing counts", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -3411,7 +3412,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       });
-    const getMercadoPagoSubscriptionStatus = jest
+    const getMercadoPagoSubscriptionStatus = vi
       .fn()
       .mockResolvedValueOnce("authorized")
       .mockResolvedValueOnce("pending")
@@ -3419,9 +3420,9 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       .mockResolvedValueOnce(null);
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
       getMercadoPagoSubscriptionStatus
     );
 
@@ -3470,7 +3471,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should keep linked invitations as the deletion blocker even when subscribers exist", async () => {
-    const execute = jest.fn(async (statement) => {
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
 
       if (sqlText.includes("from public.tribe_invitations")) {
@@ -3500,13 +3501,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         ],
       };
     });
-    const updateMercadoPagoPlan = jest.fn();
+    const updateMercadoPagoPlan: Mock = vi.fn();
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "active"),
-      jest.fn(async () => "authorized"),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "active"),
+      vi.fn(async () => "authorized"),
       updateMercadoPagoPlan
     );
 
@@ -3528,7 +3529,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should delete canceled local prices when the provider plan link is already missing", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -3555,12 +3556,12 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       });
-    const getMercadoPagoPlanStatus = jest.fn();
-    const getMercadoPagoSubscriptionStatus = jest.fn();
+    const getMercadoPagoPlanStatus: Mock = vi.fn();
+    const getMercadoPagoSubscriptionStatus: Mock = vi.fn();
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
       getMercadoPagoPlanStatus,
       getMercadoPagoSubscriptionStatus
     );
@@ -3578,7 +3579,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should block deleting canceled prices when the provider plan is paused", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -3603,13 +3604,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       });
-    const getMercadoPagoPlanStatus = jest.fn(async () => "paused");
+    const getMercadoPagoPlanStatus: Mock = vi.fn(async () => "paused");
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
       getMercadoPagoPlanStatus,
-      jest.fn()
+      vi.fn()
     );
 
     await expect(
@@ -3635,7 +3636,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should revalidate invitation reassignment targets inside delete transactions", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -3659,10 +3660,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       .mockResolvedValueOnce({ rows: [] });
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(),
-      jest.fn()
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn()
     );
 
     await expect(
@@ -3694,7 +3695,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should block deleting paused provider plans before applying invitation actions", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -3716,13 +3717,13 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ remaining: 0 }] })
       .mockResolvedValueOnce({ rows: [{ was_deleted: true }] });
-    const getMercadoPagoPlanStatus = jest.fn(async () => "paused");
+    const getMercadoPagoPlanStatus: Mock = vi.fn(async () => "paused");
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
       getMercadoPagoPlanStatus,
-      jest.fn()
+      vi.fn()
     );
 
     await expect(
@@ -3749,7 +3750,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should detach member subscriptions when deleting canceled prices with invitation actions", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -3773,10 +3774,10 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       .mockResolvedValueOnce({ rows: [{ was_deleted: true }] });
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(),
-      jest.fn()
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn()
     );
 
     await expect(
@@ -3807,7 +3808,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should delete missing provider-plan prices even when historical provider subscribers are still attached", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -3832,12 +3833,12 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       });
-    const getMercadoPagoPlanStatus = jest.fn();
-    const getMercadoPagoSubscriptionStatus = jest.fn(async () => "authorized");
+    const getMercadoPagoPlanStatus: Mock = vi.fn();
+    const getMercadoPagoSubscriptionStatus: Mock = vi.fn(async () => "authorized");
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
+      vi.fn(),
+      vi.fn(),
       getMercadoPagoPlanStatus,
       getMercadoPagoSubscriptionStatus
     );
@@ -3855,7 +3856,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
   });
 
   it("should delete canceled prices without checking historical provider subscribers", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -3880,12 +3881,12 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       });
-    const getMercadoPagoSubscriptionStatus = jest.fn(async () => null);
+    const getMercadoPagoSubscriptionStatus: Mock = vi.fn(async () => null);
     const repository = createRepository(
       execute,
-      jest.fn(),
-      jest.fn(),
-      jest.fn(async () => "canceled"),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(async () => "canceled"),
       getMercadoPagoSubscriptionStatus
     );
 

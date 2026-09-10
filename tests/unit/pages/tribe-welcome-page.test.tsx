@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -6,24 +7,24 @@ import TribeWelcomePage from "@/app/(platform)/[slug]/bienvenida/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
 
-const getTribePageAccess = jest.fn();
-const getCurrentTribeMembershipStatus = jest.fn();
-const getMemberTribes = jest.fn();
-const getTribeWelcome = jest.fn();
-const getEditableTribeWelcome = jest.fn();
-const listTribeWelcomeSelections = jest.fn();
-const listCurrentMemberTribeWelcomeSelections = jest.fn();
-const mockLoggerError = jest.fn();
+const getTribePageAccess = vi.fn();
+const getCurrentTribeMembershipStatus = vi.fn();
+const getMemberTribes = vi.fn();
+const getTribeWelcome = vi.fn();
+const getEditableTribeWelcome = vi.fn();
+const listTribeWelcomeSelections = vi.fn();
+const listCurrentMemberTribeWelcomeSelections = vi.fn();
+const mockLoggerError = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  notFound: jest.fn(),
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("@/components/tribes/tribe-welcome-management", () => ({
+vi.mock("@/components/tribes/tribe-welcome-management", () => ({
   TribeWelcomeManagement: ({
     canRecordSelections,
     canEdit,
@@ -42,7 +43,7 @@ jest.mock("@/components/tribes/tribe-welcome-management", () => ({
   ),
 }));
 
-jest.mock("@/components/tribes/tribe-welcome-selection-modal", () => ({
+vi.mock("@/components/tribes/tribe-welcome-selection-modal", () => ({
   TribeWelcomeSelectionModal: ({
     links,
     open,
@@ -61,16 +62,16 @@ jest.mock("@/components/tribes/tribe-welcome-selection-modal", () => ({
   ),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
+    createServerLogger: vi.fn(() => ({
       error: mockLoggerError,
-      info: jest.fn(),
+      info: vi.fn(),
     })),
   })
 );
@@ -85,9 +86,9 @@ function buildPageProps() {
 
 describe("TribeWelcomePage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getTribePageAccess.mockResolvedValue({
-      status: "visible",
+      status: "visible" as const,
       tribe: {
         id: "tribe-1",
         name: "Matematica Pro",
@@ -97,7 +98,7 @@ describe("TribeWelcomePage", () => {
     });
     getCurrentTribeMembershipStatus.mockResolvedValue("active");
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "leader",
         slug: "matematica-pro",
@@ -146,16 +147,16 @@ describe("TribeWelcomePage", () => {
     });
     listTribeWelcomeSelections.mockResolvedValue([]);
     listCurrentMemberTribeWelcomeSelections.mockResolvedValue([]);
-    (headers as jest.Mock).mockResolvedValue(
+    (headers as Mock).mockResolvedValue(
       new Headers({
         host: "tutribu.example.com",
         "x-forwarded-proto": "https",
       })
     );
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
-          getAuthenticatedMember: jest.fn(async () => ({
+          getAuthenticatedMember: vi.fn(async () => ({
             avatarFallback: "GH",
             email: "leader@example.com",
             id: "member-1",
@@ -194,7 +195,7 @@ describe("TribeWelcomePage", () => {
 
   it("loads only current member welcome selections for the selection modal", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
@@ -212,7 +213,7 @@ describe("TribeWelcomePage", () => {
 
   it("renders the internal welcome page as read-only for tribemates", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
@@ -231,7 +232,7 @@ describe("TribeWelcomePage", () => {
 
   it("keeps the selection modal open with every active link even when the viewer already accessed some", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
@@ -295,7 +296,7 @@ describe("TribeWelcomePage", () => {
 
   it("opens the selection modal when previous selections belong to inactive links", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
@@ -317,7 +318,7 @@ describe("TribeWelcomePage", () => {
 
   it("keeps the selection modal closed when selection lookup fails", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
@@ -345,7 +346,7 @@ describe("TribeWelcomePage", () => {
   it("renders muted leaders in read-only mode", async () => {
     getCurrentTribeMembershipStatus.mockResolvedValue("muted");
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "leader",
         slug: "matematica-pro",
@@ -365,7 +366,7 @@ describe("TribeWelcomePage", () => {
   it("renders the internal welcome page as read-only for muted members", async () => {
     getCurrentTribeMembershipStatus.mockResolvedValue("muted");
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
@@ -386,7 +387,7 @@ describe("TribeWelcomePage", () => {
 
   it("returns 404 when the current member cannot access the tribe", async () => {
     getCurrentTribeMembershipStatus.mockResolvedValue("blocked");
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -6,23 +7,23 @@ import TribeChannelsPage from "@/app/(platform)/[slug]/canales/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const getTribePageAccess = jest.fn();
-const getCurrentTribeMembershipStatus = jest.fn();
-const getMemberTribes = jest.fn();
-const listTribeChannels = jest.fn();
-const infoMock = jest.fn();
-const errorMock = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribePageAccess = vi.fn();
+const getCurrentTribeMembershipStatus = vi.fn();
+const getMemberTribes = vi.fn();
+const listTribeChannels = vi.fn();
+const infoMock = vi.fn();
+const errorMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  notFound: jest.fn(),
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("@/components/tribe-round/tribe-channel-management", () => ({
+vi.mock("@/components/tribe-round/tribe-channel-management", () => ({
   TribeChannelManagement: ({
     channels,
     tribeSlug,
@@ -38,14 +39,14 @@ jest.mock("@/components/tribe-round/tribe-channel-management", () => ({
   ),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -59,7 +60,7 @@ const authenticatedMember = {
 };
 
 const visibleTribeAccess = {
-  status: "visible",
+  status: "visible" as const,
   tribe: {
     id: "tribe-1",
     name: "Matematica Pro",
@@ -87,12 +88,12 @@ function buildPageProps() {
 
 describe("TribeChannelsPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
     getCurrentTribeMembershipStatus.mockResolvedValue("active");
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         tribeId: "tribe-1",
         name: "Matematica Pro",
         role: "leader",
@@ -102,12 +103,12 @@ describe("TribeChannelsPage", () => {
     listTribeChannels.mockResolvedValue({
       channels: [channel],
     });
-    (headers as jest.Mock).mockResolvedValue(new Headers());
-    (createServerLogger as jest.Mock).mockReturnValue({
+    (headers as Mock).mockResolvedValue(new Headers());
+    (createServerLogger as Mock).mockReturnValue({
       error: errorMock,
       info: infoMock,
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -141,7 +142,7 @@ describe("TribeChannelsPage", () => {
 
   it("renders channel management for tribe guardians", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         tribeId: "tribe-1",
         name: "Matematica Pro",
         role: "guardian",
@@ -160,14 +161,14 @@ describe("TribeChannelsPage", () => {
 
   it("returns 404 when a regular member opens the channel management URL", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         tribeId: "tribe-1",
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
       },
     ]);
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -180,14 +181,14 @@ describe("TribeChannelsPage", () => {
   it("returns 404 when an leader is muted", async () => {
     getCurrentTribeMembershipStatus.mockResolvedValue("muted");
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         tribeId: "tribe-1",
         name: "Matematica Pro",
         role: "leader",
         slug: "matematica-pro",
       },
     ]);
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 

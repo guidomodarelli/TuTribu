@@ -1,6 +1,7 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import {
   REQUEST_ID_HEADER,
   TRACE_ID_HEADER,
@@ -96,11 +97,11 @@ describe("server observability", () => {
 
   describe("createRouteObservation", () => {
     beforeEach(() => {
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     });
 
     it("creates JSON responses with correlation headers and outcome logs", async () => {
-      const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
+      const infoSpy = vi.spyOn(console, "info").mockImplementation(function () {});
       const observation = createRouteObservation({
         feature: "messages",
         operation: "list-tribe-channels",
@@ -148,7 +149,7 @@ describe("server observability", () => {
     });
 
     it("logs route errors with status, outcome, duration, and safe metadata", () => {
-      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(function () {});
       const observation = createRouteObservation({
         feature: "subscriptions",
         operation: "mercado-pago-webhook",
@@ -196,11 +197,11 @@ describe("server observability", () => {
 
   describe("createServerLogger", () => {
     beforeEach(() => {
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     });
 
     it("writes structured JSON info logs", () => {
-      const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
+      const infoSpy = vi.spyOn(console, "info").mockImplementation(function () {});
       const logger = createServerLogger({
         feature: "tribes",
         operation: "get-tribe-page",
@@ -231,7 +232,7 @@ describe("server observability", () => {
     });
 
     it("writes structured JSON error logs with error details", () => {
-      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(function () {});
       const logger = createServerLogger({
         feature: "auth",
         operation: "sign-out",

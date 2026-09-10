@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -6,29 +7,29 @@ import TribeInvitationMetricsPage from "@/app/(platform)/[slug]/invitaciones/met
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const getTribePageAccess = jest.fn();
-const getCurrentTribeMembershipStatus = jest.fn();
-const getMemberTribes = jest.fn();
-const getTribeInvitationConversionMetrics = jest.fn();
-const errorMock = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribePageAccess = vi.fn();
+const getCurrentTribeMembershipStatus = vi.fn();
+const getMemberTribes = vi.fn();
+const getTribeInvitationConversionMetrics = vi.fn();
+const errorMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  notFound: jest.fn(),
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -42,7 +43,7 @@ const authenticatedMember = {
 };
 
 const visibleTribeAccess = {
-  status: "visible",
+  status: "visible" as const,
   tribe: {
     id: "tribe-1",
     name: "Matematica Pro",
@@ -61,12 +62,12 @@ function buildPageProps() {
 
 describe("TribeInvitationMetricsPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
     getCurrentTribeMembershipStatus.mockResolvedValue("active");
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "leader",
         slug: "matematica-pro",
@@ -88,12 +89,12 @@ describe("TribeInvitationMetricsPage", () => {
         signups: 3,
       },
     ]);
-    (headers as jest.Mock).mockResolvedValue(new Headers());
-    (createServerLogger as jest.Mock).mockReturnValue({
+    (headers as Mock).mockResolvedValue(new Headers());
+    (createServerLogger as Mock).mockReturnValue({
       error: errorMock,
-      info: jest.fn(),
+      info: vi.fn(),
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -111,9 +112,9 @@ describe("TribeInvitationMetricsPage", () => {
   });
 
   it("renders conversion metrics for tribe leaders", async () => {
-    const consoleErrorSpy = jest
+    const consoleErrorSpy = vi
       .spyOn(console, "error")
-      .mockImplementation(() => undefined);
+      .mockImplementation(function () { return undefined; });
     getTribeInvitationConversionMetrics.mockResolvedValue([
       {
         campaignName: "Lanzamiento mayo",
@@ -175,7 +176,7 @@ describe("TribeInvitationMetricsPage", () => {
 
   it("renders conversion metrics for tribe guardians", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "guardian",
         slug: "matematica-pro",
@@ -208,14 +209,14 @@ describe("TribeInvitationMetricsPage", () => {
 
   it("returns 404 when a regular member opens invitation metrics", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
         tribeId: "tribe-1",
       },
     ]);
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 

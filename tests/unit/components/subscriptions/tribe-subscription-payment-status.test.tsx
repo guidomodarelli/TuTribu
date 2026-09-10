@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, afterEach, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -11,7 +12,7 @@ describe("TribeSubscriptionPaymentStatus", () => {
   afterEach(() => {
     global.fetch = previousFetch;
     console.error = previousConsoleError;
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it.each([
@@ -47,13 +48,13 @@ describe("TribeSubscriptionPaymentStatus", () => {
     "starts a direct checkout when subscription status is %s",
     async (subscriptionStatus, message) => {
       const user = userEvent.setup();
-      console.error = jest.fn();
-      global.fetch = jest.fn(async () => ({
+      console.error = vi.fn();
+      global.fetch = vi.fn(async () => ({
         json: async () => ({
           checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
         }),
         ok: true,
-      })) as jest.Mock;
+      })) as Mock;
 
       render(
         <TribeSubscriptionPaymentStatus
@@ -79,12 +80,12 @@ describe("TribeSubscriptionPaymentStatus", () => {
 
   it("shows a safe retry error when checkout cannot start", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         message: "No pudimos iniciar el pago. Intentá de nuevo.",
       }),
       ok: false,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPaymentStatus
@@ -102,9 +103,9 @@ describe("TribeSubscriptionPaymentStatus", () => {
 
   it("shows the safe fallback when the retry request fails unexpectedly", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async () => {
+    global.fetch = vi.fn(async () => {
       throw new Error("Failed to fetch");
-    }) as jest.Mock;
+    }) as Mock;
 
     render(
       <TribeSubscriptionPaymentStatus

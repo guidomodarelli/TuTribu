@@ -1,48 +1,26 @@
-/** @jest-environment node */
+/** @vitest-environment node */
 
-import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { beforeAll, describe, it, expect } from "vitest";
+import { ESLint } from "eslint";
 
-function lintImport(source: string, filePath: string) {
-  const eslintBin = path.join(process.cwd(), "node_modules", "eslint", "bin", "eslint.js");
-  const result = spawnSync(
-    process.execPath,
-    [
-      eslintBin,
-      "--stdin",
-      "--stdin-filename",
-      filePath,
-      "--format",
-      "json",
-    ],
-    {
-      cwd: process.cwd(),
-      encoding: "utf8",
-      input: source,
-    }
-  );
+/** Cold loading the actual Next ESLint presets can exceed a unit-test timeout. */
+const ESLINT_SETUP_TIMEOUT_MS = 120_000;
+const eslint = new ESLint({ cwd: process.cwd() });
 
-  if (result.error) {
-    throw result.error;
-  }
+beforeAll(async () => {
+  await eslint.calculateConfigForFile("src/modules/auth/application/foo.ts");
+}, ESLINT_SETUP_TIMEOUT_MS);
 
-  if (!result.stdout) {
-    throw new Error(
-      `Expected eslint JSON output for ${filePath}, received none. stderr: ${result.stderr}`
-    );
-  }
-
-  const [lintResult] = JSON.parse(result.stdout) as Array<{
-    messages: Array<{ ruleId: string | null }>;
-  }>;
-
-  return lintResult.messages.map((message) => message.ruleId);
+/** Runs the real repository rules without restarting Node for every input. */
+async function lintImport(source: string, filePath: string) {
+  const [result] = await eslint.lintText(source, { filePath });
+  return result.messages.map((message) => message.ruleId);
 }
 
 describe("eslint module boundaries", () => {
   it("rejects deprecated feature imports inside src/modules", async () => {
     expect(
-      lintImport(
+      await lintImport(
         'import legacyFeature from "@/src/features/auth";',
         "src/modules/auth/application/foo.ts"
       )
@@ -51,7 +29,7 @@ describe("eslint module boundaries", () => {
 
   it("rejects setup imports inside module layers", async () => {
     expect(
-      lintImport(
+      await lintImport(
         'import { buildAuthModule } from "@/src/modules/auth/setup";',
         "src/modules/auth/application/foo.ts"
       )
@@ -60,7 +38,7 @@ describe("eslint module boundaries", () => {
 
   it("rejects barrel setup imports inside module layers", async () => {
     expect(
-      lintImport(
+      await lintImport(
         'import { createRequestModules } from "@/src/modules/setup";',
         "src/modules/auth/application/foo.ts"
       )
@@ -69,7 +47,7 @@ describe("eslint module boundaries", () => {
 
   it("rejects relative setup imports inside module layers", async () => {
     expect(
-      lintImport(
+      await lintImport(
         'import { buildAuthModule } from "../../setup";',
         "src/modules/auth/application/use-cases/foo.ts"
       )
@@ -78,7 +56,7 @@ describe("eslint module boundaries", () => {
 
   it("rejects relative setup imports from another module", async () => {
     expect(
-      lintImport(
+      await lintImport(
         'import { buildAuthModule } from "../../auth/setup";',
         "src/modules/storage/application/foo.ts"
       )
@@ -87,7 +65,7 @@ describe("eslint module boundaries", () => {
 
   it("rejects SitePing widget imports inside the SitePing module", async () => {
     expect(
-      lintImport(
+      await lintImport(
         'import type { FeedbackType } from "@siteping/widget";',
         "src/modules/siteping/application/use-cases/foo.ts"
       )
@@ -96,9 +74,9 @@ describe("eslint module boundaries", () => {
 });
 
 describe("eslint generated output boundaries", () => {
-  it("ignores OpenNext Cloudflare generated output", () => {
+  it("ignores OpenNext Cloudflare generated output", async () => {
     expect(
-      lintImport(
+      await lintImport(
         "// @ts-ignore\nconst generatedValue = 1;",
         ".open-next/cloudflare/init.js"
       )
@@ -110,9 +88,9 @@ describe("eslint generated output boundaries", () => {
     );
   });
 
-  it("ignores the Cloudflare Workers entrypoint", () => {
+  it("ignores the Cloudflare Workers entrypoint", async () => {
     expect(
-      lintImport(
+      await lintImport(
         "// @ts-ignore\nconst generatedValue = 1;",
         "cloudflare/worker.ts"
       )
@@ -124,9 +102,9 @@ describe("eslint generated output boundaries", () => {
     );
   });
 
-  it("ignores agent-generated worktrees", () => {
+  it("ignores agent-generated worktrees", async () => {
     expect(
-      lintImport(
+      await lintImport(
         "// @ts-ignore\nconst generatedValue = 1;",
         ".claude/worktrees/review-copy/components/example.tsx"
       )

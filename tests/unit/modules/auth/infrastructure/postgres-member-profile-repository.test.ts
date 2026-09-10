@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { PostgresMemberProfileRepository } from "@/src/modules/auth/infrastructure/repositories/postgres-member-profile-repository";
 
 const MEMBER_ID = "member-1";
@@ -26,7 +27,7 @@ function getSqlText(statement: unknown): string {
 
 describe("PostgresMemberProfileRepository", () => {
   it("returns the stored image for a member", async () => {
-    const execute = jest.fn(async () => ({ rows: [{ image: IMAGE_URL }] }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [{ image: IMAGE_URL }] }); });
     const repository = new PostgresMemberProfileRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -41,14 +42,14 @@ describe("PostgresMemberProfileRepository", () => {
 
   it("returns null when the member has no stored image", async () => {
     const repository = new PostgresMemberProfileRepository(async (callback) =>
-      callback({ execute: jest.fn(async () => ({ rows: [] })) } as never)
+      callback({ execute: vi.fn(async () => ({ rows: [] })) } as never)
     );
 
     await expect(repository.getImage(MEMBER_ID)).resolves.toBeNull();
   });
 
   it("updates the stored image for a member", async () => {
-    const execute = jest.fn(async () => ({ rows: [] }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [] }); });
     const repository = new PostgresMemberProfileRepository(async (callback) =>
       callback({ execute } as never)
     );

@@ -1,21 +1,22 @@
+import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import { GET as CALLBACK_GET } from "@/app/api/mercado-pago/oauth/callback/route";
 import { GET as START_GET } from "@/app/api/tribes/[slug]/mercado-pago/oauth/start/route";
 import { createRequestModules } from "@/src/modules/setup";
 
-const getAuthenticatedMember = jest.fn();
-const getMemberTribes = jest.fn();
-const connectTribePaymentIntegration = jest.fn();
-const redirectMock = jest.fn((url: string) => {
+const getAuthenticatedMember = vi.fn();
+const getMemberTribes = vi.fn();
+const connectTribePaymentIntegration = vi.fn();
+const redirectMock = vi.fn((url: string) => {
   throw new Error(`NEXT_REDIRECT:${url}`);
 });
-const fetchMock = jest.fn();
+const fetchMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
+vi.mock("next/navigation", () => ({
   redirect: (url: string) => redirectMock(url),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
 function buildStartContext() {
@@ -48,21 +49,21 @@ describe("Mercado Pago OAuth routes", () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.env.BETTER_AUTH_URL = "https://tutribu.example.com";
     process.env.MERCADO_PAGO_CLIENT_ID = "client-id";
     process.env.MERCADO_PAGO_CLIENT_SECRET = "client-secret";
     global.fetch = fetchMock as unknown as typeof fetch;
     getAuthenticatedMember.mockResolvedValue(authenticatedLeader);
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "leader",
         slug: "matematica-pro",
         tribeId: "tribe-1",
       },
     ]);
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -109,7 +110,7 @@ describe("Mercado Pago OAuth routes", () => {
       } as unknown as Request,
       buildStartContext()
     ).catch(resolveRedirectUrl);
-    const state = new URL(startRedirect).searchParams.get("state");
+    const state = new URL(String(startRedirect)).searchParams.get("state");
 
     getAuthenticatedMember.mockResolvedValue({
       ...authenticatedLeader,
@@ -136,7 +137,7 @@ describe("Mercado Pago OAuth routes", () => {
       } as unknown as Request,
       buildStartContext()
     ).catch(resolveRedirectUrl);
-    const state = new URL(startRedirect).searchParams.get("state");
+    const state = new URL(String(startRedirect)).searchParams.get("state");
 
     fetchMock.mockResolvedValue({
       json: async () => ({

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import { PostgresCourseRepository } from "@/src/modules/courses/infrastructure/repositories/postgres-course-repository";
 
@@ -35,7 +36,7 @@ function getSqlText(statement: unknown): string {
 
 describe("PostgresCourseRepository", () => {
   it("builds a course tree grouping lessons by module across providers", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           can_manage_courses: true,
@@ -119,7 +120,7 @@ describe("PostgresCourseRepository", () => {
           module_unlocks_at: "2026-07-20T00:00:00Z",
         },
       ],
-    }));
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -202,7 +203,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns an empty tree when the tribe has no courses", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           can_manage_courses: false,
@@ -232,7 +233,7 @@ describe("PostgresCourseRepository", () => {
           module_unlocks_at: null,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -248,7 +249,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns a created status with the new course", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           cover_image_url: "https://example.com/portada.jpg",
@@ -256,11 +257,11 @@ describe("PostgresCourseRepository", () => {
           id: "c1",
           is_active: true,
           sort_order: 0,
-          status: "created",
+          status: "created" as const,
           title: "Inversiones",
         },
       ],
-    }));
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -282,7 +283,7 @@ describe("PostgresCourseRepository", () => {
         sortOrder: 0,
         title: "Inversiones",
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -291,9 +292,9 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("marks a lesson as completed guarding membership and drip unlock", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ mutated: true, status: "completed" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ mutated: true, status: "completed" as const }],
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -304,7 +305,7 @@ describe("PostgresCourseRepository", () => {
       tribeSlug: "matematica-pro",
     });
 
-    expect(result).toEqual({ status: "completed" });
+    expect(result).toEqual({ status: "completed" as const });
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
     expect(sqlText).toContain("insert into public.course_lesson_completions");
     expect(sqlText).toContain("public.can_read_tribe_courses");
@@ -312,9 +313,9 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("removes a completion when toggling off", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ mutated: true, status: "uncompleted" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ mutated: true, status: "uncompleted" as const }],
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -325,15 +326,15 @@ describe("PostgresCourseRepository", () => {
       tribeSlug: "matematica-pro",
     });
 
-    expect(result).toEqual({ status: "uncompleted" });
+    expect(result).toEqual({ status: "uncompleted" as const });
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
     expect(sqlText).toContain("delete from public.course_lesson_completions");
   });
 
   it("upserts the last viewed lesson with authorization guards", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "recorded" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ status: "recorded" as const }],
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -344,7 +345,7 @@ describe("PostgresCourseRepository", () => {
       tribeSlug: "matematica-pro",
     });
 
-    expect(result).toEqual({ status: "recorded" });
+    expect(result).toEqual({ status: "recorded" as const });
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
     expect(sqlText).toContain("insert into public.course_last_viewed_lessons");
     expect(sqlText).toContain("on conflict (course_id, user_id) do update");
@@ -352,19 +353,19 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns a created status with the new course module", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           course_id: "c1",
           id: "m1",
           is_active: true,
           sort_order: 0,
-          status: "created",
+          status: "created" as const,
           title: "Empezar acá",
           unlock_after_days: null,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -386,7 +387,7 @@ describe("PostgresCourseRepository", () => {
         title: "Empezar acá",
         unlockAfterDays: null,
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -395,17 +396,17 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns forbidden when leader permissions are missing on module creation", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           id: null,
           is_active: null,
           sort_order: null,
-          status: "forbidden",
+          status: "forbidden" as const,
           title: null,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -418,21 +419,21 @@ describe("PostgresCourseRepository", () => {
       unlockAfterDays: null,
     });
 
-    expect(result).toEqual({ status: "forbidden" });
+    expect(result).toEqual({ status: "forbidden" as const });
   });
 
   it("returns not_found when the tribe slug does not exist on module creation", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           id: null,
           is_active: null,
           sort_order: null,
-          status: "not_found",
+          status: "not_found" as const,
           title: null,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -445,11 +446,11 @@ describe("PostgresCourseRepository", () => {
       unlockAfterDays: null,
     });
 
-    expect(result).toEqual({ status: "not_found" });
+    expect(result).toEqual({ status: "not_found" as const });
   });
 
   it("returns the lesson result when creation succeeds with provider + id", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           course_module_id: "m1",
@@ -458,12 +459,12 @@ describe("PostgresCourseRepository", () => {
           id: "l1",
           is_active: true,
           sort_order: 0,
-          status: "created",
+          status: "created" as const,
           title: "Lección Wistia",
           video_provider: "wistia",
         },
       ],
-    }));
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -490,7 +491,7 @@ describe("PostgresCourseRepository", () => {
         title: "Lección Wistia",
         videoProvider: VIDEO_PROVIDER.wistia,
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -500,7 +501,7 @@ describe("PostgresCourseRepository", () => {
   });
 
   it("returns invalid_file when a stale asset id cannot be attached during lesson creation", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       // createLesson SQL: lesson inserted successfully
       .mockResolvedValueOnce({
@@ -512,7 +513,7 @@ describe("PostgresCourseRepository", () => {
             id: "l1",
             is_active: true,
             sort_order: 0,
-            status: "created",
+            status: "created" as const,
             title: "Lección Wistia",
             tribe_id: "t1",
             video_provider: "wistia",
@@ -543,11 +544,11 @@ describe("PostgresCourseRepository", () => {
       videoProvider: VIDEO_PROVIDER.wistia,
     });
 
-    expect(result).toEqual({ status: "invalid_file" });
+    expect(result).toEqual({ status: "invalid_file" as const });
   });
 
   it("returns invalid_file when a stale asset id cannot be attached during lesson update", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       // updateLesson SQL: lesson updated successfully
       .mockResolvedValueOnce({
@@ -559,7 +560,7 @@ describe("PostgresCourseRepository", () => {
             id: "l1",
             is_active: true,
             sort_order: 0,
-            status: "updated",
+            status: "updated" as const,
             title: "Lección Wistia",
             tribe_id: "t1",
             video_provider: "wistia",
@@ -592,13 +593,13 @@ describe("PostgresCourseRepository", () => {
       videoProvider: VIDEO_PROVIDER.wistia,
     });
 
-    expect(result).toEqual({ status: "invalid_file" });
+    expect(result).toEqual({ status: "invalid_file" as const });
   });
 
   it("returns deleted status when a course module is deleted", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "deleted" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ status: "deleted" as const }],
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -608,15 +609,15 @@ describe("PostgresCourseRepository", () => {
       tribeSlug: "matematica-pro",
     });
 
-    expect(result).toEqual({ status: "deleted" });
+    expect(result).toEqual({ status: "deleted" as const });
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
     expect(sqlText).toContain("delete from public.course_modules");
   });
 
   it("returns deleted status when a lesson is deleted", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "deleted" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ status: "deleted" as const }],
+    }); });
     const repository = new PostgresCourseRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -626,7 +627,7 @@ describe("PostgresCourseRepository", () => {
       tribeSlug: "matematica-pro",
     });
 
-    expect(result).toEqual({ status: "deleted" });
+    expect(result).toEqual({ status: "deleted" as const });
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
     expect(sqlText).toContain("delete from public.course_lessons");
   });
@@ -635,7 +636,7 @@ describe("PostgresCourseRepository", () => {
     // Call 1: INSERT lesson → created
     // Call 2: UPDATE to detach existing files (replaceLessonFiles step 1)
     // Call 3: UPDATE + SELECT to attach new files → returns fewer rows than requested, triggering the conflict error
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -646,7 +647,7 @@ describe("PostgresCourseRepository", () => {
             id: "l1",
             is_active: true,
             sort_order: 0,
-            status: "created",
+            status: "created" as const,
             title: "Lección Wistia",
             tribe_id: "tribe-1",
             video_provider: "wistia",
@@ -657,7 +658,7 @@ describe("PostgresCourseRepository", () => {
       .mockResolvedValueOnce({ rows: [{ lesson_files: [] }] });
 
     let callbackThrewError = false;
-    const executor = async (callback: (db: never) => Promise<unknown>) => {
+    const executor = async <Result,>(callback: (db: never) => Promise<Result>) => {
       try {
         return await callback({ execute } as never);
       } catch (error) {
@@ -678,7 +679,7 @@ describe("PostgresCourseRepository", () => {
       videoProvider: VIDEO_PROVIDER.wistia,
     });
 
-    expect(result).toEqual({ status: "invalid_file" });
+    expect(result).toEqual({ status: "invalid_file" as const });
     expect(callbackThrewError).toBe(true);
   });
 
@@ -686,7 +687,7 @@ describe("PostgresCourseRepository", () => {
     // Call 1: UPDATE lesson → updated
     // Call 2: UPDATE to detach existing files (replaceLessonFiles step 1)
     // Call 3: UPDATE + SELECT to attach new files → returns fewer rows than requested, triggering the conflict error
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -697,7 +698,7 @@ describe("PostgresCourseRepository", () => {
             id: "l1",
             is_active: true,
             sort_order: 0,
-            status: "updated",
+            status: "updated" as const,
             title: "Lección Wistia",
             tribe_id: "tribe-1",
             video_provider: "wistia",
@@ -708,7 +709,7 @@ describe("PostgresCourseRepository", () => {
       .mockResolvedValueOnce({ rows: [{ lesson_files: [] }] });
 
     let callbackThrewError = false;
-    const executor = async (callback: (db: never) => Promise<unknown>) => {
+    const executor = async <Result,>(callback: (db: never) => Promise<Result>) => {
       try {
         return await callback({ execute } as never);
       } catch (error) {
@@ -731,7 +732,7 @@ describe("PostgresCourseRepository", () => {
       videoProvider: VIDEO_PROVIDER.wistia,
     });
 
-    expect(result).toEqual({ status: "invalid_file" });
+    expect(result).toEqual({ status: "invalid_file" as const });
     expect(callbackThrewError).toBe(true);
   });
 });

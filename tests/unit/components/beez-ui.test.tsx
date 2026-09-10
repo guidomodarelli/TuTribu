@@ -1,4 +1,5 @@
 /** Verifies the distributed UI package through its public consumer contract. */
+import { vi, describe, it, expect } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Link } from "@/components/navigation/link";
@@ -14,7 +15,7 @@ describe("beez-ui consumer contract", () => {
   });
 
   it("should prevent actions when disabled", async () => {
-    const onClick = jest.fn();
+    const onClick = vi.fn();
     render(<Button disabled onClick={onClick}>Guardar</Button>);
     await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
     expect(onClick).not.toHaveBeenCalled();

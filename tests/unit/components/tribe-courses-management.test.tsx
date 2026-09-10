@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import {
   act,
   fireEvent,
@@ -17,18 +18,18 @@ import type { CourseModuleWithLessonsResult } from "@/src/modules/courses/applic
 
 const TRIBE_SLUG = "matematica-pro";
 
-const refreshMock = jest.fn();
+const refreshMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  useRouter: jest.fn(),
+vi.mock("next/navigation", () => ({
+  useRouter: vi.fn(),
 }));
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
@@ -95,15 +96,15 @@ const seedModules: CourseModuleWithLessonsResult[] = [
 
 describe("TribeCoursesManagement optimistic CRUD", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     refreshMock.mockReset();
-    (useRouter as jest.Mock).mockReturnValue({ refresh: refreshMock });
-    global.fetch = jest.fn();
+    (useRouter as Mock).mockReturnValue({ refresh: refreshMock });
+    global.fetch = vi.fn();
   });
 
   it("shows a new module immediately while the create request is pending", async () => {
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
 
     const user = userEvent.setup();
     render(
@@ -151,7 +152,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
   it("sorts an optimistic module by its sort order", async () => {
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
 
     const user = userEvent.setup();
     render(
@@ -185,7 +186,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
   it("rolls back the optimistic module when the create request fails", async () => {
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
 
     const user = userEvent.setup();
     render(
@@ -269,7 +270,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
   });
 
   it("does not trigger a full route refresh on a successful create", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce(
+    (global.fetch as Mock).mockResolvedValueOnce(
       buildJsonResponse(201, {
         courseModule: {
           courseId: "course-1",
@@ -311,7 +312,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
   it("optimistically updates a module title and reconciles with the server entity", async () => {
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
 
     const user = userEvent.setup();
     render(
@@ -362,7 +363,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
   it("rolls back the optimistic module update when the server rejects it", async () => {
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
 
     const user = userEvent.setup();
     render(
@@ -403,8 +404,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
   it("optimistically deletes a module and restores it on failure", async () => {
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
-    jest.spyOn(window, "confirm").mockReturnValue(true);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     const user = userEvent.setup();
     render(
@@ -446,7 +447,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
   it("shows a new lesson optimistically and replaces it with the server lesson", async () => {
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
 
     const user = userEvent.setup();
     render(
@@ -505,7 +506,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
   it("sorts an optimistic lesson by its sort order", async () => {
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
 
     const user = userEvent.setup();
     render(
@@ -561,7 +562,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
       },
     ];
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
 
     const user = userEvent.setup();
     render(
@@ -586,7 +587,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(global.fetch).toHaveBeenCalled();
-    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const [, requestInit] = (global.fetch as Mock).mock.calls[0];
     const requestBody = JSON.parse((requestInit as { body: string }).body);
     expect(requestBody.description).toBe("Mirá [el curso](https://tutribu.com)");
 
@@ -626,7 +627,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
       },
     ];
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
 
     const user = userEvent.setup();
     render(
@@ -651,7 +652,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     // empty once trimmed, so the request goes out with the trimmed description,
     // matching the backend's `normalizeOptionalText`.
     expect(global.fetch).toHaveBeenCalled();
-    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const [, requestInit] = (global.fetch as Mock).mock.calls[0];
     const requestBody = JSON.parse((requestInit as { body: string }).body);
     expect(requestBody.description).toBe("");
 
@@ -677,7 +678,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
   it("uploads an attached file and includes it in the lesson create payload", async () => {
     const pendingReservation = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(
+    (global.fetch as Mock).mockReturnValueOnce(
       pendingReservation.promise
     );
 
@@ -718,7 +719,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     expect(await screen.findByText("Subiendo…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Crear" })).toBeDisabled();
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce(
+    (global.fetch as Mock).mockResolvedValueOnce(
       buildJsonResponse(200, {})
     );
     await act(async () => {
@@ -735,7 +736,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     expect(await screen.findByText("Listo")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Crear" })).toBeEnabled();
 
-    const [reservationUrl, reservationInit] = (global.fetch as jest.Mock).mock
+    const [reservationUrl, reservationInit] = (global.fetch as Mock).mock
       .calls[0];
     expect(reservationUrl).toBe(
       `/api/tribes/${TRIBE_SLUG}/courses/lessons/files/uploads`
@@ -748,7 +749,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
       mimeType: "application/pdf",
     });
 
-    const [uploadUrl, uploadInit] = (global.fetch as jest.Mock).mock.calls[1];
+    const [uploadUrl, uploadInit] = (global.fetch as Mock).mock.calls[1];
     expect(uploadUrl).toBe("https://uploads.example/asset-apunte");
     expect((uploadInit as { method: string }).method).toBe("PUT");
     expect((uploadInit as { headers: Record<string, string> }).headers).toEqual(
@@ -758,7 +759,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
       }
     );
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce(
+    (global.fetch as Mock).mockResolvedValueOnce(
       buildJsonResponse(201, {
         lesson: {
           courseModuleId: "module-empezar-aca",
@@ -789,7 +790,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
         screen.getByRole("heading", { level: 3, name: /Con material/ })
       ).toBeInTheDocument();
     });
-    const [, createLessonInit] = (global.fetch as jest.Mock).mock.calls[2];
+    const [, createLessonInit] = (global.fetch as Mock).mock.calls[2];
     const createLessonBody = JSON.parse(
       (createLessonInit as { body: string }).body
     );
@@ -797,9 +798,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
   });
 
   it("rejects oversized and disallowed files before reserving an upload", async () => {
-    const { toast } = jest.requireMock("beez-ui") as {
-      toast: { error: jest.Mock };
-    };
+    const { toast } = vi.mocked(await import("beez-ui"), true);
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
@@ -840,7 +839,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
   });
 
   it("removes an uploaded draft and best-effort deletes its reserved asset", async () => {
-    (global.fetch as jest.Mock)
+    (global.fetch as Mock)
       .mockResolvedValueOnce(
         buildJsonResponse(201, {
           assetId: "asset-apunte",
@@ -891,10 +890,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
   });
 
   it("disables submit and blocks the save when a file draft is in the error state", async () => {
-    const { toast } = jest.requireMock("beez-ui") as {
-      toast: { error: jest.Mock };
-    };
-    (global.fetch as jest.Mock).mockResolvedValueOnce(
+    const { toast } = vi.mocked(await import("beez-ui"), true);
+    (global.fetch as Mock).mockResolvedValueOnce(
       buildJsonResponse(500, { message: "Error del servidor." })
     );
 
@@ -926,19 +923,19 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
     expect(screen.getByRole("button", { name: "Crear" })).toBeDisabled();
 
     // Programmatically submitting the form must not reach the server.
-    const fetchCallsBefore = (global.fetch as jest.Mock).mock.calls.length;
+    const fetchCallsBefore = (global.fetch as Mock).mock.calls.length;
     const form = screen
       .getByRole("button", { name: "Crear" })
       .closest("form") as HTMLFormElement;
     fireEvent.submit(form);
-    expect((global.fetch as jest.Mock).mock.calls.length).toBe(fetchCallsBefore);
+    expect((global.fetch as Mock).mock.calls.length).toBe(fetchCallsBefore);
     expect(toast.error).toHaveBeenCalledWith(
       "Hay archivos con error. Retinalos o volvé a intentarlos antes de guardar."
     );
   });
 
   it("re-enables submit after removing a failed file draft", async () => {
-    (global.fetch as jest.Mock)
+    (global.fetch as Mock)
       .mockResolvedValueOnce(
         buildJsonResponse(500, { message: "Error del servidor." })
       )
@@ -997,7 +994,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
       },
     ];
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
 
     const user = userEvent.setup();
     render(
@@ -1021,7 +1018,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
-    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const [, requestInit] = (global.fetch as Mock).mock.calls[0];
     const requestBody = JSON.parse((requestInit as { body: string }).body);
     expect("files" in requestBody).toBe(false);
 
@@ -1058,7 +1055,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
         ],
       },
     ];
-    (global.fetch as jest.Mock).mockResolvedValueOnce(
+    (global.fetch as Mock).mockResolvedValueOnce(
       buildJsonResponse(200, {
         lesson: {
           courseModuleId: "module-empezar-aca",
@@ -1129,7 +1126,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
       },
     ];
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
 
     const user = userEvent.setup();
     render(
@@ -1156,7 +1153,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
-    const [, requestInit] = (global.fetch as jest.Mock).mock.calls[0];
+    const [, requestInit] = (global.fetch as Mock).mock.calls[0];
     const requestBody = JSON.parse((requestInit as { body: string }).body);
     expect(requestBody.files).toEqual([]);
 
@@ -1176,8 +1173,8 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
 
   it("removes a lesson optimistically and restores it on failure", async () => {
     const pending = createDeferredResponse();
-    (global.fetch as jest.Mock).mockReturnValueOnce(pending.promise);
-    jest.spyOn(window, "confirm").mockReturnValue(true);
+    (global.fetch as Mock).mockReturnValueOnce(pending.promise);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     const user = userEvent.setup();
     render(

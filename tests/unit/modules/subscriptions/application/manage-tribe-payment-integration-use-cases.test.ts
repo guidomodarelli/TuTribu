@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import {
   connectTribePaymentIntegration,
@@ -8,19 +9,19 @@ const PAYMENT_INTEGRATION_ID = "11111111-1111-4111-8111-111111111111";
 
 describe("manage tribe payment integration use cases", () => {
   it("should trim and update a Mercado Pago account label", async () => {
-    const updateAccountLabel = jest.fn(async () => ({
+    const updateAccountLabel = vi.fn(async () => ({
       account: {
         accountLabel: "Cuenta principal",
         id: PAYMENT_INTEGRATION_ID,
         providerAccountEmail: null,
         providerAccountId: "collector-1",
-        status: "connected",
+        status: "connected" as const,
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
     }));
     const useCase = updateTribePaymentIntegrationAccountLabel({
       tribePaymentIntegrationRepository: {
-        connect: jest.fn(),
+        connect: vi.fn(),
         updateAccountLabel,
       },
     });
@@ -40,10 +41,10 @@ describe("manage tribe payment integration use cases", () => {
   });
 
   it("should reject an empty Mercado Pago account label", async () => {
-    const updateAccountLabel = jest.fn();
+    const updateAccountLabel = vi.fn();
     const useCase = updateTribePaymentIntegrationAccountLabel({
       tribePaymentIntegrationRepository: {
-        connect: jest.fn(),
+        connect: vi.fn(),
         updateAccountLabel,
       },
     });
@@ -61,10 +62,10 @@ describe("manage tribe payment integration use cases", () => {
   });
 
   it("should reject a malformed Mercado Pago account id before updating the label", async () => {
-    const updateAccountLabel = jest.fn();
+    const updateAccountLabel = vi.fn();
     const useCase = updateTribePaymentIntegrationAccountLabel({
       tribePaymentIntegrationRepository: {
-        connect: jest.fn(),
+        connect: vi.fn(),
         updateAccountLabel,
       },
     });
@@ -82,13 +83,13 @@ describe("manage tribe payment integration use cases", () => {
   });
 
   it("should trim nullable fields when connecting Mercado Pago", async () => {
-    const connect = jest.fn(async () => ({
+    const connect = vi.fn(async () => ({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.connected,
     }));
     const useCase = connectTribePaymentIntegration({
       tribePaymentIntegrationRepository: {
         connect,
-        updateAccountLabel: jest.fn(),
+        updateAccountLabel: vi.fn(),
       },
     });
 

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import type { ExternalProfilePictureProvider } from "@/src/modules/auth/domain/repositories/external-profile-picture-provider";
 import type { MemberProfileRepository } from "@/src/modules/auth/domain/repositories/member-profile-repository";
 import { PROFILE_IMAGE_REFRESH_OUTCOME } from "@/src/modules/auth/application/results/profile-image-refresh-result";
@@ -14,19 +15,19 @@ const FRESH_IMAGE = "https://lh3.googleusercontent.com/a/new=s96-c";
  */
 function createLogger() {
   return {
-    error: jest.fn(),
-    info: jest.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
   };
 }
 
 describe("refreshMemberProfileImage", () => {
   it("updates the stored image when the provider returns a different URL", async () => {
     const memberProfileRepository: MemberProfileRepository = {
-      getImage: jest.fn().mockResolvedValue(STORED_IMAGE),
-      updateImage: jest.fn().mockResolvedValue(undefined),
+      getImage: vi.fn().mockResolvedValue(STORED_IMAGE),
+      updateImage: vi.fn().mockResolvedValue(undefined),
     };
     const externalProfilePictureProvider: ExternalProfilePictureProvider = {
-      getCurrentPictureUrl: jest.fn().mockResolvedValue(FRESH_IMAGE),
+      getCurrentPictureUrl: vi.fn().mockResolvedValue(FRESH_IMAGE),
     };
     const logger = createLogger();
 
@@ -46,11 +47,11 @@ describe("refreshMemberProfileImage", () => {
 
   it("skips the update when the provider returns the same URL", async () => {
     const memberProfileRepository: MemberProfileRepository = {
-      getImage: jest.fn().mockResolvedValue(STORED_IMAGE),
-      updateImage: jest.fn().mockResolvedValue(undefined),
+      getImage: vi.fn().mockResolvedValue(STORED_IMAGE),
+      updateImage: vi.fn().mockResolvedValue(undefined),
     };
     const externalProfilePictureProvider: ExternalProfilePictureProvider = {
-      getCurrentPictureUrl: jest.fn().mockResolvedValue(STORED_IMAGE),
+      getCurrentPictureUrl: vi.fn().mockResolvedValue(STORED_IMAGE),
     };
 
     const result = await refreshMemberProfileImage({
@@ -65,11 +66,11 @@ describe("refreshMemberProfileImage", () => {
 
   it("skips the update when the provider exposes no picture", async () => {
     const memberProfileRepository: MemberProfileRepository = {
-      getImage: jest.fn().mockResolvedValue(STORED_IMAGE),
-      updateImage: jest.fn().mockResolvedValue(undefined),
+      getImage: vi.fn().mockResolvedValue(STORED_IMAGE),
+      updateImage: vi.fn().mockResolvedValue(undefined),
     };
     const externalProfilePictureProvider: ExternalProfilePictureProvider = {
-      getCurrentPictureUrl: jest.fn().mockResolvedValue(null),
+      getCurrentPictureUrl: vi.fn().mockResolvedValue(null),
     };
     const logger = createLogger();
 
@@ -90,11 +91,11 @@ describe("refreshMemberProfileImage", () => {
       "AbortError"
     );
     const memberProfileRepository: MemberProfileRepository = {
-      getImage: jest.fn().mockResolvedValue(STORED_IMAGE),
-      updateImage: jest.fn().mockResolvedValue(undefined),
+      getImage: vi.fn().mockResolvedValue(STORED_IMAGE),
+      updateImage: vi.fn().mockResolvedValue(undefined),
     };
     const externalProfilePictureProvider: ExternalProfilePictureProvider = {
-      getCurrentPictureUrl: jest.fn().mockRejectedValue(abortError),
+      getCurrentPictureUrl: vi.fn().mockRejectedValue(abortError),
     };
     const logger = createLogger();
 
@@ -112,11 +113,11 @@ describe("refreshMemberProfileImage", () => {
   it("logs and does not rethrow when the provider fails", async () => {
     const providerError = new Error("provider unreachable");
     const memberProfileRepository: MemberProfileRepository = {
-      getImage: jest.fn().mockResolvedValue(STORED_IMAGE),
-      updateImage: jest.fn().mockResolvedValue(undefined),
+      getImage: vi.fn().mockResolvedValue(STORED_IMAGE),
+      updateImage: vi.fn().mockResolvedValue(undefined),
     };
     const externalProfilePictureProvider: ExternalProfilePictureProvider = {
-      getCurrentPictureUrl: jest.fn().mockRejectedValue(providerError),
+      getCurrentPictureUrl: vi.fn().mockRejectedValue(providerError),
     };
     const logger = createLogger();
 

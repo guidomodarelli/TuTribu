@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -6,24 +7,24 @@ import TribeCoursesPage from "@/app/(platform)/[slug]/cursos/page";
 import TribeCoursesManagePage from "@/app/(platform)/[slug]/cursos/gestionar/page";
 import { createRequestModules } from "@/src/modules/setup";
 
-const getAuthenticatedMember = jest.fn();
-const getTribePageAccess = jest.fn();
-const getCurrentTribeMembershipStatus = jest.fn();
-const getMemberTribes = jest.fn();
-const getTribeCourses = jest.fn();
-const getEditableTribeCourses = jest.fn();
-const infoMock = jest.fn();
-const errorMock = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribePageAccess = vi.fn();
+const getCurrentTribeMembershipStatus = vi.fn();
+const getMemberTribes = vi.fn();
+const getTribeCourses = vi.fn();
+const getEditableTribeCourses = vi.fn();
+const infoMock = vi.fn();
+const errorMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  notFound: jest.fn(),
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("@/components/courses/tribe-courses-catalog", () => ({
+vi.mock("@/components/courses/tribe-courses-catalog", () => ({
   TribeCoursesCatalog: ({
     courses,
     tribeSlug,
@@ -44,7 +45,7 @@ jest.mock("@/components/courses/tribe-courses-catalog", () => ({
   ),
 }));
 
-jest.mock("@/components/courses/tribe-courses-view", () => ({
+vi.mock("@/components/courses/tribe-courses-view", () => ({
   TribeCoursesView: ({
     course,
     selectedLessonId,
@@ -62,7 +63,7 @@ jest.mock("@/components/courses/tribe-courses-view", () => ({
   ),
 }));
 
-jest.mock("@/components/courses/tribe-courses-catalog-management", () => ({
+vi.mock("@/components/courses/tribe-courses-catalog-management", () => ({
   TribeCoursesCatalogManagement: ({
     initialCourses,
     tribeSlug,
@@ -78,7 +79,7 @@ jest.mock("@/components/courses/tribe-courses-catalog-management", () => ({
   ),
 }));
 
-jest.mock("@/components/courses/tribe-courses-management", () => ({
+vi.mock("@/components/courses/tribe-courses-management", () => ({
   TribeCoursesManagement: ({
     courseTitle,
     initialModules,
@@ -96,14 +97,14 @@ jest.mock("@/components/courses/tribe-courses-management", () => ({
   ),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
+    createServerLogger: vi.fn(() => ({
       error: errorMock,
       info: infoMock,
     })),
@@ -120,7 +121,7 @@ const authenticatedMember = {
 };
 
 const visibleTribeAccess = {
-  status: "visible",
+  status: "visible" as const,
   tribe: {
     id: "tribe-1",
     name: "Matematica Pro",
@@ -174,12 +175,12 @@ function buildPageProps(searchParams: Record<string, string> = {}) {
 
 describe("tribe courses pages", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
     getCurrentTribeMembershipStatus.mockResolvedValue("active");
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "active",
         name: "Matematica Pro",
         role: "leader",
@@ -195,8 +196,8 @@ describe("tribe courses pages", () => {
       courses: [],
       viewerPermissions: { canManageCourses: false },
     });
-    (headers as jest.Mock).mockResolvedValue(new Headers());
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (headers as Mock).mockResolvedValue(new Headers());
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -229,7 +230,7 @@ describe("tribe courses pages", () => {
 
   it("keeps regular members from managing an empty catalog", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "active",
         name: "Matematica Pro",
         role: "tribemate",
@@ -273,7 +274,7 @@ describe("tribe courses pages", () => {
   });
 
   it("returns 404 when the curso query param does not match a course", async () => {
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 
@@ -311,7 +312,7 @@ describe("tribe courses pages", () => {
 
   it("returns 404 when a regular member opens the course management page", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null,
         membershipStatus: "active",
         name: "Matematica Pro",
         role: "tribemate",
@@ -319,7 +320,7 @@ describe("tribe courses pages", () => {
         tribeId: "tribe-1",
       },
     ]);
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { PostgresTribeReadRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-read-repository";
 
 function getSqlText(statement: unknown): string {
@@ -23,7 +24,7 @@ function getSqlText(statement: unknown): string {
 
 describe("PostgresTribeReadRepository", () => {
   it("returns a visible tribe when the row is readable through RLS", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           id: "tribe-1",
@@ -32,7 +33,7 @@ describe("PostgresTribeReadRepository", () => {
           visibility: "private",
         },
       ],
-    }));
+    }); });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
       callback({
@@ -49,9 +50,9 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("returns the current membership access through the diagnostic function that preserves blocked-member detection", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "blocked", status_reason: "payment_blocked" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ status: "blocked" as const, status_reason: "payment_blocked" }],
+    }); });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
       callback({
@@ -62,7 +63,7 @@ describe("PostgresTribeReadRepository", () => {
     await expect(
       repository.findCurrentMembershipAccessBySlug("matematica-pro")
     ).resolves.toEqual({
-      status: "blocked",
+      status: "blocked" as const,
       statusReason: "payment_blocked",
     });
 
@@ -73,18 +74,18 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("returns the current membership access and readable tribe in one database query", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           id: "tribe-1",
           name: "Matematica Pro",
           slug: "matematica-pro",
-          status: "active",
+          status: "active" as const,
           status_reason: "none",
           visibility: "private",
         },
       ],
-    }));
+    }); });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
       callback({
@@ -96,7 +97,7 @@ describe("PostgresTribeReadRepository", () => {
       repository.findCurrentMembershipAccessWithTribeBySlug("matematica-pro")
     ).resolves.toEqual({
       membershipAccess: {
-        status: "active",
+        status: "active" as const,
         statusReason: "none",
       },
       tribe: {
@@ -118,18 +119,18 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("keeps the membership access when the tribe row is not readable", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           id: null,
           name: null,
           slug: null,
-          status: "active",
+          status: "active" as const,
           status_reason: "none",
           visibility: null,
         },
       ],
-    }));
+    }); });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
       callback({
@@ -141,7 +142,7 @@ describe("PostgresTribeReadRepository", () => {
       repository.findCurrentMembershipAccessWithTribeBySlug("matematica-pro")
     ).resolves.toEqual({
       membershipAccess: {
-        status: "active",
+        status: "active" as const,
         statusReason: "none",
       },
       tribe: null,
@@ -149,7 +150,7 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("lists visible membership tribes for the current member", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           tribe_id: "tribe-1",
@@ -168,7 +169,7 @@ describe("PostgresTribeReadRepository", () => {
           slug: "beta-club",
         },
       ],
-    }));
+    }); });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
       callback({
@@ -203,9 +204,9 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("limits visible membership tribes to the current member", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [],
-    }));
+    }); });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
       callback({
@@ -221,7 +222,7 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("lists visible members for a readable tribe", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           email: "ada.lovelace@example.com",
@@ -240,7 +241,7 @@ describe("PostgresTribeReadRepository", () => {
           role: "guardian",
         },
       ],
-    }));
+    }); });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
       callback({
@@ -283,7 +284,7 @@ describe("PostgresTribeReadRepository", () => {
   });
 
   it("treats a missing free-invitation flag as not joined via a free invitation", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           email: null,
@@ -294,7 +295,7 @@ describe("PostgresTribeReadRepository", () => {
           role: "tribemate",
         },
       ],
-    }));
+    }); });
 
     const repository = new PostgresTribeReadRepository(async (callback) =>
       callback({

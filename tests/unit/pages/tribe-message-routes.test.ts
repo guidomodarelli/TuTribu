@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { POST as POST_CREATE } from "@/app/api/tribes/[slug]/messages/route";
 import {
   GET as GET_REPLIES,
@@ -21,36 +22,36 @@ import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { revalidateTag } from "next/cache";
 
-const getAuthenticatedMember = jest.fn();
-const createTribeMessage = jest.fn();
-const createMessageReply = jest.fn();
-const listMessageReplies = jest.fn();
-const listMessageLikers = jest.fn();
-const toggleMessageLike = jest.fn();
-const toggleMessagePin = jest.fn();
-const deleteTribeMessage = jest.fn();
-const updateTribeMessageContent = jest.fn();
-const createMessageImageUpload = jest.fn();
-const deleteMessageImage = jest.fn();
-const submitMessagePollVote = jest.fn();
-const listTribeChannels = jest.fn();
-const createTribeChannel = jest.fn();
-const updateTribeChannel = jest.fn();
-const deleteTribeChannel = jest.fn();
-const loggerError = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const createTribeMessage = vi.fn();
+const createMessageReply = vi.fn();
+const listMessageReplies = vi.fn();
+const listMessageLikers = vi.fn();
+const toggleMessageLike = vi.fn();
+const toggleMessagePin = vi.fn();
+const deleteTribeMessage = vi.fn();
+const updateTribeMessageContent = vi.fn();
+const createMessageImageUpload = vi.fn();
+const deleteMessageImage = vi.fn();
+const submitMessagePollVote = vi.fn();
+const listTribeChannels = vi.fn();
+const createTribeChannel = vi.fn();
+const updateTribeChannel = vi.fn();
+const deleteTribeChannel = vi.fn();
+const loggerError = vi.fn();
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock("next/cache", () => ({
-  revalidateTag: jest.fn(),
+vi.mock("next/cache", () => ({
+  revalidateTag: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -112,7 +113,7 @@ function buildImageRouteContext(assetId: string) {
 
 describe("Tribe message routes", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockReset();
     createTribeMessage.mockReset();
     createMessageReply.mockReset();
@@ -129,7 +130,7 @@ describe("Tribe message routes", () => {
     createTribeChannel.mockReset();
     updateTribeChannel.mockReset();
     deleteTribeChannel.mockReset();
-    (revalidateTag as jest.Mock).mockReset();
+    (revalidateTag as Mock).mockReset();
     global.Response = MockJsonResponse as unknown as typeof Response;
 
     getAuthenticatedMember.mockResolvedValue({
@@ -140,7 +141,7 @@ describe("Tribe message routes", () => {
       avatarFallback: "GH",
       image: null,
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -166,16 +167,16 @@ describe("Tribe message routes", () => {
         },
       },
     });
-    (createServerLogger as jest.Mock).mockReturnValue({
+    (createServerLogger as Mock).mockReturnValue({
       error: loggerError,
-      info: jest.fn(),
+      info: vi.fn(),
     });
     loggerError.mockReset();
   });
 
   it("passes title and content to the tribe message use case", async () => {
     createTribeMessage.mockResolvedValue({
-      message: {
+      message: { replyCount: 0,
         id: "message-1",
         author: {
           id: "member-1",
@@ -199,7 +200,7 @@ describe("Tribe message routes", () => {
         likeCount: 0,
         title: "Anuncio inicial",
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const response = await POST_CREATE(
@@ -215,7 +216,7 @@ describe("Tribe message routes", () => {
     expect(response.status).toBe(201);
     expect(body).toEqual({
       message: "Mensaje creado.",
-      tribeMessage: {
+      tribeMessage: { replyCount: 0,
         id: "message-1",
         author: {
           id: "member-1",
@@ -255,7 +256,7 @@ describe("Tribe message routes", () => {
 
   it("passes optional poll data when creating a tribe message", async () => {
     createTribeMessage.mockResolvedValue({
-      message: {
+      message: { replyCount: 0,
         id: "message-1",
         author: {
           id: "member-1",
@@ -285,7 +286,7 @@ describe("Tribe message routes", () => {
           viewerHasVoted: false,
         },
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const response = await POST_CREATE(
@@ -326,7 +327,7 @@ describe("Tribe message routes", () => {
           },
         ],
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const response = await POST_CREATE(
@@ -379,7 +380,7 @@ describe("Tribe message routes", () => {
     createMessageImageUpload.mockResolvedValue({
       assetId: "asset-1",
       imageId: "cloudflare-image-1",
-      status: "created",
+      status: "created" as const,
       uploadUrl: "https://upload.imagedelivery.net/direct-upload",
     });
 
@@ -414,7 +415,7 @@ describe("Tribe message routes", () => {
         },
       ],
       messageId: "7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2",
-      status: "updated",
+      status: "updated" as const,
       title: "Titulo editado",
     });
 
@@ -442,7 +443,7 @@ describe("Tribe message routes", () => {
 
   it("deletes a message image and revalidates the round cache", async () => {
     deleteMessageImage.mockResolvedValue({
-      status: "deleted",
+      status: "deleted" as const,
     });
 
     const response = await DELETE_MESSAGE_IMAGE(
@@ -466,7 +467,7 @@ describe("Tribe message routes", () => {
 
   it("returns a specific validation message when poll options are duplicated", async () => {
     createTribeMessage.mockResolvedValue({
-      status: "invalid_poll",
+      status: "invalid_poll" as const,
     });
 
     const response = await POST_CREATE(
@@ -492,7 +493,7 @@ describe("Tribe message routes", () => {
 
   it("returns a safe validation message when channel is missing", async () => {
     createTribeMessage.mockResolvedValue({
-      status: "invalid_channel",
+      status: "invalid_channel" as const,
     });
 
     const response = await POST_CREATE(
@@ -534,7 +535,7 @@ describe("Tribe message routes", () => {
 
   it("returns a safe validation message when the tribe message is invalid", async () => {
     createTribeMessage.mockResolvedValue({
-      status: "invalid_content",
+      status: "invalid_content" as const,
     });
 
     const response = await POST_CREATE(
@@ -580,7 +581,7 @@ describe("Tribe message routes", () => {
         content: "Gracias",
         createdAt: "2026-04-26T12:05:00.000Z",
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const response = await POST_REPLY(
@@ -613,7 +614,7 @@ describe("Tribe message routes", () => {
 
   it("returns replies when opening a message detail", async () => {
     listMessageReplies.mockResolvedValue({
-      status: "found",
+      status: "found" as const,
       replies: [
         {
           id: "reply-1",
@@ -677,7 +678,7 @@ describe("Tribe message routes", () => {
 
   it("returns the likers preview and total count when listing likers", async () => {
     listMessageLikers.mockResolvedValue({
-      status: "found",
+      status: "found" as const,
       totalCount: 9,
       likers: [
         {
@@ -731,7 +732,7 @@ describe("Tribe message routes", () => {
   });
 
   it("hides likers when listing is forbidden", async () => {
-    listMessageLikers.mockResolvedValue({ status: "forbidden" });
+    listMessageLikers.mockResolvedValue({ status: "forbidden" as const });
 
     const response = await GET_LIKERS(
       buildJsonRequest(),
@@ -778,7 +779,7 @@ describe("Tribe message routes", () => {
     toggleMessageLike.mockResolvedValue({
       likedByViewer: true,
       likeCount: 3,
-      status: "liked",
+      status: "liked" as const,
     });
 
     const response = await POST_LIKE(
@@ -801,7 +802,7 @@ describe("Tribe message routes", () => {
 
   it("does not expose like state when the like toggle is forbidden", async () => {
     toggleMessageLike.mockResolvedValue({
-      status: "forbidden",
+      status: "forbidden" as const,
     });
 
     const response = await POST_LIKE(
@@ -835,7 +836,7 @@ describe("Tribe message routes", () => {
     toggleMessagePin.mockResolvedValue({
       isPinned: true,
       pinnedAt: "2026-04-26T13:00:00.000Z",
-      status: "pinned",
+      status: "pinned" as const,
     });
 
     const response = await POST_PIN(
@@ -863,7 +864,7 @@ describe("Tribe message routes", () => {
 
   it("returns a safe warning when the pin limit is reached", async () => {
     toggleMessagePin.mockResolvedValue({
-      status: "pin_limit_reached",
+      status: "pin_limit_reached" as const,
     });
 
     const response = await POST_PIN(
@@ -880,7 +881,7 @@ describe("Tribe message routes", () => {
 
   it("does not expose pin state when the pin toggle is forbidden", async () => {
     toggleMessagePin.mockResolvedValue({
-      status: "forbidden",
+      status: "forbidden" as const,
     });
 
     const response = await POST_PIN(
@@ -897,14 +898,7 @@ describe("Tribe message routes", () => {
   });
 
   it("keeps independent poll updates inaccessible", async () => {
-    const response = await PATCH_POLL(
-      buildJsonRequest({
-        allowMultipleVotes: false,
-        options: ["Álgebra", "Geometría"],
-        resetVotes: true,
-      } as never),
-      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
-    );
+    const response = await PATCH_POLL();
     const body = await response.json();
 
     expect(response.status).toBe(404);
@@ -931,7 +925,7 @@ describe("Tribe message routes", () => {
         totalVoteCount: 1,
         viewerHasVoted: true,
       },
-      status: "voted",
+      status: "voted" as const,
     });
 
     const response = await POST_POLL_VOTE(
@@ -987,7 +981,7 @@ describe("Tribe message routes", () => {
 
   it("deletes a full message and revalidates the round cache", async () => {
     deleteTribeMessage.mockResolvedValue({
-      status: "deleted",
+      status: "deleted" as const,
     });
 
     const response = await DELETE_MESSAGE(
@@ -1012,10 +1006,7 @@ describe("Tribe message routes", () => {
   });
 
   it("keeps independent poll deletion inaccessible", async () => {
-    const response = await DELETE_POLL(
-      buildJsonRequest(),
-      buildRouteContext("7a7850d3-8d4a-4ae9-ac94-6589c6a4d1e2")
-    );
+    const response = await DELETE_POLL();
     const body = await response.json();
 
     expect(response.status).toBe(404);

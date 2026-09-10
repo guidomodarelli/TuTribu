@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
@@ -9,14 +10,14 @@ import {
 import { createRequestAuthModule } from "@/src/modules/auth/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const errorMock = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const errorMock = vi.fn();
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("next/link.js", () => ({
+vi.mock("next/link.js", () => ({
   __esModule: true,
   default: ({
     children,
@@ -33,14 +34,14 @@ jest.mock("next/link.js", () => ({
   ),
 }));
 
-jest.mock("@/src/modules/auth/setup", () => ({
-  createRequestAuthModule: jest.fn(),
+vi.mock("@/src/modules/auth/setup", () => ({
+  createRequestAuthModule: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -50,19 +51,19 @@ async function renderNotFoundPageWithSessionAction() {
 
 describe("NotFoundPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockReset();
     errorMock.mockReset();
-    (headers as jest.Mock).mockResolvedValue(new Headers());
+    (headers as Mock).mockResolvedValue(new Headers());
 
-    (createRequestAuthModule as jest.Mock).mockReturnValue({
+    (createRequestAuthModule as Mock).mockReturnValue({
       useCases: {
         getAuthenticatedMember,
       },
     });
-    (createServerLogger as jest.Mock).mockReturnValue({
+    (createServerLogger as Mock).mockReturnValue({
       error: errorMock,
-      info: jest.fn(),
+      info: vi.fn(),
     });
   });
 
@@ -130,7 +131,7 @@ describe("NotFoundPage", () => {
   });
 
   it("falls back safely when auth module setup fails", async () => {
-    (createRequestAuthModule as jest.Mock).mockImplementation(() => {
+    (createRequestAuthModule as Mock).mockImplementation(function () {
       throw new Error("module_setup_failed");
     });
 
@@ -151,13 +152,13 @@ describe("NotFoundPage", () => {
   });
 
   it("falls back safely when async auth module setup fails", async () => {
-    (createRequestAuthModule as jest.Mock).mockImplementation(() => ({
+    (createRequestAuthModule as Mock).mockImplementation(function () { return ({
       useCases: {
-        getAuthenticatedMember: jest.fn().mockRejectedValue(
+        getAuthenticatedMember: vi.fn().mockRejectedValue(
           new Error("module_setup_failed")
         ),
       },
-    }));
+    }); });
 
     await renderNotFoundPageWithSessionAction();
 

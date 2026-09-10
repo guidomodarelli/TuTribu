@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { PostgresMessageRoundRepository } from "@/src/modules/messages/infrastructure/repositories/postgres-message-round-repository";
 
 function getSqlText(statement: unknown): string {
@@ -34,7 +35,7 @@ describe("PostgresMessageRoundRepository", () => {
   ];
 
   it("maps paginated round rows into messages without loading replies", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: channelRows })
       .mockResolvedValueOnce({
@@ -187,7 +188,7 @@ describe("PostgresMessageRoundRepository", () => {
   });
 
   it("merges attached images and videos into the unified media field in slot order", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: channelRows })
       .mockResolvedValueOnce({
@@ -279,7 +280,7 @@ describe("PostgresMessageRoundRepository", () => {
   });
 
   it("returns viewer permissions when the tribe has no messages yet", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: channelRows })
       .mockResolvedValueOnce({
@@ -359,7 +360,7 @@ describe("PostgresMessageRoundRepository", () => {
   });
 
   it("blocks own message deletion for muted viewers", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: channelRows })
       .mockResolvedValueOnce({
@@ -430,7 +431,7 @@ describe("PostgresMessageRoundRepository", () => {
   });
 
   it("uses preaggregated like counts without joining replies", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: channelRows })
       .mockResolvedValueOnce({
@@ -544,7 +545,7 @@ describe("PostgresMessageRoundRepository", () => {
   });
 
   it("returns shared round data without viewer-specific reaction state", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: channelRows })
       .mockResolvedValueOnce({
@@ -617,7 +618,7 @@ describe("PostgresMessageRoundRepository", () => {
   });
 
   it("groups shared round CTE message columns required by PostgreSQL", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: channelRows })
       .mockResolvedValueOnce({ rows: [] });
@@ -645,7 +646,7 @@ describe("PostgresMessageRoundRepository", () => {
   });
 
   it("filters shared round data by channel and detects the next page", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: channelRows })
       .mockResolvedValueOnce({
@@ -700,7 +701,7 @@ describe("PostgresMessageRoundRepository", () => {
   });
 
   it("lists message replies separately from the shared round", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           status_result: "found",
@@ -725,7 +726,7 @@ describe("PostgresMessageRoundRepository", () => {
         viewerId: "member-1",
       })
     ).resolves.toEqual({
-      status: "found",
+      status: "found" as const,
       replies: [
         {
           id: "reply-1",
@@ -749,7 +750,7 @@ describe("PostgresMessageRoundRepository", () => {
   });
 
   it("lists message likers with total count limited to the preview size", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           status_result: "found",
@@ -782,7 +783,7 @@ describe("PostgresMessageRoundRepository", () => {
         viewerId: "member-1",
       })
     ).resolves.toEqual({
-      status: "found",
+      status: "found" as const,
       totalCount: 9,
       likers: [
         {
@@ -811,7 +812,7 @@ describe("PostgresMessageRoundRepository", () => {
   });
 
   it("returns forbidden likers result when the message is not visible", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           status_result: "forbidden",
@@ -834,11 +835,11 @@ describe("PostgresMessageRoundRepository", () => {
         tribeSlug: "matematica-pro",
         viewerId: "outsider-1",
       })
-    ).resolves.toEqual({ status: "forbidden" });
+    ).resolves.toEqual({ status: "forbidden" as const });
   });
 
   it("returns not found likers result when the message does not exist", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           status_result: "not_found",
@@ -861,11 +862,11 @@ describe("PostgresMessageRoundRepository", () => {
         tribeSlug: "matematica-pro",
         viewerId: "member-1",
       })
-    ).resolves.toEqual({ status: "not_found" });
+    ).resolves.toEqual({ status: "not_found" as const });
   });
 
   it("returns viewer state separately from shared message rows", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           liked_message_ids: ["message-1", "message-2"],
@@ -904,7 +905,7 @@ describe("PostgresMessageRoundRepository", () => {
   });
 
   it("aggregates viewer likes and selected poll options before joining viewer state", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           liked_message_ids: ["message-1", "message-2"],

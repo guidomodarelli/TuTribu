@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { listVisibleTribeMembers } from "@/src/modules/tribes/application/use-cases/list-visible-tribe-members-use-case";
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
 
@@ -59,17 +60,17 @@ const memberFixtures: TribeMemberResult[] = [
 ];
 
 function buildExecutor() {
-  const listVisibleTribeMembersBySlug = jest.fn(async () => memberFixtures);
+  const listVisibleTribeMembersBySlug = vi.fn(async () => memberFixtures);
 
   return {
     listVisibleTribeMembersBySlug,
     execute: listVisibleTribeMembers({
       tribeReadRepository: {
-        findBySlug: jest.fn(),
-        findCurrentMembershipAccessBySlug: jest.fn(),
-        findCurrentMembershipAccessWithTribeBySlug: jest.fn(),
-        findCurrentMembershipStatusBySlug: jest.fn(),
-        listVisibleMembershipTribes: jest.fn(),
+        findBySlug: vi.fn(),
+        findCurrentMembershipAccessBySlug: vi.fn(),
+        findCurrentMembershipAccessWithTribeBySlug: vi.fn(),
+        findCurrentMembershipStatusBySlug: vi.fn(),
+        listVisibleMembershipTribes: vi.fn(),
         listVisibleTribeMembersBySlug,
       },
     }),

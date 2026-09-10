@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { refreshStoredMercadoPagoAccessToken } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-access-token";
 
 function getSqlText(statement: unknown): string {
@@ -27,8 +28,8 @@ function getSqlText(statement: unknown): string {
 
 describe("Mercado Pago access token refresh", () => {
   it("should not refresh or persist a token without a payment integration id", async () => {
-    const executeWithDatabase = jest.fn();
-    const refreshMercadoPagoAccessToken = jest.fn();
+    const executeWithDatabase = vi.fn();
+    const refreshMercadoPagoAccessToken = vi.fn();
 
     await expect(
       refreshStoredMercadoPagoAccessToken({
@@ -49,11 +50,11 @@ describe("Mercado Pago access token refresh", () => {
   });
 
   it("should persist refreshed tokens only for the selected payment integration", async () => {
-    const execute = jest.fn(async () => ({ rows: [] }));
-    const executeWithDatabase = jest.fn(async (callback) =>
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [] }); });
+    const executeWithDatabase = vi.fn(async (callback) =>
       callback({ execute } as never)
     );
-    const refreshMercadoPagoAccessToken = jest.fn(async () => ({
+    const refreshMercadoPagoAccessToken = vi.fn(async () => ({
       accessToken: "fresh-access-token",
       expiresIn: 3600,
       providerAccountId: "seller-1",

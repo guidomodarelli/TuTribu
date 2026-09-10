@@ -1,27 +1,28 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
 
 import { SignInWithGoogleButton } from "@/components/auth/sign-in-with-google-button";
 
-const startGoogleSignInMock = jest.fn();
-const pushMock = jest.fn();
+const startGoogleSignInMock = vi.fn();
+const pushMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  useRouter: jest.fn(),
+vi.mock("next/navigation", () => ({
+  useRouter: vi.fn(),
 }));
 
-jest.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
+vi.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
   startGoogleSignIn: (...args: unknown[]) => startGoogleSignInMock(...args),
 }));
 
 describe("SignInWithGoogleButton", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     startGoogleSignInMock.mockReset();
     pushMock.mockReset();
     startGoogleSignInMock.mockResolvedValue(undefined);
-    (useRouter as jest.Mock).mockReturnValue({
+    (useRouter as Mock).mockReturnValue({
       push: pushMock,
     });
   });

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { OEmbedVideoThumbnailResolver } from "@/src/modules/messages/infrastructure/video/oembed-video-thumbnail-resolver";
 import type { HttpResponse } from "@/src/modules/shared/infrastructure/http/fetch-with-resilience";
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
@@ -19,7 +20,7 @@ function createJsonResponse(
   status = HTTP_STATUS_OK
 ): HttpResponse {
   return {
-    json: jest.fn().mockResolvedValue(body),
+    json: vi.fn().mockResolvedValue(body),
     ok,
     status,
   };
@@ -27,7 +28,7 @@ function createJsonResponse(
 
 describe("OEmbedVideoThumbnailResolver", () => {
   it("requests the provider oEmbed endpoint and returns the thumbnail_url", async () => {
-    const httpFetcher = jest
+    const httpFetcher = vi
       .fn()
       .mockResolvedValue(
         createJsonResponse({
@@ -49,7 +50,7 @@ describe("OEmbedVideoThumbnailResolver", () => {
   });
 
   it("skips the network entirely for YouTube", async () => {
-    const httpFetcher = jest.fn();
+    const httpFetcher = vi.fn();
     const resolver = new OEmbedVideoThumbnailResolver({ httpFetcher });
 
     const result = await resolver.resolveThumbnailUrl(
@@ -62,10 +63,10 @@ describe("OEmbedVideoThumbnailResolver", () => {
   });
 
   it("returns null and logs when the oEmbed endpoint responds with a non-ok status", async () => {
-    const httpFetcher = jest
+    const httpFetcher = vi
       .fn()
       .mockResolvedValue(createJsonResponse({}, false, HTTP_STATUS_NOT_FOUND));
-    const logger = { warn: jest.fn() };
+    const logger = { warn: vi.fn() };
     const resolver = new OEmbedVideoThumbnailResolver({ httpFetcher, logger });
 
     const result = await resolver.resolveThumbnailUrl(
@@ -78,8 +79,8 @@ describe("OEmbedVideoThumbnailResolver", () => {
   });
 
   it("returns null and logs when the request throws", async () => {
-    const httpFetcher = jest.fn().mockRejectedValue(new Error("network down"));
-    const logger = { warn: jest.fn() };
+    const httpFetcher = vi.fn().mockRejectedValue(new Error("network down"));
+    const logger = { warn: vi.fn() };
     const resolver = new OEmbedVideoThumbnailResolver({ httpFetcher, logger });
 
     const result = await resolver.resolveThumbnailUrl(
@@ -92,7 +93,7 @@ describe("OEmbedVideoThumbnailResolver", () => {
   });
 
   it("returns null when the payload has no usable thumbnail_url", async () => {
-    const httpFetcher = jest
+    const httpFetcher = vi
       .fn()
       .mockResolvedValue(createJsonResponse({ thumbnail_url: "" }));
     const resolver = new OEmbedVideoThumbnailResolver({ httpFetcher });

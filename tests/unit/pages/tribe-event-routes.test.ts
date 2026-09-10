@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { GET, POST } from "@/app/api/tribes/[slug]/events/route";
 import {
   DELETE,
@@ -10,25 +11,25 @@ import {
 import { GET as GET_CALENDAR } from "@/app/api/tribes/[slug]/events/[eventId]/calendar/route";
 import { createRequestModules } from "@/src/modules/setup";
 
-const getAuthenticatedMember = jest.fn();
-const listTribeEvents = jest.fn();
-const createTribeEvent = jest.fn();
-const updateTribeEvent = jest.fn();
-const deleteTribeEvent = jest.fn();
-const getTribeEvent = jest.fn();
-const setTribeEventAttendance = jest.fn();
-const clearTribeEventAttendance = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const listTribeEvents = vi.fn();
+const createTribeEvent = vi.fn();
+const updateTribeEvent = vi.fn();
+const deleteTribeEvent = vi.fn();
+const getTribeEvent = vi.fn();
+const setTribeEventAttendance = vi.fn();
+const clearTribeEventAttendance = vi.fn();
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
+    createServerLogger: vi.fn(() => ({
+      error: vi.fn(),
+      info: vi.fn(),
     })),
   })
 );
@@ -121,7 +122,7 @@ describe("Tribe event routes", () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.Response = MockResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -131,7 +132,7 @@ describe("Tribe event routes", () => {
       name: "Grace Hopper",
       role: "tribemate",
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -192,7 +193,7 @@ describe("Tribe event routes", () => {
     createTribeEvent.mockResolvedValue({
       event,
       occurrences: [occurrence],
-      status: "created",
+      status: "created" as const,
     });
 
     const response = await POST(
@@ -228,7 +229,7 @@ describe("Tribe event routes", () => {
   });
 
   it("returns safe validation messages when event input is invalid", async () => {
-    createTribeEvent.mockResolvedValueOnce({ status: "invalid_input" });
+    createTribeEvent.mockResolvedValueOnce({ status: "invalid_input" as const });
 
     const invalidInputResponse = await POST(buildRequest({ title: "" }), buildTribeContext());
 
@@ -237,7 +238,7 @@ describe("Tribe event routes", () => {
       message: "Completá el título y la fecha de inicio del evento.",
     });
 
-    createTribeEvent.mockResolvedValueOnce({ status: "invalid_recurrence" });
+    createTribeEvent.mockResolvedValueOnce({ status: "invalid_recurrence" as const });
 
     const invalidRecurrenceResponse = await POST(buildRequest(), buildTribeContext());
 
@@ -251,7 +252,7 @@ describe("Tribe event routes", () => {
     updateTribeEvent.mockResolvedValue({
       event,
       occurrences: [occurrence],
-      status: "updated",
+      status: "updated" as const,
     });
 
     const response = await PATCH(
@@ -288,7 +289,7 @@ describe("Tribe event routes", () => {
   });
 
   it("deletes an event by id and maps forbidden deletions", async () => {
-    deleteTribeEvent.mockResolvedValueOnce({ status: "deleted" });
+    deleteTribeEvent.mockResolvedValueOnce({ status: "deleted" as const });
 
     const response = await DELETE(buildRequest(), buildEventContext());
 
@@ -301,7 +302,7 @@ describe("Tribe event routes", () => {
       tribeSlug: "matematica-pro",
     });
 
-    deleteTribeEvent.mockResolvedValueOnce({ status: "forbidden" });
+    deleteTribeEvent.mockResolvedValueOnce({ status: "forbidden" as const });
 
     const forbiddenResponse = await DELETE(buildRequest(), buildEventContext());
 
@@ -311,14 +312,14 @@ describe("Tribe event routes", () => {
   it("records the viewer attendance for an occurrence", async () => {
     setTribeEventAttendance.mockResolvedValue({
       attendance: { goingCount: 3, viewerStatus: "going" },
-      status: "attendance_saved",
+      status: "attendance_saved" as const,
     });
 
     const response = await PUT_ATTENDANCE(
       buildRequest(
         {
           occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-          status: "going",
+          status: "going" as const,
         },
         `${BASE_URL}/${EVENT_ID}/attendance`
       ),
@@ -333,13 +334,13 @@ describe("Tribe event routes", () => {
     expect(setTribeEventAttendance).toHaveBeenCalledWith({
       eventId: EVENT_ID,
       occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-      status: "going",
+      status: "going" as const,
       tribeSlug: "matematica-pro",
     });
   });
 
   it("maps attendance failures to safe responses", async () => {
-    setTribeEventAttendance.mockResolvedValueOnce({ status: "forbidden" });
+    setTribeEventAttendance.mockResolvedValueOnce({ status: "forbidden" as const });
 
     const forbiddenResponse = await PUT_ATTENDANCE(
       buildRequest({}, `${BASE_URL}/${EVENT_ID}/attendance`),
@@ -351,7 +352,7 @@ describe("Tribe event routes", () => {
       message: "Solo los miembros activos pueden responder a un evento.",
     });
 
-    setTribeEventAttendance.mockResolvedValueOnce({ status: "invalid_attendance" });
+    setTribeEventAttendance.mockResolvedValueOnce({ status: "invalid_attendance" as const });
 
     const invalidResponse = await PUT_ATTENDANCE(
       buildRequest({}, `${BASE_URL}/${EVENT_ID}/attendance`),
@@ -364,7 +365,7 @@ describe("Tribe event routes", () => {
   it("clears the viewer attendance for the occurrence in the query", async () => {
     clearTribeEventAttendance.mockResolvedValue({
       attendance: { goingCount: 2, viewerStatus: null },
-      status: "attendance_cleared",
+      status: "attendance_cleared" as const,
     });
 
     const response = await DELETE_ATTENDANCE(

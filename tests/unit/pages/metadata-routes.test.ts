@@ -1,12 +1,13 @@
+import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
 import { createMaintenanceModules } from "@/src/modules/setup";
 
-jest.mock("@/src/modules/setup", () => ({
-  createMaintenanceModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createMaintenanceModules: vi.fn(),
 }));
 
-const listPublicTribeStorySlugs = jest.fn();
+const listPublicTribeStorySlugs = vi.fn();
 
 const TEST_PUBLIC_APP_BASE_URL = "https://tutribu.example.com";
 const EXPECTED_DISALLOWED_ROUTES = [
@@ -29,10 +30,10 @@ describe("metadata routes", () => {
   const previousBetterAuthUrl = process.env.BETTER_AUTH_URL;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.env.BETTER_AUTH_URL = TEST_PUBLIC_APP_BASE_URL;
     listPublicTribeStorySlugs.mockResolvedValue([]);
-    (createMaintenanceModules as jest.Mock).mockResolvedValue({
+    (createMaintenanceModules as Mock).mockResolvedValue({
       tribes: {
         useCases: {
           listPublicTribeStorySlugs,

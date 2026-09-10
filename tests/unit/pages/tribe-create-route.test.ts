@@ -1,20 +1,21 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { POST } from "@/app/api/tribes/route";
 import { createRequestModules } from "@/src/modules/setup";
 import { REQUEST_ID_HEADER } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const createTribe = jest.fn();
-const errorMock = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const createTribe = vi.fn();
+const errorMock = vi.fn();
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -50,13 +51,13 @@ function buildMockRequest(formValues: Record<string, string>): Request {
 
 describe("Create tribe route", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockReset();
     createTribe.mockReset();
     errorMock.mockReset();
     global.Response = MockResponse as unknown as typeof Response;
 
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -68,9 +69,9 @@ describe("Create tribe route", () => {
         },
       },
     });
-    (createServerLogger as jest.Mock).mockReturnValue({
+    (createServerLogger as Mock).mockReturnValue({
       error: errorMock,
-      info: jest.fn(),
+      info: vi.fn(),
     });
   });
 
@@ -100,7 +101,7 @@ describe("Create tribe route", () => {
       image: null,
     });
     createTribe.mockResolvedValue({
-      status: "created",
+      status: "created" as const,
       tribeId: "tribe-1",
       name: "Matematica Pro",
       slug: "matematica-pro",
@@ -135,7 +136,7 @@ describe("Create tribe route", () => {
       image: null,
     });
     createTribe.mockResolvedValue({
-      status: "slug-conflict",
+      status: "slug-conflict" as const,
       message: "Ese slug ya esta en uso. Puedes probar con la sugerencia.",
       suggestedSlug: "matematica-pro-2",
     });

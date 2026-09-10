@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { act } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -69,13 +70,13 @@ function buildJsonResponse(body: unknown): Response {
 
 describe("TribeCoursesView", () => {
   beforeEach(() => {
-    global.fetch = jest.fn(async () =>
+    global.fetch = vi.fn(async () =>
       buildJsonResponse({ comments: [] })
     ) as unknown as typeof fetch;
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("shows the management link when a course manager sees an empty course", () => {
@@ -109,7 +110,7 @@ describe("TribeCoursesView", () => {
 
   it("keeps lesson links shareable while selecting them client-side without navigating", async () => {
     const user = userEvent.setup();
-    const pushStateSpy = jest.spyOn(window.history, "pushState");
+    const pushStateSpy = vi.spyOn(window.history, "pushState");
 
     render(
       <TribeCoursesView
@@ -254,7 +255,7 @@ describe("TribeCoursesView", () => {
 
   it("reverts the optimistic completion when the endpoint fails", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes("/completion")) {
         return { json: async () => ({}), ok: false, status: 500 } as Response;
@@ -334,9 +335,9 @@ describe("TribeCoursesView", () => {
   it("hydrates the sidebar management link without recoverable errors", async () => {
     const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");
-    const consoleErrorSpy = jest
+    const consoleErrorSpy = vi
       .spyOn(console, "error")
-      .mockImplementation(() => {});
+      .mockImplementation(function () {});
     let consoleErrorCalls: unknown[][] = [];
 
     try {

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach, afterAll } from "vitest";
 import {
   createMercadoPagoPreapprovalPlan,
   createMercadoPagoPreapprovalSubscription,
@@ -13,14 +14,14 @@ import {
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 
 describe("mercado pago subscription gateway", () => {
-  const fetchMock = jest.fn();
+  const fetchMock = vi.fn();
   const previousFetch = global.fetch;
   const previousBaseUrl = process.env.BETTER_AUTH_URL;
   const previousClientId = process.env.MERCADO_PAGO_CLIENT_ID;
   const previousClientSecret = process.env.MERCADO_PAGO_CLIENT_SECRET;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.env.BETTER_AUTH_URL = "https://tutribu.example.com";
     process.env.MERCADO_PAGO_CLIENT_ID = "client-id";
     process.env.MERCADO_PAGO_CLIENT_SECRET = "client-secret";
@@ -28,7 +29,7 @@ describe("mercado pago subscription gateway", () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   afterAll(() => {
@@ -56,7 +57,7 @@ describe("mercado pago subscription gateway", () => {
   it("reads the provider preapproval status from Mercado Pago", async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
-        status: "authorized",
+        status: "authorized" as const,
       }),
       ok: true,
     });
@@ -99,7 +100,7 @@ describe("mercado pago subscription gateway", () => {
         external_reference: "tutribu:price:price-1",
         id: "preapproval-1",
         preapproval_plan_id: "plan-1",
-        status: "authorized",
+        status: "authorized" as const,
       }),
       ok: true,
     });
@@ -113,7 +114,7 @@ describe("mercado pago subscription gateway", () => {
       externalReference: "tutribu:price:price-1",
       id: "preapproval-1",
       preapprovalPlanId: "plan-1",
-      status: "authorized",
+      status: "authorized" as const,
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -147,7 +148,7 @@ describe("mercado pago subscription gateway", () => {
   it("should read the provider plan status when Mercado Pago returns a subscription plan", async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
-        status: "active",
+        status: "active" as const,
       }),
       ok: true,
     });
@@ -268,7 +269,7 @@ describe("mercado pago subscription gateway", () => {
         external_reference: "tutribu:price:price-1",
         id: "plan-1",
         reason: "Plan actualizado",
-        status: "active",
+        status: "active" as const,
       }),
       ok: true,
     });
@@ -283,7 +284,7 @@ describe("mercado pago subscription gateway", () => {
         frequency: "monthly",
         preapprovalPlanId: "plan-1",
         reason: "Plan actualizado",
-        status: "active",
+        status: "active" as const,
         trialFrequency: 14,
         trialFrequencyType: "days",
       })
@@ -293,7 +294,7 @@ describe("mercado pago subscription gateway", () => {
       externalReference: "tutribu:price:price-1",
       id: "plan-1",
       reason: "Plan actualizado",
-      status: "active",
+      status: "active" as const,
       trial: null,
     });
 
@@ -314,7 +315,7 @@ describe("mercado pago subscription gateway", () => {
           back_url: "https://tutribu.example.com/matematica-pro",
           external_reference: "tutribu:price:price-1",
           reason: "Plan actualizado",
-          status: "active",
+          status: "active" as const,
         }),
         headers: {
           Authorization: "Bearer access-token",
@@ -335,7 +336,7 @@ describe("mercado pago subscription gateway", () => {
         external_reference: "tutribu:price:price-1",
         id: "plan-1",
         reason: "Plan mensual",
-        status: "active",
+        status: "active" as const,
       }),
       ok: true,
     });
@@ -349,7 +350,7 @@ describe("mercado pago subscription gateway", () => {
       amountCents: 120000,
       externalReference: "tutribu:price:price-1",
       reason: "Plan mensual",
-      status: "active",
+      status: "active" as const,
     });
   });
 
@@ -361,7 +362,7 @@ describe("mercado pago subscription gateway", () => {
             external_reference: "tutribu:price:price-1",
             id: "plan-1",
             reason: "Plan mensual",
-            status: "active",
+            status: "active" as const,
           },
         ],
       }),
@@ -378,7 +379,7 @@ describe("mercado pago subscription gateway", () => {
         externalReference: "tutribu:price:price-1",
         id: "plan-1",
         reason: "Plan mensual",
-        status: "active",
+        status: "active" as const,
       },
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -390,8 +391,8 @@ describe("mercado pago subscription gateway", () => {
   });
 
   it("should retry and trace Mercado Pago plan creation with redacted provider identifiers", async () => {
-    const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(function () {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(function () {});
 
     fetchMock
       .mockResolvedValueOnce({
@@ -509,7 +510,7 @@ describe("mercado pago subscription gateway", () => {
           payer_email: "member@example.com",
           preapproval_plan_id: "plan-1",
           reason: "Plan mensual",
-          status: "pending",
+          status: "pending" as const,
         }),
         headers: {
           Authorization: "Bearer access-token",
@@ -524,7 +525,7 @@ describe("mercado pago subscription gateway", () => {
   it("cancels a Mercado Pago preapproval subscription through the provider API", async () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
-        status: "canceled",
+        status: "canceled" as const,
       }),
       ok: true,
     });
@@ -533,7 +534,7 @@ describe("mercado pago subscription gateway", () => {
       updateMercadoPagoPreapprovalSubscriptionStatus({
         accessToken: "access-token",
         preapprovalId: "preapproval-1",
-        status: "canceled",
+        status: "canceled" as const,
       })
     ).resolves.toBe("canceled");
 
@@ -541,7 +542,7 @@ describe("mercado pago subscription gateway", () => {
       "https://api.mercadopago.com/preapproval/preapproval-1",
       expect.objectContaining({
         body: JSON.stringify({
-          status: "canceled",
+          status: "canceled" as const,
         }),
         headers: {
           Authorization: "Bearer access-token",
@@ -556,7 +557,7 @@ describe("mercado pago subscription gateway", () => {
     fetchMock.mockResolvedValue({
       json: async () => ({
         id: "preapproval-1",
-        status: "pending",
+        status: "pending" as const,
       }),
       ok: true,
     });

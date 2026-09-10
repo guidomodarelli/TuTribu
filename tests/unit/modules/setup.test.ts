@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import {
   createMaintenanceModules,
   createRequestModules,
@@ -8,48 +9,48 @@ import {
   DATABASE_CONNECTION_USAGE,
 } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
-jest.mock("@/src/modules/shared/infrastructure/database/server-database-client", () => ({
+vi.mock("@/src/modules/shared/infrastructure/database/server-database-client", () => ({
   DATABASE_CONNECTION_USAGE: { maintenance: "maintenance", request: "request" },
-  createServerDatabaseClient: jest.fn(),
+  createServerDatabaseClient: vi.fn(),
 }));
 
-jest.mock("@/src/modules/auth/infrastructure/better-auth/server-auth-context", () => ({
-  getRequestAuthContext: jest.fn(),
-  getServerBetterAuthSession: jest.fn(async () => null),
+vi.mock("@/src/modules/auth/infrastructure/better-auth/server-auth-context", () => ({
+  getRequestAuthContext: vi.fn(),
+  getServerBetterAuthSession: vi.fn(async () => null),
 }));
 
 function buildDatabaseClientDouble() {
   return {
-    withRequestContext: jest.fn(async (_context, callback) =>
+    withRequestContext: vi.fn(async (_context, callback) =>
       callback({
-        execute: jest.fn(async () => ({
+        execute: vi.fn(async () => ({
           rows: [],
         })),
-        one: jest.fn(),
-        query: jest.fn(),
-        transaction: jest.fn(),
+        one: vi.fn(),
+        query: vi.fn(),
+        transaction: vi.fn(),
       })
     ),
-    select: jest.fn(),
-    transaction: jest.fn(),
+    select: vi.fn(),
+    transaction: vi.fn(),
   };
 }
 
 describe("createRequestModules", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (getRequestAuthContext as jest.Mock).mockResolvedValue({
+    vi.clearAllMocks();
+    (getRequestAuthContext as Mock).mockResolvedValue({
       email: "leader@example.com",
       userId: "member-1",
     });
-    (createServerDatabaseClient as jest.Mock).mockResolvedValue(
+    (createServerDatabaseClient as Mock).mockResolvedValue(
       buildDatabaseClientDouble()
     );
   });
 
   it("creates a single request-scoped database client and shares it across modules", async () => {
     const databaseClient = buildDatabaseClientDouble();
-    (createServerDatabaseClient as jest.Mock).mockResolvedValue(databaseClient);
+    (createServerDatabaseClient as Mock).mockResolvedValue(databaseClient);
 
     const modules = await createRequestModules();
 

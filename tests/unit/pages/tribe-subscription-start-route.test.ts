@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { POST } from "@/app/api/tribes/[slug]/subscriptions/start/route";
 import { createRequestModules } from "@/src/modules/setup";
 import {
@@ -6,9 +7,9 @@ import {
 } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createHash } from "crypto";
 
-const getAuthenticatedMember = jest.fn();
-const startTribeMemberSubscription = jest.fn();
-const retryTribeMemberSubscriptionPayment = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const startTribeMemberSubscription = vi.fn();
+const retryTribeMemberSubscriptionPayment = vi.fn();
 
 function hashInvitationToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -18,17 +19,17 @@ function hashIdempotencyKey(idempotencyKey: string): string {
   return createHash("sha256").update(idempotencyKey).digest("hex");
 }
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
+    createServerLogger: vi.fn(() => ({
+      error: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
     })),
   })
 );
@@ -84,7 +85,7 @@ function buildContext() {
 
 describe("tribe subscription start route", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -96,9 +97,9 @@ describe("tribe subscription start route", () => {
     });
     startTribeMemberSubscription.mockResolvedValue({
       checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
-      status: "pending",
+      status: "pending" as const,
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -158,7 +159,7 @@ describe("tribe subscription start route", () => {
 
   it("rejects checkout starts when the invitation is invalid", async () => {
     startTribeMemberSubscription.mockResolvedValue({
-      status: "invalid_invitation",
+      status: "invalid_invitation" as const,
     });
 
     const response = await POST(
@@ -176,7 +177,7 @@ describe("tribe subscription start route", () => {
 
   it("redirects the retry button to the subscription page when the member already has a live subscription", async () => {
     retryTribeMemberSubscriptionPayment.mockResolvedValue({
-      status: "already_subscribed",
+      status: "already_subscribed" as const,
     });
 
     const response = await POST(buildRequest({}), buildContext());
@@ -190,7 +191,7 @@ describe("tribe subscription start route", () => {
   it("starts a direct payment retry when no invitation token is provided", async () => {
     retryTribeMemberSubscriptionPayment.mockResolvedValue({
       checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
-      status: "pending",
+      status: "pending" as const,
     });
 
     const response = await POST(

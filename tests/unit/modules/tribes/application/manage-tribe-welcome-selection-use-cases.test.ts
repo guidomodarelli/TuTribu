@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   listCurrentMemberTribeWelcomeSelections,
   listTribeWelcomeSelections,
@@ -10,9 +11,9 @@ function buildRepository(
   overrides: Partial<TribeWelcomeSelectionRepository> = {}
 ): TribeWelcomeSelectionRepository {
   return {
-    listByTribeSlugForCurrentMember: jest.fn(async () => []),
-    listByTribeSlug: jest.fn(async () => []),
-    record: jest.fn(async () => ({
+    listByTribeSlugForCurrentMember: vi.fn(async () => []),
+    listByTribeSlug: vi.fn(async () => []),
+    record: vi.fn(async () => ({
       status: TRIBE_WELCOME_SELECTION_STATUS.recorded,
     })),
     ...overrides,

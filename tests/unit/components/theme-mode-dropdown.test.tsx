@@ -1,4 +1,5 @@
 /** Exercises the shared theme context through the actual application providers. */
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { act, render as renderComponent, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { useTheme } from "beez-ui";
@@ -37,20 +38,20 @@ function installMatchMediaMock() {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     writable: true,
-    value: jest.fn((query: string) => ({
-      addListener: jest.fn((listener: MatchMediaListener) => matchMediaListeners.push(listener)),
-      removeListener: jest.fn((listener: MatchMediaListener) => {
+    value: vi.fn((query: string) => ({
+      addListener: vi.fn((listener: MatchMediaListener) => matchMediaListeners.push(listener)),
+      removeListener: vi.fn((listener: MatchMediaListener) => {
         const index = matchMediaListeners.indexOf(listener);
         if (index >= 0) matchMediaListeners.splice(index, 1);
       }),
-      addEventListener: jest.fn((eventName: string, listener: MatchMediaListener) => {
+      addEventListener: vi.fn((eventName: string, listener: MatchMediaListener) => {
         if (eventName === "change") {
           matchMediaListeners.push(listener);
         }
       }),
       matches: matchesDarkSystemTheme,
       media: query,
-      removeEventListener: jest.fn((eventName: string, listener: MatchMediaListener) => {
+      removeEventListener: vi.fn((eventName: string, listener: MatchMediaListener) => {
         if (eventName === "change") {
           const listenerIndex = matchMediaListeners.indexOf(listener);
 
@@ -65,7 +66,7 @@ function installMatchMediaMock() {
 
 describe("ThemeModeDropdown", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     localStorage.clear();
     document.documentElement.classList.remove("dark");
     matchMediaListeners.length = 0;
@@ -158,8 +159,8 @@ describe("ThemeModeDropdown", () => {
   });
 
   it("should keep theme selection usable when storage is blocked", async () => {
-    const storageRead = jest.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new DOMException("Blocked", "SecurityError"); });
-    const storageWrite = jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("Blocked", "SecurityError"); });
+    const storageRead = vi.spyOn(Storage.prototype, "getItem").mockImplementation(function () { throw new DOMException("Blocked", "SecurityError"); });
+    const storageWrite = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function () { throw new DOMException("Blocked", "SecurityError"); });
     try {
       render(<ThemeModeDropdown />);
       await userEvent.click(screen.getByRole("button", { name: /cambiar tema/i }));

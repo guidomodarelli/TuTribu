@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, type Mock } from "vitest";
 import {
   acceptTribeInvitation,
   createTribeInvitation,
@@ -32,30 +33,30 @@ function buildRepository(
   overrides: Partial<TribeInvitationRepository> = {}
 ): TribeInvitationRepository {
   return {
-    accept: jest.fn(async () => ({ status: TRIBE_INVITATION_STATUS.accepted })),
-    create: jest.fn(async () => ({
+    accept: vi.fn(async () => ({ status: TRIBE_INVITATION_STATUS.accepted })),
+    create: vi.fn(async () => ({
       invitation: SAMPLE_INVITATION,
       invitationUrl: SAMPLE_INVITATION.invitationUrl,
       status: TRIBE_INVITATION_STATUS.created,
     })),
-    getSubscriptionOffer: jest.fn(async () => ({
+    getSubscriptionOffer: vi.fn(async () => ({
       price: {
         amountCents: 500000,
         currency: "ARS",
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     })),
-    getConversionMetrics: jest.fn(async () => []),
-    listByPriceId: jest.fn(async () => ({ invitations: [] })),
-    listByTribeSlug: jest.fn(async () => []),
-    revoke: jest.fn(async () => ({ status: TRIBE_INVITATION_STATUS.revoked })),
-    updateSubscriptionAssociation: jest.fn(async () => ({
+    getConversionMetrics: vi.fn(async () => []),
+    listByPriceId: vi.fn(async () => ({ invitations: [] })),
+    listByTribeSlug: vi.fn(async () => []),
+    revoke: vi.fn(async () => ({ status: TRIBE_INVITATION_STATUS.revoked })),
+    updateSubscriptionAssociation: vi.fn(async () => ({
       invitation: SAMPLE_INVITATION,
       status: TRIBE_INVITATION_STATUS.updated,
     })),
-    updateReferralMetadata: jest.fn(async () => ({
+    updateReferralMetadata: vi.fn(async () => ({
       invitation: SAMPLE_INVITATION,
       status: TRIBE_INVITATION_STATUS.updated,
     })),
@@ -96,8 +97,8 @@ describe("manage tribe invitations use cases", () => {
       token: expect.any(String),
       tribeSlug: "matematica-pro",
     });
-    expect((repository.create as jest.Mock).mock.calls[0]?.[0].invitationId).not.toBe(
-      (repository.create as jest.Mock).mock.calls[0]?.[0].token
+    expect((repository.create as Mock).mock.calls[0]?.[0].invitationId).not.toBe(
+      (repository.create as Mock).mock.calls[0]?.[0].token
     );
   });
 
@@ -223,7 +224,7 @@ describe("manage tribe invitations use cases", () => {
 
   it("passes forbidden creation results from the repository", async () => {
     const repository = buildRepository({
-      create: jest.fn(async () => ({ status: TRIBE_INVITATION_STATUS.forbidden })),
+      create: vi.fn(async () => ({ status: TRIBE_INVITATION_STATUS.forbidden })),
     });
     const useCase = createTribeInvitation({
       tribeInvitationRepository: repository,
@@ -353,7 +354,7 @@ describe("manage tribe invitations use cases", () => {
 
   it("does not convert blocked invitation acceptance into membership", async () => {
     const repository = buildRepository({
-      accept: jest.fn(async () => ({ status: TRIBE_INVITATION_STATUS.blocked })),
+      accept: vi.fn(async () => ({ status: TRIBE_INVITATION_STATUS.blocked })),
     });
     const useCase = acceptTribeInvitation({
       tribeInvitationRepository: repository,
@@ -369,7 +370,7 @@ describe("manage tribe invitations use cases", () => {
 
   it("keeps acceptance idempotent by delegating existing membership handling to the repository", async () => {
     const repository = buildRepository({
-      accept: jest.fn(async () => ({ status: TRIBE_INVITATION_STATUS.accepted })),
+      accept: vi.fn(async () => ({ status: TRIBE_INVITATION_STATUS.accepted })),
     });
     const useCase = acceptTribeInvitation({
       tribeInvitationRepository: repository,
@@ -398,7 +399,7 @@ describe("manage tribe invitations use cases", () => {
       price: {
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
 
     expect(repository.getSubscriptionOffer).toHaveBeenCalledWith({

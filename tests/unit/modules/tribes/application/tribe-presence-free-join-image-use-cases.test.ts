@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { joinTribeFree } from "@/src/modules/tribes/application/use-cases/join-tribe-free-use-case";
 import { touchTribePresence } from "@/src/modules/tribes/application/use-cases/manage-tribe-presence-use-cases";
 import {
@@ -13,7 +14,7 @@ import type { TribeImageRepository } from "@/src/modules/tribes/domain/repositor
 describe("tribe presence, free join, and story image use cases", () => {
   it("touches the viewer presence normalizing the slug", async () => {
     const repository: TribePresenceRepository = {
-      touchByTribeSlug: jest.fn(async () => true),
+      touchByTribeSlug: vi.fn(async () => true),
     };
     const useCase = touchTribePresence({
       tribePresenceRepository: repository,
@@ -29,7 +30,7 @@ describe("tribe presence, free join, and story image use cases", () => {
 
   it("joins a free tribe normalizing the slug", async () => {
     const repository: TribeFreeJoinRepository = {
-      join: jest.fn(async () => ({
+      join: vi.fn(async () => ({
         status: TRIBE_FREE_JOIN_STATUS.joined,
       })),
     };
@@ -46,14 +47,14 @@ describe("tribe presence, free join, and story image use cases", () => {
   });
 
   it("creates and deletes tribe image uploads through the port", async () => {
-    const repository: TribeImageRepository = {
-      createUpload: jest.fn(async () => ({
+    const repository: TribeImageRepository = { cleanupOrphanUploads: vi.fn(),
+      createUpload: vi.fn(async () => ({
         deliveryUrl: "https://imagedelivery.net/hash/image-1/public",
         imageId: "image-1",
         status: TRIBE_IMAGE_UPLOAD_STATUS.created,
         uploadUrl: "https://upload.example.com/image-1",
       })),
-      deleteUpload: jest.fn(async () => true),
+      deleteUpload: vi.fn(async () => true),
     };
     const createUseCase = createTribeImageUpload({
       tribeImageRepository: repository,

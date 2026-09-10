@@ -1,5 +1,6 @@
-/** @jest-environment node */
+/** @vitest-environment node */
 
+import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -118,7 +119,7 @@ describe("dev portless script", () => {
     expect(
       devPortlessScript.resolveHostsPath("win32", {
         SystemRoot: "C:\\Windows",
-      } as NodeJS.ProcessEnv)
+      } as unknown as NodeJS.ProcessEnv)
     ).toBe(path.win32.join("C:\\Windows", "System32", "drivers", "etc", "hosts"));
     expect(devPortlessScript.resolveHostsPath("darwin")).toBe("/etc/hosts");
     expect(devPortlessScript.resolveHostsPath("linux")).toBe("/etc/hosts");

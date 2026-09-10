@@ -1,5 +1,6 @@
-/** @jest-environment node */
+/** @vitest-environment node */
 
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   getServerDatabaseEnvironment,
   getServerMaintenanceDatabaseEnvironment,

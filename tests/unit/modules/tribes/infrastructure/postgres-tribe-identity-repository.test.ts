@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { PostgresTribeIdentityRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-identity-repository";
 import { TRIBE_IMAGE_SAVE_STATUS } from "@/src/modules/tribes/constants/tribe-images";
 
@@ -34,7 +35,7 @@ function readQueryText(query: unknown): string {
 
 describe("PostgresTribeIdentityRepository", () => {
   it("maps the tribe identity row", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           cover_url: "https://images.example.com/cover.jpg",
@@ -56,7 +57,7 @@ describe("PostgresTribeIdentityRepository", () => {
   });
 
   it("returns null when the tribe is not visible to the viewer", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({ rows: [] });
+    const execute = vi.fn().mockResolvedValueOnce({ rows: [] });
     const repository = new PostgresTribeIdentityRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -67,7 +68,7 @@ describe("PostgresTribeIdentityRepository", () => {
   });
 
   it("writes through the leader-guarded definer and refreshes the attachments", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [{ applied: true }] })
       .mockResolvedValueOnce({ rows: [] });
@@ -97,7 +98,7 @@ describe("PostgresTribeIdentityRepository", () => {
   });
 
   it("returns forbidden without refreshing when the definer rejects the write", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [{ applied: false }],
     });
     const repository = new PostgresTribeIdentityRepository(async (callback) =>

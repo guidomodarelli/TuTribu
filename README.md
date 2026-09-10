@@ -19,7 +19,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 - beez-ui shared components (customized shadcn/ui, Base UI and Radix UI)
 - SCSS Modules with BEM (Tailwind reserved for beez-ui base setup only)
 - Sonner for toast notifications
-- Jest + React Testing Library for unit/integration tests; Playwright for E2E
+- Vitest + React Testing Library for unit/integration tests; Playwright for E2E
 
 ## Prerequisites
 
@@ -33,46 +33,46 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 1. Install dependencies:
 
    ```bash
-   npm install
+   pnpm install --frozen-lockfile
    ```
 
 2. Create `.env.local` from `.env.example` and fill in the values (see [Environment](#environment)).
 3. Apply database migrations:
 
    ```bash
-   npm run db:migrate
+   pnpm run db:migrate
    ```
 
 4. Start the dev server through portless (restarts the proxy on the `app` TLD, adds `dev-tutribu.app` to the hosts file the first time, trusts the local CA and runs `next dev`):
 
    ```bash
-   npm run dev
+   pnpm run dev
    ```
 
-   The app is then served at `https://dev-tutribu.app`. Use `npm run dev -- --dry-run` to see the steps without changing anything.
+   The app is then served at `https://dev-tutribu.app`. Use `pnpm run dev -- --dry-run` to see the steps without changing anything.
 
 ## Scripts
 
 | Script | Description |
 | --- | --- |
-| `npm run dev` | Start the Next.js dev server through portless at `https://dev-tutribu.app` (proxy restart, hosts entry, CA trust, `next dev` with hot reload). Accepts `--dry-run`. |
-| `npm run dev:next` | Bare `next dev` on a plain port. Reserved for the Playwright web server and CI; use `npm run dev` for manual work. |
-| `npm run build` | Build the production bundle. |
-| `npm run build:cloudflare` | Build the Cloudflare Workers bundle with OpenNext. |
-| `npm run preview:cloudflare` | Build and preview the app locally in the Cloudflare Workers runtime. |
-| `npm run deploy:cloudflare` | Build and deploy the app to Cloudflare Workers. |
-| `npm run upload:cloudflare` | Build and upload a new Cloudflare Workers version without deploying it. |
-| `npm run cf-typegen` | Generate Cloudflare binding types from `wrangler.jsonc`. |
-| `npm start` | Run the production build locally. |
-| `pnpm run ci` | Run the GitHub Actions quality gate: lint, typecheck, Jest, and Next.js build. |
-| `npm run lint` | Run ESLint across the repo. |
-| `npm run typecheck` | Run `tsc --noEmit` over production code. |
-| `npm test` | Run Jest unit and integration tests. |
-| `npm run test:watch` | Run Jest in watch mode. |
-| `npm run test:e2e` | Run Playwright E2E tests. |
-| `npm run test:e2e:ui` | Run Playwright with the interactive UI runner. |
-| `npm run db:migrate` | Apply pending SQL migrations to the configured Neon database. |
-| `npm run db:migrate:force` | Force a Drizzle push. Use only when an intentional override is required. |
+| `pnpm run dev` | Start the Next.js dev server through portless at `https://dev-tutribu.app` (proxy restart, hosts entry, CA trust, `next dev` with hot reload). Accepts `--dry-run`. |
+| `pnpm run dev:next` | Bare `next dev` on a plain port. Reserved for the Playwright web server and CI; use `pnpm run dev` for manual work. |
+| `pnpm run build` | Build the production bundle. |
+| `pnpm run build:cloudflare` | Build the Cloudflare Workers bundle with OpenNext. |
+| `pnpm run preview:cloudflare` | Build and preview the app locally in the Cloudflare Workers runtime. |
+| `pnpm run deploy:cloudflare` | Build and deploy the app to Cloudflare Workers. |
+| `pnpm run upload:cloudflare` | Build and upload a new Cloudflare Workers version without deploying it. |
+| `pnpm run cf-typegen` | Generate Cloudflare binding types from `wrangler.jsonc`. |
+| `pnpm start` | Run the production build locally. |
+| `ppnpm run ci` | Run the GitHub Actions quality gate: lint, application/test type checks, Vitest, and Next.js build. |
+| `pnpm run lint` | Run ESLint across the repo. |
+| `pnpm run typecheck` | Run `tsc --noEmit` over production code. |
+| `pnpm test` | Run Vitest unit and integration tests. |
+| `pnpm run test:watch` | Run Vitest in watch mode. |
+| `pnpm run test:e2e` | Run Playwright E2E tests. |
+| `pnpm run test:e2e:ui` | Run Playwright with the interactive UI runner. |
+| `pnpm run db:migrate` | Apply pending SQL migrations to the configured Neon database. |
+| `pnpm run db:migrate:force` | Force a Drizzle push. Use only when an intentional override is required. |
 
 ## Environment
 
@@ -154,28 +154,28 @@ TDD is mandatory for every feature, bug fix, and architectural change. The seque
 Day-to-day commands:
 
 ```bash
-npm test              # Unit + integration (Jest)
-npm run test:watch    # Jest in watch mode
-npm run test:e2e      # Playwright E2E
+pnpm test              # Unit + integration (Vitest)
+pnpm run test:watch    # Vitest in watch mode
+pnpm run test:e2e      # Playwright E2E
 ```
 
 Before closing any task, both of the following must pass:
 
 ```bash
-npm run typecheck
-npm run lint
+pnpm run typecheck
+pnpm run lint
 ```
 
 ## Deployment targets
 
-GitHub Actions runs `pnpm run ci` on push and pull request as the deterministic quality gate, including `next build` with non-sensitive build-time placeholders for server-only configuration. Vercel remains the default Next.js deployment target and continues to use `pnpm run build` with deployment environment variables available.
+GitHub Actions runs `ppnpm run ci` on push and pull request as the deterministic quality gate, including `next build` with non-sensitive build-time placeholders for server-only configuration. Vercel remains the default Next.js deployment target and continues to use `ppnpm run build` with deployment environment variables available.
 
 Cloudflare Workers is supported through `@opennextjs/cloudflare` and `wrangler.jsonc`. Use the Cloudflare-specific scripts instead of invoking `wrangler` directly for the Next.js app:
 
 ```bash
-npm run build:cloudflare
-npm run preview:cloudflare
-npm run deploy:cloudflare
+pnpm run build:cloudflare
+pnpm run preview:cloudflare
+pnpm run deploy:cloudflare
 ```
 
 OpenNext warns that Windows local builds can hit runtime-specific failures. Prefer Linux, WSL with Node.js installed, or the Cloudflare build environment for final Cloudflare validation.
@@ -197,7 +197,7 @@ Notes:
   - `infrastructure/` — adapters for auth, persistence, HTTP clients, and provider SDKs. Owns external DTOs and their mappers.
 - `src/modules/shared/*` — cross-module shared code (e.g. `infrastructure/database/`).
 - `beez-ui` — shared UI implementation, maintained in the sibling repository. Import named components from the package root.
-- `beez-ui@^0.5.0` — shared UI package installed from npm, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
+- `beez-ui@^0.5.5` — shared UI package installed from npm, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
 - `components/<scope>/<component>/{index.tsx,styles.module.scss}` — custom presentational components.
 - `lib/*` — framework-safe helpers, UI utilities, and client-only adapters. Off-limits to `application` and `domain`.
 - `database/migrations/*` — versioned SQL migrations (source of truth for schema and RLS policies).

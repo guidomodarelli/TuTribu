@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { PostgresTribeWelcomeRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-welcome-repository";
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
 
@@ -53,7 +54,7 @@ function readJsonArrayParameters(query: unknown): unknown[][] {
 
 describe("PostgresTribeWelcomeRepository", () => {
   it("maps internal welcome settings, rules, and links", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -134,7 +135,7 @@ describe("PostgresTribeWelcomeRepository", () => {
   });
 
   it("returns the default simple welcome when storage is not migrated", async () => {
-    const execute = jest.fn(async () => {
+    const execute = vi.fn(async (...args: unknown[]) => { void args;
       throw {
         cause: {
           code: "42P01",
@@ -162,13 +163,13 @@ describe("PostgresTribeWelcomeRepository", () => {
   });
 
   it("maps leader save results to updated", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
-          status: "updated",
+          status: "updated" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeWelcomeRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -185,17 +186,17 @@ describe("PostgresTribeWelcomeRepository", () => {
         tribeSlug: "matematica-pro",
         welcomeMessage: "Bienvenido/a",
       })
-    ).resolves.toEqual({ status: "updated" });
+    ).resolves.toEqual({ status: "updated" as const });
   });
 
   it("serializes welcome rules and links with database column names", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
-          status: "updated",
+          status: "updated" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeWelcomeRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -232,7 +233,7 @@ describe("PostgresTribeWelcomeRepository", () => {
         tribeSlug: "matematica-pro",
         welcomeMessage: "Bienvenido/a",
       })
-    ).resolves.toEqual({ status: "updated" });
+    ).resolves.toEqual({ status: "updated" as const });
 
     const [rules, links] = execute.mock.calls.flatMap(([query]) =>
       readJsonArrayParameters(query)
@@ -261,13 +262,13 @@ describe("PostgresTribeWelcomeRepository", () => {
   });
 
   it("orders welcome replacement writes after resolving an editable tribe", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
-          status: "updated",
+          status: "updated" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeWelcomeRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -308,13 +309,13 @@ describe("PostgresTribeWelcomeRepository", () => {
   });
 
   it("preserves member selections by upserting unchanged links before deleting removed ones", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
-          status: "updated",
+          status: "updated" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeWelcomeRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -363,7 +364,7 @@ describe("PostgresTribeWelcomeRepository", () => {
   });
 
   it("filters inactive items for regular welcome reads", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [

@@ -1,8 +1,9 @@
+import { vi, describe, it, expect } from "vitest";
 import { getTribeCreationEligibility } from "@/src/modules/tribes/application/use-cases/get-tribe-creation-eligibility-use-case";
 
 describe("getTribeCreationEligibility", () => {
   it("allows creation when the normalized email is present in the whitelist", async () => {
-    const isEmailAllowed = jest.fn(async () => true);
+    const isEmailAllowed = vi.fn(async () => true);
     const execute = getTribeCreationEligibility({
       tribeCreatorWhitelistRepository: {
         isEmailAllowed,
@@ -21,7 +22,7 @@ describe("getTribeCreationEligibility", () => {
   });
 
   it("returns false when the authenticated user has no email", async () => {
-    const isEmailAllowed = jest.fn();
+    const isEmailAllowed = vi.fn();
     const execute = getTribeCreationEligibility({
       tribeCreatorWhitelistRepository: {
         isEmailAllowed,

@@ -1,13 +1,14 @@
+import { describe, it, expect } from "vitest";
 import { BetterAuthSessionRepository } from "@/src/modules/auth/infrastructure/repositories/better-auth-session-repository";
 
 describe("BetterAuthSessionRepository", () => {
   it("maps the Better Auth session into an authenticated member", async () => {
     const repository = new BetterAuthSessionRepository(async () => ({
-      session: {
+      session: { createdAt: new Date(0), updatedAt: new Date(0), expiresAt: new Date(1), token: "test-session-token",
         id: "session-1",
         userId: "member-1",
       },
-      user: {
+      user: { createdAt: new Date(0), updatedAt: new Date(0), emailVerified: true,
         id: "member-1",
         email: "member@example.com",
         image: "https://example.com/avatar.png",
@@ -27,15 +28,15 @@ describe("BetterAuthSessionRepository", () => {
 
   it("falls back to the email when the name is missing", async () => {
     const repository = new BetterAuthSessionRepository(async () => ({
-      session: {
+      session: { createdAt: new Date(0), updatedAt: new Date(0), expiresAt: new Date(1), token: "test-session-token",
         id: "session-1",
         userId: "member-1",
       },
-      user: {
+      user: { createdAt: new Date(0), updatedAt: new Date(0), emailVerified: true,
         id: "member-1",
         email: "member@example.com",
         image: null,
-        name: null,
+        name: null as unknown as string,
       },
     }));
 

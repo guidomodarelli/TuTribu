@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { detectInAppBrowser } from "@/src/modules/shared/infrastructure/http/in-app-browser-detection";
 
 const SAFARI_IOS_USER_AGENT =

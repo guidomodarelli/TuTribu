@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { act } from "@testing-library/react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
@@ -9,16 +10,16 @@ describe("SidebarMenuSkeleton", () => {
     const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");
     const originalMathRandom = Math.random;
-    const consoleErrorSpy = jest
+    const consoleErrorSpy = vi
       .spyOn(console, "error")
-      .mockImplementation(() => {});
+      .mockImplementation(function () {});
     let consoleErrorCalls: unknown[][] = [];
 
     try {
-      Math.random = jest.fn(() => 0.1);
+      Math.random = vi.fn(() => 0.1);
       container.innerHTML = renderToString(<SidebarMenuSkeleton showIcon />);
 
-      Math.random = jest.fn(() => 0.9);
+      Math.random = vi.fn(() => 0.9);
 
       let root: ReturnType<typeof hydrateRoot>;
       await act(async () => {

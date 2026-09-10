@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { listTribeRound } from "@/src/modules/messages/application/use-cases/list-tribe-round-use-case";
 
 describe("listTribeRound", () => {
@@ -23,11 +24,11 @@ describe("listTribeRound", () => {
   }
 
   it("returns messages and enables participation for active members", async () => {
-    const listSharedDataByTribeSlug = jest.fn(async () => ({
+    const listSharedDataByTribeSlug = vi.fn(async () => ({
       activeChannelId: null,
       channels: [channel],
       messages: [
-        {
+        { replyCount: 0,
           id: "message-1",
           author: {
             id: "leader-1",
@@ -51,7 +52,7 @@ describe("listTribeRound", () => {
         pageSize: 15,
       },
     }));
-    const listViewerStateByTribeSlug = jest.fn(async () => ({
+    const listViewerStateByTribeSlug = vi.fn(async () => ({ selectedPollOptionIds: [], viewerId: "member-1",
       likedMessageIds: ["message-1"],
       viewerPermissions: {
         canReply: true,
@@ -59,9 +60,9 @@ describe("listTribeRound", () => {
         canReact: true,
       },
     }));
-    const messageRoundReadRepository = {
-      listByTribeSlug: jest.fn(),
-      listRepliesByMessageId: jest.fn(),
+    const messageRoundReadRepository = { listLikersByMessageId: vi.fn(),
+      listByTribeSlug: vi.fn(),
+      listRepliesByMessageId: vi.fn(),
       listSharedDataByTribeSlug,
       listViewerStateByTribeSlug,
     };
@@ -114,11 +115,11 @@ describe("listTribeRound", () => {
   });
 
   it("hides open poll results until the viewer has voted", async () => {
-    const listSharedDataByTribeSlug = jest.fn(async () => ({
+    const listSharedDataByTribeSlug = vi.fn(async () => ({
       activeChannelId: null,
       channels: [channel],
       messages: [
-        {
+        { replyCount: 0,
           id: "message-1",
           author: {
             id: "leader-1",
@@ -164,11 +165,11 @@ describe("listTribeRound", () => {
       },
     }));
     const execute = listTribeRound({
-      messageRoundReadRepository: {
-        listByTribeSlug: jest.fn(),
-        listRepliesByMessageId: jest.fn(),
+      messageRoundReadRepository: { listLikersByMessageId: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        listRepliesByMessageId: vi.fn(),
         listSharedDataByTribeSlug,
-        listViewerStateByTribeSlug: jest.fn(async () => ({
+        listViewerStateByTribeSlug: vi.fn(async () => ({
           likedMessageIds: [],
           selectedPollOptionIds: [],
           viewerId: "member-1",
@@ -214,10 +215,10 @@ describe("listTribeRound", () => {
 
   it("returns a read-only round for muted members", async () => {
     const execute = listTribeRound({
-      messageRoundReadRepository: {
-        listByTribeSlug: jest.fn(),
-        listRepliesByMessageId: jest.fn(),
-        listSharedDataByTribeSlug: jest.fn(async () => ({
+      messageRoundReadRepository: { listLikersByMessageId: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        listRepliesByMessageId: vi.fn(),
+        listSharedDataByTribeSlug: vi.fn(async () => ({
           activeChannelId: null,
           channels: [channel],
           messages: [],
@@ -228,7 +229,7 @@ describe("listTribeRound", () => {
             pageSize: 15,
           },
         })),
-        listViewerStateByTribeSlug: jest.fn(async () => ({
+        listViewerStateByTribeSlug: vi.fn(async () => ({ selectedPollOptionIds: [], viewerId: "member-1",
           likedMessageIds: [],
           viewerPermissions: {
             canReply: false,
@@ -264,14 +265,14 @@ describe("listTribeRound", () => {
 
   it("exposes delete permission on the message instead of poll management permissions", async () => {
     const execute = listTribeRound({
-      messageRoundReadRepository: {
-        listByTribeSlug: jest.fn(),
-        listRepliesByMessageId: jest.fn(),
-        listSharedDataByTribeSlug: jest.fn(async () => ({
+      messageRoundReadRepository: { listLikersByMessageId: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        listRepliesByMessageId: vi.fn(),
+        listSharedDataByTribeSlug: vi.fn(async () => ({
           activeChannelId: null,
           channels: [channel],
           messages: [
-            {
+            { replyCount: 0,
               id: "message-1",
               author: {
                 id: "author-1",
@@ -316,7 +317,7 @@ describe("listTribeRound", () => {
             pageSize: 15,
           },
         })),
-        listViewerStateByTribeSlug: jest.fn(async () => ({
+        listViewerStateByTribeSlug: vi.fn(async () => ({
           likedMessageIds: [],
           selectedPollOptionIds: [],
           viewerId: "author-1",
@@ -350,14 +351,14 @@ describe("listTribeRound", () => {
 
   it("blocks own message deletion when the viewer has read-only permissions", async () => {
     const execute = listTribeRound({
-      messageRoundReadRepository: {
-        listByTribeSlug: jest.fn(),
-        listRepliesByMessageId: jest.fn(),
-        listSharedDataByTribeSlug: jest.fn(async () => ({
+      messageRoundReadRepository: { listLikersByMessageId: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        listRepliesByMessageId: vi.fn(),
+        listSharedDataByTribeSlug: vi.fn(async () => ({
           activeChannelId: null,
           channels: [channel],
           messages: [
-            {
+            { replyCount: 0,
               id: "message-1",
               author: {
                 id: "author-1",
@@ -380,7 +381,7 @@ describe("listTribeRound", () => {
             pageSize: 15,
           },
         })),
-        listViewerStateByTribeSlug: jest.fn(async () => ({
+        listViewerStateByTribeSlug: vi.fn(async () => ({
           likedMessageIds: [],
           selectedPollOptionIds: [],
           viewerId: "author-1",
@@ -410,8 +411,8 @@ describe("listTribeRound", () => {
   });
 
   it("uses the injected shared round reader so cached data stays separate from viewer state", async () => {
-    const listSharedDataByTribeSlug = jest.fn();
-    const listViewerStateByTribeSlug = jest.fn(async () => ({
+    const listSharedDataByTribeSlug = vi.fn();
+    const listViewerStateByTribeSlug = vi.fn(async () => ({ selectedPollOptionIds: [], viewerId: "member-1",
       likedMessageIds: [],
       viewerPermissions: {
         canReply: true,
@@ -419,7 +420,7 @@ describe("listTribeRound", () => {
         canReact: true,
       },
     }));
-    const listCachedTribeRoundSharedData = jest.fn(async () => ({
+    const listCachedTribeRoundSharedData = vi.fn(async () => ({
       activeChannelId: null,
       channels: [channel],
       messages: [],
@@ -432,9 +433,9 @@ describe("listTribeRound", () => {
     }));
     const execute = listTribeRound({
       listCachedTribeRoundSharedData,
-      messageRoundReadRepository: {
-        listByTribeSlug: jest.fn(),
-        listRepliesByMessageId: jest.fn(),
+      messageRoundReadRepository: { listLikersByMessageId: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        listRepliesByMessageId: vi.fn(),
         listSharedDataByTribeSlug,
         listViewerStateByTribeSlug,
       },
@@ -489,9 +490,9 @@ describe("listTribeRound", () => {
         pageSize: 15,
       },
     };
-    const sharedData = createDeferredResult(sharedRoundData);
-    const listSharedDataByTribeSlug = jest.fn(() => sharedData.promise);
-    const listViewerStateByTribeSlug = jest.fn(async () => ({
+    const sharedData = createDeferredResult<typeof sharedRoundData>();
+    const listSharedDataByTribeSlug = vi.fn(() => sharedData.promise);
+    const listViewerStateByTribeSlug = vi.fn(async () => ({
       likedMessageIds: [],
       selectedPollOptionIds: [],
       viewerId: "member-1",
@@ -502,9 +503,9 @@ describe("listTribeRound", () => {
       },
     }));
     const execute = listTribeRound({
-      messageRoundReadRepository: {
-        listByTribeSlug: jest.fn(),
-        listRepliesByMessageId: jest.fn(),
+      messageRoundReadRepository: { listLikersByMessageId: vi.fn(),
+        listByTribeSlug: vi.fn(),
+        listRepliesByMessageId: vi.fn(),
         listSharedDataByTribeSlug,
         listViewerStateByTribeSlug,
       },

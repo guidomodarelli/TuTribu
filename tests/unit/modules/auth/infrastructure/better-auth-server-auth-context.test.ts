@@ -1,11 +1,12 @@
-/** @jest-environment node */
+/** @vitest-environment node */
 
+import { vi, describe, it, expect, beforeEach } from "vitest";
 describe("Better Auth server auth context", () => {
-  const createServerLogger = jest.fn();
-  const loggerWarn = jest.fn();
+  const createServerLogger = vi.fn();
+  const loggerWarn = vi.fn();
 
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
     createServerLogger.mockReset();
     loggerWarn.mockReset();
   });
@@ -28,30 +29,30 @@ describe("Better Auth server auth context", () => {
         code: "FAILED_TO_GET_SESSION",
         message: "Failed to get session",
       },
-      status: "INTERNAL_SERVER_ERROR",
+      status: "INTERNAL_SERVER_ERROR" as const,
       statusCode: 500,
     });
-    const getSession = jest
+    const getSession = vi
       .fn()
       .mockRejectedValueOnce(sessionFailure)
       .mockResolvedValueOnce(session);
 
-    jest.doMock("next/headers", () => ({
-      headers: jest.fn(async () => new Headers({ "x-request-id": "request-1" })),
+    vi.doMock("next/headers", () => ({
+      headers: vi.fn(async () => new Headers({ "x-request-id": "request-1" })),
     }));
-    jest.doMock("@/src/modules/auth/infrastructure/better-auth/auth", () => ({
+    vi.doMock("@/src/modules/auth/infrastructure/better-auth/auth", () => ({
       auth: {
         api: {
           getSession,
         },
       },
     }));
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/shared/infrastructure/observability/server-logger",
       () => ({
         createServerLogger: createServerLogger.mockReturnValue({
-          error: jest.fn(),
-          info: jest.fn(),
+          error: vi.fn(),
+          info: vi.fn(),
           warn: loggerWarn,
         }),
       })
@@ -89,27 +90,27 @@ describe("Better Auth server auth context", () => {
         message: "Failed to get session",
       },
       cause: new Error("timeout exceeded when trying to connect"),
-      status: "INTERNAL_SERVER_ERROR",
+      status: "INTERNAL_SERVER_ERROR" as const,
       statusCode: 500,
     });
-    const getSession = jest.fn().mockRejectedValueOnce(sessionFailure);
+    const getSession = vi.fn().mockRejectedValueOnce(sessionFailure);
 
-    jest.doMock("next/headers", () => ({
-      headers: jest.fn(async () => new Headers({ "x-request-id": "request-3" })),
+    vi.doMock("next/headers", () => ({
+      headers: vi.fn(async () => new Headers({ "x-request-id": "request-3" })),
     }));
-    jest.doMock("@/src/modules/auth/infrastructure/better-auth/auth", () => ({
+    vi.doMock("@/src/modules/auth/infrastructure/better-auth/auth", () => ({
       auth: {
         api: {
           getSession,
         },
       },
     }));
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/shared/infrastructure/observability/server-logger",
       () => ({
         createServerLogger: createServerLogger.mockReturnValue({
-          error: jest.fn(),
-          info: jest.fn(),
+          error: vi.fn(),
+          info: vi.fn(),
           warn: loggerWarn,
         }),
       })
@@ -128,24 +129,24 @@ describe("Better Auth server auth context", () => {
 
   it("does not retry unrelated session lookup failures", async () => {
     const sessionFailure = new Error("Unexpected Better Auth failure");
-    const getSession = jest.fn().mockRejectedValueOnce(sessionFailure);
+    const getSession = vi.fn().mockRejectedValueOnce(sessionFailure);
 
-    jest.doMock("next/headers", () => ({
-      headers: jest.fn(async () => new Headers({ "x-request-id": "request-2" })),
+    vi.doMock("next/headers", () => ({
+      headers: vi.fn(async () => new Headers({ "x-request-id": "request-2" })),
     }));
-    jest.doMock("@/src/modules/auth/infrastructure/better-auth/auth", () => ({
+    vi.doMock("@/src/modules/auth/infrastructure/better-auth/auth", () => ({
       auth: {
         api: {
           getSession,
         },
       },
     }));
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/shared/infrastructure/observability/server-logger",
       () => ({
         createServerLogger: createServerLogger.mockReturnValue({
-          error: jest.fn(),
-          info: jest.fn(),
+          error: vi.fn(),
+          info: vi.fn(),
           warn: loggerWarn,
         }),
       })

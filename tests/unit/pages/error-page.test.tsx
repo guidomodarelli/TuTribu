@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -5,12 +6,12 @@ import ErrorPage from "@/app/error";
 
 describe("ErrorPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("renders a safe Spanish fallback and retries on demand", async () => {
     const user = userEvent.setup();
-    const retry = jest.fn();
+    const retry = vi.fn();
 
     render(
       <ErrorPage

@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import {
   TRIBE_MEMBER_SUBSCRIPTION_STATUS,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON,

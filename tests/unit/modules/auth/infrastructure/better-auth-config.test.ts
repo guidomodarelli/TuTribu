@@ -1,10 +1,11 @@
-/** @jest-environment node */
+/** @vitest-environment node */
 
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 describe("Better Auth configuration", () => {
   const originalEnvironment = { ...process.env };
 
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
     process.env.BETTER_AUTH_SECRET = "test-secret";
     process.env.BETTER_AUTH_URL = "https://tutribu.example.com";
     process.env.GOOGLE_CLIENT_ID = "google-client-id";
@@ -18,45 +19,45 @@ describe("Better Auth configuration", () => {
   it("passes a resolvable auth schema to the Drizzle adapter", async () => {
     const adapterInstance = { id: "adapter" };
     const databaseInstance = { id: "database" };
-    const mockBetterAuth = jest.fn(() => ({ handler: {} }));
-    const mockDrizzle = jest.fn(() => databaseInstance);
-    const mockDrizzleAdapter = jest.fn(() => adapterInstance);
-    const mockNextCookies = jest.fn(() => ({ id: "next-cookies-plugin" }));
+    const mockBetterAuth = vi.fn(() => ({ handler: {} }));
+    const mockDrizzle = vi.fn(() => databaseInstance);
+    const mockDrizzleAdapter = vi.fn(() => adapterInstance);
+    const mockNextCookies = vi.fn(() => ({ id: "next-cookies-plugin" }));
     const users = { name: "user-table" };
     const sessions = { name: "session-table" };
     const accounts = { name: "account-table" };
     const verifications = { name: "verification-table" };
 
-    jest.doMock("better-auth", () => ({
-      betterAuth: (...args: unknown[]) => mockBetterAuth(...args),
+    vi.doMock("better-auth", () => ({
+      betterAuth: mockBetterAuth,
     }));
-    jest.doMock("@better-auth/drizzle-adapter", () => ({
-      drizzleAdapter: (...args: unknown[]) => mockDrizzleAdapter(...args),
+    vi.doMock("@better-auth/drizzle-adapter", () => ({
+      drizzleAdapter: mockDrizzleAdapter,
     }));
-    jest.doMock("better-auth/next-js", () => ({
-      nextCookies: (...args: unknown[]) => mockNextCookies(...args),
+    vi.doMock("better-auth/next-js", () => ({
+      nextCookies: mockNextCookies,
     }));
-    jest.doMock("drizzle-orm/node-postgres", () => ({
-      drizzle: (...args: unknown[]) => mockDrizzle(...args),
+    vi.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: mockDrizzle,
     }));
-    jest.doMock("pg", () => ({
-      Pool: jest.fn(() => ({ id: "pool", on: jest.fn() })),
+    vi.doMock("pg", () => ({
+      Pool: vi.fn(function () { return ({ id: "pool", on: vi.fn() }); }),
     }));
-    jest.doMock("@/src/modules/shared/infrastructure/database/server-environment", () => ({
+    vi.doMock("@/src/modules/shared/infrastructure/database/server-environment", () => ({
       getServerDatabaseEnvironment: () => ({
         connectionString: "postgres://tutribu.example.com/db",
       }),
     }));
-    jest.doMock("@/src/modules/shared/infrastructure/database/schema", () => ({
+    vi.doMock("@/src/modules/shared/infrastructure/database/schema", () => ({
       accounts,
       sessions,
       users,
       verifications,
     }));
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh",
       () => ({
-        scheduleMemberProfileImageRefresh: jest.fn(),
+        scheduleMemberProfileImageRefresh: vi.fn(),
       })
     );
 
@@ -89,8 +90,8 @@ describe("Better Auth configuration", () => {
   });
 
   it("refreshes the member profile image when a session is renewed", async () => {
-    const scheduleMemberProfileImageRefresh = jest.fn();
-    const getAccessToken = jest
+    const scheduleMemberProfileImageRefresh = vi.fn();
+    const getAccessToken = vi
       .fn()
       .mockResolvedValue({ accessToken: "fresh-access-token" });
     let capturedConfiguration: {
@@ -98,27 +99,27 @@ describe("Better Auth configuration", () => {
         session?: { update?: { after?: (session: unknown) => Promise<void> } };
       };
     } = {};
-    const mockBetterAuth = jest.fn((configuration) => {
+    const mockBetterAuth = vi.fn((configuration) => {
       capturedConfiguration = configuration;
       return { api: { getAccessToken } };
     });
 
-    jest.doMock("better-auth", () => ({
-      betterAuth: (...args: unknown[]) => mockBetterAuth(...args),
+    vi.doMock("better-auth", () => ({
+      betterAuth: mockBetterAuth,
     }));
-    jest.doMock("@better-auth/drizzle-adapter", () => ({
-      drizzleAdapter: jest.fn(() => ({ id: "adapter" })),
+    vi.doMock("@better-auth/drizzle-adapter", () => ({
+      drizzleAdapter: vi.fn(() => ({ id: "adapter" })),
     }));
-    jest.doMock("better-auth/next-js", () => ({
-      nextCookies: jest.fn(() => ({ id: "next-cookies-plugin" })),
+    vi.doMock("better-auth/next-js", () => ({
+      nextCookies: vi.fn(() => ({ id: "next-cookies-plugin" })),
     }));
-    jest.doMock("drizzle-orm/node-postgres", () => ({
-      drizzle: jest.fn(() => ({ id: "database" })),
+    vi.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: vi.fn(() => ({ id: "database" })),
     }));
-    jest.doMock("pg", () => ({
-      Pool: jest.fn(() => ({ id: "pool", on: jest.fn() })),
+    vi.doMock("pg", () => ({
+      Pool: vi.fn(function () { return ({ id: "pool", on: vi.fn() }); }),
     }));
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/shared/infrastructure/database/server-environment",
       () => ({
         getServerDatabaseEnvironment: () => ({
@@ -126,7 +127,7 @@ describe("Better Auth configuration", () => {
         }),
       })
     );
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh",
       () => ({ scheduleMemberProfileImageRefresh })
     );
@@ -154,35 +155,35 @@ describe("Better Auth configuration", () => {
   });
 
   it("propagates access token resolution failures to the profile refresh flow", async () => {
-    const scheduleMemberProfileImageRefresh = jest.fn();
+    const scheduleMemberProfileImageRefresh = vi.fn();
     const tokenResolutionError = new Error("token lookup failed");
-    const getAccessToken = jest.fn().mockRejectedValue(tokenResolutionError);
+    const getAccessToken = vi.fn().mockRejectedValue(tokenResolutionError);
     let capturedConfiguration: {
       databaseHooks?: {
         session?: { update?: { after?: (session: unknown) => Promise<void> } };
       };
     } = {};
-    const mockBetterAuth = jest.fn((configuration) => {
+    const mockBetterAuth = vi.fn((configuration) => {
       capturedConfiguration = configuration;
       return { api: { getAccessToken } };
     });
 
-    jest.doMock("better-auth", () => ({
-      betterAuth: (...args: unknown[]) => mockBetterAuth(...args),
+    vi.doMock("better-auth", () => ({
+      betterAuth: mockBetterAuth,
     }));
-    jest.doMock("@better-auth/drizzle-adapter", () => ({
-      drizzleAdapter: jest.fn(() => ({ id: "adapter" })),
+    vi.doMock("@better-auth/drizzle-adapter", () => ({
+      drizzleAdapter: vi.fn(() => ({ id: "adapter" })),
     }));
-    jest.doMock("better-auth/next-js", () => ({
-      nextCookies: jest.fn(() => ({ id: "next-cookies-plugin" })),
+    vi.doMock("better-auth/next-js", () => ({
+      nextCookies: vi.fn(() => ({ id: "next-cookies-plugin" })),
     }));
-    jest.doMock("drizzle-orm/node-postgres", () => ({
-      drizzle: jest.fn(() => ({ id: "database" })),
+    vi.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: vi.fn(() => ({ id: "database" })),
     }));
-    jest.doMock("pg", () => ({
-      Pool: jest.fn(() => ({ id: "pool", on: jest.fn() })),
+    vi.doMock("pg", () => ({
+      Pool: vi.fn(function () { return ({ id: "pool", on: vi.fn() }); }),
     }));
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/shared/infrastructure/database/server-environment",
       () => ({
         getServerDatabaseEnvironment: () => ({
@@ -190,7 +191,7 @@ describe("Better Auth configuration", () => {
         }),
       })
     );
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh",
       () => ({ scheduleMemberProfileImageRefresh })
     );

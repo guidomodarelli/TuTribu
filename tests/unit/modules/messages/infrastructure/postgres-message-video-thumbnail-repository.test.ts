@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { MESSAGE_VIDEO_THUMBNAIL_BACKFILL } from "@/src/modules/messages/constants/message-round";
 import { PostgresMessageVideoThumbnailRepository } from "@/src/modules/messages/infrastructure/repositories/postgres-message-video-thumbnail-repository";
 
@@ -40,7 +41,7 @@ function getNumericSqlParams(statement: unknown): number[] {
 
 describe("PostgresMessageVideoThumbnailRepository", () => {
   it("lists unresolved, non-youtube videos for the given messages", async () => {
-    const execute = jest.fn().mockResolvedValue({
+    const execute = vi.fn().mockResolvedValue({
       rows: [
         {
           external_video_id: "123456789",
@@ -75,7 +76,7 @@ describe("PostgresMessageVideoThumbnailRepository", () => {
   });
 
   it("returns an empty list without querying when there are no message ids", async () => {
-    const execute = jest.fn();
+    const execute = vi.fn();
     const repository = new PostgresMessageVideoThumbnailRepository(
       async (callback) => callback({ execute } as never)
     );
@@ -87,7 +88,7 @@ describe("PostgresMessageVideoThumbnailRepository", () => {
   });
 
   it("persists a thumbnail through the security definer function", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValue({ rows: [{ persisted: true }] });
     const repository = new PostgresMessageVideoThumbnailRepository(
@@ -112,7 +113,7 @@ describe("PostgresMessageVideoThumbnailRepository", () => {
   });
 
   it("reports a non-persisted attempt when the function updates no row", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValue({ rows: [{ persisted: false }] });
     const repository = new PostgresMessageVideoThumbnailRepository(

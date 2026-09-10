@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { buildVideoOEmbedRequestUrl } from "@/src/modules/shared/application/video/build-video-oembed-request";
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -6,23 +7,23 @@ import TribePricesPage from "@/app/(platform)/[slug]/precios/page";
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const getTribePageAccess = jest.fn();
-const getCurrentTribeMembershipStatus = jest.fn();
-const getMemberTribes = jest.fn();
-const getTribeSubscriberDiagnostics = jest.fn();
-const listTribeSubscriptionPrices = jest.fn();
-const errorMock = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribePageAccess = vi.fn();
+const getCurrentTribeMembershipStatus = vi.fn();
+const getMemberTribes = vi.fn();
+const getTribeSubscriberDiagnostics = vi.fn();
+const listTribeSubscriptionPrices = vi.fn();
+const errorMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  notFound: jest.fn(),
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("@/components/subscriptions/tribe-subscription-price-management", () => ({
+vi.mock("@/components/subscriptions/tribe-subscription-price-management", () => ({
   TribeSubscriptionPriceManagement: ({
     canManagePrices,
     isMercadoPagoConnected,
@@ -53,14 +54,14 @@ jest.mock("@/components/subscriptions/tribe-subscription-price-management", () =
   ),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -74,7 +75,7 @@ const authenticatedMember = {
 };
 
 const visibleTribeAccess = {
-  status: "visible",
+  status: "visible" as const,
   tribe: {
     id: "tribe-1",
     name: "Matematica Pro",
@@ -93,12 +94,12 @@ function buildPageProps() {
 
 describe("TribePricesPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
     getCurrentTribeMembershipStatus.mockResolvedValue("active");
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "leader",
         slug: "matematica-pro",
@@ -116,7 +117,7 @@ describe("TribePricesPage", () => {
           id: "price-1",
           isCurrent: true,
           name: "Plan mensual",
-          status: "active",
+          status: "active" as const,
         },
       ],
       hasMercadoPagoIntegration: true,
@@ -133,12 +134,12 @@ describe("TribePricesPage", () => {
       mercadoPagoPausedSubscribersCount: 0,
       mercadoPagoPendingSubscribersCount: 3,
     });
-    (headers as jest.Mock).mockResolvedValue(new Headers());
-    (createServerLogger as jest.Mock).mockReturnValue({
+    (headers as Mock).mockResolvedValue(new Headers());
+    (createServerLogger as Mock).mockReturnValue({
       error: errorMock,
-      info: jest.fn(),
+      info: vi.fn(),
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -175,7 +176,7 @@ describe("TribePricesPage", () => {
 
   it("renders read-only price management for guardians", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "guardian",
         slug: "matematica-pro",
@@ -218,7 +219,7 @@ describe("TribePricesPage", () => {
       await TribePricesPage({
         ...buildPageProps(),
         searchParams: Promise.resolve({
-          status: "setup_required",
+          status: "setup_required" as const,
         }),
       })
     );
@@ -236,7 +237,7 @@ describe("TribePricesPage", () => {
       await TribePricesPage({
         ...buildPageProps(),
         searchParams: Promise.resolve({
-          status: "setup_required",
+          status: "setup_required" as const,
           statusOrigin: "mercado_pago_oauth",
         }),
       })
@@ -264,7 +265,7 @@ describe("TribePricesPage", () => {
       await TribePricesPage({
         ...buildPageProps(),
         searchParams: Promise.resolve({
-          status: "connected",
+          status: "connected" as const,
         }),
       })
     );
@@ -277,14 +278,14 @@ describe("TribePricesPage", () => {
 
   it("returns 404 when a regular member opens price management", async () => {
     getMemberTribes.mockResolvedValue([
-      {
+      { logoUrl: null, membershipStatus: "active" as const,
         name: "Matematica Pro",
         role: "tribemate",
         slug: "matematica-pro",
         tribeId: "tribe-1",
       },
     ]);
-    (notFound as unknown as jest.Mock).mockImplementation(() => {
+    (notFound as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_NOT_FOUND");
     });
 

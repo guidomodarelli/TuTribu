@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { GET, PUT } from "@/app/api/tribes/[slug]/story/route";
 import { createRequestModules } from "@/src/modules/setup";
 import {
@@ -9,27 +10,27 @@ import {
   TRIBE_STORY_SAVE_STATUS,
 } from "@/src/modules/tribes/constants/tribe-story";
 
-const getAuthenticatedMember = jest.fn();
-const getTribePageAccess = jest.fn();
-const getTribeStory = jest.fn();
-const saveTribeStory = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribePageAccess = vi.fn();
+const getTribeStory = vi.fn();
+const saveTribeStory = vi.fn();
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock("next/cache", () => ({
-  cacheLife: jest.fn(),
-  cacheTag: jest.fn(),
-  revalidateTag: jest.fn(),
+vi.mock("next/cache", () => ({
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
+  revalidateTag: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
+    createServerLogger: vi.fn(() => ({
+      error: vi.fn(),
+      info: vi.fn(),
     })),
   })
 );
@@ -56,7 +57,7 @@ class MockJsonResponse {
 function buildRequest(body: unknown = {}, method = "PUT"): Request {
   return {
     headers: new Headers(),
-    json: jest.fn(async () => body),
+    json: vi.fn(async () => body),
     method,
     url: "https://tutribu.example.com/api/tribes/matematica-pro/story",
   } as unknown as Request;
@@ -70,7 +71,7 @@ function buildContext() {
 
 describe("Tribe story routes", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -98,7 +99,7 @@ describe("Tribe story routes", () => {
         websiteUrl: null,
       },
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: { getAuthenticatedMember },
       },

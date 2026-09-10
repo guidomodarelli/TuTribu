@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import { createHmac } from "crypto";
 
 import { POST } from "@/app/api/mercado-pago/webhooks/route";
@@ -7,22 +8,22 @@ import {
   TRACE_ID_HEADER,
 } from "@/src/modules/shared/infrastructure/observability/request-context";
 
-const handleMercadoPagoSubscriptionWebhook = jest.fn();
-const syncMercadoPagoSubscriptionProviderPlanWebhook = jest.fn();
+const handleMercadoPagoSubscriptionWebhook = vi.fn();
+const syncMercadoPagoSubscriptionProviderPlanWebhook = vi.fn();
 const mockServerLogger = {
-  error: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
 };
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => mockServerLogger),
+    createServerLogger: vi.fn(() => mockServerLogger),
   })
 );
 
@@ -79,16 +80,16 @@ describe("Mercado Pago webhook route", () => {
   const previousWebhookSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.env.MERCADO_PAGO_WEBHOOK_SECRET = "webhook-secret";
     global.Response = MockJsonResponse as unknown as typeof Response;
     handleMercadoPagoSubscriptionWebhook.mockResolvedValue({
-      status: "processed",
+      status: "processed" as const,
     });
     syncMercadoPagoSubscriptionProviderPlanWebhook.mockResolvedValue({
-      status: "verified",
+      status: "verified" as const,
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       subscriptions: {
         useCases: {
           handleMercadoPagoSubscriptionWebhook,
@@ -332,7 +333,7 @@ describe("Mercado Pago webhook route", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      status: "processed",
+      status: "processed" as const,
     });
     expect(createRequestModules).not.toHaveBeenCalled();
     expect(handleMercadoPagoSubscriptionWebhook).not.toHaveBeenCalled();
@@ -369,7 +370,7 @@ describe("Mercado Pago webhook route", () => {
 
   it("asks Mercado Pago to retry when the subscription plan sync cannot access the provider", async () => {
     syncMercadoPagoSubscriptionProviderPlanWebhook.mockResolvedValue({
-      status: "missing_integration",
+      status: "missing_integration" as const,
     });
 
     const timestamp = String(Date.now());
@@ -430,7 +431,7 @@ describe("Mercado Pago webhook route", () => {
 
   it("asks Mercado Pago to retry when the subscription is not ready locally", async () => {
     handleMercadoPagoSubscriptionWebhook.mockResolvedValue({
-      status: "retryable_webhook",
+      status: "retryable_webhook" as const,
     });
 
     const timestamp = String(Date.now());

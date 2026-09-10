@@ -1,24 +1,25 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { POST as touchPresence } from "@/app/api/tribes/[slug]/presence/route";
 import { POST as createTribeImage } from "@/app/api/tribes/[slug]/images/route";
 import { DELETE as deleteTribeImage } from "@/app/api/tribes/[slug]/images/[imageId]/route";
 import { createRequestModules } from "@/src/modules/setup";
 import { TRIBE_IMAGE_UPLOAD_STATUS } from "@/src/modules/tribes/constants/tribe-images";
 
-const getAuthenticatedMember = jest.fn();
-const touchTribePresence = jest.fn();
-const createTribeImageUpload = jest.fn();
-const deleteTribeImageUpload = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const touchTribePresence = vi.fn();
+const createTribeImageUpload = vi.fn();
+const deleteTribeImageUpload = vi.fn();
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
+    createServerLogger: vi.fn(() => ({
+      error: vi.fn(),
+      info: vi.fn(),
     })),
   })
 );
@@ -56,7 +57,7 @@ function buildContext<TParams extends Record<string, string>>(params: TParams) {
 
 describe("Tribe presence and image routes", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -74,7 +75,7 @@ describe("Tribe presence and image routes", () => {
       uploadUrl: "https://upload.example.com/image-1",
     });
     deleteTribeImageUpload.mockResolvedValue(true);
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: { getAuthenticatedMember },
       },

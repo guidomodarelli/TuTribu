@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -8,28 +9,28 @@ import {
 } from "@/app/(platform)/home-page-content";
 import { createRequestModules } from "@/src/modules/setup";
 
-const getAuthenticatedMember = jest.fn();
-const resolveTribeMemberSubscriptionReturnPath = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const resolveTribeMemberSubscriptionReturnPath = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  redirect: jest.fn(),
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
 }));
 
-jest.mock("next/headers", () => ({
-  headers: jest.fn(),
+vi.mock("next/headers", () => ({
+  headers: vi.fn(),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
 describe("HomePage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getAuthenticatedMember.mockReset();
-    (headers as jest.Mock).mockResolvedValue(new Headers());
+    (headers as Mock).mockResolvedValue(new Headers());
 
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -104,7 +105,7 @@ describe("HomePage", () => {
     resolveTribeMemberSubscriptionReturnPath.mockResolvedValue(
       "/matematica-pro?preapproval_id=preapproval-1"
     );
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 

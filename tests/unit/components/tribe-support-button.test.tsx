@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type MockedFunction } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { usePathname } from "next/navigation";
@@ -7,11 +8,11 @@ import { TRIBE_SUPPORT_CHANNEL } from "@/src/modules/tribes/constants/tribe-supp
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 
-jest.mock("next/navigation", () => ({
-  usePathname: jest.fn(),
+vi.mock("next/navigation", () => ({
+  usePathname: vi.fn(),
 }));
 
-jest.mock("@/components/tribes/tribe-support-config-dialog", () => ({
+vi.mock("@/components/tribes/tribe-support-config-dialog", () => ({
   TribeSupportConfigDialog: ({
     onOpenChange,
     open,
@@ -30,10 +31,10 @@ jest.mock("@/components/tribes/tribe-support-config-dialog", () => ({
     ) : null,
 }));
 
-const usePathnameMock = usePathname as jest.MockedFunction<typeof usePathname>;
-const fetchMock = jest.fn();
+const usePathnameMock = usePathname as MockedFunction<typeof usePathname>;
+const fetchMock = vi.fn();
 
-const LEADER_TRIBE: MemberTribeListItemResult = {
+const LEADER_TRIBE: MemberTribeListItemResult = { logoUrl: null,
   tribeId: "tribe-leader",
   membershipStatus: "active",
   name: "Tribu Líder",
@@ -46,7 +47,7 @@ const MUTED_LEADER_TRIBE: MemberTribeListItemResult = {
   membershipStatus: "muted",
 };
 
-const MEMBER_TRIBE: MemberTribeListItemResult = {
+const MEMBER_TRIBE: MemberTribeListItemResult = { logoUrl: null,
   tribeId: "tribe-member",
   membershipStatus: "active",
   name: "Tribu Miembro",
@@ -56,14 +57,14 @@ const MEMBER_TRIBE: MemberTribeListItemResult = {
 
 function mockFetchOnce(settings: unknown) {
   fetchMock.mockResolvedValueOnce({
-    json: jest.fn(async () => ({ settings })),
+    json: vi.fn(async () => ({ settings })),
     ok: true,
   });
 }
 
 describe("TribeSupportButton", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
@@ -135,7 +136,7 @@ describe("TribeSupportButton", () => {
 
   it("shows a disabled loading button for active leaders while the support fetch is pending", () => {
     usePathnameMock.mockReturnValue(ROUTES.tribes.bySlug(LEADER_TRIBE.slug));
-    fetchMock.mockImplementationOnce(() => new Promise(() => {}));
+    fetchMock.mockImplementationOnce(function () { return new Promise(() => {}); });
 
     render(<TribeSupportButton memberTribes={[LEADER_TRIBE]} />);
 
@@ -151,7 +152,7 @@ describe("TribeSupportButton", () => {
 
   it("does not render any button for non-leader members while the support fetch is pending", () => {
     usePathnameMock.mockReturnValue(ROUTES.tribes.bySlug(MEMBER_TRIBE.slug));
-    fetchMock.mockImplementationOnce(() => new Promise(() => {}));
+    fetchMock.mockImplementationOnce(function () { return new Promise(() => {}); });
 
     const { container } = render(
       <TribeSupportButton memberTribes={[MEMBER_TRIBE]} />
@@ -178,7 +179,7 @@ describe("TribeSupportButton", () => {
 
   it("recovers from a stuck support request by settling the loading state after the abort fires", async () => {
     usePathnameMock.mockReturnValue(ROUTES.tribes.bySlug(LEADER_TRIBE.slug));
-    fetchMock.mockImplementationOnce((_url: string, init?: { signal?: AbortSignal }) => {
+    fetchMock.mockImplementationOnce(function (_url: string, init?: { signal?: AbortSignal }) {
       return new Promise((_resolve, reject) => {
         const signal = init?.signal;
         if (!signal) {
@@ -204,9 +205,13 @@ describe("TribeSupportButton", () => {
 
     expect(passedSignal).toBeDefined();
 
+    // Use an event created by the same native implementation as AbortSignal.
+    const abortEvent = await new Promise<Event>((resolve) => {
+      AbortSignal.timeout(0).addEventListener("abort", resolve, { once: true });
+    });
     await act(async () => {
       (passedSignal as AbortSignal & { dispatchEvent: (event: Event) => boolean }).dispatchEvent(
-        new Event("abort")
+        abortEvent
       );
     });
 

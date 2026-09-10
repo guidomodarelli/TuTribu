@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { GOOGLE_USERINFO_ENDPOINT } from "@/src/modules/auth/constants/google-profile";
 import { GoogleProfilePictureProvider } from "@/src/modules/auth/infrastructure/profile/google-profile-picture-provider";
 
@@ -19,7 +20,7 @@ const HTTP_STATUS_INTERNAL_SERVER_ERROR = 500;
  */
 function createJsonResponse(body: unknown, ok = true, status = HTTP_STATUS_OK) {
   return {
-    json: jest.fn().mockResolvedValue(body),
+    json: vi.fn().mockResolvedValue(body),
     ok,
     status,
   } as unknown as Response;
@@ -27,10 +28,10 @@ function createJsonResponse(body: unknown, ok = true, status = HTTP_STATUS_OK) {
 
 describe("GoogleProfilePictureProvider", () => {
   it("returns the current picture from the userinfo endpoint", async () => {
-    const fetchImplementation = jest
+    const fetchImplementation = vi
       .fn()
       .mockResolvedValue(createJsonResponse({ picture: PICTURE_URL }));
-    const getAccessToken = jest.fn().mockResolvedValue(ACCESS_TOKEN);
+    const getAccessToken = vi.fn().mockResolvedValue(ACCESS_TOKEN);
 
     const provider = new GoogleProfilePictureProvider({
       fetchImplementation,
@@ -53,20 +54,20 @@ describe("GoogleProfilePictureProvider", () => {
 
   it("returns null when the userinfo response has no picture", async () => {
     const provider = new GoogleProfilePictureProvider({
-      fetchImplementation: jest
+      fetchImplementation: vi
         .fn()
         .mockResolvedValue(createJsonResponse({ sub: "google-user-id" })),
-      getAccessToken: jest.fn().mockResolvedValue(ACCESS_TOKEN),
+      getAccessToken: vi.fn().mockResolvedValue(ACCESS_TOKEN),
     });
 
     expect(await provider.getCurrentPictureUrl(MEMBER_ID)).toBeNull();
   });
 
   it("returns null when no access token is available", async () => {
-    const fetchImplementation = jest.fn();
+    const fetchImplementation = vi.fn();
     const provider = new GoogleProfilePictureProvider({
       fetchImplementation,
-      getAccessToken: jest.fn().mockResolvedValue(null),
+      getAccessToken: vi.fn().mockResolvedValue(null),
     });
 
     expect(await provider.getCurrentPictureUrl(MEMBER_ID)).toBeNull();
@@ -77,10 +78,10 @@ describe("GoogleProfilePictureProvider", () => {
     "returns null when Google userinfo rejects the access token with status %s",
     async (statusCode) => {
       const provider = new GoogleProfilePictureProvider({
-        fetchImplementation: jest
+        fetchImplementation: vi
           .fn()
           .mockResolvedValue(createJsonResponse({}, false, statusCode)),
-        getAccessToken: jest.fn().mockResolvedValue(ACCESS_TOKEN),
+        getAccessToken: vi.fn().mockResolvedValue(ACCESS_TOKEN),
       });
 
       await expect(provider.getCurrentPictureUrl(MEMBER_ID)).resolves.toBeNull();
@@ -89,12 +90,12 @@ describe("GoogleProfilePictureProvider", () => {
 
   it("throws when the userinfo request fails unexpectedly", async () => {
     const provider = new GoogleProfilePictureProvider({
-      fetchImplementation: jest
+      fetchImplementation: vi
         .fn()
         .mockResolvedValue(
           createJsonResponse({}, false, HTTP_STATUS_INTERNAL_SERVER_ERROR)
         ),
-      getAccessToken: jest.fn().mockResolvedValue(ACCESS_TOKEN),
+      getAccessToken: vi.fn().mockResolvedValue(ACCESS_TOKEN),
     });
 
     await expect(provider.getCurrentPictureUrl(MEMBER_ID)).rejects.toThrow();

@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import {
   InvalidVideoUrlError,

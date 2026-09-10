@@ -1,6 +1,7 @@
 /**
- * @jest-environment node
+ * @vitest-environment node
  */
+import { describe, it, expect } from "vitest";
 import {
   getRedirectUrl,
   unstable_getResponseFromNextConfig,
@@ -11,7 +12,7 @@ const REDIRECT_STATUS_PERMANENT = 308;
 const PASS_THROUGH_STATUS = 200;
 const TEST_ORIGIN = "https://tutribu.app";
 
-async function getRedirectResponse(pathnameAndQuery: string): Promise<Response> {
+async function getRedirectResponse(pathnameAndQuery: string) {
   return unstable_getResponseFromNextConfig({
     nextConfig: {
       redirects: getLegacyRedirects,

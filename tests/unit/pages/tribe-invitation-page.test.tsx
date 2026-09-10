@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { createHash } from "crypto";
 import { revalidatePath } from "next/cache";
@@ -9,29 +10,29 @@ import TribeInvitationPage, {
 } from "@/app/(platform)/[slug]/invitar/[token]/page";
 import { createRequestModules } from "@/src/modules/setup";
 
-const mockGetSession = jest.fn();
-const getAuthenticatedMember = jest.fn();
-const acceptTribeInvitation = jest.fn();
-const getTribeInvitationSubscriptionOffer = jest.fn();
-const startTribeMemberSubscription = jest.fn();
+const mockGetSession = vi.fn();
+const getAuthenticatedMember = vi.fn();
+const acceptTribeInvitation = vi.fn();
+const getTribeInvitationSubscriptionOffer = vi.fn();
+const startTribeMemberSubscription = vi.fn();
 
 function hashInvitationToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-jest.mock("next/cache", () => ({
-  revalidatePath: jest.fn(),
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
 }));
 
-jest.mock("next/navigation", () => ({
-  redirect: jest.fn(),
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
 }));
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/auth/infrastructure/better-auth/server-auth-context",
   () => ({
     getServerBetterAuthSession: (...args: unknown[]) => mockGetSession(...args),
@@ -58,7 +59,7 @@ function buildPagePropsWithStatus(status: string) {
 
 describe("TribeInvitationPage", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockGetSession.mockResolvedValue({
       user: {
         id: "member-1",
@@ -73,9 +74,9 @@ describe("TribeInvitationPage", () => {
       role: "tribemate",
     });
     acceptTribeInvitation.mockResolvedValue({
-      status: "accepted",
+      status: "accepted" as const,
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -100,13 +101,13 @@ describe("TribeInvitationPage", () => {
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
   });
 
   it("redirects unauthenticated visitors to sign in with the invitation callback", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 
@@ -138,7 +139,7 @@ describe("TribeInvitationPage", () => {
 
   it("shows a simple join confirmation for a free tribe", async () => {
     getTribeInvitationSubscriptionOffer.mockResolvedValue({
-      status: "unavailable",
+      status: "unavailable" as const,
     });
 
     render(await TribeInvitationPage(buildPageProps()));
@@ -174,7 +175,7 @@ describe("TribeInvitationPage", () => {
   });
 
   it("accepts a valid invitation from the POST action and redirects to the tribe", async () => {
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 
@@ -210,9 +211,9 @@ describe("TribeInvitationPage", () => {
 
   it("redirects invalid acceptance action results back to a safe status page", async () => {
     acceptTribeInvitation.mockResolvedValue({
-      status: "invalid",
+      status: "invalid" as const,
     });
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 
@@ -231,9 +232,9 @@ describe("TribeInvitationPage", () => {
 
   it("redirects payment start failures back to the tokenized invitation status page", async () => {
     startTribeMemberSubscription.mockResolvedValue({
-      status: "payment_blocked",
+      status: "payment_blocked" as const,
     });
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 
@@ -262,9 +263,9 @@ describe("TribeInvitationPage", () => {
     startTribeMemberSubscription.mockResolvedValue({
       checkoutUrl:
         "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=provider-plan-1",
-      status: "pending",
+      status: "pending" as const,
     });
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 
@@ -282,7 +283,7 @@ describe("TribeInvitationPage", () => {
 
   it("redirects unexpected payment start errors to a safe status page", async () => {
     startTribeMemberSubscription.mockRejectedValue(new Error("provider timeout"));
-    (redirect as unknown as jest.Mock).mockImplementation(() => {
+    (redirect as unknown as Mock).mockImplementation(function () {
       throw new Error("NEXT_REDIRECT");
     });
 

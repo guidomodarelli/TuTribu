@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { readBooleanField } from "@/app/api/tribes/[slug]/courses/route-helpers";
 
 describe("courses route helpers", () => {

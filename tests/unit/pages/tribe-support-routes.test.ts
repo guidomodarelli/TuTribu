@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { GET, PUT } from "@/app/api/tribes/[slug]/support/route";
 import { createRequestModules } from "@/src/modules/setup";
 import {
@@ -9,21 +10,21 @@ import {
   TRIBE_SUPPORT_SAVE_STATUS,
 } from "@/src/modules/tribes/constants/tribe-support";
 
-const getAuthenticatedMember = jest.fn();
-const getTribePageAccess = jest.fn();
-const getTribeSupport = jest.fn();
-const saveTribeSupport = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribePageAccess = vi.fn();
+const getTribeSupport = vi.fn();
+const saveTribeSupport = vi.fn();
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
+    createServerLogger: vi.fn(() => ({
+      error: vi.fn(),
+      info: vi.fn(),
     })),
   })
 );
@@ -50,7 +51,7 @@ class MockJsonResponse {
 function buildRequest(body: unknown = {}, method = "PUT"): Request {
   return {
     headers: new Headers(),
-    json: jest.fn(async () => body),
+    json: vi.fn(async () => body),
     method,
     url: "https://tutribu.example.com/api/tribes/matematica-pro/support",
   } as unknown as Request;
@@ -64,7 +65,7 @@ function buildContext() {
 
 describe("Tribe support routes", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -92,7 +93,7 @@ describe("Tribe support routes", () => {
       },
       status: TRIBE_SUPPORT_SAVE_STATUS.updated,
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: { getAuthenticatedMember },
       },

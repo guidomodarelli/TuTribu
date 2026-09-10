@@ -1,13 +1,14 @@
+import { vi, describe, it, expect, afterEach } from "vitest";
 import { logPaymentOperation } from "@/src/modules/subscriptions/infrastructure/observability/payment-operation-logger";
 import type { ServerLogEntry } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 describe("payment operation logger", () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("should write payment trace metadata with redacted provider identifiers", () => {
-    const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(function () {});
 
     logPaymentOperation({
       context: {

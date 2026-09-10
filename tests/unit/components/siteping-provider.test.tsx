@@ -1,25 +1,27 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 
 import { SitepingProvider } from "@/components/providers/siteping-provider";
 
-const initSitepingMock = jest.fn(() => ({
-  destroy: jest.fn(),
+const initSitepingMock = vi.fn((config: unknown) => ({
+  config,
+  destroy: vi.fn(),
 }));
-const fetchMock = jest.fn();
+const fetchMock = vi.fn();
 
-jest.mock("@siteping/widget", () => ({
+vi.mock("@siteping/widget", () => ({
   initSiteping: (config: unknown) => initSitepingMock(config),
-}), { virtual: true });
+}));
 
 describe("SitepingProvider", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
   it("does not initialize Siteping when identity is disabled", async () => {
     fetchMock.mockResolvedValueOnce({
-      json: jest.fn(async () => ({
+      json: vi.fn(async () => ({
         enabled: false,
         identity: null,
         projectName: "tutribu",
@@ -35,7 +37,7 @@ describe("SitepingProvider", () => {
 
   it("initializes Siteping with diagnostics and screenshots for authorized members", async () => {
     fetchMock.mockResolvedValueOnce({
-      json: jest.fn(async () => ({
+      json: vi.fn(async () => ({
         enabled: true,
         identity: {
           email: "leader@example.com",

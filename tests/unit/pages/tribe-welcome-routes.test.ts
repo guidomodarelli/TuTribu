@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import {
   GET,
   PUT,
@@ -10,23 +11,23 @@ import {
 } from "@/src/modules/tribes/application/results/tribe-page-access-result";
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
 
-const getAuthenticatedMember = jest.fn();
-const getTribePageAccess = jest.fn();
-const getTribeWelcome = jest.fn();
-const mockLoggerError = jest.fn();
-const recordTribeWelcomeSelection = jest.fn();
-const saveTribeWelcome = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const getTribePageAccess = vi.fn();
+const getTribeWelcome = vi.fn();
+const mockLoggerError = vi.fn();
+const recordTribeWelcomeSelection = vi.fn();
+const saveTribeWelcome = vi.fn();
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
+    createServerLogger: vi.fn(() => ({
       error: mockLoggerError,
-      info: jest.fn(),
+      info: vi.fn(),
     })),
   })
 );
@@ -66,7 +67,7 @@ function buildRequest(body: unknown = {}, method = "PUT"): Request {
 
   return {
     headers: new Headers(),
-    json: jest.fn(async () => mergedBody),
+    json: vi.fn(async () => mergedBody),
     method,
     url: "https://tutribu.example.com/api/tribes/matematica-pro/welcome",
   } as unknown as Request;
@@ -84,7 +85,7 @@ describe("Tribe welcome routes", () => {
   const welcome = {
     linksHeading: "Recursos para empezar",
     links: [
-      {
+      { description: null,
         badgeLabel: "Soporte",
         id: "link-1",
         isActive: true,
@@ -112,7 +113,7 @@ describe("Tribe welcome routes", () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -132,8 +133,8 @@ describe("Tribe welcome routes", () => {
       },
     });
     getTribeWelcome.mockResolvedValue(welcome);
-    saveTribeWelcome.mockResolvedValue({ status: "updated" });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    saveTribeWelcome.mockResolvedValue({ status: "updated" as const });
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -168,7 +169,7 @@ describe("Tribe welcome routes", () => {
 
   it("returns a safe GET error response when request modules fail to initialize", async () => {
     const initializationError = new Error("database connection failed");
-    (createRequestModules as jest.Mock).mockRejectedValueOnce(
+    (createRequestModules as Mock).mockRejectedValueOnce(
       initializationError
     );
 
@@ -507,7 +508,7 @@ describe("Tribe welcome routes", () => {
   });
 
   it("returns a forbidden response when the member is not the leader", async () => {
-    saveTribeWelcome.mockResolvedValue({ status: "forbidden" });
+    saveTribeWelcome.mockResolvedValue({ status: "forbidden" as const });
 
     const response = await PUT(
       buildRequest({

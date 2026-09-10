@@ -1,5 +1,6 @@
-/** @jest-environment node */
+/** @vitest-environment node */
 
+import { vi, describe, it, expect } from "vitest";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -24,7 +25,7 @@ async function loadDrizzleConfigWithEnvironment(environment: {
   const previousDatabaseUrl = process.env.DATABASE_URL;
   const previousDatabaseMigrationUrl = process.env.DATABASE_MIGRATION_URL;
 
-  jest.resetModules();
+  vi.resetModules();
 
   if (environment.databaseUrl === undefined) {
     delete process.env.DATABASE_URL;

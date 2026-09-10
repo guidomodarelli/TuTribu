@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { reconcileTribeSubscriptionProviderSubscribers } from "@/src/modules/subscriptions/application/use-cases/reconcile-tribe-subscription-provider-subscribers-use-case";
 import {
   TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE,
@@ -9,13 +10,13 @@ function createRepository(
   overrides: Partial<TribeProviderSubscriberReconciliationRepository> = {}
 ): TribeProviderSubscriberReconciliationRepository {
   return {
-    reconcileProviderSubscribers: jest.fn(),
+    reconcileProviderSubscribers: vi.fn(),
     ...overrides,
   };
 }
 
 describe("reconcile tribe subscription provider subscribers use case", () => {
-  const reconciledPrice = {
+  const reconciledPrice = { trial: null,
     activeSubscribersCount: 1,
     amountCents: 500000,
     createdAt: "2026-05-06T12:00:00.000Z",
@@ -30,7 +31,7 @@ describe("reconcile tribe subscription provider subscribers use case", () => {
   it.each(Object.values(TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE))(
     "should reconcile provider subscribers from the %s trigger with normalized input",
     async (source) => {
-      const reconcileProviderSubscribers = jest.fn(async () => ({
+      const reconcileProviderSubscribers = vi.fn(async () => ({
         price: reconciledPrice,
         providerActiveSubscribersCount: 1,
         status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,

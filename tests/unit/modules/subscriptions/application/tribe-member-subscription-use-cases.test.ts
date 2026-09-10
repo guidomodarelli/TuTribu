@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   cancelOwnTribeMemberSubscription,
   handleMercadoPagoSubscriptionWebhook,
@@ -16,22 +17,22 @@ function createRepository(
   overrides: Partial<TribeMemberSubscriptionRepository> = {}
 ): TribeMemberSubscriptionRepository {
   return {
-    cancelOwnSubscription: jest.fn(),
-    handleWebhook: jest.fn(),
-    hasPendingSubscriptionReturn: jest.fn(),
-    reconcileCurrentMemberSubscription: jest.fn(),
-    resolveReturnPathByProviderSubscription: jest.fn(),
-    resolveSubscriptionReturn: jest.fn(),
-    retryCurrentPriceSubscriptionPayment: jest.fn(),
-    startCurrentPriceSubscription: jest.fn(),
-    startOpenJoinSubscription: jest.fn(),
+    cancelOwnSubscription: vi.fn(),
+    handleWebhook: vi.fn(),
+    hasPendingSubscriptionReturn: vi.fn(),
+    reconcileCurrentMemberSubscription: vi.fn(),
+    resolveReturnPathByProviderSubscription: vi.fn(),
+    resolveSubscriptionReturn: vi.fn(),
+    retryCurrentPriceSubscriptionPayment: vi.fn(),
+    startCurrentPriceSubscription: vi.fn(),
+    startOpenJoinSubscription: vi.fn(),
     ...overrides,
   };
 }
 
 describe("tribe member subscription use cases", () => {
   it("starts a subscription with the current price when a member was blocked by payment", async () => {
-    const startCurrentPriceSubscription = jest.fn(async () => ({
+    const startCurrentPriceSubscription = vi.fn(async () => ({
       checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
     }));
@@ -59,7 +60,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("forwards alreadySubscribed unchanged when the member already has a live subscription", async () => {
-    const startCurrentPriceSubscription = jest.fn(async () => ({
+    const startCurrentPriceSubscription = vi.fn(async () => ({
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.alreadySubscribed,
     }));
     const execute = startTribeMemberSubscription({
@@ -80,7 +81,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("keeps conduct-blocked members out of the paid reentry flow", async () => {
-    const startCurrentPriceSubscription = jest.fn(async () => ({
+    const startCurrentPriceSubscription = vi.fn(async () => ({
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.conductBlocked,
     }));
     const execute = startTribeMemberSubscription({
@@ -101,7 +102,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("starts an open-join subscription with normalized input and no invitation token", async () => {
-    const startOpenJoinSubscription = jest.fn(async () => ({
+    const startOpenJoinSubscription = vi.fn(async () => ({
       checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
     }));
@@ -127,7 +128,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("lowercases a mixed-case slug before starting the open-join checkout", async () => {
-    const startOpenJoinSubscription = jest.fn(async () => ({
+    const startOpenJoinSubscription = vi.fn(async () => ({
       checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
     }));
@@ -149,7 +150,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("forwards missingCurrentPrice when the tribe has no paid current plan for an open join", async () => {
-    const startOpenJoinSubscription = jest.fn(async () => ({
+    const startOpenJoinSubscription = vi.fn(async () => ({
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.missingCurrentPrice,
     }));
     const execute = startTribeOpenJoinSubscription({
@@ -169,7 +170,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("processes duplicate webhooks idempotently", async () => {
-    const handleWebhook = jest.fn(async () => ({
+    const handleWebhook = vi.fn(async () => ({
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.duplicateWebhook,
     }));
     const execute = handleMercadoPagoSubscriptionWebhook({
@@ -193,7 +194,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("validates pending Mercado Pago returns against the current member subscription", async () => {
-    const hasPendingSubscriptionReturn = jest.fn(async () => true);
+    const hasPendingSubscriptionReturn = vi.fn(async () => true);
     const execute = validatePendingTribeMemberSubscriptionReturn({
       tribeMemberSubscriptionRepository: createRepository({
         hasPendingSubscriptionReturn,
@@ -213,7 +214,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("resolves a Mercado Pago return without making the return the access source", async () => {
-    const resolveSubscriptionReturn = jest.fn(async () => ({
+    const resolveSubscriptionReturn = vi.fn(async () => ({
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
     }));
     const execute = resolveTribeMemberSubscriptionReturn({
@@ -237,7 +238,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("retries a current-price subscription payment with normalized input", async () => {
-    const retryCurrentPriceSubscriptionPayment = jest.fn(async () => ({
+    const retryCurrentPriceSubscriptionPayment = vi.fn(async () => ({
       checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
     }));
@@ -263,7 +264,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("resolves Mercado Pago returns from the home page to the owning tribe", async () => {
-    const resolveReturnPathByProviderSubscription = jest.fn(
+    const resolveReturnPathByProviderSubscription = vi.fn(
       async () => "/matematica-pro?preapproval_id=preapproval-1"
     );
     const execute = resolveTribeMemberSubscriptionReturnPath({
@@ -283,7 +284,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("reconciles current member access before the tribe page is granted", async () => {
-    const reconcileCurrentMemberSubscription = jest.fn(async () => ({
+    const reconcileCurrentMemberSubscription = vi.fn(async () => ({
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled,
     }));
     const execute = reconcileCurrentTribeMemberSubscription({
@@ -305,7 +306,7 @@ describe("tribe member subscription use cases", () => {
   });
 
   it("cancels the current member subscription with normalized input", async () => {
-    const cancelOwnSubscription = jest.fn(async () => ({
+    const cancelOwnSubscription = vi.fn(async () => ({
       status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled,
     }));
     const execute = cancelOwnTribeMemberSubscription({

@@ -26,6 +26,8 @@
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/*.spec.ts",
-    "**/*.spec.tsx"
+    "**/*.spec.tsx",
+    "vitest.config.mts",
+    "vitest.setup.ts"
   ]
 }

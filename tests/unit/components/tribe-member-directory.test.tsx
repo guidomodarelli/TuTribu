@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type MockedFunction } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -5,18 +6,18 @@ import { TribeMemberDirectory } from "@/components/tribes/tribe-member-directory
 import { downloadTextFile } from "@/components/tribes/tribe-member-directory/export";
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
 
-jest.mock("@/components/tribes/tribe-member-directory/export", () => {
-  const actual = jest.requireActual(
+vi.mock("@/components/tribes/tribe-member-directory/export", async () => {
+  const actual = await vi.importActual<typeof import("@/components/tribes/tribe-member-directory/export")>(
     "@/components/tribes/tribe-member-directory/export"
   );
 
   return {
     ...actual,
-    downloadTextFile: jest.fn(),
+    downloadTextFile: vi.fn(),
   };
 });
 
-const downloadTextFileMock = downloadTextFile as jest.MockedFunction<
+const downloadTextFileMock = downloadTextFile as MockedFunction<
   typeof downloadTextFile
 >;
 

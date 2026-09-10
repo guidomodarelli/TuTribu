@@ -1,12 +1,13 @@
-/** @jest-environment node */
+/** @vitest-environment node */
 
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { EventEmitter } from "node:events";
 
 describe("createServerDatabaseClient", () => {
   const originalEnvironment = { ...process.env };
 
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
     process.env.DATABASE_URL = "postgres://tutribu.example.com/db";
     delete process.env.DATABASE_MAINTENANCE_URL;
     delete process.env.DATABASE_MIGRATION_URL;
@@ -24,7 +25,7 @@ describe("createServerDatabaseClient", () => {
     let activeQueryCount = 0;
     let detectedOverlappingQuery = false;
     const executedStatements: string[] = [];
-    const query = jest.fn(async (statement?: unknown) => {
+    const query = vi.fn(async (statement?: unknown) => {
       if (typeof statement === "string") {
         executedStatements.push(statement);
       }
@@ -41,19 +42,19 @@ describe("createServerDatabaseClient", () => {
         rows: [],
       };
     });
-    const release = jest.fn();
+    const release = vi.fn();
     const client = Object.assign(new EventEmitter(), {
       query,
       release,
     });
 
-    jest.doMock("pg", () => ({
-      Pool: jest.fn(() => ({
-        connect: jest.fn(async () => client),
-        on: jest.fn(),
-      })),
+    vi.doMock("pg", () => ({
+      Pool: vi.fn(function () { return ({
+        connect: vi.fn(async () => client),
+        on: vi.fn(),
+      }); }),
     }));
-    jest.doMock("drizzle-orm/node-postgres", () => ({
+    vi.doMock("drizzle-orm/node-postgres", () => ({
       drizzle: (client: { query: () => Promise<unknown> }) => ({
         execute: () => client.query(),
       }),
@@ -85,8 +86,8 @@ describe("createServerDatabaseClient", () => {
   it("releases a checked-out client with the emitted error when the connection closes asynchronously", async () => {
     const connectionError = new Error("idle-in-transaction timeout");
     let activeClient: EventEmitter | null = null;
-    const release = jest.fn();
-    const query = jest.fn(async (statement?: unknown) => {
+    const release = vi.fn();
+    const query = vi.fn(async (statement?: unknown) => {
       if (statement === "BEGIN") {
         activeClient?.emit("error", connectionError);
       }
@@ -101,13 +102,13 @@ describe("createServerDatabaseClient", () => {
     });
     activeClient = client;
 
-    jest.doMock("pg", () => ({
-      Pool: jest.fn(() => ({
-        connect: jest.fn(async () => client),
-        on: jest.fn(),
-      })),
+    vi.doMock("pg", () => ({
+      Pool: vi.fn(function () { return ({
+        connect: vi.fn(async () => client),
+        on: vi.fn(),
+      }); }),
     }));
-    jest.doMock("drizzle-orm/node-postgres", () => ({
+    vi.doMock("drizzle-orm/node-postgres", () => ({
       drizzle: (databaseClient: { query: () => Promise<unknown> }) => ({
         execute: () => databaseClient.query(),
       }),
@@ -136,7 +137,7 @@ describe("createServerDatabaseClient", () => {
 
   it("guards and commits a transaction without request-context settings when no prepare is provided", async () => {
     const executedStatements: string[] = [];
-    const query = jest.fn(async (statement?: unknown) => {
+    const query = vi.fn(async (statement?: unknown) => {
       if (typeof statement === "string") {
         executedStatements.push(statement);
       }
@@ -145,17 +146,17 @@ describe("createServerDatabaseClient", () => {
         rows: [],
       };
     });
-    const release = jest.fn();
+    const release = vi.fn();
     const client = Object.assign(new EventEmitter(), {
       query,
       release,
     });
-    const pool = { connect: jest.fn(async () => client) };
+    const pool = { connect: vi.fn(async () => client) };
 
-    jest.doMock("pg", () => ({
-      Pool: jest.fn(),
+    vi.doMock("pg", () => ({
+      Pool: vi.fn(),
     }));
-    jest.doMock("drizzle-orm/node-postgres", () => ({
+    vi.doMock("drizzle-orm/node-postgres", () => ({
       drizzle: (databaseClient: { query: () => Promise<unknown> }) => ({
         execute: () => databaseClient.query(),
       }),
@@ -178,23 +179,23 @@ describe("createServerDatabaseClient", () => {
 
   function buildPoolSpy() {
     const poolConnectionStrings: Array<string | undefined> = [];
-    const release = jest.fn();
+    const release = vi.fn();
     const client = Object.assign(new EventEmitter(), {
-      query: jest.fn(async () => ({ rows: [] })),
+      query: vi.fn(async () => ({ rows: [] })),
       release,
     });
 
-    jest.doMock("pg", () => ({
-      Pool: jest.fn((configuration: { connectionString?: string }) => {
+    vi.doMock("pg", () => ({
+      Pool: vi.fn(function (configuration: { connectionString?: string }) {
         poolConnectionStrings.push(configuration.connectionString);
 
         return {
-          connect: jest.fn(async () => client),
-          on: jest.fn(),
+          connect: vi.fn(async () => client),
+          on: vi.fn(),
         };
       }),
     }));
-    jest.doMock("drizzle-orm/node-postgres", () => ({
+    vi.doMock("drizzle-orm/node-postgres", () => ({
       drizzle: (databaseClient: { query: () => Promise<unknown> }) => ({
         execute: () => databaseClient.query(),
       }),

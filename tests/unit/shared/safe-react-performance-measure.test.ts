@@ -1,13 +1,14 @@
+import { vi, describe, it, expect, type Mock } from "vitest";
 import { installSafeReactPerformanceMeasure } from "@/src/modules/shared/infrastructure/browser/install-safe-react-performance-measure";
 
 type TestPerformance = {
-  measure: jest.Mock;
+  measure: Mock;
 };
 
 describe("installSafeReactPerformanceMeasure", () => {
   it("swallows React component performance marks with negative timestamps", () => {
     const targetPerformance: TestPerformance = {
-      measure: jest.fn(() => {
+      measure: vi.fn(() => {
         throw new TypeError(
           "Failed to execute 'measure' on 'Performance': '\u200bSignInPage' cannot have a negative time stamp."
         );
@@ -26,7 +27,7 @@ describe("installSafeReactPerformanceMeasure", () => {
 
   it("rethrows measure errors that are unrelated to the React devtools track", () => {
     const targetPerformance: TestPerformance = {
-      measure: jest.fn(() => {
+      measure: vi.fn(() => {
         throw new TypeError("Unexpected performance failure");
       }),
     };
@@ -42,7 +43,7 @@ describe("installSafeReactPerformanceMeasure", () => {
   });
 
   it("does not wrap measure more than once", () => {
-    const originalMeasure = jest.fn(() => "ok");
+    const originalMeasure = vi.fn(() => "ok");
     const targetPerformance: TestPerformance = {
       measure: originalMeasure,
     };

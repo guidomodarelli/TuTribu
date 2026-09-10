@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { PostgresTribeStoryRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-story-repository";
 import {
   TRIBE_STORY_MEDIA_TYPE,
@@ -37,7 +38,7 @@ function readQueryText(query: unknown): string {
 
 describe("PostgresTribeStoryRepository", () => {
   it("maps the story and its media through the about definer functions", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -104,7 +105,7 @@ describe("PostgresTribeStoryRepository", () => {
   });
 
   it("returns null when the tribe has no stored story", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({ rows: [] });
+    const execute = vi.fn().mockResolvedValueOnce({ rows: [] });
     const repository = new PostgresTribeStoryRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -118,7 +119,7 @@ describe("PostgresTribeStoryRepository", () => {
     const missingTableError = Object.assign(new Error("missing relation"), {
       code: "42P01",
     });
-    const execute = jest.fn().mockRejectedValueOnce(missingTableError);
+    const execute = vi.fn().mockRejectedValueOnce(missingTableError);
     const repository = new PostgresTribeStoryRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -129,7 +130,7 @@ describe("PostgresTribeStoryRepository", () => {
   });
 
   it("maps the tribe stats through the stats definer function", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           admin_count: "2",
@@ -167,7 +168,7 @@ describe("PostgresTribeStoryRepository", () => {
   });
 
   it("returns null stats when the viewer cannot read the tribe about", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({ rows: [] });
+    const execute = vi.fn().mockResolvedValueOnce({ rows: [] });
     const repository = new PostgresTribeStoryRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -178,7 +179,7 @@ describe("PostgresTribeStoryRepository", () => {
   });
 
   it("lists online members through the members-only definer function", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         { image: "https://images.example.com/ada.png", name: "Ada" },
         { image: null, name: "Grace Hopper" },
@@ -200,7 +201,7 @@ describe("PostgresTribeStoryRepository", () => {
   });
 
   it("lists public story slugs for the sitemap", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [{ slug: "matematica-pro" }, { slug: "tribu-libre" }],
     });
     const repository = new PostgresTribeStoryRepository(async (callback) =>
@@ -217,7 +218,7 @@ describe("PostgresTribeStoryRepository", () => {
   });
 
   it("guards the save behind the leader management function and maps saved media", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -287,7 +288,7 @@ describe("PostgresTribeStoryRepository", () => {
   });
 
   it("returns notFound when the tribe does not exist", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           content: null,
@@ -315,7 +316,7 @@ describe("PostgresTribeStoryRepository", () => {
   });
 
   it("returns forbidden when the viewer cannot manage the story", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           content: null,

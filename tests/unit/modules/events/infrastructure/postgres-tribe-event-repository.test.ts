@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, type Mock } from "vitest";
 import { PostgresTribeEventRepository } from "@/src/modules/events/infrastructure/repositories/postgres-tribe-event-repository";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
@@ -27,7 +28,7 @@ function getSqlText(statement: unknown): string {
     .join("");
 }
 
-function createRepository(execute: jest.Mock) {
+function createRepository(execute: Mock) {
   return new PostgresTribeEventRepository(async (callback) =>
     callback({ execute } as never)
   );
@@ -47,7 +48,7 @@ const eventRow = {
 
 describe("PostgresTribeEventRepository", () => {
   it("lists series intersecting the range with attendance summaries and viewer permissions", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [eventRow] })
       .mockResolvedValueOnce({
@@ -104,7 +105,7 @@ describe("PostgresTribeEventRepository", () => {
   });
 
   it("keeps viewer permissions and skips the attendance query when the range has no events", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           can_manage_events: true,
@@ -118,7 +119,7 @@ describe("PostgresTribeEventRepository", () => {
           title: null,
         },
       ],
-    }));
+    }); });
     const repository = createRepository(execute);
 
     await expect(
@@ -136,7 +137,7 @@ describe("PostgresTribeEventRepository", () => {
   });
 
   it("finds a single event readable by the viewer", async () => {
-    const execute = jest.fn(async () => ({ rows: [eventRow] }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [eventRow] }); });
     const repository = createRepository(execute);
 
     await expect(
@@ -154,9 +155,9 @@ describe("PostgresTribeEventRepository", () => {
   });
 
   it("creates events guarded by leader or guardian membership", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ ...eventRow, can_manage_events: undefined, status: "created" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ ...eventRow, can_manage_events: undefined, status: "created" as const }],
+    }); });
     const repository = createRepository(execute);
 
     await expect(
@@ -172,7 +173,7 @@ describe("PostgresTribeEventRepository", () => {
       })
     ).resolves.toMatchObject({
       event: { id: EVENT_ID, recurrenceFrequency: "weekly", title: "Clase abierta" },
-      status: "created",
+      status: "created" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -183,7 +184,7 @@ describe("PostgresTribeEventRepository", () => {
   });
 
   it("maps update failures to not found or forbidden", async () => {
-    const execute = jest.fn(async () => ({ rows: [{ status: "not_found" }] }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [{ status: "not_found" as const }] }); });
     const repository = createRepository(execute);
 
     await expect(
@@ -198,31 +199,31 @@ describe("PostgresTribeEventRepository", () => {
         title: "Clase abierta",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "not_found" });
+    ).resolves.toEqual({ status: "not_found" as const });
 
     execute.mockResolvedValueOnce({ rows: [] });
 
     await expect(
       repository.delete({ eventId: EVENT_ID, tribeSlug: "matematica-pro" })
-    ).resolves.toEqual({ status: "forbidden" });
+    ).resolves.toEqual({ status: "forbidden" as const });
   });
 
   it("upserts the viewer attendance and adds the own vote to the going count", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ other_going_count: "2", status: "attendance_saved" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ other_going_count: "2", status: "attendance_saved" as const }],
+    }); });
     const repository = createRepository(execute);
 
     await expect(
       repository.setAttendance({
         eventId: EVENT_ID,
         occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-        status: "going",
+        status: "going" as const,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
       attendance: { goingCount: 3, viewerStatus: "going" },
-      status: "attendance_saved",
+      status: "attendance_saved" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -232,26 +233,26 @@ describe("PostgresTribeEventRepository", () => {
     expect(sqlText).toContain("public.is_active_tribe_member(target_event.tribe_id)");
 
     execute.mockResolvedValueOnce({
-      rows: [{ other_going_count: 2, status: "attendance_saved" }],
+      rows: [{ other_going_count: 2, status: "attendance_saved" as const }],
     });
 
     await expect(
       repository.setAttendance({
         eventId: EVENT_ID,
         occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-        status: "not_going",
+        status: "not_going" as const,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
       attendance: { goingCount: 2, viewerStatus: "not_going" },
-      status: "attendance_saved",
+      status: "attendance_saved" as const,
     });
   });
 
   it("clears the viewer attendance and reports forbidden for inactive members", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ other_going_count: 1, status: "attendance_cleared" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ other_going_count: 1, status: "attendance_cleared" as const }],
+    }); });
     const repository = createRepository(execute);
 
     await expect(
@@ -262,14 +263,14 @@ describe("PostgresTribeEventRepository", () => {
       })
     ).resolves.toEqual({
       attendance: { goingCount: 1, viewerStatus: null },
-      status: "attendance_cleared",
+      status: "attendance_cleared" as const,
     });
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
       "delete from public.event_attendances"
     );
 
     execute.mockResolvedValueOnce({
-      rows: [{ other_going_count: 1, status: "forbidden" }],
+      rows: [{ other_going_count: 1, status: "forbidden" as const }],
     });
 
     await expect(
@@ -278,6 +279,6 @@ describe("PostgresTribeEventRepository", () => {
         occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "forbidden" });
+    ).resolves.toEqual({ status: "forbidden" as const });
   });
 });

@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import type { TribeEventSchedule } from "@/src/modules/events/domain/entities/tribe-event";
 import {
   buildTribeEventRecurrenceRule,

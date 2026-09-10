@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "beez-ui";
@@ -6,18 +7,18 @@ import { TribeWelcomeSelectionModal } from "@/components/tribes/tribe-welcome-se
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
+    error: vi.fn(),
   },
 }));
 
-const fetchMock = jest.fn();
+const fetchMock = vi.fn();
 
 function buildLinks() {
   return [
-    {
+    { description: null,
       badgeLabel: "Soporte",
       id: "11111111-1111-4111-8111-111111111111",
       isActive: true,
@@ -33,10 +34,10 @@ function buildLinks() {
 
 describe("TribeWelcomeSelectionModal", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.fetch = fetchMock;
     fetchMock.mockResolvedValue({
-      json: jest.fn(async () => ({})),
+      json: vi.fn(async () => ({})),
       ok: true,
     });
   });
@@ -45,13 +46,13 @@ describe("TribeWelcomeSelectionModal", () => {
     const user = userEvent.setup();
     let resolveSelectionRequest!: (response: unknown) => void;
     const openedWindow = {
-      close: jest.fn(),
+      close: vi.fn(),
       location: {
         href: "about:blank",
       },
       opener: window,
     };
-    const openMock = jest.fn(() => openedWindow);
+    const openMock = vi.fn(() => openedWindow);
 
     Object.defineProperty(window, "open", {
       configurable: true,
@@ -64,7 +65,7 @@ describe("TribeWelcomeSelectionModal", () => {
     );
 
     render(
-      <TribeWelcomeSelectionModal
+      <TribeWelcomeSelectionModal title="Bienvenida" description=""
         links={buildLinks()}
         open
         tribeSlug="matematica-pro"
@@ -82,7 +83,7 @@ describe("TribeWelcomeSelectionModal", () => {
     );
 
     resolveSelectionRequest({
-      json: jest.fn(async () => ({})),
+      json: vi.fn(async () => ({})),
       ok: true,
     });
 
@@ -95,13 +96,13 @@ describe("TribeWelcomeSelectionModal", () => {
   it("disables options while a selection request is pending", async () => {
     const user = userEvent.setup();
     const openedWindow = {
-      close: jest.fn(),
+      close: vi.fn(),
       location: {
         href: "about:blank",
       },
       opener: window,
     };
-    const openMock = jest.fn(() => openedWindow);
+    const openMock = vi.fn(() => openedWindow);
 
     Object.defineProperty(window, "open", {
       configurable: true,
@@ -110,7 +111,7 @@ describe("TribeWelcomeSelectionModal", () => {
     fetchMock.mockReturnValue(new Promise(() => undefined));
 
     render(
-      <TribeWelcomeSelectionModal
+      <TribeWelcomeSelectionModal title="Bienvenida" description=""
         links={buildLinks()}
         open
         tribeSlug="matematica-pro"
@@ -134,7 +135,7 @@ describe("TribeWelcomeSelectionModal", () => {
 
     render(
       <>
-        <TribeWelcomeSelectionModal
+        <TribeWelcomeSelectionModal title="Bienvenida" description=""
           links={buildLinks()}
           open
           tribeSlug="matematica-pro"

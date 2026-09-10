@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render as renderComponent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement, ReactNode } from "react";
@@ -6,15 +7,15 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
 
-const pushMock = jest.fn();
-const prefetchMock = jest.fn();
+const pushMock = vi.fn();
+const prefetchMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  usePathname: jest.fn(),
-  useRouter: jest.fn(),
+vi.mock("next/navigation", () => ({
+  usePathname: vi.fn(),
+  useRouter: vi.fn(),
 }));
 
-jest.mock("@/components/auth/avatar-session-menu-client", () => ({
+vi.mock("@/components/auth/avatar-session-menu-client", () => ({
   AvatarSessionMenuClient: () => <div>Cuenta</div>,
 }));
 
@@ -31,15 +32,15 @@ function SidebarTestProviders({ children }: { children: ReactNode }) {
 describe("AppSidebar", () => {
   beforeEach(() => {
 
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     pushMock.mockReset();
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
 
-    (useRouter as jest.Mock).mockReturnValue({
+    (useRouter as Mock).mockReturnValue({
       prefetch: prefetchMock,
       push: pushMock,
     });
-    (usePathname as jest.Mock).mockReturnValue("/");
+    (usePathname as Mock).mockReturnValue("/");
   });
 
   it("renders the discovery navigation item with a compass icon", () => {
@@ -72,13 +73,13 @@ describe("AppSidebar", () => {
   });
 
   it("replaces the product brand with the active tribe identity inside a tribe", () => {
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
         authenticatedMember={null}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
@@ -96,13 +97,13 @@ describe("AppSidebar", () => {
   });
 
   it("uses the active tribe brand button as the tribe switcher trigger", () => {
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
         authenticatedMember={null}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
@@ -133,13 +134,13 @@ describe("AppSidebar", () => {
 
   it("opens tribe switcher actions when the active tribe brand is clicked", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro/eventos");
+    (usePathname as Mock).mockReturnValue("/matematica-pro/eventos");
 
     render(
       <AppSidebar
         authenticatedMember={null}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
@@ -159,12 +160,12 @@ describe("AppSidebar", () => {
       <AppSidebar
         authenticatedMember={null}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-1",
             name: "Alpha Club",
             slug: "alpha-club",
           },
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-2",
             name: "Beta Club",
             slug: "beta-club",
@@ -241,12 +242,12 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-1",
             name: "Alpha Club",
             slug: "alpha-club",
           },
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-2",
             name: "Beta Club",
             slug: "beta-club",
@@ -293,7 +294,7 @@ describe("AppSidebar", () => {
   });
 
   it("renders tribe sections when the member is inside one of their tribes", () => {
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
 
     const { container } = render(
       <AppSidebar
@@ -306,7 +307,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
@@ -332,7 +333,7 @@ describe("AppSidebar", () => {
   });
 
   it("uses round and channel icons for tribe navigation", () => {
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
@@ -345,7 +346,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "leader",
@@ -373,7 +374,7 @@ describe("AppSidebar", () => {
   });
 
   it("shows a coming soon badge only on Méritos", () => {
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
@@ -386,7 +387,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "tribemate",
@@ -414,7 +415,7 @@ describe("AppSidebar", () => {
   });
 
   it("does not prefetch tribe section routes before navigation intent", () => {
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
@@ -427,7 +428,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "leader",
@@ -441,7 +442,7 @@ describe("AppSidebar", () => {
   });
 
   it("groups admin sections under a separate 'Gestión' label for leaders and guardians", () => {
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
 
     const { rerender } = render(
       <AppSidebar
@@ -454,7 +455,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "leader",
@@ -477,7 +478,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "guardian",
@@ -500,7 +501,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "tribemate",
@@ -514,7 +515,7 @@ describe("AppSidebar", () => {
   });
 
   it("shows admin sections to tribe leaders and guardians below the round", () => {
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
 
     const { rerender } = render(
       <AppSidebar
@@ -527,7 +528,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "leader",
@@ -569,7 +570,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "guardian",
@@ -593,7 +594,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "tribemate",
@@ -608,7 +609,7 @@ describe("AppSidebar", () => {
   });
 
   it("hides the global tribes section inside an active tribe", () => {
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
@@ -621,7 +622,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
@@ -644,7 +645,7 @@ describe("AppSidebar", () => {
 
   it("marks the active tribe section and navigates to real section routes", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro/eventos");
+    (usePathname as Mock).mockReturnValue("/matematica-pro/eventos");
 
     render(
       <AppSidebar
@@ -657,7 +658,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
@@ -677,7 +678,7 @@ describe("AppSidebar", () => {
   });
 
   it("shows the welcome section for every member role inside a tribe", () => {
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro/bienvenida");
+    (usePathname as Mock).mockReturnValue("/matematica-pro/bienvenida");
 
     render(
       <AppSidebar
@@ -690,7 +691,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             role: "tribemate",
@@ -710,7 +711,7 @@ describe("AppSidebar", () => {
     const user = userEvent.setup();
 
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro/eventos");
+    (usePathname as Mock).mockReturnValue("/matematica-pro/eventos");
 
     render(
       <AppSidebar
@@ -723,7 +724,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
@@ -744,18 +745,18 @@ describe("AppSidebar", () => {
     const user = userEvent.setup();
 
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
-    (usePathname as jest.Mock).mockReturnValue("/matematica-pro");
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
 
     render(
       <AppSidebar
         authenticatedMember={null}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",
           },
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-2",
             name: "Beta Club",
             slug: "beta-club",
@@ -774,7 +775,7 @@ describe("AppSidebar", () => {
   });
 
   it("does not render tribe sections outside an active member tribe", () => {
-    (usePathname as jest.Mock).mockReturnValue("/");
+    (usePathname as Mock).mockReturnValue("/");
 
     render(
       <AppSidebar
@@ -787,7 +788,7 @@ describe("AppSidebar", () => {
           image: null,
         }}
         memberTribes={[
-          {
+          { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
             tribeId: "tribe-1",
             name: "Matematica Pro",
             slug: "matematica-pro",

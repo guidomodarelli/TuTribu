@@ -1,19 +1,20 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { usePathname, useRouter } from "next/navigation";
 
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 
-const pushMock = jest.fn();
+const pushMock = vi.fn();
 
 const memberTribes = [
-  {
+  { logoUrl: null, membershipStatus: "active" as const,
     tribeId: "tribe-1",
     name: "Alpha Club",
     role: "tribemate" as const,
     slug: "alpha-club",
   },
-  {
+  { logoUrl: null, membershipStatus: "active" as const,
     tribeId: "tribe-2",
     name: "Beta Club",
     role: "leader" as const,
@@ -21,20 +22,20 @@ const memberTribes = [
   },
 ];
 
-jest.mock("next/navigation", () => ({
-  usePathname: jest.fn(),
-  useRouter: jest.fn(),
+vi.mock("next/navigation", () => ({
+  usePathname: vi.fn(),
+  useRouter: vi.fn(),
 }));
 
 describe("TribeSwitcher", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     pushMock.mockReset();
 
-    (useRouter as jest.Mock).mockReturnValue({
+    (useRouter as Mock).mockReturnValue({
       push: pushMock,
     });
-    (usePathname as jest.Mock).mockReturnValue("/");
+    (usePathname as Mock).mockReturnValue("/");
   });
 
   it("does not render the tribes trigger on the home route", () => {
@@ -46,7 +47,7 @@ describe("TribeSwitcher", () => {
   });
 
   it("keeps the tribe dropdown trigger unnamed on a tribe route", () => {
-    (usePathname as jest.Mock).mockReturnValue("/beta-club");
+    (usePathname as Mock).mockReturnValue("/beta-club");
 
     render(<TribeSwitcher memberTribes={memberTribes} />);
 
@@ -67,7 +68,7 @@ describe("TribeSwitcher", () => {
 
   it("shows actions and member tribes without search when opened", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/beta-club");
+    (usePathname as Mock).mockReturnValue("/beta-club");
 
     render(<TribeSwitcher memberTribes={memberTribes} />);
 
@@ -85,7 +86,7 @@ describe("TribeSwitcher", () => {
 
   it("navigates to create, discovery, and selected tribe routes", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/beta-club");
+    (usePathname as Mock).mockReturnValue("/beta-club");
 
     render(<TribeSwitcher memberTribes={memberTribes} />);
 
@@ -104,7 +105,7 @@ describe("TribeSwitcher", () => {
 
   it("marks only the current tribe as active when the route matches", async () => {
     const user = userEvent.setup();
-    (usePathname as jest.Mock).mockReturnValue("/beta-club");
+    (usePathname as Mock).mockReturnValue("/beta-club");
 
     render(<TribeSwitcher memberTribes={memberTribes} />);
 

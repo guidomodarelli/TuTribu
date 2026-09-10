@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import {
   GET,
   POST,
@@ -8,22 +9,22 @@ import {
 } from "@/app/api/tribes/[slug]/invitations/[invitationId]/route";
 import { createRequestModules } from "@/src/modules/setup";
 
-const getAuthenticatedMember = jest.fn();
-const listTribeInvitations = jest.fn();
-const createTribeInvitation = jest.fn();
-const revokeTribeInvitation = jest.fn();
-const updateTribeInvitationReferralMetadata = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const listTribeInvitations = vi.fn();
+const createTribeInvitation = vi.fn();
+const revokeTribeInvitation = vi.fn();
+const updateTribeInvitationReferralMetadata = vi.fn();
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
+    createServerLogger: vi.fn(() => ({
+      error: vi.fn(),
+      info: vi.fn(),
     })),
   })
 );
@@ -99,7 +100,7 @@ describe("Tribe invitation routes", () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.env.BETTER_AUTH_URL = "https://canonical.tutribu.example.com";
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
@@ -110,7 +111,7 @@ describe("Tribe invitation routes", () => {
       name: "Grace Hopper",
       role: "tribemate",
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -155,7 +156,7 @@ describe("Tribe invitation routes", () => {
       invitation,
       invitationUrl:
         "https://canonical.tutribu.example.com/matematica-pro/invitar/token",
-      status: "created",
+      status: "created" as const,
     });
 
     const response = await POST(
@@ -182,7 +183,7 @@ describe("Tribe invitation routes", () => {
 
   it("returns a safe forbidden message when a member cannot create invitations", async () => {
     createTribeInvitation.mockResolvedValue({
-      status: "forbidden",
+      status: "forbidden" as const,
     });
 
     const response = await POST(
@@ -197,7 +198,7 @@ describe("Tribe invitation routes", () => {
   });
 
   it("returns invalid input when the subscription association is missing", async () => {
-    createTribeInvitation.mockResolvedValue({ status: "invalid" });
+    createTribeInvitation.mockResolvedValue({ status: "invalid" as const });
 
     const response = await POST(buildRequest({}), buildTribeContext());
 
@@ -209,7 +210,7 @@ describe("Tribe invitation routes", () => {
 
   it("returns a specific setup message when invitation storage is not migrated", async () => {
     createTribeInvitation.mockResolvedValue({
-      status: "setup_required",
+      status: "setup_required" as const,
     });
 
     const response = await POST(
@@ -226,7 +227,7 @@ describe("Tribe invitation routes", () => {
 
   it("revokes an active invitation", async () => {
     revokeTribeInvitation.mockResolvedValue({
-      status: "revoked",
+      status: "revoked" as const,
     });
 
     const response = await DELETE(buildRequest(), buildInvitationContext());
@@ -249,7 +250,7 @@ describe("Tribe invitation routes", () => {
         channel: "instagram",
         referrerHandle: "@partner",
       },
-      status: "updated",
+      status: "updated" as const,
     });
 
     const response = await PATCH(

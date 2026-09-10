@@ -1,6 +1,7 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { PickerProps } from "emoji-picker-react";
+import type { PickerProps, EmojiClickData } from "emoji-picker-react";
 
 import { TribeChannelManagement } from "@/components/tribe-round/tribe-channel-management";
 
@@ -48,8 +49,8 @@ function mockEmojiPicker({
       data-suggestions-mode={suggestedEmojisMode}
       data-theme={theme}
       type="button"
-      onClick={() => {
-        onEmojiClick({ emoji: "⭐" });
+      onClick={(event) => {
+        onEmojiClick?.({ emoji: "⭐" } as EmojiClickData, event.nativeEvent);
       }}
     >
       Elegir estrella
@@ -57,7 +58,7 @@ function mockEmojiPicker({
   );
 }
 
-jest.mock("emoji-picker-react", () => ({
+vi.mock("emoji-picker-react", () => ({
   __esModule: true,
   EmojiStyle: {
     APPLE: "apple",
@@ -81,11 +82,11 @@ jest.mock("emoji-picker-react", () => ({
 }));
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
@@ -124,8 +125,8 @@ function getCreateForm(): HTMLElement {
 
 describe("TribeChannelManagement", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    global.fetch = jest.fn();
+    vi.clearAllMocks();
+    global.fetch = vi.fn();
   });
 
   it("renders the page heading, the create form and one row per channel with its actions", () => {
@@ -219,7 +220,7 @@ describe("TribeChannelManagement", () => {
   });
 
   it("creates a channel only after selecting an emoji from the picker", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         channel: {
@@ -360,7 +361,7 @@ describe("TribeChannelManagement", () => {
   });
 
   it("updates a channel emoji selected from the picker", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         channel: {
@@ -409,7 +410,7 @@ describe("TribeChannelManagement", () => {
   });
 
   it("asks for confirmation and a destination before deleting a channel with messages", async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         message: "Canal eliminado.",
@@ -457,7 +458,7 @@ describe("TribeChannelManagement", () => {
   });
 
   it("deletes without a destination and never offers a deleted channel as target", async () => {
-    (global.fetch as jest.Mock)
+    (global.fetch as Mock)
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ message: "Canal eliminado." }),
@@ -486,7 +487,7 @@ describe("TribeChannelManagement", () => {
     await waitFor(() => {
       expect(screen.queryByDisplayValue("Ronda")).not.toBeInTheDocument();
     });
-    expect((global.fetch as jest.Mock).mock.calls[0][1].body).toBeUndefined();
+    expect((global.fetch as Mock).mock.calls[0][1].body).toBeUndefined();
 
     await user.click(
       within(getChannelItem("Recursos")).getByRole("button", {
@@ -509,6 +510,6 @@ describe("TribeChannelManagement", () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
     });
-    expect((global.fetch as jest.Mock).mock.calls[1][1].body).toBeUndefined();
+    expect((global.fetch as Mock).mock.calls[1][1].body).toBeUndefined();
   });
 });

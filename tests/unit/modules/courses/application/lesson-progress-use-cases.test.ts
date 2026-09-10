@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   recordLastViewedLesson,
   setLessonCompletion,
@@ -5,10 +6,10 @@ import {
 
 function buildRepository() {
   return {
-    recordLastViewedLesson: jest.fn(async () => ({
+    recordLastViewedLesson: vi.fn(async () => ({
       status: "recorded" as const,
     })),
-    setLessonCompletion: jest.fn(async () => ({
+    setLessonCompletion: vi.fn(async () => ({
       status: "completed" as const,
     })),
   };
@@ -25,7 +26,7 @@ describe("lesson progress use cases", () => {
       tribeSlug: " matematica-pro ",
     });
 
-    expect(result).toEqual({ status: "completed" });
+    expect(result).toEqual({ status: "completed" as const });
     expect(repository.setLessonCompletion).toHaveBeenCalledWith({
       completed: true,
       lessonId: "l1",
@@ -43,7 +44,7 @@ describe("lesson progress use cases", () => {
       tribeSlug: "matematica-pro",
     });
 
-    expect(result).toEqual({ status: "not_found" });
+    expect(result).toEqual({ status: "not_found" as const });
     expect(repository.setLessonCompletion).not.toHaveBeenCalled();
   });
 
@@ -57,7 +58,7 @@ describe("lesson progress use cases", () => {
       tribeSlug: " matematica-pro ",
     });
 
-    expect(result).toEqual({ status: "recorded" });
+    expect(result).toEqual({ status: "recorded" as const });
     expect(repository.recordLastViewedLesson).toHaveBeenCalledWith({
       courseId: "c1",
       lessonId: "l1",
@@ -75,7 +76,7 @@ describe("lesson progress use cases", () => {
       tribeSlug: "matematica-pro",
     });
 
-    expect(result).toEqual({ status: "not_found" });
+    expect(result).toEqual({ status: "not_found" as const });
     expect(repository.recordLastViewedLesson).not.toHaveBeenCalled();
   });
 });

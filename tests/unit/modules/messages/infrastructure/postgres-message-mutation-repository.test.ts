@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { PostgresMessageMutationRepository } from "@/src/modules/messages/infrastructure/repositories/postgres-message-mutation-repository";
 
 function getSqlText(statement: unknown): string {
@@ -41,7 +42,7 @@ function getSqlQuery(statement: unknown): { params: unknown[]; sql: string } {
 
 describe("PostgresMessageMutationRepository", () => {
   it("creates messages with a title and an active-member write guard", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           author_id: "member-1",
@@ -58,10 +59,10 @@ describe("PostgresMessageMutationRepository", () => {
           message_created_at: "2026-04-26T12:00:00.000Z",
           message_id: "message-1",
           message_title: "Anuncio inicial",
-          status: "created",
+          status: "created" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresMessageMutationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -111,7 +112,7 @@ describe("PostgresMessageMutationRepository", () => {
         },
         title: "Anuncio inicial",
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -129,7 +130,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("returns inserted poll options when creating a message with a poll", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -148,7 +149,7 @@ describe("PostgresMessageMutationRepository", () => {
             message_created_at: "2026-04-26T12:00:00.000Z",
             message_id: "message-1",
             message_title: "Encuesta",
-            status: "created",
+            status: "created" as const,
           },
         ],
       })
@@ -210,7 +211,7 @@ describe("PostgresMessageMutationRepository", () => {
           viewerHasVoted: false,
         },
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -235,7 +236,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("creates messages with attached external videos as media", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -255,7 +256,7 @@ describe("PostgresMessageMutationRepository", () => {
             message_id: "message-1",
             message_title: "Recurso",
             message_tribe_id: "tribe-1",
-            status: "created",
+            status: "created" as const,
           },
         ],
       })
@@ -299,7 +300,7 @@ describe("PostgresMessageMutationRepository", () => {
           },
         ],
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const insertQuery = getSqlQuery(execute.mock.calls[0]?.[0]);
@@ -319,7 +320,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("attaches prepared images when creating a message", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -339,7 +340,7 @@ describe("PostgresMessageMutationRepository", () => {
             message_id: "message-1",
             message_title: "Capturas",
             message_tribe_id: "tribe-1",
-            status: "created",
+            status: "created" as const,
           },
         ],
       })
@@ -383,7 +384,7 @@ describe("PostgresMessageMutationRepository", () => {
           },
         ],
       },
-      status: "created",
+      status: "created" as const,
     });
 
     expect(execute).toHaveBeenCalledTimes(3);
@@ -402,7 +403,7 @@ describe("PostgresMessageMutationRepository", () => {
 
   it("aborts message creation when prepared images cannot all be attached", async () => {
     let transactionWasAborted = false;
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -422,7 +423,7 @@ describe("PostgresMessageMutationRepository", () => {
             message_id: "message-1",
             message_title: "Capturas",
             message_tribe_id: "tribe-1",
-            status: "created",
+            status: "created" as const,
           },
         ],
       })
@@ -447,14 +448,14 @@ describe("PostgresMessageMutationRepository", () => {
         title: "Capturas",
       })
     ).resolves.toEqual({
-      status: "invalid_image",
+      status: "invalid_image" as const,
     });
 
     expect(transactionWasAborted).toBe(true);
   });
 
   it("toggles likes with an active-member write guard and idempotent upsert", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -495,7 +496,7 @@ describe("PostgresMessageMutationRepository", () => {
     ).resolves.toEqual({
       likedByViewer: true,
       likeCount: 3,
-      status: "liked",
+      status: "liked" as const,
     });
 
     const targetMessageSqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -515,7 +516,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("returns like failures without message state fields", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
@@ -538,7 +539,7 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "member-1",
       })
     ).resolves.toEqual({
-      status: "not_found",
+      status: "not_found" as const,
     });
     await expect(
       repository.toggle({
@@ -547,13 +548,13 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "member-1",
       })
     ).resolves.toEqual({
-      status: "forbidden",
+      status: "forbidden" as const,
     });
     expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("pins messages through a limit-guarded transaction", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -588,7 +589,7 @@ describe("PostgresMessageMutationRepository", () => {
     ).resolves.toEqual({
       isPinned: true,
       pinnedAt: "2026-04-26T13:00:00.000Z",
-      status: "pinned",
+      status: "pinned" as const,
     });
 
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
@@ -601,7 +602,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("returns pin failures without message state fields", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
@@ -625,7 +626,7 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "leader-1",
       })
     ).resolves.toEqual({
-      status: "not_found",
+      status: "not_found" as const,
     });
     await expect(
       repository.togglePin({
@@ -634,13 +635,13 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "leader-1",
       })
     ).resolves.toEqual({
-      status: "forbidden",
+      status: "forbidden" as const,
     });
     expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("blocks pinning when the tribe pin limit is reached", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -666,13 +667,13 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "leader-1",
       })
     ).resolves.toEqual({
-      status: "pin_limit_reached",
+      status: "pin_limit_reached" as const,
     });
     expect(execute).toHaveBeenCalledTimes(4);
   });
 
   it("returns the concurrent pin state when another request pinned the same message after locking", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -705,7 +706,7 @@ describe("PostgresMessageMutationRepository", () => {
     ).resolves.toEqual({
       isPinned: true,
       pinnedAt: "2026-04-26T13:00:00.000Z",
-      status: "pinned",
+      status: "pinned" as const,
     });
 
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
@@ -715,7 +716,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("unpins an already pinned message", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -741,7 +742,7 @@ describe("PostgresMessageMutationRepository", () => {
     ).resolves.toEqual({
       isPinned: false,
       pinnedAt: null,
-      status: "unpinned",
+      status: "unpinned" as const,
     });
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
       "delete from public.message_pins"
@@ -749,7 +750,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("serializes single-choice poll votes and returns compact poll results", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -804,7 +805,7 @@ describe("PostgresMessageMutationRepository", () => {
         totalVoteCount: 1,
         viewerHasVoted: true,
       },
-      status: "voted",
+      status: "voted" as const,
     });
 
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
@@ -826,7 +827,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("returns forbidden before validating options when the viewer cannot write poll votes", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           allow_multiple_votes: false,
@@ -848,7 +849,7 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "muted-member-1",
       })
     ).resolves.toEqual({
-      status: "forbidden",
+      status: "forbidden" as const,
     });
 
     expect(execute).toHaveBeenCalledTimes(1);
@@ -858,8 +859,8 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("deletes a full message through author or staff permissions", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
-      rows: [{ status: "deleted" }],
+    const execute = vi.fn().mockResolvedValueOnce({
+      rows: [{ status: "deleted" as const }],
     });
     const repository = new PostgresMessageMutationRepository(async (callback) =>
       callback({ execute } as never)
@@ -871,7 +872,7 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         userId: "author-1",
       })
-    ).resolves.toEqual({ status: "deleted" });
+    ).resolves.toEqual({ status: "deleted" as const });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
@@ -883,10 +884,10 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("maps missing and unauthorized message deletion outcomes", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
-      .mockResolvedValueOnce({ rows: [{ status: "not_found" }] })
-      .mockResolvedValueOnce({ rows: [{ status: "forbidden" }] });
+      .mockResolvedValueOnce({ rows: [{ status: "not_found" as const }] })
+      .mockResolvedValueOnce({ rows: [{ status: "forbidden" as const }] });
     const repository = new PostgresMessageMutationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -897,18 +898,18 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         userId: "member-1",
       })
-    ).resolves.toEqual({ status: "not_found" });
+    ).resolves.toEqual({ status: "not_found" as const });
     await expect(
       repository.delete({
         messageId: "message-1",
         tribeSlug: "matematica-pro",
         userId: "member-2",
       })
-    ).resolves.toEqual({ status: "forbidden" });
+    ).resolves.toEqual({ status: "forbidden" as const });
   });
 
   it("serializes multiple-choice poll votes before replacing the viewer selections", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -962,7 +963,7 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "member-1",
       })
     ).resolves.toMatchObject({
-      status: "voted",
+      status: "voted" as const,
     });
 
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
@@ -984,7 +985,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("creates replies with the returned reply view model", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           reply_author_id: "member-1",
@@ -994,10 +995,10 @@ describe("PostgresMessageMutationRepository", () => {
           reply_content: "Excelente clase",
           reply_created_at: "2026-04-26T12:05:00.000Z",
           reply_id: "reply-1",
-          status: "created",
+          status: "created" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresMessageMutationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -1022,7 +1023,7 @@ describe("PostgresMessageMutationRepository", () => {
         content: "Excelente clase",
         createdAt: "2026-04-26T12:05:00.000Z",
       },
-      status: "created",
+      status: "created" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -1033,14 +1034,14 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("updates the message created_at through the leader-guarded statement", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           message_created_at: "2026-04-01T10:00:00.000Z",
-          status: "updated",
+          status: "updated" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresMessageMutationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -1054,7 +1055,7 @@ describe("PostgresMessageMutationRepository", () => {
       })
     ).resolves.toEqual({
       createdAt: "2026-04-01T10:00:00.000Z",
-      status: "updated",
+      status: "updated" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -1066,14 +1067,14 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("returns not_found when the message does not exist", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           message_created_at: null,
-          status: "not_found",
+          status: "not_found" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresMessageMutationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -1085,18 +1086,18 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         userId: "leader-1",
       })
-    ).resolves.toEqual({ status: "not_found" });
+    ).resolves.toEqual({ status: "not_found" as const });
   });
 
   it("returns forbidden when the viewer cannot edit the message created_at", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           message_created_at: null,
-          status: "forbidden",
+          status: "forbidden" as const,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresMessageMutationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -1108,11 +1109,11 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         userId: "tribemate-1",
       })
-    ).resolves.toEqual({ status: "forbidden" });
+    ).resolves.toEqual({ status: "forbidden" as const });
   });
 
   it("updates the message title and content through the author-guarded statement", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1144,7 +1145,7 @@ describe("PostgresMessageMutationRepository", () => {
     ).resolves.toEqual({
       content: "Mensaje editado",
       messageId: "message-1",
-      status: "updated",
+      status: "updated" as const,
       title: "Titulo editado",
     });
 
@@ -1165,7 +1166,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("returns forbidden when RLS blocks the message content update", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1194,11 +1195,11 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         userId: "author-1",
       })
-    ).resolves.toEqual({ status: "forbidden" });
+    ).resolves.toEqual({ status: "forbidden" as const });
   });
 
   it("replaces the poll options when the poll has no votes yet", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1258,7 +1259,7 @@ describe("PostgresMessageMutationRepository", () => {
         totalVoteCount: 0,
         viewerHasVoted: false,
       },
-      status: "updated",
+      status: "updated" as const,
       title: "Titulo editado",
     });
 
@@ -1284,7 +1285,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("returns poll_has_votes when a vote arrives before poll option replacement", async () => {
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1318,7 +1319,7 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         userId: "author-1",
       })
-    ).resolves.toEqual({ status: "poll_has_votes" });
+    ).resolves.toEqual({ status: "poll_has_votes" as const });
 
     expect(execute).toHaveBeenCalledTimes(3);
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
@@ -1330,7 +1331,7 @@ describe("PostgresMessageMutationRepository", () => {
   });
 
   it("returns poll_has_votes when the poll already received votes", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           can_edit: true,
@@ -1360,13 +1361,13 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         userId: "author-1",
       })
-    ).resolves.toEqual({ status: "poll_has_votes" });
+    ).resolves.toEqual({ status: "poll_has_votes" as const });
 
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it("returns poll_missing when there is no poll attached to edit", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           can_edit: true,
@@ -1396,12 +1397,12 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         userId: "author-1",
       })
-    ).resolves.toEqual({ status: "poll_missing" });
+    ).resolves.toEqual({ status: "poll_missing" as const });
   });
 
   it("aborts message updates when prepared images cannot all be attached", async () => {
     let transactionWasAborted = false;
-    const execute = jest
+    const execute = vi
       .fn()
       .mockResolvedValueOnce({
         rows: [
@@ -1439,14 +1440,14 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "member-1",
       })
     ).resolves.toEqual({
-      status: "invalid_image",
+      status: "invalid_image" as const,
     });
 
     expect(transactionWasAborted).toBe(true);
   });
 
   it("returns not_found when the message to edit does not exist", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({ rows: [] });
+    const execute = vi.fn().mockResolvedValueOnce({ rows: [] });
     const repository = new PostgresMessageMutationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -1459,11 +1460,11 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         userId: "author-1",
       })
-    ).resolves.toEqual({ status: "not_found" });
+    ).resolves.toEqual({ status: "not_found" as const });
   });
 
   it("returns forbidden when the viewer is not the author of the message", async () => {
-    const execute = jest.fn().mockResolvedValueOnce({
+    const execute = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           can_edit: false,
@@ -1489,6 +1490,6 @@ describe("PostgresMessageMutationRepository", () => {
         tribeSlug: "matematica-pro",
         userId: "other-member",
       })
-    ).resolves.toEqual({ status: "forbidden" });
+    ).resolves.toEqual({ status: "forbidden" as const });
   });
 });

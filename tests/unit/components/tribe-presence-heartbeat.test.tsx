@@ -1,22 +1,23 @@
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { act, render } from "@testing-library/react";
 
 import { TribePresenceHeartbeat } from "@/components/tribes/tribe-presence-heartbeat";
 
-const useParamsMock = jest.fn();
+const useParamsMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
+vi.mock("next/navigation", () => ({
   useParams: () => useParamsMock(),
 }));
 
 describe("TribePresenceHeartbeat", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.useFakeTimers();
-    global.fetch = jest.fn().mockResolvedValue({ ok: true });
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    global.fetch = vi.fn().mockResolvedValue({ ok: true });
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("touches the presence endpoint of the route slug on mount and every minute", () => {
@@ -31,7 +32,7 @@ describe("TribePresenceHeartbeat", () => {
     );
 
     act(() => {
-      jest.advanceTimersByTime(60000);
+      vi.advanceTimersByTime(60000);
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
@@ -43,7 +44,7 @@ describe("TribePresenceHeartbeat", () => {
     render(<TribePresenceHeartbeat />);
 
     act(() => {
-      jest.advanceTimersByTime(60000);
+      vi.advanceTimersByTime(60000);
     });
 
     expect(global.fetch).not.toHaveBeenCalled();
@@ -56,7 +57,7 @@ describe("TribePresenceHeartbeat", () => {
 
     unmount();
     act(() => {
-      jest.advanceTimersByTime(120000);
+      vi.advanceTimersByTime(120000);
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);

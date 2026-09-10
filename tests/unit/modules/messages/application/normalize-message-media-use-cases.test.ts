@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { normalizeMessageMediaDrafts } from "@/src/modules/messages/application/use-cases/normalize-message-media-use-cases";
 import { MESSAGE_MEDIA } from "@/src/modules/messages/constants/message-round";
 
@@ -10,12 +11,12 @@ describe("normalizeMessageMediaDrafts", () => {
   it("returns empty media for an empty or missing list", () => {
     expect(normalizeMessageMediaDrafts(undefined)).toEqual({
       images: [],
-      status: "valid",
+      status: "valid" as const,
       videos: [],
     });
     expect(normalizeMessageMediaDrafts([])).toEqual({
       images: [],
-      status: "valid",
+      status: "valid" as const,
       videos: [],
     });
   });
@@ -33,7 +34,7 @@ describe("normalizeMessageMediaDrafts", () => {
         { altText: "", assetId: firstImageAssetId, sortOrder: 0 },
         { altText: "", assetId: secondImageAssetId, sortOrder: 2 },
       ],
-      status: "valid",
+      status: "valid" as const,
       videos: [
         { externalId: "dQw4w9WgXcQ", provider: "youtube", sortOrder: 1 },
         { externalId: "123456789", provider: "vimeo", sortOrder: 3 },
@@ -48,7 +49,7 @@ describe("normalizeMessageMediaDrafts", () => {
 
     expect(result).toEqual({
       images: [{ altText: "Una captura", assetId: firstImageAssetId, sortOrder: 0 }],
-      status: "valid",
+      status: "valid" as const,
       videos: [],
     });
   });
@@ -59,7 +60,7 @@ describe("normalizeMessageMediaDrafts", () => {
       url: youtubeUrl,
     }));
 
-    expect(normalizeMessageMediaDrafts(media)).toEqual({ status: "invalid_media" });
+    expect(normalizeMessageMediaDrafts(media)).toEqual({ status: "invalid_media" as const });
   });
 
   it("accepts exactly the combined media limit", () => {
@@ -68,7 +69,7 @@ describe("normalizeMessageMediaDrafts", () => {
       url: youtubeUrl,
     }));
 
-    expect(normalizeMessageMediaDrafts(media)).toMatchObject({ status: "valid" });
+    expect(normalizeMessageMediaDrafts(media)).toMatchObject({ status: "valid" as const });
   });
 
   it("rejects duplicated image asset ids", () => {
@@ -77,18 +78,18 @@ describe("normalizeMessageMediaDrafts", () => {
       { assetId: ` ${firstImageAssetId} `, kind: "image" },
     ]);
 
-    expect(result).toEqual({ status: "invalid_image" });
+    expect(result).toEqual({ status: "invalid_image" as const });
   });
 
   it("rejects non UUID image asset ids", () => {
     expect(
       normalizeMessageMediaDrafts([{ assetId: "asset-1", kind: "image" }])
-    ).toEqual({ status: "invalid_image" });
+    ).toEqual({ status: "invalid_image" as const });
   });
 
   it("rejects an unrecognized video url", () => {
     expect(
       normalizeMessageMediaDrafts([{ kind: "video", url: "not-a-video-url" }])
-    ).toEqual({ status: "invalid_video_url" });
+    ).toEqual({ status: "invalid_video_url" as const });
   });
 });

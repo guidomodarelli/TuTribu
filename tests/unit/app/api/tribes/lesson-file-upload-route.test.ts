@@ -1,20 +1,21 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { POST } from "@/app/api/tribes/[slug]/courses/lessons/files/uploads/route";
 import { COURSE_MUTATION_STATUS } from "@/src/modules/courses/constants/courses";
 import { createRequestModules } from "@/src/modules/setup";
 
-const getAuthenticatedMember = jest.fn();
-const createLessonFileUpload = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const createLessonFileUpload = vi.fn();
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
+    createServerLogger: vi.fn(() => ({
+      error: vi.fn(),
+      info: vi.fn(),
     })),
   })
 );
@@ -59,7 +60,7 @@ const VALID_DECLARATION = {
 
 describe("Lesson file upload reservation route", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -69,7 +70,7 @@ describe("Lesson file upload reservation route", () => {
       name: "Grace Hopper",
       role: "tribemate",
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: { useCases: { getAuthenticatedMember } },
       courses: { useCases: { createLessonFileUpload } },
     });

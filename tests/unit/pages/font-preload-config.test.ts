@@ -1,22 +1,20 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const googleFontLoaderImport = jest.fn(() => {
+const googleFontLoaderImport = vi.fn(() => {
   throw new Error("Google font loader should not run during page module import.");
 });
 
-jest.mock("next/font/google", () => ({
+vi.mock("next/font/google", () => ({
   Geist: googleFontLoaderImport,
   IBM_Plex_Mono: googleFontLoaderImport,
   Poppins: googleFontLoaderImport,
 }));
 
-// next/font loaders only run through the Next build-time SWC plugin; in Jest
-// they cannot execute. next/jest auto-maps next/font to its own mock, but in
-// this Next version that mock leaves the `next/font/local` default export
-// non-callable, so importing the self-hosted font module throws. Provide a
-// minimal callable stub, mirroring the existing google loader mock above.
-jest.mock("next/font/local", () => ({
+// next/font requires Next build-time transformation, unavailable in Vitest.
+// Preserve the explicit font metadata adapter used by these rendering tests.
+vi.mock("next/font/local", () => ({
   __esModule: true,
   default: () => ({
     className: "font-local-mock",
@@ -33,10 +31,12 @@ const SELF_HOSTED_FONT_FILES = [
   "ibm-plex-mono-latin-500.woff2",
 ];
 const globalStyles = readFileSync(join(process.cwd(), "app", "globals.css"), "utf8");
+/** Allows the real root layout's full dependency graph to load from a cold Vite cache. */
+const MODULE_IMPORT_TIMEOUT_MS = 120_000;
 
 describe("font preload config", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("keeps root and error page modules independent from Google font fetching", async () => {
@@ -44,7 +44,7 @@ describe("font preload config", () => {
     await import("@/app/global-error");
 
     expect(googleFontLoaderImport).not.toHaveBeenCalled();
-  });
+  }, MODULE_IMPORT_TIMEOUT_MS);
 
   it("bundles the self-hosted fonts consumed by the typography tokens", () => {
     for (const fontFile of SELF_HOSTED_FONT_FILES) {

@@ -34,13 +34,11 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   // Type-check the same product scope as `pnpm run typecheck`. Since 16.3 the
   // build checks every file `tsconfig.json` includes, which would pull in the
-  // Jest suites that run through SWC and are not part of the type-check gate.
+  // Vitest suites that run through Vite and are not part of the type-check gate.
   typescript: {
     tsconfigPath: "tsconfig.typecheck.json",
   },
-  // files-sdk ships ESM-only conditional exports; transpiling it lets
-  // next/jest derive a transformIgnorePatterns exception so Jest's CJS
-  // runtime can load the R2 storage adapter without mocking it.
+  // Keep the shared UI and storage package compatible with the Next build.
   transpilePackages: ["files-sdk", "beez-ui"],
   experimental: {
     optimizePackageImports: ["beez-ui"],

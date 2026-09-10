@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   fetchWithResilience,
   readJsonWithTimeout,
@@ -69,7 +70,7 @@ describe("fetchWithResilience", () => {
   it.each(retryableServerErrorCases)(
     "retries once for retryable $statusCode: $explanation",
     async ({ statusCode }) => {
-      const fetcher: HttpFetcher = jest
+      const fetcher: HttpFetcher = vi
         .fn()
         .mockResolvedValueOnce({ ok: false, status: statusCode, json: async () => ({}) })
         .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
@@ -89,7 +90,7 @@ describe("fetchWithResilience", () => {
   it.each(nonRetryableClientErrorCases)(
     "does not retry for non-retryable $statusCode: $explanation",
     async ({ statusCode }) => {
-      const fetcher: HttpFetcher = jest
+      const fetcher: HttpFetcher = vi
         .fn()
         .mockResolvedValue({ ok: false, status: statusCode, json: async () => ({}) });
 
@@ -107,7 +108,7 @@ describe("fetchWithResilience", () => {
   );
 
   it("throws timeout error when request exceeds timeout", async () => {
-    const fetcher: HttpFetcher = jest.fn((_, init) => {
+    const fetcher: HttpFetcher = vi.fn<HttpFetcher>((_, init) => {
       return new Promise((_, reject) => {
         init?.signal?.addEventListener("abort", () => {
           reject(new DOMException("Aborted", "AbortError"));
@@ -126,11 +127,11 @@ describe("fetchWithResilience", () => {
   });
 
   it("reports retry, timeout, and failure lifecycle events", async () => {
-    const lifecycleLogger: FetchLifecycleLogger = jest.fn();
-    const fetcher: HttpFetcher = jest
+    const lifecycleLogger: FetchLifecycleLogger = vi.fn();
+    const fetcher: HttpFetcher = vi
       .fn()
       .mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({}) })
-      .mockImplementationOnce((_, init) => {
+      .mockImplementationOnce(function (_, init) {
         return new Promise((_, reject) => {
           init?.signal?.addEventListener("abort", () => {
             reject(new DOMException("Aborted", "AbortError"));
@@ -175,9 +176,9 @@ describe("fetchWithResilience", () => {
   });
 
   it("distinguishes caller aborts from timeout aborts", async () => {
-    const lifecycleLogger: FetchLifecycleLogger = jest.fn();
+    const lifecycleLogger: FetchLifecycleLogger = vi.fn();
     const controller = new AbortController();
-    const fetcher: HttpFetcher = jest.fn((_, init) => {
+    const fetcher: HttpFetcher = vi.fn<HttpFetcher>((_, init) => {
       return new Promise((_, reject) => {
         init?.signal?.addEventListener("abort", () => {
           reject(new DOMException("Aborted", "AbortError"));
@@ -227,7 +228,7 @@ describe("readJsonWithTimeout", () => {
   });
 
   it("rejects when the body stream stalls past the timeout so the caller can fall back", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     try {
       // Headers arrived but the body never streams: `json()` never settles.
       const response: HttpResponse = {
@@ -239,11 +240,11 @@ describe("readJsonWithTimeout", () => {
       const readPromise = readJsonWithTimeout(response, BODY_READ_TIMEOUT_MS);
       const assertion = expect(readPromise).rejects.toThrow("Response body read timed out");
 
-      await jest.advanceTimersByTimeAsync(BODY_READ_TIMEOUT_MS);
+      await vi.advanceTimersByTimeAsync(BODY_READ_TIMEOUT_MS);
 
       await assertion;
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 });

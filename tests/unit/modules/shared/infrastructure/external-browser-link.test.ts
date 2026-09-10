@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { buildExternalBrowserUrl } from "@/src/modules/shared/infrastructure/http/external-browser-link";
 
 describe("buildExternalBrowserUrl", () => {

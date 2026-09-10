@@ -1,20 +1,21 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 describe("Better Auth API route", () => {
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
   });
 
   it("wires the Better Auth handler once and re-exports GET and POST", async () => {
-    const mockToNextJsHandler = jest.fn();
-    const getMock = jest.fn();
-    const messageMock = jest.fn();
+    const mockToNextJsHandler = vi.fn();
+    const getMock = vi.fn();
+    const messageMock = vi.fn();
 
-    jest.doMock("@/src/modules/auth/infrastructure/better-auth/auth", () => ({
+    vi.doMock("@/src/modules/auth/infrastructure/better-auth/auth", () => ({
       auth: {
         handler: {},
       },
     }));
 
-    jest.doMock("better-auth/next-js", () => ({
+    vi.doMock("better-auth/next-js", () => ({
       toNextJsHandler: (...args: unknown[]) => mockToNextJsHandler(...args),
     }));
 

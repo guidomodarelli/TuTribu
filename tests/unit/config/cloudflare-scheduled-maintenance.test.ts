@@ -1,5 +1,6 @@
-/** @jest-environment node */
+/** @vitest-environment node */
 
+import { vi, describe, it, expect } from "vitest";
 import {
   FILE_CLEANUP_MAINTENANCE_PATH,
   IMAGE_CLEANUP_MAINTENANCE_PATH,
@@ -67,9 +68,9 @@ describe("resolveMaintenancePathForCron", () => {
 
 describe("runScheduledMaintenanceCleanup", () => {
   it("re-enters the file cleanup route when the file cron fires", async () => {
-    const env = { CRON_SECRET };
+    const env: { CRON_SECRET?: string } = { CRON_SECRET };
     let captured: CapturedRequest | undefined;
-    const fetchHandler = jest.fn((request: Request) => {
+    const fetchHandler = vi.fn((request: Request) => {
       captured = captureRequest(request);
       return new Response(null, { status: 200 });
     });
@@ -90,7 +91,7 @@ describe("runScheduledMaintenanceCleanup", () => {
 
   it("re-enters the image cleanup route when the image cron fires", async () => {
     let captured: CapturedRequest | undefined;
-    const fetchHandler = jest.fn((request: Request) => {
+    const fetchHandler = vi.fn((request: Request) => {
       captured = captureRequest(request);
       return new Response(null, { status: 200 });
     });
@@ -111,11 +112,11 @@ describe("runScheduledImageCleanup", () => {
     const env = { CRON_SECRET };
     const context = createExecutionContextStub();
     let captured: CapturedRequest | undefined;
-    let receivedEnv: typeof env | undefined;
-    let receivedContext: typeof context | undefined;
+    let receivedEnv: { CRON_SECRET?: string } | undefined;
+    let receivedContext: { waitUntil(promise: Promise<unknown>): void } | undefined;
 
-    const fetchHandler = jest.fn(
-      (request: Request, handlerEnv: typeof env, handlerContext: typeof context) => {
+    const fetchHandler = vi.fn(
+      (request: Request, handlerEnv: { CRON_SECRET?: string }, handlerContext: { waitUntil(promise: Promise<unknown>): void }) => {
         captured = captureRequest(request);
         receivedEnv = handlerEnv;
         receivedContext = handlerContext;
@@ -136,7 +137,7 @@ describe("runScheduledImageCleanup", () => {
   });
 
   it("throws without calling the handler when the cron secret is missing", async () => {
-    const fetchHandler = jest.fn(() => new Response(null, { status: 200 }));
+    const fetchHandler = vi.fn(() => new Response(null, { status: 200 }));
 
     await expect(
       runScheduledImageCleanup({
@@ -150,7 +151,7 @@ describe("runScheduledImageCleanup", () => {
   });
 
   it("surfaces the status when the maintenance request is rejected", async () => {
-    const fetchHandler = jest.fn(() => new Response(null, { status: 401 }));
+    const fetchHandler = vi.fn(() => new Response(null, { status: 401 }));
 
     await expect(
       runScheduledImageCleanup({
@@ -162,7 +163,7 @@ describe("runScheduledImageCleanup", () => {
   });
 
   it("surfaces a server failure status from the maintenance request", async () => {
-    const fetchHandler = jest.fn(() => new Response(null, { status: 500 }));
+    const fetchHandler = vi.fn(() => new Response(null, { status: 500 }));
 
     await expect(
       runScheduledImageCleanup({

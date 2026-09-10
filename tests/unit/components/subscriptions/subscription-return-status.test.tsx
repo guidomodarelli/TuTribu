@@ -1,21 +1,22 @@
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import { SubscriptionReturnStatus } from "@/components/subscriptions/subscription-return-status";
 import * as browserNavigation from "@/lib/browser-navigation";
 
-jest.mock("@/lib/browser-navigation", () => ({
-  reloadCurrentPage: jest.fn(),
+vi.mock("@/lib/browser-navigation", () => ({
+  reloadCurrentPage: vi.fn(),
 }));
 
 describe("SubscriptionReturnStatus", () => {
   beforeEach(() => {
-    jest.useFakeTimers();
-    jest.mocked(browserNavigation.reloadCurrentPage).mockReset();
+    vi.useFakeTimers();
+    vi.mocked(browserNavigation.reloadCurrentPage).mockReset();
   });
 
   afterEach(() => {
-    jest.clearAllTimers();
-    jest.useRealTimers();
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it("should reload the page while Mercado Pago confirmation is pending", () => {
@@ -27,7 +28,7 @@ describe("SubscriptionReturnStatus", () => {
       })
     ).toBeInTheDocument();
 
-    jest.advanceTimersByTime(3_000);
+    vi.advanceTimersByTime(3_000);
 
     expect(browserNavigation.reloadCurrentPage).toHaveBeenCalledTimes(1);
   });

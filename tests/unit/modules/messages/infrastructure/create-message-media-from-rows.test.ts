@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { createMessageMediaFromRows } from "@/src/modules/messages/infrastructure/repositories/postgres-message-round-repository";
 
 describe("createMessageMediaFromRows", () => {

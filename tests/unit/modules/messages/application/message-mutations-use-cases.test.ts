@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { createTribeMessage } from "@/src/modules/messages/application/use-cases/create-tribe-message-use-case";
 import { createMessageReply } from "@/src/modules/messages/application/use-cases/create-message-reply-use-case";
 import { deleteTribeMessage } from "@/src/modules/messages/application/use-cases/delete-tribe-message-use-case";
@@ -20,7 +21,7 @@ describe("message mutation use cases", () => {
   const secondImageAssetId = "8b9fda6e-6ef2-4a4d-bd8d-00b0e04b6b55";
 
   it("creates a tribe message when content is valid", async () => {
-    const createdMessage = {
+    const createdMessage = { replyCount: 0,
       id: "message-1",
       author: {
         id: "member-1",
@@ -37,7 +38,7 @@ describe("message mutation use cases", () => {
       likeCount: 0,
       title: "Bienvenida",
     };
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       message: createdMessage,
       status: "created" as const,
     }));
@@ -53,7 +54,7 @@ describe("message mutation use cases", () => {
         content: "Primera mensaje",
         title: "Bienvenida",
       })
-    ).resolves.toEqual({ message: createdMessage, status: "created" });
+    ).resolves.toEqual({ message: createdMessage, status: "created" as const });
     expect(create).toHaveBeenCalledWith({
       authorId: "member-1",
       channelId: "channel-ronda",
@@ -64,7 +65,7 @@ describe("message mutation use cases", () => {
   });
 
   it("rejects a blank tribe message title before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeMessage({
       messageCreationRepository: { create },
     });
@@ -77,12 +78,12 @@ describe("message mutation use cases", () => {
         content: "Primera mensaje",
         title: "   ",
       })
-    ).resolves.toEqual({ status: "invalid_content" });
+    ).resolves.toEqual({ status: "invalid_content" as const });
     expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects a blank tribe message before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeMessage({
       messageCreationRepository: { create },
     });
@@ -95,12 +96,12 @@ describe("message mutation use cases", () => {
         content: "   ",
         title: "Bienvenida",
       })
-    ).resolves.toEqual({ status: "invalid_content" });
+    ).resolves.toEqual({ status: "invalid_content" as const });
     expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects a message without channel before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeMessage({
       messageCreationRepository: { create },
     });
@@ -113,7 +114,7 @@ describe("message mutation use cases", () => {
         content: "Primera mensaje",
         title: "Bienvenida",
       })
-    ).resolves.toEqual({ status: "invalid_channel" });
+    ).resolves.toEqual({ status: "invalid_channel" as const });
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -130,7 +131,7 @@ describe("message mutation use cases", () => {
       content: "Excelente clase",
       createdAt: "2026-04-26T12:05:00.000Z",
     };
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       reply: createdReply,
       status: "created" as const,
     }));
@@ -145,11 +146,11 @@ describe("message mutation use cases", () => {
         content: "Excelente clase",
         messageId: "message-1",
       })
-    ).resolves.toEqual({ reply: createdReply, status: "created" });
+    ).resolves.toEqual({ reply: createdReply, status: "created" as const });
   });
 
   it("toggles a like reaction idempotently", async () => {
-    const toggle = jest.fn(async () => ({
+    const toggle = vi.fn(async () => ({
       likedByViewer: true,
       likeCount: 3,
       status: "liked" as const,
@@ -167,12 +168,12 @@ describe("message mutation use cases", () => {
     ).resolves.toEqual({
       likedByViewer: true,
       likeCount: 3,
-      status: "liked",
+      status: "liked" as const,
     });
   });
 
   it("creates a tribe message with a normalized poll", async () => {
-    const createdMessage = {
+    const createdMessage = { replyCount: 0,
       id: "message-1",
       author: {
         id: "member-1",
@@ -196,7 +197,7 @@ describe("message mutation use cases", () => {
       },
       title: "Bienvenida",
     };
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       message: createdMessage,
       status: "created" as const,
     }));
@@ -216,7 +217,7 @@ describe("message mutation use cases", () => {
         },
         title: "Bienvenida",
       })
-    ).resolves.toEqual({ message: createdMessage, status: "created" });
+    ).resolves.toEqual({ message: createdMessage, status: "created" as const });
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         poll: {
@@ -228,7 +229,7 @@ describe("message mutation use cases", () => {
   });
 
   it("creates a tribe message with a parsed external video", async () => {
-    const createdMessage = {
+    const createdMessage = { replyCount: 0,
       id: "message-1",
       author: {
         id: "member-1",
@@ -254,7 +255,7 @@ describe("message mutation use cases", () => {
       ],
       title: "Recurso",
     };
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       message: createdMessage,
       status: "created" as const,
     }));
@@ -273,7 +274,7 @@ describe("message mutation use cases", () => {
         ],
         title: "Recurso",
       })
-    ).resolves.toEqual({ message: createdMessage, status: "created" });
+    ).resolves.toEqual({ message: createdMessage, status: "created" as const });
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         videos: [
@@ -288,8 +289,8 @@ describe("message mutation use cases", () => {
   });
 
   it("creates a tribe message after preparing uploaded images", async () => {
-    const create = jest.fn(async () => ({
-      message: {
+    const create = vi.fn(async () => ({
+      message: { replyCount: 0,
         id: "message-1",
         author: {
           id: "member-1",
@@ -317,7 +318,7 @@ describe("message mutation use cases", () => {
       },
       status: "created" as const,
     }));
-    const prepareForAttachment = jest.fn(async () => ({
+    const prepareForAttachment = vi.fn(async () => ({
       images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
       status: "ready" as const,
     }));
@@ -337,7 +338,7 @@ describe("message mutation use cases", () => {
         media: [{ assetId: ` ${firstImageAssetId} `, kind: "image" }],
         title: "Capturas",
       })
-    ).resolves.toMatchObject({ status: "created" });
+    ).resolves.toMatchObject({ status: "created" as const });
     expect(prepareForAttachment).toHaveBeenCalledWith({
       images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
       tribeSlug: "matematica-pro",
@@ -351,17 +352,17 @@ describe("message mutation use cases", () => {
   });
 
   it("deletes prepared image drafts when message creation is rejected", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       status: "invalid_channel" as const,
     }));
-    const prepareForAttachment = jest.fn(async () => ({
+    const prepareForAttachment = vi.fn(async () => ({
       images: [
         { altText: "", assetId: firstImageAssetId, sortOrder: 0 },
         { altText: "", assetId: secondImageAssetId, sortOrder: 1 },
       ],
       status: "ready" as const,
     }));
-    const deleteImage = jest.fn(async () => ({
+    const deleteImage = vi.fn(async () => ({
       status: "deleted" as const,
     }));
     const execute = createTribeMessage({
@@ -384,7 +385,7 @@ describe("message mutation use cases", () => {
         ],
         title: "Capturas",
       })
-    ).resolves.toEqual({ status: "invalid_channel" });
+    ).resolves.toEqual({ status: "invalid_channel" as const });
     expect(deleteImage).toHaveBeenCalledTimes(2);
     expect(deleteImage).toHaveBeenCalledWith({
       assetId: firstImageAssetId,
@@ -400,14 +401,14 @@ describe("message mutation use cases", () => {
 
   it("deletes prepared image drafts when message creation throws", async () => {
     const creationError = new Error("database insert failed");
-    const create = jest.fn(async () => {
+    const create = vi.fn(async () => {
       throw creationError;
     });
-    const prepareForAttachment = jest.fn(async () => ({
+    const prepareForAttachment = vi.fn(async () => ({
       images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
       status: "ready" as const,
     }));
-    const deleteImage = jest.fn(async () => ({
+    const deleteImage = vi.fn(async () => ({
       status: "deleted" as const,
     }));
     const execute = createTribeMessage({
@@ -436,8 +437,8 @@ describe("message mutation use cases", () => {
   });
 
   it("creates a tribe message mixing images and videos with a shared global order", async () => {
-    const create = jest.fn(async () => ({
-      message: {
+    const create = vi.fn(async () => ({
+      message: { replyCount: 0,
         id: "message-1",
         author: {
           id: "member-1",
@@ -456,7 +457,7 @@ describe("message mutation use cases", () => {
       },
       status: "created" as const,
     }));
-    const prepareForAttachment = jest.fn(async () => ({
+    const prepareForAttachment = vi.fn(async () => ({
       images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
       status: "ready" as const,
     }));
@@ -477,7 +478,7 @@ describe("message mutation use cases", () => {
         ],
         title: "Mixto",
       })
-    ).resolves.toMatchObject({ status: "created" });
+    ).resolves.toMatchObject({ status: "created" as const });
     expect(prepareForAttachment).toHaveBeenCalledWith({
       images: [{ altText: "", assetId: firstImageAssetId, sortOrder: 0 }],
       tribeSlug: "matematica-pro",
@@ -494,8 +495,8 @@ describe("message mutation use cases", () => {
   });
 
   it("rejects messages with more than ten combined media before preparing attachments", async () => {
-    const create = jest.fn();
-    const prepareForAttachment = jest.fn();
+    const create = vi.fn();
+    const prepareForAttachment = vi.fn();
     const execute = createTribeMessage({
       messageCreationRepository: { create },
       messageImageRepository: {
@@ -515,14 +516,14 @@ describe("message mutation use cases", () => {
         })),
         title: "Medios",
       })
-    ).resolves.toEqual({ status: "invalid_media" });
+    ).resolves.toEqual({ status: "invalid_media" as const });
     expect(prepareForAttachment).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects duplicated image asset ids before preparing attachments", async () => {
-    const create = jest.fn();
-    const prepareForAttachment = jest.fn();
+    const create = vi.fn();
+    const prepareForAttachment = vi.fn();
     const execute = createTribeMessage({
       messageCreationRepository: { create },
       messageImageRepository: {
@@ -542,14 +543,14 @@ describe("message mutation use cases", () => {
         ],
         title: "Capturas",
       })
-    ).resolves.toEqual({ status: "invalid_image" });
+    ).resolves.toEqual({ status: "invalid_image" as const });
     expect(prepareForAttachment).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects non UUID image asset ids before preparing attachments", async () => {
-    const create = jest.fn();
-    const prepareForAttachment = jest.fn();
+    const create = vi.fn();
+    const prepareForAttachment = vi.fn();
     const execute = createTribeMessage({
       messageCreationRepository: { create },
       messageImageRepository: {
@@ -566,13 +567,13 @@ describe("message mutation use cases", () => {
         media: [{ assetId: "asset-1", kind: "image" }],
         title: "Capturas",
       })
-    ).resolves.toEqual({ status: "invalid_image" });
+    ).resolves.toEqual({ status: "invalid_image" as const });
     expect(prepareForAttachment).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid video URL before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeMessage({
       messageCreationRepository: { create },
     });
@@ -586,13 +587,13 @@ describe("message mutation use cases", () => {
         media: [{ kind: "video", url: "not-a-video-url" }],
         title: "Recurso",
       })
-    ).resolves.toEqual({ status: "invalid_video_url" });
+    ).resolves.toEqual({ status: "invalid_video_url" as const });
     expect(create).not.toHaveBeenCalled();
   });
 
   it("creates a tribe message with both poll and video", async () => {
-    const create = jest.fn(async () => ({
-      message: {
+    const create = vi.fn(async () => ({
+      message: { replyCount: 0,
         id: "message-1",
         author: {
           id: "member-1",
@@ -646,7 +647,7 @@ describe("message mutation use cases", () => {
   });
 
   it("rejects a poll with less than two options before creating a message", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeMessage({
       messageCreationRepository: { create },
     });
@@ -663,12 +664,12 @@ describe("message mutation use cases", () => {
         },
         title: "Bienvenida",
       })
-    ).resolves.toEqual({ status: "invalid_poll" });
+    ).resolves.toEqual({ status: "invalid_poll" as const });
     expect(create).not.toHaveBeenCalled();
   });
 
   it("pins a message through the pin repository", async () => {
-    const togglePin = jest.fn(async () => ({
+    const togglePin = vi.fn(async () => ({
       isPinned: true,
       pinnedAt: "2026-04-26T13:00:00.000Z",
       status: "pinned" as const,
@@ -686,7 +687,7 @@ describe("message mutation use cases", () => {
     ).resolves.toEqual({
       isPinned: true,
       pinnedAt: "2026-04-26T13:00:00.000Z",
-      status: "pinned",
+      status: "pinned" as const,
     });
     expect(togglePin).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
@@ -696,7 +697,7 @@ describe("message mutation use cases", () => {
   });
 
   it("blocks a fourth pinned message through the pin repository", async () => {
-    const togglePin = jest.fn(async () => ({
+    const togglePin = vi.fn(async () => ({
       status: "pin_limit_reached" as const,
     }));
     const execute = toggleMessagePin({
@@ -710,15 +711,15 @@ describe("message mutation use cases", () => {
         userId: "leader-1",
       })
     ).resolves.toEqual({
-      status: "pin_limit_reached",
+      status: "pin_limit_reached" as const,
     });
   });
 
   it("deletes a tribe message after normalizing the command", async () => {
-    const deleteMessage = jest.fn(async () => ({
+    const deleteMessage = vi.fn(async () => ({
       status: "deleted" as const,
     }));
-    const deletePendingImages = jest.fn(async () => undefined);
+    const deletePendingImages = vi.fn(async () => undefined);
     const execute = deleteTribeMessage({
       messageDeletionRepository: { delete: deleteMessage },
       messageImageRepository: { deletePendingImages },
@@ -730,7 +731,7 @@ describe("message mutation use cases", () => {
         tribeSlug: " matematica-pro ",
         userId: " member-1 ",
       })
-    ).resolves.toEqual({ status: "deleted" });
+    ).resolves.toEqual({ status: "deleted" as const });
     expect(deleteMessage).toHaveBeenCalledWith({
       messageId: "message-1",
       tribeSlug: "matematica-pro",
@@ -744,10 +745,10 @@ describe("message mutation use cases", () => {
   });
 
   it("does not clean pending images when message deletion is denied", async () => {
-    const deleteMessage = jest.fn(async () => ({
+    const deleteMessage = vi.fn(async () => ({
       status: "forbidden" as const,
     }));
-    const deletePendingImages = jest.fn();
+    const deletePendingImages = vi.fn();
     const execute = deleteTribeMessage({
       messageDeletionRepository: { delete: deleteMessage },
       messageImageRepository: { deletePendingImages },
@@ -759,12 +760,12 @@ describe("message mutation use cases", () => {
         tribeSlug: "matematica-pro",
         userId: "member-1",
       })
-    ).resolves.toEqual({ status: "forbidden" });
+    ).resolves.toEqual({ status: "forbidden" as const });
     expect(deletePendingImages).not.toHaveBeenCalled();
   });
 
   it("updates the message created_at after normalizing the command", async () => {
-    const updateCreatedAt = jest.fn(async () => ({
+    const updateCreatedAt = vi.fn(async () => ({
       createdAt: "2026-04-01T10:00:00.000Z",
       status: "updated" as const,
     }));
@@ -781,7 +782,7 @@ describe("message mutation use cases", () => {
       })
     ).resolves.toEqual({
       createdAt: "2026-04-01T10:00:00.000Z",
-      status: "updated",
+      status: "updated" as const,
     });
     expect(updateCreatedAt).toHaveBeenCalledWith({
       createdAt: "2026-04-01T10:00:00.000Z",
@@ -792,7 +793,7 @@ describe("message mutation use cases", () => {
   });
 
   it("rejects an invalid created_at before calling the repository", async () => {
-    const updateCreatedAt = jest.fn();
+    const updateCreatedAt = vi.fn();
     const execute = updateTribeMessageCreatedAt({
       messageCreatedAtUpdateRepository: { updateCreatedAt },
     });
@@ -804,12 +805,12 @@ describe("message mutation use cases", () => {
         tribeSlug: "matematica-pro",
         userId: "leader-1",
       })
-    ).resolves.toEqual({ status: "invalid_content" });
+    ).resolves.toEqual({ status: "invalid_content" as const });
     expect(updateCreatedAt).not.toHaveBeenCalled();
   });
 
   it("rejects a blank created_at before calling the repository", async () => {
-    const updateCreatedAt = jest.fn();
+    const updateCreatedAt = vi.fn();
     const execute = updateTribeMessageCreatedAt({
       messageCreatedAtUpdateRepository: { updateCreatedAt },
     });
@@ -821,12 +822,12 @@ describe("message mutation use cases", () => {
         tribeSlug: "matematica-pro",
         userId: "leader-1",
       })
-    ).resolves.toEqual({ status: "invalid_content" });
+    ).resolves.toEqual({ status: "invalid_content" as const });
     expect(updateCreatedAt).not.toHaveBeenCalled();
   });
 
   it("updates the message content after normalizing the command", async () => {
-    const updateContent = jest.fn(async () => ({
+    const updateContent = vi.fn(async () => ({
       content: "Mensaje editado",
       messageId: "message-1",
       status: "updated" as const,
@@ -847,7 +848,7 @@ describe("message mutation use cases", () => {
     ).resolves.toEqual({
       content: "Mensaje editado",
       messageId: "message-1",
-      status: "updated",
+      status: "updated" as const,
       title: "Titulo editado",
     });
     expect(updateContent).toHaveBeenCalledWith({
@@ -860,7 +861,7 @@ describe("message mutation use cases", () => {
   });
 
   it("updates message images and deletes removed remote assets after editing", async () => {
-    const updateContent = jest.fn(async () => ({
+    const updateContent = vi.fn(async () => ({
       content: "Mensaje editado",
       media: [
         {
@@ -875,11 +876,11 @@ describe("message mutation use cases", () => {
       status: "updated" as const,
       title: "Titulo editado",
     }));
-    const prepareForAttachment = jest.fn(async () => ({
+    const prepareForAttachment = vi.fn(async () => ({
       images: [{ altText: "", assetId: secondImageAssetId, sortOrder: 0 }],
       status: "ready" as const,
     }));
-    const deletePendingImages = jest.fn(async () => undefined);
+    const deletePendingImages = vi.fn(async () => undefined);
     const execute = updateTribeMessageContent({
       messageContentUpdateRepository: { updateContent },
       messageImageRepository: {
@@ -899,7 +900,7 @@ describe("message mutation use cases", () => {
       })
     ).resolves.toMatchObject({
       media: [{ id: secondImageAssetId }],
-      status: "updated",
+      status: "updated" as const,
     });
     expect(prepareForAttachment).toHaveBeenCalledWith({
       images: [{ altText: "", assetId: secondImageAssetId, sortOrder: 0 }],
@@ -920,9 +921,9 @@ describe("message mutation use cases", () => {
   });
 
   it("rejects non UUID image asset ids before updating message images", async () => {
-    const updateContent = jest.fn();
-    const prepareForAttachment = jest.fn();
-    const deletePendingImages = jest.fn();
+    const updateContent = vi.fn();
+    const prepareForAttachment = vi.fn();
+    const deletePendingImages = vi.fn();
     const execute = updateTribeMessageContent({
       messageContentUpdateRepository: { updateContent },
       messageImageRepository: {
@@ -940,14 +941,14 @@ describe("message mutation use cases", () => {
         tribeSlug: "matematica-pro",
         userId: "member-1",
       })
-    ).resolves.toEqual({ status: "invalid_image" });
+    ).resolves.toEqual({ status: "invalid_image" as const });
     expect(prepareForAttachment).not.toHaveBeenCalled();
     expect(updateContent).not.toHaveBeenCalled();
     expect(deletePendingImages).not.toHaveBeenCalled();
   });
 
   it("rejects an empty title before calling the message content repository", async () => {
-    const updateContent = jest.fn();
+    const updateContent = vi.fn();
     const execute = updateTribeMessageContent({
       messageContentUpdateRepository: { updateContent },
     });
@@ -960,12 +961,12 @@ describe("message mutation use cases", () => {
         tribeSlug: "matematica-pro",
         userId: "member-1",
       })
-    ).resolves.toEqual({ status: "invalid_content" });
+    ).resolves.toEqual({ status: "invalid_content" as const });
     expect(updateContent).not.toHaveBeenCalled();
   });
 
   it("rejects an empty content before calling the message content repository", async () => {
-    const updateContent = jest.fn();
+    const updateContent = vi.fn();
     const execute = updateTribeMessageContent({
       messageContentUpdateRepository: { updateContent },
     });
@@ -978,7 +979,7 @@ describe("message mutation use cases", () => {
         tribeSlug: "matematica-pro",
         userId: "member-1",
       })
-    ).resolves.toEqual({ status: "invalid_content" });
+    ).resolves.toEqual({ status: "invalid_content" as const });
     expect(updateContent).not.toHaveBeenCalled();
   });
 
@@ -990,7 +991,7 @@ describe("message mutation use cases", () => {
       totalVoteCount: 0,
       viewerHasVoted: false,
     };
-    const vote = jest.fn(async () => ({
+    const vote = vi.fn(async () => ({
       poll,
       status: "voted" as const,
     }));
@@ -1007,7 +1008,7 @@ describe("message mutation use cases", () => {
         tribeSlug: "matematica-pro",
         userId: "member-1",
       })
-    ).resolves.toEqual({ poll, status: "voted" });
+    ).resolves.toEqual({ poll, status: "voted" as const });
     expect(vote).toHaveBeenCalledWith({
       messageId: "message-1",
       optionIds: ["option-1", "option-2"],

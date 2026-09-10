@@ -1,11 +1,12 @@
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { OpenInExternalBrowser } from "@/components/subscriptions/open-in-external-browser";
 import * as browserNavigation from "@/lib/browser-navigation";
 
-jest.mock("@/lib/browser-navigation", () => ({
-  navigateToUrl: jest.fn(),
+vi.mock("@/lib/browser-navigation", () => ({
+  navigateToUrl: vi.fn(),
 }));
 
 const EXTERNAL_BROWSER_URL =
@@ -17,8 +18,8 @@ const COUNTDOWN_MESSAGE =
 
 describe("OpenInExternalBrowser", () => {
   beforeEach(() => {
-    jest.useFakeTimers();
-    jest.mocked(browserNavigation.navigateToUrl).mockReset();
+    vi.useFakeTimers();
+    vi.mocked(browserNavigation.navigateToUrl).mockReset();
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
       get: () => "visible",
@@ -26,8 +27,8 @@ describe("OpenInExternalBrowser", () => {
   });
 
   afterEach(() => {
-    jest.clearAllTimers();
-    jest.useRealTimers();
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it("renders the handoff copy with the primary action, countdown, and fallback link", () => {
@@ -62,14 +63,14 @@ describe("OpenInExternalBrowser", () => {
     );
 
     act(() => {
-      jest.advanceTimersByTime(1_000);
+      vi.advanceTimersByTime(1_000);
     });
 
     expect(screen.getByText("4")).toBeInTheDocument();
     expect(browserNavigation.navigateToUrl).not.toHaveBeenCalled();
 
     act(() => {
-      jest.advanceTimersByTime(4_000);
+      vi.advanceTimersByTime(4_000);
     });
 
     expect(screen.getByText("0")).toBeInTheDocument();
@@ -79,7 +80,7 @@ describe("OpenInExternalBrowser", () => {
   });
 
   it("navigates to the sign-in fallback when the deep link does not take the user away", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     render(
       <OpenInExternalBrowser
@@ -95,7 +96,7 @@ describe("OpenInExternalBrowser", () => {
     expect(browserNavigation.navigateToUrl).not.toHaveBeenCalled();
 
     act(() => {
-      jest.advanceTimersByTime(2_000);
+      vi.advanceTimersByTime(2_000);
     });
 
     expect(browserNavigation.navigateToUrl).toHaveBeenCalledWith(
@@ -104,7 +105,7 @@ describe("OpenInExternalBrowser", () => {
   });
 
   it("gives the primary action its fallback window when the countdown is almost done", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     render(
       <OpenInExternalBrowser
@@ -114,7 +115,7 @@ describe("OpenInExternalBrowser", () => {
     );
 
     act(() => {
-      jest.advanceTimersByTime(4_000);
+      vi.advanceTimersByTime(4_000);
     });
 
     expect(screen.getByText("1")).toBeInTheDocument();
@@ -124,13 +125,13 @@ describe("OpenInExternalBrowser", () => {
     );
 
     act(() => {
-      jest.advanceTimersByTime(1_000);
+      vi.advanceTimersByTime(1_000);
     });
 
     expect(browserNavigation.navigateToUrl).not.toHaveBeenCalled();
 
     act(() => {
-      jest.advanceTimersByTime(1_000);
+      vi.advanceTimersByTime(1_000);
     });
 
     expect(browserNavigation.navigateToUrl).toHaveBeenCalledWith(
@@ -139,7 +140,7 @@ describe("OpenInExternalBrowser", () => {
   });
 
   it("does not navigate to the fallback when the page is no longer visible", async () => {
-    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
       get: () => "hidden",
@@ -157,7 +158,7 @@ describe("OpenInExternalBrowser", () => {
     );
 
     act(() => {
-      jest.advanceTimersByTime(2_000);
+      vi.advanceTimersByTime(2_000);
     });
 
     expect(browserNavigation.navigateToUrl).not.toHaveBeenCalled();

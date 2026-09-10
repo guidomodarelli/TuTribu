@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   COURSE_MUTATION_STATUS,
   LESSON_FILE_PREPARATION_STATUS,
@@ -31,19 +32,19 @@ function createCourseRepositoryDouble(
   overrides: Partial<CourseRepository> = {}
 ): CourseRepository {
   return {
-    createCourseModule: jest.fn(),
-    createLesson: jest.fn(async () => ({
+    createCourseModule: vi.fn(),
+    createLesson: vi.fn(async () => ({
       lesson: { id: "lesson-1" },
       status: COURSE_MUTATION_STATUS.created,
     })) as unknown as CourseRepository["createLesson"],
-    deleteCourseModule: jest.fn(),
-    deleteLesson: jest.fn(async () => ({
+    deleteCourseModule: vi.fn(),
+    deleteLesson: vi.fn(async () => ({
       status: COURSE_MUTATION_STATUS.deleted,
     })) as unknown as CourseRepository["deleteLesson"],
-    getEditableTreeByTribeSlug: jest.fn(),
-    getTreeByTribeSlug: jest.fn(),
-    updateCourseModule: jest.fn(),
-    updateLesson: jest.fn(async () => ({
+    getEditableTreeByTribeSlug: vi.fn(),
+    getTreeByTribeSlug: vi.fn(),
+    updateCourseModule: vi.fn(),
+    updateLesson: vi.fn(async () => ({
       lesson: { id: "lesson-1" },
       status: COURSE_MUTATION_STATUS.updated,
     })) as unknown as CourseRepository["updateLesson"],
@@ -75,7 +76,7 @@ describe("normalizeLessonFileDrafts", () => {
 
 describe("createLessonFileUpload", () => {
   it("rejects disallowed MIME types without touching the repository", async () => {
-    const createUpload = jest.fn();
+    const createUpload = vi.fn();
     const execute = createLessonFileUpload({
       lessonFileRepository: { createUpload },
     });
@@ -94,7 +95,7 @@ describe("createLessonFileUpload", () => {
   });
 
   it("normalizes the declaration and reserves the upload", async () => {
-    const createUpload = jest.fn(async () => ({
+    const createUpload = vi.fn(async () => ({
       assetId: FILE_ID,
       status: COURSE_MUTATION_STATUS.created,
       uploadHeaders: {},
@@ -125,15 +126,15 @@ describe("createLessonFileUpload", () => {
 describe("createLesson with file attachments", () => {
   it("prepares the drafts and forwards them to the repository", async () => {
     const courseRepository = createCourseRepositoryDouble();
-    const prepareForAttachment = jest.fn(async (command) => ({
+    const prepareForAttachment = vi.fn(async (command) => ({
       files: command.files,
       status: LESSON_FILE_PREPARATION_STATUS.ready,
     }));
     const execute = createLesson({
       courseRepository,
       lessonFileRepository: {
-        deleteFile: jest.fn(),
-        deletePendingFiles: jest.fn(),
+        deleteFile: vi.fn(),
+        deletePendingFiles: vi.fn(),
         prepareForAttachment,
       },
     });
@@ -154,15 +155,15 @@ describe("createLesson with file attachments", () => {
 
   it("returns invalid_file and reclaims drafts when preparation fails", async () => {
     const courseRepository = createCourseRepositoryDouble();
-    const deleteFile = jest.fn(async () => ({
+    const deleteFile = vi.fn(async () => ({
       status: COURSE_MUTATION_STATUS.deleted,
     }));
     const execute = createLesson({
       courseRepository,
       lessonFileRepository: {
         deleteFile,
-        deletePendingFiles: jest.fn(),
-        prepareForAttachment: jest.fn(async () => ({
+        deletePendingFiles: vi.fn(),
+        prepareForAttachment: vi.fn(async () => ({
           status: COURSE_MUTATION_STATUS.invalidFile,
         })),
       },
@@ -184,12 +185,12 @@ describe("createLesson with file attachments", () => {
 describe("updateLesson with file attachments", () => {
   it("omits attachment work when the command carries no files field", async () => {
     const courseRepository = createCourseRepositoryDouble();
-    const prepareForAttachment = jest.fn();
-    const deletePendingFiles = jest.fn();
+    const prepareForAttachment = vi.fn();
+    const deletePendingFiles = vi.fn();
     const execute = updateLesson({
       courseRepository,
       lessonFileRepository: {
-        deleteFile: jest.fn(),
+        deleteFile: vi.fn(),
         deletePendingFiles,
         prepareForAttachment,
       },
@@ -210,13 +211,13 @@ describe("updateLesson with file attachments", () => {
 
   it("replaces the set and drains detached files after a successful update", async () => {
     const courseRepository = createCourseRepositoryDouble();
-    const deletePendingFiles = jest.fn();
+    const deletePendingFiles = vi.fn();
     const execute = updateLesson({
       courseRepository,
       lessonFileRepository: {
-        deleteFile: jest.fn(),
+        deleteFile: vi.fn(),
         deletePendingFiles,
-        prepareForAttachment: jest.fn(async (command) => ({
+        prepareForAttachment: vi.fn(async (command) => ({
           files: command.files,
           status: LESSON_FILE_PREPARATION_STATUS.ready,
         })),
@@ -246,13 +247,13 @@ describe("updateLesson with file attachments", () => {
 describe("deleteLesson", () => {
   it("drains the pending lesson files after a successful deletion", async () => {
     const courseRepository = createCourseRepositoryDouble();
-    const deletePendingFiles = jest.fn();
+    const deletePendingFiles = vi.fn();
     const execute = deleteLesson({
       courseRepository,
       lessonFileRepository: {
-        deleteFile: jest.fn(),
+        deleteFile: vi.fn(),
         deletePendingFiles,
-        prepareForAttachment: jest.fn(),
+        prepareForAttachment: vi.fn(),
       },
     });
 

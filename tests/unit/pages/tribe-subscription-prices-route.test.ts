@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { POST } from "@/app/api/tribes/[slug]/subscriptions/prices/route";
 import {
   DELETE,
@@ -8,21 +9,21 @@ import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/con
 import { createRequestModules } from "@/src/modules/setup";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const getAuthenticatedMember = jest.fn();
-const createTribeSubscriptionPrice = jest.fn();
-const deleteTribeSubscriptionPrice = jest.fn();
-const updateTribeSubscriptionPrice = jest.fn();
-const updateTribePaymentIntegrationAccountLabel = jest.fn();
+const getAuthenticatedMember = vi.fn();
+const createTribeSubscriptionPrice = vi.fn();
+const deleteTribeSubscriptionPrice = vi.fn();
+const updateTribeSubscriptionPrice = vi.fn();
+const updateTribePaymentIntegrationAccountLabel = vi.fn();
 const PAYMENT_INTEGRATION_ID = "11111111-1111-4111-8111-111111111111";
 
-jest.mock("@/src/modules/setup", () => ({
-  createRequestModules: jest.fn(),
+vi.mock("@/src/modules/setup", () => ({
+  createRequestModules: vi.fn(),
 }));
 
-jest.mock(
+vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
-    createServerLogger: jest.fn(),
+    createServerLogger: vi.fn(),
   })
 );
 
@@ -62,7 +63,7 @@ function buildContext() {
 
 describe("tribe subscription prices route", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "GH",
@@ -72,11 +73,11 @@ describe("tribe subscription prices route", () => {
       name: "Grace Hopper",
       role: "tribemate",
     });
-    (createServerLogger as jest.Mock).mockReturnValue({
-      error: jest.fn(),
-      info: jest.fn(),
+    (createServerLogger as Mock).mockReturnValue({
+      error: vi.fn(),
+      info: vi.fn(),
     });
-    (createRequestModules as jest.Mock).mockResolvedValue({
+    (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
           getAuthenticatedMember,
@@ -216,7 +217,7 @@ describe("tribe subscription prices route", () => {
         id: "price-1",
         isCurrent: false,
         name: "Plan mensual",
-        status: "active",
+        status: "active" as const,
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
     });
@@ -255,7 +256,7 @@ describe("tribe subscription prices route", () => {
         mercadoPagoAccountLabel: "Cuenta principal",
         name: "Plan mensual",
         paymentIntegrationId: PAYMENT_INTEGRATION_ID,
-        status: "active",
+        status: "active" as const,
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
     });
@@ -287,7 +288,7 @@ describe("tribe subscription prices route", () => {
         id: PAYMENT_INTEGRATION_ID,
         providerAccountEmail: null,
         providerAccountId: "collector-1",
-        status: "connected",
+        status: "connected" as const,
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
     });
@@ -311,7 +312,7 @@ describe("tribe subscription prices route", () => {
         id: PAYMENT_INTEGRATION_ID,
         providerAccountEmail: null,
         providerAccountId: "collector-1",
-        status: "connected",
+        status: "connected" as const,
       },
       message: "Alias actualizado.",
     });
@@ -356,7 +357,7 @@ describe("tribe subscription prices route", () => {
         id: "price-1",
         isCurrent: false,
         name: "Plan actualizado",
-        status: "active",
+        status: "active" as const,
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
     });
@@ -409,7 +410,7 @@ describe("tribe subscription prices route", () => {
         id: "price-1",
         isCurrent: false,
         name: "Plan actualizado",
-        status: "active",
+        status: "active" as const,
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
     });
@@ -506,7 +507,7 @@ describe("tribe subscription prices route", () => {
         id: "price-1",
         isCurrent: false,
         name: "Plan mensual",
-        status: "canceled",
+        status: "canceled" as const,
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.canceled,
     });
@@ -522,7 +523,7 @@ describe("tribe subscription prices route", () => {
     await expect(response.json()).resolves.toMatchObject({
       message: "Precio cancelado.",
       price: {
-        status: "canceled",
+        status: "canceled" as const,
       },
     });
   });

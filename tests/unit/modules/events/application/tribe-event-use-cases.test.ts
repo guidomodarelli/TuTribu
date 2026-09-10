@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, afterEach } from "vitest";
 import {
   createTribeEvent,
   deleteTribeEvent,
@@ -15,13 +16,13 @@ const OTHER_EVENT_ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 
 function createRepository(overrides: Partial<TribeEventRepository> = {}) {
   return {
-    clearAttendance: jest.fn(),
-    create: jest.fn(),
-    delete: jest.fn(),
-    findById: jest.fn(),
-    listByTribeRange: jest.fn(),
-    setAttendance: jest.fn(),
-    update: jest.fn(),
+    clearAttendance: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
+    findById: vi.fn(),
+    listByTribeRange: vi.fn(),
+    setAttendance: vi.fn(),
+    update: vi.fn(),
     ...overrides,
   } satisfies TribeEventRepository;
 }
@@ -50,11 +51,11 @@ function createListing(events: TribeEvent[], canManageEvents = true) {
 
 describe("tribe event use cases", () => {
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it("lists the occurrences of the requested Buenos Aires month", async () => {
-    const listByTribeRange = jest.fn(async () => createListing([createEvent()]));
+    const listByTribeRange = vi.fn(async () => createListing([createEvent()]));
     const execute = listTribeEvents({
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
@@ -97,7 +98,7 @@ describe("tribe event use cases", () => {
   });
 
   it("expands recurring series into month occurrences and attaches attendance", async () => {
-    const listByTribeRange = jest.fn(async () => ({
+    const listByTribeRange = vi.fn(async () => ({
       attendances: [
         {
           eventId: EVENT_ID,
@@ -131,7 +132,7 @@ describe("tribe event use cases", () => {
   });
 
   it("uses the first month value when the route receives repeated month params", async () => {
-    const listByTribeRange = jest.fn(async () => createListing([], false));
+    const listByTribeRange = vi.fn(async () => createListing([], false));
     const execute = listTribeEvents({
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
@@ -151,7 +152,7 @@ describe("tribe event use cases", () => {
   });
 
   it("falls back to a valid month when the query month is invalid", async () => {
-    const listByTribeRange = jest.fn(async () => createListing([], false));
+    const listByTribeRange = vi.fn(async () => createListing([], false));
     const execute = listTribeEvents({
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
@@ -175,8 +176,8 @@ describe("tribe event use cases", () => {
   });
 
   it("falls back to the current Buenos Aires month when month is missing", async () => {
-    jest.useFakeTimers().setSystemTime(new Date("2026-05-06T02:30:00.000Z"));
-    const listByTribeRange = jest.fn(async () => createListing([], false));
+    vi.useFakeTimers().setSystemTime(new Date("2026-05-06T02:30:00.000Z"));
+    const listByTribeRange = vi.fn(async () => createListing([], false));
     const execute = listTribeEvents({
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
@@ -191,7 +192,7 @@ describe("tribe event use cases", () => {
   });
 
   it("creates an event with normalized fields and returns the visible month occurrences", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       event: createEvent(),
       status: TRIBE_EVENT_MUTATION_STATUS.created,
     }));
@@ -234,7 +235,7 @@ describe("tribe event use cases", () => {
   });
 
   it("returns no occurrences when the caller is not looking at a month", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       event: createEvent(),
       status: TRIBE_EVENT_MUTATION_STATUS.created,
     }));
@@ -257,7 +258,7 @@ describe("tribe event use cases", () => {
   });
 
   it("stores weekly series with the until date normalized to an instant", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       event: createEvent({
         recurrenceFrequency: "weekly",
         recurrenceUntil: "2026-06-30T02:59:00.000Z",
@@ -295,7 +296,7 @@ describe("tribe event use cases", () => {
   });
 
   it("rejects unknown recurrence frequencies and until dates before the start", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeEvent({
       tribeEventRepository: createRepository({ create }),
     });
@@ -322,7 +323,7 @@ describe("tribe event use cases", () => {
   });
 
   it("ignores the until date for non-recurring events", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       event: createEvent(),
       status: TRIBE_EVENT_MUTATION_STATUS.created,
     }));
@@ -347,7 +348,7 @@ describe("tribe event use cases", () => {
   });
 
   it("rejects empty titles and oversized descriptions before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeEvent({
       tribeEventRepository: createRepository({ create }),
     });
@@ -370,7 +371,7 @@ describe("tribe event use cases", () => {
   });
 
   it("rejects meeting links that are not http or https URLs", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeEvent({
       tribeEventRepository: createRepository({ create }),
     });
@@ -391,7 +392,7 @@ describe("tribe event use cases", () => {
   });
 
   it("rejects end dates that are not after the start date", async () => {
-    const update = jest.fn();
+    const update = vi.fn();
     const execute = updateTribeEvent({
       tribeEventRepository: createRepository({ update }),
     });
@@ -413,7 +414,7 @@ describe("tribe event use cases", () => {
   });
 
   it("updates an event and returns the visible month occurrences", async () => {
-    const update = jest.fn(async () => ({
+    const update = vi.fn(async () => ({
       event: createEvent({ title: "Clase cerrada" }),
       status: TRIBE_EVENT_MUTATION_STATUS.updated,
     }));
@@ -476,7 +477,7 @@ describe("tribe event use cases", () => {
   });
 
   it("passes normalized identifiers when deleting an event", async () => {
-    const deleteEvent = jest.fn(async () => ({
+    const deleteEvent = vi.fn(async () => ({
       status: TRIBE_EVENT_MUTATION_STATUS.deleted,
     }));
     const execute = deleteTribeEvent({
@@ -496,7 +497,7 @@ describe("tribe event use cases", () => {
   });
 
   it("returns a single event with its recurrence rule", async () => {
-    const findById = jest.fn(async () =>
+    const findById = vi.fn(async () =>
       createEvent({ recurrenceFrequency: "monthly" })
     );
     const execute = getTribeEvent({
@@ -516,8 +517,8 @@ describe("tribe event use cases", () => {
   });
 
   it("lists the next occurrences across series, skipping finished ones", async () => {
-    jest.useFakeTimers().setSystemTime(new Date("2026-05-10T12:00:00.000Z"));
-    const listByTribeRange = jest.fn(async () =>
+    vi.useFakeTimers().setSystemTime(new Date("2026-05-10T12:00:00.000Z"));
+    const listByTribeRange = vi.fn(async () =>
       createListing([
         createEvent({ recurrenceFrequency: "weekly" }),
         createEvent({

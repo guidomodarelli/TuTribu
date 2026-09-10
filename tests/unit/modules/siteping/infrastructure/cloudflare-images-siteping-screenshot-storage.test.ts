@@ -1,4 +1,5 @@
-jest.mock("server-only", () => ({}));
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+vi.mock("server-only", () => ({}));
 
 import { CloudflareImagesSitepingScreenshotStorage } from "@/src/modules/siteping/infrastructure/cloudflare/cloudflare-images-siteping-screenshot-storage";
 import type { HttpFetcher, HttpResponse } from "@/src/modules/shared/infrastructure/http/fetch-with-resilience";
@@ -63,13 +64,12 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   afterEach(() => {
     clearCloudflareImagesEnvironment();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("uploads the screenshot pinning the reserved id and returns its delivery URL", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () =>
-        buildResponse({ result: { id: RESERVED_IMAGE_ID }, success: true })
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
+      async (...args: unknown[]) => { void args; return buildResponse({ result: { id: RESERVED_IMAGE_ID }, success: true }); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -86,8 +86,8 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("pins a Cloudflare-valid non-UUID custom id with the default generator", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => buildResponse({ success: true })
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
+      async (...args: unknown[]) => { void args; return buildResponse({ success: true }); }
     );
     // No injected id generator: exercise the production default so a regression
     // back to a raw UUID (which Cloudflare rejects, dropping every screenshot)
@@ -113,7 +113,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("returns null without calling Cloudflare when credentials are missing", async () => {
     delete process.env.CLOUDFLARE_IMAGES_API_TOKEN;
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>();
     const storage = buildStorageWithReservedId(fetcher);
 
     const url = await storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
@@ -123,7 +123,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("returns null without calling Cloudflare for a non-image data URL", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>();
     const storage = buildStorageWithReservedId(fetcher);
 
     const url = await storage.store({ dataUrl: "https://example.com/x.png" });
@@ -133,7 +133,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("reclaims the reserved id when the upload response is lost to a timeout", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
       async (_input, init) => {
         if (init?.method === HTTP_METHOD.post) {
           throw new Error("Request timed out");
@@ -157,7 +157,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("drops the screenshot without reclaiming when Cloudflare rejects the upload with a client error", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
       async (_input, init) => {
         if (init?.method === HTTP_METHOD.post) {
           return buildResponse({ success: false }, false, 401);
@@ -182,7 +182,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("reclaims the reserved id when Cloudflare returns a server error on upload because the image may still exist", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
       async (_input, init) => {
         if (init?.method === HTTP_METHOD.post) {
           return buildResponse({ success: false }, false, 500);
@@ -206,7 +206,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("reclaims the reserved id when an OK upload response carries a malformed non-JSON body", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
       async (_input, init) => {
         if (init?.method === HTTP_METHOD.post) {
           return {
@@ -233,7 +233,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("persists the reserved delivery URL when the upload times out and the reclaim delete returns a server error", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
       async (_input, init) => {
         if (init?.method === HTTP_METHOD.post) {
           throw new Error("Request timed out");
@@ -259,7 +259,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("persists the reserved delivery URL when the upload times out and the reclaim delete returns 404 because the still-running create may complete after the abort", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
       async (_input, init) => {
         if (init?.method === HTTP_METHOD.post) {
           throw new Error("Request timed out");
@@ -288,7 +288,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("drops the screenshot when a 5xx upload's reclaim delete returns 404 because the answered request is a confirmed absence", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
       async (_input, init) => {
         if (init?.method === HTTP_METHOD.post) {
           return buildResponse({ success: false }, false, 500);
@@ -313,8 +313,8 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("persists the reserved delivery URL when the upload times out and the reclaim delete also times out", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => {
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
+      async (...args: unknown[]) => { void args;
         throw new Error("Request timed out");
       }
     );
@@ -327,14 +327,8 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("drops the screenshot on a client upload rejection instead of persisting a delivery URL for an image Cloudflare never accepted", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () =>
-        // The upload is rejected for bad credentials and a reclaim DELETE would
-        // fail auth with those same broken credentials. The reclaim must never
-        // run: the upload was definitively rejected, so there is no image to
-        // preserve. Persisting its reserved delivery URL would later block
-        // deleting the feedback row for an image that does not exist.
-        buildResponse({ success: false }, false, 403)
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
+      async (...args: unknown[]) => { void args; return buildResponse({ success: false }, false, 403); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -348,9 +342,9 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("reclaims the reserved id when an OK upload response stalls the body stream", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     try {
-      const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+      const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
         async (_input, init) => {
           if (init?.method === HTTP_METHOD.post) {
             // Headers arrive but the body never streams. The header-fetch
@@ -369,7 +363,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
       const storage = buildStorageWithReservedId(fetcher);
 
       const storePromise = storage.store({ dataUrl: VALID_SCREENSHOT_DATA_URL });
-      await jest.advanceTimersByTimeAsync(SCREENSHOT_UPLOAD_TIMEOUT_MS);
+      await vi.advanceTimersByTimeAsync(SCREENSHOT_UPLOAD_TIMEOUT_MS);
       const url = await storePromise;
 
       expect(url).toBeNull();
@@ -380,12 +374,12 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
       expect(reclaimUrl).toBe(RESERVED_IMAGE_RESOURCE_URL);
       expect(reclaimInit).toMatchObject({ method: HTTP_METHOD.delete });
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
   it("returns null when Cloudflare reports the upload unsuccessful", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
       async (_input, init) => {
         if (init?.method === HTTP_METHOD.post) {
           return buildResponse({ success: false });
@@ -402,8 +396,8 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("deletes the Cloudflare image parsed from the stored delivery URL", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => buildResponse({ success: true })
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
+      async (...args: unknown[]) => { void args; return buildResponse({ success: true }); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -418,8 +412,8 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("treats a 404 as already deleted and reports the screenshot cleared", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => buildResponse({ success: false }, false, 404)
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
+      async (...args: unknown[]) => { void args; return buildResponse({ success: false }, false, 404); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -430,8 +424,8 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("does not trust a delete 404 as cleared when the caller opts out of treating a 404 as cleared", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => buildResponse({ success: false }, false, 404)
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
+      async (...args: unknown[]) => { void args; return buildResponse({ success: false }, false, 404); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -453,8 +447,8 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("still clears on an ok delete even when the caller opts out of treating a 404 as cleared", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => buildResponse({ success: true })
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
+      async (...args: unknown[]) => { void args; return buildResponse({ success: true }); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -470,7 +464,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("reports the screenshot cleared without calling Cloudflare for an inline data URL", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>();
     const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
@@ -480,7 +474,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("reports the screenshot cleared without calling Cloudflare for a URL on a host it never writes", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>();
     const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
@@ -492,7 +486,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("reports the screenshot uncleared without calling Cloudflare for a delivery URL under a mismatched account hash", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>();
     const storage = buildStorageWithReservedId(fetcher);
 
     // A delivery URL on the Cloudflare Images host whose account hash does not
@@ -509,7 +503,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("reports the screenshot uncleared without calling Cloudflare when credentials are missing", async () => {
     delete process.env.CLOUDFLARE_IMAGES_API_TOKEN;
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>();
     const storage = buildStorageWithReservedId(fetcher);
 
     await expect(
@@ -520,7 +514,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("reports the screenshot cleared for an inline data URL even when credentials are missing", async () => {
     delete process.env.CLOUDFLARE_IMAGES_API_TOKEN;
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>();
     const storage = buildStorageWithReservedId(fetcher);
 
     // A legacy row with an inline `data:` screenshot has no remote image we own,
@@ -535,7 +529,7 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
 
   it("reports the screenshot cleared for a URL on a host it never writes even when credentials are missing", async () => {
     delete process.env.CLOUDFLARE_IMAGES_API_TOKEN;
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>();
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>();
     const storage = buildStorageWithReservedId(fetcher);
 
     // A non-delivery URL the adapter already treats as nothing remote to delete
@@ -548,8 +542,8 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("reports the screenshot uncleared when Cloudflare rejects the delete with an auth error", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => buildResponse({ success: false }, false, 403)
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
+      async (...args: unknown[]) => { void args; return buildResponse({ success: false }, false, 403); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -560,8 +554,8 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("reports the screenshot uncleared when Cloudflare returns a server error", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => buildResponse({ success: false }, false, 500)
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
+      async (...args: unknown[]) => { void args; return buildResponse({ success: false }, false, 500); }
     );
     const storage = buildStorageWithReservedId(fetcher);
 
@@ -572,8 +566,8 @@ describe("CloudflareImagesSitepingScreenshotStorage", () => {
   });
 
   it("reports the screenshot uncleared on a network error so the feedback is kept for retry", async () => {
-    const fetcher = jest.fn<ReturnType<HttpFetcher>, Parameters<HttpFetcher>>(
-      async () => {
+    const fetcher = vi.fn<(...args: Parameters<HttpFetcher>) => ReturnType<HttpFetcher>>(
+      async (...args: unknown[]) => { void args;
         throw new Error("network down");
       }
     );

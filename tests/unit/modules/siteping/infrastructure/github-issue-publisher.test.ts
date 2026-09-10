@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { FetchGitHubIssuePublisher } from "@/src/modules/siteping/infrastructure/github/github-issue-publisher";
 import {
   SITEPING_FEEDBACK_GITHUB_STATUS,
@@ -6,7 +7,7 @@ import {
 } from "@/src/modules/siteping/constants/siteping";
 import type { SitepingFeedback } from "@/src/modules/siteping/domain/repositories/siteping-feedback-repository";
 
-const fetchMock = jest.fn();
+const fetchMock = vi.fn();
 const GITHUB_ISSUE_TITLE_MAX_LENGTH = 256;
 const SITEPING_TITLE_PREFIX = "[SitePing]";
 
@@ -58,14 +59,14 @@ describe("FetchGitHubIssuePublisher", () => {
   const originalEnvironment = process.env;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.env = {
       ...originalEnvironment,
       SITEPING_GITHUB_TOKEN: "github-token",
     };
     global.fetch = fetchMock as unknown as typeof fetch;
     fetchMock.mockResolvedValue({
-      json: jest.fn(async () => ({
+      json: vi.fn(async () => ({
         html_url: "https://github.com/guidomodarelli/LaTribu/issues/42",
         number: 42,
       })),
@@ -172,7 +173,7 @@ describe("FetchGitHubIssuePublisher", () => {
   });
 
   it("bounds stalled GitHub issue publication with the resilience timeout", async () => {
-    fetchMock.mockImplementation((_, init: RequestInit | undefined) => {
+    fetchMock.mockImplementation(function (_, init: RequestInit | undefined) {
       return new Promise((_, reject) => {
         init?.signal?.addEventListener("abort", () => {
           reject(new DOMException("Aborted", "AbortError"));
@@ -203,7 +204,7 @@ describe("FetchGitHubIssuePublisher", () => {
 
   it("does not retry retryable GitHub issue creation failures", async () => {
     fetchMock.mockResolvedValue({
-      json: jest.fn(async () => ({})),
+      json: vi.fn(async () => ({})),
       ok: false,
       status: 502,
     });
@@ -228,15 +229,15 @@ describe("FetchGitHubIssuePublisher", () => {
   it("closes and comments the GitHub issue linked to deleted feedback", async () => {
     fetchMock
       .mockResolvedValueOnce({
-        json: jest.fn(async () => ({})),
+        json: vi.fn(async () => ({})),
         ok: true,
       })
       .mockResolvedValueOnce({
-        json: jest.fn(async () => []),
+        json: vi.fn(async () => []),
         ok: true,
       })
       .mockResolvedValueOnce({
-        json: jest.fn(async () => ({})),
+        json: vi.fn(async () => ({})),
         ok: true,
       });
     const publisher = new FetchGitHubIssuePublisher();
@@ -276,11 +277,11 @@ describe("FetchGitHubIssuePublisher", () => {
   it("does not post another deletion comment when the feedback was already commented", async () => {
     fetchMock
       .mockResolvedValueOnce({
-        json: jest.fn(async () => ({})),
+        json: vi.fn(async () => ({})),
         ok: true,
       })
       .mockResolvedValueOnce({
-        json: jest.fn(async () => [
+        json: vi.fn(async () => [
           {
             body: "SitePing feedback feedback-1 was deleted from LaTribu.",
           },

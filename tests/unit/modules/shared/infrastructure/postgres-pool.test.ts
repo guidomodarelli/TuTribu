@@ -1,31 +1,32 @@
-/** @jest-environment node */
+/** @vitest-environment node */
 
+import { vi, describe, it, expect, beforeEach } from "vitest";
 describe("Postgres pool factory", () => {
-  const loggerError = jest.fn();
-  const loggerWarn = jest.fn();
+  const loggerError = vi.fn();
+  const loggerWarn = vi.fn();
 
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
     loggerError.mockReset();
     loggerWarn.mockReset();
   });
 
   it("logs idle client termination errors without exposing client connection details", async () => {
-    const poolOn = jest.fn();
+    const poolOn = vi.fn();
     const poolInstance = {
       on: poolOn,
     };
-    const Pool = jest.fn(() => poolInstance);
+    const Pool = vi.fn(function (...args: unknown[]) { void args; return poolInstance; });
 
-    jest.doMock("pg", () => ({
+    vi.doMock("pg", () => ({
       Pool,
     }));
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/shared/infrastructure/observability/server-logger",
       () => ({
         createServerLogger: () => ({
           error: loggerError,
-          info: jest.fn(),
+          info: vi.fn(),
           warn: loggerWarn,
         }),
       })
@@ -95,19 +96,19 @@ describe("Postgres pool factory", () => {
   });
 
   it("logs unexpected idle client errors as errors with safe metadata", async () => {
-    const poolOn = jest.fn();
+    const poolOn = vi.fn();
 
-    jest.doMock("pg", () => ({
-      Pool: jest.fn(() => ({
+    vi.doMock("pg", () => ({
+      Pool: vi.fn(function () { return ({
         on: poolOn,
-      })),
+      }); }),
     }));
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/shared/infrastructure/observability/server-logger",
       () => ({
         createServerLogger: () => ({
           error: loggerError,
-          info: jest.fn(),
+          info: vi.fn(),
           warn: loggerWarn,
         }),
       })
@@ -131,7 +132,7 @@ describe("Postgres pool factory", () => {
       code: "08006",
       severity: "FATAL",
       message: "connection failure",
-    });
+    }, undefined);
 
     expect(loggerError).toHaveBeenCalledWith({
       message: "Postgres idle client emitted an unexpected connection error.",
@@ -149,19 +150,19 @@ describe("Postgres pool factory", () => {
   });
 
   it("applies the idle-in-transaction guard on every new connection", async () => {
-    const Pool = jest.fn(() => ({
-      on: jest.fn(),
-    }));
+    const Pool = vi.fn(function (...args: unknown[]) { void args; return ({
+      on: vi.fn(),
+    }); });
 
-    jest.doMock("pg", () => ({
+    vi.doMock("pg", () => ({
       Pool,
     }));
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/shared/infrastructure/observability/server-logger",
       () => ({
         createServerLogger: () => ({
           error: loggerError,
-          info: jest.fn(),
+          info: vi.fn(),
           warn: loggerWarn,
         }),
       })
@@ -179,7 +180,7 @@ describe("Postgres pool factory", () => {
     const poolConfig = Pool.mock.calls[0][0] as {
       onConnect: (client: unknown) => Promise<void>;
     };
-    const query = jest.fn().mockResolvedValue({ rows: [] });
+    const query = vi.fn().mockResolvedValue({ rows: [] });
 
     await expect(poolConfig.onConnect({ query })).resolves.toBeUndefined();
 
@@ -190,19 +191,19 @@ describe("Postgres pool factory", () => {
   });
 
   it("rejects new connections when the idle-in-transaction guard cannot be applied", async () => {
-    const Pool = jest.fn(() => ({
-      on: jest.fn(),
-    }));
+    const Pool = vi.fn(function (...args: unknown[]) { void args; return ({
+      on: vi.fn(),
+    }); });
 
-    jest.doMock("pg", () => ({
+    vi.doMock("pg", () => ({
       Pool,
     }));
-    jest.doMock(
+    vi.doMock(
       "@/src/modules/shared/infrastructure/observability/server-logger",
       () => ({
         createServerLogger: () => ({
           error: loggerError,
-          info: jest.fn(),
+          info: vi.fn(),
           warn: loggerWarn,
         }),
       })
@@ -227,7 +228,7 @@ describe("Postgres pool factory", () => {
 
     await expect(
       poolConfig.onConnect({
-        query: jest.fn().mockRejectedValue(guardError),
+        query: vi.fn().mockRejectedValue(guardError),
       })
     ).rejects.toBe(guardError);
 

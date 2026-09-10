@@ -1,17 +1,18 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "beez-ui";
 
 import { TribeInvitationManagement } from "@/components/tribes/tribe-invitation-management";
 
-const writeTextMock = jest.fn(async () => undefined);
+const writeTextMock = vi.fn(async () => undefined);
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
@@ -29,8 +30,8 @@ const baseInvitation = {
 
 describe("TribeInvitationManagement", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    global.fetch = jest.fn();
+    vi.clearAllMocks();
+    global.fetch = vi.fn();
     writeTextMock.mockClear();
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -45,7 +46,7 @@ describe("TribeInvitationManagement", () => {
     const invitationUrl =
       "https://tutribu.example.com/matematica-pro/invitar/token";
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         invitation: {
           ...baseInvitation,
@@ -113,7 +114,7 @@ describe("TribeInvitationManagement", () => {
   it("asks for confirmation before revoking an active invitation", async () => {
     const user = userEvent.setup();
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         message: "Invitación revocada.",
       }),
@@ -152,7 +153,7 @@ describe("TribeInvitationManagement", () => {
   it("changes the plan associated with an existing invitation", async () => {
     const user = userEvent.setup();
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         invitation: {
           ...baseInvitation,
@@ -283,7 +284,7 @@ describe("TribeInvitationManagement", () => {
                 mercadoPagoAccountEmail: "guido@example.com",
                 mercadoPagoAccountLabel: "[Guido] Test",
                 name: "[Guido] Test",
-                status: "active",
+                status: "active" as const,
                 trial: { frequency: 7, frequencyType: "days" },
               },
               priceId: "price-1",
@@ -388,7 +389,7 @@ describe("TribeInvitationManagement", () => {
   it("edits the referral channel from the row menu", async () => {
     const user = userEvent.setup();
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         invitation: {
           ...baseInvitation,

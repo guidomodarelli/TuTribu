@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   createTribeSubscriptionPrice,
   deleteTribeSubscriptionPrice,
@@ -23,17 +24,17 @@ const PAYMENT_INTEGRATION_ID = "11111111-1111-4111-8111-111111111111";
 function createRepository(
   overrides: Partial<TribeSubscriptionPriceRepository> = {}
 ): TribeSubscriptionPriceRepository {
-  return {
-    create: jest.fn(),
-    delete: jest.fn(),
-    getCurrentSubscriptionOffer: jest.fn(),
-    getUpdateTrialPolicy: jest.fn(),
-    listByTribeSlug: jest.fn(),
-    makeCurrent: jest.fn(),
-    syncProviderPlan: jest.fn(),
-    update: jest.fn(),
-    verifyProviderPlan: jest.fn(),
-    verifyProviderPlans: jest.fn(),
+  return { deleteWithInvitationActions: vi.fn(), setFreeJoinAsCurrent: vi.fn(), setOpenFreeJoin: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
+    getCurrentSubscriptionOffer: vi.fn(),
+    getUpdateTrialPolicy: vi.fn(),
+    listByTribeSlug: vi.fn(),
+    makeCurrent: vi.fn(),
+    syncProviderPlan: vi.fn(),
+    update: vi.fn(),
+    verifyProviderPlan: vi.fn(),
+    verifyProviderPlans: vi.fn(),
     ...overrides,
   };
 }
@@ -42,8 +43,8 @@ function createSubscriberDiagnosticsRepository(
   overrides: Partial<TribeSubscriberDiagnosticsRepository> = {}
 ): TribeSubscriberDiagnosticsRepository {
   return {
-    getSubscriberDiagnostics: jest.fn(),
-    reconcileSubscriberDiagnostics: jest.fn(),
+    getSubscriberDiagnostics: vi.fn(),
+    reconcileSubscriberDiagnostics: vi.fn(),
     ...overrides,
   };
 }
@@ -70,7 +71,7 @@ describe("manage tribe subscription prices use cases", () => {
   };
 
   it("creates cheaper prices as independent plans", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       price: createdPrice,
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
     }));
@@ -104,7 +105,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should reject price creation without a selected Mercado Pago account", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeSubscriptionPrice({
       tribeSubscriptionPriceRepository: createRepository({ create }),
     });
@@ -121,7 +122,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should reject price creation with a malformed Mercado Pago account id", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeSubscriptionPrice({
       tribeSubscriptionPriceRepository: createRepository({ create }),
     });
@@ -138,7 +139,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should reject invalid trial periods before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeSubscriptionPrice({
       tribeSubscriptionPriceRepository: createRepository({ create }),
     });
@@ -156,7 +157,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should accept one-day trial periods", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       price: {
         ...createdPrice,
         trial: {
@@ -197,7 +198,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should accept two-day trial periods", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       price: {
         ...createdPrice,
         trial: {
@@ -238,7 +239,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should reject trial periods greater than fourteen days before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeSubscriptionPrice({
       tribeSubscriptionPriceRepository: createRepository({ create }),
     });
@@ -256,7 +257,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("rejects invalid amounts before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeSubscriptionPrice({
       tribeSubscriptionPriceRepository: createRepository({ create }),
     });
@@ -272,7 +273,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("rejects amounts lower than the Mercado Pago minimum before calling the repository", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeSubscriptionPrice({
       tribeSubscriptionPriceRepository: createRepository({ create }),
     });
@@ -288,7 +289,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("rejects amounts that do not fit in the persisted cents column", async () => {
-    const create = jest.fn();
+    const create = vi.fn();
     const execute = createTribeSubscriptionPrice({
       tribeSubscriptionPriceRepository: createRepository({ create }),
     });
@@ -304,7 +305,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("passes repository limit responses when a tribe already has thirty prices", async () => {
-    const create = jest.fn(async () => ({
+    const create = vi.fn(async () => ({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.limitReached,
     }));
     const execute = createTribeSubscriptionPrice({
@@ -322,7 +323,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("marks one price as current without changing existing member subscriptions", async () => {
-    const makeCurrent = jest.fn(async () => ({
+    const makeCurrent = vi.fn(async () => ({
       price: {
         ...createdPrice,
         isCurrent: true,
@@ -352,7 +353,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("does not delete a price with associated members or active subscribers", async () => {
-    const deletePrice = jest.fn(async () => ({
+    const deletePrice = vi.fn(async () => ({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasSubscribers,
     }));
     const execute = deleteTribeSubscriptionPrice({
@@ -372,7 +373,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("lists prices with viewer permissions from the repository", async () => {
-    const listByTribeSlug = jest.fn(async () => ({
+    const listByTribeSlug = vi.fn(async () => ({ freeJoinIsCurrent: false, openFreeJoinEnabled: false,
       availableMercadoPagoAccounts: [
         {
           accountLabel: "Cuenta principal",
@@ -405,21 +406,21 @@ describe("manage tribe subscription prices use cases", () => {
       execute({
         tribeSlug: " matematica-pro ",
       })
-    ).resolves.toEqual({
+    ).resolves.toEqual({ freeJoinIsCurrent: false, openFreeJoinEnabled: false,
       availableMercadoPagoAccounts: [
         {
           accountLabel: "Cuenta principal",
           id: PAYMENT_INTEGRATION_ID,
           providerAccountId: "collector-1",
           providerAccountEmail: "leader@example.com",
-          status: "connected",
+          status: "connected" as const,
         },
         {
           accountLabel: "Cuenta secundaria",
           id: "integration-2",
           providerAccountId: "collector-2",
           providerAccountEmail: null,
-          status: "requires_reconnection",
+          status: "requires_reconnection" as const,
         },
       ],
       hasMercadoPagoIntegration: true,
@@ -433,7 +434,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("returns the current paid offer for a tokenless public join with normalized slug", async () => {
-    const getCurrentSubscriptionOffer = jest.fn(async () => ({
+    const getCurrentSubscriptionOffer = vi.fn(async () => ({
       price: {
         amountCents: 500000,
         currency: "ARS",
@@ -467,7 +468,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("lowercases a mixed-case slug before reading the open-join offer", async () => {
-    const getCurrentSubscriptionOffer = jest.fn(async () => ({
+    const getCurrentSubscriptionOffer = vi.fn(async () => ({
       price: {
         amountCents: 500000,
         currency: "ARS",
@@ -492,7 +493,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("returns an unavailable offer when the tribe has no current paid plan", async () => {
-    const getCurrentSubscriptionOffer = jest.fn(async () => ({
+    const getCurrentSubscriptionOffer = vi.fn(async () => ({
       status: TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS.unavailable,
     }));
     const execute = getTribeCurrentSubscriptionOffer({
@@ -511,7 +512,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should update one price with normalized mixed-policy input", async () => {
-    const update = jest.fn(async () => ({
+    const update = vi.fn(async () => ({
       price: {
         ...createdPrice,
         name: "Plan actualizado",
@@ -550,13 +551,13 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should allow preserving existing synchronized day trials greater than fourteen days when updating", async () => {
-    const getUpdateTrialPolicy = jest.fn(async () => ({
+    const getUpdateTrialPolicy = vi.fn(async () => ({
       amountCents: 500000,
       hasMercadoPagoPreapprovalPlan: true,
       trialFrequency: 21,
       trialFrequencyType: "days" as const,
     }));
-    const update = jest.fn(async () => ({
+    const update = vi.fn(async () => ({
       price: {
         ...createdPrice,
         name: "Plan actualizado",
@@ -568,7 +569,7 @@ describe("manage tribe subscription prices use cases", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
     }));
     const execute = updateTribeSubscriptionPrice({
-      tribeSubscriptionPriceRepository: createRepository({
+      tribeSubscriptionPriceRepository: createRepository({ deleteWithInvitationActions: vi.fn(), setFreeJoinAsCurrent: vi.fn(), setOpenFreeJoin: vi.fn(),
         getUpdateTrialPolicy,
         update,
       }),
@@ -605,13 +606,13 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should allow preserving existing synchronized day trials greater than fourteen days when the amount changes", async () => {
-    const getUpdateTrialPolicy = jest.fn(async () => ({
+    const getUpdateTrialPolicy = vi.fn(async () => ({
       amountCents: 400000,
       hasMercadoPagoPreapprovalPlan: true,
       trialFrequency: 21,
       trialFrequencyType: "days" as const,
     }));
-    const update = jest.fn(async () => ({
+    const update = vi.fn(async () => ({
       price: {
         ...createdPrice,
         amountCents: 500000,
@@ -623,7 +624,7 @@ describe("manage tribe subscription prices use cases", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
     }));
     const execute = updateTribeSubscriptionPrice({
-      tribeSubscriptionPriceRepository: createRepository({
+      tribeSubscriptionPriceRepository: createRepository({ deleteWithInvitationActions: vi.fn(), setFreeJoinAsCurrent: vi.fn(), setOpenFreeJoin: vi.fn(),
         getUpdateTrialPolicy,
         update,
       }),
@@ -665,15 +666,15 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should reject new day trial values greater than fourteen days before updating", async () => {
-    const getUpdateTrialPolicy = jest.fn(async () => ({
+    const getUpdateTrialPolicy = vi.fn(async () => ({
       amountCents: 500000,
       hasMercadoPagoPreapprovalPlan: true,
       trialFrequency: 21,
       trialFrequencyType: "days" as const,
     }));
-    const update = jest.fn();
+    const update = vi.fn();
     const execute = updateTribeSubscriptionPrice({
-      tribeSubscriptionPriceRepository: createRepository({
+      tribeSubscriptionPriceRepository: createRepository({ deleteWithInvitationActions: vi.fn(), setFreeJoinAsCurrent: vi.fn(), setOpenFreeJoin: vi.fn(),
         getUpdateTrialPolicy,
         update,
       }),
@@ -697,12 +698,12 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should preserve repository access status when validating extended day trials without a policy", async () => {
-    const getUpdateTrialPolicy = jest.fn(async () => null);
-    const update = jest.fn(async () => ({
+    const getUpdateTrialPolicy = vi.fn(async () => null);
+    const update = vi.fn(async () => ({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.forbidden,
     }));
     const execute = updateTribeSubscriptionPrice({
-      tribeSubscriptionPriceRepository: createRepository({
+      tribeSubscriptionPriceRepository: createRepository({ deleteWithInvitationActions: vi.fn(), setFreeJoinAsCurrent: vi.fn(), setOpenFreeJoin: vi.fn(),
         getUpdateTrialPolicy,
         update,
       }),
@@ -735,7 +736,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should preserve omitted trial fields when updating legacy clients", async () => {
-    const update = jest.fn(async () => ({
+    const update = vi.fn(async () => ({
       price: createdPrice,
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.updated,
     }));
@@ -764,7 +765,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should clear trial fields when updating with an empty trial frequency", async () => {
-    const update = jest.fn(async () => ({
+    const update = vi.fn(async () => ({
       price: {
         ...createdPrice,
         trial: null,
@@ -803,7 +804,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should reject invalid update amounts before calling the repository", async () => {
-    const update = jest.fn();
+    const update = vi.fn();
     const execute = updateTribeSubscriptionPrice({
       tribeSubscriptionPriceRepository: createRepository({ update }),
     });
@@ -820,7 +821,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should verify provider plans for a tribe with normalized input", async () => {
-    const verifyProviderPlans = jest.fn(async () => ({
+    const verifyProviderPlans = vi.fn(async () => ({ freeJoinIsCurrent: false,
       canceledPriceIds: [],
       prices: [createdPrice],
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
@@ -834,7 +835,7 @@ describe("manage tribe subscription prices use cases", () => {
       execute({
         tribeSlug: " matematica-pro ",
       })
-    ).resolves.toEqual({
+    ).resolves.toEqual({ freeJoinIsCurrent: false,
       canceledPriceIds: [],
       prices: [createdPrice],
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
@@ -846,7 +847,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should verify one provider plan with normalized input", async () => {
-    const verifyProviderPlan = jest.fn(async () => ({
+    const verifyProviderPlan = vi.fn(async () => ({
       price: createdPrice,
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     }));
@@ -870,7 +871,7 @@ describe("manage tribe subscription prices use cases", () => {
   });
 
   it("should sync provider plan webhooks with normalized input", async () => {
-    const syncProviderPlan = jest.fn(async () => ({
+    const syncProviderPlan = vi.fn(async () => ({
       price: createdPrice,
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     }));
@@ -904,7 +905,7 @@ describe("manage tribe subscription prices use cases", () => {
       mercadoPagoPausedSubscribersCount: 2,
       mercadoPagoPendingSubscribersCount: 3,
     };
-    const getSubscriberDiagnostics = jest.fn(async () => diagnostics);
+    const getSubscriberDiagnostics = vi.fn(async () => diagnostics);
     const execute = getTribeSubscriberDiagnostics({
       tribeSubscriberDiagnosticsRepository:
         createSubscriberDiagnosticsRepository({ getSubscriberDiagnostics }),
@@ -928,7 +929,7 @@ describe("manage tribe subscription prices use cases", () => {
       mercadoPagoPausedSubscribersCount: 0,
       mercadoPagoPendingSubscribersCount: 0,
     };
-    const reconcileSubscriberDiagnostics = jest.fn(async () => ({
+    const reconcileSubscriberDiagnostics = vi.fn(async () => ({
       diagnostics,
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
       verifiedCount: 1,

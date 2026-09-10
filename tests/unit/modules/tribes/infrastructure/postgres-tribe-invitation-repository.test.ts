@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { randomBytes } from "crypto";
 
 import { encryptInvitationToken } from "@/src/modules/tribes/infrastructure/encryption/tribe-invitation-token-cipher";
@@ -63,7 +64,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("creates invitations with a one-time visible token, token hash, and manager permission guard", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           associated_plan_amount_cents: null,
@@ -75,12 +76,12 @@ describe("PostgresTribeInvitationRepository", () => {
           created_at: "2026-04-26T07:00:00.000Z",
           created_by_name: "Grace Hopper",
           id: "invitation-1",
-          status: "created",
+          status: "created" as const,
           subscription_association_type: "current",
           subscription_price_id: null,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -96,7 +97,7 @@ describe("PostgresTribeInvitationRepository", () => {
       })
     ).resolves.toMatchObject({
       invitationUrl: "https://tutribu.example.com/matematica-pro/invitar/plain-token",
-      status: "created",
+      status: "created" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -110,7 +111,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("only creates specific-price invitations for active provider-backed prices", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           associated_plan_amount_cents: 500000,
@@ -122,12 +123,12 @@ describe("PostgresTribeInvitationRepository", () => {
           created_at: "2026-04-26T07:00:00.000Z",
           created_by_name: "Grace Hopper",
           id: "invitation-1",
-          status: "created",
+          status: "created" as const,
           subscription_association_type: "specific",
           subscription_price_id: "550e8400-e29b-41d4-a716-446655440010",
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -145,7 +146,7 @@ describe("PostgresTribeInvitationRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toMatchObject({
-      status: "created",
+      status: "created" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -160,7 +161,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("maps missing invitation storage during creation to setup_required", async () => {
-    const execute = jest.fn(async () => {
+    const execute = vi.fn(async (...args: unknown[]) => { void args;
       throw {
         cause: {
           code: "42P01",
@@ -180,11 +181,11 @@ describe("PostgresTribeInvitationRepository", () => {
         token: "plain-token",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "setup_required" });
+    ).resolves.toEqual({ status: "setup_required" as const });
   });
 
   it("maps a missing encrypted token column during creation to setup_required", async () => {
-    const execute = jest.fn(async () => {
+    const execute = vi.fn(async (...args: unknown[]) => { void args;
       throw {
         cause: {
           code: "42703",
@@ -204,12 +205,12 @@ describe("PostgresTribeInvitationRepository", () => {
         token: "plain-token",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "setup_required" });
+    ).resolves.toEqual({ status: "setup_required" as const });
   });
 
   it("lists active invitations rebuilding the acceptance link from the encrypted token", async () => {
     const encryptedActiveToken = encryptInvitationToken("active-token");
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           associated_plan_amount_cents: null,
@@ -240,7 +241,7 @@ describe("PostgresTribeInvitationRepository", () => {
           token_encrypted: null,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -278,7 +279,7 @@ describe("PostgresTribeInvitationRepository", () => {
 
   it("includes the Mercado Pago account and trial period for specific-price associations", async () => {
     const encryptedActiveToken = encryptInvitationToken("active-token");
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           associated_plan_amount_cents: 1500,
@@ -299,7 +300,7 @@ describe("PostgresTribeInvitationRepository", () => {
           token_encrypted: encryptedActiveToken,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -325,7 +326,7 @@ describe("PostgresTribeInvitationRepository", () => {
             mercadoPagoAccountEmail: "guido@example.com",
             mercadoPagoAccountLabel: "[Guido] Test",
             name: "[Guido] Test",
-            status: "active",
+            status: "active" as const,
             trial: { frequency: 7, frequencyType: "days" },
           },
           priceId: "550e8400-e29b-41d4-a716-446655440010",
@@ -345,7 +346,7 @@ describe("PostgresTribeInvitationRepository", () => {
 
   it("updates referral metadata through the metadata-only database function", async () => {
     const encryptedActiveToken = encryptInvitationToken("active-token");
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           associated_plan_amount_cents: null,
@@ -364,13 +365,13 @@ describe("PostgresTribeInvitationRepository", () => {
           created_by_name: "Grace Hopper",
           id: "550e8400-e29b-41d4-a716-446655440000",
           referrer_handle: "@partner",
-          status: "updated",
+          status: "updated" as const,
           subscription_association_type: "current",
           subscription_price_id: null,
           token_encrypted: encryptedActiveToken,
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -398,7 +399,7 @@ describe("PostgresTribeInvitationRepository", () => {
         referrerHandle: "@partner",
         subscriptionAssociation: { type: "current" },
       },
-      status: "updated",
+      status: "updated" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -413,7 +414,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("reads conversion metrics grouped by invitation and payment account", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           campaign_name: "Lanzamiento mayo",
@@ -429,7 +430,7 @@ describe("PostgresTribeInvitationRepository", () => {
           signups: "3",
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -458,7 +459,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("returns null acceptance links when decryption fails for a stored row", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           associated_plan_amount_cents: null,
@@ -475,7 +476,7 @@ describe("PostgresTribeInvitationRepository", () => {
           token_encrypted: "v1.bad.bad.bad",
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -497,7 +498,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("returns an empty list when invitation storage has not been migrated yet", async () => {
-    const execute = jest.fn(async () => {
+    const execute = vi.fn(async (...args: unknown[]) => { void args;
       throw {
         cause: {
           code: "42P01",
@@ -517,7 +518,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("returns an empty list when the encrypted token column has not been migrated yet", async () => {
-    const execute = jest.fn(async () => {
+    const execute = vi.fn(async (...args: unknown[]) => { void args;
       throw {
         cause: {
           code: "42703",
@@ -537,9 +538,9 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("revokes active invitations with manager permission guard", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "revoked" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ status: "revoked" as const }],
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -549,7 +550,7 @@ describe("PostgresTribeInvitationRepository", () => {
         invitationId: "550e8400-e29b-41d4-a716-446655440000",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "revoked" });
+    ).resolves.toEqual({ status: "revoked" as const });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
@@ -559,7 +560,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("maps malformed invitation identifiers to not_found before querying Postgres", async () => {
-    const execute = jest.fn();
+    const execute = vi.fn();
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -569,13 +570,13 @@ describe("PostgresTribeInvitationRepository", () => {
         invitationId: "not-a-uuid",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "not_found" });
+    ).resolves.toEqual({ status: "not_found" as const });
 
     expect(execute).not.toHaveBeenCalled();
   });
 
   it("only updates invitation associations to active provider-backed prices", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           associated_plan_amount_cents: 500000,
@@ -587,13 +588,13 @@ describe("PostgresTribeInvitationRepository", () => {
           created_at: "2026-04-26T07:00:00.000Z",
           created_by_name: "Grace Hopper",
           id: "550e8400-e29b-41d4-a716-446655440000",
-          status: "updated",
+          status: "updated" as const,
           subscription_association_type: "specific",
           subscription_price_id: "550e8400-e29b-41d4-a716-446655440010",
           token_encrypted: encryptInvitationToken("active-token"),
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -609,7 +610,7 @@ describe("PostgresTribeInvitationRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toMatchObject({
-      status: "updated",
+      status: "updated" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -624,9 +625,9 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("accepts invitations idempotently without persisting the plain token", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "accepted" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ status: "accepted" as const }],
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -636,7 +637,7 @@ describe("PostgresTribeInvitationRepository", () => {
         token: "plain-token",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "accepted" });
+    ).resolves.toEqual({ status: "accepted" as const });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
@@ -658,9 +659,9 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("rechecks membership after insert conflicts so concurrent accepts stay idempotent", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "accepted" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ status: "accepted" as const }],
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -670,7 +671,7 @@ describe("PostgresTribeInvitationRepository", () => {
         token: "plain-token",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "accepted" });
+    ).resolves.toEqual({ status: "accepted" as const });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
     const insertConflictPosition = sqlText.indexOf(
@@ -693,9 +694,9 @@ describe("PostgresTribeInvitationRepository", () => {
   it(
     "tags accepted free-mode memberships with joined_via='free_invitation'",
     async () => {
-      const execute = jest.fn(async () => ({
-        rows: [{ status: "accepted" }],
-      }));
+      const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+        rows: [{ status: "accepted" as const }],
+      }); });
       const repository = new PostgresTribeInvitationRepository(async (callback) =>
         callback({ execute } as never)
       );
@@ -705,7 +706,7 @@ describe("PostgresTribeInvitationRepository", () => {
           token: "plain-token",
           tribeSlug: "matematica-pro",
         })
-      ).resolves.toEqual({ status: "accepted" });
+      ).resolves.toEqual({ status: "accepted" as const });
 
       const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
@@ -716,9 +717,9 @@ describe("PostgresTribeInvitationRepository", () => {
   );
 
   it("accepts free invitations only when free join is current", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "accepted" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ status: "accepted" as const }],
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -728,7 +729,7 @@ describe("PostgresTribeInvitationRepository", () => {
         token: "plain-token",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "accepted" });
+    ).resolves.toEqual({ status: "accepted" as const });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
@@ -755,9 +756,9 @@ describe("PostgresTribeInvitationRepository", () => {
   it(
     "recovers free invitations from removed memberships whose subscription went inactive",
     async () => {
-      const execute = jest.fn(async () => ({
-        rows: [{ status: "accepted" }],
-      }));
+      const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+        rows: [{ status: "accepted" as const }],
+      }); });
       const repository = new PostgresTribeInvitationRepository(async (callback) =>
         callback({ execute } as never)
       );
@@ -767,7 +768,7 @@ describe("PostgresTribeInvitationRepository", () => {
           token: "plain-token",
           tribeSlug: "matematica-pro",
         })
-      ).resolves.toEqual({ status: "accepted" });
+      ).resolves.toEqual({ status: "accepted" as const });
 
       const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
@@ -778,9 +779,9 @@ describe("PostgresTribeInvitationRepository", () => {
   );
 
   it("maps revoked invitation acceptance to a controlled result", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "revoked" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ status: "revoked" as const }],
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -790,13 +791,13 @@ describe("PostgresTribeInvitationRepository", () => {
         token: "revoked-token",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "revoked" });
+    ).resolves.toEqual({ status: "revoked" as const });
   });
 
   it("does not require subscription checkout for revoked invitations", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "revoked" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ status: "revoked" as const }],
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -806,7 +807,7 @@ describe("PostgresTribeInvitationRepository", () => {
         token: "revoked-token",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "revoked" });
+    ).resolves.toEqual({ status: "revoked" as const });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
 
@@ -816,9 +817,9 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("resolves revoked invitations before requiring visible tribe access", async () => {
-    const execute = jest.fn(async () => ({
-      rows: [{ status: "revoked" }],
-    }));
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
+      rows: [{ status: "revoked" as const }],
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -828,7 +829,7 @@ describe("PostgresTribeInvitationRepository", () => {
         token: "revoked-token",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "revoked" });
+    ).resolves.toEqual({ status: "revoked" as const });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
     const targetInvitationPosition = sqlText.indexOf("target_invitation as");
@@ -845,7 +846,7 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("returns the current active subscription offer for an active invitation", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
         {
           amount_cents: 500000,
@@ -854,7 +855,7 @@ describe("PostgresTribeInvitationRepository", () => {
           name: "Plan mensual",
         },
       ],
-    }));
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -871,7 +872,7 @@ describe("PostgresTribeInvitationRepository", () => {
         frequency: "monthly",
         name: "Plan mensual",
       },
-      status: "available",
+      status: "available" as const,
     });
 
     const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
@@ -883,9 +884,9 @@ describe("PostgresTribeInvitationRepository", () => {
   });
 
   it("returns unavailable when the invitation has no active current subscription offer", async () => {
-    const execute = jest.fn(async () => ({
+    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [],
-    }));
+    }); });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -895,6 +896,6 @@ describe("PostgresTribeInvitationRepository", () => {
         token: "plain-token",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "unavailable" });
+    ).resolves.toEqual({ status: "unavailable" as const });
   });
 });

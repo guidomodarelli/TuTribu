@@ -1,5 +1,6 @@
-/** @jest-environment node */
+/** @vitest-environment node */
 
+import { describe, it, expect } from "vitest";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 

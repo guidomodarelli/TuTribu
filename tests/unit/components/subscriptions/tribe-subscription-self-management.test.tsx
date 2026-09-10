@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, afterEach, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -5,11 +6,11 @@ import { TribeSubscriptionSelfManagement } from "@/components/subscriptions/trib
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
@@ -18,17 +19,17 @@ describe("TribeSubscriptionSelfManagement", () => {
 
   afterEach(() => {
     global.fetch = previousFetch;
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("requires confirmation before canceling the member subscription", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         message: "Cancelamos tu suscripción.",
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionSelfManagement

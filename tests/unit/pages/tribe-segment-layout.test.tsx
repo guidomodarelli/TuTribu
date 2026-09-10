@@ -1,17 +1,18 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import TribeSegmentLayout from "@/app/(platform)/[slug]/layout";
 
-const useParamsMock = jest.fn();
+const useParamsMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
+vi.mock("next/navigation", () => ({
   useParams: () => useParamsMock(),
 }));
 
 describe("TribeSegmentLayout", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    global.fetch = jest.fn().mockResolvedValue({ ok: true });
+    vi.clearAllMocks();
+    global.fetch = vi.fn().mockResolvedValue({ ok: true });
     useParamsMock.mockReturnValue({ slug: "matematica-pro" });
   });
 

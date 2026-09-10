@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import {
   createLessonComment,
   deleteLessonComment,
@@ -21,12 +22,12 @@ function buildRepository(
   overrides: Partial<LessonCommentRepository> = {}
 ): LessonCommentRepository {
   return {
-    createComment: jest.fn(async () => ({
+    createComment: vi.fn(async () => ({
       comment: COMMENT_FIXTURE,
       status: "created" as const,
     })),
-    deleteComment: jest.fn(async () => ({ status: "deleted" as const })),
-    listByLesson: jest.fn(async () => ({
+    deleteComment: vi.fn(async () => ({ status: "deleted" as const })),
+    listByLesson: vi.fn(async () => ({
       comments: [COMMENT_FIXTURE],
       status: "ok" as const,
     })),
@@ -44,7 +45,7 @@ describe("lesson comments use cases", () => {
       tribeSlug: " matematica-pro ",
     });
 
-    expect(result).toEqual({ comments: [COMMENT_FIXTURE], status: "ok" });
+    expect(result).toEqual({ comments: [COMMENT_FIXTURE], status: "ok" as const });
     expect(repository.listByLesson).toHaveBeenCalledWith({
       lessonId: "l1",
       tribeSlug: "matematica-pro",
@@ -82,7 +83,7 @@ describe("lesson comments use cases", () => {
       tribeSlug: "matematica-pro",
     });
 
-    expect(result).toEqual({ status: "invalid_input" });
+    expect(result).toEqual({ status: "invalid_input" as const });
     expect(repository.createComment).not.toHaveBeenCalled();
   });
 
@@ -98,7 +99,7 @@ describe("lesson comments use cases", () => {
       tribeSlug: "matematica-pro",
     });
 
-    expect(result).toEqual({ status: "invalid_input" });
+    expect(result).toEqual({ status: "invalid_input" as const });
     expect(repository.createComment).not.toHaveBeenCalled();
   });
 
@@ -113,7 +114,7 @@ describe("lesson comments use cases", () => {
       tribeSlug: " matematica-pro ",
     });
 
-    expect(result).toEqual({ status: "deleted" });
+    expect(result).toEqual({ status: "deleted" as const });
     expect(repository.deleteComment).toHaveBeenCalledWith({
       commentId: "comment-1",
       tribeSlug: "matematica-pro",

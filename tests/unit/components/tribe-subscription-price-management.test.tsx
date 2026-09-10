@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "beez-ui";
@@ -5,11 +6,11 @@ import { toast } from "beez-ui";
 import { TribeSubscriptionPriceManagement } from "@/components/subscriptions/tribe-subscription-price-management";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
@@ -58,7 +59,7 @@ describe("TribeSubscriptionPriceManagement", () => {
   };
 
   beforeEach(() => {
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
         json: async () => ({
         canceledPriceIds: [],
         message: "Planes verificados con Mercado Pago.",
@@ -66,12 +67,12 @@ describe("TribeSubscriptionPriceManagement", () => {
         verifiedCount: 1,
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as Mock;
   });
 
   afterEach(() => {
     global.fetch = previousFetch;
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("renders the current-price action with Spanish product copy", () => {
@@ -213,7 +214,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should update subscriber diagnostics from the manual action", async () => {
     const user = userEvent.setup();
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
@@ -235,7 +236,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           verifiedCount: 6,
         }),
         ok: true,
-      }) as jest.Mock;
+      }) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -273,7 +274,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should keep diagnostics visible and show a safe error when reconciliation fails", async () => {
     const user = userEvent.setup();
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
@@ -289,7 +290,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           message: "No pudimos actualizar el diagnóstico. Intentá de nuevo.",
         }),
         ok: false,
-      }) as jest.Mock;
+      }) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -323,7 +324,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should update one provider plan from the inline edit action", async () => {
     const user = userEvent.setup();
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
@@ -347,7 +348,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           },
         }),
         ok: true,
-      }) as jest.Mock;
+      }) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -401,7 +402,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         frequencyType: "days" as const,
       },
     };
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
@@ -421,7 +422,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           },
         }),
         ok: true,
-      }) as jest.Mock;
+      }) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -470,7 +471,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         frequencyType: "months" as const,
       },
     };
-    global.fetch = jest.fn().mockResolvedValueOnce({
+    global.fetch = vi.fn().mockResolvedValueOnce({
       json: async () => ({
         message: "Precio actualizado.",
         price: {
@@ -479,7 +480,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         },
       }),
       ok: true,
-    }) as jest.Mock;
+    }) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -529,7 +530,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         frequencyType: "months" as const,
       },
     };
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
@@ -553,7 +554,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           },
         }),
         ok: true,
-      }) as jest.Mock;
+      }) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -606,7 +607,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       isCurrent: false,
       status: "canceled" as const,
     };
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
@@ -623,7 +624,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           message: "Precio eliminado.",
         }),
         ok: true,
-      }) as jest.Mock;
+      }) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -681,7 +682,7 @@ describe("TribeSubscriptionPriceManagement", () => {
   });
 
   it("should keep canceled prices visible after the automatic verification", async () => {
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         canceledPriceIds: ["price-1"],
         message: "Planes verificados con Mercado Pago.",
@@ -689,13 +690,13 @@ describe("TribeSubscriptionPriceManagement", () => {
           {
             ...activePrice,
             isCurrent: false,
-            status: "canceled",
+            status: "canceled" as const,
           },
         ],
         verifiedCount: 1,
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -721,7 +722,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should verify one provider plan from the row action", async () => {
     const user = userEvent.setup();
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
@@ -738,11 +739,11 @@ describe("TribeSubscriptionPriceManagement", () => {
           price: {
             ...activePrice,
             isCurrent: false,
-            status: "canceled",
+            status: "canceled" as const,
           },
         }),
         ok: true,
-      }) as jest.Mock;
+      }) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -774,7 +775,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should preserve account metadata when a row mutation response omits it", async () => {
     const user = userEvent.setup();
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
@@ -797,12 +798,12 @@ describe("TribeSubscriptionPriceManagement", () => {
             id: activePrice.id,
             isCurrent: false,
             name: activePrice.name,
-            status: "canceled",
+            status: "canceled" as const,
             trial: activePrice.trial,
           },
         }),
         ok: true,
-      }) as jest.Mock;
+      }) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -834,7 +835,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       ...activePrice,
       activeSubscribersCount: 1,
     };
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
@@ -855,7 +856,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           verifiedCount: 3,
         }),
         ok: true,
-      }) as jest.Mock;
+      }) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -928,7 +929,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       ...activePrice,
       status: "paused" as const,
     };
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         canceledPriceIds: [],
         message: "Planes verificados con Mercado Pago.",
@@ -936,7 +937,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         verifiedCount: 1,
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -973,7 +974,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       isCurrent: false,
       status: "canceled" as const,
     };
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
@@ -995,7 +996,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           verifiedCount: 1,
         }),
         ok: true,
-      }) as jest.Mock;
+      }) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1039,7 +1040,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("shows the amount field error returned by the price creation endpoint", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         fieldErrors: {
           amount: "El precio mensual mínimo es $ 15.",
@@ -1047,7 +1048,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         message: "Definí un nombre y un precio mensual válido.",
       }),
       ok: false,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1079,7 +1080,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should create a price without a free trial when the trial checkbox is inactive", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         message: "Precio creado.",
         price: {
@@ -1088,7 +1089,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         },
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1130,7 +1131,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should enable trial days and create a price with a valid free trial", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         message: "Precio creado.",
         price: {
@@ -1142,7 +1143,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         },
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1186,7 +1187,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should block creation and show inline feedback when trial days are outside the allowed range", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn() as jest.Mock;
+    global.fetch = vi.fn() as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1223,7 +1224,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("shows the trial field error returned by the price creation endpoint", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         fieldErrors: {
           trialFrequency: "La prueba gratis debe ser de entre 1 y 14 días.",
@@ -1231,7 +1232,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         message: "Definí un nombre, un precio mensual y una prueba gratis válidos.",
       }),
       ok: false,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1266,10 +1267,10 @@ describe("TribeSubscriptionPriceManagement", () => {
   });
 
   it("should block price creation and start Mercado Pago connection automatically when reconnection is required", async () => {
-    const navigateToMercadoPagoConnection = jest.fn();
+    const navigateToMercadoPagoConnection = vi.fn();
 
     render(
-      <TribeSubscriptionPriceManagement
+      <TribeSubscriptionPriceManagement openFreeJoinEnabled={false}
         freeJoinIsCurrent
         canManagePrices
         isMercadoPagoConnected={false}
@@ -1299,13 +1300,13 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should create a price with the first connected Mercado Pago account", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         message: "Precio creado.",
         price: activePrice,
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1348,7 +1349,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should update the selected Mercado Pago account label", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         account: {
           ...mercadoPagoAccount,
@@ -1358,7 +1359,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         message: "Alias actualizado.",
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1399,7 +1400,7 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should save the selected Mercado Pago account label with Enter without creating a price", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         account: {
           ...mercadoPagoAccount,
@@ -1409,7 +1410,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         message: "Alias actualizado.",
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1456,12 +1457,12 @@ describe("TribeSubscriptionPriceManagement", () => {
 
   it("should allow free join selection when Mercado Pago requires reconnection", async () => {
     const user = userEvent.setup();
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         message: "Entrada gratis marcada como actual.",
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1469,7 +1470,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         openFreeJoinEnabled={false}
         canManagePrices
         isMercadoPagoConnected={false}
-        navigateToMercadoPagoConnection={jest.fn()}
+        navigateToMercadoPagoConnection={vi.fn()}
         prices={[activePrice]}
         statusMessage={null}
         tribeSlug="matematica-pro"
@@ -1499,7 +1500,7 @@ describe("TribeSubscriptionPriceManagement", () => {
   });
 
   it("should not auto-connect when free join can be selected during reconnection", async () => {
-    const navigateToMercadoPagoConnection = jest.fn();
+    const navigateToMercadoPagoConnection = vi.fn();
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1534,7 +1535,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       isCurrent: false,
       status: "canceled" as const,
     };
-    global.fetch = jest.fn(async () => ({
+    global.fetch = vi.fn(async () => ({
       json: async () => ({
         canceledPriceIds: ["price-1"],
         freeJoinIsCurrent: true,
@@ -1543,7 +1544,7 @@ describe("TribeSubscriptionPriceManagement", () => {
         verifiedCount: 1,
       }),
       ok: true,
-    })) as jest.Mock;
+    })) as Mock;
 
     render(
       <TribeSubscriptionPriceManagement
@@ -1574,7 +1575,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       ...activePrice,
       isCurrent: false,
     };
-    global.fetch = jest
+    global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         json: async () => ({
@@ -1594,10 +1595,10 @@ describe("TribeSubscriptionPriceManagement", () => {
           },
         }),
         ok: true,
-      }) as jest.Mock;
+      }) as Mock;
 
     render(
-      <TribeSubscriptionPriceManagement
+      <TribeSubscriptionPriceManagement openFreeJoinEnabled={false}
         freeJoinIsCurrent
         canManagePrices
         isMercadoPagoConnected

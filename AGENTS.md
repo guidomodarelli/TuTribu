@@ -467,8 +467,8 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 ### Neon migration push workflow
 
 - No ejecutar migraciones de base de datos salvo que el usuario lo pida explícitamente.
-- Use `npm run db:migrate` to push versioned migrations to Neon.
-- Use `npm run db:migrate:force` only when a forced Drizzle push is intentionally required.
+- Use `pnpm run db:migrate` to push versioned migrations to Neon.
+- Use `pnpm run db:migrate:force` only when a forced Drizzle push is intentionally required.
 
 ### Ephemeral Neon branch validation (mandatory)
 
@@ -482,20 +482,20 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
   4. Exercise the actual committed SQL artifact (the migration, function, or policy as written), not an ad-hoc rewrite, so the test covers what ships.
   5. Delete the ephemeral branch once validated without asking for confirmation, and report what you ran and observed.
 - Never run these experiments against the default or production branch, and never seed or mutate data outside the ephemeral branch.
-- This is separate from the production push: applying migrations to the default/production database with `npm run db:migrate` still requires an explicit user request, per the Neon migration push workflow above.
+- This is separate from the production push: applying migrations to the default/production database with `pnpm run db:migrate` still requires an explicit user request, per the Neon migration push workflow above.
 - Keep the existing safety rules: never print or persist secrets, tokens, or raw connection strings; redact sensitive values; prefer metadata-focused queries.
 - If a Neon branch cannot be created or reached (credentials, network, or MCP unavailable), state the concrete blocker and fall back to the closest validation allowed by the `pg` reproduction rule in section 5.
 
 ### Local verification with portless (mandatory)
 
-- Whenever you want to try changes in the running app (manual checks, browser previews, screenshots, Playwright audits, or any request against the local server), run the dev server through `portless`. `npm run dev` already does that; never start `next dev` bare and never target `http://localhost:3000`. The only exception is `npm run dev:next`, which exists so the Playwright `webServer` (and CI, where portless is not installed) can boot a bare `next dev` on port 3000 for the e2e suite; do not use it for manual checks.
+- Whenever you want to try changes in the running app (manual checks, browser previews, screenshots, Playwright audits, or any request against the local server), run the dev server through `portless`. `pnpm run dev` already does that; never start `next dev` bare and never target `http://localhost:3000`. The only exception is `pnpm run dev:next`, which exists so the Playwright `webServer` (and CI, where portless is not installed) can boot a bare `next dev` on port 3000 for the e2e suite; do not use it for manual checks.
 - Start the dev server with the project script, which performs the whole sequence idempotently:
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
-- The script (`scripts/dev-portless.mjs`) runs, in order: `portless proxy stop`, `portless proxy start --https --tld app`, adds `127.0.0.1 dev-tutribu.app` to the system hosts file when it is missing (this is the only step that asks for elevated privileges), runs `portless trust` when the local CA is not trusted yet, and finally `portless run --name dev-tutribu next dev`. Pass `--dry-run` (`npm run dev -- --dry-run`) to print the steps and the machine state without changing anything.
+- The script (`scripts/dev-portless.mjs`) runs, in order: `portless proxy stop`, `portless proxy start --https --tld app`, adds `127.0.0.1 dev-tutribu.app` to the system hosts file when it is missing (this is the only step that asks for elevated privileges), runs `portless trust` when the local CA is not trusted yet, and finally `portless run --name dev-tutribu next dev`. Pass `--dry-run` (`pnpm run dev -- --dry-run`) to print the steps and the machine state without changing anything.
 - With the proxy on the `app` TLD, the `dev-tutribu` route resolves to `https://dev-tutribu.app`. That URL matches the local `BETTER_AUTH_URL` and the `allowedDevOrigins` entry in `next.config.ts`, so Google sign-in callbacks and Better Auth sessions land there. Use `https://dev-tutribu.app` as the base URL for every local check; do not use `https://dev-tutribu.localhost`.
 - `.app` is a real TLD, so unlike `.localhost` it does not resolve to loopback by itself: without the hosts entry the browser reports that the domain does not exist even though the proxy is listening on port 443. The script covers this; if it cannot write the hosts file, add the line it prints by hand from an elevated terminal.
 - Before starting a new server, run `portless list`; if the `dev-tutribu` route is already active on `https://dev-tutribu.app`, reuse it instead of starting another instance.
@@ -505,8 +505,8 @@ npm run dev
 ### Quality gate workflow
 
 - The full repository gate runs in GitHub Actions through `.github/workflows/quality-gate.yml`.
-- The shared contract is `pnpm run ci`, which runs `lint`, `typecheck`, `test`, and `build`.
-- `typecheck` and the `build` type check share the same scope (`tsconfig.typecheck.json`, wired through `typescript.tsconfigPath` in `next.config.ts`): product code under `app`, `components`, `hooks`, `lib`, `src` and the framework entrypoints. Jest suites run through SWC and are not type-checked; keep test typings reasonable, but do not rely on the gate to catch them.
+- The shared contract is `pnpm run ci`, which runs `lint`, `typecheck`, `typecheck:tests`, `test`, and `build`.
+- `typecheck` and the `build` type check share the same scope (`tsconfig.typecheck.json`, wired through `typescript.tsconfigPath` in `next.config.ts`): product code under `app`, `components`, `hooks`, `lib`, `src` and the framework entrypoints. Vitest 5 suites run through Vite and are type-checked separately with `pnpm run typecheck:tests` and `tsconfig.test.json`. Product configurations must not include Vitest globals.
 - Agents must not duplicate this heavy gate in local Stop hooks; during a task, run only validations relevant to the change.
 - The package manager is pnpm 12, pinned through `packageManager` (plus `engines.pnpm`). pnpm 12 enforces `minimumReleaseAge` (24 hours) by default and validates every lockfile entry, so a freshly published version is rejected until it is a day old: prefer versions older than 24 hours and always confirm with `pnpm install --frozen-lockfile`. Never regenerate the lockfile with `pnpm clean --lockfile` to get past that check; it re-resolves every caret range and drifts unrelated dependencies.
 - Vercel validates the deployment build and does not replace the GitHub Actions gate.
@@ -542,3 +542,9 @@ A server render or an `after()` callback can be aborted mid-flight (Next.js dev 
 - Do not retry a failure whose cause is a connection-acquisition timeout: retrying while the pool is saturated only doubles the pressure. Reserve retries for genuinely transient terminations such as a backend-closed idle client.
 - Do not run a provider HTTP call plus a write on every server-rendered read path. Throttle provider reconciliation behind a freshness window so concurrent renders of the same page collapse into a single provider call, and keep authorization staleness bounded.
 - Standing investigation rule: before closing any task that touches database access, a request-scoped transaction, a pool, a retry, or a provider call on a server-render path, sweep the whole app for the same class of failure (search at least `pool.connect()`, `createPostgresPool`, request-scoped transactions, retry helpers, and provider calls inside `page.tsx`/`layout.tsx`) and confirm every sibling occurrence follows the rules above or record why it is exempt.
+
+### Test tooling
+
+- Use pnpm 12.3.4 and the committed pnpm-lock.yaml. Install with `pnpm install --frozen-lockfile`.
+- Use Vitest 5 for unit and integration tests; `pnpm test` runs once and `pnpm test:watch` watches.
+- Run `pnpm typecheck:tests` against `tsconfig.test.json`; keep Vitest and Testing Library globals out of the application tsconfig.

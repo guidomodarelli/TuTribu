@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, afterEach, type MockInstance, type Mock } from "vitest";
 import type { ReactElement, ReactNode } from "react";
 import {
   act,
@@ -14,7 +15,7 @@ import { TribeRound } from "@/components/tribe-round/tribe-round";
 
 import { ATTACHMENT_FILE } from "@/src/constants/attachment-files";
 
-const refreshMock = jest.fn();
+const refreshMock = vi.fn();
 const originalConsoleError = console.error;
 const radixActWarningComponents = new Set([
   "DismissableLayer",
@@ -23,7 +24,7 @@ const radixActWarningComponents = new Set([
   "PopperContent",
   "Presence",
 ]);
-let consoleErrorSpy: jest.SpyInstance;
+let consoleErrorSpy: MockInstance;
 let unexpectedConsoleErrors: unknown[][];
 
 class ResizeObserverMock {
@@ -226,19 +227,19 @@ function isRadixActWarning(parameters: unknown[]) {
   );
 }
 
-jest.mock("next/navigation", () => ({
+vi.mock("next/navigation", () => ({
   useRouter: () => ({
     refresh: refreshMock,
   }),
 }));
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
-    warning: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
+    warning: vi.fn(),
   },
 }));
 
@@ -621,11 +622,11 @@ function createDeferredResponse(): DeferredResponse {
 
 describe("TribeRound", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     globalThis.Image = ImageMock as unknown as typeof Image;
     unexpectedConsoleErrors = [];
-    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(
-      (...parameters: unknown[]) => {
+    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(
+      function (...parameters: unknown[]) {
         if (isRadixActWarning(parameters)) {
           return;
         }
@@ -635,7 +636,7 @@ describe("TribeRound", () => {
       }
     );
     refreshMock.mockReset();
-    (global.fetch as jest.Mock).mockResolvedValue({
+    (global.fetch as Mock).mockResolvedValue({
       json: async () => ({
         message: "Mensaje creado.",
         tribeMessage: createdMessage,
@@ -1835,7 +1836,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -1900,7 +1901,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -1977,14 +1978,14 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
     const imageFile = new File(["image"], "captura.png", {
       type: "image/png",
     });
 
-    (global.fetch as jest.Mock).mockImplementation(
-      async (url: string) => {
+    (global.fetch as Mock).mockImplementation(
+      async function (url: string) {
         if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
           return {
             json: async () => ({
@@ -2091,7 +2092,7 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
@@ -2099,8 +2100,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -2189,7 +2190,7 @@ describe("TribeRound", () => {
       type: "application/pdf",
     });
 
-    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+    (global.fetch as Mock).mockImplementation(async function (url: string) {
       if (url === "/api/tribes/matematica-pro/messages/files/uploads") {
         return {
           json: async () => ({
@@ -2304,7 +2305,7 @@ describe("TribeRound", () => {
       type: "application/pdf",
     });
 
-    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+    (global.fetch as Mock).mockImplementation(async function (url: string) {
       if (url === "/api/tribes/matematica-pro/messages/files/uploads") {
         return {
           json: async () => ({
@@ -2434,8 +2435,8 @@ describe("TribeRound", () => {
       type: "application/pdf",
     });
 
-    (global.fetch as jest.Mock).mockImplementation(
-      async (url: string, init?: RequestInit) => {
+    (global.fetch as Mock).mockImplementation(
+      async function (url: string, init?: RequestInit) {
         if (url === "/api/tribes/matematica-pro/messages/files/uploads") {
           uploadReservationCount += 1;
           return {
@@ -2564,7 +2565,7 @@ describe("TribeRound", () => {
   it("omits the files field when editing without touching attachments", async () => {
     const user = userEvent.setup();
 
-    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+    (global.fetch as Mock).mockImplementation(async function (url: string) {
       if (url === "/api/tribes/matematica-pro/messages/message-1") {
         return {
           json: async () => ({
@@ -2633,7 +2634,7 @@ describe("TribeRound", () => {
   it("sends the updated files list after removing an attachment while editing", async () => {
     const user = userEvent.setup();
 
-    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+    (global.fetch as Mock).mockImplementation(async function (url: string) {
       if (url === "/api/tribes/matematica-pro/messages/message-1") {
         return {
           json: async () => ({
@@ -2717,7 +2718,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -2768,7 +2769,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -2814,13 +2815,13 @@ describe("TribeRound", () => {
   });
 
   it("preserves concurrent message interactions when optimistic creation fails", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     const user = userEvent.setup({
-      advanceTimers: jest.advanceTimersByTime,
+      advanceTimers: vi.advanceTimersByTime,
     });
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -2871,7 +2872,7 @@ describe("TribeRound", () => {
         screen.getByRole("button", { hidden: true, name: "Me gusta 3" })
       ).toBeInTheDocument();
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
@@ -2879,7 +2880,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -2930,7 +2931,7 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
@@ -2938,8 +2939,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -3047,7 +3048,7 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
@@ -3055,8 +3056,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -3158,7 +3159,7 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
@@ -3166,8 +3167,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string, init?: RequestInit) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string, init?: RequestInit) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -3288,7 +3289,7 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
@@ -3296,8 +3297,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string, init?: RequestInit) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string, init?: RequestInit) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -3406,12 +3407,12 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const originalCreateObjectUrl = URL.createObjectURL;
     const originalRevokeObjectUrl = URL.revokeObjectURL;
-    const revokeObjectUrl = jest.fn();
+    const revokeObjectUrl = vi.fn();
     const messageCreationResponse = createDeferredResponse();
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
     Object.defineProperty(URL, "revokeObjectURL", {
       configurable: true,
@@ -3423,8 +3424,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -3545,7 +3546,7 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
@@ -3553,8 +3554,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -3671,7 +3672,7 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
@@ -3679,8 +3680,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string, init?: RequestInit) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string, init?: RequestInit) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -3812,7 +3813,7 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
@@ -3820,8 +3821,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string, init?: RequestInit) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string, init?: RequestInit) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -3958,11 +3959,11 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const originalCreateObjectUrl = URL.createObjectURL;
     const originalRevokeObjectUrl = URL.revokeObjectURL;
-    const revokeObjectUrl = jest.fn();
+    const revokeObjectUrl = vi.fn();
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
     Object.defineProperty(URL, "revokeObjectURL", {
       configurable: true,
@@ -3974,8 +3975,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -4053,11 +4054,11 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const originalCreateObjectUrl = URL.createObjectURL;
     const originalRevokeObjectUrl = URL.revokeObjectURL;
-    const revokeObjectUrl = jest.fn();
+    const revokeObjectUrl = vi.fn();
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
     Object.defineProperty(URL, "revokeObjectURL", {
       configurable: true,
@@ -4069,8 +4070,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -4151,7 +4152,7 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
@@ -4159,8 +4160,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return uploadCreationResponse.promise;
           }
@@ -4237,7 +4238,7 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
@@ -4245,8 +4246,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -4329,7 +4330,7 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
@@ -4337,8 +4338,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return uploadCreationResponse.promise;
           }
@@ -4411,11 +4412,11 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const originalCreateObjectUrl = URL.createObjectURL;
     const originalRevokeObjectUrl = URL.revokeObjectURL;
-    const revokeObjectUrl = jest.fn();
+    const revokeObjectUrl = vi.fn();
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
     Object.defineProperty(URL, "revokeObjectURL", {
       configurable: true,
@@ -4427,8 +4428,8 @@ describe("TribeRound", () => {
         type: "image/png",
       });
 
-      (global.fetch as jest.Mock).mockImplementation(
-        async (url: string) => {
+      (global.fetch as Mock).mockImplementation(
+        async function (url: string) {
           if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
             return {
               json: async () => ({
@@ -4503,7 +4504,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -4575,7 +4576,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -4649,7 +4650,7 @@ describe("TribeRound", () => {
   it("preserves removed automatic links after reopening the message editor", async () => {
     const user = userEvent.setup();
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         content: "[https://zoom.us/j/123456789](#)",
         message: "Mensaje actualizado.",
@@ -4724,7 +4725,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -4880,7 +4881,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -5050,7 +5051,7 @@ describe("TribeRound", () => {
   it("submits a poll vote and reveals percentages with counts", async () => {
     const user = userEvent.setup();
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         message: "Voto registrado.",
         poll: {
@@ -5187,7 +5188,7 @@ describe("TribeRound", () => {
       ],
     };
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         message: "Voto registrado.",
         poll: roundWithPersistedPollVote.messages[0].poll,
@@ -5249,7 +5250,7 @@ describe("TribeRound", () => {
       ],
     };
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         message: "Voto registrado.",
         poll: {
@@ -5309,7 +5310,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -5372,7 +5373,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -5427,7 +5428,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -5474,7 +5475,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -5524,7 +5525,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     render(
       <TribeRound
@@ -5831,7 +5832,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredResponse.promise);
 
     const { rerender } = render(
       <TribeRound
@@ -5887,12 +5888,12 @@ describe("TribeRound", () => {
   });
 
   it("updates likes optimistically and reconciles without refreshing the route", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     const user = userEvent.setup({
-      advanceTimers: jest.advanceTimersByTime,
+      advanceTimers: vi.advanceTimersByTime,
     });
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         likedByViewer: true,
         likeCount: 3,
@@ -5929,7 +5930,7 @@ describe("TribeRound", () => {
       ).not.toBeInTheDocument();
 
       await act(async () => {
-        jest.advanceTimersByTime(300);
+        vi.advanceTimersByTime(300);
       });
 
       await waitFor(() => {
@@ -5942,7 +5943,7 @@ describe("TribeRound", () => {
       });
       expect(refreshMock).not.toHaveBeenCalled();
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
@@ -6102,12 +6103,12 @@ describe("TribeRound", () => {
   });
 
   it("renders pinned messages with a visible indicator and toggles pin without refreshing", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     const user = userEvent.setup({
-      advanceTimers: jest.advanceTimersByTime,
+      advanceTimers: vi.advanceTimersByTime,
     });
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         isPinned: false,
         pinnedAt: null,
@@ -6147,7 +6148,7 @@ describe("TribeRound", () => {
       expect(global.fetch).not.toHaveBeenCalled();
 
       await act(async () => {
-        jest.advanceTimersByTime(300);
+        vi.advanceTimersByTime(300);
       });
 
       await waitFor(() => {
@@ -6164,7 +6165,7 @@ describe("TribeRound", () => {
       );
       expect(refreshMock).not.toHaveBeenCalled();
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
@@ -6227,7 +6228,7 @@ describe("TribeRound", () => {
   it("asks for confirmation before deleting a feed message", async () => {
     const user = userEvent.setup();
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         message: "Mensaje eliminado.",
       }),
@@ -6298,7 +6299,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const originalCreatedAt = "2026-04-26T12:00:30.456Z";
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         createdAt: originalCreatedAt,
         message: "Fecha del mensaje actualizada.",
@@ -6352,12 +6353,12 @@ describe("TribeRound", () => {
   });
 
   it("shows a warning when the pinned message limit is reached", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     const user = userEvent.setup({
-      advanceTimers: jest.advanceTimersByTime,
+      advanceTimers: vi.advanceTimersByTime,
     });
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         message: "Solo podes pinear hasta 3 mensajes en el fogón.",
       }),
@@ -6381,7 +6382,7 @@ describe("TribeRound", () => {
       );
 
       await act(async () => {
-        jest.advanceTimersByTime(300);
+        vi.advanceTimersByTime(300);
       });
 
       await waitFor(() => {
@@ -6394,14 +6395,14 @@ describe("TribeRound", () => {
       );
       expect(refreshMock).not.toHaveBeenCalled();
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
   it("keeps the last debounced pin intent and skips the request when clicks cancel out", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     const user = userEvent.setup({
-      advanceTimers: jest.advanceTimersByTime,
+      advanceTimers: vi.advanceTimersByTime,
     });
 
     render(
@@ -6426,20 +6427,20 @@ describe("TribeRound", () => {
       );
 
       await act(async () => {
-        jest.advanceTimersByTime(300);
+        vi.advanceTimersByTime(300);
       });
 
       expect(global.fetch).not.toHaveBeenCalled();
       expect(refreshMock).not.toHaveBeenCalled();
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
   it("keeps the last debounced like intent and skips the request when clicks cancel out", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     const user = userEvent.setup({
-      advanceTimers: jest.advanceTimersByTime,
+      advanceTimers: vi.advanceTimersByTime,
     });
 
     render(
@@ -6464,13 +6465,13 @@ describe("TribeRound", () => {
       );
 
       await act(async () => {
-        jest.advanceTimersByTime(300);
+        vi.advanceTimersByTime(300);
       });
 
       expect(global.fetch).not.toHaveBeenCalled();
       expect(refreshMock).not.toHaveBeenCalled();
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
@@ -6680,12 +6681,12 @@ describe("TribeRound", () => {
   });
 
   it("reverts an optimistic like when the request fails", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     const user = userEvent.setup({
-      advanceTimers: jest.advanceTimersByTime,
+      advanceTimers: vi.advanceTimersByTime,
     });
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         message: "No pudimos actualizar la reaccion.",
       }),
@@ -6706,7 +6707,7 @@ describe("TribeRound", () => {
       expect(screen.getByRole("button", { name: "Me gusta 3" })).toBeEnabled();
 
       await act(async () => {
-        jest.advanceTimersByTime(300);
+        vi.advanceTimersByTime(300);
       });
 
       await waitFor(() => {
@@ -6715,17 +6716,17 @@ describe("TribeRound", () => {
       expect(screen.getByRole("button", { name: "Me gusta 2" })).toBeInTheDocument();
       expect(refreshMock).not.toHaveBeenCalled();
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
   it("reverts an optimistic pin when the request fails", async () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     const user = userEvent.setup({
-      advanceTimers: jest.advanceTimersByTime,
+      advanceTimers: vi.advanceTimersByTime,
     });
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         message: "No pudimos actualizar el pin.",
       }),
@@ -6748,7 +6749,7 @@ describe("TribeRound", () => {
       );
 
       await act(async () => {
-        jest.advanceTimersByTime(300);
+        vi.advanceTimersByTime(300);
       });
 
       await waitFor(() => {
@@ -6759,14 +6760,14 @@ describe("TribeRound", () => {
       );
       expect(refreshMock).not.toHaveBeenCalled();
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
   it("appends the returned reply without refreshing the route", async () => {
     const user = userEvent.setup();
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({
         reply: createdReply,
         message: "Respuesta creado.",
@@ -6832,7 +6833,7 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const deferredRepliesResponse = createDeferredResponse();
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(deferredRepliesResponse.promise);
+    (global.fetch as Mock).mockReturnValueOnce(deferredRepliesResponse.promise);
 
     render(
       <TribeRound
@@ -6922,8 +6923,8 @@ describe("TribeRound", () => {
     const user = userEvent.setup();
     const failedLoadMessage = "No pudimos cargar las respuestas.";
 
-    (global.fetch as jest.Mock).mockImplementation(
-      async (url: string, init?: RequestInit) => {
+    (global.fetch as Mock).mockImplementation(
+      async function (url: string, init?: RequestInit) {
         if (init?.method === "POST") {
           return {
             json: async () => ({
@@ -6935,7 +6936,7 @@ describe("TribeRound", () => {
           };
         }
 
-        const getRepliesCalls = (global.fetch as jest.Mock).mock.calls.filter(
+        const getRepliesCalls = (global.fetch as Mock).mock.calls.filter(
           ([calledUrl, calledInit]) =>
             calledUrl === "/api/tribes/matematica-pro/messages/message-1/replies" &&
             (calledInit as RequestInit | undefined)?.method !== "POST"
@@ -6986,7 +6987,7 @@ describe("TribeRound", () => {
 
     await waitFor(() => {
       expect(
-        (global.fetch as jest.Mock).mock.calls.filter(
+        (global.fetch as Mock).mock.calls.filter(
           ([calledUrl, calledInit]) =>
             calledUrl ===
               "/api/tribes/matematica-pro/messages/message-1/replies" &&
@@ -7009,8 +7010,8 @@ describe("TribeRound", () => {
     const createReplyResponse = createDeferredResponse();
     let getRepliesCallCount = 0;
 
-    (global.fetch as jest.Mock).mockImplementation(
-      async (url: string, init?: RequestInit) => {
+    (global.fetch as Mock).mockImplementation(
+      async function (url: string, init?: RequestInit) {
         if (init?.method === "POST") {
           return createReplyResponse.promise;
         }
@@ -7094,7 +7095,7 @@ describe("TribeRound", () => {
       resolveCreateReply = resolve;
     });
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(createReplyRequest);
+    (global.fetch as Mock).mockReturnValueOnce(createReplyRequest);
 
     render(
       <TribeRound
@@ -7159,7 +7160,7 @@ describe("TribeRound", () => {
       resolveCreateReply = resolve;
     });
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(createReplyRequest);
+    (global.fetch as Mock).mockReturnValueOnce(createReplyRequest);
 
     render(
       <TribeRound
@@ -7233,7 +7234,7 @@ describe("TribeRound", () => {
       rejectCreateReply = resolve;
     });
 
-    (global.fetch as jest.Mock).mockReturnValueOnce(createReplyRequest);
+    (global.fetch as Mock).mockReturnValueOnce(createReplyRequest);
 
     render(
       <TribeRound
@@ -7376,7 +7377,7 @@ describe("TribeRound", () => {
 
   it("scrolls the whole video block into view and focuses its input when a video draft is added", async () => {
     const user = userEvent.setup();
-    const scrollIntoViewSpy = jest.fn();
+    const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
       scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
@@ -7427,7 +7428,7 @@ describe("TribeRound", () => {
 
   it("scrolls the whole image block into view and focuses its input when an image draft is added", async () => {
     const user = userEvent.setup();
-    const scrollIntoViewSpy = jest.fn();
+    const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
       scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
@@ -7435,7 +7436,7 @@ describe("TribeRound", () => {
       type: "image/png",
     });
 
-    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+    (global.fetch as Mock).mockImplementation(async function (url: string) {
       if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
         return {
           json: async () => ({
@@ -7504,7 +7505,7 @@ describe("TribeRound", () => {
 
   it("scrolls the whole poll block into view and focuses the first option when the poll composer is enabled", async () => {
     const user = userEvent.setup();
-    const scrollIntoViewSpy = jest.fn();
+    const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
       scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
@@ -7556,7 +7557,7 @@ describe("TribeRound", () => {
 
   it("scrolls the poll composer into view when a poll option is added", async () => {
     const user = userEvent.setup();
-    const scrollIntoViewSpy = jest.fn();
+    const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
       scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
@@ -7655,7 +7656,7 @@ describe("TribeRound", () => {
 
   it("scrolls the first errored field into view on a failed submit", async () => {
     const user = userEvent.setup();
-    const scrollIntoViewSpy = jest.fn();
+    const scrollIntoViewSpy = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView =
       scrollIntoViewSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
@@ -7777,11 +7778,11 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+      (global.fetch as Mock).mockImplementation(async function (url: string) {
         if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
           return {
             json: async () => ({
@@ -7856,11 +7857,11 @@ describe("TribeRound", () => {
 
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
-      value: jest.fn(() => "blob:message-image"),
+      value: vi.fn(() => "blob:message-image"),
     });
 
     try {
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+      (global.fetch as Mock).mockImplementation(async function (url: string) {
         if (url === "/api/tribes/matematica-pro/messages/images/uploads") {
           return {
             json: async () => ({

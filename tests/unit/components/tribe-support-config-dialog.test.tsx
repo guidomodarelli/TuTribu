@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "beez-ui";
@@ -6,28 +7,28 @@ import { TribeSupportConfigDialog } from "@/components/tribes/tribe-support-conf
 import { TRIBE_SUPPORT_CHANNEL } from "@/src/modules/tribes/constants/tribe-support";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
-    success: jest.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
-const fetchMock = jest.fn();
+const fetchMock = vi.fn();
 
 describe("TribeSupportConfigDialog", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
   it("submits the form and reports the saved settings on success", async () => {
-    const handleSaved = jest.fn();
-    const handleOpenChange = jest.fn();
+    const handleSaved = vi.fn();
+    const handleOpenChange = vi.fn();
 
     fetchMock.mockResolvedValueOnce({
-      json: jest.fn(async () => ({
+      json: vi.fn(async () => ({
         message: "Botón de soporte actualizado.",
         settings: {
           channel: TRIBE_SUPPORT_CHANNEL.whatsapp,
@@ -88,7 +89,7 @@ describe("TribeSupportConfigDialog", () => {
 
   it("shows the error message near the phone input when the server rejects the save", async () => {
     fetchMock.mockResolvedValueOnce({
-      json: jest.fn(async () => ({
+      json: vi.fn(async () => ({
         message:
           "Ingresá un número válido en formato internacional (ej.: +54 9 11 1234 5678).",
       })),
@@ -98,8 +99,8 @@ describe("TribeSupportConfigDialog", () => {
     render(
       <TribeSupportConfigDialog
         initialSettings={null}
-        onOpenChange={jest.fn()}
-        onSaved={jest.fn()}
+        onOpenChange={vi.fn()}
+        onSaved={vi.fn()}
         open
         tribeSlug="tribu-lider"
       />

@@ -1,3 +1,4 @@
+import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
@@ -5,37 +6,37 @@ import { toast } from "beez-ui";
 
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 
-const pushMock = jest.fn();
-const toastErrorMock = jest.fn();
-const signOutMock = jest.fn();
+const pushMock = vi.fn();
+const toastErrorMock = vi.fn();
+const signOutMock = vi.fn();
 
-jest.mock("next/navigation", () => ({
-  useRouter: jest.fn(),
+vi.mock("next/navigation", () => ({
+  useRouter: vi.fn(),
 }));
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-jest.mock("beez-ui", () => ({
-  ...jest.requireActual("beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
-    error: jest.fn(),
+    error: vi.fn(),
   },
 }));
 
-jest.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
+vi.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
   signOutMember: (...args: unknown[]) => signOutMock(...args),
 }));
 
 describe("AvatarSessionMenu", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     pushMock.mockReset();
     signOutMock.mockReset();
     signOutMock.mockResolvedValue(undefined);
 
-    (useRouter as jest.Mock).mockReturnValue({
+    (useRouter as Mock).mockReturnValue({
       push: pushMock,
     });
-    (toast.error as jest.Mock).mockImplementation(toastErrorMock);
+    (toast.error as Mock).mockImplementation(toastErrorMock);
   });
 
   it("shows sign-in action when there is no authenticated member", async () => {
@@ -133,12 +134,11 @@ describe("AvatarSessionMenu", () => {
 
   it("prevents duplicate sign-out requests while one is already in flight", async () => {
     const user = userEvent.setup();
-    let resolveSignOut: (() => void) | null = null;
+    let resolveSignOut!: () => void;
     signOutMock.mockImplementation(
-      () =>
-        new Promise((resolve) => {
+      function () { return new Promise((resolve) => {
           resolveSignOut = () => resolve(undefined);
-        })
+        }); }
     );
 
     render(
@@ -164,7 +164,7 @@ describe("AvatarSessionMenu", () => {
 
     expect(signOutMock).toHaveBeenCalledTimes(1);
 
-    resolveSignOut?.();
+    resolveSignOut();
 
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/auth/signin");

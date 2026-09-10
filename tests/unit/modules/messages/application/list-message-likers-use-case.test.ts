@@ -1,20 +1,21 @@
+import { vi, describe, it, expect, type Mock } from "vitest";
 import { listMessageLikers } from "@/src/modules/messages/application/use-cases/list-tribe-round-use-case";
 
 describe("listMessageLikers", () => {
   function buildRepository(
-    listLikersByMessageId: jest.Mock
+    listLikersByMessageId: Mock
   ) {
     return {
-      listByTribeSlug: jest.fn(),
+      listByTribeSlug: vi.fn(),
       listLikersByMessageId,
-      listRepliesByMessageId: jest.fn(),
-      listSharedDataByTribeSlug: jest.fn(),
-      listViewerStateByTribeSlug: jest.fn(),
+      listRepliesByMessageId: vi.fn(),
+      listSharedDataByTribeSlug: vi.fn(),
+      listViewerStateByTribeSlug: vi.fn(),
     };
   }
 
   it("trims the tribe slug before delegating to the repository", async () => {
-    const listLikersByMessageId = jest.fn(async () => ({
+    const listLikersByMessageId = vi.fn(async () => ({
       status: "found" as const,
       totalCount: 1,
       likers: [
@@ -38,7 +39,7 @@ describe("listMessageLikers", () => {
     });
 
     expect(result).toEqual({
-      status: "found",
+      status: "found" as const,
       totalCount: 1,
       likers: [
         {
@@ -58,7 +59,7 @@ describe("listMessageLikers", () => {
   });
 
   it("propagates a forbidden result without exposing likers", async () => {
-    const listLikersByMessageId = jest.fn(async () => ({
+    const listLikersByMessageId = vi.fn(async () => ({
       status: "forbidden" as const,
     }));
     const execute = listMessageLikers({
@@ -71,6 +72,6 @@ describe("listMessageLikers", () => {
         tribeSlug: "matematica-pro",
         viewerId: "outsider-1",
       })
-    ).resolves.toEqual({ status: "forbidden" });
+    ).resolves.toEqual({ status: "forbidden" as const });
   });
 });

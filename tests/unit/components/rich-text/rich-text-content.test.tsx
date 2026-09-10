@@ -1,3 +1,4 @@
+import { vi, describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -38,7 +39,7 @@ describe("RichTextContent", () => {
 
   it("invokes onLinkClick when a link is clicked", async () => {
     const user = userEvent.setup();
-    const handleLinkClick = jest.fn((event) => event.preventDefault());
+    const handleLinkClick = vi.fn((event) => event.preventDefault());
 
     render(
       <RichTextContent
