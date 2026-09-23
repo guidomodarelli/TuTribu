@@ -50,7 +50,7 @@ export function TribeEventsEmptyState({
       <p className={styles.TribeEventsEmptyState__hint}>{COPY.managerHint}</p>
       <ul aria-label={COPY.templatesLabel} className={styles.TribeEventsEmptyState__templates}>
         {templates.map((template) => (
-          <li key={template.id}>
+          <li className={styles.TribeEventsEmptyState__templateItem} key={template.id}>
             <Button
               className={styles.TribeEventsEmptyState__template}
               type={BUTTON_ATTRIBUTE.typeButton}

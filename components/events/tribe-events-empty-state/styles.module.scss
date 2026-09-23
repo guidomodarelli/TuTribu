@@ -20,10 +20,15 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 0.5rem;
     width: 100%;
-    max-width: 40rem;
+    max-width: 48rem;
     margin: 0.75rem 0 0;
     padding: 0;
     list-style: none;
+  }
+
+  &__templateItem {
+    display: flex;
+    min-width: 0;
   }
 
   &__template {
