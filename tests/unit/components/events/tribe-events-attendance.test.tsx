@@ -324,6 +324,8 @@ describe("TribeEventsCalendar attendance", () => {
     expect(
       await within(dialog).findByText("Todavía nadie respondió a esta fecha.")
     ).toBeInTheDocument();
+    // An occurrence without answers has nothing worth exporting.
+    expect(within(dialog).queryByRole("link", { name: "Exportar CSV" })).not.toBeInTheDocument();
   });
 
   it("sends the capacity from the event form and validates it before saving", async () => {

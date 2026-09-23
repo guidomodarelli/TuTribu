@@ -113,14 +113,20 @@ export function TribeEventAttendeesPanel({
 
   return (
     <div className={styles.TribeEventAttendeesPanel}>
-      <div className={styles.TribeEventAttendeesPanel__toolbar}>
-        <Button asChild size={BUTTON_ATTRIBUTE.sizeSmall} variant={BUTTON_ATTRIBUTE.variantOutline}>
-          <a download href={exportUrl}>
-            <DownloadIcon aria-hidden />
-            {COPY.exportCsv}
-          </a>
-        </Button>
-      </div>
+      {hasAnswers ? (
+        <div className={styles.TribeEventAttendeesPanel__toolbar}>
+          <Button
+            asChild
+            size={BUTTON_ATTRIBUTE.sizeSmall}
+            variant={BUTTON_ATTRIBUTE.variantOutline}
+          >
+            <a download href={exportUrl}>
+              <DownloadIcon aria-hidden />
+              {COPY.exportCsv}
+            </a>
+          </Button>
+        </div>
+      ) : null}
       {hasAnswers ? (
         <div className={styles.TribeEventAttendeesPanel__groups}>
           {ATTENDEE_GROUPS.map((group) => (

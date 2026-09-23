@@ -27,6 +27,8 @@ type TribeEventAttendanceSummaryProps = {
 
 const AVATAR_SIZE_SMALL = "sm";
 const COMPACT_AVATAR_LIMIT = 3;
+// Stacked avatars overlap, so only the first initial stays readable.
+const STACKED_AVATAR_INITIALS = 1;
 const MORE_PREFIX = "+";
 const DETAILS_SEPARATOR = " · ";
 const COPY = {
@@ -85,7 +87,9 @@ export function TribeEventAttendanceSummary({
             <Avatar key={attendee.id} size={AVATAR_SIZE_SMALL}>
               {attendee.image ? <AvatarImage alt="" src={attendee.image} /> : null}
               <AvatarFallback className={styles.TribeEventAttendanceSummary__initials}>
-                {getMemberAvatarInitials(attendee.name)}
+                {getMemberAvatarInitials(attendee.name, {
+                  maxInitials: STACKED_AVATAR_INITIALS,
+                })}
               </AvatarFallback>
             </Avatar>
           ))}
