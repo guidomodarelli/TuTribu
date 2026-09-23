@@ -137,6 +137,32 @@ describe("tribe coming soon pages", () => {
     });
   });
 
+  it("forwards the deep-linked occurrence so the listing can resolve its month", async () => {
+    const occurrenceKey = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f@2026-06-10T18:00:00.000Z";
+    getAuthenticatedMember.mockResolvedValue(authenticatedMember);
+    getTribePageAccess.mockResolvedValue(visibleTribeAccess);
+    listTribeEvents.mockResolvedValue({
+      events: [],
+      month: { current: "2026-06", next: "2026-07", previous: "2026-05" },
+      selectedOccurrenceKey: null,
+      viewerPermissions: { canManageEvents: false },
+    });
+
+    render(
+      await TribeEventsPage({
+        params: Promise.resolve({ slug: "matematica-pro" }),
+        searchParams: Promise.resolve({ event: occurrenceKey }),
+      })
+    );
+
+    expect(listTribeEvents).toHaveBeenCalledWith({
+      month: undefined,
+      occurrenceKey,
+      tribeSlug: "matematica-pro",
+    });
+    expect(screen.getByRole("heading", { name: "Junio 2026", level: 1 })).toBeInTheDocument();
+  });
+
   it("uses the same shared state across all planned tribe sections", async () => {
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);

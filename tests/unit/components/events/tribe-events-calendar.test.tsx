@@ -293,6 +293,88 @@ describe("TribeEventsCalendar", () => {
     expect(within(dialog).getByRole("button", { name: "Voy" })).toBeInTheDocument();
   });
 
+  describe("occurrence deep links", () => {
+    const eventsRoute = "/matematica-pro/eventos?month=2026-05";
+    const readEventQuery = () => new URL(window.location.href).searchParams.get("event");
+
+    afterEach(() => {
+      window.history.replaceState(null, "", "/");
+      Reflect.deleteProperty(navigator, "clipboard");
+    });
+
+    it("opens the deep-linked occurrence and syncs the URL without navigating", async () => {
+      window.history.replaceState(
+        null,
+        "",
+        eventsRoute + "&event=" + encodeURIComponent(occurrence.occurrenceKey)
+      );
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar({ initialOccurrenceKey: occurrence.occurrenceKey });
+
+      expect(await screen.findByRole("dialog", { name: "Clase abierta" })).toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(readEventQuery()).toBeNull();
+      expect(new URL(window.location.href).searchParams.get("month")).toBe("2026-05");
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+
+      expect(readEventQuery()).toBe(occurrence.occurrenceKey);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("ignores a deep link to an occurrence that is not on screen", () => {
+      renderCalendar({ initialOccurrenceKey: `${OTHER_EVENT_ID}@2026-05-20T18:00:00.000Z` });
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("copies the occurrence link from the detail", async () => {
+      const { toast } = vi.mocked(await import("beez-ui"), true);
+      const writeText = vi.fn<(text: string) => Promise<void>>(async () => undefined);
+      // user-event installs its own clipboard stub on setup, so define ours after it.
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+
+      renderCalendar();
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+      await user.click(screen.getByRole("button", { name: "Copiar link" }));
+
+      const copiedUrl = new URL(writeText.mock.calls[0]?.[0] ?? "");
+
+      expect(copiedUrl.origin).toBe(window.location.origin);
+      expect(copiedUrl.pathname).toBe("/matematica-pro/eventos");
+      expect(copiedUrl.searchParams.get("month")).toBe("2026-05");
+      expect(copiedUrl.searchParams.get("event")).toBe(occurrence.occurrenceKey);
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Link copiado."));
+    });
+
+    it("reports a copy failure when the browser cannot write to the clipboard", async () => {
+      const { toast } = vi.mocked(await import("beez-ui"), true);
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: vi.fn(async () => Promise.reject(new Error("denied"))) },
+      });
+
+      renderCalendar();
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+      await user.click(screen.getByRole("button", { name: "Copiar link" }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith("No pudimos copiar el link.")
+      );
+    });
+  });
+
   it("keeps every occurrence visible when browsing a month that is entirely past", async () => {
     vi.setSystemTime(new Date("2026-06-15T12:00:00.000Z"));
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

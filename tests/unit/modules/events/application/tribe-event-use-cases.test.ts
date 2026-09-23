@@ -88,6 +88,7 @@ describe("tribe event use cases", () => {
         next: "2026-06",
         previous: "2026-04",
       },
+      selectedOccurrenceKey: null,
       viewerPermissions: { canManageEvents: true },
     });
     expect(listByTribeRange).toHaveBeenCalledWith({
@@ -95,6 +96,62 @@ describe("tribe event use cases", () => {
       rangeStart: "2026-05-01T03:00:00.000Z",
       tribeSlug: "matematica-pro",
     });
+  });
+
+  it("resolves the month of a deep-linked occurrence when no month is given", async () => {
+    const lateNightStart = "2026-07-01T02:00:00.000Z";
+    const listByTribeRange = vi.fn(async () =>
+      createListing([createEvent({ endsAt: null, startsAt: lateNightStart })])
+    );
+    const execute = listTribeEvents({
+      tribeEventRepository: createRepository({ listByTribeRange }),
+    });
+
+    const result = await execute({
+      occurrenceKey: `${EVENT_ID}@${lateNightStart}`,
+      tribeSlug: "matematica-pro",
+    });
+
+    // 02:00 UTC on July 1st is still June 30th in Buenos Aires.
+    expect(result.month.current).toBe("2026-06");
+    expect(result.selectedOccurrenceKey).toBe(`${EVENT_ID}@${lateNightStart}`);
+  });
+
+  it("keeps the explicit month and drops a deep link that is not in it", async () => {
+    const listByTribeRange = vi.fn(async () => createListing([createEvent()]));
+    const execute = listTribeEvents({
+      tribeEventRepository: createRepository({ listByTribeRange }),
+    });
+
+    const result = await execute({
+      month: "2026-05",
+      occurrenceKey: `${EVENT_ID}@2026-06-10T18:00:00.000Z`,
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result.month.current).toBe("2026-05");
+    expect(result.selectedOccurrenceKey).toBeNull();
+  });
+
+  it("ignores malformed deep links", async () => {
+    vi.useFakeTimers().setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
+    const listByTribeRange = vi.fn(async () => createListing([createEvent()]));
+    const execute = listTribeEvents({
+      tribeEventRepository: createRepository({ listByTribeRange }),
+    });
+
+    for (const occurrenceKey of [
+      "not-a-key",
+      "not-a-uuid@2026-05-06T18:00:00.000Z",
+      `${EVENT_ID}@2026-13-45`,
+      `${EVENT_ID}@2026-05-06`,
+      [`${EVENT_ID}@yesterday`],
+    ]) {
+      const result = await execute({ occurrenceKey, tribeSlug: "matematica-pro" });
+
+      expect(result.month.current).toBe("2026-05");
+      expect(result.selectedOccurrenceKey).toBeNull();
+    }
   });
 
   it("expands recurring series into month occurrences and attaches attendance", async () => {

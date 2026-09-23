@@ -39,10 +39,14 @@ describe("UpcomingTribeEvents", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Próximos eventos" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Clase abierta" })).toHaveAttribute(
-      "href",
-      "/matematica-pro/eventos?month=2026-05"
+    const eventLink = new URL(
+      screen.getByRole("link", { name: "Clase abierta" }).getAttribute("href") ?? "",
+      "https://dev-tutribu.app"
     );
+
+    expect(eventLink.pathname).toBe("/matematica-pro/eventos");
+    expect(eventLink.searchParams.get("month")).toBe("2026-05");
+    expect(eventLink.searchParams.get("event")).toBe(`${EVENT_ID}@2026-05-13T18:00:00.000Z`);
     expect(screen.getByText(/13 may\.? · 15:00 - 16:00/)).toBeInTheDocument();
     expect(screen.getByText("Todas las semanas")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Abrir link" })).toHaveAttribute(

@@ -3,6 +3,7 @@ import {
   formatBuenosAiresDateTimeRange,
   getBuenosAiresMonthKey,
 } from "@/lib/date-time/buenos-aires-format";
+import { buildTribeEventsRoute } from "@/lib/events/tribe-events-routes";
 import { ROUTES } from "@/src/constants/routes";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { TRIBE_EVENT_RECURRENCE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";
@@ -15,9 +16,6 @@ type UpcomingTribeEventsProps = {
 };
 
 const HEADING_ID = "upcoming-tribe-events-heading";
-const ROUTE_QUERY = {
-  month: "?month=",
-} as const;
 const LINK_ATTRIBUTE = {
   noreferrer: "noreferrer",
   targetBlank: "_blank",
@@ -28,12 +26,18 @@ const COPY = {
   seeAll: "Ver todos los eventos",
 } as const;
 
-function buildEventsRoute(tribeSlug: string, occurrenceStartsAt: string): string {
-  return (
-    ROUTES.tribes.events(tribeSlug) +
-    ROUTE_QUERY.month +
-    getBuenosAiresMonthKey(occurrenceStartsAt)
-  );
+/**
+ * Deep link to the occurrence: its Buenos Aires month plus the occurrence key,
+ * so the events page opens straight into the detail.
+ */
+function buildOccurrenceRoute(
+  tribeSlug: string,
+  occurrence: TribeEventOccurrenceResult
+): string {
+  return buildTribeEventsRoute(tribeSlug, {
+    month: getBuenosAiresMonthKey(occurrence.startsAt),
+    occurrenceKey: occurrence.occurrenceKey,
+  });
 }
 
 /**
@@ -64,7 +68,7 @@ export function UpcomingTribeEvents({ events, tribeSlug }: UpcomingTribeEventsPr
             <div className={styles.UpcomingTribeEvents__itemBody}>
               <Link
                 className={styles.UpcomingTribeEvents__title}
-                href={buildEventsRoute(tribeSlug, occurrence.startsAt)}
+                href={buildOccurrenceRoute(tribeSlug, occurrence)}
               >
                 {occurrence.title}
               </Link>

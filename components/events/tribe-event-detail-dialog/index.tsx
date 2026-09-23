@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlusIcon, DownloadIcon, ExternalLinkIcon, LinkIcon } from "lucide-react";
+import { CalendarPlusIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, LinkIcon } from "lucide-react";
 
 import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "beez-ui";
 
@@ -33,6 +33,7 @@ type TribeEventDetailDialogProps = {
   isSavingAttendance: boolean;
   occurrence: TribeEventOccurrenceResult | null;
   onClose: () => void;
+  onCopyLink: (occurrence: TribeEventOccurrenceResult) => void;
   onDelete: (occurrence: TribeEventOccurrenceResult) => void;
   onEdit: (occurrence: TribeEventOccurrenceResult) => void;
   onSetAttendance: (
@@ -77,6 +78,7 @@ const COPY = {
   deleteButton: "Eliminar",
   descriptionHeading: "Descripción",
   downloadIcs: "Descargar .ics",
+  copyLink: "Copiar link",
   editButton: "Editar",
   googleCalendar: "Agregar a Google Calendar",
   linkOpen: "Abrir link de reunión",
@@ -138,6 +140,7 @@ export function TribeEventDetailDialog({
   isSavingAttendance,
   occurrence,
   onClose,
+  onCopyLink,
   onDelete,
   onEdit,
   onSetAttendance,
@@ -239,6 +242,15 @@ export function TribeEventDetailDialog({
                   <DownloadIcon aria-hidden />
                   {COPY.downloadIcs}
                 </a>
+              </Button>
+              <Button
+                size={BUTTON_ATTRIBUTE.sizeSmall}
+                type={BUTTON_ATTRIBUTE.typeButton}
+                variant={BUTTON_ATTRIBUTE.variantOutline}
+                onClick={() => onCopyLink(occurrence)}
+              >
+                <CopyIcon aria-hidden />
+                {COPY.copyLink}
               </Button>
             </div>
 

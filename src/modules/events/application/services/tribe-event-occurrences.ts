@@ -25,6 +25,43 @@ export function buildTribeEventOccurrenceKey(
   return eventId + OCCURRENCE_KEY_SEPARATOR + occurrenceStartsAt;
 }
 
+/**
+ * Parts of an occurrence key (`eventId@startsAt`).
+ */
+export type TribeEventOccurrenceKeyParts = {
+  eventId: string;
+  occurrenceStartsAt: string;
+};
+
+/**
+ * Splits an occurrence key received from outside (for example the `event`
+ * query parameter of a deep link). The start must be the canonical ISO form
+ * produced by {@link buildTribeEventOccurrenceKey}; anything else is rejected
+ * so the key can only ever match a real occurrence.
+ *
+ * @param occurrenceKey - Untrusted key value.
+ * @returns The event id and start instant, or null when malformed.
+ */
+export function parseTribeEventOccurrenceKey(
+  occurrenceKey: string
+): TribeEventOccurrenceKeyParts | null {
+  const [eventId, occurrenceStartsAt, ...extraParts] = occurrenceKey.split(
+    OCCURRENCE_KEY_SEPARATOR
+  );
+
+  if (!eventId || !occurrenceStartsAt || extraParts.length > 0) {
+    return null;
+  }
+
+  const startTime = Date.parse(occurrenceStartsAt);
+
+  if (Number.isNaN(startTime) || new Date(startTime).toISOString() !== occurrenceStartsAt) {
+    return null;
+  }
+
+  return { eventId, occurrenceStartsAt };
+}
+
 export function toTribeEventResult(event: TribeEvent): TribeEventResult {
   return {
     ...event,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { useIsMobile } from "beez-ui";
+import { toast, useIsMobile } from "beez-ui";
 
 import { TribeEventAgendaItem } from "@/components/events/tribe-event-agenda-item";
 import { TribeEventDeleteDialog } from "@/components/events/tribe-event-delete-dialog";
@@ -34,6 +34,9 @@ import {
   groupOccurrencesByDay,
 } from "@/lib/events/tribe-events-calendar-grid";
 import { buildTribeEventsRoute } from "@/lib/events/tribe-events-routes";
+import { copyTextToClipboard } from "@/lib/browser-clipboard";
+import { replaceCurrentUrlSearchParam } from "@/lib/browser-navigation";
+import { TRIBE_EVENTS_ROUTE_QUERY } from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEventAttendanceStatus,
   TribeEventMonthResult,
@@ -44,6 +47,8 @@ import styles from "./styles.module.scss";
 
 type TribeEventsCalendarProps = {
   events: TribeEventOccurrenceResult[];
+  /** Deep-linked occurrence whose detail opens on load (validated server-side). */
+  initialOccurrenceKey?: string | null;
   month: TribeEventMonthResult;
   tribeSlug: string;
   viewerPermissions: TribeEventViewerPermissionsResult;
@@ -64,6 +69,15 @@ const FORM_MODE = {
   edit: "edit",
 } as const;
 const TIME_LABEL_SUFFIX = " Buenos Aires";
+const COPY = {
+  linkCopied: "Link copiado.",
+  linkCopyFailure: "No pudimos copiar el link.",
+} as const;
+
+type OccurrenceSelectionState = {
+  occurrenceKey: string | null;
+  sourceOccurrenceKey: string | null;
+};
 
 /**
  * Client container of the tribe events page. It owns view state (mode,
@@ -72,6 +86,7 @@ const TIME_LABEL_SUFFIX = " Buenos Aires";
  */
 export function TribeEventsCalendar({
   events,
+  initialOccurrenceKey = null,
   month,
   tribeSlug,
   viewerPermissions,
@@ -100,7 +115,16 @@ export function TribeEventsCalendar({
   const [formSession, setFormSession] = useState<EventFormSession>({
     mode: FORM_MODE.closed,
   });
-  const [selectedOccurrenceKey, setSelectedOccurrenceKey] = useState<string | null>(null);
+  // A new deep link from the route (another  query) replaces the
+  // local selection, the same way new server events replace local mutations.
+  const [occurrenceSelection, setOccurrenceSelection] = useState<OccurrenceSelectionState>({
+    occurrenceKey: initialOccurrenceKey,
+    sourceOccurrenceKey: initialOccurrenceKey,
+  });
+  const selectedOccurrenceKey =
+    occurrenceSelection.sourceOccurrenceKey === initialOccurrenceKey
+      ? occurrenceSelection.occurrenceKey
+      : initialOccurrenceKey;
   const [pendingDeleteOccurrence, setPendingDeleteOccurrence] =
     useState<TribeEventOccurrenceResult | null>(null);
   const formSessionCounterRef = useRef(0);
@@ -139,8 +163,33 @@ export function TribeEventsCalendar({
     shouldCollapsePastEvents && !arePastEventsVisible ? upcomingEvents : visibleEvents;
   const agendaDays = useMemo(() => groupAgendaDays(agendaEvents), [agendaEvents]);
 
+  // The open detail is mirrored in the `event` query so the URL can be shared;
+  // replaceState keeps it out of the history stack and never refetches.
+  const setSelectedOccurrenceKey = (occurrenceKey: string | null) => {
+    setOccurrenceSelection({
+      occurrenceKey,
+      sourceOccurrenceKey: initialOccurrenceKey,
+    });
+    replaceCurrentUrlSearchParam(TRIBE_EVENTS_ROUTE_QUERY.event, occurrenceKey);
+  };
+
   const selectOccurrence = (occurrence: TribeEventOccurrenceResult) => {
     setSelectedOccurrenceKey(occurrence.occurrenceKey);
+  };
+
+  const copyOccurrenceLink = async (occurrence: TribeEventOccurrenceResult) => {
+    const occurrenceUrl =
+      window.location.origin +
+      buildTribeEventsRoute(tribeSlug, {
+        month: getBuenosAiresMonthKey(occurrence.startsAt),
+        occurrenceKey: occurrence.occurrenceKey,
+      });
+
+    if (await copyTextToClipboard(occurrenceUrl)) {
+      toast.success(COPY.linkCopied);
+    } else {
+      toast.error(COPY.linkCopyFailure);
+    }
   };
 
   const openCreateForm = () => {
@@ -285,6 +334,9 @@ export function TribeEventsCalendar({
         occurrence={selectedOccurrence}
         tribeSlug={tribeSlug}
         onClose={() => setSelectedOccurrenceKey(null)}
+        onCopyLink={(occurrence) => {
+          void copyOccurrenceLink(occurrence);
+        }}
         onDelete={(occurrence) => {
           setSelectedOccurrenceKey(null);
           setPendingDeleteOccurrence(occurrence);
