@@ -36,6 +36,7 @@ function createRepository(execute: Mock) {
 
 const eventRow = {
   can_manage_events: true,
+  capacity: null,
   description: "Repaso mensual",
   ends_at: "2026-05-06T19:00:00.000Z",
   id: EVENT_ID,
@@ -56,8 +57,12 @@ describe("PostgresTribeEventRepository", () => {
           {
             event_id: EVENT_ID,
             going_count: "2",
+            going_preview: [],
+            maybe_count: "0",
             occurrence_starts_at: new Date("2026-05-13T18:00:00.000Z"),
             viewer_status: "going",
+            viewer_waitlist_position: null,
+            waitlisted_count: "0",
           },
         ],
       });
@@ -74,12 +79,17 @@ describe("PostgresTribeEventRepository", () => {
         {
           eventId: EVENT_ID,
           goingCount: 2,
+          goingPreview: [],
+          maybeCount: 0,
           occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
           viewerStatus: "going",
+          viewerWaitlistPosition: null,
+          waitlistedCount: 0,
         },
       ],
       events: [
         {
+          capacity: null,
           description: "Repaso mensual",
           endsAt: "2026-05-06T19:00:00.000Z",
           id: EVENT_ID,
@@ -109,6 +119,7 @@ describe("PostgresTribeEventRepository", () => {
       rows: [
         {
           can_manage_events: true,
+          capacity: null,
           description: null,
           ends_at: null,
           id: null,
@@ -162,6 +173,7 @@ describe("PostgresTribeEventRepository", () => {
 
     await expect(
       repository.create({
+        capacity: null,
         description: null,
         endsAt: null,
         meetingUrl: "https://meet.google.com/abc-defg-hij",
@@ -189,6 +201,7 @@ describe("PostgresTribeEventRepository", () => {
 
     await expect(
       repository.update({
+        capacity: null,
         description: null,
         endsAt: null,
         eventId: EVENT_ID,
@@ -208,77 +221,194 @@ describe("PostgresTribeEventRepository", () => {
     ).resolves.toEqual({ status: "forbidden" as const });
   });
 
-  it("upserts the viewer attendance and adds the own vote to the going count", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
-      rows: [{ other_going_count: "2", status: "attendance_saved" as const }],
-    }); });
+  it("answers through the definer function and returns the fresh occurrence summary", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [{ attendance_status: "waitlisted", outcome: "saved", promoted_count: 0 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            event_id: EVENT_ID,
+            going_count: "5",
+            going_preview: [
+              { id: "user-ana", image: "https://example.test/ana.png", name: "Ana" },
+              { id: "user-beto", image: null, name: "Beto" },
+              { name: "sin id" },
+            ],
+            maybe_count: "1",
+            occurrence_starts_at: "2026-05-13T18:00:00.000Z",
+            viewer_status: "waitlisted",
+            viewer_waitlist_position: "2",
+            waitlisted_count: "2",
+          },
+        ],
+      });
     const repository = createRepository(execute);
 
     await expect(
       repository.setAttendance({
         eventId: EVENT_ID,
         occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-        status: "going" as const,
+        status: "going",
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      attendance: { goingCount: 3, viewerStatus: "going" },
-      status: "attendance_saved" as const,
+      attendance: {
+        goingCount: 5,
+        goingPreview: [
+          { id: "user-ana", image: "https://example.test/ana.png", name: "Ana" },
+          { id: "user-beto", image: null, name: "Beto" },
+        ],
+        maybeCount: 1,
+        viewerStatus: "waitlisted",
+        viewerWaitlistPosition: 2,
+        waitlistedCount: 2,
+      },
+      status: "attendance_saved",
     });
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
+      "public.respond_to_tribe_event_occurrence("
+    );
+  });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(sqlText).toContain("insert into public.event_attendances");
-    expect(sqlText).toContain("on conflict (event_id, occurrence_starts_at, user_id)");
-    expect(sqlText).toContain("public.is_active_tribe_member(target_event.tribe_id)");
-
-    execute.mockResolvedValueOnce({
-      rows: [{ other_going_count: 2, status: "attendance_saved" as const }],
-    });
+  it("clears the answer and reports an empty summary when nobody else answered", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [{ attendance_status: null, outcome: "cleared", promoted_count: 1 }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = createRepository(execute);
 
     await expect(
-      repository.setAttendance({
+      repository.clearAttendance({
         eventId: EVENT_ID,
         occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-        status: "not_going" as const,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
-      attendance: { goingCount: 2, viewerStatus: "not_going" },
-      status: "attendance_saved" as const,
+      attendance: {
+        goingCount: 0,
+        goingPreview: [],
+        maybeCount: 0,
+        viewerStatus: null,
+        viewerWaitlistPosition: null,
+        waitlistedCount: 0,
+      },
+      status: "attendance_cleared",
     });
   });
 
-  it("clears the viewer attendance and reports forbidden for inactive members", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
-      rows: [{ other_going_count: 1, status: "attendance_cleared" as const }],
-    }); });
+  it("maps definer function refusals without reading the summary", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [{ attendance_status: null, outcome: "forbidden", promoted_count: 0 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ attendance_status: null, outcome: "not_found", promoted_count: 0 }],
+      });
+    const repository = createRepository(execute);
+    const key = {
+      eventId: EVENT_ID,
+      occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+      tribeSlug: "matematica-pro",
+    };
+
+    await expect(repository.setAttendance({ ...key, status: "maybe" })).resolves.toEqual({
+      status: "forbidden",
+    });
+    await expect(repository.clearAttendance(key)).resolves.toEqual({ status: "not_found" });
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it("refills the waitlists in the same transaction after a successful update", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ ...eventRow, capacity: 12, status: "updated" }] })
+      .mockResolvedValueOnce({ rows: [{ promoted_count: 2 }] });
     const repository = createRepository(execute);
 
     await expect(
-      repository.clearAttendance({
+      repository.update({
+        capacity: 12,
+        description: null,
+        endsAt: null,
         eventId: EVENT_ID,
-        occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+        meetingUrl: null,
+        recurrenceFrequency: "weekly",
+        recurrenceUntil: null,
+        startsAt: "2026-05-06T18:00:00.000Z",
+        title: "Clase abierta",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({
-      attendance: { goingCount: 1, viewerStatus: null },
-      status: "attendance_cleared" as const,
-    });
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "delete from public.event_attendances"
+    ).resolves.toMatchObject({ event: { capacity: 12 }, status: "updated" });
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+      "public.refill_tribe_event_waitlists("
     );
+  });
 
-    execute.mockResolvedValueOnce({
-      rows: [{ other_going_count: 1, status: "forbidden" as const }],
+  it("returns the manager report with attendees and trend, or the access failure", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ status: "found" }] })
+      .mockResolvedValueOnce({
+        rows: [
+          { name: "Ana", responded_at: new Date("2026-05-10T12:00:00.000Z"), status: "going" },
+          { name: "Beto", responded_at: "2026-05-10T13:00:00.000Z", status: "waitlisted" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ going_count: "4", occurrence_starts_at: new Date("2026-05-06T18:00:00.000Z") }],
+      })
+      .mockResolvedValueOnce({ rows: [{ status: "forbidden" }] });
+    const repository = createRepository(execute);
+    const query = {
+      eventId: EVENT_ID,
+      occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+      trendOccurrenceStartsAts: ["2026-05-06T18:00:00.000Z"],
+      tribeSlug: "matematica-pro",
+    };
+
+    await expect(repository.getOccurrenceAttendanceReport(query)).resolves.toEqual({
+      attendees: [
+        { name: "Ana", respondedAt: "2026-05-10T12:00:00.000Z", status: "going" },
+        { name: "Beto", respondedAt: "2026-05-10T13:00:00.000Z", status: "waitlisted" },
+      ],
+      status: "found",
+      trend: [{ goingCount: 4, occurrenceStartsAt: "2026-05-06T18:00:00.000Z" }],
     });
+    await expect(repository.getOccurrenceAttendanceReport(query)).resolves.toEqual({
+      status: "forbidden",
+    });
+    expect(execute).toHaveBeenCalledTimes(4);
+  });
+
+  it("returns the viewer history with only recognized statuses", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [eventRow] })
+      .mockResolvedValueOnce({
+        rows: [
+          { event_id: EVENT_ID, occurrence_starts_at: "2026-05-13T18:00:00.000Z", status: "going" },
+          { event_id: EVENT_ID, occurrence_starts_at: "2026-05-20T18:00:00.000Z", status: "unknown" },
+        ],
+      });
+    const repository = createRepository(execute);
 
     await expect(
-      repository.clearAttendance({
-        eventId: EVENT_ID,
-        occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+      repository.listViewerAttendanceHistory({
+        rangeEnd: "2026-06-01T03:00:00.000Z",
+        rangeStart: "2026-01-01T03:00:00.000Z",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ status: "forbidden" as const });
+    ).resolves.toMatchObject({
+      events: [{ id: EVENT_ID }],
+      viewerAttendances: [
+        { eventId: EVENT_ID, occurrenceStartsAt: "2026-05-13T18:00:00.000Z", status: "going" },
+      ],
+    });
   });
 });

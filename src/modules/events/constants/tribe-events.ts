@@ -4,7 +4,9 @@ export const TRIBE_EVENT_MUTATION_STATUS = {
   created: "created",
   deleted: "deleted",
   forbidden: "forbidden",
+  found: "found",
   invalidAttendance: "invalid_attendance",
+  invalidCapacity: "invalid_capacity",
   invalidDate: "invalid_date",
   invalidInput: "invalid_input",
   invalidMeetingUrl: "invalid_meeting_url",
@@ -22,7 +24,54 @@ export const TRIBE_EVENT_RECURRENCE_FREQUENCY = {
 
 export const TRIBE_EVENT_ATTENDANCE_STATUS = {
   going: "going",
+  maybe: "maybe",
   notGoing: "not_going",
+  waitlisted: "waitlisted",
+} as const;
+
+/**
+ * Answers a member can pick, in button order. `waitlisted` is never chosen:
+ * the database assigns it when a "going" answer finds the event full.
+ */
+export const TRIBE_EVENT_ATTENDANCE_OPTIONS = [
+  TRIBE_EVENT_ATTENDANCE_STATUS.going,
+  TRIBE_EVENT_ATTENDANCE_STATUS.maybe,
+  TRIBE_EVENT_ATTENDANCE_STATUS.notGoing,
+] as const;
+
+/**
+ * People who are going shown as avatars in each occurrence summary.
+ */
+export const TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT = 5;
+
+/**
+ * Optional capacity of a series. The upper bound only guards against typos;
+ * NULL (empty field) means unlimited.
+ */
+export const TRIBE_EVENT_CAPACITY_LIMIT = {
+  max: 10_000,
+  min: 1,
+} as const;
+
+/**
+ * Viewer-only attendance streak on the next event: shown when the viewer went
+ * to at least `minimumAttended` of the last `windowSize` finished occurrences
+ * found within `lookbackDays`.
+ */
+export const TRIBE_EVENT_ATTENDANCE_STREAK = {
+  lookbackDays: 180,
+  minimumAttended: 2,
+  windowSize: 5,
+} as const;
+
+/**
+ * Manager trend of "going" answers across the last finished occurrences of a
+ * series. The lookback keeps recurrence expansion bounded (six monthly slots
+ * plus skipped months fit in it).
+ */
+export const TRIBE_EVENT_ATTENDANCE_TREND = {
+  lookbackDays: 400,
+  size: 6,
 } as const;
 
 export const TRIBE_EVENT_FIELD_LIMIT = {

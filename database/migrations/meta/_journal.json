@@ -561,6 +561,13 @@
       "when": 1788350400000,
       "tag": "20260902120000_extend_tribe_events_recurrence_attendance",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1790164800000,
+      "tag": "20260923120000_add_tribe_event_capacity_waitlist",
+      "breakpoints": true
     }
   ]
 }

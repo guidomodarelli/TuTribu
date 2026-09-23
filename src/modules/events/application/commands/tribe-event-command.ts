@@ -25,6 +25,11 @@ export type GetTribeEventQuery = {
  * the month it is rendering so the UI can update without a full reload.
  */
 export type CreateTribeEventCommand = {
+  /**
+   * Raw "Cupo máximo" field: a positive integer, or empty/missing for an
+   * unlimited event.
+   */
+  capacity?: string;
   description: string;
   endsAt: string;
   meetingUrl: string;
@@ -49,6 +54,16 @@ export type SetTribeEventAttendanceCommand = {
   eventId: string;
   occurrenceStartsAt: string;
   status: string;
+  tribeSlug: string;
+};
+
+export type GetTribeEventAttendanceReportQuery = {
+  eventId: string;
+  occurrenceStartsAt: string;
+  tribeSlug: string;
+};
+
+export type GetTribeEventAttendanceStreakQuery = {
   tribeSlug: string;
 };
 

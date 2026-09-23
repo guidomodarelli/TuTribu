@@ -6,17 +6,30 @@ import type {
   TribeEvent,
   TribeEventDateRange,
 } from "@/src/modules/events/domain/entities/tribe-event";
-import type { TribeEventOccurrenceAttendance } from "@/src/modules/events/domain/repositories/tribe-event-repository";
+import type {
+  TribeEventAttendanceSummary,
+  TribeEventOccurrenceAttendance,
+} from "@/src/modules/events/domain/repositories/tribe-event-repository";
 import {
   buildTribeEventRecurrenceRule,
   expandTribeEventOccurrences,
 } from "@/src/modules/events/domain/services/tribe-event-recurrence";
 
 const OCCURRENCE_KEY_SEPARATOR = "@";
-const EMPTY_ATTENDANCE = {
-  goingCount: 0,
-  viewerStatus: null,
-} as const;
+/**
+ * Summary of an occurrence nobody answered yet. A fresh object per call so no
+ * two occurrences share the same preview array.
+ */
+export function createEmptyTribeEventAttendance(): TribeEventAttendanceSummary {
+  return {
+    goingCount: 0,
+    goingPreview: [],
+    maybeCount: 0,
+    viewerStatus: null,
+    viewerWaitlistPosition: null,
+    waitlistedCount: 0,
+  };
+}
 
 export function buildTribeEventOccurrenceKey(
   eventId: string,
@@ -94,7 +107,14 @@ export function buildTribeEventOccurrences(
         attendance.eventId,
         new Date(attendance.occurrenceStartsAt).toISOString()
       ),
-      { goingCount: attendance.goingCount, viewerStatus: attendance.viewerStatus },
+      {
+        goingCount: attendance.goingCount,
+        goingPreview: attendance.goingPreview,
+        maybeCount: attendance.maybeCount,
+        viewerStatus: attendance.viewerStatus,
+        viewerWaitlistPosition: attendance.viewerWaitlistPosition,
+        waitlistedCount: attendance.waitlistedCount,
+      },
     ])
   );
 
@@ -109,7 +129,8 @@ export function buildTribeEventOccurrences(
         );
 
         return {
-          attendance: attendanceByKey.get(occurrenceKey) ?? EMPTY_ATTENDANCE,
+          attendance: attendanceByKey.get(occurrenceKey) ?? createEmptyTribeEventAttendance(),
+          capacity: eventResult.capacity,
           description: eventResult.description,
           endsAt: occurrence.endsAt,
           eventId: eventResult.id,

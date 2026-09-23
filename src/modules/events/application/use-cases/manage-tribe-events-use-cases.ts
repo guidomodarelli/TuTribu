@@ -27,6 +27,7 @@ import {
   type TribeEventOccurrenceKeyParts,
 } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
+  TRIBE_EVENT_CAPACITY_LIMIT,
   TRIBE_EVENT_FIELD_LIMIT,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
@@ -55,6 +56,7 @@ type NormalizedEventInput =
     }
   | {
       status:
+        | typeof TRIBE_EVENT_MUTATION_STATUS.invalidCapacity
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidInput
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl
@@ -71,6 +73,12 @@ const RECURRENCE_FREQUENCIES: ReadonlySet<string> = new Set(
  * Event ids are Postgres uuids; anything else is rejected before querying so a
  * malformed route param never turns into a cast error at the database.
  */
+/**
+ * Whole positive number as typed in the "Cupo máximo" field (no sign, no
+ * decimals, no exponent), checked before `Number` can accept "1e3" or "2.0".
+ */
+const CAPACITY_PATTERN = /^\d+$/;
+const INVALID_CAPACITY = Symbol("invalid-capacity");
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -99,6 +107,33 @@ function normalizeOptionalText(value: string): string | null {
   const normalizedValue = value.trim();
 
   return normalizedValue.length > 0 ? normalizedValue : null;
+}
+
+/**
+ * Normalizes the raw capacity field: empty or missing means unlimited (null).
+ *
+ * @param rawCapacity - Untrusted form value.
+ * @returns The capacity, null for unlimited, or `INVALID_CAPACITY`.
+ */
+function normalizeCapacity(
+  rawCapacity: string | undefined
+): number | null | typeof INVALID_CAPACITY {
+  const capacityValue = rawCapacity?.trim() ?? "";
+
+  if (capacityValue.length === 0) {
+    return null;
+  }
+
+  if (!CAPACITY_PATTERN.test(capacityValue)) {
+    return INVALID_CAPACITY;
+  }
+
+  const capacity = Number(capacityValue);
+
+  return capacity >= TRIBE_EVENT_CAPACITY_LIMIT.min &&
+    capacity <= TRIBE_EVENT_CAPACITY_LIMIT.max
+    ? capacity
+    : INVALID_CAPACITY;
 }
 
 function isInvalidDateRange(startsAt: string, endsAt: string | null): boolean {
@@ -191,6 +226,12 @@ function normalizeEventInput(
     throw error;
   }
 
+  const capacity = normalizeCapacity(command.capacity);
+
+  if (capacity === INVALID_CAPACITY) {
+    return { status: TRIBE_EVENT_MUTATION_STATUS.invalidCapacity };
+  }
+
   const normalizedStartsAt = new Date(startsAt).toISOString();
   const recurrence = normalizeRecurrence(
     command.recurrenceFrequency,
@@ -204,6 +245,7 @@ function normalizeEventInput(
 
   return {
     input: {
+      capacity,
       description,
       endsAt: endsAt === null ? null : new Date(endsAt).toISOString(),
       meetingUrl,

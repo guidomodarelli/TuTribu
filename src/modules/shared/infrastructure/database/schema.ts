@@ -895,6 +895,9 @@ export const events = pgTable("events", {
   endsAt: timestamp("ends_at", { withTimezone: true }),
   recurrenceFrequency: text("recurrence_frequency").notNull().default("none"),
   recurrenceUntil: timestamp("recurrence_until", { withTimezone: true }),
+  // Seats per occurrence; NULL = unlimited. CHECK (capacity > 0) lives in
+  // 20260923120000_add_tribe_event_capacity_waitlist.sql.
+  capacity: integer("capacity"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
@@ -923,6 +926,8 @@ export const eventAttendances = pgTable("event_attendances", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  // going | maybe | not_going | waitlisted. Written only through the
+  // respond_to_tribe_event_occurrence SECURITY DEFINER function.
   status: text("status").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -930,6 +935,12 @@ export const eventAttendances = pgTable("event_attendances", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
+  // When the current status was chosen; FIFO order of the waitlist.
+  respondedAt: timestamp("responded_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  // Set when a waitlisted answer was promoted to going (for notifications).
+  promotedAt: timestamp("promoted_at", { withTimezone: true }),
 }, (table) => ({
   eventOccurrenceUserKey: uniqueIndex(
     "event_attendances_event_occurrence_user_key"
@@ -938,10 +949,24 @@ export const eventAttendances = pgTable("event_attendances", {
     table.eventId,
     table.occurrenceStartsAt
   ),
-  tribeUserIndex: index("idx_event_attendances_tribe_user").on(
+  tribeOccurrenceIndex: index("idx_event_attendances_tribe_occurrence").on(
     table.tribeId,
-    table.userId
+    table.occurrenceStartsAt
   ),
+  tribeUserOccurrenceIndex: index("idx_event_attendances_tribe_user_occurrence").on(
+    table.tribeId,
+    table.userId,
+    table.occurrenceStartsAt
+  ),
+  waitlistQueueIndex: index("idx_event_attendances_waitlist_queue")
+    .on(table.eventId, table.occurrenceStartsAt, table.respondedAt, table.id)
+    .where(sql`status = 'waitlisted'`),
+  goingPreviewIndex: index("idx_event_attendances_going_preview")
+    .on(table.eventId, table.occurrenceStartsAt, table.respondedAt, table.id)
+    .where(sql`status = 'going'`),
+  promotedAtIndex: index("idx_event_attendances_promoted_at")
+    .on(table.promotedAt)
+    .where(sql`promoted_at IS NOT NULL`),
 }));
 
 export const tribePaymentIntegrations = pgTable("tribe_payment_integrations", {

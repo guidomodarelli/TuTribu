@@ -21,12 +21,15 @@ export const TRIBE_EVENT_ROUTE_QUERY_PARAM = {
 
 export const TRIBE_EVENT_ROUTE_RESPONSE = {
   attendanceClearedMessage: "Respuesta eliminada.",
+  attendanceReportForbiddenMessage: "Solo quienes gestionan eventos pueden ver la asistencia.",
   attendanceSavedMessage: "Respuesta guardada.",
+  attendanceWaitlistedMessage: "El evento está completo: quedaste en la lista de espera.",
   createSuccessMessage: "Evento creado.",
   deleteSuccessMessage: "Evento eliminado.",
   eventNotFoundMessage: "No pudimos encontrar el evento.",
   forbiddenMessage: "No tenés permisos para gestionar eventos.",
   invalidAttendanceMessage: "Elegí una fecha válida del evento para responder.",
+  invalidCapacityMessage: "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo.",
   invalidDateMessage: "La fecha de fin debe ser posterior al inicio.",
   invalidInputMessage: "Completá el título y la fecha de inicio del evento.",
   invalidMeetingUrlMessage: "Usá un link digital válido que empiece con http o https.",
@@ -36,6 +39,8 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   tribeNotFoundMessage: "No pudimos encontrar la tribu.",
   unauthorizedMessage: "Iniciá sesión para gestionar eventos.",
   unexpectedAttendanceMessage: "No pudimos guardar tu respuesta. Intentá de nuevo.",
+  unexpectedAttendanceReportMessage: "No pudimos cargar la asistencia. Intentá de nuevo.",
+  unexpectedAttendanceExportMessage: "No pudimos generar el archivo de asistencia.",
   unexpectedCalendarMessage: "No pudimos generar el archivo de calendario.",
   unexpectedCreateMessage: "No pudimos guardar el evento. Intentá de nuevo.",
   unexpectedDeleteMessage: "No pudimos eliminar el evento. Intentá de nuevo.",
@@ -45,6 +50,7 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
 } as const;
 
 const TRIBE_EVENT_BODY_FIELD = {
+  capacity: "capacity",
   description: "description",
   endsAt: "endsAt",
   meetingUrl: "meetingUrl",
@@ -57,6 +63,7 @@ const TRIBE_EVENT_BODY_FIELD = {
 } as const;
 
 export type TribeEventMutationBody = {
+  capacity: string;
   description: string;
   endsAt: string;
   meetingUrl: string;
@@ -85,6 +92,7 @@ export function readStringField(body: unknown, field: string): string {
 
 export function readTribeEventMutationBody(body: unknown): TribeEventMutationBody {
   return {
+    capacity: readStringField(body, TRIBE_EVENT_BODY_FIELD.capacity),
     description: readStringField(body, TRIBE_EVENT_BODY_FIELD.description),
     endsAt: readStringField(body, TRIBE_EVENT_BODY_FIELD.endsAt),
     meetingUrl: readStringField(body, TRIBE_EVENT_BODY_FIELD.meetingUrl),
@@ -125,6 +133,11 @@ export function mapTribeEventMutationStatusResponse(status: string): Response {
     case TRIBE_EVENT_MUTATION_STATUS.invalidInput:
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidInputMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.invalidCapacity:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidCapacityMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
       );
     case TRIBE_EVENT_MUTATION_STATUS.invalidDate:
@@ -175,6 +188,32 @@ export function mapTribeEventAttendanceStatusResponse(status: string): Response 
     default:
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.memberForbiddenMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
+      );
+  }
+}
+
+/**
+ * Maps a failed attendance report status (JSON view or CSV export) to the
+ * matching safe HTTP response. Non-managers get 403 even though the UI hides
+ * the section: the check is authoritative on the server.
+ */
+export function mapTribeEventAttendanceReportStatusResponse(status: string): Response {
+  switch (status) {
+    case TRIBE_EVENT_MUTATION_STATUS.invalidAttendance:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidAttendanceMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.attendanceReportForbiddenMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
       );
   }

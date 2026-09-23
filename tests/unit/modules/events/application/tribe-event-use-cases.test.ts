@@ -20,15 +20,27 @@ function createRepository(overrides: Partial<TribeEventRepository> = {}) {
     create: vi.fn(),
     delete: vi.fn(),
     findById: vi.fn(),
+    getOccurrenceAttendanceReport: vi.fn(),
     listByTribeRange: vi.fn(),
+    listViewerAttendanceHistory: vi.fn(),
     setAttendance: vi.fn(),
     update: vi.fn(),
     ...overrides,
   } satisfies TribeEventRepository;
 }
 
+const EMPTY_ATTENDANCE = {
+  goingCount: 0,
+  goingPreview: [],
+  maybeCount: 0,
+  viewerStatus: null,
+  viewerWaitlistPosition: null,
+  waitlistedCount: 0,
+};
+
 function createEvent(overrides: Partial<TribeEvent> = {}): TribeEvent {
   return {
+    capacity: null,
     description: "Repaso mensual",
     endsAt: "2026-05-06T19:00:00.000Z",
     id: EVENT_ID,
@@ -68,7 +80,8 @@ describe("tribe event use cases", () => {
     ).resolves.toEqual({
       events: [
         {
-          attendance: { goingCount: 0, viewerStatus: null },
+          attendance: EMPTY_ATTENDANCE,
+          capacity: null,
           description: "Repaso mensual",
           endsAt: "2026-05-06T19:00:00.000Z",
           eventId: EVENT_ID,
@@ -158,8 +171,10 @@ describe("tribe event use cases", () => {
     const listByTribeRange = vi.fn(async () => ({
       attendances: [
         {
+          ...EMPTY_ATTENDANCE,
           eventId: EVENT_ID,
           goingCount: 2,
+          maybeCount: 1,
           occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
           viewerStatus: "going" as const,
         },
@@ -180,12 +195,12 @@ describe("tribe event use cases", () => {
       "2026-05-27T18:00:00.000Z",
     ]);
     expect(result.events[1]).toMatchObject({
-      attendance: { goingCount: 2, viewerStatus: "going" },
+      attendance: { ...EMPTY_ATTENDANCE, goingCount: 2, maybeCount: 1, viewerStatus: "going" },
       endsAt: "2026-05-13T19:00:00.000Z",
       recurrenceRule: "FREQ=WEEKLY",
       seriesStartsAt: "2026-05-06T18:00:00.000Z",
     });
-    expect(result.events[0]?.attendance).toEqual({ goingCount: 0, viewerStatus: null });
+    expect(result.events[0]?.attendance).toEqual(EMPTY_ATTENDANCE);
   });
 
   it("uses the first month value when the route receives repeated month params", async () => {
@@ -280,6 +295,7 @@ describe("tribe event use cases", () => {
       }),
     ]);
     expect(create).toHaveBeenCalledWith({
+      capacity: null,
       description: "Repaso mensual",
       endsAt: "2026-05-06T19:00:00.000Z",
       meetingUrl: "https://meet.google.com/abc-defg-hij",
@@ -424,6 +440,61 @@ describe("tribe event use cases", () => {
     await expect(
       execute({ ...baseCommand, description: "x".repeat(2001), title: "Clase" })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidInput });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("stores a whole positive capacity and treats an empty one as unlimited", async () => {
+    const create = vi.fn(async () => ({
+      event: createEvent({ capacity: 25 }),
+      status: TRIBE_EVENT_MUTATION_STATUS.created,
+    }));
+    const execute = createTribeEvent({
+      tribeEventRepository: createRepository({ create }),
+    });
+    const baseCommand = {
+      description: "",
+      endsAt: "",
+      meetingUrl: "",
+      recurrenceFrequency: "",
+      recurrenceUntil: "",
+      startsAt: "2026-05-06T18:00:00.000Z",
+      title: "Clase",
+      tribeSlug: "matematica-pro",
+    };
+
+    await execute({ ...baseCommand, capacity: " 25 " });
+    await execute({ ...baseCommand, capacity: "" });
+    await execute(baseCommand);
+
+    expect(create.mock.calls.map(([command]) => (command as { capacity: unknown }).capacity)).toEqual([
+      25,
+      null,
+      null,
+    ]);
+  });
+
+  it("rejects capacities that are not whole numbers between 1 and 10000", async () => {
+    const create = vi.fn();
+    const execute = createTribeEvent({
+      tribeEventRepository: createRepository({ create }),
+    });
+    const baseCommand = {
+      description: "",
+      endsAt: "",
+      meetingUrl: "",
+      recurrenceFrequency: "",
+      recurrenceUntil: "",
+      startsAt: "2026-05-06T18:00:00.000Z",
+      title: "Clase",
+      tribeSlug: "matematica-pro",
+    };
+
+    for (const capacity of ["0", "-3", "2.5", "1e3", "10001", "diez"]) {
+      await expect(execute({ ...baseCommand, capacity })).resolves.toEqual({
+        status: TRIBE_EVENT_MUTATION_STATUS.invalidCapacity,
+      });
+    }
+
     expect(create).not.toHaveBeenCalled();
   });
 

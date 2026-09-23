@@ -1,13 +1,18 @@
 import type { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEvent,
+  TribeEventAttendanceOption,
   TribeEventAttendanceStatus,
+  TribeEventAttendee,
+  TribeEventAttendeePreview,
   TribeEventRecurrenceFrequency,
 } from "@/src/modules/events/domain/entities/tribe-event";
+import type { TribeEventAttendanceStreak } from "@/src/modules/events/domain/services/tribe-event-attendance";
 import type {
   TribeEventAttendanceResult,
   TribeEventAttendanceSummary,
   TribeEventDeletionResult,
+  TribeEventOccurrenceGoingCount,
   TribeEventViewerPermissions,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 
@@ -28,6 +33,8 @@ export type TribeEventAttendanceSummaryResult = TribeEventAttendanceSummary;
  */
 export type TribeEventOccurrenceResult = {
   attendance: TribeEventAttendanceSummaryResult;
+  /** Seats per occurrence of the series; null means unlimited. */
+  capacity: number | null;
   description: string | null;
   endsAt: string | null;
   eventId: string;
@@ -67,6 +74,7 @@ export type TribeEventUpcomingListResult = {
 
 export type TribeEventSaveFailureStatus =
   | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
+  | typeof TRIBE_EVENT_MUTATION_STATUS.invalidCapacity
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidInput
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl
@@ -97,4 +105,45 @@ export type TribeEventAttendanceMutationResult =
       status: typeof TRIBE_EVENT_MUTATION_STATUS.invalidAttendance;
     };
 
-export type { TribeEventAttendanceStatus };
+/**
+ * Viewer-only streak shown on the next event card ("Fuiste a 4 de los
+ * últimos 5 encuentros"). Never exposed to other members.
+ */
+export type TribeEventAttendanceStreakResult = TribeEventAttendanceStreak;
+
+export type TribeEventAttendeeResult = TribeEventAttendee;
+
+/**
+ * Manager view of one occurrence: answers grouped by status (waitlisted in
+ * FIFO order) and, for series, the "going" totals of the last finished
+ * occurrences, oldest first.
+ */
+export type TribeEventAttendanceReportResult = {
+  attendeeGroups: {
+    going: TribeEventAttendeeResult[];
+    maybe: TribeEventAttendeeResult[];
+    notGoing: TribeEventAttendeeResult[];
+    waitlisted: TribeEventAttendeeResult[];
+  };
+  eventTitle: string;
+  occurrenceStartsAt: string;
+  trend: TribeEventOccurrenceGoingCount[];
+};
+
+export type TribeEventAttendanceReportLookupResult =
+  | {
+      report: TribeEventAttendanceReportResult;
+      status: typeof TRIBE_EVENT_MUTATION_STATUS.found;
+    }
+  | {
+      status:
+        | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
+        | typeof TRIBE_EVENT_MUTATION_STATUS.invalidAttendance
+        | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
+    };
+
+export type {
+  TribeEventAttendanceOption,
+  TribeEventAttendanceStatus,
+  TribeEventAttendeePreview,
+};

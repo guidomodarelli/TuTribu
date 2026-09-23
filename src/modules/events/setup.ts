@@ -2,6 +2,8 @@ import type {
   ClearTribeEventAttendanceCommand,
   CreateTribeEventCommand,
   DeleteTribeEventCommand,
+  GetTribeEventAttendanceReportQuery,
+  GetTribeEventAttendanceStreakQuery,
   GetTribeEventQuery,
   ListTribeEventsQuery,
   ListUpcomingTribeEventsQuery,
@@ -10,6 +12,8 @@ import type {
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
   TribeEventAttendanceMutationResult,
+  TribeEventAttendanceReportLookupResult,
+  TribeEventAttendanceStreakResult,
   TribeEventDeleteResult,
   TribeEventListResult,
   TribeEventResult,
@@ -26,6 +30,8 @@ import {
 } from "@/src/modules/events/application/use-cases/manage-tribe-events-use-cases";
 import {
   clearTribeEventAttendance,
+  getTribeEventAttendanceReport,
+  getTribeEventAttendanceStreak,
   setTribeEventAttendance,
 } from "@/src/modules/events/application/use-cases/tribe-event-attendance-use-cases";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
@@ -44,6 +50,12 @@ type EventsModule = {
       command: DeleteTribeEventCommand
     ) => Promise<TribeEventDeleteResult>;
     getTribeEvent: (query: GetTribeEventQuery) => Promise<TribeEventResult | null>;
+    getTribeEventAttendanceReport: (
+      query: GetTribeEventAttendanceReportQuery
+    ) => Promise<TribeEventAttendanceReportLookupResult>;
+    getTribeEventAttendanceStreak: (
+      query: GetTribeEventAttendanceStreakQuery
+    ) => Promise<TribeEventAttendanceStreakResult | null>;
     listTribeEvents: (query: ListTribeEventsQuery) => Promise<TribeEventListResult>;
     listUpcomingTribeEvents: (
       query: ListUpcomingTribeEventsQuery
@@ -64,6 +76,8 @@ export function buildEventsModule({
       createTribeEvent: createTribeEvent({ tribeEventRepository }),
       deleteTribeEvent: deleteTribeEvent({ tribeEventRepository }),
       getTribeEvent: getTribeEvent({ tribeEventRepository }),
+      getTribeEventAttendanceReport: getTribeEventAttendanceReport({ tribeEventRepository }),
+      getTribeEventAttendanceStreak: getTribeEventAttendanceStreak({ tribeEventRepository }),
       listTribeEvents: listTribeEvents({ tribeEventRepository }),
       listUpcomingTribeEvents: listUpcomingTribeEvents({ tribeEventRepository }),
       setTribeEventAttendance: setTribeEventAttendance({ tribeEventRepository }),

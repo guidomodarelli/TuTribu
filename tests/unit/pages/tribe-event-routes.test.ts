@@ -6,8 +6,10 @@ import {
 } from "@/app/api/tribes/[slug]/events/[eventId]/route";
 import {
   DELETE as DELETE_ATTENDANCE,
+  GET as GET_ATTENDANCE,
   PUT as PUT_ATTENDANCE,
 } from "@/app/api/tribes/[slug]/events/[eventId]/attendance/route";
+import { GET as GET_ATTENDANCE_EXPORT } from "@/app/api/tribes/[slug]/events/[eventId]/attendance/export/route";
 import { GET as GET_CALENDAR } from "@/app/api/tribes/[slug]/events/[eventId]/calendar/route";
 import { createRequestModules } from "@/src/modules/setup";
 
@@ -19,6 +21,7 @@ const deleteTribeEvent = vi.fn();
 const getTribeEvent = vi.fn();
 const setTribeEventAttendance = vi.fn();
 const clearTribeEventAttendance = vi.fn();
+const getTribeEventAttendanceReport = vi.fn();
 
 vi.mock("@/src/modules/setup", () => ({
   createRequestModules: vi.fn(),
@@ -144,6 +147,7 @@ describe("Tribe event routes", () => {
           createTribeEvent,
           deleteTribeEvent,
           getTribeEvent,
+          getTribeEventAttendanceReport,
           listTribeEvents,
           setTribeEventAttendance,
           updateTribeEvent,
@@ -216,6 +220,7 @@ describe("Tribe event routes", () => {
       occurrences: [occurrence],
     });
     expect(createTribeEvent).toHaveBeenCalledWith({
+      capacity: "",
       description: "Repaso mensual",
       endsAt: "2026-05-06T19:00:00.000Z",
       meetingUrl: "https://meet.google.com/abc-defg-hij",
@@ -275,6 +280,7 @@ describe("Tribe event routes", () => {
       occurrences: [occurrence],
     });
     expect(updateTribeEvent).toHaveBeenCalledWith({
+      capacity: "",
       description: "Repaso mensual",
       endsAt: "2026-05-06T19:00:00.000Z",
       eventId: EVENT_ID,
@@ -421,6 +427,141 @@ describe("Tribe event routes", () => {
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
       message: "No pudimos encontrar el evento.",
+    });
+  });
+
+  it("rejects an invalid capacity with a safe Spanish message", async () => {
+    createTribeEvent.mockResolvedValueOnce({ status: "invalid_capacity" as const });
+
+    const response = await POST(buildRequest({ capacity: "0" }), buildTribeContext());
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      message: "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo.",
+    });
+    expect(createTribeEvent).toHaveBeenCalledWith(expect.objectContaining({ capacity: "0" }));
+  });
+
+  it("tells the viewer when a going answer landed on the waitlist", async () => {
+    const attendance = {
+      goingCount: 10,
+      goingPreview: [],
+      maybeCount: 0,
+      viewerStatus: "waitlisted",
+      viewerWaitlistPosition: 2,
+      waitlistedCount: 2,
+    };
+    setTribeEventAttendance.mockResolvedValue({
+      attendance,
+      status: "attendance_saved" as const,
+    });
+
+    const response = await PUT_ATTENDANCE(
+      buildRequest(
+        { occurrenceStartsAt: "2026-05-13T18:00:00.000Z", status: "going" },
+        `${BASE_URL}/${EVENT_ID}/attendance`
+      ),
+      buildEventContext()
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      attendance,
+      message: "El evento está completo: quedaste en la lista de espera.",
+    });
+  });
+
+  describe("attendance report", () => {
+    const report = {
+      attendeeGroups: {
+        going: [{ name: "Ana", respondedAt: "2026-05-10T15:05:00.000Z", status: "going" }],
+        maybe: [],
+        notGoing: [{ name: "=cmd", respondedAt: "2026-05-10T16:00:00.000Z", status: "not_going" }],
+        waitlisted: [],
+      },
+      eventTitle: "Clase abierta",
+      occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+      trend: [],
+    };
+    const reportUrl = `${BASE_URL}/${EVENT_ID}/attendance?occurrence=${encodeURIComponent(
+      "2026-05-13T18:00:00.000Z"
+    )}`;
+    const exportUrl = `${BASE_URL}/${EVENT_ID}/attendance/export?occurrence=${encodeURIComponent(
+      "2026-05-13T18:00:00.000Z"
+    )}`;
+
+    it("returns the manager report as JSON", async () => {
+      getTribeEventAttendanceReport.mockResolvedValue({ report, status: "found" as const });
+
+      const response = await GET_ATTENDANCE(buildRequest({}, reportUrl), buildEventContext());
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ report });
+      expect(getTribeEventAttendanceReport).toHaveBeenCalledWith({
+        eventId: EVENT_ID,
+        occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+        tribeSlug: "matematica-pro",
+      });
+    });
+
+    it("rejects members who cannot manage events, even if they call the endpoints directly", async () => {
+      getTribeEventAttendanceReport.mockResolvedValue({ status: "forbidden" as const });
+
+      const jsonResponse = await GET_ATTENDANCE(buildRequest({}, reportUrl), buildEventContext());
+      const csvResponse = await GET_ATTENDANCE_EXPORT(
+        buildRequest({}, exportUrl),
+        buildEventContext()
+      );
+
+      for (const response of [jsonResponse, csvResponse]) {
+        expect(response.status).toBe(403);
+        await expect(response.json()).resolves.toEqual({
+          message: "Solo quienes gestionan eventos pueden ver la asistencia.",
+        });
+      }
+    });
+
+    it("requires a session for both endpoints", async () => {
+      getAuthenticatedMember.mockResolvedValue(null);
+
+      const jsonResponse = await GET_ATTENDANCE(buildRequest({}, reportUrl), buildEventContext());
+      const csvResponse = await GET_ATTENDANCE_EXPORT(
+        buildRequest({}, exportUrl),
+        buildEventContext()
+      );
+
+      expect(jsonResponse.status).toBe(401);
+      expect(csvResponse.status).toBe(401);
+      expect(getTribeEventAttendanceReport).not.toHaveBeenCalled();
+    });
+
+    it("downloads the attendance as an escaped CSV attachment", async () => {
+      getTribeEventAttendanceReport.mockResolvedValue({ report, status: "found" as const });
+
+      const response = await GET_ATTENDANCE_EXPORT(buildRequest({}, exportUrl), buildEventContext());
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe("text/csv; charset=utf-8");
+      expect(response.headers.get("Content-Disposition")).toBe(
+        'attachment; filename="asistencia-clase-abierta-2026-05-13.csv"'
+      );
+      expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+      const content = await response.text();
+
+      expect(content).toContain("Nombre,Estado,Respondido el");
+      expect(content).toContain("Ana,Va,2026-05-10 12:05");
+      expect(content).toContain("'=cmd,No va,2026-05-10 13:00");
+    });
+
+    it("hides unexpected failures behind a safe message", async () => {
+      getTribeEventAttendanceReport.mockRejectedValue(new Error("connection reset"));
+
+      const response = await GET_ATTENDANCE_EXPORT(buildRequest({}, exportUrl), buildEventContext());
+
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toEqual({
+        message: "No pudimos generar el archivo de asistencia.",
+      });
     });
   });
 });
