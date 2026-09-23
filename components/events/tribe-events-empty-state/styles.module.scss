@@ -1,6 +1,7 @@
 .TribeEventsEmptyState {
   display: grid;
   gap: 0.25rem;
+  justify-items: center;
   padding: 1.5rem 0;
   text-align: center;
 
@@ -12,5 +13,48 @@
   &__hint {
     margin: 0;
     color: var(--muted-foreground);
+  }
+
+  &__templates {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 40rem;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__template {
+    width: 100%;
+    height: auto;
+    justify-content: flex-start;
+    gap: 0.6rem;
+    padding: 0.6rem 0.85rem;
+    white-space: normal;
+    text-align: left;
+  }
+
+  &__templateBody {
+    display: grid;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  &__templateTitle {
+    font-weight: 600;
+  }
+
+  &__templateMeta {
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-weight: 400;
+  }
+
+  @media (min-width: 40rem) {
+    &__templates {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
   }
 }

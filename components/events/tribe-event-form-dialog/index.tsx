@@ -15,6 +15,7 @@ import {
 } from "@/lib/date-time/buenos-aires-format";
 import type { CreateTribeEventCommand } from "@/src/modules/events/application/commands/tribe-event-command";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
+import type { TribeEventRecurrenceFrequency } from "@/src/modules/events/domain/entities/tribe-event";
 import { TRIBE_EVENT_RECURRENCE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";
 import {
   TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
@@ -29,8 +30,20 @@ import styles from "./styles.module.scss";
  */
 export type TribeEventFormPayload = Omit<CreateTribeEventCommand, "tribeSlug" | "visibleMonth">;
 
+/**
+ * Values that prefill the create form (for example from a template). Ignored
+ * in edit mode, where the occurrence being edited is the source of truth.
+ */
+export type TribeEventFormInitialValues = {
+  /** Duration used to suggest the end time once a start is picked. */
+  durationMinutes?: number;
+  recurrenceFrequency?: TribeEventRecurrenceFrequency;
+  title?: string;
+};
+
 type TribeEventFormDialogProps = {
   editingOccurrence: TribeEventOccurrenceResult | null;
+  initialValues?: TribeEventFormInitialValues;
   isOpen: boolean;
   isSaving: boolean;
   onClose: () => void;
@@ -157,10 +170,16 @@ function addMinutesToTime(time: string, minutesToAdd: number): string | null {
 }
 
 function createInitialValues(
-  occurrence: TribeEventOccurrenceResult | null
+  occurrence: TribeEventOccurrenceResult | null,
+  initialValues: TribeEventFormInitialValues | undefined
 ): EventFormValues {
   if (!occurrence) {
-    return FORM_DEFAULTS;
+    return {
+      ...FORM_DEFAULTS,
+      recurrenceFrequency:
+        initialValues?.recurrenceFrequency ?? FORM_DEFAULTS.recurrenceFrequency,
+      title: initialValues?.title ?? FORM_DEFAULTS.title,
+    };
   }
 
   const startDateKey = getBuenosAiresDateKey(occurrence.seriesStartsAt);
@@ -240,19 +259,23 @@ function buildPayload(
 
 export function TribeEventFormDialog({
   editingOccurrence,
+  initialValues,
   isOpen,
   isSaving,
   onClose,
   onSubmit,
 }: TribeEventFormDialogProps) {
   const [values, setValues] = useState<EventFormValues>(() =>
-    createInitialValues(editingOccurrence)
+    createInitialValues(editingOccurrence, initialValues)
   );
   const [validationError, setValidationError] = useState<string | null>(null);
   const [endsOnAnotherDay, setEndsOnAnotherDay] = useState(
-    () => createInitialValues(editingOccurrence).endsDate !== EMPTY_VALUE
+    () => createInitialValues(editingOccurrence, initialValues).endsDate !== EMPTY_VALUE
   );
   const isEditing = editingOccurrence !== null;
+  const suggestedDurationMinutes =
+    (isEditing ? undefined : initialValues?.durationMinutes) ??
+    TRIBE_EVENT_DEFAULT_DURATION_MINUTES;
   const isRecurring =
     values.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none;
 
@@ -261,14 +284,15 @@ export function TribeEventFormDialog({
     setValues((currentValues) => ({ ...currentValues, [field]: value }));
   };
 
-  // Picking a start suggests an end one default duration later, but only
+  // Picking a start suggests an end one duration later (the template's or the
+  // default), but only
   // while the end is still empty so an explicit choice is never overwritten.
   const updateStartsTime = (startsTime: string) => {
     setValidationError(null);
     setValues((currentValues) => {
       const suggestedEndsTime =
         currentValues.endsTime === EMPTY_VALUE && startsTime
-          ? addMinutesToTime(startsTime, TRIBE_EVENT_DEFAULT_DURATION_MINUTES)
+          ? addMinutesToTime(startsTime, suggestedDurationMinutes)
           : null;
 
       return {

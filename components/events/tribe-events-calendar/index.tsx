@@ -9,6 +9,7 @@ import { TribeEventDeleteDialog } from "@/components/events/tribe-event-delete-d
 import { TribeEventDetailDialog } from "@/components/events/tribe-event-detail-dialog";
 import {
   TribeEventFormDialog,
+  type TribeEventFormInitialValues,
   type TribeEventFormPayload,
 } from "@/components/events/tribe-event-form-dialog";
 import { TribeEventsAgenda } from "@/components/events/tribe-events-agenda";
@@ -40,6 +41,10 @@ import { buildTribeEventsRoute } from "@/lib/events/tribe-events-routes";
 import { HORIZONTAL_SWIPE_DIRECTION } from "@/lib/gestures/horizontal-swipe";
 import { copyTextToClipboard } from "@/lib/browser-clipboard";
 import { replaceCurrentUrlSearchParam } from "@/lib/browser-navigation";
+import {
+  TRIBE_EVENT_TEMPLATES,
+  type TribeEventTemplate,
+} from "@/src/modules/events/constants/tribe-event-templates";
 import { TRIBE_EVENTS_ROUTE_QUERY } from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEventAttendanceStatus,
@@ -60,7 +65,11 @@ type TribeEventsCalendarProps = {
 
 type EventFormSession =
   | { mode: typeof FORM_MODE.closed }
-  | { mode: typeof FORM_MODE.create; session: number }
+  | {
+      initialValues?: TribeEventFormInitialValues;
+      mode: typeof FORM_MODE.create;
+      session: number;
+    }
   | {
       mode: typeof FORM_MODE.edit;
       occurrence: TribeEventOccurrenceResult;
@@ -215,10 +224,29 @@ export function TribeEventsCalendar({
     }
   };
 
-  const openCreateForm = () => {
+  const openCreateForm = (initialValues?: TribeEventFormInitialValues) => {
     formSessionCounterRef.current += 1;
-    setFormSession({ mode: FORM_MODE.create, session: formSessionCounterRef.current });
+    setFormSession({
+      initialValues,
+      mode: FORM_MODE.create,
+      session: formSessionCounterRef.current,
+    });
   };
+
+  const openTemplateForm = (template: TribeEventTemplate) => {
+    openCreateForm({
+      durationMinutes: template.durationMinutes,
+      recurrenceFrequency: template.recurrenceFrequency,
+      title: template.title,
+    });
+  };
+
+  const renderEmptyState = () =>
+    canManageEvents ? (
+      <TribeEventsEmptyState templates={TRIBE_EVENT_TEMPLATES} onUseTemplate={openTemplateForm} />
+    ) : (
+      <TribeEventsEmptyState />
+    );
 
   const openEditForm = (occurrence: TribeEventOccurrenceResult) => {
     formSessionCounterRef.current += 1;
@@ -291,13 +319,13 @@ export function TribeEventsCalendar({
         onSelectDay={setSelectedDayKey}
         onSelectOccurrence={selectOccurrence}
       />
-      {visibleEvents.length === 0 ? <TribeEventsEmptyState /> : null}
+      {visibleEvents.length === 0 ? renderEmptyState() : null}
     </>
   );
 
   const renderListView = () =>
     visibleEvents.length === 0 ? (
-      <TribeEventsEmptyState />
+      renderEmptyState()
     ) : (
       <TribeEventsAgenda
         agendaDays={agendaDays}
@@ -321,7 +349,7 @@ export function TribeEventsCalendar({
         todayHref={todayHref}
         viewMode={viewMode}
         onChooseViewMode={setChosenViewMode}
-        onCreateEvent={openCreateForm}
+        onCreateEvent={() => openCreateForm()}
       />
 
       {nextOccurrence && nowTime !== null ? (
@@ -373,6 +401,9 @@ export function TribeEventsCalendar({
 
       <TribeEventFormDialog
         editingOccurrence={formSession.mode === FORM_MODE.edit ? formSession.occurrence : null}
+        initialValues={
+          formSession.mode === FORM_MODE.create ? formSession.initialValues : undefined
+        }
         isOpen={formSession.mode !== FORM_MODE.closed}
         isSaving={isSavingEvent}
         key={formSession.mode === FORM_MODE.closed ? FORM_MODE.closed : formSession.session}

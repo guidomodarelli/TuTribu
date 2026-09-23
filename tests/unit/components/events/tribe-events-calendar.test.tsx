@@ -264,10 +264,10 @@ describe("TribeEventsCalendar", () => {
     expect(within(agenda).getByText("Todas las semanas")).toBeInTheDocument();
   });
 
-  it("shows a quiet empty state when the month has no events", async () => {
+  it("shows members a quiet empty state when the month has no events", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ events: [] });
+    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false } });
 
     expect(screen.getByText("No hay eventos este mes.")).toBeInTheDocument();
 
@@ -275,6 +275,37 @@ describe("TribeEventsCalendar", () => {
 
     expect(screen.queryByRole("region", { name: "Lista de eventos" })).not.toBeInTheDocument();
     expect(screen.getByText("No hay eventos este mes.")).toBeInTheDocument();
+  });
+
+  it("keeps the member empty state free of templates", () => {
+    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false } });
+
+    expect(screen.queryByText("Creá tu primer encuentro")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Q&A semanal/ })).not.toBeInTheDocument();
+  });
+
+  it("offers managers templates that prefill the create form", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    expect(screen.getByText("Creá tu primer encuentro")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Q&A semanal/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Taller en vivo/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Kickoff mensual/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    expect(within(dialog).getByLabelText("Título")).toHaveValue("Kickoff mensual");
+    expect(within(dialog).getByLabelText("Repetición")).toHaveTextContent("Todos los meses");
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "18:00" },
+    });
+
+    // The template duration (90 min) drives the suggested end time.
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("19:30");
   });
 
   it("updates visible events when the route month changes", () => {
