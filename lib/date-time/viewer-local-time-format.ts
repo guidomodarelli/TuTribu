@@ -124,9 +124,24 @@ function formatDateKey(formatters: ZoneFormatters, instant: Date): string {
 }
 
 /**
+ * End of a viewer-local range: its clock time, prefixed by the local short
+ * date when it falls on a later local day than the start ("07 may 03:00"),
+ * mirroring `formatBuenosAiresTimeRange` in the viewer zone.
+ */
+function formatViewerEndLabel(formatters: ZoneFormatters, start: Date, end: Date): string {
+  const endsOnOtherDay = formatDateKey(formatters, end) !== formatDateKey(formatters, start);
+
+  return (
+    (endsOnOtherDay ? formatShortDate(formatters, end) + DATE_TIME_SEPARATOR : "") +
+    formatters.time.format(end)
+  );
+}
+
+/**
  * Viewer-local label for an occurrence: "18:00 - 19:00 tu hora", prefixed by
  * the local short date ("07 may 03:00 tu hora") when the local day differs
- * from the Buenos Aires day.
+ * from the Buenos Aires day. When the range crosses local midnight, the end
+ * carries its own local date ("23:00 - 07 may 03:00 tu hora").
  *
  * @param startsAt - ISO start instant.
  * @param endsAt - ISO end instant, or null for open-ended occurrences.
@@ -161,7 +176,7 @@ export function formatViewerLocalTimeLabel(
   const startLabel =
     (isOtherDay ? formatShortDate(viewerFormatters, start) + DATE_TIME_SEPARATOR : "") +
     viewerFormatters.time.format(start);
-  const endLabel = endsAt ? viewerFormatters.time.format(new Date(endsAt)) : null;
+  const endLabel = endsAt ? formatViewerEndLabel(viewerFormatters, start, new Date(endsAt)) : null;
 
   return (
     startLabel + (endLabel ? TIME_RANGE_SEPARATOR + endLabel : "") + VIEWER_TIME_SUFFIX

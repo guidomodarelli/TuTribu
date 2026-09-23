@@ -32,6 +32,17 @@ describe("formatViewerLocalTimeLabel", () => {
     );
   });
 
+  it("adds the local end date when the viewer range crosses midnight", () => {
+    // 18:00 - 22:00 in Buenos Aires on May 6 is 23:00 - 03:00 in Madrid.
+    expect(
+      formatViewerLocalTimeLabel(
+        "2026-05-06T21:00:00.000Z",
+        "2026-05-07T01:00:00.000Z",
+        "Europe/Madrid"
+      )
+    ).toBe("23:00 - 07 may 03:00 tu hora");
+  });
+
   it("ignores time zones the runtime does not know", () => {
     expect(formatViewerLocalTimeLabel(STARTS_AT, ENDS_AT, "Not/AZone")).toBeNull();
   });
