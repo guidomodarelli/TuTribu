@@ -15,6 +15,12 @@
     flex: 0 0 auto;
   }
 
+  // Two initials must fit the small avatar in both engines.
+  &__initials {
+    font-size: 0.6rem;
+    letter-spacing: 0;
+  }
+
   &__more {
     font-size: 0.7rem;
     font-variant-numeric: tabular-nums;

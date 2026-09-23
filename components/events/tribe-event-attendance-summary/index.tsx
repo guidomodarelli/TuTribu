@@ -84,7 +84,9 @@ export function TribeEventAttendanceSummary({
           {visiblePreview.map((attendee) => (
             <Avatar key={attendee.id} size={AVATAR_SIZE_SMALL}>
               {attendee.image ? <AvatarImage alt="" src={attendee.image} /> : null}
-              <AvatarFallback>{getMemberAvatarInitials(attendee.name)}</AvatarFallback>
+              <AvatarFallback className={styles.TribeEventAttendanceSummary__initials}>
+                {getMemberAvatarInitials(attendee.name)}
+              </AvatarFallback>
             </Avatar>
           ))}
           {hiddenGoingCount > 0 ? (
