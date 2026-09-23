@@ -37,6 +37,12 @@ export const TRIBE_EVENT_FIELD_LIMIT = {
 export const TRIBE_EVENT_DEFAULT_DURATION_MINUTES = 60;
 
 /**
+ * Minutes before the start from which the UI offers the "Unirme" shortcut to
+ * the meeting link, so members can join a few minutes early.
+ */
+export const TRIBE_EVENT_JOIN_WINDOW_MINUTES = 15;
+
+/**
  * Query parameter names of the tribe events page: the visible month and the
  * occurrence whose detail opens on load (deep link).
  */

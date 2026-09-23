@@ -3,6 +3,7 @@ import type { TribeEventUpcomingListResult } from "@/src/modules/events/applicat
 import { buildTribeEventOccurrences } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import { TRIBE_EVENT_UPCOMING } from "@/src/modules/events/constants/tribe-events";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
+import { getTribeEventOccurrenceEndTime } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
 
 type ListUpcomingTribeEventsDependencies = {
   tribeEventRepository: TribeEventRepository;
@@ -45,7 +46,7 @@ export function listUpcomingTribeEvents({
       listing.events,
       listing.attendances,
       range
-    ).filter((occurrence) => Date.parse(occurrence.endsAt ?? occurrence.startsAt) >= now);
+    ).filter((occurrence) => getTribeEventOccurrenceEndTime(occurrence) > now);
 
     return {
       events: occurrences.slice(0, limit),

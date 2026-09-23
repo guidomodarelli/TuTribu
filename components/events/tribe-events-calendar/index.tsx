@@ -27,10 +27,7 @@ import {
   getBuenosAiresDateKey,
   getBuenosAiresMonthKey,
 } from "@/lib/date-time/buenos-aires-format";
-import {
-  getOccurrenceEndTime,
-  isOccurrencePast,
-} from "@/lib/events/tribe-event-occurrence-timing";
+import { isOccurrencePast } from "@/lib/events/tribe-event-occurrence-timing";
 import {
   createCalendarDays,
   groupAgendaDays,
@@ -127,13 +124,12 @@ export function TribeEventsCalendar({
     (day) => day.isCurrentMonth && day.dateKey === todayKey
   );
   const activeDayKey = selectedDayKey ?? (isTodayInMonth ? todayKey : null);
+  const isPast = (occurrence: TribeEventOccurrenceResult): boolean =>
+    nowTime !== null && isOccurrencePast(occurrence, nowTime);
   const nextOccurrence =
     nowTime === null
       ? null
-      : (visibleEvents.find((occurrence) => getOccurrenceEndTime(occurrence) >= nowTime) ??
-        null);
-  const isPast = (occurrence: TribeEventOccurrenceResult): boolean =>
-    nowTime !== null && isOccurrencePast(occurrence, nowTime);
+      : (visibleEvents.find((occurrence) => !isPast(occurrence)) ?? null);
   const pastEvents = visibleEvents.filter(isPast);
   const upcomingEvents = visibleEvents.filter((occurrence) => !isPast(occurrence));
   // Past occurrences collapse only while the month still has something ahead;
@@ -257,9 +253,10 @@ export function TribeEventsCalendar({
         onCreateEvent={openCreateForm}
       />
 
-      {nextOccurrence ? (
+      {nextOccurrence && nowTime !== null ? (
         <TribeNextEvent
           isSavingAttendance={isSavingAttendance}
+          nowTime={nowTime}
           occurrence={nextOccurrence}
           onSeeDetail={selectOccurrence}
           onSetAttendance={saveAttendance}

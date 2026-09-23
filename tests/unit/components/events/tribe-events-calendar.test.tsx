@@ -226,6 +226,73 @@ describe("TribeEventsCalendar", () => {
     expect(screen.getByRole("button", { name: "Ocultar finalizados" })).toBeInTheDocument();
   });
 
+  it("shows a running occurrence as live with a join link and a live agenda badge", async () => {
+    vi.setSystemTime(new Date("2026-05-06T18:10:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar();
+
+    const nextEvent = await screen.findByRole("region", { name: "Próximo evento" });
+
+    expect(within(nextEvent).getByText("En vivo ahora")).toBeInTheDocument();
+    expect(within(nextEvent).getByRole("link", { name: "Unirme" })).toHaveAttribute(
+      "href",
+      "https://meet.google.com/abc-defg-hij"
+    );
+    expect(within(nextEvent).getByRole("link", { name: "Unirme" })).toHaveAttribute(
+      "target",
+      "_blank"
+    );
+    expect(within(nextEvent).getByRole("link", { name: "Unirme" })).toHaveAttribute(
+      "rel",
+      "noreferrer"
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+
+    expect(within(agenda).getByText("En vivo")).toBeInTheDocument();
+    expect(within(agenda).queryByText("Finalizado")).not.toBeInTheDocument();
+  });
+
+  it("counts down to the next occurrence and offers joining 15 minutes before", async () => {
+    vi.setSystemTime(new Date("2026-05-03T18:00:00.000Z"));
+
+    const { unmount } = renderCalendar();
+    const farNextEvent = await screen.findByRole("region", { name: "Próximo evento" });
+
+    expect(within(farNextEvent).getByText("Empieza en 3 días")).toBeInTheDocument();
+    expect(within(farNextEvent).queryByRole("link", { name: "Unirme" })).not.toBeInTheDocument();
+    unmount();
+
+    vi.setSystemTime(new Date("2026-05-06T17:52:00.000Z"));
+    renderCalendar();
+
+    const closeNextEvent = await screen.findByRole("region", { name: "Próximo evento" });
+
+    expect(within(closeNextEvent).getByText("Empieza en 8 min")).toBeInTheDocument();
+    expect(within(closeNextEvent).getByRole("link", { name: "Unirme" })).toBeInTheDocument();
+  });
+
+  it("treats an occurrence without end as running for the default duration", async () => {
+    vi.setSystemTime(new Date("2026-05-06T18:30:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [createOccurrence({ endsAt: null })] });
+
+    const nextEvent = await screen.findByRole("region", { name: "Próximo evento" });
+
+    expect(within(nextEvent).getByText("En vivo ahora")).toBeInTheDocument();
+
+    await user.click(within(nextEvent).getByRole("button", { name: "Ver detalle" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
+
+    expect(within(dialog).queryByText("Finalizado")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Voy" })).toBeInTheDocument();
+  });
+
   it("keeps every occurrence visible when browsing a month that is entirely past", async () => {
     vi.setSystemTime(new Date("2026-06-15T12:00:00.000Z"));
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

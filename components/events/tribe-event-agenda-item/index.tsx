@@ -4,7 +4,10 @@ import { ExternalLinkIcon } from "lucide-react";
 import { Badge } from "beez-ui";
 
 import { formatBuenosAiresTimeRange } from "@/lib/date-time/buenos-aires-format";
-import { isOccurrencePast } from "@/lib/events/tribe-event-occurrence-timing";
+import {
+  TRIBE_EVENT_OCCURRENCE_PHASE,
+  getOccurrencePhase,
+} from "@/lib/events/tribe-event-occurrence-timing";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { TRIBE_EVENT_RECURRENCE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";
 import {
@@ -35,6 +38,7 @@ const COPY = {
   goingCountSuffixPlural: " van",
   goingCountSuffixSingular: " va",
   linkOpen: "Abrir link",
+  liveBadge: "En vivo",
   notGoingBadge: "No vas",
   pastBadge: "Finalizado",
 } as const;
@@ -67,7 +71,9 @@ export function TribeEventAgendaItem({
   occurrence,
   onSelect,
 }: TribeEventAgendaItemProps) {
-  const isPast = nowTime !== null && isOccurrencePast(occurrence, nowTime);
+  const phase = nowTime === null ? null : getOccurrencePhase(occurrence, nowTime);
+  const isPast = phase === TRIBE_EVENT_OCCURRENCE_PHASE.past;
+  const isLive = phase === TRIBE_EVENT_OCCURRENCE_PHASE.live;
 
   return (
     <li
@@ -87,6 +93,12 @@ export function TribeEventAgendaItem({
           {occurrence.title}
         </button>
         <div className={styles.TribeEventAgendaItem__meta}>
+          {isLive ? (
+            <Badge className={styles.TribeEventAgendaItem__liveBadge} variant={BADGE_VARIANT.outline}>
+              <span aria-hidden className={styles.TribeEventAgendaItem__liveDot} />
+              {COPY.liveBadge}
+            </Badge>
+          ) : null}
           {isPast ? (
             <Badge variant={BADGE_VARIANT.secondary}>{COPY.pastBadge}</Badge>
           ) : (

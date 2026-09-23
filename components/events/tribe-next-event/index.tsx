@@ -6,6 +6,11 @@ import {
   formatBuenosAiresLongDate,
   formatBuenosAiresTimeRange,
 } from "@/lib/date-time/buenos-aires-format";
+import {
+  formatOccurrenceCountdown,
+  isOccurrenceJoinable,
+  isOccurrenceLive,
+} from "@/lib/events/tribe-event-occurrence-timing";
 import type {
   TribeEventAttendanceStatus,
   TribeEventOccurrenceResult,
@@ -16,6 +21,8 @@ import styles from "./styles.module.scss";
 
 type TribeNextEventProps = {
   isSavingAttendance: boolean;
+  /** Current time (epoch ms); the block only renders after hydration. */
+  nowTime: number;
   occurrence: TribeEventOccurrenceResult;
   onSeeDetail: (occurrence: TribeEventOccurrenceResult) => void;
   onSetAttendance: (
@@ -36,8 +43,14 @@ const BUTTON_ATTRIBUTE = {
   variantSecondary: "secondary",
 } as const;
 const GROUP_ROLE = "group";
+const LINK_ATTRIBUTE = {
+  noreferrer: "noreferrer",
+  targetBlank: "_blank",
+} as const;
 const COPY = {
   attendanceLegend: "¿Vas a participar?",
+  join: "Unirme",
+  liveNow: "En vivo ahora",
   nextEventLabel: "Próximo evento",
   scheduleSeparator: " · ",
   seeDetail: "Ver detalle",
@@ -49,14 +62,33 @@ const COPY = {
  */
 export function TribeNextEvent({
   isSavingAttendance,
+  nowTime,
   occurrence,
   onSeeDetail,
   onSetAttendance,
 }: TribeNextEventProps) {
+  const isLive = isOccurrenceLive(occurrence, nowTime);
+  const joinUrl =
+    occurrence.meetingUrl && isOccurrenceJoinable(occurrence, nowTime)
+      ? occurrence.meetingUrl
+      : null;
+
   return (
     <section aria-label={COPY.nextEventLabel} className={styles.TribeNextEvent}>
       <div className={styles.TribeNextEvent__body}>
-        <p className={styles.TribeNextEvent__label}>{COPY.nextEventLabel}</p>
+        <div className={styles.TribeNextEvent__heading}>
+          <p className={styles.TribeNextEvent__label}>{COPY.nextEventLabel}</p>
+          {isLive ? (
+            <p className={styles.TribeNextEvent__live}>
+              <span aria-hidden className={styles.TribeNextEvent__liveDot} />
+              {COPY.liveNow}
+            </p>
+          ) : (
+            <p className={styles.TribeNextEvent__countdown}>
+              {formatOccurrenceCountdown(occurrence.startsAt, nowTime)}
+            </p>
+          )}
+        </div>
         <p className={styles.TribeNextEvent__title}>{occurrence.title}</p>
         <p className={styles.TribeNextEvent__schedule}>
           {formatBuenosAiresLongDate(occurrence.startsAt)}
@@ -65,6 +97,13 @@ export function TribeNextEvent({
         </p>
       </div>
       <div className={styles.TribeNextEvent__actions}>
+        {joinUrl ? (
+          <Button asChild size={BUTTON_ATTRIBUTE.sizeSmall}>
+            <a href={joinUrl} rel={LINK_ATTRIBUTE.noreferrer} target={LINK_ATTRIBUTE.targetBlank}>
+              {COPY.join}
+            </a>
+          </Button>
+        ) : null}
         <div
           aria-label={COPY.attendanceLegend}
           className={styles.TribeNextEvent__attendanceButtons}

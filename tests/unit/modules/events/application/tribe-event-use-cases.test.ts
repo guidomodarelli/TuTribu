@@ -553,4 +553,30 @@ describe("tribe event use cases", () => {
       tribeSlug: "matematica-pro",
     });
   });
+
+  it("keeps an occurrence without end while it runs its default duration", async () => {
+    vi.useFakeTimers().setSystemTime(new Date("2026-05-10T12:00:00.000Z"));
+    const listByTribeRange = vi.fn(async () =>
+      createListing([
+        createEvent({
+          endsAt: null,
+          startsAt: "2026-05-10T11:30:00.000Z",
+          title: "En curso",
+        }),
+        createEvent({
+          endsAt: null,
+          id: OTHER_EVENT_ID,
+          startsAt: "2026-05-10T10:30:00.000Z",
+          title: "Terminado",
+        }),
+      ])
+    );
+    const execute = listUpcomingTribeEvents({
+      tribeEventRepository: createRepository({ listByTribeRange }),
+    });
+
+    const result = await execute({ tribeSlug: "matematica-pro" });
+
+    expect(result.events.map((occurrence) => occurrence.title)).toEqual(["En curso"]);
+  });
 });
