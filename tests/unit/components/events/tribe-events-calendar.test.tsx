@@ -951,7 +951,7 @@ describe("TribeEventsCalendar", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("edits an event from the detail and keeps the attendance of existing slots", async () => {
+  it("edits an event from the detail and shows the attendance returned by the save", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar();
@@ -973,7 +973,7 @@ describe("TribeEventsCalendar", () => {
       message: "Evento actualizado.",
       occurrences: [
         createOccurrence({
-          attendance: createAttendance({ goingCount: 0, viewerStatus: null }),
+          attendance: createAttendance({ goingCount: 3, viewerStatus: "going" }),
           title: "Clase cerrada",
         }),
       ],
@@ -988,7 +988,7 @@ describe("TribeEventsCalendar", () => {
 
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase cerrada/ }));
 
-    expect(within(screen.getByRole("dialog")).getByText("2 van")).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).getByText("3 van")).toBeInTheDocument();
   });
 
   it("asks for confirmation before deleting an event", async () => {

@@ -37,6 +37,11 @@ export type PersistTribeEventCommand = {
 };
 
 export type PersistTribeEventUpdateCommand = PersistTribeEventCommand & {
+  /**
+   * Range whose attendance summaries of the event are read back after the
+   * waitlist refill, or null to skip that read (no visible month).
+   */
+  attendanceRange: TribeEventDateRange | null;
   eventId: string;
 };
 
@@ -139,6 +144,12 @@ export type TribeEventCreationResult =
 
 export type TribeEventUpdateResult =
   | {
+      /**
+       * Attendance summaries of the event inside `attendanceRange`, read in
+       * the same transaction after the waitlist refill so they already
+       * include its promotions. Empty when no range was requested.
+       */
+      attendances: TribeEventOccurrenceAttendance[];
       event: TribeEvent;
       status: typeof TRIBE_EVENT_MUTATION_STATUS.updated;
     }

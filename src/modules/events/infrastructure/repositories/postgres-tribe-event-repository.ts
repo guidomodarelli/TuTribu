@@ -318,7 +318,15 @@ function mapCreationResult(row: EventMutationRow | null): TribeEventCreationResu
   return { status: mapFailureStatus(row?.status ?? null) };
 }
 
-function mapUpdateResult(row: EventMutationRow | null): TribeEventUpdateResult {
+/**
+ * Outcome of the UPDATE statement alone, before the attendance summaries of
+ * the visible range are read back.
+ */
+type EventUpdateRowResult =
+  | Omit<Extract<TribeEventUpdateResult, { attendances: unknown }>, "attendances">
+  | Exclude<TribeEventUpdateResult, { attendances: unknown }>;
+
+function mapUpdateResult(row: EventMutationRow | null): EventUpdateRowResult {
   if (row?.status === TRIBE_EVENT_MUTATION_STATUS.updated) {
     return { event: mapEvent(row), status: row.status };
   }
@@ -700,16 +708,33 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         (result.rows?.[0] ?? null) as EventMutationRow | null
       );
 
+      if (updateResult.status !== TRIBE_EVENT_MUTATION_STATUS.updated) {
+        return updateResult;
+      }
+
       // A raised (or removed) capacity frees seats: promote the waitlists of
       // upcoming occurrences in the same transaction, which already holds the
       // event row lock taken by the UPDATE above.
-      if (updateResult.status === TRIBE_EVENT_MUTATION_STATUS.updated) {
-        await database.execute(
-          sql`select public.refill_tribe_event_waitlists(${command.eventId}::uuid) as promoted_count`
-        );
+      await database.execute(
+        sql`select public.refill_tribe_event_waitlists(${command.eventId}::uuid) as promoted_count`
+      );
+
+      if (!command.attendanceRange) {
+        return { ...updateResult, attendances: [] };
       }
 
-      return updateResult;
+      // A second statement sees the promotions committed by the refill, so
+      // the response reflects them; one aggregated query covers the range.
+      const attendanceResult = await database.execute(
+        buildAttendanceSummaryQuery({
+          ...command.attendanceRange,
+          eventId: command.eventId,
+          tribeSlug: command.tribeSlug,
+        })
+      );
+      const attendanceRows = (attendanceResult.rows ?? []) as AttendanceSummaryRow[];
+
+      return { ...updateResult, attendances: attendanceRows.map(mapAttendanceSummary) };
     });
   }
 

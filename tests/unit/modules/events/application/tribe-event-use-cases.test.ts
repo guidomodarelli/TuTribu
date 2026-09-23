@@ -543,6 +543,7 @@ describe("tribe event use cases", () => {
 
   it("updates an event and returns the visible month occurrences", async () => {
     const update = vi.fn(async () => ({
+      attendances: [],
       event: createEvent({ title: "Clase cerrada" }),
       status: TRIBE_EVENT_MUTATION_STATUS.updated,
     }));
@@ -569,6 +570,84 @@ describe("tribe event use cases", () => {
       status: TRIBE_EVENT_MUTATION_STATUS.updated,
     });
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ eventId: EVENT_ID }));
+  });
+
+  it("returns the visible month occurrences with the summaries read after the waitlist refill", async () => {
+    const promotedAttendance = {
+      ...EMPTY_ATTENDANCE,
+      goingCount: 2,
+      viewerStatus: "going" as const,
+    };
+    const update = vi.fn(async () => ({
+      attendances: [
+        {
+          ...promotedAttendance,
+          eventId: EVENT_ID,
+          occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+        },
+      ],
+      event: createEvent({ capacity: 2, recurrenceFrequency: "weekly" }),
+      status: TRIBE_EVENT_MUTATION_STATUS.updated,
+    }));
+    const execute = updateTribeEvent({
+      tribeEventRepository: createRepository({ update }),
+    });
+
+    const result = await execute({
+      capacity: "2",
+      description: "",
+      endsAt: "",
+      eventId: EVENT_ID,
+      meetingUrl: "",
+      recurrenceFrequency: "weekly",
+      recurrenceUntil: "",
+      startsAt: "2026-05-06T18:00:00.000Z",
+      title: "Clase abierta",
+      tribeSlug: "matematica-pro",
+      visibleMonth: "2026-05",
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attendanceRange: {
+          rangeEnd: "2026-06-01T03:00:00.000Z",
+          rangeStart: "2026-05-01T03:00:00.000Z",
+        },
+      })
+    );
+    expect(result).toMatchObject({ status: TRIBE_EVENT_MUTATION_STATUS.updated });
+    const occurrences = "occurrences" in result ? result.occurrences : [];
+    expect(
+      occurrences.map((occurrence) => [occurrence.startsAt, occurrence.attendance])
+    ).toEqual([
+      ["2026-05-06T18:00:00.000Z", EMPTY_ATTENDANCE],
+      ["2026-05-13T18:00:00.000Z", promotedAttendance],
+      ["2026-05-20T18:00:00.000Z", EMPTY_ATTENDANCE],
+      ["2026-05-27T18:00:00.000Z", EMPTY_ATTENDANCE],
+    ]);
+  });
+
+  it("does not read attendance summaries when the visible month is missing", async () => {
+    const update = vi.fn(async () => ({
+      attendances: [],
+      event: createEvent(),
+      status: TRIBE_EVENT_MUTATION_STATUS.updated,
+    }));
+
+    await expect(
+      updateTribeEvent({ tribeEventRepository: createRepository({ update }) })({
+        description: "",
+        endsAt: "",
+        eventId: EVENT_ID,
+        meetingUrl: "",
+        recurrenceFrequency: "",
+        recurrenceUntil: "",
+        startsAt: "2026-05-06T18:00:00.000Z",
+        title: "Clase abierta",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toMatchObject({ occurrences: [] });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ attendanceRange: null }));
   });
 
   it("treats malformed event ids as not found without querying", async () => {
