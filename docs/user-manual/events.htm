@@ -35,7 +35,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="doc-label">TuTribu — Manual de usuario</div>
   <div class="doc-title">Eventos: calendario, asistencia y repeticiones</div>
   <div class="doc-sub">Cómo ver los encuentros de la tribu, confirmar tu asistencia y, si liderás, programarlos.</div>
-  <div class="doc-meta"><span>Fecha: 2026-09-02</span><span>Audiencia: miembros y líderes</span></div>
+  <div class="doc-meta"><span>Fecha: 2026-09-23</span><span>Audiencia: miembros y líderes</span></div>
 </div>
 
 <div class="section">
@@ -43,14 +43,23 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-title">El calendario</div>
   <p>En <strong>Eventos</strong> ves el mes actual como una grilla. Cada evento aparece como una etiqueta con su hora; el día de hoy queda resaltado y los eventos que ya terminaron se ven atenuados. Arriba tenés las flechas para cambiar de mes y el botón <strong>Hoy</strong> para volver al mes actual.</p>
   <ul>
-    <li>Con los botones <strong>Ver lista</strong> y <strong>Ver calendario</strong> cambiás entre la grilla y una agenda agrupada por día: cada día lleva su fecha (con la marca <em>Hoy</em> cuando corresponde) y, debajo, sus eventos con horario, título, tu respuesta (<em>Vas</em> / <em>No vas</em>), si se repite, cuántas personas van y el ícono para abrir el link de reunión.</li>
+    <li>Con los botones <strong>Ver lista</strong> y <strong>Ver calendario</strong> cambiás entre la grilla y una agenda agrupada por día: cada día lleva su fecha (con la marca <em>Hoy</em> cuando corresponde) y, debajo, sus eventos con horario, título, tu respuesta (<em>Vas</em> / <em>No vas</em>), si se repite, cuántas personas van, el ícono <strong>Agregar a Google Calendar</strong> (solo en eventos que no terminaron) y el ícono para abrir el link de reunión. Si un evento está ocurriendo en este momento, su fila lleva la etiqueta <em>En vivo</em>.</li>
     <li>Mientras el mes tenga eventos por venir, los que ya terminaron quedan plegados detrás de <strong>Ver N finalizados</strong>. Si navegás a un mes que ya pasó por completo, se muestran todos.</li>
-    <li>En el teléfono la sección arranca en modo lista; podés pasar a la grilla cuando quieras. En la grilla del teléfono cada día muestra un punto por evento (gris si ya terminó) y, al tocar un día, sus eventos aparecen listados debajo de la grilla; el día de hoy se muestra por defecto.</li>
-    <li>Debajo del encabezado, <strong>Próximo evento</strong> destaca el encuentro más cercano del mes con los botones <strong>Voy</strong> / <strong>No voy</strong> para confirmar asistencia sin abrir el detalle, además de <strong>Ver detalle</strong>.</li>
+    <li>En el teléfono la sección arranca en modo lista; podés pasar a la grilla cuando quieras. En la grilla del teléfono cada día muestra un punto por evento (gris si ya terminó), hasta tres; si hay más, aparece <em>+N</em> con los que no entran. Al tocar un día, sus eventos aparecen listados debajo de la grilla; el día de hoy se muestra por defecto.</li>
+    <li>En el teléfono también podés deslizar el dedo hacia los costados sobre la grilla o la lista para cambiar de mes: hacia la izquierda pasás al mes siguiente y hacia la derecha al anterior. El desplazamiento vertical sigue funcionando como siempre.</li>
+    <li>Debajo del encabezado, <strong>Próximo evento</strong> destaca el encuentro más cercano del mes que todavía no terminó, con los botones <strong>Voy</strong> / <strong>No voy</strong> para confirmar asistencia sin abrir el detalle, además de <strong>Ver detalle</strong>.
+      <ul>
+        <li>Si todavía no empezó, muestra cuánto falta: <em>Empieza en 3 días</em>, <em>Empieza en 2 h 15 min</em> o <em>Empieza en 8 min</em>.</li>
+        <li>Si está ocurriendo, muestra <em>En vivo ahora</em> con un punto que late (queda fijo si tu dispositivo pide reducir el movimiento).</li>
+        <li>Desde 15 minutos antes del inicio y mientras dure, si el evento tiene link de reunión aparece el botón <strong>Unirme</strong>, que abre la reunión en una pestaña nueva.</li>
+      </ul>
+    </li>
     <li>El encabezado muestra el mes con las flechas para cambiarlo, el botón <strong>Hoy</strong> con la hora actual de Buenos Aires al lado, el selector de vista y, para líderes y guardianes, <strong>Crear evento</strong>.</li>
-    <li>Si un mes no tiene eventos, la sección lo indica sin más ruido.</li>
+    <li>Si estás en otra zona horaria, al lado de cada horario de Buenos Aires aparece también tu hora local, por ejemplo <em>20:00 - 21:00 · 18:00 - 19:00 tu hora</em>. Si en tu zona ya es otro día, se agrega la fecha (<em>07 may 03:00 tu hora</em>). Se ve en <strong>Próximo evento</strong>, en la lista y en el detalle.</li>
+    <li>Un evento sin hora de fin se considera en curso durante una hora desde su inicio; recién después se muestra como finalizado.</li>
+    <li>Si un mes no tiene eventos, los miembros ven un mensaje breve. Quienes lideran o cuidan la tribu ven <strong>Creá tu primer encuentro</strong> con tres plantillas: <em>Q&amp;A semanal</em> (todas las semanas, 60 min), <em>Kickoff mensual</em> (todos los meses, 90 min) y <em>Taller en vivo</em> (no se repite, 120 min). Cada plantilla abre el formulario de <strong>Nuevo evento</strong> con el título y la repetición cargados; al elegir la hora de inicio, la hora de fin se sugiere según la duración de la plantilla.</li>
   </ul>
-  <p>En la página principal de la tribu también aparece un bloque <strong>Próximos eventos</strong> con los tres encuentros más cercanos de los próximos 30 días.</p>
+  <p>En la página principal de la tribu también aparece un bloque <strong>Próximos eventos</strong> con los tres encuentros más cercanos de los próximos 30 días. Tocar el título de uno te lleva directo a su detalle dentro del calendario.</p>
 </div>
 
 <div class="section">
@@ -59,9 +68,11 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <p>Al tocar un evento se abre su detalle con la fecha completa, el horario, la descripción y, si existe, el botón <strong>Abrir link de reunión</strong>.</p>
   <ul>
     <li>Si el evento ya terminó, el título lleva la etiqueta <em>Finalizado</em>, la asistencia se cuenta en pasado ("3 personas fueron") y no se puede responder. Si no tiene link de reunión, se indica <em>Sin link de reunión</em> en lugar del botón.</li>
-    <li>Debajo del título se ve la fecha, el horario y, si el evento se repite, cada cuánto y hasta cuándo. Las acciones van en una fila de botones: <strong>Abrir link de reunión</strong> como acción principal, y al lado <strong>Agregar a Google Calendar</strong> y <strong>Descargar .ics</strong>.</li>
+    <li>Debajo del título se ve la fecha, el horario y, si el evento se repite, cada cuánto y hasta cuándo. Las acciones van en una fila de botones: <strong>Abrir link de reunión</strong> como acción principal, y al lado <strong>Agregar a Google Calendar</strong>, <strong>Descargar .ics</strong> y <strong>Copiar link</strong>. Si estás en otra zona horaria, debajo del horario aparece también tu hora local.</li>
     <li><strong>Agregar a Google Calendar</strong> abre Google Calendar con el evento cargado. Si el evento se repite, se agrega la serie completa.</li>
     <li><strong>Descargar .ics</strong> baja un archivo que podés importar en Apple Calendar, Outlook o cualquier otra app de calendario.</li>
+    <li><strong>Copiar link</strong> copia un enlace directo a ese evento en esa fecha. Quien lo abra (y pueda ver la tribu) llega al mes correcto con el detalle ya abierto. Vas a ver el aviso <em>Link copiado.</em>; si el navegador no permite copiar, el aviso <em>No pudimos copiar el link.</em></li>
+    <li>Mientras el detalle está abierto, la dirección de la página incluye ese evento, así que también podés compartirla desde la barra del navegador. Al cerrarlo, la dirección vuelve a la del mes.</li>
   </ul>
 </div>
 
