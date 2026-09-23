@@ -1,7 +1,10 @@
 import type { ListUpcomingTribeEventsQuery } from "@/src/modules/events/application/commands/tribe-event-command";
 import type { TribeEventUpcomingListResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { buildTribeEventOccurrences } from "@/src/modules/events/application/services/tribe-event-occurrences";
-import { TRIBE_EVENT_UPCOMING } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+  TRIBE_EVENT_UPCOMING,
+} from "@/src/modules/events/constants/tribe-events";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 import { getTribeEventOccurrenceEndTime } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
 
@@ -20,6 +23,8 @@ const IN_PROGRESS_LOOKBACK_HOURS = 6;
 
 /**
  * Next few occurrences of the tribe, across every series, for the tribe home.
+ * Cancelled dates are left out (the calendar still shows them struck
+ * through); moved dates appear at their new time.
  */
 export function listUpcomingTribeEvents({
   tribeEventRepository,
@@ -45,8 +50,13 @@ export function listUpcomingTribeEvents({
     const occurrences = buildTribeEventOccurrences(
       listing.events,
       listing.attendances,
+      listing.exceptions,
       range
-    ).filter((occurrence) => getTribeEventOccurrenceEndTime(occurrence) > now);
+    ).filter(
+      (occurrence) =>
+        occurrence.exception?.kind !== TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled &&
+        getTribeEventOccurrenceEndTime(occurrence) > now
+    );
 
     return {
       events: occurrences.slice(0, limit),

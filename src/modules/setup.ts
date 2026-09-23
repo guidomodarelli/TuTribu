@@ -24,6 +24,8 @@ import { PostgresCourseRepository } from "./courses/infrastructure/repositories/
 import { PostgresLessonCommentRepository } from "./courses/infrastructure/repositories/postgres-lesson-comment-repository";
 import { R2LessonFileRepository } from "./courses/infrastructure/repositories/r2-lesson-file-repository";
 import { buildEventsModule } from "./events/setup";
+import { PostgresTribeEventOccurrenceExceptionRepository } from "./events/infrastructure/repositories/postgres-tribe-event-occurrence-exception-repository";
+import { PostgresTribeEventProposalRepository } from "./events/infrastructure/repositories/postgres-tribe-event-proposal-repository";
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
 import { buildSitepingModule } from "./siteping/setup";
@@ -231,6 +233,11 @@ export async function createRequestModules(
       ),
     }),
     events: buildEventsModule({
+      tribeEventOccurrenceExceptionRepository:
+        new PostgresTribeEventOccurrenceExceptionRepository(executeWithRequestContext),
+      tribeEventProposalRepository: new PostgresTribeEventProposalRepository(
+        executeWithRequestContext
+      ),
       tribeEventRepository: new PostgresTribeEventRepository(
         executeWithRequestContext
       ),

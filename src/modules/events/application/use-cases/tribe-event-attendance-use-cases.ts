@@ -11,18 +11,24 @@ import type {
   TribeEventAttendanceStreakResult,
   TribeEventAttendeeResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
-import { buildTribeEventOccurrenceKey } from "@/src/modules/events/application/services/tribe-event-occurrences";
+import {
+  buildTribeEventOccurrenceKey,
+  groupTribeEventExceptionsByEvent,
+} from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
   TRIBE_EVENT_ATTENDANCE_STATUS,
   TRIBE_EVENT_ATTENDANCE_STREAK,
   TRIBE_EVENT_ATTENDANCE_TREND,
   TRIBE_EVENT_MUTATION_STATUS,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEvent,
   TribeEventAttendee,
+  TribeEventOccurrenceException,
 } from "@/src/modules/events/domain/entities/tribe-event";
+import type { TribeEventOccurrenceExceptionRepository } from "@/src/modules/events/domain/repositories/tribe-event-occurrence-exception-repository";
 import type {
   TribeEventAttendanceKey,
   TribeEventRepository,
@@ -32,11 +38,13 @@ import {
   selectRecentPastOccurrences,
 } from "@/src/modules/events/domain/services/tribe-event-attendance";
 import {
-  expandTribeEventOccurrences,
-  isTribeEventOccurrence,
-} from "@/src/modules/events/domain/services/tribe-event-recurrence";
+  expandTribeEventOccurrencesWithExceptions,
+  type TribeEventResolvedOccurrence,
+} from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
+import { isTribeEventOccurrence } from "@/src/modules/events/domain/services/tribe-event-recurrence";
 
 type TribeEventAttendanceDependencies = {
+  tribeEventOccurrenceExceptionRepository: TribeEventOccurrenceExceptionRepository;
   tribeEventRepository: TribeEventRepository;
 };
 
@@ -95,24 +103,38 @@ function createPastRange(nowTime: number, lookbackDays: number) {
 }
 
 /**
- * Starts of the last finished occurrences of a series (oldest first), or an
- * empty list for single events, which have no trend.
+ * Occurrences that actually took place: cancelled dates never count for the
+ * trend nor the streak (moved dates count at their new time).
  */
-function listTrendOccurrenceStarts(event: TribeEvent, nowTime: number): string[] {
+function isHeldOccurrence(occurrence: TribeEventResolvedOccurrence): boolean {
+  return occurrence.exception?.kind !== TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled;
+}
+
+/**
+ * Original starts (the attendance key) of the last finished occurrences of a
+ * series, oldest first, or an empty list for single events, which have no
+ * trend.
+ */
+function listTrendOccurrenceStarts(
+  event: TribeEvent,
+  exceptions: readonly TribeEventOccurrenceException[],
+  nowTime: number
+): string[] {
   if (event.recurrenceFrequency === TRIBE_EVENT_RECURRENCE_FREQUENCY.none) {
     return [];
   }
 
-  const pastOccurrences = expandTribeEventOccurrences(
+  const pastOccurrences = expandTribeEventOccurrencesWithExceptions(
     event,
+    exceptions,
     createPastRange(nowTime, TRIBE_EVENT_ATTENDANCE_TREND.lookbackDays)
-  );
+  ).filter(isHeldOccurrence);
 
   return selectRecentPastOccurrences(
     pastOccurrences,
     nowTime,
     TRIBE_EVENT_ATTENDANCE_TREND.size
-  ).map((occurrence) => occurrence.startsAt);
+  ).map((occurrence) => occurrence.originalStartsAt);
 }
 
 function groupAttendees(
@@ -129,7 +151,12 @@ function groupAttendees(
   };
 }
 
+/**
+ * Records the viewer answer for one occurrence, identified by its original
+ * start (a moved date keeps its answers). A cancelled date takes no answers.
+ */
 export function setTribeEventAttendance({
+  tribeEventOccurrenceExceptionRepository,
   tribeEventRepository,
 }: TribeEventAttendanceDependencies) {
   return async (
@@ -139,6 +166,16 @@ export function setTribeEventAttendance({
 
     if (resolvedKey.status !== RESOLVED_KEY_STATUS.valid) {
       return { status: resolvedKey.status };
+    }
+
+    const exception = await tribeEventOccurrenceExceptionRepository.find({
+      eventId: command.eventId,
+      originalStartsAt: command.occurrenceStartsAt,
+      tribeSlug: command.tribeSlug,
+    });
+
+    if (exception?.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled) {
+      return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled };
     }
 
     return tribeEventRepository.setAttendance({
@@ -170,6 +207,7 @@ export function clearTribeEventAttendance({
  * repository enforces `can_manage_tribe_events`; members get `forbidden`.
  */
 export function getTribeEventAttendanceReport({
+  tribeEventOccurrenceExceptionRepository,
   tribeEventRepository,
 }: TribeEventAttendanceDependencies) {
   return async (
@@ -181,8 +219,16 @@ export function getTribeEventAttendanceReport({
       return { status: resolvedKey.status };
     }
 
+    const exceptions =
+      resolvedKey.event.recurrenceFrequency === TRIBE_EVENT_RECURRENCE_FREQUENCY.none
+        ? []
+        : await tribeEventOccurrenceExceptionRepository.listByEvent({
+            eventId: query.eventId,
+            tribeSlug: query.tribeSlug,
+          });
     const trendOccurrenceStartsAts = listTrendOccurrenceStarts(
       resolvedKey.event,
+      exceptions,
       Date.now()
     );
     const lookup = await tribeEventRepository.getOccurrenceAttendanceReport({
@@ -241,13 +287,21 @@ export function getTribeEventAttendanceStreak({
         attendance.status,
       ])
     );
+    const exceptionsByEvent = groupTribeEventExceptionsByEvent(history.exceptions);
     const occurrences = history.events.flatMap((event) =>
-      expandTribeEventOccurrences(event, range).map((occurrence) => ({
-        ...occurrence,
-        viewerStatus:
-          viewerStatusByKey.get(buildTribeEventOccurrenceKey(event.id, occurrence.startsAt)) ??
-          null,
-      }))
+      expandTribeEventOccurrencesWithExceptions(
+        event,
+        exceptionsByEvent.get(event.id) ?? [],
+        range
+      )
+        .filter(isHeldOccurrence)
+        .map((occurrence) => ({
+          ...occurrence,
+          viewerStatus:
+            viewerStatusByKey.get(
+              buildTribeEventOccurrenceKey(event.id, occurrence.originalStartsAt)
+            ) ?? null,
+        }))
     );
 
     return calculateTribeEventAttendanceStreak(occurrences, nowTime, {

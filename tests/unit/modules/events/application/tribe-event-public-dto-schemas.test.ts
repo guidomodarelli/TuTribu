@@ -4,8 +4,10 @@ import {
   tribeEventAttendanceReportResponseSchema,
   tribeEventAttendanceResponseSchema,
   tribeEventAttendanceStreakSchema,
+  tribeEventExceptionResponseSchema,
   tribeEventListResponseSchema,
   tribeEventMessageResponseSchema,
+  tribeEventProposalListResponseSchema,
   tribeEventSaveResponseSchema,
 } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 
@@ -27,7 +29,10 @@ const occurrence = {
   endsAt: "2026-05-06T19:00:00.000Z",
   eventId: EVENT_ID,
   meetingUrl: "https://meet.google.com/abc-defg-hij",
+  eventType: "live",
+  exception: null,
   occurrenceKey: `${EVENT_ID}@${STARTS_AT}`,
+  originalStartsAt: STARTS_AT,
   recurrenceFrequency: "biweekly",
   recurrenceRule: "FREQ=WEEKLY;INTERVAL=2",
   recurrenceUntil: null,
@@ -39,8 +44,9 @@ const occurrence = {
 const listing = {
   events: [occurrence],
   month: { current: "2026-05", next: "2026-06", previous: "2026-04" },
+  pendingProposalCount: 0,
   selectedOccurrenceKey: occurrence.occurrenceKey,
-  viewerPermissions: { canManageEvents: false },
+  viewerPermissions: { canManageEvents: false, canProposeEvents: false },
 };
 
 describe("tribe event public DTO schemas", () => {
@@ -68,7 +74,7 @@ describe("tribe event public DTO schemas", () => {
     ["a non-instant start", { ...listing, events: [{ ...occurrence, startsAt: "mañana" }] }],
     ["a malformed month", { ...listing, month: { ...listing.month, next: "2026-13" } }],
     ["missing permissions", { ...listing, viewerPermissions: undefined }],
-    ["a missing selected key", { events: [], month: listing.month, viewerPermissions: { canManageEvents: true } }],
+    ["a missing selected key", { events: [], month: listing.month, viewerPermissions: { canManageEvents: true, canProposeEvents: false } }],
   ])("rejects a listing with %s", (_caseName, candidate) => {
     expect(tribeEventListResponseSchema.safeParse(candidate).success).toBe(false);
   });
@@ -80,6 +86,7 @@ describe("tribe event public DTO schemas", () => {
           capacity: null,
           description: null,
           endsAt: null,
+          eventType: "live",
           id: EVENT_ID,
           meetingUrl: null,
           recurrenceFrequency: "none",
@@ -132,6 +139,55 @@ describe("tribe event public DTO schemas", () => {
     expect(
       tribeEventAttendanceStreakSchema.safeParse({ attendedCount: 4.5, occurrenceCount: 5 })
         .success
+    ).toBe(false);
+  });
+
+  it("rejects occurrences with an unknown type or exception and proposals with an unknown status", () => {
+    expect(
+      tribeEventExceptionResponseSchema.safeParse({
+        message: "Fecha cancelada.",
+        occurrences: [{ ...occurrence, exception: { kind: "cancelled", reason: null } }],
+      }).success
+    ).toBe(true);
+    expect(
+      tribeEventExceptionResponseSchema.safeParse({
+        message: "Fecha cancelada.",
+        occurrences: [{ ...occurrence, exception: { kind: "skipped", reason: null } }],
+      }).success
+    ).toBe(false);
+    expect(
+      tribeEventListResponseSchema.safeParse({
+        ...listing,
+        events: [{ ...occurrence, eventType: "party" }],
+      }).success
+    ).toBe(false);
+
+    const proposal = {
+      createdAt: STARTS_AT,
+      description: null,
+      durationMinutes: 60,
+      eventId: null,
+      eventType: "live",
+      id: "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
+      proposerName: null,
+      reviewNote: null,
+      reviewedAt: null,
+      startsAt: STARTS_AT,
+      status: "pending",
+      title: "Encuentro",
+    };
+
+    expect(
+      tribeEventProposalListResponseSchema.parse({
+        canReviewProposals: false,
+        proposals: [{ ...proposal, proposedBy: "user-secret" }],
+      })
+    ).toEqual({ canReviewProposals: false, proposals: [proposal] });
+    expect(
+      tribeEventProposalListResponseSchema.safeParse({
+        canReviewProposals: false,
+        proposals: [{ ...proposal, status: "accepted" }],
+      }).success
     ).toBe(false);
   });
 });

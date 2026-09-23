@@ -1,6 +1,8 @@
 import type {
   TribeEventAttendanceOption,
+  TribeEventOccurrenceExceptionKind,
   TribeEventRecurrenceFrequency,
+  TribeEventType,
 } from "@/src/modules/events/domain/entities/tribe-event";
 
 /**
@@ -26,6 +28,8 @@ export type TribeEventOccurrenceReference = {
  * or falls back to the current Buenos Aires month.
  */
 export type ListTribeEventsQuery = {
+  /** Types to keep; empty keeps every type. */
+  eventTypes: readonly TribeEventType[];
   month: string | null;
   occurrence: TribeEventOccurrenceReference | null;
   tribeSlug: string;
@@ -50,6 +54,7 @@ export type TribeEventFieldsInput = {
   capacity: number | null;
   description: string | null;
   endsAt: string | null;
+  eventType: TribeEventType;
   meetingUrl: string | null;
   recurrenceFrequency: TribeEventRecurrenceFrequency;
   recurrenceUntil: string | null;
@@ -101,5 +106,71 @@ export type GetTribeEventAttendanceStreakQuery = {
 export type ClearTribeEventAttendanceCommand = {
   eventId: string;
   occurrenceStartsAt: string;
+  tribeSlug: string;
+};
+
+/**
+ * Change requested for one date of a series, as produced by the input
+ * schema: a cancelled date carries no new times; a moved date carries its
+ * new start and an optional new end.
+ */
+export type TribeEventOccurrenceExceptionInput = {
+  kind: TribeEventOccurrenceExceptionKind;
+  newEndsAt: string | null;
+  newStartsAt: string | null;
+  originalStartsAt: string;
+  reason: string | null;
+};
+
+export type SaveTribeEventOccurrenceExceptionCommand = TribeEventOccurrenceExceptionInput & {
+  eventId: string;
+  tribeSlug: string;
+  visibleMonth: string | null;
+};
+
+export type ClearTribeEventOccurrenceExceptionCommand = {
+  eventId: string;
+  originalStartsAt: string;
+  tribeSlug: string;
+  visibleMonth: string | null;
+};
+
+/**
+ * Reduced meeting proposal as produced by the input schema.
+ */
+export type TribeEventProposalInput = {
+  description: string | null;
+  durationMinutes: number;
+  eventType: TribeEventType;
+  startsAt: string;
+  title: string;
+};
+
+export type CreateTribeEventProposalCommand = TribeEventProposalInput & {
+  tribeSlug: string;
+};
+
+export type ListTribeEventProposalsQuery = {
+  tribeSlug: string;
+};
+
+/**
+ * Approval: the event fields the manager confirmed (prefilled from the
+ * proposal and possibly edited).
+ */
+export type ApproveTribeEventProposalCommand = TribeEventFieldsInput & {
+  proposalId: string;
+  tribeSlug: string;
+  visibleMonth: string | null;
+};
+
+export type RejectTribeEventProposalCommand = {
+  proposalId: string;
+  reviewNote: string | null;
+  tribeSlug: string;
+};
+
+export type WithdrawTribeEventProposalCommand = {
+  proposalId: string;
   tribeSlug: string;
 };

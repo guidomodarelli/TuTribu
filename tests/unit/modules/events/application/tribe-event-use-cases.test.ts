@@ -11,6 +11,7 @@ import type { TribeEventFieldsInput } from "@/src/modules/events/application/com
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 import type { TribeEvent } from "@/src/modules/events/domain/entities/tribe-event";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
+import { createTribeEventExceptionRepositoryDouble } from "../support/tribe-event-repository-doubles";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const OTHER_EVENT_ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
@@ -23,6 +24,7 @@ function createRepository(overrides: Partial<TribeEventRepository> = {}) {
     findById: vi.fn(),
     getOccurrenceAttendanceReport: vi.fn(),
     listByTribeRange: vi.fn(),
+    listEventOccurrences: vi.fn(async () => ({ attendances: [], event: null, exceptions: [] })),
     listViewerAttendanceHistory: vi.fn(),
     setAttendance: vi.fn(),
     update: vi.fn(),
@@ -43,6 +45,7 @@ function createEvent(overrides: Partial<TribeEvent> = {}): TribeEvent {
   return {
     capacity: null,
     description: "Repaso mensual",
+    eventType: "live",
     endsAt: "2026-05-06T19:00:00.000Z",
     id: EVENT_ID,
     meetingUrl: "https://meet.google.com/abc-defg-hij",
@@ -58,7 +61,9 @@ function createListing(events: TribeEvent[], canManageEvents = true) {
   return {
     attendances: [],
     events,
-    viewerPermissions: { canManageEvents },
+    exceptions: [],
+    pendingProposalCount: 0,
+    viewerPermissions: { canManageEvents, canProposeEvents: false },
   };
 }
 
@@ -71,6 +76,7 @@ function createFields(overrides: Partial<TribeEventFieldsInput> = {}): TribeEven
     capacity: null,
     description: null,
     endsAt: null,
+    eventType: "live",
     meetingUrl: null,
     recurrenceFrequency: "none",
     recurrenceUntil: null,
@@ -88,11 +94,13 @@ describe("tribe event use cases", () => {
   it("lists the occurrences of the requested Buenos Aires month", async () => {
     const listByTribeRange = vi.fn(async () => createListing([createEvent()]));
     const execute = listTribeEvents({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
 
     await expect(
       execute({
+        eventTypes: [],
         month: "2026-05",
         occurrence: null,
         tribeSlug: "matematica-pro",
@@ -106,7 +114,10 @@ describe("tribe event use cases", () => {
           endsAt: "2026-05-06T19:00:00.000Z",
           eventId: EVENT_ID,
           meetingUrl: "https://meet.google.com/abc-defg-hij",
+          eventType: "live",
+          exception: null,
           occurrenceKey: `${EVENT_ID}@2026-05-06T18:00:00.000Z`,
+          originalStartsAt: "2026-05-06T18:00:00.000Z",
           recurrenceFrequency: "none",
           recurrenceRule: null,
           recurrenceUntil: null,
@@ -121,8 +132,9 @@ describe("tribe event use cases", () => {
         next: "2026-06",
         previous: "2026-04",
       },
+      pendingProposalCount: 0,
       selectedOccurrenceKey: null,
-      viewerPermissions: { canManageEvents: true },
+      viewerPermissions: { canManageEvents: true, canProposeEvents: false },
     });
     expect(listByTribeRange).toHaveBeenCalledWith({
       rangeEnd: "2026-06-01T03:00:00.000Z",
@@ -137,10 +149,12 @@ describe("tribe event use cases", () => {
       createListing([createEvent({ endsAt: null, startsAt: lateNightStart })])
     );
     const execute = listTribeEvents({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
 
     const result = await execute({
+      eventTypes: [],
       month: null,
       occurrence: {
         eventId: EVENT_ID,
@@ -158,10 +172,12 @@ describe("tribe event use cases", () => {
   it("keeps the explicit month and drops a deep link that is not in it", async () => {
     const listByTribeRange = vi.fn(async () => createListing([createEvent()]));
     const execute = listTribeEvents({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
 
     const result = await execute({
+      eventTypes: [],
       month: "2026-05",
       occurrence: {
         eventId: EVENT_ID,
@@ -188,13 +204,17 @@ describe("tribe event use cases", () => {
         },
       ],
       events: [createEvent({ recurrenceFrequency: "weekly" })],
-      viewerPermissions: { canManageEvents: false },
+      exceptions: [],
+      pendingProposalCount: 0,
+      viewerPermissions: { canManageEvents: false, canProposeEvents: false },
     }));
     const execute = listTribeEvents({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
 
     const result = await execute({
+      eventTypes: [],
       month: "2026-05",
       occurrence: null,
       tribeSlug: "matematica-pro",
@@ -219,11 +239,12 @@ describe("tribe event use cases", () => {
     vi.useFakeTimers().setSystemTime(new Date("2026-05-06T02:30:00.000Z"));
     const listByTribeRange = vi.fn(async () => createListing([], false));
     const execute = listTribeEvents({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
 
     await expect(
-      execute({ month: null, occurrence: null, tribeSlug: "matematica-pro" })
+      execute({ eventTypes: [], month: null, occurrence: null, tribeSlug: "matematica-pro" })
     ).resolves.toMatchObject({
       month: {
         current: "2026-05",
@@ -239,6 +260,7 @@ describe("tribe event use cases", () => {
       status: TRIBE_EVENT_MUTATION_STATUS.created,
     }));
     const execute = createTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ create }),
     });
 
@@ -266,6 +288,7 @@ describe("tribe event use cases", () => {
       capacity: null,
       description: "Repaso mensual",
       endsAt: "2026-05-06T19:00:00.000Z",
+      eventType: "live",
       meetingUrl: "https://meet.google.com/abc-defg-hij",
       recurrenceFrequency: "none",
       recurrenceUntil: null,
@@ -281,6 +304,7 @@ describe("tribe event use cases", () => {
       status: TRIBE_EVENT_MUTATION_STATUS.created,
     }));
     const execute = createTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ create }),
     });
 
@@ -298,6 +322,7 @@ describe("tribe event use cases", () => {
       status: TRIBE_EVENT_MUTATION_STATUS.created,
     }));
     const execute = createTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ create }),
     });
 
@@ -327,6 +352,7 @@ describe("tribe event use cases", () => {
   it("rejects series whose until date is before the start", async () => {
     const create = vi.fn();
     const execute = createTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ create }),
     });
 
@@ -349,6 +375,7 @@ describe("tribe event use cases", () => {
       status: TRIBE_EVENT_MUTATION_STATUS.created,
     }));
     const execute = createTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ create }),
     });
 
@@ -369,6 +396,7 @@ describe("tribe event use cases", () => {
       status: TRIBE_EVENT_MUTATION_STATUS.created,
     }));
     const execute = createTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ create }),
     });
 
@@ -384,6 +412,7 @@ describe("tribe event use cases", () => {
   it("rejects meeting links that are not http or https URLs", async () => {
     const create = vi.fn();
     const execute = createTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ create }),
     });
 
@@ -400,6 +429,7 @@ describe("tribe event use cases", () => {
   it("rejects end dates that are not after the start date", async () => {
     const update = vi.fn();
     const execute = updateTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ update }),
     });
 
@@ -414,13 +444,19 @@ describe("tribe event use cases", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("updates an event and returns the visible month occurrences", async () => {
+  it("updates an event and returns the visible month occurrences read after the update", async () => {
     const update = vi.fn(async () => ({
       event: createEvent({ title: "Clase cerrada" }),
       status: TRIBE_EVENT_MUTATION_STATUS.updated,
     }));
+    const listEventOccurrences = vi.fn(async () => ({
+      attendances: [],
+      event: createEvent({ title: "Clase cerrada" }),
+      exceptions: [],
+    }));
     const execute = updateTribeEvent({
-      tribeEventRepository: createRepository({ update }),
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: createRepository({ listEventOccurrences, update }),
     });
 
     await expect(
@@ -436,6 +472,12 @@ describe("tribe event use cases", () => {
       status: TRIBE_EVENT_MUTATION_STATUS.updated,
     });
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ eventId: EVENT_ID }));
+    expect(listEventOccurrences).toHaveBeenCalledWith({
+      eventId: EVENT_ID,
+      rangeEnd: "2026-06-01T03:00:00.000Z",
+      rangeStart: "2026-05-01T03:00:00.000Z",
+      tribeSlug: "matematica-pro",
+    });
   });
 
   it("forwards the not found outcome of the repository", async () => {
@@ -446,7 +488,10 @@ describe("tribe event use cases", () => {
     });
 
     await expect(
-      updateTribeEvent({ tribeEventRepository: repository })({
+      updateTribeEvent({
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+        tribeEventRepository: repository,
+      })({
         ...createFields(),
         eventId: OTHER_EVENT_ID,
         tribeSlug: "matematica-pro",
@@ -454,13 +499,19 @@ describe("tribe event use cases", () => {
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.notFound });
     await expect(
-      deleteTribeEvent({ tribeEventRepository: repository })({
+      deleteTribeEvent({
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+        tribeEventRepository: repository,
+      })({
         eventId: OTHER_EVENT_ID,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.notFound });
     await expect(
-      getTribeEvent({ tribeEventRepository: repository })({
+      getTribeEvent({
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+        tribeEventRepository: repository,
+      })({
         eventId: OTHER_EVENT_ID,
         tribeSlug: "matematica-pro",
       })
@@ -472,6 +523,7 @@ describe("tribe event use cases", () => {
       status: TRIBE_EVENT_MUTATION_STATUS.deleted,
     }));
     const execute = deleteTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ delete: deleteEvent }),
     });
 
@@ -492,6 +544,7 @@ describe("tribe event use cases", () => {
       createEvent({ recurrenceFrequency: "monthly" })
     );
     const execute = getTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ findById }),
     });
 

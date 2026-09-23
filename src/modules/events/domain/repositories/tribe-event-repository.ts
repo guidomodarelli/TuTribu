@@ -5,7 +5,9 @@ import type {
   TribeEventAttendee,
   TribeEventAttendeePreview,
   TribeEventDateRange,
+  TribeEventOccurrenceException,
   TribeEventRecurrenceFrequency,
+  TribeEventType,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   TRIBE_EVENT_MUTATION_STATUS,
@@ -28,6 +30,7 @@ export type PersistTribeEventCommand = {
   capacity: number | null;
   description: string | null;
   endsAt: string | null;
+  eventType: TribeEventType;
   meetingUrl: string | null;
   recurrenceFrequency: TribeEventRecurrenceFrequency;
   recurrenceUntil: string | null;
@@ -91,6 +94,8 @@ export type TribeEventViewerAttendance = {
  */
 export type TribeEventViewerAttendanceHistory = {
   events: TribeEvent[];
+  /** Exceptions of those series in the range (cancelled or moved dates). */
+  exceptions: TribeEventOccurrenceException[];
   viewerAttendances: TribeEventViewerAttendance[];
 };
 
@@ -116,12 +121,37 @@ export type TribeEventAttendanceReportLookup =
 
 export type TribeEventViewerPermissions = {
   canManageEvents: boolean;
+  /** Active members who do not manage events may propose a meeting. */
+  canProposeEvents: boolean;
 };
 
+/**
+ * Series whose occurrences can fall in a range, plus the exceptions whose
+ * original slot or new start falls in it, and the attendance of every slot
+ * shown in the range (including slots moved in from another month).
+ */
 export type TribeEventRangeListing = {
   attendances: TribeEventOccurrenceAttendance[];
   events: TribeEvent[];
+  exceptions: TribeEventOccurrenceException[];
+  /** Pending member proposals; always 0 for viewers who cannot review them. */
+  pendingProposalCount: number;
   viewerPermissions: TribeEventViewerPermissions;
+};
+
+export type ListTribeEventOccurrencesQuery = TribeEventDateRange & {
+  eventId: string;
+  tribeSlug: string;
+};
+
+/**
+ * One series inside a range, used to answer a mutation with the fresh
+ * occurrences of the visible month (null event: not found or not readable).
+ */
+export type TribeEventOccurrenceListing = {
+  attendances: TribeEventOccurrenceAttendance[];
+  event: TribeEvent | null;
+  exceptions: TribeEventOccurrenceException[];
 };
 
 type TribeEventMutationFailureStatus =
@@ -178,6 +208,9 @@ export type TribeEventRepository = {
   listByTribeRange: (
     query: ListTribeEventsByRangeQuery
   ) => Promise<TribeEventRangeListing>;
+  listEventOccurrences: (
+    query: ListTribeEventOccurrencesQuery
+  ) => Promise<TribeEventOccurrenceListing>;
   listViewerAttendanceHistory: (
     query: ListViewerAttendanceHistoryQuery
   ) => Promise<TribeEventViewerAttendanceHistory>;

@@ -4,6 +4,8 @@ import {
   TRIBE_EVENT_ATTENDANCE_STATUS,
   TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT,
   TRIBE_EVENT_MUTATION_STATUS,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+  TRIBE_EVENT_PROPOSAL_STATUS,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type {
@@ -13,12 +15,12 @@ import type {
   TribeEventAttendee,
   TribeEventAttendeePreview,
   TribeEventDateRange,
-  TribeEventRecurrenceFrequency,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   DeleteTribeEventRepositoryCommand,
   FindTribeEventQuery,
   GetTribeEventAttendanceReportQuery,
+  ListTribeEventOccurrencesQuery,
   ListTribeEventsByRangeQuery,
   ListViewerAttendanceHistoryQuery,
   PersistTribeEventCommand,
@@ -31,36 +33,37 @@ import type {
   TribeEventCreationResult,
   TribeEventDeletionResult,
   TribeEventOccurrenceAttendance,
+  TribeEventOccurrenceListing,
   TribeEventRangeListing,
   TribeEventRepository,
   TribeEventUpdateResult,
   TribeEventViewerAttendanceHistory,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
+import {
+  RETURNING_TRIBE_EVENT_COLUMNS,
+  TRIBE_EVENT_COLUMNS,
+  buildTribeEventExceptionsInRangeQuery,
+  mapCount,
+  mapDateValue,
+  mapNullableCount,
+  mapTribeEvent,
+  mapTribeEventOccurrenceExceptions,
+  type TribeEventDatabaseExecutor,
+  type TribeEventOccurrenceExceptionRow,
+  type TribeEventRow,
+} from "@/src/modules/events/infrastructure/repositories/tribe-event-sql";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-
-type DatabaseExecutor = <T>(
-  callback: (database: RequestDatabase) => Promise<T>
-) => Promise<T>;
-
-type EventRow = {
-  capacity: number | string | null;
-  description: string | null;
-  ends_at: Date | string | null;
-  id: string;
-  meeting_url: string | null;
-  recurrence_frequency: string;
-  recurrence_until: Date | string | null;
-  starts_at: Date | string;
-  title: string;
-};
 
 type EventListRow = {
   can_manage_events: boolean | null;
+  can_propose_events: boolean | null;
   capacity: number | string | null;
   description: string | null;
   ends_at: Date | string | null;
+  event_type: string | null;
   id: string | null;
   meeting_url: string | null;
+  pending_proposal_count: number | string | null;
   recurrence_frequency: string | null;
   recurrence_until: Date | string | null;
   starts_at: Date | string | null;
@@ -105,7 +108,7 @@ type AttendancePreviewValue = {
   name?: unknown;
 } | null;
 
-type EventMutationRow = EventRow & {
+type EventMutationRow = TribeEventRow & {
   status: string | null;
 };
 
@@ -140,47 +143,7 @@ const ATTENDEE_STATUS_ORDER = [
   TRIBE_EVENT_ATTENDANCE_STATUS.notGoing,
 ] as const;
 const SINGLE_OCCURRENCE_RANGE_MS = 1;
-const EVENT_COLUMNS = sql`
-  events.id,
-  events.capacity,
-  events.title,
-  events.description,
-  events.meeting_url,
-  events.starts_at,
-  events.ends_at,
-  events.recurrence_frequency,
-  events.recurrence_until
-`;
-const RETURNING_EVENT_COLUMNS = sql`
-  returning
-    events.id,
-    events.capacity,
-    events.title,
-    events.description,
-    events.meeting_url,
-    events.starts_at,
-    events.ends_at,
-    events.recurrence_frequency,
-    events.recurrence_until
-`;
-const COUNT_BASE = 10;
 
-function mapDateValue(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
-
-function mapNullableDateValue(value: Date | string | null): string | null {
-  return value ? mapDateValue(value) : null;
-}
-
-function mapRecurrenceFrequency(value: string | null): TribeEventRecurrenceFrequency {
-  const frequencies = Object.values(TRIBE_EVENT_RECURRENCE_FREQUENCY);
-
-  return (
-    frequencies.find((frequency) => frequency === value) ??
-    TRIBE_EVENT_RECURRENCE_FREQUENCY.none
-  );
-}
 
 function mapAttendanceStatus(value: string | null): TribeEventAttendanceStatus | null {
   return (
@@ -189,42 +152,14 @@ function mapAttendanceStatus(value: string | null): TribeEventAttendanceStatus |
   );
 }
 
-function mapCount(value: number | string | null): number {
-  if (typeof value === "number") {
-    return value;
-  }
-
-  const parsed = value === null ? Number.NaN : Number.parseInt(value, COUNT_BASE);
-
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function mapNullableCount(value: number | string | null): number | null {
-  return value === null ? null : mapCount(value);
-}
-
-function mapEvent(row: EventRow): TribeEvent {
-  return {
-    capacity: mapNullableCount(row.capacity),
-    description: row.description,
-    endsAt: mapNullableDateValue(row.ends_at),
-    id: row.id,
-    meetingUrl: row.meeting_url,
-    recurrenceFrequency: mapRecurrenceFrequency(row.recurrence_frequency),
-    recurrenceUntil: mapNullableDateValue(row.recurrence_until),
-    startsAt: mapDateValue(row.starts_at),
-    title: row.title,
-  };
-}
-
-function isEventRow(row: EventListRow): row is EventListRow & EventRow {
+function isEventRow(row: EventListRow): row is EventListRow & TribeEventRow {
   return row.id !== null && row.starts_at !== null && row.title !== null;
 }
 
 function mapEventRows(rows: EventListRow[]): TribeEvent[] {
   return rows.reduce<TribeEvent[]>((mappedEvents, row) => {
     if (isEventRow(row)) {
-      mappedEvents.push(mapEvent(row));
+      mappedEvents.push(mapTribeEvent(row));
     }
 
     return mappedEvents;
@@ -312,7 +247,7 @@ function mapResponseFailureStatus(
 
 function mapCreationResult(row: EventMutationRow | null): TribeEventCreationResult {
   if (row?.status === TRIBE_EVENT_MUTATION_STATUS.created) {
-    return { event: mapEvent(row), status: row.status };
+    return { event: mapTribeEvent(row), status: row.status };
   }
 
   return { status: mapFailureStatus(row?.status ?? null) };
@@ -320,7 +255,7 @@ function mapCreationResult(row: EventMutationRow | null): TribeEventCreationResu
 
 function mapUpdateResult(row: EventMutationRow | null): TribeEventUpdateResult {
   if (row?.status === TRIBE_EVENT_MUTATION_STATUS.updated) {
-    return { event: mapEvent(row), status: row.status };
+    return { event: mapTribeEvent(row), status: row.status };
   }
 
   return { status: mapFailureStatus(row?.status ?? null) };
@@ -338,9 +273,30 @@ function mapDeletionResult(row: EventDeletionRow | null): TribeEventDeletionResu
 }
 
 /**
+ * Moved dates whose new start falls in the range, as a SQL predicate on an
+ * `events` row: they bring their series into the listing even when the
+ * series itself ended before the range (the last date moved later).
+ */
+function buildMovedIntoRangePredicate({ rangeEnd, rangeStart }: TribeEventDateRange) {
+  return sql`
+    exists (
+      select 1
+      from public.event_occurrence_exceptions moved_exceptions
+      where moved_exceptions.event_id = events.id
+        and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
+        and moved_exceptions.new_starts_at >= ${rangeStart}
+        and moved_exceptions.new_starts_at < ${rangeEnd}
+    )
+  `;
+}
+
+/**
  * Series of the tribe whose occurrences can fall in `[rangeStart, rangeEnd)`,
- * guarded by `can_read_tribe_content` because the runtime role bypasses RLS.
- * Always returns at least one row carrying the viewer permissions.
+ * including series with a date moved into the range, guarded by
+ * `can_read_tribe_content` because the runtime role bypasses RLS. Always
+ * returns at least one row carrying the viewer permissions: whether the
+ * viewer manages events, may propose one (active member who does not
+ * manage), and how many proposals wait for review (managers only).
  */
 function buildEventsInRangeQuery({
   rangeEnd,
@@ -355,27 +311,34 @@ function buildEventsInRangeQuery({
       limit 1
     ),
     viewer_permissions as (
-      select coalesce(public.can_manage_tribe_events((select id from target_tribe)), false) as can_manage_events
+      select
+        coalesce(public.can_manage_tribe_events((select id from target_tribe)), false) as can_manage_events,
+        coalesce(public.is_active_tribe_member((select id from target_tribe)), false) as is_active_member
     ),
     event_rows as (
-      select ${EVENT_COLUMNS}
+      select ${TRIBE_EVENT_COLUMNS}
       from public.events
       inner join target_tribe
         on target_tribe.id = events.tribe_id
       where public.can_read_tribe_content(target_tribe.id)
-        and events.starts_at < ${rangeEnd}
         and (
           (
-            events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-            and events.starts_at >= ${rangeStart}
-          )
-          or (
-            events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
+            events.starts_at < ${rangeEnd}
             and (
-              events.recurrence_until is null
-              or events.recurrence_until >= ${rangeStart}
+              (
+                events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
+                and events.starts_at >= ${rangeStart}
+              )
+              or (
+                events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
+                and (
+                  events.recurrence_until is null
+                  or events.recurrence_until >= ${rangeStart}
+                )
+              )
             )
           )
+          or ${buildMovedIntoRangePredicate({ rangeEnd, rangeStart })}
         )
     )
     select
@@ -388,7 +351,20 @@ function buildEventsInRangeQuery({
       event_rows.ends_at,
       event_rows.recurrence_frequency,
       event_rows.recurrence_until,
-      viewer_permissions.can_manage_events
+      event_rows.event_type,
+      viewer_permissions.can_manage_events,
+      (
+        viewer_permissions.is_active_member and not viewer_permissions.can_manage_events
+      ) as can_propose_events,
+      case
+        when viewer_permissions.can_manage_events then (
+          select count(*)
+          from public.event_proposals
+          where event_proposals.tribe_id = (select id from target_tribe)
+            and event_proposals.status = ${TRIBE_EVENT_PROPOSAL_STATUS.pending}
+        )
+        else 0
+      end as pending_proposal_count
     from viewer_permissions
     left join event_rows
       on true
@@ -399,17 +375,33 @@ function buildEventsInRangeQuery({
 /**
  * One aggregated row per answered occurrence in the range (optionally of a
  * single event): totals per status, the viewer answer and waitlist position,
- * and a bounded JSON preview of who is going. A single statement for the
- * whole range avoids one query per occurrence; the "user" join only touches
- * preview rows and never selects the email.
+ * and a bounded JSON preview of who is going. Answers are keyed by the
+ * original start, so with `includeMovedIn` the range also covers dates moved
+ * into it from another month. A single statement for the whole range avoids
+ * one query per occurrence; the "user" join only touches preview rows and
+ * never selects the email.
  */
 function buildAttendanceSummaryQuery({
   eventId,
+  includeMovedIn,
   rangeEnd,
   rangeStart,
   tribeSlug,
-}: TribeEventDateRange & { eventId?: string; tribeSlug: string }) {
+}: TribeEventDateRange & { eventId?: string; includeMovedIn: boolean; tribeSlug: string }) {
   const eventFilter = eventId ? sql`and event_attendances.event_id = ${eventId}` : sql``;
+  const movedInFilter = includeMovedIn
+    ? sql`
+        or exists (
+          select 1
+          from public.event_occurrence_exceptions moved_exceptions
+          where moved_exceptions.event_id = event_attendances.event_id
+            and moved_exceptions.original_starts_at = event_attendances.occurrence_starts_at
+            and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
+            and moved_exceptions.new_starts_at >= ${rangeStart}
+            and moved_exceptions.new_starts_at < ${rangeEnd}
+        )
+      `
+    : sql``;
 
   return sql`
     with ranked_attendances as (
@@ -430,8 +422,13 @@ function buildAttendanceSummaryQuery({
         on tribes.id = event_attendances.tribe_id
       where tribes.slug = ${tribeSlug}
         and public.can_read_tribe_content(tribes.id)
-        and event_attendances.occurrence_starts_at >= ${rangeStart}
-        and event_attendances.occurrence_starts_at < ${rangeEnd}
+        and (
+          (
+            event_attendances.occurrence_starts_at >= ${rangeStart}
+            and event_attendances.occurrence_starts_at < ${rangeEnd}
+          )
+          ${movedInFilter}
+        )
         ${eventFilter}
     )
     select
@@ -473,8 +470,19 @@ function buildAttendanceSummaryQuery({
   `;
 }
 
+async function listExceptionsInRange(
+  database: RequestDatabase,
+  query: TribeEventDateRange & { eventId?: string; tribeSlug: string }
+) {
+  const result = await database.execute(buildTribeEventExceptionsInRangeQuery(query));
+
+  return mapTribeEventOccurrenceExceptions(
+    (result.rows ?? []) as TribeEventOccurrenceExceptionRow[]
+  );
+}
+
 export class PostgresTribeEventRepository implements TribeEventRepository {
-  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
+  constructor(private readonly executeWithDatabase: TribeEventDatabaseExecutor) {}
 
   async listByTribeRange({
     rangeEnd,
@@ -489,21 +497,75 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
       const events = mapEventRows(eventRows);
       const viewerPermissions = {
         canManageEvents: Boolean(eventRows[0]?.can_manage_events),
+        canProposeEvents: Boolean(eventRows[0]?.can_propose_events),
       };
+      const pendingProposalCount = mapCount(eventRows[0]?.pending_proposal_count ?? null);
 
       if (events.length === 0) {
-        return { attendances: [], events, viewerPermissions };
+        return {
+          attendances: [],
+          events,
+          exceptions: [],
+          pendingProposalCount,
+          viewerPermissions,
+        };
       }
 
+      const exceptions = await listExceptionsInRange(database, {
+        rangeEnd,
+        rangeStart,
+        tribeSlug,
+      });
       const attendanceResult = await database.execute(
-        buildAttendanceSummaryQuery({ rangeEnd, rangeStart, tribeSlug })
+        buildAttendanceSummaryQuery({ includeMovedIn: true, rangeEnd, rangeStart, tribeSlug })
       );
       const attendanceRows = (attendanceResult.rows ?? []) as AttendanceSummaryRow[];
 
       return {
         attendances: attendanceRows.map(mapAttendanceSummary),
         events,
+        exceptions,
+        pendingProposalCount,
         viewerPermissions,
+      };
+    });
+  }
+
+  async listEventOccurrences({
+    eventId,
+    rangeEnd,
+    rangeStart,
+    tribeSlug,
+  }: ListTribeEventOccurrencesQuery): Promise<TribeEventOccurrenceListing> {
+    return this.executeWithDatabase(async (database) => {
+      const event = await this.findEventRow(database, { eventId, tribeSlug });
+
+      if (!event) {
+        return { attendances: [], event: null, exceptions: [] };
+      }
+
+      const exceptions = await listExceptionsInRange(database, {
+        eventId,
+        rangeEnd,
+        rangeStart,
+        tribeSlug,
+      });
+      const attendanceResult = await database.execute(
+        buildAttendanceSummaryQuery({
+          eventId,
+          includeMovedIn: true,
+          rangeEnd,
+          rangeStart,
+          tribeSlug,
+        })
+      );
+
+      return {
+        attendances: ((attendanceResult.rows ?? []) as AttendanceSummaryRow[]).map(
+          mapAttendanceSummary
+        ),
+        event,
+        exceptions,
       };
     });
   }
@@ -520,9 +582,16 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
       const events = mapEventRows((eventsResult.rows ?? []) as EventListRow[]);
 
       if (events.length === 0) {
-        return { events, viewerAttendances: [] };
+        return { events, exceptions: [], viewerAttendances: [] };
       }
 
+      const exceptions = await listExceptionsInRange(database, {
+        rangeEnd,
+        rangeStart,
+        tribeSlug,
+      });
+      // The window is wide (months) and dates moved in from before it are
+      // rare, so only answers keyed inside the window are read.
       const attendanceResult = await database.execute(sql`
         select
           event_attendances.event_id,
@@ -541,6 +610,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
 
       return {
         events,
+        exceptions,
         viewerAttendances: attendanceRows.flatMap((row) => {
           const status = mapAttendanceStatus(row.status);
 
@@ -558,22 +628,27 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
     });
   }
 
-  async findById({ eventId, tribeSlug }: FindTribeEventQuery): Promise<TribeEvent | null> {
-    return this.executeWithDatabase(async (database) => {
-      const result = await database.execute(sql`
-        select ${EVENT_COLUMNS}
-        from public.events
-        inner join public.tribes
-          on tribes.id = events.tribe_id
-        where tribes.slug = ${tribeSlug}
-          and events.id = ${eventId}
-          and public.can_read_tribe_content(tribes.id)
-        limit 1
-      `);
-      const row = (result.rows?.[0] ?? null) as EventRow | null;
+  async findById(query: FindTribeEventQuery): Promise<TribeEvent | null> {
+    return this.executeWithDatabase((database) => this.findEventRow(database, query));
+  }
 
-      return row ? mapEvent(row) : null;
-    });
+  private async findEventRow(
+    database: RequestDatabase,
+    { eventId, tribeSlug }: FindTribeEventQuery
+  ): Promise<TribeEvent | null> {
+    const result = await database.execute(sql`
+      select ${TRIBE_EVENT_COLUMNS}
+      from public.events
+      inner join public.tribes
+        on tribes.id = events.tribe_id
+      where tribes.slug = ${tribeSlug}
+        and events.id = ${eventId}
+        and public.can_read_tribe_content(tribes.id)
+      limit 1
+    `);
+    const row = (result.rows?.[0] ?? null) as TribeEventRow | null;
+
+    return row ? mapTribeEvent(row) : null;
   }
 
   async create(command: PersistTribeEventCommand): Promise<TribeEventCreationResult> {
@@ -597,6 +672,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
             ends_at,
             recurrence_frequency,
             recurrence_until,
+            event_type,
             created_at,
             updated_at
           )
@@ -611,11 +687,12 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
             ${command.endsAt},
             ${command.recurrenceFrequency},
             ${command.recurrenceUntil},
+            ${command.eventType},
             timezone('utc', now()),
             timezone('utc', now())
           from target_tribe
           where public.can_manage_tribe_events(target_tribe.id)
-          ${RETURNING_EVENT_COLUMNS}
+          ${RETURNING_TRIBE_EVENT_COLUMNS}
         )
         select
           case
@@ -631,7 +708,8 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           inserted_event.starts_at,
           inserted_event.ends_at,
           inserted_event.recurrence_frequency,
-          inserted_event.recurrence_until
+          inserted_event.recurrence_until,
+          inserted_event.event_type
         from (select 1) result
         left join inserted_event
           on true
@@ -669,12 +747,13 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
             ends_at = ${command.endsAt},
             recurrence_frequency = ${command.recurrenceFrequency},
             recurrence_until = ${command.recurrenceUntil},
+            event_type = ${command.eventType},
             updated_at = timezone('utc', now())
           from target_tribe
           where events.id = ${command.eventId}
             and events.tribe_id = target_tribe.id
             and public.can_manage_tribe_events(target_tribe.id)
-          ${RETURNING_EVENT_COLUMNS}
+          ${RETURNING_TRIBE_EVENT_COLUMNS}
         )
         select
           case
@@ -691,7 +770,8 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           updated_event.starts_at,
           updated_event.ends_at,
           updated_event.recurrence_frequency,
-          updated_event.recurrence_until
+          updated_event.recurrence_until,
+          updated_event.event_type
         from (select 1) result
         left join updated_event
           on true
@@ -879,6 +959,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
       const summaryResult = await database.execute(
         buildAttendanceSummaryQuery({
           eventId: key.eventId,
+          includeMovedIn: false,
           rangeEnd: new Date(
             Date.parse(key.occurrenceStartsAt) + SINGLE_OCCURRENCE_RANGE_MS
           ).toISOString(),

@@ -1,12 +1,11 @@
 import {
-  tribeEventListResponseSchema,
-  tribeEventSaveResponseSchema,
+  tribeEventProposalListResponseSchema,
+  tribeEventProposalResponseSchema,
 } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import { tribeEventProposalBodySchema } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-proposal-request-schemas";
 import {
-  tribeEventListQuerySchema,
-  tribeEventMonthQuerySchema,
-  tribeEventMutationBodySchema,
+  tribeEventEmptyQuerySchema,
   tribeEventsRouteParamsSchema,
 } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
 import { createTribeEventPublicResponse } from "@/src/modules/events/infrastructure/api/tribe-event-public-response";
@@ -15,17 +14,17 @@ import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_RESPONSE,
   createJsonResponse,
-  mapTribeEventMutationStatusResponse,
+  mapTribeEventProposalStatusResponse,
 } from "@/src/modules/events/infrastructure/api/tribe-event-route-responses";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
-const EVENT_ROUTE_LOG = {
-  createFailureMessage: "Tribe event creation failed",
+const PROPOSALS_ROUTE_LOG = {
+  createFailureMessage: "Tribe event proposal creation failed",
   feature: "events",
-  listFailureMessage: "Tribe event listing failed",
-  operation: "manage-tribe-events",
+  listFailureMessage: "Tribe event proposal listing failed",
+  operation: "tribe-event-proposals",
 } as const;
 
 type TribeRouteContext = {
@@ -34,13 +33,25 @@ type TribeRouteContext = {
   }>;
 };
 
-export async function GET(request: Request, context: TribeRouteContext) {
+function createRouteLogger(request: Request) {
   const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: EVENT_ROUTE_LOG.feature,
-    operation: EVENT_ROUTE_LOG.operation,
+
+  return {
+    logger: createServerLogger({
+      feature: PROPOSALS_ROUTE_LOG.feature,
+      operation: PROPOSALS_ROUTE_LOG.operation,
+      requestId,
+    }),
     requestId,
-  });
+  };
+}
+
+/**
+ * Proposals panel: managers get the pending queue of the tribe; members get
+ * their own proposals.
+ */
+export async function GET(request: Request, context: TribeRouteContext) {
+  const { logger, requestId } = createRouteLogger(request);
   const modules = await createRequestModules({ requestId });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
@@ -57,7 +68,7 @@ export async function GET(request: Request, context: TribeRouteContext) {
     request,
     schemas: {
       params: tribeEventsRouteParamsSchema,
-      query: tribeEventListQuerySchema,
+      query: tribeEventEmptyQuerySchema,
     },
   });
 
@@ -69,42 +80,46 @@ export async function GET(request: Request, context: TribeRouteContext) {
   const logMetadata = { slug, viewerId: authenticatedMember.id };
 
   try {
-    const result = await modules.events.useCases.listTribeEvents({
-      eventTypes: input.query.type ?? [],
-      month: input.query.month ?? null,
-      occurrence: null,
-      tribeSlug: slug,
-    });
+    const result = await modules.events.useCases.listTribeEventProposals({ tribeSlug: slug });
+
+    if (result.status !== TRIBE_EVENT_MUTATION_STATUS.found) {
+      return mapTribeEventProposalStatusResponse(
+        result.status,
+        TRIBE_EVENT_ROUTE_RESPONSE.proposalForbiddenMessage
+      );
+    }
 
     return createTribeEventPublicResponse({
-      body: result,
-      failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedListMessage,
+      body: {
+        canReviewProposals: result.canReviewProposals,
+        proposals: result.proposals,
+      },
+      failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalListMessage,
       logger,
       metadata: logMetadata,
-      schema: tribeEventListResponseSchema,
+      schema: tribeEventProposalListResponseSchema,
       status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
     });
   } catch (error) {
     logger.error({
-      message: EVENT_ROUTE_LOG.listFailureMessage,
+      message: PROPOSALS_ROUTE_LOG.listFailureMessage,
       error,
       metadata: logMetadata,
     });
 
     return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedListMessage },
+      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalListMessage },
       TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
     );
   }
 }
 
+/**
+ * "Proponer un encuentro" (active members). 409 when the member already has
+ * the maximum of pending proposals.
+ */
 export async function POST(request: Request, context: TribeRouteContext) {
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: EVENT_ROUTE_LOG.feature,
-    operation: EVENT_ROUTE_LOG.operation,
-    requestId,
-  });
+  const { logger, requestId } = createRouteLogger(request);
   const modules = await createRequestModules({ requestId });
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
@@ -120,9 +135,9 @@ export async function POST(request: Request, context: TribeRouteContext) {
     params: context.params,
     request,
     schemas: {
-      body: tribeEventMutationBodySchema,
+      body: tribeEventProposalBodySchema,
       params: tribeEventsRouteParamsSchema,
-      query: tribeEventMonthQuerySchema,
+      query: tribeEventEmptyQuerySchema,
     },
   });
 
@@ -134,37 +149,38 @@ export async function POST(request: Request, context: TribeRouteContext) {
   const logMetadata = { slug, viewerId: authenticatedMember.id };
 
   try {
-    const result = await modules.events.useCases.createTribeEvent({
+    const result = await modules.events.useCases.createTribeEventProposal({
       ...input.body,
       tribeSlug: slug,
-      visibleMonth: input.query.month ?? null,
     });
 
-    if (result.status === TRIBE_EVENT_MUTATION_STATUS.created) {
-      return createTribeEventPublicResponse({
-        body: {
-          event: result.event,
-          message: TRIBE_EVENT_ROUTE_RESPONSE.createSuccessMessage,
-          occurrences: result.occurrences,
-        },
-        failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCreateMessage,
-        logger,
-        metadata: logMetadata,
-        schema: tribeEventSaveResponseSchema,
-        status: TRIBE_EVENT_ROUTE_HTTP_STATUS.created,
-      });
+    if (result.status !== TRIBE_EVENT_MUTATION_STATUS.proposalCreated) {
+      return mapTribeEventProposalStatusResponse(
+        result.status,
+        TRIBE_EVENT_ROUTE_RESPONSE.proposalForbiddenMessage
+      );
     }
 
-    return mapTribeEventMutationStatusResponse(result.status);
+    return createTribeEventPublicResponse({
+      body: {
+        message: TRIBE_EVENT_ROUTE_RESPONSE.proposalCreatedMessage,
+        proposal: result.proposal,
+      },
+      failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalMessage,
+      logger,
+      metadata: { ...logMetadata, proposalId: result.proposal.id },
+      schema: tribeEventProposalResponseSchema,
+      status: TRIBE_EVENT_ROUTE_HTTP_STATUS.created,
+    });
   } catch (error) {
     logger.error({
-      message: EVENT_ROUTE_LOG.createFailureMessage,
+      message: PROPOSALS_ROUTE_LOG.createFailureMessage,
       error,
       metadata: logMetadata,
     });
 
     return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCreateMessage },
+      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalMessage },
       TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
     );
   }

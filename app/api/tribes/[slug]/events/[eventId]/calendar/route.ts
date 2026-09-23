@@ -37,8 +37,8 @@ type TribeEventRouteContext = {
 };
 
 /**
- * Downloads the event (or the whole series) as an `.ics` file that any
- * calendar app can import.
+ * Downloads the event (or the whole series, with its cancelled and moved
+ * dates) as an `.ics` file that any calendar app can import.
  */
 export async function GET(request: Request, context: TribeEventRouteContext) {
   const { requestId } = resolveRequestContext(request.headers);
@@ -74,19 +74,23 @@ export async function GET(request: Request, context: TribeEventRouteContext) {
   const { eventId, slug } = input.params;
 
   try {
-    const event = await modules.events.useCases.getTribeEvent({
+    const calendar = await modules.events.useCases.getTribeEventCalendar({
       eventId,
       tribeSlug: slug,
     });
 
-    if (!event) {
+    if (!calendar) {
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
       );
     }
 
-    const icsFile = buildTribeEventIcsFile(event);
+    const icsFile = buildTribeEventIcsFile(
+      calendar.event,
+      new Date(),
+      calendar.occurrenceExceptions
+    );
 
     return new Response(icsFile.content, {
       headers: {

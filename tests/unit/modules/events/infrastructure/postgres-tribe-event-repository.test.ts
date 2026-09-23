@@ -36,6 +36,9 @@ function createRepository(execute: Mock) {
 
 const eventRow = {
   can_manage_events: true,
+  can_propose_events: false,
+  event_type: "live",
+  pending_proposal_count: "0",
   capacity: null,
   description: "Repaso mensual",
   ends_at: "2026-05-06T19:00:00.000Z",
@@ -52,6 +55,7 @@ describe("PostgresTribeEventRepository", () => {
     const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [eventRow] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           {
@@ -92,6 +96,7 @@ describe("PostgresTribeEventRepository", () => {
           capacity: null,
           description: "Repaso mensual",
           endsAt: "2026-05-06T19:00:00.000Z",
+          eventType: "live",
           id: EVENT_ID,
           meetingUrl: "https://meet.google.com/abc-defg-hij",
           recurrenceFrequency: "weekly",
@@ -100,16 +105,21 @@ describe("PostgresTribeEventRepository", () => {
           title: "Clase abierta",
         },
       ],
-      viewerPermissions: { canManageEvents: true },
+      exceptions: [],
+      pendingProposalCount: 0,
+      viewerPermissions: { canManageEvents: true, canProposeEvents: false },
     });
 
     const eventsSql = getSqlText(execute.mock.calls[0]?.[0]);
-    const attendanceSql = getSqlText(execute.mock.calls[1]?.[0]);
+    const exceptionsSql = getSqlText(execute.mock.calls[1]?.[0]);
+    const attendanceSql = getSqlText(execute.mock.calls[2]?.[0]);
 
     expect(eventsSql).toContain("public.can_manage_tribe_events");
     expect(eventsSql).toContain("public.can_read_tribe_content(target_tribe.id)");
     expect(eventsSql).toContain("events.recurrence_until is null");
     expect(eventsSql).toContain("order by event_rows.starts_at asc");
+    expect(exceptionsSql).toContain("from public.event_occurrence_exceptions");
+    expect(exceptionsSql).toContain("public.can_read_tribe_content(tribes.id)");
     expect(attendanceSql).toContain("from public.event_attendances");
     expect(attendanceSql).toContain("public.current_app_user_id()");
   });
@@ -142,7 +152,9 @@ describe("PostgresTribeEventRepository", () => {
     ).resolves.toEqual({
       attendances: [],
       events: [],
-      viewerPermissions: { canManageEvents: true },
+      exceptions: [],
+      pendingProposalCount: 0,
+      viewerPermissions: { canManageEvents: true, canProposeEvents: false },
     });
     expect(execute).toHaveBeenCalledTimes(1);
   });
@@ -176,6 +188,7 @@ describe("PostgresTribeEventRepository", () => {
         capacity: null,
         description: null,
         endsAt: null,
+        eventType: "live",
         meetingUrl: "https://meet.google.com/abc-defg-hij",
         recurrenceFrequency: "weekly",
         recurrenceUntil: null,
@@ -205,6 +218,7 @@ describe("PostgresTribeEventRepository", () => {
         description: null,
         endsAt: null,
         eventId: EVENT_ID,
+        eventType: "live",
         meetingUrl: null,
         recurrenceFrequency: "none",
         recurrenceUntil: null,
@@ -337,6 +351,7 @@ describe("PostgresTribeEventRepository", () => {
         description: null,
         endsAt: null,
         eventId: EVENT_ID,
+        eventType: "live",
         meetingUrl: null,
         recurrenceFrequency: "weekly",
         recurrenceUntil: null,
@@ -390,6 +405,7 @@ describe("PostgresTribeEventRepository", () => {
     const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [eventRow] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           { event_id: EVENT_ID, occurrence_starts_at: "2026-05-13T18:00:00.000Z", status: "going" },

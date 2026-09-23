@@ -19,6 +19,7 @@ const createTribeEvent = vi.fn();
 const updateTribeEvent = vi.fn();
 const deleteTribeEvent = vi.fn();
 const getTribeEvent = vi.fn();
+const getTribeEventCalendar = vi.fn();
 const setTribeEventAttendance = vi.fn();
 const clearTribeEventAttendance = vi.fn();
 const getTribeEventAttendanceReport = vi.fn();
@@ -134,6 +135,7 @@ describe("Tribe event routes", () => {
     capacity: null,
     description: "Repaso mensual",
     endsAt: "2026-05-06T19:00:00.000Z",
+    eventType: "live",
     id: EVENT_ID,
     meetingUrl: "https://meet.google.com/abc-defg-hij",
     recurrenceFrequency: "none",
@@ -149,7 +151,10 @@ describe("Tribe event routes", () => {
     endsAt: event.endsAt,
     eventId: EVENT_ID,
     meetingUrl: event.meetingUrl,
+    eventType: "live",
+    exception: null,
     occurrenceKey: `${EVENT_ID}@${event.startsAt}`,
+    originalStartsAt: event.startsAt,
     recurrenceFrequency: "none",
     recurrenceRule: null,
     recurrenceUntil: null,
@@ -165,9 +170,11 @@ describe("Tribe event routes", () => {
       next: "2026-06",
       previous: "2026-04",
     },
+    pendingProposalCount: 0,
     selectedOccurrenceKey: null,
     viewerPermissions: {
       canManageEvents: true,
+      canProposeEvents: false,
     },
   };
 
@@ -195,6 +202,7 @@ describe("Tribe event routes", () => {
           deleteTribeEvent,
           getTribeEvent,
           getTribeEventAttendanceReport,
+          getTribeEventCalendar,
           listTribeEvents,
           setTribeEventAttendance,
           updateTribeEvent,
@@ -211,6 +219,7 @@ describe("Tribe event routes", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(listing);
     expect(listTribeEvents).toHaveBeenCalledWith({
+      eventTypes: [],
       month: "2026-05",
       occurrence: null,
       tribeSlug: TRIBE_SLUG,
@@ -223,6 +232,7 @@ describe("Tribe event routes", () => {
     await GET(buildRequest({}, BASE_URL), buildTribeContext());
 
     expect(listTribeEvents).toHaveBeenCalledWith({
+      eventTypes: [],
       month: null,
       occurrence: null,
       tribeSlug: TRIBE_SLUG,
@@ -263,6 +273,7 @@ describe("Tribe event routes", () => {
       capacity: 12,
       description: "Repaso mensual",
       endsAt: "2026-05-06T19:00:00.000Z",
+      eventType: "live",
       meetingUrl: "https://meet.google.com/abc-defg-hij",
       recurrenceFrequency: "weekly",
       recurrenceUntil: null,
@@ -328,6 +339,7 @@ describe("Tribe event routes", () => {
       capacity: null,
       description: "Repaso mensual",
       endsAt: "2026-05-06T19:00:00.000Z",
+      eventType: "live",
       eventId: EVENT_ID,
       meetingUrl: "https://meet.google.com/abc-defg-hij",
       recurrenceFrequency: "none",
@@ -441,7 +453,7 @@ describe("Tribe event routes", () => {
   });
 
   it("exports the event as a downloadable ICS file", async () => {
-    getTribeEvent.mockResolvedValue(event);
+    getTribeEventCalendar.mockResolvedValue({ event, occurrenceExceptions: [] });
 
     const response = await GET_CALENDAR(
       buildRequest({}, `${BASE_URL}/${EVENT_ID}/calendar`),
@@ -454,14 +466,14 @@ describe("Tribe event routes", () => {
       'attachment; filename="evento-clase-abierta.ics"'
     );
     await expect(response.text()).resolves.toContain("BEGIN:VCALENDAR");
-    expect(getTribeEvent).toHaveBeenCalledWith({
+    expect(getTribeEventCalendar).toHaveBeenCalledWith({
       eventId: EVENT_ID,
       tribeSlug: TRIBE_SLUG,
     });
   });
 
   it("returns not found when the event to export does not exist", async () => {
-    getTribeEvent.mockResolvedValue(null);
+    getTribeEventCalendar.mockResolvedValue(null);
 
     const response = await GET_CALENDAR(
       buildRequest({}, `${BASE_URL}/${EVENT_ID}/calendar`),

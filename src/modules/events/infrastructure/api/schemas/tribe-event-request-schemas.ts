@@ -7,14 +7,19 @@ import type {
 import {
   TRIBE_EVENT_ATTENDANCE_OPTIONS,
   TRIBE_EVENT_CAPACITY_LIMIT,
+  TRIBE_EVENT_DEFAULT_TYPE,
   TRIBE_EVENT_FIELD_LIMIT,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import {
+  createEventTypeFieldSchema,
   createOptionalTextFieldSchema,
   createTribeEventInstantSchema,
+  dedupeEventTypes,
+  splitEventTypeQueryValues,
   tribeEventIdParamSchema,
   tribeEventMonthSchema,
+  tribeEventTypeSchema,
   tribeSlugParamSchema,
 } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-input-fields";
 import { TRIBE_EVENT_INPUT_ISSUE } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-input-issue";
@@ -46,6 +51,23 @@ export const tribeEventRouteParamsSchema = z.object({
  */
 export const tribeEventMonthQuerySchema = z.object({
   month: tribeEventMonthSchema.optional(),
+});
+
+/**
+ * `?month=` plus the optional type filter of `GET /events`: `type` may be
+ * repeated or a comma-separated list. Unlike the page, the API rejects an
+ * unknown type (400) instead of ignoring it. No type keeps every type.
+ */
+export const tribeEventListQuerySchema = z.object({
+  month: tribeEventMonthSchema.optional(),
+  type: z
+    .union([z.string(), z.array(z.string())], {
+      error: TRIBE_EVENT_INPUT_ISSUE.invalidEventType,
+    })
+    .transform(splitEventTypeQueryValues)
+    .pipe(z.array(tribeEventTypeSchema))
+    .transform(dedupeEventTypes)
+    .optional(),
 });
 
 /**
@@ -104,6 +126,7 @@ export const tribeEventMutationBodySchema = z.object(
       TRIBE_EVENT_INPUT_ISSUE.invalidDate,
       createTribeEventInstantSchema(TRIBE_EVENT_INPUT_ISSUE.invalidDate)
     ),
+    eventType: createEventTypeFieldSchema(TRIBE_EVENT_DEFAULT_TYPE),
     meetingUrl: createOptionalTextFieldSchema(
       TRIBE_EVENT_INPUT_ISSUE.invalidMeetingUrl,
       z.string()
