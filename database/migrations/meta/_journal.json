@@ -568,6 +568,27 @@
       "when": 1790164800000,
       "tag": "20260923120000_add_tribe_event_capacity_waitlist",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1790251200000,
+      "tag": "20260924120000_add_tribe_event_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1790251800000,
+      "tag": "20260924121000_create_event_occurrence_exceptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1790252400000,
+      "tag": "20260924122000_create_event_proposals",
+      "breakpoints": true
     }
   ]
 }
