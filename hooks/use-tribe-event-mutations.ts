@@ -14,7 +14,7 @@ import {
   type TribeEventSavePayload,
 } from "@/lib/events/tribe-events-api-client";
 import type {
-  TribeEventAttendanceStatus,
+  TribeEventAttendanceOption,
   TribeEventOccurrenceResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 
@@ -49,7 +49,7 @@ export type TribeEventMutations = {
   ) => Promise<boolean>;
   setAttendance: (
     occurrence: TribeEventOccurrenceResult,
-    status: TribeEventAttendanceStatus | null
+    status: TribeEventAttendanceOption | null
   ) => Promise<boolean>;
   /** Occurrences on screen, sorted by start, including local mutations. */
   visibleEvents: TribeEventOccurrenceResult[];

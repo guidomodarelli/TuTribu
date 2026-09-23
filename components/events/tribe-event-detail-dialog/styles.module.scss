@@ -80,6 +80,18 @@
     }
   }
 
+  &__tabs {
+    display: grid;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  &__tabPanel {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+  }
+
   &__attendance {
     display: grid;
     gap: 0.5rem;

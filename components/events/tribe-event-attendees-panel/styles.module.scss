@@ -1,0 +1,91 @@
+.TribeEventAttendeesPanel {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+
+  &__toolbar {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  &__groups {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.9rem;
+  }
+
+  @media (min-width: 30rem) {
+    &__groups {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  &__group {
+    display: grid;
+    align-content: start;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  &__heading {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__count {
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__list {
+    display: grid;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__attendee {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0 0.5rem;
+    min-width: 0;
+  }
+
+  &__name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  &__respondedAt {
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  &__empty,
+  &__loading,
+  &__error {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  &__empty,
+  &__loading {
+    color: var(--muted-foreground);
+  }
+
+  &__error {
+    color: var(--destructive);
+  }
+}

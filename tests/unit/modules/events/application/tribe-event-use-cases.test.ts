@@ -466,7 +466,7 @@ describe("tribe event use cases", () => {
     await execute({ ...baseCommand, capacity: "" });
     await execute(baseCommand);
 
-    expect(create.mock.calls.map(([command]) => (command as { capacity: unknown }).capacity)).toEqual([
+    expect(create.mock.calls.map((call) => ((call as unknown[])[0] as { capacity: unknown }).capacity)).toEqual([
       25,
       null,
       null,

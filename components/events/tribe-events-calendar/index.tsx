@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast, useIsMobile } from "beez-ui";
 
 import { TribeEventAgendaItem } from "@/components/events/tribe-event-agenda-item";
+import { TribeEventAttendeesPanel } from "@/components/events/tribe-event-attendees-panel";
 import { TribeEventDeleteDialog } from "@/components/events/tribe-event-delete-dialog";
 import { TribeEventDetailDialog } from "@/components/events/tribe-event-detail-dialog";
 import {
@@ -24,6 +25,7 @@ import { TribeNextEvent } from "@/components/events/tribe-next-event";
 import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
+import { useTribeEventAttendanceReport } from "@/hooks/use-tribe-event-attendance-report";
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
 import { useViewerTimeZone } from "@/hooks/use-viewer-time-zone";
 import {
@@ -32,6 +34,7 @@ import {
   getBuenosAiresMonthKey,
 } from "@/lib/date-time/buenos-aires-format";
 import { isOccurrencePast } from "@/lib/events/tribe-event-occurrence-timing";
+import { buildTribeEventAttendanceExportUrl } from "@/lib/events/tribe-events-api-client";
 import {
   createCalendarDays,
   groupAgendaDays,
@@ -47,7 +50,8 @@ import {
 } from "@/src/modules/events/constants/tribe-event-templates";
 import { TRIBE_EVENTS_ROUTE_QUERY } from "@/src/modules/events/constants/tribe-events";
 import type {
-  TribeEventAttendanceStatus,
+  TribeEventAttendanceOption,
+  TribeEventAttendanceStreakResult,
   TribeEventMonthResult,
   TribeEventOccurrenceResult,
   TribeEventViewerPermissionsResult,
@@ -55,6 +59,8 @@ import type {
 import styles from "./styles.module.scss";
 
 type TribeEventsCalendarProps = {
+  /** Viewer-only attendance streak, computed on the server (null if none). */
+  attendanceStreak?: TribeEventAttendanceStreakResult | null;
   events: TribeEventOccurrenceResult[];
   /** Deep-linked occurrence whose detail opens on load (validated server-side). */
   initialOccurrenceKey?: string | null;
@@ -98,6 +104,7 @@ type OccurrenceSelectionState = {
  * `useTribeEventMutations`; every visual block is a presentational component.
  */
 export function TribeEventsCalendar({
+  attendanceStreak = null,
   events,
   initialOccurrenceKey = null,
   month,
@@ -145,6 +152,8 @@ export function TribeEventsCalendar({
   const formSessionCounterRef = useRef(0);
   const [arePastEventsVisible, setArePastEventsVisible] = useState(false);
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  // Occurrence whose "Asistentes" tab is open; the report only loads for it.
+  const [attendeesOccurrenceKey, setAttendeesOccurrenceKey] = useState<string | null>(null);
 
   const currentMonth = month.current;
   const calendarDays = useMemo(() => createCalendarDays(currentMonth), [currentMonth]);
@@ -153,6 +162,15 @@ export function TribeEventsCalendar({
   const selectedOccurrence =
     visibleEvents.find((occurrence) => occurrence.occurrenceKey === selectedOccurrenceKey) ??
     null;
+  const { reload: reloadAttendanceReport, reportState: attendanceReportState } =
+    useTribeEventAttendanceReport({
+      isEnabled:
+        canManageEvents &&
+        selectedOccurrence !== null &&
+        attendeesOccurrenceKey === selectedOccurrence.occurrenceKey,
+      occurrence: selectedOccurrence,
+      tribeSlug,
+    });
   const todayKey = nowTime === null ? null : getBuenosAiresDateKey(new Date(nowTime));
   const timeLabel =
     nowTime === null ? null : formatBuenosAiresTime(new Date(nowTime)) + TIME_LABEL_SUFFIX;
@@ -292,7 +310,7 @@ export function TribeEventsCalendar({
 
   const saveAttendance = (
     occurrence: TribeEventOccurrenceResult,
-    status: TribeEventAttendanceStatus | null
+    status: TribeEventAttendanceOption | null
   ) => {
     void setAttendance(occurrence, status);
   };
@@ -354,6 +372,7 @@ export function TribeEventsCalendar({
 
       {nextOccurrence && nowTime !== null ? (
         <TribeNextEvent
+          attendanceStreak={attendanceStreak}
           isSavingAttendance={isSavingAttendance}
           nowTime={nowTime}
           occurrence={nextOccurrence}
@@ -381,6 +400,19 @@ export function TribeEventsCalendar({
       </div>
 
       <TribeEventDetailDialog
+        attendeesPanel={
+          canManageEvents && selectedOccurrence ? (
+            <TribeEventAttendeesPanel
+              exportUrl={buildTribeEventAttendanceExportUrl({
+                eventId: selectedOccurrence.eventId,
+                occurrenceStartsAt: selectedOccurrence.startsAt,
+                tribeSlug,
+              })}
+              reportState={attendanceReportState}
+              onRetry={reloadAttendanceReport}
+            />
+          ) : null
+        }
         canManageEvents={canManageEvents}
         isPast={selectedOccurrence ? isPast(selectedOccurrence) : false}
         isSavingAttendance={isSavingAttendance}
@@ -397,6 +429,9 @@ export function TribeEventsCalendar({
         }}
         onEdit={openEditForm}
         onSetAttendance={saveAttendance}
+        onToggleAttendees={(isOpen) =>
+          setAttendeesOccurrenceKey(isOpen ? selectedOccurrenceKey : null)
+        }
       />
 
       <TribeEventFormDialog

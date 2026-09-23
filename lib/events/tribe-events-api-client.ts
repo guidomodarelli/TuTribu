@@ -1,7 +1,8 @@
 import { ROUTES } from "@/src/constants/routes";
 import type { CreateTribeEventCommand } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
-  TribeEventAttendanceStatus,
+  TribeEventAttendanceOption,
+  TribeEventAttendanceReportResult,
   TribeEventOccurrenceResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 
@@ -34,6 +35,11 @@ type AttendanceResponseBody = {
   message?: string;
 };
 
+type AttendanceReportResponseBody = {
+  message?: string;
+  report?: TribeEventAttendanceReportResult;
+};
+
 type MessageResponseBody = {
   message?: string;
 };
@@ -47,6 +53,7 @@ const HTTP_REQUEST = {
   methodPut: "PUT",
 } as const;
 const EVENT_ENDPOINT = {
+  attendanceExportPath: "/attendance/export",
   attendancePath: "/attendance",
   eventsPath: "/events",
   monthQuery: "?month=",
@@ -148,7 +155,7 @@ export async function deleteTribeEventRequest(input: {
  */
 export async function saveTribeEventAttendanceRequest(input: {
   occurrence: Pick<TribeEventOccurrenceResult, "eventId" | "startsAt">;
-  status: TribeEventAttendanceStatus | null;
+  status: TribeEventAttendanceOption | null;
   tribeSlug: string;
 }): Promise<
   TribeEventRequestResult<{ attendance: TribeEventOccurrenceResult["attendance"] }>
@@ -170,4 +177,50 @@ export async function saveTribeEventAttendanceRequest(input: {
   }
 
   return { attendance: body.attendance, isSuccess: true, message: body.message ?? null };
+}
+
+/**
+ * Same-origin URL of the manager CSV export of one occurrence. The route
+ * handler authorizes the download again, so the link is safe to render.
+ *
+ * @param input - Tribe, event, and occurrence start.
+ * @returns Relative URL of the CSV download.
+ */
+export function buildTribeEventAttendanceExportUrl(input: {
+  eventId: string;
+  occurrenceStartsAt: string;
+  tribeSlug: string;
+}): string {
+  return (
+    buildEventEndpoint(input.tribeSlug, input.eventId) +
+    EVENT_ENDPOINT.attendanceExportPath +
+    EVENT_ENDPOINT.occurrenceQuery +
+    encodeURIComponent(input.occurrenceStartsAt)
+  );
+}
+
+/**
+ * Loads the manager attendance report of one occurrence.
+ *
+ * @param input - Tribe, event, occurrence start, and an abort signal so a
+ * stale request (closed dialog, another occurrence) never updates the UI.
+ * @returns The report or the safe failure message of the route.
+ */
+export async function fetchTribeEventAttendanceReportRequest(input: {
+  eventId: string;
+  occurrenceStartsAt: string;
+  signal?: AbortSignal;
+  tribeSlug: string;
+}): Promise<TribeEventRequestResult<{ report: TribeEventAttendanceReportResult }>> {
+  const response = await fetch(
+    buildAttendanceEndpoint(input.tribeSlug, input.eventId, input.occurrenceStartsAt),
+    { signal: input.signal }
+  );
+  const body = await readJsonBody<AttendanceReportResponseBody>(response);
+
+  if (!response.ok || !body.report) {
+    return { isSuccess: false, message: body.message ?? null };
+  }
+
+  return { isSuccess: true, message: null, report: body.report };
 }

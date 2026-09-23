@@ -19,7 +19,15 @@ function createOccurrence(
   const eventId = overrides.eventId ?? EVENT_ID;
 
   return {
-    attendance: { goingCount: 0, viewerStatus: null },
+    attendance: {
+      goingCount: 0,
+      goingPreview: [],
+      maybeCount: 0,
+      viewerStatus: null,
+      viewerWaitlistPosition: null,
+      waitlistedCount: 0,
+    },
+    capacity: null,
     description: null,
     endsAt: null,
     eventId,
@@ -77,7 +85,15 @@ describe("tribe events calendar grid", () => {
 
   it("replaces the saved series and keeps the attendance of existing slots", () => {
     const kept = createOccurrence({
-      attendance: { goingCount: 3, viewerStatus: "going" },
+      attendance: {
+        goingCount: 3,
+        goingPreview: [],
+        maybeCount: 0,
+        viewerStatus: "going",
+        viewerWaitlistPosition: null,
+        waitlistedCount: 0,
+      },
+      capacity: null,
       startsAt: "2026-05-06T18:00:00.000Z",
     });
     const removed = createOccurrence({ startsAt: "2026-05-13T18:00:00.000Z" });
@@ -100,7 +116,15 @@ describe("tribe events calendar grid", () => {
       savedNew.startsAt,
     ]);
     expect(merged[1]).toMatchObject({
-      attendance: { goingCount: 3, viewerStatus: "going" },
+      attendance: {
+        goingCount: 3,
+        goingPreview: [],
+        maybeCount: 0,
+        viewerStatus: "going",
+        viewerWaitlistPosition: null,
+        waitlistedCount: 0,
+      },
+      capacity: null,
       title: "Nuevo título",
     });
   });

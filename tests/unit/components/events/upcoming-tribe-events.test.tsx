@@ -19,7 +19,15 @@ describe("UpcomingTribeEvents", () => {
       <UpcomingTribeEvents
         events={[
           {
-            attendance: { goingCount: 2, viewerStatus: null },
+            attendance: {
+              goingCount: 2,
+              goingPreview: [],
+              maybeCount: 0,
+              viewerStatus: null,
+              viewerWaitlistPosition: null,
+              waitlistedCount: 0,
+            },
+            capacity: null,
             description: null,
             endsAt: "2026-05-13T19:00:00.000Z",
             eventId: EVENT_ID,

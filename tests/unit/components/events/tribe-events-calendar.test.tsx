@@ -27,6 +27,20 @@ const MAY = {
   previous: "2026-04",
 };
 
+function createAttendance(
+  overrides: Partial<TribeEventOccurrenceResult["attendance"]> = {}
+): TribeEventOccurrenceResult["attendance"] {
+  return {
+    goingCount: 0,
+    goingPreview: [],
+    maybeCount: 0,
+    viewerStatus: null,
+    viewerWaitlistPosition: null,
+    waitlistedCount: 0,
+    ...overrides,
+  };
+}
+
 function createOccurrence(
   overrides: Partial<TribeEventOccurrenceResult> = {}
 ): TribeEventOccurrenceResult {
@@ -34,7 +48,8 @@ function createOccurrence(
   const eventId = overrides.eventId ?? EVENT_ID;
 
   return {
-    attendance: { goingCount: 2, viewerStatus: null },
+    attendance: createAttendance({ goingCount: 2, viewerStatus: null }),
+    capacity: null,
     description: "Repaso mensual",
     endsAt: "2026-05-06T19:00:00.000Z",
     eventId,
@@ -241,7 +256,7 @@ describe("TribeEventsCalendar", () => {
     vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const weeklyOccurrence = createOccurrence({
-      attendance: { goingCount: 4, viewerStatus: "going" },
+      attendance: createAttendance({ goingCount: 4, viewerStatus: "going" }),
       endsAt: "2026-05-13T19:00:00.000Z",
       eventId: OTHER_EVENT_ID,
       recurrenceFrequency: "weekly",
@@ -594,7 +609,7 @@ describe("TribeEventsCalendar", () => {
     expect(goingButton).toHaveAttribute("aria-pressed", "false");
 
     mockJsonResponse({
-      attendance: { goingCount: 3, viewerStatus: "going" },
+      attendance: createAttendance({ goingCount: 3, viewerStatus: "going" }),
       message: "Respuesta guardada.",
     });
     await user.click(goingButton);
@@ -622,7 +637,7 @@ describe("TribeEventsCalendar", () => {
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
 
     expect(within(dialog).getByText("Repaso mensual")).toBeInTheDocument();
-    expect(within(dialog).getByText("2 personas van")).toBeInTheDocument();
+    expect(within(dialog).getByText("2 van")).toBeInTheDocument();
     expect(within(dialog).getByRole("link", { name: "Abrir link de reunión" })).toHaveAttribute(
       "href",
       "https://meet.google.com/abc-defg-hij"
@@ -647,7 +662,7 @@ describe("TribeEventsCalendar", () => {
 
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
     mockJsonResponse({
-      attendance: { goingCount: 3, viewerStatus: "going" },
+      attendance: createAttendance({ goingCount: 3, viewerStatus: "going" }),
       message: "Respuesta guardada.",
     });
     await user.click(screen.getByRole("button", { name: "Voy" }));
@@ -666,10 +681,10 @@ describe("TribeEventsCalendar", () => {
         "true"
       )
     );
-    expect(screen.getByText("3 personas van")).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).getByText("3 van")).toBeInTheDocument();
 
     mockJsonResponse({
-      attendance: { goingCount: 2, viewerStatus: null },
+      attendance: createAttendance({ goingCount: 2, viewerStatus: null }),
       message: "Respuesta eliminada.",
     });
     await user.click(screen.getByRole("button", { name: "Voy" }));
@@ -680,13 +695,15 @@ describe("TribeEventsCalendar", () => {
       )}`,
       expect.objectContaining({ method: "DELETE" })
     );
-    await waitFor(() => expect(screen.getByText("2 personas van")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(within(screen.getByRole("dialog")).getByText("2 van")).toBeInTheDocument()
+    );
   });
 
   it("creates an event through the tribe event endpoint and shows it without reloading", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const createdOccurrence = createOccurrence({
-      attendance: { goingCount: 0, viewerStatus: null },
+      attendance: createAttendance({ goingCount: 0, viewerStatus: null }),
       eventId: OTHER_EVENT_ID,
       startsAt: "2026-05-20T18:00:00.000Z",
       title: "Clase nueva",
@@ -719,6 +736,7 @@ describe("TribeEventsCalendar", () => {
       expect.objectContaining({ method: "POST" })
     );
     expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toEqual({
+      capacity: "",
       description: "",
       endsAt: "2026-05-20T19:00:00.000Z",
       meetingUrl: "https://meet.google.com/abc-defg-hij",
@@ -792,7 +810,7 @@ describe("TribeEventsCalendar", () => {
     renderCalendar({
       events: [
         createOccurrence({
-          attendance: { goingCount: 1, viewerStatus: null },
+          attendance: createAttendance({ goingCount: 1, viewerStatus: null }),
           description: null,
           endsAt: null,
           meetingUrl: null,
@@ -807,7 +825,7 @@ describe("TribeEventsCalendar", () => {
     expect(within(dialog).getByText("Finalizado")).toBeInTheDocument();
     expect(within(dialog).getByText("Sin link de reunión")).toBeInTheDocument();
     expect(within(dialog).queryByText("Descripción")).not.toBeInTheDocument();
-    expect(within(dialog).getByText("1 persona fue")).toBeInTheDocument();
+    expect(within(dialog).getByText("1 fue")).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "Voy" })).not.toBeInTheDocument();
     expect(
       within(dialog).getByRole("link", { name: "Descargar .ics" })
@@ -955,7 +973,7 @@ describe("TribeEventsCalendar", () => {
       message: "Evento actualizado.",
       occurrences: [
         createOccurrence({
-          attendance: { goingCount: 0, viewerStatus: null },
+          attendance: createAttendance({ goingCount: 0, viewerStatus: null }),
           title: "Clase cerrada",
         }),
       ],
@@ -970,7 +988,7 @@ describe("TribeEventsCalendar", () => {
 
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase cerrada/ }));
 
-    expect(screen.getByText("2 personas van")).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).getByText("2 van")).toBeInTheDocument();
   });
 
   it("asks for confirmation before deleting an event", async () => {

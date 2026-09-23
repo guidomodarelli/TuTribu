@@ -6,6 +6,7 @@ const TRIBE_EVENTS_PAGE = {
   listFailureMessage: "Failed to list tribe events",
   listFailureReason: "unexpected_event_repository_error",
   operation: "tribe-events-page",
+  streakFailureMessage: "Failed to compute tribe event attendance streak",
 } as const;
 
 export default async function TribeEventsPage({
@@ -30,28 +31,46 @@ export default async function TribeEventsPage({
       slug,
     });
 
-  // A listing failure is logged here, where the user-facing response is owned,
-  // and degrades to a safe fallback instead of breaking the whole route.
-  const listing = await modules.events.useCases
-    .listTribeEvents({
-      month: resolvedSearchParams?.month,
-      occurrenceKey: resolvedSearchParams?.event,
-      tribeSlug: slug,
-    })
-    .catch((error: unknown) => {
-      logger.error({
-        message: TRIBE_EVENTS_PAGE.listFailureMessage,
-        error,
-        metadata: {
-          month: resolvedSearchParams?.month ?? null,
-          reason: TRIBE_EVENTS_PAGE.listFailureReason,
-          slug,
-          viewerId: authenticatedMember.id,
-        },
-      });
+  // Failures are logged here, where the user-facing response is owned, and
+  // degrade to a safe fallback instead of breaking the whole route. The
+  // streak is optional: without it the page simply omits that line.
+  const [listing, attendanceStreak] = await Promise.all([
+    modules.events.useCases
+      .listTribeEvents({
+        month: resolvedSearchParams?.month,
+        occurrenceKey: resolvedSearchParams?.event,
+        tribeSlug: slug,
+      })
+      .catch((error: unknown) => {
+        logger.error({
+          message: TRIBE_EVENTS_PAGE.listFailureMessage,
+          error,
+          metadata: {
+            month: resolvedSearchParams?.month ?? null,
+            reason: TRIBE_EVENTS_PAGE.listFailureReason,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+        });
 
-      return null;
-    });
+        return null;
+      }),
+    modules.events.useCases
+      .getTribeEventAttendanceStreak({ tribeSlug: slug })
+      .catch((error: unknown) => {
+        logger.error({
+          message: TRIBE_EVENTS_PAGE.streakFailureMessage,
+          error,
+          metadata: {
+            reason: TRIBE_EVENTS_PAGE.listFailureReason,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+        });
+
+        return null;
+      }),
+  ]);
 
   if (!listing) {
     return <TribeEventsUnavailable tribeSlug={slug} />;
@@ -59,6 +78,7 @@ export default async function TribeEventsPage({
 
   return (
     <TribeEventsCalendar
+      attendanceStreak={attendanceStreak}
       events={listing.events}
       initialOccurrenceKey={listing.selectedOccurrenceKey}
       month={listing.month}
