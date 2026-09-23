@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast, useIsMobile } from "beez-ui";
 
 import { TribeEventAgendaItem } from "@/components/events/tribe-event-agenda-item";
@@ -19,6 +20,7 @@ import {
 import { TribeEventsEmptyState } from "@/components/events/tribe-events-empty-state";
 import { TribeEventsMonthGrid } from "@/components/events/tribe-events-month-grid";
 import { TribeNextEvent } from "@/components/events/tribe-next-event";
+import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
@@ -35,6 +37,7 @@ import {
   groupOccurrencesByDay,
 } from "@/lib/events/tribe-events-calendar-grid";
 import { buildTribeEventsRoute } from "@/lib/events/tribe-events-routes";
+import { HORIZONTAL_SWIPE_DIRECTION } from "@/lib/gestures/horizontal-swipe";
 import { copyTextToClipboard } from "@/lib/browser-clipboard";
 import { replaceCurrentUrlSearchParam } from "@/lib/browser-navigation";
 import { TRIBE_EVENTS_ROUTE_QUERY } from "@/src/modules/events/constants/tribe-events";
@@ -104,6 +107,7 @@ export function TribeEventsCalendar({
   // avoids flashing the desktop grid on phones before the client takes over.
   const shouldRenderBothViews = chosenViewMode === null && !isHydrated;
   const nowTime = useMinuteClock();
+  const router = useRouter();
   const viewerTimeZone = useViewerTimeZone();
   const {
     deleteEvent,
@@ -181,6 +185,16 @@ export function TribeEventsCalendar({
     });
     replaceCurrentUrlSearchParam(TRIBE_EVENTS_ROUTE_QUERY.event, occurrenceKey);
   };
+
+  const previousMonthHref = buildTribeEventsRoute(tribeSlug, { month: month.previous });
+  const nextMonthHref = buildTribeEventsRoute(tribeSlug, { month: month.next });
+  // Phones flip months with a horizontal swipe over the grid or the agenda,
+  // landing on the same routes as the header chevrons.
+  const monthSwipeHandlers = useHorizontalSwipe((direction) => {
+    router.push(
+      direction === HORIZONTAL_SWIPE_DIRECTION.next ? nextMonthHref : previousMonthHref
+    );
+  });
 
   const selectOccurrence = (occurrence: TribeEventOccurrenceResult) => {
     setSelectedOccurrenceKey(occurrence.occurrenceKey);
@@ -301,8 +315,8 @@ export function TribeEventsCalendar({
       <TribeEventsCalendarHeader
         canManageEvents={canManageEvents}
         month={month.current}
-        nextMonthHref={buildTribeEventsRoute(tribeSlug, { month: month.next })}
-        previousMonthHref={buildTribeEventsRoute(tribeSlug, { month: month.previous })}
+        nextMonthHref={nextMonthHref}
+        previousMonthHref={previousMonthHref}
         timeLabel={timeLabel}
         todayHref={todayHref}
         viewMode={viewMode}
@@ -321,20 +335,22 @@ export function TribeEventsCalendar({
         />
       ) : null}
 
-      {shouldRenderBothViews ? (
-        <>
-          <div className={styles["TribeEventsCalendar__autoView--calendar"]}>
-            {renderCalendarView()}
-          </div>
-          <div className={styles["TribeEventsCalendar__autoView--list"]}>
-            {renderListView()}
-          </div>
-        </>
-      ) : viewMode === TRIBE_EVENTS_VIEW_MODE.calendar ? (
-        renderCalendarView()
-      ) : (
-        renderListView()
-      )}
+      <div className={styles.TribeEventsCalendar__swipeArea} {...monthSwipeHandlers}>
+        {shouldRenderBothViews ? (
+          <>
+            <div className={styles["TribeEventsCalendar__autoView--calendar"]}>
+              {renderCalendarView()}
+            </div>
+            <div className={styles["TribeEventsCalendar__autoView--list"]}>
+              {renderListView()}
+            </div>
+          </>
+        ) : viewMode === TRIBE_EVENTS_VIEW_MODE.calendar ? (
+          renderCalendarView()
+        ) : (
+          renderListView()
+        )}
+      </div>
 
       <TribeEventDetailDialog
         canManageEvents={canManageEvents}

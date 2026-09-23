@@ -16,6 +16,12 @@ $tribe-events-calendar-mobile-max: 767px;
     overflow-x: auto;
   }
 
+  &__swipeArea {
+    display: grid;
+    gap: 1.25rem;
+    min-width: 0;
+  }
+
   // Before hydration both views are in the DOM; the breakpoint mirrors
   // `MOBILE_BREAKPOINT` in `beez-ui/src/hooks/use-mobile.ts` so the server-rendered page
   // shows the same view the client will keep after `useIsMobile` resolves.
@@ -24,6 +30,13 @@ $tribe-events-calendar-mobile-max: 767px;
   }
 
   @media (max-width: $tribe-events-calendar-mobile-max) {
+    // Hint that horizontal drags belong to the month swipe while keeping
+    // vertical scrolling and pinch-zoom native (ignored where unsupported).
+    &__swipeArea,
+    &__swipeArea [data-slot="table-container"] {
+      touch-action: pan-y pinch-zoom;
+    }
+
     &__autoView--calendar {
       display: none;
     }

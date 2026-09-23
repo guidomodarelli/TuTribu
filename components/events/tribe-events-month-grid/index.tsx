@@ -37,6 +37,7 @@ const ARIA_CURRENT_DATE = "date";
 const BUTTON_TYPE = "button";
 const KEY_PREFIX_WEEK = "week-";
 const PILL_SEPARATOR = " ";
+const OVERFLOW_PREFIX = "+";
 const NO_OCCURRENCES: TribeEventOccurrenceResult[] = [];
 const COPY = {
   calendarTableLabel: "Calendario mensual de eventos",
@@ -132,6 +133,12 @@ export function TribeEventsMonthGrid({
                             key={occurrence.occurrenceKey}
                           />
                         ))}
+                        {dayOccurrences.length > DAY_DOTS_MAX ? (
+                          <span aria-hidden className={styles.TribeEventsMonthGrid__dayOverflow}>
+                            {OVERFLOW_PREFIX}
+                            {dayOccurrences.length - DAY_DOTS_MAX}
+                          </span>
+                        ) : null}
                       </button>
                     ) : null}
                     <div className={styles.TribeEventsMonthGrid__dayEvents}>

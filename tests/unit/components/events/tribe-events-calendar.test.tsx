@@ -1,6 +1,11 @@
 import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
+import {
+  AppRouterContext,
+  type AppRouterInstance,
+} from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
@@ -46,6 +51,25 @@ function createOccurrence(
   };
 }
 
+/**
+ * Router double provided through Next's own context (the boundary
+ * `useRouter` reads), so navigation calls can be asserted without mocking
+ * the `next/navigation` module.
+ */
+const router = {
+  back: vi.fn(),
+  bfcacheId: "tribe-events-test",
+  forward: vi.fn(),
+  prefetch: vi.fn(),
+  push: vi.fn(),
+  refresh: vi.fn(),
+  replace: vi.fn(),
+} satisfies AppRouterInstance;
+
+function RouterProvider({ children }: { children: ReactNode }) {
+  return <AppRouterContext.Provider value={router}>{children}</AppRouterContext.Provider>;
+}
+
 function renderCalendar(
   props: Partial<React.ComponentProps<typeof TribeEventsCalendar>> = {}
 ) {
@@ -56,7 +80,8 @@ function renderCalendar(
       tribeSlug="matematica-pro"
       viewerPermissions={{ canManageEvents: true }}
       {...props}
-    />
+    />,
+    { wrapper: RouterProvider }
   );
 }
 
@@ -448,6 +473,70 @@ describe("TribeEventsCalendar", () => {
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith("No pudimos copiar el link.")
       );
+    });
+  });
+
+  describe("month swipe and day overflow", () => {
+    const startPoint = { clientX: 200, clientY: 300, identifier: 1 };
+
+    function swipe(target: Element, deltaX: number, deltaY = 0) {
+      fireEvent.touchStart(target, { changedTouches: [startPoint], touches: [startPoint] });
+      fireEvent.touchEnd(target, {
+        changedTouches: [
+          { ...startPoint, clientX: startPoint.clientX + deltaX, clientY: startPoint.clientY + deltaY },
+        ],
+        touches: [],
+      });
+    }
+
+    it("navigates to the next and previous month with horizontal touch swipes", () => {
+      renderCalendar();
+
+      const grid = screen.getByRole("table", { name: "Calendario mensual de eventos" });
+
+      swipe(grid, -120);
+      expect(router.push).toHaveBeenLastCalledWith("/matematica-pro/eventos?month=2026-06");
+
+      swipe(grid, 120);
+      expect(router.push).toHaveBeenLastCalledWith("/matematica-pro/eventos?month=2026-04");
+    });
+
+    it("swipes the agenda too and ignores vertical drags and pinches", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar();
+      await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+      const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+
+      swipe(agenda, -30, 200);
+      fireEvent.touchStart(agenda, {
+        changedTouches: [startPoint],
+        touches: [startPoint, { ...startPoint, identifier: 2 }],
+      });
+      fireEvent.touchEnd(agenda, {
+        changedTouches: [{ ...startPoint, clientX: 20 }],
+        touches: [],
+      });
+      expect(router.push).not.toHaveBeenCalled();
+
+      swipe(agenda, -120);
+      expect(router.push).toHaveBeenCalledWith("/matematica-pro/eventos?month=2026-06");
+    });
+
+    it("shows how many occurrences do not fit as dots", () => {
+      renderCalendar({
+        events: Array.from({ length: 5 }, (_, index) =>
+          createOccurrence({
+            eventId: `${EVENT_ID.slice(0, -1)}${index}`,
+            title: `Encuentro ${index + 1}`,
+          })
+        ),
+      });
+
+      expect(
+        screen.getByRole("button", { name: "Miércoles 6 de mayo: 5 eventos" })
+      ).toHaveTextContent("+2");
     });
   });
 
@@ -915,12 +1004,14 @@ describe("TribeEventsCalendar server render", () => {
     const { renderToString } = await import("react-dom/server");
 
     const html = renderToString(
-      <TribeEventsCalendar
-        events={[createOccurrence()]}
-        month={MAY}
-        tribeSlug="matematica-pro"
-        viewerPermissions={{ canManageEvents: false }}
-      />
+      <RouterProvider>
+        <TribeEventsCalendar
+          events={[createOccurrence()]}
+          month={MAY}
+          tribeSlug="matematica-pro"
+          viewerPermissions={{ canManageEvents: false }}
+        />
+      </RouterProvider>
     );
 
     expect(html).toContain('aria-label="Calendario mensual de eventos"');
@@ -931,12 +1022,14 @@ describe("TribeEventsCalendar server render", () => {
     const { renderToString } = await import("react-dom/server");
 
     const html = renderToString(
-      <TribeEventsCalendar
-        events={[createOccurrence()]}
-        month={MAY}
-        tribeSlug="matematica-pro"
-        viewerPermissions={{ canManageEvents: false }}
-      />
+      <RouterProvider>
+        <TribeEventsCalendar
+          events={[createOccurrence()]}
+          month={MAY}
+          tribeSlug="matematica-pro"
+          viewerPermissions={{ canManageEvents: false }}
+        />
+      </RouterProvider>
     );
 
     // Without a clock the server cannot know the viewer's "today", so the
