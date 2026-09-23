@@ -24,7 +24,6 @@ import {
   formatBuenosAiresTime,
   getBuenosAiresDateKey,
 } from "@/lib/date-time/buenos-aires-format";
-import type { CreateTribeEventCommand } from "@/src/modules/events/application/commands/tribe-event-command";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import type { TribeEventRecurrenceFrequency } from "@/src/modules/events/domain/entities/tribe-event";
 import { TRIBE_EVENT_RECURRENCE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";
@@ -37,10 +36,20 @@ import {
 import styles from "./styles.module.scss";
 
 /**
- * Body sent to the create/update event endpoints. Optional fields travel as
- * empty strings so the application layer normalizes them in one place.
+ * Form values sent to the create/update event endpoints, as typed text.
+ * Optional fields travel as empty strings; the route input schema validates
+ * and normalizes them once, at the server boundary.
  */
-export type TribeEventFormPayload = Omit<CreateTribeEventCommand, "tribeSlug" | "visibleMonth">;
+export type TribeEventFormPayload = {
+  capacity: string;
+  description: string;
+  endsAt: string;
+  meetingUrl: string;
+  recurrenceFrequency: string;
+  recurrenceUntil: string;
+  startsAt: string;
+  title: string;
+};
 
 /**
  * Values that prefill the create form (for example from a template). Ignored

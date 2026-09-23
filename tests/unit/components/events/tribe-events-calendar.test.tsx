@@ -8,7 +8,10 @@ import {
 } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
-import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
+import type {
+  TribeEventOccurrenceResult,
+  TribeEventResult,
+} from "@/src/modules/events/application/results/tribe-event-result";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("beez-ui", async () => ({
@@ -61,6 +64,27 @@ function createOccurrence(
     seriesEndsAt: "2026-05-06T19:00:00.000Z",
     seriesStartsAt: startsAt,
     startsAt,
+    title: "Clase abierta",
+    ...overrides,
+  };
+}
+
+/**
+ * Saved series as the create/update endpoints return it (public DTO).
+ */
+function createEventDto(
+  overrides: Partial<TribeEventResult> = {}
+): TribeEventResult {
+  return {
+    capacity: null,
+    description: "Repaso mensual",
+    endsAt: "2026-05-06T19:00:00.000Z",
+    id: EVENT_ID,
+    meetingUrl: "https://meet.google.com/abc-defg-hij",
+    recurrenceFrequency: "none",
+    recurrenceRule: null,
+    recurrenceUntil: null,
+    startsAt: "2026-05-06T18:00:00.000Z",
     title: "Clase abierta",
     ...overrides,
   };
@@ -725,7 +749,7 @@ describe("TribeEventsCalendar", () => {
       target: { value: "https://meet.google.com/abc-defg-hij" },
     });
     mockJsonResponse({
-      event: {},
+      event: createEventDto({ id: OTHER_EVENT_ID, title: "Clase nueva" }),
       message: "Evento creado.",
       occurrences: [createdOccurrence],
     });
@@ -903,7 +927,7 @@ describe("TribeEventsCalendar", () => {
     fireEvent.change(screen.getByLabelText("Hora de fin"), {
       target: { value: "01:00" },
     });
-    mockJsonResponse({ event: {}, message: "Evento creado.", occurrences: [] });
+    mockJsonResponse({ event: createEventDto(), message: "Evento creado.", occurrences: [] });
     await user.click(screen.getByRole("button", { name: "Guardar evento" }));
 
     expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
@@ -916,7 +940,7 @@ describe("TribeEventsCalendar", () => {
 
   it("prevents duplicate event creation while the save request is pending", async () => {
     let resolveRequest: (value: {
-      json: () => Promise<{ occurrences: TribeEventOccurrenceResult[] }>;
+      json: () => Promise<Record<string, unknown>>;
       ok: boolean;
     }) => void = () => undefined;
     (global.fetch as Mock).mockImplementationOnce(
@@ -941,7 +965,11 @@ describe("TribeEventsCalendar", () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
 
     resolveRequest({
-      json: async () => ({ occurrences: [occurrence] }),
+      json: async () => ({
+        event: createEventDto(),
+        message: "Evento creado.",
+        occurrences: [occurrence],
+      }),
       ok: true,
     });
 
@@ -969,7 +997,7 @@ describe("TribeEventsCalendar", () => {
       target: { value: "Clase cerrada" },
     });
     mockJsonResponse({
-      event: {},
+      event: createEventDto({ title: "Clase cerrada" }),
       message: "Evento actualizado.",
       occurrences: [
         createOccurrence({
@@ -1045,6 +1073,57 @@ describe("TribeEventsCalendar", () => {
       expect(toast.error).toHaveBeenCalledWith("No tenés permisos para gestionar eventos.")
     );
     expect(screen.getByRole("dialog", { name: "Nuevo evento" })).toBeInTheDocument();
+  });
+
+  it("treats an unusable save response as a failure with the safe fallback copy", async () => {
+    const { toast } = vi.mocked(await import("beez-ui"), true);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: "Crear evento" }));
+    fireEvent.change(screen.getByLabelText("Título"), {
+      target: { value: "Clase nueva" },
+    });
+    fireEvent.change(screen.getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "15:00" },
+    });
+    // A 2xx whose body breaks the public contract must not patch the calendar
+    // nor surface whatever text it carries.
+    mockJsonResponse({
+      event: createEventDto(),
+      message: "Evento creado.",
+      occurrences: [{ ...occurrence, startsAt: "raw-db-value", title: "Clase nueva" }],
+    });
+    await user.click(screen.getByRole("button", { name: "Guardar evento" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("No pudimos guardar el evento."));
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /Clase nueva/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Nuevo evento" })).toBeInTheDocument();
+  });
+
+  it("ignores an unusable attendance response and keeps the previous answer", async () => {
+    const { toast } = vi.mocked(await import("beez-ui"), true);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar();
+
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+    mockJsonResponse({
+      attendance: { goingCount: "3", viewerStatus: "going" },
+      message: "Respuesta guardada.",
+    });
+    await user.click(screen.getByRole("button", { name: "Voy" }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("No pudimos guardar tu respuesta.")
+    );
+    expect(screen.getByRole("button", { name: "Voy" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(screen.getByRole("dialog")).getByText("2 van")).toBeInTheDocument();
   });
 });
 

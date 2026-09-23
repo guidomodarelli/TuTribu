@@ -66,10 +66,10 @@ describe("tribe event attendance use cases", () => {
 
     await expect(
       execute({
-        eventId: ` ${EVENT_ID} `,
-        occurrenceStartsAt: "2026-05-13T18:00:00Z",
-        status: " going ",
-        tribeSlug: " matematica-pro ",
+        eventId: EVENT_ID,
+        occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+        status: "going",
+        tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
       attendance: savedAttendance,
@@ -99,25 +99,6 @@ describe("tribe event attendance use cases", () => {
     );
   });
 
-  it("rejects unknown answers and waitlisted, which only the database assigns", async () => {
-    const repository = createRepository();
-    const execute = setTribeEventAttendance({ tribeEventRepository: repository });
-
-    for (const status of ["perhaps", "waitlisted"]) {
-      await expect(
-        execute({
-          eventId: EVENT_ID,
-          occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-          status,
-          tribeSlug: "matematica-pro",
-        })
-      ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance });
-    }
-
-    expect(repository.findById).not.toHaveBeenCalled();
-    expect(repository.setAttendance).not.toHaveBeenCalled();
-  });
-
   it("rejects instants that are not a slot of the series", async () => {
     const repository = createRepository();
     const execute = setTribeEventAttendance({ tribeEventRepository: repository });
@@ -130,18 +111,10 @@ describe("tribe event attendance use cases", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance });
-    await expect(
-      execute({
-        eventId: EVENT_ID,
-        occurrenceStartsAt: "not-a-date",
-        status: "going",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance });
     expect(repository.setAttendance).not.toHaveBeenCalled();
   });
 
-  it("reports not found for unknown or malformed events", async () => {
+  it("reports not found for events that do not exist in the tribe", async () => {
     const repository = createRepository({ findById: vi.fn(async () => null) });
     const execute = setTribeEventAttendance({ tribeEventRepository: repository });
 
@@ -153,15 +126,7 @@ describe("tribe event attendance use cases", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.notFound });
-    await expect(
-      execute({
-        eventId: "not-a-uuid",
-        occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-        status: "going",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.notFound });
-    expect(repository.findById).toHaveBeenCalledTimes(1);
+    expect(repository.setAttendance).not.toHaveBeenCalled();
   });
 
   it("clears the viewer answer through the repository", async () => {

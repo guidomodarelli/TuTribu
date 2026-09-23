@@ -74,9 +74,7 @@ export type TribeEventUpcomingListResult = {
 
 export type TribeEventSaveFailureStatus =
   | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
-  | typeof TRIBE_EVENT_MUTATION_STATUS.invalidCapacity
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
-  | typeof TRIBE_EVENT_MUTATION_STATUS.invalidInput
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidRecurrence
   | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;

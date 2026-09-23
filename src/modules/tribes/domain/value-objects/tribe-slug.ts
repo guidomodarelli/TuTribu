@@ -5,6 +5,12 @@
  */
 
 /**
+ * Canonical tribe slug: lowercase ASCII words joined by single hyphens. Mirrors
+ * the `tribes_slug_single_segment_check` constraint so route boundaries can
+ * reject a malformed slug before it reaches the database.
+ */
+export const TRIBE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/**
  * Splits accented characters from their marks before ASCII cleanup.
  */
 const TRIBE_SLUG_NORMALIZATION_FORM = "NFD";

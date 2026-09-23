@@ -48,6 +48,45 @@ const visibleTribeAccess = {
   },
 };
 
+const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
+
+const openClassOccurrence = {
+  attendance: {
+    goingCount: 0,
+    goingPreview: [],
+    maybeCount: 0,
+    viewerStatus: null,
+    viewerWaitlistPosition: null,
+    waitlistedCount: 0,
+  },
+  capacity: null,
+  description: "Repaso mensual",
+  endsAt: "2026-05-06T19:00:00.000Z",
+  eventId: EVENT_ID,
+  meetingUrl: "https://meet.google.com/abc-defg-hij",
+  occurrenceKey: `${EVENT_ID}@2026-05-06T18:00:00.000Z`,
+  recurrenceFrequency: "none",
+  recurrenceRule: null,
+  recurrenceUntil: null,
+  seriesEndsAt: "2026-05-06T19:00:00.000Z",
+  seriesStartsAt: "2026-05-06T18:00:00.000Z",
+  startsAt: "2026-05-06T18:00:00.000Z",
+  title: "Clase abierta",
+};
+
+const mayListing = {
+  events: [openClassOccurrence],
+  month: {
+    current: "2026-05",
+    next: "2026-06",
+    previous: "2026-04",
+  },
+  selectedOccurrenceKey: null,
+  viewerPermissions: {
+    canManageEvents: true,
+  },
+};
+
 const authenticatedMember = {
   id: "member-1",
   email: "leader@example.com",
@@ -96,26 +135,7 @@ describe("tribe coming soon pages", () => {
   it("renders the event calendar page when tribe access is visible", async () => {
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
-    listTribeEvents.mockResolvedValue({
-      events: [
-        {
-          description: "Repaso mensual",
-          endsAt: "2026-05-06T19:00:00.000Z",
-          id: "event-1",
-          meetingUrl: "https://meet.google.com/abc-defg-hij",
-          startsAt: "2026-05-06T18:00:00.000Z",
-          title: "Clase abierta",
-        },
-      ],
-      month: {
-        current: "2026-05",
-        next: "2026-06",
-        previous: "2026-04",
-      },
-      viewerPermissions: {
-        canManageEvents: true,
-      },
-    });
+    listTribeEvents.mockResolvedValue(mayListing);
 
     render(
       await TribeEventsPage({
@@ -137,8 +157,94 @@ describe("tribe coming soon pages", () => {
     expect(screen.getByText("Clase abierta")).toBeInTheDocument();
     expect(listTribeEvents).toHaveBeenCalledWith({
       month: "2026-05",
+      occurrence: null,
       tribeSlug: "matematica-pro",
     });
+  });
+
+  it("ignores malformed month and deep-link values instead of failing", async () => {
+    getAuthenticatedMember.mockResolvedValue(authenticatedMember);
+    getTribePageAccess.mockResolvedValue(visibleTribeAccess);
+    listTribeEvents.mockResolvedValue(mayListing);
+
+    render(
+      await TribeEventsPage({
+        params: Promise.resolve({ slug: "matematica-pro" }),
+        searchParams: Promise.resolve({
+          event: "not-a-uuid@2026-05-06T18:00:00.000Z",
+          month: ["2026-13", "2026-05"],
+        }),
+      })
+    );
+
+    expect(listTribeEvents).toHaveBeenCalledWith({
+      month: null,
+      occurrence: null,
+      tribeSlug: "matematica-pro",
+    });
+    expect(screen.getByRole("heading", { name: "Mayo 2026", level: 1 })).toBeInTheDocument();
+  });
+
+  it("returns 404 for a malformed tribe slug without touching the modules", async () => {
+    (notFound as unknown as Mock).mockImplementation(function () {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+
+    await expect(
+      TribeEventsPage({ params: Promise.resolve({ slug: "Mate Pro" }) })
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(createRequestModules).not.toHaveBeenCalled();
+    expect(listTribeEvents).not.toHaveBeenCalled();
+  });
+
+  it("shows the safe fallback when the listing is not a usable public DTO", async () => {
+    getAuthenticatedMember.mockResolvedValue(authenticatedMember);
+    getTribePageAccess.mockResolvedValue(visibleTribeAccess);
+    listTribeEvents.mockResolvedValue({
+      ...mayListing,
+      events: [{ ...openClassOccurrence, startsAt: "raw-db-value" }],
+    });
+
+    render(
+      await TribeEventsPage({
+        params: Promise.resolve({ slug: "matematica-pro" }),
+        searchParams: Promise.resolve({ month: "2026-05" }),
+      })
+    );
+
+    expect(
+      screen.getByText("No pudimos cargar los eventos. Intentá de nuevo en unos minutos.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Clase abierta")).not.toBeInTheDocument();
+    expect(errorMock).toHaveBeenCalledWith({
+      message: "Tribe event public DTO rejected",
+      metadata: expect.objectContaining({
+        issues: [expect.objectContaining({ path: "events.0.startsAt" })],
+        reason: "public_dto_rejected",
+        slug: "matematica-pro",
+      }),
+    });
+    expect(JSON.stringify(errorMock.mock.calls)).not.toContain("raw-db-value");
+  });
+
+  it("omits an unusable streak but still renders the calendar", async () => {
+    getAuthenticatedMember.mockResolvedValue(authenticatedMember);
+    getTribePageAccess.mockResolvedValue(visibleTribeAccess);
+    listTribeEvents.mockResolvedValue(mayListing);
+    getTribeEventAttendanceStreak.mockResolvedValue({ attendedCount: "4", occurrenceCount: 5 });
+
+    render(
+      await TribeEventsPage({
+        params: Promise.resolve({ slug: "matematica-pro" }),
+        searchParams: Promise.resolve({ month: "2026-05" }),
+      })
+    );
+
+    expect(screen.getByRole("heading", { name: "Mayo 2026", level: 1 })).toBeInTheDocument();
+    expect(errorMock).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Tribe event public DTO rejected" })
+    );
   });
 
   it("forwards the deep-linked occurrence so the listing can resolve its month", async () => {
@@ -160,8 +266,12 @@ describe("tribe coming soon pages", () => {
     );
 
     expect(listTribeEvents).toHaveBeenCalledWith({
-      month: undefined,
-      occurrenceKey,
+      month: null,
+      occurrence: {
+        eventId: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",
+        key: occurrenceKey,
+        occurrenceStartsAt: "2026-06-10T18:00:00.000Z",
+      },
       tribeSlug: "matematica-pro",
     });
     expect(screen.getByRole("heading", { name: "Junio 2026", level: 1 })).toBeInTheDocument();

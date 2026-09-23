@@ -7,6 +7,7 @@ import {
   updateTribeEvent,
 } from "@/src/modules/events/application/use-cases/manage-tribe-events-use-cases";
 import { listUpcomingTribeEvents } from "@/src/modules/events/application/use-cases/list-upcoming-tribe-events-use-case";
+import type { TribeEventFieldsInput } from "@/src/modules/events/application/commands/tribe-event-command";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 import type { TribeEvent } from "@/src/modules/events/domain/entities/tribe-event";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
@@ -61,6 +62,24 @@ function createListing(events: TribeEvent[], canManageEvents = true) {
   };
 }
 
+/**
+ * Fields as the route input schema hands them to the use cases: trimmed text,
+ * canonical instants, null optionals, and a known frequency.
+ */
+function createFields(overrides: Partial<TribeEventFieldsInput> = {}): TribeEventFieldsInput {
+  return {
+    capacity: null,
+    description: null,
+    endsAt: null,
+    meetingUrl: null,
+    recurrenceFrequency: "none",
+    recurrenceUntil: null,
+    startsAt: "2026-05-06T18:00:00.000Z",
+    title: "Clase abierta",
+    ...overrides,
+  };
+}
+
 describe("tribe event use cases", () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -75,7 +94,8 @@ describe("tribe event use cases", () => {
     await expect(
       execute({
         month: "2026-05",
-        tribeSlug: " matematica-pro ",
+        occurrence: null,
+        tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
       events: [
@@ -121,7 +141,12 @@ describe("tribe event use cases", () => {
     });
 
     const result = await execute({
-      occurrenceKey: `${EVENT_ID}@${lateNightStart}`,
+      month: null,
+      occurrence: {
+        eventId: EVENT_ID,
+        key: `${EVENT_ID}@${lateNightStart}`,
+        occurrenceStartsAt: lateNightStart,
+      },
       tribeSlug: "matematica-pro",
     });
 
@@ -138,33 +163,16 @@ describe("tribe event use cases", () => {
 
     const result = await execute({
       month: "2026-05",
-      occurrenceKey: `${EVENT_ID}@2026-06-10T18:00:00.000Z`,
+      occurrence: {
+        eventId: EVENT_ID,
+        key: `${EVENT_ID}@2026-06-10T18:00:00.000Z`,
+        occurrenceStartsAt: "2026-06-10T18:00:00.000Z",
+      },
       tribeSlug: "matematica-pro",
     });
 
     expect(result.month.current).toBe("2026-05");
     expect(result.selectedOccurrenceKey).toBeNull();
-  });
-
-  it("ignores malformed deep links", async () => {
-    vi.useFakeTimers().setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
-    const listByTribeRange = vi.fn(async () => createListing([createEvent()]));
-    const execute = listTribeEvents({
-      tribeEventRepository: createRepository({ listByTribeRange }),
-    });
-
-    for (const occurrenceKey of [
-      "not-a-key",
-      "not-a-uuid@2026-05-06T18:00:00.000Z",
-      `${EVENT_ID}@2026-13-45`,
-      `${EVENT_ID}@2026-05-06`,
-      [`${EVENT_ID}@yesterday`],
-    ]) {
-      const result = await execute({ occurrenceKey, tribeSlug: "matematica-pro" });
-
-      expect(result.month.current).toBe("2026-05");
-      expect(result.selectedOccurrenceKey).toBeNull();
-    }
   });
 
   it("expands recurring series into month occurrences and attaches attendance", async () => {
@@ -186,7 +194,11 @@ describe("tribe event use cases", () => {
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
 
-    const result = await execute({ month: "2026-05", tribeSlug: "matematica-pro" });
+    const result = await execute({
+      month: "2026-05",
+      occurrence: null,
+      tribeSlug: "matematica-pro",
+    });
 
     expect(result.events.map((occurrence) => occurrence.startsAt)).toEqual([
       "2026-05-06T18:00:00.000Z",
@@ -203,50 +215,6 @@ describe("tribe event use cases", () => {
     expect(result.events[0]?.attendance).toEqual(EMPTY_ATTENDANCE);
   });
 
-  it("uses the first month value when the route receives repeated month params", async () => {
-    const listByTribeRange = vi.fn(async () => createListing([], false));
-    const execute = listTribeEvents({
-      tribeEventRepository: createRepository({ listByTribeRange }),
-    });
-
-    await expect(
-      execute({
-        month: ["2026-05", "2026-06"],
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      month: {
-        current: "2026-05",
-        next: "2026-06",
-        previous: "2026-04",
-      },
-    });
-  });
-
-  it("falls back to a valid month when the query month is invalid", async () => {
-    const listByTribeRange = vi.fn(async () => createListing([], false));
-    const execute = listTribeEvents({
-      tribeEventRepository: createRepository({ listByTribeRange }),
-    });
-
-    await expect(
-      execute({
-        month: "not-a-month",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toMatchObject({
-      month: {
-        current: expect.stringMatching(/^\d{4}-\d{2}$/),
-      },
-    });
-    expect(listByTribeRange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        rangeEnd: expect.stringMatching(/^\d{4}-\d{2}-01T03:00:00\.000Z$/),
-        rangeStart: expect.stringMatching(/^\d{4}-\d{2}-01T03:00:00\.000Z$/),
-      })
-    );
-  });
-
   it("falls back to the current Buenos Aires month when month is missing", async () => {
     vi.useFakeTimers().setSystemTime(new Date("2026-05-06T02:30:00.000Z"));
     const listByTribeRange = vi.fn(async () => createListing([], false));
@@ -254,7 +222,9 @@ describe("tribe event use cases", () => {
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
 
-    await expect(execute({ tribeSlug: "matematica-pro" })).resolves.toMatchObject({
+    await expect(
+      execute({ month: null, occurrence: null, tribeSlug: "matematica-pro" })
+    ).resolves.toMatchObject({
       month: {
         current: "2026-05",
         next: "2026-06",
@@ -263,7 +233,7 @@ describe("tribe event use cases", () => {
     });
   });
 
-  it("creates an event with normalized fields and returns the visible month occurrences", async () => {
+  it("creates an event from validated fields and returns the visible month occurrences", async () => {
     const create = vi.fn(async () => ({
       event: createEvent(),
       status: TRIBE_EVENT_MUTATION_STATUS.created,
@@ -273,14 +243,12 @@ describe("tribe event use cases", () => {
     });
 
     const result = await execute({
-      description: "  Repaso mensual  ",
-      endsAt: "2026-05-06T19:00:00.000Z",
-      meetingUrl: " https://meet.google.com/abc-defg-hij ",
-      recurrenceFrequency: "",
-      recurrenceUntil: "",
-      startsAt: "2026-05-06T18:00:00.000Z",
-      title: " Clase abierta ",
-      tribeSlug: " matematica-pro ",
+      ...createFields({
+        description: "Repaso mensual",
+        endsAt: "2026-05-06T19:00:00.000Z",
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+      }),
+      tribeSlug: "matematica-pro",
       visibleMonth: "2026-05",
     });
 
@@ -317,20 +285,11 @@ describe("tribe event use cases", () => {
     });
 
     await expect(
-      execute({
-        description: "",
-        endsAt: "",
-        meetingUrl: "",
-        recurrenceFrequency: "none",
-        recurrenceUntil: "",
-        startsAt: "2026-05-06T18:00:00.000Z",
-        title: "Clase abierta",
-        tribeSlug: "matematica-pro",
-      })
+      execute({ ...createFields(), tribeSlug: "matematica-pro", visibleMonth: null })
     ).resolves.toMatchObject({ occurrences: [] });
   });
 
-  it("stores weekly series with the until date normalized to an instant", async () => {
+  it("stores weekly series with their until instant", async () => {
     const create = vi.fn(async () => ({
       event: createEvent({
         recurrenceFrequency: "weekly",
@@ -343,13 +302,10 @@ describe("tribe event use cases", () => {
     });
 
     const result = await execute({
-      description: "",
-      endsAt: "",
-      meetingUrl: "",
-      recurrenceFrequency: "weekly",
-      recurrenceUntil: "2026-06-30T02:59:00.000Z",
-      startsAt: "2026-05-06T18:00:00.000Z",
-      title: "Clase abierta",
+      ...createFields({
+        recurrenceFrequency: "weekly",
+        recurrenceUntil: "2026-06-30T02:59:00.000Z",
+      }),
       tribeSlug: "matematica-pro",
       visibleMonth: "2026-05",
     });
@@ -368,28 +324,20 @@ describe("tribe event use cases", () => {
     });
   });
 
-  it("rejects unknown recurrence frequencies and until dates before the start", async () => {
+  it("rejects series whose until date is before the start", async () => {
     const create = vi.fn();
     const execute = createTribeEvent({
       tribeEventRepository: createRepository({ create }),
     });
-    const baseCommand = {
-      description: "",
-      endsAt: "",
-      meetingUrl: "",
-      startsAt: "2026-05-06T18:00:00.000Z",
-      title: "Clase abierta",
-      tribeSlug: "matematica-pro",
-    };
 
     await expect(
-      execute({ ...baseCommand, recurrenceFrequency: "daily", recurrenceUntil: "" })
-    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidRecurrence });
-    await expect(
       execute({
-        ...baseCommand,
-        recurrenceFrequency: "weekly",
-        recurrenceUntil: "2026-05-01T00:00:00.000Z",
+        ...createFields({
+          recurrenceFrequency: "weekly",
+          recurrenceUntil: "2026-05-01T00:00:00.000Z",
+        }),
+        tribeSlug: "matematica-pro",
+        visibleMonth: null,
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidRecurrence });
     expect(create).not.toHaveBeenCalled();
@@ -405,14 +353,9 @@ describe("tribe event use cases", () => {
     });
 
     await execute({
-      description: "",
-      endsAt: "",
-      meetingUrl: "",
-      recurrenceFrequency: "none",
-      recurrenceUntil: "2026-01-01T00:00:00.000Z",
-      startsAt: "2026-05-06T18:00:00.000Z",
-      title: "Clase abierta",
+      ...createFields({ recurrenceUntil: "2026-01-01T00:00:00.000Z" }),
       tribeSlug: "matematica-pro",
+      visibleMonth: null,
     });
 
     expect(create).toHaveBeenCalledWith(
@@ -420,30 +363,7 @@ describe("tribe event use cases", () => {
     );
   });
 
-  it("rejects empty titles and oversized descriptions before calling the repository", async () => {
-    const create = vi.fn();
-    const execute = createTribeEvent({
-      tribeEventRepository: createRepository({ create }),
-    });
-    const baseCommand = {
-      endsAt: "",
-      meetingUrl: "",
-      recurrenceFrequency: "",
-      recurrenceUntil: "",
-      startsAt: "2026-05-06T18:00:00.000Z",
-      tribeSlug: "matematica-pro",
-    };
-
-    await expect(
-      execute({ ...baseCommand, description: "", title: "   " })
-    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidInput });
-    await expect(
-      execute({ ...baseCommand, description: "x".repeat(2001), title: "Clase" })
-    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidInput });
-    expect(create).not.toHaveBeenCalled();
-  });
-
-  it("stores a whole positive capacity and treats an empty one as unlimited", async () => {
+  it("forwards the validated capacity untouched", async () => {
     const create = vi.fn(async () => ({
       event: createEvent({ capacity: 25 }),
       status: TRIBE_EVENT_MUTATION_STATUS.created,
@@ -451,51 +371,14 @@ describe("tribe event use cases", () => {
     const execute = createTribeEvent({
       tribeEventRepository: createRepository({ create }),
     });
-    const baseCommand = {
-      description: "",
-      endsAt: "",
-      meetingUrl: "",
-      recurrenceFrequency: "",
-      recurrenceUntil: "",
-      startsAt: "2026-05-06T18:00:00.000Z",
-      title: "Clase",
+
+    await execute({
+      ...createFields({ capacity: 25 }),
       tribeSlug: "matematica-pro",
-    };
-
-    await execute({ ...baseCommand, capacity: " 25 " });
-    await execute({ ...baseCommand, capacity: "" });
-    await execute(baseCommand);
-
-    expect(create.mock.calls.map((call) => ((call as unknown[])[0] as { capacity: unknown }).capacity)).toEqual([
-      25,
-      null,
-      null,
-    ]);
-  });
-
-  it("rejects capacities that are not whole numbers between 1 and 10000", async () => {
-    const create = vi.fn();
-    const execute = createTribeEvent({
-      tribeEventRepository: createRepository({ create }),
+      visibleMonth: null,
     });
-    const baseCommand = {
-      description: "",
-      endsAt: "",
-      meetingUrl: "",
-      recurrenceFrequency: "",
-      recurrenceUntil: "",
-      startsAt: "2026-05-06T18:00:00.000Z",
-      title: "Clase",
-      tribeSlug: "matematica-pro",
-    };
 
-    for (const capacity of ["0", "-3", "2.5", "1e3", "10001", "diez"]) {
-      await expect(execute({ ...baseCommand, capacity })).resolves.toEqual({
-        status: TRIBE_EVENT_MUTATION_STATUS.invalidCapacity,
-      });
-    }
-
-    expect(create).not.toHaveBeenCalled();
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ capacity: 25 }));
   });
 
   it("rejects meeting links that are not http or https URLs", async () => {
@@ -506,14 +389,9 @@ describe("tribe event use cases", () => {
 
     await expect(
       execute({
-        description: "",
-        endsAt: "",
-        meetingUrl: "ftp://meet.example.com/event",
-        recurrenceFrequency: "",
-        recurrenceUntil: "",
-        startsAt: "2026-05-06T18:00:00.000Z",
-        title: "Clase abierta",
+        ...createFields({ meetingUrl: "ftp://meet.example.com/event" }),
         tribeSlug: "matematica-pro",
+        visibleMonth: null,
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl });
     expect(create).not.toHaveBeenCalled();
@@ -527,15 +405,10 @@ describe("tribe event use cases", () => {
 
     await expect(
       execute({
-        description: "",
-        endsAt: "2026-05-06T17:00:00.000Z",
-        eventId: ` ${EVENT_ID} `,
-        meetingUrl: "",
-        recurrenceFrequency: "",
-        recurrenceUntil: "",
-        startsAt: "2026-05-06T18:00:00.000Z",
-        title: "Clase abierta",
-        tribeSlug: " matematica-pro ",
+        ...createFields({ endsAt: "2026-05-06T17:00:00.000Z" }),
+        eventId: EVENT_ID,
+        tribeSlug: "matematica-pro",
+        visibleMonth: null,
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidDate });
     expect(update).not.toHaveBeenCalled();
@@ -552,14 +425,8 @@ describe("tribe event use cases", () => {
 
     await expect(
       execute({
-        description: "",
-        endsAt: "",
+        ...createFields({ title: "Clase cerrada" }),
         eventId: EVENT_ID,
-        meetingUrl: "",
-        recurrenceFrequency: "",
-        recurrenceUntil: "",
-        startsAt: "2026-05-06T18:00:00.000Z",
-        title: "Clase cerrada",
         tribeSlug: "matematica-pro",
         visibleMonth: "2026-05",
       })
@@ -571,40 +438,36 @@ describe("tribe event use cases", () => {
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ eventId: EVENT_ID }));
   });
 
-  it("treats malformed event ids as not found without querying", async () => {
-    const repository = createRepository();
+  it("forwards the not found outcome of the repository", async () => {
+    const repository = createRepository({
+      delete: vi.fn(async () => ({ status: TRIBE_EVENT_MUTATION_STATUS.notFound })),
+      findById: vi.fn(async () => null),
+      update: vi.fn(async () => ({ status: TRIBE_EVENT_MUTATION_STATUS.notFound })),
+    });
 
     await expect(
       updateTribeEvent({ tribeEventRepository: repository })({
-        description: "",
-        endsAt: "",
-        eventId: "not-a-uuid",
-        meetingUrl: "",
-        recurrenceFrequency: "",
-        recurrenceUntil: "",
-        startsAt: "2026-05-06T18:00:00.000Z",
-        title: "Clase abierta",
+        ...createFields(),
+        eventId: OTHER_EVENT_ID,
         tribeSlug: "matematica-pro",
+        visibleMonth: null,
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.notFound });
     await expect(
       deleteTribeEvent({ tribeEventRepository: repository })({
-        eventId: "not-a-uuid",
+        eventId: OTHER_EVENT_ID,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.notFound });
     await expect(
       getTribeEvent({ tribeEventRepository: repository })({
-        eventId: "not-a-uuid",
+        eventId: OTHER_EVENT_ID,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toBeNull();
-    expect(repository.update).not.toHaveBeenCalled();
-    expect(repository.delete).not.toHaveBeenCalled();
-    expect(repository.findById).not.toHaveBeenCalled();
   });
 
-  it("passes normalized identifiers when deleting an event", async () => {
+  it("passes the validated identifiers when deleting an event", async () => {
     const deleteEvent = vi.fn(async () => ({
       status: TRIBE_EVENT_MUTATION_STATUS.deleted,
     }));
@@ -614,8 +477,8 @@ describe("tribe event use cases", () => {
 
     await expect(
       execute({
-        eventId: ` ${EVENT_ID} `,
-        tribeSlug: " matematica-pro ",
+        eventId: EVENT_ID,
+        tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.deleted });
     expect(deleteEvent).toHaveBeenCalledWith({

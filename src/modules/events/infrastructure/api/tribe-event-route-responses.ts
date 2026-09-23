@@ -1,8 +1,11 @@
+import type { TribeEventMessageResponse } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 
 /**
- * Shared HTTP wiring for the tribe event route handlers: body readers, safe
- * Spanish responses, and the mapping from use-case statuses to HTTP codes.
+ * Shared HTTP wiring for the tribe event route handlers: safe Spanish
+ * responses and the mapping from use-case statuses to HTTP codes. Input
+ * validation lives in `tribe-event-route-input.ts`; public DTO validation in
+ * `tribe-event-public-response.ts`.
  */
 export const TRIBE_EVENT_ROUTE_HTTP_STATUS = {
   badRequest: 400,
@@ -12,11 +15,6 @@ export const TRIBE_EVENT_ROUTE_HTTP_STATUS = {
   ok: 200,
   serverError: 500,
   unauthorized: 401,
-} as const;
-
-export const TRIBE_EVENT_ROUTE_QUERY_PARAM = {
-  month: "month",
-  occurrence: "occurrence",
 } as const;
 
 export const TRIBE_EVENT_ROUTE_RESPONSE = {
@@ -33,6 +31,7 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   invalidDateMessage: "La fecha de fin debe ser posterior al inicio.",
   invalidInputMessage: "Completá el título y la fecha de inicio del evento.",
   invalidMeetingUrlMessage: "Usá un link digital válido que empiece con http o https.",
+  invalidMonthMessage: "Elegí un mes válido del calendario.",
   invalidRecurrenceMessage:
     "Elegí una repetición válida y una fecha de fin posterior al inicio.",
   memberForbiddenMessage: "Solo los miembros activos pueden responder a un evento.",
@@ -49,80 +48,15 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   updateSuccessMessage: "Evento actualizado.",
 } as const;
 
-const TRIBE_EVENT_BODY_FIELD = {
-  capacity: "capacity",
-  description: "description",
-  endsAt: "endsAt",
-  meetingUrl: "meetingUrl",
-  occurrenceStartsAt: "occurrenceStartsAt",
-  recurrenceFrequency: "recurrenceFrequency",
-  recurrenceUntil: "recurrenceUntil",
-  startsAt: "startsAt",
-  status: "status",
-  title: "title",
-} as const;
-
-export type TribeEventMutationBody = {
-  capacity: string;
-  description: string;
-  endsAt: string;
-  meetingUrl: string;
-  recurrenceFrequency: string;
-  recurrenceUntil: string;
-  startsAt: string;
-  title: string;
-};
-
+/**
+ * Builds a JSON response whose body is a fixed safe message. Success bodies
+ * go through `createTribeEventPublicResponse` instead, which validates them.
+ */
 export function createJsonResponse(
-  body: Record<string, unknown>,
+  body: TribeEventMessageResponse,
   status: number
 ): Response {
   return Response.json(body, { status });
-}
-
-export function readStringField(body: unknown, field: string): string {
-  if (!body || typeof body !== "object" || !(field in body)) {
-    return "";
-  }
-
-  const value = (body as Record<string, unknown>)[field];
-
-  return typeof value === "string" ? value : "";
-}
-
-export function readTribeEventMutationBody(body: unknown): TribeEventMutationBody {
-  return {
-    capacity: readStringField(body, TRIBE_EVENT_BODY_FIELD.capacity),
-    description: readStringField(body, TRIBE_EVENT_BODY_FIELD.description),
-    endsAt: readStringField(body, TRIBE_EVENT_BODY_FIELD.endsAt),
-    meetingUrl: readStringField(body, TRIBE_EVENT_BODY_FIELD.meetingUrl),
-    recurrenceFrequency: readStringField(
-      body,
-      TRIBE_EVENT_BODY_FIELD.recurrenceFrequency
-    ),
-    recurrenceUntil: readStringField(body, TRIBE_EVENT_BODY_FIELD.recurrenceUntil),
-    startsAt: readStringField(body, TRIBE_EVENT_BODY_FIELD.startsAt),
-    title: readStringField(body, TRIBE_EVENT_BODY_FIELD.title),
-  };
-}
-
-export function readTribeEventAttendanceBody(body: unknown): {
-  occurrenceStartsAt: string;
-  status: string;
-} {
-  return {
-    occurrenceStartsAt: readStringField(
-      body,
-      TRIBE_EVENT_BODY_FIELD.occurrenceStartsAt
-    ),
-    status: readStringField(body, TRIBE_EVENT_BODY_FIELD.status),
-  };
-}
-
-export function readSearchParam(request: Request, name: string): string | undefined {
-  const { searchParams } = new URL(request.url);
-
-  return searchParams.get(name) ?? undefined;
 }
 
 /**
@@ -130,16 +64,6 @@ export function readSearchParam(request: Request, name: string): string | undefi
  */
 export function mapTribeEventMutationStatusResponse(status: string): Response {
   switch (status) {
-    case TRIBE_EVENT_MUTATION_STATUS.invalidInput:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidInputMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
-      );
-    case TRIBE_EVENT_MUTATION_STATUS.invalidCapacity:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidCapacityMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
-      );
     case TRIBE_EVENT_MUTATION_STATUS.invalidDate:
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidDateMessage },

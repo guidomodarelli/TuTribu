@@ -1,21 +1,32 @@
+import type { z } from "zod";
+
 import { ROUTES } from "@/src/constants/routes";
-import type { CreateTribeEventCommand } from "@/src/modules/events/application/commands/tribe-event-command";
+import {
+  tribeEventAttendanceReportResponseSchema,
+  tribeEventAttendanceResponseSchema,
+  tribeEventMessageResponseSchema,
+  tribeEventSaveResponseSchema,
+} from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import type {
   TribeEventAttendanceOption,
   TribeEventAttendanceReportResult,
   TribeEventOccurrenceResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
+import type { TribeEventMutationRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
 
 /**
  * Browser adapter for the tribe event route handlers. It only knows URLs,
  * HTTP verbs, and response bodies; UI feedback and state belong to callers.
+ * Every body is checked with the public DTO schema before it is returned: a
+ * response that does not match is treated as a failure with no message, so
+ * callers fall back to their own safe copy.
  */
 
 /**
- * Body sent to the create/update event endpoints. Optional fields travel as
- * empty strings so the application layer normalizes them in one place.
+ * Body sent to the create/update event endpoints (the wire contract validated
+ * by the route). Optional fields may travel as empty strings.
  */
-export type TribeEventSavePayload = Omit<CreateTribeEventCommand, "tribeSlug" | "visibleMonth">;
+export type TribeEventSavePayload = TribeEventMutationRequestBody;
 
 /**
  * Outcome of a mutation request. `message` is the safe Spanish copy returned
@@ -24,25 +35,6 @@ export type TribeEventSavePayload = Omit<CreateTribeEventCommand, "tribeSlug" | 
 export type TribeEventRequestResult<TData> =
   | ({ isSuccess: true; message: string | null } & TData)
   | { isSuccess: false; message: string | null };
-
-type SaveEventResponseBody = {
-  message?: string;
-  occurrences?: TribeEventOccurrenceResult[];
-};
-
-type AttendanceResponseBody = {
-  attendance?: TribeEventOccurrenceResult["attendance"];
-  message?: string;
-};
-
-type AttendanceReportResponseBody = {
-  message?: string;
-  report?: TribeEventAttendanceReportResult;
-};
-
-type MessageResponseBody = {
-  message?: string;
-};
 
 const HTTP_REQUEST = {
   contentTypeHeader: "Content-Type",
@@ -89,12 +81,36 @@ function buildAttendanceEndpoint(
     : base;
 }
 
+type TribeEventResponseRead<TDto> =
+  | { dto: TDto; isUsable: true }
+  | { isUsable: false; message: string | null };
+
 /**
- * Reads a JSON body, degrading to an empty object when the response has no
- * parseable body so callers fall back to their own safe copy.
+ * Reads a response body and validates it: the success DTO when the status is
+ * OK and the body matches `schema`, otherwise the route's safe message when
+ * the body carries one. A missing, non-JSON, or unexpected body yields no
+ * message so callers show their own fallback copy.
  */
-async function readJsonBody<TBody>(response: Response): Promise<TBody> {
-  return (await response.json().catch(() => ({}))) as TBody;
+async function readTribeEventResponse<TDto>(
+  response: Response,
+  schema: z.ZodType<TDto>
+): Promise<TribeEventResponseRead<TDto>> {
+  const body: unknown = await response.json().catch(() => null);
+
+  if (response.ok) {
+    const dto = schema.safeParse(body);
+
+    if (dto.success) {
+      return { dto: dto.data, isUsable: true };
+    }
+  }
+
+  const failure = tribeEventMessageResponseSchema.safeParse(body);
+
+  return {
+    isUsable: false,
+    message: !response.ok && failure.success ? failure.data.message : null,
+  };
 }
 
 /**
@@ -118,13 +134,17 @@ export async function saveTribeEventRequest(input: {
     headers: JSON_HEADERS,
     method: input.eventId ? HTTP_REQUEST.methodPatch : HTTP_REQUEST.methodPost,
   });
-  const body = await readJsonBody<SaveEventResponseBody>(response);
+  const result = await readTribeEventResponse(response, tribeEventSaveResponseSchema);
 
-  if (!response.ok || !body.occurrences) {
-    return { isSuccess: false, message: body.message ?? null };
+  if (!result.isUsable) {
+    return { isSuccess: false, message: result.message };
   }
 
-  return { isSuccess: true, message: body.message ?? null, occurrences: body.occurrences };
+  return {
+    isSuccess: true,
+    message: result.dto.message,
+    occurrences: result.dto.occurrences,
+  };
 }
 
 /**
@@ -140,11 +160,11 @@ export async function deleteTribeEventRequest(input: {
   const response = await fetch(buildEventEndpoint(input.tribeSlug, input.eventId), {
     method: HTTP_REQUEST.methodDelete,
   });
-  const body = await readJsonBody<MessageResponseBody>(response);
+  const result = await readTribeEventResponse(response, tribeEventMessageResponseSchema);
 
-  return response.ok
-    ? { isSuccess: true, message: body.message ?? null }
-    : { isSuccess: false, message: body.message ?? null };
+  return result.isUsable
+    ? { isSuccess: true, message: result.dto.message }
+    : { isSuccess: false, message: result.message };
 }
 
 /**
@@ -170,13 +190,17 @@ export async function saveTribeEventAttendanceRequest(input: {
     : await fetch(buildAttendanceEndpoint(tribeSlug, occurrence.eventId, occurrence.startsAt), {
         method: HTTP_REQUEST.methodDelete,
       });
-  const body = await readJsonBody<AttendanceResponseBody>(response);
+  const result = await readTribeEventResponse(response, tribeEventAttendanceResponseSchema);
 
-  if (!response.ok || !body.attendance) {
-    return { isSuccess: false, message: body.message ?? null };
+  if (!result.isUsable) {
+    return { isSuccess: false, message: result.message };
   }
 
-  return { attendance: body.attendance, isSuccess: true, message: body.message ?? null };
+  return {
+    attendance: result.dto.attendance,
+    isSuccess: true,
+    message: result.dto.message,
+  };
 }
 
 /**
@@ -216,11 +240,14 @@ export async function fetchTribeEventAttendanceReportRequest(input: {
     buildAttendanceEndpoint(input.tribeSlug, input.eventId, input.occurrenceStartsAt),
     { signal: input.signal }
   );
-  const body = await readJsonBody<AttendanceReportResponseBody>(response);
+  const result = await readTribeEventResponse(
+    response,
+    tribeEventAttendanceReportResponseSchema
+  );
 
-  if (!response.ok || !body.report) {
-    return { isSuccess: false, message: body.message ?? null };
+  if (!result.isUsable) {
+    return { isSuccess: false, message: result.message };
   }
 
-  return { isSuccess: true, message: null, report: body.report };
+  return { isSuccess: true, message: null, report: result.dto.report };
 }

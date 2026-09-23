@@ -1,4 +1,9 @@
 import {
+  tribeEventEmptyQuerySchema,
+  tribeEventRouteParamsSchema,
+} from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
+import { parseTribeEventRouteInput } from "@/src/modules/events/infrastructure/api/tribe-event-route-input";
+import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_RESPONSE,
   createJsonResponse,
@@ -36,7 +41,6 @@ type TribeEventRouteContext = {
  * calendar app can import.
  */
 export async function GET(request: Request, context: TribeEventRouteContext) {
-  const { eventId, slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: CALENDAR_ROUTE_LOG.feature,
@@ -52,6 +56,22 @@ export async function GET(request: Request, context: TribeEventRouteContext) {
       TRIBE_EVENT_ROUTE_HTTP_STATUS.unauthorized
     );
   }
+
+  const input = await parseTribeEventRouteInput({
+    logger,
+    params: context.params,
+    request,
+    schemas: {
+      params: tribeEventRouteParamsSchema,
+      query: tribeEventEmptyQuerySchema,
+    },
+  });
+
+  if (!input.isValid) {
+    return input.response;
+  }
+
+  const { eventId, slug } = input.params;
 
   try {
     const event = await modules.events.useCases.getTribeEvent({

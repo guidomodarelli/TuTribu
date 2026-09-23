@@ -1,11 +1,14 @@
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 import {
+  tribeEventOccurrenceQuerySchema,
+  tribeEventRouteParamsSchema,
+} from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
+import { parseTribeEventRouteInput } from "@/src/modules/events/infrastructure/api/tribe-event-route-input";
+import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
-  TRIBE_EVENT_ROUTE_QUERY_PARAM,
   TRIBE_EVENT_ROUTE_RESPONSE,
   createJsonResponse,
   mapTribeEventAttendanceReportStatusResponse,
-  readSearchParam,
 } from "@/src/modules/events/infrastructure/api/tribe-event-route-responses";
 import { buildTribeEventAttendanceCsvFile } from "@/src/modules/events/infrastructure/export/tribe-event-attendance-csv-file";
 import { createRequestModules } from "@/src/modules/setup";
@@ -41,7 +44,6 @@ type TribeEventRouteContext = {
  * runs on the server through the same use case as the on-screen list.
  */
 export async function GET(request: Request, context: TribeEventRouteContext) {
-  const { eventId, slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: ATTENDANCE_EXPORT_ROUTE_LOG.feature,
@@ -58,8 +60,22 @@ export async function GET(request: Request, context: TribeEventRouteContext) {
     );
   }
 
-  const occurrenceStartsAt =
-    readSearchParam(request, TRIBE_EVENT_ROUTE_QUERY_PARAM.occurrence) ?? "";
+  const input = await parseTribeEventRouteInput({
+    logger,
+    params: context.params,
+    request,
+    schemas: {
+      params: tribeEventRouteParamsSchema,
+      query: tribeEventOccurrenceQuerySchema,
+    },
+  });
+
+  if (!input.isValid) {
+    return input.response;
+  }
+
+  const { eventId, slug } = input.params;
+  const occurrenceStartsAt = input.query.occurrence;
 
   try {
     const result = await modules.events.useCases.getTribeEventAttendanceReport({
