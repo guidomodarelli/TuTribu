@@ -264,6 +264,35 @@ describe("TribeEventsCalendar", () => {
     expect(within(agenda).getByText("Todas las semanas")).toBeInTheDocument();
   });
 
+  it("wraps each agenda day heading and its events in their own day block", async () => {
+    vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const laterOccurrence = createOccurrence({
+      endsAt: "2026-05-13T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-13T18:00:00.000Z",
+      title: "Cierre de mes",
+    });
+
+    renderCalendar({ events: [laterOccurrence, occurrence] });
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+    const [firstDayHeading, secondDayHeading] = within(agenda).getAllByRole("heading", {
+      level: 2,
+    });
+    const firstDayBlock = firstDayHeading.closest("section");
+    const secondDayBlock = secondDayHeading.closest("section");
+
+    expect(firstDayBlock).not.toBe(agenda);
+    expect(secondDayBlock).not.toBe(agenda);
+    expect(firstDayBlock).not.toBe(secondDayBlock);
+    expect(within(firstDayBlock as HTMLElement).getByRole("list")).toBeInTheDocument();
+    expect(within(firstDayBlock as HTMLElement).queryByText("Cierre de mes")).not.toBeInTheDocument();
+    expect(within(secondDayBlock as HTMLElement).getByText("Cierre de mes")).toBeInTheDocument();
+  });
+
   it("shows members a quiet empty state when the month has no events", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 

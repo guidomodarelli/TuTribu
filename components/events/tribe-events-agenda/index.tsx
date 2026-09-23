@@ -62,15 +62,14 @@ export function TribeEventsAgenda({
         </Button>
       ) : null}
       {agendaDays.map((agendaDay) => (
-        <section className={styles.TribeEventsAgenda__day} key={agendaDay.dayKey}>
-          <TribeEventsAgendaDay
-            dayKey={agendaDay.dayKey}
-            firstOccurrence={agendaDay.dayEvents[0]}
-            todayKey={todayKey}
-          >
-            {agendaDay.dayEvents.map(renderOccurrence)}
-          </TribeEventsAgendaDay>
-        </section>
+        <TribeEventsAgendaDay
+          dayKey={agendaDay.dayKey}
+          firstOccurrence={agendaDay.dayEvents[0]}
+          key={agendaDay.dayKey}
+          todayKey={todayKey}
+        >
+          {agendaDay.dayEvents.map(renderOccurrence)}
+        </TribeEventsAgendaDay>
       ))}
     </section>
   );
