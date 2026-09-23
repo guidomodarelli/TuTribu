@@ -133,8 +133,9 @@ export function groupAgendaDays(
 
 /**
  * Replaces every occurrence of the saved event with the fresh set returned by
- * the endpoint, keeping the attendance summary of slots that already existed
- * because a series edit does not touch attendance rows.
+ * the endpoint. The server reads those occurrences after the mutation (with
+ * their exceptions and attendance), so they win over what is on screen; a
+ * brand new event simply has no answers yet.
  *
  * @param currentEvents - Occurrences currently on screen.
  * @param savedOccurrences - Occurrences of the saved event in the visible month.
@@ -146,17 +147,8 @@ export function mergeSavedOccurrences(
   savedOccurrences: TribeEventOccurrenceResult[],
   eventId: string
 ): TribeEventOccurrenceResult[] {
-  const previousAttendance = new Map(
-    currentEvents
-      .filter((occurrence) => occurrence.eventId === eventId)
-      .map((occurrence) => [occurrence.occurrenceKey, occurrence.attendance])
-  );
-
   return [
     ...currentEvents.filter((occurrence) => occurrence.eventId !== eventId),
-    ...savedOccurrences.map((occurrence) => ({
-      ...occurrence,
-      attendance: previousAttendance.get(occurrence.occurrenceKey) ?? occurrence.attendance,
-    })),
+    ...savedOccurrences,
   ].sort(compareOccurrencesByStart);
 }

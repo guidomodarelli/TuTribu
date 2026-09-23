@@ -130,4 +130,51 @@
     border-top: 1px solid var(--border);
     padding-top: 0.75rem;
   }
+
+  &__exception {
+    display: grid;
+    gap: 0.2rem;
+    border-left: 3px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    padding-left: 0.75rem;
+  }
+
+  &__exceptionText {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  &__cancelledNotice {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+  }
+
+  &__managerActions {
+    display: grid;
+    gap: 0.75rem;
+    justify-items: stretch;
+  }
+
+  &__actionGroup {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  &__actionGroupHeading {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__actionGroupButtons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
 }

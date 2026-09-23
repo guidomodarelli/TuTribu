@@ -3,11 +3,19 @@
 import type { ReactNode } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "beez-ui";
 
+import {
+  TRIBE_EVENT_TYPE_BADGE_VARIANT,
+  TribeEventTypeBadge,
+} from "@/components/events/tribe-event-type-badge";
 import { TribeEventsAgendaDay } from "@/components/events/tribe-events-agenda-day";
 import {
   formatBuenosAiresLongDate,
   formatBuenosAiresTime,
 } from "@/lib/date-time/buenos-aires-format";
+import {
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY,
+  isOccurrenceCancelled,
+} from "@/lib/events/tribe-event-occurrence-exception-copy";
 import { isOccurrencePast } from "@/lib/events/tribe-event-occurrence-timing";
 import {
   splitCalendarWeeks,
@@ -48,8 +56,11 @@ const COPY = {
 } as const;
 
 /**
- * Monday-first month grid. Wide screens show one pill per occurrence; phones
- * show one dot per occurrence and list the selected day under the grid.
+ * Monday-first month grid. Wide screens show one pill per occurrence, marked
+ * with the color and icon of its type (the type name is kept for assistive
+ * technology and as a tooltip); phones show one dot per occurrence in its
+ * type color and list the selected day under the grid. Cancelled dates are
+ * struck through with a visible "Cancelado" label and a hollow dot.
  */
 export function TribeEventsMonthGrid({
   activeDayKey,
@@ -63,6 +74,24 @@ export function TribeEventsMonthGrid({
 }: TribeEventsMonthGridProps) {
   const isPast = (occurrence: TribeEventOccurrenceResult) =>
     nowTime !== null && isOccurrencePast(occurrence, nowTime);
+  const resolveDotClassName = (occurrence: TribeEventOccurrenceResult) => {
+    if (isOccurrenceCancelled(occurrence)) {
+      return styles["TribeEventsMonthGrid__dayDot--cancelled"];
+    }
+
+    return isPast(occurrence)
+      ? styles["TribeEventsMonthGrid__dayDot--past"]
+      : styles.TribeEventsMonthGrid__dayDot;
+  };
+  const resolvePillClassName = (occurrence: TribeEventOccurrenceResult) => {
+    if (isOccurrenceCancelled(occurrence)) {
+      return styles["TribeEventsMonthGrid__eventPill--cancelled"];
+    }
+
+    return isPast(occurrence)
+      ? styles["TribeEventsMonthGrid__eventPill--past"]
+      : styles.TribeEventsMonthGrid__eventPill;
+  };
   const activeDayEvents = activeDayKey
     ? (occurrencesByDay[activeDayKey] ?? NO_OCCURRENCES)
     : NO_OCCURRENCES;
@@ -125,11 +154,8 @@ export function TribeEventsMonthGrid({
                         {dayOccurrences.slice(0, DAY_DOTS_MAX).map((occurrence) => (
                           <span
                             aria-hidden
-                            className={
-                              isPast(occurrence)
-                                ? styles["TribeEventsMonthGrid__dayDot--past"]
-                                : styles.TribeEventsMonthGrid__dayDot
-                            }
+                            className={resolveDotClassName(occurrence)}
+                            data-event-type={occurrence.eventType}
                             key={occurrence.occurrenceKey}
                           />
                         ))}
@@ -144,22 +170,35 @@ export function TribeEventsMonthGrid({
                     <div className={styles.TribeEventsMonthGrid__dayEvents}>
                       {dayOccurrences.map((occurrence) => (
                         <button
-                          className={
-                            isPast(occurrence)
-                              ? styles["TribeEventsMonthGrid__eventPill--past"]
-                              : styles.TribeEventsMonthGrid__eventPill
-                          }
+                          className={resolvePillClassName(occurrence)}
+                          data-event-type={occurrence.eventType}
                           key={occurrence.occurrenceKey}
                           type={BUTTON_TYPE}
                           onClick={() => onSelectOccurrence(occurrence)}
                         >
+                          <TribeEventTypeBadge
+                            eventType={occurrence.eventType}
+                            variant={TRIBE_EVENT_TYPE_BADGE_VARIANT.compact}
+                          />
                           <span className={styles.TribeEventsMonthGrid__eventPillTime}>
+                            {PILL_SEPARATOR}
                             {formatBuenosAiresTime(occurrence.startsAt)}
                           </span>
-                          <span className={styles.TribeEventsMonthGrid__eventPillTitle}>
+                          <span
+                            className={
+                              isOccurrenceCancelled(occurrence)
+                                ? styles["TribeEventsMonthGrid__eventPillTitle--cancelled"]
+                                : styles.TribeEventsMonthGrid__eventPillTitle
+                            }
+                          >
                             {PILL_SEPARATOR}
                             {occurrence.title}
                           </span>
+                          {isOccurrenceCancelled(occurrence) ? (
+                            <span className={styles.TribeEventsMonthGrid__eventPillStatus}>
+                              {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.cancelledBadge}
+                            </span>
+                          ) : null}
                         </button>
                       ))}
                     </div>

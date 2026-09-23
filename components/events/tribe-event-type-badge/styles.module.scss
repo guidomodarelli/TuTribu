@@ -1,0 +1,44 @@
+.TribeEventTypeBadge,
+.TribeEventTypeBadge--compact {
+  display: inline-flex;
+  align-items: center;
+  // Never stretch inside flex columns or grids (next event, dialog header).
+  align-self: flex-start;
+  justify-self: start;
+  gap: 0.3rem;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  color: var(--event-type-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.TribeEventTypeBadge {
+  border: 1px solid color-mix(in oklch, var(--event-type-accent) 45%, transparent);
+  border-radius: 999rem;
+  background: var(--event-type-surface);
+  padding: 0.15rem 0.55rem 0.15rem 0.45rem;
+}
+
+.TribeEventTypeBadge--compact {
+  color: var(--event-type-accent);
+}
+
+.TribeEventTypeBadge {
+  &__icon {
+    flex: none;
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+
+  &__srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}

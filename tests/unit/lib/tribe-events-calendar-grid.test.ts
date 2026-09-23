@@ -32,7 +32,10 @@ function createOccurrence(
     endsAt: null,
     eventId,
     meetingUrl: null,
+    eventType: "live",
+    exception: null,
     occurrenceKey: `${eventId}@${startsAt}`,
+    originalStartsAt: startsAt,
     recurrenceFrequency: "none",
     recurrenceRule: null,
     recurrenceUntil: null,
@@ -83,7 +86,7 @@ describe("tribe events calendar grid", () => {
     ]);
   });
 
-  it("replaces the saved series and keeps the attendance of existing slots", () => {
+  it("replaces the saved series with the fresh occurrences read by the server", () => {
     const kept = createOccurrence({
       attendance: {
         goingCount: 3,
@@ -115,17 +118,8 @@ describe("tribe events calendar grid", () => {
       kept.startsAt,
       savedNew.startsAt,
     ]);
-    expect(merged[1]).toMatchObject({
-      attendance: {
-        goingCount: 3,
-        goingPreview: [],
-        maybeCount: 0,
-        viewerStatus: "going",
-        viewerWaitlistPosition: null,
-        waitlistedCount: 0,
-      },
-      capacity: null,
-      title: "Nuevo título",
-    });
+    // The server answers with the attendance it just read, so the saved slot
+    // replaces the one on screen as is.
+    expect(merged[1]).toBe(savedKept);
   });
 });

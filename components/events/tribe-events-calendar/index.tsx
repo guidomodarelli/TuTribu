@@ -9,10 +9,18 @@ import { TribeEventAttendeesPanel } from "@/components/events/tribe-event-attend
 import { TribeEventDeleteDialog } from "@/components/events/tribe-event-delete-dialog";
 import { TribeEventDetailDialog } from "@/components/events/tribe-event-detail-dialog";
 import {
+  TRIBE_EVENT_FORM_PURPOSE,
   TribeEventFormDialog,
   type TribeEventFormInitialValues,
   type TribeEventFormPayload,
 } from "@/components/events/tribe-event-form-dialog";
+import {
+  TribeEventOccurrenceExceptionDialog,
+  type TribeEventOccurrenceExceptionMode,
+  type TribeEventOccurrenceExceptionPayload,
+} from "@/components/events/tribe-event-occurrence-exception-dialog";
+import { TribeEventProposalFormDialog } from "@/components/events/tribe-event-proposal-form-dialog";
+import { TribeEventProposalsPanel } from "@/components/events/tribe-event-proposals-panel";
 import { TribeEventsAgenda } from "@/components/events/tribe-events-agenda";
 import {
   TRIBE_EVENTS_VIEW_MODE,
@@ -21,19 +29,27 @@ import {
 } from "@/components/events/tribe-events-calendar-header";
 import { TribeEventsEmptyState } from "@/components/events/tribe-events-empty-state";
 import { TribeEventsMonthGrid } from "@/components/events/tribe-events-month-grid";
+import { TribeEventsTypeFilter } from "@/components/events/tribe-events-type-filter";
 import { TribeNextEvent } from "@/components/events/tribe-next-event";
 import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
 import { useTribeEventAttendanceReport } from "@/hooks/use-tribe-event-attendance-report";
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
+import { useTribeEventProposals } from "@/hooks/use-tribe-event-proposals";
 import { useViewerTimeZone } from "@/hooks/use-viewer-time-zone";
 import {
   formatBuenosAiresTime,
   getBuenosAiresDateKey,
   getBuenosAiresMonthKey,
 } from "@/lib/date-time/buenos-aires-format";
+import { isOccurrenceCancelled } from "@/lib/events/tribe-event-occurrence-exception-copy";
 import { isOccurrencePast } from "@/lib/events/tribe-event-occurrence-timing";
+import {
+  filterOccurrencesByEventType,
+  toggleEventTypeSelection,
+} from "@/lib/events/tribe-event-type-filter";
+import type { TribeEventProposalPayload } from "@/lib/events/tribe-event-proposals-api-client";
 import { buildTribeEventAttendanceExportUrl } from "@/lib/events/tribe-events-api-client";
 import {
   createCalendarDays,
@@ -43,17 +59,25 @@ import {
 import { buildTribeEventsRoute } from "@/lib/events/tribe-events-routes";
 import { HORIZONTAL_SWIPE_DIRECTION } from "@/lib/gestures/horizontal-swipe";
 import { copyTextToClipboard } from "@/lib/browser-clipboard";
-import { replaceCurrentUrlSearchParam } from "@/lib/browser-navigation";
+import {
+  replaceCurrentUrlSearchParam,
+  replaceCurrentUrlSearchParamValues,
+} from "@/lib/browser-navigation";
 import {
   TRIBE_EVENT_TEMPLATES,
   type TribeEventTemplate,
 } from "@/src/modules/events/constants/tribe-event-templates";
-import { TRIBE_EVENTS_ROUTE_QUERY } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENTS_ROUTE_QUERY,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+} from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEventAttendanceOption,
   TribeEventAttendanceStreakResult,
   TribeEventMonthResult,
   TribeEventOccurrenceResult,
+  TribeEventProposalResult,
+  TribeEventType,
   TribeEventViewerPermissionsResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 import styles from "./styles.module.scss";
@@ -62,11 +86,26 @@ type TribeEventsCalendarProps = {
   /** Viewer-only attendance streak, computed on the server (null if none). */
   attendanceStreak?: TribeEventAttendanceStreakResult | null;
   events: TribeEventOccurrenceResult[];
+  /** Type filter from the URL (`type`), already validated by the page. */
+  initialEventTypes?: readonly TribeEventType[];
   /** Deep-linked occurrence whose detail opens on load (validated server-side). */
   initialOccurrenceKey?: string | null;
   month: TribeEventMonthResult;
+  /** Pending member proposals (managers only; 0 otherwise). */
+  pendingProposalCount?: number;
   tribeSlug: string;
   viewerPermissions: TribeEventViewerPermissionsResult;
+};
+
+type ExceptionDialogSession = {
+  mode: TribeEventOccurrenceExceptionMode;
+  occurrence: TribeEventOccurrenceResult;
+  session: number;
+} | null;
+
+type EventTypeSelectionState = {
+  selectedTypes: readonly TribeEventType[];
+  sourceTypes: readonly TribeEventType[];
 };
 
 type EventFormSession =
@@ -80,15 +119,24 @@ type EventFormSession =
       mode: typeof FORM_MODE.edit;
       occurrence: TribeEventOccurrenceResult;
       session: number;
+    }
+  | {
+      initialValues: TribeEventFormInitialValues;
+      mode: typeof FORM_MODE.approve;
+      proposal: TribeEventProposalResult;
+      session: number;
     };
 
 const FORM_MODE = {
+  approve: "approve",
   closed: "closed",
   create: "create",
   edit: "edit",
 } as const;
+const NO_EVENT_TYPES: readonly TribeEventType[] = [];
 const TIME_LABEL_SUFFIX = " Buenos Aires";
 const COPY = {
+  filteredEmpty: "No hay eventos de los tipos elegidos este mes.",
   linkCopied: "Link copiado.",
   linkCopyFailure: "No pudimos copiar el link.",
 } as const;
@@ -106,8 +154,10 @@ type OccurrenceSelectionState = {
 export function TribeEventsCalendar({
   attendanceStreak = null,
   events,
+  initialEventTypes = NO_EVENT_TYPES,
   initialOccurrenceKey = null,
   month,
+  pendingProposalCount = 0,
   tribeSlug,
   viewerPermissions,
 }: TribeEventsCalendarProps) {
@@ -126,14 +176,42 @@ export function TribeEventsCalendar({
   const router = useRouter();
   const viewerTimeZone = useViewerTimeZone();
   const {
+    applyEventOccurrences,
+    clearOccurrenceException,
     deleteEvent,
     isDeletingEvent,
     isSavingAttendance,
     isSavingEvent,
+    isSavingException,
     saveEvent,
+    saveOccurrenceException,
     setAttendance,
     visibleEvents,
   } = useTribeEventMutations({ events, month: month.current, tribeSlug });
+  const proposals = useTribeEventProposals({
+    initialPendingCount: pendingProposalCount,
+    month: month.current,
+    onEventCreated: applyEventOccurrences,
+    tribeSlug,
+  });
+  const [isProposalFormOpen, setIsProposalFormOpen] = useState(false);
+  const [proposalFormSession, setProposalFormSession] = useState(0);
+  const [isProposalsPanelOpen, setIsProposalsPanelOpen] = useState(false);
+  const [exceptionDialog, setExceptionDialog] = useState<ExceptionDialogSession>(null);
+  // A new type filter from the route (month navigation keeps it in the
+  // links) replaces the local selection, like the deep-linked occurrence.
+  const [eventTypeSelection, setEventTypeSelection] = useState<EventTypeSelectionState>({
+    selectedTypes: initialEventTypes,
+    sourceTypes: initialEventTypes,
+  });
+  const selectedEventTypes =
+    eventTypeSelection.sourceTypes === initialEventTypes
+      ? eventTypeSelection.selectedTypes
+      : initialEventTypes;
+  const filteredEvents = useMemo(
+    () => filterOccurrencesByEventType(visibleEvents, selectedEventTypes),
+    [selectedEventTypes, visibleEvents]
+  );
   const [formSession, setFormSession] = useState<EventFormSession>({
     mode: FORM_MODE.closed,
   });
@@ -157,8 +235,9 @@ export function TribeEventsCalendar({
 
   const currentMonth = month.current;
   const calendarDays = useMemo(() => createCalendarDays(currentMonth), [currentMonth]);
-  const occurrencesByDay = useMemo(() => groupOccurrencesByDay(visibleEvents), [visibleEvents]);
+  const occurrencesByDay = useMemo(() => groupOccurrencesByDay(filteredEvents), [filteredEvents]);
   const canManageEvents = viewerPermissions.canManageEvents;
+  const canProposeEvents = viewerPermissions.canProposeEvents;
   const selectedOccurrence =
     visibleEvents.find((occurrence) => occurrence.occurrenceKey === selectedOccurrenceKey) ??
     null;
@@ -183,24 +262,29 @@ export function TribeEventsCalendar({
   const activeDayKey = selectedDayKey ?? (isTodayInMonth ? todayKey : null);
   const isPast = (occurrence: TribeEventOccurrenceResult): boolean =>
     nowTime !== null && isOccurrencePast(occurrence, nowTime);
+  // A cancelled date is never "the next event": nobody will meet then.
   const nextOccurrence =
     nowTime === null
       ? null
-      : (visibleEvents.find((occurrence) => !isPast(occurrence)) ?? null);
-  const pastEvents = visibleEvents.filter(isPast);
-  const upcomingEvents = visibleEvents.filter((occurrence) => !isPast(occurrence));
+      : (filteredEvents.find(
+          (occurrence) => !isPast(occurrence) && !isOccurrenceCancelled(occurrence)
+        ) ?? null);
+  const pastEvents = filteredEvents.filter(isPast);
+  const upcomingEvents = filteredEvents.filter((occurrence) => !isPast(occurrence));
   // Past occurrences collapse only while the month still has something ahead;
   // browsing an old month shows everything, since all of it is history.
   const shouldCollapsePastEvents = pastEvents.length > 0 && upcomingEvents.length > 0;
   const agendaEvents =
-    shouldCollapsePastEvents && !arePastEventsVisible ? upcomingEvents : visibleEvents;
+    shouldCollapsePastEvents && !arePastEventsVisible ? upcomingEvents : filteredEvents;
   const agendaDays = useMemo(() => groupAgendaDays(agendaEvents), [agendaEvents]);
   // Before hydration there is no clock, so "Hoy" leaves the month to the
   // route (which defaults to the current Buenos Aires month) instead of
   // computing one on the server that could differ from the client's.
   const todayHref = buildTribeEventsRoute(
     tribeSlug,
-    nowTime === null ? {} : { month: getBuenosAiresMonthKey(new Date(nowTime)) }
+    nowTime === null
+      ? { eventTypes: selectedEventTypes }
+      : { eventTypes: selectedEventTypes, month: getBuenosAiresMonthKey(new Date(nowTime)) }
   );
 
   // The open detail is mirrored in the `event` query so the URL can be shared;
@@ -213,8 +297,21 @@ export function TribeEventsCalendar({
     replaceCurrentUrlSearchParam(TRIBE_EVENTS_ROUTE_QUERY.event, occurrenceKey);
   };
 
-  const previousMonthHref = buildTribeEventsRoute(tribeSlug, { month: month.previous });
-  const nextMonthHref = buildTribeEventsRoute(tribeSlug, { month: month.next });
+  const previousMonthHref = buildTribeEventsRoute(tribeSlug, {
+    eventTypes: selectedEventTypes,
+    month: month.previous,
+  });
+  const nextMonthHref = buildTribeEventsRoute(tribeSlug, {
+    eventTypes: selectedEventTypes,
+    month: month.next,
+  });
+
+  // The filter is client-side: toggling a chip never refetches; the URL
+  // mirrors it (replaceState) so it can be shared and survives month links.
+  const setSelectedEventTypes = (nextTypes: readonly TribeEventType[]) => {
+    setEventTypeSelection({ selectedTypes: nextTypes, sourceTypes: initialEventTypes });
+    replaceCurrentUrlSearchParamValues(TRIBE_EVENTS_ROUTE_QUERY.type, nextTypes);
+  };
   // Phones flip months with a horizontal swipe over the grid or the agenda,
   // landing on the same routes as the header chevrons.
   const monthSwipeHandlers = useHorizontalSwipe((direction) => {
@@ -254,17 +351,75 @@ export function TribeEventsCalendar({
   const openTemplateForm = (template: TribeEventTemplate) => {
     openCreateForm({
       durationMinutes: template.durationMinutes,
+      eventType: template.eventType,
       recurrenceFrequency: template.recurrenceFrequency,
       title: template.title,
     });
   };
 
-  const renderEmptyState = () =>
-    canManageEvents ? (
+  const openProposalForm = () => {
+    setProposalFormSession((currentSession) => currentSession + 1);
+    setIsProposalFormOpen(true);
+  };
+
+  const openProposalsPanel = () => {
+    setIsProposalsPanelOpen(true);
+    proposals.loadProposals();
+  };
+
+  const submitProposal = async (payload: TribeEventProposalPayload) => {
+    if (await proposals.createProposal(payload)) {
+      setIsProposalFormOpen(false);
+    }
+  };
+
+  // "Revisar y aprobar" reuses the event form, prefilled with the proposal.
+  const openApprovalForm = (proposal: TribeEventProposalResult) => {
+    formSessionCounterRef.current += 1;
+    setIsProposalsPanelOpen(false);
+    setFormSession({
+      initialValues: {
+        description: proposal.description ?? undefined,
+        durationMinutes: proposal.durationMinutes,
+        eventType: proposal.eventType,
+        startsAt: proposal.startsAt,
+        title: proposal.title,
+      },
+      mode: FORM_MODE.approve,
+      proposal,
+      session: formSessionCounterRef.current,
+    });
+  };
+
+  const openExceptionDialog = (
+    mode: TribeEventOccurrenceExceptionMode,
+    occurrence: TribeEventOccurrenceResult
+  ) => {
+    formSessionCounterRef.current += 1;
+    setExceptionDialog({ mode, occurrence, session: formSessionCounterRef.current });
+  };
+
+  const submitOccurrenceException = async (payload: TribeEventOccurrenceExceptionPayload) => {
+    if (!exceptionDialog) {
+      return;
+    }
+
+    if (await saveOccurrenceException(exceptionDialog.occurrence, payload)) {
+      setExceptionDialog(null);
+    }
+  };
+
+  const renderEmptyState = () => {
+    if (visibleEvents.length > 0) {
+      return <p className={styles.TribeEventsCalendar__filteredEmpty}>{COPY.filteredEmpty}</p>;
+    }
+
+    return canManageEvents ? (
       <TribeEventsEmptyState templates={TRIBE_EVENT_TEMPLATES} onUseTemplate={openTemplateForm} />
     ) : (
-      <TribeEventsEmptyState />
+      <TribeEventsEmptyState onProposeEvent={canProposeEvents ? openProposalForm : undefined} />
     );
+  };
 
   const openEditForm = (occurrence: TribeEventOccurrenceResult) => {
     formSessionCounterRef.current += 1;
@@ -282,6 +437,14 @@ export function TribeEventsCalendar({
 
   const submitEventForm = async (payload: TribeEventFormPayload) => {
     if (formSession.mode === FORM_MODE.closed) {
+      return;
+    }
+
+    if (formSession.mode === FORM_MODE.approve) {
+      if (await proposals.approveProposal(formSession.proposal, payload)) {
+        closeForm();
+      }
+
       return;
     }
 
@@ -337,12 +500,12 @@ export function TribeEventsCalendar({
         onSelectDay={setSelectedDayKey}
         onSelectOccurrence={selectOccurrence}
       />
-      {visibleEvents.length === 0 ? renderEmptyState() : null}
+      {filteredEvents.length === 0 ? renderEmptyState() : null}
     </>
   );
 
   const renderListView = () =>
-    visibleEvents.length === 0 ? (
+    filteredEvents.length === 0 ? (
       renderEmptyState()
     ) : (
       <TribeEventsAgenda
@@ -360,14 +523,27 @@ export function TribeEventsCalendar({
     <main className={styles.TribeEventsCalendar}>
       <TribeEventsCalendarHeader
         canManageEvents={canManageEvents}
+        canProposeEvents={canProposeEvents}
         month={month.current}
         nextMonthHref={nextMonthHref}
+        pendingProposalCount={proposals.pendingCount}
         previousMonthHref={previousMonthHref}
         timeLabel={timeLabel}
         todayHref={todayHref}
+        typeFilter={
+          <TribeEventsTypeFilter
+            selectedTypes={selectedEventTypes}
+            onClear={() => setSelectedEventTypes(NO_EVENT_TYPES)}
+            onToggleType={(eventType) =>
+              setSelectedEventTypes(toggleEventTypeSelection(selectedEventTypes, eventType))
+            }
+          />
+        }
         viewMode={viewMode}
         onChooseViewMode={setChosenViewMode}
         onCreateEvent={() => openCreateForm()}
+        onOpenProposals={openProposalsPanel}
+        onProposeEvent={openProposalForm}
       />
 
       {nextOccurrence && nowTime !== null ? (
@@ -405,7 +581,7 @@ export function TribeEventsCalendar({
             <TribeEventAttendeesPanel
               exportUrl={buildTribeEventAttendanceExportUrl({
                 eventId: selectedOccurrence.eventId,
-                occurrenceStartsAt: selectedOccurrence.startsAt,
+                occurrenceStartsAt: selectedOccurrence.originalStartsAt,
                 tribeSlug,
               })}
               reportState={attendanceReportState}
@@ -416,10 +592,20 @@ export function TribeEventsCalendar({
         canManageEvents={canManageEvents}
         isPast={selectedOccurrence ? isPast(selectedOccurrence) : false}
         isSavingAttendance={isSavingAttendance}
+        isSavingException={isSavingException}
         occurrence={selectedOccurrence}
         tribeSlug={tribeSlug}
         viewerTimeZone={viewerTimeZone}
+        onCancelOccurrence={(occurrence) =>
+          openExceptionDialog(TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled, occurrence)
+        }
         onClose={() => setSelectedOccurrenceKey(null)}
+        onMoveOccurrence={(occurrence) =>
+          openExceptionDialog(TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved, occurrence)
+        }
+        onRestoreOccurrence={(occurrence) => {
+          void clearOccurrenceException(occurrence);
+        }}
         onCopyLink={(occurrence) => {
           void copyOccurrenceLink(occurrence);
         }}
@@ -437,16 +623,65 @@ export function TribeEventsCalendar({
       <TribeEventFormDialog
         editingOccurrence={formSession.mode === FORM_MODE.edit ? formSession.occurrence : null}
         initialValues={
-          formSession.mode === FORM_MODE.create ? formSession.initialValues : undefined
+          formSession.mode === FORM_MODE.create || formSession.mode === FORM_MODE.approve
+            ? formSession.initialValues
+            : undefined
         }
         isOpen={formSession.mode !== FORM_MODE.closed}
-        isSaving={isSavingEvent}
+        isSaving={
+          formSession.mode === FORM_MODE.approve ? proposals.isSubmitting : isSavingEvent
+        }
+        purpose={
+          formSession.mode === FORM_MODE.approve
+            ? TRIBE_EVENT_FORM_PURPOSE.approve
+            : TRIBE_EVENT_FORM_PURPOSE.save
+        }
         key={formSession.mode === FORM_MODE.closed ? FORM_MODE.closed : formSession.session}
         onClose={closeForm}
         onSubmit={(payload) => {
           void submitEventForm(payload);
         }}
       />
+
+      {exceptionDialog ? (
+        <TribeEventOccurrenceExceptionDialog
+          isSaving={isSavingException}
+          key={exceptionDialog.session}
+          mode={exceptionDialog.mode}
+          occurrence={exceptionDialog.occurrence}
+          onClose={() => setExceptionDialog(null)}
+          onSubmit={(payload) => {
+            void submitOccurrenceException(payload);
+          }}
+        />
+      ) : null}
+
+      {canProposeEvents ? (
+        <TribeEventProposalFormDialog
+          isOpen={isProposalFormOpen}
+          isSubmitting={proposals.isSubmitting}
+          key={proposalFormSession}
+          onClose={() => setIsProposalFormOpen(false)}
+          onSubmit={(payload) => {
+            void submitProposal(payload);
+          }}
+        />
+      ) : null}
+
+      {canManageEvents || canProposeEvents ? (
+        <TribeEventProposalsPanel
+          isOpen={isProposalsPanelOpen}
+          isSubmitting={proposals.isSubmitting}
+          loadState={proposals.loadState}
+          onClose={() => setIsProposalsPanelOpen(false)}
+          onReject={proposals.rejectProposal}
+          onRetry={proposals.loadProposals}
+          onReview={openApprovalForm}
+          onWithdraw={(proposal) => {
+            void proposals.withdrawProposal(proposal);
+          }}
+        />
+      ) : null}
 
       <TribeEventDeleteDialog
         isDeleting={isDeletingEvent}

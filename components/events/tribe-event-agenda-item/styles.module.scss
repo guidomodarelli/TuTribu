@@ -1,20 +1,27 @@
 .TribeEventAgendaItem,
-.TribeEventAgendaItem--past {
+.TribeEventAgendaItem--past,
+.TribeEventAgendaItem--cancelled {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.25rem 0.75rem;
   align-items: start;
   padding: 0.65rem 0;
   border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  border-left: 3px solid var(--event-type-accent, var(--border));
+  padding-left: 0.65rem;
   min-width: 0;
 }
 
-.TribeEventAgendaItem--past {
+.TribeEventAgendaItem--past,
+.TribeEventAgendaItem--cancelled {
   color: var(--muted-foreground);
 }
 
+
+
 .TribeEventAgendaItem {
-  &__time {
+  &__time,
+  &__time--cancelled {
     grid-column: 1;
     color: var(--muted-foreground);
     font-size: 0.85rem;
@@ -40,6 +47,12 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.35rem 0.6rem;
+  }
+
+  &__note {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
   }
 
   &__metaText {
@@ -83,7 +96,14 @@
     background: currentColor;
   }
 
-  &__titleButton {
+  &__time--cancelled,
+  &__titleButton--cancelled {
+    text-decoration-line: line-through;
+    text-decoration-color: currentColor;
+  }
+
+  &__titleButton,
+  &__titleButton--cancelled {
     border: 0;
     background: none;
     color: inherit;
@@ -101,14 +121,16 @@
 
 @media (min-width: 40rem) {
   .TribeEventAgendaItem,
-  .TribeEventAgendaItem--past {
+  .TribeEventAgendaItem--past,
+  .TribeEventAgendaItem--cancelled {
     grid-template-columns: 7.5rem minmax(0, 1fr) auto;
     align-items: center;
     column-gap: 1rem;
   }
 
   .TribeEventAgendaItem {
-    &__time {
+    &__time,
+    &__time--cancelled {
       grid-column: 1;
       font-size: 0.9rem;
     }

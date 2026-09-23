@@ -20,7 +20,13 @@ import {
 
 import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
 import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";
+import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
 import { buildTribeEventGoogleCalendarUrl } from "@/lib/events/tribe-event-calendar-links";
+import {
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY,
+  formatMovedFromLabel,
+  isOccurrenceCancelled,
+} from "@/lib/events/tribe-event-occurrence-exception-copy";
 import {
   formatBuenosAiresLongDate,
   formatBuenosAiresShortDate,
@@ -45,11 +51,18 @@ type TribeEventDetailDialogProps = {
   canManageEvents: boolean;
   isPast: boolean;
   isSavingAttendance: boolean;
+  isSavingException?: boolean;
   occurrence: TribeEventOccurrenceResult | null;
+  /** "Cancelar esta fecha" (only this date of a series). */
+  onCancelOccurrence?: (occurrence: TribeEventOccurrenceResult) => void;
   onClose: () => void;
   onCopyLink: (occurrence: TribeEventOccurrenceResult) => void;
   onDelete: (occurrence: TribeEventOccurrenceResult) => void;
   onEdit: (occurrence: TribeEventOccurrenceResult) => void;
+  /** "Mover esta fecha" (only this date of a series). */
+  onMoveOccurrence?: (occurrence: TribeEventOccurrenceResult) => void;
+  /** "Restaurar fecha": removes the cancellation or move of this date. */
+  onRestoreOccurrence?: (occurrence: TribeEventOccurrenceResult) => void;
   onSetAttendance: (
     occurrence: TribeEventOccurrenceResult,
     status: TribeEventAttendanceOption | null
@@ -71,6 +84,8 @@ const LINK_ATTRIBUTE = {
   targetBlank: "_blank",
 } as const;
 const BADGE_VARIANT = {
+  destructive: "destructive",
+  outline: "outline",
   secondary: "secondary",
 } as const;
 const BUTTON_ATTRIBUTE = {
@@ -91,7 +106,16 @@ const COPY = {
   attendanceHeading: "Asistencia",
   attendanceLegend: "¿Vas a participar?",
   attendeesTab: "Asistentes",
+  cancelOccurrenceButton: "Cancelar esta fecha",
+  cancelledNotice: "Esta fecha fue cancelada: no recibe respuestas.",
   deleteButton: "Eliminar",
+  deleteSeriesButton: "Eliminar serie",
+  editSeriesButton: "Editar serie",
+  moveOccurrenceButton: "Mover esta fecha",
+  occurrenceActionsHeading: "Esta fecha",
+  reasonPrefix: "Motivo: ",
+  restoreOccurrenceButton: "Restaurar fecha",
+  seriesActionsHeading: "Toda la serie",
   descriptionHeading: "Descripción",
   detailTab: "Detalle",
   downloadIcs: "Descargar .ics",
@@ -138,11 +162,15 @@ export function TribeEventDetailDialog({
   canManageEvents,
   isPast,
   isSavingAttendance,
+  isSavingException = false,
   occurrence,
+  onCancelOccurrence,
   onClose,
   onCopyLink,
   onDelete,
   onEdit,
+  onMoveOccurrence,
+  onRestoreOccurrence,
   onSetAttendance,
   onToggleAttendees,
   tribeSlug,
@@ -152,10 +180,105 @@ export function TribeEventDetailDialog({
     ? formatViewerLocalTimeLabel(occurrence.startsAt, occurrence.endsAt, viewerTimeZone)
     : null;
   const recurrenceText = occurrence ? formatRecurrence(occurrence) : null;
-  const googleCalendarUrl = occurrence ? buildTribeEventGoogleCalendarUrl(occurrence) : null;
+  const isCancelled = occurrence ? isOccurrenceCancelled(occurrence) : false;
+  const isSeries =
+    occurrence !== null &&
+    occurrence.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none;
+  const movedFromLabel = occurrence ? formatMovedFromLabel(occurrence) : null;
+  const googleCalendarUrl =
+    occurrence && !isCancelled ? buildTribeEventGoogleCalendarUrl(occurrence) : null;
+
+  const renderSeriesManagerActions = (currentOccurrence: TribeEventOccurrenceResult) => (
+    <DialogFooter className={styles.TribeEventDetailDialog__managerActions}>
+      <section
+        aria-label={COPY.occurrenceActionsHeading}
+        className={styles.TribeEventDetailDialog__actionGroup}
+      >
+        <p className={styles.TribeEventDetailDialog__actionGroupHeading}>
+          {COPY.occurrenceActionsHeading}
+        </p>
+        <div className={styles.TribeEventDetailDialog__actionGroupButtons}>
+          {currentOccurrence.exception ? (
+            <Button
+              disabled={isSavingException}
+              size={BUTTON_ATTRIBUTE.sizeSmall}
+              type={BUTTON_ATTRIBUTE.typeButton}
+              variant={BUTTON_ATTRIBUTE.variantOutline}
+              onClick={() => onRestoreOccurrence?.(currentOccurrence)}
+            >
+              {COPY.restoreOccurrenceButton}
+            </Button>
+          ) : null}
+          {isPast ? null : (
+            <>
+              <Button
+                disabled={isSavingException}
+                size={BUTTON_ATTRIBUTE.sizeSmall}
+                type={BUTTON_ATTRIBUTE.typeButton}
+                variant={BUTTON_ATTRIBUTE.variantOutline}
+                onClick={() => onMoveOccurrence?.(currentOccurrence)}
+              >
+                {COPY.moveOccurrenceButton}
+              </Button>
+              {isCancelled ? null : (
+                <Button
+                  disabled={isSavingException}
+                  size={BUTTON_ATTRIBUTE.sizeSmall}
+                  type={BUTTON_ATTRIBUTE.typeButton}
+                  variant={BUTTON_ATTRIBUTE.variantOutline}
+                  onClick={() => onCancelOccurrence?.(currentOccurrence)}
+                >
+                  {COPY.cancelOccurrenceButton}
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      </section>
+      <section
+        aria-label={COPY.seriesActionsHeading}
+        className={styles.TribeEventDetailDialog__actionGroup}
+      >
+        <p className={styles.TribeEventDetailDialog__actionGroupHeading}>
+          {COPY.seriesActionsHeading}
+        </p>
+        <div className={styles.TribeEventDetailDialog__actionGroupButtons}>
+          <Button
+            size={BUTTON_ATTRIBUTE.sizeSmall}
+            type={BUTTON_ATTRIBUTE.typeButton}
+            variant={BUTTON_ATTRIBUTE.variantSecondary}
+            onClick={() => onEdit(currentOccurrence)}
+          >
+            {COPY.editSeriesButton}
+          </Button>
+          <Button
+            size={BUTTON_ATTRIBUTE.sizeSmall}
+            type={BUTTON_ATTRIBUTE.typeButton}
+            variant={BUTTON_ATTRIBUTE.variantDestructive}
+            onClick={() => onDelete(currentOccurrence)}
+          >
+            {COPY.deleteSeriesButton}
+          </Button>
+        </div>
+      </section>
+    </DialogFooter>
+  );
 
   const detailContent = occurrence ? (
     <>
+      {movedFromLabel || occurrence.exception?.reason ? (
+        <div className={styles.TribeEventDetailDialog__exception}>
+          {movedFromLabel ? (
+            <p className={styles.TribeEventDetailDialog__exceptionText}>{movedFromLabel}</p>
+          ) : null}
+          {occurrence.exception?.reason ? (
+            <p className={styles.TribeEventDetailDialog__exceptionText}>
+              {COPY.reasonPrefix}
+              {occurrence.exception.reason}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {occurrence.description ? (
         <dl className={styles.TribeEventDetailDialog__facts}>
           <div className={styles.TribeEventDetailDialog__fact}>
@@ -168,7 +291,7 @@ export function TribeEventDetailDialog({
       ) : null}
 
       <div className={styles.TribeEventDetailDialog__links}>
-        {occurrence.meetingUrl ? (
+        {isCancelled ? null : occurrence.meetingUrl ? (
           <Button asChild className={styles.TribeEventDetailDialog__primaryLink}>
             <a
               href={occurrence.meetingUrl}
@@ -229,8 +352,12 @@ export function TribeEventDetailDialog({
         <p className={styles.TribeEventDetailDialog__attendanceHeading}>
           {COPY.attendanceHeading}
         </p>
-        <TribeEventAttendanceSummary isPast={isPast} occurrence={occurrence} />
-        {isPast ? null : (
+        {isCancelled ? (
+          <p className={styles.TribeEventDetailDialog__cancelledNotice}>{COPY.cancelledNotice}</p>
+        ) : (
+          <TribeEventAttendanceSummary isPast={isPast} occurrence={occurrence} />
+        )}
+        {isPast || isCancelled ? null : (
           <div className={styles.TribeEventDetailDialog__attendanceActions}>
             <span className={styles.TribeEventDetailDialog__attendanceLegend}>
               {COPY.attendanceLegend}
@@ -264,10 +391,21 @@ export function TribeEventDetailDialog({
                 <DialogTitle className={styles.TribeEventDetailDialog__title}>
                   {occurrence.title}
                 </DialogTitle>
-                {isPast ? (
+                {isCancelled ? (
+                  <Badge variant={BADGE_VARIANT.destructive}>
+                    {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.cancelledBadge}
+                  </Badge>
+                ) : null}
+                {movedFromLabel ? (
+                  <Badge variant={BADGE_VARIANT.outline}>
+                    {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.movedBadge}
+                  </Badge>
+                ) : null}
+                {isPast && !isCancelled ? (
                   <Badge variant={BADGE_VARIANT.secondary}>{COPY.pastBadge}</Badge>
                 ) : null}
               </div>
+              <TribeEventTypeBadge eventType={occurrence.eventType} />
               <DialogDescription>
                 {formatBuenosAiresLongDate(occurrence.startsAt)}
                 {COPY.scheduleSeparator}
@@ -302,7 +440,8 @@ export function TribeEventDetailDialog({
               detailContent
             )}
 
-            {canManageEvents ? (
+            {canManageEvents && isSeries ? renderSeriesManagerActions(occurrence) : null}
+            {canManageEvents && !isSeries ? (
               <DialogFooter className={styles.TribeEventDetailDialog__actions}>
                 <Button
                   type={BUTTON_ATTRIBUTE.typeButton}

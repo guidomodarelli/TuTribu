@@ -33,6 +33,7 @@ export default async function TribeEventsPage({
   searchParams?: Promise<{
     event?: string | string[];
     month?: string | string[];
+    type?: string | string[];
   }>;
 }) {
   const [rawParams, rawSearchParams] = await Promise.all([params, searchParams]);
@@ -60,6 +61,9 @@ export default async function TribeEventsPage({
   const [listing, attendanceStreak] = await Promise.all([
     modules.events.useCases
       .listTribeEvents({
+        // The type filter is applied on the client (chips toggle without a
+        // request), so the page always lists every type.
+        eventTypes: [],
         month: pageQuery.month ?? null,
         occurrence: pageQuery.event ?? null,
         tribeSlug: slug,
@@ -120,8 +124,10 @@ export default async function TribeEventsPage({
     <TribeEventsCalendar
       attendanceStreak={streakDto.isUsable ? streakDto.dto : null}
       events={listingDto.dto.events}
+      initialEventTypes={pageQuery.type ?? []}
       initialOccurrenceKey={listingDto.dto.selectedOccurrenceKey}
       month={listingDto.dto.month}
+      pendingProposalCount={listingDto.dto.pendingProposalCount}
       tribeSlug={slug}
       viewerPermissions={listingDto.dto.viewerPermissions}
     />

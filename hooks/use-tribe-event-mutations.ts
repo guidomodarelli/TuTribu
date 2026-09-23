@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "beez-ui";
 
 import {
@@ -8,11 +8,14 @@ import {
   mergeSavedOccurrences,
 } from "@/lib/events/tribe-events-calendar-grid";
 import {
+  clearTribeEventOccurrenceExceptionRequest,
   deleteTribeEventRequest,
   saveTribeEventAttendanceRequest,
+  saveTribeEventOccurrenceExceptionRequest,
   saveTribeEventRequest,
   type TribeEventSavePayload,
 } from "@/lib/events/tribe-events-api-client";
+import type { TribeEventOccurrenceExceptionRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-exception-request-schemas";
 import type {
   TribeEventAttendanceOption,
   TribeEventOccurrenceResult,
@@ -39,10 +42,23 @@ type OccurrencesUpdater = (
  * Client state and mutations of the tribe events calendar.
  */
 export type TribeEventMutations = {
+  /**
+   * Replaces the occurrences of one series with a fresh set from the server
+   * (for example after approving a proposal).
+   */
+  applyEventOccurrences: (eventId: string, occurrences: TribeEventOccurrenceResult[]) => void;
+  /** "Restaurar fecha": removes the exception of the occurrence. */
+  clearOccurrenceException: (occurrence: TribeEventOccurrenceResult) => Promise<boolean>;
   deleteEvent: (occurrence: TribeEventOccurrenceResult) => Promise<boolean>;
   isDeletingEvent: boolean;
   isSavingAttendance: boolean;
   isSavingEvent: boolean;
+  isSavingException: boolean;
+  /** "Cancelar esta fecha" / "Mover esta fecha". */
+  saveOccurrenceException: (
+    occurrence: TribeEventOccurrenceResult,
+    body: Omit<TribeEventOccurrenceExceptionRequestBody, "originalStartsAt">
+  ) => Promise<boolean>;
   saveEvent: (
     payload: TribeEventSavePayload,
     editingOccurrence: TribeEventOccurrenceResult | null
@@ -62,6 +78,8 @@ const COPY = {
   deleteSuccess: "Evento eliminado.",
   eventSaveFailure: "No pudimos guardar el evento.",
   eventSaveFallback: "Evento guardado.",
+  exceptionFailure: "No pudimos actualizar la fecha.",
+  exceptionSaved: "Fecha actualizada.",
 } as const;
 
 /**
@@ -89,9 +107,18 @@ export function useTribeEventMutations({
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isSavingAttendance, setIsSavingAttendance] = useState(false);
+  const [isSavingException, setIsSavingException] = useState(false);
   const isSavingEventRef = useRef(false);
   const isDeletingEventRef = useRef(false);
   const isSavingAttendanceRef = useRef(false);
+  const isSavingExceptionRef = useRef(false);
+  // Month on screen when a response arrives. A response computed for another
+  // month (the viewer navigated while it was in flight) is never merged.
+  const visibleMonthRef = useRef(month);
+
+  useEffect(() => {
+    visibleMonthRef.current = month;
+  }, [month]);
   const unsortedVisibleEvents =
     visibleEventsState.sourceEvents === events ? visibleEventsState.events : events;
   // The endpoint returns occurrences ordered, but the agenda groups by day and
@@ -108,6 +135,84 @@ export function useTribeEventMutations({
     }));
   };
 
+  const applyEventOccurrences: TribeEventMutations["applyEventOccurrences"] = (
+    eventId,
+    occurrences
+  ) => {
+    replaceVisibleEvents((currentEvents) =>
+      mergeSavedOccurrences(currentEvents, occurrences, eventId)
+    );
+  };
+
+  const isStaleMonth = (requestMonth: string): boolean =>
+    visibleMonthRef.current !== requestMonth;
+
+  /**
+   * Runs one exception request (save or clear) with the shared duplicate
+   * guard, toasts, and the incremental patch of the series.
+   */
+  const runExceptionMutation = async (
+    occurrence: TribeEventOccurrenceResult,
+    request: (requestMonth: string) => ReturnType<typeof clearTribeEventOccurrenceExceptionRequest>
+  ): Promise<boolean> => {
+    if (isSavingExceptionRef.current) {
+      return false;
+    }
+
+    isSavingExceptionRef.current = true;
+    setIsSavingException(true);
+
+    const requestMonth = month;
+
+    try {
+      const result = await request(requestMonth);
+
+      if (!result.isSuccess) {
+        toast.error(result.message ?? COPY.exceptionFailure);
+        return false;
+      }
+
+      if (!isStaleMonth(requestMonth)) {
+        applyEventOccurrences(occurrence.eventId, result.occurrences);
+      }
+
+      toast.success(result.message ?? COPY.exceptionSaved);
+      return true;
+    } catch {
+      // Network failure: the route never answered, so show the safe fallback.
+      toast.error(COPY.exceptionFailure);
+      return false;
+    } finally {
+      isSavingExceptionRef.current = false;
+      setIsSavingException(false);
+    }
+  };
+
+  const saveOccurrenceException: TribeEventMutations["saveOccurrenceException"] = (
+    occurrence,
+    body
+  ) =>
+    runExceptionMutation(occurrence, (requestMonth) =>
+      saveTribeEventOccurrenceExceptionRequest({
+        body: { ...body, originalStartsAt: occurrence.originalStartsAt },
+        eventId: occurrence.eventId,
+        month: requestMonth,
+        tribeSlug,
+      })
+    );
+
+  const clearOccurrenceException: TribeEventMutations["clearOccurrenceException"] = (
+    occurrence
+  ) =>
+    runExceptionMutation(occurrence, (requestMonth) =>
+      clearTribeEventOccurrenceExceptionRequest({
+        eventId: occurrence.eventId,
+        month: requestMonth,
+        originalStartsAt: occurrence.originalStartsAt,
+        tribeSlug,
+      })
+    );
+
   const saveEvent: TribeEventMutations["saveEvent"] = async (
     payload,
     editingOccurrence
@@ -119,10 +224,12 @@ export function useTribeEventMutations({
     isSavingEventRef.current = true;
     setIsSavingEvent(true);
 
+    const requestMonth = month;
+
     try {
       const result = await saveTribeEventRequest({
         eventId: editingOccurrence?.eventId ?? null,
-        month,
+        month: requestMonth,
         payload,
         tribeSlug,
       });
@@ -135,10 +242,8 @@ export function useTribeEventMutations({
       const savedEventId =
         editingOccurrence?.eventId ?? result.occurrences[0]?.eventId ?? null;
 
-      if (savedEventId) {
-        replaceVisibleEvents((currentEvents) =>
-          mergeSavedOccurrences(currentEvents, result.occurrences, savedEventId)
-        );
+      if (savedEventId && !isStaleMonth(requestMonth)) {
+        applyEventOccurrences(savedEventId, result.occurrences);
       }
 
       toast.success(result.message ?? COPY.eventSaveFallback);
@@ -232,11 +337,15 @@ export function useTribeEventMutations({
   };
 
   return {
+    applyEventOccurrences,
+    clearOccurrenceException,
     deleteEvent,
     isDeletingEvent,
     isSavingAttendance,
     isSavingEvent,
+    isSavingException,
     saveEvent,
+    saveOccurrenceException,
     setAttendance,
     visibleEvents,
   };

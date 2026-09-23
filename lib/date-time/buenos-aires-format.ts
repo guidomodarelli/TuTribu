@@ -216,3 +216,26 @@ export function buildBuenosAiresInstant(date: string, time: string): string {
       BUENOS_AIRES_UTC_OFFSET
   ).toISOString();
 }
+
+/**
+ * "jueves 12" (weekday and day number, lowercase) or, with `includeMonth`,
+ * "jueves 12 de mayo". Used inside sentences such as "Movido desde el …".
+ *
+ * @param value - Instant to format.
+ * @param includeMonth - Whether to append the month name.
+ * @returns The lowercase weekday and day.
+ */
+export function formatBuenosAiresWeekdayDay(
+  value: string | Date,
+  includeMonth = false
+): string {
+  const date = value instanceof Date ? value : new Date(value);
+  const weekdayDay =
+    readPart(LONG_DATE_FORMATTER, date, DATE_PART.weekday).toLowerCase() +
+    " " +
+    readPart(LONG_DATE_FORMATTER, date, DATE_PART.day);
+
+  return includeMonth
+    ? weekdayDay + LONG_DATE_MONTH_CONNECTOR + readPart(LONG_DATE_FORMATTER, date, DATE_PART.month)
+    : weekdayDay;
+}

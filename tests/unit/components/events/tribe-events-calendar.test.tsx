@@ -57,7 +57,10 @@ function createOccurrence(
     endsAt: "2026-05-06T19:00:00.000Z",
     eventId,
     meetingUrl: "https://meet.google.com/abc-defg-hij",
+    eventType: "live",
+    exception: null,
     occurrenceKey: `${eventId}@${startsAt}`,
+    originalStartsAt: startsAt,
     recurrenceFrequency: "none",
     recurrenceRule: null,
     recurrenceUntil: null,
@@ -79,6 +82,7 @@ function createEventDto(
     capacity: null,
     description: "Repaso mensual",
     endsAt: "2026-05-06T19:00:00.000Z",
+    eventType: "live",
     id: EVENT_ID,
     meetingUrl: "https://meet.google.com/abc-defg-hij",
     recurrenceFrequency: "none",
@@ -117,7 +121,7 @@ function renderCalendar(
       events={[createOccurrence()]}
       month={MAY}
       tribeSlug="matematica-pro"
-      viewerPermissions={{ canManageEvents: true }}
+      viewerPermissions={{ canManageEvents: true, canProposeEvents: false }}
       {...props}
     />,
     { wrapper: RouterProvider }
@@ -306,7 +310,7 @@ describe("TribeEventsCalendar", () => {
   it("shows members a quiet empty state when the month has no events", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false } });
+    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false, canProposeEvents: false } });
 
     expect(screen.getByText("No hay eventos este mes.")).toBeInTheDocument();
 
@@ -317,7 +321,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("keeps the member empty state free of templates", () => {
-    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false } });
+    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false, canProposeEvents: false } });
 
     expect(screen.queryByText("Creá tu primer encuentro")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Q&A semanal/ })).not.toBeInTheDocument();
@@ -359,7 +363,7 @@ describe("TribeEventsCalendar", () => {
           previous: "2026-05",
         }}
         tribeSlug="matematica-pro"
-        viewerPermissions={{ canManageEvents: true }}
+        viewerPermissions={{ canManageEvents: true, canProposeEvents: false }}
       />
     );
 
@@ -654,7 +658,7 @@ describe("TribeEventsCalendar", () => {
   it("opens the event detail with description, attendance, and calendar exports", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ viewerPermissions: { canManageEvents: false } });
+    renderCalendar({ viewerPermissions: { canManageEvents: false, canProposeEvents: false } });
 
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
@@ -763,6 +767,7 @@ describe("TribeEventsCalendar", () => {
       capacity: "",
       description: "",
       endsAt: "2026-05-20T19:00:00.000Z",
+      eventType: "live",
       meetingUrl: "https://meet.google.com/abc-defg-hij",
       recurrenceFrequency: "none",
       recurrenceUntil: "",
@@ -979,7 +984,7 @@ describe("TribeEventsCalendar", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("edits an event from the detail and keeps the attendance of existing slots", async () => {
+  it("edits an event from the detail and shows the attendance the server read after saving", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar();
@@ -1001,7 +1006,7 @@ describe("TribeEventsCalendar", () => {
       message: "Evento actualizado.",
       occurrences: [
         createOccurrence({
-          attendance: createAttendance({ goingCount: 0, viewerStatus: null }),
+          attendance: createAttendance({ goingCount: 2, viewerStatus: null }),
           title: "Clase cerrada",
         }),
       ],
@@ -1137,7 +1142,7 @@ describe("TribeEventsCalendar server render", () => {
           events={[createOccurrence()]}
           month={MAY}
           tribeSlug="matematica-pro"
-          viewerPermissions={{ canManageEvents: false }}
+          viewerPermissions={{ canManageEvents: false, canProposeEvents: false }}
         />
       </RouterProvider>
     );
@@ -1155,7 +1160,7 @@ describe("TribeEventsCalendar server render", () => {
           events={[createOccurrence()]}
           month={MAY}
           tribeSlug="matematica-pro"
-          viewerPermissions={{ canManageEvents: false }}
+          viewerPermissions={{ canManageEvents: false, canProposeEvents: false }}
         />
       </RouterProvider>
     );

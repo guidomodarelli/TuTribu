@@ -7,9 +7,15 @@ import {
   TRIBE_EVENT_ATTENDANCE_SUMMARY_VARIANT,
   TribeEventAttendanceSummary,
 } from "@/components/events/tribe-event-attendance-summary";
+import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
 import { formatBuenosAiresTimeRange } from "@/lib/date-time/buenos-aires-format";
 import { formatViewerLocalTimeLabel } from "@/lib/date-time/viewer-local-time-format";
 import { buildTribeEventGoogleCalendarUrl } from "@/lib/events/tribe-event-calendar-links";
+import {
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY,
+  formatMovedFromLabel,
+  isOccurrenceCancelled,
+} from "@/lib/events/tribe-event-occurrence-exception-copy";
 import {
   TRIBE_EVENT_OCCURRENCE_PHASE,
   getOccurrencePhase,
@@ -33,6 +39,7 @@ type TribeEventAgendaItemProps = {
 
 const BADGE_VARIANT = {
   default: "default",
+  destructive: "destructive",
   outline: "outline",
   secondary: "secondary",
 } as const;
@@ -73,9 +80,11 @@ function AttendanceBadge({ occurrence }: { occurrence: TribeEventOccurrenceResul
 }
 
 /**
- * One agenda row: schedule, title (opens the detail), viewer answer or
- * finished badge, recurrence, a compact attendance summary (avatars,
- * counts, free seats), and the meeting link.
+ * One agenda row: schedule, title (opens the detail), event type, viewer
+ * answer or finished badge, recurrence, a compact attendance summary
+ * (avatars, counts, free seats), and the meeting link. A cancelled date is
+ * struck through with a "Cancelado" badge and no calendar or meeting
+ * shortcuts; a moved date says where it was moved from.
  */
 export function TribeEventAgendaItem({
   nowTime,
@@ -91,14 +100,23 @@ export function TribeEventAgendaItem({
   const phase = nowTime === null ? null : getOccurrencePhase(occurrence, nowTime);
   const isPast = phase === TRIBE_EVENT_OCCURRENCE_PHASE.past;
   const isLive = phase === TRIBE_EVENT_OCCURRENCE_PHASE.live;
+  const isCancelled = isOccurrenceCancelled(occurrence);
+  const movedFromLabel = formatMovedFromLabel(occurrence);
+  const rowClassName = isCancelled
+    ? styles["TribeEventAgendaItem--cancelled"]
+    : isPast
+      ? styles["TribeEventAgendaItem--past"]
+      : styles.TribeEventAgendaItem;
 
   return (
-    <li
-      className={
-        isPast ? styles["TribeEventAgendaItem--past"] : styles.TribeEventAgendaItem
-      }
-    >
-      <span className={styles.TribeEventAgendaItem__time}>
+    <li className={rowClassName} data-event-type={occurrence.eventType}>
+      <span
+        className={
+          isCancelled
+            ? styles["TribeEventAgendaItem__time--cancelled"]
+            : styles.TribeEventAgendaItem__time
+        }
+      >
         {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
         {localTimeLabel ? (
           <span className={styles.TribeEventAgendaItem__localTime}>{localTimeLabel}</span>
@@ -106,20 +124,30 @@ export function TribeEventAgendaItem({
       </span>
       <div className={styles.TribeEventAgendaItem__main}>
         <button
-          className={styles.TribeEventAgendaItem__titleButton}
+          className={
+            isCancelled
+              ? styles["TribeEventAgendaItem__titleButton--cancelled"]
+              : styles.TribeEventAgendaItem__titleButton
+          }
           type={BUTTON_TYPE}
           onClick={() => onSelect(occurrence)}
         >
           {occurrence.title}
         </button>
         <div className={styles.TribeEventAgendaItem__meta}>
-          {isLive ? (
+          <TribeEventTypeBadge eventType={occurrence.eventType} />
+          {isCancelled ? (
+            <Badge variant={BADGE_VARIANT.destructive}>
+              {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.cancelledBadge}
+            </Badge>
+          ) : null}
+          {isLive && !isCancelled ? (
             <Badge className={styles.TribeEventAgendaItem__liveBadge} variant={BADGE_VARIANT.outline}>
               <span aria-hidden className={styles.TribeEventAgendaItem__liveDot} />
               {COPY.liveBadge}
             </Badge>
           ) : null}
-          {isPast ? (
+          {isCancelled ? null : isPast ? (
             <Badge variant={BADGE_VARIANT.secondary}>{COPY.pastBadge}</Badge>
           ) : (
             <AttendanceBadge occurrence={occurrence} />
@@ -130,14 +158,19 @@ export function TribeEventAgendaItem({
             </span>
           ) : null}
         </div>
-        <TribeEventAttendanceSummary
-          isPast={isPast}
-          occurrence={occurrence}
-          variant={TRIBE_EVENT_ATTENDANCE_SUMMARY_VARIANT.compact}
-        />
+        {movedFromLabel ? (
+          <p className={styles.TribeEventAgendaItem__note}>{movedFromLabel}</p>
+        ) : null}
+        {isCancelled ? null : (
+          <TribeEventAttendanceSummary
+            isPast={isPast}
+            occurrence={occurrence}
+            variant={TRIBE_EVENT_ATTENDANCE_SUMMARY_VARIANT.compact}
+          />
+        )}
       </div>
       <div className={styles.TribeEventAgendaItem__actions}>
-        {isPast ? null : (
+        {isPast || isCancelled ? null : (
           <a
             aria-label={COPY.googleCalendar}
             className={styles.TribeEventAgendaItem__iconLink}
@@ -149,7 +182,7 @@ export function TribeEventAgendaItem({
             <CalendarPlusIcon aria-hidden />
           </a>
         )}
-        {occurrence.meetingUrl ? (
+        {occurrence.meetingUrl && !isCancelled ? (
           <a
             aria-label={COPY.linkOpen}
             className={styles.TribeEventAgendaItem__iconLink}

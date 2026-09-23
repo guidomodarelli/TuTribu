@@ -4,6 +4,7 @@ import { ROUTES } from "@/src/constants/routes";
 import {
   tribeEventAttendanceReportResponseSchema,
   tribeEventAttendanceResponseSchema,
+  tribeEventExceptionResponseSchema,
   tribeEventMessageResponseSchema,
   tribeEventSaveResponseSchema,
 } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
@@ -12,6 +13,7 @@ import type {
   TribeEventAttendanceReportResult,
   TribeEventOccurrenceResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
+import type { TribeEventOccurrenceExceptionRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-exception-request-schemas";
 import type { TribeEventMutationRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
 
 /**
@@ -44,19 +46,30 @@ const HTTP_REQUEST = {
   methodPost: "POST",
   methodPut: "PUT",
 } as const;
+
+/**
+ * Method and JSON headers shared by the browser adapters of the events API.
+ */
+export const TRIBE_EVENT_HTTP_REQUEST = HTTP_REQUEST;
 const EVENT_ENDPOINT = {
   attendanceExportPath: "/attendance/export",
   attendancePath: "/attendance",
   eventsPath: "/events",
+  exceptionsPath: "/exceptions",
   monthQuery: "?month=",
+  monthQueryContinuation: "&month=",
   occurrenceQuery: "?occurrence=",
   separator: "/",
 } as const;
-const JSON_HEADERS = {
+export const TRIBE_EVENT_JSON_HEADERS = {
   [HTTP_REQUEST.contentTypeHeader]: HTTP_REQUEST.jsonContentType,
 } as const;
+const JSON_HEADERS = TRIBE_EVENT_JSON_HEADERS;
 
-function buildEventsEndpoint(tribeSlug: string, month?: string): string {
+/**
+ * `/api/tribes/[slug]/events` with an optional `?month=`.
+ */
+export function buildEventsEndpoint(tribeSlug: string, month?: string): string {
   const base =
     ROUTES.api.tribes + EVENT_ENDPOINT.separator + tribeSlug + EVENT_ENDPOINT.eventsPath;
 
@@ -91,7 +104,7 @@ type TribeEventResponseRead<TDto> =
  * the body carries one. A missing, non-JSON, or unexpected body yields no
  * message so callers show their own fallback copy.
  */
-async function readTribeEventResponse<TDto>(
+export async function readTribeEventResponse<TDto>(
   response: Response,
   schema: z.ZodType<TDto>
 ): Promise<TribeEventResponseRead<TDto>> {
@@ -174,7 +187,7 @@ export async function deleteTribeEventRequest(input: {
  * @returns The fresh attendance summary or the failure message.
  */
 export async function saveTribeEventAttendanceRequest(input: {
-  occurrence: Pick<TribeEventOccurrenceResult, "eventId" | "startsAt">;
+  occurrence: Pick<TribeEventOccurrenceResult, "eventId" | "originalStartsAt">;
   status: TribeEventAttendanceOption | null;
   tribeSlug: string;
 }): Promise<
@@ -183,11 +196,11 @@ export async function saveTribeEventAttendanceRequest(input: {
   const { occurrence, status, tribeSlug } = input;
   const response = status
     ? await fetch(buildAttendanceEndpoint(tribeSlug, occurrence.eventId), {
-        body: JSON.stringify({ occurrenceStartsAt: occurrence.startsAt, status }),
+        body: JSON.stringify({ occurrenceStartsAt: occurrence.originalStartsAt, status }),
         headers: JSON_HEADERS,
         method: HTTP_REQUEST.methodPut,
       })
-    : await fetch(buildAttendanceEndpoint(tribeSlug, occurrence.eventId, occurrence.startsAt), {
+    : await fetch(buildAttendanceEndpoint(tribeSlug, occurrence.eventId, occurrence.originalStartsAt), {
         method: HTTP_REQUEST.methodDelete,
       });
   const result = await readTribeEventResponse(response, tribeEventAttendanceResponseSchema);
@@ -250,4 +263,64 @@ export async function fetchTribeEventAttendanceReportRequest(input: {
   }
 
   return { isSuccess: true, message: null, report: result.dto.report };
+}
+
+/**
+ * Cancels or moves one date of a series (`PUT .../exceptions`) and returns
+ * the series slots of the visible month.
+ *
+ * @param input - Tribe, event, visible month, and the requested change.
+ * @returns The fresh occurrences of the series or the failure message.
+ */
+export async function saveTribeEventOccurrenceExceptionRequest(input: {
+  body: TribeEventOccurrenceExceptionRequestBody;
+  eventId: string;
+  month: string;
+  tribeSlug: string;
+}): Promise<TribeEventRequestResult<{ occurrences: TribeEventOccurrenceResult[] }>> {
+  const response = await fetch(
+    buildEventEndpoint(input.tribeSlug, input.eventId) +
+      EVENT_ENDPOINT.exceptionsPath +
+      EVENT_ENDPOINT.monthQuery +
+      input.month,
+    {
+      body: JSON.stringify(input.body),
+      headers: JSON_HEADERS,
+      method: HTTP_REQUEST.methodPut,
+    }
+  );
+  const result = await readTribeEventResponse(response, tribeEventExceptionResponseSchema);
+
+  return result.isUsable
+    ? { isSuccess: true, message: result.dto.message, occurrences: result.dto.occurrences }
+    : { isSuccess: false, message: result.message };
+}
+
+/**
+ * Restores one date of a series (`DELETE .../exceptions?occurrence=`) and
+ * returns the series slots of the visible month.
+ *
+ * @param input - Tribe, event, original start of the date, and visible month.
+ * @returns The fresh occurrences of the series or the failure message.
+ */
+export async function clearTribeEventOccurrenceExceptionRequest(input: {
+  eventId: string;
+  month: string;
+  originalStartsAt: string;
+  tribeSlug: string;
+}): Promise<TribeEventRequestResult<{ occurrences: TribeEventOccurrenceResult[] }>> {
+  const response = await fetch(
+    buildEventEndpoint(input.tribeSlug, input.eventId) +
+      EVENT_ENDPOINT.exceptionsPath +
+      EVENT_ENDPOINT.occurrenceQuery +
+      encodeURIComponent(input.originalStartsAt) +
+      EVENT_ENDPOINT.monthQueryContinuation +
+      input.month,
+    { method: HTTP_REQUEST.methodDelete }
+  );
+  const result = await readTribeEventResponse(response, tribeEventExceptionResponseSchema);
+
+  return result.isUsable
+    ? { isSuccess: true, message: result.dto.message, occurrences: result.dto.occurrences }
+    : { isSuccess: false, message: result.message };
 }

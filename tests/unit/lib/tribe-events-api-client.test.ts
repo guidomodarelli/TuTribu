@@ -25,7 +25,10 @@ const occurrence = {
   endsAt: null,
   eventId: EVENT_ID,
   meetingUrl: null,
+  eventType: "live",
+  exception: null,
   occurrenceKey: `${EVENT_ID}@${STARTS_AT}`,
+  originalStartsAt: STARTS_AT,
   recurrenceFrequency: "weekly",
   recurrenceRule: "FREQ=WEEKLY",
   recurrenceUntil: null,
@@ -38,6 +41,7 @@ const event = {
   capacity: 20,
   description: null,
   endsAt: null,
+  eventType: "live",
   id: EVENT_ID,
   meetingUrl: null,
   recurrenceFrequency: "weekly",
@@ -182,7 +186,7 @@ describe("tribe events API client", () => {
 
       await expect(
         saveTribeEventAttendanceRequest({
-          occurrence: { eventId: EVENT_ID, startsAt: STARTS_AT },
+          occurrence: { eventId: EVENT_ID, originalStartsAt: STARTS_AT },
           status: "going",
           tribeSlug: "matematica-pro",
         })
@@ -194,7 +198,7 @@ describe("tribe events API client", () => {
 
       await expect(
         saveTribeEventAttendanceRequest({
-          occurrence: { eventId: EVENT_ID, startsAt: STARTS_AT },
+          occurrence: { eventId: EVENT_ID, originalStartsAt: STARTS_AT },
           status: null,
           tribeSlug: "matematica-pro",
         })

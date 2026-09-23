@@ -24,14 +24,22 @@ import {
   formatBuenosAiresTime,
   getBuenosAiresDateKey,
 } from "@/lib/date-time/buenos-aires-format";
-import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
+import type {
+  TribeEventOccurrenceResult,
+  TribeEventType,
+} from "@/src/modules/events/application/results/tribe-event-result";
 import type { TribeEventRecurrenceFrequency } from "@/src/modules/events/domain/entities/tribe-event";
-import { TRIBE_EVENT_RECURRENCE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";
+import {
+  TRIBE_EVENT_RECURRENCE_LABEL,
+  TRIBE_EVENT_TYPE_LABEL,
+} from "@/src/modules/events/constants/tribe-event-copy";
 import {
   TRIBE_EVENT_CAPACITY_LIMIT,
   TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
+  TRIBE_EVENT_DEFAULT_TYPE,
   TRIBE_EVENT_FIELD_LIMIT,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
+  TRIBE_EVENT_TYPES,
 } from "@/src/modules/events/constants/tribe-events";
 import styles from "./styles.module.scss";
 
@@ -44,6 +52,7 @@ export type TribeEventFormPayload = {
   capacity: string;
   description: string;
   endsAt: string;
+  eventType: string;
   meetingUrl: string;
   recurrenceFrequency: string;
   recurrenceUntil: string;
@@ -52,15 +61,32 @@ export type TribeEventFormPayload = {
 };
 
 /**
- * Values that prefill the create form (for example from a template). Ignored
- * in edit mode, where the occurrence being edited is the source of truth.
+ * Values that prefill the create form: a template (title, repetition, type,
+ * suggested duration) or a member proposal being approved (which also brings
+ * its start and description). Ignored in edit mode, where the occurrence
+ * being edited is the source of truth.
  */
 export type TribeEventFormInitialValues = {
+  description?: string;
   /** Duration used to suggest the end time once a start is picked. */
   durationMinutes?: number;
+  eventType?: TribeEventType;
   recurrenceFrequency?: TribeEventRecurrenceFrequency;
+  /** ISO start instant; with a duration it also fills the end time. */
+  startsAt?: string;
   title?: string;
 };
+
+/**
+ * `approve` reuses the create form to publish a member proposal.
+ */
+export const TRIBE_EVENT_FORM_PURPOSE = {
+  approve: "approve",
+  save: "save",
+} as const;
+
+type TribeEventFormPurpose =
+  (typeof TRIBE_EVENT_FORM_PURPOSE)[keyof typeof TRIBE_EVENT_FORM_PURPOSE];
 
 type TribeEventFormDialogProps = {
   editingOccurrence: TribeEventOccurrenceResult | null;
@@ -69,6 +95,7 @@ type TribeEventFormDialogProps = {
   isSaving: boolean;
   onClose: () => void;
   onSubmit: (payload: TribeEventFormPayload) => void;
+  purpose?: TribeEventFormPurpose;
 };
 
 type EventFormValues = {
@@ -77,6 +104,7 @@ type EventFormValues = {
   description: string;
   endsDate: string;
   endsTime: string;
+  eventType: string;
   meetingUrl: string;
   recurrenceFrequency: string;
   recurrenceUntil: string;
@@ -91,6 +119,7 @@ const FORM_DEFAULTS: EventFormValues = {
   description: EMPTY_VALUE,
   endsDate: EMPTY_VALUE,
   endsTime: EMPTY_VALUE,
+  eventType: TRIBE_EVENT_DEFAULT_TYPE,
   meetingUrl: EMPTY_VALUE,
   recurrenceFrequency: TRIBE_EVENT_RECURRENCE_FREQUENCY.none,
   recurrenceUntil: EMPTY_VALUE,
@@ -109,6 +138,7 @@ const FIELD_ID = {
   endsDate: "tribe-event-ends-date",
   endsOnAnotherDay: "tribe-event-ends-on-another-day",
   endsTime: "tribe-event-ends-time",
+  eventType: "tribe-event-type",
   meetingUrl: "tribe-event-meeting-url",
   recurrenceFrequency: "tribe-event-recurrence-frequency",
   recurrenceUntil: "tribe-event-recurrence-until",
@@ -141,6 +171,9 @@ const RECURRENCE_OPTIONS = [
   TRIBE_EVENT_RECURRENCE_FREQUENCY.monthly,
 ] as const;
 const COPY = {
+  approveButton: "Aprobar y publicar",
+  approveDescription: "Revisá y completá los datos antes de publicar el encuentro propuesto.",
+  approveTitle: "Aprobar propuesta",
   cancelButton: "Cancelar",
   capacityEditHint: "Bajar el cupo no quita a nadie que ya confirmó.",
   capacityHint: "Si se completa, las nuevas respuestas quedan en lista de espera.",
@@ -155,6 +188,7 @@ const COPY = {
   endsDateLabel: "Fecha de fin",
   endsOnAnotherDayLabel: "Termina otro día",
   endsTimeLabel: "Hora de fin",
+  eventTypeLabel: "Tipo",
   invalidCapacity: "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo.",
   invalidEndDate: "La fecha de fin debe ser posterior al inicio.",
   invalidRecurrenceUntil: "La repetición debe terminar después de la fecha de inicio.",
@@ -170,6 +204,7 @@ const COPY = {
 } as const;
 
 const TIME_FORMAT = {
+  millisecondsPerMinute: 60_000,
   minutesPerHour: 60,
   hoursPerDay: 24,
   padLength: 2,
@@ -212,10 +247,30 @@ function createInitialValues(
   initialValues: TribeEventFormInitialValues | undefined
 ): EventFormValues {
   if (!occurrence) {
+    const suggestedEndsAt =
+      initialValues?.startsAt && initialValues.durationMinutes
+        ? new Date(
+            Date.parse(initialValues.startsAt) +
+              initialValues.durationMinutes * TIME_FORMAT.millisecondsPerMinute
+          ).toISOString()
+        : null;
+    const startDateKey = initialValues?.startsAt
+      ? getBuenosAiresDateKey(initialValues.startsAt)
+      : EMPTY_VALUE;
+    const endDateKey = suggestedEndsAt ? getBuenosAiresDateKey(suggestedEndsAt) : EMPTY_VALUE;
+
     return {
       ...FORM_DEFAULTS,
+      date: startDateKey,
+      description: initialValues?.description ?? FORM_DEFAULTS.description,
+      endsDate: endDateKey === startDateKey ? EMPTY_VALUE : endDateKey,
+      endsTime: suggestedEndsAt ? formatBuenosAiresTime(suggestedEndsAt) : EMPTY_VALUE,
+      eventType: initialValues?.eventType ?? FORM_DEFAULTS.eventType,
       recurrenceFrequency:
         initialValues?.recurrenceFrequency ?? FORM_DEFAULTS.recurrenceFrequency,
+      startsTime: initialValues?.startsAt
+        ? formatBuenosAiresTime(initialValues.startsAt)
+        : EMPTY_VALUE,
       title: initialValues?.title ?? FORM_DEFAULTS.title,
     };
   }
@@ -233,6 +288,7 @@ function createInitialValues(
     endsTime: occurrence.seriesEndsAt
       ? formatBuenosAiresTime(occurrence.seriesEndsAt)
       : EMPTY_VALUE,
+    eventType: occurrence.eventType,
     meetingUrl: occurrence.meetingUrl ?? EMPTY_VALUE,
     recurrenceFrequency: occurrence.recurrenceFrequency,
     recurrenceUntil: occurrence.recurrenceUntil
@@ -308,6 +364,7 @@ function buildPayload(
       capacity: values.capacity.trim(),
       description: values.description,
       endsAt,
+      eventType: values.eventType,
       meetingUrl: values.meetingUrl,
       recurrenceFrequency: values.recurrenceFrequency,
       recurrenceUntil,
@@ -324,6 +381,7 @@ export function TribeEventFormDialog({
   isSaving,
   onClose,
   onSubmit,
+  purpose = TRIBE_EVENT_FORM_PURPOSE.save,
 }: TribeEventFormDialogProps) {
   const [values, setValues] = useState<EventFormValues>(() =>
     createInitialValues(editingOccurrence, initialValues)
@@ -333,6 +391,17 @@ export function TribeEventFormDialog({
     () => createInitialValues(editingOccurrence, initialValues).endsDate !== EMPTY_VALUE
   );
   const isEditing = editingOccurrence !== null;
+  const isApproving = !isEditing && purpose === TRIBE_EVENT_FORM_PURPOSE.approve;
+  const dialogTitle = isEditing
+    ? COPY.editTitle
+    : isApproving
+      ? COPY.approveTitle
+      : COPY.createTitle;
+  const dialogDescription = isEditing
+    ? COPY.editDescription
+    : isApproving
+      ? COPY.approveDescription
+      : COPY.createDescription;
   const suggestedDurationMinutes =
     (isEditing ? undefined : initialValues?.durationMinutes) ??
     TRIBE_EVENT_DEFAULT_DURATION_MINUTES;
@@ -399,10 +468,8 @@ export function TribeEventFormDialog({
     >
       <DialogContent className={styles.TribeEventFormDialog}>
         <DialogHeader>
-          <DialogTitle>{isEditing ? COPY.editTitle : COPY.createTitle}</DialogTitle>
-          <DialogDescription>
-            {isEditing ? COPY.editDescription : COPY.createDescription}
-          </DialogDescription>
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
         <form className={styles.TribeEventFormDialog__form} onSubmit={handleSubmit}>
           <div className={styles.TribeEventFormDialog__field}>
@@ -414,6 +481,27 @@ export function TribeEventFormDialog({
               value={values.title}
               onChange={(event) => updateField("title", event.currentTarget.value)}
             />
+          </div>
+          <div className={styles.TribeEventFormDialog__field}>
+            <label htmlFor={FIELD_ID.eventType}>{COPY.eventTypeLabel}</label>
+            <Select
+              value={values.eventType}
+              onValueChange={(value) => updateField("eventType", value)}
+            >
+              <SelectTrigger
+                className={styles.TribeEventFormDialog__select}
+                id={FIELD_ID.eventType}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TRIBE_EVENT_TYPES.map((eventType) => (
+                  <SelectItem key={eventType} value={eventType}>
+                    {TRIBE_EVENT_TYPE_LABEL[eventType]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className={styles.TribeEventFormDialog__row}>
             <div className={styles.TribeEventFormDialog__field}>
@@ -562,7 +650,7 @@ export function TribeEventFormDialog({
               {COPY.cancelButton}
             </Button>
             <Button disabled={isSaving} type={BUTTON_ATTRIBUTE.typeSubmit}>
-              {isSaving ? COPY.savingButton : COPY.saveButton}
+              {isSaving ? COPY.savingButton : isApproving ? COPY.approveButton : COPY.saveButton}
             </Button>
           </div>
         </form>

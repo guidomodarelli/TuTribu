@@ -50,7 +50,10 @@ function createOccurrence(
     endsAt: "2026-05-06T19:00:00.000Z",
     eventId: EVENT_ID,
     meetingUrl: null,
+    eventType: "live",
+    exception: null,
     occurrenceKey: `${EVENT_ID}@${STARTS_AT}`,
+    originalStartsAt: STARTS_AT,
     recurrenceFrequency: "weekly",
     recurrenceRule: "FREQ=WEEKLY",
     recurrenceUntil: null,
@@ -82,7 +85,7 @@ function renderCalendar(props: Partial<React.ComponentProps<typeof TribeEventsCa
       events={[createOccurrence()]}
       month={MAY}
       tribeSlug="matematica-pro"
-      viewerPermissions={{ canManageEvents: false }}
+      viewerPermissions={{ canManageEvents: false, canProposeEvents: false }}
       {...props}
     />,
     { wrapper: RouterProvider }
@@ -251,7 +254,7 @@ describe("TribeEventsCalendar attendance", () => {
   it("loads the attendees of the occurrence for managers only when the tab opens", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ viewerPermissions: { canManageEvents: true } });
+    renderCalendar({ viewerPermissions: { canManageEvents: true, canProposeEvents: false } });
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
@@ -299,7 +302,7 @@ describe("TribeEventsCalendar attendance", () => {
   it("shows a safe error with retry when the attendees cannot be loaded", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ viewerPermissions: { canManageEvents: true } });
+    renderCalendar({ viewerPermissions: { canManageEvents: true, canProposeEvents: false } });
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
@@ -331,7 +334,7 @@ describe("TribeEventsCalendar attendance", () => {
   it("sends the capacity from the event form and validates it before saving", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ events: [], viewerPermissions: { canManageEvents: true } });
+    renderCalendar({ events: [], viewerPermissions: { canManageEvents: true, canProposeEvents: false } });
 
     await user.click(screen.getByRole("button", { name: "Crear evento" }));
     fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Taller" } });
