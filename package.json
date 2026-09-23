@@ -50,7 +50,8 @@
     "pg": "^8.21.0",
     "pg-cloudflare": "1.4.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.2",
