@@ -80,7 +80,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><td>Ver asistentes, tendencia y exportar CSV</td><td><code>can_manage_tribe_events(tribe_id)</code> en cada consulta del reporte</td><td>SELECT de lectura de tribu; la guarda de gestión vive en el repositorio y el caso de uso devuelve <code>forbidden</code></td></tr>
     <tr><td>Racha propia</td><td><code>can_read_tribe_content</code> y <code>user_id = current_app_user_id()</code></td><td>SELECT de lectura de tribu</td></tr>
   </table>
-  <p>El caso de uso de asistencia valida además que el instante enviado sea una ocurrencia real de la serie (<code>isTribeEventOccurrence</code>) y que los ids tengan forma de uuid antes de consultar, para que un parámetro malformado nunca llegue como error de cast a Postgres.</p>
+  <p>El boundary de la ruta rechaza ids que no son uuid e instantes malformados antes de consultar (sección 08), para que un parámetro malformado nunca llegue como error de cast a Postgres. El caso de uso de asistencia conserva la regla de negocio: el instante tiene que ser una ocurrencia real de la serie (<code>isTribeEventOccurrence</code>).</p>
   <div class="callout c-warn">La respuesta de asistencia se lee con una <strong>segunda sentencia</strong> dentro de la misma transacción, después de llamar a la función. Así refleja las promociones que causó la propia respuesta; un CTE que modifica datos no vería esos cambios dentro de su misma sentencia.</div>
 </div>
 
@@ -99,7 +99,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><td><code>DELETE /api/tribes/[slug]/events/[eventId]/attendance?occurrence=</code></td><td>Quita la respuesta propia de esa ocurrencia</td></tr>
     <tr><td><code>GET /api/tribes/[slug]/events/[eventId]/calendar</code></td><td>Descarga un <code>.ics</code> con <code>RRULE</code> cuando la serie se repite</td></tr>
   </table>
-  <p>Los mensajes de error y los mapeos de status viven en <code>infrastructure/api/tribe-event-route-responses.ts</code>, compartidos por las rutas de eventos. El link "Agregar a Google Calendar" se construye en el cliente con <code>lib/calendar/google-calendar-link.ts</code> a partir de la <code>recurrenceRule</code> que ya viene en el resultado.</p>
+  <p>Todas las rutas validan <code>params</code>, query y body en su boundary y responden 400 con un mensaje seguro si no cumplen; las respuestas de éxito se validan contra su DTO público antes de salir (sección 08). Los mensajes de error y los mapeos de status viven en <code>infrastructure/api/tribe-event-route-responses.ts</code>, compartidos por las rutas de eventos. El link "Agregar a Google Calendar" se construye en el cliente con <code>lib/calendar/google-calendar-link.ts</code> a partir de la <code>recurrenceRule</code> que ya viene en el resultado.</p>
 </div>
 
 <div class="section">
@@ -110,7 +110,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><th>Pieza</th><th>Responsabilidad</th></tr>
     <tr><td><code>components/events/tribe-events-calendar</code></td><td>Contenedor cliente: modo de vista, día y ocurrencia seleccionados, sesiones de formulario, deep link, swipe entre meses. No hace fetch directo. En viewports angostos arranca en modo lista.</td></tr>
     <tr><td><code>hooks/use-tribe-event-mutations.ts</code></td><td>Estado <code>visibleEvents</code> (se reinicia cuando la ruta trae eventos nuevos) y las mutaciones guardar, borrar y asistencia, con guarda por <code>ref</code> contra envíos duplicados, toasts y parche incremental sin refrescar la ruta.</td></tr>
-    <tr><td><code>lib/events/tribe-events-api-client.ts</code></td><td>Adaptador HTTP del navegador para las rutas de eventos; devuelve resultados tipados <code>{ isSuccess, message }</code>.</td></tr>
+    <tr><td><code>lib/events/tribe-events-api-client.ts</code></td><td>Adaptador HTTP del navegador para las rutas de eventos; valida cada body con el schema del DTO público (sin <code>as T</code>) y devuelve resultados tipados <code>{ isSuccess, message }</code>. Una respuesta que no cumple el contrato es un fallo sin mensaje y el hook muestra su toast de fallback.</td></tr>
     <tr><td><code>lib/events/tribe-events-calendar-grid.ts</code></td><td>Helpers puros: celdas del mes, semanas, agrupado por día de Buenos Aires, agenda y merge de ocurrencias guardadas.</td></tr>
     <tr><td><code>lib/events/tribe-event-occurrence-timing.ts</code></td><td>Fase de la ocurrencia (<code>upcoming</code> / <code>live</code> / <code>past</code>), ventana de "Unirme" y copy de cuenta regresiva.</td></tr>
     <tr><td><code>lib/events/tribe-events-routes.ts</code>, <code>lib/events/tribe-event-calendar-links.ts</code></td><td>URLs de la página (<code>month</code>, <code>event</code>) y link de Google Calendar compartido por agenda y detalle.</td></tr>
@@ -135,13 +135,14 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-title">Fin implícito, en vivo y deep link a una ocurrencia</div>
   <p><strong>Fin implícito.</strong> Una ocurrencia sin <code>ends_at</code> dura <code>TRIBE_EVENT_DEFAULT_DURATION_MINUTES</code> (60). La regla vive en el servicio de dominio <code>getTribeEventOccurrenceEndTime</code> (<code>domain/services/tribe-event-occurrence-timing.ts</code>) y la usan tanto el caso de uso <code>listUpcomingTribeEvents</code> como la UI, así "finalizado", "en vivo" y la exportación a calendario coinciden. Una ocurrencia está en vivo cuando <code>startsAt &lt;= ahora &lt; fin</code>; "Unirme" se ofrece desde <code>TRIBE_EVENT_JOIN_WINDOW_MINUTES</code> (15) antes del inicio.</p>
   <p><strong>Deep link.</strong> La página acepta <code>?event=&lt;occurrenceKey&gt;</code> junto al <code>?month=</code> existente (<code>TRIBE_EVENTS_ROUTE_QUERY</code>). El flujo:</p>
-  <div class="code-block"><pre>page.tsx (searchParams.event) -> listTribeEvents({ month, occurrenceKey })
-  -> parseTribeEventOccurrenceKey: eventId@startsAt, startsAt en ISO canónico, eventId uuid
+  <div class="code-block"><pre>page.tsx (searchParams.event) -> tribeEventsPageSearchParamsSchema
+  -> tribeEventOccurrenceKeySchema: eventId@startsAt, startsAt en ISO canónico, eventId uuid
+-> listTribeEvents({ month, occurrence })
   -> sin month: month = mes de Buenos Aires de startsAt
   -> selectedOccurrenceKey = key solo si pertenece a las ocurrencias listadas
 -> TribeEventsCalendar initialOccurrenceKey abre el detalle</pre></div>
   <ul>
-    <li>Un valor inválido o repetido se ignora (se toma el primero y se valida); con <code>month</code> explícito que no contiene la ocurrencia, el mes se respeta y no se abre nada.</li>
+    <li>Un valor inválido se descarta en el schema de la página (<code>.catch(undefined)</code>) y un valor repetido usa el primero; con <code>month</code> explícito que no contiene la ocurrencia, el mes se respeta y no se abre nada.</li>
     <li>Abrir y cerrar el detalle sincroniza <code>event</code> con <code>history.replaceState</code> (<code>replaceCurrentUrlSearchParam</code> en <code>lib/browser-navigation.ts</code>), que el router de Next.js rastrea sin navegar ni refetchear.</li>
     <li><strong>Copiar link</strong> usa <code>lib/browser-clipboard.ts</code>: Clipboard API con detección de soporte y fallback a <code>execCommand("copy")</code> sobre un textarea temporal para WebKit.</li>
     <li>El bloque <code>upcoming-tribe-events</code> del home enlaza a <code>?month=&amp;event=</code> de cada ocurrencia.</li>
@@ -166,6 +167,33 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <p><strong>Tendencia para gestión.</strong> El reporte de una ocurrencia de una serie agrega la cantidad de <code>going</code> de las últimas 6 ocurrencias terminadas (<code>TRIBE_EVENT_ATTENDANCE_TREND</code>, ventana de 400 días); las fechas sin respuestas cuentan 0.</p>
   <p><strong>CSV.</strong> <code>infrastructure/export/tribe-event-attendance-csv-file.ts</code>: columnas <em>Nombre</em>, <em>Estado</em>, <em>Respondido el</em> (hora de Buenos Aires, <code>YYYY-MM-DD HH:mm</code> armado con <code>formatToParts</code>), UTF-8 con BOM y líneas CRLF. Las celdas que empiezan con <code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>, tab o CR se prefijan con <code>'</code> contra inyección de fórmulas, y las comillas, comas y saltos de línea se escapan según RFC 4180. Sin emails ni ids.</p>
   <div class="callout c-warn"><strong>Límites conocidos.</strong> Las respuestas de alguien que deja la tribu o queda bloqueado siguen contando para el cupo hasta que alguien las libere. Una promoción por aumento de cupo solo alcanza a ocurrencias futuras; las pasadas quedan como estaban.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Boundary de validación de payloads</div>
+  <p>El módulo aplica la convención <code>docs/conventions/payload-validation-boundaries.htm</code>: el input del middleend y los DTO públicos se validan con Zod en el boundary; las filas de Postgres del repositorio <strong>no</strong> se validan con schema (solo el narrowing mínimo que ya hace el mapper).</p>
+  <table>
+    <tr><th>Pieza</th><th>Responsabilidad</th></tr>
+    <tr><td><code>infrastructure/api/schemas/tribe-event-input-fields.ts</code></td><td>Campos compartidos: slug canónico (<code>TRIBE_SLUG_PATTERN</code>, igual al CHECK de la base), event id uuid, mes <code>YYYY-MM</code>, instante ISO normalizado a UTC canónico, texto opcional (vacío o ausente → <code>null</code>) y clave de ocurrencia del deep link.</td></tr>
+    <tr><td><code>infrastructure/api/schemas/tribe-event-request-schemas.ts</code></td><td><code>params</code> (<code>{ slug }</code>, <code>{ slug, eventId }</code>), query (<code>?month=</code>, <code>?occurrence=</code>, vacía) y bodies de evento y asistencia. La salida coincide con <code>TribeEventFieldsInput</code> y <code>TribeEventAttendanceInput</code>.</td></tr>
+    <tr><td><code>infrastructure/api/schemas/tribe-events-page-schemas.ts</code></td><td><code>params</code> y <code>searchParams</code> de <code>/[slug]/eventos</code>: slug inválido → <code>notFound()</code>; <code>month</code>/<code>event</code> inválidos se descartan.</td></tr>
+    <tr><td><code>infrastructure/api/schemas/tribe-event-input-issue.ts</code></td><td>Categorías estables de cada regla (<code>invalid_input</code>, <code>invalid_date</code>, <code>invalid_capacity</code>, <code>invalid_recurrence</code>, <code>invalid_meeting_url</code>, <code>invalid_attendance</code>, <code>invalid_month</code>, <code>invalid_event_reference</code>, <code>invalid_tribe_reference</code>).</td></tr>
+    <tr><td><code>infrastructure/api/tribe-event-route-input.ts</code></td><td><code>parseTribeEventRouteInput</code>: valida <code>params</code> → query → body una vez por request, mapea la primera categoría a copy en español (400) y registra <code>warn</code> con <code>{ part, issues: [{ path, code }] }</code>.</td></tr>
+    <tr><td><code>application/results/tribe-event-public-dto-schemas.ts</code></td><td>Allowlist de los DTO públicos: listado, evento guardado, resumen de asistencia, reporte, mensaje y racha. Atados a los tipos <code>*Result</code> con <code>satisfies</code>; los importan las rutas, la página y el adapter del navegador.</td></tr>
+    <tr><td><code>infrastructure/api/tribe-event-public-response.ts</code></td><td><code>createTribeEventPublicResponse</code> (ruta) y <code>parseTribeEventPublicDto</code> (página): envían solo la salida parseada; un DTO inutilizable se registra con <code>reason: "public_dto_rejected"</code> y responde 500 seguro o el estado "No pudimos cargar los eventos".</td></tr>
+  </table>
+  <p><strong>Qué quedó en los casos de uso.</strong> Solo reglas de negocio que un schema no expresa: fin posterior al inicio, "hasta" no anterior al inicio y descartado en eventos sin repetición, link de reunión http/https (value object <code>normalizeExternalMeetingUrl</code>), ocurrencia real de la serie y los permisos que devuelve el repositorio. Ya no recortan texto, parsean el cupo, validan enums, uuid ni meses.</p>
+  <table>
+    <tr><th>Entrada inválida</th><th>Antes</th><th>Ahora</th></tr>
+    <tr><td>Campo con tipo incorrecto en el body (por ejemplo <code>title: 42</code>)</td><td>Se convertía en <code>""</code></td><td>400 con el mensaje de su categoría</td></tr>
+    <tr><td><code>?month=</code> malformado o repetido en la API</td><td>Mes actual (listado) o sin ocurrencias (guardado)</td><td>400 "Elegí un mes válido del calendario."</td></tr>
+    <tr><td><code>eventId</code> que no es uuid</td><td>404 desde el caso de uso</td><td>400 "No pudimos encontrar el evento." sin tocar la base</td></tr>
+    <tr><td>Slug malformado</td><td>Llegaba al repositorio</td><td>400 "No pudimos encontrar la tribu." (API) o 404 (página)</td></tr>
+    <tr><td><code>?occurrence=</code> ausente o malformado</td><td>400 desde el caso de uso</td><td>400 desde el boundary, sin consultar el evento</td></tr>
+    <tr><td><code>month</code>/<code>event</code> inválidos en la página</td><td>Ignorados en el caso de uso</td><td>Ignorados en el schema de la página (mismo resultado visible)</td></tr>
+  </table>
+  <div class="callout c-info"><strong>Fases siguientes.</strong> Toda ruta o página nueva de eventos reutiliza estos campos y el parser de boundary, suma su DTO a <code>tribe-event-public-dto-schemas.ts</code> y agrega tests de params, query y body inválidos, DTO inutilizable (server y cliente) y ausencia de diagnóstico en respuestas y logs. El bloque "Próximos eventos" del home es un Server Component (sus props no cruzan a un componente cliente), por eso no lleva guard de DTO; si pasa a ser cliente, se valida con <code>tribeEventOccurrenceSchema</code>.</div>
 </div>
 </body>
 </html>

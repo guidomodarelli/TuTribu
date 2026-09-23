@@ -300,6 +300,7 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 ```
 
 - Never pass provider DTOs directly to route components.
+- Validate route `params`, query, and body (and page `params`/`searchParams`) once at the boundary with Zod, and validate every public DTO (JSON responses, server → client props, browser adapters) against its schema; never schema-validate Postgres rows or provider responses. Follow `docs/conventions/payload-validation-boundaries.htm`.
 - Never import Better Auth, database context helpers, or provider error mappers from a generic `src/server` path.
 - Any route entrypoint, server component, or action that calls external infrastructure must translate failures into a safe UX in Spanish and must not expose raw provider messages, stack traces, or internal diagnostics to the UI.
 - When those flows fail unexpectedly, log them with structured context at the boundary that owns the user-facing response, including correlation identifiers and safe business metadata when available.
