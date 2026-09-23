@@ -237,6 +237,22 @@ describe("TribeEventsCalendar", () => {
     expect(calendarLink).toHaveAttribute("target", "_blank");
   });
 
+  it("leaves the Google Calendar shortcut out of finished agenda occurrences", async () => {
+    vi.setSystemTime(new Date("2026-05-07T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar();
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+
+    expect(within(agenda).getByText("Finalizado")).toBeInTheDocument();
+    expect(
+      within(agenda).queryByRole("link", { name: "Agregar a Google Calendar" })
+    ).not.toBeInTheDocument();
+  });
+
   it("groups the agenda by day, marks today and shows the viewer answer and recurrence", async () => {
     vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -1123,6 +1139,27 @@ describe("TribeEventsCalendar server render", () => {
     // Without a clock the server cannot know the viewer's "today", so the
     // link leaves the month to the route, which defaults to the current one.
     expect(html).toMatch(/href="\/matematica-pro\/eventos"[^>]*>Hoy</);
+  });
+
+  it("holds back the Google Calendar shortcut until the occurrence phase is known", async () => {
+    const { renderToString } = await import("react-dom/server");
+
+    const html = renderToString(
+      <RouterProvider>
+        <TribeEventsCalendar
+          events={[createOccurrence()]}
+          month={MAY}
+          tribeSlug="matematica-pro"
+          viewerPermissions={{ canManageEvents: false }}
+        />
+      </RouterProvider>
+    );
+
+    // Without a clock the server cannot tell a finished occurrence apart, so
+    // the shortcut limited to unfinished events must not ship in the HTML.
+    expect(html).toContain("Clase abierta");
+    expect(html).not.toContain("Agregar a Google Calendar");
+    expect(html).not.toContain("calendar.google.com");
   });
 
   it("keeps a single view once hydrated on the client", () => {

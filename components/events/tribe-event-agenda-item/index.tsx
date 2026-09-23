@@ -85,6 +85,10 @@ export function TribeEventAgendaItem({
   const phase = nowTime === null ? null : getOccurrencePhase(occurrence, nowTime);
   const isPast = phase === TRIBE_EVENT_OCCURRENCE_PHASE.past;
   const isLive = phase === TRIBE_EVENT_OCCURRENCE_PHASE.live;
+  // The shortcut is limited to unfinished occurrences, so it waits for the
+  // hydrated clock: the server render (phase unknown) must not ship an active
+  // link for an occurrence that may already be over.
+  const canAddToGoogleCalendar = phase !== null && !isPast;
 
   return (
     <li
@@ -129,7 +133,7 @@ export function TribeEventAgendaItem({
         </div>
       </div>
       <div className={styles.TribeEventAgendaItem__actions}>
-        {isPast ? null : (
+        {canAddToGoogleCalendar ? (
           <a
             aria-label={COPY.googleCalendar}
             className={styles.TribeEventAgendaItem__iconLink}
@@ -140,7 +144,7 @@ export function TribeEventAgendaItem({
           >
             <CalendarPlusIcon aria-hidden />
           </a>
-        )}
+        ) : null}
         {occurrence.meetingUrl ? (
           <a
             aria-label={COPY.linkOpen}
