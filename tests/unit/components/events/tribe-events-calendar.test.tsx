@@ -640,6 +640,34 @@ describe("TribeEventsCalendar", () => {
     expect(screen.queryByRole("button", { name: "Crear evento" })).not.toBeInTheDocument();
   });
 
+  it("exports the whole series from the detail of a later recurring occurrence", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({
+      events: [
+        createOccurrence({
+          endsAt: "2026-05-20T19:00:00.000Z",
+          recurrenceFrequency: "weekly",
+          recurrenceRule: "FREQ=WEEKLY",
+          seriesStartsAt: "2026-05-06T18:00:00.000Z",
+          startsAt: "2026-05-20T18:00:00.000Z",
+        }),
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
+    const calendarUrl = new URL(
+      within(dialog)
+        .getByRole("link", { name: "Agregar a Google Calendar" })
+        .getAttribute("href") ?? ""
+    );
+
+    expect(calendarUrl.searchParams.get("dates")).toBe("20260506T180000Z/20260506T190000Z");
+    expect(calendarUrl.searchParams.get("recur")).toBe("RRULE:FREQ=WEEKLY");
+  });
+
   it("records and clears the viewer attendance from the detail", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 

@@ -95,7 +95,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><td><code>DELETE /api/tribes/[slug]/events/[eventId]/attendance?occurrence=</code></td><td>Quita la respuesta propia de esa ocurrencia</td></tr>
     <tr><td><code>GET /api/tribes/[slug]/events/[eventId]/calendar</code></td><td>Descarga un <code>.ics</code> con <code>RRULE</code> cuando la serie se repite</td></tr>
   </table>
-  <p>Los mensajes de error y los mapeos de status viven en <code>infrastructure/api/tribe-event-route-responses.ts</code>, compartidos por las cuatro rutas. El link "Agregar a Google Calendar" se construye en el cliente con <code>lib/calendar/google-calendar-link.ts</code> a partir de la <code>recurrenceRule</code> que ya viene en el resultado.</p>
+  <p>Los mensajes de error y los mapeos de status viven en <code>infrastructure/api/tribe-event-route-responses.ts</code>, compartidos por las cuatro rutas. El link "Agregar a Google Calendar" se construye en el cliente con <code>lib/calendar/google-calendar-link.ts</code> a partir de la <code>recurrenceRule</code> que ya viene en el resultado. Para una serie, <code>lib/events/tribe-event-calendar-links.ts</code> ancla el export en <code>seriesStartsAt</code>/<code>seriesEndsAt</code> (no en la ocurrencia elegida) para que Google agregue la serie completa, incluidas las fechas anteriores; los eventos sin repetición usan <code>startsAt</code>/<code>endsAt</code> de la ocurrencia.</p>
 </div>
 
 <div class="section">
