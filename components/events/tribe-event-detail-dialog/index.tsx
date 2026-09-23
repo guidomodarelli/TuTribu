@@ -5,7 +5,7 @@ import { CalendarPlusIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, LinkIcon } 
 import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "beez-ui";
 
 
-import { buildGoogleCalendarEventUrl } from "@/lib/calendar/google-calendar-link";
+import { buildTribeEventGoogleCalendarUrl } from "@/lib/events/tribe-event-calendar-links";
 import {
   formatBuenosAiresLongDate,
   formatBuenosAiresShortDate,
@@ -22,7 +22,6 @@ import {
 } from "@/src/modules/events/constants/tribe-event-copy";
 import {
   TRIBE_EVENT_ATTENDANCE_STATUS,
-  TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import styles from "./styles.module.scss";
@@ -147,17 +146,7 @@ export function TribeEventDetailDialog({
   tribeSlug,
 }: TribeEventDetailDialogProps) {
   const recurrenceText = occurrence ? formatRecurrence(occurrence) : null;
-  const googleCalendarUrl = occurrence
-    ? buildGoogleCalendarEventUrl({
-        defaultDurationMinutes: TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
-        description: occurrence.description,
-        endsAt: occurrence.endsAt,
-        location: occurrence.meetingUrl,
-        recurrenceRule: occurrence.recurrenceRule,
-        startsAt: occurrence.startsAt,
-        title: occurrence.title,
-      })
-    : null;
+  const googleCalendarUrl = occurrence ? buildTribeEventGoogleCalendarUrl(occurrence) : null;
 
   return (
     <Dialog

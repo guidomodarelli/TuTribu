@@ -136,6 +136,26 @@ describe("TribeEventsCalendar", () => {
     ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
   });
 
+  it("offers adding each agenda occurrence to Google Calendar", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar();
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+    const calendarLink = within(agenda).getByRole("link", {
+      name: "Agregar a Google Calendar",
+    });
+    const calendarUrl = new URL(calendarLink.getAttribute("href") ?? "");
+
+    expect(calendarUrl.origin).toBe("https://calendar.google.com");
+    expect(calendarUrl.searchParams.get("text")).toBe("Clase abierta");
+    expect(calendarUrl.searchParams.get("dates")).toBe("20260506T180000Z/20260506T190000Z");
+    expect(calendarLink).toHaveAttribute("title", "Agregar a Google Calendar");
+    expect(calendarLink).toHaveAttribute("target", "_blank");
+  });
+
   it("groups the agenda by day, marks today and shows the viewer answer and recurrence", async () => {
     vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

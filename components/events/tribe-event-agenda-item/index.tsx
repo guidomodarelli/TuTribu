@@ -1,9 +1,10 @@
 "use client";
 
-import { ExternalLinkIcon } from "lucide-react";
+import { CalendarPlusIcon, ExternalLinkIcon } from "lucide-react";
 import { Badge } from "beez-ui";
 
 import { formatBuenosAiresTimeRange } from "@/lib/date-time/buenos-aires-format";
+import { buildTribeEventGoogleCalendarUrl } from "@/lib/events/tribe-event-calendar-links";
 import {
   TRIBE_EVENT_OCCURRENCE_PHASE,
   getOccurrencePhase,
@@ -34,6 +35,7 @@ const LINK_ATTRIBUTE = {
   targetBlank: "_blank",
 } as const;
 const COPY = {
+  googleCalendar: "Agregar a Google Calendar",
   goingBadge: "Vas",
   goingCountSuffixPlural: " van",
   goingCountSuffixSingular: " va",
@@ -114,8 +116,20 @@ export function TribeEventAgendaItem({
           </span>
         </div>
       </div>
-      {occurrence.meetingUrl ? (
-        <div className={styles.TribeEventAgendaItem__actions}>
+      <div className={styles.TribeEventAgendaItem__actions}>
+        {isPast ? null : (
+          <a
+            aria-label={COPY.googleCalendar}
+            className={styles.TribeEventAgendaItem__iconLink}
+            href={buildTribeEventGoogleCalendarUrl(occurrence)}
+            rel={LINK_ATTRIBUTE.noreferrer}
+            target={LINK_ATTRIBUTE.targetBlank}
+            title={COPY.googleCalendar}
+          >
+            <CalendarPlusIcon aria-hidden />
+          </a>
+        )}
+        {occurrence.meetingUrl ? (
           <a
             aria-label={COPY.linkOpen}
             className={styles.TribeEventAgendaItem__iconLink}
@@ -126,8 +140,8 @@ export function TribeEventAgendaItem({
           >
             <ExternalLinkIcon aria-hidden />
           </a>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </li>
   );
 }
