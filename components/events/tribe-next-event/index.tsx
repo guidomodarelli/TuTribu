@@ -6,6 +6,7 @@ import {
   formatBuenosAiresLongDate,
   formatBuenosAiresTimeRange,
 } from "@/lib/date-time/buenos-aires-format";
+import { formatViewerLocalTimeLabel } from "@/lib/date-time/viewer-local-time-format";
 import {
   formatOccurrenceCountdown,
   isOccurrenceJoinable,
@@ -29,6 +30,8 @@ type TribeNextEventProps = {
     occurrence: TribeEventOccurrenceResult,
     status: TribeEventAttendanceStatus | null
   ) => void;
+  /** Browser time zone, null before hydration. */
+  viewerTimeZone: string | null;
 };
 
 const ATTENDANCE_OPTIONS = [
@@ -66,7 +69,13 @@ export function TribeNextEvent({
   occurrence,
   onSeeDetail,
   onSetAttendance,
+  viewerTimeZone,
 }: TribeNextEventProps) {
+  const localTimeLabel = formatViewerLocalTimeLabel(
+    occurrence.startsAt,
+    occurrence.endsAt,
+    viewerTimeZone
+  );
   const isLive = isOccurrenceLive(occurrence, nowTime);
   const joinUrl =
     occurrence.meetingUrl && isOccurrenceJoinable(occurrence, nowTime)
@@ -94,6 +103,12 @@ export function TribeNextEvent({
           {formatBuenosAiresLongDate(occurrence.startsAt)}
           {COPY.scheduleSeparator}
           {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
+          {localTimeLabel ? (
+            <span className={styles.TribeNextEvent__localTime}>
+              {COPY.scheduleSeparator}
+              {localTimeLabel}
+            </span>
+          ) : null}
         </p>
       </div>
       <div className={styles.TribeNextEvent__actions}>

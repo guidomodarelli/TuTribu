@@ -88,6 +88,10 @@
     font-size: 0.95rem;
   }
 
+  &__localTime {
+    font-variant-numeric: tabular-nums;
+  }
+
   &__actions {
     display: flex;
     flex-wrap: wrap;

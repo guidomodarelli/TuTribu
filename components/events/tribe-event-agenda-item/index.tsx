@@ -4,6 +4,7 @@ import { CalendarPlusIcon, ExternalLinkIcon } from "lucide-react";
 import { Badge } from "beez-ui";
 
 import { formatBuenosAiresTimeRange } from "@/lib/date-time/buenos-aires-format";
+import { formatViewerLocalTimeLabel } from "@/lib/date-time/viewer-local-time-format";
 import { buildTribeEventGoogleCalendarUrl } from "@/lib/events/tribe-event-calendar-links";
 import {
   TRIBE_EVENT_OCCURRENCE_PHASE,
@@ -22,6 +23,8 @@ type TribeEventAgendaItemProps = {
   nowTime: number | null;
   occurrence: TribeEventOccurrenceResult;
   onSelect: (occurrence: TribeEventOccurrenceResult) => void;
+  /** Browser time zone, null before hydration. */
+  viewerTimeZone: string | null;
 };
 
 const BADGE_VARIANT = {
@@ -72,7 +75,13 @@ export function TribeEventAgendaItem({
   nowTime,
   occurrence,
   onSelect,
+  viewerTimeZone,
 }: TribeEventAgendaItemProps) {
+  const localTimeLabel = formatViewerLocalTimeLabel(
+    occurrence.startsAt,
+    occurrence.endsAt,
+    viewerTimeZone
+  );
   const phase = nowTime === null ? null : getOccurrencePhase(occurrence, nowTime);
   const isPast = phase === TRIBE_EVENT_OCCURRENCE_PHASE.past;
   const isLive = phase === TRIBE_EVENT_OCCURRENCE_PHASE.live;
@@ -85,6 +94,9 @@ export function TribeEventAgendaItem({
     >
       <span className={styles.TribeEventAgendaItem__time}>
         {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
+        {localTimeLabel ? (
+          <span className={styles.TribeEventAgendaItem__localTime}>{localTimeLabel}</span>
+        ) : null}
       </span>
       <div className={styles.TribeEventAgendaItem__main}>
         <button

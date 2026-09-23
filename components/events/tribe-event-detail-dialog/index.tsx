@@ -11,6 +11,7 @@ import {
   formatBuenosAiresShortDate,
   formatBuenosAiresTimeRange,
 } from "@/lib/date-time/buenos-aires-format";
+import { formatViewerLocalTimeLabel } from "@/lib/date-time/viewer-local-time-format";
 import { ROUTES } from "@/src/constants/routes";
 import type {
   TribeEventAttendanceStatus,
@@ -40,6 +41,8 @@ type TribeEventDetailDialogProps = {
     status: TribeEventAttendanceStatus | null
   ) => void;
   tribeSlug: string;
+  /** Browser time zone, null before hydration. */
+  viewerTimeZone: string | null;
 };
 
 const EVENT_ENDPOINT = {
@@ -144,7 +147,11 @@ export function TribeEventDetailDialog({
   onEdit,
   onSetAttendance,
   tribeSlug,
+  viewerTimeZone,
 }: TribeEventDetailDialogProps) {
+  const localTimeLabel = occurrence
+    ? formatViewerLocalTimeLabel(occurrence.startsAt, occurrence.endsAt, viewerTimeZone)
+    : null;
   const recurrenceText = occurrence ? formatRecurrence(occurrence) : null;
   const googleCalendarUrl = occurrence ? buildTribeEventGoogleCalendarUrl(occurrence) : null;
 
@@ -175,6 +182,9 @@ export function TribeEventDetailDialog({
                 {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
                 {recurrenceText ? COPY.scheduleSeparator + recurrenceText : null}
               </DialogDescription>
+              {localTimeLabel ? (
+                <p className={styles.TribeEventDetailDialog__localTime}>{localTimeLabel}</p>
+              ) : null}
             </DialogHeader>
 
             {occurrence.description ? (

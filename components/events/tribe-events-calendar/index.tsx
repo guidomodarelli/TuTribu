@@ -22,6 +22,7 @@ import { TribeNextEvent } from "@/components/events/tribe-next-event";
 import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
+import { useViewerTimeZone } from "@/hooks/use-viewer-time-zone";
 import {
   formatBuenosAiresTime,
   getBuenosAiresDateKey,
@@ -103,6 +104,7 @@ export function TribeEventsCalendar({
   // avoids flashing the desktop grid on phones before the client takes over.
   const shouldRenderBothViews = chosenViewMode === null && !isHydrated;
   const nowTime = useMinuteClock();
+  const viewerTimeZone = useViewerTimeZone();
   const {
     deleteEvent,
     isDeletingEvent,
@@ -251,6 +253,7 @@ export function TribeEventsCalendar({
       key={occurrence.occurrenceKey}
       nowTime={nowTime}
       occurrence={occurrence}
+      viewerTimeZone={viewerTimeZone}
       onSelect={selectOccurrence}
     />
   );
@@ -307,6 +310,7 @@ export function TribeEventsCalendar({
           isSavingAttendance={isSavingAttendance}
           nowTime={nowTime}
           occurrence={nextOccurrence}
+          viewerTimeZone={viewerTimeZone}
           onSeeDetail={selectOccurrence}
           onSetAttendance={saveAttendance}
         />
@@ -333,6 +337,7 @@ export function TribeEventsCalendar({
         isSavingAttendance={isSavingAttendance}
         occurrence={selectedOccurrence}
         tribeSlug={tribeSlug}
+        viewerTimeZone={viewerTimeZone}
         onClose={() => setSelectedOccurrenceKey(null)}
         onCopyLink={(occurrence) => {
           void copyOccurrenceLink(occurrence);

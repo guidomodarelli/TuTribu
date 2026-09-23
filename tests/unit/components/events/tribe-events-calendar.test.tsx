@@ -136,6 +136,50 @@ describe("TribeEventsCalendar", () => {
     ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
   });
 
+  it("adds the viewer local time when their time zone is not Buenos Aires", async () => {
+    // Emulate a browser in Madrid: only the reported zone changes, formatting
+    // stays real. Fake timers wrap `Intl.DateTimeFormat` and bind the native
+    // methods, so spy on the native prototype that owns `resolvedOptions`.
+    let dateTimeFormatPrototype = Intl.DateTimeFormat.prototype;
+
+    while (!Object.hasOwn(dateTimeFormatPrototype, "resolvedOptions")) {
+      dateTimeFormatPrototype = Object.getPrototypeOf(dateTimeFormatPrototype);
+    }
+
+    const realResolvedOptions = dateTimeFormatPrototype.resolvedOptions;
+    const resolvedOptionsSpy = vi
+      .spyOn(dateTimeFormatPrototype, "resolvedOptions")
+      .mockImplementation(function (this: Intl.DateTimeFormat) {
+        return { ...realResolvedOptions.call(this), timeZone: "Europe/Madrid" };
+      });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    try {
+      renderCalendar();
+
+      const nextEvent = await screen.findByRole("region", { name: "Próximo evento" });
+
+      expect(within(nextEvent).getByText(/20:00 - 21:00 tu hora/)).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+      const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+
+      expect(within(agenda).getByText("15:00 - 16:00")).toBeInTheDocument();
+      expect(within(agenda).getByText("20:00 - 21:00 tu hora")).toBeInTheDocument();
+
+      await user.click(within(agenda).getByRole("button", { name: "Clase abierta" }));
+
+      expect(
+        within(screen.getByRole("dialog", { name: "Clase abierta" })).getByText(
+          "20:00 - 21:00 tu hora"
+        )
+      ).toBeInTheDocument();
+    } finally {
+      resolvedOptionsSpy.mockRestore();
+    }
+  });
+
   it("offers adding each agenda occurrence to Google Calendar", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 

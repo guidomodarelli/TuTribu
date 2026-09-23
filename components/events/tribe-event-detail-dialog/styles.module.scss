@@ -112,3 +112,12 @@
     padding-top: 0.75rem;
   }
 }
+
+.TribeEventDetailDialog {
+  &__localTime {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+  }
+}
