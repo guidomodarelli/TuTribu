@@ -106,7 +106,7 @@ describe("TribeEventsCalendar", () => {
     );
     expect(screen.getByRole("link", { name: "Hoy" })).toHaveAttribute(
       "href",
-      expect.stringMatching(/\/matematica-pro\/eventos\?month=\d{4}-\d{2}/)
+      "/matematica-pro/eventos?month=2026-05"
     );
     expect(
       screen.getByRole("table", { name: "Calendario mensual de eventos" })
@@ -114,6 +114,18 @@ describe("TribeEventsCalendar", () => {
     expect(screen.getByRole("columnheader", { name: "Lun" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /15:00\s*Clase abierta/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Crear evento" })).toBeInTheDocument();
+  });
+
+  it("points the today link at the Buenos Aires month of the clock", () => {
+    // 02:00 UTC on June 1st is still May 31st in Buenos Aires.
+    vi.setSystemTime(new Date("2026-06-01T02:00:00.000Z"));
+
+    renderCalendar();
+
+    expect(screen.getByRole("link", { name: "Hoy" })).toHaveAttribute(
+      "href",
+      "/matematica-pro/eventos?month=2026-05"
+    );
   });
 
   it("switches to the event list table with attendance counts", async () => {
@@ -913,6 +925,23 @@ describe("TribeEventsCalendar server render", () => {
 
     expect(html).toContain('aria-label="Calendario mensual de eventos"');
     expect(html).toContain('aria-label="Lista de eventos"');
+  });
+
+  it("links the today shortcut to the bare route before hydration", async () => {
+    const { renderToString } = await import("react-dom/server");
+
+    const html = renderToString(
+      <TribeEventsCalendar
+        events={[createOccurrence()]}
+        month={MAY}
+        tribeSlug="matematica-pro"
+        viewerPermissions={{ canManageEvents: false }}
+      />
+    );
+
+    // Without a clock the server cannot know the viewer's "today", so the
+    // link leaves the month to the route, which defaults to the current one.
+    expect(html).toMatch(/href="\/matematica-pro\/eventos"[^>]*>Hoy</);
   });
 
   it("keeps a single view once hydrated on the client", () => {

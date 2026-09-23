@@ -164,6 +164,13 @@ export function TribeEventsCalendar({
   const agendaEvents =
     shouldCollapsePastEvents && !arePastEventsVisible ? upcomingEvents : visibleEvents;
   const agendaDays = useMemo(() => groupAgendaDays(agendaEvents), [agendaEvents]);
+  // Before hydration there is no clock, so "Hoy" leaves the month to the
+  // route (which defaults to the current Buenos Aires month) instead of
+  // computing one on the server that could differ from the client's.
+  const todayHref = buildTribeEventsRoute(
+    tribeSlug,
+    nowTime === null ? {} : { month: getBuenosAiresMonthKey(new Date(nowTime)) }
+  );
 
   // The open detail is mirrored in the `event` query so the URL can be shared;
   // replaceState keeps it out of the history stack and never refetches.
@@ -297,9 +304,7 @@ export function TribeEventsCalendar({
         nextMonthHref={buildTribeEventsRoute(tribeSlug, { month: month.next })}
         previousMonthHref={buildTribeEventsRoute(tribeSlug, { month: month.previous })}
         timeLabel={timeLabel}
-        todayHref={buildTribeEventsRoute(tribeSlug, {
-          month: getBuenosAiresMonthKey(new Date()),
-        })}
+        todayHref={todayHref}
         viewMode={viewMode}
         onChooseViewMode={setChosenViewMode}
         onCreateEvent={openCreateForm}
