@@ -70,6 +70,19 @@
     }
   }
 
+  &__liveBadge {
+    gap: 0.35rem;
+    border-color: color-mix(in oklch, var(--destructive) 45%, var(--border));
+    color: var(--destructive);
+  }
+
+  &__liveDot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
   &__titleButton {
     border: 0;
     background: none;
@@ -108,20 +121,5 @@
       grid-column: 3;
       grid-row: auto;
     }
-  }
-}
-
-.TribeEventAgendaItem {
-  &__liveBadge {
-    gap: 0.35rem;
-    border-color: color-mix(in oklch, var(--destructive) 45%, var(--border));
-    color: var(--destructive);
-  }
-
-  &__liveDot {
-    width: 0.4rem;
-    height: 0.4rem;
-    border-radius: 50%;
-    background: currentColor;
   }
 }

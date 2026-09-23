@@ -130,7 +130,7 @@ export function TribeEventsCalendar({
   const [formSession, setFormSession] = useState<EventFormSession>({
     mode: FORM_MODE.closed,
   });
-  // A new deep link from the route (another  query) replaces the
+  // A new deep link from the route (another `event` query) replaces the
   // local selection, the same way new server events replace local mutations.
   const [occurrenceSelection, setOccurrenceSelection] = useState<OccurrenceSelectionState>({
     occurrenceKey: initialOccurrenceKey,
