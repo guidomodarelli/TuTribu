@@ -1,0 +1,163 @@
+.TribeEventsMonthGrid {
+  width: 100%;
+  table-layout: fixed;
+  border: 1px solid var(--border);
+
+  @media (min-width: 48rem) {
+    min-width: 42rem;
+  }
+
+  &__dayHeader {
+    border-left: 1px solid var(--border);
+    text-align: center;
+  }
+
+  &__dayCell,
+  &__dayCell--today {
+    width: calc(100% / 7);
+    height: 8rem;
+    border-left: 1px solid var(--border);
+    white-space: normal;
+    vertical-align: top;
+  }
+
+  &__dayCell--today {
+    background: color-mix(in oklch, var(--primary) 6%, var(--background));
+    box-shadow: inset 0 3px 0 var(--primary);
+  }
+
+  &__dayNumber,
+  &__dayNumber--muted {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    font-weight: 700;
+  }
+
+  &__dayNumber--muted {
+    color: var(--muted-foreground);
+  }
+
+  &__dayEvents {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+  }
+
+  // Phone-only: the cell becomes a tap target that selects the day and shows
+  // one dot per event; hidden on wider screens where the pills carry titles.
+  &__dayButton {
+    display: none;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    width: 100%;
+    min-height: 1.5rem;
+    margin-top: 0.2rem;
+    padding: 0.2rem 0;
+    border: 0;
+    border-radius: 0.4rem;
+    background: none;
+    color: var(--muted-foreground);
+    cursor: pointer;
+
+    &[aria-pressed="true"] {
+      background: color-mix(in oklch, var(--primary) 14%, var(--background));
+    }
+  }
+
+  &__dayDot,
+  &__dayDot--past {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: var(--primary);
+  }
+
+  &__dayDot--past {
+    background: var(--muted-foreground);
+  }
+
+  &__daySummary {
+    display: none;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  &__eventPill,
+  &__eventPill--past {
+    width: 100%;
+    border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border));
+    border-radius: 0.45rem;
+    background: color-mix(in oklch, var(--primary) 10%, var(--background));
+    color: var(--foreground);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+    padding: 0.35rem;
+    text-align: left;
+  }
+
+  &__eventPill--past {
+    border-color: var(--border);
+    background: color-mix(in oklch, var(--muted) 60%, var(--background));
+    color: var(--muted-foreground);
+    font-weight: 600;
+  }
+
+  &__eventPillTime {
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  &__srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  // Phones: seven columns leave ~3rem per day, so the month grid fits the
+  // viewport with compact cells that show one dot per event; tapping a day
+  // lists its events under the grid.
+  @media (max-width: 47.99rem) {
+    &__dayHeader {
+      padding-inline: 0.15rem;
+      font-size: 0.7rem;
+    }
+
+    &__dayCell,
+    &__dayCell--today {
+      height: auto;
+      min-height: 3.5rem;
+      padding: 0.2rem;
+    }
+
+    &__dayNumber,
+    &__dayNumber--muted {
+      width: 1.5rem;
+      height: 1.5rem;
+      font-size: 0.8rem;
+    }
+
+    &__dayEvents {
+      display: none;
+    }
+
+    &__dayButton {
+      display: flex;
+    }
+
+    &__daySummary {
+      display: grid;
+    }
+  }
+}

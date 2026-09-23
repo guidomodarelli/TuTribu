@@ -36,6 +36,15 @@ export const TRIBE_EVENT_FIELD_LIMIT = {
  */
 export const TRIBE_EVENT_DEFAULT_DURATION_MINUTES = 60;
 
+/**
+ * Query parameter names of the tribe events page: the visible month and the
+ * occurrence whose detail opens on load (deep link).
+ */
+export const TRIBE_EVENTS_ROUTE_QUERY = {
+  event: "event",
+  month: "month",
+} as const;
+
 export const TRIBE_EVENT_UPCOMING = {
   defaultLimit: 3,
   windowDays: 30,

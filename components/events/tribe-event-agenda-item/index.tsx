@@ -1,0 +1,121 @@
+"use client";
+
+import { ExternalLinkIcon } from "lucide-react";
+import { Badge } from "beez-ui";
+
+import { formatBuenosAiresTimeRange } from "@/lib/date-time/buenos-aires-format";
+import { isOccurrencePast } from "@/lib/events/tribe-event-occurrence-timing";
+import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
+import { TRIBE_EVENT_RECURRENCE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";
+import {
+  TRIBE_EVENT_ATTENDANCE_STATUS,
+  TRIBE_EVENT_RECURRENCE_FREQUENCY,
+} from "@/src/modules/events/constants/tribe-events";
+import styles from "./styles.module.scss";
+
+type TribeEventAgendaItemProps = {
+  /** Current time (epoch ms) or null before hydration. */
+  nowTime: number | null;
+  occurrence: TribeEventOccurrenceResult;
+  onSelect: (occurrence: TribeEventOccurrenceResult) => void;
+};
+
+const BADGE_VARIANT = {
+  default: "default",
+  outline: "outline",
+  secondary: "secondary",
+} as const;
+const BUTTON_TYPE = "button";
+const LINK_ATTRIBUTE = {
+  noreferrer: "noreferrer",
+  targetBlank: "_blank",
+} as const;
+const COPY = {
+  goingBadge: "Vas",
+  goingCountSuffixPlural: " van",
+  goingCountSuffixSingular: " va",
+  linkOpen: "Abrir link",
+  notGoingBadge: "No vas",
+  pastBadge: "Finalizado",
+} as const;
+
+function formatGoingCount(goingCount: number): string {
+  return (
+    String(goingCount) +
+    (goingCount === 1 ? COPY.goingCountSuffixSingular : COPY.goingCountSuffixPlural)
+  );
+}
+
+function AttendanceBadge({ occurrence }: { occurrence: TribeEventOccurrenceResult }) {
+  if (occurrence.attendance.viewerStatus === TRIBE_EVENT_ATTENDANCE_STATUS.going) {
+    return <Badge variant={BADGE_VARIANT.default}>{COPY.goingBadge}</Badge>;
+  }
+
+  if (occurrence.attendance.viewerStatus === TRIBE_EVENT_ATTENDANCE_STATUS.notGoing) {
+    return <Badge variant={BADGE_VARIANT.outline}>{COPY.notGoingBadge}</Badge>;
+  }
+
+  return null;
+}
+
+/**
+ * One agenda row: schedule, title (opens the detail), viewer answer or
+ * finished badge, recurrence, attendance count, and the meeting link.
+ */
+export function TribeEventAgendaItem({
+  nowTime,
+  occurrence,
+  onSelect,
+}: TribeEventAgendaItemProps) {
+  const isPast = nowTime !== null && isOccurrencePast(occurrence, nowTime);
+
+  return (
+    <li
+      className={
+        isPast ? styles["TribeEventAgendaItem--past"] : styles.TribeEventAgendaItem
+      }
+    >
+      <span className={styles.TribeEventAgendaItem__time}>
+        {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
+      </span>
+      <div className={styles.TribeEventAgendaItem__main}>
+        <button
+          className={styles.TribeEventAgendaItem__titleButton}
+          type={BUTTON_TYPE}
+          onClick={() => onSelect(occurrence)}
+        >
+          {occurrence.title}
+        </button>
+        <div className={styles.TribeEventAgendaItem__meta}>
+          {isPast ? (
+            <Badge variant={BADGE_VARIANT.secondary}>{COPY.pastBadge}</Badge>
+          ) : (
+            <AttendanceBadge occurrence={occurrence} />
+          )}
+          {occurrence.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none ? (
+            <span className={styles.TribeEventAgendaItem__metaText}>
+              {TRIBE_EVENT_RECURRENCE_LABEL[occurrence.recurrenceFrequency]}
+            </span>
+          ) : null}
+          <span className={styles.TribeEventAgendaItem__metaText}>
+            {formatGoingCount(occurrence.attendance.goingCount)}
+          </span>
+        </div>
+      </div>
+      {occurrence.meetingUrl ? (
+        <div className={styles.TribeEventAgendaItem__actions}>
+          <a
+            aria-label={COPY.linkOpen}
+            className={styles.TribeEventAgendaItem__iconLink}
+            href={occurrence.meetingUrl}
+            rel={LINK_ATTRIBUTE.noreferrer}
+            target={LINK_ATTRIBUTE.targetBlank}
+            title={COPY.linkOpen}
+          >
+            <ExternalLinkIcon aria-hidden />
+          </a>
+        </div>
+      ) : null}
+    </li>
+  );
+}
