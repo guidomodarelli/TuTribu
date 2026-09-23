@@ -70,7 +70,6 @@ export function TribeEventsCalendarHeader({
           aria-label={COPY.previousMonth}
           className={styles.TribeEventsCalendarHeader__iconLink}
           href={previousMonthHref}
-          prefetch
         >
           <ChevronLeftIcon aria-hidden />
         </Link>
@@ -81,7 +80,6 @@ export function TribeEventsCalendarHeader({
           aria-label={COPY.nextMonth}
           className={styles.TribeEventsCalendarHeader__iconLink}
           href={nextMonthHref}
-          prefetch
         >
           <ChevronRightIcon aria-hidden />
         </Link>
