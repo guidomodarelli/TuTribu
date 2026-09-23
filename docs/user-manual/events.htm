@@ -35,7 +35,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="doc-label">TuTribu — Manual de usuario</div>
   <div class="doc-title">Eventos: calendario, asistencia, cupos y repeticiones</div>
   <div class="doc-sub">Cómo ver los encuentros de la tribu, confirmar tu asistencia (con cupos y lista de espera) y, si liderás, programarlos y ver quiénes van.</div>
-  <div class="doc-meta"><span>Fecha: 2026-09-23</span><span>Audiencia: miembros y líderes</span></div>
+  <div class="doc-meta"><span>Fecha: 2026-09-24</span><span>Audiencia: miembros y líderes</span></div>
 </div>
 
 <div class="section">
@@ -55,10 +55,10 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
         <li>Desde 15 minutos antes del inicio y mientras dure, si el evento tiene link de reunión aparece el botón <strong>Unirme</strong>, que abre la reunión en una pestaña nueva.</li>
       </ul>
     </li>
-    <li>El encabezado muestra el mes con las flechas para cambiarlo, el botón <strong>Hoy</strong> con la hora actual de Buenos Aires al lado, el selector de vista y, para líderes y guardianes, <strong>Crear evento</strong>.</li>
+    <li>El encabezado muestra el mes con las flechas para cambiarlo, el botón <strong>Hoy</strong> con la hora actual de Buenos Aires al lado, el selector de vista, el filtro por tipo (sección 06) y, para líderes y guardianes, <strong>Crear evento</strong> y <strong>Propuestas (N)</strong> cuando hay propuestas pendientes; los demás miembros activos ven <strong>Proponer un encuentro</strong> y <strong>Mis propuestas</strong> (sección 08).</li>
     <li>Si estás en otra zona horaria, al lado de cada horario de Buenos Aires aparece también tu hora local, por ejemplo <em>20:00 - 21:00 · 18:00 - 19:00 tu hora</em>. Si en tu zona ya es otro día, se agrega la fecha (<em>07 may 03:00 tu hora</em>). Se ve en <strong>Próximo evento</strong>, en la lista y en el detalle.</li>
     <li>Un evento sin hora de fin se considera en curso durante una hora desde su inicio; recién después se muestra como finalizado.</li>
-    <li>Si un mes no tiene eventos, los miembros ven un mensaje breve. Quienes lideran o cuidan la tribu ven <strong>Creá tu primer encuentro</strong> con tres plantillas: <em>Q&amp;A semanal</em> (todas las semanas, 60 min), <em>Kickoff mensual</em> (todos los meses, 90 min) y <em>Taller en vivo</em> (no se repite, 120 min). Cada plantilla abre el formulario de <strong>Nuevo evento</strong> con el título y la repetición cargados; al elegir la hora de inicio, la hora de fin se sugiere según la duración de la plantilla.</li>
+    <li>Si un mes no tiene eventos, los miembros ven un mensaje breve con el botón <strong>Proponer un encuentro</strong>. Quienes lideran o cuidan la tribu ven <strong>Creá tu primer encuentro</strong> con tres plantillas: <em>Q&amp;A semanal</em> (todas las semanas, 60 min), <em>Kickoff mensual</em> (todos los meses, 90 min) y <em>Taller en vivo</em> (no se repite, 120 min). Cada plantilla abre el formulario de <strong>Nuevo evento</strong> con el título, la repetición y el tipo cargados (<em>Preguntas y respuestas</em>, <em>Encuentro en vivo</em> y <em>Taller</em>); al elegir la hora de inicio, la hora de fin se sugiere según la duración de la plantilla.</li>
   </ul>
   <p>En la página principal de la tribu también aparece un bloque <strong>Próximos eventos</strong> con los tres encuentros más cercanos de los próximos 30 días. Tocar el título de uno te lleva directo a su detalle dentro del calendario.</p>
 </div>
@@ -94,10 +94,11 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="section">
   <div class="section-num">04</div>
   <div class="section-title">Programar eventos (líderes y guardianes)</div>
-  <p>Quienes lideran o cuidan la tribu ven el botón <strong>Crear evento</strong> y, dentro del detalle de cada evento, <strong>Editar</strong> y <strong>Eliminar</strong>.</p>
+  <p>Quienes lideran o cuidan la tribu ven el botón <strong>Crear evento</strong> y, dentro del detalle de cada evento, <strong>Editar</strong> y <strong>Eliminar</strong>. En un evento que se repite los botones se llaman <strong>Editar serie</strong> y <strong>Eliminar serie</strong> y aparecen bajo el título <em>Toda la serie</em>, separados de las acciones de <em>Esta fecha</em> (sección 07).</p>
   <table>
     <tr><th>Campo</th><th>Qué hace</th></tr>
     <tr><td>Título y fecha</td><td>Obligatorios, junto con la hora de inicio. El título admite hasta 120 caracteres.</td></tr>
+    <tr><td>Tipo</td><td><em>Encuentro en vivo</em> (el valor por defecto), <em>Taller</em>, <em>Preguntas y respuestas</em>, <em>Presencial</em> o <em>Social</em>. Define el color y el ícono con los que se muestra el evento (sección 06).</td></tr>
     <tr><td>Hora de fin</td><td>Al elegir la hora de inicio se sugiere una hora de fin una hora después; podés cambiarla y la sugerencia no pisa lo que ya escribiste.</td></tr>
 <tr><td>Termina otro día</td><td>Casilla que muestra el campo <strong>Fecha de fin</strong> para encuentros que cruzan la medianoche, por ejemplo de 23:00 a 01:00 del día siguiente.</td></tr>
     <tr><td>Repetición</td><td><em>No se repite</em>, <em>Todas las semanas</em>, <em>Cada dos semanas</em> o <em>Todos los meses</em>. Con <strong>Repetir hasta</strong> definís el último día de la serie; si lo dejás vacío, se repite sin límite.</td></tr>
@@ -107,7 +108,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   </table>
   <ul>
     <li>Los errores del formulario se muestran debajo de los campos antes de guardar (por ejemplo, una hora de fin anterior al inicio).</li>
-    <li>Editar un evento que se repite cambia <strong>todas</strong> sus fechas. Las respuestas de asistencia ya dadas se conservan para las fechas que siguen existiendo.</li>
+    <li>Editar un evento que se repite cambia <strong>todas</strong> sus fechas. Las respuestas de asistencia ya dadas se conservan para las fechas que siguen existiendo, y también las fechas canceladas o movidas que siguen siendo parte de la serie.</li>
     <li><strong>Eliminar</strong> pide confirmación. Borra el evento (o toda la serie) y las respuestas de asistencia; no se puede deshacer.</li>
   </ul>
   <div class="callout c-warn">Todos los horarios se muestran y se cargan en hora de Buenos Aires.</div>
@@ -122,6 +123,51 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <li><strong>Exportar CSV</strong> descarga una planilla con nombre, estado y fecha de respuesta en hora de Buenos Aires. No incluye emails. El botón aparece cuando al menos una persona respondió a esa fecha.</li>
     <li>Si el evento se repite, abajo aparece <strong>Van en las últimas fechas</strong>: barras con cuántas personas fueron a cada una de las últimas 6 fechas, con la fecha y el número escritos debajo.</li>
     <li>Si la lista no se puede cargar, aparece <em>No pudimos cargar la asistencia.</em> con el botón <strong>Reintentar</strong>.</li>
+  </ul>
+</div>
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Tipos de evento y filtro</div>
+  <p>Cada evento tiene un tipo. En la grilla del mes, en la lista, en el próximo evento y en el detalle se muestra con su color y su ícono; en la lista y en el detalle también se lee el nombre del tipo, y en la grilla el nombre queda disponible para lectores de pantalla y al pasar el mouse. El color nunca es la única pista.</p>
+  <table>
+    <tr><th>Tipo</th><th>Para qué sirve</th></tr>
+    <tr><td>Encuentro en vivo</td><td>Clases o reuniones digitales en tiempo real.</td></tr>
+    <tr><td>Taller</td><td>Encuentros prácticos, de trabajo sobre un tema.</td></tr>
+    <tr><td>Preguntas y respuestas</td><td>Sesiones abiertas para consultas.</td></tr>
+    <tr><td>Presencial</td><td>Encuentros en un lugar físico.</td></tr>
+    <tr><td>Social</td><td>Juntadas informales de la tribu.</td></tr>
+  </table>
+  <p>Arriba del calendario aparecen los botones del filtro: <strong>Todos</strong> y uno por cada tipo. Podés elegir varios tipos a la vez; el calendario muestra solo esos y la dirección de la página los recuerda (<code>?type=</code>), así podés compartir el link o pasar de mes sin perder el filtro. <strong>Todos</strong> vuelve a mostrar todo. Si el mes tiene eventos pero ninguno de los tipos elegidos, se lee <em>No hay eventos de los tipos elegidos este mes.</em></p>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Cancelar o mover una fecha (líderes y guardianes)</div>
+  <p>En el detalle de una fecha de un evento que se repite, quienes gestionan eventos ven dos grupos de acciones: <strong>Esta fecha</strong> (afecta solo a ese día) y <strong>Toda la serie</strong> (afecta a todas las fechas).</p>
+  <ul>
+    <li><strong>Cancelar esta fecha</strong>: pide un motivo opcional. La fecha sigue visible, tachada y con la etiqueta <em>Cancelado</em>; no recibe respuestas de asistencia, no ofrece <em>Unirme</em> ni el atajo a Google Calendar y nunca aparece como <em>Próximo evento</em> ni en <em>Próximos eventos</em> del inicio de la tribu.</li>
+    <li><strong>Mover esta fecha</strong>: elegís la nueva fecha, la hora de inicio y, si querés, una hora de fin (si la dejás vacía se mantiene la duración de la serie) y un motivo. La fecha aparece en su nuevo día con la nota <em>Movido desde el jueves 12</em> (o <em>desde el jueves 28 de mayo</em> si cambió de mes). Si la movés a otro mes, deja de verse en el mes original y aparece en el nuevo.</li>
+    <li>Las respuestas de asistencia de una fecha movida <strong>se conservan</strong>, y el link compartido de esa fecha sigue funcionando: abre el mes donde quedó.</li>
+    <li><strong>Restaurar fecha</strong> quita la cancelación o el cambio y la fecha vuelve a seguir la serie.</li>
+    <li>El archivo <strong>Descargar .ics</strong> incluye las fechas canceladas (se excluyen de la serie) y las movidas (con su nuevo horario). El atajo <strong>Agregar a Google Calendar</strong> de una fecha movida agrega solo esa fecha en su nuevo horario; el de la serie no puede llevar las fechas canceladas o movidas, así que para tenerlas bien conviene descargar el .ics.</li>
+  </ul>
+  <div class="callout c-info">Los eventos que no se repiten no tienen estas acciones: para cambiarlos alcanza con <strong>Editar</strong>.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Proponer un encuentro</div>
+  <p>Los miembros activos que no gestionan eventos ven <strong>Proponer un encuentro</strong> en la barra del calendario y en el mes vacío. El formulario pide título, fecha, hora de inicio, duración (30 min a 3 h), tipo y una descripción opcional.</p>
+  <ul>
+    <li>La propuesta no aparece en el calendario hasta que alguien la apruebe. En <strong>Mis propuestas</strong> ves cada una con su estado: <em>Pendiente</em>, <em>Aprobada</em>, <em>Rechazada</em> (con la nota de quien la revisó, si dejó una) o <em>Retirada</em>.</li>
+    <li>Mientras está pendiente podés <strong>Retirar</strong> la propuesta.</li>
+    <li>Cada persona puede tener hasta <strong>3 propuestas pendientes</strong> por tribu. Con 3, el formulario responde <em>Ya tenés 3 propuestas pendientes. Esperá a que las revisen o retirá alguna.</em></li>
+  </ul>
+  <p>Quienes lideran o cuidan la tribu ven el botón <strong>Propuestas (N)</strong> cuando hay propuestas pendientes. El panel las lista de la más antigua a la más nueva con el nombre de quien la propuso:</p>
+  <ul>
+    <li><strong>Revisar y aprobar</strong> abre el formulario de evento completo con los datos de la propuesta (título, fecha, hora de fin según la duración, tipo y descripción). Podés completar el link, la repetición o el cupo y confirmar con <strong>Aprobar y publicar</strong>: el evento aparece en el calendario sin recargar la página.</li>
+    <li><strong>Rechazar</strong> pide una nota opcional para quien la propuso y la saca de la lista.</li>
+    <li>Si otra persona ya la resolvió (o tocaste dos veces), se lee <em>Esta propuesta ya fue resuelta.</em> y la lista se actualiza. Nunca se crean dos eventos por la misma propuesta.</li>
   </ul>
 </div>
 </body>
