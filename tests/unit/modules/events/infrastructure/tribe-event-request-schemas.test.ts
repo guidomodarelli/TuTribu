@@ -7,6 +7,7 @@ import {
   tribeEventOccurrenceQuerySchema,
   tribeEventRouteParamsSchema,
   tribeEventsRouteParamsSchema,
+  tribeEventUpdateBodySchema,
 } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
 import {
   tribeEventsPageParamsSchema,
@@ -198,6 +199,28 @@ describe("tribe event request schemas", () => {
       expect(
         tribeEventMutationBodySchema.parse({ ...VALID_MUTATION_BODY, capacity: "25" }).capacity
       ).toBe(25);
+    });
+  });
+
+  describe("update body", () => {
+    it("keeps an omitted event type undefined so the stored type is preserved", () => {
+      expect(tribeEventUpdateBodySchema.parse(VALID_MUTATION_BODY).eventType).toBeUndefined();
+    });
+
+    it("parses an explicit event type and still rejects an unknown one", () => {
+      expect(
+        tribeEventUpdateBodySchema.parse({ ...VALID_MUTATION_BODY, eventType: "workshop" })
+          .eventType
+      ).toBe("workshop");
+      expect(
+        readFirstIssue(
+          tribeEventUpdateBodySchema.safeParse({ ...VALID_MUTATION_BODY, eventType: "party" })
+        )
+      ).toBe("invalid_event_type");
+    });
+
+    it("keeps defaulting an omitted event type to live on creation", () => {
+      expect(tribeEventMutationBodySchema.parse(VALID_MUTATION_BODY).eventType).toBe("live");
     });
   });
 

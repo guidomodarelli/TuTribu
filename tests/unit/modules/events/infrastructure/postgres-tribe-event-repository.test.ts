@@ -686,6 +686,62 @@ describe("PostgresTribeEventRepository", () => {
       expect(execute).toHaveBeenCalledTimes(2);
     });
 
+    it("leaves the event type column untouched when the update keeps the stored type", async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ ...lockedEventRow, capacity: 5 }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              ...eventRow,
+              capacity: 5,
+              event_type: "workshop",
+              status: "updated",
+              waitlist_refill_needed: false,
+            },
+          ],
+        });
+      const repository = createRepository(execute);
+
+      await expect(
+        repository.update({
+          ...updateCommand,
+          capacity: { kind: "unchanged" },
+          eventType: null,
+        })
+      ).resolves.toMatchObject({ event: { eventType: "workshop" }, status: "updated" });
+
+      expect(getSqlText(execute.mock.calls[1]?.[0])).not.toMatch(/event_type\s*=/);
+    });
+
+    it("writes an explicit event type", async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ ...lockedEventRow, capacity: 5 }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              ...eventRow,
+              capacity: 5,
+              event_type: "qa",
+              status: "updated",
+              waitlist_refill_needed: false,
+            },
+          ],
+        });
+      const repository = createRepository(execute);
+
+      await expect(
+        repository.update({
+          ...updateCommand,
+          capacity: { kind: "unchanged" },
+          eventType: "qa",
+        })
+      ).resolves.toMatchObject({ event: { eventType: "qa" }, status: "updated" });
+
+      expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(/event_type\s*=/);
+    });
+
     it("writes an explicit capacity removal and refills when the change is reported", async () => {
       const execute = vi
         .fn()

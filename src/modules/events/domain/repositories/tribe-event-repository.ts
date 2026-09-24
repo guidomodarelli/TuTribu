@@ -49,7 +49,10 @@ export type TribeEventCapacityUpdate =
   | { kind: typeof TRIBE_EVENT_CAPACITY_UPDATE_KIND.unchanged }
   | { capacity: number | null; kind: typeof TRIBE_EVENT_CAPACITY_UPDATE_KIND.set };
 
-export type PersistTribeEventUpdateCommand = Omit<PersistTribeEventCommand, "capacity"> & {
+export type PersistTribeEventUpdateCommand = Omit<
+  PersistTribeEventCommand,
+  "capacity" | "eventType"
+> & {
   /**
    * Range whose attendance summaries of the event are read back after the
    * waitlist refill, or null to skip that read (no visible month).
@@ -61,6 +64,11 @@ export type PersistTribeEventUpdateCommand = Omit<PersistTribeEventCommand, "cap
    */
   capacity: TribeEventCapacityUpdate;
   eventId: string;
+  /**
+   * New type of the series, or null to leave the event type column untouched,
+   * so an update that does not mention the type keeps the stored one.
+   */
+  eventType: TribeEventType | null;
 };
 
 export type DeleteTribeEventRepositoryCommand = {

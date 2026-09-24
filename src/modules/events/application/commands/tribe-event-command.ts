@@ -76,10 +76,12 @@ export type CreateTribeEventCommand = TribeEventFieldsInput & {
  * an omitted `capacity` stays undefined and means "keep the stored capacity":
  * an older client or API consumer that does not know the field must not
  * remove an existing limit. `null` removes it explicitly and a positive
- * integer sets it.
+ * integer sets it. An omitted `eventType` likewise stays undefined and keeps
+ * the stored type instead of resetting it to the default one.
  */
-export type TribeEventUpdateFieldsInput = Omit<TribeEventFieldsInput, "capacity"> & {
+export type TribeEventUpdateFieldsInput = Omit<TribeEventFieldsInput, "capacity" | "eventType"> & {
   capacity?: number | null;
+  eventType?: TribeEventType;
 };
 
 export type UpdateTribeEventCommand = TribeEventUpdateFieldsInput & {

@@ -921,7 +921,8 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
    * Updates the series and, only when its capacity or schedule really changed,
    * refills the waitlists in the same transaction. A capacity marked as
    * `unchanged` is left out of the SET list, so a body that omits the field
-   * keeps the stored limit and never promotes the whole queue.
+   * keeps the stored limit and never promotes the whole queue. A null event
+   * type is left out the same way, so the stored type is kept.
    *
    * The change is detected against the row locked `FOR UPDATE` by a first
    * statement, not against a CTE of the UPDATE statement: under READ
@@ -939,6 +940,8 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
       command.capacity.kind === TRIBE_EVENT_CAPACITY_UPDATE_KIND.set
         ? sql`capacity = ${command.capacity.capacity},`
         : sql``;
+    const eventTypeAssignment =
+      command.eventType === null ? sql`` : sql`event_type = ${command.eventType},`;
 
     return this.executeWithDatabase(async (database) => {
       const lockedEvent = await this.lockEventForUpdate(database, command);
@@ -961,6 +964,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           update public.events
           set
             ${capacityAssignment}
+            ${eventTypeAssignment}
             title = ${command.title},
             description = ${command.description},
             meeting_url = ${command.meetingUrl},
@@ -968,7 +972,6 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
             ends_at = ${command.endsAt},
             recurrence_frequency = ${command.recurrenceFrequency},
             recurrence_until = ${command.recurrenceUntil},
-            event_type = ${command.eventType},
             updated_at = timezone('utc', now())
           from target_tribe
           where events.id = ${command.eventId}
