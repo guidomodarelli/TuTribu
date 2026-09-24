@@ -296,6 +296,7 @@ export const tribeEventProposalSchema = z.object({
  */
 export const tribeEventProposalListResponseSchema = z.object({
   canReviewProposals: z.boolean(),
+  pendingCount: nonNegativeCountSchema,
   proposals: z.array(tribeEventProposalSchema),
 }) satisfies z.ZodType<TribeEventProposalListResult>;
 

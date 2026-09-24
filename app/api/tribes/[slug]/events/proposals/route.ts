@@ -92,6 +92,7 @@ export async function GET(request: Request, context: TribeRouteContext) {
     return createTribeEventPublicResponse({
       body: {
         canReviewProposals: result.canReviewProposals,
+        pendingCount: result.pendingCount,
         proposals: result.proposals,
       },
       failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedProposalListMessage,

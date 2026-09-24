@@ -181,13 +181,28 @@ describe("tribe event public DTO schemas", () => {
     expect(
       tribeEventProposalListResponseSchema.parse({
         canReviewProposals: false,
+        pendingCount: 0,
         proposals: [{ ...proposal, proposedBy: "user-secret" }],
       })
-    ).toEqual({ canReviewProposals: false, proposals: [proposal] });
+    ).toEqual({ canReviewProposals: false, pendingCount: 0, proposals: [proposal] });
     expect(
       tribeEventProposalListResponseSchema.safeParse({
         canReviewProposals: false,
+        pendingCount: 0,
         proposals: [{ ...proposal, status: "accepted" }],
+      }).success
+    ).toBe(false);
+    expect(
+      tribeEventProposalListResponseSchema.safeParse({
+        canReviewProposals: true,
+        proposals: [proposal],
+      }).success
+    ).toBe(false);
+    expect(
+      tribeEventProposalListResponseSchema.safeParse({
+        canReviewProposals: true,
+        pendingCount: -1,
+        proposals: [proposal],
       }).success
     ).toBe(false);
   });
