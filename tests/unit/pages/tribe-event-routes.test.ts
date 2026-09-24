@@ -639,6 +639,35 @@ describe("Tribe event routes", () => {
     expect(invalidResponse.status).toBe(400);
   });
 
+  it("answers 409 with a safe message when the occurrence already ended", async () => {
+    setTribeEventAttendance.mockResolvedValueOnce({ status: "occurrence_ended" as const });
+    clearTribeEventAttendance.mockResolvedValueOnce({ status: "occurrence_ended" as const });
+
+    const putResponse = await PUT_ATTENDANCE(
+      buildRequest(
+        { occurrenceStartsAt: "2026-05-13T18:00:00.000Z", status: "going" as const },
+        `${BASE_URL}/${EVENT_ID}/attendance`
+      ),
+      buildEventContext()
+    );
+    const deleteResponse = await DELETE_ATTENDANCE(
+      buildRequest(
+        {},
+        `${BASE_URL}/${EVENT_ID}/attendance?occurrence=${encodeURIComponent(
+          "2026-05-13T18:00:00.000Z"
+        )}`
+      ),
+      buildEventContext()
+    );
+
+    for (const response of [putResponse, deleteResponse]) {
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toEqual({
+        message: "Este evento ya terminó; no se pueden cambiar las respuestas.",
+      });
+    }
+  });
+
   it("clears the viewer attendance for the occurrence in the query", async () => {
     clearTribeEventAttendance.mockResolvedValue({
       attendance: { goingCount: 2, viewerStatus: null },

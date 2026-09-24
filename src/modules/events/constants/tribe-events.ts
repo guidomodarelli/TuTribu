@@ -12,6 +12,7 @@ export const TRIBE_EVENT_MUTATION_STATUS = {
   invalidMeetingUrl: "invalid_meeting_url",
   invalidRecurrence: "invalid_recurrence",
   notFound: "not_found",
+  occurrenceEnded: "occurrence_ended",
   updated: "updated",
 } as const;
 

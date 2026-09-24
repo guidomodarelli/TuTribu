@@ -3,6 +3,7 @@ import type { TribeEventSchedule } from "@/src/modules/events/domain/entities/tr
 import {
   buildTribeEventRecurrenceRule,
   expandTribeEventOccurrences,
+  findTribeEventOccurrence,
   formatCalendarUtcDateTime,
   isTribeEventOccurrence,
 } from "@/src/modules/events/domain/services/tribe-event-recurrence";
@@ -119,6 +120,17 @@ describe("tribe event recurrence", () => {
       false
     );
     expect(isTribeEventOccurrence(schedule, "not-a-date")).toBe(false);
+  });
+
+  it("finds the exact slot of the series with its own end", () => {
+    const schedule = createSchedule({ recurrenceFrequency: "weekly" });
+
+    expect(findTribeEventOccurrence(schedule, "2026-05-13T18:00:00.000Z")).toEqual({
+      endsAt: "2026-05-13T19:00:00.000Z",
+      startsAt: "2026-05-13T18:00:00.000Z",
+    });
+    expect(findTribeEventOccurrence(schedule, "2026-05-13T18:30:00.000Z")).toBeNull();
+    expect(findTribeEventOccurrence(schedule, "not-a-date")).toBeNull();
   });
 
   it("builds RFC 5545 recurrence rules", () => {

@@ -102,7 +102,9 @@ export type TribeEventDeleteResult = TribeEventDeletionResult;
 export type TribeEventAttendanceMutationResult =
   | TribeEventAttendanceResult
   | {
-      status: typeof TRIBE_EVENT_MUTATION_STATUS.invalidAttendance;
+      status:
+        | typeof TRIBE_EVENT_MUTATION_STATUS.invalidAttendance
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
     };
 
 /**

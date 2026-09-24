@@ -6,6 +6,7 @@ import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/trib
  */
 export const TRIBE_EVENT_ROUTE_HTTP_STATUS = {
   badRequest: 400,
+  conflict: 409,
   created: 201,
   forbidden: 403,
   notFound: 404,
@@ -36,6 +37,7 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   invalidRecurrenceMessage:
     "Elegí una repetición válida y una fecha de fin posterior al inicio.",
   memberForbiddenMessage: "Solo los miembros activos pueden responder a un evento.",
+  occurrenceEndedMessage: "Este evento ya terminó; no se pueden cambiar las respuestas.",
   tribeNotFoundMessage: "No pudimos encontrar la tribu.",
   unauthorizedMessage: "Iniciá sesión para gestionar eventos.",
   unexpectedAttendanceMessage: "No pudimos guardar tu respuesta. Intentá de nuevo.",
@@ -253,6 +255,11 @@ export function mapTribeEventAttendanceStatusResponse(status: string): Response 
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidAttendanceMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceEndedMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
     case TRIBE_EVENT_MUTATION_STATUS.notFound:
       return createJsonResponse(

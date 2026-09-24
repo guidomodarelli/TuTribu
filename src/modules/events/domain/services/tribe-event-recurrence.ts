@@ -213,16 +213,21 @@ export function expandTribeEventOccurrences(
 }
 
 /**
- * Tells whether `occurrenceStartsAt` is an exact slot of the series.
+ * Finds the slot of the series that starts exactly at `occurrenceStartsAt`,
+ * with its own end (the series duration applied to that slot).
+ *
+ * @param schedule - Series schedule.
+ * @param occurrenceStartsAt - Candidate occurrence start (ISO 8601).
+ * @returns The matching occurrence, or null when it is not a slot of the series.
  */
-export function isTribeEventOccurrence(
+export function findTribeEventOccurrence(
   schedule: TribeEventSchedule,
   occurrenceStartsAt: string
-): boolean {
+): TribeEventOccurrenceWindow | null {
   const occurrenceTime = Date.parse(occurrenceStartsAt);
 
   if (!Number.isFinite(occurrenceTime)) {
-    return false;
+    return null;
   }
 
   const rangeStart = new Date(occurrenceTime).toISOString();
@@ -230,9 +235,21 @@ export function isTribeEventOccurrence(
     occurrenceTime + SINGLE_OCCURRENCE_RANGE_MS
   ).toISOString();
 
-  return expandTribeEventOccurrences(schedule, { rangeEnd, rangeStart }).some(
-    (occurrence) => Date.parse(occurrence.startsAt) === occurrenceTime
+  return (
+    expandTribeEventOccurrences(schedule, { rangeEnd, rangeStart }).find(
+      (occurrence) => Date.parse(occurrence.startsAt) === occurrenceTime
+    ) ?? null
   );
+}
+
+/**
+ * Tells whether `occurrenceStartsAt` is an exact slot of the series.
+ */
+export function isTribeEventOccurrence(
+  schedule: TribeEventSchedule,
+  occurrenceStartsAt: string
+): boolean {
+  return findTribeEventOccurrence(schedule, occurrenceStartsAt) !== null;
 }
 
 /**
