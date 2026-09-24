@@ -70,7 +70,11 @@ const TRIBE_EVENT_BODY_FIELD = {
 } as const;
 
 export type TribeEventMutationBody = {
-  capacity: string;
+  /**
+   * Raw capacity text; undefined when the body omits the field. POST treats
+   * that as unlimited and PATCH as "keep the stored capacity".
+   */
+  capacity?: string;
   description: string;
   endsAt: string;
   meetingUrl: string;
@@ -114,18 +118,22 @@ const UNSUPPORTED_CAPACITY = Symbol("unsupported-capacity");
 /**
  * Reads the raw capacity field without deciding the business range.
  *
- * Absent, `null`, and string values keep their text form (empty means
- * unlimited). A JSON integer such as `12` is accepted as its decimal text so
- * the use case still owns the capacity limits. Any other present value
- * (fractions, non-finite numbers, booleans, objects, arrays) is unsupported and
- * must be rejected instead of silently becoming "no limit".
+ * An absent field stays undefined so each use case decides what omission
+ * means (unlimited on create, unchanged on update). `null` and string values
+ * keep their text form (empty means "no limit"). A JSON integer such as `12`
+ * is accepted as its decimal text so the use case still owns the capacity
+ * limits. Any other present value (fractions, non-finite numbers, booleans,
+ * objects, arrays) is unsupported and must be rejected instead of silently
+ * becoming "no limit".
  *
  * @param body - Untrusted parsed JSON request body.
- * @returns The capacity text or `UNSUPPORTED_CAPACITY`.
+ * @returns The capacity text, undefined when absent, or `UNSUPPORTED_CAPACITY`.
  */
-function readCapacityField(body: unknown): string | typeof UNSUPPORTED_CAPACITY {
+function readCapacityField(
+  body: unknown
+): string | undefined | typeof UNSUPPORTED_CAPACITY {
   if (!body || typeof body !== "object" || !(TRIBE_EVENT_BODY_FIELD.capacity in body)) {
-    return "";
+    return undefined;
   }
 
   const value = (body as Record<string, unknown>)[TRIBE_EVENT_BODY_FIELD.capacity];
@@ -170,7 +178,7 @@ export function readTribeEventMutationBody(
 
 function readTribeEventMutationTextFields(
   body: unknown,
-  capacity: string
+  capacity: string | undefined
 ): TribeEventMutationBody {
   return {
     capacity,

@@ -66,6 +66,17 @@ export const TRIBE_EVENT_CAPACITY_LIMIT = {
 } as const;
 
 /**
+ * How an event update treats the stored capacity: `unchanged` keeps the
+ * column as it is (a body that omits the field, such as a cached client from
+ * before capacities existed), `set` writes the given value (null removes the
+ * limit).
+ */
+export const TRIBE_EVENT_CAPACITY_UPDATE_KIND = {
+  set: "set",
+  unchanged: "unchanged",
+} as const;
+
+/**
  * Viewer-only attendance streak on the next event: shown when the viewer went
  * to at least `minimumAttended` of the last `windowSize` finished occurrences
  * found within `lookbackDays`.
