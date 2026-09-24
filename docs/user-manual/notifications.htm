@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notificaciones</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">TuTribu — Manual de usuario</div>
+  <div class="doc-title">Notificaciones</div>
+  <div class="doc-sub">Qué avisos te llegan dentro de TuTribu, dónde verlos y cómo marcarlos como leídos.</div>
+  <div class="doc-meta"><span>Fecha: 2026-09-26</span><span>Audiencia: miembros y líderes</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">La campanita</div>
+  <p>Arriba a la derecha, junto al menú de tu cuenta, está la <strong>campanita</strong>. Cuando tenés avisos sin leer muestra un número (hasta "9+"). Tocala para ver tus notificaciones más recientes:</p>
+  <ul>
+    <li>En la computadora se abre una ventana flotante debajo de la campanita.</li>
+    <li>En el celular se abre un panel desde abajo de la pantalla.</li>
+  </ul>
+  <p>Los avisos no leídos aparecen resaltados y con un punto de color. El número se actualiza solo mientras tenés TuTribu abierto (aproximadamente cada minuto) y cada vez que abrís la campanita.</p>
+  <div class="callout c-info">Por ahora los avisos son solo dentro de TuTribu: no enviamos emails ni notificaciones push al celular.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Qué avisos vas a recibir</div>
+  <table>
+    <tr><th>Aviso</th><th>Cuándo llega</th><th>Quién lo recibe</th></tr>
+    <tr><td>"Mañana: …"</td><td>Unas 24 horas antes de un encuentro</td><td>Quienes respondieron <strong>Voy</strong> o <strong>Tal vez</strong></td></tr>
+    <tr><td>"… empieza en 15 minutos"</td><td>Unos 15 minutos antes</td><td>Quienes respondieron <strong>Voy</strong></td></tr>
+    <tr><td>"¡Se liberó un lugar! Ya estás confirmado en …"</td><td>Cuando alguien libera un lugar o se amplía el cupo y salís de la lista de espera</td><td>Vos, si estabas en la lista de espera</td></tr>
+    <tr><td>"Se canceló …"</td><td>Cuando quien organiza cancela una fecha</td><td>Quienes respondieron Voy, Tal vez o estaban en espera para esa fecha</td></tr>
+    <tr><td>"… cambió de horario"</td><td>Cuando quien organiza mueve una fecha (muestra el nuevo día y hora)</td><td>Los mismos que en la cancelación</td></tr>
+    <tr><td>"Aprobaron tu propuesta …" / "Tu propuesta … no fue aprobada"</td><td>Cuando revisan un encuentro que propusiste (con la nota, si la dejaron)</td><td>Quien hizo la propuesta</td></tr>
+  </table>
+  <p>Si estás en la lista de espera no recibís los recordatorios: te avisamos cuando se libera tu lugar. Quien cancela o mueve una fecha no recibe su propio aviso.</p>
+  <p>Todos los horarios se muestran en hora de Buenos Aires. Si dejás una tribu o tu acceso se bloquea, dejás de recibir y de ver los avisos de esa tribu.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Abrir y marcar como leídas</div>
+  <ol>
+    <li>Tocá un aviso: te lleva directo a esa fecha en el calendario de la tribu y el aviso queda <strong>leído</strong>.</li>
+    <li>Para limpiar todo de una vez, tocá <strong>Marcar todas como leídas</strong> en la parte de arriba de la lista.</li>
+  </ol>
+  <p>Si una acción no se puede completar, verás un mensaje y la lista vuelve a como estaba. Si la lista no carga, tocá <strong>Reintentar</strong>.</p>
+  <p>Los avisos leídos se borran solos después de 90 días.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Accesibilidad</div>
+  <p>La campanita anuncia la cantidad de avisos sin leer a los lectores de pantalla ("Notificaciones, 3 sin leer"). Con el teclado podés abrirla con Enter, recorrer los avisos con Tab y cerrarla con Escape: el foco vuelve a la campanita.</p>
+  <p>Más sobre eventos en <a href="events.htm">Eventos: calendario, asistencia, cupos y repeticiones</a>.</p>
+</div>
+</body>
+</html>

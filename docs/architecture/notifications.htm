@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notificaciones in-app</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Notificaciones in-app</div>
+  <div class="doc-sub">Bandeja genérica de avisos dentro de la plataforma (sin email ni push): modelo, productores, idempotencia, cron de recordatorios, retención, RLS y la campanita del header.</div>
+  <div class="doc-meta"><span>Scope: Notifications, Events</span><span>Status: Active</span><span>Fase 5 de eventos</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Modelo</div>
+  <p>El módulo <code>src/modules/notifications</code> es genérico: no conoce reglas de eventos. Una notificación tiene <strong>tipo</strong>, <strong>destinatario</strong> (<code>recipient_user_id</code>), <strong>tribu</strong>, <strong>payload</strong> mínimo tipado por tipo, <strong>clave de deduplicación</strong> (<code>dedupe_key</code>), <code>read_at</code> y <code>created_at</code>. La tabla es <code>public.notifications</code> (migración <code>20260926120000_create_notifications.sql</code>, Drizzle en <code>schema.ts</code>).</p>
+  <table>
+    <tr><th>Tipo</th><th>Payload (solo ids e instantes)</th><th>Clave de deduplicación</th></tr>
+    <tr><td><code>event_reminder_24h</code> / <code>event_reminder_15m</code></td><td><code>eventId</code>, <code>occurrenceStartsAt</code> (inicio original), <code>startsAt</code> (efectivo)</td><td><code>tipo:eventId@originalStartsAt</code></td></tr>
+    <tr><td><code>event_waitlist_promoted</code></td><td><code>eventId</code>, <code>occurrenceStartsAt</code></td><td><code>tipo:eventId@originalStartsAt:versión(promoted_at)</code></td></tr>
+    <tr><td><code>event_occurrence_cancelled</code> / <code>event_occurrence_moved</code></td><td><code>eventId</code>, <code>occurrenceStartsAt</code>, <code>startsAt</code> (nuevo inicio, solo movida)</td><td><code>tipo:eventId@originalStartsAt:versión(updated_at)</code></td></tr>
+    <tr><td><code>event_proposal_reviewed</code></td><td><code>proposalId</code>, <code>decision</code> (<code>approved</code>/<code>rejected</code>), <code>eventId</code></td><td><code>tipo:proposalId</code></td></tr>
+  </table>
+  <p><strong>El texto no se guarda.</strong> El payload lleva ids; la bandeja resuelve al leer el título del evento, el título y la nota de la propuesta, el nombre y slug de la tribu y el nuevo horario de una fecha movida (<code>PostgresNotificationRepository.getInbox</code>, joins por los ids del payload, casteados solo si tienen la forma exacta que escriben los productores). La UI arma el copy en español (<code>lib/notifications/notification-presentation.ts</code>). Un evento borrado se muestra como "un evento" y enlaza al calendario de la tribu.</p>
+  <p><strong>Agregar un tipo</strong> requiere ensanchar el CHECK <code>notifications_valid_type</code> con una migración y sumarlo a <code>NOTIFICATION_TYPE</code>, a <code>NotificationPayloadByType</code>, al schema público y al copy.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Productores e idempotencia</div>
+  <p><code>UNIQUE (recipient_user_id, dedupe_key)</code> hace idempotente a cada productor: todos insertan con <code>ON CONFLICT DO NOTHING</code>. Un reintento del mismo hecho produce la misma clave y no duplica; un hecho nuevo (otra promoción, otro cambio de horario) lleva otra versión y sí notifica.</p>
+  <table>
+    <tr><th>Productor</th><th>Dónde</th><th>Atomicidad</th></tr>
+    <tr><td>Promoción desde la lista de espera</td><td>Trigger <code>AFTER UPDATE OF promoted_at</code> en <code>event_attendances</code> (<code>enqueue_event_waitlist_promoted_notification</code>)</td><td>Misma transacción que <code>promote_tribe_event_waitlist</code>, llamada por <code>respond_to_tribe_event_occurrence</code> y por <code>refill_tribe_event_waitlists</code>. Rollback de la promoción ⇒ sin notificación</td></tr>
+    <tr><td>Propuesta aprobada o rechazada</td><td>Trigger <code>AFTER UPDATE OF status</code> en <code>event_proposals</code> (<code>pending → approved|rejected</code>)</td><td>Transacción de la revisión; al autor, salvo que se revise a sí mismo. Retirar no notifica</td></tr>
+    <tr><td>Fecha cancelada o movida</td><td>Trigger <code>AFTER INSERT OR UPDATE</code> en <code>event_occurrence_exceptions</code></td><td>Transacción que guarda la excepción; a quienes respondieron <code>going</code>/<code>maybe</code>/<code>waitlisted</code> esa fecha, excepto quien hizo el cambio. Un UPDATE que no cambia <code>kind</code>/<code>new_starts_at</code>/<code>new_ends_at</code> (reintento, doble click, editar el motivo) no encola nada. Fechas totalmente pasadas se ignoran; restaurar no notifica</td></tr>
+    <tr><td>Recordatorios 24 h y 15 min</td><td>Cron de mantenimiento (sección 03)</td><td>Un <code>INSERT … SELECT</code> por página de series</td></tr>
+  </table>
+  <div class="callout c-info"><strong>Decisión: triggers en lugar de reescribir las funciones de la fase 2.</strong> Las dos rutas de promoción pasan por <code>promote_tribe_event_waitlist</code>, que setea <code>promoted_at</code>. Un trigger sobre esa columna encola en la misma transacción sin tocar <code>respond_to_tribe_event_occurrence</code> ni <code>refill_tribe_event_waitlists</code>: su comportamiento, sus candados (fila del evento <code>FOR SHARE</code> y luego <code>pg_advisory_xact_lock</code> por ocurrencia) y su orden quedan exactamente iguales. El mismo criterio cubre revisiones y excepciones: cualquier camino que cambie la fila (caso de uso, SQL manual, futura función) notifica.</div>
+  <p><strong>Nunca a quien ya no puede leer la tribu.</strong> Todos los productores filtran con <code>can_receive_tribe_notifications(tribe_id, user_id)</code> (miembro <code>active</code> o <code>muted</code>, la misma regla que <code>can_read_tribe_content</code>). Además la bandeja solo muestra notificaciones de tribus que el usuario puede leer hoy: si alguien sale o lo bloquean, deja de ver las anteriores.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Cron de recordatorios</div>
+  <p><code>GET /api/maintenance/event-reminders</code> corre cada 5 minutos (<code>*/5 * * * *</code>) en Vercel (<code>vercel.json</code>) y en Cloudflare (<code>wrangler.jsonc</code> <code>triggers.crons</code> → <code>cloudflare/worker.ts</code> → <code>config/cloudflare-scheduled-maintenance.ts</code>, que mapea la expresión a la ruta). Está protegido por <code>Authorization: Bearer &lt;CRON_SECRET&gt;</code> (<code>src/modules/shared/infrastructure/http/cron-authorization.ts</code>, comparación en tiempo constante, compartida con los barridos de imágenes y archivos) y compone con <code>createMaintenanceModules</code>: conexión de mantenimiento (owner), sin usuario de la app.</p>
+  <div class="code-block"><pre>sendTribeEventReminders(now)
+  → rango = [now + 10 min, now + 24 h 10 min)           (unión de las ventanas)
+  → página de series por keyset (events.id), 200 por página, máx. 10 páginas
+      → series con alguna fecha posible en el rango (buildSeriesInRangePredicate)
+      → excepciones de esas series en una segunda consulta (sin N+1)
+  → expandTribeEventOccurrencesWithExceptions (como listUpcomingTribeEvents)
+      → descarta canceladas; una movida usa su hora nueva
+  → ventana 24 h: inicio efectivo ∈ [now + 24 h − 10 min, now + 24 h + 10 min)  → going + maybe
+    ventana 15 min: inicio efectivo ∈ [now + 10 min, now + 20 min)                → going
+  → INSERT … SELECT event_attendances ⋈ can_receive_tribe_notifications
+      ON CONFLICT (recipient_user_id, dedupe_key) DO NOTHING
+purgeReadNotifications(now)  (misma corrida, paso independiente)</pre></div>
+  <table>
+    <tr><th>Constante</th><th>Valor</th><th>Por qué</th></tr>
+    <tr><td><code>TRIBE_EVENT_REMINDER.dayBefore</code></td><td>1440 ± 10 min, <code>going</code> y <code>maybe</code></td><td>La ventana (20 min) es 4 veces el período del cron: un tick tardío o perdido no pierde el aviso. "Tal vez" también lo recibe porque ayuda a decidir</td></tr>
+    <tr><td><code>TRIBE_EVENT_REMINDER.soon</code></td><td>15 ± 5 min, solo <code>going</code></td><td>Es un "está por empezar": solo para quien confirmó. <code>waitlisted</code> no recibe ninguno (no tiene lugar; la promoción avisa aparte)</td></tr>
+    <tr><td><code>TRIBE_EVENT_REMINDER_BATCH</code></td><td>200 series × 10 páginas</td><td>Lote acotado; si se alcanza el tope la corrida reporta <code>isComplete: false</code> en el log (señal para subir el tope o particionar)</td></tr>
+  </table>
+  <p><strong>Deduplicación.</strong> La clave del recordatorio es <code>tipo:eventId@originalStartsAt</code> por destinatario: dos corridas en paralelo, una corrida reintentada o dos ticks dentro de la tolerancia insertan un solo aviso (validado en rama Neon efímera con dos corridas concurrentes). Si una fecha se mueve después de enviado el aviso de 24 h, no se reenvía: el cambio llega como <code>event_occurrence_moved</code>.</p>
+  <p><strong>Observabilidad.</strong> Cada paso registra un log estructurado con <code>operation_key</code> (<code>send-tribe-event-reminders</code>, <code>purge-read-notifications</code>), <code>result</code> (<code>completed</code>/<code>failed</code>) y sus contadores (<code>seriesCount</code>, <code>pageCount</code>, <code>dueReminderCount</code>, <code>createdCount</code>, <code>isComplete</code>; <code>purgedCount</code>, <code>batchCount</code>). Si un paso falla, el otro corre igual y la ruta responde 500 sin detalles internos. No hay reintentos dentro de la corrida: el siguiente tick lo es, y el dedupe lo hace seguro.</p>
+  <p><strong>Event loop y conexiones.</strong> Cada página se procesa y encola antes de leer la siguiente (<code>await</code> de I/O entre páginas); la expansión de 200 series en un rango de un día es CPU liviana. Cada acceso a la base usa el checkout seguro de <code>withRequestContext</code> (sin <code>pool.connect()</code> propio ni pool nuevo).</p>
+  <div class="callout c-warn"><strong>Vercel Hobby.</strong> El plan Hobby de Vercel solo admite crons diarios y rechaza el deploy con una expresión más frecuente. Con <code>*/5 * * * *</code> el proyecto necesita el plan Pro (o quitar esa entrada de <code>vercel.json</code> y disparar la ruta desde Cloudflare o un scheduler externo con el mismo <code>CRON_SECRET</code>).</div>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Retención</div>
+  <p>Las notificaciones <strong>leídas</strong> hace más de <code>NOTIFICATION_RETENTION.readRetentionDays</code> (90) días se borran en el mismo cron, en lotes de 1000 (<code>FOR UPDATE SKIP LOCKED</code>, así dos corridas se reparten el trabajo) y hasta 10 lotes por corrida. Las no leídas no se purgan. El índice parcial <code>idx_notifications_read_at</code> sostiene la búsqueda.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">RLS y privilegios</div>
+  <ul>
+    <li><strong>Lectura y marca:</strong> SELECT y UPDATE solo con <code>recipient_user_id = current_app_user_id()</code>. Un trigger <code>BEFORE UPDATE</code> (<code>guard_notification_recipient_update</code>) impide a cualquier rol que no sea el owner cambiar algo distinto de <code>read_at</code> o desmarcar una leída (42501). Si existe <code>authenticated</code>: <code>SELECT</code> y <code>UPDATE (read_at)</code>.</li>
+    <li><strong>Sin INSERT ni DELETE de usuario.</strong> Producen los triggers <code>SECURITY DEFINER</code> y el cron (owner); purga el owner. Policy de owner <code>FOR ALL</code> con <code>current_user = pg_get_userbyid(relowner)</code> para que funcione aunque el owner no tenga <code>BYPASSRLS</code>.</li>
+    <li><strong>Owner exception de lectura</strong> en <code>events</code>, <code>event_occurrence_exceptions</code> y <code>tribe_members</code> (<code>event_attendances</code> ya la tenía): el cron corre sin usuario y los triggers leen filas de otros miembros; bajo <code>FORCE ROW LEVEL SECURITY</code> un owner sin bypass no vería nada. Solo autoriza al owner.</li>
+    <li><strong>Funciones</strong> (<code>can_receive_tribe_notifications</code>, <code>format_notification_instant</code>, <code>format_notification_version</code> y las tres de trigger): <code>SET search_path = public</code>, <code>REVOKE EXECUTE … FROM PUBLIC</code>, sin grants a roles de request (owner-only).</li>
+    <li><strong>Defensa en profundidad en el repositorio:</strong> el rol de runtime bypasea RLS, así que cada consulta de la bandeja repite <code>recipient_user_id = current_app_user_id()</code> y <code>can_read_tribe_content(tribe_id)</code>; marcar una notificación ajena responde 404 sin revelar si existe.</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Rutas y boundary</div>
+  <table>
+    <tr><th>Ruta</th><th>Uso</th></tr>
+    <tr><td><code>GET /api/notifications</code></td><td>Bandeja: 30 más recientes + <code>unreadCount</code> (tope 100). Se llama al abrir la campanita</td></tr>
+    <tr><td><code>GET /api/notifications/unread-count</code></td><td>Solo el contador (camino del polling)</td></tr>
+    <tr><td><code>PATCH /api/notifications/[notificationId]</code></td><td>Body <code>{ isRead: true }</code>; responde <code>{ unreadCount }</code>. 404 si no es propia</td></tr>
+    <tr><td><code>POST /api/notifications/read-all</code></td><td>"Marcar todas como leídas"; responde <code>{ unreadCount }</code></td></tr>
+    <tr><td><code>GET /api/maintenance/event-reminders</code></td><td>Cron (sección 03)</td></tr>
+  </table>
+  <p>Cada ruta valida params, query y body una vez con Zod (<code>notification-request-schemas.ts</code>, <code>parseNotificationRouteInput</code>), responde 401 sin sesión, 400 con copy seguro y log <code>warn</code> con paths y códigos (nunca valores), y valida su DTO público contra la allowlist (<code>notification-public-dto-schemas.ts</code>) antes de enviarlo con <code>Cache-Control: private, no-store</code>. Un DTO inutilizable se registra con <code>reason: "public_dto_rejected"</code> y responde 500 seguro. El adaptador del navegador (<code>lib/notifications/notifications-api-client.ts</code>) hace <code>safeParse</code> de cada respuesta. La sesión de las rutas se resuelve en <code>app/api/notifications/notification-route-session.ts</code>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Campanita: server-first + polling liviano</div>
+  <p><code>app/(platform)/layout.tsx</code> carga la bandeja en el servidor (en paralelo con las tribus del miembro, dentro del <code>Suspense</code> existente; el layout <strong>no</strong> lee <code>params</code>), la valida contra su DTO y se la pasa a <code>components/notifications/notification-center</code> (contenedor cliente con <code>hooks/use-notification-center.ts</code>), que renderiza los presentacionales <code>notification-bell</code> y <code>notification-panel</code>. Si la carga falla se registra y la campanita arranca vacía.</p>
+  <ul>
+    <li><strong>Por qué polling y no solo server-first:</strong> el layout no se vuelve a renderizar en navegaciones del cliente y los avisos llegan de forma asíncrona (cron, acciones de otros). La campanita consulta <strong>solo el contador</strong> cada 60 s (<code>NOTIFICATION_UNREAD_POLL_INTERVAL_MS</code>) con la pestaña visible y al volver a ella, y trae la <strong>lista</strong> al abrir. Sin websockets.</li>
+    <li><strong>Mutaciones incrementales:</strong> abrir un ítem lo marca como leído de forma optimista (<code>PATCH</code> con <code>keepalive</code>, porque el click también navega al deep link) y adopta el <code>unreadCount</code> del servidor; "Marcar todas como leídas" usa <code>toast.promise</code> y restaura la bandeja si falla. Nunca se refresca la ruta. Un contador de mutaciones descarta respuestas de polling o de lista que empezaron antes de una marca.</li>
+    <li><strong>Deep link:</strong> <code>/[slug]/eventos?event=eventId@originalStartsAt</code> (<code>buildTribeEventsRoute</code>, <code>TRIBE_EVENTS_ROUTE_QUERY</code>); sin <code>month</code>, la página abre el mes donde se muestra la fecha aunque se haya movido.</li>
+    <li><strong>Accesibilidad:</strong> el botón se llama "Notificaciones, 3 sin leer"; una región <code>role="status"</code> <code>aria-live="polite"</code> anuncia cambios del contador; popover en desktop y hoja inferior en mobile (<code>useIsMobile</code>), ambos con foco atrapado y devuelto a la campanita al cerrar (Radix). Cada ítem no leído lleva "No leída:" para lectores de pantalla además del punto.</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Validación y riesgos</div>
+  <p>Validado en una rama efímera de Neon con un rol <code>NOLOGIN</code> sin <code>BYPASSRLS</code>: nadie lee ni marca notificaciones ajenas (INSERT y reescritura de columnas → 42501); una promoción encola exactamente una notificación y un rollback de la promoción no deja ninguna; <code>refill</code> notifica en la transacción del gestor; dos corridas del cron en paralelo crean un solo aviso por persona; un miembro bloqueado no recibe ni ve avisos; la purga respeta los 90 días; el cron cruza <code>FORCE RLS</code> con un owner sin <code>BYPASSRLS</code>; la migración es re-aplicable.</p>
+  <div class="callout c-warn"><strong>Riesgos conocidos.</strong> (1) Plan Hobby de Vercel (sección 03). (2) Si el cron está caído más que la tolerancia, esos recordatorios se pierden (no hay backfill). (3) Por encima de 2000 series con fechas en las próximas 24 h una corrida queda incompleta; el log lo indica. (4) El trigger de excepciones inserta una fila por asistente en la transacción del gestor: con cientos de asistentes esa escritura crece linealmente (sigue siendo un solo <code>INSERT … SELECT</code>).</div>
+</div>
+
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Extensión</div>
+  <p>Un productor nuevo (por ejemplo "grabación disponible" de la fase 6) agrega su tipo (sección 01) y encola donde ocurre el hecho: un trigger o una sentencia en la transacción del caso de uso si debe ser atómico, o un paso del cron si depende del tiempo. Siempre con clave determinista por hecho, <code>ON CONFLICT DO NOTHING</code> y el filtro <code>can_receive_tribe_notifications</code>. Ver también <a href="tribe-events.htm">Eventos de la tribu</a> y <a href="deployment-targets.htm">Deployment targets</a>; manual de uso en <a href="../user-manual/notifications.htm">Notificaciones</a>.</p>
+</div>
+</body>
+</html>
