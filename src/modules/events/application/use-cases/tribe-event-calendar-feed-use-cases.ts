@@ -111,10 +111,11 @@ function groupExceptionsByEvent(
 }
 
 /**
- * Series of the snapshot (already filtered by type by the reader) as calendar
- * results, bounded by the VEVENT budget (one per series plus one per moved
- * date). A series that does not fit the remaining budget is skipped, not a
- * reason to stop: later, smaller series may still fit.
+ * Series of the snapshot (already filtered by type and bounded by both
+ * budgets by the reader) as calendar results. The VEVENT budget (one per
+ * series plus one per moved date) is enforced again here as defense in
+ * depth: a series that does not fit the remaining budget is skipped, not a
+ * reason to stop, because later, smaller series may still fit.
  */
 function buildFeedSeries(
   snapshot: TribeEventCalendarFeedSnapshot
@@ -173,8 +174,8 @@ export function getTribeEventCalendarFeed({
     const snapshot = await tribeEventCalendarFeedReader.readAsOwner({
       eventTypes: query.eventTypes,
       lastUsedRefreshMinutes: TRIBE_EVENT_CALENDAR_FEED_REFRESH.lastUsedRefreshMinutes,
+      maxComponents: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents,
       maxExceptions: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxExceptions,
-      maxSeries: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents,
       owner,
       rangeEnd: new Date(
         nowTime + TRIBE_EVENT_CALENDAR_FEED_WINDOW.futureWindowDays * MILLISECONDS_PER_DAY

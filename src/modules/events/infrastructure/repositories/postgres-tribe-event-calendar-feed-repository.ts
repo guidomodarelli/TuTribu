@@ -1,6 +1,9 @@
 import { sql } from "drizzle-orm";
 
-import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_MUTATION_STATUS,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+} from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEventCalendarFeedSnapshot,
   TribeEventCalendarFeedSubscription,
@@ -31,7 +34,7 @@ import {
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 /**
- * Type filter of the feed series, applied in SQL before the row limit. An
+ * Type filter of the feed series, applied in SQL before the budgets. An
  * empty selection keeps every type.
  */
 function buildEventTypePredicate(eventTypes: ReadTribeEventCalendarFeedQuery["eventTypes"]) {
@@ -75,8 +78,11 @@ type FeedTribeRow = {
 
 type FeedSeriesRow = TribeEventRow & {
   calendar_sequence: number;
-  /** Every exception of the series (`count` may come back as text). */
-  exception_count: number | string;
+  /**
+   * Complete set of still-valid exceptions of the series, aggregated as JSON
+   * (timestamps come back as ISO strings); null when it has none.
+   */
+  exceptions: TribeEventOccurrenceExceptionRow[] | null;
   updated_at: Date | string;
 };
 
@@ -123,31 +129,124 @@ async function revokeActiveMemberFeedToken(
 }
 
 /**
- * Keeps, in feed order, the series whose complete exception set fits the
- * remaining budget. A series is never returned with part of its exceptions:
- * a missing EXDATE or RECURRENCE-ID would bring back a cancelled date or
- * leave a moved one at its original time. A series that does not fit is
- * skipped, not a reason to stop: later, smaller series may still fit.
+ * Reads, in ONE statement (one snapshot), the feed series that fit both
+ * budgets together with their complete set of still-valid exceptions:
+ *
+ * 1. `candidate_series`: every series of the window and requested types, in
+ *    feed order (most recent first). No row limit: a limit applied before
+ *    the budgets could hide later series that still fit.
+ * 2. `valid_exceptions`: the exceptions whose original start is still a
+ *    slot of the current schedule (`is_tribe_event_series_occurrence`, the
+ *    SQL mirror of the domain rule `buildTribeEventCalendarResult` applies).
+ *    Stale rows kept after a schedule edit never count nor travel.
+ * 3. `budget_walk`: greedy walk over the candidates in feed order. A series
+ *    is kept when its valid exceptions and its components (1 + valid moved
+ *    dates) fit what remains of both budgets; otherwise it is skipped and
+ *    the walk goes on. It stops when the component budget is exhausted or
+ *    no candidate remains. Costs are read from arrays by position, so every
+ *    step is O(1) and the walk is linear in the candidates of the tribe.
+ *
+ * Reading series and exceptions in the same statement guarantees that a
+ * concurrent exception change is seen together with the `calendar_sequence`
+ * and `updated_at` it bumped, never paired with the previous ones.
  */
-function selectSeriesWithinExceptionBudget(
-  seriesRows: readonly FeedSeriesRow[],
-  maxExceptions: number
-): FeedSeriesRow[] {
-  const selectedSeries: FeedSeriesRow[] = [];
-  let remainingExceptions = maxExceptions;
-
-  for (const seriesRow of seriesRows) {
-    const exceptionCount = Number(seriesRow.exception_count);
-
-    if (exceptionCount > remainingExceptions) {
-      continue;
-    }
-
-    remainingExceptions -= exceptionCount;
-    selectedSeries.push(seriesRow);
-  }
-
-  return selectedSeries;
+function buildFeedSnapshotStatement(tribeId: string, query: ReadTribeEventCalendarFeedQuery) {
+  return sql`
+    with recursive candidate_series as materialized (
+      select
+        ${TRIBE_EVENT_COLUMNS},
+        events.updated_at,
+        events.calendar_sequence,
+        row_number() over (order by events.starts_at desc, events.id asc) as feed_position
+      from public.events
+      where events.tribe_id = ${tribeId}
+        and public.can_read_tribe_content(events.tribe_id)
+        and ${buildSeriesInRangePredicate({
+          rangeEnd: query.rangeEnd,
+          rangeStart: query.rangeStart,
+        })}
+        ${buildEventTypePredicate(query.eventTypes)}
+    ),
+    valid_exceptions as materialized (
+      select ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS}
+      from public.event_occurrence_exceptions
+      inner join candidate_series
+        on candidate_series.id = event_occurrence_exceptions.event_id
+      where event_occurrence_exceptions.tribe_id = ${tribeId}
+        and public.can_read_tribe_content(event_occurrence_exceptions.tribe_id)
+        and public.is_tribe_event_series_occurrence(
+          event_occurrence_exceptions.original_starts_at,
+          candidate_series.starts_at,
+          candidate_series.recurrence_frequency,
+          candidate_series.recurrence_until
+        )
+    ),
+    series_costs as (
+      select
+        candidate_series.feed_position,
+        count(valid_exceptions.event_id) as exception_count,
+        1 + count(valid_exceptions.event_id) filter (
+          where valid_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
+        ) as component_count
+      from candidate_series
+      left join valid_exceptions
+        on valid_exceptions.event_id = candidate_series.id
+      group by candidate_series.feed_position
+    ),
+    cost_arrays as (
+      select
+        array_agg(series_costs.exception_count order by series_costs.feed_position) as exception_counts,
+        array_agg(series_costs.component_count order by series_costs.feed_position) as component_counts
+      from series_costs
+    ),
+    budget_walk (feed_position, remaining_exceptions, remaining_components, is_selected) as (
+      select
+        0::bigint,
+        ${query.maxExceptions}::bigint,
+        ${query.maxComponents}::bigint,
+        false
+      union all
+      select
+        budget_walk.feed_position + 1,
+        case
+          when next_cost.fits then budget_walk.remaining_exceptions - next_cost.exception_count
+          else budget_walk.remaining_exceptions
+        end,
+        case
+          when next_cost.fits then budget_walk.remaining_components - next_cost.component_count
+          else budget_walk.remaining_components
+        end,
+        next_cost.fits
+      from budget_walk
+      cross join cost_arrays
+      cross join lateral (
+        select
+          cost_arrays.exception_counts[budget_walk.feed_position + 1] as exception_count,
+          cost_arrays.component_counts[budget_walk.feed_position + 1] as component_count,
+          cost_arrays.exception_counts[budget_walk.feed_position + 1]
+              <= budget_walk.remaining_exceptions
+            and cost_arrays.component_counts[budget_walk.feed_position + 1]
+              <= budget_walk.remaining_components as fits
+      ) as next_cost
+      where budget_walk.feed_position < cardinality(cost_arrays.exception_counts)
+        and budget_walk.remaining_components > 0
+    )
+    select
+      candidate_series.*,
+      (
+        select jsonb_agg(
+          to_jsonb(valid_exceptions)
+          order by valid_exceptions.original_starts_at desc
+        )
+        from valid_exceptions
+        where valid_exceptions.event_id = candidate_series.id
+      ) as exceptions
+    from budget_walk
+    inner join candidate_series
+      on candidate_series.feed_position = budget_walk.feed_position
+    where budget_walk.is_selected
+    order by candidate_series.feed_position
+  `;
 }
 
 function mapSubscription(row: SubscriptionRow): TribeEventCalendarFeedSubscription {
@@ -346,54 +445,12 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
           )
       `);
 
-      const seriesResult = await database.execute(sql`
-        select
-          ${TRIBE_EVENT_COLUMNS},
-          events.updated_at,
-          events.calendar_sequence,
-          (
-            select count(*)
-            from public.event_occurrence_exceptions
-            where event_occurrence_exceptions.event_id = events.id
-              and event_occurrence_exceptions.tribe_id = events.tribe_id
-          ) as exception_count
-        from public.events
-        where events.tribe_id = ${tribe.id}
-          and public.can_read_tribe_content(events.tribe_id)
-          and ${buildSeriesInRangePredicate({
-            rangeEnd: query.rangeEnd,
-            rangeStart: query.rangeStart,
-          })}
-          ${buildEventTypePredicate(query.eventTypes)}
-        order by events.starts_at desc, events.id asc
-        limit ${query.maxSeries}
-      `);
-      const seriesRows = selectSeriesWithinExceptionBudget(
-        (seriesResult.rows ?? []) as FeedSeriesRow[],
-        query.maxExceptions
-      );
-
-      if (seriesRows.length === 0) {
-        return { exceptions: [], series: [], tribeName: tribe.name };
-      }
-
-      // Every exception of the included series (not only the window): the
-      // calendar app expands the RRULE over its whole history. No row limit:
-      // the series were already chosen so their complete sets fit the budget.
-      const exceptionsResult = await database.execute(sql`
-        select ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS}
-        from public.event_occurrence_exceptions
-        where event_occurrence_exceptions.tribe_id = ${tribe.id}
-          and public.can_read_tribe_content(event_occurrence_exceptions.tribe_id)
-          and event_occurrence_exceptions.event_id = any(${sql.param(
-            seriesRows.map((row) => row.id)
-          )}::uuid[])
-        order by event_occurrence_exceptions.original_starts_at desc
-      `);
+      const feedResult = await database.execute(buildFeedSnapshotStatement(tribe.id, query));
+      const seriesRows = (feedResult.rows ?? []) as FeedSeriesRow[];
 
       return {
         exceptions: mapTribeEventOccurrenceExceptions(
-          (exceptionsResult.rows ?? []) as TribeEventOccurrenceExceptionRow[]
+          seriesRows.flatMap((row) => row.exceptions ?? [])
         ),
         series: seriesRows.map((row) => ({
           calendarSequence: Number(row.calendar_sequence),

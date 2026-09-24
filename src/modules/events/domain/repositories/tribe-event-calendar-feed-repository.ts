@@ -73,20 +73,24 @@ export type TribeEventCalendarFeedTokenRepository = {
 };
 
 export type ReadTribeEventCalendarFeedQuery = TribeEventDateRange & {
-  /**
-   * Types to include (empty: every type). Applied before `maxSeries`, so the
-   * row limit never hides matching series behind unrequested ones.
-   */
+  /** Types to include (empty: every type), applied before any budget. */
   eventTypes: readonly TribeEventType[];
   /** `last_used_at` is refreshed only when older than this many minutes. */
   lastUsedRefreshMinutes: number;
   /**
-   * Budget of exceptions read. A series is returned only with its complete
-   * exception set; a series whose set does not fit the remaining budget is
-   * left out of the snapshot instead of being returned with part of it.
+   * VEVENT budget: every returned series costs one component plus one per
+   * valid moved date. Series are considered in feed order (most recent
+   * first); one that does not fit the remaining budget is skipped and the
+   * following ones are still considered.
+   */
+  maxComponents: number;
+  /**
+   * Budget of exceptions read. Only exceptions still valid for the current
+   * schedule of their series count (stale ones are never returned). A series
+   * is returned only with its complete valid set; one whose set does not fit
+   * the remaining budget is skipped instead of being returned with part of it.
    */
   maxExceptions: number;
-  maxSeries: number;
   owner: TribeEventCalendarFeedTokenOwner;
   tribeSlug: string;
 };

@@ -219,57 +219,76 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     await expect(reader.resolveToken(TOKEN_HASH)).resolves.toBeNull();
   });
 
-  it("reads as the token owner: access check, throttled touch, series, and exceptions", async () => {
+  const FEED_QUERY = {
+    eventTypes: [],
+    lastUsedRefreshMinutes: 60,
+    maxComponents: 500,
+    maxExceptions: 2000,
+    owner: { tokenHash: TOKEN_HASH, tokenId: TOKEN_ID, tribeId: TRIBE_ID, userId: OWNER_ID },
+    rangeEnd: "2027-05-10T12:00:00.000Z",
+    rangeStart: "2026-02-09T12:00:00.000Z",
+    tribeSlug: TRIBE_SLUG,
+  } as const;
+
+  function buildSeriesRow(id: string, exceptions: unknown) {
+    return {
+      calendar_sequence: 7,
+      capacity: null,
+      description: null,
+      ends_at: "2026-05-07T22:00:00.000Z",
+      event_type: "workshop",
+      exceptions,
+      id,
+      meeting_url: null,
+      recurrence_frequency: "weekly",
+      recurrence_until: null,
+      starts_at: new Date("2026-05-07T21:00:00.000Z"),
+      title: "Taller semanal",
+      updated_at: new Date("2026-05-01T10:00:00.000Z"),
+    };
+  }
+
+  it("reads the series and their exceptions in a single statement as the token owner", async () => {
     const ownerExecute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
-          {
-            calendar_sequence: 7,
-            capacity: null,
-            description: null,
-            ends_at: "2026-05-07T22:00:00.000Z",
-            event_type: "workshop",
-            exception_count: 1,
-            id: EVENT_ID,
-            meeting_url: null,
-            recurrence_frequency: "weekly",
-            recurrence_until: null,
-            starts_at: new Date("2026-05-07T21:00:00.000Z"),
-            title: "Taller semanal",
-            updated_at: new Date("2026-05-01T10:00:00.000Z"),
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            event_id: EVENT_ID,
-            kind: "cancelled",
-            new_ends_at: null,
-            new_starts_at: null,
-            original_starts_at: "2026-05-14T21:00:00.000Z",
-            reason: null,
-          },
+          buildSeriesRow(EVENT_ID, [
+            {
+              event_id: EVENT_ID,
+              kind: "moved",
+              new_ends_at: null,
+              new_starts_at: "2026-05-22T21:00:00+00:00",
+              original_starts_at: "2026-05-21T21:00:00+00:00",
+              reason: "Feriado",
+            },
+            {
+              event_id: EVENT_ID,
+              kind: "cancelled",
+              new_ends_at: null,
+              new_starts_at: null,
+              original_starts_at: "2026-05-14T21:00:00+00:00",
+              reason: null,
+            },
+          ]),
         ],
       });
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
-    const snapshot = await reader.readAsOwner({
-      eventTypes: [],
-      lastUsedRefreshMinutes: 60,
-      maxExceptions: 2000,
-      maxSeries: 500,
-      owner: { tokenHash: TOKEN_HASH, tokenId: TOKEN_ID, tribeId: TRIBE_ID, userId: OWNER_ID },
-      rangeEnd: "2027-05-10T12:00:00.000Z",
-      rangeStart: "2026-02-09T12:00:00.000Z",
-      tribeSlug: TRIBE_SLUG,
-    });
+    const snapshot = await reader.readAsOwner(FEED_QUERY);
 
     expect(snapshot).toEqual({
       exceptions: [
+        {
+          eventId: EVENT_ID,
+          kind: "moved",
+          newEndsAt: null,
+          newStartsAt: "2026-05-22T21:00:00.000Z",
+          originalStartsAt: "2026-05-21T21:00:00.000Z",
+          reason: "Feriado",
+        },
         {
           eventId: EVENT_ID,
           kind: "cancelled",
@@ -299,9 +318,13 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       ],
       tribeName: "Matemática Pro",
     });
+    // Access check, throttled touch, and ONE read: series and exceptions come
+    // from the same statement snapshot, so a concurrent exception change can
+    // never be paired with the previous SEQUENCE of its series.
+    expect(ownerExecute).toHaveBeenCalledTimes(3);
 
-    const [accessSql, touchSql, seriesSql, exceptionsSql] = ownerExecute.mock.calls.map(
-      ([statement]) => getSqlText(statement)
+    const [accessSql, touchSql, feedSql] = ownerExecute.mock.calls.map(([statement]) =>
+      getSqlText(statement)
     );
 
     expect(accessSql).toContain("public.can_read_tribe_content(tribes.id)");
@@ -309,132 +332,29 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     expect(accessSql).toContain("event_calendar_feed_tokens.revoked_at is null");
     expect(touchSql).toContain("set last_used_at = timezone('utc', now())");
     expect(touchSql).toContain("make_interval(mins =>");
-    expect(seriesSql).toContain("public.can_read_tribe_content(events.tribe_id)");
-    expect(seriesSql).toContain("limit");
-    expect(seriesSql).toContain("events.calendar_sequence");
-    expect(seriesSql).not.toContain("events.event_type = any(");
-    expect(exceptionsSql).toContain("event_occurrence_exceptions.event_id = any(");
+    expect(feedSql).toContain("public.can_read_tribe_content(events.tribe_id)");
+    expect(feedSql).toContain("public.can_read_tribe_content(event_occurrence_exceptions.tribe_id)");
+    expect(feedSql).not.toContain("events.event_type = any(");
   });
 
-  it("keeps the complete exceptions of every returned series and omits a series that does not fit the budget", async () => {
-    const firstSeriesId = "11111111-1111-4111-8111-111111111111";
-    const oversizedSeriesId = "22222222-2222-4222-8222-222222222222";
-    const lastSeriesId = "33333333-3333-4333-8333-333333333333";
-    const buildSeriesRow = (id: string, exceptionCount: number) => ({
-      calendar_sequence: 0,
-      capacity: null,
-      description: null,
-      ends_at: "2026-05-07T22:00:00.000Z",
-      event_type: "workshop",
-      exception_count: String(exceptionCount),
-      id,
-      meeting_url: null,
-      recurrence_frequency: "weekly",
-      recurrence_until: null,
-      starts_at: "2026-05-07T21:00:00.000Z",
-      title: "Taller semanal",
-      updated_at: "2026-05-01T10:00:00.000Z",
-    });
-    const buildCancellation = (eventId: string, originalStartsAt: string) => ({
-      event_id: eventId,
-      kind: "cancelled",
-      new_ends_at: null,
-      new_starts_at: null,
-      original_starts_at: originalStartsAt,
-      reason: null,
-    });
+  it("maps a series whose exception aggregate is empty or null", async () => {
+    const secondEventId = "7a4d8b2f-3c5e-4d9f-8a21-2b3c4d5e6f70";
     const ownerExecute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
-        rows: [
-          buildSeriesRow(firstSeriesId, 2),
-          buildSeriesRow(oversizedSeriesId, 5),
-          buildSeriesRow(lastSeriesId, 1),
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          buildCancellation(firstSeriesId, "2026-05-21T21:00:00.000Z"),
-          buildCancellation(lastSeriesId, "2026-05-14T21:00:00.000Z"),
-          buildCancellation(firstSeriesId, "2026-05-14T21:00:00.000Z"),
-        ],
+        rows: [buildSeriesRow(EVENT_ID, []), buildSeriesRow(secondEventId, null)],
       });
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
-    const snapshot = await reader.readAsOwner({
-      eventTypes: [],
-      lastUsedRefreshMinutes: 60,
-      maxExceptions: 3,
-      maxSeries: 500,
-      owner: { tokenHash: TOKEN_HASH, tokenId: TOKEN_ID, tribeId: TRIBE_ID, userId: OWNER_ID },
-      rangeEnd: "2027-05-10T12:00:00.000Z",
-      rangeStart: "2026-02-09T12:00:00.000Z",
-      tribeSlug: TRIBE_SLUG,
-    });
+    const snapshot = await reader.readAsOwner(FEED_QUERY);
 
-    // The oversized series is left out instead of being emitted with only
-    // part of its cancellations; the smaller series after it still fits.
-    expect(snapshot?.series.map((series) => series.event.id)).toEqual([
-      firstSeriesId,
-      lastSeriesId,
-    ]);
-    expect(snapshot?.exceptions).toHaveLength(3);
-
-    const seriesSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
-    const exceptionsSql = getSqlText(ownerExecute.mock.calls[3]?.[0]);
-
-    expect(seriesSql).toContain("exception_count");
-    expect(exceptionsSql).toContain(firstSeriesId);
-    expect(exceptionsSql).toContain(lastSeriesId);
-    expect(exceptionsSql).not.toContain(oversizedSeriesId);
-    // No global row limit that could cut the exceptions of a returned series.
-    expect(exceptionsSql).not.toContain("limit");
+    expect(snapshot?.series.map((series) => series.event.id)).toEqual([EVENT_ID, secondEventId]);
+    expect(snapshot?.exceptions).toEqual([]);
   });
 
-  it("reads no exceptions when every series with exceptions exceeds the budget", async () => {
-    const ownerExecute = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            calendar_sequence: 0,
-            capacity: null,
-            description: null,
-            ends_at: "2026-05-07T22:00:00.000Z",
-            event_type: "workshop",
-            exception_count: 4,
-            id: EVENT_ID,
-            meeting_url: null,
-            recurrence_frequency: "weekly",
-            recurrence_until: null,
-            starts_at: "2026-05-07T21:00:00.000Z",
-            title: "Taller semanal",
-            updated_at: "2026-05-01T10:00:00.000Z",
-          },
-        ],
-      });
-    const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
-
-    await expect(
-      reader.readAsOwner({
-        eventTypes: [],
-        lastUsedRefreshMinutes: 60,
-        maxExceptions: 3,
-        maxSeries: 500,
-        owner: { tokenHash: TOKEN_HASH, tokenId: TOKEN_ID, tribeId: TRIBE_ID, userId: OWNER_ID },
-        rangeEnd: "2027-05-10T12:00:00.000Z",
-        rangeStart: "2026-02-09T12:00:00.000Z",
-        tribeSlug: TRIBE_SLUG,
-      })
-    ).resolves.toEqual({ exceptions: [], series: [], tribeName: "Matemática Pro" });
-    expect(ownerExecute).toHaveBeenCalledTimes(3);
-  });
-
-  it("filters the series by the requested types before the row limit", async () => {
+  it("filters the series by the requested types inside the read", async () => {
     const ownerExecute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
@@ -442,23 +362,15 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       .mockResolvedValueOnce({ rows: [] });
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
-    await reader.readAsOwner({
-      eventTypes: ["workshop", "qa"],
-      lastUsedRefreshMinutes: 60,
-      maxExceptions: 2000,
-      maxSeries: 500,
-      owner: { tokenHash: TOKEN_HASH, tokenId: TOKEN_ID, tribeId: TRIBE_ID, userId: OWNER_ID },
-      rangeEnd: "2027-05-10T12:00:00.000Z",
-      rangeStart: "2026-02-09T12:00:00.000Z",
-      tribeSlug: TRIBE_SLUG,
-    });
+    await expect(
+      reader.readAsOwner({ ...FEED_QUERY, eventTypes: ["workshop", "qa"] })
+    ).resolves.toEqual({ exceptions: [], series: [], tribeName: "Matemática Pro" });
 
-    const seriesSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
-    const typePredicateIndex = seriesSql.indexOf("events.event_type = any(");
+    const feedSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
+    const typePredicateIndex = feedSql.indexOf("events.event_type = any(");
 
     expect(typePredicateIndex).toBeGreaterThan(-1);
-    expect(seriesSql.slice(typePredicateIndex)).toMatch(/workshop.*qa.*::text\[\]/s);
-    expect(typePredicateIndex).toBeLessThan(seriesSql.lastIndexOf("limit"));
+    expect(feedSql.slice(typePredicateIndex)).toMatch(/workshop.*qa.*::text\[\]/s);
   });
 
   it("returns null and reads nothing else when the owner lost access", async () => {
@@ -466,16 +378,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
     await expect(
-      reader.readAsOwner({
-        eventTypes: [],
-        lastUsedRefreshMinutes: 60,
-        maxExceptions: 2000,
-        maxSeries: 500,
-        owner: { tokenHash: TOKEN_HASH, tokenId: TOKEN_ID, tribeId: TRIBE_ID, userId: OWNER_ID },
-        rangeEnd: "2027-05-10T12:00:00.000Z",
-        rangeStart: "2026-02-09T12:00:00.000Z",
-        tribeSlug: TRIBE_SLUG,
-      })
+      reader.readAsOwner(FEED_QUERY)
     ).resolves.toBeNull();
     expect(ownerExecute).toHaveBeenCalledTimes(1);
   });

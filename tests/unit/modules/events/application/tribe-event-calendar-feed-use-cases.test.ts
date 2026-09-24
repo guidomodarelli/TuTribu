@@ -160,7 +160,7 @@ describe("getTribeEventCalendarFeed", () => {
       eventTypes: [],
       lastUsedRefreshMinutes: TRIBE_EVENT_CALENDAR_FEED_REFRESH.lastUsedRefreshMinutes,
       maxExceptions: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxExceptions,
-      maxSeries: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents,
+      maxComponents: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents,
       owner,
       rangeEnd: new Date(
         NOW.getTime() + TRIBE_EVENT_CALENDAR_FEED_WINDOW.futureWindowDays * MILLISECONDS_PER_DAY
