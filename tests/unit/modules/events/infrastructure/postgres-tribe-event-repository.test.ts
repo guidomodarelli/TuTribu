@@ -951,6 +951,46 @@ describe("PostgresTribeEventRepository", () => {
     );
   });
 
+  it("reads the viewer answers of dates moved into the attendance range from before it", async () => {
+    const execute = vi.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          ...eventRow,
+          snapshot_reference_time: new Date("2026-05-27T18:29:57.123Z"),
+          viewer_attendances: [],
+          occurrence_exceptions: [],
+        },
+      ],
+    });
+    const repository = createRepository(execute);
+
+    await repository.readViewerAttendanceStreakSnapshot({
+      eventRange: {
+        rangeEnd: "2026-07-01T03:00:00.000Z",
+        rangeStart: "2026-01-01T03:00:00.000Z",
+      },
+      tribeSlug: "matematica-pro",
+      viewerAttendanceRange: {
+        rangeEnd: "2026-06-01T03:00:00.000Z",
+        rangeStart: "2026-01-01T03:00:00.000Z",
+      },
+    });
+
+    // Answers keep the original start, so a date whose original start
+    // predates the range but was moved into it is matched by its moved
+    // exception; otherwise its answer would be missing from the streak.
+    const snapshotSql = getSqlText(execute.mock.calls[0][0]);
+    const viewerAttendancesSql = snapshotSql.slice(
+      snapshotSql.indexOf("from public.event_attendances"),
+      snapshotSql.indexOf("as viewer_attendances")
+    );
+
+    expect(viewerAttendancesSql).toContain(
+      "moved_exceptions.original_starts_at = event_attendances.occurrence_starts_at"
+    );
+    expect(viewerAttendancesSql).toContain("moved_exceptions.new_starts_at >=");
+  });
+
   it("returns an empty snapshot when the tribe has no series in the range", async () => {
     const execute = vi.fn().mockResolvedValueOnce({
       rows: [

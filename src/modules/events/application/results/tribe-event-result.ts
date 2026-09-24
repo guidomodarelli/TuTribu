@@ -17,7 +17,6 @@ import type {
   TribeEventAttendanceResult,
   TribeEventAttendanceSummary,
   TribeEventDeletionResult,
-  TribeEventOccurrenceGoingCount,
   TribeEventViewerPermissions,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 
@@ -142,6 +141,8 @@ export type TribeEventProposalResult = TribeEventProposal;
  */
 export type TribeEventProposalListResult = {
   canReviewProposals: boolean;
+  /** Uncapped pending total for managers (0 for members); `proposals` is bounded. */
+  pendingCount: number;
   proposals: TribeEventProposalResult[];
 };
 
@@ -234,9 +235,22 @@ export type TribeEventAttendanceStreakSnapshotResult = {
 export type TribeEventAttendeeResult = TribeEventAttendee;
 
 /**
+ * "Going" total of one finished occurrence of the trend. `occurrenceStartsAt`
+ * is the effective start (the date it was held, a moved date shows its new
+ * time) and `originalOccurrenceStartsAt` the stable attendance key.
+ */
+export type TribeEventAttendanceTrendPointResult = {
+  goingCount: number;
+  occurrenceStartsAt: string;
+  originalOccurrenceStartsAt: string;
+};
+
+/**
  * Manager view of one occurrence: answers grouped by status (waitlisted in
  * FIFO order) and, for series, the "going" totals of the last finished
- * occurrences, oldest first.
+ * occurrences, oldest first. `occurrenceStartsAt` is the effective start used
+ * for presentation (labels, CSV file name); `originalOccurrenceStartsAt` is
+ * the attendance key the report was queried by.
  */
 export type TribeEventAttendanceReportResult = {
   attendeeGroups: {
@@ -247,7 +261,8 @@ export type TribeEventAttendanceReportResult = {
   };
   eventTitle: string;
   occurrenceStartsAt: string;
-  trend: TribeEventOccurrenceGoingCount[];
+  originalOccurrenceStartsAt: string;
+  trend: TribeEventAttendanceTrendPointResult[];
 };
 
 export type TribeEventAttendanceReportLookupResult =
@@ -328,10 +343,12 @@ export type TribeEventCalendarFeedTokenRevokeResult = {
 };
 
 /**
- * One series of the feed and the instant it last changed (drives SEQUENCE,
- * LAST-MODIFIED, and DTSTAMP so the file is stable between changes).
+ * One series of the feed with its revision: the instant it last changed
+ * (LAST-MODIFIED and DTSTAMP, so the file is stable between changes) and its
+ * strictly increasing revision counter (SEQUENCE).
  */
 export type TribeEventCalendarFeedSeriesResult = TribeEventCalendarResult & {
+  calendarSequence: number;
   lastModifiedAt: string;
 };
 

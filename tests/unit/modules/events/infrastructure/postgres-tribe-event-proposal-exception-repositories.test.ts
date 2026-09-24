@@ -366,11 +366,40 @@ describe("PostgresTribeEventProposalRepository", () => {
     const repository = new PostgresTribeEventProposalRepository(createExecutor(execute));
     const query = { authorListSize: 20, managerListSize: 50, tribeSlug: TRIBE_SLUG };
 
-    await expect(repository.list(query)).resolves.toMatchObject({ canReviewProposals: true });
-    await expect(repository.list(query)).resolves.toMatchObject({ canReviewProposals: false });
+    await expect(repository.list(query)).resolves.toMatchObject({
+      canReviewProposals: true,
+      pendingCount: 0,
+    });
+    await expect(repository.list(query)).resolves.toMatchObject({
+      canReviewProposals: false,
+      pendingCount: 0,
+    });
     expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("event_proposals.status =");
     expect(getSqlText(execute.mock.calls[3]?.[0])).toContain(
       "event_proposals.proposed_by = public.current_app_user_id()"
     );
+  });
+
+  it("returns the uncapped pending total with the bounded manager queue in one query", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ ...memberAccess, can_manage: true }] })
+      .mockResolvedValueOnce({ rows: [{ ...proposalRow, pending_count: "73" }] })
+      .mockResolvedValueOnce({ rows: [{ ...memberAccess, can_manage: true }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = new PostgresTribeEventProposalRepository(createExecutor(execute));
+    const query = { authorListSize: 20, managerListSize: 50, tribeSlug: TRIBE_SLUG };
+
+    await expect(repository.list(query)).resolves.toMatchObject({
+      canReviewProposals: true,
+      pendingCount: 73,
+      proposals: [expect.objectContaining({ id: PROPOSAL_ID })],
+    });
+    await expect(repository.list(query)).resolves.toMatchObject({
+      canReviewProposals: true,
+      pendingCount: 0,
+      proposals: [],
+    });
+    expect(execute).toHaveBeenCalledTimes(4);
   });
 });

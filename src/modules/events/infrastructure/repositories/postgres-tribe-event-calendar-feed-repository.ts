@@ -74,6 +74,7 @@ type FeedTribeRow = {
 };
 
 type FeedSeriesRow = TribeEventRow & {
+  calendar_sequence: number;
   updated_at: Date | string;
 };
 
@@ -296,7 +297,7 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
       `);
 
       const seriesResult = await database.execute(sql`
-        select ${TRIBE_EVENT_COLUMNS}, events.updated_at
+        select ${TRIBE_EVENT_COLUMNS}, events.updated_at, events.calendar_sequence
         from public.events
         where events.tribe_id = ${tribe.id}
           and public.can_read_tribe_content(events.tribe_id)
@@ -333,6 +334,7 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
           (exceptionsResult.rows ?? []) as TribeEventOccurrenceExceptionRow[]
         ),
         series: seriesRows.map((row) => ({
+          calendarSequence: Number(row.calendar_sequence),
           event: mapTribeEvent(row),
           updatedAt: mapDateValue(row.updated_at),
         })),

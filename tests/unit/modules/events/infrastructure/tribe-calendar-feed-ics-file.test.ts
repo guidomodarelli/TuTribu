@@ -10,6 +10,7 @@ const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const SOCIAL_ID = "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
 const ICS_LINE_OCTET_LIMIT = 75;
 const LAST_MODIFIED_AT = "2026-05-01T10:00:30.000Z";
+const CALENDAR_SEQUENCE = 3;
 
 const weeklySeries: TribeEventCalendarFeedSeriesResult = {
   event: {
@@ -25,6 +26,7 @@ const weeklySeries: TribeEventCalendarFeedSeriesResult = {
     startsAt: "2026-05-07T21:00:00.000Z",
     title: "Taller semanal, álgebra; nivel 1",
   },
+  calendarSequence: CALENDAR_SEQUENCE,
   lastModifiedAt: LAST_MODIFIED_AT,
   occurrenceExceptions: [
     {
@@ -56,6 +58,7 @@ const singleEvent: TribeEventCalendarFeedSeriesResult = {
     startsAt: "2026-06-01T23:00:00.000Z",
     title: "Asado",
   },
+  calendarSequence: 0,
   lastModifiedAt: "2026-05-02T10:00:00.000Z",
   occurrenceExceptions: [],
 };
@@ -135,9 +138,7 @@ describe("buildTribeCalendarFeedIcsFile", () => {
     );
     expect(String(master.getFirstPropertyValue("rrule"))).toBe("FREQ=WEEKLY");
     expect(String(master.getFirstPropertyValue("exdate"))).toBe("2026-05-14T21:00:00Z");
-    expect(master.getFirstPropertyValue("sequence")).toBe(
-      Math.floor(Date.parse(LAST_MODIFIED_AT) / 60_000)
-    );
+    expect(master.getFirstPropertyValue("sequence")).toBe(CALENDAR_SEQUENCE);
     expect(String(master.getFirstPropertyValue("last-modified"))).toBe("2026-05-01T10:00:30Z");
     expect(String(master.getFirstPropertyValue("dtstamp"))).toBe("2026-05-01T10:00:30Z");
 
@@ -146,6 +147,7 @@ describe("buildTribeCalendarFeedIcsFile", () => {
       "2026-05-21T21:00:00Z"
     );
     expect(String(movedOverride.getFirstPropertyValue("dtstart"))).toBe("2026-05-22T21:00:00Z");
+    expect(movedOverride.getFirstPropertyValue("sequence")).toBe(CALENDAR_SEQUENCE);
 
     expect(single.getFirstPropertyValue("uid")).toBe(`${SOCIAL_ID}@tutribu`);
     expect(String(single.getFirstPropertyValue("dtend"))).toBe("2026-06-02T00:00:00Z");
@@ -163,6 +165,25 @@ describe("buildTribeCalendarFeedIcsFile", () => {
       "2026-05-28T21:00:00Z",
       "2026-06-04T21:00:00Z",
     ]);
+  });
+
+  it("raises SEQUENCE for a second revision saved within the same minute", () => {
+    const readMasterSequence = (series: TribeEventCalendarFeedSeriesResult) => {
+      const calendar = new ICAL.Component(
+        ICAL.parse(buildTribeCalendarFeedIcsFile({ calendarName: "Tribu", series: [series] }).content)
+      );
+
+      return calendar.getAllSubcomponents("vevent")[0].getFirstPropertyValue("sequence");
+    };
+    const firstRevision = readMasterSequence(weeklySeries);
+    const secondRevision = readMasterSequence({
+      ...weeklySeries,
+      calendarSequence: CALENDAR_SEQUENCE + 1,
+      event: { ...weeklySeries.event, title: "Taller semanal renombrado" },
+      lastModifiedAt: "2026-05-01T10:00:45.000Z",
+    });
+
+    expect(Number(secondRevision)).toBeGreaterThan(Number(firstRevision));
   });
 
   it("is deterministic for the same data, so the ETag only changes with the calendar", () => {

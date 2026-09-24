@@ -58,6 +58,7 @@ describe("proposal and exception browser adapters", () => {
   it("loads the proposals panel and drops fields outside the contract", async () => {
     respondWith({
       canReviewProposals: false,
+      pendingCount: 0,
       proposals: [{ ...proposal, proposedBy: "member-secret" }],
     });
 
@@ -67,6 +68,7 @@ describe("proposal and exception browser adapters", () => {
       canReviewProposals: false,
       isSuccess: true,
       message: null,
+      pendingCount: 0,
       proposals: [proposal],
     });
     expect(globalThis.fetch).toHaveBeenCalledWith(

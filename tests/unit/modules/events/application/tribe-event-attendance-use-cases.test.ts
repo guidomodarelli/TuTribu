@@ -357,11 +357,85 @@ describe("tribe event attendance use cases", () => {
           },
           eventTitle: "Clase abierta",
           occurrenceStartsAt: "2026-06-03T18:00:00.000Z",
+          originalOccurrenceStartsAt: "2026-06-03T18:00:00.000Z",
           trend: expectedTrendStarts.map((occurrenceStartsAt) => ({
             goingCount: trendGoingCounts[occurrenceStartsAt] ?? 0,
             occurrenceStartsAt,
+            originalOccurrenceStartsAt: occurrenceStartsAt,
           })),
         },
+        status: TRIBE_EVENT_MUTATION_STATUS.found,
+      });
+    });
+
+    it("reports a moved occurrence at its effective date while querying counts by its original start", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"));
+      const movedException = {
+        eventId: EVENT_ID,
+        kind: "moved" as const,
+        newEndsAt: null,
+        newStartsAt: "2026-05-21T20:00:00.000Z",
+        originalStartsAt: "2026-05-20T18:00:00.000Z",
+        reason: null,
+      };
+      const getOccurrenceAttendanceReport = vi.fn(async () => ({
+        attendees: [],
+        status: TRIBE_EVENT_MUTATION_STATUS.found,
+        trend: [{ goingCount: 5, occurrenceStartsAt: "2026-05-20T18:00:00.000Z" }],
+      }));
+      const execute = getTribeEventAttendanceReport({
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({
+          find: vi.fn(async () => movedException),
+          listByEvent: vi.fn(async () => [movedException]),
+        }),
+        tribeEventRepository: createRepository({ getOccurrenceAttendanceReport }),
+      });
+
+      const result = await execute({
+        eventId: EVENT_ID,
+        occurrenceStartsAt: "2026-05-20T18:00:00.000Z",
+        tribeSlug: "matematica-pro",
+      });
+
+      expect(getOccurrenceAttendanceReport).toHaveBeenCalledWith({
+        eventId: EVENT_ID,
+        occurrenceStartsAt: "2026-05-20T18:00:00.000Z",
+        trendOccurrenceStartsAts: [
+          "2026-05-06T18:00:00.000Z",
+          "2026-05-13T18:00:00.000Z",
+          "2026-05-20T18:00:00.000Z",
+          "2026-05-27T18:00:00.000Z",
+        ],
+        tribeSlug: "matematica-pro",
+      });
+      expect(result).toEqual({
+        report: expect.objectContaining({
+          occurrenceStartsAt: "2026-05-21T20:00:00.000Z",
+          originalOccurrenceStartsAt: "2026-05-20T18:00:00.000Z",
+          trend: [
+            {
+              goingCount: 0,
+              occurrenceStartsAt: "2026-05-06T18:00:00.000Z",
+              originalOccurrenceStartsAt: "2026-05-06T18:00:00.000Z",
+            },
+            {
+              goingCount: 0,
+              occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+              originalOccurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+            },
+            {
+              goingCount: 5,
+              occurrenceStartsAt: "2026-05-21T20:00:00.000Z",
+              originalOccurrenceStartsAt: "2026-05-20T18:00:00.000Z",
+            },
+            {
+              goingCount: 0,
+              occurrenceStartsAt: "2026-05-27T18:00:00.000Z",
+              originalOccurrenceStartsAt: "2026-05-27T18:00:00.000Z",
+            },
+          ],
+        }),
         status: TRIBE_EVENT_MUTATION_STATUS.found,
       });
     });
