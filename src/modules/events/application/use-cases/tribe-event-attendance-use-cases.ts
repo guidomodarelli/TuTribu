@@ -1,22 +1,19 @@
 import type {
   ClearTribeEventAttendanceCommand,
   GetTribeEventAttendanceReportQuery,
-  GetTribeEventAttendanceStreakQuery,
   SetTribeEventAttendanceCommand,
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
   TribeEventAttendanceMutationResult,
   TribeEventAttendanceReportLookupResult,
   TribeEventAttendanceReportResult,
-  TribeEventAttendanceStreakResult,
   TribeEventAttendeeResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
-import { buildTribeEventOccurrenceKey } from "@/src/modules/events/application/services/tribe-event-occurrences";
+import { createPastTribeEventRange } from "@/src/modules/events/application/services/tribe-event-time-ranges";
 import { isValidTribeEventId } from "@/src/modules/events/application/use-cases/manage-tribe-events-use-cases";
 import {
   TRIBE_EVENT_ATTENDANCE_OPTIONS,
   TRIBE_EVENT_ATTENDANCE_STATUS,
-  TRIBE_EVENT_ATTENDANCE_STREAK,
   TRIBE_EVENT_ATTENDANCE_TREND,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
@@ -31,10 +28,7 @@ import type {
   TribeEventAttendanceKey,
   TribeEventRepository,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
-import {
-  calculateTribeEventAttendanceStreak,
-  selectRecentPastOccurrences,
-} from "@/src/modules/events/domain/services/tribe-event-attendance";
+import { selectRecentPastOccurrences } from "@/src/modules/events/domain/services/tribe-event-attendance";
 import {
   expandTribeEventOccurrences,
   findTribeEventOccurrence,
@@ -60,7 +54,6 @@ const RESOLVED_KEY_STATUS = {
   valid: "valid",
 } as const;
 const ATTENDANCE_OPTIONS: ReadonlySet<string> = new Set(TRIBE_EVENT_ATTENDANCE_OPTIONS);
-const MILLISECONDS_PER_DAY = 86_400_000;
 
 /**
  * Validates the identifiers and proves the occurrence is a real slot of the
@@ -120,16 +113,6 @@ function isAttendanceOption(status: string): status is TribeEventAttendanceOptio
 }
 
 /**
- * Window `[now - lookbackDays, now)` used to look at finished occurrences.
- */
-function createPastRange(nowTime: number, lookbackDays: number) {
-  return {
-    rangeEnd: new Date(nowTime).toISOString(),
-    rangeStart: new Date(nowTime - lookbackDays * MILLISECONDS_PER_DAY).toISOString(),
-  };
-}
-
-/**
  * Starts of the last finished occurrences of a series (oldest first), or an
  * empty list for single events, which have no trend.
  */
@@ -140,7 +123,7 @@ function listTrendOccurrenceStarts(event: TribeEvent, nowTime: number): string[]
 
   const pastOccurrences = expandTribeEventOccurrences(
     event,
-    createPastRange(nowTime, TRIBE_EVENT_ATTENDANCE_TREND.lookbackDays)
+    createPastTribeEventRange(nowTime, TRIBE_EVENT_ATTENDANCE_TREND.lookbackDays)
   );
 
   return selectRecentPastOccurrences(
@@ -271,47 +254,5 @@ export function getTribeEventAttendanceReport({
       },
       status: TRIBE_EVENT_MUTATION_STATUS.found,
     };
-  };
-}
-
-/**
- * Viewer-only streak over the last finished occurrences of the tribe, across
- * every series, looking back a bounded window from the reference instant
- * `query.now` (shared with `getTribeEventAttendanceStreakNextRefreshAt`).
- */
-export function getTribeEventAttendanceStreak({
-  tribeEventRepository,
-}: TribeEventAttendanceDependencies) {
-  return async (
-    query: GetTribeEventAttendanceStreakQuery
-  ): Promise<TribeEventAttendanceStreakResult | null> => {
-    const nowTime = query.now.getTime();
-    const range = createPastRange(nowTime, TRIBE_EVENT_ATTENDANCE_STREAK.lookbackDays);
-    const history = await tribeEventRepository.listViewerAttendanceHistory({
-      ...range,
-      tribeSlug: query.tribeSlug.trim(),
-    });
-    const viewerStatusByKey = new Map(
-      history.viewerAttendances.map((attendance) => [
-        buildTribeEventOccurrenceKey(
-          attendance.eventId,
-          new Date(attendance.occurrenceStartsAt).toISOString()
-        ),
-        attendance.status,
-      ])
-    );
-    const occurrences = history.events.flatMap((event) =>
-      expandTribeEventOccurrences(event, range).map((occurrence) => ({
-        ...occurrence,
-        viewerStatus:
-          viewerStatusByKey.get(buildTribeEventOccurrenceKey(event.id, occurrence.startsAt)) ??
-          null,
-      }))
-    );
-
-    return calculateTribeEventAttendanceStreak(occurrences, nowTime, {
-      minimumAttended: TRIBE_EVENT_ATTENDANCE_STREAK.minimumAttended,
-      windowSize: TRIBE_EVENT_ATTENDANCE_STREAK.windowSize,
-    });
   };
 }

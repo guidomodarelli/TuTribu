@@ -687,29 +687,101 @@ describe("PostgresTribeEventRepository", () => {
     expect(execute).toHaveBeenCalledTimes(4);
   });
 
-  it("returns the viewer history with only recognized statuses", async () => {
-    const execute = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [eventRow] })
-      .mockResolvedValueOnce({
-        rows: [
-          { event_id: EVENT_ID, occurrence_starts_at: "2026-05-13T18:00:00.000Z", status: "going" },
-          { event_id: EVENT_ID, occurrence_starts_at: "2026-05-20T18:00:00.000Z", status: "unknown" },
-        ],
-      });
-    const repository = createRepository(execute);
+  it("reads the streak snapshot in one transaction and one statement", async () => {
+    const execute = vi.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          ...eventRow,
+          viewer_attendances: [
+            {
+              event_id: EVENT_ID,
+              occurrence_starts_at: "2026-05-13T18:00:00+00:00",
+              status: "going",
+            },
+            {
+              event_id: EVENT_ID,
+              occurrence_starts_at: "2026-05-20T18:00:00+00:00",
+              status: "unknown",
+            },
+            { event_id: EVENT_ID, occurrence_starts_at: "not a date", status: "maybe" },
+            null,
+          ],
+        },
+      ],
+    });
+    const executeWithDatabase = vi.fn(async (callback: (database: never) => unknown) =>
+      callback({ execute } as never)
+    );
+    const repository = new PostgresTribeEventRepository(
+      executeWithDatabase as unknown as ConstructorParameters<
+        typeof PostgresTribeEventRepository
+      >[0]
+    );
 
     await expect(
-      repository.listViewerAttendanceHistory({
-        rangeEnd: "2026-06-01T03:00:00.000Z",
-        rangeStart: "2026-01-01T03:00:00.000Z",
+      repository.readViewerAttendanceStreakSnapshot({
+        eventRange: {
+          rangeEnd: "2026-07-01T03:00:00.000Z",
+          rangeStart: "2026-01-01T03:00:00.000Z",
+        },
         tribeSlug: "matematica-pro",
+        viewerAttendanceRange: {
+          rangeEnd: "2026-06-01T03:00:00.000Z",
+          rangeStart: "2026-01-01T03:00:00.000Z",
+        },
       })
-    ).resolves.toMatchObject({
-      events: [{ id: EVENT_ID }],
+    ).resolves.toEqual({
+      events: [expect.objectContaining({ id: EVENT_ID })],
       viewerAttendances: [
         { eventId: EVENT_ID, occurrenceStartsAt: "2026-05-13T18:00:00.000Z", status: "going" },
       ],
     });
+    // The series and the viewer answers share one request transaction and a
+    // single statement, so they come from one database snapshot.
+    expect(executeWithDatabase).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(getSqlParams(execute.mock.calls[0][0])).toEqual(
+      expect.arrayContaining([
+        "matematica-pro",
+        "2026-07-01T03:00:00.000Z",
+        "2026-01-01T03:00:00.000Z",
+        "2026-06-01T03:00:00.000Z",
+      ])
+    );
+  });
+
+  it("returns an empty snapshot when the tribe has no series in the range", async () => {
+    const execute = vi.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          can_manage_events: false,
+          capacity: null,
+          description: null,
+          ends_at: null,
+          id: null,
+          meeting_url: null,
+          recurrence_frequency: null,
+          recurrence_until: null,
+          starts_at: null,
+          title: null,
+          viewer_attendances: [],
+        },
+      ],
+    });
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.readViewerAttendanceStreakSnapshot({
+        eventRange: {
+          rangeEnd: "2026-07-01T03:00:00.000Z",
+          rangeStart: "2026-01-01T03:00:00.000Z",
+        },
+        tribeSlug: "matematica-pro",
+        viewerAttendanceRange: {
+          rangeEnd: "2026-06-01T03:00:00.000Z",
+          rangeStart: "2026-01-01T03:00:00.000Z",
+        },
+      })
+    ).resolves.toEqual({ events: [], viewerAttendances: [] });
   });
 });

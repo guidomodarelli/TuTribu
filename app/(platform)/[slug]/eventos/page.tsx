@@ -7,8 +7,11 @@ const TRIBE_EVENTS_PAGE = {
   listFailureReason: "unexpected_event_repository_error",
   operation: "tribe-events-page",
   streakFailureMessage: "Failed to compute tribe event attendance streak",
-  streakNextRefreshFailureMessage:
-    "Failed to compute tribe event attendance streak next refresh",
+} as const;
+/** Fallback when the streak read fails: no streak line and no refresh timer. */
+const EMPTY_ATTENDANCE_STREAK_SNAPSHOT = {
+  attendanceStreak: null,
+  nextRefreshAt: null,
 } as const;
 
 export default async function TribeEventsPage({
@@ -34,9 +37,9 @@ export default async function TribeEventsPage({
     });
 
   // One reference instant for the streak and its next refresh, taken before
-  // the reads start: both are computed from the same snapshot, and an
-  // occurrence that ends while the queries run still falls after it, so the
-  // client re-reads the streak.
+  // the read starts: both come from one repository read (a single database
+  // snapshot) at that instant, and an occurrence that ends while the query
+  // runs still falls after it, so the client re-reads the streak.
   const attendanceStreakReferenceTime = new Date();
   const attendanceStreakComputedAt = attendanceStreakReferenceTime.toISOString();
 
@@ -46,7 +49,7 @@ export default async function TribeEventsPage({
   // The next refresh instant covers occurrences outside the visible month
   // (for example one that started last month and is still running), whose
   // end would otherwise never refresh the streak on screen.
-  const [listing, attendanceStreak, attendanceStreakNextRefreshAt] = await Promise.all([
+  const [listing, attendanceStreakSnapshot] = await Promise.all([
     modules.events.useCases
       .listTribeEvents({
         month: resolvedSearchParams?.month,
@@ -68,7 +71,10 @@ export default async function TribeEventsPage({
         return null;
       }),
     modules.events.useCases
-      .getTribeEventAttendanceStreak({ now: attendanceStreakReferenceTime, tribeSlug: slug })
+      .getTribeEventAttendanceStreakSnapshot({
+        now: attendanceStreakReferenceTime,
+        tribeSlug: slug,
+      })
       .catch((error: unknown) => {
         logger.error({
           message: TRIBE_EVENTS_PAGE.streakFailureMessage,
@@ -80,25 +86,7 @@ export default async function TribeEventsPage({
           },
         });
 
-        return null;
-      }),
-    modules.events.useCases
-      .getTribeEventAttendanceStreakNextRefreshAt({
-        now: attendanceStreakReferenceTime,
-        tribeSlug: slug,
-      })
-      .catch((error: unknown) => {
-        logger.error({
-          message: TRIBE_EVENTS_PAGE.streakNextRefreshFailureMessage,
-          error,
-          metadata: {
-            reason: TRIBE_EVENTS_PAGE.listFailureReason,
-            slug,
-            viewerId: authenticatedMember.id,
-          },
-        });
-
-        return null;
+        return EMPTY_ATTENDANCE_STREAK_SNAPSHOT;
       }),
   ]);
 
@@ -108,9 +96,9 @@ export default async function TribeEventsPage({
 
   return (
     <TribeEventsCalendar
-      attendanceStreak={attendanceStreak}
+      attendanceStreak={attendanceStreakSnapshot.attendanceStreak}
       attendanceStreakComputedAt={attendanceStreakComputedAt}
-      attendanceStreakNextRefreshAt={attendanceStreakNextRefreshAt}
+      attendanceStreakNextRefreshAt={attendanceStreakSnapshot.nextRefreshAt}
       events={listing.events}
       initialOccurrenceKey={listing.selectedOccurrenceKey}
       month={listing.month}

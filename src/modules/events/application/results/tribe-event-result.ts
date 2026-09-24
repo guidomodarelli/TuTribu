@@ -113,6 +113,17 @@ export type TribeEventAttendanceMutationResult =
  */
 export type TribeEventAttendanceStreakResult = TribeEventAttendanceStreak;
 
+/**
+ * Viewer streak plus the next instant at which it can change, both computed
+ * from one database snapshot at the same reference instant. `attendanceStreak`
+ * is null below the minimum; `nextRefreshAt` (ISO 8601) is null when no
+ * running or upcoming occurrence ends inside the upcoming window.
+ */
+export type TribeEventAttendanceStreakSnapshotResult = {
+  attendanceStreak: TribeEventAttendanceStreakResult | null;
+  nextRefreshAt: string | null;
+};
+
 export type TribeEventAttendeeResult = TribeEventAttendee;
 
 /**

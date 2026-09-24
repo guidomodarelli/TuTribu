@@ -13,7 +13,6 @@ const ATTENDANCE_STREAK_ROUTE_LOG = {
   failureMessage: "Tribe event attendance streak lookup failed",
   failureReason: "unexpected_event_repository_error",
   feature: "events",
-  nextRefreshFailureMessage: "Tribe event attendance streak next refresh lookup failed",
   operation: "read-tribe-event-attendance-streak",
 } as const;
 
@@ -59,41 +58,20 @@ export async function GET(request: Request, context: TribeRouteContext) {
     );
   }
 
-  // Both reads share one reference instant so the streak and its next refresh
-  // come from the same snapshot. The next refresh instant is optional: when it
-  // fails it is logged and omitted, and the client keeps watching the instant
-  // it already has.
-  const now = new Date();
-  const nextRefreshAtPromise = modules.events.useCases
-    .getTribeEventAttendanceStreakNextRefreshAt({ now, tribeSlug: slug })
-    .then((attendanceStreakNextRefreshAt) => ({ attendanceStreakNextRefreshAt }))
-    .catch((error: unknown) => {
-      logger.error({
-        message: ATTENDANCE_STREAK_ROUTE_LOG.nextRefreshFailureMessage,
-        error,
-        metadata: {
-          reason: ATTENDANCE_STREAK_ROUTE_LOG.failureReason,
-          slug,
-          viewerId: authenticatedMember.id,
-        },
-      });
-
-      return {};
-    });
-
+  // The streak and its next refresh come from one read (a single database
+  // snapshot) at one reference instant, so a schedule change committed while
+  // the route runs can never show up in one value and not in the other.
   try {
-    const [attendanceStreak, nextRefreshFragment] = await Promise.all([
-      modules.events.useCases.getTribeEventAttendanceStreak({
-        now,
+    const { attendanceStreak, nextRefreshAt } =
+      await modules.events.useCases.getTribeEventAttendanceStreakSnapshot({
+        now: new Date(),
         tribeSlug: slug,
-      }),
-      nextRefreshAtPromise,
-    ]);
+      });
 
     return createJsonResponse(
       tribeEventAttendanceStreakResponseDtoSchema.parse({
         attendanceStreak,
-        ...nextRefreshFragment,
+        attendanceStreakNextRefreshAt: nextRefreshAt,
       }),
       TRIBE_EVENT_ROUTE_HTTP_STATUS.ok
     );
