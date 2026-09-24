@@ -39,7 +39,23 @@ describe("tribeEventAttendanceStreakResponseDtoSchema", () => {
     ).toEqual({ attendanceStreak: null, attendanceStreakNextRefreshAt: null });
   });
 
+  it("carries the database instant the streak was computed at", () => {
+    expect(
+      tribeEventAttendanceStreakResponseDtoSchema.parse({
+        attendanceStreak: null,
+        attendanceStreakComputedAt: "2026-05-27T18:29:57.000Z",
+        attendanceStreakNextRefreshAt: null,
+      })
+    ).toEqual({
+      attendanceStreak: null,
+      attendanceStreakComputedAt: "2026-05-27T18:29:57.000Z",
+      attendanceStreakNextRefreshAt: null,
+    });
+  });
+
   it.each([
+    { attendanceStreak: null, attendanceStreakComputedAt: null },
+    { attendanceStreak: null, attendanceStreakComputedAt: "2026-05-27" },
     { attendanceStreak: null, attendanceStreakNextRefreshAt: "2026-06-01" },
     { attendanceStreak: null, attendanceStreakNextRefreshAt: 1_780_000_000_000 },
     { attendanceStreak: { attendedCount: -1, occurrenceCount: 5 } },
@@ -74,9 +90,15 @@ describe("tribeEventAttendanceStreakMutationFragmentDtoSchema", () => {
         attendanceStreakNextRefreshAt: null,
       })
     ).toEqual({ attendanceStreakNextRefreshAt: null });
+    expect(
+      tribeEventAttendanceStreakMutationFragmentDtoSchema.parse({
+        attendanceStreakComputedAt: "2026-05-27T18:29:57.000Z",
+      })
+    ).toEqual({ attendanceStreakComputedAt: "2026-05-27T18:29:57.000Z" });
   });
 
   it.each([
+    { attendanceStreakComputedAt: "ayer" },
     { attendanceStreakNextRefreshAt: "mañana" },
     { attendanceStreakNextRefreshAt: 1_780_000_000_000 },
     { attendanceStreak: { attendedCount: -1, occurrenceCount: 5 } },

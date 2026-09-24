@@ -66,6 +66,7 @@ describe("tribe coming soon pages", () => {
     getTribeEventAttendanceStreakSnapshot.mockReset();
     getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
       attendanceStreak: null,
+      computedAt: "2026-06-01T12:00:03.000Z",
       nextRefreshAt: null,
     });
     infoMock.mockReset();
@@ -180,14 +181,16 @@ describe("tribe coming soon pages", () => {
       viewerPermissions: { canManageEvents: false },
     });
 
-    render(
-      await TribeEventsPage({
-        params: Promise.resolve({ slug: "matematica-pro" }),
-        searchParams: Promise.resolve({ month: "2026-06" }),
-      })
-    );
+    const page = await TribeEventsPage({
+      params: Promise.resolve({ slug: "matematica-pro" }),
+      searchParams: Promise.resolve({ month: "2026-06" }),
+    });
 
-    // One snapshot read returns both values for the same instant.
+    render(page);
+
+    // One snapshot read returns both values for the same instant, and the
+    // calendar receives that database instant as attendanceStreakComputedAt.
+    expect(page.props.attendanceStreakComputedAt).toBe("2026-06-01T12:00:03.000Z");
     expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledTimes(1);
     expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledWith({
       now: expect.any(Date),
@@ -206,12 +209,18 @@ describe("tribe coming soon pages", () => {
     });
     getTribeEventAttendanceStreakSnapshot.mockRejectedValue(new Error("connection reset"));
 
-    render(
-      await TribeEventsPage({
-        params: Promise.resolve({ slug: "matematica-pro" }),
-        searchParams: Promise.resolve({ month: "2026-06" }),
-      })
-    );
+    const page = await TribeEventsPage({
+      params: Promise.resolve({ slug: "matematica-pro" }),
+      searchParams: Promise.resolve({ month: "2026-06" }),
+    });
+
+    render(page);
+
+    // Without a snapshot the read instant is the fallback computedAt.
+    const { now: readTime } = getTribeEventAttendanceStreakSnapshot.mock.calls[0][0] as {
+      now: Date;
+    };
+    expect(page.props.attendanceStreakComputedAt).toBe(readTime.toISOString());
 
     expect(screen.getByRole("heading", { name: "Junio 2026", level: 1 })).toBeInTheDocument();
     expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledWith({

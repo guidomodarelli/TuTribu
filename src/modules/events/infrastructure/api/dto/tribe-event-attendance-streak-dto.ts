@@ -26,6 +26,14 @@ export const tribeEventAttendanceStreakDtoSchema = z.object({
 export const tribeEventAttendanceStreakNextRefreshAtDtoSchema = z.iso.datetime().nullable();
 
 /**
+ * Database instant (ISO 8601, UTC) at which the server computed the streak
+ * and its next refresh. The events page, the streak route, and the series
+ * mutations send it next to the streak so the client can tell whether an
+ * occurrence finished between that snapshot and its own clock value.
+ */
+export const tribeEventAttendanceStreakComputedAtDtoSchema = z.iso.datetime();
+
+/**
  * Body of `GET /api/tribes/[slug]/events/attendance-streak`. `null` means the
  * viewer has no streak to show. The route always sends
  * `attendanceStreakNextRefreshAt` next to the streak (both come from one
@@ -35,6 +43,7 @@ export const tribeEventAttendanceStreakNextRefreshAtDtoSchema = z.iso.datetime()
  */
 export const tribeEventAttendanceStreakResponseDtoSchema = z.object({
   attendanceStreak: tribeEventAttendanceStreakDtoSchema.nullable(),
+  attendanceStreakComputedAt: tribeEventAttendanceStreakComputedAtDtoSchema.optional(),
   attendanceStreakNextRefreshAt: tribeEventAttendanceStreakNextRefreshAtDtoSchema.optional(),
 });
 
@@ -46,6 +55,7 @@ export const tribeEventAttendanceStreakResponseDtoSchema = z.object({
  */
 export const tribeEventAttendanceStreakMutationFragmentDtoSchema = z.object({
   attendanceStreak: tribeEventAttendanceStreakDtoSchema.nullable().optional(),
+  attendanceStreakComputedAt: tribeEventAttendanceStreakComputedAtDtoSchema.optional(),
   attendanceStreakNextRefreshAt: tribeEventAttendanceStreakNextRefreshAtDtoSchema.optional(),
 });
 

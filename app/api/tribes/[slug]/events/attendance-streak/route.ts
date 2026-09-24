@@ -59,10 +59,11 @@ export async function GET(request: Request, context: TribeRouteContext) {
   }
 
   // The streak and its next refresh come from one read (a single database
-  // snapshot) at one reference instant, so a schedule change committed while
-  // the route runs can never show up in one value and not in the other.
+  // snapshot) at one reference instant, the database clock of that read, so a
+  // schedule change committed while the route runs can never show up in one
+  // value and not in the other. `new Date()` only sizes the read ranges.
   try {
-    const { attendanceStreak, nextRefreshAt } =
+    const { attendanceStreak, computedAt, nextRefreshAt } =
       await modules.events.useCases.getTribeEventAttendanceStreakSnapshot({
         now: new Date(),
         tribeSlug: slug,
@@ -71,6 +72,7 @@ export async function GET(request: Request, context: TribeRouteContext) {
     return createJsonResponse(
       tribeEventAttendanceStreakResponseDtoSchema.parse({
         attendanceStreak,
+        attendanceStreakComputedAt: computedAt,
         attendanceStreakNextRefreshAt: nextRefreshAt,
       }),
       TRIBE_EVENT_ROUTE_HTTP_STATUS.ok

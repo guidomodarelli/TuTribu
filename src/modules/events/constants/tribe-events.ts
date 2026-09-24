@@ -79,11 +79,18 @@ export const TRIBE_EVENT_CAPACITY_UPDATE_KIND = {
 /**
  * Viewer-only attendance streak on the next event: shown when the viewer went
  * to at least `minimumAttended` of the last `windowSize` finished occurrences
- * found within `lookbackDays`.
+ * found within `lookbackDays`. The streak cutoff and its next refresh use the
+ * DATABASE instant of the snapshot read; the application clock only sizes the
+ * read ranges, widened by `readRangeClockMarginMs` on both sides so a skew
+ * between the application host and PostgreSQL up to that margin still reads
+ * every series and answer the database instant needs. A larger skew fails the
+ * read instead of computing with incomplete data.
  */
 export const TRIBE_EVENT_ATTENDANCE_STREAK = {
   lookbackDays: 180,
   minimumAttended: 2,
+  /** 15 minutes. */
+  readRangeClockMarginMs: 900_000,
   windowSize: 5,
 } as const;
 

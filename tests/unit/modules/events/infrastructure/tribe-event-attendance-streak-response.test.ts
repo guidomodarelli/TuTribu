@@ -23,6 +23,10 @@ const weeklyEvent: TribeEvent = {
 const RUNNING_OCCURRENCE_END = "2026-05-27T19:00:00.000Z";
 const BEFORE_RUNNING_OCCURRENCE_END = new Date("2026-05-27T18:30:00.000Z");
 const AFTER_RUNNING_OCCURRENCE_END = new Date("2026-05-27T19:30:00.000Z");
+/** Database instant of the snapshot statement, a few seconds behind the host. */
+const DATABASE_REFERENCE_TIME = "2026-05-27T18:29:57.000Z";
+/** End of the viewer answers read range: host instant plus the 15-minute margin. */
+const READ_RANGE_END = "2026-05-27T18:45:00.000Z";
 
 function createRepository(overrides: Partial<TribeEventRepository> = {}) {
   return {
@@ -54,6 +58,7 @@ describe("readAttendanceStreakResponseFragment", () => {
 
       return {
         events: [weeklyEvent],
+        referenceTime: DATABASE_REFERENCE_TIME,
         viewerAttendances: [
           "2026-05-06T18:00:00.000Z",
           "2026-05-13T18:00:00.000Z",
@@ -81,8 +86,10 @@ describe("readAttendanceStreakResponseFragment", () => {
 
     // The streak has not counted the running occurrence yet, so the deadline
     // must be exactly its end instead of a later one.
+    // Both are computed at the database instant, which the fragment exposes.
     expect(fragment).toEqual({
       attendanceStreak: { attendedCount: 3, occurrenceCount: 3 },
+      attendanceStreakComputedAt: DATABASE_REFERENCE_TIME,
       attendanceStreakNextRefreshAt: RUNNING_OCCURRENCE_END,
     });
     // Both values come from a single snapshot read of the repository.
@@ -90,7 +97,7 @@ describe("readAttendanceStreakResponseFragment", () => {
     expect(readViewerAttendanceStreakSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
         viewerAttendanceRange: expect.objectContaining({
-          rangeEnd: BEFORE_RUNNING_OCCURRENCE_END.toISOString(),
+          rangeEnd: READ_RANGE_END,
         }),
       })
     );
@@ -134,6 +141,7 @@ describe("readAttendanceStreakResponseFragment", () => {
       eventId: EVENT_ID,
       getTribeEventAttendanceStreakSnapshot: vi.fn(async () => ({
         attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        computedAt: DATABASE_REFERENCE_TIME,
         nextRefreshAt: "mañana",
       })),
       logger,
@@ -141,7 +149,10 @@ describe("readAttendanceStreakResponseFragment", () => {
       viewerId: "member-1",
     });
 
-    expect(fragment).toEqual({ attendanceStreak: { attendedCount: 3, occurrenceCount: 5 } });
+    expect(fragment).toEqual({
+      attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+      attendanceStreakComputedAt: DATABASE_REFERENCE_TIME,
+    });
     expect(logger.error).toHaveBeenCalledTimes(1);
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({

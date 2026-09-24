@@ -14,6 +14,8 @@ import { GET as GET_CALENDAR } from "@/app/api/tribes/[slug]/events/[eventId]/ca
 import { GET as GET_ATTENDANCE_STREAK } from "@/app/api/tribes/[slug]/events/attendance-streak/route";
 import { createRequestModules } from "@/src/modules/setup";
 
+/** Database instant the streak snapshot was computed at. */
+const STREAK_COMPUTED_AT = "2026-05-27T18:29:57.000Z";
 const getAuthenticatedMember = vi.fn();
 const listTribeEvents = vi.fn();
 const createTribeEvent = vi.fn();
@@ -139,6 +141,7 @@ describe("Tribe event routes", () => {
       role: "tribemate",
     });
     getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+      computedAt: STREAK_COMPUTED_AT,
       attendanceStreak: null,
       nextRefreshAt: null,
     });
@@ -225,6 +228,7 @@ describe("Tribe event routes", () => {
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({
       attendanceStreak: null,
+      attendanceStreakComputedAt: STREAK_COMPUTED_AT,
       attendanceStreakNextRefreshAt: null,
       event,
       message: "Evento creado.",
@@ -314,6 +318,7 @@ describe("Tribe event routes", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       attendanceStreak: null,
+      attendanceStreakComputedAt: STREAK_COMPUTED_AT,
       attendanceStreakNextRefreshAt: null,
       message: "Evento eliminado.",
     });
@@ -344,6 +349,7 @@ describe("Tribe event routes", () => {
 
     function resolveSnapshot(nextRefreshAt: string | null = null) {
       getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+        computedAt: STREAK_COMPUTED_AT,
         attendanceStreak: streak,
         nextRefreshAt,
       });
@@ -458,6 +464,7 @@ describe("Tribe event routes", () => {
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
         attendanceStreak: streak,
+        attendanceStreakComputedAt: STREAK_COMPUTED_AT,
         attendanceStreakNextRefreshAt: null,
         message: "Evento eliminado.",
       });
@@ -539,15 +546,18 @@ describe("Tribe event routes", () => {
 
         await expect(createResponse.json()).resolves.toMatchObject({
           attendanceStreak: streak,
+          attendanceStreakComputedAt: STREAK_COMPUTED_AT,
           attendanceStreakNextRefreshAt: nextRefreshAt,
           occurrences: [],
         });
         await expect(updateResponse.json()).resolves.toMatchObject({
           attendanceStreak: streak,
+          attendanceStreakComputedAt: STREAK_COMPUTED_AT,
           attendanceStreakNextRefreshAt: nextRefreshAt,
         });
         await expect(deleteResponse.json()).resolves.toEqual({
           attendanceStreak: streak,
+          attendanceStreakComputedAt: STREAK_COMPUTED_AT,
           attendanceStreakNextRefreshAt: nextRefreshAt,
           message: "Evento eliminado.",
         });
@@ -582,6 +592,7 @@ describe("Tribe event routes", () => {
 
     it("returns only the public streak fields of the viewer", async () => {
       getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+        computedAt: STREAK_COMPUTED_AT,
         attendanceStreak: {
           attendedCount: 3,
           internalNote: "not public",
@@ -598,6 +609,7 @@ describe("Tribe event routes", () => {
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
         attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        attendanceStreakComputedAt: STREAK_COMPUTED_AT,
         attendanceStreakNextRefreshAt: null,
       });
       expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledTimes(1);
@@ -609,6 +621,7 @@ describe("Tribe event routes", () => {
 
     it("returns the next instant at which the streak can change from the same snapshot", async () => {
       getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+        computedAt: STREAK_COMPUTED_AT,
         attendanceStreak: null,
         nextRefreshAt: "2026-06-01T05:00:00.000Z",
       });
@@ -621,6 +634,7 @@ describe("Tribe event routes", () => {
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
         attendanceStreak: null,
+        attendanceStreakComputedAt: STREAK_COMPUTED_AT,
         attendanceStreakNextRefreshAt: "2026-06-01T05:00:00.000Z",
       });
       expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledTimes(1);
@@ -635,6 +649,7 @@ describe("Tribe event routes", () => {
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
         attendanceStreak: null,
+        attendanceStreakComputedAt: STREAK_COMPUTED_AT,
         attendanceStreakNextRefreshAt: null,
       });
     });

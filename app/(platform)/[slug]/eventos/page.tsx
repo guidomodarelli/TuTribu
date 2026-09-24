@@ -36,12 +36,12 @@ export default async function TribeEventsPage({
       slug,
     });
 
-  // One reference instant for the streak and its next refresh, taken before
-  // the read starts: both come from one repository read (a single database
-  // snapshot) at that instant, and an occurrence that ends while the query
-  // runs still falls after it, so the client re-reads the streak.
-  const attendanceStreakReferenceTime = new Date();
-  const attendanceStreakComputedAt = attendanceStreakReferenceTime.toISOString();
+  // Application instant taken before the read: it only sizes the read
+  // ranges. The streak, its next refresh, and `attendanceStreakComputedAt`
+  // use the database instant of the single snapshot read, the clock that
+  // attendance writes use to refuse ended occurrences. When the read fails,
+  // this instant is the fallback `attendanceStreakComputedAt`.
+  const attendanceStreakReadTime = new Date();
 
   // Failures are logged here, where the user-facing response is owned, and
   // degrade to a safe fallback instead of breaking the whole route. The
@@ -72,7 +72,7 @@ export default async function TribeEventsPage({
       }),
     modules.events.useCases
       .getTribeEventAttendanceStreakSnapshot({
-        now: attendanceStreakReferenceTime,
+        now: attendanceStreakReadTime,
         tribeSlug: slug,
       })
       .catch((error: unknown) => {
@@ -86,7 +86,10 @@ export default async function TribeEventsPage({
           },
         });
 
-        return EMPTY_ATTENDANCE_STREAK_SNAPSHOT;
+        return {
+          ...EMPTY_ATTENDANCE_STREAK_SNAPSHOT,
+          computedAt: attendanceStreakReadTime.toISOString(),
+        };
       }),
   ]);
 
@@ -97,7 +100,7 @@ export default async function TribeEventsPage({
   return (
     <TribeEventsCalendar
       attendanceStreak={attendanceStreakSnapshot.attendanceStreak}
-      attendanceStreakComputedAt={attendanceStreakComputedAt}
+      attendanceStreakComputedAt={attendanceStreakSnapshot.computedAt}
       attendanceStreakNextRefreshAt={attendanceStreakSnapshot.nextRefreshAt}
       events={listing.events}
       initialOccurrenceKey={listing.selectedOccurrenceKey}

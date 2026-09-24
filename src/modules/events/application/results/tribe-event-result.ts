@@ -121,6 +121,11 @@ export type TribeEventAttendanceStreakResult = TribeEventAttendanceStreak;
  */
 export type TribeEventAttendanceStreakSnapshotResult = {
   attendanceStreak: TribeEventAttendanceStreakResult | null;
+  /**
+   * Database instant (ISO 8601, UTC) at which the streak and `nextRefreshAt`
+   * were computed; exposed as `attendanceStreakComputedAt`.
+   */
+  computedAt: string;
   nextRefreshAt: string | null;
 };
 

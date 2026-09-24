@@ -16,6 +16,8 @@ import {
  */
 
 const ATTENDANCE_STREAK_REFRESH_LOG = {
+  computedAtFailureMessage:
+    "Failed to recompute tribe event attendance streak reference time after mutation",
   failureMessage: "Failed to recompute tribe event attendance streak after mutation",
   failureReason: "unexpected_event_repository_error",
   nextRefreshFailureMessage:
@@ -55,7 +57,8 @@ type AttendanceStreakRefreshInput = {
 export type AttendanceStreakResponseFragment = TribeEventAttendanceStreakMutationFragmentDto;
 
 /**
- * Recomputes the viewer streak and its next refresh instant through the
+ * Recomputes the viewer streak, its next refresh instant, and the database
+ * instant both were computed at (`attendanceStreakComputedAt`) through the
  * snapshot use case, bound to the same request modules (and request-scoped
  * database context) as the mutation. Both values come from one repository
  * read, answered from a single database snapshot at one reference instant, so
@@ -122,6 +125,10 @@ export async function readAttendanceStreakResponseFragment({
     ...parseFragmentField(
       { attendanceStreakNextRefreshAt: snapshot.nextRefreshAt },
       ATTENDANCE_STREAK_REFRESH_LOG.nextRefreshFailureMessage
+    ),
+    ...parseFragmentField(
+      { attendanceStreakComputedAt: snapshot.computedAt },
+      ATTENDANCE_STREAK_REFRESH_LOG.computedAtFailureMessage
     ),
   };
 }

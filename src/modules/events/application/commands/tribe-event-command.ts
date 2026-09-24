@@ -71,10 +71,11 @@ export type GetTribeEventAttendanceReportQuery = {
 };
 
 /**
- * The streak snapshot read takes the reference instant from the caller
- * instead of reading the clock itself, so the response that carries the
- * streak, its next refresh instant, and `attendanceStreakComputedAt` agrees
- * on one "now".
+ * `now` is the application instant the caller took before the read. It only
+ * sizes the read ranges (with a clock margin): the streak, its next refresh
+ * instant, and `attendanceStreakComputedAt` all use the database instant the
+ * snapshot read returns, so the response agrees on one "now" and that "now"
+ * is the clock attendance writes use to refuse ended occurrences.
  */
 export type GetTribeEventAttendanceStreakQuery = {
   now: Date;

@@ -133,6 +133,13 @@ export type TribeEventViewerAttendance = {
  */
 export type TribeEventViewerAttendanceHistory = {
   events: TribeEvent[];
+  /**
+   * Database instant (ISO 8601, UTC) of the statement that read the series
+   * and the answers. Attendance writes decide whether an occurrence ended
+   * with the database clock, so the streak cutoff and its next refresh must
+   * use this instant instead of the application host clock.
+   */
+  referenceTime: string;
   viewerAttendances: TribeEventViewerAttendance[];
 };
 

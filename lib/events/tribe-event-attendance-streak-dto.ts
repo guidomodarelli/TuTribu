@@ -1,19 +1,13 @@
-import { z } from "zod";
-
-import { tribeEventAttendanceStreakNextRefreshAtDtoSchema } from "@/src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto";
+import {
+  tribeEventAttendanceStreakComputedAtDtoSchema,
+  tribeEventAttendanceStreakNextRefreshAtDtoSchema,
+} from "@/src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto";
 
 /**
  * Browser-side readers of the attendance streak snapshot and refresh instants. The public
  * response contract of the streak route lives in the events module
  * (`src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto.ts`).
  */
-
-/**
- * Instant (ISO 8601, UTC) at which the server computed the streak it rendered.
- * The events page sends it next to the streak so the client can tell whether
- * an occurrence finished between that snapshot and its first clock value.
- */
-export const tribeEventAttendanceStreakComputedAtDtoSchema = z.iso.datetime();
 
 /**
  * Reads the server snapshot instant of the streak as epoch milliseconds.

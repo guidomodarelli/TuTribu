@@ -96,15 +96,70 @@ function findNextOccurrenceEnd(
 }
 
 /**
+ * Read ranges sized from the application instant and widened by the clock
+ * margin on both sides, so they cover the past and upcoming ranges of any
+ * database instant within that margin.
+ */
+function createSnapshotReadRanges(applicationTime: number) {
+  const marginMs = TRIBE_EVENT_ATTENDANCE_STREAK.readRangeClockMarginMs;
+  const earliestPastRange = createPastTribeEventRange(
+    applicationTime - marginMs,
+    TRIBE_EVENT_ATTENDANCE_STREAK.lookbackDays
+  );
+  const latestUpcomingRange = createUpcomingTribeEventRange(applicationTime + marginMs);
+
+  return {
+    eventRange: {
+      rangeEnd: latestUpcomingRange.rangeEnd,
+      rangeStart: earliestPastRange.rangeStart,
+    },
+    viewerAttendanceRange: {
+      rangeEnd: latestUpcomingRange.rangeStart,
+      rangeStart: earliestPastRange.rangeStart,
+    },
+  };
+}
+
+/**
+ * Parses the database reference instant and checks that the widened read
+ * ranges cover it; otherwise the streak would be computed without some of
+ * the series or answers it needs.
+ */
+function readDatabaseReferenceTime(
+  snapshot: TribeEventViewerAttendanceHistory,
+  applicationTime: number,
+  tribeSlug: string
+): number {
+  const referenceTime = Date.parse(snapshot.referenceTime);
+  const clockSkewMs = referenceTime - applicationTime;
+
+  if (
+    Number.isNaN(referenceTime) ||
+    Math.abs(clockSkewMs) > TRIBE_EVENT_ATTENDANCE_STREAK.readRangeClockMarginMs
+  ) {
+    throw new Error(
+      `getTribeEventAttendanceStreakSnapshot: database reference time is outside the read margin for tribe "${tribeSlug}" (clockSkewMs: ${clockSkewMs})`
+    );
+  }
+
+  return referenceTime;
+}
+
+/**
  * Viewer attendance streak plus the next instant at which it can change, for
  * the events page, the lightweight streak read, and the series mutation
  * responses.
  *
  * Both values come from one repository read, which the adapter answers from a
- * single database snapshot, and from the same reference instant `query.now`.
- * Reading them separately let a series another manager created or rescheduled
- * between the two reads show up in one value and not in the other, pairing a
- * streak with a deadline of a different schedule. The streak itself is
+ * single database snapshot, and from the same reference instant: the
+ * DATABASE instant of that read (`computedAt`), not the application clock.
+ * Attendance writes refuse ended occurrences with the database clock, so a
+ * host clock running ahead would count an occurrence in the streak (and drop
+ * its end from `nextRefreshAt`) while PostgreSQL still accepts answers for
+ * it. `query.now` only sizes the read ranges, widened by
+ * `TRIBE_EVENT_ATTENDANCE_STREAK.readRangeClockMarginMs`. Reading the values
+ * separately let a series another manager created or rescheduled between the
+ * two reads show up in one value and not in the other. The streak itself is
  * computed exactly as before: the last finished occurrences inside
  * `TRIBE_EVENT_ATTENDANCE_STREAK.lookbackDays`.
  *
@@ -118,24 +173,23 @@ export function getTribeEventAttendanceStreakSnapshot({
   return async (
     query: GetTribeEventAttendanceStreakQuery
   ): Promise<TribeEventAttendanceStreakSnapshotResult> => {
-    const nowTime = query.now.getTime();
+    const applicationTime = query.now.getTime();
+    const tribeSlug = query.tribeSlug.trim();
+    const snapshot = await tribeEventRepository.readViewerAttendanceStreakSnapshot({
+      ...createSnapshotReadRanges(applicationTime),
+      tribeSlug,
+    });
+    const referenceTime = readDatabaseReferenceTime(snapshot, applicationTime, tribeSlug);
     const pastRange = createPastTribeEventRange(
-      nowTime,
+      referenceTime,
       TRIBE_EVENT_ATTENDANCE_STREAK.lookbackDays
     );
-    const upcomingRange = createUpcomingTribeEventRange(nowTime);
-    const snapshot = await tribeEventRepository.readViewerAttendanceStreakSnapshot({
-      eventRange: {
-        rangeEnd: upcomingRange.rangeEnd,
-        rangeStart: pastRange.rangeStart,
-      },
-      tribeSlug: query.tribeSlug.trim(),
-      viewerAttendanceRange: pastRange,
-    });
+    const upcomingRange = createUpcomingTribeEventRange(referenceTime);
 
     return {
-      attendanceStreak: calculateViewerAttendanceStreak(snapshot, pastRange, nowTime),
-      nextRefreshAt: findNextOccurrenceEnd(snapshot.events, upcomingRange, nowTime),
+      attendanceStreak: calculateViewerAttendanceStreak(snapshot, pastRange, referenceTime),
+      computedAt: new Date(referenceTime).toISOString(),
+      nextRefreshAt: findNextOccurrenceEnd(snapshot.events, upcomingRange, referenceTime),
     };
   };
 }

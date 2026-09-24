@@ -99,9 +99,11 @@ type ViewerAttendanceValue = {
 
 /**
  * Event row of the streak snapshot, with the viewer answers of that series
- * aggregated by the same statement as a JSON array.
+ * aggregated by the same statement as a JSON array and the database instant
+ * of that statement (equal on every row).
  */
 type EventWithViewerAttendancesRow = EventListRow & {
+  snapshot_reference_time: Date | string | null;
   viewer_attendances: unknown;
 };
 
@@ -132,12 +134,22 @@ type EventMutationRow = EventRow & {
 
 /**
  * Update row plus whether the capacity or the schedule actually changed
- * compared with the row read by the same statement. Only an explicit `false`
- * skips the waitlist refill; a missing flag refills to stay on the safe side.
+ * compared with the event row locked before the UPDATE. Only an explicit
+ * `false` skips the waitlist refill; a missing flag refills to stay on the
+ * safe side.
  */
 type EventUpdateRow = EventMutationRow & {
   waitlist_refill_needed?: boolean | null;
 };
+
+/**
+ * Capacity and schedule of the event row as locked `FOR UPDATE` right before
+ * the UPDATE, that is, the version the UPDATE actually replaces.
+ */
+type LockedEventRow = Pick<
+  EventRow,
+  "capacity" | "ends_at" | "recurrence_frequency" | "recurrence_until" | "starts_at"
+>;
 
 type EventDeletionRow = {
   status: string | null;
@@ -472,7 +484,8 @@ function buildEventsInRangeQuery({
           and event_attendances.user_id = public.current_app_user_id()
           and event_attendances.occurrence_starts_at >= ${viewerAttendanceRange.rangeStart}
           and event_attendances.occurrence_starts_at < ${viewerAttendanceRange.rangeEnd}
-      ) as viewer_attendances`
+      ) as viewer_attendances,
+      statement_timestamp() as snapshot_reference_time`
     : sql``;
 
   return sql`
@@ -566,6 +579,28 @@ function buildAttendanceSummaryQuery({
   `;
 }
 
+/**
+ * Whether the UPDATE changed the capacity or the schedule, compared with the
+ * row locked before it. Without a locked row (the viewer could not manage the
+ * event when the lock was taken) the flag is `null`, which refills
+ * conservatively if the UPDATE still went through. Timestamps travel at
+ * millisecond precision; a sub-millisecond difference could only report a
+ * change and trigger an extra (idempotent) refill, never skip one.
+ */
+function buildWaitlistRefillNeededExpression(lockedEvent: LockedEventRow | null) {
+  if (!lockedEvent) {
+    return sql`null::boolean`;
+  }
+
+  return sql`(
+    ${lockedEvent.capacity}::integer is distinct from updated_event.capacity
+    or ${mapDateValue(lockedEvent.starts_at)}::timestamptz is distinct from updated_event.starts_at
+    or ${mapNullableDateValue(lockedEvent.ends_at)}::timestamptz is distinct from updated_event.ends_at
+    or ${lockedEvent.recurrence_frequency}::text is distinct from updated_event.recurrence_frequency
+    or ${mapNullableDateValue(lockedEvent.recurrence_until)}::timestamptz is distinct from updated_event.recurrence_until
+  )`;
+}
+
 export class PostgresTribeEventRepository implements TribeEventRepository {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
@@ -611,6 +646,15 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
    * without raising the isolation level, which `withRequestContext` cannot do
    * because it already ran its `set_config` statements when the callback
    * starts (`SET TRANSACTION ISOLATION LEVEL` must precede any query).
+   *
+   * The same statement returns `statement_timestamp()` as the reference
+   * instant of the streak: attendance writes refuse ended occurrences with
+   * the database clock, so the caller must decide "finished" with that clock
+   * and not with the application host clock. `statement_timestamp()` (not
+   * `clock_timestamp()`) because it is one value for every row and it is
+   * taken when the statement starts, before its snapshot, so an occurrence
+   * counted as finished already ended when the snapshot was taken. `now()`
+   * would be the earlier start of the request transaction.
    */
   async readViewerAttendanceStreakSnapshot({
     eventRange,
@@ -622,9 +666,17 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         buildEventsInRangeQuery({ ...eventRange, tribeSlug, viewerAttendanceRange })
       );
       const rows = (result.rows ?? []) as EventWithViewerAttendancesRow[];
+      const referenceTime = rows[0]?.snapshot_reference_time ?? null;
+
+      if (!referenceTime) {
+        throw new Error(
+          `PostgresTribeEventRepository:readViewerAttendanceStreakSnapshot returned no database reference time for tribe "${tribeSlug}"`
+        );
+      }
 
       return {
         events: mapEventRows(rows),
+        referenceTime: mapDateValue(referenceTime),
         viewerAttendances: mapViewerAttendances(rows),
       };
     });
@@ -717,10 +769,18 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
    * Updates the series and, only when its capacity or schedule really changed,
    * refills the waitlists in the same transaction. A capacity marked as
    * `unchanged` is left out of the SET list, so a body that omits the field
-   * keeps the stored limit and never promotes the whole queue. The change is
-   * detected against the row read at statement start (`target_event`); if a
-   * concurrent edit commits in between, the comparison can only miss a refill
-   * that the next capacity or attendance change performs anyway.
+   * keeps the stored limit and never promotes the whole queue.
+   *
+   * The change is detected against the row locked `FOR UPDATE` by a first
+   * statement, not against a CTE of the UPDATE statement: under READ
+   * COMMITTED a CTE keeps the statement snapshot while a blocked UPDATE ends
+   * up rewriting the version a concurrent manager committed, so an edit
+   * 10 -> 5 followed by a waiting 5 -> 10 compared 10 with 10 and skipped the
+   * refill. Once the lock is held no other transaction can change the row,
+   * so the captured values are exactly the version the UPDATE replaces.
+   * Lock order stays event row first: the attendance functions take the same
+   * row `FOR SHARE` before their occurrence advisory lock, and the refill
+   * function takes it `FOR UPDATE` again (already held, so it never waits).
    */
   async update(command: PersistTribeEventUpdateCommand): Promise<TribeEventUpdateResult> {
     const capacityAssignment =
@@ -729,6 +789,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         : sql``;
 
     return this.executeWithDatabase(async (database) => {
+      const lockedEvent = await this.lockEventForUpdate(database, command);
       const result = await database.execute(sql`
         with target_tribe as (
           select tribes.id
@@ -737,13 +798,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           limit 1
         ),
         target_event as (
-          select
-            events.id,
-            events.capacity,
-            events.starts_at,
-            events.ends_at,
-            events.recurrence_frequency,
-            events.recurrence_until
+          select events.id
           from public.events
           inner join target_tribe
             on target_tribe.id = events.tribe_id
@@ -784,18 +839,10 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           updated_event.ends_at,
           updated_event.recurrence_frequency,
           updated_event.recurrence_until,
-          (
-            target_event.capacity is distinct from updated_event.capacity
-            or target_event.starts_at is distinct from updated_event.starts_at
-            or target_event.ends_at is distinct from updated_event.ends_at
-            or target_event.recurrence_frequency is distinct from updated_event.recurrence_frequency
-            or target_event.recurrence_until is distinct from updated_event.recurrence_until
-          ) as waitlist_refill_needed
+          ${buildWaitlistRefillNeededExpression(lockedEvent)} as waitlist_refill_needed
         from (select 1) result
         left join updated_event
           on true
-        left join target_event
-          on target_event.id = updated_event.id
       `);
       const updateRow = (result.rows?.[0] ?? null) as EventUpdateRow | null;
       const updateResult = mapUpdateResult(updateRow);
@@ -825,6 +872,37 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
 
       return { ...updateResult, attendances: attendanceRows.map(mapAttendanceSummary) };
     });
+  }
+
+  /**
+   * Locks the event row `FOR UPDATE` (only when the viewer can manage it, so a
+   * plain member never blocks managers) and returns its capacity and schedule
+   * as they are once the lock is granted: a concurrent edit that committed
+   * while this statement waited is already included. `FOR UPDATE` matches the
+   * mode the waitlist refill takes later in this transaction, so the
+   * transaction never upgrades a weaker row lock halfway.
+   */
+  private async lockEventForUpdate(
+    database: RequestDatabase,
+    { eventId, tribeSlug }: Pick<PersistTribeEventUpdateCommand, "eventId" | "tribeSlug">
+  ): Promise<LockedEventRow | null> {
+    const result = await database.execute(sql`
+      select
+        events.capacity,
+        events.starts_at,
+        events.ends_at,
+        events.recurrence_frequency,
+        events.recurrence_until
+      from public.events
+      inner join public.tribes
+        on tribes.id = events.tribe_id
+      where tribes.slug = ${tribeSlug}
+        and events.id = ${eventId}
+        and public.can_manage_tribe_events(events.tribe_id)
+      for update of events
+    `);
+
+    return (result.rows?.[0] ?? null) as LockedEventRow | null;
   }
 
   async delete(command: DeleteTribeEventRepositoryCommand): Promise<TribeEventDeletionResult> {
@@ -966,7 +1044,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
    * A raised (or removed) capacity frees seats: promotes the waitlists of the
    * occurrences that are still valid under the UPDATED schedule and have not
    * ended (in progress included), in the same transaction, which already
-   * holds the event row lock taken by the UPDATE. Rows of dates removed by a
+   * holds the event row lock taken before the UPDATE. Rows of dates removed by a
    * schedule edit stay as history and are never promoted. The recurrence
    * rules live only in the domain, so the valid starts are computed here and
    * passed to the SECURITY DEFINER function, which only intersects them with
