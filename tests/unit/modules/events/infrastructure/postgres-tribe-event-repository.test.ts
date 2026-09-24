@@ -435,7 +435,7 @@ describe("PostgresTribeEventRepository", () => {
       vi.useRealTimers();
     });
 
-    it("refills only waitlists of valid, not yet ended occurrences in the same transaction", async () => {
+    it("refills only waitlists of dates valid under the updated schedule in the same transaction", async () => {
       const execute = vi
         .fn()
         .mockResolvedValueOnce({ rows: [{ ...eventRow, capacity: 12, status: "updated" }] })
@@ -462,12 +462,43 @@ describe("PostgresTribeEventRepository", () => {
       const refillSql = getSqlText(execute.mock.calls[2]?.[0]);
 
       expect(candidateSql).toContain("event_attendances.status =");
-      // Lower bound = now minus one occurrence duration (one hour).
-      expect(candidateSql).toContain("2026-05-13T17:30:00.000Z");
+      // Lower bound = DATABASE clock minus one occurrence duration (one hour):
+      // the application clock never prunes a candidate.
+      expect(candidateSql).toContain("clock_timestamp()");
+      expect(candidateSql).not.toContain("2026-05-13T17:30:00.000Z");
+      expect(getSqlParams(execute.mock.calls[1]?.[0])).toContain(3_600_000);
       expect(refillSql).toContain("public.refill_tribe_event_waitlists(");
       expect(refillSql).toContain("2026-05-13T18:00:00.000Z");
       expect(refillSql).toContain("2026-05-20T18:00:00.000Z");
       expect(refillSql).not.toContain("2026-05-19T18:00:00.000Z");
+      expect(execute).toHaveBeenCalledTimes(3);
+    });
+
+    it("passes an occurrence in its last seconds even when the application clock is ahead", async () => {
+      // The application host is 5 s ahead: by its clock the 18:00 occurrence
+      // already ended at 19:00, but PostgreSQL may still see it in progress.
+      // The locked SQL function decides with clock_timestamp(), so the start
+      // must reach it instead of being pruned with Date.now().
+      vi.setSystemTime(new Date("2026-05-13T19:00:05.000Z"));
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ ...eventRow, capacity: 12, status: "updated" }] })
+        .mockResolvedValueOnce({
+          rows: [{ occurrence_starts_at: new Date("2026-05-13T18:00:00.000Z") }],
+        })
+        .mockResolvedValueOnce({ rows: [{ promoted_count: 1 }] });
+      const repository = createRepository(execute);
+
+      await expect(repository.update(updateCommand)).resolves.toMatchObject({
+        status: "updated",
+      });
+
+      const candidateSql = getSqlText(execute.mock.calls[1]?.[0]);
+      const refillSql = getSqlText(execute.mock.calls[2]?.[0]);
+
+      expect(candidateSql).not.toContain("2026-05-13T18:00:05.000Z");
+      expect(refillSql).toContain("public.refill_tribe_event_waitlists(");
+      expect(refillSql).toContain("2026-05-13T18:00:00.000Z");
       expect(execute).toHaveBeenCalledTimes(3);
     });
 

@@ -40,7 +40,7 @@ import type {
   TribeEventViewerAttendanceHistory,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 import {
-  getWaitlistRefillLookbackStart,
+  getWaitlistRefillLookbackDurationMs,
   selectRefillableWaitlistOccurrenceStarts,
 } from "@/src/modules/events/domain/services/tribe-event-attendance";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
@@ -883,31 +883,31 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
    * schedule edit stay as history and are never promoted. The recurrence
    * rules live only in the domain, so the valid starts are computed here and
    * passed to the SECURITY DEFINER function, which only intersects them with
-   * the rows that are actually waitlisted.
+   * the rows that are actually waitlisted. The application clock never
+   * decides whether an occurrence ended: the candidate lower bound is the
+   * database clock minus one occurrence duration, and the function skips the
+   * occurrences that already ended with `clock_timestamp()` under the lock.
    */
   private async refillWaitlists(
     database: RequestDatabase,
     eventId: string,
     updatedEvent: TribeEvent
   ): Promise<void> {
-    const nowTime = Date.now();
+    const lookbackDurationMs = getWaitlistRefillLookbackDurationMs(updatedEvent);
     const candidateResult = await database.execute(sql`
       select distinct event_attendances.occurrence_starts_at
       from public.event_attendances
       where event_attendances.event_id = ${eventId}
         and event_attendances.status = ${TRIBE_EVENT_ATTENDANCE_STATUS.waitlisted}
-        and event_attendances.occurrence_starts_at >= ${getWaitlistRefillLookbackStart(
-          updatedEvent,
-          nowTime
-        )}::timestamptz
+        and event_attendances.occurrence_starts_at
+          >= clock_timestamp() - ${lookbackDurationMs}::double precision * interval '1 millisecond'
     `);
     const candidateStarts = ((candidateResult.rows ?? []) as WaitlistedOccurrenceRow[]).map(
       (row) => mapDateValue(row.occurrence_starts_at)
     );
     const refillableStarts = selectRefillableWaitlistOccurrenceStarts(
       updatedEvent,
-      candidateStarts,
-      nowTime
+      candidateStarts
     );
 
     if (refillableStarts.length === 0) {
