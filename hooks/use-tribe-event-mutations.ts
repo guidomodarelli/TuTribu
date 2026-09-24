@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "beez-ui";
 
+import { readAttendanceStreakNextRefreshTime } from "@/lib/events/tribe-event-attendance-streak-dto";
 import {
   compareOccurrencesByStart,
   mergeSavedOccurrences,
@@ -80,8 +81,9 @@ export type TribeEventMutations = {
   /**
    * Reads the streak again (for example when an occurrence on screen
    * finishes). Failures keep the streak on screen without user feedback.
-   * While a creation, edit, or deletion is uncommitted the read is deferred
-   * until every one of them settles, so it never observes pre-commit data.
+   * While a creation, edit, deletion, or attendance answer is uncommitted the
+   * read is deferred until every one of them settles, so it never observes
+   * pre-commit data.
    */
   refreshAttendanceStreak: () => void;
   saveEvent: (
@@ -106,6 +108,21 @@ const COPY = {
 } as const;
 
 /**
+ * Tells whether a returned next refresh instant was already reached by the
+ * real clock when its response arrived. Such an instant can no longer wake
+ * the minute clock, whose wake-ups only look ahead.
+ *
+ * @param nextRefreshAt - Instant returned by a streak read or a series
+ *   mutation (ISO 8601), or null when nothing ends inside the window.
+ * @returns True when the instant is valid and not after `Date.now()`.
+ */
+function hasStreakNextRefreshPassed(nextRefreshAt: string | null): boolean {
+  const nextRefreshTime = readAttendanceStreakNextRefreshTime(nextRefreshAt);
+
+  return nextRefreshTime !== null && nextRefreshTime <= Date.now();
+}
+
+/**
  * Owns the occurrences on screen and the save, delete, and attendance
  * requests. Each mutation applies the route handler's minimal response to the
  * local list instead of refreshing the route, and a ref-based guard drops
@@ -117,8 +134,13 @@ const COPY = {
  * with the value the route recomputed after committing, and among mutations
  * the most recently started one whose response carries a streak wins. The
  * next refresh instant follows the same ordering, tracked on its own: a
- * response may carry one field and omit the other.
- * Streak reads never race a mutation: starting a mutation aborts a read in
+ * response may carry one field and omit the other. A returned instant that
+ * already passed (the response was computed before an occurrence ended but
+ * arrived after) can no longer wake the clock, so it triggers one read right
+ * away instead; the same passed instant never triggers a second one.
+ * Streak mutations are series creations, edits, and deletions plus attendance
+ * answers, since an answer committed around an occurrence end changes the
+ * streak. Streak reads never race them: starting a mutation aborts a read in
  * flight (it began before the commit), and a read requested while a mutation
  * is uncommitted is deferred until every mutation settles. Once they settle,
  * a deferred read always runs, and an aborted one runs again unless a
@@ -164,8 +186,9 @@ export function useTribeEventMutations({
   // Same guard for the next refresh instant, which advances independently
   // because a response can carry it while omitting the streak (and vice versa).
   const appliedStreakNextRefreshRequestSequenceRef = useRef(0);
-  // Creations, edits, and deletions not settled yet. While any is pending a
-  // streak read could observe pre-commit data, so reads wait for them.
+  // Creations, edits, deletions, and attendance answers not settled yet.
+  // While any is pending a streak read could observe pre-commit data, so reads
+  // wait for them.
   const pendingStreakMutationCountRef = useRef(0);
   // A read was requested while a mutation was pending. It always runs once
   // they settle: the mutation may have computed its streak before the
@@ -174,6 +197,10 @@ export function useTribeEventMutations({
   // A read in flight was aborted by a starting mutation. It runs again once
   // mutations settle unless one of them returned a post-commit streak.
   const isStreakReadInterruptedRef = useRef(false);
+  // Last returned next refresh instant that had already passed and triggered
+  // a read. A server that keeps handing the same passed instant (clock skew)
+  // triggers that read once, never a loop.
+  const passedStreakNextRefreshAtRef = useRef<string | null>(null);
   const isUnmountedRef = useRef(false);
   const isSavingEventRef = useRef(false);
   const isDeletingEventRef = useRef(false);
@@ -235,7 +262,9 @@ export function useTribeEventMutations({
    * Stores the next refresh instant a streak read or a series mutation
    * returned, tagged with the server value seen when the request started and
    * ordered by request sequence (same rules as the streak). An absent instant
-   * keeps the one already watched.
+   * keeps the one already watched. An instant already reached by the real
+   * clock is past the clock wake-ups, so it requests one read through
+   * `refreshAttendanceStreak` (deferred while mutations are pending).
    */
   const applyStreakNextRefresh = (
     request: ReturnType<typeof startStreakRequest>,
@@ -254,6 +283,16 @@ export function useTribeEventMutations({
       nextRefreshAt: read.attendanceStreakNextRefreshAt,
       sourceNextRefreshAt: request.sourceNextRefreshAt,
     });
+
+    if (
+      !hasStreakNextRefreshPassed(read.attendanceStreakNextRefreshAt) ||
+      read.attendanceStreakNextRefreshAt === passedStreakNextRefreshAtRef.current
+    ) {
+      return;
+    }
+
+    passedStreakNextRefreshAtRef.current = read.attendanceStreakNextRefreshAt;
+    refreshAttendanceStreak();
   };
 
   useEffect(() => {
@@ -302,7 +341,8 @@ export function useTribeEventMutations({
   };
 
   /**
-   * Registers a creation, edit, or deletion that can change the streak. A
+   * Registers a creation, edit, deletion, or attendance answer that can change
+   * the streak. A
    * read in flight started before this mutation commits, so it is aborted and
    * remembered for `settleStreakMutation`.
    */
@@ -463,6 +503,9 @@ export function useTribeEventMutations({
 
     isSavingAttendanceRef.current = true;
     setIsSavingAttendance(true);
+    // Attendance responses carry no streak, so settling always lets a
+    // deferred or interrupted read run against the committed answer.
+    beginStreakMutation();
 
     try {
       const result = await saveTribeEventAttendanceRequest({
@@ -497,6 +540,7 @@ export function useTribeEventMutations({
     } finally {
       isSavingAttendanceRef.current = false;
       setIsSavingAttendance(false);
+      settleStreakMutation(undefined);
     }
   };
 
