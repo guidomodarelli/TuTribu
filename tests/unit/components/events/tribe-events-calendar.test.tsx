@@ -524,6 +524,50 @@ describe("TribeEventsCalendar", () => {
     expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
   });
 
+  it("requires the end date the manager left empty after checking «Termina otro día»", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+    await user.click(within(dialog).getByRole("checkbox", { name: "Termina otro día" }));
+
+    // Checking it starts from the day after the start date.
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha de fin"), { target: { value: "" } });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Elegí la fecha de fin o destildá «Termina otro día»."
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha de fin"), {
+      target: { value: "2026-05-22" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de fin"), {
+      target: { value: "01:00" },
+    });
+    mockJsonResponse({ event: createEventDto(), message: "Evento creado.", occurrences: [] });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      endsAt: "2026-05-22T04:00:00.000Z",
+      startsAt: "2026-05-20T23:00:00.000Z",
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
   it("stops recomputing the template end once the manager edits the end date", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
