@@ -2,7 +2,12 @@ import {
   tribeEventAttendanceStreakDtoSchema,
   tribeEventAttendanceStreakResponseDtoSchema,
 } from "@/lib/events/tribe-event-attendance-streak-dto";
-import { ROUTES } from "@/src/constants/routes";
+import {
+  buildTribeEventApiEndpoint,
+  buildTribeEventAttendanceApiEndpoint,
+  buildTribeEventAttendanceStreakApiEndpoint,
+  buildTribeEventsApiEndpoint,
+} from "@/lib/events/tribe-events-routes";
 import type { CreateTribeEventCommand } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
   TribeEventAttendanceOption,
@@ -68,43 +73,9 @@ const HTTP_REQUEST = {
   methodPost: "POST",
   methodPut: "PUT",
 } as const;
-const EVENT_ENDPOINT = {
-  attendanceExportPath: "/attendance/export",
-  attendancePath: "/attendance",
-  attendanceStreakPath: "/attendance-streak",
-  eventsPath: "/events",
-  monthQuery: "?month=",
-  occurrenceQuery: "?occurrence=",
-  separator: "/",
-} as const;
 const JSON_HEADERS = {
   [HTTP_REQUEST.contentTypeHeader]: HTTP_REQUEST.jsonContentType,
 } as const;
-
-function buildEventsEndpoint(tribeSlug: string, month?: string): string {
-  const base =
-    ROUTES.api.tribes + EVENT_ENDPOINT.separator + tribeSlug + EVENT_ENDPOINT.eventsPath;
-
-  return month ? base + EVENT_ENDPOINT.monthQuery + month : base;
-}
-
-function buildEventEndpoint(tribeSlug: string, eventId: string, month?: string): string {
-  const base = buildEventsEndpoint(tribeSlug) + EVENT_ENDPOINT.separator + eventId;
-
-  return month ? base + EVENT_ENDPOINT.monthQuery + month : base;
-}
-
-function buildAttendanceEndpoint(
-  tribeSlug: string,
-  eventId: string,
-  occurrenceStartsAt?: string
-): string {
-  const base = buildEventEndpoint(tribeSlug, eventId) + EVENT_ENDPOINT.attendancePath;
-
-  return occurrenceStartsAt
-    ? base + EVENT_ENDPOINT.occurrenceQuery + encodeURIComponent(occurrenceStartsAt)
-    : base;
-}
 
 /**
  * Guards the public streak DTO of a mutation response: only `null` or an
@@ -146,8 +117,8 @@ export async function saveTribeEventRequest(input: {
   TribeEventRequestResult<{ occurrences: TribeEventOccurrenceResult[] } & TribeEventStreakRefresh>
 > {
   const endpoint = input.eventId
-    ? buildEventEndpoint(input.tribeSlug, input.eventId, input.month)
-    : buildEventsEndpoint(input.tribeSlug, input.month);
+    ? buildTribeEventApiEndpoint(input.tribeSlug, input.eventId, input.month)
+    : buildTribeEventsApiEndpoint(input.tribeSlug, input.month);
   const response = await fetch(endpoint, {
     body: JSON.stringify(input.payload),
     headers: JSON_HEADERS,
@@ -178,7 +149,7 @@ export async function deleteTribeEventRequest(input: {
   eventId: string;
   tribeSlug: string;
 }): Promise<TribeEventRequestResult<TribeEventStreakRefresh>> {
-  const response = await fetch(buildEventEndpoint(input.tribeSlug, input.eventId), {
+  const response = await fetch(buildTribeEventApiEndpoint(input.tribeSlug, input.eventId), {
     method: HTTP_REQUEST.methodDelete,
   });
   const body = await readJsonBody<DeleteEventResponseBody>(response);
@@ -202,7 +173,7 @@ export async function fetchTribeEventAttendanceStreakRequest(input: {
   tribeSlug: string;
 }): Promise<TribeEventStreakRefresh> {
   const response = await fetch(
-    buildEventsEndpoint(input.tribeSlug) + EVENT_ENDPOINT.attendanceStreakPath,
+    buildTribeEventAttendanceStreakApiEndpoint(input.tribeSlug),
     { cache: "no-store", signal: input.signal }
   );
 
@@ -232,14 +203,15 @@ export async function saveTribeEventAttendanceRequest(input: {
 > {
   const { occurrence, status, tribeSlug } = input;
   const response = status
-    ? await fetch(buildAttendanceEndpoint(tribeSlug, occurrence.eventId), {
+    ? await fetch(buildTribeEventAttendanceApiEndpoint(tribeSlug, occurrence.eventId), {
         body: JSON.stringify({ occurrenceStartsAt: occurrence.startsAt, status }),
         headers: JSON_HEADERS,
         method: HTTP_REQUEST.methodPut,
       })
-    : await fetch(buildAttendanceEndpoint(tribeSlug, occurrence.eventId, occurrence.startsAt), {
-        method: HTTP_REQUEST.methodDelete,
-      });
+    : await fetch(
+        buildTribeEventAttendanceApiEndpoint(tribeSlug, occurrence.eventId, occurrence.startsAt),
+        { method: HTTP_REQUEST.methodDelete }
+      );
   const body = await readJsonBody<AttendanceResponseBody>(response);
 
   if (!response.ok || !body.attendance) {
@@ -247,26 +219,6 @@ export async function saveTribeEventAttendanceRequest(input: {
   }
 
   return { attendance: body.attendance, isSuccess: true, message: body.message ?? null };
-}
-
-/**
- * Same-origin URL of the manager CSV export of one occurrence. The route
- * handler authorizes the download again, so the link is safe to render.
- *
- * @param input - Tribe, event, and occurrence start.
- * @returns Relative URL of the CSV download.
- */
-export function buildTribeEventAttendanceExportUrl(input: {
-  eventId: string;
-  occurrenceStartsAt: string;
-  tribeSlug: string;
-}): string {
-  return (
-    buildEventEndpoint(input.tribeSlug, input.eventId) +
-    EVENT_ENDPOINT.attendanceExportPath +
-    EVENT_ENDPOINT.occurrenceQuery +
-    encodeURIComponent(input.occurrenceStartsAt)
-  );
 }
 
 /**
@@ -283,7 +235,7 @@ export async function fetchTribeEventAttendanceReportRequest(input: {
   tribeSlug: string;
 }): Promise<TribeEventRequestResult<{ report: TribeEventAttendanceReportResult }>> {
   const response = await fetch(
-    buildAttendanceEndpoint(input.tribeSlug, input.eventId, input.occurrenceStartsAt),
+    buildTribeEventAttendanceApiEndpoint(input.tribeSlug, input.eventId, input.occurrenceStartsAt),
     { signal: input.signal }
   );
   const body = await readJsonBody<AttendanceReportResponseBody>(response);
