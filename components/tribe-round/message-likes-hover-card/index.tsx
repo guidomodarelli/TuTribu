@@ -162,9 +162,19 @@ export function MessageLikesHoverCard({
   const [likers, setLikers] = useState<MessageLikerResult[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+  /**
+   * Radix HoverCard replaces its pending open timer without clearing it when
+   * focus and hover both request opening, so a stale timer can still call
+   * `onOpenChange(true)` after unmount. This flag keeps that late callback from
+   * starting a likers request for a card that no longer exists.
+   */
+  const isMountedRef = useRef(false);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
       abortControllerRef.current?.abort();
     };
   }, []);
@@ -212,6 +222,10 @@ export function MessageLikesHoverCard({
       if (!open) {
         abortControllerRef.current?.abort();
 
+        return;
+      }
+
+      if (!isMountedRef.current) {
         return;
       }
 
