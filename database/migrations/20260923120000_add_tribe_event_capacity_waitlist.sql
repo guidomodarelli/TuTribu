@@ -229,6 +229,32 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.promote_tribe_event_waitlist(uuid, timestamptz)
 FROM PUBLIC;
 
+-- 5c. Internal helper: effective end of one occurrence of a series. It is the
+-- occurrence start plus the event duration (ends_at - starts_at), or the
+-- implicit TRIBE_EVENT_DEFAULT_DURATION_MINUTES (60) without ends_at, the
+-- same rule as the domain getTribeEventOccurrenceEndTime. Single source of
+-- the formula for 6, 7 and 8. Pure and IMMUTABLE (no table access, only
+-- built-in operators), not SECURITY DEFINER, and without SET search_path so
+-- the planner can inline it in the summary query.
+CREATE OR REPLACE FUNCTION public.tribe_event_occurrence_ends_at(
+  occurrence_starts_at timestamptz,
+  event_starts_at timestamptz,
+  event_ends_at timestamptz
+)
+RETURNS timestamptz
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+  SELECT occurrence_starts_at
+    + coalesce(event_ends_at - event_starts_at, interval '60 minutes');
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.tribe_event_occurrence_ends_at(
+  timestamptz, timestamptz, timestamptz
+)
+FROM PUBLIC;
+
 -- Earlier drafts of this migration exposed a 4-argument signature; drop it
 -- so no overload without the schedule check survives on dev branches.
 DROP FUNCTION IF EXISTS public.respond_to_tribe_event_occurrence(text, uuid, timestamptz, text);
@@ -276,7 +302,7 @@ DECLARE
   viewer_id text := public.current_app_user_id();
   target_tribe_id uuid;
   event_capacity integer;
-  event_duration interval;
+  occurrence_ends_at timestamptz;
   schedule_changed boolean;
   previous_status text;
   resolved_status text;
@@ -297,8 +323,11 @@ BEGIN
   SELECT
     events.tribe_id,
     events.capacity,
-    -- Implicit duration without ends_at: TRIBE_EVENT_DEFAULT_DURATION_MINUTES.
-    coalesce(events.ends_at - events.starts_at, interval '60 minutes'),
+    public.tribe_event_occurrence_ends_at(
+      target_occurrence_starts_at,
+      events.starts_at,
+      events.ends_at
+    ),
     -- Milliseconds: the application parses the schedule with JS dates.
     (
       date_trunc('milliseconds', events.starts_at),
@@ -311,7 +340,7 @@ BEGIN
       expected_recurrence_frequency,
       expected_recurrence_until
     )
-  INTO target_tribe_id, event_capacity, event_duration, schedule_changed
+  INTO target_tribe_id, event_capacity, occurrence_ends_at, schedule_changed
   FROM public.events
   INNER JOIN public.tribes
     ON tribes.id = events.tribe_id
@@ -340,7 +369,7 @@ BEGIN
   -- Defense in depth behind the use case: answers of an occurrence are
   -- frozen once its effective end passed (in progress is still open).
   -- clock_timestamp() because the FOR SHARE above may have waited.
-  IF target_occurrence_starts_at + event_duration <= clock_timestamp() THEN
+  IF occurrence_ends_at <= clock_timestamp() THEN
     RETURN QUERY SELECT 'ended'::text, NULL::text, 0;
     RETURN;
   END IF;
@@ -355,7 +384,7 @@ BEGIN
 
   -- Same check again: this call may have waited on the advisory lock behind
   -- another answer until after the effective end.
-  IF target_occurrence_starts_at + event_duration <= clock_timestamp() THEN
+  IF occurrence_ends_at <= clock_timestamp() THEN
     RETURN QUERY SELECT 'ended'::text, NULL::text, 0;
     RETURN;
   END IF;
@@ -474,6 +503,12 @@ FROM PUBLIC;
 -- Runs in the same transaction as the event UPDATE, which already holds the
 -- event row lock; advisory locks are then taken in ascending date order
 -- (same lock order as 6, so no deadlocks).
+-- The application filter is not trusted as the last word on "not ended": the
+-- edit can start just before an occurrence ends, the application clock can lag
+-- the database clock, and this call can wait on an occurrence advisory lock
+-- behind an answer. So, after taking each lock, the effective end is checked
+-- again with clock_timestamp() (like 6) and an occurrence that already ended
+-- is skipped: its attendance is frozen and nothing is promoted.
 DROP FUNCTION IF EXISTS public.refill_tribe_event_waitlists(uuid);
 
 CREATE OR REPLACE FUNCTION public.refill_tribe_event_waitlists(
@@ -487,6 +522,8 @@ SET search_path = public
 AS $$
 DECLARE
   target_tribe_id uuid;
+  event_starts_at timestamptz;
+  event_ends_at timestamptz;
   waitlisted_occurrence timestamptz;
   promoted_total integer := 0;
 BEGIN
@@ -494,8 +531,8 @@ BEGIN
     RETURN 0;
   END IF;
 
-  SELECT events.tribe_id
-  INTO target_tribe_id
+  SELECT events.tribe_id, events.starts_at, events.ends_at
+  INTO target_tribe_id, event_starts_at, event_ends_at
   FROM public.events
   WHERE events.id = target_event_id
   FOR UPDATE;
@@ -521,6 +558,15 @@ BEGIN
         0
       )
     );
+
+    -- This call may have waited on the advisory lock until after the end.
+    IF public.tribe_event_occurrence_ends_at(
+      waitlisted_occurrence,
+      event_starts_at,
+      event_ends_at
+    ) <= clock_timestamp() THEN
+      CONTINUE;
+    END IF;
 
     promoted_total := promoted_total + public.promote_tribe_event_waitlist(
       target_event_id,
@@ -602,10 +648,11 @@ AS $$
       AND event_attendances.occurrence_starts_at < range_end
       AND CASE
         WHEN match_overlapping THEN
-          event_attendances.occurrence_starts_at
-            -- Implicit duration without ends_at: TRIBE_EVENT_DEFAULT_DURATION_MINUTES.
-            + coalesce(events.ends_at - events.starts_at, interval '60 minutes')
-            > range_start
+          public.tribe_event_occurrence_ends_at(
+            event_attendances.occurrence_starts_at,
+            events.starts_at,
+            events.ends_at
+          ) > range_start
         ELSE event_attendances.occurrence_starts_at >= range_start
       END
   ),
