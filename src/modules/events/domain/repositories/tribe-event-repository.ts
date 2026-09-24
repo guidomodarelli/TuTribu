@@ -171,7 +171,13 @@ export type TribeEventAttendanceResult =
         | typeof TRIBE_EVENT_MUTATION_STATUS.attendanceSaved;
     }
   | {
-      status: TribeEventMutationFailureStatus;
+      /**
+       * `occurrenceEnded` comes from the definer function guard (defense in
+       * depth behind the use case check) when the occurrence already ended.
+       */
+      status:
+        | TribeEventMutationFailureStatus
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
     };
 
 export type TribeEventRepository = {

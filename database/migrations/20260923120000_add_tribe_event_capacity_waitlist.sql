@@ -230,7 +230,9 @@ REVOKE EXECUTE ON FUNCTION public.promote_tribe_event_waitlist(uuid, timestamptz
 FROM PUBLIC;
 
 -- 6. Records, changes, or clears (requested_status NULL) the caller's answer
--- for one occurrence. Concurrency contract:
+-- for one occurrence. Refuses with outcome 'ended' once the occurrence's
+-- effective end (its own ends_at offset, or 60 minutes) passed. Concurrency
+-- contract:
 --   * the event row is locked FOR SHARE first, so a capacity edit waits for
 --     in-flight answers and answers see the committed capacity;
 --   * then a transaction advisory lock per occurrence serializes seat
@@ -259,6 +261,7 @@ DECLARE
   viewer_id text := public.current_app_user_id();
   target_tribe_id uuid;
   event_capacity integer;
+  event_duration interval;
   previous_status text;
   resolved_status text;
   going_total integer;
@@ -275,8 +278,12 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT events.tribe_id, events.capacity
-  INTO target_tribe_id, event_capacity
+  SELECT
+    events.tribe_id,
+    events.capacity,
+    -- Implicit duration without ends_at: TRIBE_EVENT_DEFAULT_DURATION_MINUTES.
+    coalesce(events.ends_at - events.starts_at, interval '60 minutes')
+  INTO target_tribe_id, event_capacity, event_duration
   FROM public.events
   INNER JOIN public.tribes
     ON tribes.id = events.tribe_id
@@ -291,6 +298,14 @@ BEGIN
 
   IF NOT public.is_active_tribe_member(target_tribe_id) THEN
     RETURN QUERY SELECT 'forbidden'::text, NULL::text, 0;
+    RETURN;
+  END IF;
+
+  -- Defense in depth behind the use case: answers of an occurrence are
+  -- frozen once its effective end passed (in progress is still open).
+  -- clock_timestamp() because the FOR SHARE above may have waited.
+  IF target_occurrence_starts_at + event_duration <= clock_timestamp() THEN
+    RETURN QUERY SELECT 'ended'::text, NULL::text, 0;
     RETURN;
   END IF;
 

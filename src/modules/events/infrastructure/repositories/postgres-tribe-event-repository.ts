@@ -132,6 +132,7 @@ type AttendanceResponseRow = {
  */
 const ATTENDANCE_RESPONSE_OUTCOME = {
   cleared: "cleared",
+  ended: "ended",
   forbidden: "forbidden",
   invalid: "invalid",
   notFound: "not_found",
@@ -314,10 +315,19 @@ function mapFailureStatus(
 
 function mapResponseFailureStatus(
   outcome: string | null
-): typeof TRIBE_EVENT_MUTATION_STATUS.forbidden | typeof TRIBE_EVENT_MUTATION_STATUS.notFound {
-  return outcome === ATTENDANCE_RESPONSE_OUTCOME.notFound
-    ? TRIBE_EVENT_MUTATION_STATUS.notFound
-    : TRIBE_EVENT_MUTATION_STATUS.forbidden;
+):
+  | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
+  | typeof TRIBE_EVENT_MUTATION_STATUS.notFound
+  | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded {
+  if (outcome === ATTENDANCE_RESPONSE_OUTCOME.notFound) {
+    return TRIBE_EVENT_MUTATION_STATUS.notFound;
+  }
+
+  if (outcome === ATTENDANCE_RESPONSE_OUTCOME.ended) {
+    return TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
+  }
+
+  return TRIBE_EVENT_MUTATION_STATUS.forbidden;
 }
 
 function mapCreationResult(row: EventMutationRow | null): TribeEventCreationResult {

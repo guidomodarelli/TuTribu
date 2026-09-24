@@ -310,6 +310,12 @@ describe("PostgresTribeEventRepository", () => {
       })
       .mockResolvedValueOnce({
         rows: [{ attendance_status: null, outcome: "not_found", promoted_count: 0 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ attendance_status: null, outcome: "ended", promoted_count: 0 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ attendance_status: null, outcome: "ended", promoted_count: 0 }],
       });
     const repository = createRepository(execute);
     const key = {
@@ -322,7 +328,14 @@ describe("PostgresTribeEventRepository", () => {
       status: "forbidden",
     });
     await expect(repository.clearAttendance(key)).resolves.toEqual({ status: "not_found" });
-    expect(execute).toHaveBeenCalledTimes(2);
+    // Defense in depth: the definer function also refuses finished occurrences.
+    await expect(repository.setAttendance({ ...key, status: "going" })).resolves.toEqual({
+      status: "occurrence_ended",
+    });
+    await expect(repository.clearAttendance(key)).resolves.toEqual({
+      status: "occurrence_ended",
+    });
+    expect(execute).toHaveBeenCalledTimes(4);
   });
 
   describe("waitlist refill after an update", () => {
