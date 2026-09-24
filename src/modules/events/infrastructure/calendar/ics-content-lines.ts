@@ -30,7 +30,14 @@ const ICS_LINE_OCTET_LIMIT = 75;
 const ICS_LINE_FOLD_CONTINUATION = "\r\n ";
 const ICS_CONTINUATION_PREFIX_OCTETS = 1;
 const ICS_ESCAPE_PATTERN = /[\\;,]/g;
-const ICS_NEWLINE_PATTERN = /\r?\n/g;
+/** CRLF, bare LF, and bare CR: parsers may treat any of them as a line boundary. */
+const ICS_NEWLINE_PATTERN = /\r\n|\r|\n/g;
+/**
+ * RFC 5545 §3.3.11 excludes CONTROL characters from TEXT except HTAB; line
+ * breaks are escaped before this runs, so the remaining C0 controls and DEL
+ * have no valid representation and are dropped.
+ */
+const ICS_FORBIDDEN_CONTROL_PATTERN = /[\u0000-\u0008\u000A-\u001F\u007F]/g;
 const ICS_ESCAPED_NEWLINE = "\\n";
 const ICS_ESCAPE_PREFIX = "\\";
 const MILLISECONDS_PER_MINUTE = 60_000;
@@ -48,12 +55,15 @@ export type IcsSeriesRevision = {
 
 /**
  * Escapes a TEXT value (RFC 5545 §3.3.11): backslash, semicolon, comma, and
- * line breaks.
+ * line breaks (CRLF, bare LF, and bare CR become `\n`), and drops the other
+ * control characters TEXT does not allow, so user text can never open a new
+ * content line or make strict parsers reject the document.
  */
 export function escapeIcsText(value: string): string {
   return value
     .replace(ICS_ESCAPE_PATTERN, (character) => ICS_ESCAPE_PREFIX + character)
-    .replace(ICS_NEWLINE_PATTERN, ICS_ESCAPED_NEWLINE);
+    .replace(ICS_NEWLINE_PATTERN, ICS_ESCAPED_NEWLINE)
+    .replace(ICS_FORBIDDEN_CONTROL_PATTERN, "");
 }
 
 /**
