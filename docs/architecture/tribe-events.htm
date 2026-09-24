@@ -156,11 +156,13 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="code-block"><pre>page.tsx (searchParams.event) -> tribeEventsPageSearchParamsSchema
   -> tribeEventOccurrenceKeySchema: eventId@startsAt, startsAt en ISO canónico, eventId uuid
 -> listTribeEvents({ month, occurrence })
+  -> fecha movida (excepción moved): month = mes de Buenos Aires de newStartsAt, aunque venga month
   -> sin month: month = mes de Buenos Aires de startsAt
   -> selectedOccurrenceKey = key solo si pertenece a las ocurrencias listadas
 -> TribeEventsCalendar initialOccurrenceKey abre el detalle</pre></div>
   <ul>
-    <li>Un valor inválido se descarta en el schema de la página (<code>.catch(undefined)</code>) y un valor repetido usa el primero; con <code>month</code> explícito que no contiene la ocurrencia, el mes se respeta y no se abre nada.</li>
+    <li>Un valor inválido se descarta en el schema de la página (<code>.catch(undefined)</code>) y un valor repetido usa el primero; con <code>month</code> explícito que no contiene la ocurrencia, el mes se respeta y no se abre nada. La excepción es una fecha movida: los links copiados guardan el <code>month</code> del momento en que se copiaron, así que <code>resolveListingMonth</code> busca primero la excepción de la clave estable y, si la fecha se movió, lista el mes donde se muestra ahora; un <code>event</code> que no corresponde a ninguna excepción deja el <code>month</code> explícito como estaba.</li>
+    <li>Cuando el detalle se abrió desde un deep link, <code>TribeEventsCalendar</code> reescribe <code>month</code> en la URL con el mes renderizado (<code>replaceCurrentUrlSearchParams</code>, sin navegar), así un link viejo de una fecha movida queda corregido en la barra de direcciones.</li>
     <li>Abrir y cerrar el detalle sincroniza <code>event</code> y <code>month</code> en un único <code>history.replaceState</code> (<code>replaceCurrentUrlSearchParams</code> en <code>lib/browser-navigation.ts</code>), que el router de Next.js rastrea sin navegar ni refetchear. Escribir siempre el mes renderizado evita que cerrar un deep link sin <code>month</code> deje una URL pelada que, al recargar o compartir, abriría el mes actual en lugar del mes en pantalla.</li>
     <li><strong>Copiar link</strong> usa <code>lib/browser-clipboard.ts</code>: Clipboard API con detección de soporte y fallback a <code>execCommand("copy")</code> sobre un textarea temporal para WebKit.</li>
     <li>El bloque <code>upcoming-tribe-events</code> del home enlaza a <code>?month=&amp;event=</code> de cada ocurrencia.</li>
