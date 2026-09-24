@@ -28,3 +28,19 @@ export function getTribeEventOccurrenceEndTime(occurrence: TribeEventOccurrenceT
     TRIBE_EVENT_DEFAULT_DURATION_MINUTES * MILLISECONDS_PER_MINUTE
   );
 }
+
+/**
+ * Tells whether an occurrence already finished at `nowTime`. The effective end
+ * comes from {@link getTribeEventOccurrenceEndTime}, so an occurrence is
+ * finished from that instant onwards and still open while it is in progress.
+ *
+ * @param occurrence - Start and optional end of the occurrence.
+ * @param nowTime - Current time (epoch ms).
+ * @returns True once the occurrence ended.
+ */
+export function hasTribeEventOccurrenceEnded(
+  occurrence: TribeEventOccurrenceTimes,
+  nowTime: number
+): boolean {
+  return getTribeEventOccurrenceEndTime(occurrence) <= nowTime;
+}

@@ -64,6 +64,29 @@ export function isOccurrencePast(
 }
 
 /**
+ * Whether any occurrence finished while the clock moved from
+ * `previousTime` (exclusive) to `currentTime` (inclusive). A clock that did
+ * not move forward never reports a finish, so re-evaluating the same instant
+ * (for example after the occurrences change) is a no-op.
+ *
+ * @param occurrences - Start and optional end of each occurrence.
+ * @param previousTime - Previous clock value in epoch milliseconds.
+ * @param currentTime - Current clock value in epoch milliseconds.
+ * @returns True when at least one end instant lies inside the interval.
+ */
+export function hasOccurrenceFinishedBetween(
+  occurrences: readonly TribeEventOccurrenceTimes[],
+  previousTime: number,
+  currentTime: number
+): boolean {
+  return occurrences.some((occurrence) => {
+    const endTime = getTribeEventOccurrenceEndTime(occurrence);
+
+    return endTime > previousTime && endTime <= currentTime;
+  });
+}
+
+/**
  * Whether the occurrence is running at `nowTime`.
  */
 export function isOccurrenceLive(

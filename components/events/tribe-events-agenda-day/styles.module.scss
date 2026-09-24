@@ -1,3 +1,11 @@
+// Zero-specificity root layout so a parent-owned `className` (placement or
+// responsive visibility) always wins regardless of stylesheet order.
+:where(.TribeEventsAgendaDay) {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
 .TribeEventsAgendaDay {
   &__title {
     display: flex;

@@ -1,12 +1,22 @@
-import { TRIBE_EVENT_ATTENDANCE_STATUS } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_ATTENDANCE_STATUS,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+} from "@/src/modules/events/constants/tribe-events";
+import type {
+  TribeEventOccurrenceException,
+  TribeEventSchedule,
+} from "@/src/modules/events/domain/entities/tribe-event";
+import { resolveTribeEventOccurrenceByOriginalStart } from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
 import {
   getTribeEventOccurrenceEndTime,
+  hasTribeEventOccurrenceEnded,
   type TribeEventOccurrenceTimes,
 } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
 
 /**
  * Attendance rules shared by the use cases and the UI: free seats of an
- * occurrence, the most recent finished occurrences, and the viewer streak.
+ * occurrence, the most recent finished occurrences, the viewer streak, and
+ * which waitlists a capacity edit may refill.
  */
 
 export type TribeEventAttendanceStreakRule = {
@@ -92,4 +102,65 @@ export function calculateTribeEventAttendanceStreak(
   }
 
   return { attendedCount, occurrenceCount: recentOccurrences.length };
+}
+
+/**
+ * Earliest occurrence start that can still be in progress at `nowTime`: one
+ * occurrence duration (explicit, or the implicit one without `endsAt`) before
+ * now. Used to bound the candidate read of a waitlist refill.
+ *
+ * @param schedule - Updated schedule of the series.
+ * @param nowTime - Current time (epoch ms).
+ * @returns The lower bound as an ISO 8601 instant.
+ */
+export function getWaitlistRefillLookbackStart(
+  schedule: TribeEventSchedule,
+  nowTime: number
+): string {
+  const durationMs =
+    getTribeEventOccurrenceEndTime(schedule) - Date.parse(schedule.startsAt);
+
+  return new Date(nowTime - durationMs).toISOString();
+}
+
+/**
+ * Waitlisted occurrence starts that a capacity edit may refill: exact slots
+ * of the UPDATED schedule that have not ended at `nowTime` (occurrences in
+ * progress included). Starts of dates removed by a schedule edit are dropped,
+ * so their rows stay as history and are never promoted.
+ *
+ * Exceptions follow the stable key `eventId@originalStartsAt`: attendance
+ * rows keep the original start, so a moved date is refilled under its
+ * original start but "ended" is decided with its effective (moved) times; a
+ * cancelled date takes no answers, so it is never refilled.
+ *
+ * @param schedule - Updated schedule of the series.
+ * @param candidateStarts - Original starts that currently have a waitlist.
+ * @param nowTime - Current time (epoch ms).
+ * @param exceptions - Exceptions of the series (moved or cancelled dates).
+ * @returns Canonical ISO original starts that may be refilled, in input order.
+ */
+export function selectRefillableWaitlistOccurrenceStarts(
+  schedule: TribeEventSchedule,
+  candidateStarts: string[],
+  nowTime: number,
+  exceptions: readonly TribeEventOccurrenceException[] = []
+): string[] {
+  return candidateStarts.flatMap((candidateStart) => {
+    const occurrence = resolveTribeEventOccurrenceByOriginalStart(
+      schedule,
+      exceptions,
+      candidateStart
+    );
+
+    if (
+      !occurrence ||
+      occurrence.exception?.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled ||
+      hasTribeEventOccurrenceEnded(occurrence, nowTime)
+    ) {
+      return [];
+    }
+
+    return [occurrence.originalStartsAt];
+  });
 }

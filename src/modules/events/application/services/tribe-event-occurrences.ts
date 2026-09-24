@@ -6,6 +6,7 @@ import type {
   TribeEvent,
   TribeEventDateRange,
   TribeEventOccurrenceException,
+  TribeEventRangeMatch,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   TribeEventAttendanceSummary,
@@ -122,13 +123,16 @@ export function groupTribeEventExceptionsByEvent(
  * @param attendances - Attendance summaries of the slots in the range.
  * @param exceptions - Exceptions of those series.
  * @param range - Visible range, in UTC.
+ * @param rangeMatch - How occurrences are matched against the range; see
+ *   `expandTribeEventOccurrencesWithExceptions`. Defaults to matching by start.
  * @returns Occurrence results ready for the UI.
  */
 export function buildTribeEventOccurrences(
   events: TribeEvent[],
   attendances: TribeEventOccurrenceAttendance[],
   exceptions: readonly TribeEventOccurrenceException[],
-  range: TribeEventDateRange
+  range: TribeEventDateRange,
+  rangeMatch?: TribeEventRangeMatch
 ): TribeEventOccurrenceResult[] {
   const attendanceByKey = new Map(
     attendances.map((attendance) => [
@@ -155,7 +159,8 @@ export function buildTribeEventOccurrences(
       return expandTribeEventOccurrencesWithExceptions(
         event,
         exceptionsByEvent.get(event.id) ?? [],
-        range
+        range,
+        rangeMatch
       ).map((occurrence) => {
         const occurrenceKey = buildTribeEventOccurrenceKey(
           event.id,

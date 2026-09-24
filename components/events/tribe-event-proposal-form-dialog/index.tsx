@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  cn,
 } from "beez-ui";
 
 import { buildBuenosAiresInstant } from "@/lib/date-time/buenos-aires-format";
@@ -185,7 +186,12 @@ export function TribeEventProposalFormDialog({
               />
             </div>
           </div>
-          <div className={styles["TribeEventProposalFormDialog__row--selects"]}>
+          <div
+            className={cn(
+              styles.TribeEventProposalFormDialog__row,
+              styles["TribeEventProposalFormDialog__row--selects"]
+            )}
+          >
             <div className={styles.TribeEventProposalFormDialog__field}>
               <label htmlFor={FIELD_ID.durationMinutes}>{COPY.durationLabel}</label>
               <Select

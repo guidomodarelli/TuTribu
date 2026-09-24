@@ -130,7 +130,8 @@ export type TribeEventOccurrenceExceptionMutationResult =
         | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidOccurrence
-        | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
+        | typeof TRIBE_EVENT_MUTATION_STATUS.notFound
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
     };
 
 export type TribeEventProposalResult = TribeEventProposal;
@@ -204,7 +205,8 @@ export type TribeEventAttendanceMutationResult =
   | {
       status:
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidAttendance
-        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled;
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
     };
 
 /**

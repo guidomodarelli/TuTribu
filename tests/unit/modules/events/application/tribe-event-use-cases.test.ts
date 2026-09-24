@@ -143,6 +143,36 @@ describe("tribe event use cases", () => {
     });
   });
 
+  it("files a workshop that crosses midnight between months under the month where it starts", async () => {
+    // 22:00 on May 31st to 02:00 on June 1st, Buenos Aires time.
+    const crossMonthWorkshop = createEvent({
+      endsAt: "2026-06-01T05:00:00.000Z",
+      startsAt: "2026-06-01T01:00:00.000Z",
+      title: "Taller de cierre",
+    });
+    const listByTribeRange = vi.fn(async () => createListing([crossMonthWorkshop]));
+    const execute = listTribeEvents({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: createRepository({ listByTribeRange }),
+    });
+
+    const may = await execute({
+      eventTypes: [],
+      month: "2026-05",
+      occurrence: null,
+      tribeSlug: "matematica-pro",
+    });
+    const june = await execute({
+      eventTypes: [],
+      month: "2026-06",
+      occurrence: null,
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(may.events.map((occurrence) => occurrence.title)).toEqual(["Taller de cierre"]);
+    expect(june.events).toEqual([]);
+  });
+
   it("resolves the month of a deep-linked occurrence when no month is given", async () => {
     const lateNightStart = "2026-07-01T02:00:00.000Z";
     const listByTribeRange = vi.fn(async () =>
@@ -446,6 +476,7 @@ describe("tribe event use cases", () => {
 
   it("updates an event and returns the visible month occurrences read after the update", async () => {
     const update = vi.fn(async () => ({
+      attendances: [],
       event: createEvent({ title: "Clase cerrada" }),
       status: TRIBE_EVENT_MUTATION_STATUS.updated,
     }));
@@ -478,6 +509,79 @@ describe("tribe event use cases", () => {
       rangeStart: "2026-05-01T03:00:00.000Z",
       tribeSlug: "matematica-pro",
     });
+  });
+
+  it("returns the visible month occurrences with the summaries read after the waitlist refill", async () => {
+    const promotedAttendance = {
+      ...EMPTY_ATTENDANCE,
+      goingCount: 2,
+      viewerStatus: "going" as const,
+    };
+    const updatedEvent = createEvent({ capacity: 2, recurrenceFrequency: "weekly" });
+    const update = vi.fn(async () => ({
+      attendances: [],
+      event: updatedEvent,
+      status: TRIBE_EVENT_MUTATION_STATUS.updated,
+    }));
+    // Read after the update (and its waitlist refill) committed, so the
+    // summaries already include the promotions.
+    const listEventOccurrences = vi.fn(async () => ({
+      attendances: [
+        {
+          ...promotedAttendance,
+          eventId: EVENT_ID,
+          occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+        },
+      ],
+      event: updatedEvent,
+      exceptions: [],
+    }));
+    const execute = updateTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: createRepository({ listEventOccurrences, update }),
+    });
+
+    const result = await execute({
+      ...createFields({ capacity: 2, recurrenceFrequency: "weekly" }),
+      eventId: EVENT_ID,
+      tribeSlug: "matematica-pro",
+      visibleMonth: "2026-05",
+    });
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ attendanceRange: null }));
+    expect(result).toMatchObject({ status: TRIBE_EVENT_MUTATION_STATUS.updated });
+    const occurrences = "occurrences" in result ? result.occurrences : [];
+    expect(
+      occurrences.map((occurrence) => [occurrence.startsAt, occurrence.attendance])
+    ).toEqual([
+      ["2026-05-06T18:00:00.000Z", EMPTY_ATTENDANCE],
+      ["2026-05-13T18:00:00.000Z", promotedAttendance],
+      ["2026-05-20T18:00:00.000Z", EMPTY_ATTENDANCE],
+      ["2026-05-27T18:00:00.000Z", EMPTY_ATTENDANCE],
+    ]);
+  });
+
+  it("does not read attendance summaries when the visible month is missing", async () => {
+    const update = vi.fn(async () => ({
+      attendances: [],
+      event: createEvent(),
+      status: TRIBE_EVENT_MUTATION_STATUS.updated,
+    }));
+    const listEventOccurrences = vi.fn();
+
+    await expect(
+      updateTribeEvent({
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+        tribeEventRepository: createRepository({ listEventOccurrences, update }),
+      })({
+        ...createFields(),
+        eventId: EVENT_ID,
+        tribeSlug: "matematica-pro",
+        visibleMonth: null,
+      })
+    ).resolves.toMatchObject({ occurrences: [] });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ attendanceRange: null }));
+    expect(listEventOccurrences).not.toHaveBeenCalled();
   });
 
   it("forwards the not found outcome of the repository", async () => {
@@ -593,9 +697,40 @@ describe("tribe event use cases", () => {
     expect(result.events[1]?.startsAt).toBe("2026-05-13T18:00:00.000Z");
     expect(listByTribeRange).toHaveBeenCalledWith({
       rangeEnd: "2026-06-09T12:00:00.000Z",
-      rangeStart: "2026-05-10T06:00:00.000Z",
+      rangeStart: "2026-05-10T12:00:00.000Z",
       tribeSlug: "matematica-pro",
     });
+  });
+
+  it("keeps a cross-day workshop that started hours ago while its explicit end is ahead", async () => {
+    vi.useFakeTimers().setSystemTime(new Date("2026-05-10T22:00:00.000Z"));
+    const listByTribeRange = vi.fn(async () =>
+      createListing([
+        createEvent({
+          endsAt: "2026-05-11T02:00:00.000Z",
+          startsAt: "2026-05-10T15:00:00.000Z",
+          title: "Taller intensivo",
+        }),
+        createEvent({
+          endsAt: "2026-05-10T21:00:00.000Z",
+          id: OTHER_EVENT_ID,
+          startsAt: "2026-05-10T14:00:00.000Z",
+          title: "Terminado",
+        }),
+      ])
+    );
+    const execute = listUpcomingTribeEvents({
+      tribeEventRepository: createRepository({ listByTribeRange }),
+    });
+
+    const result = await execute({ tribeSlug: "matematica-pro" });
+
+    expect(result.events.map((occurrence) => occurrence.title)).toEqual([
+      "Taller intensivo",
+    ]);
+    expect(listByTribeRange).toHaveBeenCalledWith(
+      expect.objectContaining({ rangeStart: "2026-05-10T22:00:00.000Z" })
+    );
   });
 
   it("keeps an occurrence without end while it runs its default duration", async () => {

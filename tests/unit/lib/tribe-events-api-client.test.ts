@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import {
   deleteTribeEventRequest,
   fetchTribeEventAttendanceReportRequest,
+  fetchTribeEventAttendanceStreakRequest,
   saveTribeEventAttendanceRequest,
   saveTribeEventRequest,
 } from "@/lib/events/tribe-events-api-client";
@@ -259,6 +260,74 @@ describe("tribe events API client", () => {
       await expect(
         deleteTribeEventRequest({ eventId: EVENT_ID, tribeSlug: "matematica-pro" })
       ).resolves.toEqual({ isSuccess: false, message: null });
+    });
+
+    it("returns the refreshed streak, including null for no streak", async () => {
+      respondWith({ attendanceStreak: null, message: "Evento eliminado." });
+
+      await expect(
+        deleteTribeEventRequest({ eventId: EVENT_ID, tribeSlug: "matematica-pro" })
+      ).resolves.toEqual({ attendanceStreak: null, isSuccess: true, message: "Evento eliminado." });
+    });
+  });
+
+  describe("attendance streak refresh", () => {
+    it("applies a valid streak from a save response", async () => {
+      respondWith({
+        attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+        event,
+        message: "Evento creado.",
+        occurrences: [],
+      });
+
+      await expect(
+        saveTribeEventRequest({
+          eventId: null,
+          month: "2026-05",
+          payload: savePayload,
+          tribeSlug: "matematica-pro",
+        })
+      ).resolves.toEqual({
+        attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+        isSuccess: true,
+        message: "Evento creado.",
+        occurrences: [],
+      });
+    });
+
+    it("drops an unusable streak but keeps the successful save", async () => {
+      respondWith({
+        attendanceStreak: { attendedCount: "2" },
+        event,
+        message: "Evento creado.",
+        occurrences: [],
+      });
+
+      const result = await saveTribeEventRequest({
+        eventId: null,
+        month: "2026-05",
+        payload: savePayload,
+        tribeSlug: "matematica-pro",
+      });
+
+      expect(result).toEqual({ isSuccess: true, message: "Evento creado.", occurrences: [] });
+      expect(result).not.toHaveProperty("attendanceStreak");
+    });
+
+    it("reads the streak endpoint and ignores unusable bodies or failures", async () => {
+      respondWith({ attendanceStreak: { attendedCount: 3, occurrenceCount: 5 } });
+      respondWith({ attendanceStreak: { attendedCount: -1, occurrenceCount: 5 } });
+      respondWith({ message: "No pudimos actualizar tu racha." }, 500);
+
+      await expect(
+        fetchTribeEventAttendanceStreakRequest({ tribeSlug: "matematica-pro" })
+      ).resolves.toEqual({ attendanceStreak: { attendedCount: 3, occurrenceCount: 5 } });
+      await expect(
+        fetchTribeEventAttendanceStreakRequest({ tribeSlug: "matematica-pro" })
+      ).resolves.toEqual({});
+      await expect(
+        fetchTribeEventAttendanceStreakRequest({ tribeSlug: "matematica-pro" })
+      ).resolves.toEqual({});
     });
   });
 });

@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { cn } from "beez-ui";
 import {
   MapPinIcon,
   MessageCircleQuestionIcon,
@@ -55,9 +56,10 @@ export function TribeEventTypeBadge({
 
   return (
     <span
-      className={
-        isCompact ? styles["TribeEventTypeBadge--compact"] : styles.TribeEventTypeBadge
-      }
+      className={cn(
+        styles.TribeEventTypeBadge,
+        isCompact && styles["TribeEventTypeBadge--compact"]
+      )}
       data-event-type={eventType}
       title={isCompact ? label : undefined}
     >

@@ -121,12 +121,54 @@ export const tribeEventMessageResponseSchema = z.object({
 });
 
 /**
+ * Viewer streak passed as a prop to the events calendar (null: hidden).
+ */
+export const tribeEventAttendanceStreakSchema = z
+  .object({
+    attendedCount: nonNegativeCountSchema,
+    occurrenceCount: nonNegativeCountSchema,
+  })
+  .nullable() satisfies z.ZodType<TribeEventAttendanceStreakResult | null>;
+
+/**
+ * Streak refresh attached to the bodies of series mutations (POST, PATCH, and
+ * DELETE of an event). Absent means "keep the streak on screen": the route
+ * could not recompute it. An unusable value is dropped to absent instead of
+ * failing the whole mutation body, which already succeeded.
+ */
+export const tribeEventAttendanceStreakRefreshSchema = tribeEventAttendanceStreakSchema
+  .optional()
+  .catch(undefined);
+
+/**
+ * `GET /events/attendance-streak` body. `null` means the viewer has no streak.
+ */
+export const tribeEventAttendanceStreakResponseSchema = z.object({
+  attendanceStreak: tribeEventAttendanceStreakSchema,
+});
+
+/**
+ * Instant at which the events page computed the streak it rendered, passed as
+ * a prop so the client can tell whether an occurrence finished between that
+ * snapshot and its first clock value.
+ */
+export const tribeEventAttendanceStreakComputedAtSchema = instantSchema;
+
+/**
  * `POST /events` and `PATCH /events/[eventId]` body.
  */
 export const tribeEventSaveResponseSchema = z.object({
+  attendanceStreak: tribeEventAttendanceStreakRefreshSchema,
   event: tribeEventSchema,
   message: z.string(),
   occurrences: z.array(tribeEventOccurrenceSchema),
+});
+
+/**
+ * `DELETE /events/[eventId]` body: the safe message plus the streak refresh.
+ */
+export const tribeEventDeleteResponseSchema = tribeEventMessageResponseSchema.extend({
+  attendanceStreak: tribeEventAttendanceStreakRefreshSchema,
 });
 
 /**
@@ -166,16 +208,6 @@ export const tribeEventAttendanceReportSchema = z.object({
 export const tribeEventAttendanceReportResponseSchema = z.object({
   report: tribeEventAttendanceReportSchema,
 });
-
-/**
- * Viewer streak passed as a prop to the events calendar (null: hidden).
- */
-export const tribeEventAttendanceStreakSchema = z
-  .object({
-    attendedCount: nonNegativeCountSchema,
-    occurrenceCount: nonNegativeCountSchema,
-  })
-  .nullable() satisfies z.ZodType<TribeEventAttendanceStreakResult | null>;
 
 /**
  * `PUT` and `DELETE /exceptions` body: the series slots of the visible month
@@ -230,6 +262,10 @@ export const tribeEventProposalApprovalResponseSchema = z.object({
 
 export type TribeEventMessageResponse = z.infer<typeof tribeEventMessageResponseSchema>;
 export type TribeEventSaveResponse = z.infer<typeof tribeEventSaveResponseSchema>;
+export type TribeEventDeleteResponse = z.infer<typeof tribeEventDeleteResponseSchema>;
+export type TribeEventAttendanceStreakResponse = z.infer<
+  typeof tribeEventAttendanceStreakResponseSchema
+>;
 export type TribeEventAttendanceResponse = z.infer<typeof tribeEventAttendanceResponseSchema>;
 export type TribeEventAttendanceReportResponse = z.infer<
   typeof tribeEventAttendanceReportResponseSchema
