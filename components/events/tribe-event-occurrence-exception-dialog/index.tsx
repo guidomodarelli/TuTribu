@@ -4,6 +4,7 @@ import { type FormEvent, useState } from "react";
 
 import {
   Button,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -50,6 +51,8 @@ type TribeEventOccurrenceExceptionDialogProps = {
 
 type ExceptionFormValues = {
   date: string;
+  /** Buenos Aires end date; empty while the moved date ends the same day. */
+  endsDate: string;
   endsTime: string;
   reason: string;
   startsTime: string;
@@ -58,6 +61,8 @@ type ExceptionFormValues = {
 const EMPTY_VALUE = "";
 const FIELD_ID = {
   date: "tribe-event-exception-date",
+  endsDate: "tribe-event-exception-ends-date",
+  endsOnAnotherDay: "tribe-event-exception-ends-on-another-day",
   endsTime: "tribe-event-exception-ends-time",
   reason: "tribe-event-exception-reason",
   startsTime: "tribe-event-exception-starts-time",
@@ -79,8 +84,11 @@ const COPY = {
   cancelSubmit: "Cancelar esta fecha",
   cancelTitle: "Cancelar esta fecha",
   dateLabel: "Nueva fecha",
+  endsDateLabel: "Fecha de fin",
+  endsOnAnotherDayLabel: "Termina otro día",
   endsTimeLabel: "Hora de fin (opcional)",
   invalidEnd: "La hora de fin debe ser posterior al inicio.",
+  missingEndTime: "Indicá la hora de fin o dejá vacía la fecha de fin.",
   missingSchedule: "Elegí la nueva fecha y la hora de inicio.",
   moveDescription: (dateLabel: string) =>
     `Solo se mueve la fecha del ${dateLabel}. Las respuestas de asistencia se conservan.`,
@@ -96,17 +104,59 @@ function createInitialValues(occurrence: TribeEventOccurrenceResult | null): Exc
   if (!occurrence) {
     return {
       date: EMPTY_VALUE,
+      endsDate: EMPTY_VALUE,
       endsTime: EMPTY_VALUE,
       reason: EMPTY_VALUE,
       startsTime: EMPTY_VALUE,
     };
   }
 
+  const startDateKey = getBuenosAiresDateKey(occurrence.startsAt);
+  const endDateKey = occurrence.endsAt ? getBuenosAiresDateKey(occurrence.endsAt) : EMPTY_VALUE;
+
   return {
-    date: getBuenosAiresDateKey(occurrence.startsAt),
+    date: startDateKey,
+    endsDate: endDateKey === startDateKey ? EMPTY_VALUE : endDateKey,
     endsTime: occurrence.endsAt ? formatBuenosAiresTime(occurrence.endsAt) : EMPTY_VALUE,
     reason: occurrence.exception?.reason ?? EMPTY_VALUE,
     startsTime: formatBuenosAiresTime(occurrence.startsAt),
+  };
+}
+
+/**
+ * Length of the occurrence being moved, or null when it has no explicit end.
+ */
+function getOccurrenceDurationMilliseconds(
+  occurrence: TribeEventOccurrenceResult | null
+): number | null {
+  if (!occurrence?.endsAt) {
+    return null;
+  }
+
+  return Date.parse(occurrence.endsAt) - Date.parse(occurrence.startsAt);
+}
+
+/**
+ * Suggests the end for a new start so the moved date keeps its original
+ * length, including the next-day end date of an overnight occurrence.
+ * Returns null while the start is incomplete.
+ */
+function suggestEnd(
+  values: ExceptionFormValues,
+  durationMilliseconds: number
+): Pick<ExceptionFormValues, "endsDate" | "endsTime"> | null {
+  const startsAt = buildBuenosAiresInstant(values.date, values.startsTime);
+
+  if (!startsAt) {
+    return null;
+  }
+
+  const endsAt = new Date(Date.parse(startsAt) + durationMilliseconds);
+  const endDateKey = getBuenosAiresDateKey(endsAt);
+
+  return {
+    endsDate: endDateKey === values.date ? EMPTY_VALUE : endDateKey,
+    endsTime: formatBuenosAiresTime(endsAt),
   };
 }
 
@@ -123,8 +173,12 @@ function buildMovePayload(
     return { error: COPY.missingSchedule };
   }
 
+  if (values.endsDate && !values.endsTime) {
+    return { error: COPY.missingEndTime };
+  }
+
   const newEndsAt = values.endsTime
-    ? buildBuenosAiresInstant(values.date, values.endsTime)
+    ? buildBuenosAiresInstant(values.endsDate || values.date, values.endsTime)
     : null;
 
   if (newEndsAt && Date.parse(newEndsAt) <= Date.parse(newStartsAt)) {
@@ -157,12 +211,51 @@ export function TribeEventOccurrenceExceptionDialog({
     createInitialValues(occurrence)
   );
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [endsOnAnotherDay, setEndsOnAnotherDay] = useState(values.endsDate !== EMPTY_VALUE);
+  const [durationMilliseconds] = useState(() => getOccurrenceDurationMilliseconds(occurrence));
+  // While the end still holds the occurrence's own end (or a suggestion built
+  // from it), every start change moves it one original duration later. The
+  // first explicit edit of an end field hands the end over to the manager.
+  const [isEndSuggested, setIsEndSuggested] = useState(durationMilliseconds !== null);
   const isMove = mode === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved;
   const dateLabel = occurrence ? formatBuenosAiresWeekdayDay(occurrence.originalStartsAt, true) : EMPTY_VALUE;
 
   const updateField = (field: keyof ExceptionFormValues, value: string) => {
     setValidationError(null);
     setValues((currentValues) => ({ ...currentValues, [field]: value }));
+  };
+
+  const updateStartField = (field: "date" | "startsTime", value: string) => {
+    setValidationError(null);
+
+    const nextValues = { ...values, [field]: value };
+    const suggestedEnd =
+      isEndSuggested && durationMilliseconds !== null
+        ? suggestEnd(nextValues, durationMilliseconds)
+        : null;
+
+    if (!suggestedEnd) {
+      setValues(nextValues);
+      return;
+    }
+
+    setEndsOnAnotherDay(suggestedEnd.endsDate !== EMPTY_VALUE);
+    setValues({ ...nextValues, ...suggestedEnd });
+  };
+
+  // An explicit end choice stops the end from following the start.
+  const updateEndField = (field: "endsDate" | "endsTime", value: string) => {
+    setIsEndSuggested(false);
+    updateField(field, value);
+  };
+
+  const toggleEndsOnAnotherDay = (isChecked: boolean) => {
+    setIsEndSuggested(false);
+    setEndsOnAnotherDay(isChecked);
+
+    if (!isChecked) {
+      updateField("endsDate", EMPTY_VALUE);
+    }
   };
 
   const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
@@ -216,7 +309,7 @@ export function TribeEventOccurrenceExceptionDialog({
                   required
                   type={INPUT_TYPE.date}
                   value={values.date}
-                  onChange={(event) => updateField("date", event.currentTarget.value)}
+                  onChange={(event) => updateStartField("date", event.currentTarget.value)}
                 />
               </div>
               <div className={styles.TribeEventOccurrenceExceptionDialog__row}>
@@ -227,7 +320,7 @@ export function TribeEventOccurrenceExceptionDialog({
                     required
                     type={INPUT_TYPE.time}
                     value={values.startsTime}
-                    onChange={(event) => updateField("startsTime", event.currentTarget.value)}
+                    onChange={(event) => updateStartField("startsTime", event.currentTarget.value)}
                   />
                 </div>
                 <div className={styles.TribeEventOccurrenceExceptionDialog__field}>
@@ -236,9 +329,30 @@ export function TribeEventOccurrenceExceptionDialog({
                     id={FIELD_ID.endsTime}
                     type={INPUT_TYPE.time}
                     value={values.endsTime}
-                    onChange={(event) => updateField("endsTime", event.currentTarget.value)}
+                    onChange={(event) => updateEndField("endsTime", event.currentTarget.value)}
                   />
                 </div>
+              </div>
+              {endsOnAnotherDay ? (
+                <div className={styles.TribeEventOccurrenceExceptionDialog__field}>
+                  <label htmlFor={FIELD_ID.endsDate}>{COPY.endsDateLabel}</label>
+                  {/* No native `min`: an earlier end must reach the Spanish
+                      inline error instead of a browser-language bubble. */}
+                  <Input
+                    id={FIELD_ID.endsDate}
+                    type={INPUT_TYPE.date}
+                    value={values.endsDate}
+                    onChange={(event) => updateEndField("endsDate", event.currentTarget.value)}
+                  />
+                </div>
+              ) : null}
+              <div className={styles.TribeEventOccurrenceExceptionDialog__toggle}>
+                <Checkbox
+                  checked={endsOnAnotherDay}
+                  id={FIELD_ID.endsOnAnotherDay}
+                  onCheckedChange={(checked) => toggleEndsOnAnotherDay(checked === true)}
+                />
+                <label htmlFor={FIELD_ID.endsOnAnotherDay}>{COPY.endsOnAnotherDayLabel}</label>
               </div>
             </>
           ) : null}
