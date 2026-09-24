@@ -27,6 +27,15 @@ import { readAttendanceStreakNextRefreshTime } from "@/lib/events/tribe-event-at
  *   body, or a network failure) retries with the same bounded backoff and then
  *   stops; a successful read resets it. An aborted read is never reported, so
  *   it never counts as a failure.
+ * - A partial read (it returned the streak but not a usable next refresh
+ *   instant, because the route could not compute it) shares that backoff: the
+ *   hook applies its streak, but the instant on screen may already have
+ *   passed, so the read is retried until one returns the instant or the
+ *   retries run out.
+ * - A new server render that arrives while a mutation is pending may carry
+ *   the pre-commit streak, and the pending mutation's response is tagged with
+ *   the previous render, so the hook ignores it: the read becomes required and
+ *   runs once every pending mutation settles.
  * - Once disposed (the calendar unmounted) it aborts the read in flight,
  *   cancels the scheduled one, and ignores every later event, so a mutation
  *   that settles after the unmount never starts or schedules a read.
@@ -68,11 +77,13 @@ export const STREAK_MUTATION_OUTCOME = {
 
 /**
  * How a read that was not aborted settled: `succeeded` when it returned a
- * usable streak, `failed` when it returned an error status, an unusable body,
- * or never got an answer.
+ * usable streak and next refresh instant, `partial` when it returned a usable
+ * streak without a usable next refresh instant, `failed` when it returned an
+ * error status, an unusable body, or never got an answer.
  */
 export const STREAK_READ_OUTCOME = {
   failed: "failed",
+  partial: "partial",
   succeeded: "succeeded",
 } as const;
 
@@ -292,8 +303,8 @@ function handleReturnedDeadline(
 
 /**
  * Settles the read in flight. A successful one cancels the retry a previous
- * failure scheduled; a failed one schedules the next delay of the bounded
- * backoff, or stops (and resets the count) once the retries run out.
+ * failure scheduled; a failed or partial one schedules the next delay of the
+ * bounded backoff, or stops (and resets the count) once the retries run out.
  */
 function settleRead(
   state: StreakFreshnessState,
@@ -324,16 +335,23 @@ function settleRead(
 
 /**
  * Forgets the passed deadline and the failed read retries of the previous
- * server render, cancelling the read either of them scheduled.
+ * server render, cancelling the read either of them scheduled. When a
+ * mutation is still pending, the new render may predate its commit and its
+ * response will be tagged with the previous render (so the hook drops it):
+ * the read becomes required once every pending mutation settles.
  */
 function changeSource(state: StreakFreshnessState): StreakFreshnessTransition {
+  const pendingRead =
+    state.pendingMutationCount > 0 ? STREAK_PENDING_READ.required : state.pendingRead;
+  const sourceState: StreakFreshnessState = { ...state, pendingRead };
+
   if (state.passedDeadline === null && state.failedReadRetryCount === 0) {
-    return { commands: [], state };
+    return { commands: [], state: sourceState };
   }
 
   return {
     commands: [{ type: STREAK_FRESHNESS_COMMAND.cancelScheduledRead }],
-    state: { ...state, failedReadRetryCount: 0, passedDeadline: null },
+    state: { ...sourceState, failedReadRetryCount: 0, passedDeadline: null },
   };
 }
 

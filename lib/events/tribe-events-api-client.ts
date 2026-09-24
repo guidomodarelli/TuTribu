@@ -44,6 +44,10 @@ type SaveEventResponseBody = {
   occurrences?: TribeEventOccurrenceResult[];
 };
 
+type ListEventsResponseBody = {
+  events?: unknown;
+};
+
 type DeleteEventResponseBody = {
   attendanceStreak?: unknown;
   attendanceStreakNextRefreshAt?: unknown;
@@ -74,13 +78,25 @@ export type TribeEventStreakReadResult = TribeEventStreakRefresh & {
 
 /**
  * Outcome of a streak read. `isSuccess: false` means the route answered with
- * an error status or a body that is not the public streak DTO, so the caller
- * keeps the streak it shows and may retry; a usable body always carries the
- * streak (`null` when there is none).
+ * an error status or a body whose streak is not the public streak DTO, so the
+ * caller keeps the streak it shows and may retry; a usable body always carries
+ * the streak (`null` when there is none). `isPartial: true` means the body
+ * carried the streak but no usable next refresh instant (the route omits it
+ * when it cannot compute it): the caller applies the streak and retries the
+ * read, because the instant it watches may already have passed.
  */
 export type TribeEventStreakReadOutcome =
-  | ({ isSuccess: true } & TribeEventStreakReadResult &
-      Required<TribeEventStreakRefresh>)
+  | {
+      attendanceStreak: TribeEventAttendanceStreakResult | null;
+      attendanceStreakNextRefreshAt: string | null;
+      isPartial: false;
+      isSuccess: true;
+    }
+  | {
+      attendanceStreak: TribeEventAttendanceStreakResult | null;
+      isPartial: true;
+      isSuccess: true;
+    }
   | { isSuccess: false };
 
 type AttendanceResponseBody = {
@@ -118,6 +134,14 @@ const HTTP_REQUEST = {
 const JSON_HEADERS = {
   [HTTP_REQUEST.contentTypeHeader]: HTTP_REQUEST.jsonContentType,
 } as const;
+
+/**
+ * Streak part of the streak read body; its next refresh instant is guarded
+ * apart so an unusable instant never drops a usable streak.
+ */
+const tribeEventAttendanceStreakReadDtoSchema = tribeEventAttendanceStreakResponseDtoSchema.pick({
+  attendanceStreak: true,
+});
 
 /**
  * Guards the public streak DTO of a mutation response: only `null` or an
@@ -240,7 +264,8 @@ export async function deleteTribeEventRequest(input: {
  *
  * @param input - Tribe slug and an abort signal that cancels a stale read.
  * @returns The refreshed streak (`null` when there is none) and the next
- * refresh instant when the route sent it, or a failed read.
+ * refresh instant, a partial read when the instant is absent or unusable, or
+ * a failed read.
  * @throws The fetch rejection (network failure or abort) for the caller to classify.
  */
 export async function fetchTribeEventAttendanceStreakRequest(input: {
@@ -256,19 +281,57 @@ export async function fetchTribeEventAttendanceStreakRequest(input: {
     return { isSuccess: false };
   }
 
-  const parsedBody = tribeEventAttendanceStreakResponseDtoSchema.safeParse(
-    await readJsonBody<unknown>(response)
-  );
+  const body = await readJsonBody<unknown>(response);
+  const parsedStreak = tribeEventAttendanceStreakReadDtoSchema.safeParse(body);
 
-  if (!parsedBody.success) {
+  if (!parsedStreak.success) {
     return { isSuccess: false };
   }
 
-  const { attendanceStreak, attendanceStreakNextRefreshAt } = parsedBody.data;
+  // The instant is read apart from the streak: an absent or unusable one
+  // keeps the streak usable but turns the read into a partial one.
+  const { attendanceStreak } = parsedStreak.data;
+  const { attendanceStreakNextRefreshAt } = readStreakNextRefresh(
+    (body as { attendanceStreakNextRefreshAt?: unknown }).attendanceStreakNextRefreshAt
+  );
 
   return attendanceStreakNextRefreshAt === undefined
-    ? { attendanceStreak, isSuccess: true }
-    : { attendanceStreak, attendanceStreakNextRefreshAt, isSuccess: true };
+    ? { attendanceStreak, isPartial: true, isSuccess: true }
+    : { attendanceStreak, attendanceStreakNextRefreshAt, isPartial: false, isSuccess: true };
+}
+
+/**
+ * Reads the occurrences of the visible month again, for example after an
+ * edit and an attendance answer overlapped and nothing tells which summary is
+ * the committed one. An error status or a body without an occurrence list
+ * resolves to a failed read.
+ *
+ * @param input - Tribe slug, visible `YYYY-MM` month, and an abort signal that
+ * cancels a stale read.
+ * @returns The month occurrences, or a failed read.
+ * @throws The fetch rejection (network failure or abort) for the caller to classify.
+ */
+export async function fetchTribeEventOccurrencesRequest(input: {
+  month: string;
+  signal?: AbortSignal;
+  tribeSlug: string;
+}): Promise<
+  { isSuccess: true; occurrences: TribeEventOccurrenceResult[] } | { isSuccess: false }
+> {
+  const response = await fetch(buildTribeEventsApiEndpoint(input.tribeSlug, input.month), {
+    cache: "no-store",
+    signal: input.signal,
+  });
+
+  if (!response.ok) {
+    return { isSuccess: false };
+  }
+
+  const body = await readJsonBody<ListEventsResponseBody>(response);
+
+  return Array.isArray(body.events)
+    ? { isSuccess: true, occurrences: body.events as TribeEventOccurrenceResult[] }
+    : { isSuccess: false };
 }
 
 /**

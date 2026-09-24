@@ -629,6 +629,57 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
+  it("applies the streak of a read without its next refresh instant and retries it", async () => {
+    useFakeRetryTimers();
+    const { result } = renderMutations();
+
+    act(() => {
+      result.current.refreshAttendanceStreak();
+    });
+    // The route could not compute the deadline, so it omits it.
+    await heldStreakReads[0].resolve({
+      attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+    });
+
+    expect(result.current.attendanceStreak).toEqual({ attendedCount: 5, occurrenceCount: 5 });
+    expect(result.current.attendanceStreakNextRefreshAt).toBeNull();
+
+    await advanceTime(STREAK_READ_RETRY_DELAYS_MS[0] - 1);
+    expect(getStreakRequests()).toHaveLength(1);
+    await advanceTime(1);
+    expect(getStreakRequests()).toHaveLength(2);
+
+    await heldStreakReads[1].resolve({
+      attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: UPCOMING_DEADLINE,
+    });
+    await advanceTime(Math.max(...STREAK_READ_RETRY_DELAYS_MS) * 2);
+
+    expect(result.current.attendanceStreakNextRefreshAt).toBe(UPCOMING_DEADLINE);
+    expect(getStreakRequests()).toHaveLength(2);
+  });
+
+  it("stops retrying a read that keeps omitting its next refresh instant", async () => {
+    useFakeRetryTimers();
+    const { result } = renderMutations();
+
+    act(() => {
+      result.current.refreshAttendanceStreak();
+    });
+
+    for (const [retryIndex, delayMs] of STREAK_READ_RETRY_DELAYS_MS.entries()) {
+      await heldStreakReads[retryIndex].resolve({ attendanceStreak: serverStreak });
+      await advanceTime(delayMs);
+    }
+
+    await heldStreakReads[STREAK_READ_RETRY_DELAYS_MS.length].resolve({
+      attendanceStreak: serverStreak,
+    });
+    await advanceTime(Math.max(...STREAK_READ_RETRY_DELAYS_MS) * 2);
+
+    expect(getStreakRequests()).toHaveLength(STREAK_READ_RETRY_DELAYS_MS.length + 1);
+  });
+
   it("retries a read that returns an unusable body until one is usable", async () => {
     useFakeRetryTimers();
     const { result } = renderMutations();
@@ -867,5 +918,226 @@ describe("useTribeEventMutations server render source", () => {
     rerender({ version: FIRST_RENDER_VERSION });
 
     expect(result.current.attendanceStreak).toEqual({ attendedCount: 2, occurrenceCount: 5 });
+  });
+});
+
+describe("useTribeEventMutations overlapping mutations and new server renders", () => {
+  const editedOccurrence = createOccurrence({ capacity: 10 });
+  const MONTH = "2026-05";
+  const EVENTS_LIST_ENDPOINT = `/api/tribes/${TRIBE_SLUG}/events?month=${MONTH}`;
+  const FIRST_RENDER_VERSION = "2026-05-20T18:00:00.000Z";
+  const SECOND_RENDER_VERSION = "2026-05-20T18:05:00.000Z";
+  const serverStreak = { attendedCount: 2, occurrenceCount: 5 };
+  const committedStreak = { attendedCount: 3, occurrenceCount: 5 };
+  const renamedOccurrence = { ...editedOccurrence, capacity: 12, title: "Clase renovada" };
+  const savePayload = {
+    capacity: "12",
+    description: "",
+    endsAt: "",
+    meetingUrl: "",
+    recurrenceFrequency: "none",
+    recurrenceUntil: "",
+    startsAt: "2026-05-20T18:00:00.000Z",
+    title: "Clase renovada",
+  };
+  const goingAttendance = {
+    ...editedOccurrence.attendance,
+    goingCount: 1,
+    viewerStatus: "going" as const,
+  };
+  const attendanceEndpoint = buildTribeEventAttendanceApiEndpoint(
+    TRIBE_SLUG,
+    editedOccurrence.eventId
+  );
+
+  let heldSave: ReturnType<typeof createHeldResponse>;
+  let heldAttendance: ReturnType<typeof createHeldResponse>;
+  let heldStreakReads: ReturnType<typeof createHeldResponse>[];
+  let heldMonthReads: ReturnType<typeof createHeldResponse>[];
+
+  function getRequests(endpoint: string) {
+    return (global.fetch as Mock).mock.calls.filter(([url]) => url === endpoint);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    heldSave = createHeldResponse();
+    heldAttendance = createHeldResponse();
+    heldStreakReads = [];
+    heldMonthReads = [];
+    global.fetch = vi.fn((url: string) => {
+      if (url === STREAK_ENDPOINT || url === EVENTS_LIST_ENDPOINT) {
+        const heldRead = createHeldResponse();
+
+        (url === STREAK_ENDPOINT ? heldStreakReads : heldMonthReads).push(heldRead);
+        return heldRead.response;
+      }
+
+      return url.startsWith(attendanceEndpoint) ? heldAttendance.response : heldSave.response;
+    }) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  type RenderProps = {
+    events: TribeEventOccurrenceResult[];
+    streak: { attendedCount: number; occurrenceCount: number } | null;
+    version: string;
+  };
+
+  function renderMutations(initialProps: RenderProps) {
+    return renderHook(
+      ({ events, streak, version }: RenderProps) =>
+        useTribeEventMutations({
+          attendanceStreak: streak,
+          attendanceStreakNextRefreshAt: null,
+          attendanceStreakSourceVersion: version,
+          events,
+          month: MONTH,
+          tribeSlug: TRIBE_SLUG,
+        }),
+      { initialProps }
+    );
+  }
+
+  async function resolveEdit(savePromise: Promise<boolean>) {
+    await heldSave.resolve({
+      attendanceStreak: committedStreak,
+      attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
+      event: {},
+      message: "Evento actualizado.",
+      occurrences: [renamedOccurrence],
+    });
+    await act(async () => {
+      await savePromise;
+    });
+  }
+
+  it("reads the month once an edit overlaps an attendance answer and trusts that read", async () => {
+    const { result } = renderMutations({
+      events: [editedOccurrence],
+      streak: serverStreak,
+      version: FIRST_RENDER_VERSION,
+    });
+    let savePromise: Promise<boolean> = Promise.resolve(false);
+    let attendancePromise: Promise<boolean> = Promise.resolve(false);
+
+    // The manager closes a still-saving capacity edit and answers the card.
+    act(() => {
+      savePromise = result.current.saveEvent(savePayload, editedOccurrence);
+    });
+    act(() => {
+      attendancePromise = result.current.setAttendance(editedOccurrence, "going");
+    });
+
+    // The answer lands first; the edit then answers with summaries it read
+    // before the answer committed.
+    await heldAttendance.resolve({ attendance: goingAttendance, message: "Respuesta guardada." });
+    await act(async () => {
+      await attendancePromise;
+    });
+
+    expect(result.current.visibleEvents[0].attendance).toEqual(goingAttendance);
+    expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(0);
+
+    await resolveEdit(savePromise);
+
+    // Neither response can be ordered, so the visible month is read once.
+    await waitFor(() => expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(1));
+    await heldMonthReads[0].resolve({
+      events: [{ ...renamedOccurrence, attendance: goingAttendance }],
+    });
+
+    expect(result.current.visibleEvents).toEqual([
+      { ...renamedOccurrence, attendance: goingAttendance },
+    ]);
+    expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(1);
+  });
+
+  it("keeps the mutation responses on screen when the month read fails", async () => {
+    const { result } = renderMutations({
+      events: [editedOccurrence],
+      streak: serverStreak,
+      version: FIRST_RENDER_VERSION,
+    });
+    let savePromise: Promise<boolean> = Promise.resolve(false);
+    let attendancePromise: Promise<boolean> = Promise.resolve(false);
+
+    act(() => {
+      savePromise = result.current.saveEvent(savePayload, editedOccurrence);
+    });
+    act(() => {
+      attendancePromise = result.current.setAttendance(editedOccurrence, "going");
+    });
+    await resolveEdit(savePromise);
+    await heldAttendance.resolve({ attendance: goingAttendance, message: "Respuesta guardada." });
+    await act(async () => {
+      await attendancePromise;
+    });
+    await waitFor(() => expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(1));
+    await heldMonthReads[0].resolve({ message: "No pudimos cargar los eventos." }, false);
+
+    expect(result.current.visibleEvents).toEqual([
+      { ...renamedOccurrence, attendance: goingAttendance },
+    ]);
+  });
+
+  it("does not read the month after a lone attendance answer", async () => {
+    const { result } = renderMutations({
+      events: [editedOccurrence],
+      streak: serverStreak,
+      version: FIRST_RENDER_VERSION,
+    });
+    let attendancePromise: Promise<boolean> = Promise.resolve(false);
+
+    act(() => {
+      attendancePromise = result.current.setAttendance(editedOccurrence, "going");
+    });
+    await heldAttendance.resolve({ attendance: goingAttendance, message: "Respuesta guardada." });
+    await act(async () => {
+      await attendancePromise;
+    });
+
+    expect(result.current.visibleEvents[0].attendance).toEqual(goingAttendance);
+    expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(0);
+  });
+
+  it("reads the streak and the month when a new render arrives before a lone edit commits", async () => {
+    const { rerender, result } = renderMutations({
+      events: [editedOccurrence],
+      streak: serverStreak,
+      version: FIRST_RENDER_VERSION,
+    });
+    let savePromise: Promise<boolean> = Promise.resolve(false);
+
+    act(() => {
+      savePromise = result.current.saveEvent(savePayload, editedOccurrence);
+    });
+    // A search-parameter navigation renders the pre-commit streak and events.
+    rerender({
+      events: [{ ...editedOccurrence }],
+      streak: { ...serverStreak },
+      version: SECOND_RENDER_VERSION,
+    });
+
+    await resolveEdit(savePromise);
+
+    // The response belongs to the previous render, so the new one stays on
+    // screen until the reads return the committed values.
+    expect(result.current.attendanceStreak).toEqual(serverStreak);
+    await waitFor(() => expect(getRequests(STREAK_ENDPOINT)).toHaveLength(1));
+    await waitFor(() => expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(1));
+
+    await heldStreakReads[0].resolve({
+      attendanceStreak: committedStreak,
+      attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
+    });
+    await heldMonthReads[0].resolve({ events: [renamedOccurrence] });
+
+    expect(result.current.attendanceStreak).toEqual(committedStreak);
+    expect(result.current.attendanceStreakNextRefreshAt).toBe(FUTURE_DEADLINE);
+    expect(result.current.visibleEvents).toEqual([renamedOccurrence]);
   });
 });

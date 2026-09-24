@@ -40,6 +40,8 @@ const MUTATION_STARTED: StreakFreshnessEvent = { type: "mutation-started" };
 const READ_REQUESTED: StreakFreshnessEvent = { type: "read-requested" };
 const READ_SUCCEEDED: StreakFreshnessEvent = { outcome: "succeeded", type: "read-settled" };
 const READ_FAILED: StreakFreshnessEvent = { outcome: "failed", type: "read-settled" };
+const READ_PARTIAL: StreakFreshnessEvent = { outcome: "partial", type: "read-settled" };
+const SOURCE_CHANGED: StreakFreshnessEvent = { type: "source-changed" };
 const DISPOSED: StreakFreshnessEvent = { type: "disposed" };
 
 function mutationSettled(outcome: StreakMutationOutcome): StreakFreshnessEvent {
@@ -335,6 +337,61 @@ describe("transitionStreakFreshness failed reads", () => {
       { delayMs: STREAK_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
       { type: "start-read" },
     ]);
+  });
+});
+
+describe("transitionStreakFreshness partial reads", () => {
+  it("retries a read that keeps omitting the next refresh instant with a bounded backoff", () => {
+    const partialReads = STREAK_READ_RETRY_DELAYS_MS.flatMap(() => [READ_PARTIAL, READ_REQUESTED]);
+    const transition = run([READ_REQUESTED, ...partialReads, READ_PARTIAL]);
+
+    expect(transition.commands).toEqual([
+      { type: "start-read" },
+      ...STREAK_READ_RETRY_DELAYS_MS.flatMap((delayMs) => [
+        { delayMs, type: "schedule-read" },
+        { type: "start-read" },
+      ]),
+    ]);
+    expect(transition.state.failedReadRetryCount).toBe(0);
+  });
+
+  it("stops retrying once a read returns the next refresh instant", () => {
+    const transition = run([READ_REQUESTED, READ_PARTIAL, READ_REQUESTED, READ_SUCCEEDED]);
+
+    expect(transition.commands).toEqual([
+      { type: "start-read" },
+      { delayMs: STREAK_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
+      { type: "start-read" },
+      { type: "cancel-scheduled-read" },
+    ]);
+    expect(transition.state.failedReadRetryCount).toBe(0);
+  });
+});
+
+describe("transitionStreakFreshness server render changes", () => {
+  it("reads once a lone mutation that carried the streak settles after a new render", () => {
+    const transition = run([MUTATION_STARTED, SOURCE_CHANGED, mutationSettled("carried")]);
+
+    // The response is tagged with the previous render, so the hook drops it;
+    // the new render may predate the commit, so the read runs.
+    expect(transition.commands).toEqual([
+      { type: "apply-mutation-streak" },
+      { type: "start-read" },
+    ]);
+    expect(transition.state.pendingRead).toBe("none");
+  });
+
+  it("reads once an attendance answer pending across a new render settles", () => {
+    const transition = run([MUTATION_STARTED, SOURCE_CHANGED, mutationSettled("unaffected")]);
+
+    expect(transition.commands).toEqual([{ type: "start-read" }]);
+  });
+
+  it("does not read when the server renders a new source with no mutation pending", () => {
+    const transition = run([SOURCE_CHANGED]);
+
+    expect(transition.commands).toEqual([]);
+    expect(transition.state.pendingRead).toBe("none");
   });
 });
 

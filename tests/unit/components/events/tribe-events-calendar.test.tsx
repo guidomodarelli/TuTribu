@@ -1531,7 +1531,10 @@ describe("TribeEventsCalendar", () => {
         attendanceStreak: initialStreak,
         events: [occurrence, laterOccurrence],
       });
-      mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+      });
 
       await advanceMinutes(1);
       expect(getStreakRequests()).toHaveLength(0);
@@ -1606,7 +1609,10 @@ describe("TribeEventsCalendar", () => {
       // The server computed the streak at 18:58; the occurrence ended at
       // 19:00 and the client clock starts at 19:01.
       vi.setSystemTime(new Date("2026-05-06T19:01:00.000Z"));
-      mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+      });
       renderCalendar({
         attendanceStreak: initialStreak,
         attendanceStreakComputedAt: "2026-05-06T18:58:00.000Z",
@@ -1706,7 +1712,10 @@ describe("TribeEventsCalendar", () => {
     });
 
     it("asks for the streak once when the next refresh instant is also a visible end", async () => {
-      mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+      });
       renderCalendar({
         attendanceStreak: initialStreak,
         attendanceStreakNextRefreshAt: "2026-05-06T19:00:00.000Z",
