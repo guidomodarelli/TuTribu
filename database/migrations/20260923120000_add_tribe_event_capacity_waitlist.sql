@@ -21,6 +21,33 @@ ALTER TABLE public.events
 ALTER TABLE public.event_attendances
   ADD COLUMN IF NOT EXISTS responded_at timestamptz;
 
+-- Owner exception: lets the SECURITY DEFINER functions (which run as the
+-- table owner) write under FORCE RLS even where the owner has no BYPASSRLS.
+-- It authorizes only the owner; every request role stays denied. It must be
+-- installed before the responded_at backfill below: event_attendances is
+-- already under FORCE RLS, so without it a migration role that owns the table
+-- without BYPASSRLS would update zero rows and SET NOT NULL would abort
+-- whenever attendance rows exist.
+DROP POLICY IF EXISTS "Table owner manages event attendances"
+ON public.event_attendances;
+CREATE POLICY "Table owner manages event attendances"
+ON public.event_attendances
+FOR ALL
+USING (
+  current_user = (
+    SELECT pg_get_userbyid(pg_class.relowner)
+    FROM pg_class
+    WHERE pg_class.oid = 'public.event_attendances'::regclass
+  )
+)
+WITH CHECK (
+  current_user = (
+    SELECT pg_get_userbyid(pg_class.relowner)
+    FROM pg_class
+    WHERE pg_class.oid = 'public.event_attendances'::regclass
+  )
+);
+
 UPDATE public.event_attendances
 SET responded_at = updated_at
 WHERE responded_at IS NULL;
@@ -90,28 +117,8 @@ ON public.event_attendances;
 DROP POLICY IF EXISTS "Active members can remove own event attendance"
 ON public.event_attendances;
 
--- Owner exception: lets the SECURITY DEFINER functions (which run as the
--- table owner) write under FORCE RLS even where the owner has no BYPASSRLS.
--- It authorizes only the owner; every request role stays denied.
-DROP POLICY IF EXISTS "Table owner manages event attendances"
-ON public.event_attendances;
-CREATE POLICY "Table owner manages event attendances"
-ON public.event_attendances
-FOR ALL
-USING (
-  current_user = (
-    SELECT pg_get_userbyid(pg_class.relowner)
-    FROM pg_class
-    WHERE pg_class.oid = 'public.event_attendances'::regclass
-  )
-)
-WITH CHECK (
-  current_user = (
-    SELECT pg_get_userbyid(pg_class.relowner)
-    FROM pg_class
-    WHERE pg_class.oid = 'public.event_attendances'::regclass
-  )
-);
+-- The owner exception on event_attendances ("Table owner manages event
+-- attendances") is installed in section 2, before the responded_at backfill.
 
 DO $$
 BEGIN
