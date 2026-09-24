@@ -147,7 +147,8 @@ function formatViewerEndLabel(formatters: ZoneFormatters, start: Date, end: Date
  * @param endsAt - ISO end instant, or null for open-ended occurrences.
  * @param viewerTimeZone - IANA zone of the browser, null before hydration.
  * @returns The label, or null when there is no zone, it is unknown, or its
- * offset matches Buenos Aires at the start instant.
+ * offset matches Buenos Aires at the start instant and, when present, at the
+ * end instant.
  */
 export function formatViewerLocalTimeLabel(
   startsAt: string,
@@ -161,13 +162,19 @@ export function formatViewerLocalTimeLabel(
   const viewerFormatters = getZoneFormatters(viewerTimeZone);
   const buenosAiresFormatters = getZoneFormatters(BUENOS_AIRES_TIME_ZONE);
   const start = new Date(startsAt);
+  const end = endsAt ? new Date(endsAt) : null;
 
-  if (
-    !viewerFormatters ||
-    !buenosAiresFormatters ||
-    getTimeZoneOffsetMinutes(viewerFormatters, start) ===
-      getTimeZoneOffsetMinutes(buenosAiresFormatters, start)
-  ) {
+  if (!viewerFormatters || !buenosAiresFormatters) {
+    return null;
+  }
+
+  // A range can straddle a daylight-saving transition in only one zone, so
+  // both ends must match before the Buenos Aires label alone is accurate.
+  const offsetsMatchAt = (instant: Date) =>
+    getTimeZoneOffsetMinutes(viewerFormatters, instant) ===
+    getTimeZoneOffsetMinutes(buenosAiresFormatters, instant);
+
+  if (offsetsMatchAt(start) && (!end || offsetsMatchAt(end))) {
     return null;
   }
 
@@ -176,7 +183,7 @@ export function formatViewerLocalTimeLabel(
   const startLabel =
     (isOtherDay ? formatShortDate(viewerFormatters, start) + DATE_TIME_SEPARATOR : "") +
     viewerFormatters.time.format(start);
-  const endLabel = endsAt ? formatViewerEndLabel(viewerFormatters, start, new Date(endsAt)) : null;
+  const endLabel = end ? formatViewerEndLabel(viewerFormatters, start, end) : null;
 
   return (
     startLabel + (endLabel ? TIME_RANGE_SEPARATOR + endLabel : "") + VIEWER_TIME_SUFFIX

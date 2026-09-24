@@ -43,6 +43,28 @@ describe("formatViewerLocalTimeLabel", () => {
     ).toBe("23:00 - 07 may 03:00 tu hora");
   });
 
+  it("shows the local range when the offsets only diverge at the end", () => {
+    // Santiago leaves daylight saving time on 2026-04-05: both zones are UTC-3
+    // at 20:00, but the Buenos Aires 03:00 end is 02:00 in Santiago.
+    expect(
+      formatViewerLocalTimeLabel(
+        "2026-04-04T23:00:00.000Z",
+        "2026-04-05T06:00:00.000Z",
+        "America/Santiago"
+      )
+    ).toBe("20:00 - 05 abr 02:00 tu hora");
+  });
+
+  it("returns nothing when the offsets match at both ends", () => {
+    expect(
+      formatViewerLocalTimeLabel(
+        "2026-04-04T23:00:00.000Z",
+        "2026-04-05T02:00:00.000Z",
+        "America/Santiago"
+      )
+    ).toBeNull();
+  });
+
   it("ignores time zones the runtime does not know", () => {
     expect(formatViewerLocalTimeLabel(STARTS_AT, ENDS_AT, "Not/AZone")).toBeNull();
   });

@@ -119,7 +119,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <li><code>upcoming-tribe-events</code>: bloque "Próximos eventos" en el home de la tribu, alimentado por <code>listUpcomingTribeEvents</code> (ventana de 30 días, tres ocurrencias). Su fallo se registra y degrada a lista vacía sin afectar el feed.</li>
   </ul>
   <p>Toda la hora visible se calcula en Buenos Aires con <code>lib/date-time/buenos-aires-format.ts</code>. Los valores que dependen de "ahora" (hora actual, día de hoy, ocurrencias pasadas, en vivo, cuenta regresiva, href de <strong>Hoy</strong>) se leen con <code>useMinuteClock</code>, que devuelve <code>null</code> durante la hidratación para evitar diferencias entre servidor y cliente. Antes de hidratar, <strong>Hoy</strong> apunta a la ruta sin <code>month</code>, que el caso de uso resuelve al mes actual de Buenos Aires.</p>
-  <p>La hora local del viewer ("18:00 tu hora") usa <code>useViewerTimeZone</code> (snapshot de servidor <code>null</code>) y <code>lib/date-time/viewer-local-time-format.ts</code>, que solo devuelve texto cuando el offset de la zona del navegador difiere del de Buenos Aires en ese instante.</p>
+  <p>La hora local del viewer ("18:00 tu hora") usa <code>useViewerTimeZone</code> (snapshot de servidor <code>null</code>) y <code>lib/date-time/viewer-local-time-format.ts</code>, que solo devuelve texto cuando el offset de la zona del navegador difiere del de Buenos Aires al inicio o, si el evento tiene fin, al final: un rango que cruza un cambio de horario de verano en una sola de las zonas muestra la hora local aunque ambas coincidan al empezar.</p>
 </div>
 
 <div class="section">
