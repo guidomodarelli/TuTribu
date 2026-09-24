@@ -136,6 +136,10 @@ export function groupAgendaDays(
  * the endpoint. The saved occurrences already carry the attendance summaries
  * read after the save (an update reads them after refilling the waitlists),
  * so they win over the summaries on screen, which may show stale waitlists.
+ * This only holds when the save was the lone pending mutation: when it
+ * overlapped an attendance answer, nothing orders the two summaries, so
+ * `useTribeEventMutations` reads the visible month again once both settle
+ * (see `lib/events/tribe-event-occurrences-freshness.ts`).
  *
  * @param currentEvents - Occurrences currently on screen.
  * @param savedOccurrences - Occurrences of the saved event in the visible month.

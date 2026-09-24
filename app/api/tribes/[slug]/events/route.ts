@@ -141,10 +141,12 @@ export async function POST(request: Request, context: TribeRouteContext) {
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.created) {
       // A new event can start in the past, so it may displace one of the
-      // viewer's last finished occurrences: return the recomputed streak.
+      // viewer's last finished occurrences, or end before the instant the
+      // calendar watches: return the recomputed streak and next refresh.
       const streakFragment = await readAttendanceStreakResponseFragment({
         eventId: result.event.id,
-        getTribeEventAttendanceStreak: modules.events.useCases.getTribeEventAttendanceStreak,
+        getTribeEventAttendanceStreakSnapshot:
+          modules.events.useCases.getTribeEventAttendanceStreakSnapshot,
         logger,
         tribeSlug: slug,
         viewerId: authenticatedMember.id,

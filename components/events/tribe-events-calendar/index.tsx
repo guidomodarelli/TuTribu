@@ -24,7 +24,7 @@ import { TribeEventsMonthGrid } from "@/components/events/tribe-events-month-gri
 import { TribeNextEvent } from "@/components/events/tribe-next-event";
 import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useIsHydrated } from "@/hooks/use-is-hydrated";
-import { useMinuteClock } from "@/hooks/use-minute-clock";
+import { advanceMinuteClockTo, useMinuteClock } from "@/hooks/use-minute-clock";
 import { useOccurrenceFinishWatcher } from "@/hooks/use-occurrence-finish-watcher";
 import { useTribeEventAttendanceReport } from "@/hooks/use-tribe-event-attendance-report";
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
@@ -34,15 +34,23 @@ import {
   getBuenosAiresDateKey,
   getBuenosAiresMonthKey,
 } from "@/lib/date-time/buenos-aires-format";
-import { readAttendanceStreakComputedTime } from "@/lib/events/tribe-event-attendance-streak-dto";
-import { isOccurrencePast } from "@/lib/events/tribe-event-occurrence-timing";
-import { buildTribeEventAttendanceExportUrl } from "@/lib/events/tribe-events-api-client";
+import {
+  readAttendanceStreakComputedTime,
+  readAttendanceStreakNextRefreshTime,
+} from "@/lib/events/tribe-event-attendance-streak-dto";
+import {
+  getOccurrencePhaseChangeTimes,
+  isOccurrencePast,
+} from "@/lib/events/tribe-event-occurrence-timing";
 import {
   createCalendarDays,
   groupAgendaDays,
   groupOccurrencesByDay,
 } from "@/lib/events/tribe-events-calendar-grid";
-import { buildTribeEventsRoute } from "@/lib/events/tribe-events-routes";
+import {
+  buildTribeEventAttendanceExportUrl,
+  buildTribeEventsRoute,
+} from "@/lib/events/tribe-events-routes";
 import { HORIZONTAL_SWIPE_DIRECTION } from "@/lib/gestures/horizontal-swipe";
 import { copyTextToClipboard } from "@/lib/browser-clipboard";
 import { replaceCurrentUrlSearchParams } from "@/lib/browser-navigation";
@@ -51,6 +59,7 @@ import {
   type TribeEventTemplate,
 } from "@/src/modules/events/constants/tribe-event-templates";
 import { TRIBE_EVENTS_ROUTE_QUERY } from "@/src/modules/events/constants/tribe-events";
+import { getTribeEventOccurrenceEndTime } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
 import type {
   TribeEventAttendanceOption,
   TribeEventAttendanceStreakResult,
@@ -65,6 +74,11 @@ type TribeEventsCalendarProps = {
   attendanceStreak?: TribeEventAttendanceStreakResult | null;
   /** ISO instant at which the server computed `attendanceStreak`. */
   attendanceStreakComputedAt?: string | null;
+  /**
+   * ISO instant at which the streak can change next: the nearest end of a
+   * running or upcoming occurrence of the tribe, even outside this month.
+   */
+  attendanceStreakNextRefreshAt?: string | null;
   events: TribeEventOccurrenceResult[];
   /** Deep-linked occurrence whose detail opens on load (validated server-side). */
   initialOccurrenceKey?: string | null;
@@ -110,6 +124,7 @@ type OccurrenceSelectionState = {
 export function TribeEventsCalendar({
   attendanceStreak: serverAttendanceStreak = null,
   attendanceStreakComputedAt = null,
+  attendanceStreakNextRefreshAt: serverAttendanceStreakNextRefreshAt = null,
   events,
   initialOccurrenceKey = null,
   month,
@@ -127,11 +142,11 @@ export function TribeEventsCalendar({
   // both views are rendered and a CSS media query shows the right one. That
   // avoids flashing the desktop grid on phones before the client takes over.
   const shouldRenderBothViews = chosenViewMode === null && !isHydrated;
-  const nowTime = useMinuteClock();
   const router = useRouter();
   const viewerTimeZone = useViewerTimeZone();
   const {
     attendanceStreak,
+    attendanceStreakNextRefreshAt,
     deleteEvent,
     isDeletingEvent,
     isSavingAttendance,
@@ -142,15 +157,43 @@ export function TribeEventsCalendar({
     visibleEvents,
   } = useTribeEventMutations({
     attendanceStreak: serverAttendanceStreak,
+    attendanceStreakNextRefreshAt: serverAttendanceStreakNextRefreshAt,
+    // Every server render stamps a new instant, so it replaces local streak state.
+    attendanceStreakSourceVersion: attendanceStreakComputedAt,
     events,
     month: month.current,
+    // The server checks the exact time: when it already considers the
+    // occurrence ended, move the clock to that end so the UI shows it
+    // finished without reloading the route, even if the local clock lags.
+    onOccurrenceEnded: (occurrence) =>
+      advanceMinuteClockTo(getTribeEventOccurrenceEndTime(occurrence)),
     tribeSlug,
   });
+  // Besides the minute ticks, the clock wakes up exactly when an occurrence on
+  // screen opens its join window, starts, or ends, so "Unirme", "En vivo",
+  // and the attendance answers change in the same second the server does.
+  // The server also hands the next instant at which the streak can change,
+  // which covers occurrences outside the visible month (one that started last
+  // month and is still running is not listed here, since the month matches
+  // occurrences by start). The clock wakes up then too.
+  const streakNextRefreshTime = readAttendanceStreakNextRefreshTime(
+    attendanceStreakNextRefreshAt
+  );
+  const streakRefreshTimes = useMemo(
+    () => (streakNextRefreshTime === null ? [] : [streakNextRefreshTime]),
+    [streakNextRefreshTime]
+  );
+  const phaseChangeTimes = useMemo(
+    () => [...visibleEvents.flatMap(getOccurrencePhaseChangeTimes), ...streakRefreshTimes],
+    [streakRefreshTimes, visibleEvents]
+  );
+  const nowTime = useMinuteClock(phaseChangeTimes);
   // The streak counts the last finished occurrences, so the one that just
   // ended may change it: read it again once, without reloading the route.
   // An occurrence that ended between the server snapshot and hydration is
   // caught on the first clock value by comparing it with the snapshot instant.
   useOccurrenceFinishWatcher({
+    extraFinishTimes: streakRefreshTimes,
     nowTime,
     occurrences: visibleEvents,
     onOccurrenceFinished: refreshAttendanceStreak,

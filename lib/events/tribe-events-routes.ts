@@ -2,6 +2,22 @@ import { ROUTES } from "@/src/constants/routes";
 import { TRIBE_EVENTS_ROUTE_QUERY } from "@/src/modules/events/constants/tribe-events";
 
 /**
+ * Pure URL builders for the tribe events page and its same-origin route
+ * handlers. Framework-safe: no fetch, no transport concerns, so presentational
+ * components and the browser HTTP adapter can share them.
+ */
+
+const EVENT_API_ENDPOINT = {
+  attendanceExportPath: "/attendance/export",
+  attendancePath: "/attendance",
+  attendanceStreakPath: "/attendance-streak",
+  eventsPath: "/events",
+  monthQuery: "?month=",
+  occurrenceQuery: "?occurrence=",
+  separator: "/",
+} as const;
+
+/**
  * Query values accepted by the tribe events page. Both are optional: without
  * `month` the route resolves the current Buenos Aires month.
  */
@@ -36,4 +52,87 @@ export function buildTribeEventsRoute(
   return queryString
     ? ROUTES.tribes.events(tribeSlug) + "?" + queryString
     : ROUTES.tribes.events(tribeSlug);
+}
+
+/**
+ * Builds the events collection endpoint of a tribe.
+ *
+ * @param tribeSlug - Tribe slug of the route.
+ * @param month - Optional visible month (`YYYY-MM`) sent as query.
+ * @returns Relative URL such as `/api/tribes/slug/events?month=2026-05`.
+ */
+export function buildTribeEventsApiEndpoint(tribeSlug: string, month?: string): string {
+  const base =
+    ROUTES.api.tribes + EVENT_API_ENDPOINT.separator + tribeSlug + EVENT_API_ENDPOINT.eventsPath;
+
+  return month ? base + EVENT_API_ENDPOINT.monthQuery + month : base;
+}
+
+/**
+ * Builds the endpoint of one event series.
+ *
+ * @param tribeSlug - Tribe slug of the route.
+ * @param eventId - Event series identifier.
+ * @param month - Optional visible month (`YYYY-MM`) sent as query.
+ * @returns Relative URL of the event series endpoint.
+ */
+export function buildTribeEventApiEndpoint(
+  tribeSlug: string,
+  eventId: string,
+  month?: string
+): string {
+  const base = buildTribeEventsApiEndpoint(tribeSlug) + EVENT_API_ENDPOINT.separator + eventId;
+
+  return month ? base + EVENT_API_ENDPOINT.monthQuery + month : base;
+}
+
+/**
+ * Builds the attendance endpoint of one event, optionally scoped to one
+ * occurrence start.
+ *
+ * @param tribeSlug - Tribe slug of the route.
+ * @param eventId - Event series identifier.
+ * @param occurrenceStartsAt - Optional ISO start of the occurrence.
+ * @returns Relative URL of the attendance endpoint.
+ */
+export function buildTribeEventAttendanceApiEndpoint(
+  tribeSlug: string,
+  eventId: string,
+  occurrenceStartsAt?: string
+): string {
+  const base = buildTribeEventApiEndpoint(tribeSlug, eventId) + EVENT_API_ENDPOINT.attendancePath;
+
+  return occurrenceStartsAt
+    ? base + EVENT_API_ENDPOINT.occurrenceQuery + encodeURIComponent(occurrenceStartsAt)
+    : base;
+}
+
+/**
+ * Builds the viewer attendance streak endpoint of a tribe.
+ *
+ * @param tribeSlug - Tribe slug of the route.
+ * @returns Relative URL of the attendance streak endpoint.
+ */
+export function buildTribeEventAttendanceStreakApiEndpoint(tribeSlug: string): string {
+  return buildTribeEventsApiEndpoint(tribeSlug) + EVENT_API_ENDPOINT.attendanceStreakPath;
+}
+
+/**
+ * Same-origin URL of the manager CSV export of one occurrence. The route
+ * handler authorizes the download again, so the link is safe to render.
+ *
+ * @param input - Tribe, event, and occurrence start.
+ * @returns Relative URL of the CSV download.
+ */
+export function buildTribeEventAttendanceExportUrl(input: {
+  eventId: string;
+  occurrenceStartsAt: string;
+  tribeSlug: string;
+}): string {
+  return (
+    buildTribeEventApiEndpoint(input.tribeSlug, input.eventId) +
+    EVENT_API_ENDPOINT.attendanceExportPath +
+    EVENT_API_ENDPOINT.occurrenceQuery +
+    encodeURIComponent(input.occurrenceStartsAt)
+  );
 }

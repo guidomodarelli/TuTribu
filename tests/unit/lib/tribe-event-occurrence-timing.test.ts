@@ -4,6 +4,7 @@ import {
   TRIBE_EVENT_OCCURRENCE_PHASE,
   formatOccurrenceCountdown,
   getOccurrencePhase,
+  getOccurrencePhaseChangeTimes,
   hasOccurrenceFinishedBetween,
   isOccurrenceJoinable,
 } from "@/lib/events/tribe-event-occurrence-timing";
@@ -118,5 +119,21 @@ describe("hasOccurrenceFinishedBetween", () => {
     expect(hasOccurrenceFinishedBetween([withEnd], endTime + MINUTE, endTime - MINUTE)).toBe(
       false
     );
+  });
+});
+
+describe("getOccurrencePhaseChangeTimes", () => {
+  it("lists the join window start, the start and the end of the occurrence", () => {
+    expect(
+      getOccurrencePhaseChangeTimes({ endsAt: "2026-05-06T19:30:15.000Z", startsAt: STARTS_AT })
+    ).toEqual([START_TIME - 15 * MINUTE, START_TIME, Date.parse("2026-05-06T19:30:15.000Z")]);
+  });
+
+  it("uses the default duration as the end of an occurrence without end", () => {
+    expect(getOccurrencePhaseChangeTimes({ endsAt: null, startsAt: STARTS_AT })).toEqual([
+      START_TIME - 15 * MINUTE,
+      START_TIME,
+      START_TIME + HOUR,
+    ]);
   });
 });

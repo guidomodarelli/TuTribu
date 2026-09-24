@@ -23,7 +23,7 @@ function createRepository(overrides: Partial<TribeEventRepository> = {}) {
     findById: vi.fn(),
     getOccurrenceAttendanceReport: vi.fn(),
     listByTribeRange: vi.fn(),
-    listViewerAttendanceHistory: vi.fn(),
+    readViewerAttendanceStreakSnapshot: vi.fn(),
     setAttendance: vi.fn(),
     update: vi.fn(),
     ...overrides,
@@ -464,6 +464,64 @@ describe("tribe event use cases", () => {
       status: TRIBE_EVENT_MUTATION_STATUS.updated,
     });
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ eventId: EVENT_ID }));
+  });
+
+  it("keeps the stored capacity when the update omits it and clears or sets it when explicit", async () => {
+    const update = vi.fn(async () => ({
+      attendances: [],
+      event: createEvent({ capacity: 10 }),
+      status: TRIBE_EVENT_MUTATION_STATUS.updated,
+    }));
+    const execute = updateTribeEvent({
+      tribeEventRepository: createRepository({ update }),
+    });
+    const baseCommand = {
+      description: "",
+      endsAt: "",
+      eventId: EVENT_ID,
+      meetingUrl: "",
+      recurrenceFrequency: "",
+      recurrenceUntil: "",
+      startsAt: "2026-05-06T18:00:00.000Z",
+      title: "Clase abierta",
+      tribeSlug: "matematica-pro",
+    };
+
+    // A legacy body without the field must not remove the existing limit.
+    await execute(baseCommand);
+    await execute({ ...baseCommand, capacity: "" });
+    await execute({ ...baseCommand, capacity: " 15 " });
+
+    expect(
+      update.mock.calls.map((call) => ((call as unknown[])[0] as { capacity: unknown }).capacity)
+    ).toEqual([
+      { kind: "unchanged" },
+      { capacity: null, kind: "set" },
+      { capacity: 15, kind: "set" },
+    ]);
+  });
+
+  it("rejects an invalid explicit capacity on update before calling the repository", async () => {
+    const update = vi.fn();
+    const execute = updateTribeEvent({
+      tribeEventRepository: createRepository({ update }),
+    });
+
+    await expect(
+      execute({
+        capacity: "0",
+        description: "",
+        endsAt: "",
+        eventId: EVENT_ID,
+        meetingUrl: "",
+        recurrenceFrequency: "",
+        recurrenceUntil: "",
+        startsAt: "2026-05-06T18:00:00.000Z",
+        title: "Clase abierta",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidCapacity });
+    expect(update).not.toHaveBeenCalled();
   });
 
   it("returns the visible month occurrences with the summaries read after the waitlist refill", async () => {

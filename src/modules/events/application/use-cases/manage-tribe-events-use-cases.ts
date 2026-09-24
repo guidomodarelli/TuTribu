@@ -26,6 +26,7 @@ import {
   toTribeEventResult,
 } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
+  TRIBE_EVENT_CAPACITY_UPDATE_KIND,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
@@ -35,6 +36,7 @@ import type {
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   PersistTribeEventCommand,
+  TribeEventCapacityUpdate,
   TribeEventOccurrenceAttendance,
   TribeEventRepository,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
@@ -62,6 +64,21 @@ type NormalizedEventInput =
 const NORMALIZED_EVENT_STATUS = {
   valid: "valid",
 } as const;
+
+/**
+ * Capacity change of an update: a capacity the body omitted keeps the stored
+ * one (legacy bodies without the field must not remove the limit); a present
+ * value, already validated at the route boundary, is written as is (null
+ * removes the limit).
+ *
+ * @param capacity - Validated capacity of the update, undefined when omitted.
+ * @returns The capacity change to persist.
+ */
+function resolveCapacityUpdate(capacity: number | null | undefined): TribeEventCapacityUpdate {
+  return capacity === undefined
+    ? { kind: TRIBE_EVENT_CAPACITY_UPDATE_KIND.unchanged }
+    : { capacity, kind: TRIBE_EVENT_CAPACITY_UPDATE_KIND.set };
+}
 
 /**
  * The end, when present, must come after the start.
@@ -252,7 +269,10 @@ export function updateTribeEvent({
   tribeEventRepository,
 }: TribeEventDependencies) {
   return async (command: UpdateTribeEventCommand): Promise<TribeEventSaveResult> => {
-    const normalizedInput = normalizeEventInput(command);
+    const normalizedInput = normalizeEventInput({
+      ...command,
+      capacity: command.capacity ?? null,
+    });
 
     if (normalizedInput.status !== NORMALIZED_EVENT_STATUS.valid) {
       return { status: normalizedInput.status };
@@ -262,6 +282,7 @@ export function updateTribeEvent({
     const result = await tribeEventRepository.update({
       ...normalizedInput.input,
       attendanceRange: visibleMonthRange,
+      capacity: resolveCapacityUpdate(command.capacity),
       eventId: command.eventId,
     });
 
