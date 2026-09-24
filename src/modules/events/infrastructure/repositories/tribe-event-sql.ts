@@ -251,7 +251,11 @@ export function buildTribeEventExceptionsInRangeQuery({
  * start must fall inside the range. `originalStartsAtColumn` narrows the
  * predicate to one answered slot (attendance rows keep the original start).
  * Moved dates bring their series into a listing even when the series itself
- * ended before the range (the last date moved later).
+ * ended before the range (the last date moved later). Only a moved row whose
+ * original start is still a slot of the current schedule counts
+ * (`is_tribe_event_series_occurrence`, the SQL mirror of the domain rule): a
+ * row kept after a schedule edit is stale, the domain ignores it, and it must
+ * not pull an otherwise out-of-range series into the listing or the feed.
  */
 export function buildMovedIntoRangePredicate(
   { rangeEnd, rangeStart }: TribeEventDateRange,
@@ -283,6 +287,12 @@ export function buildMovedIntoRangePredicate(
         and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
         ${slotFilter}
         ${rangeFilter}
+        and public.is_tribe_event_series_occurrence(
+          moved_exceptions.original_starts_at,
+          events.starts_at,
+          events.recurrence_frequency,
+          events.recurrence_until
+        )
     )
   `;
 }

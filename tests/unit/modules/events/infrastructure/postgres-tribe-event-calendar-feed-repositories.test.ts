@@ -373,6 +373,26 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     expect(feedSql.slice(typePredicateIndex)).toMatch(/workshop.*qa.*::text\[\]/s);
   });
 
+  it("selects a series by a moved date only while that date is still a slot of its schedule", async () => {
+    const ownerExecute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
+
+    await reader.readAsOwner(FEED_QUERY);
+
+    // A moved row kept after a schedule edit no longer belongs to the series:
+    // it must not pull an otherwise out-of-window series into the feed.
+    const feedSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
+    const candidateSql = feedSql.slice(0, feedSql.indexOf("valid_exceptions as materialized"));
+
+    expect(candidateSql).toMatch(
+      /public\.is_tribe_event_series_occurrence\(\s*moved_exceptions\.original_starts_at,\s*events\.starts_at,\s*events\.recurrence_frequency,\s*events\.recurrence_until\s*\)/
+    );
+  });
+
   it("returns null and reads nothing else when the owner lost access", async () => {
     const ownerExecute = vi.fn(async (..._statements: unknown[]) => ({ rows: [] }));
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));

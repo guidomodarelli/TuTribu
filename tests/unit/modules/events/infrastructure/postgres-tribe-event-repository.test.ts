@@ -171,6 +171,23 @@ describe("PostgresTribeEventRepository", () => {
     ]);
   });
 
+  it("selects a series by a moved date only while that date is still a slot of its schedule", async () => {
+    const execute = vi.fn().mockResolvedValueOnce({ rows: [] });
+    const repository = createRepository(execute);
+
+    await repository.listByTribeRange({
+      rangeEnd: "2026-06-01T03:00:00.000Z",
+      rangeStart: "2026-05-01T03:00:00.000Z",
+      tribeSlug: "matematica-pro",
+    });
+
+    // A moved row kept after a schedule edit no longer belongs to the series,
+    // so it must not bring an otherwise out-of-range series into the month.
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
+      /public\.is_tribe_event_series_occurrence\(\s*moved_exceptions\.original_starts_at,\s*events\.starts_at,\s*events\.recurrence_frequency,\s*events\.recurrence_until\s*\)/
+    );
+  });
+
   it("keeps viewer permissions and skips the attendance query when the range has no events", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
