@@ -11,6 +11,7 @@ import {
 } from "@/app/api/tribes/[slug]/events/[eventId]/attendance/route";
 import { GET as GET_ATTENDANCE_EXPORT } from "@/app/api/tribes/[slug]/events/[eventId]/attendance/export/route";
 import { GET as GET_CALENDAR } from "@/app/api/tribes/[slug]/events/[eventId]/calendar/route";
+import { GET as GET_ATTENDANCE_STREAK } from "@/app/api/tribes/[slug]/events/attendance-streak/route";
 import { createRequestModules } from "@/src/modules/setup";
 
 const getAuthenticatedMember = vi.fn();
@@ -487,6 +488,101 @@ describe("Tribe event routes", () => {
       await DELETE(buildRequest(), buildEventContext());
 
       expect(getTribeEventAttendanceStreak).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("attendance streak endpoint", () => {
+    const streakUrl = `${BASE_URL}/attendance-streak`;
+
+    function buildStreakContext(slug: string) {
+      return { params: Promise.resolve({ slug }) };
+    }
+
+    it("returns only the public streak fields of the viewer", async () => {
+      getTribeEventAttendanceStreak.mockResolvedValue({
+        attendedCount: 3,
+        internalNote: "not public",
+        occurrenceCount: 5,
+      });
+
+      const response = await GET_ATTENDANCE_STREAK(
+        buildRequest({}, streakUrl),
+        buildStreakContext("matematica-pro")
+      );
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+      });
+      expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
+        tribeSlug: "matematica-pro",
+      });
+    });
+
+    it("returns null when the viewer has no streak", async () => {
+      getTribeEventAttendanceStreak.mockResolvedValue(null);
+
+      const response = await GET_ATTENDANCE_STREAK(
+        buildRequest({}, streakUrl),
+        buildStreakContext("matematica-pro")
+      );
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ attendanceStreak: null });
+    });
+
+    it("requires a session", async () => {
+      getAuthenticatedMember.mockResolvedValueOnce(null);
+
+      const response = await GET_ATTENDANCE_STREAK(
+        buildRequest({}, streakUrl),
+        buildStreakContext("matematica-pro")
+      );
+
+      expect(response.status).toBe(401);
+      await expect(response.json()).resolves.toEqual({
+        message: "Iniciá sesión para gestionar eventos.",
+      });
+      expect(getTribeEventAttendanceStreak).not.toHaveBeenCalled();
+    });
+
+    it("rejects a malformed tribe slug as not found before touching the session", async () => {
+      const response = await GET_ATTENDANCE_STREAK(
+        buildRequest({}, streakUrl),
+        buildStreakContext("Matemática Pro!")
+      );
+
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toEqual({
+        message: "No pudimos encontrar la tribu.",
+      });
+      expect(createRequestModules).not.toHaveBeenCalled();
+      expect(getTribeEventAttendanceStreak).not.toHaveBeenCalled();
+    });
+
+    it("logs failures and answers with a safe Spanish message", async () => {
+      const streakError = new Error("history query failed");
+      getTribeEventAttendanceStreak.mockRejectedValue(streakError);
+
+      const response = await GET_ATTENDANCE_STREAK(
+        buildRequest({}, streakUrl),
+        buildStreakContext("matematica-pro")
+      );
+
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toEqual({
+        message: "No pudimos actualizar tu racha.",
+      });
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: streakError,
+          message: "Tribe event attendance streak lookup failed",
+          metadata: expect.objectContaining({
+            slug: "matematica-pro",
+            viewerId: "member-1",
+          }),
+        })
+      );
     });
   });
 

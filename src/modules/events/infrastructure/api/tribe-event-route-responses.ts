@@ -40,6 +40,7 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   unauthorizedMessage: "Iniciá sesión para gestionar eventos.",
   unexpectedAttendanceMessage: "No pudimos guardar tu respuesta. Intentá de nuevo.",
   unexpectedAttendanceReportMessage: "No pudimos cargar la asistencia. Intentá de nuevo.",
+  unexpectedAttendanceStreakMessage: "No pudimos actualizar tu racha.",
   unexpectedAttendanceExportMessage: "No pudimos generar el archivo de asistencia.",
   unexpectedCalendarMessage: "No pudimos generar el archivo de calendario.",
   unexpectedCreateMessage: "No pudimos guardar el evento. Intentá de nuevo.",

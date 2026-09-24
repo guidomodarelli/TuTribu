@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "beez-ui";
 
 import {
@@ -9,6 +9,7 @@ import {
 } from "@/lib/events/tribe-events-calendar-grid";
 import {
   deleteTribeEventRequest,
+  fetchTribeEventAttendanceStreakRequest,
   saveTribeEventAttendanceRequest,
   saveTribeEventRequest,
   type TribeEventSavePayload,
@@ -54,6 +55,11 @@ export type TribeEventMutations = {
   isDeletingEvent: boolean;
   isSavingAttendance: boolean;
   isSavingEvent: boolean;
+  /**
+   * Reads the streak again (for example when an occurrence on screen
+   * finishes). Failures keep the streak on screen without user feedback.
+   */
+  refreshAttendanceStreak: () => void;
   saveEvent: (
     payload: TribeEventSavePayload,
     editingOccurrence: TribeEventOccurrenceResult | null
@@ -114,6 +120,9 @@ export function useTribeEventMutations({
   const isSavingEventRef = useRef(false);
   const isDeletingEventRef = useRef(false);
   const isSavingAttendanceRef = useRef(false);
+  // In-flight streak refresh, aborted when a newer refresh starts or the
+  // calendar unmounts so a stale read never lands on screen.
+  const streakRefreshControllerRef = useRef<AbortController | null>(null);
   const unsortedVisibleEvents =
     visibleEventsState.sourceEvents === events ? visibleEventsState.events : events;
   // The endpoint returns occurrences ordered, but the agenda groups by day and
@@ -155,6 +164,39 @@ export function useTribeEventMutations({
       sourceStreak: request.sourceStreak,
       streak: refresh.attendanceStreak,
     });
+  };
+
+  useEffect(
+    () => () => {
+      streakRefreshControllerRef.current?.abort();
+    },
+    []
+  );
+
+  const refreshAttendanceStreak: TribeEventMutations["refreshAttendanceStreak"] = () => {
+    streakRefreshControllerRef.current?.abort();
+
+    const controller = new AbortController();
+    const streakRequest = startStreakRequest();
+
+    streakRefreshControllerRef.current = controller;
+
+    fetchTribeEventAttendanceStreakRequest({ signal: controller.signal, tribeSlug })
+      .then((refresh) => {
+        if (!controller.signal.aborted) {
+          applyStreakRefresh(streakRequest, refresh);
+        }
+      })
+      .catch(() => {
+        // Deliberate fallback: an aborted or failed background read keeps the
+        // streak on screen. The route handler logs its own failures, and a
+        // passive refresh the viewer did not trigger must not raise a toast.
+      })
+      .finally(() => {
+        if (streakRefreshControllerRef.current === controller) {
+          streakRefreshControllerRef.current = null;
+        }
+      });
   };
 
   const replaceVisibleEvents = (updater: OccurrencesUpdater) => {
@@ -300,6 +342,7 @@ export function useTribeEventMutations({
     isDeletingEvent,
     isSavingAttendance,
     isSavingEvent,
+    refreshAttendanceStreak,
     saveEvent,
     setAttendance,
     visibleEvents,

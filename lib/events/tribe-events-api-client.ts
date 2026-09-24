@@ -1,3 +1,7 @@
+import {
+  tribeEventAttendanceStreakDtoSchema,
+  tribeEventAttendanceStreakResponseDtoSchema,
+} from "@/lib/events/tribe-event-attendance-streak-dto";
 import { ROUTES } from "@/src/constants/routes";
 import type { CreateTribeEventCommand } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
@@ -67,6 +71,7 @@ const HTTP_REQUEST = {
 const EVENT_ENDPOINT = {
   attendanceExportPath: "/attendance/export",
   attendancePath: "/attendance",
+  attendanceStreakPath: "/attendance-streak",
   eventsPath: "/events",
   monthQuery: "?month=",
   occurrenceQuery: "?occurrence=",
@@ -101,29 +106,19 @@ function buildAttendanceEndpoint(
     : base;
 }
 
-function isNonNegativeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0;
-}
-
 /**
  * Guards the public streak DTO of a mutation response: only `null` or an
- * object with integer counts is applied; anything else is dropped so the UI
- * keeps the streak it already shows.
+ * object with non-negative integer counts is applied (extra keys are
+ * dropped); anything else is ignored so the UI keeps the streak it shows.
  */
 function readStreakRefresh(attendanceStreak: unknown): TribeEventStreakRefresh {
   if (attendanceStreak === null) {
     return { attendanceStreak: null };
   }
 
-  if (typeof attendanceStreak !== "object") {
-    return {};
-  }
+  const parsedStreak = tribeEventAttendanceStreakDtoSchema.safeParse(attendanceStreak);
 
-  const { attendedCount, occurrenceCount } = attendanceStreak as Record<string, unknown>;
-
-  return isNonNegativeInteger(attendedCount) && isNonNegativeInteger(occurrenceCount)
-    ? { attendanceStreak: { attendedCount, occurrenceCount } }
-    : {};
+  return parsedStreak.success ? { attendanceStreak: parsedStreak.data } : {};
 }
 
 /**
@@ -191,6 +186,35 @@ export async function deleteTribeEventRequest(input: {
   return response.ok
     ? { ...readStreakRefresh(body.attendanceStreak), isSuccess: true, message: body.message ?? null }
     : { isSuccess: false, message: body.message ?? null };
+}
+
+/**
+ * Reads the viewer streak again, for example after an occurrence on screen
+ * finished. A failed request or an unusable body resolves to an empty
+ * refresh, so the caller keeps the streak it already shows.
+ *
+ * @param input - Tribe slug and an abort signal that cancels a stale read.
+ * @returns The refreshed streak (`null` when there is none) or an empty refresh.
+ * @throws The fetch rejection (network failure or abort) for the caller to classify.
+ */
+export async function fetchTribeEventAttendanceStreakRequest(input: {
+  signal?: AbortSignal;
+  tribeSlug: string;
+}): Promise<TribeEventStreakRefresh> {
+  const response = await fetch(
+    buildEventsEndpoint(input.tribeSlug) + EVENT_ENDPOINT.attendanceStreakPath,
+    { cache: "no-store", signal: input.signal }
+  );
+
+  if (!response.ok) {
+    return {};
+  }
+
+  const parsedBody = tribeEventAttendanceStreakResponseDtoSchema.safeParse(
+    await readJsonBody<unknown>(response)
+  );
+
+  return parsedBody.success ? { attendanceStreak: parsedBody.data.attendanceStreak } : {};
 }
 
 /**

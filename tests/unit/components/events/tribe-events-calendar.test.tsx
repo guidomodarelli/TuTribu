@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import {
@@ -1152,6 +1152,120 @@ describe("TribeEventsCalendar", () => {
       expect(
         within(getNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("attendance streak when an occurrence finishes", () => {
+    const initialStreak = { attendedCount: 4, occurrenceCount: 5 };
+    const streakEndpoint = "/api/tribes/matematica-pro/events/attendance-streak";
+    const laterOccurrence = createOccurrence({
+      endsAt: "2026-05-20T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-20T18:00:00.000Z",
+      title: "Encuentro abierto",
+    });
+
+    function getNextEventRegion() {
+      return screen.getByRole("region", { name: "Próximo evento" });
+    }
+
+    function getStreakRequests() {
+      return (global.fetch as Mock).mock.calls.filter(([url]) => url === streakEndpoint);
+    }
+
+    async function advanceMinutes(minuteCount: number) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(minuteCount * 60_000);
+      });
+    }
+
+    beforeEach(() => {
+      // Two minutes before the first occurrence (18:00-19:00 UTC) ends.
+      vi.setSystemTime(new Date("2026-05-06T18:58:00.000Z"));
+    });
+
+    it("asks for the streak once when the running occurrence ends", async () => {
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+      mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+
+      await advanceMinutes(1);
+      expect(getStreakRequests()).toHaveLength(0);
+
+      await advanceMinutes(1);
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 5 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(getStreakRequests()).toHaveLength(1);
+      expect(getStreakRequests()[0][1]).toEqual(
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(1);
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("keeps the streak on screen when the refresh fails", async () => {
+      const { toast } = vi.mocked(await import("beez-ui"), true);
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+      mockJsonResponse({ message: "No pudimos actualizar tu racha." }, false);
+
+      await advanceMinutes(2);
+
+      await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+      expect(
+        within(getNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
+      ).toBeInTheDocument();
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it("ignores an unusable streak in the refresh response", async () => {
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+      mockJsonResponse({ attendanceStreak: { attendedCount: -1, occurrenceCount: 5 } });
+
+      await advanceMinutes(2);
+
+      await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+      expect(
+        within(getNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
+      ).toBeInTheDocument();
+    });
+
+    it("cancels a pending refresh when the calendar unmounts", async () => {
+      (global.fetch as Mock).mockImplementationOnce(() => new Promise(() => undefined));
+      const { unmount } = renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+
+      await advanceMinutes(2);
+      await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+      const signal = getStreakRequests()[0][1].signal as AbortSignal;
+
+      unmount();
+
+      expect(signal.aborted).toBe(true);
+    });
+
+    it("does not ask for the streak when no occurrence ends", async () => {
+      renderCalendar({ attendanceStreak: initialStreak, events: [laterOccurrence] });
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(0);
     });
   });
 

@@ -25,6 +25,7 @@ import { TribeNextEvent } from "@/components/events/tribe-next-event";
 import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
+import { useOccurrenceFinishWatcher } from "@/hooks/use-occurrence-finish-watcher";
 import { useTribeEventAttendanceReport } from "@/hooks/use-tribe-event-attendance-report";
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
 import { useViewerTimeZone } from "@/hooks/use-viewer-time-zone";
@@ -131,6 +132,7 @@ export function TribeEventsCalendar({
     isDeletingEvent,
     isSavingAttendance,
     isSavingEvent,
+    refreshAttendanceStreak,
     saveEvent,
     setAttendance,
     visibleEvents,
@@ -139,6 +141,13 @@ export function TribeEventsCalendar({
     events,
     month: month.current,
     tribeSlug,
+  });
+  // The streak counts the last finished occurrences, so the one that just
+  // ended may change it: read it again once, without reloading the route.
+  useOccurrenceFinishWatcher({
+    nowTime,
+    occurrences: visibleEvents,
+    onOccurrenceFinished: refreshAttendanceStreak,
   });
   const [formSession, setFormSession] = useState<EventFormSession>({
     mode: FORM_MODE.closed,
