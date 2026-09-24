@@ -159,7 +159,8 @@ export function useTribeEventProposals({
         });
 
         if (result.canReviewProposals) {
-          updatePendingCount(() => result.proposals.length);
+          // The queue is capped; the badge follows the uncapped server total.
+          updatePendingCount(() => result.pendingCount);
         }
       })
       .catch((error: unknown) => {

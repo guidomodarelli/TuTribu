@@ -403,7 +403,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
 
     renderCalendar({ events: [], pendingProposalCount: 1 });
 
-    mockJsonResponse({ canReviewProposals: true, proposals: [proposal] });
+    mockJsonResponse({ canReviewProposals: true, pendingCount: 1, proposals: [proposal] });
     await user.click(screen.getByRole("button", { name: "Propuestas (1)" }));
 
     const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
@@ -459,6 +459,72 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it("keeps the uncapped pending total on the badge when the queue is capped and decrements it on approval", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const pendingTotal = 73;
+    const cappedQueueSize = 50;
+    const queue = Array.from({ length: cappedQueueSize }, (_, index) => ({
+      createdAt: "2026-05-01T12:00:00.000Z",
+      description: null,
+      durationMinutes: 60,
+      eventId: null,
+      eventType: "social",
+      id: `3c4d5e6f-7a8b-4c9d-8e0f-${String(index).padStart(12, "0")}`,
+      proposerName: "Ana",
+      reviewNote: null,
+      reviewedAt: null,
+      startsAt: "2026-05-20T21:00:00.000Z",
+      status: "pending",
+      title: `Propuesta ${index + 1}`,
+    }));
+    const [firstProposal] = queue;
+
+    renderCalendar({ events: [], pendingProposalCount: pendingTotal });
+
+    mockJsonResponse({ canReviewProposals: true, pendingCount: pendingTotal, proposals: queue });
+    await user.click(screen.getByRole("button", { name: `Propuestas (${pendingTotal})` }));
+
+    const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
+
+    expect(await within(panel).findByText("Propuesta 1")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { hidden: true, name: `Propuestas (${pendingTotal})` })
+    ).toBeInTheDocument();
+
+    await user.click(within(panel).getAllByRole("button", { name: "Revisar y aprobar" })[0]);
+
+    const form = screen.getByRole("dialog", { name: "Aprobar propuesta" });
+
+    mockJsonResponse({
+      event: {
+        capacity: null,
+        description: null,
+        endsAt: "2026-05-20T22:00:00.000Z",
+        eventType: "social",
+        id: SOCIAL_EVENT_ID,
+        meetingUrl: null,
+        recurrenceFrequency: "none",
+        recurrenceRule: null,
+        recurrenceUntil: null,
+        startsAt: "2026-05-20T21:00:00.000Z",
+        title: "Propuesta 1",
+      },
+      message: "Propuesta aprobada: el evento ya está en el calendario.",
+      occurrences: [],
+      proposal: {
+        ...firstProposal,
+        eventId: SOCIAL_EVENT_ID,
+        reviewedAt: "2026-05-01T12:00:00.000Z",
+        status: "approved",
+      },
+    });
+    await user.click(within(form).getByRole("button", { name: "Aprobar y publicar" }));
+
+    expect(
+      await screen.findByRole("button", { hidden: true, name: `Propuestas (${pendingTotal - 1})` })
+    ).toBeInTheDocument();
+  });
+
   it("lets managers reject a proposal with a note", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const proposal = {
@@ -478,7 +544,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
 
     renderCalendar({ pendingProposalCount: 1 });
 
-    mockJsonResponse({ canReviewProposals: true, proposals: [proposal] });
+    mockJsonResponse({ canReviewProposals: true, pendingCount: 1, proposals: [proposal] });
     await user.click(screen.getByRole("button", { name: "Propuestas (1)" }));
 
     const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
