@@ -171,6 +171,29 @@ describe("tribe coming soon pages", () => {
     expect(screen.getByRole("heading", { name: "Junio 2026", level: 1 })).toBeInTheDocument();
   });
 
+  it("computes the streak and its next refresh at one shared instant", async () => {
+    getAuthenticatedMember.mockResolvedValue(authenticatedMember);
+    getTribePageAccess.mockResolvedValue(visibleTribeAccess);
+    listTribeEvents.mockResolvedValue({
+      events: [],
+      month: { current: "2026-06", next: "2026-07", previous: "2026-05" },
+      selectedOccurrenceKey: null,
+      viewerPermissions: { canManageEvents: false },
+    });
+
+    render(
+      await TribeEventsPage({
+        params: Promise.resolve({ slug: "matematica-pro" }),
+        searchParams: Promise.resolve({ month: "2026-06" }),
+      })
+    );
+
+    const [[streakQuery]] = getTribeEventAttendanceStreak.mock.calls;
+    const [[nextRefreshQuery]] = getTribeEventAttendanceStreakNextRefreshAt.mock.calls;
+    expect(streakQuery.now).toBeInstanceOf(Date);
+    expect(nextRefreshQuery.now).toBe(streakQuery.now);
+  });
+
   it("still renders the calendar when the attendance streak cannot be computed", async () => {
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
@@ -190,7 +213,10 @@ describe("tribe coming soon pages", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Junio 2026", level: 1 })).toBeInTheDocument();
-    expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({ tribeSlug: "matematica-pro" });
+    expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
+      now: expect.any(Date),
+      tribeSlug: "matematica-pro",
+    });
     expect(errorMock).toHaveBeenCalledWith(
       expect.objectContaining({
         message: "Failed to compute tribe event attendance streak",
@@ -219,6 +245,7 @@ describe("tribe coming soon pages", () => {
 
     expect(screen.getByRole("heading", { name: "Junio 2026", level: 1 })).toBeInTheDocument();
     expect(getTribeEventAttendanceStreakNextRefreshAt).toHaveBeenCalledWith({
+      now: expect.any(Date),
       tribeSlug: "matematica-pro",
     });
     expect(errorMock).toHaveBeenCalledWith(

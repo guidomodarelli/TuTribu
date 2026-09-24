@@ -59,10 +59,13 @@ export async function GET(request: Request, context: TribeRouteContext) {
     );
   }
 
-  // The next refresh instant is optional: when it fails it is logged and
-  // omitted, and the client keeps watching the instant it already has.
+  // Both reads share one reference instant so the streak and its next refresh
+  // come from the same snapshot. The next refresh instant is optional: when it
+  // fails it is logged and omitted, and the client keeps watching the instant
+  // it already has.
+  const now = new Date();
   const nextRefreshAtPromise = modules.events.useCases
-    .getTribeEventAttendanceStreakNextRefreshAt({ tribeSlug: slug })
+    .getTribeEventAttendanceStreakNextRefreshAt({ now, tribeSlug: slug })
     .then((attendanceStreakNextRefreshAt) => ({ attendanceStreakNextRefreshAt }))
     .catch((error: unknown) => {
       logger.error({
@@ -81,6 +84,7 @@ export async function GET(request: Request, context: TribeRouteContext) {
   try {
     const [attendanceStreak, nextRefreshFragment] = await Promise.all([
       modules.events.useCases.getTribeEventAttendanceStreak({
+        now,
         tribeSlug: slug,
       }),
       nextRefreshAtPromise,

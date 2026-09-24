@@ -276,7 +276,8 @@ export function getTribeEventAttendanceReport({
 
 /**
  * Viewer-only streak over the last finished occurrences of the tribe, across
- * every series, looking back a bounded window.
+ * every series, looking back a bounded window from the reference instant
+ * `query.now` (shared with `getTribeEventAttendanceStreakNextRefreshAt`).
  */
 export function getTribeEventAttendanceStreak({
   tribeEventRepository,
@@ -284,7 +285,7 @@ export function getTribeEventAttendanceStreak({
   return async (
     query: GetTribeEventAttendanceStreakQuery
   ): Promise<TribeEventAttendanceStreakResult | null> => {
-    const nowTime = Date.now();
+    const nowTime = query.now.getTime();
     const range = createPastRange(nowTime, TRIBE_EVENT_ATTENDANCE_STREAK.lookbackDays);
     const history = await tribeEventRepository.listViewerAttendanceHistory({
       ...range,
