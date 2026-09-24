@@ -1065,6 +1065,13 @@ describe("TribeEventsCalendar server render", () => {
 
     expect(html).toContain('aria-label="Calendario mensual de eventos"');
     expect(html).toContain('aria-label="Lista de eventos"');
+    // Each pre-hydration wrapper keeps the base element next to its modifier.
+    expect(html).toContain(
+      'class="TribeEventsCalendar__autoView TribeEventsCalendar__autoView--calendar"'
+    );
+    expect(html).toContain(
+      'class="TribeEventsCalendar__autoView TribeEventsCalendar__autoView--list"'
+    );
   });
 
   it("links the today shortcut to the bare route before hydration", async () => {

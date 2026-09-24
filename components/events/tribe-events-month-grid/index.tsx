@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "beez-ui";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, cn } from "beez-ui";
 
 import { TribeEventsAgendaDay } from "@/components/events/tribe-events-agenda-day";
 import {
@@ -89,19 +89,17 @@ export function TribeEventsMonthGrid({
                 return (
                   <TableCell
                     aria-current={isToday ? ARIA_CURRENT_DATE : undefined}
-                    className={
-                      isToday
-                        ? styles["TribeEventsMonthGrid__dayCell--today"]
-                        : styles.TribeEventsMonthGrid__dayCell
-                    }
+                    className={cn(
+                      styles.TribeEventsMonthGrid__dayCell,
+                      isToday && styles["TribeEventsMonthGrid__dayCell--today"]
+                    )}
                     key={day.dateKey}
                   >
                     <span
-                      className={
-                        day.isCurrentMonth
-                          ? styles.TribeEventsMonthGrid__dayNumber
-                          : styles["TribeEventsMonthGrid__dayNumber--muted"]
-                      }
+                      className={cn(
+                        styles.TribeEventsMonthGrid__dayNumber,
+                        !day.isCurrentMonth && styles["TribeEventsMonthGrid__dayNumber--muted"]
+                      )}
                     >
                       {day.dayNumber}
                       {isToday ? (
@@ -125,11 +123,10 @@ export function TribeEventsMonthGrid({
                         {dayOccurrences.slice(0, DAY_DOTS_MAX).map((occurrence) => (
                           <span
                             aria-hidden
-                            className={
-                              isPast(occurrence)
-                                ? styles["TribeEventsMonthGrid__dayDot--past"]
-                                : styles.TribeEventsMonthGrid__dayDot
-                            }
+                            className={cn(
+                              styles.TribeEventsMonthGrid__dayDot,
+                              isPast(occurrence) && styles["TribeEventsMonthGrid__dayDot--past"]
+                            )}
                             key={occurrence.occurrenceKey}
                           />
                         ))}
@@ -144,11 +141,10 @@ export function TribeEventsMonthGrid({
                     <div className={styles.TribeEventsMonthGrid__dayEvents}>
                       {dayOccurrences.map((occurrence) => (
                         <button
-                          className={
-                            isPast(occurrence)
-                              ? styles["TribeEventsMonthGrid__eventPill--past"]
-                              : styles.TribeEventsMonthGrid__eventPill
-                          }
+                          className={cn(
+                            styles.TribeEventsMonthGrid__eventPill,
+                            isPast(occurrence) && styles["TribeEventsMonthGrid__eventPill--past"]
+                          )}
                           key={occurrence.occurrenceKey}
                           type={BUTTON_TYPE}
                           onClick={() => onSelectOccurrence(occurrence)}

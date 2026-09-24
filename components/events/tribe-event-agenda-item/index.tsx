@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarPlusIcon, ExternalLinkIcon } from "lucide-react";
-import { Badge } from "beez-ui";
+import { Badge, cn } from "beez-ui";
 
 import {
   TRIBE_EVENT_ATTENDANCE_SUMMARY_VARIANT,
@@ -94,9 +94,7 @@ export function TribeEventAgendaItem({
 
   return (
     <li
-      className={
-        isPast ? styles["TribeEventAgendaItem--past"] : styles.TribeEventAgendaItem
-      }
+      className={cn(styles.TribeEventAgendaItem, isPast && styles["TribeEventAgendaItem--past"])}
     >
       <span className={styles.TribeEventAgendaItem__time}>
         {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}

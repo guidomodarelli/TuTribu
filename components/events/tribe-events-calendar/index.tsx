@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast, useIsMobile } from "beez-ui";
+import { cn, toast, useIsMobile } from "beez-ui";
 
 import { TribeEventAgendaItem } from "@/components/events/tribe-event-agenda-item";
 import { TribeEventAttendeesPanel } from "@/components/events/tribe-event-attendees-panel";
@@ -389,10 +389,20 @@ export function TribeEventsCalendar({
       <div className={styles.TribeEventsCalendar__swipeArea} {...monthSwipeHandlers}>
         {shouldRenderBothViews ? (
           <>
-            <div className={styles["TribeEventsCalendar__autoView--calendar"]}>
+            <div
+              className={cn(
+                styles.TribeEventsCalendar__autoView,
+                styles["TribeEventsCalendar__autoView--calendar"]
+              )}
+            >
               {renderCalendarView()}
             </div>
-            <div className={styles["TribeEventsCalendar__autoView--list"]}>
+            <div
+              className={cn(
+                styles.TribeEventsCalendar__autoView,
+                styles["TribeEventsCalendar__autoView--list"]
+              )}
+            >
               {renderListView()}
             </div>
           </>
