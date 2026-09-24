@@ -51,8 +51,8 @@ type AttendanceStreakRefreshInput = {
  * Response fragment with the recomputed streak and next refresh instant.
  * `attendanceStreak: null` means the viewer has no streak anymore and
  * `attendanceStreakNextRefreshAt: null` means nothing ends inside the upcoming
- * window; an omitted field could not be recomputed and the client keeps the
- * value it already has.
+ * window; an omitted field could not be recomputed and the client reads the
+ * streak again instead of applying the fragment.
  */
 export type AttendanceStreakResponseFragment = TribeEventAttendanceStreakMutationFragmentDto;
 

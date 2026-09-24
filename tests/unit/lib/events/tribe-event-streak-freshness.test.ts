@@ -5,6 +5,7 @@ import {
   STREAK_DEADLINE_RETRY_DELAYS_MS,
   transitionStreakFreshness,
   type StreakFreshnessEvent,
+  type StreakMutationOutcome,
   type StreakFreshnessState,
   type StreakFreshnessTransition,
 } from "@/lib/events/tribe-event-streak-freshness";
@@ -35,6 +36,12 @@ function deadlineReturned(nextRefreshAt: string | null): StreakFreshnessEvent {
   return { nextRefreshAt, nowTime: NOW_TIME, type: "deadline-returned" };
 }
 
+const MUTATION_STARTED: StreakFreshnessEvent = { type: "mutation-started" };
+
+function mutationSettled(outcome: StreakMutationOutcome): StreakFreshnessEvent {
+  return { outcome, type: "mutation-settled" };
+}
+
 describe("transitionStreakFreshness reads and mutations", () => {
   it("starts a read right away when no mutation is pending", () => {
     const transition = run([{ type: "read-requested" }]);
@@ -43,34 +50,102 @@ describe("transitionStreakFreshness reads and mutations", () => {
     expect(transition.state.isReadInFlight).toBe(true);
   });
 
-  it("defers a read requested while a mutation is pending and runs it once it settles", () => {
+  it("applies the response of a lone mutation that carried the streak without reading", () => {
+    const transition = run([MUTATION_STARTED, mutationSettled("carried")]);
+
+    expect(transition.commands).toEqual([{ type: "apply-mutation-streak" }]);
+    expect(transition.state.pendingRead).toBe("none");
+  });
+
+  it("reads once a lone mutation omits the streak or its next refresh instant", () => {
+    const transition = run([MUTATION_STARTED, mutationSettled("missing")]);
+
+    expect(transition.commands).toEqual([{ type: "start-read" }]);
+  });
+
+  it("does not read after a lone attendance answer", () => {
+    const transition = run([MUTATION_STARTED, mutationSettled("unaffected")]);
+
+    expect(transition.commands).toEqual([]);
+  });
+
+  it("applies no response of overlapping series mutations and reads once after both settle", () => {
+    const firstSettled = run([MUTATION_STARTED, MUTATION_STARTED, mutationSettled("carried")]);
+
+    // The later-started mutation committed first: nothing lands and nothing
+    // is read while the other one is still uncommitted.
+    expect(firstSettled.commands).toEqual([]);
+
+    const bothSettled = run([mutationSettled("carried")], firstSettled.state);
+
+    expect(bothSettled.commands).toEqual([{ type: "start-read" }]);
+    expect(bothSettled.state.pendingRead).toBe("none");
+    expect(bothSettled.state.isMutationBatchOverlapped).toBe(false);
+  });
+
+  it("applies no series response that overlapped an attendance answer", () => {
     const transition = run([
-      { type: "mutation-started" },
-      { type: "read-requested" },
-      { hasCommittedStreak: true, type: "mutation-settled" },
+      MUTATION_STARTED,
+      MUTATION_STARTED,
+      mutationSettled("unaffected"),
+      mutationSettled("carried"),
     ]);
 
     expect(transition.commands).toEqual([{ type: "start-read" }]);
+  });
+
+  it("applies the response of the next lone mutation once an overlapped batch settled", () => {
+    const transition = run([
+      MUTATION_STARTED,
+      MUTATION_STARTED,
+      mutationSettled("carried"),
+      mutationSettled("carried"),
+      { type: "read-settled" },
+      MUTATION_STARTED,
+      mutationSettled("carried"),
+    ]);
+
+    expect(transition.commands).toEqual([
+      { type: "start-read" },
+      { type: "apply-mutation-streak" },
+    ]);
+  });
+
+  it("defers a read requested while a mutation is pending and runs it after applying it", () => {
+    const transition = run([
+      MUTATION_STARTED,
+      { type: "read-requested" },
+      mutationSettled("carried"),
+    ]);
+
+    expect(transition.commands).toEqual([
+      { type: "apply-mutation-streak" },
+      { type: "start-read" },
+    ]);
     expect(transition.state.pendingMutationCount).toBe(0);
     expect(transition.state.pendingRead).toBe("none");
   });
 
-  it("lets the single mutation that interrupted a read cover it with its committed streak", () => {
+  it("lets the lone mutation that interrupted a read cover it with its applied response", () => {
     const transition = run([
       { type: "read-requested" },
-      { type: "mutation-started" },
-      { hasCommittedStreak: true, type: "mutation-settled" },
+      MUTATION_STARTED,
+      mutationSettled("carried"),
     ]);
 
-    expect(transition.commands).toEqual([{ type: "start-read" }, { type: "abort-read" }]);
+    expect(transition.commands).toEqual([
+      { type: "start-read" },
+      { type: "abort-read" },
+      { type: "apply-mutation-streak" },
+    ]);
     expect(transition.state.isReadInFlight).toBe(false);
   });
 
   it("reads again when the mutation that interrupted a read carries no streak", () => {
     const transition = run([
       { type: "read-requested" },
-      { type: "mutation-started" },
-      { hasCommittedStreak: false, type: "mutation-settled" },
+      MUTATION_STARTED,
+      mutationSettled("unaffected"),
     ]);
 
     expect(transition.commands).toEqual([
@@ -83,18 +158,15 @@ describe("transitionStreakFreshness reads and mutations", () => {
   it("keeps an interrupted read until every overlapping mutation settles", () => {
     const transition = run([
       { type: "read-requested" },
-      { type: "mutation-started" },
-      { type: "mutation-started" },
-      { hasCommittedStreak: true, type: "mutation-settled" },
+      MUTATION_STARTED,
+      MUTATION_STARTED,
+      mutationSettled("carried"),
     ]);
 
     expect(transition.commands).toEqual([{ type: "start-read" }, { type: "abort-read" }]);
     expect(transition.state.pendingRead).toBe("required");
 
-    const settled = transitionStreakFreshness(transition.state, {
-      hasCommittedStreak: false,
-      type: "mutation-settled",
-    });
+    const settled = transitionStreakFreshness(transition.state, mutationSettled("unaffected"));
 
     expect(settled.commands).toEqual([{ type: "start-read" }]);
     expect(settled.state.pendingRead).toBe("none");
@@ -182,11 +254,14 @@ describe("transitionStreakFreshness passed deadlines", () => {
 
   it("defers the read of a passed deadline while a mutation is pending", () => {
     const transition = run([
-      { type: "mutation-started" },
+      MUTATION_STARTED,
       deadlineReturned(PASSED_DEADLINE),
-      { hasCommittedStreak: true, type: "mutation-settled" },
+      mutationSettled("carried"),
     ]);
 
-    expect(transition.commands).toEqual([{ type: "start-read" }]);
+    expect(transition.commands).toEqual([
+      { type: "apply-mutation-streak" },
+      { type: "start-read" },
+    ]);
   });
 });

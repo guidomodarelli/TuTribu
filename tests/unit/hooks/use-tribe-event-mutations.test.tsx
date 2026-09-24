@@ -21,6 +21,9 @@ const TRIBE_SLUG = "matematica-pro";
 const STREAK_ENDPOINT = `/api/tribes/${TRIBE_SLUG}/events/attendance-streak`;
 const SAVED_EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const DELETED_EVENT_ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+// Far enough ahead that the real clock never reaches it during the suite.
+const FUTURE_DEADLINE = "2099-01-01T00:00:00.000Z";
+const LATER_FUTURE_DEADLINE = "2099-02-01T00:00:00.000Z";
 const HTTP_METHOD = {
   delete: "DELETE",
   patch: "PATCH",
@@ -138,30 +141,32 @@ describe("useTribeEventMutations streak ordering", () => {
     );
   }
 
-  it("keeps the streak of the last started mutation and refreshes once after both settle", async () => {
+  it("applies neither response of an edit and a deletion that commit in reverse order and reads once", async () => {
     const { result } = renderMutations();
     let savePromise: Promise<boolean> = Promise.resolve(false);
     let deletionPromise: Promise<boolean> = Promise.resolve(false);
 
+    // The manager closes a still-saving edit and starts a deletion.
     act(() => {
       savePromise = result.current.saveEvent(savePayload, savedOccurrence);
     });
     act(() => {
       deletionPromise = result.current.deleteEvent(deletedOccurrence);
     });
-    // An occurrence finishes while both mutations are uncommitted.
-    act(() => {
-      result.current.refreshAttendanceStreak();
+
+    // The later-started deletion commits first, with a streak that predates
+    // the edit; the edit then commits with its own streak.
+    await heldDeletion.resolve({
+      attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
+      message: "Evento eliminado.",
     });
 
     expect(getStreakRequests()).toHaveLength(0);
 
-    await heldDeletion.resolve({
-      attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
-      message: "Evento eliminado.",
-    });
     await heldSave.resolve({
       attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: LATER_FUTURE_DEADLINE,
       event: {},
       message: "Evento actualizado.",
       occurrences: [{ ...savedOccurrence, title: "Clase renovada" }],
@@ -170,12 +175,99 @@ describe("useTribeEventMutations streak ordering", () => {
       await Promise.all([savePromise, deletionPromise]);
     });
 
-    expect(result.current.attendanceStreak).toEqual({ attendedCount: 2, occurrenceCount: 5 });
+    // Neither overlapping response lands: the read is the source of truth.
+    expect(result.current.attendanceStreak).toEqual(serverStreak);
+    expect(result.current.attendanceStreakNextRefreshAt).toBeNull();
     await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
 
-    await heldStreakRead.resolve({ attendanceStreak: { attendedCount: 1, occurrenceCount: 5 } });
+    await heldStreakRead.resolve({
+      attendanceStreak: { attendedCount: 1, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
+    });
 
     expect(result.current.attendanceStreak).toEqual({ attendedCount: 1, occurrenceCount: 5 });
+    expect(result.current.attendanceStreakNextRefreshAt).toBe(FUTURE_DEADLINE);
+    expect(getStreakRequests()).toHaveLength(1);
+  });
+
+  it("applies the streak and deadline of a lone deletion without reading again", async () => {
+    const { result } = renderMutations();
+    let deletionPromise: Promise<boolean> = Promise.resolve(false);
+
+    act(() => {
+      deletionPromise = result.current.deleteEvent(deletedOccurrence);
+    });
+    await heldDeletion.resolve({
+      attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
+      message: "Evento eliminado.",
+    });
+    await act(async () => {
+      await deletionPromise;
+    });
+
+    expect(result.current.attendanceStreak).toEqual({ attendedCount: 2, occurrenceCount: 5 });
+    expect(result.current.attendanceStreakNextRefreshAt).toBe(FUTURE_DEADLINE);
+    expect(getStreakRequests()).toHaveLength(0);
+  });
+
+  it("reads the streak once when a lone edit omits it from its response", async () => {
+    const { result } = renderMutations();
+    let savePromise: Promise<boolean> = Promise.resolve(false);
+
+    act(() => {
+      savePromise = result.current.saveEvent(savePayload, savedOccurrence);
+    });
+    // The route could not recompute the streak, so it omitted the field.
+    await heldSave.resolve({
+      attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
+      event: {},
+      message: "Evento actualizado.",
+      occurrences: [{ ...savedOccurrence, title: "Clase renovada" }],
+    });
+    await act(async () => {
+      await savePromise;
+    });
+
+    expect(result.current.attendanceStreak).toEqual(serverStreak);
+    await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+
+    await heldStreakRead.resolve({
+      attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: LATER_FUTURE_DEADLINE,
+    });
+
+    expect(result.current.attendanceStreak).toEqual({ attendedCount: 3, occurrenceCount: 5 });
+    expect(result.current.attendanceStreakNextRefreshAt).toBe(LATER_FUTURE_DEADLINE);
+    expect(getStreakRequests()).toHaveLength(1);
+  });
+
+  it("reads the streak once when a lone deletion omits its next refresh instant", async () => {
+    const { result } = renderMutations();
+    let deletionPromise: Promise<boolean> = Promise.resolve(false);
+
+    act(() => {
+      deletionPromise = result.current.deleteEvent(deletedOccurrence);
+    });
+    await heldDeletion.resolve({
+      attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+      message: "Evento eliminado.",
+    });
+    await act(async () => {
+      await deletionPromise;
+    });
+
+    // Neither field lands: the deadline follows the same rule as the streak.
+    expect(result.current.attendanceStreak).toEqual(serverStreak);
+    await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+
+    await heldStreakRead.resolve({
+      attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
+    });
+
+    expect(result.current.attendanceStreak).toEqual({ attendedCount: 2, occurrenceCount: 5 });
+    expect(result.current.attendanceStreakNextRefreshAt).toBe(FUTURE_DEADLINE);
     expect(getStreakRequests()).toHaveLength(1);
   });
 
@@ -198,6 +290,7 @@ describe("useTribeEventMutations streak ordering", () => {
     await heldStreakRead.resolve({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
     await heldSave.resolve({
       attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
       event: {},
       message: "Evento actualizado.",
       occurrences: [{ ...savedOccurrence, title: "Clase renovada" }],
@@ -516,9 +609,11 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     expect(staleSignal.aborted).toBe(true);
 
     // The series save settles first with a streak computed before the answer
-    // committed, so it cannot cover the interrupted read.
+    // committed: it overlapped the answer, so it neither lands nor covers the
+    // interrupted read.
     await heldSave.resolve({
       attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: UPCOMING_DEADLINE,
       event: {},
       message: "Evento actualizado.",
       occurrences: [{ ...attendedOccurrence, title: "Clase renovada" }],
@@ -527,7 +622,8 @@ describe("useTribeEventMutations streak refresh serialization", () => {
       await savePromise;
     });
 
-    expect(result.current.attendanceStreak).toEqual({ attendedCount: 3, occurrenceCount: 5 });
+    expect(result.current.attendanceStreak).toEqual(serverStreak);
+    expect(result.current.attendanceStreakNextRefreshAt).toBeNull();
     expect(getStreakRequests()).toHaveLength(1);
 
     await heldAttendance.resolve({ attendance: savedAttendance, message: "Respuesta guardada." });
@@ -596,7 +692,7 @@ describe("useTribeEventMutations server render source", () => {
     });
     await heldSave.resolve({
       attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
-      attendanceStreakNextRefreshAt: "2026-05-27T19:00:00.000Z",
+      attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
       event: {},
       message: "Evento actualizado.",
       occurrences: [savedOccurrence],

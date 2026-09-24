@@ -51,9 +51,10 @@ type DeleteEventResponseBody = {
 };
 
 /**
- * Streak refreshed by a series mutation. Absent means "keep the streak on
- * screen" (the route could not recompute it or the value was unusable);
- * `null` means the viewer no longer has a streak.
+ * Streak refreshed by a series mutation or a streak read. Absent means the
+ * route could not recompute it or the value was unusable: a read keeps the
+ * streak on screen and a mutation makes the calendar read it again; `null`
+ * means the viewer no longer has a streak.
  */
 export type TribeEventStreakRefresh = {
   attendanceStreak?: TribeEventAttendanceStreakResult | null;
@@ -63,8 +64,9 @@ export type TribeEventStreakRefresh = {
  * Streak read by `GET /api/tribes/[slug]/events/attendance-streak`, or
  * refreshed by a series mutation, plus the next instant at which it can
  * change. Absent `attendanceStreakNextRefreshAt` means the route could not
- * compute it (or the value was unusable), so the caller keeps the instant it
- * already watches; `null` means nothing ends inside the upcoming window.
+ * compute it (or the value was unusable): a read keeps the instant it already
+ * watches and a mutation makes the calendar read it again; `null` means
+ * nothing ends inside the upcoming window.
  */
 export type TribeEventStreakReadResult = TribeEventStreakRefresh & {
   attendanceStreakNextRefreshAt?: string | null;

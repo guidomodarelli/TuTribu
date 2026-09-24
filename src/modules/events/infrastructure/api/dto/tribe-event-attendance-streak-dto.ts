@@ -39,8 +39,8 @@ export const tribeEventAttendanceStreakResponseDtoSchema = z.object({
 /**
  * Streak fragment spread into the bodies of `POST`, `PATCH`, and `DELETE`
  * series mutations. Each field is omitted when the route could not recompute
- * it, so the client keeps the value it already has: the streak on screen, or
- * the next refresh instant it already watches.
+ * it; the client then applies neither field and reads the streak again once
+ * every pending mutation settles.
  */
 export const tribeEventAttendanceStreakMutationFragmentDtoSchema = z.object({
   attendanceStreak: tribeEventAttendanceStreakDtoSchema.nullable().optional(),

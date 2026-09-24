@@ -10,9 +10,15 @@ import { readAttendanceStreakNextRefreshTime } from "@/lib/events/tribe-event-at
  * - A read never overlaps an uncommitted mutation: starting a mutation aborts
  *   the read in flight and a read requested while mutations are pending waits
  *   until the count returns to zero.
- * - An interrupted read is only covered by a committed streak when a single
- *   mutation was pending the whole time; any overlapping mutation makes the
- *   read required, so it runs once every mutation settles.
+ * - The streak and next refresh instant a mutation response carries are only
+ *   applied (`apply-mutation-streak`) when that mutation was pending alone for
+ *   its whole cycle and the response carried both fields. Any other outcome
+ *   (another series or attendance mutation overlapped, a field was omitted, or
+ *   the series mutation failed) makes the read required, and a single read
+ *   runs once every pending mutation settles. That read is the source of
+ *   truth, so responses never need to be ordered by start or by commit.
+ * - A lone mutation that interrupted a read in flight covers it when its
+ *   response is applied, because it committed after the read started.
  * - A returned next refresh instant that already passed reads right away the
  *   first time, then retries with the bounded `STREAK_DEADLINE_RETRY_DELAYS_MS`
  *   backoff while the server keeps returning it (its clock may lag behind the
@@ -40,6 +46,18 @@ export const STREAK_PENDING_READ = {
   required: "required",
 } as const;
 
+/**
+ * What a settled mutation tells about the streak: `carried` when a successful
+ * series mutation returned both the streak and its next refresh instant,
+ * `missing` when a series mutation failed or omitted either field, and
+ * `unaffected` for attendance answers, which never carry the streak.
+ */
+export const STREAK_MUTATION_OUTCOME = {
+  carried: "carried",
+  missing: "missing",
+  unaffected: "unaffected",
+} as const;
+
 /** Inputs of the state machine. */
 export const STREAK_FRESHNESS_EVENT = {
   deadlineReturned: "deadline-returned",
@@ -53,6 +71,7 @@ export const STREAK_FRESHNESS_EVENT = {
 /** Side effects the hook executes. */
 export const STREAK_FRESHNESS_COMMAND = {
   abortRead: "abort-read",
+  applyMutationStreak: "apply-mutation-streak",
   cancelScheduledRead: "cancel-scheduled-read",
   scheduleRead: "schedule-read",
   startRead: "start-read",
@@ -65,6 +84,10 @@ export const STREAK_FRESHNESS_COMMAND = {
  */
 export type StreakPendingRead = (typeof STREAK_PENDING_READ)[keyof typeof STREAK_PENDING_READ];
 
+/** What a settled mutation tells about the streak. */
+export type StreakMutationOutcome =
+  (typeof STREAK_MUTATION_OUTCOME)[keyof typeof STREAK_MUTATION_OUTCOME];
+
 /** Passed next refresh instant already handled, with the retries it used. */
 export type StreakPassedDeadline = {
   nextRefreshAt: string;
@@ -73,6 +96,12 @@ export type StreakPassedDeadline = {
 
 /** Freshness state of the streak on screen. */
 export type StreakFreshnessState = {
+  /**
+   * True once a mutation started while another one was pending; it resets
+   * when every pending mutation settles. While true, no response of the
+   * current batch of mutations is applied.
+   */
+  isMutationBatchOverlapped: boolean;
   isReadInFlight: boolean;
   passedDeadline: StreakPassedDeadline | null;
   pendingMutationCount: number;
@@ -84,7 +113,7 @@ export type StreakFreshnessEvent =
   | { type: typeof STREAK_FRESHNESS_EVENT.readRequested }
   | { type: typeof STREAK_FRESHNESS_EVENT.readSettled }
   | { type: typeof STREAK_FRESHNESS_EVENT.mutationStarted }
-  | { hasCommittedStreak: boolean; type: typeof STREAK_FRESHNESS_EVENT.mutationSettled }
+  | { outcome: StreakMutationOutcome; type: typeof STREAK_FRESHNESS_EVENT.mutationSettled }
   | {
       nextRefreshAt: string | null;
       nowTime: number;
@@ -95,6 +124,7 @@ export type StreakFreshnessEvent =
 /** Side effect the hook executes, in emission order. */
 export type StreakFreshnessCommand =
   | { type: typeof STREAK_FRESHNESS_COMMAND.abortRead }
+  | { type: typeof STREAK_FRESHNESS_COMMAND.applyMutationStreak }
   | { type: typeof STREAK_FRESHNESS_COMMAND.cancelScheduledRead }
   | { delayMs: number; type: typeof STREAK_FRESHNESS_COMMAND.scheduleRead }
   | { type: typeof STREAK_FRESHNESS_COMMAND.startRead };
@@ -106,6 +136,7 @@ export type StreakFreshnessTransition = {
 };
 
 export const INITIAL_STREAK_FRESHNESS_STATE: StreakFreshnessState = {
+  isMutationBatchOverlapped: false,
   isReadInFlight: false,
   passedDeadline: null,
   pendingMutationCount: 0,
@@ -129,36 +160,64 @@ function requestRead(state: StreakFreshnessState): StreakFreshnessTransition {
 
 function startMutation(state: StreakFreshnessState): StreakFreshnessTransition {
   const pendingMutationCount = state.pendingMutationCount + 1;
+  const isMutationBatchOverlapped =
+    state.isMutationBatchOverlapped || state.pendingMutationCount > 0;
 
   if (state.isReadInFlight) {
     return {
       commands: [{ type: STREAK_FRESHNESS_COMMAND.abortRead }],
-      state: { ...state, isReadInFlight: false, pendingMutationCount, pendingRead: STREAK_PENDING_READ.coverable },
+      state: {
+        ...state,
+        isMutationBatchOverlapped,
+        isReadInFlight: false,
+        pendingMutationCount,
+        pendingRead: STREAK_PENDING_READ.coverable,
+      },
     };
   }
 
-  // A second overlapping mutation can commit after the first one computed its
-  // streak, so that streak can no longer cover the interrupted read.
-  const pendingRead: StreakPendingRead =
-    state.pendingRead === STREAK_PENDING_READ.coverable ? STREAK_PENDING_READ.required : state.pendingRead;
-
-  return { commands: [], state: { ...state, pendingMutationCount, pendingRead } };
+  return { commands: [], state: { ...state, isMutationBatchOverlapped, pendingMutationCount } };
 }
 
+/**
+ * Decides what the read still owed becomes once a mutation settles, and
+ * whether its response can be applied: only a lone mutation that carried
+ * both fields applies them (and covers the read it interrupted); a series
+ * mutation that overlapped another one, omitted a field, or failed requires
+ * the read; an attendance answer leaves the owed read as it was.
+ */
 function settleMutation(
   state: StreakFreshnessState,
-  hasCommittedStreak: boolean
+  outcome: StreakMutationOutcome
 ): StreakFreshnessTransition {
   const pendingMutationCount = Math.max(state.pendingMutationCount - 1, 0);
-  const pendingRead: StreakPendingRead =
-    hasCommittedStreak && state.pendingRead === STREAK_PENDING_READ.coverable ? STREAK_PENDING_READ.none : state.pendingRead;
-  const settledState = { ...state, pendingMutationCount, pendingRead };
+  const canApplyResponse =
+    outcome === STREAK_MUTATION_OUTCOME.carried && !state.isMutationBatchOverlapped;
+  let pendingRead = state.pendingRead;
 
-  if (pendingMutationCount > 0 || pendingRead === STREAK_PENDING_READ.none) {
-    return { commands: [], state: settledState };
+  if (canApplyResponse) {
+    pendingRead = pendingRead === STREAK_PENDING_READ.coverable ? STREAK_PENDING_READ.none : pendingRead;
+  } else if (outcome !== STREAK_MUTATION_OUTCOME.unaffected) {
+    pendingRead = STREAK_PENDING_READ.required;
   }
 
-  return requestRead(settledState);
+  const commands: StreakFreshnessCommand[] = canApplyResponse
+    ? [{ type: STREAK_FRESHNESS_COMMAND.applyMutationStreak }]
+    : [];
+  const settledState: StreakFreshnessState = {
+    ...state,
+    isMutationBatchOverlapped: pendingMutationCount > 0 && state.isMutationBatchOverlapped,
+    pendingMutationCount,
+    pendingRead,
+  };
+
+  if (pendingMutationCount > 0 || pendingRead === STREAK_PENDING_READ.none) {
+    return { commands, state: settledState };
+  }
+
+  const read = requestRead(settledState);
+
+  return { commands: [...commands, ...read.commands], state: read.state };
 }
 
 function handleReturnedDeadline(
@@ -217,7 +276,7 @@ export function transitionStreakFreshness(
     case STREAK_FRESHNESS_EVENT.mutationStarted:
       return startMutation(state);
     case STREAK_FRESHNESS_EVENT.mutationSettled:
-      return settleMutation(state, event.hasCommittedStreak);
+      return settleMutation(state, event.outcome);
     case STREAK_FRESHNESS_EVENT.deadlineReturned:
       return handleReturnedDeadline(state, event.nextRefreshAt, event.nowTime);
     case STREAK_FRESHNESS_EVENT.sourceChanged:
