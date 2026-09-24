@@ -88,5 +88,20 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="callout c-ok">Validación: las cuatro migraciones se aplicaron sobre un Postgres real (PGlite) junto con la migración base de cursos; se ejercieron backfill, cascadas, unicidad, guardas de drip y todas las policies RLS con un rol sin bypass (30 verificaciones). Ver también los tests unitarios de <code>tests/unit/modules/courses/</code>.</div>
 </div>
 
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Lección desde la grabación de un evento</div>
+  <p>"Convertir en lección" (fase 6 de eventos) crea una lección a partir de la grabación de una ocurrencia. El caso de uso vive en <code>courses</code> y no conoce eventos: <code>createLessonFromEventRecording</code> (<code>application/use-cases/lesson-event-source-use-cases.ts</code>) recibe un comando con valores planos (curso, módulo, título, descripción, <code>videoProvider</code>, <code>externalVideoId</code>, <code>sourceEventId</code>, <code>sourceOccurrenceStartsAt</code>). La ruta <code>POST /api/tribes/[slug]/courses/lessons/from-event</code> compone los dos módulos: lee la grabación con el caso de uso de eventos y le pasa esos valores a cursos. <code>GET /api/tribes/[slug]/courses/lesson-targets</code> lista cursos y módulos para el selector.</p>
+  <table>
+    <tr><th>Pieza</th><th>Detalle</th></tr>
+    <tr><td>Modelo</td><td><code>course_lessons.source_event_id</code> y <code>source_occurrence_starts_at</code> (migración <code>20260927123000_add_course_lesson_event_source.sql</code>): par de valores con CHECK de ambos o ninguno e índice parcial, <strong>sin FK a <code>events</code></strong>. Cursos no depende del esquema de eventos y borrar el evento no borra la lección (la referencia queda como un link copiado)</td></tr>
+    <tr><td>Permisos</td><td>Los de cursos: <code>can_manage_tribe_courses</code> (líder activo) repetido en SQL; el curso y el módulo se resuelven por el slug de la tribu y el módulo debe pertenecer al curso. Los guardianes gestionan eventos pero no cursos: no ven el botón y la ruta responde 403</td></tr>
+    <tr><td>Idempotencia</td><td>Una lección por ocurrencia y curso. <code>course_id</code> no es columna de <code>course_lessons</code>, así que la regla no puede ser un índice único: <code>PostgresLessonEventSourceRepository</code> toma <code>pg_advisory_xact_lock</code> por <code>(curso, ocurrencia)</code> en su propia sentencia y recién después busca una lección existente de esa ocurrencia en cualquier módulo del curso (la sentencia nueva ve lo que otra transacción commiteó mientras se esperaba). Si existe responde <code>existing</code> y la UI la linkea en lugar de duplicar</td></tr>
+    <tr><td>Contenido</td><td>Título (≤ 160) y descripción (≤ 2000) precargados con el evento y editables; video = el de la grabación; <code>sort_order</code> al final del módulo; activa</td></tr>
+    <tr><td>Boundary</td><td>Params y body con Zod una vez por ruta (<code>infrastructure/api/lesson-event-source-request-schemas.ts</code>); el video nunca viaja desde el cliente. DTO público con allowlist (<code>application/results/lesson-event-source-public-dto-schemas.ts</code>) que exige un <code>href</code> interno (<code>/…</code>, nunca <code>//host</code>)</td></tr>
+  </table>
+  <div class="callout c-ok">Validado en rama efímera de Neon: tres conversiones concurrentes de la misma ocurrencia en el mismo curso producen una sola lección (<code>created</code>, <code>existing</code>, <code>existing</code>) y un guardián recibe <code>forbidden</code>.</div>
+</div>
+
 </body>
 </html>
