@@ -9,9 +9,8 @@
  * @module orphan-file-cleanup-route
  */
 
-import { timingSafeEqual } from "node:crypto";
-
 import { createMaintenanceModules } from "@/src/modules/setup";
+import { isAuthorizedCronRequest } from "@/src/modules/shared/infrastructure/http/cron-authorization";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -28,8 +27,6 @@ const FILE_CLEANUP_ROUTE_RESPONSE = {
   unexpected: "error",
 } as const;
 
-const CRON_AUTHORIZATION_SCHEME = "Bearer";
-
 const HTTP_STATUS = {
   ok: 200,
   serverError: 500,
@@ -41,35 +38,6 @@ function createJsonResponse(
   status: number
 ): Response {
   return Response.json(body, { status });
-}
-
-/**
- * Verifies the request carries the shared cron bearer token in constant time.
- *
- * @param request - Incoming cron request.
- * @returns Whether the request is an authorized cron invocation.
- */
-function isAuthorizedCronRequest(request: Request): boolean {
-  const expectedSecret = process.env.CRON_SECRET;
-
-  if (!expectedSecret) {
-    return false;
-  }
-
-  const providedHeader = request.headers.get("authorization");
-
-  if (!providedHeader) {
-    return false;
-  }
-
-  const expectedHeader = `${CRON_AUTHORIZATION_SCHEME} ${expectedSecret}`;
-  const providedBuffer = Buffer.from(providedHeader);
-  const expectedBuffer = Buffer.from(expectedHeader);
-
-  return (
-    providedBuffer.length === expectedBuffer.length &&
-    timingSafeEqual(providedBuffer, expectedBuffer)
-  );
 }
 
 /**
