@@ -28,6 +28,11 @@ type UseTribeEventMutationsInput = {
   events: TribeEventOccurrenceResult[];
   /** Visible `YYYY-MM` month, sent so saves return that month's occurrences. */
   month: string;
+  /**
+   * Called when the server rejects an answer because the occurrence already
+   * ended (the local clock lagged behind), so the UI can show it finished.
+   */
+  onOccurrenceEnded?: (occurrence: TribeEventOccurrenceResult) => void;
   tribeSlug: string;
 };
 
@@ -95,7 +100,8 @@ const COPY = {
  * streak (including rejected or failed mutations) keeps the one on screen and
  * never discards an earlier refresh still in flight.
  *
- * @param input - Server occurrences and streak, visible month, and tribe slug.
+ * @param input - Server occurrences and streak, visible month, tribe slug, and
+ *   the callback for answers the server rejected because the occurrence ended.
  * @returns Visible occurrences and streak, pending flags, and mutation callbacks that
  * resolve to `true` when the change was stored.
  */
@@ -103,6 +109,7 @@ export function useTribeEventMutations({
   attendanceStreak,
   events,
   month,
+  onOccurrenceEnded,
   tribeSlug,
 }: UseTribeEventMutationsInput): TribeEventMutations {
   const [visibleEventsState, setVisibleEventsState] = useState<VisibleEventsState>({
@@ -323,6 +330,11 @@ export function useTribeEventMutations({
 
       if (!result.isSuccess) {
         toast.error(result.message ?? COPY.attendanceFailure);
+
+        if (result.isOccurrenceEnded) {
+          onOccurrenceEnded?.(occurrence);
+        }
+
         return false;
       }
 

@@ -663,6 +663,7 @@ describe("Tribe event routes", () => {
     for (const response of [putResponse, deleteResponse]) {
       expect(response.status).toBe(409);
       await expect(response.json()).resolves.toEqual({
+        code: "occurrence_ended",
         message: "Este evento ya terminó; no se pueden cambiar las respuestas.",
       });
     }

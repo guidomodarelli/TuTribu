@@ -8,6 +8,7 @@ import {
   buildTribeEventAttendanceStreakApiEndpoint,
   buildTribeEventsApiEndpoint,
 } from "@/lib/events/tribe-events-routes";
+import { TRIBE_EVENT_ATTENDANCE_FAILURE_CODE } from "@/src/modules/events/constants/tribe-events";
 import type { CreateTribeEventCommand } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
   TribeEventAttendanceOption,
@@ -57,8 +58,22 @@ export type TribeEventStreakRefresh = {
 
 type AttendanceResponseBody = {
   attendance?: TribeEventOccurrenceResult["attendance"];
+  code?: unknown;
   message?: string;
 };
+
+/**
+ * Outcome of an attendance request. A rejection carries
+ * `isOccurrenceEnded` when the server already considers the occurrence
+ * finished, so the UI can close the answers even if its clock lags behind.
+ */
+export type TribeEventAttendanceRequestResult =
+  | {
+      attendance: TribeEventOccurrenceResult["attendance"];
+      isSuccess: true;
+      message: string | null;
+    }
+  | { isOccurrenceEnded: boolean; isSuccess: false; message: string | null };
 
 type AttendanceReportResponseBody = {
   message?: string;
@@ -192,15 +207,14 @@ export async function fetchTribeEventAttendanceStreakRequest(input: {
  * Records (`status`) or clears (`null`) the viewer answer for one occurrence.
  *
  * @param input - Tribe, occurrence, and the answer to store.
- * @returns The fresh attendance summary or the failure message.
+ * @returns The fresh attendance summary, or the failure message and whether
+ * the server rejected the answer because the occurrence already ended.
  */
 export async function saveTribeEventAttendanceRequest(input: {
   occurrence: Pick<TribeEventOccurrenceResult, "eventId" | "startsAt">;
   status: TribeEventAttendanceOption | null;
   tribeSlug: string;
-}): Promise<
-  TribeEventRequestResult<{ attendance: TribeEventOccurrenceResult["attendance"] }>
-> {
+}): Promise<TribeEventAttendanceRequestResult> {
   const { occurrence, status, tribeSlug } = input;
   const response = status
     ? await fetch(buildTribeEventAttendanceApiEndpoint(tribeSlug, occurrence.eventId), {
@@ -215,7 +229,12 @@ export async function saveTribeEventAttendanceRequest(input: {
   const body = await readJsonBody<AttendanceResponseBody>(response);
 
   if (!response.ok || !body.attendance) {
-    return { isSuccess: false, message: body.message ?? null };
+    return {
+      isOccurrenceEnded:
+        !response.ok && body.code === TRIBE_EVENT_ATTENDANCE_FAILURE_CODE.occurrenceEnded,
+      isSuccess: false,
+      message: body.message ?? null,
+    };
   }
 
   return { attendance: body.attendance, isSuccess: true, message: body.message ?? null };

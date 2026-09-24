@@ -17,6 +17,16 @@ export const TRIBE_EVENT_MUTATION_STATUS = {
   updated: "updated",
 } as const;
 
+/**
+ * Public codes the attendance route adds to a failure body when the client
+ * must react beyond showing the message. `occurrenceEnded` tells the client
+ * the server already considers the occurrence finished, so it can close the
+ * answers even if its own clock still lags behind.
+ */
+export const TRIBE_EVENT_ATTENDANCE_FAILURE_CODE = {
+  occurrenceEnded: "occurrence_ended",
+} as const;
+
 export const TRIBE_EVENT_RECURRENCE_FREQUENCY = {
   biweekly: "biweekly",
   monthly: "monthly",

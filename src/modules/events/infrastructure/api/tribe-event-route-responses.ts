@@ -1,4 +1,7 @@
-import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_ATTENDANCE_FAILURE_CODE,
+  TRIBE_EVENT_MUTATION_STATUS,
+} from "@/src/modules/events/constants/tribe-events";
 
 /**
  * Shared HTTP wiring for the tribe event route handlers: body readers, safe
@@ -259,7 +262,10 @@ export function mapTribeEventAttendanceStatusResponse(status: string): Response 
       );
     case TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded:
       return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceEndedMessage },
+        {
+          code: TRIBE_EVENT_ATTENDANCE_FAILURE_CODE.occurrenceEnded,
+          message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceEndedMessage,
+        },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
     case TRIBE_EVENT_MUTATION_STATUS.scheduleChanged:

@@ -24,7 +24,7 @@ import { TribeEventsMonthGrid } from "@/components/events/tribe-events-month-gri
 import { TribeNextEvent } from "@/components/events/tribe-next-event";
 import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useIsHydrated } from "@/hooks/use-is-hydrated";
-import { useMinuteClock } from "@/hooks/use-minute-clock";
+import { advanceMinuteClockTo, useMinuteClock } from "@/hooks/use-minute-clock";
 import { useOccurrenceFinishWatcher } from "@/hooks/use-occurrence-finish-watcher";
 import { useTribeEventAttendanceReport } from "@/hooks/use-tribe-event-attendance-report";
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
@@ -35,7 +35,10 @@ import {
   getBuenosAiresMonthKey,
 } from "@/lib/date-time/buenos-aires-format";
 import { readAttendanceStreakComputedTime } from "@/lib/events/tribe-event-attendance-streak-dto";
-import { isOccurrencePast } from "@/lib/events/tribe-event-occurrence-timing";
+import {
+  getOccurrencePhaseChangeTimes,
+  isOccurrencePast,
+} from "@/lib/events/tribe-event-occurrence-timing";
 import {
   createCalendarDays,
   groupAgendaDays,
@@ -53,6 +56,7 @@ import {
   type TribeEventTemplate,
 } from "@/src/modules/events/constants/tribe-event-templates";
 import { TRIBE_EVENTS_ROUTE_QUERY } from "@/src/modules/events/constants/tribe-events";
+import { getTribeEventOccurrenceEndTime } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
 import type {
   TribeEventAttendanceOption,
   TribeEventAttendanceStreakResult,
@@ -129,7 +133,6 @@ export function TribeEventsCalendar({
   // both views are rendered and a CSS media query shows the right one. That
   // avoids flashing the desktop grid on phones before the client takes over.
   const shouldRenderBothViews = chosenViewMode === null && !isHydrated;
-  const nowTime = useMinuteClock();
   const router = useRouter();
   const viewerTimeZone = useViewerTimeZone();
   const {
@@ -146,8 +149,21 @@ export function TribeEventsCalendar({
     attendanceStreak: serverAttendanceStreak,
     events,
     month: month.current,
+    // The server checks the exact time: when it already considers the
+    // occurrence ended, move the clock to that end so the UI shows it
+    // finished without reloading the route, even if the local clock lags.
+    onOccurrenceEnded: (occurrence) =>
+      advanceMinuteClockTo(getTribeEventOccurrenceEndTime(occurrence)),
     tribeSlug,
   });
+  // Besides the minute ticks, the clock wakes up exactly when an occurrence on
+  // screen opens its join window, starts, or ends, so "Unirme", "En vivo",
+  // and the attendance answers change in the same second the server does.
+  const phaseChangeTimes = useMemo(
+    () => visibleEvents.flatMap(getOccurrencePhaseChangeTimes),
+    [visibleEvents]
+  );
+  const nowTime = useMinuteClock(phaseChangeTimes);
   // The streak counts the last finished occurrences, so the one that just
   // ended may change it: read it again once, without reloading the route.
   // An occurrence that ended between the server snapshot and hydration is
