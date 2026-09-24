@@ -7,6 +7,11 @@ import { z } from "zod";
  * them with `safeParse` before using a response.
  */
 
+/**
+ * In-app path: one leading slash, never `//host` (protocol-relative URL).
+ */
+const INTERNAL_PATH_PATTERN = /^\/(?!\/)/;
+
 const lessonTargetSchema = z.object({
   id: z.uuid(),
   modules: z.array(z.object({ id: z.uuid(), title: z.string() })),
@@ -25,7 +30,7 @@ export const lessonConversionResponseSchema = z.object({
   isExisting: z.boolean(),
   lesson: z.object({
     courseId: z.uuid(),
-    href: z.string().startsWith("/"),
+    href: z.string().regex(INTERNAL_PATH_PATTERN),
     id: z.uuid(),
     title: z.string(),
   }),

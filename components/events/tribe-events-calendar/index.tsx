@@ -20,6 +20,7 @@ import {
   type TribeEventOccurrenceExceptionMode,
   type TribeEventOccurrenceExceptionPayload,
 } from "@/components/events/tribe-event-occurrence-exception-dialog";
+import { TribeEventOccurrenceActivity } from "@/components/events/tribe-event-occurrence-activity";
 import { TribeEventProposalFormDialog } from "@/components/events/tribe-event-proposal-form-dialog";
 import { TribeEventProposalsPanel } from "@/components/events/tribe-event-proposals-panel";
 import { TribeEventsAgenda } from "@/components/events/tribe-events-agenda";
@@ -95,6 +96,8 @@ type TribeEventsCalendarProps = {
   month: TribeEventMonthResult;
   /** Pending member proposals (managers only; 0 otherwise). */
   pendingProposalCount?: number;
+  /** Listed occurrences with a published recording ("Grabación disponible"). */
+  recordedOccurrenceKeys?: readonly string[];
   tribeSlug: string;
   viewerPermissions: TribeEventViewerPermissionsResult;
 };
@@ -104,6 +107,15 @@ type ExceptionDialogSession = {
   occurrence: TribeEventOccurrenceResult;
   session: number;
 } | null;
+
+/**
+ * Occurrences with a recording: the server listing plus the local changes
+ * made from the detail dialog. A new listing from the route replaces them.
+ */
+type RecordedOccurrenceState = {
+  keys: ReadonlySet<string>;
+  sourceKeys: readonly string[];
+};
 
 type EventTypeSelectionState = {
   selectedTypes: readonly TribeEventType[];
@@ -136,6 +148,7 @@ const FORM_MODE = {
   edit: "edit",
 } as const;
 const NO_EVENT_TYPES: readonly TribeEventType[] = [];
+const NO_RECORDED_OCCURRENCES: readonly string[] = [];
 const TIME_LABEL_SUFFIX = " Buenos Aires";
 const COPY = {
   filteredEmpty: "No hay eventos de los tipos elegidos este mes.",
@@ -160,6 +173,7 @@ export function TribeEventsCalendar({
   initialOccurrenceKey = null,
   month,
   pendingProposalCount = 0,
+  recordedOccurrenceKeys = NO_RECORDED_OCCURRENCES,
   tribeSlug,
   viewerPermissions,
 }: TribeEventsCalendarProps) {
@@ -212,6 +226,17 @@ export function TribeEventsCalendar({
     eventTypeSelection.sourceTypes === initialEventTypes
       ? eventTypeSelection.selectedTypes
       : initialEventTypes;
+  const serverRecordedKeys = useMemo(
+    () => new Set(recordedOccurrenceKeys),
+    [recordedOccurrenceKeys]
+  );
+  const [recordedOccurrenceState, setRecordedOccurrenceState] = useState<RecordedOccurrenceState>(
+    () => ({ keys: serverRecordedKeys, sourceKeys: recordedOccurrenceKeys })
+  );
+  const recordedKeys =
+    recordedOccurrenceState.sourceKeys === recordedOccurrenceKeys
+      ? recordedOccurrenceState.keys
+      : serverRecordedKeys;
   const filteredEvents = useMemo(
     () => filterOccurrencesByEventType(visibleEvents, selectedEventTypes),
     [selectedEventTypes, visibleEvents]
@@ -493,8 +518,22 @@ export function TribeEventsCalendar({
     void setAttendance(occurrence, status);
   };
 
+  // A save in the detail dialog updates the agenda badge without a reload.
+  const setOccurrenceRecordingAvailability = (occurrenceKey: string, hasRecording: boolean) => {
+    const nextKeys = new Set(recordedKeys);
+
+    if (hasRecording) {
+      nextKeys.add(occurrenceKey);
+    } else {
+      nextKeys.delete(occurrenceKey);
+    }
+
+    setRecordedOccurrenceState({ keys: nextKeys, sourceKeys: recordedOccurrenceKeys });
+  };
+
   const renderAgendaItem = (occurrence: TribeEventOccurrenceResult) => (
     <TribeEventAgendaItem
+      hasRecording={recordedKeys.has(occurrence.occurrenceKey)}
       key={occurrence.occurrenceKey}
       nowTime={nowTime}
       occurrence={occurrence}
@@ -592,6 +631,17 @@ export function TribeEventsCalendar({
       </div>
 
       <TribeEventDetailDialog
+        activityPanel={
+          selectedOccurrence ? (
+            <TribeEventOccurrenceActivity
+              isFinished={isPast(selectedOccurrence)}
+              key={selectedOccurrence.occurrenceKey}
+              occurrence={selectedOccurrence}
+              tribeSlug={tribeSlug}
+              onRecordingAvailabilityChange={setOccurrenceRecordingAvailability}
+            />
+          ) : null
+        }
         attendeesPanel={
           canManageEvents && selectedOccurrence ? (
             <TribeEventAttendeesPanel
