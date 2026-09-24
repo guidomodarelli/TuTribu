@@ -7,10 +7,12 @@ import {
   INITIAL_OCCURRENCES_FRESHNESS_STATE,
   OCCURRENCES_FRESHNESS_COMMAND,
   OCCURRENCES_FRESHNESS_EVENT,
+  OCCURRENCES_MUTATION_OUTCOME,
   OCCURRENCES_READ_OUTCOME,
   transitionOccurrencesFreshness,
   type OccurrencesFreshnessCommand,
   type OccurrencesFreshnessEvent,
+  type OccurrencesMutationOutcome,
   type OccurrencesReadOutcome,
 } from "@/lib/events/tribe-event-occurrences-freshness";
 import {
@@ -34,6 +36,7 @@ import {
   fetchTribeEventOccurrencesRequest,
   saveTribeEventAttendanceRequest,
   saveTribeEventRequest,
+  type TribeEventMutationFailure,
   type TribeEventSavePayload,
   type TribeEventStreakReadResult,
   type TribeEventStreakRefresh,
@@ -182,6 +185,18 @@ function clearScheduledTimeout(timeoutRef: { current: ReturnType<typeof setTimeo
 }
 
 /**
+ * Classifies a mutation failure the route answered: a rejection stored
+ * nothing, while an ambiguous failure may hide a committed mutation.
+ */
+function readFailedMutationOutcome(
+  failure: Pick<TribeEventMutationFailure, "isOutcomeAmbiguous">
+): OccurrencesMutationOutcome {
+  return failure.isOutcomeAmbiguous
+    ? OCCURRENCES_MUTATION_OUTCOME.ambiguous
+    : OCCURRENCES_MUTATION_OUTCOME.rejected;
+}
+
+/**
  * Tells whether two streak sources come from the same server render: same
  * render token and the same server values.
  */
@@ -227,7 +242,11 @@ function isSameStreakSource(source: StreakSource, otherSource: StreakSource): bo
  * attendance answer read their summaries in separate transactions, so their
  * responses cannot be ordered) or a new server render arrives while one is
  * pending, the visible month is read once every mutation settles and that
- * read replaces the occurrences on screen. A month read that fails (error
+ * read replaces the occurrences on screen. A mutation whose outcome is
+ * ambiguous (network failure, timeout, unreadable body, or 5xx) may have
+ * committed without its response landing, so it also requires that read even
+ * when it was pending alone; a rejection with a readable body (4xx) stored
+ * nothing and reads nothing. A month read that fails (error
  * status, unusable body, or network failure) retries with the same bounded
  * backoff as the streak and then stops; on unmount the scheduled retry is
  * cancelled.
@@ -655,23 +674,31 @@ export function useTribeEventMutations({
   };
 
   /**
-   * Marks a mutation as settled. The state machine applies its response only
-   * when it was pending alone and carried both streak fields; otherwise, once
-   * no mutation is pending, it runs the read still needed against committed
-   * data.
+   * Marks a mutation as settled in both state machines. The streak one applies
+   * its response only when it was pending alone and carried both streak
+   * fields; otherwise, once no mutation is pending, it runs the read still
+   * needed against committed data. The occurrences one reads the visible month
+   * once every mutation settles when the batch overlapped or this mutation's
+   * outcome is ambiguous.
    *
-   * @param outcome - What the mutation tells about the streak.
+   * @param streakOutcome - What the mutation tells about the streak.
+   * @param occurrencesOutcome - Whether the mutation applied its response,
+   *   was rejected, or may have committed without a usable response.
    * @param applyMutationStreak - Applies the response fields when allowed.
    */
   const settleStreakMutation = (
-    outcome: StreakMutationOutcome,
+    streakOutcome: StreakMutationOutcome,
+    occurrencesOutcome: OccurrencesMutationOutcome,
     applyMutationStreak?: MutationStreakApplier
   ) => {
     dispatchStreakFreshness(
-      { outcome, type: STREAK_FRESHNESS_EVENT.mutationSettled },
+      { outcome: streakOutcome, type: STREAK_FRESHNESS_EVENT.mutationSettled },
       applyMutationStreak
     );
-    dispatchOccurrencesFreshness({ type: OCCURRENCES_FRESHNESS_EVENT.mutationSettled });
+    dispatchOccurrencesFreshness({
+      outcome: occurrencesOutcome,
+      type: OCCURRENCES_FRESHNESS_EVENT.mutationSettled,
+    });
   };
 
   /**
@@ -695,12 +722,19 @@ export function useTribeEventMutations({
   });
 
   /**
-   * Settles a series mutation. A failed or unanswered one may still have
-   * committed, so it counts as a missing streak and reads again.
+   * Settles a series mutation. A failed or unanswered one counts as a missing
+   * streak and reads it again (an ambiguous failure may still have committed).
+   *
+   * @param seriesMutationStreak - Streak of a successful response, or null.
+   * @param occurrencesOutcome - How the mutation settled for the occurrences.
    */
-  const settleSeriesStreakMutation = (seriesMutationStreak: SeriesMutationStreak | null) => {
+  const settleSeriesStreakMutation = (
+    seriesMutationStreak: SeriesMutationStreak | null,
+    occurrencesOutcome: OccurrencesMutationOutcome
+  ) => {
     settleStreakMutation(
       seriesMutationStreak?.outcome ?? STREAK_MUTATION_OUTCOME.missing,
+      occurrencesOutcome,
       seriesMutationStreak?.apply
     );
   };
@@ -725,6 +759,9 @@ export function useTribeEventMutations({
 
     const streakRequest = beginStreakMutation();
     let seriesMutationStreak: SeriesMutationStreak | null = null;
+    // Stays ambiguous unless the route answers: a network failure or timeout
+    // may still have committed the mutation.
+    let occurrencesOutcome: OccurrencesMutationOutcome = OCCURRENCES_MUTATION_OUTCOME.ambiguous;
 
     try {
       const result = await saveTribeEventRequest({
@@ -735,6 +772,7 @@ export function useTribeEventMutations({
       });
 
       if (!result.isSuccess) {
+        occurrencesOutcome = readFailedMutationOutcome(result);
         toast.error(result.message ?? COPY.eventSaveFailure);
         return false;
       }
@@ -749,17 +787,19 @@ export function useTribeEventMutations({
       }
 
       seriesMutationStreak = readSeriesMutationStreak(streakRequest, result);
+      occurrencesOutcome = OCCURRENCES_MUTATION_OUTCOME.applied;
 
       toast.success(result.message ?? COPY.eventSaveFallback);
       return true;
     } catch {
-      // Network failure: the route never answered, so show the safe fallback.
+      // Network failure: the route never answered, so show the safe fallback;
+      // the outcome stays ambiguous and the visible month is read again.
       toast.error(COPY.eventSaveFailure);
       return false;
     } finally {
       isSavingEventRef.current = false;
       setIsSavingEvent(false);
-      settleSeriesStreakMutation(seriesMutationStreak);
+      settleSeriesStreakMutation(seriesMutationStreak, occurrencesOutcome);
     }
   };
 
@@ -773,6 +813,9 @@ export function useTribeEventMutations({
 
     const streakRequest = beginStreakMutation();
     let seriesMutationStreak: SeriesMutationStreak | null = null;
+    // Stays ambiguous unless the route answers: a network failure or timeout
+    // may still have committed the mutation.
+    let occurrencesOutcome: OccurrencesMutationOutcome = OCCURRENCES_MUTATION_OUTCOME.ambiguous;
 
     try {
       const result = await deleteTribeEventRequest({
@@ -781,6 +824,7 @@ export function useTribeEventMutations({
       });
 
       if (!result.isSuccess) {
+        occurrencesOutcome = readFailedMutationOutcome(result);
         toast.error(result.message ?? COPY.deleteFailure);
         return false;
       }
@@ -791,16 +835,18 @@ export function useTribeEventMutations({
         )
       );
       seriesMutationStreak = readSeriesMutationStreak(streakRequest, result);
+      occurrencesOutcome = OCCURRENCES_MUTATION_OUTCOME.applied;
       toast.success(result.message ?? COPY.deleteSuccess);
       return true;
     } catch {
-      // Network failure: the route never answered, so show the safe fallback.
+      // Network failure: the route never answered, so show the safe fallback;
+      // the outcome stays ambiguous and the visible month is read again.
       toast.error(COPY.deleteFailure);
       return false;
     } finally {
       isDeletingEventRef.current = false;
       setIsDeletingEvent(false);
-      settleSeriesStreakMutation(seriesMutationStreak);
+      settleSeriesStreakMutation(seriesMutationStreak, occurrencesOutcome);
     }
   };
 
@@ -818,6 +864,9 @@ export function useTribeEventMutations({
     // interrupted read run against the committed answer, and overlapping a
     // series mutation keeps that mutation's response off screen.
     beginStreakMutation();
+    // Stays ambiguous unless the route answers: a network failure or timeout
+    // may still have committed the mutation.
+    let occurrencesOutcome: OccurrencesMutationOutcome = OCCURRENCES_MUTATION_OUTCOME.ambiguous;
 
     try {
       const result = await saveTribeEventAttendanceRequest({
@@ -827,6 +876,7 @@ export function useTribeEventMutations({
       });
 
       if (!result.isSuccess) {
+        occurrencesOutcome = readFailedMutationOutcome(result);
         toast.error(result.message ?? COPY.attendanceFailure);
 
         if (result.isOccurrenceEnded) {
@@ -843,16 +893,18 @@ export function useTribeEventMutations({
             : currentOccurrence
         )
       );
+      occurrencesOutcome = OCCURRENCES_MUTATION_OUTCOME.applied;
       toast.success(result.message ?? COPY.attendanceSaved);
       return true;
     } catch {
-      // Network failure: the route never answered, so show the safe fallback.
+      // Network failure: the route never answered, so show the safe fallback;
+      // the outcome stays ambiguous and the visible month is read again.
       toast.error(COPY.attendanceFailure);
       return false;
     } finally {
       isSavingAttendanceRef.current = false;
       setIsSavingAttendance(false);
-      settleStreakMutation(STREAK_MUTATION_OUTCOME.unaffected);
+      settleStreakMutation(STREAK_MUTATION_OUTCOME.unaffected, occurrencesOutcome);
     }
   };
 

@@ -30,12 +30,33 @@ import type {
 export type TribeEventSavePayload = Omit<CreateTribeEventCommand, "tribeSlug" | "visibleMonth">;
 
 /**
- * Outcome of a mutation request. `message` is the safe Spanish copy returned
- * by the route handler, when present.
+ * Outcome of a request. `message` is the safe Spanish copy returned by the
+ * route handler, when present.
  */
 export type TribeEventRequestResult<TData> =
   | ({ isSuccess: true; message: string | null } & TData)
   | { isSuccess: false; message: string | null };
+
+/**
+ * Failure of a mutation request, classified by what it tells about the
+ * persisted state. `isOutcomeAmbiguous: false` means the route rejected the
+ * mutation with a non-success status below 500 and a readable JSON body, so
+ * nothing was stored. `isOutcomeAmbiguous: true` means the mutation may have
+ * committed anyway: the route answered with a 5xx status, a body that could
+ * not be read, or a success status whose body is unusable. A network failure
+ * or timeout never resolves here; the request rejects and callers treat it as
+ * ambiguous too.
+ */
+export type TribeEventMutationFailure = {
+  isOutcomeAmbiguous: boolean;
+  isSuccess: false;
+  message: string | null;
+};
+
+/** Outcome of a mutation request (creation, edit, or deletion). */
+export type TribeEventMutationResult<TData> =
+  | ({ isSuccess: true; message: string | null } & TData)
+  | TribeEventMutationFailure;
 
 type SaveEventResponseBody = {
   attendanceStreak?: unknown;
@@ -116,7 +137,7 @@ export type TribeEventAttendanceRequestResult =
       isSuccess: true;
       message: string | null;
     }
-  | { isOccurrenceEnded: boolean; isSuccess: false; message: string | null };
+  | (TribeEventMutationFailure & { isOccurrenceEnded: boolean });
 
 type AttendanceReportResponseBody = {
   message?: string;
@@ -134,6 +155,8 @@ const HTTP_REQUEST = {
 const JSON_HEADERS = {
   [HTTP_REQUEST.contentTypeHeader]: HTTP_REQUEST.jsonContentType,
 } as const;
+/** Lowest HTTP status of a server error, whose mutation may have committed. */
+const HTTP_SERVER_ERROR_MIN_STATUS = 500;
 
 /**
  * Streak part of the streak read body; its next refresh instant is guarded
@@ -198,12 +221,44 @@ async function readJsonBody<TBody>(response: Response): Promise<TBody> {
 }
 
 /**
+ * Reads the JSON body of a mutation response and tells whether it was
+ * readable: a parseable JSON object. Unreadable bodies degrade to an empty
+ * object so callers fall back to their own safe copy.
+ */
+async function readMutationJsonBody<TBody>(
+  response: Response
+): Promise<{ body: TBody; isReadable: boolean }> {
+  const body: unknown = await response.json().catch(() => undefined);
+  const isReadable = typeof body === "object" && body !== null && !Array.isArray(body);
+
+  return { body: (isReadable ? body : {}) as TBody, isReadable };
+}
+
+/**
+ * Builds the failure of a mutation request. Only a non-success status below
+ * 500 with a readable body is a rejection that stored nothing; a 5xx status,
+ * an unreadable body, or a success status with an unusable body may hide a
+ * committed mutation, so the outcome is ambiguous.
+ */
+function buildMutationFailure(
+  response: Response,
+  isBodyReadable: boolean,
+  message: string | undefined
+): TribeEventMutationFailure {
+  const isServerError = response.status >= HTTP_SERVER_ERROR_MIN_STATUS;
+  const isRejected = !response.ok && !isServerError && isBodyReadable;
+
+  return { isOutcomeAmbiguous: !isRejected, isSuccess: false, message: message ?? null };
+}
+
+/**
  * Creates an event, or updates the series when `eventId` is given, and returns
  * the occurrences of the saved event inside the visible `month`.
  *
  * @param input - Tribe, optional event id, visible month, and form payload.
  * @returns The saved occurrences (plus the refreshed viewer streak and its
- * next refresh instant when the route returns them) or the failure message.
+ * next refresh instant when the route returns them) or the failure message
+ * and whether the outcome is ambiguous.
  */
 export async function saveTribeEventRequest(input: {
   eventId: string | null;
@@ -211,7 +266,9 @@ export async function saveTribeEventRequest(input: {
   payload: TribeEventSavePayload;
   tribeSlug: string;
 }): Promise<
-  TribeEventRequestResult<{ occurrences: TribeEventOccurrenceResult[] } & TribeEventStreakReadResult>
+  TribeEventMutationResult<
+    { occurrences: TribeEventOccurrenceResult[] } & TribeEventStreakReadResult
+  >
 > {
   const endpoint = input.eventId
     ? buildTribeEventApiEndpoint(input.tribeSlug, input.eventId, input.month)
@@ -221,10 +278,10 @@ export async function saveTribeEventRequest(input: {
     headers: JSON_HEADERS,
     method: input.eventId ? HTTP_REQUEST.methodPatch : HTTP_REQUEST.methodPost,
   });
-  const body = await readJsonBody<SaveEventResponseBody>(response);
+  const { body, isReadable } = await readMutationJsonBody<SaveEventResponseBody>(response);
 
   if (!response.ok || !body.occurrences) {
-    return { isSuccess: false, message: body.message ?? null };
+    return buildMutationFailure(response, isReadable, body.message);
   }
 
   return {
@@ -241,20 +298,20 @@ export async function saveTribeEventRequest(input: {
  * @param input - Tribe and event identifiers.
  * @returns Whether the deletion succeeded, with the route message and the
  * refreshed viewer streak and next refresh instant when the route could
- * recompute them.
+ * recompute them, or the failure message and whether the outcome is ambiguous.
  */
 export async function deleteTribeEventRequest(input: {
   eventId: string;
   tribeSlug: string;
-}): Promise<TribeEventRequestResult<TribeEventStreakReadResult>> {
+}): Promise<TribeEventMutationResult<TribeEventStreakReadResult>> {
   const response = await fetch(buildTribeEventApiEndpoint(input.tribeSlug, input.eventId), {
     method: HTTP_REQUEST.methodDelete,
   });
-  const body = await readJsonBody<DeleteEventResponseBody>(response);
+  const { body, isReadable } = await readMutationJsonBody<DeleteEventResponseBody>(response);
 
   return response.ok
     ? { ...readMutationStreakFragment(body), isSuccess: true, message: body.message ?? null }
-    : { isSuccess: false, message: body.message ?? null };
+    : buildMutationFailure(response, isReadable, body.message);
 }
 
 /**
@@ -338,8 +395,9 @@ export async function fetchTribeEventOccurrencesRequest(input: {
  * Records (`status`) or clears (`null`) the viewer answer for one occurrence.
  *
  * @param input - Tribe, occurrence, and the answer to store.
- * @returns The fresh attendance summary, or the failure message and whether
- * the server rejected the answer because the occurrence already ended.
+ * @returns The fresh attendance summary, or the failure message, whether the
+ * outcome is ambiguous, and whether the server rejected the answer because the
+ * occurrence already ended.
  */
 export async function saveTribeEventAttendanceRequest(input: {
   occurrence: Pick<TribeEventOccurrenceResult, "eventId" | "startsAt">;
@@ -357,14 +415,13 @@ export async function saveTribeEventAttendanceRequest(input: {
         buildTribeEventAttendanceApiEndpoint(tribeSlug, occurrence.eventId, occurrence.startsAt),
         { method: HTTP_REQUEST.methodDelete }
       );
-  const body = await readJsonBody<AttendanceResponseBody>(response);
+  const { body, isReadable } = await readMutationJsonBody<AttendanceResponseBody>(response);
 
   if (!response.ok || !body.attendance) {
     return {
+      ...buildMutationFailure(response, isReadable, body.message),
       isOccurrenceEnded:
         !response.ok && body.code === TRIBE_EVENT_ATTENDANCE_FAILURE_CODE.occurrenceEnded,
-      isSuccess: false,
-      message: body.message ?? null,
     };
   }
 

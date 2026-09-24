@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   INITIAL_OCCURRENCES_FRESHNESS_STATE,
+  OCCURRENCES_MUTATION_OUTCOME,
   OCCURRENCES_READ_OUTCOME,
   transitionOccurrencesFreshness,
   type OccurrencesFreshnessEvent,
@@ -28,7 +29,18 @@ function run(
 }
 
 const MUTATION_STARTED: OccurrencesFreshnessEvent = { type: "mutation-started" };
-const MUTATION_SETTLED: OccurrencesFreshnessEvent = { type: "mutation-settled" };
+const MUTATION_SETTLED: OccurrencesFreshnessEvent = {
+  outcome: OCCURRENCES_MUTATION_OUTCOME.applied,
+  type: "mutation-settled",
+};
+const MUTATION_REJECTED: OccurrencesFreshnessEvent = {
+  outcome: OCCURRENCES_MUTATION_OUTCOME.rejected,
+  type: "mutation-settled",
+};
+const MUTATION_AMBIGUOUS: OccurrencesFreshnessEvent = {
+  outcome: OCCURRENCES_MUTATION_OUTCOME.ambiguous,
+  type: "mutation-settled",
+};
 const READ_SETTLED: OccurrencesFreshnessEvent = {
   outcome: OCCURRENCES_READ_OUTCOME.succeeded,
   type: "read-settled",
@@ -53,6 +65,54 @@ describe("transitionOccurrencesFreshness", () => {
 
     expect(transition.commands).toEqual([]);
     expect(transition.state.isReadInFlight).toBe(false);
+  });
+
+  it("does not read after a lone mutation the route rejected", () => {
+    const transition = run([MUTATION_STARTED, MUTATION_REJECTED]);
+
+    expect(transition.commands).toEqual([]);
+    expect(transition.state.isReadRequired).toBe(false);
+  });
+
+  it("reads the month once after a lone mutation whose outcome is ambiguous", () => {
+    const transition = run([MUTATION_STARTED, MUTATION_AMBIGUOUS]);
+
+    expect(transition.commands).toEqual([{ type: "start-read" }]);
+    expect(transition.state.isReadInFlight).toBe(true);
+    expect(transition.state.isReadRequired).toBe(false);
+  });
+
+  it("waits for every pending mutation before reading after an ambiguous one", () => {
+    const transition = run([MUTATION_STARTED, MUTATION_STARTED, MUTATION_AMBIGUOUS]);
+
+    expect(transition.commands).toEqual([]);
+    expect(transition.state.isReadRequired).toBe(true);
+
+    const settled = run([MUTATION_REJECTED], transition.state);
+
+    expect(settled.commands).toEqual([{ type: "start-read" }]);
+  });
+
+  it("retries the read an ambiguous mutation required with the bounded backoff", () => {
+    const transition = run([MUTATION_STARTED, MUTATION_AMBIGUOUS, READ_FAILED, READ_RETRY_DUE]);
+
+    expect(transition.commands).toEqual([
+      { type: "start-read" },
+      { delayMs: FRESHNESS_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
+      { type: "start-read" },
+    ]);
+  });
+
+  it("does not read after the next lone mutation once an ambiguous one was reconciled", () => {
+    const transition = run([
+      MUTATION_STARTED,
+      MUTATION_AMBIGUOUS,
+      READ_SETTLED,
+      MUTATION_STARTED,
+      MUTATION_SETTLED,
+    ]);
+
+    expect(transition.commands).toEqual([{ type: "start-read" }]);
   });
 
   it("reads the month once after an edit and an attendance answer overlap", () => {

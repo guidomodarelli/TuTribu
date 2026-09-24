@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  deleteTribeEventRequest,
   fetchTribeEventAttendanceStreakRequest,
   fetchTribeEventOccurrencesRequest,
+  saveTribeEventAttendanceRequest,
+  saveTribeEventRequest,
 } from "@/lib/events/tribe-events-api-client";
 
 const TRIBE_SLUG = "matematica-pro";
@@ -15,6 +18,24 @@ function answerRequest(body: unknown, ok = true) {
   global.fetch = vi.fn(async () => ({
     json: async () => body,
     ok,
+  })) as unknown as typeof fetch;
+}
+
+/**
+ * Stubs the browser fetch with a single mutation answer carrying its status;
+ * `body: undefined` stands for a body that is not valid JSON.
+ */
+function answerMutation(input: { body: unknown; ok: boolean; status: number }) {
+  global.fetch = vi.fn(async () => ({
+    json: async () => {
+      if (input.body === undefined) {
+        throw new SyntaxError("Unexpected token < in JSON");
+      }
+
+      return input.body;
+    },
+    ok: input.ok,
+    status: input.status,
   })) as unknown as typeof fetch;
 }
 
@@ -142,5 +163,91 @@ describe("fetchTribeEventOccurrencesRequest", () => {
     await expect(
       fetchTribeEventOccurrencesRequest({ month, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ isSuccess: false });
+  });
+});
+
+describe("mutation failure classification", () => {
+  const originalFetch = global.fetch;
+  const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
+  const occurrence = { eventId: EVENT_ID, startsAt: "2026-05-20T18:00:00.000Z" };
+  const savePayload = {
+    capacity: "",
+    description: "",
+    endsAt: "",
+    meetingUrl: "",
+    recurrenceFrequency: "none",
+    recurrenceUntil: "",
+    startsAt: "2026-05-20T18:00:00.000Z",
+    title: "Clase abierta",
+  } as Parameters<typeof saveTribeEventRequest>[0]["payload"];
+  const requests = {
+    attendance: () =>
+      saveTribeEventAttendanceRequest({ occurrence, status: "going", tribeSlug: TRIBE_SLUG }),
+    create: () =>
+      saveTribeEventRequest({ eventId: null, month: "2026-05", payload: savePayload, tribeSlug: TRIBE_SLUG }),
+    delete: () => deleteTribeEventRequest({ eventId: EVENT_ID, tribeSlug: TRIBE_SLUG }),
+    edit: () =>
+      saveTribeEventRequest({ eventId: EVENT_ID, month: "2026-05", payload: savePayload, tribeSlug: TRIBE_SLUG }),
+  };
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it.each(Object.entries(requests))(
+    "classifies a %s rejected with a readable 4xx body as not ambiguous",
+    async (_requestName, sendRequest) => {
+      answerMutation({ body: { message: "Revisá los datos." }, ok: false, status: 422 });
+
+      await expect(sendRequest()).resolves.toMatchObject({
+        isOutcomeAmbiguous: false,
+        isSuccess: false,
+        message: "Revisá los datos.",
+      });
+    }
+  );
+
+  it.each(Object.entries(requests))(
+    "classifies a %s answered with a 5xx status as ambiguous",
+    async (_requestName, sendRequest) => {
+      answerMutation({ body: { message: "No pudimos guardar." }, ok: false, status: 503 });
+
+      await expect(sendRequest()).resolves.toMatchObject({
+        isOutcomeAmbiguous: true,
+        isSuccess: false,
+      });
+    }
+  );
+
+  it.each(Object.entries(requests))(
+    "classifies a %s answered with an unreadable body as ambiguous",
+    async (_requestName, sendRequest) => {
+      answerMutation({ body: undefined, ok: false, status: 404 });
+
+      await expect(sendRequest()).resolves.toMatchObject({
+        isOutcomeAmbiguous: true,
+        isSuccess: false,
+        message: null,
+      });
+    }
+  );
+
+  it("classifies a save that succeeded without its occurrences as ambiguous", async () => {
+    answerMutation({ body: { message: "Evento guardado." }, ok: true, status: 201 });
+
+    await expect(requests.create()).resolves.toMatchObject({
+      isOutcomeAmbiguous: true,
+      isSuccess: false,
+    });
+  });
+
+  it("classifies an attendance answer that succeeded without its summary as ambiguous", async () => {
+    answerMutation({ body: { message: "Respuesta guardada." }, ok: true, status: 200 });
+
+    await expect(requests.attendance()).resolves.toMatchObject({
+      isOccurrenceEnded: false,
+      isOutcomeAmbiguous: true,
+      isSuccess: false,
+    });
   });
 });

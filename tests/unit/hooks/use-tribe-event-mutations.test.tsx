@@ -1237,3 +1237,169 @@ describe("useTribeEventMutations overlapping mutations and new server renders", 
     expect(result.current.visibleEvents).toEqual([renamedOccurrence]);
   });
 });
+
+describe("useTribeEventMutations lone mutations with an ambiguous outcome", () => {
+  const MONTH = "2026-05";
+  const EVENTS_LIST_ENDPOINT = `/api/tribes/${TRIBE_SLUG}/events?month=${MONTH}`;
+  const HTTP_STATUS = {
+    serverError: 503,
+    unprocessableContent: 422,
+  } as const;
+  const existingOccurrence = createOccurrence();
+  const serverEvents = [existingOccurrence];
+  const createdOccurrence = createOccurrence({
+    eventId: DELETED_EVENT_ID,
+    occurrenceKey: `${DELETED_EVENT_ID}@2026-05-27T18:00:00.000Z`,
+    startsAt: "2026-05-27T18:00:00.000Z",
+  });
+  const savePayload = {
+    capacity: "",
+    description: "",
+    endsAt: "",
+    meetingUrl: "",
+    recurrenceFrequency: "none",
+    recurrenceUntil: "",
+    startsAt: "2026-05-27T18:00:00.000Z",
+    title: "Clase nueva",
+  };
+
+  /** How the stubbed route answers the mutation under test. */
+  type MutationAnswer =
+    | { kind: "network-failure" }
+    | { body: Record<string, unknown>; kind: "response"; status: number };
+
+  let mutationAnswer: MutationAnswer;
+  let heldMonthReads: ReturnType<typeof createHeldResponse>[];
+
+  /**
+   * Month reads only: a creation posts to the same URL, so reads are told
+   * apart by their missing method.
+   */
+  function getMonthReads() {
+    return (global.fetch as Mock).mock.calls.filter(
+      ([url, init]) =>
+        url === EVENTS_LIST_ENDPOINT && (init as RequestInit | undefined)?.method === undefined
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    heldMonthReads = [];
+    global.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === EVENTS_LIST_ENDPOINT && init?.method === undefined) {
+        const heldMonthRead = createHeldResponse();
+
+        heldMonthReads.push(heldMonthRead);
+        return heldMonthRead.response;
+      }
+
+      if (url === STREAK_ENDPOINT) {
+        return {
+          json: async () => ({ attendanceStreak: null, attendanceStreakNextRefreshAt: null }),
+          ok: true,
+          status: 200,
+        };
+      }
+
+      if (mutationAnswer.kind === "network-failure") {
+        throw new TypeError("Failed to fetch");
+      }
+
+      const { body, status } = mutationAnswer;
+
+      return { json: async () => body, ok: false, status };
+    }) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function renderMutations() {
+    return renderHook(() =>
+      useTribeEventMutations({
+        attendanceStreak: null,
+        events: serverEvents,
+        month: MONTH,
+        tribeSlug: TRIBE_SLUG,
+      })
+    );
+  }
+
+  type Mutations = ReturnType<typeof useTribeEventMutations>;
+
+  const mutations: [string, (mutations: Mutations) => Promise<boolean>][] = [
+    ["create", (current) => current.saveEvent(savePayload, null)],
+    ["edit", (current) => current.saveEvent(savePayload, existingOccurrence)],
+    ["delete", (current) => current.deleteEvent(existingOccurrence)],
+    ["attendance answer", (current) => current.setAttendance(existingOccurrence, "going")],
+  ];
+
+  async function runLoneMutation(runMutation: (mutations: Mutations) => Promise<boolean>) {
+    const rendered = renderMutations();
+    let mutationPromise: Promise<boolean> = Promise.resolve(true);
+    let isStored = true;
+
+    act(() => {
+      mutationPromise = runMutation(rendered.result.current);
+    });
+    await act(async () => {
+      isStored = await mutationPromise;
+    });
+
+    return { ...rendered, isStored };
+  }
+
+  it.each(mutations)(
+    "reads the month once after a lone %s whose request failed on the network",
+    async (_mutationName, runMutation) => {
+      mutationAnswer = { kind: "network-failure" };
+
+      const { isStored, result } = await runLoneMutation(runMutation);
+
+      expect(isStored).toBe(false);
+      await waitFor(() => expect(getMonthReads()).toHaveLength(1));
+
+      // The mutation committed even though its response was lost.
+      await heldMonthReads[0].resolve({ events: [existingOccurrence, createdOccurrence] });
+
+      expect(result.current.visibleEvents).toEqual([existingOccurrence, createdOccurrence]);
+      expect(getMonthReads()).toHaveLength(1);
+    }
+  );
+
+  it.each(mutations)(
+    "reads the month once after a lone %s answered with a server error",
+    async (_mutationName, runMutation) => {
+      mutationAnswer = {
+        body: { message: "No pudimos guardar el cambio." },
+        kind: "response",
+        status: HTTP_STATUS.serverError,
+      };
+
+      await runLoneMutation(runMutation);
+
+      await waitFor(() => expect(getMonthReads()).toHaveLength(1));
+    }
+  );
+
+  it.each(mutations)(
+    "does not read the month after a lone %s the route rejected with a message",
+    async (_mutationName, runMutation) => {
+      const { toast } = vi.mocked(await import("beez-ui"), true);
+
+      mutationAnswer = {
+        body: { message: "Revisá los datos del evento." },
+        kind: "response",
+        status: HTTP_STATUS.unprocessableContent,
+      };
+
+      const { isStored, result } = await runLoneMutation(runMutation);
+
+      expect(isStored).toBe(false);
+      expect(toast.error).toHaveBeenCalledWith("Revisá los datos del evento.");
+      expect(getMonthReads()).toHaveLength(0);
+      expect(result.current.visibleEvents).toEqual(serverEvents);
+    }
+  );
+});

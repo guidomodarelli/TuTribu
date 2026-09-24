@@ -19,8 +19,12 @@ import { planFreshnessReadRetry } from "@/lib/events/tribe-event-read-retry";
  * Invariants it guarantees by construction:
  * - A read never overlaps an uncommitted mutation: starting a mutation aborts
  *   the read in flight and makes it required again.
- * - A mutation that was pending alone never triggers a read: its response is
- *   the committed state of what it touched.
+ * - A mutation that was pending alone and settled `applied` or `rejected`
+ *   never triggers a read: an applied response is the committed state of what
+ *   it touched, and a rejection stored nothing.
+ * - A mutation that settled `ambiguous` (network failure, timeout, unreadable
+ *   body, or 5xx) may have committed without its response reaching the
+ *   screen, so it makes the read required even when it was pending alone.
  * - A new server render that arrives while a mutation is pending may predate
  *   its commit, and the pending response is applied on top of the previous
  *   render (so the new one discards it): the read becomes required. A render
@@ -58,6 +62,23 @@ export const OCCURRENCES_FRESHNESS_COMMAND = {
   scheduleRead: "schedule-read",
   startRead: "start-read",
 } as const;
+
+/**
+ * How a mutation settled: `applied` when its successful response landed on
+ * screen, `rejected` when the route answered with a non-success status and a
+ * readable body (nothing was stored), and `ambiguous` when it may have
+ * committed without a usable response (network failure, timeout, unreadable
+ * body, or 5xx).
+ */
+export const OCCURRENCES_MUTATION_OUTCOME = {
+  ambiguous: "ambiguous",
+  applied: "applied",
+  rejected: "rejected",
+} as const;
+
+/** How a mutation settled. */
+export type OccurrencesMutationOutcome =
+  (typeof OCCURRENCES_MUTATION_OUTCOME)[keyof typeof OCCURRENCES_MUTATION_OUTCOME];
 
 /**
  * How a read that was not aborted settled: `succeeded` when it returned usable
@@ -99,7 +120,10 @@ export type OccurrencesFreshnessState = {
 /** Input of the state machine. */
 export type OccurrencesFreshnessEvent =
   | { type: typeof OCCURRENCES_FRESHNESS_EVENT.disposed }
-  | { type: typeof OCCURRENCES_FRESHNESS_EVENT.mutationSettled }
+  | {
+      outcome: OccurrencesMutationOutcome;
+      type: typeof OCCURRENCES_FRESHNESS_EVENT.mutationSettled;
+    }
   | { type: typeof OCCURRENCES_FRESHNESS_EVENT.mutationStarted }
   | { type: typeof OCCURRENCES_FRESHNESS_EVENT.readRetryDue }
   | { outcome: OccurrencesReadOutcome; type: typeof OCCURRENCES_FRESHNESS_EVENT.readSettled }
@@ -159,11 +183,18 @@ function startMutation(state: OccurrencesFreshnessState): OccurrencesFreshnessTr
 
 /**
  * Settles one mutation; once none is pending, runs the read an overlap, an
- * interrupted read, or a new server render made required.
+ * ambiguous outcome, an interrupted read, or a new server render made
+ * required.
  */
-function settleMutation(state: OccurrencesFreshnessState): OccurrencesFreshnessTransition {
+function settleMutation(
+  state: OccurrencesFreshnessState,
+  outcome: OccurrencesMutationOutcome
+): OccurrencesFreshnessTransition {
   const pendingMutationCount = Math.max(state.pendingMutationCount - 1, 0);
-  const isReadRequired = state.isReadRequired || state.isMutationBatchOverlapped;
+  const isReadRequired =
+    state.isReadRequired ||
+    state.isMutationBatchOverlapped ||
+    outcome === OCCURRENCES_MUTATION_OUTCOME.ambiguous;
 
   if (pendingMutationCount > 0) {
     return { commands: [], state: { ...state, isReadRequired, pendingMutationCount } };
@@ -282,7 +313,7 @@ export function transitionOccurrencesFreshness(
     case OCCURRENCES_FRESHNESS_EVENT.mutationStarted:
       return startMutation(state);
     case OCCURRENCES_FRESHNESS_EVENT.mutationSettled:
-      return settleMutation(state);
+      return settleMutation(state, event.outcome);
     case OCCURRENCES_FRESHNESS_EVENT.readSettled:
       return settleRead(state, event.outcome);
     case OCCURRENCES_FRESHNESS_EVENT.readRetryDue:
