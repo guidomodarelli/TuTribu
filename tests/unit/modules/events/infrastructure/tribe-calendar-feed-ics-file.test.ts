@@ -93,16 +93,42 @@ describe("escapeIcsText", () => {
 });
 
 describe("formatIcsUri", () => {
-  it("keeps commas, semicolons, and backslashes of a URI untouched", () => {
-    expect(formatIcsUri("https://meet.example.com/sala;tipo=a,b?x=1,2;y=3\\z")).toBe(
-      "https://meet.example.com/sala;tipo=a,b?x=1,2;y=3\\z"
+  it("keeps commas and semicolons of a URI untouched", () => {
+    expect(formatIcsUri("https://meet.example.com/sala;tipo=a,b?x=1,2;y=3")).toBe(
+      "https://meet.example.com/sala;tipo=a,b?x=1,2;y=3"
     );
   });
 
-  it("percent-encodes line breaks and other control characters so they never open a content line", () => {
-    expect(formatIcsUri("https://meet.example.com/a\r\nX-INJECTED:1\u0000\t\u007F")).toBe(
-      "https://meet.example.com/a%0D%0AX-INJECTED:1%00%09%7F"
+  it("serializes the canonical WHATWG form, percent-encoding spaces", () => {
+    expect(formatIcsUri("https://example.com/a b")).toBe("https://example.com/a%20b");
+  });
+
+  it("percent-encodes a non-ASCII path as UTF-8 octets", () => {
+    expect(formatIcsUri("https://example.com/reunión/año")).toBe(
+      "https://example.com/reuni%C3%B3n/a%C3%B1o"
     );
+  });
+
+  it("turns a path backslash into a slash, as browsers resolve it", () => {
+    expect(formatIcsUri("https://example.com/sala\\taller")).toBe(
+      "https://example.com/sala/taller"
+    );
+  });
+
+  it("percent-encodes characters the canonical form still leaves invalid in RFC 3986", () => {
+    expect(formatIcsUri("https://example.com/?q=a\\b^c|d{e}`")).toBe(
+      "https://example.com/?q=a%5Cb%5Ec%7Cd%7Be%7D%60"
+    );
+  });
+
+  it("drops line breaks and percent-encodes other control characters", () => {
+    expect(formatIcsUri("https://meet.example.com/a\r\nX-INJECTED:1\u0000\t\u007F")).toBe(
+      "https://meet.example.com/aX-INJECTED:1%00%7F"
+    );
+  });
+
+  it("returns null when the value is not a parseable URL", () => {
+    expect(formatIcsUri("not a url")).toBeNull();
   });
 });
 
@@ -277,6 +303,33 @@ describe("buildTribeCalendarFeedIcsFile", () => {
     expect(vevent?.getFirstPropertyValue("location")).toBe(meetingUrl);
   });
 
+  it("emits the canonical meeting URL that ical.js reads back while LOCATION keeps the stored text", () => {
+    const meetingUrl = "https://example.com/sala de reunión\\taller;tipo=a,b";
+    const content = buildTribeCalendarFeedIcsFile({
+      calendarName: "Tribu",
+      series: [{ ...singleEvent, event: { ...singleEvent.event, meetingUrl } }],
+    }).content;
+    const vevent = new ICAL.Component(ICAL.parse(content)).getFirstSubcomponent("vevent");
+
+    expect(vevent?.getFirstPropertyValue("url")).toBe(
+      "https://example.com/sala%20de%20reuni%C3%B3n/taller;tipo=a,b"
+    );
+    expect(vevent?.getFirstPropertyValue("location")).toBe(meetingUrl);
+  });
+
+  it("omits URL but keeps LOCATION when the stored meeting URL cannot be parsed", () => {
+    const content = buildTribeCalendarFeedIcsFile({
+      calendarName: "Tribu",
+      series: [
+        { ...singleEvent, event: { ...singleEvent.event, meetingUrl: "sala del club" } },
+      ],
+    }).content;
+    const vevent = new ICAL.Component(ICAL.parse(content)).getFirstSubcomponent("vevent");
+
+    expect(vevent?.hasProperty("url")).toBe(false);
+    expect(vevent?.getFirstPropertyValue("location")).toBe("sala del club");
+  });
+
   it("never lets line breaks in a stored meeting URL open a new content line", () => {
     const content = buildTribeCalendarFeedIcsFile({
       calendarName: "Tribu",
@@ -292,7 +345,7 @@ describe("buildTribeCalendarFeedIcsFile", () => {
     }).content;
 
     expect(content.replace(/\r\n/g, "")).not.toMatch(/[\r\n]/);
-    expect(content).toContain("URL:https://meet.example.com/a%0D%0AX-INJECTED:1%0AUID:otro");
+    expect(content).toContain("URL:https://meet.example.com/aX-INJECTED:1UID:otro");
     expect(content.split("\r\n").some((line) => line.startsWith("X-INJECTED"))).toBe(false);
 
     const vevent = new ICAL.Component(ICAL.parse(content)).getFirstSubcomponent("vevent");

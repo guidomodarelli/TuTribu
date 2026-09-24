@@ -40,10 +40,12 @@ const ICS_NEWLINE_PATTERN = /\r\n|\r|\n/g;
  */
 const ICS_FORBIDDEN_CONTROL_PATTERN = /[\u0000-\u0008\u000A-\u001F\u007F]/g;
 /**
- * Every C0 control (including HTAB, CR, and LF) and DEL: a URI (RFC 3986)
- * never contains them literally, so they are percent-encoded in URI values.
+ * Every character outside the RFC 3986 URI alphabet (unreserved, reserved
+ * gen-delims and sub-delims, and `%`). The WHATWG serialization still leaves
+ * some of them literal (for example `\`, `^`, `|`, `{`, `}` in a query) and
+ * keeps any C0 control or DEL it did not strip, so they are percent-encoded.
  */
-const ICS_URI_CONTROL_PATTERN = /[\u0000-\u001F\u007F]/g;
+const ICS_URI_DISALLOWED_CHARACTER_PATTERN = /[^A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=%]/gu;
 const HEXADECIMAL_RADIX = 16;
 const PERCENT_ENCODED_OCTET_DIGITS = 2;
 const PERCENT_ENCODING_PREFIX = "%";
@@ -75,23 +77,42 @@ export function escapeIcsText(value: string): string {
     .replace(ICS_FORBIDDEN_CONTROL_PATTERN, "");
 }
 
-/**
- * Serializes a URI value (RFC 5545 §3.3.13, e.g. the `URL` property). TEXT
- * escaping does not apply to URIs: a backslash before `,` or `;` would change
- * the address, so every valid URI character is kept as is. Control characters
- * (CR, LF, tab, the other C0 controls, and DEL) are percent-encoded, so a
- * stored value can never open a new content line; folding still applies.
- */
-export function formatIcsUri(value: string): string {
-  return value.replace(
-    ICS_URI_CONTROL_PATTERN,
-    (character) =>
+/** Percent-encodes one character as its UTF-8 octets (`\` -> `%5C`). */
+function percentEncodeUriCharacter(character: string): string {
+  return Array.from(
+    textEncoder.encode(character),
+    (octet) =>
       PERCENT_ENCODING_PREFIX +
-      character
-        .charCodeAt(0)
+      octet
         .toString(HEXADECIMAL_RADIX)
         .toUpperCase()
         .padStart(PERCENT_ENCODED_OCTET_DIGITS, "0")
+  ).join("");
+}
+
+/**
+ * Serializes a URI value (RFC 5545 §3.3.13, e.g. the `URL` property) from its
+ * canonical WHATWG form (`new URL(value).href`), the same address a browser
+ * opens: spaces and non-ASCII characters are percent-encoded, a backslash in
+ * the path of an http(s) URL becomes `/`, and tabs and line breaks are
+ * dropped. TEXT escaping does not apply to URIs: a backslash before `,` or `;`
+ * would change the address, so every valid URI character (including `,` and
+ * `;`) is kept as is, and any character still outside the RFC 3986 alphabet
+ * is percent-encoded as UTF-8 octets, so the value can never open a new
+ * content line; folding still applies.
+ *
+ * @param value - Stored URI, validated as http(s) when it was saved.
+ * @returns The serialized URI, or `null` when the value cannot be parsed as a
+ * URL (the caller then omits the property).
+ */
+export function formatIcsUri(value: string): string | null {
+  if (!URL.canParse(value)) {
+    return null;
+  }
+
+  return new URL(value).href.replace(
+    ICS_URI_DISALLOWED_CHARACTER_PATTERN,
+    percentEncodeUriCharacter
   );
 }
 
@@ -154,7 +175,12 @@ function buildOptionalLines(event: TribeEventResult): string[] {
   }
 
   if (event.meetingUrl) {
-    lines.push(`URL:${formatIcsUri(event.meetingUrl)}`);
+    const meetingUri = formatIcsUri(event.meetingUrl);
+
+    if (meetingUri) {
+      lines.push(`URL:${meetingUri}`);
+    }
+
     lines.push(`LOCATION:${escapeIcsText(event.meetingUrl)}`);
   }
 
