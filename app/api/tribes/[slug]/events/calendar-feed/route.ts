@@ -23,6 +23,8 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 
 const CALENDAR_FEED_SUBSCRIPTION_LOG = {
   feature: "events",
+  baseUrlFailureMessage:
+    "Tribe calendar feed public base URL is invalid; token not rotated",
   issueFailureMessage: "Tribe calendar feed token issue failed",
   operation: "tribe-event-calendar-feed-subscription",
   revokeFailureMessage: "Tribe calendar feed token revoke failed",
@@ -150,6 +152,9 @@ export async function GET(
 /**
  * Generates (or regenerates, revoking the previous one) the personal link and
  * returns it once. The response is never cached and the token never logged.
+ * The public base URL is resolved before issuing: issuing commits the
+ * rotation, so failing afterwards would revoke the member's current link
+ * without ever revealing the replacement.
  */
 export async function POST(
   request: Request,
@@ -162,6 +167,18 @@ export async function POST(
   }
 
   const { logger, metadata, modules, tribeSlug } = resolved;
+  let publicAppBaseUrl: string;
+
+  try {
+    publicAppBaseUrl = resolvePublicAppBaseUrl();
+  } catch (error) {
+    logger.error({ message: CALENDAR_FEED_SUBSCRIPTION_LOG.baseUrlFailureMessage, error, metadata });
+
+    return createJsonResponse(
+      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCalendarFeedSubscriptionMessage },
+      TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
+    );
+  }
 
   try {
     const result = await modules.events.useCases.issueTribeEventCalendarFeedToken({ tribeSlug });
@@ -174,7 +191,7 @@ export async function POST(
       createTribeEventPublicResponse({
         body: {
           feedUrl: buildTribeEventCalendarFeedUrl({
-            baseUrl: resolvePublicAppBaseUrl(),
+            baseUrl: publicAppBaseUrl,
             token: result.token,
             tribeSlug,
           }),
