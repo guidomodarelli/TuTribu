@@ -90,8 +90,10 @@ const COPY = {
  * When the route renders a new `events` array (month navigation), local
  * mutations are discarded in favour of the fresh server data. The viewer
  * streak follows the same rule: creations, edits, and deletions replace it
- * with the value the route recomputed, only the latest streak-carrying
- * response wins, and a response without a streak keeps the one on screen.
+ * with the value the route recomputed, only the most recently started
+ * request whose response carries a streak wins, and a response without a
+ * streak (including rejected or failed mutations) keeps the one on screen and
+ * never discards an earlier refresh still in flight.
  *
  * @param input - Server occurrences and streak, visible month, and tribe slug.
  * @returns Visible occurrences and streak, pending flags, and mutation callbacks that
@@ -114,9 +116,14 @@ export function useTribeEventMutations({
     sourceStreak: attendanceStreak,
     streak: attendanceStreak,
   });
-  // Increases on every request that can refresh the streak, so a slower,
-  // older response never overwrites the streak of a newer mutation.
+  // Increases on every request that can refresh the streak, ordering them by
+  // start time. Issuing a request never invalidates another one in flight: a
+  // rejected or failed mutation must not discard a valid refresh.
   const streakRequestSequenceRef = useRef(0);
+  // Sequence of the newest request whose streak landed on screen. It only
+  // advances when a response actually carries a usable streak, so a slower,
+  // older response never overwrites the streak of a newer successful one.
+  const appliedStreakRequestSequenceRef = useRef(0);
   const isSavingEventRef = useRef(false);
   const isDeletingEventRef = useRef(false);
   const isSavingAttendanceRef = useRef(false);
@@ -152,10 +159,12 @@ export function useTribeEventMutations({
   ) => {
     if (
       refresh.attendanceStreak === undefined ||
-      request.requestSequence !== streakRequestSequenceRef.current
+      request.requestSequence < appliedStreakRequestSequenceRef.current
     ) {
       return;
     }
+
+    appliedStreakRequestSequenceRef.current = request.requestSequence;
 
     // Tagged with the server streak seen when the request started: if the
     // route renders a new one meanwhile (navigation), the fresher server

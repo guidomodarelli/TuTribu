@@ -1624,6 +1624,219 @@ describe("TribeEventsCalendar", () => {
 
       expect(getStreakRequests()).toHaveLength(0);
     });
+
+    describe("while a finish refresh is in flight", () => {
+      type JsonResponse = { json: () => Promise<Record<string, unknown>>; ok: boolean };
+
+      const finishedStreakText = "Fuiste a 5 de los últimos 5 encuentros 🔥";
+      const mutationStreakText = "Fuiste a 2 de los últimos 5 encuentros 🔥";
+      // Mutated by the tests; its series ends with its single occurrence so
+      // the edit form opens with a valid end date.
+      const mutatedOccurrence: TribeEventOccurrenceResult = {
+        ...laterOccurrence,
+        seriesEndsAt: laterOccurrence.endsAt,
+      };
+      // Keeps a "next event" (where the streak renders) after a deletion.
+      const closingOccurrence = createOccurrence({
+        endsAt: "2026-05-27T19:00:00.000Z",
+        eventId: "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a",
+        startsAt: "2026-05-27T18:00:00.000Z",
+        title: "Cierre de mes",
+      });
+
+      /**
+       * Routes the streak read to a response the test resolves by hand and
+       * every other request to the next queued mutation response, so a
+       * mutation can start and settle while the finish refresh is pending.
+       */
+      function holdStreakRefresh() {
+        let resolveRefresh: (response: JsonResponse) => void = () => undefined;
+        const pendingRefresh = new Promise<JsonResponse>((resolve) => {
+          resolveRefresh = resolve;
+        });
+        const mutationResponses: Array<() => Promise<JsonResponse>> = [];
+
+        (global.fetch as Mock).mockImplementation((url: string) => {
+          if (url === streakEndpoint) {
+            return pendingRefresh;
+          }
+
+          const nextMutationResponse = mutationResponses.shift();
+
+          return nextMutationResponse
+            ? nextMutationResponse()
+            : Promise.reject(new Error(`Unexpected request to ${url}`));
+        });
+
+        return {
+          queueMutationFailure: () => {
+            mutationResponses.push(() => Promise.reject(new TypeError("Failed to fetch")));
+          },
+          queueMutationResponse: (body: Record<string, unknown>, ok = true) => {
+            mutationResponses.push(async () => ({ json: async () => body, ok }));
+          },
+          resolveRefresh: async (body: Record<string, unknown>) => {
+            await act(async () => {
+              resolveRefresh({ json: async () => body, ok: true });
+              await pendingRefresh;
+            });
+          },
+        };
+      }
+
+      async function startFinishRefresh() {
+        renderCalendar({
+          attendanceStreak: initialStreak,
+          events: [occurrence, mutatedOccurrence, closingOccurrence],
+        });
+
+        await advanceMinutes(2);
+        await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+      }
+
+      async function waitForMutationToast() {
+        const { toast } = vi.mocked(await import("beez-ui"), true);
+
+        await waitFor(() =>
+          expect(toast.error.mock.calls.length + toast.success.mock.calls.length).toBe(1)
+        );
+      }
+
+      /**
+       * A rejected mutation leaves its dialog open, which hides the rest of
+       * the page from the accessibility tree, so close every open dialog.
+       */
+      async function closeOpenDialogs(user: ReturnType<typeof userEvent.setup>) {
+        const maximumDialogDepth = 3;
+
+        for (let depth = 0; depth < maximumDialogDepth; depth += 1) {
+          const openDialogCount =
+            screen.queryAllByRole("dialog").length + screen.queryAllByRole("alertdialog").length;
+
+          if (openDialogCount === 0) {
+            return;
+          }
+
+          await user.keyboard("{Escape}");
+        }
+      }
+
+      async function submitLaterOccurrenceEdit() {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+        await user.click(screen.getByRole("button", { name: /15:00\s*Encuentro abierto/ }));
+        await user.click(screen.getByRole("button", { name: "Editar" }));
+        fireEvent.change(screen.getByLabelText("Título"), {
+          target: { value: "Encuentro renovado" },
+        });
+        await user.click(screen.getByRole("button", { name: "Guardar evento" }));
+        await waitForMutationToast();
+        await closeOpenDialogs(user);
+      }
+
+      async function submitLaterOccurrenceDeletion() {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+        await user.click(screen.getByRole("button", { name: /15:00\s*Encuentro abierto/ }));
+        await user.click(screen.getByRole("button", { name: "Eliminar" }));
+        await user.click(
+          within(screen.getByRole("alertdialog")).getByRole("button", { name: "Eliminar" })
+        );
+        await waitForMutationToast();
+        await closeOpenDialogs(user);
+      }
+
+      it("applies the refresh when a save is rejected meanwhile", async () => {
+        const streakRefresh = holdStreakRefresh();
+        await startFinishRefresh();
+        streakRefresh.queueMutationResponse({ message: "No pudimos guardar el evento." }, false);
+
+        await submitLaterOccurrenceEdit();
+        await streakRefresh.resolveRefresh({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        });
+
+        expect(
+          await within(getNextEventRegion()).findByText(finishedStreakText)
+        ).toBeInTheDocument();
+      });
+
+      it("applies the refresh when a save fails on the network meanwhile", async () => {
+        const streakRefresh = holdStreakRefresh();
+        await startFinishRefresh();
+        streakRefresh.queueMutationFailure();
+
+        await submitLaterOccurrenceEdit();
+        await streakRefresh.resolveRefresh({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        });
+
+        expect(
+          await within(getNextEventRegion()).findByText(finishedStreakText)
+        ).toBeInTheDocument();
+      });
+
+      it("keeps the streak of a later successful save over the earlier refresh", async () => {
+        const streakRefresh = holdStreakRefresh();
+        await startFinishRefresh();
+        streakRefresh.queueMutationResponse({
+          attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+          event: {},
+          message: "Evento actualizado.",
+          occurrences: [{ ...mutatedOccurrence, title: "Encuentro renovado" }],
+        });
+
+        await submitLaterOccurrenceEdit();
+        expect(
+          await within(getNextEventRegion()).findByText(mutationStreakText)
+        ).toBeInTheDocument();
+        await streakRefresh.resolveRefresh({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        });
+
+        expect(within(getNextEventRegion()).getByText(mutationStreakText)).toBeInTheDocument();
+        expect(
+          within(getNextEventRegion()).queryByText(finishedStreakText)
+        ).not.toBeInTheDocument();
+      });
+
+      it("applies the refresh when a deletion is rejected meanwhile", async () => {
+        const streakRefresh = holdStreakRefresh();
+        await startFinishRefresh();
+        streakRefresh.queueMutationResponse({ message: "No pudimos eliminar el evento." }, false);
+
+        await submitLaterOccurrenceDeletion();
+        await streakRefresh.resolveRefresh({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        });
+
+        expect(
+          await within(getNextEventRegion()).findByText(finishedStreakText)
+        ).toBeInTheDocument();
+      });
+
+      it("keeps the streak of a later successful deletion over the earlier refresh", async () => {
+        const streakRefresh = holdStreakRefresh();
+        await startFinishRefresh();
+        streakRefresh.queueMutationResponse({
+          attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+          message: "Evento eliminado.",
+        });
+
+        await submitLaterOccurrenceDeletion();
+        expect(
+          await within(getNextEventRegion()).findByText(mutationStreakText)
+        ).toBeInTheDocument();
+        await streakRefresh.resolveRefresh({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        });
+
+        expect(within(getNextEventRegion()).getByText(mutationStreakText)).toBeInTheDocument();
+        expect(
+          within(getNextEventRegion()).queryByText(finishedStreakText)
+        ).not.toBeInTheDocument();
+      });
+    });
   });
 
   it("shows the endpoint message when saving fails", async () => {
