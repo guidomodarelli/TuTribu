@@ -123,15 +123,16 @@ function isHeldOccurrence(occurrence: TribeEventResolvedOccurrence): boolean {
 }
 
 /**
- * Original starts (the attendance key) of the last finished occurrences of a
- * series, oldest first, or an empty list for single events, which have no
- * trend.
+ * Last finished occurrences of a series, oldest first by their effective
+ * start, or an empty list for single events, which have no trend. Each one
+ * keeps its original start (the attendance key) and its effective start (the
+ * date it was held, which differs for moved dates).
  */
-function listTrendOccurrenceStarts(
+function listTrendOccurrences(
   event: TribeEvent,
   exceptions: readonly TribeEventOccurrenceException[],
   nowTime: number
-): string[] {
+): TribeEventResolvedOccurrence[] {
   if (event.recurrenceFrequency === TRIBE_EVENT_RECURRENCE_FREQUENCY.none) {
     return [];
   }
@@ -146,7 +147,7 @@ function listTrendOccurrenceStarts(
     pastOccurrences,
     nowTime,
     TRIBE_EVENT_ATTENDANCE_TREND.size
-  ).map((occurrence) => occurrence.originalStartsAt);
+  );
 }
 
 function groupAttendees(
@@ -258,10 +259,11 @@ export function getTribeEventAttendanceReport({
             eventId: query.eventId,
             tribeSlug: query.tribeSlug,
           });
-    const trendOccurrenceStartsAts = listTrendOccurrenceStarts(
-      resolvedKey.event,
-      exceptions,
-      Date.now()
+    const trendOccurrences = listTrendOccurrences(resolvedKey.event, exceptions, Date.now());
+    // Counts are stored under the original start; only the report shows the
+    // effective start, so a moved date is labelled with the day it was held.
+    const trendOccurrenceStartsAts = trendOccurrences.map(
+      (occurrence) => occurrence.originalStartsAt
     );
     const lookup = await tribeEventRepository.getOccurrenceAttendanceReport({
       ...resolvedKey.key,
@@ -283,10 +285,12 @@ export function getTribeEventAttendanceReport({
       report: {
         attendeeGroups: groupAttendees(lookup.attendees),
         eventTitle: resolvedKey.event.title,
-        occurrenceStartsAt: resolvedKey.key.occurrenceStartsAt,
-        trend: trendOccurrenceStartsAts.map((occurrenceStartsAt) => ({
-          goingCount: goingCountByStart.get(occurrenceStartsAt) ?? 0,
-          occurrenceStartsAt,
+        occurrenceStartsAt: resolvedKey.occurrence.startsAt,
+        originalOccurrenceStartsAt: resolvedKey.key.occurrenceStartsAt,
+        trend: trendOccurrences.map((occurrence) => ({
+          goingCount: goingCountByStart.get(occurrence.originalStartsAt) ?? 0,
+          occurrenceStartsAt: occurrence.startsAt,
+          originalOccurrenceStartsAt: occurrence.originalStartsAt,
         })),
       },
       status: TRIBE_EVENT_MUTATION_STATUS.found,

@@ -118,6 +118,7 @@ describe("tribe event public DTO schemas", () => {
           },
           eventTitle: "Clase abierta",
           occurrenceStartsAt: STARTS_AT,
+          originalOccurrenceStartsAt: STARTS_AT,
           trend: [],
         },
       }).success

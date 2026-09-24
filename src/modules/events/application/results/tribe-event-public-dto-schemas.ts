@@ -250,10 +250,12 @@ export const tribeEventAttendanceReportSchema = z.object({
   }),
   eventTitle: z.string(),
   occurrenceStartsAt: instantSchema,
+  originalOccurrenceStartsAt: instantSchema,
   trend: z.array(
     z.object({
       goingCount: nonNegativeCountSchema,
       occurrenceStartsAt: instantSchema,
+      originalOccurrenceStartsAt: instantSchema,
     })
   ),
 }) satisfies z.ZodType<TribeEventAttendanceReportResult>;
