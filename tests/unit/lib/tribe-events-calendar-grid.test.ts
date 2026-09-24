@@ -83,17 +83,17 @@ describe("tribe events calendar grid", () => {
     ]);
   });
 
-  it("replaces the saved series and keeps the attendance of existing slots", () => {
-    const kept = createOccurrence({
+  it("replaces the saved series with the attendance summaries returned by the save", () => {
+    const staleWaitlisted = createOccurrence({
       attendance: {
-        goingCount: 3,
+        goingCount: 2,
         goingPreview: [],
         maybeCount: 0,
-        viewerStatus: "going",
-        viewerWaitlistPosition: null,
-        waitlistedCount: 0,
+        viewerStatus: "waitlisted",
+        viewerWaitlistPosition: 1,
+        waitlistedCount: 1,
       },
-      capacity: null,
+      capacity: 2,
       startsAt: "2026-05-06T18:00:00.000Z",
     });
     const removed = createOccurrence({ startsAt: "2026-05-13T18:00:00.000Z" });
@@ -101,31 +101,38 @@ describe("tribe events calendar grid", () => {
       eventId: OTHER_EVENT_ID,
       startsAt: "2026-05-01T18:00:00.000Z",
     });
-    const savedKept = createOccurrence({ startsAt: kept.startsAt, title: "Nuevo título" });
+    const promotedAttendance = {
+      goingCount: 3,
+      goingPreview: [],
+      maybeCount: 0,
+      viewerStatus: "going" as const,
+      viewerWaitlistPosition: null,
+      waitlistedCount: 0,
+    };
+    const savedPromoted = createOccurrence({
+      attendance: promotedAttendance,
+      capacity: 3,
+      startsAt: staleWaitlisted.startsAt,
+      title: "Nuevo título",
+    });
     const savedNew = createOccurrence({ startsAt: "2026-05-20T18:00:00.000Z" });
 
     const merged = mergeSavedOccurrences(
-      [kept, removed, unrelated],
-      [savedNew, savedKept],
+      [staleWaitlisted, removed, unrelated],
+      [savedNew, savedPromoted],
       EVENT_ID
     );
 
     expect(merged.map((occurrence) => occurrence.startsAt)).toEqual([
       unrelated.startsAt,
-      kept.startsAt,
+      staleWaitlisted.startsAt,
       savedNew.startsAt,
     ]);
     expect(merged[1]).toMatchObject({
-      attendance: {
-        goingCount: 3,
-        goingPreview: [],
-        maybeCount: 0,
-        viewerStatus: "going",
-        viewerWaitlistPosition: null,
-        waitlistedCount: 0,
-      },
-      capacity: null,
+      attendance: promotedAttendance,
+      capacity: 3,
       title: "Nuevo título",
     });
+    expect(merged[2]?.attendance).toEqual(savedNew.attendance);
   });
 });

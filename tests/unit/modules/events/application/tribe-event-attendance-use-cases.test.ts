@@ -31,6 +31,11 @@ const savedAttendance = {
   viewerWaitlistPosition: null,
   waitlistedCount: 0,
 };
+// The 2026-05-13 slot runs 18:00–19:00 UTC (series duration of one hour).
+const beforeOccurrence = () => Date.parse("2026-05-13T12:00:00.000Z");
+const duringOccurrence = () => Date.parse("2026-05-13T18:30:00.000Z");
+const afterOccurrence = () => Date.parse("2026-05-13T19:00:00.000Z");
+
 const clearedAttendance = {
   ...savedAttendance,
   goingCount: 2,
@@ -62,7 +67,7 @@ describe("tribe event attendance use cases", () => {
 
   it("records the viewer answer for a real occurrence of the series", async () => {
     const repository = createRepository();
-    const execute = setTribeEventAttendance({ tribeEventRepository: repository });
+    const execute = setTribeEventAttendance({ now: beforeOccurrence, tribeEventRepository: repository });
 
     await expect(
       execute({
@@ -85,7 +90,7 @@ describe("tribe event attendance use cases", () => {
 
   it("accepts maybe as an answer", async () => {
     const repository = createRepository();
-    const execute = setTribeEventAttendance({ tribeEventRepository: repository });
+    const execute = setTribeEventAttendance({ now: beforeOccurrence, tribeEventRepository: repository });
 
     await execute({
       eventId: EVENT_ID,
@@ -101,7 +106,7 @@ describe("tribe event attendance use cases", () => {
 
   it("rejects instants that are not a slot of the series", async () => {
     const repository = createRepository();
-    const execute = setTribeEventAttendance({ tribeEventRepository: repository });
+    const execute = setTribeEventAttendance({ now: beforeOccurrence, tribeEventRepository: repository });
 
     await expect(
       execute({
@@ -116,7 +121,7 @@ describe("tribe event attendance use cases", () => {
 
   it("reports not found for events that do not exist in the tribe", async () => {
     const repository = createRepository({ findById: vi.fn(async () => null) });
-    const execute = setTribeEventAttendance({ tribeEventRepository: repository });
+    const execute = setTribeEventAttendance({ now: beforeOccurrence, tribeEventRepository: repository });
 
     await expect(
       execute({
@@ -136,7 +141,7 @@ describe("tribe event attendance use cases", () => {
         status: TRIBE_EVENT_MUTATION_STATUS.attendanceCleared,
       })),
     });
-    const execute = clearTribeEventAttendance({ tribeEventRepository: repository });
+    const execute = clearTribeEventAttendance({ now: beforeOccurrence, tribeEventRepository: repository });
 
     await expect(
       execute({
@@ -152,6 +157,83 @@ describe("tribe event attendance use cases", () => {
       eventId: EVENT_ID,
       occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
       tribeSlug: "matematica-pro",
+    });
+  });
+
+  describe("finished occurrences", () => {
+    const occurrenceKey = {
+      eventId: EVENT_ID,
+      occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+      tribeSlug: "matematica-pro",
+    };
+
+    it("rejects answering once the occurrence ended without touching attendance rows", async () => {
+      const repository = createRepository();
+      const execute = setTribeEventAttendance({
+        now: afterOccurrence,
+        tribeEventRepository: repository,
+      });
+
+      await expect(execute({ ...occurrenceKey, status: "going" })).resolves.toEqual({
+        status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded,
+      });
+      expect(repository.setAttendance).not.toHaveBeenCalled();
+    });
+
+    it("rejects clearing the answer once the occurrence ended", async () => {
+      const repository = createRepository();
+      const execute = clearTribeEventAttendance({
+        now: afterOccurrence,
+        tribeEventRepository: repository,
+      });
+
+      await expect(execute(occurrenceKey)).resolves.toEqual({
+        status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded,
+      });
+      expect(repository.clearAttendance).not.toHaveBeenCalled();
+    });
+
+    it("uses the default duration for series without an end", async () => {
+      const repository = createRepository({
+        findById: vi.fn(async () => ({ ...weeklyEvent, endsAt: null })),
+      });
+      const execute = setTribeEventAttendance({
+        now: afterOccurrence,
+        tribeEventRepository: repository,
+      });
+
+      await expect(execute({ ...occurrenceKey, status: "maybe" })).resolves.toEqual({
+        status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded,
+      });
+      expect(repository.setAttendance).not.toHaveBeenCalled();
+    });
+
+    it("still accepts set and clear while the occurrence is in progress", async () => {
+      const repository = createRepository({
+        clearAttendance: vi.fn(async () => ({
+          attendance: clearedAttendance,
+          status: TRIBE_EVENT_MUTATION_STATUS.attendanceCleared,
+        })),
+      });
+      const setAttendance = setTribeEventAttendance({
+        now: duringOccurrence,
+        tribeEventRepository: repository,
+      });
+      const clearAttendance = clearTribeEventAttendance({
+        now: duringOccurrence,
+        tribeEventRepository: repository,
+      });
+
+      await expect(setAttendance({ ...occurrenceKey, status: "going" })).resolves.toEqual({
+        attendance: savedAttendance,
+        status: TRIBE_EVENT_MUTATION_STATUS.attendanceSaved,
+      });
+      await expect(clearAttendance(occurrenceKey)).resolves.toEqual({
+        attendance: clearedAttendance,
+        status: TRIBE_EVENT_MUTATION_STATUS.attendanceCleared,
+      });
+      expect(repository.setAttendance).toHaveBeenCalledTimes(1);
+      expect(repository.clearAttendance).toHaveBeenCalledTimes(1);
     });
   });
 

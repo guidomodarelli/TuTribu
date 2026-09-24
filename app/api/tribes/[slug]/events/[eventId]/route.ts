@@ -1,8 +1,9 @@
 import {
-  tribeEventMessageResponseSchema,
+  tribeEventDeleteResponseSchema,
   tribeEventSaveResponseSchema,
 } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import { readAttendanceStreakResponseFragment } from "@/src/modules/events/infrastructure/api/tribe-event-attendance-streak-response";
 import {
   tribeEventEmptyQuerySchema,
   tribeEventMonthQuerySchema,
@@ -79,8 +80,19 @@ export async function PATCH(request: Request, context: TribeEventRouteContext) {
     });
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.updated) {
+      // Editing a past series can change the viewer's last finished
+      // occurrences: return the recomputed streak next to the result.
+      const streakFragment = await readAttendanceStreakResponseFragment({
+        eventId,
+        getTribeEventAttendanceStreak: modules.events.useCases.getTribeEventAttendanceStreak,
+        logger,
+        tribeSlug: slug,
+        viewerId: authenticatedMember.id,
+      });
+
       return createTribeEventPublicResponse({
         body: {
+          ...streakFragment,
           event: result.event,
           message: TRIBE_EVENT_ROUTE_RESPONSE.updateSuccessMessage,
           occurrences: result.occurrences,
@@ -149,12 +161,20 @@ export async function DELETE(request: Request, context: TribeEventRouteContext) 
     });
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.deleted) {
+      const streakFragment = await readAttendanceStreakResponseFragment({
+        eventId,
+        getTribeEventAttendanceStreak: modules.events.useCases.getTribeEventAttendanceStreak,
+        logger,
+        tribeSlug: slug,
+        viewerId: authenticatedMember.id,
+      });
+
       return createTribeEventPublicResponse({
-        body: { message: TRIBE_EVENT_ROUTE_RESPONSE.deleteSuccessMessage },
+        body: { ...streakFragment, message: TRIBE_EVENT_ROUTE_RESPONSE.deleteSuccessMessage },
         failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedDeleteMessage,
         logger,
         metadata: logMetadata,
-        schema: tribeEventMessageResponseSchema,
+        schema: tribeEventDeleteResponseSchema,
         status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
       });
     }

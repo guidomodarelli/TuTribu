@@ -71,6 +71,21 @@ const capacityValueSchema = z
       .max(TRIBE_EVENT_CAPACITY_LIMIT.max, { error: TRIBE_EVENT_INPUT_ISSUE.invalidCapacity })
   );
 
+/**
+ * "Cupo máximo" as sent by the form (text, empty/null/missing for no limit)
+ * or as a JSON integer such as `12`, which follows the same range rules. Any
+ * other present value (fractions, non-finite numbers, booleans, objects,
+ * arrays) is rejected as an invalid capacity instead of silently becoming
+ * "no limit", so a PATCH never removes an existing limit by accident.
+ */
+const capacityFieldSchema = z.union(
+  [
+    z.int().transform(String).pipe(capacityValueSchema),
+    createOptionalTextFieldSchema(TRIBE_EVENT_INPUT_ISSUE.invalidCapacity, capacityValueSchema),
+  ],
+  { error: TRIBE_EVENT_INPUT_ISSUE.invalidCapacity }
+);
+
 const recurrenceFrequencySchema = z
   .string({ error: TRIBE_EVENT_INPUT_ISSUE.invalidRecurrence })
   .trim()
@@ -90,10 +105,7 @@ const recurrenceFrequencySchema = z
  */
 export const tribeEventMutationBodySchema = z.object(
   {
-    capacity: createOptionalTextFieldSchema(
-      TRIBE_EVENT_INPUT_ISSUE.invalidCapacity,
-      capacityValueSchema
-    ),
+    capacity: capacityFieldSchema,
     description: createOptionalTextFieldSchema(
       TRIBE_EVENT_INPUT_ISSUE.invalidInput,
       z.string().max(TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength, {

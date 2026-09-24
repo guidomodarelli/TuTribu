@@ -37,6 +37,11 @@ export type PersistTribeEventCommand = {
 };
 
 export type PersistTribeEventUpdateCommand = PersistTribeEventCommand & {
+  /**
+   * Range whose attendance summaries of the event are read back after the
+   * waitlist refill, or null to skip that read (no visible month).
+   */
+  attendanceRange: TribeEventDateRange | null;
   eventId: string;
 };
 
@@ -139,6 +144,12 @@ export type TribeEventCreationResult =
 
 export type TribeEventUpdateResult =
   | {
+      /**
+       * Attendance summaries of the event inside `attendanceRange`, read in
+       * the same transaction after the waitlist refill so they already
+       * include its promotions. Empty when no range was requested.
+       */
+      attendances: TribeEventOccurrenceAttendance[];
       event: TribeEvent;
       status: typeof TRIBE_EVENT_MUTATION_STATUS.updated;
     }
@@ -160,7 +171,13 @@ export type TribeEventAttendanceResult =
         | typeof TRIBE_EVENT_MUTATION_STATUS.attendanceSaved;
     }
   | {
-      status: TribeEventMutationFailureStatus;
+      /**
+       * `occurrenceEnded` comes from the definer function guard (defense in
+       * depth behind the use case check) when the occurrence already ended.
+       */
+      status:
+        | TribeEventMutationFailureStatus
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
     };
 
 export type TribeEventRepository = {
@@ -175,6 +192,12 @@ export type TribeEventRepository = {
   getOccurrenceAttendanceReport: (
     query: GetTribeEventAttendanceReportQuery
   ) => Promise<TribeEventAttendanceReportLookup>;
+  /**
+   * Series with at least one occurrence whose interval (start to effective
+   * end) overlaps the range, plus the attendance of those occurrences. This is
+   * a superset of the series with an occurrence starting inside the range, so
+   * callers pick their own matching through the occurrence expansion.
+   */
   listByTribeRange: (
     query: ListTribeEventsByRangeQuery
   ) => Promise<TribeEventRangeListing>;

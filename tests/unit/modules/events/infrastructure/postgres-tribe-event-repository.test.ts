@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, type Mock } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import { PostgresTribeEventRepository } from "@/src/modules/events/infrastructure/repositories/postgres-tribe-event-repository";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
@@ -201,6 +201,7 @@ describe("PostgresTribeEventRepository", () => {
 
     await expect(
       repository.update({
+        attendanceRange: null,
         capacity: null,
         description: null,
         endsAt: null,
@@ -309,6 +310,12 @@ describe("PostgresTribeEventRepository", () => {
       })
       .mockResolvedValueOnce({
         rows: [{ attendance_status: null, outcome: "not_found", promoted_count: 0 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ attendance_status: null, outcome: "ended", promoted_count: 0 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ attendance_status: null, outcome: "ended", promoted_count: 0 }],
       });
     const repository = createRepository(execute);
     const key = {
@@ -321,18 +328,121 @@ describe("PostgresTribeEventRepository", () => {
       status: "forbidden",
     });
     await expect(repository.clearAttendance(key)).resolves.toEqual({ status: "not_found" });
-    expect(execute).toHaveBeenCalledTimes(2);
+    // Defense in depth: the definer function also refuses finished occurrences.
+    await expect(repository.setAttendance({ ...key, status: "going" })).resolves.toEqual({
+      status: "occurrence_ended",
+    });
+    await expect(repository.clearAttendance(key)).resolves.toEqual({
+      status: "occurrence_ended",
+    });
+    expect(execute).toHaveBeenCalledTimes(4);
   });
 
-  it("refills the waitlists in the same transaction after a successful update", async () => {
+  describe("waitlist refill after an update", () => {
+    const updateCommand = {
+      attendanceRange: null,
+      capacity: 12,
+      description: null,
+      endsAt: "2026-05-06T19:00:00.000Z",
+      eventId: EVENT_ID,
+      meetingUrl: null,
+      recurrenceFrequency: "weekly" as const,
+      recurrenceUntil: null,
+      startsAt: "2026-05-06T18:00:00.000Z",
+      title: "Clase abierta",
+      tribeSlug: "matematica-pro",
+    };
+
+    beforeEach(() => {
+      // Wednesday 2026-05-13 18:30Z: that weekly occurrence is in progress.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-05-13T18:30:00.000Z"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("refills only waitlists of valid, not yet ended occurrences in the same transaction", async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ ...eventRow, capacity: 12, status: "updated" }] })
+        .mockResolvedValueOnce({
+          rows: [
+            // In progress under the updated schedule: refilled.
+            { occurrence_starts_at: new Date("2026-05-13T18:00:00.000Z") },
+            // Future slot of the updated schedule: refilled.
+            { occurrence_starts_at: "2026-05-20T18:00:00.000Z" },
+            // Old Tuesday slot that the edit removed: kept as history.
+            { occurrence_starts_at: new Date("2026-05-19T18:00:00.000Z") },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ promoted_count: 2 }] });
+      const repository = createRepository(execute);
+
+      await expect(repository.update(updateCommand)).resolves.toMatchObject({
+        attendances: [],
+        event: { capacity: 12 },
+        status: "updated",
+      });
+
+      const candidateSql = getSqlText(execute.mock.calls[1]?.[0]);
+      const refillSql = getSqlText(execute.mock.calls[2]?.[0]);
+
+      expect(candidateSql).toContain("event_attendances.status =");
+      // Lower bound = now minus one occurrence duration (one hour).
+      expect(candidateSql).toContain("2026-05-13T17:30:00.000Z");
+      expect(refillSql).toContain("public.refill_tribe_event_waitlists(");
+      expect(refillSql).toContain("2026-05-13T18:00:00.000Z");
+      expect(refillSql).toContain("2026-05-20T18:00:00.000Z");
+      expect(refillSql).not.toContain("2026-05-19T18:00:00.000Z");
+      expect(execute).toHaveBeenCalledTimes(3);
+    });
+
+    it("skips the refill call when no waitlisted occurrence is still valid", async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ ...eventRow, capacity: 12, status: "updated" }] })
+        .mockResolvedValueOnce({
+          rows: [{ occurrence_starts_at: "2026-05-19T18:00:00.000Z" }],
+        });
+      const repository = createRepository(execute);
+
+      await expect(repository.update(updateCommand)).resolves.toMatchObject({
+        attendances: [],
+        status: "updated",
+      });
+      expect(execute).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("reads the event attendance summaries of the range after the refill", async () => {
     const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [{ ...eventRow, capacity: 12, status: "updated" }] })
-      .mockResolvedValueOnce({ rows: [{ promoted_count: 2 }] });
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            event_id: EVENT_ID,
+            going_count: "12",
+            going_preview: [],
+            maybe_count: "0",
+            occurrence_starts_at: new Date("2026-05-13T18:00:00.000Z"),
+            viewer_status: "going",
+            viewer_waitlist_position: null,
+            waitlisted_count: "0",
+          },
+        ],
+      });
     const repository = createRepository(execute);
 
     await expect(
       repository.update({
+        attendanceRange: {
+          rangeEnd: "2026-06-01T03:00:00.000Z",
+          rangeStart: "2026-05-01T03:00:00.000Z",
+        },
         capacity: 12,
         description: null,
         endsAt: null,
@@ -344,10 +454,49 @@ describe("PostgresTribeEventRepository", () => {
         title: "Clase abierta",
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toMatchObject({ event: { capacity: 12 }, status: "updated" });
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
-      "public.refill_tribe_event_waitlists("
+    ).resolves.toMatchObject({
+      attendances: [
+        {
+          eventId: EVENT_ID,
+          goingCount: 12,
+          occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+          viewerStatus: "going",
+          viewerWaitlistPosition: null,
+          waitlistedCount: 0,
+        },
+      ],
+      status: "updated",
+    });
+    // Update, waitlist candidates (none), then the range summary.
+    expect(execute).toHaveBeenCalledTimes(3);
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
+      "and event_attendances.event_id ="
     );
+  });
+
+  it("skips the refill and the summary read when the update is rejected", async () => {
+    const execute = vi.fn().mockResolvedValueOnce({ rows: [{ status: "forbidden" }] });
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.update({
+        attendanceRange: {
+          rangeEnd: "2026-06-01T03:00:00.000Z",
+          rangeStart: "2026-05-01T03:00:00.000Z",
+        },
+        capacity: 12,
+        description: null,
+        endsAt: null,
+        eventId: EVENT_ID,
+        meetingUrl: null,
+        recurrenceFrequency: "weekly",
+        recurrenceUntil: null,
+        startsAt: "2026-05-06T18:00:00.000Z",
+        title: "Clase abierta",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "forbidden" });
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it("returns the manager report with attendees and trend, or the access failure", async () => {

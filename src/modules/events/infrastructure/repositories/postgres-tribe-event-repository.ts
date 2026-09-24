@@ -3,7 +3,9 @@ import { sql } from "drizzle-orm";
 import {
   TRIBE_EVENT_ATTENDANCE_STATUS,
   TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT,
+  TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
   TRIBE_EVENT_MUTATION_STATUS,
+  TRIBE_EVENT_RANGE_MATCH,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type {
@@ -13,6 +15,7 @@ import type {
   TribeEventAttendee,
   TribeEventAttendeePreview,
   TribeEventDateRange,
+  TribeEventRangeMatch,
   TribeEventRecurrenceFrequency,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
@@ -36,6 +39,10 @@ import type {
   TribeEventUpdateResult,
   TribeEventViewerAttendanceHistory,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
+import {
+  getWaitlistRefillLookbackStart,
+  selectRefillableWaitlistOccurrenceStarts,
+} from "@/src/modules/events/domain/services/tribe-event-attendance";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
@@ -76,6 +83,10 @@ type AttendanceSummaryRow = {
   viewer_status: string | null;
   viewer_waitlist_position: number | string | null;
   waitlisted_count: number | string | null;
+};
+
+type WaitlistedOccurrenceRow = {
+  occurrence_starts_at: Date | string;
 };
 
 type ViewerAttendanceRow = {
@@ -124,6 +135,7 @@ type AttendanceResponseRow = {
  */
 const ATTENDANCE_RESPONSE_OUTCOME = {
   cleared: "cleared",
+  ended: "ended",
   forbidden: "forbidden",
   invalid: "invalid",
   notFound: "not_found",
@@ -140,6 +152,8 @@ const ATTENDEE_STATUS_ORDER = [
   TRIBE_EVENT_ATTENDANCE_STATUS.notGoing,
 ] as const;
 const SINGLE_OCCURRENCE_RANGE_MS = 1;
+/** Separator of the SQL value lists built with `sql.join`. */
+const SQL_LIST_SEPARATOR = sql`, `;
 const EVENT_COLUMNS = sql`
   events.id,
   events.capacity,
@@ -162,6 +176,19 @@ const RETURNING_EVENT_COLUMNS = sql`
     events.ends_at,
     events.recurrence_frequency,
     events.recurrence_until
+`;
+/**
+ * Duration of every occurrence of a series: its explicit end minus its start,
+ * or the default duration when it has no end (same rule as
+ * `getTribeEventOccurrenceEndTime`). Used to match occurrences by overlap.
+ */
+const EVENT_OCCURRENCE_DURATION = sql`
+  (
+    coalesce(
+      events.ends_at,
+      events.starts_at + make_interval(mins => ${TRIBE_EVENT_DEFAULT_DURATION_MINUTES}::integer)
+    ) - events.starts_at
+  )
 `;
 const COUNT_BASE = 10;
 
@@ -304,10 +331,19 @@ function mapFailureStatus(
 
 function mapResponseFailureStatus(
   outcome: string | null
-): typeof TRIBE_EVENT_MUTATION_STATUS.forbidden | typeof TRIBE_EVENT_MUTATION_STATUS.notFound {
-  return outcome === ATTENDANCE_RESPONSE_OUTCOME.notFound
-    ? TRIBE_EVENT_MUTATION_STATUS.notFound
-    : TRIBE_EVENT_MUTATION_STATUS.forbidden;
+):
+  | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
+  | typeof TRIBE_EVENT_MUTATION_STATUS.notFound
+  | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded {
+  if (outcome === ATTENDANCE_RESPONSE_OUTCOME.notFound) {
+    return TRIBE_EVENT_MUTATION_STATUS.notFound;
+  }
+
+  if (outcome === ATTENDANCE_RESPONSE_OUTCOME.ended) {
+    return TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
+  }
+
+  return TRIBE_EVENT_MUTATION_STATUS.forbidden;
 }
 
 function mapCreationResult(row: EventMutationRow | null): TribeEventCreationResult {
@@ -318,7 +354,15 @@ function mapCreationResult(row: EventMutationRow | null): TribeEventCreationResu
   return { status: mapFailureStatus(row?.status ?? null) };
 }
 
-function mapUpdateResult(row: EventMutationRow | null): TribeEventUpdateResult {
+/**
+ * Outcome of the UPDATE statement alone, before the attendance summaries of
+ * the visible range are read back.
+ */
+type EventUpdateRowResult =
+  | Omit<Extract<TribeEventUpdateResult, { attendances: unknown }>, "attendances">
+  | Exclude<TribeEventUpdateResult, { attendances: unknown }>;
+
+function mapUpdateResult(row: EventMutationRow | null): EventUpdateRowResult {
   if (row?.status === TRIBE_EVENT_MUTATION_STATUS.updated) {
     return { event: mapEvent(row), status: row.status };
   }
@@ -338,8 +382,8 @@ function mapDeletionResult(row: EventDeletionRow | null): TribeEventDeletionResu
 }
 
 /**
- * Series of the tribe whose occurrences can fall in `[rangeStart, rangeEnd)`,
- * guarded by `can_read_tribe_content` because the runtime role bypasses RLS.
+ * Series of the tribe with at least one occurrence whose interval (start to
+ * effective end) overlaps `[rangeStart, rangeEnd)`, guarded by `can_read_tribe_content` because the runtime role bypasses RLS.
  * Always returns at least one row carrying the viewer permissions.
  */
 function buildEventsInRangeQuery({
@@ -367,13 +411,13 @@ function buildEventsInRangeQuery({
         and (
           (
             events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-            and events.starts_at >= ${rangeStart}
+            and events.starts_at + ${EVENT_OCCURRENCE_DURATION} > ${rangeStart}
           )
           or (
             events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
             and (
               events.recurrence_until is null
-              or events.recurrence_until >= ${rangeStart}
+              or events.recurrence_until + ${EVENT_OCCURRENCE_DURATION} > ${rangeStart}
             )
           )
         )
@@ -406,10 +450,19 @@ function buildEventsInRangeQuery({
 function buildAttendanceSummaryQuery({
   eventId,
   rangeEnd,
+  rangeMatch = TRIBE_EVENT_RANGE_MATCH.overlaps,
   rangeStart,
   tribeSlug,
-}: TribeEventDateRange & { eventId?: string; tribeSlug: string }) {
+}: TribeEventDateRange & {
+  eventId?: string;
+  rangeMatch?: TribeEventRangeMatch;
+  tribeSlug: string;
+}) {
   const eventFilter = eventId ? sql`and event_attendances.event_id = ${eventId}` : sql``;
+  const rangeFilter =
+    rangeMatch === TRIBE_EVENT_RANGE_MATCH.overlaps
+      ? sql`and event_attendances.occurrence_starts_at + ${EVENT_OCCURRENCE_DURATION} > ${rangeStart}`
+      : sql`and event_attendances.occurrence_starts_at >= ${rangeStart}`;
 
   return sql`
     with ranked_attendances as (
@@ -428,10 +481,12 @@ function buildAttendanceSummaryQuery({
       from public.event_attendances
       inner join public.tribes
         on tribes.id = event_attendances.tribe_id
+      inner join public.events
+        on events.id = event_attendances.event_id
       where tribes.slug = ${tribeSlug}
         and public.can_read_tribe_content(tribes.id)
-        and event_attendances.occurrence_starts_at >= ${rangeStart}
         and event_attendances.occurrence_starts_at < ${rangeEnd}
+        ${rangeFilter}
         ${eventFilter}
     )
     select
@@ -700,16 +755,28 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         (result.rows?.[0] ?? null) as EventMutationRow | null
       );
 
-      // A raised (or removed) capacity frees seats: promote the waitlists of
-      // upcoming occurrences in the same transaction, which already holds the
-      // event row lock taken by the UPDATE above.
-      if (updateResult.status === TRIBE_EVENT_MUTATION_STATUS.updated) {
-        await database.execute(
-          sql`select public.refill_tribe_event_waitlists(${command.eventId}::uuid) as promoted_count`
-        );
+      if (updateResult.status !== TRIBE_EVENT_MUTATION_STATUS.updated) {
+        return updateResult;
       }
 
-      return updateResult;
+      await this.refillWaitlists(database, command.eventId, updateResult.event);
+
+      if (!command.attendanceRange) {
+        return { ...updateResult, attendances: [] };
+      }
+
+      // A second statement sees the promotions committed by the refill, so
+      // the response reflects them; one aggregated query covers the range.
+      const attendanceResult = await database.execute(
+        buildAttendanceSummaryQuery({
+          ...command.attendanceRange,
+          eventId: command.eventId,
+          tribeSlug: command.tribeSlug,
+        })
+      );
+      const attendanceRows = (attendanceResult.rows ?? []) as AttendanceSummaryRow[];
+
+      return { ...updateResult, attendances: attendanceRows.map(mapAttendanceSummary) };
     });
   }
 
@@ -790,7 +857,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
 
       const statusOrder = sql.join(
         ATTENDEE_STATUS_ORDER.map((status) => sql`${status}`),
-        sql`, `
+        SQL_LIST_SEPARATOR
       );
       const attendeesResult = await database.execute(sql`
         select
@@ -820,7 +887,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
 
       const trendStarts = sql.join(
         trendOccurrenceStartsAts.map((trendStart) => sql`${trendStart}::timestamptz`),
-        sql`, `
+        SQL_LIST_SEPARATOR
       );
       const trendResult = await database.execute(sql`
         select
@@ -844,6 +911,58 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         })),
       };
     });
+  }
+
+  /**
+   * A raised (or removed) capacity frees seats: promotes the waitlists of the
+   * occurrences that are still valid under the UPDATED schedule and have not
+   * ended (in progress included), in the same transaction, which already
+   * holds the event row lock taken by the UPDATE. Rows of dates removed by a
+   * schedule edit stay as history and are never promoted. The recurrence
+   * rules live only in the domain, so the valid starts are computed here and
+   * passed to the SECURITY DEFINER function, which only intersects them with
+   * the rows that are actually waitlisted.
+   */
+  private async refillWaitlists(
+    database: RequestDatabase,
+    eventId: string,
+    updatedEvent: TribeEvent
+  ): Promise<void> {
+    const nowTime = Date.now();
+    const candidateResult = await database.execute(sql`
+      select distinct event_attendances.occurrence_starts_at
+      from public.event_attendances
+      where event_attendances.event_id = ${eventId}
+        and event_attendances.status = ${TRIBE_EVENT_ATTENDANCE_STATUS.waitlisted}
+        and event_attendances.occurrence_starts_at >= ${getWaitlistRefillLookbackStart(
+          updatedEvent,
+          nowTime
+        )}::timestamptz
+    `);
+    const candidateStarts = ((candidateResult.rows ?? []) as WaitlistedOccurrenceRow[]).map(
+      (row) => mapDateValue(row.occurrence_starts_at)
+    );
+    const refillableStarts = selectRefillableWaitlistOccurrenceStarts(
+      updatedEvent,
+      candidateStarts,
+      nowTime
+    );
+
+    if (refillableStarts.length === 0) {
+      return;
+    }
+
+    const refillableStartsArray = sql.join(
+      refillableStarts.map((startsAt) => sql`${startsAt}::timestamptz`),
+      SQL_LIST_SEPARATOR
+    );
+
+    await database.execute(sql`
+      select public.refill_tribe_event_waitlists(
+        ${eventId}::uuid,
+        array[${refillableStartsArray}]::timestamptz[]
+      ) as promoted_count
+    `);
   }
 
   /**
@@ -882,6 +1001,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           rangeEnd: new Date(
             Date.parse(key.occurrenceStartsAt) + SINGLE_OCCURRENCE_RANGE_MS
           ).toISOString(),
+          rangeMatch: TRIBE_EVENT_RANGE_MATCH.startsWithin,
           rangeStart: key.occurrenceStartsAt,
           tribeSlug: key.tribeSlug,
         })

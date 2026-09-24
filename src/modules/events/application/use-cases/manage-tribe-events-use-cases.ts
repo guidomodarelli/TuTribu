@@ -29,9 +29,13 @@ import {
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
-import type { TribeEvent } from "@/src/modules/events/domain/entities/tribe-event";
+import type {
+  TribeEvent,
+  TribeEventDateRange,
+} from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   PersistTribeEventCommand,
+  TribeEventOccurrenceAttendance,
   TribeEventRepository,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 import {
@@ -132,22 +136,28 @@ function normalizeEventInput(command: CreateTribeEventCommand): NormalizedEventI
 }
 
 /**
+ * Range of the month the caller is looking at, or null when the `month`
+ * query is missing (the save then returns no occurrences). The format was
+ * already validated at the route boundary.
+ */
+function resolveVisibleMonthRange(visibleMonth: string | null): TribeEventDateRange | null {
+  return visibleMonth === null ? null : createBuenosAiresMonthRange(visibleMonth);
+}
+
+/**
  * Occurrences of a freshly saved event inside the month the caller is
  * looking at, so the UI can patch its state without reloading the route.
+ * `attendances` are the summaries persisted for that event in the range; a
+ * new event has none, and an update reads them after the waitlist refill.
  */
 function buildVisibleMonthOccurrences(
   event: TribeEvent,
-  visibleMonth: string | null
+  attendances: TribeEventOccurrenceAttendance[],
+  visibleMonthRange: TribeEventDateRange | null
 ): TribeEventOccurrenceResult[] {
-  if (visibleMonth === null) {
-    return [];
-  }
-
-  return buildTribeEventOccurrences(
-    [event],
-    [],
-    createBuenosAiresMonthRange(visibleMonth)
-  );
+  return visibleMonthRange
+    ? buildTribeEventOccurrences([event], attendances, visibleMonthRange)
+    : [];
 }
 
 /**
@@ -228,7 +238,11 @@ export function createTribeEvent({
 
     return {
       event: toTribeEventResult(result.event),
-      occurrences: buildVisibleMonthOccurrences(result.event, command.visibleMonth),
+      occurrences: buildVisibleMonthOccurrences(
+        result.event,
+        [],
+        resolveVisibleMonthRange(command.visibleMonth)
+      ),
       status: result.status,
     };
   };
@@ -244,8 +258,10 @@ export function updateTribeEvent({
       return { status: normalizedInput.status };
     }
 
+    const visibleMonthRange = resolveVisibleMonthRange(command.visibleMonth);
     const result = await tribeEventRepository.update({
       ...normalizedInput.input,
+      attendanceRange: visibleMonthRange,
       eventId: command.eventId,
     });
 
@@ -255,7 +271,11 @@ export function updateTribeEvent({
 
     return {
       event: toTribeEventResult(result.event),
-      occurrences: buildVisibleMonthOccurrences(result.event, command.visibleMonth),
+      occurrences: buildVisibleMonthOccurrences(
+        result.event,
+        result.attendances,
+        visibleMonthRange
+      ),
       status: result.status,
     };
   };
