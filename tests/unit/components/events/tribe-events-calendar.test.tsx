@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import {
@@ -280,6 +280,22 @@ describe("TribeEventsCalendar", () => {
     expect(calendarLink).toHaveAttribute("target", "_blank");
   });
 
+  it("leaves the Google Calendar shortcut out of finished agenda occurrences", async () => {
+    vi.setSystemTime(new Date("2026-05-07T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar();
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+
+    expect(within(agenda).getByText("Finalizado")).toBeInTheDocument();
+    expect(
+      within(agenda).queryByRole("link", { name: "Agregar a Google Calendar" })
+    ).not.toBeInTheDocument();
+  });
+
   it("groups the agenda by day, marks today and shows the viewer answer and recurrence", async () => {
     vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -307,6 +323,35 @@ describe("TribeEventsCalendar", () => {
     expect(within(agenda).getByText("Todas las semanas")).toBeInTheDocument();
   });
 
+  it("wraps each agenda day heading and its events in their own day block", async () => {
+    vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const laterOccurrence = createOccurrence({
+      endsAt: "2026-05-13T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-13T18:00:00.000Z",
+      title: "Cierre de mes",
+    });
+
+    renderCalendar({ events: [laterOccurrence, occurrence] });
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+    const [firstDayHeading, secondDayHeading] = within(agenda).getAllByRole("heading", {
+      level: 2,
+    });
+    const firstDayBlock = firstDayHeading.closest("section");
+    const secondDayBlock = secondDayHeading.closest("section");
+
+    expect(firstDayBlock).not.toBe(agenda);
+    expect(secondDayBlock).not.toBe(agenda);
+    expect(firstDayBlock).not.toBe(secondDayBlock);
+    expect(within(firstDayBlock as HTMLElement).getByRole("list")).toBeInTheDocument();
+    expect(within(firstDayBlock as HTMLElement).queryByText("Cierre de mes")).not.toBeInTheDocument();
+    expect(within(secondDayBlock as HTMLElement).getByText("Cierre de mes")).toBeInTheDocument();
+  });
+
   it("shows members a quiet empty state when the month has no events", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
@@ -324,7 +369,7 @@ describe("TribeEventsCalendar", () => {
     renderCalendar({ events: [], viewerPermissions: { canManageEvents: false, canProposeEvents: false } });
 
     expect(screen.queryByText("Creá tu primer encuentro")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Q&A semanal/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Preguntas y respuestas semanal/ })).not.toBeInTheDocument();
   });
 
   it("offers managers templates that prefill the create form", async () => {
@@ -333,14 +378,14 @@ describe("TribeEventsCalendar", () => {
     renderCalendar({ events: [] });
 
     expect(screen.getByText("Creá tu primer encuentro")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Q&A semanal/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Preguntas y respuestas semanal/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Taller en vivo/ })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Kickoff mensual/ }));
+    await user.click(screen.getByRole("button", { name: /Encuentro de arranque mensual/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
 
-    expect(within(dialog).getByLabelText("Título")).toHaveValue("Kickoff mensual");
+    expect(within(dialog).getByLabelText("Título")).toHaveValue("Encuentro de arranque mensual");
     expect(within(dialog).getByLabelText("Repetición")).toHaveTextContent("Todos los meses");
 
     fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
@@ -349,6 +394,160 @@ describe("TribeEventsCalendar", () => {
 
     // The template duration (90 min) drives the suggested end time.
     expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("19:30");
+  });
+
+  it("carries a template duration that crosses midnight into the next day", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:00" },
+    });
+
+    // The 120-minute workshop ends at 01:00 of the next Buenos Aires day.
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:00");
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Termina otro día" })
+    ).toBeChecked();
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+    mockJsonResponse({ event: createEventDto(), message: "Evento creado.", occurrences: [] });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      endsAt: "2026-05-21T04:00:00.000Z",
+      startsAt: "2026-05-21T02:00:00.000Z",
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("fills the next-day end date once the date is picked after a crossing start", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:30" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:30");
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-31" },
+    });
+
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-06-01");
+  });
+
+  it("recomputes the template end every time the start changes", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Encuentro de arranque mensual/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "18:00" },
+    });
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("19:30");
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "19:00" },
+    });
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("20:30");
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("21:30");
+
+    mockJsonResponse({ event: createEventDto(), message: "Evento creado.", occurrences: [] });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    // The saved event keeps the advertised 90 minutes.
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      endsAt: "2026-05-21T00:30:00.000Z",
+      startsAt: "2026-05-20T23:00:00.000Z",
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("moves a suggested next-day end back to the start day when the start moves earlier", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:00" },
+    });
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("22:00");
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Termina otro día" })
+    ).not.toBeChecked();
+    expect(within(dialog).queryByLabelText("Fecha de fin")).not.toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:30" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:30");
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+  });
+
+  it("stops recomputing the template end once the manager edits the end date", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:00" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Fecha de fin"), {
+      target: { value: "2026-05-22" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:00");
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-22");
   });
 
   it("updates visible events when the route month changes", () => {
@@ -399,6 +598,43 @@ describe("TribeEventsCalendar", () => {
     expect(screen.getByText("Ronda pasada")).toBeInTheDocument();
     expect(screen.getByText("Finalizado")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ocultar finalizados" })).toBeInTheDocument();
+  });
+
+  it("keeps the block and element classes on today, finished, and out-of-month states", async () => {
+    vi.setSystemTime(new Date("2026-05-05T12:00:00.000Z"));
+    const pastOccurrence = createOccurrence({
+      endsAt: "2026-05-03T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-03T18:00:00.000Z",
+      title: "Ronda pasada",
+    });
+
+    const { container } = renderCalendar({ events: [pastOccurrence, occurrence] });
+
+    await screen.findByRole("region", { name: "Próximo evento" });
+
+    expect(screen.getByRole("cell", { current: "date" })).toHaveClass(
+      "TribeEventsMonthGrid__dayCell",
+      "TribeEventsMonthGrid__dayCell--today"
+    );
+    expect(screen.getByRole("button", { name: /Ronda pasada/ })).toHaveClass(
+      "TribeEventsMonthGrid__eventPill",
+      "TribeEventsMonthGrid__eventPill--past"
+    );
+
+    const pastDot = container.querySelector(".TribeEventsMonthGrid__dayDot--past");
+    const mutedDayNumber = container.querySelector(".TribeEventsMonthGrid__dayNumber--muted");
+
+    expect(pastDot).toHaveClass("TribeEventsMonthGrid__dayDot");
+    expect(mutedDayNumber).toHaveClass("TribeEventsMonthGrid__dayNumber");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver lista" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver 1 finalizado" }));
+
+    expect(screen.getByText("Ronda pasada").closest("li")).toHaveClass(
+      "TribeEventAgendaItem",
+      "TribeEventAgendaItem--past"
+    );
   });
 
   it("shows a running occurrence as live with a join link and a live agenda badge", async () => {
@@ -498,6 +734,33 @@ describe("TribeEventsCalendar", () => {
       await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
       expect(readEventQuery()).toBe(occurrence.occurrenceKey);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("keeps the rendered month in the URL when closing a monthless deep link", async () => {
+      window.history.replaceState(
+        null,
+        "",
+        "/matematica-pro/eventos?event=" + encodeURIComponent(occurrence.occurrenceKey)
+      );
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar({ initialOccurrenceKey: occurrence.occurrenceKey });
+
+      expect(await screen.findByRole("dialog", { name: "Clase abierta" })).toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(window.location.pathname).toBe("/matematica-pro/eventos");
+      expect(window.location.search).toBe("?month=2026-05");
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+
+      const reopenedUrl = new URL(window.location.href);
+
+      expect(reopenedUrl.searchParams.get("month")).toBe("2026-05");
+      expect(reopenedUrl.searchParams.get("event")).toBe(occurrence.occurrenceKey);
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
@@ -683,6 +946,34 @@ describe("TribeEventsCalendar", () => {
     expect(screen.queryByRole("button", { name: "Crear evento" })).not.toBeInTheDocument();
   });
 
+  it("exports the whole series from the detail of a later recurring occurrence", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({
+      events: [
+        createOccurrence({
+          endsAt: "2026-05-20T19:00:00.000Z",
+          recurrenceFrequency: "weekly",
+          recurrenceRule: "FREQ=WEEKLY",
+          seriesStartsAt: "2026-05-06T18:00:00.000Z",
+          startsAt: "2026-05-20T18:00:00.000Z",
+        }),
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
+    const calendarUrl = new URL(
+      within(dialog)
+        .getByRole("link", { name: "Agregar a Google Calendar" })
+        .getAttribute("href") ?? ""
+    );
+
+    expect(calendarUrl.searchParams.get("dates")).toBe("20260506T180000Z/20260506T190000Z");
+    expect(calendarUrl.searchParams.get("recur")).toBe("RRULE:FREQ=WEEKLY");
+  });
+
   it("records and clears the viewer attendance from the detail", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
@@ -791,6 +1082,13 @@ describe("TribeEventsCalendar", () => {
     });
 
     expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:00");
+
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "15:30" },
+    });
+
+    // A suggested end keeps following the start until the manager edits it.
+    expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:30");
 
     fireEvent.change(screen.getByLabelText("Hora de fin"), {
       target: { value: "17:30" },
@@ -998,6 +1296,15 @@ describe("TribeEventsCalendar", () => {
     expect(screen.getByLabelText("Hora de inicio")).toHaveValue("15:00");
     expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:00");
 
+    // Moving the start never overwrites the saved end of the event.
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "14:00" },
+    });
+    expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:00");
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "15:00" },
+    });
+
     fireEvent.change(screen.getByLabelText("Título"), {
       target: { value: "Clase cerrada" },
     });
@@ -1006,7 +1313,7 @@ describe("TribeEventsCalendar", () => {
       message: "Evento actualizado.",
       occurrences: [
         createOccurrence({
-          attendance: createAttendance({ goingCount: 2, viewerStatus: null }),
+          attendance: createAttendance({ goingCount: 3, viewerStatus: "going" }),
           title: "Clase cerrada",
         }),
       ],
@@ -1021,7 +1328,7 @@ describe("TribeEventsCalendar", () => {
 
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase cerrada/ }));
 
-    expect(within(screen.getByRole("dialog")).getByText("2 van")).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).getByText("3 van")).toBeInTheDocument();
   });
 
   it("asks for confirmation before deleting an event", async () => {
@@ -1053,6 +1360,303 @@ describe("TribeEventsCalendar", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: /15:00\s*Clase abierta/ })).not.toBeInTheDocument()
     );
+  });
+
+  describe("attendance streak after series mutations", () => {
+    const initialStreak = { attendedCount: 4, occurrenceCount: 5 };
+    const laterOccurrence = createOccurrence({
+      endsAt: "2026-05-20T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-20T18:00:00.000Z",
+      title: "Encuentro abierto",
+    });
+
+    async function editFirstOccurrence(responseBody: Record<string, unknown>) {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+      await user.click(screen.getByRole("button", { name: "Editar" }));
+      fireEvent.change(screen.getByLabelText("Título"), {
+        target: { value: "Clase cerrada" },
+      });
+      mockJsonResponse({
+        event: createEventDto(),
+        message: "Evento actualizado.",
+        occurrences: [createOccurrence({ title: "Clase cerrada" })],
+        ...responseBody,
+      });
+      await user.click(screen.getByRole("button", { name: "Guardar evento" }));
+      await screen.findByRole("button", { name: /15:00\s*Clase cerrada/ });
+    }
+
+    async function deleteFirstOccurrence(responseBody: Record<string, unknown>) {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+      await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      mockJsonResponse({ message: "Evento eliminado.", ...responseBody });
+      await user.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Eliminar" })
+      );
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: /15:00\s*Clase abierta/ })
+        ).not.toBeInTheDocument()
+      );
+    }
+
+    function getNextEventRegion() {
+      return screen.getByRole("region", { name: "Próximo evento" });
+    }
+
+    it("shows the streak returned by an edit without reloading the route", async () => {
+      renderCalendar({ attendanceStreak: initialStreak });
+
+      await editFirstOccurrence({
+        attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+      });
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 2 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("shows the streak returned by a creation without reloading the route", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      renderCalendar({ attendanceStreak: initialStreak });
+
+      await user.click(screen.getByRole("button", { name: "Crear evento" }));
+      fireEvent.change(screen.getByLabelText("Título"), {
+        target: { value: "Clase histórica" },
+      });
+      fireEvent.change(screen.getByLabelText("Fecha"), {
+        target: { value: "2026-05-20" },
+      });
+      fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+        target: { value: "15:00" },
+      });
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        event: createEventDto(),
+        message: "Evento creado.",
+        occurrences: [laterOccurrence],
+      });
+      await user.click(screen.getByRole("button", { name: "Guardar evento" }));
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 3 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("hides the streak when a deletion leaves the viewer without one", async () => {
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+
+      await deleteFirstOccurrence({ attendanceStreak: null });
+
+      expect(
+        await within(getNextEventRegion()).findByText("Encuentro abierto")
+      ).toBeInTheDocument();
+      expect(within(getNextEventRegion()).queryByText(/Fuiste a/)).not.toBeInTheDocument();
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("keeps the previous streak when the mutation response omits it", async () => {
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+
+      await deleteFirstOccurrence({});
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 4 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+    });
+
+    it("ignores an unusable streak in the mutation response", async () => {
+      renderCalendar({ attendanceStreak: initialStreak });
+
+      await editFirstOccurrence({ attendanceStreak: { attendedCount: "2" } });
+
+      expect(
+        within(getNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe("attendance streak when an occurrence finishes", () => {
+    const initialStreak = { attendedCount: 4, occurrenceCount: 5 };
+    const streakEndpoint = "/api/tribes/matematica-pro/events/attendance-streak";
+    const laterOccurrence = createOccurrence({
+      endsAt: "2026-05-20T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-20T18:00:00.000Z",
+      title: "Encuentro abierto",
+    });
+
+    function getNextEventRegion() {
+      return screen.getByRole("region", { name: "Próximo evento" });
+    }
+
+    function getStreakRequests() {
+      return (global.fetch as Mock).mock.calls.filter(([url]) => url === streakEndpoint);
+    }
+
+    async function advanceMinutes(minuteCount: number) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(minuteCount * 60_000);
+      });
+    }
+
+    beforeEach(() => {
+      // Two minutes before the first occurrence (18:00-19:00 UTC) ends.
+      vi.setSystemTime(new Date("2026-05-06T18:58:00.000Z"));
+    });
+
+    it("asks for the streak once when the running occurrence ends", async () => {
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+      mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+
+      await advanceMinutes(1);
+      expect(getStreakRequests()).toHaveLength(0);
+
+      await advanceMinutes(1);
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 5 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(getStreakRequests()).toHaveLength(1);
+      expect(getStreakRequests()[0][1]).toEqual(
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(1);
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("keeps the streak on screen when the refresh fails", async () => {
+      const { toast } = vi.mocked(await import("beez-ui"), true);
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+      mockJsonResponse({ message: "No pudimos actualizar tu racha." }, false);
+
+      await advanceMinutes(2);
+
+      await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+      expect(
+        within(getNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
+      ).toBeInTheDocument();
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it("ignores an unusable streak in the refresh response", async () => {
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+      mockJsonResponse({ attendanceStreak: { attendedCount: -1, occurrenceCount: 5 } });
+
+      await advanceMinutes(2);
+
+      await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+      expect(
+        within(getNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
+      ).toBeInTheDocument();
+    });
+
+    it("cancels a pending refresh when the calendar unmounts", async () => {
+      (global.fetch as Mock).mockImplementationOnce(() => new Promise(() => undefined));
+      const { unmount } = renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+
+      await advanceMinutes(2);
+      await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+      const signal = getStreakRequests()[0][1].signal as AbortSignal;
+
+      unmount();
+
+      expect(signal.aborted).toBe(true);
+    });
+
+    it("asks for the streak once when the occurrence ended between the server snapshot and the first client tick", async () => {
+      // The server computed the streak at 18:58; the occurrence ended at
+      // 19:00 and the client clock starts at 19:01.
+      vi.setSystemTime(new Date("2026-05-06T19:01:00.000Z"));
+      mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakComputedAt: "2026-05-06T18:58:00.000Z",
+        events: [occurrence, laterOccurrence],
+      });
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 5 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(getStreakRequests()).toHaveLength(1);
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(1);
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the streak when the occurrence ended before the server snapshot", async () => {
+      vi.setSystemTime(new Date("2026-05-06T19:03:00.000Z"));
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakComputedAt: "2026-05-06T19:01:00.000Z",
+        events: [occurrence, laterOccurrence],
+      });
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(0);
+    });
+
+    it("does not ask for the streak on the first client tick without a usable server snapshot", async () => {
+      vi.setSystemTime(new Date("2026-05-06T19:01:00.000Z"));
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakComputedAt: "no es una fecha",
+        events: [occurrence, laterOccurrence],
+      });
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(0);
+    });
+
+    it("does not ask for the streak when no occurrence ends", async () => {
+      renderCalendar({ attendanceStreak: initialStreak, events: [laterOccurrence] });
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(0);
+    });
   });
 
   it("shows the endpoint message when saving fails", async () => {
@@ -1149,6 +1753,13 @@ describe("TribeEventsCalendar server render", () => {
 
     expect(html).toContain('aria-label="Calendario mensual de eventos"');
     expect(html).toContain('aria-label="Lista de eventos"');
+    // Each pre-hydration wrapper keeps the base element next to its modifier.
+    expect(html).toContain(
+      'class="TribeEventsCalendar__autoView TribeEventsCalendar__autoView--calendar"'
+    );
+    expect(html).toContain(
+      'class="TribeEventsCalendar__autoView TribeEventsCalendar__autoView--list"'
+    );
   });
 
   it("links the today shortcut to the bare route before hydration", async () => {
@@ -1168,6 +1779,27 @@ describe("TribeEventsCalendar server render", () => {
     // Without a clock the server cannot know the viewer's "today", so the
     // link leaves the month to the route, which defaults to the current one.
     expect(html).toMatch(/href="\/matematica-pro\/eventos"[^>]*>Hoy</);
+  });
+
+  it("holds back the Google Calendar shortcut until the occurrence phase is known", async () => {
+    const { renderToString } = await import("react-dom/server");
+
+    const html = renderToString(
+      <RouterProvider>
+        <TribeEventsCalendar
+          events={[createOccurrence()]}
+          month={MAY}
+          tribeSlug="matematica-pro"
+          viewerPermissions={{ canManageEvents: false }}
+        />
+      </RouterProvider>
+    );
+
+    // Without a clock the server cannot tell a finished occurrence apart, so
+    // the shortcut limited to unfinished events must not ship in the HTML.
+    expect(html).toContain("Clase abierta");
+    expect(html).not.toContain("Agregar a Google Calendar");
+    expect(html).not.toContain("calendar.google.com");
   });
 
   it("keeps a single view once hydrated on the client", () => {

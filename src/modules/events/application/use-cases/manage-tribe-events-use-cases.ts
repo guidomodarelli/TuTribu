@@ -189,6 +189,11 @@ export function updateTribeEvent({
 
     const result = await tribeEventRepository.update({
       ...normalizedInput.input,
+      // The visible month is read below through `listEventOccurrences`, which
+      // also brings the exceptions and dates moved into the month; it runs
+      // after the update (and its waitlist refill) committed, so the
+      // summaries already include the promotions.
+      attendanceRange: null,
       eventId: command.eventId,
       tribeSlug: command.tribeSlug,
     });

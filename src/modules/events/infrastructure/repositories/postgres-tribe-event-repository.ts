@@ -6,6 +6,7 @@ import {
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_PROPOSAL_STATUS,
+  TRIBE_EVENT_RANGE_MATCH,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type {
@@ -15,6 +16,7 @@ import type {
   TribeEventAttendee,
   TribeEventAttendeePreview,
   TribeEventDateRange,
+  TribeEventRangeMatch,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   DeleteTribeEventRepositoryCommand,
@@ -40,8 +42,14 @@ import type {
   TribeEventViewerAttendanceHistory,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 import {
+  getWaitlistRefillLookbackStart,
+  selectRefillableWaitlistOccurrenceStarts,
+} from "@/src/modules/events/domain/services/tribe-event-attendance";
+import {
   RETURNING_TRIBE_EVENT_COLUMNS,
   TRIBE_EVENT_COLUMNS,
+  TRIBE_EVENT_OCCURRENCE_DURATION,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS,
   buildTribeEventExceptionsInRangeQuery,
   mapCount,
   mapDateValue,
@@ -79,6 +87,10 @@ type AttendanceSummaryRow = {
   viewer_status: string | null;
   viewer_waitlist_position: number | string | null;
   waitlisted_count: number | string | null;
+};
+
+type WaitlistedOccurrenceRow = {
+  occurrence_starts_at: Date | string;
 };
 
 type ViewerAttendanceRow = {
@@ -126,7 +138,9 @@ type AttendanceResponseRow = {
  * Outcomes returned by `public.respond_to_tribe_event_occurrence`.
  */
 const ATTENDANCE_RESPONSE_OUTCOME = {
+  cancelled: "cancelled",
   cleared: "cleared",
+  ended: "ended",
   forbidden: "forbidden",
   invalid: "invalid",
   notFound: "not_found",
@@ -143,6 +157,8 @@ const ATTENDEE_STATUS_ORDER = [
   TRIBE_EVENT_ATTENDANCE_STATUS.notGoing,
 ] as const;
 const SINGLE_OCCURRENCE_RANGE_MS = 1;
+/** Separator of the SQL value lists built with `sql.join`. */
+const SQL_LIST_SEPARATOR = sql`, `;
 
 
 function mapAttendanceStatus(value: string | null): TribeEventAttendanceStatus | null {
@@ -239,10 +255,24 @@ function mapFailureStatus(
 
 function mapResponseFailureStatus(
   outcome: string | null
-): typeof TRIBE_EVENT_MUTATION_STATUS.forbidden | typeof TRIBE_EVENT_MUTATION_STATUS.notFound {
-  return outcome === ATTENDANCE_RESPONSE_OUTCOME.notFound
-    ? TRIBE_EVENT_MUTATION_STATUS.notFound
-    : TRIBE_EVENT_MUTATION_STATUS.forbidden;
+):
+  | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
+  | typeof TRIBE_EVENT_MUTATION_STATUS.notFound
+  | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled
+  | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded {
+  if (outcome === ATTENDANCE_RESPONSE_OUTCOME.notFound) {
+    return TRIBE_EVENT_MUTATION_STATUS.notFound;
+  }
+
+  if (outcome === ATTENDANCE_RESPONSE_OUTCOME.cancelled) {
+    return TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled;
+  }
+
+  if (outcome === ATTENDANCE_RESPONSE_OUTCOME.ended) {
+    return TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
+  }
+
+  return TRIBE_EVENT_MUTATION_STATUS.forbidden;
 }
 
 function mapCreationResult(row: EventMutationRow | null): TribeEventCreationResult {
@@ -253,7 +283,15 @@ function mapCreationResult(row: EventMutationRow | null): TribeEventCreationResu
   return { status: mapFailureStatus(row?.status ?? null) };
 }
 
-function mapUpdateResult(row: EventMutationRow | null): TribeEventUpdateResult {
+/**
+ * Outcome of the UPDATE statement alone, before the attendance summaries of
+ * the visible range are read back.
+ */
+type EventUpdateRowResult =
+  | Omit<Extract<TribeEventUpdateResult, { attendances: unknown }>, "attendances">
+  | Exclude<TribeEventUpdateResult, { attendances: unknown }>;
+
+function mapUpdateResult(row: EventMutationRow | null): EventUpdateRowResult {
   if (row?.status === TRIBE_EVENT_MUTATION_STATUS.updated) {
     return { event: mapTribeEvent(row), status: row.status };
   }
@@ -273,30 +311,56 @@ function mapDeletionResult(row: EventDeletionRow | null): TribeEventDeletionResu
 }
 
 /**
- * Moved dates whose new start falls in the range, as a SQL predicate on an
- * `events` row: they bring their series into the listing even when the
- * series itself ended before the range (the last date moved later).
+/**
+ * Moved dates that belong to the range, as a SQL predicate that needs an
+ * `events` row in scope (for the series duration). With `overlaps` a moved
+ * date matches while its effective interval (its new end, or its new start
+ * plus the series duration) overlaps the range; with `startsWithin` its new
+ * start must fall inside the range. `originalStartsAtColumn` narrows the
+ * predicate to one answered slot (attendance rows keep the original start).
  */
-function buildMovedIntoRangePredicate({ rangeEnd, rangeStart }: TribeEventDateRange) {
+function buildMovedIntoRangePredicate(
+  { rangeEnd, rangeStart }: TribeEventDateRange,
+  rangeMatch: TribeEventRangeMatch,
+  originalStartsAtColumn?: ReturnType<typeof sql>
+) {
+  const slotFilter = originalStartsAtColumn
+    ? sql`and moved_exceptions.original_starts_at = ${originalStartsAtColumn}`
+    : sql``;
+  const rangeFilter =
+    rangeMatch === TRIBE_EVENT_RANGE_MATCH.overlaps
+      ? sql`
+          and moved_exceptions.new_starts_at < ${rangeEnd}
+          and coalesce(
+            moved_exceptions.new_ends_at,
+            moved_exceptions.new_starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION}
+          ) > ${rangeStart}
+        `
+      : sql`
+          and moved_exceptions.new_starts_at >= ${rangeStart}
+          and moved_exceptions.new_starts_at < ${rangeEnd}
+        `;
+
   return sql`
     exists (
       select 1
       from public.event_occurrence_exceptions moved_exceptions
       where moved_exceptions.event_id = events.id
         and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
-        and moved_exceptions.new_starts_at >= ${rangeStart}
-        and moved_exceptions.new_starts_at < ${rangeEnd}
+        ${slotFilter}
+        ${rangeFilter}
     )
   `;
 }
 
 /**
- * Series of the tribe whose occurrences can fall in `[rangeStart, rangeEnd)`,
- * including series with a date moved into the range, guarded by
- * `can_read_tribe_content` because the runtime role bypasses RLS. Always
- * returns at least one row carrying the viewer permissions: whether the
- * viewer manages events, may propose one (active member who does not
- * manage), and how many proposals wait for review (managers only).
+ * Series of the tribe with at least one occurrence whose interval (start to
+ * effective end) overlaps `[rangeStart, rangeEnd)`, including series with a
+ * date moved into the range, guarded by `can_read_tribe_content` because the
+ * runtime role bypasses RLS. Always returns at least one row carrying the
+ * viewer permissions: whether the viewer manages events, may propose one
+ * (active member who does not manage), and how many proposals wait for
+ * review (managers only).
  */
 function buildEventsInRangeQuery({
   rangeEnd,
@@ -327,18 +391,21 @@ function buildEventsInRangeQuery({
             and (
               (
                 events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-                and events.starts_at >= ${rangeStart}
+                and events.starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
               )
               or (
                 events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
                 and (
                   events.recurrence_until is null
-                  or events.recurrence_until >= ${rangeStart}
+                  or events.recurrence_until + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
                 )
               )
             )
           )
-          or ${buildMovedIntoRangePredicate({ rangeEnd, rangeStart })}
+          or ${buildMovedIntoRangePredicate(
+            { rangeEnd, rangeStart },
+            TRIBE_EVENT_RANGE_MATCH.overlaps
+          )}
         )
     )
     select
@@ -385,22 +452,26 @@ function buildAttendanceSummaryQuery({
   eventId,
   includeMovedIn,
   rangeEnd,
+  rangeMatch = TRIBE_EVENT_RANGE_MATCH.overlaps,
   rangeStart,
   tribeSlug,
-}: TribeEventDateRange & { eventId?: string; includeMovedIn: boolean; tribeSlug: string }) {
+}: TribeEventDateRange & {
+  eventId?: string;
+  includeMovedIn: boolean;
+  rangeMatch?: TribeEventRangeMatch;
+  tribeSlug: string;
+}) {
   const eventFilter = eventId ? sql`and event_attendances.event_id = ${eventId}` : sql``;
+  const rangeFilter =
+    rangeMatch === TRIBE_EVENT_RANGE_MATCH.overlaps
+      ? sql`and event_attendances.occurrence_starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}`
+      : sql`and event_attendances.occurrence_starts_at >= ${rangeStart}`;
   const movedInFilter = includeMovedIn
-    ? sql`
-        or exists (
-          select 1
-          from public.event_occurrence_exceptions moved_exceptions
-          where moved_exceptions.event_id = event_attendances.event_id
-            and moved_exceptions.original_starts_at = event_attendances.occurrence_starts_at
-            and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
-            and moved_exceptions.new_starts_at >= ${rangeStart}
-            and moved_exceptions.new_starts_at < ${rangeEnd}
-        )
-      `
+    ? sql`or ${buildMovedIntoRangePredicate(
+        { rangeEnd, rangeStart },
+        rangeMatch,
+        sql`event_attendances.occurrence_starts_at`
+      )}`
     : sql``;
 
   return sql`
@@ -420,12 +491,14 @@ function buildAttendanceSummaryQuery({
       from public.event_attendances
       inner join public.tribes
         on tribes.id = event_attendances.tribe_id
+      inner join public.events
+        on events.id = event_attendances.event_id
       where tribes.slug = ${tribeSlug}
         and public.can_read_tribe_content(tribes.id)
         and (
           (
-            event_attendances.occurrence_starts_at >= ${rangeStart}
-            and event_attendances.occurrence_starts_at < ${rangeEnd}
+            event_attendances.occurrence_starts_at < ${rangeEnd}
+            ${rangeFilter}
           )
           ${movedInFilter}
         )
@@ -780,16 +853,29 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         (result.rows?.[0] ?? null) as EventMutationRow | null
       );
 
-      // A raised (or removed) capacity frees seats: promote the waitlists of
-      // upcoming occurrences in the same transaction, which already holds the
-      // event row lock taken by the UPDATE above.
-      if (updateResult.status === TRIBE_EVENT_MUTATION_STATUS.updated) {
-        await database.execute(
-          sql`select public.refill_tribe_event_waitlists(${command.eventId}::uuid) as promoted_count`
-        );
+      if (updateResult.status !== TRIBE_EVENT_MUTATION_STATUS.updated) {
+        return updateResult;
       }
 
-      return updateResult;
+      await this.refillWaitlists(database, command.eventId, updateResult.event);
+
+      if (!command.attendanceRange) {
+        return { ...updateResult, attendances: [] };
+      }
+
+      // A second statement sees the promotions committed by the refill, so
+      // the response reflects them; one aggregated query covers the range.
+      const attendanceResult = await database.execute(
+        buildAttendanceSummaryQuery({
+          ...command.attendanceRange,
+          eventId: command.eventId,
+          includeMovedIn: true,
+          tribeSlug: command.tribeSlug,
+        })
+      );
+      const attendanceRows = (attendanceResult.rows ?? []) as AttendanceSummaryRow[];
+
+      return { ...updateResult, attendances: attendanceRows.map(mapAttendanceSummary) };
     });
   }
 
@@ -870,7 +956,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
 
       const statusOrder = sql.join(
         ATTENDEE_STATUS_ORDER.map((status) => sql`${status}`),
-        sql`, `
+        SQL_LIST_SEPARATOR
       );
       const attendeesResult = await database.execute(sql`
         select
@@ -900,7 +986,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
 
       const trendStarts = sql.join(
         trendOccurrenceStartsAts.map((trendStart) => sql`${trendStart}::timestamptz`),
-        sql`, `
+        SQL_LIST_SEPARATOR
       );
       const trendResult = await database.execute(sql`
         select
@@ -924,6 +1010,85 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         })),
       };
     });
+  }
+
+  /**
+   * A raised (or removed) capacity frees seats: promotes the waitlists of the
+   * occurrences that are still valid under the UPDATED schedule and have not
+   * ended (in progress included), in the same transaction, which already
+   * holds the event row lock taken by the UPDATE. Rows of dates removed by a
+   * schedule edit stay as history and are never promoted. Exceptions keep the
+   * stable key `eventId@originalStartsAt`: cancelled dates are skipped and a
+   * moved date is refilled under its original start while it has not ended
+   * at its new time. The recurrence
+   * rules live only in the domain, so the valid starts are computed here and
+   * passed to the SECURITY DEFINER function, which only intersects them with
+   * the rows that are actually waitlisted.
+   */
+  private async refillWaitlists(
+    database: RequestDatabase,
+    eventId: string,
+    updatedEvent: TribeEvent
+  ): Promise<void> {
+    const nowTime = Date.now();
+    // Rows keep the original start: a date moved later can still be ahead
+    // even when its original start is older than the lookback bound.
+    const candidateResult = await database.execute(sql`
+      select distinct event_attendances.occurrence_starts_at
+      from public.event_attendances
+      where event_attendances.event_id = ${eventId}
+        and event_attendances.status = ${TRIBE_EVENT_ATTENDANCE_STATUS.waitlisted}
+        and (
+          event_attendances.occurrence_starts_at >= ${getWaitlistRefillLookbackStart(
+            updatedEvent,
+            nowTime
+          )}::timestamptz
+          or exists (
+            select 1
+            from public.event_occurrence_exceptions moved_exceptions
+            where moved_exceptions.event_id = event_attendances.event_id
+              and moved_exceptions.original_starts_at = event_attendances.occurrence_starts_at
+              and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
+          )
+        )
+    `);
+    const candidateStarts = ((candidateResult.rows ?? []) as WaitlistedOccurrenceRow[]).map(
+      (row) => mapDateValue(row.occurrence_starts_at)
+    );
+
+    if (candidateStarts.length === 0) {
+      return;
+    }
+
+    const exceptionsResult = await database.execute(sql`
+      select ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS}
+      from public.event_occurrence_exceptions
+      where event_occurrence_exceptions.event_id = ${eventId}
+    `);
+    const refillableStarts = selectRefillableWaitlistOccurrenceStarts(
+      updatedEvent,
+      candidateStarts,
+      nowTime,
+      mapTribeEventOccurrenceExceptions(
+        (exceptionsResult.rows ?? []) as TribeEventOccurrenceExceptionRow[]
+      )
+    );
+
+    if (refillableStarts.length === 0) {
+      return;
+    }
+
+    const refillableStartsArray = sql.join(
+      refillableStarts.map((startsAt) => sql`${startsAt}::timestamptz`),
+      SQL_LIST_SEPARATOR
+    );
+
+    await database.execute(sql`
+      select public.refill_tribe_event_waitlists(
+        ${eventId}::uuid,
+        array[${refillableStartsArray}]::timestamptz[]
+      ) as promoted_count
+    `);
   }
 
   /**
@@ -963,6 +1128,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           rangeEnd: new Date(
             Date.parse(key.occurrenceStartsAt) + SINGLE_OCCURRENCE_RANGE_MS
           ).toISOString(),
+          rangeMatch: TRIBE_EVENT_RANGE_MATCH.startsWithin,
           rangeStart: key.occurrenceStartsAt,
           tribeSlug: key.tribeSlug,
         })

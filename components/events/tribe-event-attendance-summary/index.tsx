@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarImage } from "beez-ui";
+import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarImage, cn } from "beez-ui";
 
 import {
   formatAttendanceCounts,
@@ -75,11 +75,10 @@ export function TribeEventAttendanceSummary({
 
   return (
     <div
-      className={
-        isCompact
-          ? styles["TribeEventAttendanceSummary--compact"]
-          : styles.TribeEventAttendanceSummary
-      }
+      className={cn(
+        styles.TribeEventAttendanceSummary,
+        isCompact && styles["TribeEventAttendanceSummary--compact"]
+      )}
     >
       {visiblePreview.length > 0 ? (
         <AvatarGroup aria-hidden className={styles.TribeEventAttendanceSummary__avatars}>

@@ -10,18 +10,23 @@ import {
 import {
   clearTribeEventOccurrenceExceptionRequest,
   deleteTribeEventRequest,
+  fetchTribeEventAttendanceStreakRequest,
   saveTribeEventAttendanceRequest,
   saveTribeEventOccurrenceExceptionRequest,
   saveTribeEventRequest,
   type TribeEventSavePayload,
+  type TribeEventStreakRefresh,
 } from "@/lib/events/tribe-events-api-client";
 import type { TribeEventOccurrenceExceptionRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-exception-request-schemas";
 import type {
   TribeEventAttendanceOption,
+  TribeEventAttendanceStreakResult,
   TribeEventOccurrenceResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 
 type UseTribeEventMutationsInput = {
+  /** Viewer streak rendered by the server (null when there is none). */
+  attendanceStreak: TribeEventAttendanceStreakResult | null;
   /** Occurrences rendered by the server for the visible month. */
   events: TribeEventOccurrenceResult[];
   /** Visible `YYYY-MM` month, sent so saves return that month's occurrences. */
@@ -32,6 +37,11 @@ type UseTribeEventMutationsInput = {
 type VisibleEventsState = {
   events: TribeEventOccurrenceResult[];
   sourceEvents: TribeEventOccurrenceResult[];
+};
+
+type AttendanceStreakState = {
+  sourceStreak: TribeEventAttendanceStreakResult | null;
+  streak: TribeEventAttendanceStreakResult | null;
 };
 
 type OccurrencesUpdater = (
@@ -49,6 +59,8 @@ export type TribeEventMutations = {
   applyEventOccurrences: (eventId: string, occurrences: TribeEventOccurrenceResult[]) => void;
   /** "Restaurar fecha": removes the exception of the occurrence. */
   clearOccurrenceException: (occurrence: TribeEventOccurrenceResult) => Promise<boolean>;
+  /** Viewer streak, refreshed by creations, edits, and deletions of a series. */
+  attendanceStreak: TribeEventAttendanceStreakResult | null;
   deleteEvent: (occurrence: TribeEventOccurrenceResult) => Promise<boolean>;
   isDeletingEvent: boolean;
   isSavingAttendance: boolean;
@@ -59,6 +71,11 @@ export type TribeEventMutations = {
     occurrence: TribeEventOccurrenceResult,
     body: Omit<TribeEventOccurrenceExceptionRequestBody, "originalStartsAt">
   ) => Promise<boolean>;
+  /**
+   * Reads the streak again (for example when an occurrence on screen
+   * finishes). Failures keep the streak on screen without user feedback.
+   */
+  refreshAttendanceStreak: () => void;
   saveEvent: (
     payload: TribeEventSavePayload,
     editingOccurrence: TribeEventOccurrenceResult | null
@@ -89,13 +106,17 @@ const COPY = {
  * duplicate submissions while a request of the same kind is in flight.
  *
  * When the route renders a new `events` array (month navigation), local
- * mutations are discarded in favour of the fresh server data.
+ * mutations are discarded in favour of the fresh server data. The viewer
+ * streak follows the same rule: creations, edits, and deletions replace it
+ * with the value the route recomputed, only the latest streak-carrying
+ * response wins, and a response without a streak keeps the one on screen.
  *
- * @param input - Server occurrences, visible month, and tribe slug.
- * @returns Visible occurrences, pending flags, and mutation callbacks that
+ * @param input - Server occurrences and streak, visible month, and tribe slug.
+ * @returns Visible occurrences and streak, pending flags, and mutation callbacks that
  * resolve to `true` when the change was stored.
  */
 export function useTribeEventMutations({
+  attendanceStreak,
   events,
   month,
   tribeSlug,
@@ -108,10 +129,20 @@ export function useTribeEventMutations({
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isSavingAttendance, setIsSavingAttendance] = useState(false);
   const [isSavingException, setIsSavingException] = useState(false);
+  const [attendanceStreakState, setAttendanceStreakState] = useState<AttendanceStreakState>({
+    sourceStreak: attendanceStreak,
+    streak: attendanceStreak,
+  });
+  // Increases on every request that can refresh the streak, so a slower,
+  // older response never overwrites the streak of a newer mutation.
+  const streakRequestSequenceRef = useRef(0);
   const isSavingEventRef = useRef(false);
   const isDeletingEventRef = useRef(false);
   const isSavingAttendanceRef = useRef(false);
   const isSavingExceptionRef = useRef(false);
+  // In-flight streak refresh, aborted when a newer refresh starts or the
+  // calendar unmounts so a stale read never lands on screen.
+  const streakRefreshControllerRef = useRef<AbortController | null>(null);
   // Month on screen when a response arrives. A response computed for another
   // month (the viewer navigated while it was in flight) is never merged.
   const visibleMonthRef = useRef(month);
@@ -127,6 +158,73 @@ export function useTribeEventMutations({
     () => [...unsortedVisibleEvents].sort(compareOccurrencesByStart),
     [unsortedVisibleEvents]
   );
+
+  const visibleAttendanceStreak =
+    attendanceStreakState.sourceStreak === attendanceStreak
+      ? attendanceStreakState.streak
+      : attendanceStreak;
+
+  const startStreakRequest = () => {
+    streakRequestSequenceRef.current += 1;
+
+    return {
+      requestSequence: streakRequestSequenceRef.current,
+      sourceStreak: attendanceStreak,
+    };
+  };
+
+  const applyStreakRefresh = (
+    request: ReturnType<typeof startStreakRequest>,
+    refresh: TribeEventStreakRefresh
+  ) => {
+    if (
+      refresh.attendanceStreak === undefined ||
+      request.requestSequence !== streakRequestSequenceRef.current
+    ) {
+      return;
+    }
+
+    // Tagged with the server streak seen when the request started: if the
+    // route renders a new one meanwhile (navigation), the fresher server
+    // value wins, the same way new server events replace local mutations.
+    setAttendanceStreakState({
+      sourceStreak: request.sourceStreak,
+      streak: refresh.attendanceStreak,
+    });
+  };
+
+  useEffect(
+    () => () => {
+      streakRefreshControllerRef.current?.abort();
+    },
+    []
+  );
+
+  const refreshAttendanceStreak: TribeEventMutations["refreshAttendanceStreak"] = () => {
+    streakRefreshControllerRef.current?.abort();
+
+    const controller = new AbortController();
+    const streakRequest = startStreakRequest();
+
+    streakRefreshControllerRef.current = controller;
+
+    fetchTribeEventAttendanceStreakRequest({ signal: controller.signal, tribeSlug })
+      .then((refresh) => {
+        if (!controller.signal.aborted) {
+          applyStreakRefresh(streakRequest, refresh);
+        }
+      })
+      .catch(() => {
+        // Deliberate fallback: an aborted or failed background read keeps the
+        // streak on screen. The route handler logs its own failures, and a
+        // passive refresh the viewer did not trigger must not raise a toast.
+      })
+      .finally(() => {
+        if (streakRefreshControllerRef.current === controller) {
+          streakRefreshControllerRef.current = null;
+        }
+      });
+  };
 
   const replaceVisibleEvents = (updater: OccurrencesUpdater) => {
     setVisibleEventsState((currentState) => ({
@@ -225,6 +323,7 @@ export function useTribeEventMutations({
     setIsSavingEvent(true);
 
     const requestMonth = month;
+    const streakRequest = startStreakRequest();
 
     try {
       const result = await saveTribeEventRequest({
@@ -246,6 +345,8 @@ export function useTribeEventMutations({
         applyEventOccurrences(savedEventId, result.occurrences);
       }
 
+      applyStreakRefresh(streakRequest, result);
+
       toast.success(result.message ?? COPY.eventSaveFallback);
       return true;
     } catch {
@@ -266,6 +367,8 @@ export function useTribeEventMutations({
     isDeletingEventRef.current = true;
     setIsDeletingEvent(true);
 
+    const streakRequest = startStreakRequest();
+
     try {
       const result = await deleteTribeEventRequest({
         eventId: occurrence.eventId,
@@ -282,6 +385,7 @@ export function useTribeEventMutations({
           (currentOccurrence) => currentOccurrence.eventId !== occurrence.eventId
         )
       );
+      applyStreakRefresh(streakRequest, result);
       toast.success(result.message ?? COPY.deleteSuccess);
       return true;
     } catch {
@@ -339,11 +443,13 @@ export function useTribeEventMutations({
   return {
     applyEventOccurrences,
     clearOccurrenceException,
+    attendanceStreak: visibleAttendanceStreak,
     deleteEvent,
     isDeletingEvent,
     isSavingAttendance,
     isSavingEvent,
     isSavingException,
+    refreshAttendanceStreak,
     saveEvent,
     saveOccurrenceException,
     setAttendance,

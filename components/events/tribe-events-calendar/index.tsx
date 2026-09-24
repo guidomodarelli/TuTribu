@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast, useIsMobile } from "beez-ui";
+import { cn, toast, useIsMobile } from "beez-ui";
 
 import { TribeEventAgendaItem } from "@/components/events/tribe-event-agenda-item";
 import { TribeEventAttendeesPanel } from "@/components/events/tribe-event-attendees-panel";
@@ -34,6 +34,7 @@ import { TribeNextEvent } from "@/components/events/tribe-next-event";
 import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
+import { useOccurrenceFinishWatcher } from "@/hooks/use-occurrence-finish-watcher";
 import { useTribeEventAttendanceReport } from "@/hooks/use-tribe-event-attendance-report";
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
 import { useTribeEventProposals } from "@/hooks/use-tribe-event-proposals";
@@ -43,6 +44,7 @@ import {
   getBuenosAiresDateKey,
   getBuenosAiresMonthKey,
 } from "@/lib/date-time/buenos-aires-format";
+import { readAttendanceStreakComputedTime } from "@/lib/events/tribe-event-attendance-streak-dto";
 import { isOccurrenceCancelled } from "@/lib/events/tribe-event-occurrence-exception-copy";
 import { isOccurrencePast } from "@/lib/events/tribe-event-occurrence-timing";
 import {
@@ -60,8 +62,8 @@ import { buildTribeEventsRoute } from "@/lib/events/tribe-events-routes";
 import { HORIZONTAL_SWIPE_DIRECTION } from "@/lib/gestures/horizontal-swipe";
 import { copyTextToClipboard } from "@/lib/browser-clipboard";
 import {
-  replaceCurrentUrlSearchParam,
   replaceCurrentUrlSearchParamValues,
+  replaceCurrentUrlSearchParams,
 } from "@/lib/browser-navigation";
 import {
   TRIBE_EVENT_TEMPLATES,
@@ -85,6 +87,8 @@ import styles from "./styles.module.scss";
 type TribeEventsCalendarProps = {
   /** Viewer-only attendance streak, computed on the server (null if none). */
   attendanceStreak?: TribeEventAttendanceStreakResult | null;
+  /** ISO instant at which the server computed `attendanceStreak`. */
+  attendanceStreakComputedAt?: string | null;
   events: TribeEventOccurrenceResult[];
   /** Type filter from the URL (`type`), already validated by the page. */
   initialEventTypes?: readonly TribeEventType[];
@@ -152,7 +156,8 @@ type OccurrenceSelectionState = {
  * `useTribeEventMutations`; every visual block is a presentational component.
  */
 export function TribeEventsCalendar({
-  attendanceStreak = null,
+  attendanceStreak: serverAttendanceStreak = null,
+  attendanceStreakComputedAt = null,
   events,
   initialEventTypes = NO_EVENT_TYPES,
   initialOccurrenceKey = null,
@@ -178,16 +183,33 @@ export function TribeEventsCalendar({
   const {
     applyEventOccurrences,
     clearOccurrenceException,
+    attendanceStreak,
     deleteEvent,
     isDeletingEvent,
     isSavingAttendance,
     isSavingEvent,
     isSavingException,
+    refreshAttendanceStreak,
     saveEvent,
     saveOccurrenceException,
     setAttendance,
     visibleEvents,
-  } = useTribeEventMutations({ events, month: month.current, tribeSlug });
+  } = useTribeEventMutations({
+    attendanceStreak: serverAttendanceStreak,
+    events,
+    month: month.current,
+    tribeSlug,
+  });
+  // The streak counts the last finished occurrences, so the one that just
+  // ended may change it: read it again once, without reloading the route.
+  // An occurrence that ended between the server snapshot and hydration is
+  // caught on the first clock value by comparing it with the snapshot instant.
+  useOccurrenceFinishWatcher({
+    nowTime,
+    occurrences: visibleEvents,
+    onOccurrenceFinished: refreshAttendanceStreak,
+    serverSnapshotTime: readAttendanceStreakComputedTime(attendanceStreakComputedAt),
+  });
   const proposals = useTribeEventProposals({
     initialPendingCount: pendingProposalCount,
     month: month.current,
@@ -288,13 +310,23 @@ export function TribeEventsCalendar({
   );
 
   // The open detail is mirrored in the `event` query so the URL can be shared;
-  // replaceState keeps it out of the history stack and never refetches.
+  // replaceState keeps it out of the history stack and never refetches. The
+  // rendered month is written too: a monthless deep link (`?event=` only)
+  // renders the occurrence's month, so dropping `event` alone would leave a
+  // bare URL that reopens on the current month instead of the one on screen.
+  // Changing or closing the detail also forgets the "Asistentes" tab: closing
+  // unmounts the tabs without reporting a tab change, and the dialog always
+  // reopens on "Detalle", so the report must stay user-triggered.
   const setSelectedOccurrenceKey = (occurrenceKey: string | null) => {
+    setAttendeesOccurrenceKey(null);
     setOccurrenceSelection({
       occurrenceKey,
       sourceOccurrenceKey: initialOccurrenceKey,
     });
-    replaceCurrentUrlSearchParam(TRIBE_EVENTS_ROUTE_QUERY.event, occurrenceKey);
+    replaceCurrentUrlSearchParams({
+      [TRIBE_EVENTS_ROUTE_QUERY.event]: occurrenceKey,
+      [TRIBE_EVENTS_ROUTE_QUERY.month]: currentMonth,
+    });
   };
 
   const previousMonthHref = buildTribeEventsRoute(tribeSlug, {
@@ -561,10 +593,20 @@ export function TribeEventsCalendar({
       <div className={styles.TribeEventsCalendar__swipeArea} {...monthSwipeHandlers}>
         {shouldRenderBothViews ? (
           <>
-            <div className={styles["TribeEventsCalendar__autoView--calendar"]}>
+            <div
+              className={cn(
+                styles.TribeEventsCalendar__autoView,
+                styles["TribeEventsCalendar__autoView--calendar"]
+              )}
+            >
               {renderCalendarView()}
             </div>
-            <div className={styles["TribeEventsCalendar__autoView--list"]}>
+            <div
+              className={cn(
+                styles.TribeEventsCalendar__autoView,
+                styles["TribeEventsCalendar__autoView--list"]
+              )}
+            >
               {renderListView()}
             </div>
           </>
