@@ -36,13 +36,15 @@ import {
 } from "@/lib/date-time/buenos-aires-format";
 import { readAttendanceStreakComputedTime } from "@/lib/events/tribe-event-attendance-streak-dto";
 import { isOccurrencePast } from "@/lib/events/tribe-event-occurrence-timing";
-import { buildTribeEventAttendanceExportUrl } from "@/lib/events/tribe-events-api-client";
 import {
   createCalendarDays,
   groupAgendaDays,
   groupOccurrencesByDay,
 } from "@/lib/events/tribe-events-calendar-grid";
-import { buildTribeEventsRoute } from "@/lib/events/tribe-events-routes";
+import {
+  buildTribeEventAttendanceExportUrl,
+  buildTribeEventsRoute,
+} from "@/lib/events/tribe-events-routes";
 import { HORIZONTAL_SWIPE_DIRECTION } from "@/lib/gestures/horizontal-swipe";
 import { copyTextToClipboard } from "@/lib/browser-clipboard";
 import { replaceCurrentUrlSearchParams } from "@/lib/browser-navigation";
