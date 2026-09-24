@@ -32,18 +32,37 @@ import {
   toTribeEventResult,
 } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
+  TRIBE_EVENT_CAPACITY_UPDATE_KIND,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type { TribeEvent } from "@/src/modules/events/domain/entities/tribe-event";
 import type { TribeEventOccurrenceExceptionRepository } from "@/src/modules/events/domain/repositories/tribe-event-occurrence-exception-repository";
-import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
+import type {
+  TribeEventCapacityUpdate,
+  TribeEventRepository,
+} from "@/src/modules/events/domain/repositories/tribe-event-repository";
 
 type TribeEventDependencies = {
   tribeEventOccurrenceExceptionRepository: TribeEventOccurrenceExceptionRepository;
   tribeEventRepository: TribeEventRepository;
 };
+
+/**
+ * Capacity change of an update: a capacity the body omitted keeps the stored
+ * one (legacy bodies without the field must not remove the limit); a present
+ * value, already validated at the route boundary, is written as is (null
+ * removes the limit).
+ *
+ * @param capacity - Validated capacity of the update, undefined when omitted.
+ * @returns The capacity change to persist.
+ */
+function resolveCapacityUpdate(capacity: number | null | undefined): TribeEventCapacityUpdate {
+  return capacity === undefined
+    ? { kind: TRIBE_EVENT_CAPACITY_UPDATE_KIND.unchanged }
+    : { capacity, kind: TRIBE_EVENT_CAPACITY_UPDATE_KIND.set };
+}
 
 /**
  * Occurrences of a freshly created event inside the month the caller is
@@ -181,7 +200,12 @@ export function updateTribeEvent({
   tribeEventRepository,
 }: TribeEventDependencies) {
   return async (command: UpdateTribeEventCommand): Promise<TribeEventSaveResult> => {
-    const normalizedInput = normalizeTribeEventFields(command);
+    // An omitted capacity is only normalized as "no limit" to reuse the
+    // field rules; `resolveCapacityUpdate` below keeps the stored one.
+    const normalizedInput = normalizeTribeEventFields({
+      ...command,
+      capacity: command.capacity ?? null,
+    });
 
     if (normalizedInput.status !== NORMALIZED_EVENT_STATUS.valid) {
       return { status: normalizedInput.status };
@@ -194,6 +218,7 @@ export function updateTribeEvent({
       // after the update (and its waitlist refill) committed, so the
       // summaries already include the promotions.
       attendanceRange: null,
+      capacity: resolveCapacityUpdate(command.capacity),
       eventId: command.eventId,
       tribeSlug: command.tribeSlug,
     });

@@ -1,11 +1,11 @@
 import {
   TRIBE_EVENT_HTTP_REQUEST,
   TRIBE_EVENT_JSON_HEADERS,
-  buildEventsEndpoint,
   readTribeEventResponse,
   type TribeEventRequestResult,
   type TribeEventSavePayload,
 } from "@/lib/events/tribe-events-api-client";
+import { buildTribeEventsApiEndpoint } from "@/lib/events/tribe-events-routes";
 import {
   tribeEventProposalApprovalResponseSchema,
   tribeEventProposalListResponseSchema,
@@ -36,7 +36,7 @@ const PROPOSAL_ENDPOINT = {
 } as const;
 
 function buildProposalsEndpoint(tribeSlug: string): string {
-  return buildEventsEndpoint(tribeSlug) + PROPOSAL_ENDPOINT.proposalsPath;
+  return buildTribeEventsApiEndpoint(tribeSlug) + PROPOSAL_ENDPOINT.proposalsPath;
 }
 
 function buildProposalEndpoint(tribeSlug: string, proposalId: string): string {

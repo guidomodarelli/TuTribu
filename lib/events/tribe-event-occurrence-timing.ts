@@ -116,6 +116,25 @@ export function isOccurrenceJoinable(
 }
 
 /**
+ * Instants (epoch ms) where the occurrence changes how it is shown: the start
+ * of the "Unirme" window, the start (live) and the end (finished, attendance
+ * closed). A clock that wakes up at these instants keeps the UI in step with
+ * the server, which checks the exact time.
+ *
+ * @param occurrence - Start and optional end of the occurrence.
+ * @returns Join window start, start, and end, in that order.
+ */
+export function getOccurrencePhaseChangeTimes(occurrence: TribeEventOccurrenceTimes): number[] {
+  const startTime = Date.parse(occurrence.startsAt);
+
+  return [
+    startTime - TRIBE_EVENT_JOIN_WINDOW_MINUTES * TIME_UNIT.millisecondsPerMinute,
+    startTime,
+    getTribeEventOccurrenceEndTime(occurrence),
+  ];
+}
+
+/**
  * Spanish countdown to the start: "Empieza en 3 días", "Empieza en 2 h 15 min"
  * or "Empieza en 8 min". Minutes round up so the copy never says zero.
  *

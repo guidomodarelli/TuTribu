@@ -1324,6 +1324,12 @@ describe("TribeEventsCalendar", () => {
       `/api/tribes/matematica-pro/events/${EVENT_ID}?month=2026-05`,
       expect.objectContaining({ method: "PATCH" })
     );
+    // The edit always sends the capacity explicitly (empty = no limit), so the
+    // server never mistakes it for a legacy body that omits the field.
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      capacity: "",
+      title: "Clase cerrada",
+    });
     expect(await screen.findByRole("button", { name: /15:00\s*Clase cerrada/ })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase cerrada/ }));
@@ -1364,6 +1370,7 @@ describe("TribeEventsCalendar", () => {
 
   describe("attendance streak after series mutations", () => {
     const initialStreak = { attendedCount: 4, occurrenceCount: 5 };
+    const seriesStreakEndpoint = "/api/tribes/matematica-pro/events/attendance-streak";
     const laterOccurrence = createOccurrence({
       endsAt: "2026-05-20T19:00:00.000Z",
       eventId: OTHER_EVENT_ID,
@@ -1414,6 +1421,7 @@ describe("TribeEventsCalendar", () => {
 
       await editFirstOccurrence({
         attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
       });
 
       expect(
@@ -1440,6 +1448,7 @@ describe("TribeEventsCalendar", () => {
       });
       mockJsonResponse({
         attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
         event: createEventDto(),
         message: "Evento creado.",
         occurrences: [laterOccurrence],
@@ -1460,7 +1469,7 @@ describe("TribeEventsCalendar", () => {
         events: [occurrence, laterOccurrence],
       });
 
-      await deleteFirstOccurrence({ attendanceStreak: null });
+      await deleteFirstOccurrence({ attendanceStreak: null, attendanceStreakNextRefreshAt: null });
 
       expect(
         await within(getNextEventRegion()).findByText("Encuentro abierto")
@@ -1469,29 +1478,55 @@ describe("TribeEventsCalendar", () => {
       expect(router.refresh).not.toHaveBeenCalled();
     });
 
-    it("keeps the previous streak when the mutation response omits it", async () => {
+    /**
+     * Answers the follow-up streak read with the given streak; the mutation
+     * itself still consumes the response queued with `mockJsonResponse`.
+     */
+    function answerStreakReads(attendanceStreak: Record<string, unknown>) {
+      (global.fetch as Mock).mockImplementation(async (url: string) =>
+        url === seriesStreakEndpoint
+          ? { json: async () => ({ attendanceStreak, attendanceStreakNextRefreshAt: null }), ok: true }
+          : Promise.reject(new Error(`Unexpected request to ${url}`))
+      );
+    }
+
+    function getSeriesStreakRequests() {
+      return (global.fetch as Mock).mock.calls.filter(([url]) => url === seriesStreakEndpoint);
+    }
+
+    it("reads the streak once when the mutation response omits it", async () => {
       renderCalendar({
         attendanceStreak: initialStreak,
         events: [occurrence, laterOccurrence],
       });
+      answerStreakReads({ attendedCount: 3, occurrenceCount: 5 });
 
       await deleteFirstOccurrence({});
 
       expect(
         await within(getNextEventRegion()).findByText(
-          "Fuiste a 4 de los últimos 5 encuentros 🔥"
+          "Fuiste a 3 de los últimos 5 encuentros 🔥"
         )
       ).toBeInTheDocument();
+      expect(getSeriesStreakRequests()).toHaveLength(1);
+      expect(router.refresh).not.toHaveBeenCalled();
     });
 
-    it("ignores an unusable streak in the mutation response", async () => {
+    it("reads the streak once instead of applying an unusable one", async () => {
       renderCalendar({ attendanceStreak: initialStreak });
+      answerStreakReads({ attendedCount: 3, occurrenceCount: 5 });
 
-      await editFirstOccurrence({ attendanceStreak: { attendedCount: "2" } });
+      await editFirstOccurrence({
+        attendanceStreak: { attendedCount: "2" },
+        attendanceStreakNextRefreshAt: null,
+      });
 
       expect(
-        within(getNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 3 de los últimos 5 encuentros 🔥"
+        )
       ).toBeInTheDocument();
+      expect(getSeriesStreakRequests()).toHaveLength(1);
     });
   });
 
@@ -1529,7 +1564,10 @@ describe("TribeEventsCalendar", () => {
         attendanceStreak: initialStreak,
         events: [occurrence, laterOccurrence],
       });
-      mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+      });
 
       await advanceMinutes(1);
       expect(getStreakRequests()).toHaveLength(0);
@@ -1604,7 +1642,10 @@ describe("TribeEventsCalendar", () => {
       // The server computed the streak at 18:58; the occurrence ended at
       // 19:00 and the client clock starts at 19:01.
       vi.setSystemTime(new Date("2026-05-06T19:01:00.000Z"));
-      mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+      });
       renderCalendar({
         attendanceStreak: initialStreak,
         attendanceStreakComputedAt: "2026-05-06T18:58:00.000Z",
@@ -1656,6 +1697,551 @@ describe("TribeEventsCalendar", () => {
       await advanceMinutes(5);
 
       expect(getStreakRequests()).toHaveLength(0);
+    });
+
+    it("asks for the streak when an occurrence outside the visible month ends", async () => {
+      // The workshop started last month and is still running, so the month
+      // listing (matched by start) leaves it out; the server hands its end.
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: "2026-05-06T19:30:00.000Z",
+      });
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakNextRefreshAt: "2026-05-06T19:00:00.000Z",
+        events: [laterOccurrence],
+      });
+
+      await advanceMinutes(1);
+      expect(getStreakRequests()).toHaveLength(0);
+
+      await advanceMinutes(1);
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 5 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(getStreakRequests()).toHaveLength(1);
+
+      // The refresh returned the following end, which is watched in turn.
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+      });
+      await advanceMinutes(30);
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 3 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(getStreakRequests()).toHaveLength(2);
+
+      await advanceMinutes(60);
+
+      expect(getStreakRequests()).toHaveLength(2);
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("asks for the streak once when the next refresh instant is also a visible end", async () => {
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+      });
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakNextRefreshAt: "2026-05-06T19:00:00.000Z",
+        events: [occurrence, laterOccurrence],
+      });
+
+      await advanceMinutes(2);
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 5 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(getStreakRequests()).toHaveLength(1);
+
+      // The refresh omitted a new instant: the one already passed is kept
+      // and never fires again.
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(1);
+    });
+
+    it("ignores an unusable next refresh instant", async () => {
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakNextRefreshAt: "mañana",
+        events: [laterOccurrence],
+      });
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(0);
+    });
+
+    describe("next refresh instant returned by a series mutation", () => {
+      const renewedStreakText = "Fuiste a 5 de los últimos 5 encuentros 🔥";
+
+      /**
+       * Creates a workshop that started last month and ends today, so the
+       * visible month (matched by start) does not list it and only the
+       * instant returned by the creation can make the calendar watch its end.
+       */
+      async function createRunningWorkshop(responseBody: Record<string, unknown>) {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+        await user.click(screen.getByRole("button", { name: "Crear evento" }));
+        fireEvent.change(screen.getByLabelText("Título"), {
+          target: { value: "Taller intensivo" },
+        });
+        fireEvent.change(screen.getByLabelText("Fecha"), {
+          target: { value: "2026-04-29" },
+        });
+        fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+          target: { value: "15:00" },
+        });
+        mockJsonResponse({
+          event: createEventDto(),
+          message: "Evento creado.",
+          occurrences: [],
+          ...responseBody,
+        });
+        await user.click(screen.getByRole("button", { name: "Guardar evento" }));
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      }
+
+      it("adopts the recomputed instant and asks for the streak when it arrives", async () => {
+        renderCalendar({
+          attendanceStreak: initialStreak,
+          attendanceStreakNextRefreshAt: laterOccurrence.endsAt,
+          events: [laterOccurrence],
+        });
+
+        await createRunningWorkshop({
+          attendanceStreak: initialStreak,
+          attendanceStreakNextRefreshAt: "2026-05-06T19:30:00.000Z",
+        });
+        mockJsonResponse({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+          attendanceStreakNextRefreshAt: laterOccurrence.endsAt,
+        });
+
+        await advanceMinutes(20);
+        expect(getStreakRequests()).toHaveLength(0);
+
+        await advanceMinutes(15);
+
+        expect(
+          await within(getNextEventRegion()).findByText(renewedStreakText)
+        ).toBeInTheDocument();
+        expect(getStreakRequests()).toHaveLength(1);
+        expect(router.refresh).not.toHaveBeenCalled();
+      });
+
+      /**
+       * Answers every streak read with the renewed streak and an instant
+       * still ahead; the mutation consumes the response queued by
+       * `createRunningWorkshop`.
+       */
+      function answerStreakReadsWithRenewedStreak() {
+        (global.fetch as Mock).mockImplementation(async (url: string) =>
+          url === streakEndpoint
+            ? {
+                json: async () => ({
+                  attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+                  attendanceStreakNextRefreshAt: laterOccurrence.endsAt,
+                }),
+                ok: true,
+              }
+            : Promise.reject(new Error(`Unexpected request to ${url}`))
+        );
+      }
+
+      it("reads the streak and its instant right away when the mutation response omits the instant", async () => {
+        renderCalendar({
+          attendanceStreak: initialStreak,
+          attendanceStreakNextRefreshAt: "2026-05-06T19:30:00.000Z",
+          events: [laterOccurrence],
+        });
+        answerStreakReadsWithRenewedStreak();
+
+        await createRunningWorkshop({ attendanceStreak: initialStreak });
+
+        expect(
+          await within(getNextEventRegion()).findByText(renewedStreakText)
+        ).toBeInTheDocument();
+        expect(getStreakRequests()).toHaveLength(1);
+
+        // The instant the read returned replaced the rendered one.
+        await advanceMinutes(35);
+
+        expect(getStreakRequests()).toHaveLength(1);
+      });
+
+      it("reads the streak right away instead of applying an unusable instant", async () => {
+        renderCalendar({
+          attendanceStreak: initialStreak,
+          attendanceStreakNextRefreshAt: "2026-05-06T19:30:00.000Z",
+          events: [laterOccurrence],
+        });
+        answerStreakReadsWithRenewedStreak();
+
+        await createRunningWorkshop({
+          attendanceStreak: initialStreak,
+          attendanceStreakNextRefreshAt: "mañana",
+        });
+
+        expect(
+          await within(getNextEventRegion()).findByText(renewedStreakText)
+        ).toBeInTheDocument();
+        expect(getStreakRequests()).toHaveLength(1);
+      });
+    });
+
+    describe("while a series mutation is in flight", () => {
+      type JsonResponse = { json: () => Promise<Record<string, unknown>>; ok: boolean };
+
+      const staleStreak = { attendedCount: 5, occurrenceCount: 5 };
+      const committedStreak = { attendedCount: 2, occurrenceCount: 5 };
+      const mutatedOccurrence: TribeEventOccurrenceResult = {
+        ...laterOccurrence,
+        seriesEndsAt: laterOccurrence.endsAt,
+      };
+      const closingOccurrence = createOccurrence({
+        endsAt: "2026-05-27T19:00:00.000Z",
+        eventId: "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a",
+        startsAt: "2026-05-27T18:00:00.000Z",
+        title: "Cierre de mes",
+      });
+
+      /**
+       * Models the database behind the routes: a streak read answers with
+       * the pre-mutation streak until the held save commits, and with the
+       * committed one afterwards.
+       */
+      function holdSave() {
+        let isCommitted = false;
+        let resolveSave: (response: JsonResponse) => void = () => undefined;
+        const pendingSave = new Promise<JsonResponse>((resolve) => {
+          resolveSave = resolve;
+        });
+
+        (global.fetch as Mock).mockImplementation(async (url: string) => {
+          if (url === streakEndpoint) {
+            return {
+              json: async () => ({
+                attendanceStreak: isCommitted ? committedStreak : staleStreak,
+              }),
+              ok: true,
+            };
+          }
+
+          return pendingSave;
+        });
+
+        return {
+          commitSave: async () => {
+            isCommitted = true;
+            await act(async () => {
+              resolveSave({
+                json: async () => ({
+                  attendanceStreak: committedStreak,
+                  event: createEventDto(),
+                  message: "Evento actualizado.",
+                  occurrences: [{ ...mutatedOccurrence, title: "Encuentro renovado" }],
+                }),
+                ok: true,
+              });
+              await pendingSave;
+            });
+          },
+          rejectSave: async () => {
+            await act(async () => {
+              resolveSave({
+                json: async () => ({ message: "No pudimos guardar el evento." }),
+                ok: false,
+              });
+              await pendingSave;
+            });
+          },
+        };
+      }
+
+      async function startSlowSave() {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+        renderCalendar({
+          attendanceStreak: initialStreak,
+          events: [occurrence, mutatedOccurrence, closingOccurrence],
+        });
+        await user.click(screen.getByRole("button", { name: /15:00\s*Encuentro abierto/ }));
+        await user.click(screen.getByRole("button", { name: "Editar" }));
+        fireEvent.change(screen.getByLabelText("Título"), {
+          target: { value: "Encuentro renovado" },
+        });
+        await user.click(screen.getByRole("button", { name: "Guardar evento" }));
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+        return user;
+      }
+
+      it("defers a finish refresh until the save commits and keeps the committed streak", async () => {
+        const slowSave = holdSave();
+        await startSlowSave();
+
+        await advanceMinutes(2);
+        expect(getStreakRequests()).toHaveLength(0);
+
+        await slowSave.commitSave();
+
+        await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+        expect(
+          await within(getNextEventRegion()).findByText(
+            "Fuiste a 2 de los últimos 5 encuentros 🔥"
+          )
+        ).toBeInTheDocument();
+        expect(
+          within(getNextEventRegion()).queryByText("Fuiste a 5 de los últimos 5 encuentros 🔥")
+        ).not.toBeInTheDocument();
+        expect(router.refresh).not.toHaveBeenCalled();
+      });
+
+      it("runs the deferred finish refresh when the save is rejected", async () => {
+        const slowSave = holdSave();
+        const user = await startSlowSave();
+
+        await advanceMinutes(2);
+        expect(getStreakRequests()).toHaveLength(0);
+
+        await slowSave.rejectSave();
+        await user.keyboard("{Escape}");
+
+        await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+        expect(
+          await within(getNextEventRegion()).findByText(
+            "Fuiste a 5 de los últimos 5 encuentros 🔥"
+          )
+        ).toBeInTheDocument();
+      });
+    });
+
+    describe("while a finish refresh is in flight", () => {
+      type JsonResponse = { json: () => Promise<Record<string, unknown>>; ok: boolean };
+
+      const finishedStreakText = "Fuiste a 5 de los últimos 5 encuentros 🔥";
+      const mutationStreakText = "Fuiste a 2 de los últimos 5 encuentros 🔥";
+      // Mutated by the tests; its series ends with its single occurrence so
+      // the edit form opens with a valid end date.
+      const mutatedOccurrence: TribeEventOccurrenceResult = {
+        ...laterOccurrence,
+        seriesEndsAt: laterOccurrence.endsAt,
+      };
+      // Keeps a "next event" (where the streak renders) after a deletion.
+      const closingOccurrence = createOccurrence({
+        endsAt: "2026-05-27T19:00:00.000Z",
+        eventId: "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a",
+        startsAt: "2026-05-27T18:00:00.000Z",
+        title: "Cierre de mes",
+      });
+
+      /**
+       * Routes the streak read to a response the test resolves by hand and
+       * every other request to the next queued mutation response, so a
+       * mutation can start and settle while the finish refresh is pending.
+       */
+      function holdStreakRefresh() {
+        let resolveRefresh: (response: JsonResponse) => void = () => undefined;
+        const pendingRefresh = new Promise<JsonResponse>((resolve) => {
+          resolveRefresh = resolve;
+        });
+        const mutationResponses: Array<() => Promise<JsonResponse>> = [];
+
+        (global.fetch as Mock).mockImplementation((url: string) => {
+          if (url === streakEndpoint) {
+            return pendingRefresh;
+          }
+
+          const nextMutationResponse = mutationResponses.shift();
+
+          return nextMutationResponse
+            ? nextMutationResponse()
+            : Promise.reject(new Error(`Unexpected request to ${url}`));
+        });
+
+        return {
+          queueMutationFailure: () => {
+            mutationResponses.push(() => Promise.reject(new TypeError("Failed to fetch")));
+          },
+          queueMutationResponse: (body: Record<string, unknown>, ok = true) => {
+            mutationResponses.push(async () => ({ json: async () => body, ok }));
+          },
+          resolveRefresh: async (body: Record<string, unknown>) => {
+            await act(async () => {
+              resolveRefresh({ json: async () => body, ok: true });
+              await pendingRefresh;
+            });
+          },
+        };
+      }
+
+      async function startFinishRefresh() {
+        renderCalendar({
+          attendanceStreak: initialStreak,
+          events: [occurrence, mutatedOccurrence, closingOccurrence],
+        });
+
+        await advanceMinutes(2);
+        await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+      }
+
+      async function waitForMutationToast() {
+        const { toast } = vi.mocked(await import("beez-ui"), true);
+
+        await waitFor(() =>
+          expect(toast.error.mock.calls.length + toast.success.mock.calls.length).toBe(1)
+        );
+      }
+
+      /**
+       * A rejected mutation leaves its dialog open, which hides the rest of
+       * the page from the accessibility tree, so close every open dialog.
+       */
+      async function closeOpenDialogs(user: ReturnType<typeof userEvent.setup>) {
+        const maximumDialogDepth = 3;
+
+        for (let depth = 0; depth < maximumDialogDepth; depth += 1) {
+          const openDialogCount =
+            screen.queryAllByRole("dialog").length + screen.queryAllByRole("alertdialog").length;
+
+          if (openDialogCount === 0) {
+            return;
+          }
+
+          await user.keyboard("{Escape}");
+        }
+      }
+
+      async function submitLaterOccurrenceEdit() {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+        await user.click(screen.getByRole("button", { name: /15:00\s*Encuentro abierto/ }));
+        await user.click(screen.getByRole("button", { name: "Editar" }));
+        fireEvent.change(screen.getByLabelText("Título"), {
+          target: { value: "Encuentro renovado" },
+        });
+        await user.click(screen.getByRole("button", { name: "Guardar evento" }));
+        await waitForMutationToast();
+        await closeOpenDialogs(user);
+      }
+
+      async function submitLaterOccurrenceDeletion() {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+        await user.click(screen.getByRole("button", { name: /15:00\s*Encuentro abierto/ }));
+        await user.click(screen.getByRole("button", { name: "Eliminar" }));
+        await user.click(
+          within(screen.getByRole("alertdialog")).getByRole("button", { name: "Eliminar" })
+        );
+        await waitForMutationToast();
+        await closeOpenDialogs(user);
+      }
+
+      it("applies the refresh when a save is rejected meanwhile", async () => {
+        const streakRefresh = holdStreakRefresh();
+        await startFinishRefresh();
+        streakRefresh.queueMutationResponse({ message: "No pudimos guardar el evento." }, false);
+
+        await submitLaterOccurrenceEdit();
+        await streakRefresh.resolveRefresh({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        });
+
+        expect(
+          await within(getNextEventRegion()).findByText(finishedStreakText)
+        ).toBeInTheDocument();
+      });
+
+      it("applies the refresh when a save fails on the network meanwhile", async () => {
+        const streakRefresh = holdStreakRefresh();
+        await startFinishRefresh();
+        streakRefresh.queueMutationFailure();
+
+        await submitLaterOccurrenceEdit();
+        await streakRefresh.resolveRefresh({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        });
+
+        expect(
+          await within(getNextEventRegion()).findByText(finishedStreakText)
+        ).toBeInTheDocument();
+      });
+
+      it("keeps the streak of a later successful save over the earlier refresh", async () => {
+        const streakRefresh = holdStreakRefresh();
+        await startFinishRefresh();
+        streakRefresh.queueMutationResponse({
+          attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+          attendanceStreakNextRefreshAt: null,
+          event: createEventDto(),
+          message: "Evento actualizado.",
+          occurrences: [{ ...mutatedOccurrence, title: "Encuentro renovado" }],
+        });
+
+        await submitLaterOccurrenceEdit();
+        expect(
+          await within(getNextEventRegion()).findByText(mutationStreakText)
+        ).toBeInTheDocument();
+        await streakRefresh.resolveRefresh({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        });
+
+        expect(within(getNextEventRegion()).getByText(mutationStreakText)).toBeInTheDocument();
+        expect(
+          within(getNextEventRegion()).queryByText(finishedStreakText)
+        ).not.toBeInTheDocument();
+      });
+
+      it("applies the refresh when a deletion is rejected meanwhile", async () => {
+        const streakRefresh = holdStreakRefresh();
+        await startFinishRefresh();
+        streakRefresh.queueMutationResponse({ message: "No pudimos eliminar el evento." }, false);
+
+        await submitLaterOccurrenceDeletion();
+        await streakRefresh.resolveRefresh({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        });
+
+        expect(
+          await within(getNextEventRegion()).findByText(finishedStreakText)
+        ).toBeInTheDocument();
+      });
+
+      it("keeps the streak of a later successful deletion over the earlier refresh", async () => {
+        const streakRefresh = holdStreakRefresh();
+        await startFinishRefresh();
+        streakRefresh.queueMutationResponse({
+          attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+          attendanceStreakNextRefreshAt: null,
+          message: "Evento eliminado.",
+        });
+
+        await submitLaterOccurrenceDeletion();
+        expect(
+          await within(getNextEventRegion()).findByText(mutationStreakText)
+        ).toBeInTheDocument();
+        await streakRefresh.resolveRefresh({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        });
+
+        expect(within(getNextEventRegion()).getByText(mutationStreakText)).toBeInTheDocument();
+        expect(
+          within(getNextEventRegion()).queryByText(finishedStreakText)
+        ).not.toBeInTheDocument();
+      });
     });
   });
 

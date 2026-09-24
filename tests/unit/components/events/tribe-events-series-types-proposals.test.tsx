@@ -316,7 +316,9 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     mockJsonResponse({ message: "Fecha restaurada.", occurrences: [createOccurrence()] });
     await user.click(within(detail).getByRole("button", { name: "Restaurar fecha" }));
 
-    expect(global.fetch).toHaveBeenLastCalledWith(
+    // A date change can move the streak and its next refresh, so the calendar
+    // also reads the streak again once the change settles.
+    expect(global.fetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/${EVENT_ID}/exceptions?occurrence=${encodeURIComponent(
         "2026-05-14T21:00:00.000Z"
       )}&month=2026-05`,
@@ -324,6 +326,12 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     );
     await waitFor(() =>
       expect(within(detail).queryByText("Movido desde el jueves 14")).not.toBeInTheDocument()
+    );
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/events/attendance-streak",
+        expect.objectContaining({ cache: "no-store" })
+      )
     );
   });
 
