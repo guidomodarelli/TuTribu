@@ -72,6 +72,17 @@ export type TribeEventStreakReadResult = TribeEventStreakRefresh & {
   attendanceStreakNextRefreshAt?: string | null;
 };
 
+/**
+ * Outcome of a streak read. `isSuccess: false` means the route answered with
+ * an error status or a body that is not the public streak DTO, so the caller
+ * keeps the streak it shows and may retry; a usable body always carries the
+ * streak (`null` when there is none).
+ */
+export type TribeEventStreakReadOutcome =
+  | ({ isSuccess: true } & TribeEventStreakReadResult &
+      Required<TribeEventStreakRefresh>)
+  | { isSuccess: false };
+
 type AttendanceResponseBody = {
   attendance?: TribeEventOccurrenceResult["attendance"];
   code?: unknown;
@@ -224,25 +235,25 @@ export async function deleteTribeEventRequest(input: {
 
 /**
  * Reads the viewer streak again, for example after an occurrence on screen
- * finished. A failed request or an unusable body resolves to an empty
- * refresh, so the caller keeps the streak it already shows.
+ * finished. An error status or an unusable body resolves to a failed read, so
+ * the caller can tell it apart from a successful one and retry it.
  *
  * @param input - Tribe slug and an abort signal that cancels a stale read.
  * @returns The refreshed streak (`null` when there is none) and the next
- * refresh instant when the route sent it, or an empty refresh.
+ * refresh instant when the route sent it, or a failed read.
  * @throws The fetch rejection (network failure or abort) for the caller to classify.
  */
 export async function fetchTribeEventAttendanceStreakRequest(input: {
   signal?: AbortSignal;
   tribeSlug: string;
-}): Promise<TribeEventStreakReadResult> {
+}): Promise<TribeEventStreakReadOutcome> {
   const response = await fetch(
     buildTribeEventAttendanceStreakApiEndpoint(input.tribeSlug),
     { cache: "no-store", signal: input.signal }
   );
 
   if (!response.ok) {
-    return {};
+    return { isSuccess: false };
   }
 
   const parsedBody = tribeEventAttendanceStreakResponseDtoSchema.safeParse(
@@ -250,14 +261,14 @@ export async function fetchTribeEventAttendanceStreakRequest(input: {
   );
 
   if (!parsedBody.success) {
-    return {};
+    return { isSuccess: false };
   }
 
   const { attendanceStreak, attendanceStreakNextRefreshAt } = parsedBody.data;
 
   return attendanceStreakNextRefreshAt === undefined
-    ? { attendanceStreak }
-    : { attendanceStreak, attendanceStreakNextRefreshAt };
+    ? { attendanceStreak, isSuccess: true }
+    : { attendanceStreak, attendanceStreakNextRefreshAt, isSuccess: true };
 }
 
 /**

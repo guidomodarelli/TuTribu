@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   INITIAL_STREAK_FRESHNESS_STATE,
-  STREAK_DEADLINE_RETRY_DELAYS_MS,
+  STREAK_READ_RETRY_DELAYS_MS,
   transitionStreakFreshness,
   type StreakFreshnessEvent,
   type StreakMutationOutcome,
@@ -37,6 +37,10 @@ function deadlineReturned(nextRefreshAt: string | null): StreakFreshnessEvent {
 }
 
 const MUTATION_STARTED: StreakFreshnessEvent = { type: "mutation-started" };
+const READ_REQUESTED: StreakFreshnessEvent = { type: "read-requested" };
+const READ_SUCCEEDED: StreakFreshnessEvent = { outcome: "succeeded", type: "read-settled" };
+const READ_FAILED: StreakFreshnessEvent = { outcome: "failed", type: "read-settled" };
+const DISPOSED: StreakFreshnessEvent = { type: "disposed" };
 
 function mutationSettled(outcome: StreakMutationOutcome): StreakFreshnessEvent {
   return { outcome, type: "mutation-settled" };
@@ -100,7 +104,7 @@ describe("transitionStreakFreshness reads and mutations", () => {
       MUTATION_STARTED,
       mutationSettled("carried"),
       mutationSettled("carried"),
-      { type: "read-settled" },
+      READ_SUCCEEDED,
       MUTATION_STARTED,
       mutationSettled("carried"),
     ]);
@@ -173,7 +177,7 @@ describe("transitionStreakFreshness reads and mutations", () => {
   });
 
   it("marks a finished read as settled", () => {
-    const transition = run([{ type: "read-requested" }, { type: "read-settled" }]);
+    const transition = run([{ type: "read-requested" }, READ_SUCCEEDED]);
 
     expect(transition.state.isReadInFlight).toBe(false);
   });
@@ -193,19 +197,19 @@ describe("transitionStreakFreshness passed deadlines", () => {
   it("retries a repeated passed deadline with a bounded backoff", () => {
     const transition = run([
       deadlineReturned(PASSED_DEADLINE),
-      ...STREAK_DEADLINE_RETRY_DELAYS_MS.map(() => deadlineReturned(PASSED_DEADLINE)),
+      ...STREAK_READ_RETRY_DELAYS_MS.map(() => deadlineReturned(PASSED_DEADLINE)),
       deadlineReturned(PASSED_DEADLINE),
     ]);
 
     expect(transition.commands).toEqual([
       { type: "start-read" },
-      ...STREAK_DEADLINE_RETRY_DELAYS_MS.map((delayMs) => ({
+      ...STREAK_READ_RETRY_DELAYS_MS.map((delayMs) => ({
         delayMs,
         type: "schedule-read",
       })),
     ]);
     expect(transition.state.passedDeadline?.retryCount).toBe(
-      STREAK_DEADLINE_RETRY_DELAYS_MS.length
+      STREAK_READ_RETRY_DELAYS_MS.length
     );
   });
 
@@ -218,7 +222,7 @@ describe("transitionStreakFreshness passed deadlines", () => {
 
     expect(transition.commands).toEqual([
       { type: "start-read" },
-      { delayMs: STREAK_DEADLINE_RETRY_DELAYS_MS[0], type: "schedule-read" },
+      { delayMs: STREAK_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
       { type: "cancel-scheduled-read" },
       { type: "start-read" },
     ]);
@@ -263,5 +267,106 @@ describe("transitionStreakFreshness passed deadlines", () => {
       { type: "apply-mutation-streak" },
       { type: "start-read" },
     ]);
+  });
+});
+
+describe("transitionStreakFreshness failed reads", () => {
+  it("retries a read that keeps failing with a bounded backoff and then stops", () => {
+    const failedReads = STREAK_READ_RETRY_DELAYS_MS.flatMap(() => [READ_FAILED, READ_REQUESTED]);
+    const transition = run([READ_REQUESTED, ...failedReads, READ_FAILED]);
+
+    expect(transition.commands).toEqual([
+      { type: "start-read" },
+      ...STREAK_READ_RETRY_DELAYS_MS.flatMap((delayMs) => [
+        { delayMs, type: "schedule-read" },
+        { type: "start-read" },
+      ]),
+    ]);
+    expect(transition.state.isReadInFlight).toBe(false);
+    expect(transition.state.failedReadRetryCount).toBe(0);
+  });
+
+  it("cancels the retry a failed read scheduled once a read succeeds", () => {
+    const transition = run([READ_REQUESTED, READ_FAILED, READ_REQUESTED, READ_SUCCEEDED]);
+
+    expect(transition.commands).toEqual([
+      { type: "start-read" },
+      { delayMs: STREAK_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
+      { type: "start-read" },
+      { type: "cancel-scheduled-read" },
+    ]);
+    expect(transition.state.failedReadRetryCount).toBe(0);
+  });
+
+  it("restarts the backoff after a success", () => {
+    const transition = run([
+      READ_REQUESTED,
+      READ_FAILED,
+      READ_REQUESTED,
+      READ_SUCCEEDED,
+      READ_REQUESTED,
+      READ_FAILED,
+    ]);
+
+    expect(transition.commands.at(-1)).toEqual({
+      delayMs: STREAK_READ_RETRY_DELAYS_MS[0],
+      type: "schedule-read",
+    });
+  });
+
+  it("forgets the failed read retries when the server renders a new source", () => {
+    const transition = run([READ_REQUESTED, READ_FAILED, { type: "source-changed" }]);
+
+    expect(transition.commands.at(-1)).toEqual({ type: "cancel-scheduled-read" });
+    expect(transition.state.failedReadRetryCount).toBe(0);
+  });
+
+  it("defers the retry of a failed read while a mutation is pending", () => {
+    const transition = run([
+      READ_REQUESTED,
+      READ_FAILED,
+      MUTATION_STARTED,
+      READ_REQUESTED,
+      mutationSettled("unaffected"),
+    ]);
+
+    expect(transition.commands).toEqual([
+      { type: "start-read" },
+      { delayMs: STREAK_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
+      { type: "start-read" },
+    ]);
+  });
+});
+
+describe("transitionStreakFreshness disposal", () => {
+  it("aborts the read in flight and cancels the scheduled one when disposed", () => {
+    const transition = run([READ_REQUESTED, DISPOSED]);
+
+    expect(transition.commands).toEqual([
+      { type: "start-read" },
+      { type: "abort-read" },
+      { type: "cancel-scheduled-read" },
+    ]);
+    expect(transition.state.isDisposed).toBe(true);
+    expect(transition.state.isReadInFlight).toBe(false);
+  });
+
+  it("emits no command for a mutation that settles after the disposal", () => {
+    const disposed = run([MUTATION_STARTED, DISPOSED]);
+    const transition = run(
+      [
+        mutationSettled("missing"),
+        mutationSettled("carried"),
+        READ_REQUESTED,
+        READ_FAILED,
+        deadlineReturned(PASSED_DEADLINE),
+        { type: "source-changed" },
+        DISPOSED,
+      ],
+      disposed.state
+    );
+
+    expect(transition.commands).toEqual([]);
+    expect(transition.state).toBe(disposed.state);
   });
 });

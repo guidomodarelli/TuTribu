@@ -8,6 +8,7 @@ import {
   STREAK_FRESHNESS_COMMAND,
   STREAK_FRESHNESS_EVENT,
   STREAK_MUTATION_OUTCOME,
+  STREAK_READ_OUTCOME,
   transitionStreakFreshness,
   type StreakFreshnessCommand,
   type StreakFreshnessEvent,
@@ -123,7 +124,8 @@ export type TribeEventMutations = {
   isSavingEvent: boolean;
   /**
    * Reads the streak again (for example when an occurrence on screen
-   * finishes). Failures keep the streak on screen without user feedback.
+   * finishes). Failures keep the streak on screen without user feedback and
+   * retry with a bounded backoff.
    * While a creation, edit, deletion, or attendance answer is uncommitted the
    * read is deferred until every one of them settles, so it never observes
    * pre-commit data.
@@ -201,7 +203,11 @@ function isSameStreakSource(source: StreakSource, otherSource: StreakSource): bo
  * and its next refresh instant, and any overlap, omitted field, or failure
  * turns into a single read once every mutation settles; and a returned
  * instant that already passed reads right away and then retries with a
- * bounded backoff while the server keeps returning it.
+ * bounded backoff while the server keeps returning it. A read that fails (error
+ * status, unusable body, or network failure) retries with the same bounded
+ * backoff. On unmount the state machine is disposed: it aborts the read in
+ * flight, cancels the scheduled one, and a mutation that settles afterwards
+ * never starts a read nor applies its streak.
  *
  * @param input - Server occurrences, streak, its next refresh instant and
  *   render token, visible month, tribe slug, and the callback for answers the
@@ -247,7 +253,6 @@ export function useTribeEventMutations({
   const streakFreshnessStateRef = useRef(INITIAL_STREAK_FRESHNESS_STATE);
   // Delayed retry of a passed next refresh instant, if any.
   const scheduledStreakReadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isUnmountedRef = useRef(false);
   const isSavingEventRef = useRef(false);
   const isDeletingEventRef = useRef(false);
   const isSavingAttendanceRef = useRef(false);
@@ -389,23 +394,41 @@ export function useTribeEventMutations({
       signal: controller.signal,
       tribeSlug: latestTribeSlugRef.current,
     })
-      .then((refresh) => {
+      .then((read) => {
         if (!isCurrentRead()) {
           return;
         }
 
         streakRefreshControllerRef.current = null;
-        dispatchStreakFreshness({ type: STREAK_FRESHNESS_EVENT.readSettled });
-        applyStreakRefresh(streakRequest, refresh);
-        applyStreakNextRefresh(streakRequest, refresh);
+
+        if (!read.isSuccess) {
+          // The streak on screen stays and the state machine schedules a
+          // bounded retry; a passive refresh must not raise a toast.
+          dispatchStreakFreshness({
+            outcome: STREAK_READ_OUTCOME.failed,
+            type: STREAK_FRESHNESS_EVENT.readSettled,
+          });
+          return;
+        }
+
+        dispatchStreakFreshness({
+          outcome: STREAK_READ_OUTCOME.succeeded,
+          type: STREAK_FRESHNESS_EVENT.readSettled,
+        });
+        applyStreakRefresh(streakRequest, read);
+        applyStreakNextRefresh(streakRequest, read);
       })
       .catch(() => {
-        // Deliberate fallback: an aborted or failed background read keeps the
-        // streak on screen. The route handler logs its own failures, and a
-        // passive refresh the viewer did not trigger must not raise a toast.
+        // Deliberate fallback: an aborted read is stale and is ignored; a
+        // network failure of the current read keeps the streak on screen and
+        // retries with the bounded backoff. The route handler logs its own
+        // failures, and a passive refresh must not raise a toast.
         if (isCurrentRead()) {
           streakRefreshControllerRef.current = null;
-          dispatchStreakFreshness({ type: STREAK_FRESHNESS_EVENT.readSettled });
+          dispatchStreakFreshness({
+            outcome: STREAK_READ_OUTCOME.failed,
+            type: STREAK_FRESHNESS_EVENT.readSettled,
+          });
         }
       });
   };
@@ -436,20 +459,31 @@ export function useTribeEventMutations({
   }, [attendanceStreak, attendanceStreakNextRefreshAt, streakSourceVersion]);
 
   useEffect(() => {
-    isUnmountedRef.current = false;
+    // A remount (Strict Mode replays effects) starts from a fresh state
+    // machine, since the previous cleanup disposed it.
+    if (streakFreshnessStateRef.current.isDisposed) {
+      streakFreshnessStateRef.current = INITIAL_STREAK_FRESHNESS_STATE;
+    }
 
     return () => {
-      isUnmountedRef.current = true;
-      streakRefreshControllerRef.current?.abort();
-      clearScheduledTimeout(scheduledStreakReadTimeoutRef);
+      // Disposing makes every later event (a mutation settling after the
+      // unmount) a no-op; its commands abort the read in flight and cancel
+      // the scheduled one, executed here through the refs they target.
+      const transition = transitionStreakFreshness(streakFreshnessStateRef.current, {
+        type: STREAK_FRESHNESS_EVENT.disposed,
+      });
+
+      streakFreshnessStateRef.current = transition.state;
+
+      if (transition.commands.length > 0) {
+        streakRefreshControllerRef.current?.abort();
+        streakRefreshControllerRef.current = null;
+        clearScheduledTimeout(scheduledStreakReadTimeoutRef);
+      }
     };
   }, []);
 
   const refreshAttendanceStreak: TribeEventMutations["refreshAttendanceStreak"] = () => {
-    if (isUnmountedRef.current) {
-      return;
-    }
-
     dispatchStreakFreshness({ type: STREAK_FRESHNESS_EVENT.readRequested });
   };
 

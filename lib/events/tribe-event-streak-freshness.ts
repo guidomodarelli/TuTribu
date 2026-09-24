@@ -20,23 +20,31 @@ import { readAttendanceStreakNextRefreshTime } from "@/lib/events/tribe-event-at
  * - A lone mutation that interrupted a read in flight covers it when its
  *   response is applied, because it committed after the read started.
  * - A returned next refresh instant that already passed reads right away the
- *   first time, then retries with the bounded `STREAK_DEADLINE_RETRY_DELAYS_MS`
+ *   first time, then retries with the bounded `STREAK_READ_RETRY_DELAYS_MS`
  *   backoff while the server keeps returning it (its clock may lag behind the
  *   browser), and finally stops, so it never loops.
+ * - A read that settles without usable data (an error status, an unusable
+ *   body, or a network failure) retries with the same bounded backoff and then
+ *   stops; a successful read resets it. An aborted read is never reported, so
+ *   it never counts as a failure.
+ * - Once disposed (the calendar unmounted) it aborts the read in flight,
+ *   cancels the scheduled one, and ignores every later event, so a mutation
+ *   that settles after the unmount never starts or schedules a read.
  */
 
 /**
- * Delays of the retries of a passed next refresh instant that the server keeps
- * returning, in order. Their length bounds the retries.
+ * Delays, in order, of the retries of a passed next refresh instant that the
+ * server keeps returning and of a read that settled without usable data.
+ * Their length bounds each chain of retries.
  */
-const FIRST_DEADLINE_RETRY_DELAY_MS = 5_000;
-const SECOND_DEADLINE_RETRY_DELAY_MS = 15_000;
-const THIRD_DEADLINE_RETRY_DELAY_MS = 45_000;
+const FIRST_READ_RETRY_DELAY_MS = 5_000;
+const SECOND_READ_RETRY_DELAY_MS = 15_000;
+const THIRD_READ_RETRY_DELAY_MS = 45_000;
 
-export const STREAK_DEADLINE_RETRY_DELAYS_MS = [
-  FIRST_DEADLINE_RETRY_DELAY_MS,
-  SECOND_DEADLINE_RETRY_DELAY_MS,
-  THIRD_DEADLINE_RETRY_DELAY_MS,
+export const STREAK_READ_RETRY_DELAYS_MS = [
+  FIRST_READ_RETRY_DELAY_MS,
+  SECOND_READ_RETRY_DELAY_MS,
+  THIRD_READ_RETRY_DELAY_MS,
 ] as const;
 
 /** Read that must run once every pending mutation settles. */
@@ -58,9 +66,20 @@ export const STREAK_MUTATION_OUTCOME = {
   unaffected: "unaffected",
 } as const;
 
+/**
+ * How a read that was not aborted settled: `succeeded` when it returned a
+ * usable streak, `failed` when it returned an error status, an unusable body,
+ * or never got an answer.
+ */
+export const STREAK_READ_OUTCOME = {
+  failed: "failed",
+  succeeded: "succeeded",
+} as const;
+
 /** Inputs of the state machine. */
 export const STREAK_FRESHNESS_EVENT = {
   deadlineReturned: "deadline-returned",
+  disposed: "disposed",
   mutationSettled: "mutation-settled",
   mutationStarted: "mutation-started",
   readRequested: "read-requested",
@@ -84,6 +103,9 @@ export const STREAK_FRESHNESS_COMMAND = {
  */
 export type StreakPendingRead = (typeof STREAK_PENDING_READ)[keyof typeof STREAK_PENDING_READ];
 
+/** How a read that was not aborted settled. */
+export type StreakReadOutcome = (typeof STREAK_READ_OUTCOME)[keyof typeof STREAK_READ_OUTCOME];
+
 /** What a settled mutation tells about the streak. */
 export type StreakMutationOutcome =
   (typeof STREAK_MUTATION_OUTCOME)[keyof typeof STREAK_MUTATION_OUTCOME];
@@ -96,6 +118,14 @@ export type StreakPassedDeadline = {
 
 /** Freshness state of the streak on screen. */
 export type StreakFreshnessState = {
+  /**
+   * Retries already scheduled for reads that settled without usable data in
+   * a row. It resets on a successful read, a new server render, and once the
+   * retries run out.
+   */
+  failedReadRetryCount: number;
+  /** True once the calendar unmounted: every later event is ignored. */
+  isDisposed: boolean;
   /**
    * True once a mutation started while another one was pending; it resets
    * when every pending mutation settles. While true, no response of the
@@ -111,7 +141,7 @@ export type StreakFreshnessState = {
 /** Input of the state machine. */
 export type StreakFreshnessEvent =
   | { type: typeof STREAK_FRESHNESS_EVENT.readRequested }
-  | { type: typeof STREAK_FRESHNESS_EVENT.readSettled }
+  | { outcome: StreakReadOutcome; type: typeof STREAK_FRESHNESS_EVENT.readSettled }
   | { type: typeof STREAK_FRESHNESS_EVENT.mutationStarted }
   | { outcome: StreakMutationOutcome; type: typeof STREAK_FRESHNESS_EVENT.mutationSettled }
   | {
@@ -119,7 +149,8 @@ export type StreakFreshnessEvent =
       nowTime: number;
       type: typeof STREAK_FRESHNESS_EVENT.deadlineReturned;
     }
-  | { type: typeof STREAK_FRESHNESS_EVENT.sourceChanged };
+  | { type: typeof STREAK_FRESHNESS_EVENT.sourceChanged }
+  | { type: typeof STREAK_FRESHNESS_EVENT.disposed };
 
 /** Side effect the hook executes, in emission order. */
 export type StreakFreshnessCommand =
@@ -136,6 +167,8 @@ export type StreakFreshnessTransition = {
 };
 
 export const INITIAL_STREAK_FRESHNESS_STATE: StreakFreshnessState = {
+  failedReadRetryCount: 0,
+  isDisposed: false,
   isMutationBatchOverlapped: false,
   isReadInFlight: false,
   passedDeadline: null,
@@ -235,7 +268,7 @@ function handleReturnedDeadline(
   }
 
   if (trackedDeadline?.nextRefreshAt === nextRefreshAt) {
-    const delayMs = STREAK_DEADLINE_RETRY_DELAYS_MS[trackedDeadline.retryCount];
+    const delayMs = STREAK_READ_RETRY_DELAYS_MS[trackedDeadline.retryCount];
 
     if (delayMs === undefined) {
       return { commands: [], state };
@@ -258,21 +291,94 @@ function handleReturnedDeadline(
 }
 
 /**
+ * Settles the read in flight. A successful one cancels the retry a previous
+ * failure scheduled; a failed one schedules the next delay of the bounded
+ * backoff, or stops (and resets the count) once the retries run out.
+ */
+function settleRead(
+  state: StreakFreshnessState,
+  outcome: StreakReadOutcome
+): StreakFreshnessTransition {
+  const settledState: StreakFreshnessState = { ...state, isReadInFlight: false };
+
+  if (outcome === STREAK_READ_OUTCOME.succeeded) {
+    return state.failedReadRetryCount === 0
+      ? { commands: [], state: settledState }
+      : {
+          commands: [{ type: STREAK_FRESHNESS_COMMAND.cancelScheduledRead }],
+          state: { ...settledState, failedReadRetryCount: 0 },
+        };
+  }
+
+  const delayMs = STREAK_READ_RETRY_DELAYS_MS[state.failedReadRetryCount];
+
+  if (delayMs === undefined) {
+    return { commands: [], state: { ...settledState, failedReadRetryCount: 0 } };
+  }
+
+  return {
+    commands: [{ delayMs, type: STREAK_FRESHNESS_COMMAND.scheduleRead }],
+    state: { ...settledState, failedReadRetryCount: state.failedReadRetryCount + 1 },
+  };
+}
+
+/**
+ * Forgets the passed deadline and the failed read retries of the previous
+ * server render, cancelling the read either of them scheduled.
+ */
+function changeSource(state: StreakFreshnessState): StreakFreshnessTransition {
+  if (state.passedDeadline === null && state.failedReadRetryCount === 0) {
+    return { commands: [], state };
+  }
+
+  return {
+    commands: [{ type: STREAK_FRESHNESS_COMMAND.cancelScheduledRead }],
+    state: { ...state, failedReadRetryCount: 0, passedDeadline: null },
+  };
+}
+
+/**
+ * Disposes the state machine: aborts the read in flight and cancels the
+ * scheduled one. Later events are ignored by `transitionStreakFreshness`.
+ */
+function dispose(state: StreakFreshnessState): StreakFreshnessTransition {
+  return {
+    commands: [
+      { type: STREAK_FRESHNESS_COMMAND.abortRead },
+      { type: STREAK_FRESHNESS_COMMAND.cancelScheduledRead },
+    ],
+    state: {
+      ...state,
+      failedReadRetryCount: 0,
+      isDisposed: true,
+      isReadInFlight: false,
+      passedDeadline: null,
+      pendingRead: STREAK_PENDING_READ.none,
+    },
+  };
+}
+
+/**
  * Computes the next freshness state of the streak and the commands to run.
  *
  * @param state - Current state.
- * @param event - Read, mutation, returned instant, or new server render.
- * @returns The next state and the ordered commands for the hook.
+ * @param event - Read, mutation, returned instant, new server render, or unmount.
+ * @returns The next state and the ordered commands for the hook; no command
+ * once the state machine was disposed.
  */
 export function transitionStreakFreshness(
   state: StreakFreshnessState,
   event: StreakFreshnessEvent
 ): StreakFreshnessTransition {
+  if (state.isDisposed) {
+    return { commands: [], state };
+  }
+
   switch (event.type) {
     case STREAK_FRESHNESS_EVENT.readRequested:
       return requestRead(state);
     case STREAK_FRESHNESS_EVENT.readSettled:
-      return { commands: [], state: { ...state, isReadInFlight: false } };
+      return settleRead(state, event.outcome);
     case STREAK_FRESHNESS_EVENT.mutationStarted:
       return startMutation(state);
     case STREAK_FRESHNESS_EVENT.mutationSettled:
@@ -280,11 +386,8 @@ export function transitionStreakFreshness(
     case STREAK_FRESHNESS_EVENT.deadlineReturned:
       return handleReturnedDeadline(state, event.nextRefreshAt, event.nowTime);
     case STREAK_FRESHNESS_EVENT.sourceChanged:
-      return state.passedDeadline === null
-        ? { commands: [], state }
-        : {
-            commands: [{ type: STREAK_FRESHNESS_COMMAND.cancelScheduledRead }],
-            state: { ...state, passedDeadline: null },
-          };
+      return changeSource(state);
+    case STREAK_FRESHNESS_EVENT.disposed:
+      return dispose(state);
   }
 }
