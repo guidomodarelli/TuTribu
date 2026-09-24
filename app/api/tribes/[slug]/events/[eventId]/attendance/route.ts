@@ -1,9 +1,13 @@
-import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_ATTENDANCE_STATUS,
+  TRIBE_EVENT_MUTATION_STATUS,
+} from "@/src/modules/events/constants/tribe-events";
 import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_QUERY_PARAM,
   TRIBE_EVENT_ROUTE_RESPONSE,
   createJsonResponse,
+  mapTribeEventAttendanceReportStatusResponse,
   mapTribeEventAttendanceStatusResponse,
   readSearchParam,
   readTribeEventAttendanceBody,
@@ -16,6 +20,7 @@ const ATTENDANCE_ROUTE_LOG = {
   clearFailureMessage: "Tribe event attendance clear failed",
   feature: "events",
   operation: "tribe-event-attendance",
+  reportFailureMessage: "Tribe event attendance report failed",
   setFailureMessage: "Tribe event attendance save failed",
 } as const;
 
@@ -27,7 +32,65 @@ type TribeEventRouteContext = {
 };
 
 /**
- * Records the viewer's answer ("going" / "not going") for one occurrence.
+ * Manager-only attendance of the occurrence given in the `occurrence` query
+ * param: answers grouped by status and, for series, the recent going trend.
+ * Authorization is enforced by the use case (403 for everyone else).
+ */
+export async function GET(request: Request, context: TribeEventRouteContext) {
+  const { eventId, slug } = await context.params;
+  const { requestId } = resolveRequestContext(request.headers);
+  const logger = createServerLogger({
+    feature: ATTENDANCE_ROUTE_LOG.feature,
+    operation: ATTENDANCE_ROUTE_LOG.operation,
+    requestId,
+  });
+  const modules = await createRequestModules({ requestId });
+  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
+
+  if (!authenticatedMember) {
+    return createJsonResponse(
+      { message: TRIBE_EVENT_ROUTE_RESPONSE.unauthorizedMessage },
+      TRIBE_EVENT_ROUTE_HTTP_STATUS.unauthorized
+    );
+  }
+
+  const occurrenceStartsAt =
+    readSearchParam(request, TRIBE_EVENT_ROUTE_QUERY_PARAM.occurrence) ?? "";
+
+  try {
+    const result = await modules.events.useCases.getTribeEventAttendanceReport({
+      eventId,
+      occurrenceStartsAt,
+      tribeSlug: slug,
+    });
+
+    if (result.status === TRIBE_EVENT_MUTATION_STATUS.found) {
+      return createJsonResponse({ report: result.report }, TRIBE_EVENT_ROUTE_HTTP_STATUS.ok);
+    }
+
+    return mapTribeEventAttendanceReportStatusResponse(result.status);
+  } catch (error) {
+    logger.error({
+      message: ATTENDANCE_ROUTE_LOG.reportFailureMessage,
+      error,
+      metadata: {
+        eventId,
+        occurrenceStartsAt,
+        slug,
+        viewerId: authenticatedMember.id,
+      },
+    });
+
+    return createJsonResponse(
+      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedAttendanceReportMessage },
+      TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
+    );
+  }
+}
+
+/**
+ * Records the viewer's answer ("going", "maybe", "not going") for one
+ * occurrence. A "going" answer on a full occurrence is stored as waitlisted.
  */
 export async function PUT(request: Request, context: TribeEventRouteContext) {
   const { eventId, slug } = await context.params;
@@ -59,7 +122,10 @@ export async function PUT(request: Request, context: TribeEventRouteContext) {
       return createJsonResponse(
         {
           attendance: result.attendance,
-          message: TRIBE_EVENT_ROUTE_RESPONSE.attendanceSavedMessage,
+          message:
+            result.attendance.viewerStatus === TRIBE_EVENT_ATTENDANCE_STATUS.waitlisted
+              ? TRIBE_EVENT_ROUTE_RESPONSE.attendanceWaitlistedMessage
+              : TRIBE_EVENT_ROUTE_RESPONSE.attendanceSavedMessage,
         },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.ok
       );
@@ -86,7 +152,7 @@ export async function PUT(request: Request, context: TribeEventRouteContext) {
 
 /**
  * Removes the viewer's answer for the occurrence given in the `occurrence`
- * query param.
+ * query param. Freeing a seat promotes the first person on the waitlist.
  */
 export async function DELETE(request: Request, context: TribeEventRouteContext) {
   const { eventId, slug } = await context.params;

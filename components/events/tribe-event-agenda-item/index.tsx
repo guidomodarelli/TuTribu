@@ -3,6 +3,10 @@
 import { CalendarPlusIcon, ExternalLinkIcon } from "lucide-react";
 import { Badge, cn } from "beez-ui";
 
+import {
+  TRIBE_EVENT_ATTENDANCE_SUMMARY_VARIANT,
+  TribeEventAttendanceSummary,
+} from "@/components/events/tribe-event-attendance-summary";
 import { formatBuenosAiresTimeRange } from "@/lib/date-time/buenos-aires-format";
 import { formatViewerLocalTimeLabel } from "@/lib/date-time/viewer-local-time-format";
 import { buildTribeEventGoogleCalendarUrl } from "@/lib/events/tribe-event-calendar-links";
@@ -39,37 +43,39 @@ const LINK_ATTRIBUTE = {
 } as const;
 const COPY = {
   googleCalendar: "Agregar a Google Calendar",
-  goingBadge: "Vas",
-  goingCountSuffixPlural: " van",
-  goingCountSuffixSingular: " va",
   linkOpen: "Abrir link",
   liveBadge: "En vivo",
-  notGoingBadge: "No vas",
   pastBadge: "Finalizado",
 } as const;
-
-function formatGoingCount(goingCount: number): string {
-  return (
-    String(goingCount) +
-    (goingCount === 1 ? COPY.goingCountSuffixSingular : COPY.goingCountSuffixPlural)
-  );
-}
+/**
+ * Badge of the viewer's own answer on each agenda row.
+ */
+const VIEWER_ANSWER_BADGE = {
+  [TRIBE_EVENT_ATTENDANCE_STATUS.going]: { label: "Vas", variant: BADGE_VARIANT.default },
+  [TRIBE_EVENT_ATTENDANCE_STATUS.maybe]: { label: "Tal vez", variant: BADGE_VARIANT.outline },
+  [TRIBE_EVENT_ATTENDANCE_STATUS.notGoing]: { label: "No vas", variant: BADGE_VARIANT.outline },
+  [TRIBE_EVENT_ATTENDANCE_STATUS.waitlisted]: {
+    label: "En espera",
+    variant: BADGE_VARIANT.secondary,
+  },
+} as const;
 
 function AttendanceBadge({ occurrence }: { occurrence: TribeEventOccurrenceResult }) {
-  if (occurrence.attendance.viewerStatus === TRIBE_EVENT_ATTENDANCE_STATUS.going) {
-    return <Badge variant={BADGE_VARIANT.default}>{COPY.goingBadge}</Badge>;
+  const viewerStatus = occurrence.attendance.viewerStatus;
+
+  if (!viewerStatus) {
+    return null;
   }
 
-  if (occurrence.attendance.viewerStatus === TRIBE_EVENT_ATTENDANCE_STATUS.notGoing) {
-    return <Badge variant={BADGE_VARIANT.outline}>{COPY.notGoingBadge}</Badge>;
-  }
+  const badge = VIEWER_ANSWER_BADGE[viewerStatus];
 
-  return null;
+  return <Badge variant={badge.variant}>{badge.label}</Badge>;
 }
 
 /**
  * One agenda row: schedule, title (opens the detail), viewer answer or
- * finished badge, recurrence, attendance count, and the meeting link.
+ * finished badge, recurrence, a compact attendance summary (avatars,
+ * counts, free seats), and the meeting link.
  */
 export function TribeEventAgendaItem({
   nowTime,
@@ -128,10 +134,12 @@ export function TribeEventAgendaItem({
               {TRIBE_EVENT_RECURRENCE_LABEL[occurrence.recurrenceFrequency]}
             </span>
           ) : null}
-          <span className={styles.TribeEventAgendaItem__metaText}>
-            {formatGoingCount(occurrence.attendance.goingCount)}
-          </span>
         </div>
+        <TribeEventAttendanceSummary
+          isPast={isPast}
+          occurrence={occurrence}
+          variant={TRIBE_EVENT_ATTENDANCE_SUMMARY_VARIANT.compact}
+        />
       </div>
       <div className={styles.TribeEventAgendaItem__actions}>
         {canAddToGoogleCalendar ? (

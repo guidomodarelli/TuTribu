@@ -4,6 +4,8 @@ import {
   TRIBE_EVENT_OCCURRENCE_PHASE,
   formatOccurrenceCountdown,
   getOccurrencePhase,
+  getOccurrencePhaseChangeTimes,
+  hasOccurrenceFinishedBetween,
   isOccurrenceJoinable,
 } from "@/lib/events/tribe-event-occurrence-timing";
 
@@ -84,5 +86,54 @@ describe("formatOccurrenceCountdown", () => {
     expect(formatOccurrenceCountdown(STARTS_AT, START_TIME - 20_000)).toBe(
       "Empieza en 1 min"
     );
+  });
+});
+
+describe("hasOccurrenceFinishedBetween", () => {
+  const withEnd = { endsAt: "2026-05-06T19:00:00.000Z", startsAt: STARTS_AT };
+  const withoutEnd = { endsAt: null, startsAt: "2026-05-07T18:00:00.000Z" };
+  const endTime = Date.parse(withEnd.endsAt);
+
+  it("detects an occurrence whose end falls inside the elapsed interval", () => {
+    expect(hasOccurrenceFinishedBetween([withEnd], endTime - MINUTE, endTime)).toBe(true);
+    expect(hasOccurrenceFinishedBetween([withEnd], endTime - HOUR, endTime + HOUR)).toBe(true);
+  });
+
+  it("ignores occurrences that finished before or finish after the interval", () => {
+    expect(hasOccurrenceFinishedBetween([withEnd], endTime, endTime + MINUTE)).toBe(false);
+    expect(hasOccurrenceFinishedBetween([withEnd], endTime - 2 * MINUTE, endTime - MINUTE)).toBe(
+      false
+    );
+  });
+
+  it("uses the default duration for occurrences without an explicit end", () => {
+    const defaultEndTime = Date.parse(withoutEnd.startsAt) + HOUR;
+
+    expect(
+      hasOccurrenceFinishedBetween([withoutEnd], defaultEndTime - MINUTE, defaultEndTime)
+    ).toBe(true);
+  });
+
+  it("never reports a finish when the clock did not move forward", () => {
+    expect(hasOccurrenceFinishedBetween([withEnd], endTime, endTime)).toBe(false);
+    expect(hasOccurrenceFinishedBetween([withEnd], endTime + MINUTE, endTime - MINUTE)).toBe(
+      false
+    );
+  });
+});
+
+describe("getOccurrencePhaseChangeTimes", () => {
+  it("lists the join window start, the start and the end of the occurrence", () => {
+    expect(
+      getOccurrencePhaseChangeTimes({ endsAt: "2026-05-06T19:30:15.000Z", startsAt: STARTS_AT })
+    ).toEqual([START_TIME - 15 * MINUTE, START_TIME, Date.parse("2026-05-06T19:30:15.000Z")]);
+  });
+
+  it("uses the default duration as the end of an occurrence without end", () => {
+    expect(getOccurrencePhaseChangeTimes({ endsAt: null, startsAt: STARTS_AT })).toEqual([
+      START_TIME - 15 * MINUTE,
+      START_TIME,
+      START_TIME + HOUR,
+    ]);
   });
 });

@@ -1,6 +1,7 @@
 import type { TribeEventResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { TRIBE_EVENT_DEFAULT_DURATION_MINUTES } from "@/src/modules/events/constants/tribe-events";
 import { formatCalendarUtcDateTime } from "@/src/modules/events/domain/services/tribe-event-recurrence";
+import { slugifyDownloadFileName } from "@/src/modules/events/infrastructure/export/download-file-name";
 
 const ICS = {
   calendarScale: "GREGORIAN",
@@ -24,11 +25,6 @@ const ICS_ESCAPE_PREFIX = "\\";
  */
 const ICS_LINE_FOLD_LENGTH = 70;
 const ICS_LINE_FOLD_CONTINUATION = "\r\n ";
-const FILE_NAME_DIACRITICS_PATTERN = /[̀-ͯ]/g;
-const FILE_NAME_INVALID_PATTERN = /[^a-z0-9-]+/g;
-const FILE_NAME_TRIM_PATTERN = /^-+|-+$/g;
-const FILE_NAME_SEPARATOR = "-";
-const FILE_NAME_MAX_LENGTH = 60;
 
 export type TribeEventIcsFile = {
   content: string;
@@ -64,15 +60,7 @@ function resolveEndsAt(event: TribeEventResult): string {
 }
 
 function buildFileName(event: TribeEventResult): string {
-  const slug = event.title
-    .normalize("NFD")
-    .replace(FILE_NAME_DIACRITICS_PATTERN, "")
-    .toLowerCase()
-    .replace(FILE_NAME_INVALID_PATTERN, FILE_NAME_SEPARATOR)
-    .replace(FILE_NAME_TRIM_PATTERN, "")
-    .slice(0, FILE_NAME_MAX_LENGTH);
-
-  return ICS.fileNamePrefix + (slug || event.id) + ICS.fileExtension;
+  return ICS.fileNamePrefix + (slugifyDownloadFileName(event.title) || event.id) + ICS.fileExtension;
 }
 
 /**

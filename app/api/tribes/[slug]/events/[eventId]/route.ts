@@ -1,4 +1,5 @@
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import { readAttendanceStreakResponseFragment } from "@/src/modules/events/infrastructure/api/tribe-event-attendance-streak-response";
 import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_QUERY_PARAM,
@@ -46,16 +47,32 @@ export async function PATCH(request: Request, context: TribeEventRouteContext) {
 
   try {
     const body = await request.json().catch(() => null);
+    const mutationBody = readTribeEventMutationBody(body);
+
+    if (mutationBody.status === TRIBE_EVENT_MUTATION_STATUS.invalidCapacity) {
+      return mapTribeEventMutationStatusResponse(mutationBody.status);
+    }
+
     const result = await modules.events.useCases.updateTribeEvent({
-      ...readTribeEventMutationBody(body),
+      ...mutationBody.body,
       eventId,
       tribeSlug: slug,
       visibleMonth: readSearchParam(request, TRIBE_EVENT_ROUTE_QUERY_PARAM.month),
     });
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.updated) {
+      const streakFragment = await readAttendanceStreakResponseFragment({
+        eventId,
+        getTribeEventAttendanceStreakSnapshot:
+          modules.events.useCases.getTribeEventAttendanceStreakSnapshot,
+        logger,
+        tribeSlug: slug,
+        viewerId: authenticatedMember.id,
+      });
+
       return createJsonResponse(
         {
+          ...streakFragment,
           event: result.event,
           message: TRIBE_EVENT_ROUTE_RESPONSE.updateSuccessMessage,
           occurrences: result.occurrences,
@@ -108,8 +125,17 @@ export async function DELETE(request: Request, context: TribeEventRouteContext) 
     });
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.deleted) {
+      const streakFragment = await readAttendanceStreakResponseFragment({
+        eventId,
+        getTribeEventAttendanceStreakSnapshot:
+          modules.events.useCases.getTribeEventAttendanceStreakSnapshot,
+        logger,
+        tribeSlug: slug,
+        viewerId: authenticatedMember.id,
+      });
+
       return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.deleteSuccessMessage },
+        { ...streakFragment, message: TRIBE_EVENT_ROUTE_RESPONSE.deleteSuccessMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.ok
       );
     }

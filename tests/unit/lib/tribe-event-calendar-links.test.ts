@@ -14,7 +14,15 @@ function createOccurrence(
   const startsAt = overrides.startsAt ?? SERIES_STARTS_AT;
 
   return {
-    attendance: { goingCount: 0, viewerStatus: null },
+    attendance: {
+      goingCount: 0,
+      goingPreview: [],
+      maybeCount: 0,
+      viewerStatus: null,
+      viewerWaitlistPosition: null,
+      waitlistedCount: 0,
+    },
+    capacity: null,
     description: "Repaso mensual",
     endsAt: SERIES_ENDS_AT,
     eventId: EVENT_ID,

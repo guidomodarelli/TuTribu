@@ -8,7 +8,7 @@
 
   &__body {
     display: grid;
-    gap: 0.15rem;
+    gap: 0.35rem;
     min-width: 0;
   }
 
@@ -99,9 +99,10 @@
     gap: 0.5rem 0.75rem;
   }
 
-  &__attendanceButtons {
-    display: inline-flex;
-    gap: 0.35rem;
+  &__streak {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
   }
 
   @media (min-width: 40rem) {

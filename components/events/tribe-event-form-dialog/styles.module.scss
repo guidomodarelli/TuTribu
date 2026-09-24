@@ -23,6 +23,17 @@
     width: 100%;
   }
 
+  &__capacity {
+    max-width: 10rem;
+  }
+
+  &__hint {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-weight: 400;
+  }
+
   &__toggle {
     display: flex;
     align-items: center;

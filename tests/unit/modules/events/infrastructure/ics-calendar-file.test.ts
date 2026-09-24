@@ -7,6 +7,7 @@ describe("buildTribeEventIcsFile", () => {
   it("serializes a recurring event with escaped text, link, and CRLF line endings", () => {
     const icsFile = buildTribeEventIcsFile(
       {
+        capacity: null,
         description: "Repaso mensual, con notas\nSegunda línea; fin",
         endsAt: "2026-05-06T19:00:00.000Z",
         id: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",
@@ -44,6 +45,7 @@ describe("buildTribeEventIcsFile", () => {
   it("assumes a default duration for events without an end time", () => {
     const icsFile = buildTribeEventIcsFile(
       {
+        capacity: null,
         description: null,
         endsAt: null,
         id: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",
@@ -65,6 +67,7 @@ describe("buildTribeEventIcsFile", () => {
   it("folds long content lines so no line exceeds the RFC limit", () => {
     const icsFile = buildTribeEventIcsFile(
       {
+        capacity: null,
         description: "x".repeat(200),
         endsAt: null,
         id: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",

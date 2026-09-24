@@ -2,11 +2,22 @@
 
 import { type FormEvent, useState } from "react";
 
-import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from "beez-ui";
-
-
-
-
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+} from "beez-ui";
 
 import {
   buildBuenosAiresInstant,
@@ -19,6 +30,7 @@ import type { TribeEventOccurrenceResult } from "@/src/modules/events/applicatio
 import type { TribeEventRecurrenceFrequency } from "@/src/modules/events/domain/entities/tribe-event";
 import { TRIBE_EVENT_RECURRENCE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";
 import {
+  TRIBE_EVENT_CAPACITY_LIMIT,
   TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
   TRIBE_EVENT_FIELD_LIMIT,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
@@ -52,6 +64,7 @@ type TribeEventFormDialogProps = {
 };
 
 type EventFormValues = {
+  capacity: string;
   date: string;
   description: string;
   endsDate: string;
@@ -65,6 +78,7 @@ type EventFormValues = {
 
 const EMPTY_VALUE = "";
 const FORM_DEFAULTS: EventFormValues = {
+  capacity: EMPTY_VALUE,
   date: EMPTY_VALUE,
   description: EMPTY_VALUE,
   endsDate: EMPTY_VALUE,
@@ -80,6 +94,8 @@ const FORM_DEFAULTS: EventFormValues = {
  */
 const RECURRENCE_UNTIL_END_OF_DAY_TIME = "23:59";
 const FIELD_ID = {
+  capacity: "tribe-event-capacity",
+  capacityHint: "tribe-event-capacity-hint",
   date: "tribe-event-date",
   description: "tribe-event-description",
   endsDate: "tribe-event-ends-date",
@@ -96,7 +112,15 @@ const INPUT_TYPE = {
   time: "time",
   url: "url",
 } as const;
-const INPUT_MODE_URL = "url";
+const INPUT_MODE = {
+  numeric: "numeric",
+  url: "url",
+} as const;
+/**
+ * Whole positive number as typed in "Cupo máximo"; the server validates it
+ * again with the same limits.
+ */
+const CAPACITY_PATTERN = /^\d+$/;
 const BUTTON_ATTRIBUTE = {
   typeButton: "button",
   typeSubmit: "submit",
@@ -110,6 +134,10 @@ const RECURRENCE_OPTIONS = [
 ] as const;
 const COPY = {
   cancelButton: "Cancelar",
+  capacityEditHint: "Bajar el cupo no quita a nadie que ya confirmó.",
+  capacityHint: "Si se completa, las nuevas respuestas quedan en lista de espera.",
+  capacityLabel: "Cupo máximo (opcional)",
+  capacityPlaceholder: "Sin límite",
   createDescription: "Completá los datos principales del encuentro digital.",
   createTitle: "Nuevo evento",
   dateLabel: "Fecha",
@@ -119,6 +147,7 @@ const COPY = {
   endsDateLabel: "Fecha de fin",
   endsOnAnotherDayLabel: "Termina otro día",
   endsTimeLabel: "Hora de fin",
+  invalidCapacity: "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo.",
   invalidEndDate: "La fecha de fin debe ser posterior al inicio.",
   invalidRecurrenceUntil: "La repetición debe terminar después de la fecha de inicio.",
   meetingUrlLabel: "Link de reunión",
@@ -224,6 +253,7 @@ function createInitialValues(
     : EMPTY_VALUE;
 
   return {
+    capacity: occurrence.capacity === null ? EMPTY_VALUE : String(occurrence.capacity),
     date: startDateKey,
     description: occurrence.description ?? EMPTY_VALUE,
     endsDate: endDateKey === startDateKey ? EMPTY_VALUE : endDateKey,
@@ -245,9 +275,29 @@ function createInitialValues(
  * Returns an error message (in Spanish) instead of a payload when the values
  * cannot form a valid schedule.
  */
+function isValidCapacity(capacity: string): boolean {
+  const capacityValue = capacity.trim();
+
+  if (capacityValue === EMPTY_VALUE) {
+    return true;
+  }
+
+  const capacityNumber = Number(capacityValue);
+
+  return (
+    CAPACITY_PATTERN.test(capacityValue) &&
+    capacityNumber >= TRIBE_EVENT_CAPACITY_LIMIT.min &&
+    capacityNumber <= TRIBE_EVENT_CAPACITY_LIMIT.max
+  );
+}
+
 function buildPayload(
   values: EventFormValues
 ): { error: string } | { payload: TribeEventFormPayload } {
+  if (!isValidCapacity(values.capacity)) {
+    return { error: COPY.invalidCapacity };
+  }
+
   const startsAt = buildBuenosAiresInstant(values.date, values.startsTime);
 
   if (values.endsDate && !values.endsTime) {
@@ -282,6 +332,7 @@ function buildPayload(
 
   return {
     payload: {
+      capacity: values.capacity.trim(),
       description: values.description,
       endsAt,
       meetingUrl: values.meetingUrl,
@@ -550,10 +601,28 @@ export function TribeEventFormDialog({
             ) : null}
           </div>
           <div className={styles.TribeEventFormDialog__field}>
+            <label htmlFor={FIELD_ID.capacity}>{COPY.capacityLabel}</label>
+            <Input
+              aria-describedby={FIELD_ID.capacityHint}
+              className={styles.TribeEventFormDialog__capacity}
+              id={FIELD_ID.capacity}
+              // Plain text with a numeric keyboard: native number validation
+              // would block the submit with a browser-language bubble instead
+              // of the Spanish inline message.
+              inputMode={INPUT_MODE.numeric}
+              placeholder={COPY.capacityPlaceholder}
+              value={values.capacity}
+              onChange={(event) => updateField("capacity", event.currentTarget.value)}
+            />
+            <p className={styles.TribeEventFormDialog__hint} id={FIELD_ID.capacityHint}>
+              {isEditing ? COPY.capacityHint + " " + COPY.capacityEditHint : COPY.capacityHint}
+            </p>
+          </div>
+          <div className={styles.TribeEventFormDialog__field}>
             <label htmlFor={FIELD_ID.meetingUrl}>{COPY.meetingUrlLabel}</label>
             <Input
               id={FIELD_ID.meetingUrl}
-              inputMode={INPUT_MODE_URL}
+              inputMode={INPUT_MODE.url}
               placeholder={COPY.meetingUrlPlaceholder}
               type={INPUT_TYPE.url}
               value={values.meetingUrl}

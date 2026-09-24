@@ -25,6 +25,11 @@ export type GetTribeEventQuery = {
  * the month it is rendering so the UI can update without a full reload.
  */
 export type CreateTribeEventCommand = {
+  /**
+   * Raw "Cupo máximo" field: a positive integer, or empty/missing for an
+   * unlimited event.
+   */
+  capacity?: string;
   description: string;
   endsAt: string;
   meetingUrl: string;
@@ -36,7 +41,14 @@ export type CreateTribeEventCommand = {
   visibleMonth?: string;
 };
 
-export type UpdateTribeEventCommand = CreateTribeEventCommand & {
+/**
+ * Raw fields of an event update. Unlike creation, a missing `capacity` means
+ * "keep the stored capacity": an older client or API consumer that does not
+ * know the field must not remove an existing limit. An empty value removes it
+ * explicitly and a positive integer sets it.
+ */
+export type UpdateTribeEventCommand = Omit<CreateTribeEventCommand, "capacity"> & {
+  capacity?: string;
   eventId: string;
 };
 
@@ -49,6 +61,24 @@ export type SetTribeEventAttendanceCommand = {
   eventId: string;
   occurrenceStartsAt: string;
   status: string;
+  tribeSlug: string;
+};
+
+export type GetTribeEventAttendanceReportQuery = {
+  eventId: string;
+  occurrenceStartsAt: string;
+  tribeSlug: string;
+};
+
+/**
+ * `now` is the application instant the caller took before the read. It only
+ * sizes the read ranges (with a clock margin): the streak, its next refresh
+ * instant, and `attendanceStreakComputedAt` all use the database instant the
+ * snapshot read returns, so the response agrees on one "now" and that "now"
+ * is the clock attendance writes use to refuse ended occurrences.
+ */
+export type GetTribeEventAttendanceStreakQuery = {
+  now: Date;
   tribeSlug: string;
 };
 

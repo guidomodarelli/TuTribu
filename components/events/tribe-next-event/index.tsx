@@ -2,25 +2,29 @@
 
 import { Button } from "beez-ui";
 
+import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
+import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";
 import {
   formatBuenosAiresLongDate,
   formatBuenosAiresTimeRange,
 } from "@/lib/date-time/buenos-aires-format";
 import { formatViewerLocalTimeLabel } from "@/lib/date-time/viewer-local-time-format";
+import { formatAttendanceStreak } from "@/lib/events/tribe-event-attendance-copy";
 import {
   formatOccurrenceCountdown,
   isOccurrenceJoinable,
   isOccurrenceLive,
 } from "@/lib/events/tribe-event-occurrence-timing";
 import type {
-  TribeEventAttendanceStatus,
+  TribeEventAttendanceOption,
+  TribeEventAttendanceStreakResult,
   TribeEventOccurrenceResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
-import { TRIBE_EVENT_ATTENDANCE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";
-import { TRIBE_EVENT_ATTENDANCE_STATUS } from "@/src/modules/events/constants/tribe-events";
 import styles from "./styles.module.scss";
 
 type TribeNextEventProps = {
+  /** Viewer-only streak over the last finished occurrences, when earned. */
+  attendanceStreak?: TribeEventAttendanceStreakResult | null;
   isSavingAttendance: boolean;
   /** Current time (epoch ms); the block only renders after hydration. */
   nowTime: number;
@@ -28,24 +32,17 @@ type TribeNextEventProps = {
   onSeeDetail: (occurrence: TribeEventOccurrenceResult) => void;
   onSetAttendance: (
     occurrence: TribeEventOccurrenceResult,
-    status: TribeEventAttendanceStatus | null
+    status: TribeEventAttendanceOption | null
   ) => void;
   /** Browser time zone, null before hydration. */
   viewerTimeZone: string | null;
 };
 
-const ATTENDANCE_OPTIONS = [
-  TRIBE_EVENT_ATTENDANCE_STATUS.going,
-  TRIBE_EVENT_ATTENDANCE_STATUS.notGoing,
-] as const;
 const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
   variantGhost: "ghost",
-  variantOutline: "outline",
-  variantSecondary: "secondary",
 } as const;
-const GROUP_ROLE = "group";
 const LINK_ATTRIBUTE = {
   noreferrer: "noreferrer",
   targetBlank: "_blank",
@@ -60,10 +57,12 @@ const COPY = {
 } as const;
 
 /**
- * Highlight of the closest occurrence that has not finished yet, with quick
- * attendance buttons and a shortcut to the detail.
+ * Highlight of the closest occurrence that has not finished yet: who is
+ * going, free seats, quick "Voy / Tal vez / No voy" buttons, the viewer's
+ * own streak (never shown to anyone else), and a shortcut to the detail.
  */
 export function TribeNextEvent({
+  attendanceStreak = null,
   isSavingAttendance,
   nowTime,
   occurrence,
@@ -110,6 +109,10 @@ export function TribeNextEvent({
             </span>
           ) : null}
         </p>
+        <TribeEventAttendanceSummary isPast={false} occurrence={occurrence} />
+        {attendanceStreak ? (
+          <p className={styles.TribeNextEvent__streak}>{formatAttendanceStreak(attendanceStreak)}</p>
+        ) : null}
       </div>
       <div className={styles.TribeNextEvent__actions}>
         {joinUrl ? (
@@ -119,33 +122,12 @@ export function TribeNextEvent({
             </a>
           </Button>
         ) : null}
-        <div
-          aria-label={COPY.attendanceLegend}
-          className={styles.TribeNextEvent__attendanceButtons}
-          role={GROUP_ROLE}
-        >
-          {ATTENDANCE_OPTIONS.map((status) => {
-            const isSelected = occurrence.attendance.viewerStatus === status;
-
-            return (
-              <Button
-                aria-pressed={isSelected}
-                disabled={isSavingAttendance}
-                key={status}
-                size={BUTTON_ATTRIBUTE.sizeSmall}
-                type={BUTTON_ATTRIBUTE.typeButton}
-                variant={
-                  isSelected
-                    ? BUTTON_ATTRIBUTE.variantSecondary
-                    : BUTTON_ATTRIBUTE.variantOutline
-                }
-                onClick={() => onSetAttendance(occurrence, isSelected ? null : status)}
-              >
-                {TRIBE_EVENT_ATTENDANCE_LABEL[status]}
-              </Button>
-            );
-          })}
-        </div>
+        <TribeEventAttendanceOptions
+          isSaving={isSavingAttendance}
+          legend={COPY.attendanceLegend}
+          viewerStatus={occurrence.attendance.viewerStatus}
+          onSelect={(status) => onSetAttendance(occurrence, status)}
+        />
         <Button
           size={BUTTON_ATTRIBUTE.sizeSmall}
           type={BUTTON_ATTRIBUTE.typeButton}

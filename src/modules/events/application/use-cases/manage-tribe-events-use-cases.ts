@@ -27,16 +27,21 @@ import {
   type TribeEventOccurrenceKeyParts,
 } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
+  TRIBE_EVENT_CAPACITY_LIMIT,
+  TRIBE_EVENT_CAPACITY_UPDATE_KIND,
   TRIBE_EVENT_FIELD_LIMIT,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEvent,
+  TribeEventDateRange,
   TribeEventRecurrenceFrequency,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   PersistTribeEventCommand,
+  TribeEventCapacityUpdate,
+  TribeEventOccurrenceAttendance,
   TribeEventRepository,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 import {
@@ -55,6 +60,7 @@ type NormalizedEventInput =
     }
   | {
       status:
+        | typeof TRIBE_EVENT_MUTATION_STATUS.invalidCapacity
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidInput
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl
@@ -71,6 +77,12 @@ const RECURRENCE_FREQUENCIES: ReadonlySet<string> = new Set(
  * Event ids are Postgres uuids; anything else is rejected before querying so a
  * malformed route param never turns into a cast error at the database.
  */
+/**
+ * Whole positive number as typed in the "Cupo máximo" field (no sign, no
+ * decimals, no exponent), checked before `Number` can accept "1e3" or "2.0".
+ */
+const CAPACITY_PATTERN = /^\d+$/;
+const INVALID_CAPACITY = Symbol("invalid-capacity");
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -99,6 +111,51 @@ function normalizeOptionalText(value: string): string | null {
   const normalizedValue = value.trim();
 
   return normalizedValue.length > 0 ? normalizedValue : null;
+}
+
+/**
+ * Normalizes the raw capacity field: empty or missing means unlimited (null).
+ *
+ * @param rawCapacity - Untrusted form value.
+ * @returns The capacity, null for unlimited, or `INVALID_CAPACITY`.
+ */
+function normalizeCapacity(
+  rawCapacity: string | undefined
+): number | null | typeof INVALID_CAPACITY {
+  const capacityValue = rawCapacity?.trim() ?? "";
+
+  if (capacityValue.length === 0) {
+    return null;
+  }
+
+  if (!CAPACITY_PATTERN.test(capacityValue)) {
+    return INVALID_CAPACITY;
+  }
+
+  const capacity = Number(capacityValue);
+
+  return capacity >= TRIBE_EVENT_CAPACITY_LIMIT.min &&
+    capacity <= TRIBE_EVENT_CAPACITY_LIMIT.max
+    ? capacity
+    : INVALID_CAPACITY;
+}
+
+/**
+ * Capacity change of an update: a missing raw field keeps the stored capacity
+ * (legacy bodies without the field must not remove the limit); any present
+ * value, already validated by `normalizeCapacity`, is written as is.
+ *
+ * @param rawCapacity - Raw capacity of the update command, undefined when absent.
+ * @param normalizedCapacity - Capacity normalized from that raw value.
+ * @returns The capacity change to persist.
+ */
+function resolveCapacityUpdate(
+  rawCapacity: string | undefined,
+  normalizedCapacity: number | null
+): TribeEventCapacityUpdate {
+  return rawCapacity === undefined
+    ? { kind: TRIBE_EVENT_CAPACITY_UPDATE_KIND.unchanged }
+    : { capacity: normalizedCapacity, kind: TRIBE_EVENT_CAPACITY_UPDATE_KIND.set };
 }
 
 function isInvalidDateRange(startsAt: string, endsAt: string | null): boolean {
@@ -191,6 +248,12 @@ function normalizeEventInput(
     throw error;
   }
 
+  const capacity = normalizeCapacity(command.capacity);
+
+  if (capacity === INVALID_CAPACITY) {
+    return { status: TRIBE_EVENT_MUTATION_STATUS.invalidCapacity };
+  }
+
   const normalizedStartsAt = new Date(startsAt).toISOString();
   const recurrence = normalizeRecurrence(
     command.recurrenceFrequency,
@@ -204,6 +267,7 @@ function normalizeEventInput(
 
   return {
     input: {
+      capacity,
       description,
       endsAt: endsAt === null ? null : new Date(endsAt).toISOString(),
       meetingUrl,
@@ -218,24 +282,29 @@ function normalizeEventInput(
 }
 
 /**
+ * Range of the month the caller is looking at, or null when the `month`
+ * query is missing or malformed (the save then returns no occurrences).
+ */
+function resolveVisibleMonthRange(visibleMonth: string | undefined): TribeEventDateRange | null {
+  const monthValue = visibleMonth?.trim() ?? "";
+
+  return monthValue && parseMonth(monthValue) ? createBuenosAiresMonthRange(monthValue) : null;
+}
+
+/**
  * Occurrences of a freshly saved event inside the month the caller is
  * looking at, so the UI can patch its state without reloading the route.
+ * `attendances` are the summaries persisted for that event in the range; a
+ * new event has none, and an update reads them after the waitlist refill.
  */
 function buildVisibleMonthOccurrences(
   event: TribeEvent,
-  visibleMonth: string | undefined
+  attendances: TribeEventOccurrenceAttendance[],
+  visibleMonthRange: TribeEventDateRange | null
 ): TribeEventOccurrenceResult[] {
-  const monthValue = visibleMonth?.trim() ?? "";
-
-  if (!monthValue || !parseMonth(monthValue)) {
-    return [];
-  }
-
-  return buildTribeEventOccurrences(
-    [event],
-    [],
-    createBuenosAiresMonthRange(monthValue)
-  );
+  return visibleMonthRange
+    ? buildTribeEventOccurrences([event], attendances, visibleMonthRange)
+    : [];
 }
 
 export function listTribeEvents({ tribeEventRepository }: TribeEventDependencies) {
@@ -313,7 +382,11 @@ export function createTribeEvent({
 
     return {
       event: toTribeEventResult(result.event),
-      occurrences: buildVisibleMonthOccurrences(result.event, command.visibleMonth),
+      occurrences: buildVisibleMonthOccurrences(
+        result.event,
+        [],
+        resolveVisibleMonthRange(command.visibleMonth)
+      ),
       status: result.status,
     };
   };
@@ -335,8 +408,11 @@ export function updateTribeEvent({
       return { status: normalizedInput.status };
     }
 
+    const visibleMonthRange = resolveVisibleMonthRange(command.visibleMonth);
     const result = await tribeEventRepository.update({
       ...normalizedInput.input,
+      attendanceRange: visibleMonthRange,
+      capacity: resolveCapacityUpdate(command.capacity, normalizedInput.input.capacity),
       eventId,
     });
 
@@ -346,7 +422,11 @@ export function updateTribeEvent({
 
     return {
       event: toTribeEventResult(result.event),
-      occurrences: buildVisibleMonthOccurrences(result.event, command.visibleMonth),
+      occurrences: buildVisibleMonthOccurrences(
+        result.event,
+        result.attendances,
+        visibleMonthRange
+      ),
       status: result.status,
     };
   };

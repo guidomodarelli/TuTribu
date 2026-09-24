@@ -1,0 +1,55 @@
+.TribeEventAttendanceSummary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+
+  &--compact {
+    gap: 0.4rem;
+  }
+
+  &__avatars {
+    flex: 0 0 auto;
+  }
+
+  // Stacked avatars show a single initial, readable in both engines.
+  &__initials {
+    font-size: 0.7rem;
+    letter-spacing: 0;
+  }
+
+  &__more {
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__text {
+    display: grid;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  &__names,
+  &__counts,
+  &__waitlist {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  &__names {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  &__counts {
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__waitlist {
+    color: var(--primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+}

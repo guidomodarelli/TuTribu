@@ -1,4 +1,7 @@
-import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_ATTENDANCE_FAILURE_CODE,
+  TRIBE_EVENT_MUTATION_STATUS,
+} from "@/src/modules/events/constants/tribe-events";
 
 /**
  * Shared HTTP wiring for the tribe event route handlers: body readers, safe
@@ -6,6 +9,7 @@ import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/trib
  */
 export const TRIBE_EVENT_ROUTE_HTTP_STATUS = {
   badRequest: 400,
+  conflict: 409,
   created: 201,
   forbidden: 403,
   notFound: 404,
@@ -21,21 +25,29 @@ export const TRIBE_EVENT_ROUTE_QUERY_PARAM = {
 
 export const TRIBE_EVENT_ROUTE_RESPONSE = {
   attendanceClearedMessage: "Respuesta eliminada.",
+  attendanceReportForbiddenMessage: "Solo quienes gestionan eventos pueden ver la asistencia.",
   attendanceSavedMessage: "Respuesta guardada.",
+  attendanceWaitlistedMessage: "El evento está completo: quedaste en la lista de espera.",
   createSuccessMessage: "Evento creado.",
   deleteSuccessMessage: "Evento eliminado.",
   eventNotFoundMessage: "No pudimos encontrar el evento.",
   forbiddenMessage: "No tenés permisos para gestionar eventos.",
   invalidAttendanceMessage: "Elegí una fecha válida del evento para responder.",
+  invalidCapacityMessage: "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo.",
   invalidDateMessage: "La fecha de fin debe ser posterior al inicio.",
   invalidInputMessage: "Completá el título y la fecha de inicio del evento.",
   invalidMeetingUrlMessage: "Usá un link digital válido que empiece con http o https.",
   invalidRecurrenceMessage:
     "Elegí una repetición válida y una fecha de fin posterior al inicio.",
   memberForbiddenMessage: "Solo los miembros activos pueden responder a un evento.",
+  occurrenceEndedMessage: "Este evento ya terminó; no se pueden cambiar las respuestas.",
+  scheduleChangedMessage: "El evento cambió; recargá para ver las fechas actualizadas.",
   tribeNotFoundMessage: "No pudimos encontrar la tribu.",
   unauthorizedMessage: "Iniciá sesión para gestionar eventos.",
   unexpectedAttendanceMessage: "No pudimos guardar tu respuesta. Intentá de nuevo.",
+  unexpectedAttendanceReportMessage: "No pudimos cargar la asistencia. Intentá de nuevo.",
+  unexpectedAttendanceStreakMessage: "No pudimos actualizar tu racha.",
+  unexpectedAttendanceExportMessage: "No pudimos generar el archivo de asistencia.",
   unexpectedCalendarMessage: "No pudimos generar el archivo de calendario.",
   unexpectedCreateMessage: "No pudimos guardar el evento. Intentá de nuevo.",
   unexpectedDeleteMessage: "No pudimos eliminar el evento. Intentá de nuevo.",
@@ -45,6 +57,7 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
 } as const;
 
 const TRIBE_EVENT_BODY_FIELD = {
+  capacity: "capacity",
   description: "description",
   endsAt: "endsAt",
   meetingUrl: "meetingUrl",
@@ -57,6 +70,11 @@ const TRIBE_EVENT_BODY_FIELD = {
 } as const;
 
 export type TribeEventMutationBody = {
+  /**
+   * Raw capacity text; undefined when the body omits the field. POST treats
+   * that as unlimited and PATCH as "keep the stored capacity".
+   */
+  capacity?: string;
   description: string;
   endsAt: string;
   meetingUrl: string;
@@ -83,8 +101,87 @@ export function readStringField(body: unknown, field: string): string {
   return typeof value === "string" ? value : "";
 }
 
-export function readTribeEventMutationBody(body: unknown): TribeEventMutationBody {
+const TRIBE_EVENT_BODY_READ_STATUS = {
+  ok: "ok",
+} as const;
+
+/**
+ * Outcome of reading the event mutation body: either the normalized text
+ * fields or a rejection because a present field has an unsupported JSON type.
+ */
+export type TribeEventMutationBodyReadResult =
+  | { body: TribeEventMutationBody; status: typeof TRIBE_EVENT_BODY_READ_STATUS.ok }
+  | { status: typeof TRIBE_EVENT_MUTATION_STATUS.invalidCapacity };
+
+const UNSUPPORTED_CAPACITY = Symbol("unsupported-capacity");
+
+/**
+ * Reads the raw capacity field without deciding the business range.
+ *
+ * An absent field stays undefined so each use case decides what omission
+ * means (unlimited on create, unchanged on update). `null` and string values
+ * keep their text form (empty means "no limit"). A JSON integer such as `12`
+ * is accepted as its decimal text so the use case still owns the capacity
+ * limits. Any other present value (fractions, non-finite numbers, booleans,
+ * objects, arrays) is unsupported and must be rejected instead of silently
+ * becoming "no limit".
+ *
+ * @param body - Untrusted parsed JSON request body.
+ * @returns The capacity text, undefined when absent, or `UNSUPPORTED_CAPACITY`.
+ */
+function readCapacityField(
+  body: unknown
+): string | undefined | typeof UNSUPPORTED_CAPACITY {
+  if (!body || typeof body !== "object" || !(TRIBE_EVENT_BODY_FIELD.capacity in body)) {
+    return undefined;
+  }
+
+  const value = (body as Record<string, unknown>)[TRIBE_EVENT_BODY_FIELD.capacity];
+
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number" && Number.isSafeInteger(value)) {
+    return String(value);
+  }
+
+  return UNSUPPORTED_CAPACITY;
+}
+
+/**
+ * Reads the create/update event body. A present capacity with an unsupported
+ * type yields `invalid_capacity` so POST and PATCH answer 400 instead of
+ * creating an uncapped event or removing an existing limit.
+ *
+ * @param body - Untrusted parsed JSON request body.
+ * @returns The normalized body or an `invalid_capacity` rejection.
+ */
+export function readTribeEventMutationBody(
+  body: unknown
+): TribeEventMutationBodyReadResult {
+  const capacity = readCapacityField(body);
+
+  if (capacity === UNSUPPORTED_CAPACITY) {
+    return { status: TRIBE_EVENT_MUTATION_STATUS.invalidCapacity };
+  }
+
   return {
+    body: readTribeEventMutationTextFields(body, capacity),
+    status: TRIBE_EVENT_BODY_READ_STATUS.ok,
+  };
+}
+
+function readTribeEventMutationTextFields(
+  body: unknown,
+  capacity: string | undefined
+): TribeEventMutationBody {
+  return {
+    capacity,
     description: readStringField(body, TRIBE_EVENT_BODY_FIELD.description),
     endsAt: readStringField(body, TRIBE_EVENT_BODY_FIELD.endsAt),
     meetingUrl: readStringField(body, TRIBE_EVENT_BODY_FIELD.meetingUrl),
@@ -127,6 +224,11 @@ export function mapTribeEventMutationStatusResponse(status: string): Response {
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidInputMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
       );
+    case TRIBE_EVENT_MUTATION_STATUS.invalidCapacity:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidCapacityMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
+      );
     case TRIBE_EVENT_MUTATION_STATUS.invalidDate:
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidDateMessage },
@@ -166,6 +268,19 @@ export function mapTribeEventAttendanceStatusResponse(status: string): Response 
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidAttendanceMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
       );
+    case TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded:
+      return createJsonResponse(
+        {
+          code: TRIBE_EVENT_ATTENDANCE_FAILURE_CODE.occurrenceEnded,
+          message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceEndedMessage,
+        },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.scheduleChanged:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.scheduleChangedMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
     case TRIBE_EVENT_MUTATION_STATUS.notFound:
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
@@ -175,6 +290,32 @@ export function mapTribeEventAttendanceStatusResponse(status: string): Response 
     default:
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.memberForbiddenMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
+      );
+  }
+}
+
+/**
+ * Maps a failed attendance report status (JSON view or CSV export) to the
+ * matching safe HTTP response. Non-managers get 403 even though the UI hides
+ * the section: the check is authoritative on the server.
+ */
+export function mapTribeEventAttendanceReportStatusResponse(status: string): Response {
+  switch (status) {
+    case TRIBE_EVENT_MUTATION_STATUS.invalidAttendance:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidAttendanceMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.attendanceReportForbiddenMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
       );
   }

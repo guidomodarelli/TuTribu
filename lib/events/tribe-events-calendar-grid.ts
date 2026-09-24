@@ -133,8 +133,13 @@ export function groupAgendaDays(
 
 /**
  * Replaces every occurrence of the saved event with the fresh set returned by
- * the endpoint, keeping the attendance summary of slots that already existed
- * because a series edit does not touch attendance rows.
+ * the endpoint. The saved occurrences already carry the attendance summaries
+ * read after the save (an update reads them after refilling the waitlists),
+ * so they win over the summaries on screen, which may show stale waitlists.
+ * This only holds when the save was the lone pending mutation: when it
+ * overlapped an attendance answer, nothing orders the two summaries, so
+ * `useTribeEventMutations` reads the visible month again once both settle
+ * (see `lib/events/tribe-event-occurrences-freshness.ts`).
  *
  * @param currentEvents - Occurrences currently on screen.
  * @param savedOccurrences - Occurrences of the saved event in the visible month.
@@ -146,17 +151,8 @@ export function mergeSavedOccurrences(
   savedOccurrences: TribeEventOccurrenceResult[],
   eventId: string
 ): TribeEventOccurrenceResult[] {
-  const previousAttendance = new Map(
-    currentEvents
-      .filter((occurrence) => occurrence.eventId === eventId)
-      .map((occurrence) => [occurrence.occurrenceKey, occurrence.attendance])
-  );
-
   return [
     ...currentEvents.filter((occurrence) => occurrence.eventId !== eventId),
-    ...savedOccurrences.map((occurrence) => ({
-      ...occurrence,
-      attendance: previousAttendance.get(occurrence.occurrenceKey) ?? occurrence.attendance,
-    })),
+    ...savedOccurrences,
   ].sort(compareOccurrencesByStart);
 }
