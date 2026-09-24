@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarPlusIcon, ExternalLinkIcon, VideoIcon } from "lucide-react";
-import { Badge } from "beez-ui";
+import { Badge, cn } from "beez-ui";
 
 import {
   TRIBE_EVENT_ATTENDANCE_SUMMARY_VARIANT,
@@ -106,20 +106,25 @@ export function TribeEventAgendaItem({
   const isLive = phase === TRIBE_EVENT_OCCURRENCE_PHASE.live;
   const isCancelled = isOccurrenceCancelled(occurrence);
   const movedFromLabel = formatMovedFromLabel(occurrence);
-  const rowClassName = isCancelled
-    ? styles["TribeEventAgendaItem--cancelled"]
-    : isPast
-      ? styles["TribeEventAgendaItem--past"]
-      : styles.TribeEventAgendaItem;
+  // The shortcut is limited to unfinished, not cancelled occurrences, so it
+  // waits for the hydrated clock: the server render (phase unknown) must not
+  // ship an active link for an occurrence that may already be over.
+  const canAddToGoogleCalendar = phase !== null && !isPast && !isCancelled;
 
   return (
-    <li className={rowClassName} data-event-type={occurrence.eventType}>
+    <li
+      className={cn(
+        styles.TribeEventAgendaItem,
+        isPast && styles["TribeEventAgendaItem--past"],
+        isCancelled && styles["TribeEventAgendaItem--cancelled"]
+      )}
+      data-event-type={occurrence.eventType}
+    >
       <span
-        className={
-          isCancelled
-            ? styles["TribeEventAgendaItem__time--cancelled"]
-            : styles.TribeEventAgendaItem__time
-        }
+        className={cn(
+          styles.TribeEventAgendaItem__time,
+          isCancelled && styles["TribeEventAgendaItem__time--cancelled"]
+        )}
       >
         {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
         {localTimeLabel ? (
@@ -128,11 +133,10 @@ export function TribeEventAgendaItem({
       </span>
       <div className={styles.TribeEventAgendaItem__main}>
         <button
-          className={
-            isCancelled
-              ? styles["TribeEventAgendaItem__titleButton--cancelled"]
-              : styles.TribeEventAgendaItem__titleButton
-          }
+          className={cn(
+            styles.TribeEventAgendaItem__titleButton,
+            isCancelled && styles["TribeEventAgendaItem__titleButton--cancelled"]
+          )}
           type={BUTTON_TYPE}
           onClick={() => onSelect(occurrence)}
         >
@@ -180,7 +184,7 @@ export function TribeEventAgendaItem({
         )}
       </div>
       <div className={styles.TribeEventAgendaItem__actions}>
-        {isPast || isCancelled ? null : (
+        {canAddToGoogleCalendar ? (
           <a
             aria-label={COPY.googleCalendar}
             className={styles.TribeEventAgendaItem__iconLink}
@@ -191,7 +195,7 @@ export function TribeEventAgendaItem({
           >
             <CalendarPlusIcon aria-hidden />
           </a>
-        )}
+        ) : null}
         {occurrence.meetingUrl && !isCancelled ? (
           <a
             aria-label={COPY.linkOpen}

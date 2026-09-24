@@ -7,6 +7,7 @@ import type {
 import {
   expandTribeEventOccurrencesWithExceptions,
   findTribeEventOccurrenceException,
+  resolveTribeEventOccurrenceByOriginalStart,
 } from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
@@ -176,5 +177,61 @@ describe("findTribeEventOccurrenceException", () => {
       findTribeEventOccurrenceException([exception], "2026-05-14T21:00:00.000Z")
     ).toBe(exception);
     expect(findTribeEventOccurrenceException([exception], "2026-05-21T21:00:00.000Z")).toBeNull();
+  });
+});
+
+describe("overlap matching and resolution by original start", () => {
+  // A window that starts in the middle of the 20 May (moved) date.
+  const IN_PROGRESS_RANGE = {
+    rangeEnd: "2026-06-19T21:30:00.000Z",
+    rangeStart: "2026-05-20T21:30:00.000Z",
+  };
+  const movedToWednesday = createException({
+    kind: "moved",
+    newStartsAt: "2026-05-20T21:00:00.000Z",
+  });
+
+  it("keeps a moved date that is still in progress when matching by overlap", () => {
+    const byStart = expandTribeEventOccurrencesWithExceptions(
+      weeklySeries,
+      [movedToWednesday],
+      IN_PROGRESS_RANGE
+    );
+    const byOverlap = expandTribeEventOccurrencesWithExceptions(
+      weeklySeries,
+      [movedToWednesday],
+      IN_PROGRESS_RANGE,
+      "overlaps"
+    );
+
+    expect(byStart.map((occurrence) => occurrence.originalStartsAt)).not.toContain(
+      "2026-05-14T21:00:00.000Z"
+    );
+    expect(byOverlap[0]).toMatchObject({
+      endsAt: "2026-05-20T22:00:00.000Z",
+      originalStartsAt: "2026-05-14T21:00:00.000Z",
+      startsAt: "2026-05-20T21:00:00.000Z",
+    });
+  });
+
+  it("resolves the effective times of a slot from its original start", () => {
+    expect(
+      resolveTribeEventOccurrenceByOriginalStart(
+        weeklySeries,
+        [movedToWednesday],
+        "2026-05-14T21:00:00.000Z"
+      )
+    ).toMatchObject({ originalStartsAt: "2026-05-14T21:00:00.000Z", startsAt: "2026-05-20T21:00:00.000Z" });
+    expect(
+      resolveTribeEventOccurrenceByOriginalStart(weeklySeries, [], "2026-05-21T21:00:00.000Z")
+    ).toEqual({
+      endsAt: "2026-05-21T22:00:00.000Z",
+      exception: null,
+      originalStartsAt: "2026-05-21T21:00:00.000Z",
+      startsAt: "2026-05-21T21:00:00.000Z",
+    });
+    expect(
+      resolveTribeEventOccurrenceByOriginalStart(weeklySeries, [], "2026-05-22T21:00:00.000Z")
+    ).toBeNull();
   });
 });

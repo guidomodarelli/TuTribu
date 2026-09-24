@@ -1,16 +1,13 @@
-.TribeEventAttendanceSummary,
-.TribeEventAttendanceSummary--compact {
+.TribeEventAttendanceSummary {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   min-width: 0;
-}
 
-.TribeEventAttendanceSummary--compact {
-  gap: 0.4rem;
-}
+  &--compact {
+    gap: 0.4rem;
+  }
 
-.TribeEventAttendanceSummary {
   &__avatars {
     flex: 0 0 auto;
   }

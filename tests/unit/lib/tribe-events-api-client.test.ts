@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import {
   deleteTribeEventRequest,
   fetchTribeEventAttendanceReportRequest,
+  fetchTribeEventAttendanceStreakRequest,
   saveTribeEventAttendanceRequest,
   saveTribeEventRequest,
 } from "@/lib/events/tribe-events-api-client";
@@ -141,7 +142,7 @@ describe("tribe events API client", () => {
           payload: savePayload,
           tribeSlug: "matematica-pro",
         })
-      ).resolves.toEqual({ isSuccess: false, message: null });
+      ).resolves.toEqual({ isOutcomeAmbiguous: true, isSuccess: false, message: null });
     });
 
     it("returns the safe message of a failed request", async () => {
@@ -155,6 +156,7 @@ describe("tribe events API client", () => {
           tribeSlug: "matematica-pro",
         })
       ).resolves.toEqual({
+        isOutcomeAmbiguous: false,
         isSuccess: false,
         message: "No tenés permisos para gestionar eventos.",
       });
@@ -175,7 +177,7 @@ describe("tribe events API client", () => {
             payload: savePayload,
             tribeSlug: "matematica-pro",
           })
-        ).resolves.toEqual({ isSuccess: false, message: null });
+        ).resolves.toEqual({ isOutcomeAmbiguous: true, isSuccess: false, message: null });
       }
     });
   });
@@ -202,7 +204,35 @@ describe("tribe events API client", () => {
           status: null,
           tribeSlug: "matematica-pro",
         })
-      ).resolves.toEqual({ isSuccess: false, message: null });
+      ).resolves.toEqual({
+        isOccurrenceEnded: false,
+        isOutcomeAmbiguous: true,
+        isSuccess: false,
+        message: null,
+      });
+    });
+
+    it("flags an answer the server refused because the occurrence ended", async () => {
+      respondWith(
+        {
+          code: "occurrence_ended",
+          message: "Este evento ya terminó; no se pueden cambiar las respuestas.",
+        },
+        409
+      );
+
+      await expect(
+        saveTribeEventAttendanceRequest({
+          occurrence: { eventId: EVENT_ID, originalStartsAt: STARTS_AT },
+          status: "going",
+          tribeSlug: "matematica-pro",
+        })
+      ).resolves.toEqual({
+        isOccurrenceEnded: true,
+        isOutcomeAmbiguous: false,
+        isSuccess: false,
+        message: "Este evento ya terminó; no se pueden cambiar las respuestas.",
+      });
     });
   });
 
@@ -258,7 +288,83 @@ describe("tribe events API client", () => {
 
       await expect(
         deleteTribeEventRequest({ eventId: EVENT_ID, tribeSlug: "matematica-pro" })
-      ).resolves.toEqual({ isSuccess: false, message: null });
+      ).resolves.toEqual({ isOutcomeAmbiguous: true, isSuccess: false, message: null });
+    });
+
+    it("returns the refreshed streak, including null for no streak", async () => {
+      respondWith({ attendanceStreak: null, message: "Evento eliminado." });
+
+      await expect(
+        deleteTribeEventRequest({ eventId: EVENT_ID, tribeSlug: "matematica-pro" })
+      ).resolves.toEqual({ attendanceStreak: null, isSuccess: true, message: "Evento eliminado." });
+    });
+  });
+
+  describe("attendance streak refresh", () => {
+    it("applies a valid streak from a save response", async () => {
+      respondWith({
+        attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+        event,
+        message: "Evento creado.",
+        occurrences: [],
+      });
+
+      await expect(
+        saveTribeEventRequest({
+          eventId: null,
+          month: "2026-05",
+          payload: savePayload,
+          tribeSlug: "matematica-pro",
+        })
+      ).resolves.toEqual({
+        attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+        isSuccess: true,
+        message: "Evento creado.",
+        occurrences: [],
+      });
+    });
+
+    it("drops an unusable streak but keeps the successful save", async () => {
+      respondWith({
+        attendanceStreak: { attendedCount: "2" },
+        event,
+        message: "Evento creado.",
+        occurrences: [],
+      });
+
+      const result = await saveTribeEventRequest({
+        eventId: null,
+        month: "2026-05",
+        payload: savePayload,
+        tribeSlug: "matematica-pro",
+      });
+
+      expect(result).toEqual({ isSuccess: true, message: "Evento creado.", occurrences: [] });
+      expect(result).not.toHaveProperty("attendanceStreak");
+    });
+
+    it("reads the streak endpoint and flags unusable bodies or failures", async () => {
+      respondWith({
+        attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+      });
+      respondWith({ attendanceStreak: { attendedCount: -1, occurrenceCount: 5 } });
+      respondWith({ message: "No pudimos actualizar tu racha." }, 500);
+
+      await expect(
+        fetchTribeEventAttendanceStreakRequest({ tribeSlug: "matematica-pro" })
+      ).resolves.toEqual({
+        attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+        isPartial: false,
+        isSuccess: true,
+      });
+      await expect(
+        fetchTribeEventAttendanceStreakRequest({ tribeSlug: "matematica-pro" })
+      ).resolves.toEqual({ isSuccess: false });
+      await expect(
+        fetchTribeEventAttendanceStreakRequest({ tribeSlug: "matematica-pro" })
+      ).resolves.toEqual({ isSuccess: false });
     });
   });
 });

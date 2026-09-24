@@ -7,17 +7,31 @@ import type {
 import { expandTribeEventOccurrencesWithExceptions } from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
 
 /**
- * Pure selection of the occurrences that are due for a reminder. A reminder
- * window is "starts `leadMinutes` from now, give or take `toleranceMinutes`",
- * measured on the effective start (a moved date uses its new time) and never
- * on a cancelled date.
+ * Pure selection of the occurrences that are due for a reminder, with
+ * "due and not sent yet" (catch-up) semantics: a reminder is due for every
+ * occurrence whose effective start (a moved date uses its new time) falls in
+ * `(now + minimumLeadMinutes, now + leadMinutes]`, never on a cancelled date
+ * and never once the occurrence started. A late or skipped scheduler run
+ * therefore still sends the reminder on the next run; sending it once is the
+ * job of the per-recipient dedupe key, not of the window.
  */
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 
+/**
+ * The query range end is exclusive, so it sits one millisecond past the
+ * inclusive upper bound of the longest window.
+ */
+const INCLUSIVE_RANGE_END_OFFSET_MS = 1;
+
 export type TribeEventReminderWindow = {
+  /** Inclusive upper bound: the reminder becomes due this long before the start. */
   leadMinutes: number;
-  toleranceMinutes: number;
+  /**
+   * Exclusive lower bound: below this lead the reminder is no longer sent
+   * (`0` = until the occurrence starts).
+   */
+  minimumLeadMinutes: number;
 };
 
 /**
@@ -41,8 +55,8 @@ export type TribeEventDueReminder<TWindow extends TribeEventReminderWindow> = {
 
 function getWindowBounds(window: TribeEventReminderWindow, now: number) {
   return {
-    end: now + (window.leadMinutes + window.toleranceMinutes) * MILLISECONDS_PER_MINUTE,
-    start: now + (window.leadMinutes - window.toleranceMinutes) * MILLISECONDS_PER_MINUTE,
+    exclusiveStart: now + window.minimumLeadMinutes * MILLISECONDS_PER_MINUTE,
+    inclusiveEnd: now + window.leadMinutes * MILLISECONDS_PER_MINUTE,
   };
 }
 
@@ -61,16 +75,17 @@ export function getTribeEventReminderRange(
   const bounds = windows.map((window) => getWindowBounds(window, now));
 
   return {
-    rangeEnd: new Date(Math.max(...bounds.map((bound) => bound.end))).toISOString(),
-    rangeStart: new Date(Math.min(...bounds.map((bound) => bound.start))).toISOString(),
+    rangeEnd: new Date(
+      Math.max(...bounds.map((bound) => bound.inclusiveEnd)) + INCLUSIVE_RANGE_END_OFFSET_MS
+    ).toISOString(),
+    rangeStart: new Date(Math.min(...bounds.map((bound) => bound.exclusiveStart))).toISOString(),
   };
 }
 
 /**
  * Expands every series inside the reminder range (with its exceptions) and
  * returns, per window, the occurrences whose effective start falls in
- * `[now + lead - tolerance, now + lead + tolerance)`. Cancelled dates are
- * skipped.
+ * `(now + minimumLead, now + lead]`. Cancelled dates are skipped.
  *
  * @param series - Series with their exceptions.
  * @param windows - Reminder windows (each one is returned on its matches).
@@ -98,7 +113,7 @@ export function selectDueTribeEventReminders<TWindow extends TribeEventReminderW
       for (const window of windows) {
         const bounds = getWindowBounds(window, now);
 
-        if (startTime >= bounds.start && startTime < bounds.end) {
+        if (startTime > bounds.exclusiveStart && startTime <= bounds.inclusiveEnd) {
           dueReminders.push({
             eventId: event.id,
             originalStartsAt: occurrence.originalStartsAt,

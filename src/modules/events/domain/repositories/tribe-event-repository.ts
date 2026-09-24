@@ -9,8 +9,10 @@ import type {
   TribeEventOccurrenceException,
   TribeEventRecurrenceFrequency,
   TribeEventType,
+  TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
+  TRIBE_EVENT_CAPACITY_UPDATE_KIND,
   TRIBE_EVENT_MUTATION_STATUS,
 } from "@/src/modules/events/constants/tribe-events";
 
@@ -40,7 +42,25 @@ export type PersistTribeEventCommand = {
   tribeSlug: string;
 };
 
-export type PersistTribeEventUpdateCommand = PersistTribeEventCommand & {
+/**
+ * Capacity change requested by an update: keep the stored value, or write a
+ * new one (null removes the limit).
+ */
+export type TribeEventCapacityUpdate =
+  | { kind: typeof TRIBE_EVENT_CAPACITY_UPDATE_KIND.unchanged }
+  | { capacity: number | null; kind: typeof TRIBE_EVENT_CAPACITY_UPDATE_KIND.set };
+
+export type PersistTribeEventUpdateCommand = Omit<PersistTribeEventCommand, "capacity"> & {
+  /**
+   * Range whose attendance summaries of the event are read back after the
+   * waitlist refill, or null to skip that read (no visible month).
+   */
+  attendanceRange: TribeEventDateRange | null;
+  /**
+   * `unchanged` leaves the capacity column untouched, so an update that does
+   * not mention the capacity never removes an existing limit.
+   */
+  capacity: TribeEventCapacityUpdate;
   eventId: string;
 };
 
@@ -55,14 +75,28 @@ export type TribeEventAttendanceKey = {
   tribeSlug: string;
 };
 
-export type SetTribeEventAttendanceRepositoryCommand = TribeEventAttendanceKey & {
+/**
+ * Attendance write of one occurrence. `schedule` is the series schedule the
+ * application used to prove the occurrence is a real slot; the write is
+ * refused with `scheduleChanged` when the stored schedule no longer matches
+ * it once the event row is locked, so validation and write see one schedule.
+ */
+export type TribeEventAttendanceWriteCommand = TribeEventAttendanceKey & {
+  schedule: TribeEventSchedule;
+};
+
+export type SetTribeEventAttendanceRepositoryCommand = TribeEventAttendanceWriteCommand & {
   status: TribeEventAttendanceOption;
 };
 
 /**
  * Aggregated attendance of one occurrence as seen by the current viewer.
- * `goingPreview` holds the first people who answered "going" (bounded by
- * `TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT`); `goingCount` is the full total.
+ * Totals, the going preview, and the waitlist position count only answers of
+ * active tribe members, the same rule the database uses to assign seats, so
+ * a member blocked or removed after answering never shows the occurrence as
+ * full. `goingPreview` holds the first active people who answered "going"
+ * (bounded by `TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT`); `goingCount` is the full
+ * active total. `viewerStatus` is always the viewer's own stored answer.
  */
 export type TribeEventAttendanceSummary = {
   goingCount: number;
@@ -79,8 +113,16 @@ export type TribeEventOccurrenceAttendance = TribeEventAttendanceSummary & {
   occurrenceStartsAt: string;
 };
 
-export type ListViewerAttendanceHistoryQuery = TribeEventDateRange & {
+/**
+ * Everything the viewer attendance streak and its next refresh instant need,
+ * read together: the series with an occurrence overlapping `eventRange`
+ * (finished and upcoming occurrences) and the viewer's own answers to
+ * occurrences starting inside `viewerAttendanceRange`.
+ */
+export type ReadViewerAttendanceStreakSnapshotQuery = {
+  eventRange: TribeEventDateRange;
   tribeSlug: string;
+  viewerAttendanceRange: TribeEventDateRange;
 };
 
 export type TribeEventViewerAttendance = {
@@ -90,13 +132,20 @@ export type TribeEventViewerAttendance = {
 };
 
 /**
- * Series of the tribe inside a past range plus the viewer's own answers,
- * enough to compute the viewer streak without aggregating other members.
+ * Series of the tribe inside a range plus the viewer's own answers, enough to
+ * compute the viewer streak without aggregating other members.
  */
 export type TribeEventViewerAttendanceHistory = {
   events: TribeEvent[];
   /** Exceptions of those series in the range (cancelled or moved dates). */
   exceptions: TribeEventOccurrenceException[];
+  /**
+   * Database instant (ISO 8601, UTC) of the statement that read the series,
+   * the exceptions, and the answers. Attendance writes decide whether an
+   * occurrence ended with the database clock, so the streak cutoff and its
+   * next refresh must use this instant instead of the application host clock.
+   */
+  referenceTime: string;
   viewerAttendances: TribeEventViewerAttendance[];
 };
 
@@ -175,6 +224,12 @@ export type TribeEventCreationResult =
 
 export type TribeEventUpdateResult =
   | {
+      /**
+       * Attendance summaries of the event inside `attendanceRange`, read in
+       * the same transaction after the waitlist refill so they already
+       * include its promotions. Empty when no range was requested.
+       */
+      attendances: TribeEventOccurrenceAttendance[];
       event: TribeEvent;
       status: typeof TRIBE_EVENT_MUTATION_STATUS.updated;
     }
@@ -196,12 +251,24 @@ export type TribeEventAttendanceResult =
         | typeof TRIBE_EVENT_MUTATION_STATUS.attendanceSaved;
     }
   | {
-      status: TribeEventMutationFailureStatus;
+      /**
+       * `occurrenceEnded` comes from the definer function guard, the only
+       * source of truth for the end (database clock under the occurrence
+       * lock, at the effective time of a moved date), also after waiting on
+       * that lock. `occurrenceCancelled` means the date was cancelled.
+       * `scheduleChanged` means a manager edited the schedule after the
+       * occurrence was validated.
+       */
+      status:
+        | TribeEventMutationFailureStatus
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded
+        | typeof TRIBE_EVENT_MUTATION_STATUS.scheduleChanged;
     };
 
 export type TribeEventRepository = {
   clearAttendance: (
-    command: TribeEventAttendanceKey
+    command: TribeEventAttendanceWriteCommand
   ) => Promise<TribeEventAttendanceResult>;
   create: (command: PersistTribeEventCommand) => Promise<TribeEventCreationResult>;
   delete: (
@@ -211,14 +278,27 @@ export type TribeEventRepository = {
   getOccurrenceAttendanceReport: (
     query: GetTribeEventAttendanceReportQuery
   ) => Promise<TribeEventAttendanceReportLookup>;
+  /**
+   * Series with at least one occurrence whose interval (start to effective
+   * end) overlaps the range, plus the attendance of those occurrences. This is
+   * a superset of the series with an occurrence starting inside the range, so
+   * callers pick their own matching through the occurrence expansion.
+   */
   listByTribeRange: (
     query: ListTribeEventsByRangeQuery
   ) => Promise<TribeEventRangeListing>;
   listEventOccurrences: (
     query: ListTribeEventOccurrencesQuery
   ) => Promise<TribeEventOccurrenceListing>;
-  listViewerAttendanceHistory: (
-    query: ListViewerAttendanceHistoryQuery
+  /**
+   * Series, their exceptions, and viewer answers of
+   * {@link ReadViewerAttendanceStreakSnapshotQuery} read from one database
+   * snapshot, so the streak and the instant at which it changes next never
+   * mix two versions of the schedule (for example a series another manager
+   * created, rescheduled, or whose date was moved between two reads).
+   */
+  readViewerAttendanceStreakSnapshot: (
+    query: ReadViewerAttendanceStreakSnapshotQuery
   ) => Promise<TribeEventViewerAttendanceHistory>;
   setAttendance: (
     command: SetTribeEventAttendanceRepositoryCommand

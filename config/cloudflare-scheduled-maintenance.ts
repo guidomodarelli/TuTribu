@@ -1,11 +1,14 @@
 /**
  * Scheduled maintenance trigger for the Cloudflare Workers deployment target.
  *
- * Vercel installs the orphan-image cleanup cron from `vercel.json`, but the
+ * Vercel installs the daily cleanup crons from `vercel.json`, but the
  * OpenNext Cloudflare worker has no equivalent scheduler. This module holds the
  * testable logic that the Cloudflare `scheduled` handler uses to re-enter the
- * same `/api/maintenance/image-cleanup` route, so abandoned drafts and the
- * cascade-orphan queue are swept on both targets.
+ * same maintenance routes, so abandoned drafts and the cascade-orphan queue
+ * are swept on both targets. The 5-minute event-reminders route is triggered
+ * here on Cloudflare and by GitHub Actions
+ * (`.github/workflows/event-reminders-cron.yml`) on Vercel, whose Hobby plan
+ * only allows daily crons.
  *
  * The fetch handler is injected so the orchestration is unit-testable without
  * importing the generated `.open-next/worker.js`, which only exists after a
@@ -28,9 +31,10 @@ export const EVENT_REMINDERS_MAINTENANCE_PATH = "/api/maintenance/event-reminder
 
 /**
  * Cron expressions installed in `wrangler.jsonc` (`triggers.crons`), keyed by
- * the maintenance route each one re-enters. They must stay in sync with the
- * matching schedules in `vercel.json` so both deployment targets sweep at the
- * same time.
+ * the maintenance route each one re-enters. The daily cleanups must stay in
+ * sync with `vercel.json` so both deployment targets sweep at the same time.
+ * `eventReminders` has no Vercel cron: on Vercel the GitHub Actions schedule in
+ * `.github/workflows/event-reminders-cron.yml` triggers that route instead.
  */
 export const MAINTENANCE_CRON_SCHEDULE = {
   eventReminders: "*/5 * * * *",

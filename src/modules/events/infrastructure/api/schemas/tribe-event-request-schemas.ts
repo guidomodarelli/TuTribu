@@ -3,6 +3,7 @@ import { z } from "zod";
 import type {
   TribeEventAttendanceInput,
   TribeEventFieldsInput,
+  TribeEventUpdateFieldsInput,
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import {
   TRIBE_EVENT_ATTENDANCE_OPTIONS,
@@ -93,6 +94,21 @@ const capacityValueSchema = z
       .max(TRIBE_EVENT_CAPACITY_LIMIT.max, { error: TRIBE_EVENT_INPUT_ISSUE.invalidCapacity })
   );
 
+/**
+ * "Cupo máximo" as sent by the form (text, empty/null/missing for no limit)
+ * or as a JSON integer such as `12`, which follows the same range rules. Any
+ * other present value (fractions, non-finite numbers, booleans, objects,
+ * arrays) is rejected as an invalid capacity instead of silently becoming
+ * "no limit", so a PATCH never removes an existing limit by accident.
+ */
+const capacityFieldSchema = z.union(
+  [
+    z.int().transform(String).pipe(capacityValueSchema),
+    createOptionalTextFieldSchema(TRIBE_EVENT_INPUT_ISSUE.invalidCapacity, capacityValueSchema),
+  ],
+  { error: TRIBE_EVENT_INPUT_ISSUE.invalidCapacity }
+);
+
 const recurrenceFrequencySchema = z
   .string({ error: TRIBE_EVENT_INPUT_ISSUE.invalidRecurrence })
   .trim()
@@ -112,10 +128,7 @@ const recurrenceFrequencySchema = z
  */
 export const tribeEventMutationBodySchema = z.object(
   {
-    capacity: createOptionalTextFieldSchema(
-      TRIBE_EVENT_INPUT_ISSUE.invalidCapacity,
-      capacityValueSchema
-    ),
+    capacity: capacityFieldSchema,
     description: createOptionalTextFieldSchema(
       TRIBE_EVENT_INPUT_ISSUE.invalidInput,
       z.string().max(TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength, {
@@ -151,6 +164,20 @@ export const tribeEventMutationBodySchema = z.object(
   },
   { error: TRIBE_EVENT_INPUT_ISSUE.invalidInput }
 ) satisfies z.ZodType<TribeEventFieldsInput>;
+
+/**
+ * Body of the update (PATCH) endpoint: the create body, except that an omitted
+ * `capacity` stays undefined ("keep the stored capacity") instead of meaning
+ * "no limit", so an older client that does not send the field never removes
+ * an existing limit. An explicit empty or null capacity still removes it.
+ */
+export const tribeEventUpdateBodySchema = tribeEventMutationBodySchema.extend({
+  // `.optional()` would still run the inner schema, which maps a missing
+  // value to null; the explicit `undefined` branch keeps "omitted" apart.
+  capacity: z.union([z.undefined(), capacityFieldSchema], {
+    error: TRIBE_EVENT_INPUT_ISSUE.invalidCapacity,
+  }),
+}) satisfies z.ZodType<TribeEventUpdateFieldsInput>;
 
 /**
  * Wire shape the browser sends to the create and update endpoints.

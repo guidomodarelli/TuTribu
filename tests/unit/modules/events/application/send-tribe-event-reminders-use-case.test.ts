@@ -58,8 +58,8 @@ describe("sendTribeEventReminders", () => {
     expect(repository.listSeriesInRange).toHaveBeenCalledWith({
       afterEventId: null,
       limit: TRIBE_EVENT_REMINDER_BATCH.seriesPerPage,
-      rangeEnd: new Date(Date.parse(NOW) + 1450 * MINUTE).toISOString(),
-      rangeStart: new Date(Date.parse(NOW) + 10 * MINUTE).toISOString(),
+      rangeEnd: new Date(Date.parse(NOW) + 1440 * MINUTE + 1).toISOString(),
+      rangeStart: NOW,
     });
     expect(repository.enqueueReminders).toHaveBeenCalledWith([
       {
@@ -99,7 +99,7 @@ describe("sendTribeEventReminders", () => {
   });
 
   it("walks keyset pages and skips the insert when nothing is due", async () => {
-    const farStart = new Date(Date.parse(NOW) + 600 * MINUTE).toISOString();
+    const farStart = new Date(Date.parse(NOW) + 1500 * MINUTE).toISOString();
     const repository = createRepository([
       { nextCursor: FIRST_EVENT_ID, series: [singleEvent(FIRST_EVENT_ID, farStart)] },
       { nextCursor: null, series: [singleEvent(SECOND_EVENT_ID, farStart)] },
@@ -115,6 +115,36 @@ describe("sendTribeEventReminders", () => {
     );
     expect(repository.enqueueReminders).not.toHaveBeenCalled();
     expect(result).toMatchObject({ createdCount: 0, isComplete: true, pageCount: 2 });
+  });
+
+  it("catches up reminders on a run that the scheduler delayed by 20 minutes", async () => {
+    const startsAt = new Date(Date.parse(NOW) + 1440 * MINUTE).toISOString();
+    const onTimeRun = NOW;
+    const lateRun = new Date(Date.parse(NOW) + 20 * MINUTE).toISOString();
+    const dedupeKeysByRun: string[][] = [];
+
+    for (const runAt of [onTimeRun, lateRun]) {
+      const repository = createRepository([
+        { nextCursor: null, series: [singleEvent(FIRST_EVENT_ID, startsAt)] },
+      ]);
+
+      await sendTribeEventReminders({ tribeEventReminderRepository: repository })({ now: runAt });
+
+      dedupeKeysByRun.push(
+        repository.enqueueReminders.mock.calls.flatMap(([candidates]) =>
+          (candidates as { notification: { dedupeKey: string } }[]).map(
+            (candidate) => candidate.notification.dedupeKey
+          )
+        )
+      );
+    }
+
+    // The late run still enqueues the reminder, with the same dedupe key as an
+    // on-time run, so the unique (recipient, dedupe_key) index keeps one copy.
+    expect(dedupeKeysByRun).toEqual([
+      [`event_reminder_24h:${FIRST_EVENT_ID}@${startsAt}`],
+      [`event_reminder_24h:${FIRST_EVENT_ID}@${startsAt}`],
+    ]);
   });
 
   it("stops at the page cap and reports the run as incomplete", async () => {

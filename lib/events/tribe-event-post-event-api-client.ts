@@ -21,10 +21,13 @@ import type { TribeEventPostEventRequestBody } from "@/src/modules/events/infras
 import {
   TRIBE_EVENT_HTTP_REQUEST,
   TRIBE_EVENT_JSON_HEADERS,
-  buildEventsEndpoint,
   readTribeEventResponse,
   type TribeEventRequestResult,
 } from "@/lib/events/tribe-events-api-client";
+import {
+  buildTribeEventApiEndpoint,
+  buildTribeEventsApiEndpoint,
+} from "@/lib/events/tribe-events-routes";
 
 /**
  * Browser adapter of the post-event routes of one occurrence (resources,
@@ -61,7 +64,7 @@ export type TribeEventOccurrenceTarget = {
 
 function buildEventPath(target: TribeEventOccurrenceTarget, path: string): string {
   return (
-    buildEventsEndpoint(target.tribeSlug) + POST_EVENT_ENDPOINT.separator + target.eventId + path
+    buildTribeEventApiEndpoint(target.tribeSlug, target.eventId) + path
   );
 }
 
@@ -170,7 +173,7 @@ export async function deleteTribeEventCommentRequest(input: {
   tribeSlug: string;
 }): Promise<{ isAlreadyGone: boolean; isSuccess: boolean; message: string | null }> {
   const response = await fetch(
-    buildEventsEndpoint(input.tribeSlug) +
+    buildTribeEventsApiEndpoint(input.tribeSlug) +
       POST_EVENT_ENDPOINT.commentsPath +
       POST_EVENT_ENDPOINT.separator +
       input.commentId,

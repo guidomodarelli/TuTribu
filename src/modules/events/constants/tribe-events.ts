@@ -19,6 +19,7 @@ export const TRIBE_EVENT_MUTATION_STATUS = {
   invalidRecurrence: "invalid_recurrence",
   notFound: "not_found",
   occurrenceCancelled: "occurrence_cancelled",
+  occurrenceEnded: "occurrence_ended",
   occurrenceNotFinished: "occurrence_not_finished",
   postEventSaved: "post_event_saved",
   proposalApproved: "proposal_approved",
@@ -29,6 +30,7 @@ export const TRIBE_EVENT_MUTATION_STATUS = {
   proposalWithdrawn: "proposal_withdrawn",
   reactionCleared: "reaction_cleared",
   reactionSaved: "reaction_saved",
+  scheduleChanged: "schedule_changed",
   updated: "updated",
 } as const;
 
@@ -121,6 +123,16 @@ export const TRIBE_EVENT_PROPOSAL_DURATION = {
   ],
 } as const;
 
+/**
+ * Public codes the attendance route adds to a failure body when the client
+ * must react beyond showing the message. `occurrenceEnded` tells the client
+ * the server already considers the occurrence finished, so it can close the
+ * answers even if its own clock still lags behind.
+ */
+export const TRIBE_EVENT_ATTENDANCE_FAILURE_CODE = {
+  occurrenceEnded: "occurrence_ended",
+} as const;
+
 export const TRIBE_EVENT_RECURRENCE_FREQUENCY = {
   biweekly: "biweekly",
   monthly: "monthly",
@@ -160,13 +172,31 @@ export const TRIBE_EVENT_CAPACITY_LIMIT = {
 } as const;
 
 /**
+ * How an event update treats the stored capacity: `unchanged` keeps the
+ * column as it is (a body that omits the field, such as a cached client from
+ * before capacities existed), `set` writes the given value (null removes the
+ * limit).
+ */
+export const TRIBE_EVENT_CAPACITY_UPDATE_KIND = {
+  set: "set",
+  unchanged: "unchanged",
+} as const;
+
+/**
  * Viewer-only attendance streak on the next event: shown when the viewer went
  * to at least `minimumAttended` of the last `windowSize` finished occurrences
- * found within `lookbackDays`.
+ * found within `lookbackDays`. The streak cutoff and its next refresh use the
+ * DATABASE instant of the snapshot read; the application clock only sizes the
+ * read ranges, widened by `readRangeClockMarginMs` on both sides so a skew
+ * between the application host and PostgreSQL up to that margin still reads
+ * every series and answer the database instant needs. A larger skew fails the
+ * read instead of computing with incomplete data.
  */
 export const TRIBE_EVENT_ATTENDANCE_STREAK = {
   lookbackDays: 180,
   minimumAttended: 2,
+  /** 15 minutes. */
+  readRangeClockMarginMs: 900_000,
   windowSize: 5,
 } as const;
 
@@ -212,6 +242,19 @@ export const TRIBE_EVENTS_ROUTE_QUERY = {
  * (`?type=live,workshop`); repeating the parameter works too.
  */
 export const TRIBE_EVENT_TYPE_QUERY_SEPARATOR = ",";
+
+/**
+ * How an occurrence is matched against a queried range. The month calendar
+ * files each occurrence under the range where it starts (a workshop crossing
+ * midnight between two months belongs to the month it began), while the
+ * upcoming list keeps every occurrence whose interval still overlaps the range,
+ * so an in-progress event stays visible until its effective end regardless of
+ * how long ago it started.
+ */
+export const TRIBE_EVENT_RANGE_MATCH = {
+  overlaps: "overlaps",
+  startsWithin: "starts_within",
+} as const;
 
 export const TRIBE_EVENT_UPCOMING = {
   defaultLimit: 3,

@@ -1,4 +1,12 @@
-import { TRIBE_EVENT_ATTENDANCE_STATUS } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_ATTENDANCE_STATUS,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+} from "@/src/modules/events/constants/tribe-events";
+import type {
+  TribeEventOccurrenceException,
+  TribeEventSchedule,
+} from "@/src/modules/events/domain/entities/tribe-event";
+import { resolveTribeEventOccurrenceByOriginalStart } from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
 import {
   getTribeEventOccurrenceEndTime,
   type TribeEventOccurrenceTimes,
@@ -6,7 +14,8 @@ import {
 
 /**
  * Attendance rules shared by the use cases and the UI: free seats of an
- * occurrence, the most recent finished occurrences, and the viewer streak.
+ * occurrence, the most recent finished occurrences, the viewer streak, and
+ * which waitlists a capacity edit may refill.
  */
 
 export type TribeEventAttendanceStreakRule = {
@@ -92,4 +101,59 @@ export function calculateTribeEventAttendanceStreak(
   }
 
   return { attendedCount, occurrenceCount: recentOccurrences.length };
+}
+
+/**
+ * Duration (ms) of one occurrence of the series (explicit, or the implicit one
+ * without `endsAt`). The candidate read of a waitlist refill reaches back this
+ * long from the DATABASE clock, so occurrences still in progress for
+ * PostgreSQL are candidates even when the application host clock runs ahead.
+ *
+ * @param schedule - Updated schedule of the series.
+ * @returns The occurrence duration in milliseconds.
+ */
+export function getWaitlistRefillLookbackDurationMs(schedule: TribeEventSchedule): number {
+  return getTribeEventOccurrenceEndTime(schedule) - Date.parse(schedule.startsAt);
+}
+
+/**
+ * Waitlisted occurrence starts that a capacity edit may refill: exact slots
+ * of the UPDATED schedule. Starts of dates removed by a schedule edit are
+ * dropped, so their rows stay as history and are never promoted. Whether an
+ * occurrence already ended is NOT decided here with the application clock:
+ * the refill function decides it under the event lock with the database
+ * clock (`clock_timestamp()`), so a skewed application host cannot prune an
+ * occurrence that is still in progress.
+ *
+ * Exceptions follow the stable key `eventId@originalStartsAt`: attendance
+ * rows keep the original start, so a moved date is refilled under its
+ * original start but "ended" is decided with its effective (moved) times; a
+ * cancelled date takes no answers, so it is never refilled.
+ *
+ * @param schedule - Updated schedule of the series.
+ * @param candidateStarts - Original starts that currently have a waitlist, any order.
+ * @param exceptions - Exceptions of the series (moved or cancelled dates).
+ * @returns Canonical ISO original starts that may be refilled, in input order.
+ */
+export function selectRefillableWaitlistOccurrenceStarts(
+  schedule: TribeEventSchedule,
+  candidateStarts: string[],
+  exceptions: readonly TribeEventOccurrenceException[] = []
+): string[] {
+  return candidateStarts.flatMap((candidateStart) => {
+    const occurrence = resolveTribeEventOccurrenceByOriginalStart(
+      schedule,
+      exceptions,
+      candidateStart
+    );
+
+    if (
+      !occurrence ||
+      occurrence.exception?.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled
+    ) {
+      return [];
+    }
+
+    return [occurrence.originalStartsAt];
+  });
 }

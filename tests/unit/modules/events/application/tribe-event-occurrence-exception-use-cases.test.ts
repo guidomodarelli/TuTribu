@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { getTribeEventAttendanceStreakSnapshot } from "@/src/modules/events/application/use-cases/get-tribe-event-attendance-streak-snapshot-use-case";
 import {
   getTribeEventCalendar,
   listTribeEvents,
@@ -7,7 +8,6 @@ import {
 import { listUpcomingTribeEvents } from "@/src/modules/events/application/use-cases/list-upcoming-tribe-events-use-case";
 import {
   getTribeEventAttendanceReport,
-  getTribeEventAttendanceStreak,
   setTribeEventAttendance,
 } from "@/src/modules/events/application/use-cases/tribe-event-attendance-use-cases";
 import {
@@ -27,6 +27,10 @@ import {
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const TRIBE_SLUG = "matematica-pro";
+// Before every May slot used below: those occurrences have not ended yet.
+const BEFORE_MAY_SLOTS = () => Date.parse("2026-05-01T12:00:00.000Z");
+// 14 May 22:30 UTC: the 14 May slot (21:00-22:00 UTC) already ended.
+const AFTER_MAY_14_SLOT = () => Date.parse("2026-05-14T22:30:00.000Z");
 
 // Weekly on Thursdays 18:00-19:00 Buenos Aires (21:00-22:00 UTC).
 const weeklySeries: TribeEvent = {
@@ -240,7 +244,9 @@ describe("occurrence exceptions in the listing", () => {
 
 describe("saveTribeEventOccurrenceException", () => {
   function createUseCase(overrides: {
+    find?: TribeEventOccurrenceExceptionRepository["find"];
     findById?: TribeEvent | null;
+    now?: () => number;
     save?: TribeEventOccurrenceExceptionRepository["save"];
   } = {}) {
     const save =
@@ -255,7 +261,11 @@ describe("saveTribeEventOccurrenceException", () => {
       exceptions: [createException()],
     }));
     const execute = saveTribeEventOccurrenceException({
-      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({ save }),
+      now: overrides.now ?? BEFORE_MAY_SLOTS,
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({
+        ...(overrides.find ? { find: overrides.find } : {}),
+        save,
+      }),
       tribeEventRepository: createTribeEventRepositoryDouble({
         findById: vi.fn(async () =>
           overrides.findById === undefined ? weeklySeries : overrides.findById
@@ -351,6 +361,7 @@ describe("saveTribeEventOccurrenceException", () => {
   it("restores a date and answers with the visible month", async () => {
     const clear = vi.fn(async () => ({ status: TRIBE_EVENT_MUTATION_STATUS.exceptionCleared }));
     const execute = clearTribeEventOccurrenceException({
+      now: BEFORE_MAY_SLOTS,
       tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({ clear }),
       tribeEventRepository: createTribeEventRepositoryDouble({
         findById: vi.fn(async () => weeklySeries),
@@ -371,6 +382,55 @@ describe("saveTribeEventOccurrenceException", () => {
 
     expect(result.status).toBe(TRIBE_EVENT_MUTATION_STATUS.exceptionCleared);
     expect("occurrences" in result ? result.occurrences : []).toHaveLength(4);
+  });
+
+  it("keeps an ended date frozen: no cancel, move, or restore", async () => {
+    const { execute, save } = createUseCase({ now: AFTER_MAY_14_SLOT });
+    const clear = vi.fn();
+    const restore = clearTribeEventOccurrenceException({
+      now: AFTER_MAY_14_SLOT,
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({ clear }),
+      tribeEventRepository: createTribeEventRepositoryDouble({
+        findById: vi.fn(async () => weeklySeries),
+      }),
+    });
+
+    await expect(execute(cancelCommand)).resolves.toEqual({
+      status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded,
+    });
+    await expect(
+      restore({
+        eventId: EVENT_ID,
+        originalStartsAt: "2026-05-14T21:00:00.000Z",
+        tribeSlug: TRIBE_SLUG,
+        visibleMonth: "2026-05",
+      })
+    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded });
+    expect(save).not.toHaveBeenCalled();
+    expect(clear).not.toHaveBeenCalled();
+  });
+
+  it("uses the effective time of a moved date and refuses moving a date into the past", async () => {
+    // The 14 May slot was moved to 20 May, so it is still ahead at 14 May 22:30.
+    const movedLater = createUseCase({
+      find: vi.fn(async () =>
+        createException({ kind: "moved", newStartsAt: "2026-05-20T21:00:00.000Z" })
+      ),
+      now: AFTER_MAY_14_SLOT,
+    });
+    const intoThePast = createUseCase({ now: BEFORE_MAY_SLOTS });
+
+    await expect(movedLater.execute(cancelCommand)).resolves.toMatchObject({
+      status: TRIBE_EVENT_MUTATION_STATUS.exceptionSaved,
+    });
+    await expect(
+      intoThePast.execute({
+        ...cancelCommand,
+        kind: "moved",
+        newStartsAt: "2026-04-20T21:00:00.000Z",
+      })
+    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded });
+    expect(intoThePast.save).not.toHaveBeenCalled();
   });
 });
 
@@ -400,6 +460,54 @@ describe("attendance with exceptions", () => {
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled });
     expect(setAttendance).not.toHaveBeenCalled();
+  });
+
+  // Whether a moved date ended is decided by the locked SQL function with its
+  // effective (new) end and the database clock, not by the application clock.
+  it("forwards answers of a moved date keyed by its original start", async () => {
+    const setAttendance = vi.fn(async () => ({
+      attendance: {
+        goingCount: 1,
+        goingPreview: [],
+        maybeCount: 0,
+        viewerStatus: "going" as const,
+        viewerWaitlistPosition: null,
+        waitlistedCount: 0,
+      },
+      status: TRIBE_EVENT_MUTATION_STATUS.attendanceSaved,
+    }));
+    const createExecute = (newStartsAt: string) =>
+      setTribeEventAttendance({
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({
+          find: vi.fn(async () => createException({ kind: "moved", newStartsAt })),
+        }),
+        tribeEventRepository: createTribeEventRepositoryDouble({
+          findById: vi.fn(async () => weeklySeries),
+          setAttendance,
+        }),
+      });
+    const answer = {
+      eventId: EVENT_ID,
+      occurrenceStartsAt: "2026-05-14T21:00:00.000Z",
+      status: "going" as const,
+      tribeSlug: TRIBE_SLUG,
+    };
+
+    // Original slot over, moved later: still open.
+    await expect(createExecute("2026-05-20T21:00:00.000Z")(answer)).resolves.toMatchObject({
+      status: TRIBE_EVENT_MUTATION_STATUS.attendanceSaved,
+    });
+    expect(setAttendance).toHaveBeenCalledWith(
+      expect.objectContaining({ occurrenceStartsAt: "2026-05-14T21:00:00.000Z" })
+    );
+    // Moved earlier: the database refuses it once its new end passed.
+    await expect(createExecute("2026-05-12T21:00:00.000Z")(answer)).resolves.toMatchObject({
+      status: TRIBE_EVENT_MUTATION_STATUS.attendanceSaved,
+    });
+    expect(setAttendance).toHaveBeenCalledTimes(2);
+    expect(setAttendance).toHaveBeenLastCalledWith(
+      expect.objectContaining({ occurrenceStartsAt: "2026-05-14T21:00:00.000Z" })
+    );
   });
 
   it("keeps cancelled dates out of the manager trend", async () => {
@@ -437,13 +545,12 @@ describe("attendance with exceptions", () => {
   });
 
   it("does not count a cancelled date in the viewer streak", async () => {
-    vi.useFakeTimers().setSystemTime(new Date("2026-06-01T12:00:00.000Z"));
-    const execute = getTribeEventAttendanceStreak({
-      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+    const execute = getTribeEventAttendanceStreakSnapshot({
       tribeEventRepository: createTribeEventRepositoryDouble({
-        listViewerAttendanceHistory: vi.fn(async () => ({
+        readViewerAttendanceStreakSnapshot: vi.fn(async () => ({
           events: [weeklySeries],
           exceptions: [createException()],
+          referenceTime: "2026-06-01T12:00:00.000Z",
           viewerAttendances: [
             {
               eventId: EVENT_ID,
@@ -461,7 +568,9 @@ describe("attendance with exceptions", () => {
     });
 
     // Only 21 May counts: 14 May was cancelled, so the streak stays below 2.
-    await expect(execute({ tribeSlug: TRIBE_SLUG })).resolves.toBeNull();
+    await expect(
+      execute({ now: new Date("2026-06-01T12:00:00.000Z"), tribeSlug: TRIBE_SLUG })
+    ).resolves.toMatchObject({ attendanceStreak: null });
   });
 });
 

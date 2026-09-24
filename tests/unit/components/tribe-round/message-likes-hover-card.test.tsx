@@ -169,6 +169,23 @@ describe("MessageLikesHoverCard", () => {
     expect(handleClick).not.toHaveBeenCalled();
   });
 
+  it("does not request likers when an open timer fires after unmounting", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const { unmount } = renderHoverCard(3);
+
+    // Focus and hover each schedule a HoverCard open timer; the second one
+    // replaces the first, so unmounting only cancels the latest timer.
+    await user.tab();
+    await user.hover(screen.getByRole("button", { name: /Me gusta/ }));
+    unmount();
+
+    await act(async () => {
+      vi.advanceTimersByTime(HOVER_OPEN_DELAY_MS);
+    });
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("does not cancel touch starts on the wrapped like button", () => {
     const handleClick = vi.fn();
 

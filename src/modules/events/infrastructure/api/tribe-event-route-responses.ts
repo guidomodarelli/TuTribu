@@ -1,6 +1,7 @@
-import type { TribeEventMessageResponse } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
+import type { TribeEventFailureResponse } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import { TRIBE_EVENT_POST_EVENT_LIMIT } from "@/src/modules/events/constants/tribe-event-post-event";
 import {
+  TRIBE_EVENT_ATTENDANCE_FAILURE_CODE,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_PROPOSAL_LIMIT,
 } from "@/src/modules/events/constants/tribe-events";
@@ -42,6 +43,8 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   exceptionCancelledMessage: "Fecha cancelada.",
   exceptionClearedMessage: "Fecha restaurada.",
   exceptionMovedMessage: "Fecha movida.",
+  exceptionOccurrenceEndedMessage:
+    "Esta fecha ya terminó o la nueva fecha ya pasó: no se puede cancelar, mover ni restaurar.",
   forbiddenMessage: "No tenés permisos para gestionar eventos.",
   invalidAttendanceMessage: "Elegí una fecha válida del evento para responder.",
   invalidCapacityMessage: "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo.",
@@ -69,6 +72,7 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
     "Solo quienes gestionan eventos pueden publicar la grabación y los materiales.",
   postEventSavedMessage: "Grabación y materiales guardados.",
   reactionForbiddenMessage: "Solo los miembros activos pueden reaccionar.",
+  occurrenceEndedMessage: "Este evento ya terminó; no se pueden cambiar las respuestas.",
   proposalApprovedMessage: "Propuesta aprobada: el evento ya está en el calendario.",
   proposalCreatedMessage: "Propuesta enviada. Quienes gestionan eventos la van a revisar.",
   proposalForbiddenMessage: "Solo los miembros activos pueden proponer encuentros.",
@@ -78,10 +82,12 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   proposalResolvedMessage: "Esta propuesta ya fue resuelta.",
   proposalReviewForbiddenMessage: "Solo quienes gestionan eventos pueden revisar propuestas.",
   proposalWithdrawnMessage: "Propuesta retirada.",
+  scheduleChangedMessage: "El evento cambió; recargá para ver las fechas actualizadas.",
   tribeNotFoundMessage: "No pudimos encontrar la tribu.",
   unauthorizedMessage: "Iniciá sesión para gestionar eventos.",
   unexpectedAttendanceMessage: "No pudimos guardar tu respuesta. Intentá de nuevo.",
   unexpectedAttendanceReportMessage: "No pudimos cargar la asistencia. Intentá de nuevo.",
+  unexpectedAttendanceStreakMessage: "No pudimos actualizar tu racha.",
   unexpectedAttendanceExportMessage: "No pudimos generar el archivo de asistencia.",
   unexpectedCalendarFeedMessage: "No pudimos generar el calendario.",
   unexpectedCalendarFeedSubscriptionMessage:
@@ -108,11 +114,12 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
 } as const;
 
 /**
- * Builds a JSON response whose body is a fixed safe message. Success bodies
- * go through `createTribeEventPublicResponse` instead, which validates them.
+ * Builds a JSON response whose body is a fixed safe message (plus the stable
+ * failure `code` when the client needs one). Success bodies go through
+ * `createTribeEventPublicResponse` instead, which validates them.
  */
 export function createJsonResponse(
-  body: TribeEventMessageResponse,
+  body: TribeEventFailureResponse,
   status: number
 ): Response {
   return Response.json(body, { status });
@@ -167,6 +174,19 @@ export function mapTribeEventAttendanceStatusResponse(status: string): Response 
         { message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceCancelledMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
+    case TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded:
+      return createJsonResponse(
+        {
+          code: TRIBE_EVENT_ATTENDANCE_FAILURE_CODE.occurrenceEnded,
+          message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceEndedMessage,
+        },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.scheduleChanged:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.scheduleChangedMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
     case TRIBE_EVENT_MUTATION_STATUS.notFound:
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
@@ -216,6 +236,11 @@ export function mapTribeEventExceptionStatusResponse(status: string): Response {
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidExceptionMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.exceptionOccurrenceEndedMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
     case TRIBE_EVENT_MUTATION_STATUS.invalidDate:
       return createJsonResponse(

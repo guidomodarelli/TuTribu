@@ -1,12 +1,18 @@
-import { TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+  TRIBE_EVENT_RANGE_MATCH,
+} from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEventDateRange,
   TribeEventOccurrenceException,
   TribeEventOccurrenceExceptionKind,
+  TribeEventRangeMatch,
   TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
+import { getTribeEventOccurrenceEndTime } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
 import {
   expandTribeEventOccurrences,
+  findTribeEventOccurrence,
   isTribeEventOccurrence,
 } from "@/src/modules/events/domain/services/tribe-event-recurrence";
 
@@ -46,6 +52,26 @@ function isInRange(instant: string, range: TribeEventDateRange): boolean {
   const time = Date.parse(instant);
 
   return time >= Date.parse(range.rangeStart) && time < Date.parse(range.rangeEnd);
+}
+
+/**
+ * Whether a resolved occurrence belongs to the range under `rangeMatch`: by
+ * its effective start, or by the overlap of its effective interval (explicit
+ * end, or the default duration) with the range.
+ */
+function matchesRange(
+  occurrence: TribeEventResolvedOccurrence,
+  range: TribeEventDateRange,
+  rangeMatch: TribeEventRangeMatch
+): boolean {
+  if (rangeMatch !== TRIBE_EVENT_RANGE_MATCH.overlaps) {
+    return isInRange(occurrence.startsAt, range);
+  }
+
+  return (
+    Date.parse(occurrence.startsAt) < Date.parse(range.rangeEnd) &&
+    getTribeEventOccurrenceEndTime(occurrence) > Date.parse(range.rangeStart)
+  );
 }
 
 /**
@@ -146,19 +172,23 @@ export function resolveTribeEventOccurrenceException(
  * @param schedule - Series schedule.
  * @param exceptions - Exceptions of this series (any range).
  * @param range - Queried range, in UTC.
+ * @param rangeMatch - `startsWithin` (default) matches slots and moved dates
+ *   by their effective start; `overlaps` matches every occurrence whose
+ *   effective interval overlaps the range (see `expandTribeEventOccurrences`).
  * @returns Occurrences sorted by effective start.
  */
 export function expandTribeEventOccurrencesWithExceptions(
   schedule: TribeEventSchedule,
   exceptions: readonly TribeEventOccurrenceException[],
-  range: TribeEventDateRange
+  range: TribeEventDateRange,
+  rangeMatch: TribeEventRangeMatch = TRIBE_EVENT_RANGE_MATCH.startsWithin
 ): TribeEventResolvedOccurrence[] {
   const exceptionByOriginalStart = new Map(
     exceptions.map((exception) => [toCanonicalInstant(exception.originalStartsAt), exception])
   );
   const occurrences: TribeEventResolvedOccurrence[] = [];
 
-  for (const slot of expandTribeEventOccurrences(schedule, range)) {
+  for (const slot of expandTribeEventOccurrences(schedule, range, rangeMatch)) {
     const exception = exceptionByOriginalStart.get(slot.startsAt);
 
     if (exception?.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved) {
@@ -176,15 +206,14 @@ export function expandTribeEventOccurrencesWithExceptions(
   for (const exception of exceptionByOriginalStart.values()) {
     if (
       exception.kind !== TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved ||
-      !exception.newStartsAt ||
-      !isInRange(exception.newStartsAt, range)
+      !exception.newStartsAt
     ) {
       continue;
     }
 
     const movedOccurrence = resolveTribeEventOccurrenceException(schedule, exception);
 
-    if (movedOccurrence) {
+    if (movedOccurrence && matchesRange(movedOccurrence, range, rangeMatch)) {
       occurrences.push(movedOccurrence);
     }
   }
@@ -193,4 +222,38 @@ export function expandTribeEventOccurrencesWithExceptions(
     (firstOccurrence, secondOccurrence) =>
       Date.parse(firstOccurrence.startsAt) - Date.parse(secondOccurrence.startsAt)
   );
+}
+
+/**
+ * Resolves the occurrence identified by its original start (the stable key
+ * `eventId@originalStartsAt`): the slot itself, or the moved or cancelled
+ * version when an exception exists. Rules that depend on time (ended,
+ * waitlist refill) must use the effective `startsAt`/`endsAt` it returns.
+ *
+ * @param schedule - Series schedule.
+ * @param exceptions - Exceptions of this series (any range).
+ * @param originalStartsAt - Original start of the slot.
+ * @returns The resolved occurrence, or null when it is not a slot of the series.
+ */
+export function resolveTribeEventOccurrenceByOriginalStart(
+  schedule: TribeEventSchedule,
+  exceptions: readonly TribeEventOccurrenceException[],
+  originalStartsAt: string
+): TribeEventResolvedOccurrence | null {
+  const exception = findTribeEventOccurrenceException(exceptions, originalStartsAt);
+
+  if (exception) {
+    return resolveTribeEventOccurrenceException(schedule, exception);
+  }
+
+  const slot = findTribeEventOccurrence(schedule, originalStartsAt);
+
+  return slot
+    ? {
+        endsAt: slot.endsAt,
+        exception: null,
+        originalStartsAt: slot.startsAt,
+        startsAt: slot.startsAt,
+      }
+    : null;
 }

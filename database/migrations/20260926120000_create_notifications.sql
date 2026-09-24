@@ -241,9 +241,10 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.format_notification_version(timestamptz) FROM PUBLIC;
 
 -- 5. Producer: waitlist promotion. promote_tribe_event_waitlist (called by
--- respond_to_tribe_event_occurrence and refill_tribe_event_waitlists under
--- the occurrence advisory lock) sets promoted_at; this trigger enqueues the
--- notification in that same transaction. The phase 2 functions are not
+-- respond_to_tribe_event_occurrence, refill_tribe_event_waitlists, and the
+-- tribe_members trigger promote_tribe_event_waitlists_after_membership_change,
+-- always under the occurrence advisory lock) sets promoted_at; this trigger
+-- enqueues the notification in that same transaction. The phase 2 functions are not
 -- modified, so their behavior and lock order stay exactly the same.
 -- Dedupe: one notification per real promotion (promoted_at version).
 CREATE OR REPLACE FUNCTION public.enqueue_event_waitlist_promoted_notification()

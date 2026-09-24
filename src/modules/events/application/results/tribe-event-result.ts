@@ -135,7 +135,8 @@ export type TribeEventOccurrenceExceptionMutationResult =
         | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidOccurrence
-        | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
+        | typeof TRIBE_EVENT_MUTATION_STATUS.notFound
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
     };
 
 export type TribeEventProposalResult = TribeEventProposal;
@@ -209,7 +210,8 @@ export type TribeEventAttendanceMutationResult =
   | {
       status:
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidAttendance
-        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled;
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
     };
 
 /**
@@ -217,6 +219,22 @@ export type TribeEventAttendanceMutationResult =
  * últimos 5 encuentros"). Never exposed to other members.
  */
 export type TribeEventAttendanceStreakResult = TribeEventAttendanceStreak;
+
+/**
+ * Viewer streak plus the next instant at which it can change, both computed
+ * from one database snapshot at the same reference instant. `attendanceStreak`
+ * is null below the minimum; `nextRefreshAt` (ISO 8601) is null when no
+ * running or upcoming occurrence ends inside the upcoming window.
+ */
+export type TribeEventAttendanceStreakSnapshotResult = {
+  attendanceStreak: TribeEventAttendanceStreakResult | null;
+  /**
+   * Database instant (ISO 8601, UTC) at which the streak and `nextRefreshAt`
+   * were computed; exposed as `attendanceStreakComputedAt`.
+   */
+  computedAt: string;
+  nextRefreshAt: string | null;
+};
 
 export type TribeEventAttendeeResult = TribeEventAttendee;
 

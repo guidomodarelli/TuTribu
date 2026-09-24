@@ -24,7 +24,7 @@ export function createTribeEventRepositoryDouble(
     getOccurrenceAttendanceReport: vi.fn(),
     listByTribeRange: vi.fn(),
     listEventOccurrences: vi.fn(async () => ({ attendances: [], event: null, exceptions: [] })),
-    listViewerAttendanceHistory: vi.fn(),
+    readViewerAttendanceStreakSnapshot: vi.fn(),
     setAttendance: vi.fn(),
     update: vi.fn(),
     ...overrides,

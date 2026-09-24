@@ -3,13 +3,22 @@ import { NOTIFICATION_TYPE } from "@/src/modules/notifications/constants/notific
 import { TRIBE_EVENT_ATTENDANCE_STATUS } from "./tribe-events";
 
 /**
- * Event reminders sent by the maintenance cron (every 5 minutes, see
- * `vercel.json` and `wrangler.jsonc`). Each reminder fires for occurrences
- * whose effective start is `leadMinutes` ahead, give or take
- * `toleranceMinutes`: the window is wider than the cron period so a late or
- * skipped tick (jitter) never loses a reminder, and the dedupe key
- * (`type:eventId@originalStartsAt`, unique per recipient) keeps it to one
- * notification however many runs see the occurrence.
+ * Event reminders sent by the maintenance cron (every 5 minutes: GitHub
+ * Actions `.github/workflows/event-reminders-cron.yml` for the Vercel target,
+ * `wrangler.jsonc` for Cloudflare). A reminder is "due and not sent yet":
+ * it fires for every occurrence whose effective start falls in
+ * `(now + minimumLeadMinutes, now + leadMinutes]`, so a scheduler run that is
+ * late (GitHub may delay schedules 15+ minutes) or skipped still sends it on
+ * the next run. The dedupe key (`type:eventId@originalStartsAt`, unique per
+ * recipient) keeps it to one notification however many runs see the
+ * occurrence.
+ *
+ * Threshold decision: the day-before reminder stops one hour before the start
+ * (`minimumLeadMinutes: 60`). An event created (or answered) with less notice
+ * than that only gets the 15-minute call, so a "day before" nudge never lands
+ * right before, or together with, the 15-minute reminder. The copy of the
+ * day-before reminder says "Hoy" or "Mañana" from the real start, so an event
+ * created with less than 24 h of notice is not announced as tomorrow.
  *
  * Audience decision: the day-before reminder goes to "Voy" and "Tal vez"
  * (a nudge helps undecided members plan); the 15-minute reminder only to
@@ -19,14 +28,14 @@ import { TRIBE_EVENT_ATTENDANCE_STATUS } from "./tribe-events";
 export const TRIBE_EVENT_REMINDER = {
   dayBefore: {
     leadMinutes: 1440,
+    minimumLeadMinutes: 60,
     statuses: [TRIBE_EVENT_ATTENDANCE_STATUS.going, TRIBE_EVENT_ATTENDANCE_STATUS.maybe],
-    toleranceMinutes: 10,
     type: NOTIFICATION_TYPE.eventReminderDayBefore,
   },
   soon: {
     leadMinutes: 15,
+    minimumLeadMinutes: 0,
     statuses: [TRIBE_EVENT_ATTENDANCE_STATUS.going],
-    toleranceMinutes: 5,
     type: NOTIFICATION_TYPE.eventReminderSoon,
   },
 } as const;

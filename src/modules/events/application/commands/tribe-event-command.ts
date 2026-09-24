@@ -72,8 +72,21 @@ export type CreateTribeEventCommand = TribeEventFieldsInput & {
   visibleMonth: string | null;
 };
 
-export type UpdateTribeEventCommand = CreateTribeEventCommand & {
+/**
+ * Event fields of an update as produced by the input schema. Unlike creation,
+ * an omitted `capacity` stays undefined and means "keep the stored capacity":
+ * an older client or API consumer that does not know the field must not
+ * remove an existing limit. `null` removes it explicitly and a positive
+ * integer sets it.
+ */
+export type TribeEventUpdateFieldsInput = Omit<TribeEventFieldsInput, "capacity"> & {
+  capacity?: number | null;
+};
+
+export type UpdateTribeEventCommand = TribeEventUpdateFieldsInput & {
   eventId: string;
+  tribeSlug: string;
+  visibleMonth: string | null;
 };
 
 export type DeleteTribeEventCommand = {
@@ -100,7 +113,15 @@ export type GetTribeEventAttendanceReportQuery = {
   tribeSlug: string;
 };
 
+/**
+ * `now` is the application instant the caller took before the read. It only
+ * sizes the read ranges (with a clock margin): the streak, its next refresh
+ * instant, and `attendanceStreakComputedAt` all use the database instant the
+ * snapshot read returns, so the response agrees on one "now" and that "now"
+ * is the clock attendance writes use to refuse ended occurrences.
+ */
 export type GetTribeEventAttendanceStreakQuery = {
+  now: Date;
   tribeSlug: string;
 };
 

@@ -15,10 +15,6 @@
   // Duration and type labels are long in Spanish ("Preguntas y respuestas"):
   // on narrow phones they stack instead of clipping the select.
   &__row--selects {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
-
     @media (max-width: 30rem) {
       grid-template-columns: minmax(0, 1fr);
     }

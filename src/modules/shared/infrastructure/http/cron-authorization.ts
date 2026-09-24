@@ -4,8 +4,9 @@ import { timingSafeEqual } from "node:crypto";
 
 /**
  * Authorization of the scheduled maintenance routes (`app/api/maintenance/**`).
- * Vercel Cron and the Cloudflare `scheduled` handler both call them with
- * `Authorization: Bearer <CRON_SECRET>`; nothing else may run them.
+ * Vercel Cron, the Cloudflare `scheduled` handler, and the GitHub Actions
+ * event-reminders schedule call them with `Authorization: Bearer
+ * <CRON_SECRET>`; nothing else may run them.
  */
 
 const CRON_AUTHORIZATION_SCHEME = "Bearer";

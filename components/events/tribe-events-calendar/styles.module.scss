@@ -31,6 +31,12 @@ $tribe-events-calendar-mobile-max: 767px;
   // Before hydration both views are in the DOM; the breakpoint mirrors
   // `MOBILE_BREAKPOINT` in `beez-ui/src/hooks/use-mobile.ts` so the server-rendered page
   // shows the same view the client will keep after `useIsMobile` resolves.
+  // Element shared by both pre-hydration wrappers; the modifiers only decide
+  // which view is hidden at each breakpoint.
+  &__autoView {
+    display: block;
+  }
+
   &__autoView--list {
     display: none;
   }

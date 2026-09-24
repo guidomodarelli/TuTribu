@@ -33,6 +33,9 @@ describe("Buenos Aires date formatting", () => {
       formatBuenosAiresTimeRange("2026-05-07T02:00:00.000Z", "2026-05-07T04:00:00.000Z")
     ).toBe("23:00 - 07 may 01:00");
     expect(
+      formatBuenosAiresTimeRange("2026-01-01T22:00:00.000Z", "2027-01-01T23:00:00.000Z")
+    ).toBe("19:00 - 01 ene 20:00");
+    expect(
       formatBuenosAiresDateTimeRange("2026-05-06T18:00:00.000Z", "2026-05-06T19:00:00.000Z")
     ).toBe("06 may · 15:00 - 16:00");
   });

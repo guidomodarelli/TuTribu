@@ -3,6 +3,7 @@ import type {
   TRIBE_EVENT_ATTENDANCE_STATUS,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_PROPOSAL_STATUS,
+  TRIBE_EVENT_RANGE_MATCH,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
   TRIBE_EVENT_TYPE,
 } from "@/src/modules/events/constants/tribe-events";
@@ -117,3 +118,10 @@ export type TribeEventProposal = {
   status: TribeEventProposalStatus;
   title: string;
 };
+
+/**
+ * Whether an occurrence belongs to a range because it starts inside it or
+ * because its interval (start to effective end) overlaps it.
+ */
+export type TribeEventRangeMatch =
+  (typeof TRIBE_EVENT_RANGE_MATCH)[keyof typeof TRIBE_EVENT_RANGE_MATCH];
