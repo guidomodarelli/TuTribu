@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { TribeEventCalendarFeedSeriesResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { buildTribeEventIcsFile } from "@/src/modules/events/infrastructure/calendar/ics-calendar-file";
-import { foldIcsLine } from "@/src/modules/events/infrastructure/calendar/ics-content-lines";
+import { escapeIcsText, foldIcsLine } from "@/src/modules/events/infrastructure/calendar/ics-content-lines";
 import { buildTribeCalendarFeedIcsFile } from "@/src/modules/events/infrastructure/calendar/tribe-calendar-feed-ics-file";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
@@ -73,6 +73,20 @@ function buildFeed() {
     series: [weeklySeries, singleEvent],
   });
 }
+
+describe("escapeIcsText", () => {
+  it("escapes CRLF, bare LF, and bare CR as the literal \\n sequence", () => {
+    expect(escapeIcsText("uno\r\ndos\ntres\rcuatro")).toBe("uno\\ndos\\ntres\\ncuatro");
+  });
+
+  it("drops control characters RFC 5545 does not allow in TEXT but keeps tabs", () => {
+    expect(escapeIcsText("a\u0000b\u0007c\u001Bd\u007Fe\tf")).toBe("abcde\tf");
+  });
+
+  it("never leaves a raw carriage return or line feed in the escaped value", () => {
+    expect(escapeIcsText("Tribu\rSUMMARY:inyectado\r\n\n\r")).not.toMatch(/[\r\n]/);
+  });
+});
 
 describe("foldIcsLine", () => {
   it("folds at 75 octets without splitting multi-byte characters", () => {
@@ -188,6 +202,35 @@ describe("buildTribeCalendarFeedIcsFile", () => {
 
   it("is deterministic for the same data, so the ETag only changes with the calendar", () => {
     expect(buildFeed().content).toBe(buildFeed().content);
+  });
+
+  it("keeps user text with bare carriage returns inside its own content line", () => {
+    const content = buildTribeCalendarFeedIcsFile({
+      calendarName: "Tribu\rX-INJECTED:1",
+      series: [
+        {
+          ...singleEvent,
+          event: {
+            ...singleEvent.event,
+            description: "Línea\rDTSTART:20300101T000000Z",
+            title: "Asado\rUID:otro",
+          },
+        },
+      ],
+    }).content;
+
+    expect(content.replace(/\r\n/g, "")).not.toMatch(/[\r\n]/);
+    expect(content.split("\r\n")).toEqual(
+      expect.arrayContaining([
+        "X-WR-CALNAME:Tribu\\nX-INJECTED:1",
+        "SUMMARY:Asado\\nUID:otro",
+        "DESCRIPTION:Línea\\nDTSTART:20300101T000000Z",
+      ])
+    );
+
+    const vevent = new ICAL.Component(ICAL.parse(content)).getFirstSubcomponent("vevent");
+
+    expect(vevent?.getFirstPropertyValue("summary")).toBe("Asado\nUID:otro");
   });
 
   it("produces an empty but valid calendar when there is nothing to show", () => {
