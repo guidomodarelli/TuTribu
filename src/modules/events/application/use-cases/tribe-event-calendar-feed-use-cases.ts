@@ -111,20 +111,21 @@ function groupExceptionsByEvent(
 }
 
 /**
- * Series of the snapshot as calendar results, filtered by type and bounded
- * by the VEVENT budget (one per series plus one per moved date).
+ * Series of the snapshot (already filtered by type by the reader) as calendar
+ * results, bounded by the VEVENT budget (one per series plus one per moved
+ * date). A series that does not fit the remaining budget is skipped, not a
+ * reason to stop: later, smaller series may still fit.
  */
 function buildFeedSeries(
-  snapshot: TribeEventCalendarFeedSnapshot,
-  eventTypes: GetTribeEventCalendarFeedQuery["eventTypes"]
+  snapshot: TribeEventCalendarFeedSnapshot
 ): TribeEventCalendarFeedSeriesResult[] {
   const exceptionsByEvent = groupExceptionsByEvent(snapshot.exceptions);
   const feedSeries: TribeEventCalendarFeedSeriesResult[] = [];
   let remainingComponents: number = TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents;
 
   for (const { event, updatedAt } of snapshot.series) {
-    if (eventTypes.length > 0 && !eventTypes.includes(event.eventType)) {
-      continue;
+    if (remainingComponents === 0) {
+      break;
     }
 
     const calendar = buildTribeEventCalendarResult(event, exceptionsByEvent.get(event.id) ?? []);
@@ -134,7 +135,7 @@ function buildFeedSeries(
     const componentCount = 1 + movedCount;
 
     if (componentCount > remainingComponents) {
-      break;
+      continue;
     }
 
     remainingComponents -= componentCount;
@@ -170,6 +171,7 @@ export function getTribeEventCalendarFeed({
 
     const nowTime = now().getTime();
     const snapshot = await tribeEventCalendarFeedReader.readAsOwner({
+      eventTypes: query.eventTypes,
       lastUsedRefreshMinutes: TRIBE_EVENT_CALENDAR_FEED_REFRESH.lastUsedRefreshMinutes,
       maxExceptions: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxExceptions,
       maxSeries: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents,
@@ -194,7 +196,7 @@ export function getTribeEventCalendarFeed({
     return {
       calendarName: snapshot.tribeName,
       ownerUserId: owner.userId,
-      series: buildFeedSeries(snapshot, query.eventTypes),
+      series: buildFeedSeries(snapshot),
       status: TRIBE_EVENT_MUTATION_STATUS.found,
     };
   };
