@@ -286,6 +286,37 @@ describe("/api/tribes/[slug]/events/calendar-feed", () => {
     expect(everyLogLine()).not.toContain(TOKEN);
   });
 
+  it.each([
+    ["a non-local http deployment", "http://tutribu.example.com"],
+    ["a malformed value", "not a url"],
+    ["a missing value", undefined],
+  ])(
+    "answers a safe 500 without rotating the current link when the public base URL is %s",
+    async (_label, invalidBaseUrl) => {
+      if (invalidBaseUrl === undefined) {
+        delete process.env.BETTER_AUTH_URL;
+      } else {
+        process.env.BETTER_AUTH_URL = invalidBaseUrl;
+      }
+
+      const response = await POST_SUBSCRIPTION(
+        new Request(MANAGEMENT_URL, { method: "POST" }),
+        managementContext()
+      );
+
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toEqual({
+        message: "No pudimos actualizar tu suscripción al calendario. Intentá de nuevo.",
+      });
+      expect(managementUseCases.issueTribeEventCalendarFeedToken).not.toHaveBeenCalled();
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({ tribeSlug: TRIBE_SLUG, userId: OWNER_ID }),
+        })
+      );
+    }
+  );
+
   it("maps a viewer who cannot read the tribe to 403", async () => {
     managementUseCases.issueTribeEventCalendarFeedToken.mockResolvedValue({ status: "forbidden" });
 
