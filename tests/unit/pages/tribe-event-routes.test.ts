@@ -219,6 +219,7 @@ describe("Tribe event routes", () => {
 
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({
+      attendanceStreak: null,
       event,
       message: "Evento creado.",
       occurrences: [occurrence],
@@ -352,6 +353,82 @@ describe("Tribe event routes", () => {
       expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
         tribeSlug: "matematica-pro",
       });
+    });
+
+    it("returns the recomputed viewer streak after creating an event", async () => {
+      createTribeEvent.mockResolvedValue({
+        event,
+        occurrences: [occurrence],
+        status: "created" as const,
+      });
+      getTribeEventAttendanceStreak.mockResolvedValue(streak);
+
+      const response = await POST(
+        buildRequest({
+          startsAt: "2026-05-06T18:00:00.000Z",
+          title: "Clase abierta",
+        }),
+        buildTribeContext()
+      );
+
+      expect(response.status).toBe(201);
+      await expect(response.json()).resolves.toMatchObject({
+        attendanceStreak: streak,
+        occurrences: [occurrence],
+      });
+      expect(getTribeEventAttendanceStreak).toHaveBeenCalledTimes(1);
+      expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
+        tribeSlug: "matematica-pro",
+      });
+    });
+
+    it("keeps the creation successful and omits the streak when recomputing it fails", async () => {
+      const streakError = new Error("history query failed");
+      createTribeEvent.mockResolvedValue({
+        event,
+        occurrences: [occurrence],
+        status: "created" as const,
+      });
+      getTribeEventAttendanceStreak.mockRejectedValue(streakError);
+
+      const response = await POST(
+        buildRequest({
+          startsAt: "2026-05-06T18:00:00.000Z",
+          title: "Clase abierta",
+        }),
+        buildTribeContext()
+      );
+
+      expect(response.status).toBe(201);
+      const body = await response.json();
+      expect(body).toMatchObject({ occurrences: [occurrence] });
+      expect(body).not.toHaveProperty("attendanceStreak");
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: streakError,
+          message: "Failed to recompute tribe event attendance streak after mutation",
+          metadata: expect.objectContaining({
+            eventId: EVENT_ID,
+            slug: "matematica-pro",
+            viewerId: "member-1",
+          }),
+        })
+      );
+    });
+
+    it("does not recompute the streak when the creation is rejected", async () => {
+      createTribeEvent.mockResolvedValue({ status: "forbidden" as const });
+
+      const response = await POST(
+        buildRequest({
+          startsAt: "2026-05-06T18:00:00.000Z",
+          title: "Clase abierta",
+        }),
+        buildTribeContext()
+      );
+
+      expect(response.status).toBe(403);
+      expect(getTribeEventAttendanceStreak).not.toHaveBeenCalled();
     });
 
     it("returns the recomputed viewer streak after deleting a series", async () => {

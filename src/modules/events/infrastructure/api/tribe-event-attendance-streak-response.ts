@@ -1,11 +1,11 @@
 import type { TribeEventAttendanceStreakResult } from "@/src/modules/events/application/results/tribe-event-result";
 
 /**
- * Streak refresh attached to the responses of series mutations (PATCH and
- * DELETE). Editing or deleting a past series can change the viewer's last
- * finished occurrences, so the route returns the recomputed streak next to
- * the mutation result and the client updates the next event card without a
- * full route refresh.
+ * Streak refresh attached to the responses of series mutations (POST, PATCH,
+ * and DELETE). Creating an event that starts in the past, or editing or
+ * deleting a past series, can change the viewer's last finished occurrences,
+ * so the route returns the recomputed streak next to the mutation result and
+ * the client updates the next event card without a full route refresh.
  */
 
 const ATTENDANCE_STREAK_REFRESH_LOG = {

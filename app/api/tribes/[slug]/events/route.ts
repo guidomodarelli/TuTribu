@@ -1,4 +1,5 @@
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import { readAttendanceStreakResponseFragment } from "@/src/modules/events/infrastructure/api/tribe-event-attendance-streak-response";
 import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_QUERY_PARAM,
@@ -100,8 +101,19 @@ export async function POST(request: Request, context: TribeRouteContext) {
     });
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.created) {
+      // A new event can start in the past, so it may displace one of the
+      // viewer's last finished occurrences: return the recomputed streak.
+      const streakFragment = await readAttendanceStreakResponseFragment({
+        eventId: result.event.id,
+        getTribeEventAttendanceStreak: modules.events.useCases.getTribeEventAttendanceStreak,
+        logger,
+        tribeSlug: slug,
+        viewerId: authenticatedMember.id,
+      });
+
       return createJsonResponse(
         {
+          ...streakFragment,
           event: result.event,
           message: TRIBE_EVENT_ROUTE_RESPONSE.createSuccessMessage,
           occurrences: result.occurrences,

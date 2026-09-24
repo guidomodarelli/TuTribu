@@ -48,7 +48,7 @@ type OccurrencesUpdater = (
  * Client state and mutations of the tribe events calendar.
  */
 export type TribeEventMutations = {
-  /** Viewer streak, refreshed by edits and deletions of a series. */
+  /** Viewer streak, refreshed by creations, edits, and deletions of a series. */
   attendanceStreak: TribeEventAttendanceStreakResult | null;
   deleteEvent: (occurrence: TribeEventOccurrenceResult) => Promise<boolean>;
   isDeletingEvent: boolean;
@@ -83,9 +83,9 @@ const COPY = {
  *
  * When the route renders a new `events` array (month navigation), local
  * mutations are discarded in favour of the fresh server data. The viewer
- * streak follows the same rule: edits and deletions replace it with the value
- * the route recomputed, only the latest streak-carrying response wins, and a
- * response without a streak keeps the one on screen.
+ * streak follows the same rule: creations, edits, and deletions replace it
+ * with the value the route recomputed, only the latest streak-carrying
+ * response wins, and a response without a streak keeps the one on screen.
  *
  * @param input - Server occurrences and streak, visible month, and tribe slug.
  * @returns Visible occurrences and streak, pending flags, and mutation callbacks that

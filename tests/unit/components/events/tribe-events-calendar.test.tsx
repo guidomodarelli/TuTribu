@@ -1084,6 +1084,36 @@ describe("TribeEventsCalendar", () => {
       expect(router.refresh).not.toHaveBeenCalled();
     });
 
+    it("shows the streak returned by a creation without reloading the route", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      renderCalendar({ attendanceStreak: initialStreak });
+
+      await user.click(screen.getByRole("button", { name: "Crear evento" }));
+      fireEvent.change(screen.getByLabelText("Título"), {
+        target: { value: "Clase histórica" },
+      });
+      fireEvent.change(screen.getByLabelText("Fecha"), {
+        target: { value: "2026-05-20" },
+      });
+      fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+        target: { value: "15:00" },
+      });
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        event: {},
+        message: "Evento creado.",
+        occurrences: [laterOccurrence],
+      });
+      await user.click(screen.getByRole("button", { name: "Guardar evento" }));
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 3 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
     it("hides the streak when a deletion leaves the viewer without one", async () => {
       renderCalendar({
         attendanceStreak: initialStreak,
