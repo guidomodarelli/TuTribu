@@ -596,6 +596,234 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.refill_tribe_event_waitlists(uuid, timestamptz[])
 FROM PUBLIC;
 
+-- 7b. Internal helper: tells whether occurrence_starts_at is an exact slot of
+-- the series under its CURRENT schedule. SQL mirror of the domain
+-- findTribeEventOccurrence (tribe-event-recurrence.ts): Buenos Aires wall
+-- clock at the fixed BUENOS_AIRES_UTC_OFFSET_HOURS (-3) offset, weekly and
+-- biweekly every 7/14 days from starts_at, monthly on the same local day and
+-- time (months without the anchor day are skipped), none only at starts_at,
+-- and recurrence_until inclusive. Compared at millisecond precision, like the
+-- schedule check of 6. It exists only for the membership trigger of 7c, which
+-- has no application in the loop to expand the series; edits keep using the
+-- domain list of 7. Both must change together. Pure and IMMUTABLE, not
+-- SECURITY DEFINER; owner-only like tribe_event_occurrence_ends_at.
+CREATE OR REPLACE FUNCTION public.is_tribe_event_series_occurrence(
+  occurrence_starts_at timestamptz,
+  event_starts_at timestamptz,
+  event_recurrence_frequency text,
+  event_recurrence_until timestamptz
+)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+  WITH normalized AS (
+    SELECT
+      date_trunc('milliseconds', occurrence_starts_at) AS occurrence_at,
+      date_trunc('milliseconds', event_starts_at) AS series_starts_at,
+      (date_trunc('milliseconds', occurrence_starts_at) AT TIME ZONE 'UTC')
+        + interval '-3 hours' AS occurrence_local,
+      (date_trunc('milliseconds', event_starts_at) AT TIME ZONE 'UTC')
+        + interval '-3 hours' AS series_local
+  )
+  SELECT coalesce(
+    CASE event_recurrence_frequency
+      WHEN 'none' THEN normalized.occurrence_at = normalized.series_starts_at
+      WHEN 'weekly' THEN
+        normalized.occurrence_at >= normalized.series_starts_at
+        AND mod(
+          extract(epoch FROM normalized.occurrence_at)
+            - extract(epoch FROM normalized.series_starts_at),
+          604800
+        ) = 0
+      WHEN 'biweekly' THEN
+        normalized.occurrence_at >= normalized.series_starts_at
+        AND mod(
+          extract(epoch FROM normalized.occurrence_at)
+            - extract(epoch FROM normalized.series_starts_at),
+          1209600
+        ) = 0
+      WHEN 'monthly' THEN
+        normalized.occurrence_at >= normalized.series_starts_at
+        AND extract(day FROM normalized.occurrence_local)
+          = extract(day FROM normalized.series_local)
+        AND normalized.occurrence_local::time = normalized.series_local::time
+      ELSE false
+    END
+    AND (
+      event_recurrence_frequency = 'none'
+      OR event_recurrence_until IS NULL
+      OR normalized.occurrence_at <= event_recurrence_until
+    ),
+    false
+  )
+  FROM normalized;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.is_tribe_event_series_occurrence(
+  timestamptz, timestamptz, text, timestamptz
+)
+FROM PUBLIC;
+
+-- 7c. Membership changes free or reclaim seats. Seats count only answers of
+-- active members (5a), so a "going" member who becomes blocked or removed, or
+-- whose membership row is deleted, frees a seat at once; and a member who
+-- becomes active again makes their "waitlisted" answer eligible. Without this
+-- trigger the free seat would stay empty until the next answer or edit while
+-- the summary advertises it, leaving the FIFO waiter behind. It covers every
+-- membership path (invitations, free join, subscriptions, moderation, account
+-- or tribe deletion) without touching each repository, and runs inside the
+-- membership transaction, so the promotion (and its promoted_at, which later
+-- consumers hook into) commits or rolls back with it.
+--   * A status update that leaves "active" promotes the occurrences where
+--     the member was "going"; one that becomes "active" promotes the
+--     occurrences where they were "waitlisted". Other status changes do not
+--     change any count.
+--   * A deleted active membership promotes every occurrence of the tribe that
+--     has a waitlist: when the whole account is deleted, the ON DELETE CASCADE
+--     of event_attendances already removed the member's "going" rows before
+--     this AFTER trigger runs, so they can no longer be looked up. Promotion
+--     only fills seats that are really free, so the wider set is safe.
+--   * Only exact slots of the current schedule (7b) that have not ended are
+--     touched: rows of dates removed by a schedule edit stay as history, and
+--     ended occurrences stay frozen.
+--   * Same lock order as 6 and 7: the event row FOR SHARE, then the
+--     occurrence advisory lock; occurrences are visited in ascending
+--     (event_id, occurrence_starts_at) order. The end and the slot are checked
+--     again after the advisory lock with the schedule read under FOR SHARE and
+--     clock_timestamp(), because this call may have waited behind an answer.
+--   * An event row that is gone (deleted in the same transaction, for example
+--     by the tribe deletion cascade) is skipped.
+-- Owner-only trigger function: it performs no authorization and is never
+-- called directly.
+CREATE OR REPLACE FUNCTION public.promote_tribe_event_waitlists_after_membership_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  affected_tribe_id uuid;
+  affected_user_id text;
+  freed_attendance_status text;
+  promotes_every_tribe_waitlist boolean := false;
+  affected_occurrence record;
+  locked_starts_at timestamptz;
+  locked_ends_at timestamptz;
+  locked_recurrence_frequency text;
+  locked_recurrence_until timestamptz;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.status IS DISTINCT FROM 'active' THEN
+      RETURN NULL;
+    END IF;
+
+    affected_tribe_id := OLD.tribe_id;
+    affected_user_id := OLD.user_id;
+    promotes_every_tribe_waitlist := true;
+  ELSE
+    IF (OLD.status = 'active') IS NOT DISTINCT FROM (NEW.status = 'active') THEN
+      RETURN NULL;
+    END IF;
+
+    affected_tribe_id := NEW.tribe_id;
+    affected_user_id := NEW.user_id;
+    freed_attendance_status := CASE
+      WHEN NEW.status = 'active' THEN 'waitlisted'
+      ELSE 'going'
+    END;
+  END IF;
+
+  FOR affected_occurrence IN
+    SELECT DISTINCT
+      event_attendances.event_id,
+      event_attendances.occurrence_starts_at
+    FROM public.event_attendances
+    INNER JOIN public.events
+      ON events.id = event_attendances.event_id
+    WHERE event_attendances.tribe_id = affected_tribe_id
+      AND CASE
+        WHEN promotes_every_tribe_waitlist THEN
+          event_attendances.status = 'waitlisted'
+        ELSE
+          event_attendances.user_id = affected_user_id
+          AND event_attendances.status = freed_attendance_status
+      END
+      AND public.tribe_event_occurrence_ends_at(
+        event_attendances.occurrence_starts_at,
+        events.starts_at,
+        events.ends_at
+      ) > clock_timestamp()
+    ORDER BY event_attendances.event_id ASC, event_attendances.occurrence_starts_at ASC
+  LOOP
+    SELECT
+      events.starts_at,
+      events.ends_at,
+      events.recurrence_frequency,
+      events.recurrence_until
+    INTO
+      locked_starts_at,
+      locked_ends_at,
+      locked_recurrence_frequency,
+      locked_recurrence_until
+    FROM public.events
+    WHERE events.id = affected_occurrence.event_id
+    FOR SHARE;
+
+    IF NOT FOUND THEN
+      CONTINUE;
+    END IF;
+
+    PERFORM pg_advisory_xact_lock(
+      hashtextextended(
+        'tribe_event_occurrence:' || affected_occurrence.event_id::text || '@'
+          || extract(epoch FROM affected_occurrence.occurrence_starts_at)::text,
+        0
+      )
+    );
+
+    IF NOT public.is_tribe_event_series_occurrence(
+      affected_occurrence.occurrence_starts_at,
+      locked_starts_at,
+      locked_recurrence_frequency,
+      locked_recurrence_until
+    ) OR public.tribe_event_occurrence_ends_at(
+      affected_occurrence.occurrence_starts_at,
+      locked_starts_at,
+      locked_ends_at
+    ) <= clock_timestamp() THEN
+      CONTINUE;
+    END IF;
+
+    PERFORM public.promote_tribe_event_waitlist(
+      affected_occurrence.event_id,
+      affected_occurrence.occurrence_starts_at
+    );
+  END LOOP;
+
+  RETURN NULL;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.promote_tribe_event_waitlists_after_membership_change()
+FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS tribe_members_promote_event_waitlists_after_status_update
+ON public.tribe_members;
+CREATE TRIGGER tribe_members_promote_event_waitlists_after_status_update
+AFTER UPDATE OF status ON public.tribe_members
+FOR EACH ROW
+WHEN (OLD.status IS DISTINCT FROM NEW.status)
+EXECUTE FUNCTION public.promote_tribe_event_waitlists_after_membership_change();
+
+DROP TRIGGER IF EXISTS tribe_members_promote_event_waitlists_after_delete
+ON public.tribe_members;
+CREATE TRIGGER tribe_members_promote_event_waitlists_after_delete
+AFTER DELETE ON public.tribe_members
+FOR EACH ROW
+EXECUTE FUNCTION public.promote_tribe_event_waitlists_after_membership_change();
+
 -- 8. Attendance summaries of the occurrences of one tribe inside a range
 -- (optionally of one event) in a single call, so a month never runs one
 -- query per occurrence. Seats follow count_tribe_event_occupied_seats: only
