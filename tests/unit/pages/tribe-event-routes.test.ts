@@ -210,6 +210,7 @@ describe("Tribe event routes", () => {
 
     const response = await POST(
       buildRequest({
+        capacity: "",
         description: "Repaso mensual",
         endsAt: "2026-05-06T19:00:00.000Z",
         meetingUrl: "https://meet.google.com/abc-defg-hij",
@@ -273,6 +274,7 @@ describe("Tribe event routes", () => {
     const response = await PATCH(
       buildRequest(
         {
+          capacity: "",
           description: "Repaso mensual",
           endsAt: "2026-05-06T19:00:00.000Z",
           meetingUrl: "https://meet.google.com/abc-defg-hij",
@@ -996,7 +998,7 @@ describe("Tribe event routes", () => {
       expect(updateTribeEvent).toHaveBeenCalledWith(expect.objectContaining({ capacity: "30" }));
     });
 
-    it("keeps null and absent capacity as unlimited", async () => {
+    it("forwards null capacity as an explicit removal and leaves an absent one unset on POST", async () => {
       createTribeEvent.mockResolvedValue({
         event,
         occurrences: [occurrence],
@@ -1007,7 +1009,23 @@ describe("Tribe event routes", () => {
       await POST(buildRequest({}), buildTribeContext());
 
       expect(createTribeEvent).toHaveBeenNthCalledWith(1, expect.objectContaining({ capacity: "" }));
-      expect(createTribeEvent).toHaveBeenNthCalledWith(2, expect.objectContaining({ capacity: "" }));
+      // The create use case treats an absent capacity as unlimited.
+      expect(createTribeEvent.mock.calls[1]?.[0]).toHaveProperty("capacity", undefined);
+    });
+
+    it("keeps the stored capacity when a legacy PATCH body omits the field", async () => {
+      updateTribeEvent.mockResolvedValue({
+        event,
+        occurrences: [occurrence],
+        status: "updated" as const,
+      });
+
+      await PATCH(buildRequest({}, EVENT_URL), buildEventContext());
+      await PATCH(buildRequest({ capacity: null }, EVENT_URL), buildEventContext());
+
+      // Absent = unchanged; null = explicit removal of the limit.
+      expect(updateTribeEvent.mock.calls[0]?.[0]).toHaveProperty("capacity", undefined);
+      expect(updateTribeEvent).toHaveBeenNthCalledWith(2, expect.objectContaining({ capacity: "" }));
     });
 
     it.each(UNSUPPORTED_CAPACITY_VALUES)(

@@ -1291,6 +1291,12 @@ describe("TribeEventsCalendar", () => {
       `/api/tribes/matematica-pro/events/${EVENT_ID}?month=2026-05`,
       expect.objectContaining({ method: "PATCH" })
     );
+    // The edit always sends the capacity explicitly (empty = no limit), so the
+    // server never mistakes it for a legacy body that omits the field.
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      capacity: "",
+      title: "Clase cerrada",
+    });
     expect(await screen.findByRole("button", { name: /15:00\s*Clase cerrada/ })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase cerrada/ }));

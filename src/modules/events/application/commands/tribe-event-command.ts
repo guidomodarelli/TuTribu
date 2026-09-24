@@ -41,7 +41,14 @@ export type CreateTribeEventCommand = {
   visibleMonth?: string;
 };
 
-export type UpdateTribeEventCommand = CreateTribeEventCommand & {
+/**
+ * Raw fields of an event update. Unlike creation, a missing `capacity` means
+ * "keep the stored capacity": an older client or API consumer that does not
+ * know the field must not remove an existing limit. An empty value removes it
+ * explicitly and a positive integer sets it.
+ */
+export type UpdateTribeEventCommand = Omit<CreateTribeEventCommand, "capacity"> & {
+  capacity?: string;
   eventId: string;
 };
 

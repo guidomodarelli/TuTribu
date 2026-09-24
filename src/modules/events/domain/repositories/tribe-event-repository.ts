@@ -9,6 +9,7 @@ import type {
   TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
+  TRIBE_EVENT_CAPACITY_UPDATE_KIND,
   TRIBE_EVENT_MUTATION_STATUS,
 } from "@/src/modules/events/constants/tribe-events";
 
@@ -37,12 +38,25 @@ export type PersistTribeEventCommand = {
   tribeSlug: string;
 };
 
-export type PersistTribeEventUpdateCommand = PersistTribeEventCommand & {
+/**
+ * Capacity change requested by an update: keep the stored value, or write a
+ * new one (null removes the limit).
+ */
+export type TribeEventCapacityUpdate =
+  | { kind: typeof TRIBE_EVENT_CAPACITY_UPDATE_KIND.unchanged }
+  | { capacity: number | null; kind: typeof TRIBE_EVENT_CAPACITY_UPDATE_KIND.set };
+
+export type PersistTribeEventUpdateCommand = Omit<PersistTribeEventCommand, "capacity"> & {
   /**
    * Range whose attendance summaries of the event are read back after the
    * waitlist refill, or null to skip that read (no visible month).
    */
   attendanceRange: TribeEventDateRange | null;
+  /**
+   * `unchanged` leaves the capacity column untouched, so an update that does
+   * not mention the capacity never removes an existing limit.
+   */
+  capacity: TribeEventCapacityUpdate;
   eventId: string;
 };
 
