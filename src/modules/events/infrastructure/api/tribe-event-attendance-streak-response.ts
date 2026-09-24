@@ -1,4 +1,4 @@
-import type { TribeEventAttendanceStreakResult } from "@/src/modules/events/application/results/tribe-event-result";
+import type { TribeEventAttendanceStreakSnapshotResult } from "@/src/modules/events/application/results/tribe-event-result";
 import {
   tribeEventAttendanceStreakMutationFragmentDtoSchema,
   type TribeEventAttendanceStreakMutationFragmentDto,
@@ -37,12 +37,9 @@ type AttendanceStreakQuery = {
 
 type AttendanceStreakRefreshInput = {
   eventId: string;
-  getTribeEventAttendanceStreak: (
+  getTribeEventAttendanceStreakSnapshot: (
     query: AttendanceStreakQuery
-  ) => Promise<TribeEventAttendanceStreakResult | null>;
-  getTribeEventAttendanceStreakNextRefreshAt: (
-    query: AttendanceStreakQuery
-  ) => Promise<string | null>;
+  ) => Promise<TribeEventAttendanceStreakSnapshotResult>;
   logger: AttendanceStreakRefreshLogger;
   tribeSlug: string;
   viewerId: string;
@@ -59,64 +56,72 @@ export type AttendanceStreakResponseFragment = TribeEventAttendanceStreakMutatio
 
 /**
  * Recomputes the viewer streak and its next refresh instant through the
- * existing use cases, bound to the same request modules (and request-scoped
- * database context) as the mutation. The clock is sampled once and both reads
- * receive that instant, so an occurrence that ends between them can never
- * pair a streak that has not counted it with a deadline that already skipped
- * it. Each field goes through the public DTO
- * independently; a failure or an unusable value never fails the mutation: it
- * is logged with context and only that field is omitted from the response.
+ * snapshot use case, bound to the same request modules (and request-scoped
+ * database context) as the mutation. Both values come from one repository
+ * read, answered from a single database snapshot at one reference instant, so
+ * a series another manager creates or reschedules concurrently can never
+ * appear in the streak and be missing from the deadline (or the other way
+ * around).
  *
- * @param input - Streak use cases, request logger, and safe identifiers.
+ * A failed read never fails the mutation: it is logged with context and both
+ * fields are omitted. Each field then goes through the public DTO
+ * independently, so an unusable value is logged and only that field is
+ * omitted from the response.
+ *
+ * @param input - Streak snapshot use case, request logger, and safe identifiers.
  * @returns The fragment to spread into the mutation response body.
  */
 export async function readAttendanceStreakResponseFragment({
   eventId,
-  getTribeEventAttendanceStreak,
-  getTribeEventAttendanceStreakNextRefreshAt,
+  getTribeEventAttendanceStreakSnapshot,
   logger,
   tribeSlug,
   viewerId,
 }: AttendanceStreakRefreshInput): Promise<AttendanceStreakResponseFragment> {
-  const readFragmentField = async (
-    readField: () => Promise<Record<string, unknown>>,
+  const logFailure = (message: string, error: unknown) => {
+    logger.error({
+      message,
+      error,
+      metadata: {
+        eventId,
+        reason: ATTENDANCE_STREAK_REFRESH_LOG.failureReason,
+        slug: tribeSlug,
+        viewerId,
+      },
+    });
+  };
+  const parseFragmentField = (
+    field: Record<string, unknown>,
     failureMessage: string
-  ): Promise<AttendanceStreakResponseFragment> => {
-    try {
-      return tribeEventAttendanceStreakMutationFragmentDtoSchema.parse(await readField());
-    } catch (error) {
-      logger.error({
-        message: failureMessage,
-        error,
-        metadata: {
-          eventId,
-          reason: ATTENDANCE_STREAK_REFRESH_LOG.failureReason,
-          slug: tribeSlug,
-          viewerId,
-        },
-      });
+  ): AttendanceStreakResponseFragment => {
+    const parsedField = tribeEventAttendanceStreakMutationFragmentDtoSchema.safeParse(field);
+
+    if (!parsedField.success) {
+      logFailure(failureMessage, parsedField.error);
 
       return {};
     }
+
+    return parsedField.data;
   };
-  const now = new Date();
-  const [streakFragment, nextRefreshFragment] = await Promise.all([
-    readFragmentField(
-      async () => ({
-        attendanceStreak: await getTribeEventAttendanceStreak({ now, tribeSlug }),
-      }),
+  let snapshot: TribeEventAttendanceStreakSnapshotResult;
+
+  try {
+    snapshot = await getTribeEventAttendanceStreakSnapshot({ now: new Date(), tribeSlug });
+  } catch (error) {
+    logFailure(ATTENDANCE_STREAK_REFRESH_LOG.failureMessage, error);
+
+    return {};
+  }
+
+  return {
+    ...parseFragmentField(
+      { attendanceStreak: snapshot.attendanceStreak },
       ATTENDANCE_STREAK_REFRESH_LOG.failureMessage
     ),
-    readFragmentField(
-      async () => ({
-        attendanceStreakNextRefreshAt: await getTribeEventAttendanceStreakNextRefreshAt({
-          now,
-          tribeSlug,
-        }),
-      }),
+    ...parseFragmentField(
+      { attendanceStreakNextRefreshAt: snapshot.nextRefreshAt },
       ATTENDANCE_STREAK_REFRESH_LOG.nextRefreshFailureMessage
     ),
-  ]);
-
-  return { ...streakFragment, ...nextRefreshFragment };
+  };
 }

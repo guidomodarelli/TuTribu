@@ -27,9 +27,10 @@ export const tribeEventAttendanceStreakNextRefreshAtDtoSchema = z.iso.datetime()
 
 /**
  * Body of `GET /api/tribes/[slug]/events/attendance-streak`. `null` means the
- * viewer has no streak to show. `attendanceStreakNextRefreshAt` is omitted
- * when the route could not compute it, so the client keeps the instant it
- * already watches.
+ * viewer has no streak to show. The route always sends
+ * `attendanceStreakNextRefreshAt` next to the streak (both come from one
+ * snapshot read); the field stays optional so a body without it keeps the
+ * instant the client already watches.
  */
 export const tribeEventAttendanceStreakResponseDtoSchema = z.object({
   attendanceStreak: tribeEventAttendanceStreakDtoSchema.nullable(),
@@ -38,8 +39,8 @@ export const tribeEventAttendanceStreakResponseDtoSchema = z.object({
 
 /**
  * Streak fragment spread into the bodies of `POST`, `PATCH`, and `DELETE`
- * series mutations. Each field is omitted when the route could not recompute
- * it; the client then applies neither field and reads the streak again once
+ * series mutations. Both fields are omitted when the snapshot read fails, and
+ * a single field is omitted when its value breaks this contract; the client then applies neither field and reads the streak again once
  * every pending mutation settles.
  */
 export const tribeEventAttendanceStreakMutationFragmentDtoSchema = z.object({

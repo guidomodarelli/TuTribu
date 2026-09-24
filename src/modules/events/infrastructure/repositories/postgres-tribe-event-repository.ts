@@ -24,9 +24,9 @@ import type {
   FindTribeEventQuery,
   GetTribeEventAttendanceReportQuery,
   ListTribeEventsByRangeQuery,
-  ListViewerAttendanceHistoryQuery,
   PersistTribeEventCommand,
   PersistTribeEventUpdateCommand,
+  ReadViewerAttendanceStreakSnapshotQuery,
   SetTribeEventAttendanceRepositoryCommand,
   TribeEventAttendanceReportLookup,
   TribeEventAttendanceResult,
@@ -38,6 +38,7 @@ import type {
   TribeEventRangeListing,
   TribeEventRepository,
   TribeEventUpdateResult,
+  TribeEventViewerAttendance,
   TribeEventViewerAttendanceHistory,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 import {
@@ -90,10 +91,18 @@ type WaitlistedOccurrenceRow = {
   occurrence_starts_at: Date | string;
 };
 
-type ViewerAttendanceRow = {
-  event_id: string;
-  occurrence_starts_at: Date | string;
-  status: string | null;
+type ViewerAttendanceValue = {
+  event_id?: unknown;
+  occurrence_starts_at?: unknown;
+  status?: unknown;
+} | null;
+
+/**
+ * Event row of the streak snapshot, with the viewer answers of that series
+ * aggregated by the same statement as a JSON array.
+ */
+type EventWithViewerAttendancesRow = EventListRow & {
+  viewer_attendances: unknown;
 };
 
 type AttendeeRow = {
@@ -294,6 +303,39 @@ function mapGoingPreview(value: unknown): TribeEventAttendeePreview[] {
   );
 }
 
+/**
+ * Maps the `viewer_attendances` JSON arrays of the streak snapshot rows,
+ * dropping any malformed entry or unknown status instead of failing the read.
+ */
+function mapViewerAttendances(rows: EventWithViewerAttendancesRow[]): TribeEventViewerAttendance[] {
+  return rows.flatMap((row) => {
+    if (!Array.isArray(row.viewer_attendances)) {
+      return [];
+    }
+
+    return row.viewer_attendances.flatMap((entry: ViewerAttendanceValue) => {
+      const status =
+        typeof entry?.status === "string" ? mapAttendanceStatus(entry.status) : null;
+      const occurrenceTime =
+        typeof entry?.occurrence_starts_at === "string"
+          ? Date.parse(entry.occurrence_starts_at)
+          : Number.NaN;
+
+      if (!status || typeof entry?.event_id !== "string" || !Number.isFinite(occurrenceTime)) {
+        return [];
+      }
+
+      return [
+        {
+          eventId: entry.event_id,
+          occurrenceStartsAt: new Date(occurrenceTime).toISOString(),
+          status,
+        },
+      ];
+    });
+  });
+}
+
 function mapAttendanceSummaryFields(row: AttendanceSummaryRow): TribeEventAttendanceSummary {
   return {
     goingCount: mapCount(row.going_count),
@@ -406,7 +448,33 @@ function buildEventsInRangeQuery({
   rangeEnd,
   rangeStart,
   tribeSlug,
-}: TribeEventDateRange & { tribeSlug: string }) {
+  viewerAttendanceRange,
+}: TribeEventDateRange & {
+  tribeSlug: string;
+  viewerAttendanceRange?: TribeEventDateRange;
+}) {
+  const viewerAttendancesColumn = viewerAttendanceRange
+    ? sql`,
+      (
+        select coalesce(
+          jsonb_agg(
+            jsonb_build_object(
+              'event_id', event_attendances.event_id,
+              'occurrence_starts_at', event_attendances.occurrence_starts_at,
+              'status', event_attendances.status
+            )
+            order by event_attendances.occurrence_starts_at
+          ),
+          '[]'::jsonb
+        )
+        from public.event_attendances
+        where event_attendances.event_id = event_rows.id
+          and event_attendances.user_id = public.current_app_user_id()
+          and event_attendances.occurrence_starts_at >= ${viewerAttendanceRange.rangeStart}
+          and event_attendances.occurrence_starts_at < ${viewerAttendanceRange.rangeEnd}
+      ) as viewer_attendances`
+    : sql``;
+
   return sql`
     with target_tribe as (
       select tribes.id
@@ -448,7 +516,7 @@ function buildEventsInRangeQuery({
       event_rows.ends_at,
       event_rows.recurrence_frequency,
       event_rows.recurrence_until,
-      viewer_permissions.can_manage_events
+      viewer_permissions.can_manage_events${viewerAttendancesColumn}
     from viewer_permissions
     left join event_rows
       on true
@@ -533,52 +601,31 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
     });
   }
 
-  async listViewerAttendanceHistory({
-    rangeEnd,
-    rangeStart,
+  /**
+   * One statement reads the series overlapping `eventRange` and, per series,
+   * the viewer answers inside `viewerAttendanceRange`. Under the request
+   * transaction's READ COMMITTED isolation every statement gets its own
+   * snapshot, so splitting this into two statements (or two request
+   * transactions) could pair the answers or the upcoming schedule with a
+   * different version of the series. A single statement sees one snapshot
+   * without raising the isolation level, which `withRequestContext` cannot do
+   * because it already ran its `set_config` statements when the callback
+   * starts (`SET TRANSACTION ISOLATION LEVEL` must precede any query).
+   */
+  async readViewerAttendanceStreakSnapshot({
+    eventRange,
     tribeSlug,
-  }: ListViewerAttendanceHistoryQuery): Promise<TribeEventViewerAttendanceHistory> {
+    viewerAttendanceRange,
+  }: ReadViewerAttendanceStreakSnapshotQuery): Promise<TribeEventViewerAttendanceHistory> {
     return this.executeWithDatabase(async (database) => {
-      const eventsResult = await database.execute(
-        buildEventsInRangeQuery({ rangeEnd, rangeStart, tribeSlug })
+      const result = await database.execute(
+        buildEventsInRangeQuery({ ...eventRange, tribeSlug, viewerAttendanceRange })
       );
-      const events = mapEventRows((eventsResult.rows ?? []) as EventListRow[]);
-
-      if (events.length === 0) {
-        return { events, viewerAttendances: [] };
-      }
-
-      const attendanceResult = await database.execute(sql`
-        select
-          event_attendances.event_id,
-          event_attendances.occurrence_starts_at,
-          event_attendances.status
-        from public.event_attendances
-        inner join public.tribes
-          on tribes.id = event_attendances.tribe_id
-        where tribes.slug = ${tribeSlug}
-          and public.can_read_tribe_content(tribes.id)
-          and event_attendances.user_id = public.current_app_user_id()
-          and event_attendances.occurrence_starts_at >= ${rangeStart}
-          and event_attendances.occurrence_starts_at < ${rangeEnd}
-      `);
-      const attendanceRows = (attendanceResult.rows ?? []) as ViewerAttendanceRow[];
+      const rows = (result.rows ?? []) as EventWithViewerAttendancesRow[];
 
       return {
-        events,
-        viewerAttendances: attendanceRows.flatMap((row) => {
-          const status = mapAttendanceStatus(row.status);
-
-          return status
-            ? [
-                {
-                  eventId: row.event_id,
-                  occurrenceStartsAt: mapDateValue(row.occurrence_starts_at),
-                  status,
-                },
-              ]
-            : [];
-        }),
+        events: mapEventRows(rows),
+        viewerAttendances: mapViewerAttendances(rows),
       };
     });
   }

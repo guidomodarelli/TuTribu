@@ -2,7 +2,6 @@ import { vi, describe, it, expect, afterEach } from "vitest";
 import {
   clearTribeEventAttendance,
   getTribeEventAttendanceReport,
-  getTribeEventAttendanceStreak,
   setTribeEventAttendance,
 } from "@/src/modules/events/application/use-cases/tribe-event-attendance-use-cases";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
@@ -57,7 +56,7 @@ function createRepository(overrides: Partial<TribeEventRepository> = {}) {
     findById: vi.fn(async () => weeklyEvent),
     getOccurrenceAttendanceReport: vi.fn(),
     listByTribeRange: vi.fn(),
-    listViewerAttendanceHistory: vi.fn(),
+    readViewerAttendanceStreakSnapshot: vi.fn(),
     setAttendance: vi.fn(async () => ({
       attendance: savedAttendance,
       status: TRIBE_EVENT_MUTATION_STATUS.attendanceSaved,
@@ -397,77 +396,6 @@ describe("tribe event attendance use cases", () => {
         })
       ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance });
       expect(repository.getOccurrenceAttendanceReport).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("attendance streak", () => {
-    it("reports how many of the last finished occurrences the viewer went to", async () => {
-      const listViewerAttendanceHistory = vi.fn(async () => ({
-        events: [weeklyEvent],
-        viewerAttendances: [
-          { eventId: EVENT_ID, occurrenceStartsAt: "2026-05-06T18:00:00.000Z", status: "going" as const },
-          { eventId: EVENT_ID, occurrenceStartsAt: "2026-05-13T18:00:00.000Z", status: "going" as const },
-          { eventId: EVENT_ID, occurrenceStartsAt: "2026-05-20T18:00:00.000Z", status: "maybe" as const },
-          { eventId: EVENT_ID, occurrenceStartsAt: "2026-05-27T18:00:00.000Z", status: "going" as const },
-        ],
-      }));
-      const execute = getTribeEventAttendanceStreak({
-        tribeEventRepository: createRepository({ listViewerAttendanceHistory }),
-      });
-
-      await expect(
-        execute({ now: new Date("2026-06-01T12:00:00.000Z"), tribeSlug: " matematica-pro " })
-      ).resolves.toEqual({
-        attendedCount: 3,
-        occurrenceCount: 4,
-      });
-      expect(listViewerAttendanceHistory).toHaveBeenCalledWith({
-        rangeEnd: "2026-06-01T12:00:00.000Z",
-        rangeStart: "2025-12-03T12:00:00.000Z",
-        tribeSlug: "matematica-pro",
-      });
-    });
-
-    it("returns null below the minimum", async () => {
-      const execute = getTribeEventAttendanceStreak({
-        tribeEventRepository: createRepository({
-          listViewerAttendanceHistory: vi.fn(async () => ({
-            events: [weeklyEvent],
-            viewerAttendances: [
-              { eventId: EVENT_ID, occurrenceStartsAt: "2026-05-27T18:00:00.000Z", status: "going" as const },
-            ],
-          })),
-        }),
-      });
-
-      await expect(
-        execute({ now: new Date("2026-06-01T12:00:00.000Z"), tribeSlug: "matematica-pro" })
-      ).resolves.toBeNull();
-    });
-
-    it("computes the streak at the instant it receives instead of reading the system clock", async () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date("2026-06-10T12:00:00.000Z"));
-      const listViewerAttendanceHistory = vi.fn(async () => ({
-        events: [weeklyEvent],
-        viewerAttendances: [
-          { eventId: EVENT_ID, occurrenceStartsAt: "2026-05-13T18:00:00.000Z", status: "going" as const },
-          { eventId: EVENT_ID, occurrenceStartsAt: "2026-05-20T18:00:00.000Z", status: "going" as const },
-          { eventId: EVENT_ID, occurrenceStartsAt: "2026-05-27T18:00:00.000Z", status: "going" as const },
-        ],
-      }));
-      const execute = getTribeEventAttendanceStreak({
-        tribeEventRepository: createRepository({ listViewerAttendanceHistory }),
-      });
-
-      // At the reference instant the 05-27 slot is still running, so only the
-      // 05-06, 05-13 and 05-20 slots count even though the host clock is later.
-      await expect(
-        execute({ now: new Date("2026-05-27T18:30:00.000Z"), tribeSlug: "matematica-pro" })
-      ).resolves.toEqual({ attendedCount: 2, occurrenceCount: 3 });
-      expect(listViewerAttendanceHistory).toHaveBeenCalledWith(
-        expect.objectContaining({ rangeEnd: "2026-05-27T18:30:00.000Z" })
-      );
     });
   });
 });

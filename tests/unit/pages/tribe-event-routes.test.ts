@@ -23,8 +23,7 @@ const getTribeEvent = vi.fn();
 const setTribeEventAttendance = vi.fn();
 const clearTribeEventAttendance = vi.fn();
 const getTribeEventAttendanceReport = vi.fn();
-const getTribeEventAttendanceStreak = vi.fn();
-const getTribeEventAttendanceStreakNextRefreshAt = vi.fn();
+const getTribeEventAttendanceStreakSnapshot = vi.fn();
 const { logError } = vi.hoisted(() => ({ logError: vi.fn() }));
 
 vi.mock("@/src/modules/setup", () => ({
@@ -139,8 +138,10 @@ describe("Tribe event routes", () => {
       name: "Grace Hopper",
       role: "tribemate",
     });
-    getTribeEventAttendanceStreak.mockResolvedValue(null);
-    getTribeEventAttendanceStreakNextRefreshAt.mockResolvedValue(null);
+    getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+      attendanceStreak: null,
+      nextRefreshAt: null,
+    });
     (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
@@ -154,8 +155,7 @@ describe("Tribe event routes", () => {
           deleteTribeEvent,
           getTribeEvent,
           getTribeEventAttendanceReport,
-          getTribeEventAttendanceStreak,
-          getTribeEventAttendanceStreakNextRefreshAt,
+          getTribeEventAttendanceStreakSnapshot,
           listTribeEvents,
           setTribeEventAttendance,
           updateTribeEvent,
@@ -342,13 +342,20 @@ describe("Tribe event routes", () => {
       );
     }
 
+    function resolveSnapshot(nextRefreshAt: string | null = null) {
+      getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+        attendanceStreak: streak,
+        nextRefreshAt,
+      });
+    }
+
     it("returns the recomputed viewer streak with the updated occurrences", async () => {
       updateTribeEvent.mockResolvedValue({
         event,
         occurrences: [occurrence],
         status: "updated" as const,
       });
-      getTribeEventAttendanceStreak.mockResolvedValue(streak);
+      resolveSnapshot();
 
       const response = await PATCH(buildPatchRequest(), buildEventContext());
 
@@ -357,8 +364,8 @@ describe("Tribe event routes", () => {
         attendanceStreak: streak,
         occurrences: [occurrence],
       });
-      expect(getTribeEventAttendanceStreak).toHaveBeenCalledTimes(1);
-      expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
+      expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledTimes(1);
+      expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledWith({
         now: expect.any(Date),
         tribeSlug: "matematica-pro",
       });
@@ -370,7 +377,7 @@ describe("Tribe event routes", () => {
         occurrences: [occurrence],
         status: "created" as const,
       });
-      getTribeEventAttendanceStreak.mockResolvedValue(streak);
+      resolveSnapshot();
 
       const response = await POST(
         buildRequest({
@@ -385,21 +392,21 @@ describe("Tribe event routes", () => {
         attendanceStreak: streak,
         occurrences: [occurrence],
       });
-      expect(getTribeEventAttendanceStreak).toHaveBeenCalledTimes(1);
-      expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
+      expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledTimes(1);
+      expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledWith({
         now: expect.any(Date),
         tribeSlug: "matematica-pro",
       });
     });
 
-    it("keeps the creation successful and omits the streak when recomputing it fails", async () => {
-      const streakError = new Error("history query failed");
+    it("keeps the creation successful and omits the streak fields when recomputing them fails", async () => {
+      const streakError = new Error("snapshot query failed");
       createTribeEvent.mockResolvedValue({
         event,
         occurrences: [occurrence],
         status: "created" as const,
       });
-      getTribeEventAttendanceStreak.mockRejectedValue(streakError);
+      getTribeEventAttendanceStreakSnapshot.mockRejectedValue(streakError);
 
       const response = await POST(
         buildRequest({
@@ -413,6 +420,7 @@ describe("Tribe event routes", () => {
       const body = await response.json();
       expect(body).toMatchObject({ occurrences: [occurrence] });
       expect(body).not.toHaveProperty("attendanceStreak");
+      expect(body).not.toHaveProperty("attendanceStreakNextRefreshAt");
       expect(logError).toHaveBeenCalledWith(
         expect.objectContaining({
           error: streakError,
@@ -438,12 +446,12 @@ describe("Tribe event routes", () => {
       );
 
       expect(response.status).toBe(403);
-      expect(getTribeEventAttendanceStreak).not.toHaveBeenCalled();
+      expect(getTribeEventAttendanceStreakSnapshot).not.toHaveBeenCalled();
     });
 
     it("returns the recomputed viewer streak after deleting a series", async () => {
       deleteTribeEvent.mockResolvedValue({ status: "deleted" as const });
-      getTribeEventAttendanceStreak.mockResolvedValue(streak);
+      resolveSnapshot();
 
       const response = await DELETE(buildRequest(), buildEventContext());
 
@@ -453,18 +461,18 @@ describe("Tribe event routes", () => {
         attendanceStreakNextRefreshAt: null,
         message: "Evento eliminado.",
       });
-      expect(getTribeEventAttendanceStreak).toHaveBeenCalledTimes(1);
+      expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledTimes(1);
     });
 
-    it("keeps the mutation successful and omits the streak when recomputing it fails", async () => {
-      const streakError = new Error("history query failed");
+    it("keeps the mutation successful and omits the streak fields when recomputing them fails", async () => {
+      const streakError = new Error("snapshot query failed");
       updateTribeEvent.mockResolvedValue({
         event,
         occurrences: [occurrence],
         status: "updated" as const,
       });
       deleteTribeEvent.mockResolvedValue({ status: "deleted" as const });
-      getTribeEventAttendanceStreak.mockRejectedValue(streakError);
+      getTribeEventAttendanceStreakSnapshot.mockRejectedValue(streakError);
 
       const updateResponse = await PATCH(buildPatchRequest(), buildEventContext());
       const deleteResponse = await DELETE(buildRequest(), buildEventContext());
@@ -475,10 +483,7 @@ describe("Tribe event routes", () => {
       const deleteBody = await deleteResponse.json();
       expect(updateBody).toMatchObject({ occurrences: [occurrence] });
       expect(updateBody).not.toHaveProperty("attendanceStreak");
-      expect(deleteBody).toEqual({
-        attendanceStreakNextRefreshAt: null,
-        message: "Evento eliminado.",
-      });
+      expect(deleteBody).toEqual({ message: "Evento eliminado." });
       expect(logError).toHaveBeenCalledTimes(2);
       expect(logError).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -500,8 +505,7 @@ describe("Tribe event routes", () => {
       await PATCH(buildPatchRequest(), buildEventContext());
       await DELETE(buildRequest(), buildEventContext());
 
-      expect(getTribeEventAttendanceStreak).not.toHaveBeenCalled();
-      expect(getTribeEventAttendanceStreakNextRefreshAt).not.toHaveBeenCalled();
+      expect(getTribeEventAttendanceStreakSnapshot).not.toHaveBeenCalled();
     });
 
     describe("next streak refresh instant", () => {
@@ -519,11 +523,10 @@ describe("Tribe event routes", () => {
           status: "updated" as const,
         });
         deleteTribeEvent.mockResolvedValue({ status: "deleted" as const });
-        getTribeEventAttendanceStreak.mockResolvedValue(streak);
-        getTribeEventAttendanceStreakNextRefreshAt.mockResolvedValue(nextRefreshAt);
+        resolveSnapshot(nextRefreshAt);
       });
 
-      it("returns the recomputed instant after creating, editing, and deleting a series", async () => {
+      it("returns the streak and its instant from one snapshot read after creating, editing, and deleting a series", async () => {
         const createResponse = await POST(
           buildRequest({
             startsAt: "2026-04-29T18:00:00.000Z",
@@ -548,61 +551,16 @@ describe("Tribe event routes", () => {
           attendanceStreakNextRefreshAt: nextRefreshAt,
           message: "Evento eliminado.",
         });
-        expect(getTribeEventAttendanceStreakNextRefreshAt).toHaveBeenCalledTimes(3);
-        // Each mutation response samples the clock once and shares that
-        // instant between the streak and its next refresh.
-        for (const callIndex of [0, 1, 2]) {
-          const [streakQuery] = getTribeEventAttendanceStreak.mock.calls[callIndex];
-          const [nextRefreshQuery] =
-            getTribeEventAttendanceStreakNextRefreshAt.mock.calls[callIndex];
-          expect(streakQuery.now).toBeInstanceOf(Date);
-          expect(nextRefreshQuery.now).toBe(streakQuery.now);
-        }
-        expect(getTribeEventAttendanceStreakNextRefreshAt).toHaveBeenCalledWith({
+        // One snapshot read per mutation response.
+        expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledTimes(3);
+        expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledWith({
           now: expect.any(Date),
           tribeSlug: "matematica-pro",
         });
       });
 
-      it("keeps the mutation and the streak and omits the instant when computing it fails", async () => {
-        const nextRefreshError = new Error("upcoming overlap query failed");
-        getTribeEventAttendanceStreakNextRefreshAt.mockRejectedValue(nextRefreshError);
-
-        const createResponse = await POST(
-          buildRequest({
-            startsAt: "2026-04-29T18:00:00.000Z",
-            title: "Taller intensivo",
-          }),
-          buildTribeContext()
-        );
-        const deleteResponse = await DELETE(buildRequest(), buildEventContext());
-
-        expect(createResponse.status).toBe(201);
-        expect(deleteResponse.status).toBe(200);
-        const createBody = await createResponse.json();
-        expect(createBody).toMatchObject({ attendanceStreak: streak, occurrences: [] });
-        expect(createBody).not.toHaveProperty("attendanceStreakNextRefreshAt");
-        await expect(deleteResponse.json()).resolves.toEqual({
-          attendanceStreak: streak,
-          message: "Evento eliminado.",
-        });
-        expect(logError).toHaveBeenCalledTimes(2);
-        expect(logError).toHaveBeenCalledWith(
-          expect.objectContaining({
-            error: nextRefreshError,
-            message:
-              "Failed to recompute tribe event attendance streak next refresh after mutation",
-            metadata: expect.objectContaining({
-              eventId: EVENT_ID,
-              slug: "matematica-pro",
-              viewerId: "member-1",
-            }),
-          })
-        );
-      });
-
       it("omits an instant that does not match the public contract", async () => {
-        getTribeEventAttendanceStreakNextRefreshAt.mockResolvedValue("mañana");
+        resolveSnapshot("mañana");
 
         const response = await PATCH(buildPatchRequest(), buildEventContext());
 
@@ -623,10 +581,13 @@ describe("Tribe event routes", () => {
     }
 
     it("returns only the public streak fields of the viewer", async () => {
-      getTribeEventAttendanceStreak.mockResolvedValue({
-        attendedCount: 3,
-        internalNote: "not public",
-        occurrenceCount: 5,
+      getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+        attendanceStreak: {
+          attendedCount: 3,
+          internalNote: "not public",
+          occurrenceCount: 5,
+        },
+        nextRefreshAt: null,
       });
 
       const response = await GET_ATTENDANCE_STREAK(
@@ -639,27 +600,18 @@ describe("Tribe event routes", () => {
         attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
         attendanceStreakNextRefreshAt: null,
       });
-      expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
+      expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledTimes(1);
+      expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledWith({
         now: expect.any(Date),
         tribeSlug: "matematica-pro",
       });
     });
 
-    it("computes the streak and its next refresh at one shared instant", async () => {
-      const response = await GET_ATTENDANCE_STREAK(
-        buildRequest({}, streakUrl),
-        buildStreakContext("matematica-pro")
-      );
-
-      expect(response.status).toBe(200);
-      const [[streakQuery]] = getTribeEventAttendanceStreak.mock.calls;
-      const [[nextRefreshQuery]] = getTribeEventAttendanceStreakNextRefreshAt.mock.calls;
-      expect(streakQuery.now).toBeInstanceOf(Date);
-      expect(nextRefreshQuery.now).toBe(streakQuery.now);
-    });
-
-    it("returns the next instant at which the streak can change", async () => {
-      getTribeEventAttendanceStreakNextRefreshAt.mockResolvedValue("2026-06-01T05:00:00.000Z");
+    it("returns the next instant at which the streak can change from the same snapshot", async () => {
+      getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+        attendanceStreak: null,
+        nextRefreshAt: "2026-06-01T05:00:00.000Z",
+      });
 
       const response = await GET_ATTENDANCE_STREAK(
         buildRequest({}, streakUrl),
@@ -671,41 +623,10 @@ describe("Tribe event routes", () => {
         attendanceStreak: null,
         attendanceStreakNextRefreshAt: "2026-06-01T05:00:00.000Z",
       });
-      expect(getTribeEventAttendanceStreakNextRefreshAt).toHaveBeenCalledWith({
-        now: expect.any(Date),
-        tribeSlug: "matematica-pro",
-      });
-    });
-
-    it("still returns the streak when the next refresh instant cannot be computed", async () => {
-      const nextRefreshError = new Error("upcoming query failed");
-      getTribeEventAttendanceStreak.mockResolvedValue({ attendedCount: 3, occurrenceCount: 5 });
-      getTribeEventAttendanceStreakNextRefreshAt.mockRejectedValue(nextRefreshError);
-
-      const response = await GET_ATTENDANCE_STREAK(
-        buildRequest({}, streakUrl),
-        buildStreakContext("matematica-pro")
-      );
-
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body).toEqual({ attendanceStreak: { attendedCount: 3, occurrenceCount: 5 } });
-      expect(body).not.toHaveProperty("attendanceStreakNextRefreshAt");
-      expect(logError).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: nextRefreshError,
-          message: "Tribe event attendance streak next refresh lookup failed",
-          metadata: expect.objectContaining({
-            slug: "matematica-pro",
-            viewerId: "member-1",
-          }),
-        })
-      );
+      expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledTimes(1);
     });
 
     it("returns null when the viewer has no streak", async () => {
-      getTribeEventAttendanceStreak.mockResolvedValue(null);
-
       const response = await GET_ATTENDANCE_STREAK(
         buildRequest({}, streakUrl),
         buildStreakContext("matematica-pro")
@@ -730,7 +651,7 @@ describe("Tribe event routes", () => {
       await expect(response.json()).resolves.toEqual({
         message: "Iniciá sesión para gestionar eventos.",
       });
-      expect(getTribeEventAttendanceStreak).not.toHaveBeenCalled();
+      expect(getTribeEventAttendanceStreakSnapshot).not.toHaveBeenCalled();
     });
 
     it("rejects a malformed tribe slug as not found before touching the session", async () => {
@@ -744,12 +665,12 @@ describe("Tribe event routes", () => {
         message: "No pudimos encontrar la tribu.",
       });
       expect(createRequestModules).not.toHaveBeenCalled();
-      expect(getTribeEventAttendanceStreak).not.toHaveBeenCalled();
+      expect(getTribeEventAttendanceStreakSnapshot).not.toHaveBeenCalled();
     });
 
     it("logs failures and answers with a safe Spanish message", async () => {
-      const streakError = new Error("history query failed");
-      getTribeEventAttendanceStreak.mockRejectedValue(streakError);
+      const streakError = new Error("snapshot query failed");
+      getTribeEventAttendanceStreakSnapshot.mockRejectedValue(streakError);
 
       const response = await GET_ATTENDANCE_STREAK(
         buildRequest({}, streakUrl),

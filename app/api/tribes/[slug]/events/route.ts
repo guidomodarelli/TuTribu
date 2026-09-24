@@ -106,9 +106,8 @@ export async function POST(request: Request, context: TribeRouteContext) {
       // calendar watches: return the recomputed streak and next refresh.
       const streakFragment = await readAttendanceStreakResponseFragment({
         eventId: result.event.id,
-        getTribeEventAttendanceStreak: modules.events.useCases.getTribeEventAttendanceStreak,
-        getTribeEventAttendanceStreakNextRefreshAt:
-          modules.events.useCases.getTribeEventAttendanceStreakNextRefreshAt,
+        getTribeEventAttendanceStreakSnapshot:
+          modules.events.useCases.getTribeEventAttendanceStreakSnapshot,
         logger,
         tribeSlug: slug,
         viewerId: authenticatedMember.id,

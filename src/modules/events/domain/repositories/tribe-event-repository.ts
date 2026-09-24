@@ -109,8 +109,16 @@ export type TribeEventOccurrenceAttendance = TribeEventAttendanceSummary & {
   occurrenceStartsAt: string;
 };
 
-export type ListViewerAttendanceHistoryQuery = TribeEventDateRange & {
+/**
+ * Everything the viewer attendance streak and its next refresh instant need,
+ * read together: the series with an occurrence overlapping `eventRange`
+ * (finished and upcoming occurrences) and the viewer's own answers to
+ * occurrences starting inside `viewerAttendanceRange`.
+ */
+export type ReadViewerAttendanceStreakSnapshotQuery = {
+  eventRange: TribeEventDateRange;
   tribeSlug: string;
+  viewerAttendanceRange: TribeEventDateRange;
 };
 
 export type TribeEventViewerAttendance = {
@@ -120,8 +128,8 @@ export type TribeEventViewerAttendance = {
 };
 
 /**
- * Series of the tribe inside a past range plus the viewer's own answers,
- * enough to compute the viewer streak without aggregating other members.
+ * Series of the tribe inside a range plus the viewer's own answers, enough to
+ * compute the viewer streak without aggregating other members.
  */
 export type TribeEventViewerAttendanceHistory = {
   events: TribeEvent[];
@@ -233,8 +241,14 @@ export type TribeEventRepository = {
   listByTribeRange: (
     query: ListTribeEventsByRangeQuery
   ) => Promise<TribeEventRangeListing>;
-  listViewerAttendanceHistory: (
-    query: ListViewerAttendanceHistoryQuery
+  /**
+   * Series and viewer answers of {@link ReadViewerAttendanceStreakSnapshotQuery}
+   * read from one database snapshot, so the streak and the instant at which
+   * it changes next never mix two versions of the schedule (for example a
+   * series another manager created or rescheduled between two reads).
+   */
+  readViewerAttendanceStreakSnapshot: (
+    query: ReadViewerAttendanceStreakSnapshotQuery
   ) => Promise<TribeEventViewerAttendanceHistory>;
   setAttendance: (
     command: SetTribeEventAttendanceRepositoryCommand

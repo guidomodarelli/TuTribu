@@ -63,9 +63,8 @@ export async function PATCH(request: Request, context: TribeEventRouteContext) {
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.updated) {
       const streakFragment = await readAttendanceStreakResponseFragment({
         eventId,
-        getTribeEventAttendanceStreak: modules.events.useCases.getTribeEventAttendanceStreak,
-        getTribeEventAttendanceStreakNextRefreshAt:
-          modules.events.useCases.getTribeEventAttendanceStreakNextRefreshAt,
+        getTribeEventAttendanceStreakSnapshot:
+          modules.events.useCases.getTribeEventAttendanceStreakSnapshot,
         logger,
         tribeSlug: slug,
         viewerId: authenticatedMember.id,
@@ -128,9 +127,8 @@ export async function DELETE(request: Request, context: TribeEventRouteContext) 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.deleted) {
       const streakFragment = await readAttendanceStreakResponseFragment({
         eventId,
-        getTribeEventAttendanceStreak: modules.events.useCases.getTribeEventAttendanceStreak,
-        getTribeEventAttendanceStreakNextRefreshAt:
-          modules.events.useCases.getTribeEventAttendanceStreakNextRefreshAt,
+        getTribeEventAttendanceStreakSnapshot:
+          modules.events.useCases.getTribeEventAttendanceStreakSnapshot,
         logger,
         tribeSlug: slug,
         viewerId: authenticatedMember.id,

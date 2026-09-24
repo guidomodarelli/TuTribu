@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getTribeEventAttendanceStreakNextRefreshAt } from "@/src/modules/events/application/use-cases/list-upcoming-tribe-events-use-case";
-import { getTribeEventAttendanceStreak } from "@/src/modules/events/application/use-cases/tribe-event-attendance-use-cases";
+import { getTribeEventAttendanceStreakSnapshot } from "@/src/modules/events/application/use-cases/get-tribe-event-attendance-streak-snapshot-use-case";
 import type { TribeEvent } from "@/src/modules/events/domain/entities/tribe-event";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 import { readAttendanceStreakResponseFragment } from "@/src/modules/events/infrastructure/api/tribe-event-attendance-streak-response";
@@ -32,12 +31,8 @@ function createRepository(overrides: Partial<TribeEventRepository> = {}) {
     delete: vi.fn(),
     findById: vi.fn(),
     getOccurrenceAttendanceReport: vi.fn(),
-    listByTribeRange: vi.fn(async () => ({
-      attendances: [],
-      events: [weeklyEvent],
-      viewerPermissions: { canManageEvents: true },
-    })),
-    listViewerAttendanceHistory: vi.fn(),
+    listByTribeRange: vi.fn(),
+    readViewerAttendanceStreakSnapshot: vi.fn(),
     setAttendance: vi.fn(),
     update: vi.fn(),
     ...overrides,
@@ -49,12 +44,12 @@ describe("readAttendanceStreakResponseFragment", () => {
     vi.useRealTimers();
   });
 
-  it("computes the streak and its deadline from one instant even when the clock advances between reads", async () => {
+  it("computes the streak and its deadline from one read at one instant even when the clock advances", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(BEFORE_RUNNING_OCCURRENCE_END);
-    // The running occurrence ends while the streak history is being read, so
-    // any read that samples the clock again would already skip it.
-    const listViewerAttendanceHistory = vi.fn(async () => {
+    // The running occurrence ends while the snapshot is being read, so any
+    // second read that samples the clock again would already skip it.
+    const readViewerAttendanceStreakSnapshot = vi.fn(async () => {
       vi.setSystemTime(AFTER_RUNNING_OCCURRENCE_END);
 
       return {
@@ -71,13 +66,12 @@ describe("readAttendanceStreakResponseFragment", () => {
         })),
       };
     });
-    const tribeEventRepository = createRepository({ listViewerAttendanceHistory });
+    const tribeEventRepository = createRepository({ readViewerAttendanceStreakSnapshot });
     const logger = { error: vi.fn() };
 
     const fragment = await readAttendanceStreakResponseFragment({
       eventId: EVENT_ID,
-      getTribeEventAttendanceStreak: getTribeEventAttendanceStreak({ tribeEventRepository }),
-      getTribeEventAttendanceStreakNextRefreshAt: getTribeEventAttendanceStreakNextRefreshAt({
+      getTribeEventAttendanceStreakSnapshot: getTribeEventAttendanceStreakSnapshot({
         tribeEventRepository,
       }),
       logger,
@@ -91,12 +85,69 @@ describe("readAttendanceStreakResponseFragment", () => {
       attendanceStreak: { attendedCount: 3, occurrenceCount: 3 },
       attendanceStreakNextRefreshAt: RUNNING_OCCURRENCE_END,
     });
-    expect(listViewerAttendanceHistory).toHaveBeenCalledWith(
-      expect.objectContaining({ rangeEnd: BEFORE_RUNNING_OCCURRENCE_END.toISOString() })
+    // Both values come from a single snapshot read of the repository.
+    expect(readViewerAttendanceStreakSnapshot).toHaveBeenCalledTimes(1);
+    expect(readViewerAttendanceStreakSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        viewerAttendanceRange: expect.objectContaining({
+          rangeEnd: BEFORE_RUNNING_OCCURRENCE_END.toISOString(),
+        }),
+      })
     );
-    expect(tribeEventRepository.listByTribeRange).toHaveBeenCalledWith(
-      expect.objectContaining({ rangeStart: BEFORE_RUNNING_OCCURRENCE_END.toISOString() })
-    );
+    expect(tribeEventRepository.listByTribeRange).not.toHaveBeenCalled();
     expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("omits both fields and logs once when the snapshot read fails", async () => {
+    const readError = new Error("snapshot query failed");
+    const logger = { error: vi.fn() };
+
+    const fragment = await readAttendanceStreakResponseFragment({
+      eventId: EVENT_ID,
+      getTribeEventAttendanceStreakSnapshot: vi.fn(async () => {
+        throw readError;
+      }),
+      logger,
+      tribeSlug: TRIBE_SLUG,
+      viewerId: "member-1",
+    });
+
+    expect(fragment).toEqual({});
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: readError,
+        message: "Failed to recompute tribe event attendance streak after mutation",
+        metadata: expect.objectContaining({
+          eventId: EVENT_ID,
+          slug: TRIBE_SLUG,
+          viewerId: "member-1",
+        }),
+      })
+    );
+  });
+
+  it("keeps a valid streak and omits only the instant that breaks the public contract", async () => {
+    const logger = { error: vi.fn() };
+
+    const fragment = await readAttendanceStreakResponseFragment({
+      eventId: EVENT_ID,
+      getTribeEventAttendanceStreakSnapshot: vi.fn(async () => ({
+        attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        nextRefreshAt: "mañana",
+      })),
+      logger,
+      tribeSlug: TRIBE_SLUG,
+      viewerId: "member-1",
+    });
+
+    expect(fragment).toEqual({ attendanceStreak: { attendedCount: 3, occurrenceCount: 5 } });
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          "Failed to recompute tribe event attendance streak next refresh after mutation",
+      })
+    );
   });
 });
