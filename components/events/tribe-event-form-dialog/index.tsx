@@ -258,6 +258,50 @@ function suggestEndSchedule(
   };
 }
 
+/**
+ * Initial form state: the values plus whether the end is still a generated
+ * suggestion and, when it crossed midnight, how many days after the start
+ * date it falls on.
+ */
+type InitialFormState = {
+  isEndSuggested: boolean;
+  suggestedEndDayOffset: number;
+  values: EventFormValues;
+};
+
+/**
+ * Builds the initial form state. In create mode (template or proposal) any
+ * prefilled end is computed from the start plus the duration, so it stays a
+ * suggestion that follows the start, keeping a next-day offset for overnight
+ * durations. In edit mode a saved end is the manager's choice and never
+ * follows the start; only an empty end is still suggested.
+ */
+function createInitialFormState(
+  occurrence: TribeEventOccurrenceResult | null,
+  initialValues: TribeEventFormInitialValues | undefined
+): InitialFormState {
+  const values = createInitialValues(occurrence, initialValues);
+
+  if (occurrence) {
+    return {
+      isEndSuggested: values.endsTime === EMPTY_VALUE,
+      suggestedEndDayOffset: SAME_DAY_OFFSET,
+      values,
+    };
+  }
+
+  const suggestedEnd =
+    values.startsTime && values.endsTime && initialValues?.durationMinutes
+      ? suggestEndSchedule(values.startsTime, initialValues.durationMinutes)
+      : null;
+
+  return {
+    isEndSuggested: true,
+    suggestedEndDayOffset: suggestedEnd?.dayOffset ?? SAME_DAY_OFFSET,
+    values,
+  };
+}
+
 function createInitialValues(
   occurrence: TribeEventOccurrenceResult | null,
   initialValues: TribeEventFormInitialValues | undefined
@@ -406,9 +450,10 @@ export function TribeEventFormDialog({
   onSubmit,
   purpose = TRIBE_EVENT_FORM_PURPOSE.save,
 }: TribeEventFormDialogProps) {
-  const [initialFormValues] = useState<EventFormValues>(() =>
-    createInitialValues(editingOccurrence, initialValues)
+  const [initialFormState] = useState<InitialFormState>(() =>
+    createInitialFormState(editingOccurrence, initialValues)
   );
+  const initialFormValues = initialFormState.values;
   const [values, setValues] = useState<EventFormValues>(initialFormValues);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [endsOnAnotherDay, setEndsOnAnotherDay] = useState(
@@ -416,15 +461,16 @@ export function TribeEventFormDialog({
   );
   // Whether the end still holds a generated suggestion (or nothing). While it
   // does, every start change recomputes it; the first explicit edit of an end
-  // field hands the end over to the manager. A saved end (edit mode) is never
-  // a suggestion, so it is never overwritten.
-  const [isEndSuggested, setIsEndSuggested] = useState(
-    initialFormValues.endsTime === EMPTY_VALUE
-  );
+  // field hands the end over to the manager. An end prefilled from a template
+  // or proposal duration is a suggestion; a saved end (edit mode) is never a
+  // suggestion, so it is never overwritten.
+  const [isEndSuggested, setIsEndSuggested] = useState(initialFormState.isEndSuggested);
   // Days between the start date and a suggested end that crossed midnight.
   // It keeps the end date in sync while the date changes, until the manager
   // edits the end explicitly.
-  const [suggestedEndDayOffset, setSuggestedEndDayOffset] = useState(SAME_DAY_OFFSET);
+  const [suggestedEndDayOffset, setSuggestedEndDayOffset] = useState(
+    initialFormState.suggestedEndDayOffset
+  );
   const isEditing = editingOccurrence !== null;
   const isApproving = !isEditing && purpose === TRIBE_EVENT_FORM_PURPOSE.approve;
   const dialogTitle = isEditing
