@@ -140,6 +140,8 @@ export type TribeEventProposalResult = TribeEventProposal;
  */
 export type TribeEventProposalListResult = {
   canReviewProposals: boolean;
+  /** Uncapped pending total for managers (0 for members); `proposals` is bounded. */
+  pendingCount: number;
   proposals: TribeEventProposalResult[];
 };
 
