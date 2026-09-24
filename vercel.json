@@ -8,6 +8,10 @@
     {
       "path": "/api/maintenance/file-cleanup",
       "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/maintenance/event-reminders",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

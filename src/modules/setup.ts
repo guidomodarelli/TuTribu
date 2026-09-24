@@ -31,7 +31,10 @@ import {
 } from "./events/infrastructure/repositories/postgres-tribe-event-calendar-feed-repository";
 import { PostgresTribeEventOccurrenceExceptionRepository } from "./events/infrastructure/repositories/postgres-tribe-event-occurrence-exception-repository";
 import { PostgresTribeEventProposalRepository } from "./events/infrastructure/repositories/postgres-tribe-event-proposal-repository";
+import { PostgresTribeEventReminderRepository } from "./events/infrastructure/repositories/postgres-tribe-event-reminder-repository";
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
+import { PostgresNotificationRepository } from "./notifications/infrastructure/repositories/postgres-notification-repository";
+import { buildNotificationsModule } from "./notifications/setup";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
 import { buildSitepingModule } from "./siteping/setup";
 import { PostgresTribeMemberSubscriptionRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
@@ -247,9 +250,15 @@ export async function createRequestModules(
       tribeEventProposalRepository: new PostgresTribeEventProposalRepository(
         executeWithRequestContext
       ),
+      tribeEventReminderRepository: new PostgresTribeEventReminderRepository(
+        executeWithRequestContext
+      ),
       tribeEventRepository: new PostgresTribeEventRepository(
         executeWithRequestContext
       ),
+    }),
+    notifications: buildNotificationsModule({
+      notificationRepository: new PostgresNotificationRepository(executeWithRequestContext),
     }),
     siteping: buildSitepingModule({
       githubIssuePublisher: new FetchGitHubIssuePublisher(),

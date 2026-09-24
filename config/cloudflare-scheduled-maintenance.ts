@@ -21,12 +21,19 @@ export const IMAGE_CLEANUP_MAINTENANCE_PATH = "/api/maintenance/image-cleanup";
 export const FILE_CLEANUP_MAINTENANCE_PATH = "/api/maintenance/file-cleanup";
 
 /**
+ * Route that enqueues the due event reminders and purges old read
+ * notifications (in-app notifications, every 5 minutes).
+ */
+export const EVENT_REMINDERS_MAINTENANCE_PATH = "/api/maintenance/event-reminders";
+
+/**
  * Cron expressions installed in `wrangler.jsonc` (`triggers.crons`), keyed by
  * the maintenance route each one re-enters. They must stay in sync with the
  * matching schedules in `vercel.json` so both deployment targets sweep at the
  * same time.
  */
 export const MAINTENANCE_CRON_SCHEDULE = {
+  eventReminders: "*/5 * * * *",
   fileCleanup: "30 4 * * *",
   imageCleanup: "0 4 * * *",
 } as const;
@@ -97,6 +104,10 @@ interface RunScheduledMaintenanceCleanupInput
 export function resolveMaintenancePathForCron(cron: string): string {
   if (cron === MAINTENANCE_CRON_SCHEDULE.fileCleanup) {
     return FILE_CLEANUP_MAINTENANCE_PATH;
+  }
+
+  if (cron === MAINTENANCE_CRON_SCHEDULE.eventReminders) {
+    return EVENT_REMINDERS_MAINTENANCE_PATH;
   }
 
   return IMAGE_CLEANUP_MAINTENANCE_PATH;

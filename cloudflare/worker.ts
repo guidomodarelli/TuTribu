@@ -8,9 +8,10 @@
  * Custom Cloudflare Workers entrypoint for the OpenNext deployment target.
  *
  * It re-uses the generated OpenNext `fetch` handler and adds a `scheduled`
- * handler so the orphan-image cleanup sweep runs on Cloudflare too. Vercel
- * installs that cron from `vercel.json`; the matching Cloudflare cron lives in
- * `wrangler.jsonc` under `triggers.crons` and dispatches here.
+ * handler so the maintenance crons (orphan image and file sweeps, event
+ * reminders) run on Cloudflare too. Vercel installs them from `vercel.json`;
+ * the matching Cloudflare crons live in `wrangler.jsonc` under
+ * `triggers.crons` and dispatch here by expression.
  *
  * @module cloudflare-worker
  */
