@@ -20,13 +20,16 @@
       "service": "tutribu"
     }
   ],
-  // Parity with the Vercel crons in `vercel.json`: sweep orphaned Cloudflare
-  // image assets daily at 04:00 UTC through `/api/maintenance/image-cleanup`,
-  // and orphaned R2 attachment files at 04:30 UTC through
-  // `/api/maintenance/file-cleanup`, and enqueue due event reminders (plus the
-  // read-notification purge) every 5 minutes through
-  // `/api/maintenance/event-reminders`. Keep these schedules in sync with
-  // `vercel.json` and with `MAINTENANCE_CRON_SCHEDULE` in
+  // Daily sweeps in parity with the Vercel crons in `vercel.json`: orphaned
+  // Cloudflare image assets at 04:00 UTC through
+  // `/api/maintenance/image-cleanup` and orphaned R2 attachment files at 04:30
+  // UTC through `/api/maintenance/file-cleanup`. The worker also enqueues due
+  // event reminders (plus the read-notification purge) every 5 minutes through
+  // `/api/maintenance/event-reminders`; that one has no Vercel counterpart
+  // (Vercel Hobby only allows daily crons), where GitHub Actions
+  // (`.github/workflows/event-reminders-cron.yml`) triggers it instead. Keep
+  // the daily schedules in sync with `vercel.json`, and every schedule in sync
+  // with `MAINTENANCE_CRON_SCHEDULE` in
   // `config/cloudflare-scheduled-maintenance.ts`, which maps each firing
   // expression to its route.
   "triggers": {

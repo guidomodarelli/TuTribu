@@ -3,8 +3,10 @@
  * event reminders that are due (24 h and 15 min before each occurrence) and
  * purges old read notifications.
  *
- * It is invoked every 5 minutes by the Vercel Cron in `vercel.json` and by the
- * Cloudflare Worker `scheduled` handler (`wrangler.jsonc`), guarded by the
+ * It is invoked every 5 minutes by GitHub Actions on the Vercel target
+ * (`.github/workflows/event-reminders-cron.yml`; Vercel Hobby only allows
+ * daily crons) and by the Cloudflare Worker `scheduled` handler
+ * (`wrangler.jsonc`), guarded by the
  * shared `CRON_SECRET` bearer token, and composed with the maintenance
  * connection because it reads the events of every tribe without an app user.
  *
