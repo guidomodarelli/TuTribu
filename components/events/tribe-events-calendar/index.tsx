@@ -40,7 +40,7 @@ import {
 import { buildTribeEventsRoute } from "@/lib/events/tribe-events-routes";
 import { HORIZONTAL_SWIPE_DIRECTION } from "@/lib/gestures/horizontal-swipe";
 import { copyTextToClipboard } from "@/lib/browser-clipboard";
-import { replaceCurrentUrlSearchParam } from "@/lib/browser-navigation";
+import { replaceCurrentUrlSearchParams } from "@/lib/browser-navigation";
 import {
   TRIBE_EVENT_TEMPLATES,
   type TribeEventTemplate,
@@ -186,13 +186,19 @@ export function TribeEventsCalendar({
   );
 
   // The open detail is mirrored in the `event` query so the URL can be shared;
-  // replaceState keeps it out of the history stack and never refetches.
+  // replaceState keeps it out of the history stack and never refetches. The
+  // rendered month is written too: a monthless deep link (`?event=` only)
+  // renders the occurrence's month, so dropping `event` alone would leave a
+  // bare URL that reopens on the current month instead of the one on screen.
   const setSelectedOccurrenceKey = (occurrenceKey: string | null) => {
     setOccurrenceSelection({
       occurrenceKey,
       sourceOccurrenceKey: initialOccurrenceKey,
     });
-    replaceCurrentUrlSearchParam(TRIBE_EVENTS_ROUTE_QUERY.event, occurrenceKey);
+    replaceCurrentUrlSearchParams({
+      [TRIBE_EVENTS_ROUTE_QUERY.event]: occurrenceKey,
+      [TRIBE_EVENTS_ROUTE_QUERY.month]: currentMonth,
+    });
   };
 
   const previousMonthHref = buildTribeEventsRoute(tribeSlug, { month: month.previous });

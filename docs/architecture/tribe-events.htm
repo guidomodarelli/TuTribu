@@ -134,7 +134,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 -> TribeEventsCalendar initialOccurrenceKey abre el detalle</pre></div>
   <ul>
     <li>Un valor inválido o repetido se ignora (se toma el primero y se valida); con <code>month</code> explícito que no contiene la ocurrencia, el mes se respeta y no se abre nada.</li>
-    <li>Abrir y cerrar el detalle sincroniza <code>event</code> con <code>history.replaceState</code> (<code>replaceCurrentUrlSearchParam</code> en <code>lib/browser-navigation.ts</code>), que el router de Next.js rastrea sin navegar ni refetchear.</li>
+    <li>Abrir y cerrar el detalle sincroniza <code>event</code> y <code>month</code> en un único <code>history.replaceState</code> (<code>replaceCurrentUrlSearchParams</code> en <code>lib/browser-navigation.ts</code>), que el router de Next.js rastrea sin navegar ni refetchear. Escribir siempre el mes renderizado evita que cerrar un deep link sin <code>month</code> deje una URL pelada que, al recargar o compartir, abriría el mes actual en lugar del mes en pantalla.</li>
     <li><strong>Copiar link</strong> usa <code>lib/browser-clipboard.ts</code>: Clipboard API con detección de soporte y fallback a <code>execCommand("copy")</code> sobre un textarea temporal para WebKit.</li>
     <li>El bloque <code>upcoming-tribe-events</code> del home enlaza a <code>?month=&amp;event=</code> de cada ocurrencia.</li>
   </ul>

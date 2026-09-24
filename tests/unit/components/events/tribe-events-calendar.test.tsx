@@ -503,6 +503,33 @@ describe("TribeEventsCalendar", () => {
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
+    it("keeps the rendered month in the URL when closing a monthless deep link", async () => {
+      window.history.replaceState(
+        null,
+        "",
+        "/matematica-pro/eventos?event=" + encodeURIComponent(occurrence.occurrenceKey)
+      );
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar({ initialOccurrenceKey: occurrence.occurrenceKey });
+
+      expect(await screen.findByRole("dialog", { name: "Clase abierta" })).toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(window.location.pathname).toBe("/matematica-pro/eventos");
+      expect(window.location.search).toBe("?month=2026-05");
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+
+      const reopenedUrl = new URL(window.location.href);
+
+      expect(reopenedUrl.searchParams.get("month")).toBe("2026-05");
+      expect(reopenedUrl.searchParams.get("event")).toBe(occurrence.occurrenceKey);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
     it("ignores a deep link to an occurrence that is not on screen", () => {
       renderCalendar({ initialOccurrenceKey: `${OTHER_EVENT_ID}@2026-05-20T18:00:00.000Z` });
 
