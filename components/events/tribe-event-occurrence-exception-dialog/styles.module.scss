@@ -19,6 +19,14 @@
     font-weight: 600;
   }
 
+  &__toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
   &__textarea {
     min-height: 4.5rem;
     resize: vertical;

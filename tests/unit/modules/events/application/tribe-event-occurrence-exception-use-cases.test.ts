@@ -224,6 +224,82 @@ describe("occurrence exceptions in the listing", () => {
     });
   });
 
+  it("opens a shared link with a stale month in the month where the moved date is shown now", async () => {
+    // The link was copied while the 28 May slot was still in May; it was
+    // moved to 2 June afterwards.
+    const movedException = createException({
+      kind: "moved",
+      newStartsAt: "2026-06-02T21:00:00.000Z",
+      originalStartsAt: "2026-05-28T21:00:00.000Z",
+    });
+    const listByTribeRange = vi.fn(async () => createListing([movedException]));
+    const find = vi.fn(async () => movedException);
+    const key = `${EVENT_ID}@2026-05-28T21:00:00.000Z`;
+    const execute = listTribeEvents({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({ find }),
+      tribeEventRepository: createTribeEventRepositoryDouble({ listByTribeRange }),
+    });
+
+    const result = await execute({
+      eventTypes: [],
+      month: "2026-05",
+      occurrence: { eventId: EVENT_ID, key, occurrenceStartsAt: "2026-05-28T21:00:00.000Z" },
+      tribeSlug: TRIBE_SLUG,
+    });
+
+    expect(result.month.current).toBe("2026-06");
+    expect(result.selectedOccurrenceKey).toBe(key);
+  });
+
+  it("keeps the explicit month of a link whose date was not moved", async () => {
+    const listByTribeRange = vi.fn(async () => createListing([]));
+    const find = vi.fn(async () => null);
+    const key = `${EVENT_ID}@2026-05-28T21:00:00.000Z`;
+    const execute = listTribeEvents({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({ find }),
+      tribeEventRepository: createTribeEventRepositoryDouble({ listByTribeRange }),
+    });
+
+    const result = await execute({
+      eventTypes: [],
+      month: "2026-05",
+      occurrence: { eventId: EVENT_ID, key, occurrenceStartsAt: "2026-05-28T21:00:00.000Z" },
+      tribeSlug: TRIBE_SLUG,
+    });
+
+    expect(result.month.current).toBe("2026-05");
+    expect(result.selectedOccurrenceKey).toBe(key);
+  });
+
+  it("keeps the explicit month when the moved date is still shown in it", async () => {
+    const movedException = createException({
+      kind: "moved",
+      newStartsAt: "2026-05-29T21:00:00.000Z",
+      originalStartsAt: "2026-05-28T21:00:00.000Z",
+    });
+    const execute = listTribeEvents({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({
+        find: vi.fn(async () => movedException),
+      }),
+      tribeEventRepository: createTribeEventRepositoryDouble({
+        listByTribeRange: vi.fn(async () => createListing([movedException])),
+      }),
+    });
+
+    const result = await execute({
+      eventTypes: [],
+      month: "2026-05",
+      occurrence: {
+        eventId: EVENT_ID,
+        key: `${EVENT_ID}@2026-05-28T21:00:00.000Z`,
+        occurrenceStartsAt: "2026-05-28T21:00:00.000Z",
+      },
+      tribeSlug: TRIBE_SLUG,
+    });
+
+    expect(result.month.current).toBe("2026-05");
+  });
+
   it("leaves cancelled dates out of the upcoming list", async () => {
     vi.useFakeTimers().setSystemTime(new Date("2026-05-10T12:00:00.000Z"));
     const execute = listUpcomingTribeEvents({

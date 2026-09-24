@@ -117,7 +117,8 @@ export type TribeEventOccurrenceAttendance = TribeEventAttendanceSummary & {
  * Everything the viewer attendance streak and its next refresh instant need,
  * read together: the series with an occurrence overlapping `eventRange`
  * (finished and upcoming occurrences) and the viewer's own answers to
- * occurrences starting inside `viewerAttendanceRange`.
+ * occurrences starting inside `viewerAttendanceRange`, including dates moved
+ * into it whose original start (the answer key) lies outside it.
  */
 export type ReadViewerAttendanceStreakSnapshotQuery = {
   eventRange: TribeEventDateRange;

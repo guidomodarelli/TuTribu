@@ -82,20 +82,21 @@ function buildCreatedEventOccurrences(
 }
 
 /**
- * Month to list: the explicit one, else the month where the deep-linked
- * occurrence is shown (its new start when the date was moved), else the
+ * Month to list for a query.
+ *
+ * A deep-linked occurrence whose date was moved is listed in the month where
+ * it is shown now (its new start), even when the link carries an explicit
+ * month: shared links keep the month of the moment they were copied, and the
+ * stable occurrence key would not be found in that stale month. Otherwise the
+ * explicit month wins, then the month of the deep-linked occurrence, then the
  * current Buenos Aires month.
  */
 async function resolveListingMonth(
   query: ListTribeEventsQuery,
   exceptionRepository: TribeEventOccurrenceExceptionRepository
 ): Promise<string> {
-  if (query.month !== null) {
-    return query.month;
-  }
-
   if (!query.occurrence) {
-    return resolveCurrentBuenosAiresMonth();
+    return query.month ?? resolveCurrentBuenosAiresMonth();
   }
 
   const exception = await exceptionRepository.find({
@@ -103,12 +104,12 @@ async function resolveListingMonth(
     originalStartsAt: query.occurrence.occurrenceStartsAt,
     tribeSlug: query.tribeSlug,
   });
-  const shownStartsAt =
-    exception?.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved && exception.newStartsAt
-      ? exception.newStartsAt
-      : query.occurrence.occurrenceStartsAt;
 
-  return resolveBuenosAiresMonthOf(new Date(shownStartsAt));
+  if (exception?.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved && exception.newStartsAt) {
+    return resolveBuenosAiresMonthOf(new Date(exception.newStartsAt));
+  }
+
+  return query.month ?? resolveBuenosAiresMonthOf(new Date(query.occurrence.occurrenceStartsAt));
 }
 
 export function listTribeEvents({

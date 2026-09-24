@@ -373,6 +373,7 @@ describe("occurrence exception and proposal routes", () => {
     it("lists the proposals panel", async () => {
       useCases.listTribeEventProposals.mockResolvedValue({
         canReviewProposals: true,
+        pendingCount: 73,
         proposals: [proposal],
         status: "found",
       });
@@ -385,6 +386,7 @@ describe("occurrence exception and proposal routes", () => {
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
         canReviewProposals: true,
+        pendingCount: 73,
         proposals: [proposal],
       });
     });

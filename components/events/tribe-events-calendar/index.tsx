@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn, toast, useIsMobile } from "beez-ui";
 
@@ -400,6 +400,16 @@ export function TribeEventsCalendar({
       [TRIBE_EVENTS_ROUTE_QUERY.month]: currentMonth,
     });
   };
+
+  // The route lists a deep-linked occurrence in the month where it is shown
+  // now, which can differ from the link's `month` when the date was moved
+  // after the link was shared. Writing the rendered month back keeps the
+  // address bar (and any link copied from it) pointing at that month.
+  useEffect(() => {
+    if (initialOccurrenceKey !== null) {
+      replaceCurrentUrlSearchParams({ [TRIBE_EVENTS_ROUTE_QUERY.month]: currentMonth });
+    }
+  }, [currentMonth, initialOccurrenceKey]);
 
   const previousMonthHref = buildTribeEventsRoute(tribeSlug, {
     eventTypes: selectedEventTypes,

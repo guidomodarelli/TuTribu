@@ -276,9 +276,19 @@ describe("TribeEventsCalendar attendance", () => {
         },
         eventTitle: "Clase abierta",
         occurrenceStartsAt: STARTS_AT,
+        originalOccurrenceStartsAt: STARTS_AT,
         trend: [
-          { goingCount: 4, occurrenceStartsAt: "2026-04-22T18:00:00.000Z" },
-          { goingCount: 6, occurrenceStartsAt: "2026-04-29T18:00:00.000Z" },
+          {
+            goingCount: 4,
+            occurrenceStartsAt: "2026-04-22T18:00:00.000Z",
+            originalOccurrenceStartsAt: "2026-04-22T18:00:00.000Z",
+          },
+          // A moved date is labelled with the day it was held, not its key.
+          {
+            goingCount: 6,
+            occurrenceStartsAt: "2026-04-30T18:00:00.000Z",
+            originalOccurrenceStartsAt: "2026-04-29T18:00:00.000Z",
+          },
         ],
       },
     });
@@ -301,7 +311,7 @@ describe("TribeEventsCalendar attendance", () => {
       `/api/tribes/matematica-pro/events/${EVENT_ID}/attendance/export?occurrence=${encodeURIComponent(STARTS_AT)}`
     );
     expect(within(dialog).getByRole("listitem", { name: "22 abr: 4 personas" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("listitem", { name: "29 abr: 6 personas" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("listitem", { name: "30 abr: 6 personas" })).toBeInTheDocument();
   });
 
   it("does not reload the attendees when the detail reopens on the default tab", async () => {
@@ -317,6 +327,7 @@ describe("TribeEventsCalendar attendance", () => {
         attendeeGroups: { going: [], maybe: [], notGoing: [], waitlisted: [] },
         eventTitle: "Clase abierta",
         occurrenceStartsAt: STARTS_AT,
+        originalOccurrenceStartsAt: STARTS_AT,
         trend: [],
       },
     });
@@ -348,6 +359,7 @@ describe("TribeEventsCalendar attendance", () => {
         attendeeGroups: { going: [], maybe: [], notGoing: [], waitlisted: [] },
         eventTitle: "Clase abierta",
         occurrenceStartsAt: STARTS_AT,
+        originalOccurrenceStartsAt: STARTS_AT,
         trend: [],
       },
     });
@@ -376,6 +388,7 @@ describe("TribeEventsCalendar attendance", () => {
         attendeeGroups: { going: [], maybe: [], notGoing: [], waitlisted: [] },
         eventTitle: "Clase abierta",
         occurrenceStartsAt: STARTS_AT,
+        originalOccurrenceStartsAt: STARTS_AT,
         trend: [],
       },
     });

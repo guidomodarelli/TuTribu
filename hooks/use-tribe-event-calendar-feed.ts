@@ -38,7 +38,10 @@ export type TribeEventCalendarFeed = {
   isSubmitting: boolean;
   loadState: TribeEventCalendarFeedLoadState;
   loadSubscription: () => void;
-  /** Forgets the issued link and aborts a pending load (dialog closed). */
+  /**
+   * Forgets the issued link, aborts a pending load and invalidates pending
+   * mutations so a late response cannot reveal the link (dialog closed).
+   */
   reset: () => void;
   revokeLink: () => Promise<boolean>;
 };
@@ -75,7 +78,8 @@ function toRequestError(message: string | null, fallback: string): Error {
  * only in this state and disappears on `reset`), revokes it, and copies it
  * with the WebKit-safe clipboard fallback. Mutations update the local state
  * from the response and never refresh the route; a ref guards against double
- * submits.
+ * submits, and a dialog session counter drops mutation results that arrive
+ * after `reset` so a forgotten link never comes back.
  *
  * @param input - Tribe of the calendar.
  * @returns State and callbacks for the presentational dialog.
@@ -92,6 +96,9 @@ export function useTribeEventCalendarFeed({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const loadControllerRef = useRef<AbortController | null>(null);
+  // Bumped on `reset`: a mutation started in a previous dialog session must
+  // not write its result into the current one.
+  const dialogSessionRef = useRef(0);
 
   useEffect(() => () => loadControllerRef.current?.abort(), []);
 
@@ -101,6 +108,7 @@ export function useTribeEventCalendarFeed({
     const controller = new AbortController();
 
     loadControllerRef.current = controller;
+    setFeedUrl(null);
     setLoadState({ status: TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loading });
 
     fetchTribeEventCalendarFeedRequest({ signal: controller.signal, tribeSlug })
@@ -147,6 +155,8 @@ export function useTribeEventCalendarFeed({
     isSubmittingRef.current = true;
     setIsSubmitting(true);
 
+    const dialogSession = dialogSessionRef.current;
+
     const pendingRequest = request().then((result) => {
       if (!result.isSuccess) {
         throw toRequestError(result.message, copy.failure);
@@ -162,7 +172,15 @@ export function useTribeEventCalendarFeed({
     });
 
     try {
-      onSuccess(await pendingRequest);
+      const result = await pendingRequest;
+
+      // The dialog was closed (and maybe reopened) while the request was in
+      // flight: the issued link must stay forgotten.
+      if (dialogSession !== dialogSessionRef.current) {
+        return false;
+      }
+
+      onSuccess(result);
       return true;
     } catch {
       // The error toast is already shown by `toast.promise`; keep the state.
@@ -209,6 +227,7 @@ export function useTribeEventCalendarFeed({
   };
 
   const reset = () => {
+    dialogSessionRef.current += 1;
     loadControllerRef.current?.abort();
     setFeedUrl(null);
     setLoadState({ status: TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.idle });

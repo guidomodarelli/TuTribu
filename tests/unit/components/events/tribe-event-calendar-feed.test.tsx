@@ -146,6 +146,37 @@ describe("TribeEventsCalendar calendar subscription", () => {
     expect(within(dialog).queryByRole("textbox", { name: "Tu link de calendario" })).toBeNull();
   });
 
+  it("ignores a generate response that arrives after the dialog closed", async () => {
+    const user = userEvent.setup();
+    let resolveIssue: (response: Response) => void = () => undefined;
+
+    respondWith({ subscription: null });
+    (global.fetch as Mock).mockReturnValueOnce(
+      new Promise<Response>((resolve) => {
+        resolveIssue = resolve;
+      })
+    );
+    respondWith({ subscription: null });
+
+    let dialog = await openDialog(user);
+
+    await user.click(await within(dialog).findByRole("button", { name: "Generar link" }));
+    await user.keyboard("{Escape}");
+    dialog = await openDialog(user);
+    await within(dialog).findByText(/Todavía no tenés un link de calendario/);
+
+    resolveIssue(
+      new Response(JSON.stringify(issuedBody), {
+        headers: { "Content-Type": "application/json" },
+        status: 201,
+      })
+    );
+
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Generar link" })).toBeEnabled());
+    expect(within(dialog).queryByRole("textbox", { name: "Tu link de calendario" })).toBeNull();
+    expect(within(dialog).getByText(/Todavía no tenés un link de calendario/)).toBeInTheDocument();
+  });
+
   it("asks for confirmation before regenerating because the old link stops working", async () => {
     const user = userEvent.setup();
     respondWith({ subscription: issuedBody.subscription });
