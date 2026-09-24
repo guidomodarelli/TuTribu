@@ -75,14 +75,80 @@ type FeedTribeRow = {
 
 type FeedSeriesRow = TribeEventRow & {
   calendar_sequence: number;
+  /** Every exception of the series (`count` may come back as text). */
+  exception_count: number | string;
   updated_at: Date | string;
 };
 
 /**
- * Serializes regenerations of one member's token in one tribe.
+ * Serializes regenerations and revocations of one member's token in one tribe.
  */
 const FEED_TOKEN_LOCK_PREFIX = "event_calendar_feed_token:";
 const FEED_TOKEN_LOCK_SEPARATOR = ":";
+
+/**
+ * Takes the transaction-scoped lock of the signed-in member's token in the
+ * tribe. Every write of that token (regeneration and revocation) takes it
+ * first, so they apply in call order: the statements that follow start after
+ * the previous writer committed and see its token.
+ */
+async function lockMemberFeedToken(database: RequestDatabase, tribeId: string): Promise<void> {
+  await database.execute(sql`
+    select pg_advisory_xact_lock(
+      hashtextextended(
+        ${FEED_TOKEN_LOCK_PREFIX} || public.current_app_user_id() || ${FEED_TOKEN_LOCK_SEPARATOR} || ${tribeId},
+        0
+      )
+    )
+  `);
+}
+
+/**
+ * Revokes the signed-in member's active token in the tribe. `revoked_at` uses
+ * clock_timestamp(): now() is the start of this transaction, which can be
+ * older than a token another writer committed while this one waited for the
+ * lock (revoked_at >= created_at is a CHECK).
+ */
+async function revokeActiveMemberFeedToken(
+  database: RequestDatabase,
+  tribeId: string
+): Promise<void> {
+  await database.execute(sql`
+    update public.event_calendar_feed_tokens
+    set revoked_at = timezone('utc', clock_timestamp())
+    where event_calendar_feed_tokens.tribe_id = ${tribeId}
+      and event_calendar_feed_tokens.user_id = public.current_app_user_id()
+      and event_calendar_feed_tokens.revoked_at is null
+  `);
+}
+
+/**
+ * Keeps, in feed order, the series whose complete exception set fits the
+ * remaining budget. A series is never returned with part of its exceptions:
+ * a missing EXDATE or RECURRENCE-ID would bring back a cancelled date or
+ * leave a moved one at its original time. A series that does not fit is
+ * skipped, not a reason to stop: later, smaller series may still fit.
+ */
+function selectSeriesWithinExceptionBudget(
+  seriesRows: readonly FeedSeriesRow[],
+  maxExceptions: number
+): FeedSeriesRow[] {
+  const selectedSeries: FeedSeriesRow[] = [];
+  let remainingExceptions = maxExceptions;
+
+  for (const seriesRow of seriesRows) {
+    const exceptionCount = Number(seriesRow.exception_count);
+
+    if (exceptionCount > remainingExceptions) {
+      continue;
+    }
+
+    remainingExceptions -= exceptionCount;
+    selectedSeries.push(seriesRow);
+  }
+
+  return selectedSeries;
+}
 
 function mapSubscription(row: SubscriptionRow): TribeEventCalendarFeedSubscription {
   return {
@@ -177,25 +243,9 @@ export class PostgresTribeEventCalendarFeedTokenRepository
 
       // Two regenerations at once (double click, two tabs) run one after the
       // other: each revokes the previous token before inserting its own, so
-      // the partial unique index of active tokens is never hit. `revoked_at`
-      // uses clock_timestamp(): now() is the start of this transaction, which
-      // can be older than the token a concurrent regeneration committed while
-      // this one waited for the lock (revoked_at >= created_at is a CHECK).
-      await database.execute(sql`
-        select pg_advisory_xact_lock(
-          hashtextextended(
-            ${FEED_TOKEN_LOCK_PREFIX} || public.current_app_user_id() || ${FEED_TOKEN_LOCK_SEPARATOR} || ${access.tribe_id},
-            0
-          )
-        )
-      `);
-      await database.execute(sql`
-        update public.event_calendar_feed_tokens
-        set revoked_at = timezone('utc', clock_timestamp())
-        where event_calendar_feed_tokens.tribe_id = ${access.tribe_id}
-          and event_calendar_feed_tokens.user_id = public.current_app_user_id()
-          and event_calendar_feed_tokens.revoked_at is null
-      `);
+      // the partial unique index of active tokens is never hit.
+      await lockMemberFeedToken(database, access.tribe_id);
+      await revokeActiveMemberFeedToken(database, access.tribe_id);
 
       const inserted = await database.execute(sql`
         insert into public.event_calendar_feed_tokens (user_id, tribe_id, token_hash)
@@ -218,6 +268,11 @@ export class PostgresTribeEventCalendarFeedTokenRepository
    * content (only the slug must resolve). A member who was blocked may no
    * longer see the tribe under strict RLS and then gets "not found"; their
    * link is already refused by the feed in that state.
+   *
+   * It takes the same lock as `issue`: without it, a revocation racing a
+   * regeneration could snapshot only the old token, find it already revoked
+   * after waiting for its row, and report success while the new token stays
+   * active. With the lock, the operation that runs last decides the outcome.
    */
   async revoke({
     tribeSlug,
@@ -229,13 +284,8 @@ export class PostgresTribeEventCalendarFeedTokenRepository
         return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
       }
 
-      await database.execute(sql`
-        update public.event_calendar_feed_tokens
-        set revoked_at = timezone('utc', clock_timestamp())
-        where event_calendar_feed_tokens.tribe_id = ${access.tribe_id}
-          and event_calendar_feed_tokens.user_id = public.current_app_user_id()
-          and event_calendar_feed_tokens.revoked_at is null
-      `);
+      await lockMemberFeedToken(database, access.tribe_id);
+      await revokeActiveMemberFeedToken(database, access.tribe_id);
 
       return { status: TRIBE_EVENT_MUTATION_STATUS.feedTokenRevoked };
     });
@@ -297,7 +347,16 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
       `);
 
       const seriesResult = await database.execute(sql`
-        select ${TRIBE_EVENT_COLUMNS}, events.updated_at, events.calendar_sequence
+        select
+          ${TRIBE_EVENT_COLUMNS},
+          events.updated_at,
+          events.calendar_sequence,
+          (
+            select count(*)
+            from public.event_occurrence_exceptions
+            where event_occurrence_exceptions.event_id = events.id
+              and event_occurrence_exceptions.tribe_id = events.tribe_id
+          ) as exception_count
         from public.events
         where events.tribe_id = ${tribe.id}
           and public.can_read_tribe_content(events.tribe_id)
@@ -309,14 +368,18 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
         order by events.starts_at desc, events.id asc
         limit ${query.maxSeries}
       `);
-      const seriesRows = (seriesResult.rows ?? []) as FeedSeriesRow[];
+      const seriesRows = selectSeriesWithinExceptionBudget(
+        (seriesResult.rows ?? []) as FeedSeriesRow[],
+        query.maxExceptions
+      );
 
       if (seriesRows.length === 0) {
         return { exceptions: [], series: [], tribeName: tribe.name };
       }
 
       // Every exception of the included series (not only the window): the
-      // calendar app expands the RRULE over its whole history.
+      // calendar app expands the RRULE over its whole history. No row limit:
+      // the series were already chosen so their complete sets fit the budget.
       const exceptionsResult = await database.execute(sql`
         select ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS}
         from public.event_occurrence_exceptions
@@ -326,7 +389,6 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
             seriesRows.map((row) => row.id)
           )}::uuid[])
         order by event_occurrence_exceptions.original_starts_at desc
-        limit ${query.maxExceptions}
       `);
 
       return {

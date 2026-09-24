@@ -133,6 +133,7 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
     const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [{ can_read: false, created_at: null, tribe_id: TRIBE_ID }] })
+      .mockResolvedValueOnce({ rows: [{}] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const repository = new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(execute));
@@ -141,12 +142,44 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
     await expect(repository.revoke({ tribeSlug: TRIBE_SLUG })).resolves.toEqual({
       status: "feed_token_revoked",
     });
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
       "user_id = public.current_app_user_id()"
     );
     await expect(repository.revoke({ tribeSlug: TRIBE_SLUG })).resolves.toEqual({
       status: "not_found",
     });
+  });
+  it("takes the regeneration lock before revoking, so a concurrent regeneration is revoked too", async () => {
+    const issueExecute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
+      .mockResolvedValueOnce({ rows: [{}] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [{ created_at: "2026-05-02T12:00:00.000Z", last_used_at: null }],
+      });
+    const revokeExecute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
+      .mockResolvedValueOnce({ rows: [{}] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(issueExecute)).issue({
+      tokenHash: TOKEN_HASH,
+      tribeSlug: TRIBE_SLUG,
+    });
+    await new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(revokeExecute)).revoke({
+      tribeSlug: TRIBE_SLUG,
+    });
+
+    const issueLockSql = getSqlText(issueExecute.mock.calls[1]?.[0]);
+    const [revokeLockSql, revokeSql] = revokeExecute.mock.calls
+      .slice(1)
+      .map(([statement]) => getSqlText(statement));
+
+    expect(revokeLockSql).toContain("pg_advisory_xact_lock");
+    expect(revokeLockSql).toBe(issueLockSql);
+    expect(revokeSql).toContain("set revoked_at = timezone('utc', clock_timestamp())");
   });
 });
 
@@ -199,6 +232,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
             description: null,
             ends_at: "2026-05-07T22:00:00.000Z",
             event_type: "workshop",
+            exception_count: 1,
             id: EVENT_ID,
             meeting_url: null,
             recurrence_frequency: "weekly",
@@ -280,6 +314,124 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     expect(seriesSql).toContain("events.calendar_sequence");
     expect(seriesSql).not.toContain("events.event_type = any(");
     expect(exceptionsSql).toContain("event_occurrence_exceptions.event_id = any(");
+  });
+
+  it("keeps the complete exceptions of every returned series and omits a series that does not fit the budget", async () => {
+    const firstSeriesId = "11111111-1111-4111-8111-111111111111";
+    const oversizedSeriesId = "22222222-2222-4222-8222-222222222222";
+    const lastSeriesId = "33333333-3333-4333-8333-333333333333";
+    const buildSeriesRow = (id: string, exceptionCount: number) => ({
+      calendar_sequence: 0,
+      capacity: null,
+      description: null,
+      ends_at: "2026-05-07T22:00:00.000Z",
+      event_type: "workshop",
+      exception_count: String(exceptionCount),
+      id,
+      meeting_url: null,
+      recurrence_frequency: "weekly",
+      recurrence_until: null,
+      starts_at: "2026-05-07T21:00:00.000Z",
+      title: "Taller semanal",
+      updated_at: "2026-05-01T10:00:00.000Z",
+    });
+    const buildCancellation = (eventId: string, originalStartsAt: string) => ({
+      event_id: eventId,
+      kind: "cancelled",
+      new_ends_at: null,
+      new_starts_at: null,
+      original_starts_at: originalStartsAt,
+      reason: null,
+    });
+    const ownerExecute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          buildSeriesRow(firstSeriesId, 2),
+          buildSeriesRow(oversizedSeriesId, 5),
+          buildSeriesRow(lastSeriesId, 1),
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          buildCancellation(firstSeriesId, "2026-05-21T21:00:00.000Z"),
+          buildCancellation(lastSeriesId, "2026-05-14T21:00:00.000Z"),
+          buildCancellation(firstSeriesId, "2026-05-14T21:00:00.000Z"),
+        ],
+      });
+    const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
+
+    const snapshot = await reader.readAsOwner({
+      eventTypes: [],
+      lastUsedRefreshMinutes: 60,
+      maxExceptions: 3,
+      maxSeries: 500,
+      owner: { tokenHash: TOKEN_HASH, tokenId: TOKEN_ID, tribeId: TRIBE_ID, userId: OWNER_ID },
+      rangeEnd: "2027-05-10T12:00:00.000Z",
+      rangeStart: "2026-02-09T12:00:00.000Z",
+      tribeSlug: TRIBE_SLUG,
+    });
+
+    // The oversized series is left out instead of being emitted with only
+    // part of its cancellations; the smaller series after it still fits.
+    expect(snapshot?.series.map((series) => series.event.id)).toEqual([
+      firstSeriesId,
+      lastSeriesId,
+    ]);
+    expect(snapshot?.exceptions).toHaveLength(3);
+
+    const seriesSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
+    const exceptionsSql = getSqlText(ownerExecute.mock.calls[3]?.[0]);
+
+    expect(seriesSql).toContain("exception_count");
+    expect(exceptionsSql).toContain(firstSeriesId);
+    expect(exceptionsSql).toContain(lastSeriesId);
+    expect(exceptionsSql).not.toContain(oversizedSeriesId);
+    // No global row limit that could cut the exceptions of a returned series.
+    expect(exceptionsSql).not.toContain("limit");
+  });
+
+  it("reads no exceptions when every series with exceptions exceeds the budget", async () => {
+    const ownerExecute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            calendar_sequence: 0,
+            capacity: null,
+            description: null,
+            ends_at: "2026-05-07T22:00:00.000Z",
+            event_type: "workshop",
+            exception_count: 4,
+            id: EVENT_ID,
+            meeting_url: null,
+            recurrence_frequency: "weekly",
+            recurrence_until: null,
+            starts_at: "2026-05-07T21:00:00.000Z",
+            title: "Taller semanal",
+            updated_at: "2026-05-01T10:00:00.000Z",
+          },
+        ],
+      });
+    const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
+
+    await expect(
+      reader.readAsOwner({
+        eventTypes: [],
+        lastUsedRefreshMinutes: 60,
+        maxExceptions: 3,
+        maxSeries: 500,
+        owner: { tokenHash: TOKEN_HASH, tokenId: TOKEN_ID, tribeId: TRIBE_ID, userId: OWNER_ID },
+        rangeEnd: "2027-05-10T12:00:00.000Z",
+        rangeStart: "2026-02-09T12:00:00.000Z",
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({ exceptions: [], series: [], tribeName: "Matemática Pro" });
+    expect(ownerExecute).toHaveBeenCalledTimes(3);
   });
 
   it("filters the series by the requested types before the row limit", async () => {
