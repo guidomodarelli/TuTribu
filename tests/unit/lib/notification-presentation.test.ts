@@ -18,10 +18,11 @@ const DEEP_LINK = `/matematica-pro/eventos?event=${encodeURIComponent(`${EVENT_I
 
 function eventItem(
   type: Exclude<NotificationItemResult["type"], "event_proposal_reviewed">,
-  overrides: Partial<{ eventTitle: string | null; startsAt: string }> = {}
+  overrides: Partial<{ eventTitle: string | null; startsAt: string }> = {},
+  createdAt = "2026-05-06T15:00:00.000Z"
 ): NotificationItemResult {
   return {
-    createdAt: "2026-05-06T15:00:00.000Z",
+    createdAt,
     event: {
       eventId: EVENT_ID,
       eventTitle: "taller de álgebra",
@@ -48,6 +49,31 @@ describe("describeNotification", () => {
       detail: "18:00 · Matemática Pro",
       title: "Taller de álgebra empieza en 15 minutos",
     });
+  });
+
+  it("says 'Hoy' when a late-notice day-before reminder is sent the same day", () => {
+    // Sent Thursday 7 May at 15:00 in Buenos Aires, three hours before the start.
+    expect(
+      describeNotification(eventItem("event_reminder_24h", {}, "2026-05-07T18:00:00.000Z")).title
+    ).toBe("Hoy: taller de álgebra");
+  });
+
+  it("falls back to a neutral day-before title when the start is no longer today or tomorrow", () => {
+    // The date was moved two days later after the reminder was sent.
+    expect(
+      describeNotification(
+        eventItem("event_reminder_24h", { startsAt: "2026-05-09T21:00:00.000Z" })
+      ).title
+    ).toBe("Recordatorio: taller de álgebra");
+  });
+
+  it("counts the real minutes left when the 15-minute reminder is sent late", () => {
+    expect(
+      describeNotification(eventItem("event_reminder_15m", {}, "2026-05-07T20:54:00.000Z")).title
+    ).toBe("Taller de álgebra empieza en 6 minutos");
+    expect(
+      describeNotification(eventItem("event_reminder_15m", {}, "2026-05-07T20:59:30.000Z")).title
+    ).toBe("Taller de álgebra empieza en 1 minuto");
   });
 
   it("describes a promotion, a cancelled date, and a moved date", () => {

@@ -65,10 +65,11 @@ function toReminderCandidate(
 /**
  * Reminder job (maintenance cron, every 5 minutes): reads the series that can
  * have a date in the reminder windows, expands them with their exceptions
- * (like `listUpcomingTribeEvents`), and enqueues "mañana" (24 h) and "en 15
- * minutos" reminders for the members who answered. The dedupe key
- * `type:eventId@originalStartsAt` makes reruns, overlapping runs, and the
- * tolerance overlap between consecutive runs idempotent. Pages are read one
+ * (like `listUpcomingTribeEvents`), and enqueues the day-before (24 h) and
+ * "en 15 minutos" reminders that are due and not sent yet for the members who
+ * answered. Every run sees every due occurrence again (catch-up after a late
+ * or skipped run); the dedupe key `type:eventId@originalStartsAt` makes those
+ * repeats, reruns, and overlapping runs idempotent. Pages are read one
  * at a time (keyset by event id) and enqueued before the next page, so memory
  * and statement size stay bounded.
  */

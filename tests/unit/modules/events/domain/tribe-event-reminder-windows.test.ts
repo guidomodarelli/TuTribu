@@ -34,23 +34,25 @@ function iso(time: number): string {
 }
 
 describe("getTribeEventReminderRange", () => {
-  it("covers the earliest and the latest reminder window", () => {
+  it("reads every occurrence that starts after now and within the longest lead", () => {
     expect(getTribeEventReminderRange(TRIBE_EVENT_REMINDERS, NOW)).toEqual({
-      rangeEnd: iso(NOW + (1440 + 10) * MINUTE),
-      rangeStart: iso(NOW + (15 - 5) * MINUTE),
+      // Exclusive end one millisecond past the inclusive 24 h bound.
+      rangeEnd: iso(NOW + 1440 * MINUTE + 1),
+      rangeStart: iso(NOW),
     });
   });
 });
 
+function dueTypesFor(startsAt: string, now: number = NOW): string[] {
+  return selectDueTribeEventReminders([weeklySeries(startsAt)], TRIBE_EVENT_REMINDERS, now).map(
+    (reminder) => reminder.window.type
+  );
+}
+
 describe("selectDueTribeEventReminders", () => {
-  it("selects the day-before reminder inside its tolerance and not outside it", () => {
+  it("selects the day-before reminder for any start up to 24 h ahead and not beyond", () => {
     const inside = selectDueTribeEventReminders(
       [weeklySeries(iso(NOW + (1440 - 9) * MINUTE))],
-      TRIBE_EVENT_REMINDERS,
-      NOW
-    );
-    const outside = selectDueTribeEventReminders(
-      [weeklySeries(iso(NOW + (1440 + 11) * MINUTE))],
       TRIBE_EVENT_REMINDERS,
       NOW
     );
@@ -64,34 +66,53 @@ describe("selectDueTribeEventReminders", () => {
         window: TRIBE_EVENT_REMINDERS[0],
       }),
     ]);
-    expect(outside).toEqual([]);
+    expect(dueTypesFor(iso(NOW + 1440 * MINUTE))).toEqual(["event_reminder_24h"]);
+    expect(dueTypesFor(iso(NOW + 1440 * MINUTE + 1))).toEqual([]);
   });
 
-  it("selects the 15-minute reminder with its own window", () => {
-    const due = selectDueTribeEventReminders(
-      [weeklySeries(iso(NOW + 12 * MINUTE))],
-      TRIBE_EVENT_REMINDERS,
-      NOW
+  it("selects only the 15-minute reminder once the start is 15 minutes away or less", () => {
+    expect(dueTypesFor(iso(NOW + 15 * MINUTE))).toEqual(["event_reminder_15m"]);
+    expect(dueTypesFor(iso(NOW + 12 * MINUTE))).toEqual(["event_reminder_15m"]);
+    expect(dueTypesFor(iso(NOW + 1 * MINUTE))).toEqual(["event_reminder_15m"]);
+  });
+
+  it("never reminds an occurrence that already started", () => {
+    expect(dueTypesFor(iso(NOW))).toEqual([]);
+    expect(dueTypesFor(iso(NOW - 5 * MINUTE))).toEqual([]);
+  });
+
+  it("does not send a day-before reminder for an occurrence that starts within the hour", () => {
+    // Between the 15-minute call and one hour away, a "day before" nudge
+    // would only land right before the 15-minute reminder.
+    expect(dueTypesFor(iso(NOW + 60 * MINUTE))).toEqual([]);
+    expect(dueTypesFor(iso(NOW + 30 * MINUTE))).toEqual([]);
+    expect(dueTypesFor(iso(NOW + 60 * MINUTE + 1))).toEqual(["event_reminder_24h"]);
+  });
+
+  it("catches up a reminder when the scheduler runs 20 minutes late", () => {
+    // Due at 24 h and at 15 min before the start, but the run happens later.
+    const startsAt = NOW + 1440 * MINUTE;
+    const lateDayBeforeRun = startsAt - (1440 - 20) * MINUTE;
+    const lateSoonRun = startsAt - 15 * MINUTE + 12 * MINUTE;
+
+    expect(dueTypesFor(iso(startsAt), lateDayBeforeRun)).toEqual(["event_reminder_24h"]);
+    expect(dueTypesFor(iso(startsAt), lateSoonRun)).toEqual(["event_reminder_15m"]);
+  });
+
+  it("reminds an event created with less than 24 h of notice on the next run", () => {
+    // Created 3 h before its start: the day-before reminder is due right away.
+    expect(dueTypesFor(iso(NOW + 180 * MINUTE))).toEqual(["event_reminder_24h"]);
+  });
+
+  it("keeps producing the same reminder identity on every run so the dedupe key sends it once", () => {
+    const startsAt = iso(NOW + 600 * MINUTE);
+    const runs = [NOW, NOW + 5 * MINUTE, NOW + 45 * MINUTE].map((runTime) =>
+      selectDueTribeEventReminders([weeklySeries(startsAt)], TRIBE_EVENT_REMINDERS, runTime).map(
+        (reminder) => `${reminder.window.type}:${reminder.eventId}@${reminder.originalStartsAt}`
+      )
     );
 
-    expect(due.map((reminder) => reminder.window.type)).toEqual(["event_reminder_15m"]);
-  });
-
-  it("still reminds every start when one 5-minute tick is skipped (jitter tolerance)", () => {
-    const tickTimes = Array.from({ length: 13 }, (_, index) => NOW - 30 * MINUTE + index * 5 * MINUTE)
-      // One tick of the cron never ran.
-      .filter((tickTime) => tickTime !== NOW);
-
-    for (let startMinute = 0; startMinute < 10; startMinute += 1) {
-      for (const window of TRIBE_EVENT_REMINDERS) {
-        const startsAt = iso(NOW + window.leadMinutes * MINUTE + startMinute * MINUTE);
-        const hits = tickTimes.filter((tickTime) =>
-          selectDueTribeEventReminders([weeklySeries(startsAt)], [window], tickTime).length > 0
-        );
-
-        expect(hits.length).toBeGreaterThanOrEqual(1);
-      }
-    }
+    expect(new Set(runs.flat())).toEqual(new Set([`event_reminder_24h:${EVENT_ID}@${startsAt}`]));
   });
 
   it("skips a cancelled date and uses the new time of a moved date", () => {
