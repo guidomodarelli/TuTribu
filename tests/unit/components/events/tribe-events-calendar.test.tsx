@@ -326,7 +326,7 @@ describe("TribeEventsCalendar", () => {
     renderCalendar({ events: [], viewerPermissions: { canManageEvents: false } });
 
     expect(screen.queryByText("Creá tu primer encuentro")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Q&A semanal/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Preguntas y respuestas semanal/ })).not.toBeInTheDocument();
   });
 
   it("offers managers templates that prefill the create form", async () => {
@@ -335,14 +335,14 @@ describe("TribeEventsCalendar", () => {
     renderCalendar({ events: [] });
 
     expect(screen.getByText("Creá tu primer encuentro")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Q&A semanal/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Preguntas y respuestas semanal/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Taller en vivo/ })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Kickoff mensual/ }));
+    await user.click(screen.getByRole("button", { name: /Encuentro de arranque mensual/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
 
-    expect(within(dialog).getByLabelText("Título")).toHaveValue("Kickoff mensual");
+    expect(within(dialog).getByLabelText("Título")).toHaveValue("Encuentro de arranque mensual");
     expect(within(dialog).getByLabelText("Repetición")).toHaveTextContent("Todos los meses");
 
     fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
