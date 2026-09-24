@@ -52,6 +52,7 @@ import {
   TRIBE_EVENT_COLUMNS,
   TRIBE_EVENT_OCCURRENCE_DURATION,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS,
+  buildMovedIntoRangePredicate,
   buildSeriesInRangePredicate,
   buildTribeEventExceptionsInRangeQuery,
   mapCount,
@@ -438,10 +439,21 @@ function buildEventsInRangeQuery({
           '[]'::jsonb
         )
         from public.event_attendances
+        inner join public.events
+          on events.id = event_attendances.event_id
         where event_attendances.event_id = event_rows.id
           and event_attendances.user_id = public.current_app_user_id()
-          and event_attendances.occurrence_starts_at >= ${viewerAttendanceRange.rangeStart}
-          and event_attendances.occurrence_starts_at < ${viewerAttendanceRange.rangeEnd}
+          and (
+            (
+              event_attendances.occurrence_starts_at >= ${viewerAttendanceRange.rangeStart}
+              and event_attendances.occurrence_starts_at < ${viewerAttendanceRange.rangeEnd}
+            )
+            or ${buildMovedIntoRangePredicate(
+              viewerAttendanceRange,
+              TRIBE_EVENT_RANGE_MATCH.startsWithin,
+              sql`event_attendances.occurrence_starts_at`
+            )}
+          )
       ) as viewer_attendances,
       (
         select coalesce(
@@ -704,7 +716,9 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
   /**
    * One statement reads the series overlapping `eventRange` (including series
    * with a date moved into it), per series its exceptions and the viewer
-   * answers inside `viewerAttendanceRange`. Under the request transaction's
+   * answers inside `viewerAttendanceRange`, plus the answers of dates moved
+   * into it from an earlier original start (answers keep the original
+   * start). Under the request transaction's
    * READ COMMITTED isolation every statement gets its own snapshot, so
    * splitting this into several statements (or request transactions) could
    * pair the answers, the exceptions, or the upcoming schedule with a

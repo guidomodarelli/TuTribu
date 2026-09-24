@@ -108,6 +108,64 @@ WITH CHECK (
   AND status = 'withdrawn'
 );
 
+-- The UPDATE policies authorize rows, not columns: without this guard the
+-- author's withdrawal (USING the old pending row, WITH CHECK only the new
+-- status) could also move the proposal to another tribe, rewrite its title
+-- or schedule, or attach a review or an unrelated event in the same
+-- statement. The trigger fires for every role, including the runtime role
+-- that bypasses RLS, and keeps two invariants:
+--   * what was proposed (tribe, author, content, schedule, type, creation
+--     date) never changes after insert, for authors and managers alike;
+--   * a withdrawal only changes `status` and `updated_at`, and only from
+--     `pending`. The foreign keys may still clear `reviewed_by` and
+--     `event_id` (ON DELETE SET NULL) on a withdrawn row.
+-- It is SECURITY INVOKER on purpose: it reads nothing but OLD and NEW.
+CREATE OR REPLACE FUNCTION public.guard_event_proposal_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $$
+BEGIN
+  IF NEW.tribe_id IS DISTINCT FROM OLD.tribe_id
+    OR NEW.proposed_by IS DISTINCT FROM OLD.proposed_by
+    OR NEW.title IS DISTINCT FROM OLD.title
+    OR NEW.description IS DISTINCT FROM OLD.description
+    OR NEW.starts_at IS DISTINCT FROM OLD.starts_at
+    OR NEW.duration_minutes IS DISTINCT FROM OLD.duration_minutes
+    OR NEW.event_type IS DISTINCT FROM OLD.event_type
+    OR NEW.created_at IS DISTINCT FROM OLD.created_at
+  THEN
+    RAISE EXCEPTION
+      'guard_event_proposal_update: proposed fields are immutable (proposal %)',
+      OLD.id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF NEW.status = 'withdrawn' AND (
+    OLD.status NOT IN ('pending', 'withdrawn')
+    OR NEW.reviewed_at IS DISTINCT FROM OLD.reviewed_at
+    OR NEW.review_note IS DISTINCT FROM OLD.review_note
+    OR (NEW.reviewed_by IS DISTINCT FROM OLD.reviewed_by AND NEW.reviewed_by IS NOT NULL)
+    OR (NEW.event_id IS DISTINCT FROM OLD.event_id AND NEW.event_id IS NOT NULL)
+  ) THEN
+    RAISE EXCEPTION
+      'guard_event_proposal_update: a withdrawal only changes status from pending (proposal %)',
+      OLD.id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.guard_event_proposal_update() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS guard_event_proposal_update ON public.event_proposals;
+CREATE TRIGGER guard_event_proposal_update
+BEFORE UPDATE ON public.event_proposals
+FOR EACH ROW
+EXECUTE FUNCTION public.guard_event_proposal_update();
+
 DROP POLICY IF EXISTS "Event managers can review event proposals"
 ON public.event_proposals;
 CREATE POLICY "Event managers can review event proposals"

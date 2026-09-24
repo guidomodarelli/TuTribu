@@ -251,10 +251,12 @@ export const tribeEventAttendanceReportSchema = z.object({
   }),
   eventTitle: z.string(),
   occurrenceStartsAt: instantSchema,
+  originalOccurrenceStartsAt: instantSchema,
   trend: z.array(
     z.object({
       goingCount: nonNegativeCountSchema,
       occurrenceStartsAt: instantSchema,
+      originalOccurrenceStartsAt: instantSchema,
     })
   ),
 }) satisfies z.ZodType<TribeEventAttendanceReportResult>;
@@ -295,6 +297,7 @@ export const tribeEventProposalSchema = z.object({
  */
 export const tribeEventProposalListResponseSchema = z.object({
   canReviewProposals: z.boolean(),
+  pendingCount: nonNegativeCountSchema,
   proposals: z.array(tribeEventProposalSchema),
 }) satisfies z.ZodType<TribeEventProposalListResult>;
 

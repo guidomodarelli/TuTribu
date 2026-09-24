@@ -21,7 +21,8 @@ const COPY = {
 
 /**
  * Mini bar chart of "going" answers in the last finished occurrences of a
- * series, oldest first. Each bar is an ordered list item whose visible date
+ * series, oldest first, each labelled with the date it was held (a moved
+ * date shows its new day). Each bar is an ordered list item whose visible date
  * and count are also its accessible text, so no information lives only in
  * the bar height.
  */
@@ -46,7 +47,7 @@ export function TribeEventAttendanceTrend({ trend }: TribeEventAttendanceTrendPr
             <li
               aria-label={COPY.pointLabel(dateLabel, point.goingCount)}
               className={styles.TribeEventAttendanceTrend__point}
-              key={point.occurrenceStartsAt}
+              key={point.originalOccurrenceStartsAt}
             >
               <span aria-hidden className={styles.TribeEventAttendanceTrend__count}>
                 {point.goingCount}
