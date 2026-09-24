@@ -4,6 +4,7 @@ import type {
 import type {
   TribeEventOccurrenceException,
   TribeEventOccurrenceExceptionKind,
+  TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
 
 /**
@@ -25,13 +26,17 @@ export type ListTribeEventExceptionsQuery = {
 
 /**
  * Exception already validated by the use case (real slot of a recurring
- * series, new end after the new start).
+ * series, new end after the new start). `schedule` is the series schedule
+ * that validation used; the write is refused with `scheduleChanged` when the
+ * stored schedule no longer matches it once the event row is locked, so
+ * validation and write see one schedule.
  */
 export type SaveTribeEventOccurrenceExceptionCommand = TribeEventOccurrenceReferenceQuery & {
   kind: TribeEventOccurrenceExceptionKind;
   newEndsAt: string | null;
   newStartsAt: string | null;
   reason: string | null;
+  schedule: TribeEventSchedule;
 };
 
 type ExceptionFailureStatus =
@@ -44,12 +49,14 @@ export type TribeEventOccurrenceExceptionSaveResult =
       status: typeof TRIBE_EVENT_MUTATION_STATUS.exceptionSaved;
     }
   | {
-      status: ExceptionFailureStatus;
+      status: ExceptionFailureStatus | typeof TRIBE_EVENT_MUTATION_STATUS.scheduleChanged;
     };
 
 /**
  * Deleting an exception that does not exist is still `exceptionCleared`, so
- * "Restaurar fecha" is idempotent under retries.
+ * "Restaurar fecha" is idempotent under retries. Restoring a date that is
+ * still a slot of the series also refills its waitlist in the same
+ * transaction.
  */
 export type TribeEventOccurrenceExceptionClearResult = {
   status: typeof TRIBE_EVENT_MUTATION_STATUS.exceptionCleared | ExceptionFailureStatus;

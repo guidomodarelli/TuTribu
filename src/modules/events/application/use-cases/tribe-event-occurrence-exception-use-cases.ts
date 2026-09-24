@@ -7,6 +7,7 @@ import {
   isInvalidTribeEventDateRange,
   listVisibleMonthOccurrences,
 } from "@/src/modules/events/application/services/tribe-event-field-rules";
+import { pickValidatedTribeEventSchedule } from "@/src/modules/events/application/services/tribe-event-validated-schedule";
 import {
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
@@ -66,6 +67,9 @@ async function hasCurrentOccurrenceEnded(
  * exception of that date (a cancelled date can later be moved, and back).
  * An occurrence that already ended (at its current effective times) is
  * frozen, and a date cannot be moved to a schedule that already ended.
+ * These checks run before the write transaction, so the validated schedule
+ * travels with the write and the repository refuses it (`scheduleChanged`)
+ * when a manager edited the series in between.
  *
  * The occurrence keeps its key (`eventId@originalStartsAt`), so deep links
  * and attendance stay attached to it after a move.
@@ -132,6 +136,7 @@ export function saveTribeEventOccurrenceException(
       newStartsAt: isMoved ? command.newStartsAt : null,
       originalStartsAt: command.originalStartsAt,
       reason: command.reason,
+      schedule: pickValidatedTribeEventSchedule(event),
       tribeSlug: command.tribeSlug,
     });
 
@@ -149,7 +154,9 @@ export function saveTribeEventOccurrenceException(
 /**
  * "Restaurar fecha": removes the exception so the date follows the series
  * again. Idempotent: restoring a date without exception succeeds. Like the
- * other date changes, it is refused once the occurrence ended.
+ * other date changes, it is refused once the occurrence ended. The
+ * repository refills the waitlist of the restored date in the same
+ * transaction (seats freed while it was cancelled were never offered).
  */
 export function clearTribeEventOccurrenceException(
   dependencies: TribeEventOccurrenceExceptionDependencies

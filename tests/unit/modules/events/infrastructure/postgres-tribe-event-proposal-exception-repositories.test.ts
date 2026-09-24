@@ -42,6 +42,13 @@ function createExecutor(execute: Mock) {
     callback({ execute } as never);
 }
 
+const WEEKLY_SCHEDULE = {
+  endsAt: "2026-05-07T22:00:00.000Z",
+  recurrenceFrequency: "weekly" as const,
+  recurrenceUntil: null,
+  startsAt: "2026-05-07T21:00:00.000Z",
+};
+
 const proposalRow = {
   created_at: "2026-05-01T12:00:00.000Z",
   description: null,
@@ -84,6 +91,7 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
         newStartsAt: null,
         originalStartsAt: "2026-05-14T21:00:00.000Z",
         reason: "Feriado",
+        schedule: WEEKLY_SCHEDULE,
         tribeSlug: TRIBE_SLUG,
       })
     ).resolves.toEqual({
@@ -105,7 +113,7 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
     // Answers hold the event row FOR SHARE while they read the exception of
     // their date, so the write locks it FOR UPDATE to serialize with them.
     expect(saveSql).toContain("for update of events");
-    expect(saveSql).toContain("inner join locked_event");
+    expect(saveSql).toContain("inner join validated_event");
   });
 
   it("maps a missing event and a viewer who cannot manage events", async () => {
@@ -125,6 +133,7 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
       newStartsAt: null,
       originalStartsAt: "2026-05-14T21:00:00.000Z",
       reason: null,
+      schedule: WEEKLY_SCHEDULE,
       tribeSlug: TRIBE_SLUG,
     };
 
@@ -134,6 +143,50 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
     await expect(repository.clear(command)).resolves.toEqual({ status: "forbidden" });
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("for update of events");
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("using target_event, locked_event");
+  });
+
+  it("refuses the write when the locked event no longer has the validated schedule", async () => {
+    const execute = vi.fn().mockResolvedValueOnce({ rows: [{ status: "schedule_changed" }] });
+    const repository = new PostgresTribeEventOccurrenceExceptionRepository(
+      createExecutor(execute)
+    );
+
+    await expect(
+      repository.save({
+        eventId: EVENT_ID,
+        kind: "cancelled",
+        newEndsAt: null,
+        newStartsAt: null,
+        originalStartsAt: "2026-05-14T21:00:00.000Z",
+        reason: null,
+        schedule: WEEKLY_SCHEDULE,
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({ status: "schedule_changed" });
+  });
+
+  it("refills the waitlist of the restored date in the same transaction", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ restored: true, status: "exception_cleared" }] })
+      .mockResolvedValueOnce({ rows: [{ promoted_count: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ restored: false, status: "exception_cleared" }] });
+    const repository = new PostgresTribeEventOccurrenceExceptionRepository(
+      createExecutor(execute)
+    );
+    const reference = {
+      eventId: EVENT_ID,
+      originalStartsAt: "2026-05-14T21:00:00.000Z",
+      tribeSlug: TRIBE_SLUG,
+    };
+
+    await expect(repository.clear(reference)).resolves.toEqual({ status: "exception_cleared" });
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("public.refill_tribe_event_waitlists(");
+
+    // Restoring a date without exception (a retry) has nothing to refill.
+    await expect(repository.clear(reference)).resolves.toEqual({ status: "exception_cleared" });
+    expect(execute).toHaveBeenCalledTimes(3);
   });
 
   it("reads exceptions only for viewers who can read the tribe", async () => {

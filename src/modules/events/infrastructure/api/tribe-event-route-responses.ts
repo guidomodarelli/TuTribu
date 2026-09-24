@@ -209,6 +209,11 @@ export function mapTribeEventExceptionStatusResponse(status: string): Response {
         { message: TRIBE_EVENT_ROUTE_RESPONSE.exceptionOccurrenceEndedMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
+    case TRIBE_EVENT_MUTATION_STATUS.scheduleChanged:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.scheduleChangedMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
     case TRIBE_EVENT_MUTATION_STATUS.invalidDate:
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidDateMessage },
