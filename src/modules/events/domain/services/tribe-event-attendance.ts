@@ -2,17 +2,16 @@ import { TRIBE_EVENT_ATTENDANCE_STATUS } from "@/src/modules/events/constants/tr
 import type { TribeEventSchedule } from "@/src/modules/events/domain/entities/tribe-event";
 import {
   getTribeEventOccurrenceEndTime,
+  hasTribeEventOccurrenceEnded,
   type TribeEventOccurrenceTimes,
 } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
-import { expandTribeEventOccurrences } from "@/src/modules/events/domain/services/tribe-event-recurrence";
+import { findTribeEventOccurrence } from "@/src/modules/events/domain/services/tribe-event-recurrence";
 
 /**
  * Attendance rules shared by the use cases and the UI: free seats of an
  * occurrence, the most recent finished occurrences, the viewer streak, and
  * which waitlists a capacity edit may refill.
  */
-
-const SINGLE_OCCURRENCE_RANGE_MS = 1;
 
 export type TribeEventAttendanceStreakRule = {
   minimumAttended: number;
@@ -135,22 +134,9 @@ export function selectRefillableWaitlistOccurrenceStarts(
   nowTime: number
 ): string[] {
   return candidateStarts.flatMap((candidateStart) => {
-    const candidateTime = Date.parse(candidateStart);
+    const occurrence = findTribeEventOccurrence(schedule, candidateStart);
 
-    if (!Number.isFinite(candidateTime)) {
-      return [];
-    }
-
-    const [occurrence] = expandTribeEventOccurrences(schedule, {
-      rangeEnd: new Date(candidateTime + SINGLE_OCCURRENCE_RANGE_MS).toISOString(),
-      rangeStart: new Date(candidateTime).toISOString(),
-    });
-
-    if (
-      !occurrence ||
-      Date.parse(occurrence.startsAt) !== candidateTime ||
-      getTribeEventOccurrenceEndTime(occurrence) <= nowTime
-    ) {
+    if (!occurrence || hasTribeEventOccurrenceEnded(occurrence, nowTime)) {
       return [];
     }
 
