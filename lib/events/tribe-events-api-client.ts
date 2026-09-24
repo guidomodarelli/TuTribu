@@ -1,7 +1,7 @@
 import {
   tribeEventAttendanceStreakDtoSchema,
   tribeEventAttendanceStreakResponseDtoSchema,
-} from "@/lib/events/tribe-event-attendance-streak-dto";
+} from "@/src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto";
 import {
   buildTribeEventApiEndpoint,
   buildTribeEventAttendanceApiEndpoint,
