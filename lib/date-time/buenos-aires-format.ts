@@ -2,6 +2,7 @@ import {
   BUENOS_AIRES_TIME_ZONE,
   BUENOS_AIRES_UTC_OFFSET,
 } from "@/src/constants/date-time";
+import { MILLISECONDS_PER_SECOND, SECONDS_PER_MINUTE } from "@/src/constants/time";
 
 /**
  * Presentation-only date helpers for the product's single time zone (Buenos
@@ -31,6 +32,11 @@ const DATE_KEY = {
   timeSeparator: "T",
   secondsSuffix: ":00",
 } as const;
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+const MILLISECONDS_PER_DAY =
+  HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND;
+const START_OF_DAY_TIME = "00:00";
 const TIME_RANGE_SEPARATOR = " - ";
 const DATE_TIME_SEPARATOR = " · ";
 const LONG_DATE_MONTH_CONNECTOR = " de ";
@@ -215,6 +221,25 @@ export function buildBuenosAiresInstant(date: string, time: string): string {
       DATE_KEY.secondsSuffix +
       BUENOS_AIRES_UTC_OFFSET
   ).toISOString();
+}
+
+/**
+ * Moves a Buenos Aires `YYYY-MM-DD` date key a number of days forward.
+ * Buenos Aires keeps a fixed offset (no daylight saving), so whole days are
+ * exact. Returns an empty value while the date key is still unknown.
+ *
+ * @param dateKey - `YYYY-MM-DD` date in Buenos Aires, possibly empty.
+ * @param days - Number of days to add.
+ * @returns The shifted `YYYY-MM-DD` date key, or an empty value.
+ */
+export function addDaysToBuenosAiresDateKey(dateKey: string, days: number): string {
+  const startOfDay = buildBuenosAiresInstant(dateKey, START_OF_DAY_TIME);
+
+  if (!startOfDay) {
+    return "";
+  }
+
+  return getBuenosAiresDateKey(new Date(Date.parse(startOfDay) + days * MILLISECONDS_PER_DAY));
 }
 
 /**

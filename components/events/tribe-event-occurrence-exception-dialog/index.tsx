@@ -15,6 +15,7 @@ import {
 } from "beez-ui";
 
 import {
+  addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
   formatBuenosAiresTime,
   formatBuenosAiresWeekdayDay,
@@ -59,6 +60,7 @@ type ExceptionFormValues = {
 };
 
 const EMPTY_VALUE = "";
+const NEXT_DAY_OFFSET = 1;
 const FIELD_ID = {
   date: "tribe-event-exception-date",
   endsDate: "tribe-event-exception-ends-date",
@@ -88,6 +90,7 @@ const COPY = {
   endsOnAnotherDayLabel: "Termina otro día",
   endsTimeLabel: "Hora de fin (opcional)",
   invalidEnd: "La hora de fin debe ser posterior al inicio.",
+  missingEndDate: "Elegí la fecha de fin o destildá «Termina otro día».",
   missingEndTime: "Indicá la hora de fin o dejá vacía la fecha de fin.",
   missingSchedule: "Elegí la nueva fecha y la hora de inicio.",
   moveDescription: (dateLabel: string) =>
@@ -165,12 +168,19 @@ function suggestEnd(
  * error to show next to the form.
  */
 function buildMovePayload(
-  values: ExceptionFormValues
+  values: ExceptionFormValues,
+  endsOnAnotherDay: boolean
 ): { error: string } | { payload: TribeEventOccurrenceExceptionPayload } {
   const newStartsAt = buildBuenosAiresInstant(values.date, values.startsTime);
 
   if (!newStartsAt) {
     return { error: COPY.missingSchedule };
+  }
+
+  // A checked «Termina otro día» with no date would silently save a same-day
+  // end, so the chosen next-day end must be explicit.
+  if (endsOnAnotherDay && !values.endsDate) {
+    return { error: COPY.missingEndDate };
   }
 
   if (values.endsDate && !values.endsTime) {
@@ -253,9 +263,15 @@ export function TribeEventOccurrenceExceptionDialog({
     setIsEndSuggested(false);
     setEndsOnAnotherDay(isChecked);
 
-    if (!isChecked) {
-      updateField("endsDate", EMPTY_VALUE);
-    }
+    setValidationError(null);
+    // Checking it starts from the day after the new date; the manager can
+    // still pick another day. Unchecking withdraws the end date.
+    setValues((currentValues) => ({
+      ...currentValues,
+      endsDate: isChecked
+        ? currentValues.endsDate || addDaysToBuenosAiresDateKey(currentValues.date, NEXT_DAY_OFFSET)
+        : EMPTY_VALUE,
+    }));
   };
 
   const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
@@ -270,7 +286,7 @@ export function TribeEventOccurrenceExceptionDialog({
       return;
     }
 
-    const result = buildMovePayload(values);
+    const result = buildMovePayload(values, endsOnAnotherDay);
 
     if ("error" in result) {
       setValidationError(result.error);
