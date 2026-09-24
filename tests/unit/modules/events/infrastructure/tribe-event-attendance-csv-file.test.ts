@@ -17,6 +17,7 @@ const REPORT = {
   },
   eventTitle: "Clase abierta / Repaso",
   occurrenceStartsAt: "2026-05-13T21:00:00.000Z",
+  originalOccurrenceStartsAt: "2026-05-13T21:00:00.000Z",
   trend: [],
 };
 
@@ -38,6 +39,16 @@ describe("buildTribeEventAttendanceCsvFile", () => {
     expect(lines[1]).toBe("Ana Pérez,Va,2026-05-10 12:05");
     // Grouped in the manager order: going, waitlisted (FIFO), maybe, not going.
     expect(lines[2]).toBe("'+54 Caro,En lista de espera,2026-05-11 10:00");
+  });
+
+  it("names the file after the effective date of a moved occurrence", () => {
+    const file = buildTribeEventAttendanceCsvFile({
+      ...REPORT,
+      occurrenceStartsAt: "2026-05-15T21:00:00.000Z",
+      originalOccurrenceStartsAt: "2026-05-13T21:00:00.000Z",
+    });
+
+    expect(file.fileName).toBe("asistencia-clase-abierta-repaso-2026-05-15.csv");
   });
 
   it("quotes separators, quotes and line breaks", () => {
