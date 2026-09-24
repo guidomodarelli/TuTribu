@@ -37,21 +37,32 @@ import {
   calculateTribeEventAttendanceStreak,
   selectRecentPastOccurrences,
 } from "@/src/modules/events/domain/services/tribe-event-attendance";
+import { hasTribeEventOccurrenceEnded } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
 import {
   expandTribeEventOccurrencesWithExceptions,
+  resolveTribeEventOccurrenceByOriginalStart,
   type TribeEventResolvedOccurrence,
 } from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
-import { isTribeEventOccurrence } from "@/src/modules/events/domain/services/tribe-event-recurrence";
 
 type TribeEventAttendanceDependencies = {
   tribeEventOccurrenceExceptionRepository: TribeEventOccurrenceExceptionRepository;
   tribeEventRepository: TribeEventRepository;
 };
 
+type TribeEventAttendanceMutationDependencies = TribeEventAttendanceDependencies & {
+  /**
+   * Current time source (epoch ms), injectable for deterministic tests. Used
+   * to reject answers once the occurrence ended; defaults to the system clock.
+   */
+  now?: () => number;
+};
+
 type ResolvedAttendanceKey =
   | {
       event: TribeEvent;
       key: TribeEventAttendanceKey;
+      /** Effective occurrence: a moved date carries its new times. */
+      occurrence: TribeEventResolvedOccurrence;
       status: typeof RESOLVED_KEY_STATUS.valid;
     }
   | {
@@ -67,13 +78,16 @@ const MILLISECONDS_PER_DAY = 86_400_000;
 
 /**
  * Proves the occurrence is a real slot of the series before touching
- * attendance rows. Identifiers and the instant format were already validated
- * at the route boundary; this is the business rule a schema cannot express.
+ * attendance rows, and resolves its effective times through its exception
+ * (moved or cancelled), since attendance keeps the original start as key.
+ * Identifiers and the instant format were already validated at the route
+ * boundary; this is the business rule a schema cannot express.
  */
 async function resolveAttendanceKey(
-  tribeEventRepository: TribeEventRepository,
+  dependencies: TribeEventAttendanceDependencies,
   command: ClearTribeEventAttendanceCommand
 ): Promise<ResolvedAttendanceKey> {
+  const { tribeEventOccurrenceExceptionRepository, tribeEventRepository } = dependencies;
   const { eventId, occurrenceStartsAt, tribeSlug } = command;
   const event = await tribeEventRepository.findById({ eventId, tribeSlug });
 
@@ -81,13 +95,25 @@ async function resolveAttendanceKey(
     return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
   }
 
-  if (!isTribeEventOccurrence(event, occurrenceStartsAt)) {
+  const exception = await tribeEventOccurrenceExceptionRepository.find({
+    eventId,
+    originalStartsAt: occurrenceStartsAt,
+    tribeSlug,
+  });
+  const occurrence = resolveTribeEventOccurrenceByOriginalStart(
+    event,
+    exception ? [exception] : [],
+    occurrenceStartsAt
+  );
+
+  if (!occurrence) {
     return { status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance };
   }
 
   return {
     event,
     key: { eventId, occurrenceStartsAt, tribeSlug },
+    occurrence,
     status: RESOLVED_KEY_STATUS.valid,
   };
 }
@@ -153,29 +179,36 @@ function groupAttendees(
 
 /**
  * Records the viewer answer for one occurrence, identified by its original
- * start (a moved date keeps its answers). A cancelled date takes no answers.
+ * start (a moved date keeps its answers). A cancelled date takes no answers,
+ * and answers are accepted only until the occurrence ends: its effective end
+ * (a moved date ends at its new time, see `getTribeEventOccurrenceEndTime`),
+ * so finished occurrences cannot be rewritten through the API.
  */
 export function setTribeEventAttendance({
+  now = Date.now,
   tribeEventOccurrenceExceptionRepository,
   tribeEventRepository,
-}: TribeEventAttendanceDependencies) {
+}: TribeEventAttendanceMutationDependencies) {
   return async (
     command: SetTribeEventAttendanceCommand
   ): Promise<TribeEventAttendanceMutationResult> => {
-    const resolvedKey = await resolveAttendanceKey(tribeEventRepository, command);
+    const resolvedKey = await resolveAttendanceKey(
+      { tribeEventOccurrenceExceptionRepository, tribeEventRepository },
+      command
+    );
 
     if (resolvedKey.status !== RESOLVED_KEY_STATUS.valid) {
       return { status: resolvedKey.status };
     }
 
-    const exception = await tribeEventOccurrenceExceptionRepository.find({
-      eventId: command.eventId,
-      originalStartsAt: command.occurrenceStartsAt,
-      tribeSlug: command.tribeSlug,
-    });
-
-    if (exception?.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled) {
+    if (
+      resolvedKey.occurrence.exception?.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled
+    ) {
       return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled };
+    }
+
+    if (hasTribeEventOccurrenceEnded(resolvedKey.occurrence, now())) {
+      return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded };
     }
 
     return tribeEventRepository.setAttendance({
@@ -185,16 +218,29 @@ export function setTribeEventAttendance({
   };
 }
 
+/**
+ * Removes the viewer answer of an occurrence. Like saving an answer, it is
+ * rejected once the occurrence ended so past attendance stays frozen.
+ */
 export function clearTribeEventAttendance({
+  now = Date.now,
+  tribeEventOccurrenceExceptionRepository,
   tribeEventRepository,
-}: TribeEventAttendanceDependencies) {
+}: TribeEventAttendanceMutationDependencies) {
   return async (
     command: ClearTribeEventAttendanceCommand
   ): Promise<TribeEventAttendanceMutationResult> => {
-    const resolvedKey = await resolveAttendanceKey(tribeEventRepository, command);
+    const resolvedKey = await resolveAttendanceKey(
+      { tribeEventOccurrenceExceptionRepository, tribeEventRepository },
+      command
+    );
 
     if (resolvedKey.status !== RESOLVED_KEY_STATUS.valid) {
       return { status: resolvedKey.status };
+    }
+
+    if (hasTribeEventOccurrenceEnded(resolvedKey.occurrence, now())) {
+      return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded };
     }
 
     return tribeEventRepository.clearAttendance(resolvedKey.key);
@@ -213,7 +259,10 @@ export function getTribeEventAttendanceReport({
   return async (
     query: GetTribeEventAttendanceReportQuery
   ): Promise<TribeEventAttendanceReportLookupResult> => {
-    const resolvedKey = await resolveAttendanceKey(tribeEventRepository, query);
+    const resolvedKey = await resolveAttendanceKey(
+      { tribeEventOccurrenceExceptionRepository, tribeEventRepository },
+      query
+    );
 
     if (resolvedKey.status !== RESOLVED_KEY_STATUS.valid) {
       return { status: resolvedKey.status };

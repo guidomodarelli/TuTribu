@@ -299,6 +299,58 @@ describe("TribeEventsCalendar attendance", () => {
     expect(within(dialog).getByRole("listitem", { name: "29 abr: 6 personas" })).toBeInTheDocument();
   });
 
+  it("does not reload the attendees when the detail reopens on the default tab", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ viewerPermissions: { canManageEvents: true, canProposeEvents: false } });
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
+
+    mockJsonResponse({
+      report: {
+        attendeeGroups: { going: [], maybe: [], notGoing: [], waitlisted: [] },
+        eventTitle: "Clase abierta",
+        occurrenceStartsAt: STARTS_AT,
+        trend: [],
+      },
+    });
+    await user.click(within(dialog).getByRole("tab", { name: "Asistentes" }));
+    expect(
+      await within(dialog).findByText("Todavía nadie respondió a esta fecha.")
+    ).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    // Closing while "Asistentes" is selected unmounts the tabs without
+    // reporting a tab change, so the calendar must forget the open tab itself.
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Clase abierta" })).not.toBeInTheDocument()
+    );
+
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+
+    const reopenedDialog = await screen.findByRole("dialog", { name: "Clase abierta" });
+
+    expect(within(reopenedDialog).getByRole("tab", { name: "Detalle" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    mockJsonResponse({
+      report: {
+        attendeeGroups: { going: [], maybe: [], notGoing: [], waitlisted: [] },
+        eventTitle: "Clase abierta",
+        occurrenceStartsAt: STARTS_AT,
+        trend: [],
+      },
+    });
+    await user.click(within(reopenedDialog).getByRole("tab", { name: "Asistentes" }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+  });
+
   it("shows a safe error with retry when the attendees cannot be loaded", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 

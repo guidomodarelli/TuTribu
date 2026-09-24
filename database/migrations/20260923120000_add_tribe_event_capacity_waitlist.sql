@@ -114,10 +114,59 @@ BEGIN
   END IF;
 END $$;
 
--- 5. Internal helper: promotes the oldest waitlisted answers (FIFO by
--- responded_at, then id) while the occurrence has free seats. With no
--- capacity every waitlisted answer is promoted. Callers must hold the
--- occurrence advisory lock. Owner-only: it performs no authorization.
+-- Owner exception on tribe_members (SELECT only): the seat accounting below
+-- reads the membership of every attendee, and tribe_members only lets a
+-- request role read its own rows. Without it an owner without BYPASSRLS
+-- would count only the caller as active. Request roles stay unaffected.
+DROP POLICY IF EXISTS "Table owner reads tribe memberships"
+ON public.tribe_members;
+CREATE POLICY "Table owner reads tribe memberships"
+ON public.tribe_members
+FOR SELECT
+USING (
+  current_user = (
+    SELECT pg_get_userbyid(pg_class.relowner)
+    FROM pg_class
+    WHERE pg_class.oid = 'public.tribe_members'::regclass
+  )
+);
+
+-- 5a. Internal helper: seats taken in one occurrence. Only answers of active
+-- tribe members count, so a member blocked or removed after answering never
+-- holds a seat. Their row is kept: if they become active again, a "going"
+-- counts again (possibly above capacity; like lowering the capacity, nobody
+-- is removed) and a "waitlisted" answer keeps its original FIFO position.
+-- Owner-only: it performs no authorization.
+CREATE OR REPLACE FUNCTION public.count_tribe_event_occupied_seats(
+  target_event_id uuid,
+  target_occurrence_starts_at timestamptz
+)
+RETURNS integer
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT count(*)::integer
+  FROM public.event_attendances
+  INNER JOIN public.tribe_members
+    ON tribe_members.tribe_id = event_attendances.tribe_id
+    AND tribe_members.user_id = event_attendances.user_id
+  WHERE event_attendances.event_id = target_event_id
+    AND event_attendances.occurrence_starts_at = target_occurrence_starts_at
+    AND event_attendances.status = 'going'
+    AND tribe_members.status = 'active';
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.count_tribe_event_occupied_seats(uuid, timestamptz)
+FROM PUBLIC;
+
+-- 5b. Internal helper: promotes the oldest waitlisted answers (FIFO by
+-- responded_at, then id) of active tribe members while the occurrence has
+-- free seats. Waitlisted answers of inactive members are skipped (never
+-- promoted, never marked with promoted_at). With no capacity every eligible
+-- waitlisted answer is promoted. Callers must hold the occurrence advisory
+-- lock. Owner-only: it performs no authorization.
 CREATE OR REPLACE FUNCTION public.promote_tribe_event_waitlist(
   target_event_id uuid,
   target_occurrence_starts_at timestamptz
@@ -137,12 +186,10 @@ BEGIN
   FROM public.events
   WHERE events.id = target_event_id;
 
-  SELECT count(*)::integer
-  INTO going_total
-  FROM public.event_attendances
-  WHERE event_attendances.event_id = target_event_id
-    AND event_attendances.occurrence_starts_at = target_occurrence_starts_at
-    AND event_attendances.status = 'going';
+  going_total := public.count_tribe_event_occupied_seats(
+    target_event_id,
+    target_occurrence_starts_at
+  );
 
   WITH next_in_line AS (
     SELECT event_attendances.id
@@ -150,13 +197,20 @@ BEGIN
     WHERE event_attendances.event_id = target_event_id
       AND event_attendances.occurrence_starts_at = target_occurrence_starts_at
       AND event_attendances.status = 'waitlisted'
+      AND EXISTS (
+        SELECT 1
+        FROM public.tribe_members
+        WHERE tribe_members.tribe_id = event_attendances.tribe_id
+          AND tribe_members.user_id = event_attendances.user_id
+          AND tribe_members.status = 'active'
+      )
     ORDER BY event_attendances.responded_at ASC, event_attendances.id ASC
     -- LIMIT NULL means "no limit" (unlimited capacity).
     LIMIT CASE
       WHEN event_capacity IS NULL THEN NULL
       ELSE greatest(event_capacity - going_total, 0)
     END
-    FOR UPDATE
+    FOR UPDATE OF event_attendances
   )
   UPDATE public.event_attendances
   SET
@@ -176,14 +230,18 @@ REVOKE EXECUTE ON FUNCTION public.promote_tribe_event_waitlist(uuid, timestamptz
 FROM PUBLIC;
 
 -- 6. Records, changes, or clears (requested_status NULL) the caller's answer
--- for one occurrence. Concurrency contract:
+-- for one occurrence. Refuses with outcome 'ended' once the occurrence's
+-- effective end (its own ends_at offset, or 60 minutes) passed. Concurrency
+-- contract:
 --   * the event row is locked FOR SHARE first, so a capacity edit waits for
 --     in-flight answers and answers see the committed capacity;
 --   * then a transaction advisory lock per occurrence serializes seat
 --     assignment and promotion, so two members can never both take the last
 --     seat;
 --   * repeating the same answer is a no-op (keeps the seat or the waitlist
---     position), so client retries are idempotent.
+--     position), so client retries are idempotent;
+--   * a new "going" first promotes whoever is already waiting (FIFO), and
+--     only then takes a free seat or joins the end of the waitlist.
 CREATE OR REPLACE FUNCTION public.respond_to_tribe_event_occurrence(
   target_slug text,
   target_event_id uuid,
@@ -203,6 +261,7 @@ DECLARE
   viewer_id text := public.current_app_user_id();
   target_tribe_id uuid;
   event_capacity integer;
+  event_duration interval;
   previous_status text;
   resolved_status text;
   going_total integer;
@@ -219,8 +278,12 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT events.tribe_id, events.capacity
-  INTO target_tribe_id, event_capacity
+  SELECT
+    events.tribe_id,
+    events.capacity,
+    -- Implicit duration without ends_at: TRIBE_EVENT_DEFAULT_DURATION_MINUTES.
+    coalesce(events.ends_at - events.starts_at, interval '60 minutes')
+  INTO target_tribe_id, event_capacity, event_duration
   FROM public.events
   INNER JOIN public.tribes
     ON tribes.id = events.tribe_id
@@ -235,6 +298,14 @@ BEGIN
 
   IF NOT public.is_active_tribe_member(target_tribe_id) THEN
     RETURN QUERY SELECT 'forbidden'::text, NULL::text, 0;
+    RETURN;
+  END IF;
+
+  -- Defense in depth behind the use case: answers of an occurrence are
+  -- frozen once its effective end passed (in progress is still open).
+  -- clock_timestamp() because the FOR SHARE above may have waited.
+  IF target_occurrence_starts_at + event_duration <= clock_timestamp() THEN
+    RETURN QUERY SELECT 'ended'::text, NULL::text, 0;
     RETURN;
   END IF;
 
@@ -265,12 +336,17 @@ BEGIN
     AND previous_status IN ('going', 'waitlisted') THEN
     resolved_status := previous_status;
   ELSIF requested_status = 'going' THEN
-    SELECT count(*)::integer
-    INTO going_total
-    FROM public.event_attendances
-    WHERE event_attendances.event_id = target_event_id
-      AND event_attendances.occurrence_starts_at = target_occurrence_starts_at
-      AND event_attendances.status = 'going';
+    -- FIFO: people already waiting take the free seats before a new
+    -- "going" is counted, so a newcomer can never jump the line.
+    promoted_total := public.promote_tribe_event_waitlist(
+      target_event_id,
+      target_occurrence_starts_at
+    );
+
+    going_total := public.count_tribe_event_occupied_seats(
+      target_event_id,
+      target_occurrence_starts_at
+    );
 
     resolved_status := CASE
       WHEN event_capacity IS NULL OR going_total < event_capacity THEN 'going'
@@ -314,7 +390,7 @@ BEGIN
 
   -- Always try to fill free seats: covers a released seat and heals a
   -- waitlist left behind by an earlier capacity increase.
-  promoted_total := public.promote_tribe_event_waitlist(
+  promoted_total := promoted_total + public.promote_tribe_event_waitlist(
     target_event_id,
     target_occurrence_starts_at
   );
@@ -338,11 +414,26 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.respond_to_tribe_event_occurrence(text, uuid, timestamptz, text)
 FROM PUBLIC;
 
--- 7. After a capacity change, promotes waitlisted answers of upcoming
--- occurrences of the series. Runs in the same transaction as the event
--- UPDATE, which already holds the event row lock (same lock order as 6).
+-- 7. After an edit (capacity raised or removed), promotes the waitlists of
+-- the series occurrences listed in valid_occurrence_starts. The application
+-- computes that list with the domain series expansion of the UPDATED
+-- schedule and keeps only occurrences that have not ended yet (in progress
+-- included, with the implicit duration when there is no ends_at), so:
+--   * attendance rows of dates that no longer exist after a schedule edit
+--     are never promoted nor marked with promoted_at (they stay as history,
+--     they are not deleted);
+--   * an occurrence in progress is refilled, keeping FIFO before new answers.
+-- The recurrence rules (Buenos Aires wall clock, skipped monthly days) live
+-- only in the domain, so SQL does not duplicate them; it only intersects the
+-- list with the rows that are actually waitlisted.
+-- Runs in the same transaction as the event UPDATE, which already holds the
+-- event row lock; advisory locks are then taken in ascending date order
+-- (same lock order as 6, so no deadlocks).
+DROP FUNCTION IF EXISTS public.refill_tribe_event_waitlists(uuid);
+
 CREATE OR REPLACE FUNCTION public.refill_tribe_event_waitlists(
-  target_event_id uuid
+  target_event_id uuid,
+  valid_occurrence_starts timestamptz[]
 )
 RETURNS integer
 LANGUAGE plpgsql
@@ -373,7 +464,9 @@ BEGIN
     FROM public.event_attendances
     WHERE event_attendances.event_id = target_event_id
       AND event_attendances.status = 'waitlisted'
-      AND event_attendances.occurrence_starts_at >= now()
+      AND event_attendances.occurrence_starts_at = ANY(
+        coalesce(valid_occurrence_starts, ARRAY[]::timestamptz[])
+      )
     ORDER BY event_attendances.occurrence_starts_at ASC
   LOOP
     PERFORM pg_advisory_xact_lock(
@@ -394,7 +487,7 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.refill_tribe_event_waitlists(uuid)
+REVOKE EXECUTE ON FUNCTION public.refill_tribe_event_waitlists(uuid, timestamptz[])
 FROM PUBLIC;
 
 DO $$
@@ -402,7 +495,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
     GRANT EXECUTE ON FUNCTION public.respond_to_tribe_event_occurrence(text, uuid, timestamptz, text)
       TO authenticated;
-    GRANT EXECUTE ON FUNCTION public.refill_tribe_event_waitlists(uuid)
+    GRANT EXECUTE ON FUNCTION public.refill_tribe_event_waitlists(uuid, timestamptz[])
       TO authenticated;
   END IF;
 END $$;

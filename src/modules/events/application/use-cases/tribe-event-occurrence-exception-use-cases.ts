@@ -13,13 +13,50 @@ import {
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type { TribeEventOccurrenceExceptionRepository } from "@/src/modules/events/domain/repositories/tribe-event-occurrence-exception-repository";
+import type { TribeEvent } from "@/src/modules/events/domain/entities/tribe-event";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
+import {
+  resolveTribeEventOccurrenceByOriginalStart,
+  resolveTribeEventOccurrenceException,
+} from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
+import { hasTribeEventOccurrenceEnded } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
 import { isTribeEventOccurrence } from "@/src/modules/events/domain/services/tribe-event-recurrence";
 
 type TribeEventOccurrenceExceptionDependencies = {
+  /**
+   * Current time source (epoch ms), injectable for deterministic tests. Used
+   * to keep finished occurrences frozen; defaults to the system clock.
+   */
+  now?: () => number;
   tribeEventOccurrenceExceptionRepository: TribeEventOccurrenceExceptionRepository;
   tribeEventRepository: TribeEventRepository;
 };
+
+/**
+ * Whether the occurrence identified by its original start already ended, at
+ * its current effective times (a moved date ends at its new time). Ended
+ * occurrences are frozen like their answers: cancelling, moving, or
+ * restoring them would rewrite the attendance history and the streak.
+ */
+async function hasCurrentOccurrenceEnded(
+  dependencies: TribeEventOccurrenceExceptionDependencies,
+  event: TribeEvent,
+  command: { eventId: string; originalStartsAt: string; tribeSlug: string },
+  nowTime: number
+): Promise<boolean> {
+  const currentException = await dependencies.tribeEventOccurrenceExceptionRepository.find({
+    eventId: command.eventId,
+    originalStartsAt: command.originalStartsAt,
+    tribeSlug: command.tribeSlug,
+  });
+  const occurrence = resolveTribeEventOccurrenceByOriginalStart(
+    event,
+    currentException ? [currentException] : [],
+    command.originalStartsAt
+  );
+
+  return occurrence !== null && hasTribeEventOccurrenceEnded(occurrence, nowTime);
+}
 
 /**
  * Cancels or moves one date of a series ("Cancelar esta fecha" / "Mover esta
@@ -27,14 +64,18 @@ type TribeEventOccurrenceExceptionDependencies = {
  * recurring series, the original start must be a real slot of it, and a new
  * end must come after the new start. Saving again replaces the previous
  * exception of that date (a cancelled date can later be moved, and back).
+ * An occurrence that already ended (at its current effective times) is
+ * frozen, and a date cannot be moved to a schedule that already ended.
  *
  * The occurrence keeps its key (`eventId@originalStartsAt`), so deep links
  * and attendance stay attached to it after a move.
  */
-export function saveTribeEventOccurrenceException({
-  tribeEventOccurrenceExceptionRepository,
-  tribeEventRepository,
-}: TribeEventOccurrenceExceptionDependencies) {
+export function saveTribeEventOccurrenceException(
+  dependencies: TribeEventOccurrenceExceptionDependencies
+) {
+  const { now = Date.now, tribeEventOccurrenceExceptionRepository, tribeEventRepository } =
+    dependencies;
+
   return async (
     command: SaveTribeEventOccurrenceExceptionCommand
   ): Promise<TribeEventOccurrenceExceptionMutationResult> => {
@@ -64,6 +105,26 @@ export function saveTribeEventOccurrenceException({
       return { status: TRIBE_EVENT_MUTATION_STATUS.invalidDate };
     }
 
+    const nowTime = now();
+    const movedOccurrence =
+      isMoved && command.newStartsAt !== null
+        ? resolveTribeEventOccurrenceException(event, {
+            eventId: command.eventId,
+            kind: command.kind,
+            newEndsAt: command.newEndsAt,
+            newStartsAt: command.newStartsAt,
+            originalStartsAt: command.originalStartsAt,
+            reason: command.reason,
+          })
+        : null;
+
+    if (
+      (await hasCurrentOccurrenceEnded(dependencies, event, command, nowTime)) ||
+      (movedOccurrence !== null && hasTribeEventOccurrenceEnded(movedOccurrence, nowTime))
+    ) {
+      return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded };
+    }
+
     const result = await tribeEventOccurrenceExceptionRepository.save({
       eventId: command.eventId,
       kind: command.kind,
@@ -87,12 +148,15 @@ export function saveTribeEventOccurrenceException({
 
 /**
  * "Restaurar fecha": removes the exception so the date follows the series
- * again. Idempotent: restoring a date without exception succeeds.
+ * again. Idempotent: restoring a date without exception succeeds. Like the
+ * other date changes, it is refused once the occurrence ended.
  */
-export function clearTribeEventOccurrenceException({
-  tribeEventOccurrenceExceptionRepository,
-  tribeEventRepository,
-}: TribeEventOccurrenceExceptionDependencies) {
+export function clearTribeEventOccurrenceException(
+  dependencies: TribeEventOccurrenceExceptionDependencies
+) {
+  const { now = Date.now, tribeEventOccurrenceExceptionRepository, tribeEventRepository } =
+    dependencies;
+
   return async (
     command: ClearTribeEventOccurrenceExceptionCommand
   ): Promise<TribeEventOccurrenceExceptionMutationResult> => {
@@ -103,6 +167,10 @@ export function clearTribeEventOccurrenceException({
 
     if (!event) {
       return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
+    }
+
+    if (await hasCurrentOccurrenceEnded(dependencies, event, command, now())) {
+      return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded };
     }
 
     const result = await tribeEventOccurrenceExceptionRepository.clear({

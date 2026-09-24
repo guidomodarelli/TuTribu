@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "beez-ui";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, cn } from "beez-ui";
 
 import {
   TRIBE_EVENT_TYPE_BADGE_VARIANT,
@@ -74,31 +74,30 @@ export function TribeEventsMonthGrid({
 }: TribeEventsMonthGridProps) {
   const isPast = (occurrence: TribeEventOccurrenceResult) =>
     nowTime !== null && isOccurrencePast(occurrence, nowTime);
-  const resolveDotClassName = (occurrence: TribeEventOccurrenceResult) => {
-    if (isOccurrenceCancelled(occurrence)) {
-      return styles["TribeEventsMonthGrid__dayDot--cancelled"];
-    }
-
-    return isPast(occurrence)
-      ? styles["TribeEventsMonthGrid__dayDot--past"]
-      : styles.TribeEventsMonthGrid__dayDot;
-  };
-  const resolvePillClassName = (occurrence: TribeEventOccurrenceResult) => {
-    if (isOccurrenceCancelled(occurrence)) {
-      return styles["TribeEventsMonthGrid__eventPill--cancelled"];
-    }
-
-    return isPast(occurrence)
-      ? styles["TribeEventsMonthGrid__eventPill--past"]
-      : styles.TribeEventsMonthGrid__eventPill;
-  };
+  // The root class always stays next to its modifiers (BEM); a cancelled date
+  // is declared after the past one in the stylesheet, so it wins when both apply.
+  const resolveDotClassName = (occurrence: TribeEventOccurrenceResult) =>
+    cn(
+      styles.TribeEventsMonthGrid__dayDot,
+      isPast(occurrence) && styles["TribeEventsMonthGrid__dayDot--past"],
+      isOccurrenceCancelled(occurrence) && styles["TribeEventsMonthGrid__dayDot--cancelled"]
+    );
+  const resolvePillClassName = (occurrence: TribeEventOccurrenceResult) =>
+    cn(
+      styles.TribeEventsMonthGrid__eventPill,
+      isPast(occurrence) && styles["TribeEventsMonthGrid__eventPill--past"],
+      isOccurrenceCancelled(occurrence) && styles["TribeEventsMonthGrid__eventPill--cancelled"]
+    );
   const activeDayEvents = activeDayKey
     ? (occurrencesByDay[activeDayKey] ?? NO_OCCURRENCES)
     : NO_OCCURRENCES;
 
   return (
-    <>
-      <Table aria-label={COPY.calendarTableLabel} className={styles.TribeEventsMonthGrid}>
+    <div className={styles.TribeEventsMonthGrid}>
+      <Table
+        aria-label={COPY.calendarTableLabel}
+        className={styles.TribeEventsMonthGrid__table}
+      >
         <TableHeader>
           <TableRow>
             {CALENDAR_DAY_LABELS.map((dayLabel) => (
@@ -118,19 +117,17 @@ export function TribeEventsMonthGrid({
                 return (
                   <TableCell
                     aria-current={isToday ? ARIA_CURRENT_DATE : undefined}
-                    className={
-                      isToday
-                        ? styles["TribeEventsMonthGrid__dayCell--today"]
-                        : styles.TribeEventsMonthGrid__dayCell
-                    }
+                    className={cn(
+                      styles.TribeEventsMonthGrid__dayCell,
+                      isToday && styles["TribeEventsMonthGrid__dayCell--today"]
+                    )}
                     key={day.dateKey}
                   >
                     <span
-                      className={
-                        day.isCurrentMonth
-                          ? styles.TribeEventsMonthGrid__dayNumber
-                          : styles["TribeEventsMonthGrid__dayNumber--muted"]
-                      }
+                      className={cn(
+                        styles.TribeEventsMonthGrid__dayNumber,
+                        !day.isCurrentMonth && styles["TribeEventsMonthGrid__dayNumber--muted"]
+                      )}
                     >
                       {day.dayNumber}
                       {isToday ? (
@@ -185,11 +182,11 @@ export function TribeEventsMonthGrid({
                             {formatBuenosAiresTime(occurrence.startsAt)}
                           </span>
                           <span
-                            className={
-                              isOccurrenceCancelled(occurrence)
-                                ? styles["TribeEventsMonthGrid__eventPillTitle--cancelled"]
-                                : styles.TribeEventsMonthGrid__eventPillTitle
-                            }
+                            className={cn(
+                              styles.TribeEventsMonthGrid__eventPillTitle,
+                              isOccurrenceCancelled(occurrence) &&
+                                styles["TribeEventsMonthGrid__eventPillTitle--cancelled"]
+                            )}
                           >
                             {PILL_SEPARATOR}
                             {occurrence.title}
@@ -210,19 +207,16 @@ export function TribeEventsMonthGrid({
         </TableBody>
       </Table>
       {activeDayKey && activeDayEvents.length > 0 ? (
-        <section
+        <TribeEventsAgendaDay
           aria-label={COPY.dayEventsLabel}
           className={styles.TribeEventsMonthGrid__daySummary}
+          dayKey={activeDayKey}
+          firstOccurrence={activeDayEvents[0]}
+          todayKey={todayKey}
         >
-          <TribeEventsAgendaDay
-            dayKey={activeDayKey}
-            firstOccurrence={activeDayEvents[0]}
-            todayKey={todayKey}
-          >
-            {activeDayEvents.map(renderOccurrence)}
-          </TribeEventsAgendaDay>
-        </section>
+          {activeDayEvents.map(renderOccurrence)}
+        </TribeEventsAgendaDay>
       ) : null}
-    </>
+    </div>
   );
 }

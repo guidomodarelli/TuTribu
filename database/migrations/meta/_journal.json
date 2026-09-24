@@ -593,6 +593,13 @@
     {
       "idx": 84,
       "version": "7",
+      "when": 1790253000000,
+      "tag": "20260924123000_align_tribe_event_attendance_with_exceptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
       "when": 1790256000000,
       "tag": "20260925120000_create_event_calendar_feed_tokens",
       "breakpoints": true

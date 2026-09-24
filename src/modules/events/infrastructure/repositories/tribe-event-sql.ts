@@ -1,8 +1,10 @@
 import { sql } from "drizzle-orm";
 
 import {
+  TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
   TRIBE_EVENT_DEFAULT_TYPE,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+  TRIBE_EVENT_RANGE_MATCH,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
   TRIBE_EVENT_TYPE,
 } from "@/src/modules/events/constants/tribe-events";
@@ -11,6 +13,7 @@ import type {
   TribeEventDateRange,
   TribeEventOccurrenceException,
   TribeEventOccurrenceExceptionKind,
+  TribeEventRangeMatch,
   TribeEventRecurrenceFrequency,
   TribeEventType,
 } from "@/src/modules/events/domain/entities/tribe-event";
@@ -29,6 +32,21 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 export type TribeEventDatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
+
+/**
+ * Duration of every occurrence of a series (needs an `events` row in scope):
+ * its explicit end minus its start, or the default duration when it has no
+ * end (same rule as `getTribeEventOccurrenceEndTime`). Used to match
+ * occurrences by overlap.
+ */
+export const TRIBE_EVENT_OCCURRENCE_DURATION = sql`
+  (
+    coalesce(
+      events.ends_at,
+      events.starts_at + make_interval(mins => ${TRIBE_EVENT_DEFAULT_DURATION_MINUTES}::integer)
+    ) - events.starts_at
+  )
+`;
 
 export type TribeEventRow = {
   capacity: number | string | null;
@@ -177,10 +195,14 @@ export function mapTribeEventOccurrenceExceptions(
 }
 
 /**
- * Exceptions of a tribe (optionally of one event) whose original slot or new
- * start falls in `[rangeStart, rangeEnd)`: a date moved out of the range is
- * needed to hide it, a date moved into the range to show it. Guarded by
- * `can_read_tribe_content` because the runtime role bypasses RLS.
+ * Exceptions of a tribe (optionally of one event) whose original slot or
+ * moved slot overlaps `[rangeStart, rangeEnd)` (start before the range end,
+ * effective end after the range start): a date moved out of the range is
+ * needed to hide it, a date moved into the range to show it, and an
+ * in-progress date that started before the range still needs its exception.
+ * This is a superset of the "starts within" match; the domain expansion
+ * decides the final matching. Guarded by `can_read_tribe_content` because
+ * the runtime role bypasses RLS.
  */
 export function buildTribeEventExceptionsInRangeQuery({
   eventId,
@@ -197,18 +219,24 @@ export function buildTribeEventExceptionsInRangeQuery({
     from public.event_occurrence_exceptions
     inner join public.tribes
       on tribes.id = event_occurrence_exceptions.tribe_id
+    inner join public.events
+      on events.id = event_occurrence_exceptions.event_id
     where tribes.slug = ${tribeSlug}
       and public.can_read_tribe_content(tribes.id)
       ${eventFilter}
       and (
         (
-          event_occurrence_exceptions.original_starts_at >= ${rangeStart}
-          and event_occurrence_exceptions.original_starts_at < ${rangeEnd}
+          event_occurrence_exceptions.original_starts_at < ${rangeEnd}
+          and event_occurrence_exceptions.original_starts_at
+            + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
         )
         or (
           event_occurrence_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
-          and event_occurrence_exceptions.new_starts_at >= ${rangeStart}
           and event_occurrence_exceptions.new_starts_at < ${rangeEnd}
+          and coalesce(
+            event_occurrence_exceptions.new_ends_at,
+            event_occurrence_exceptions.new_starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION}
+          ) > ${rangeStart}
         )
       )
     order by event_occurrence_exceptions.original_starts_at asc
@@ -216,28 +244,56 @@ export function buildTribeEventExceptionsInRangeQuery({
 }
 
 /**
- * Moved dates whose new start falls in the range, as a SQL predicate on an
- * `events` row: they bring their series into the listing even when the
- * series itself ended before the range (the last date moved later).
+ * Moved dates that belong to the range, as a SQL predicate that needs an
+ * `events` row in scope (for the series duration). With `overlaps` a moved
+ * date matches while its effective interval (its new end, or its new start
+ * plus the series duration) overlaps the range; with `startsWithin` its new
+ * start must fall inside the range. `originalStartsAtColumn` narrows the
+ * predicate to one answered slot (attendance rows keep the original start).
+ * Moved dates bring their series into a listing even when the series itself
+ * ended before the range (the last date moved later).
  */
-function buildMovedIntoRangePredicate({ rangeEnd, rangeStart }: TribeEventDateRange) {
+export function buildMovedIntoRangePredicate(
+  { rangeEnd, rangeStart }: TribeEventDateRange,
+  rangeMatch: TribeEventRangeMatch,
+  originalStartsAtColumn?: ReturnType<typeof sql>
+) {
+  const slotFilter = originalStartsAtColumn
+    ? sql`and moved_exceptions.original_starts_at = ${originalStartsAtColumn}`
+    : sql``;
+  const rangeFilter =
+    rangeMatch === TRIBE_EVENT_RANGE_MATCH.overlaps
+      ? sql`
+          and moved_exceptions.new_starts_at < ${rangeEnd}
+          and coalesce(
+            moved_exceptions.new_ends_at,
+            moved_exceptions.new_starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION}
+          ) > ${rangeStart}
+        `
+      : sql`
+          and moved_exceptions.new_starts_at >= ${rangeStart}
+          and moved_exceptions.new_starts_at < ${rangeEnd}
+        `;
+
   return sql`
     exists (
       select 1
       from public.event_occurrence_exceptions moved_exceptions
       where moved_exceptions.event_id = events.id
         and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
-        and moved_exceptions.new_starts_at >= ${rangeStart}
-        and moved_exceptions.new_starts_at < ${rangeEnd}
+        ${slotFilter}
+        ${rangeFilter}
     )
   `;
 }
 
 /**
- * Predicate on an `events` row: a single event that starts in
- * `[rangeStart, rangeEnd)`, a series that starts before the range end and has
- * not finished before its start, or a series with a date moved into the
- * range. Shared by the calendar listing and the calendar feed.
+ * Predicate on an `events` row: a series with at least one occurrence whose
+ * interval (start to effective end, see `TRIBE_EVENT_OCCURRENCE_DURATION`)
+ * overlaps `[rangeStart, rangeEnd)`, or a series with a date moved into the
+ * range. It is a superset of "starts within the range", so callers pick
+ * their own matching through the occurrence expansion. Shared by the
+ * calendar listing and the calendar feed.
  */
 export function buildSeriesInRangePredicate({ rangeEnd, rangeStart }: TribeEventDateRange) {
   return sql`
@@ -247,18 +303,18 @@ export function buildSeriesInRangePredicate({ rangeEnd, rangeStart }: TribeEvent
         and (
           (
             events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-            and events.starts_at >= ${rangeStart}
+            and events.starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
           )
           or (
             events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
             and (
               events.recurrence_until is null
-              or events.recurrence_until >= ${rangeStart}
+              or events.recurrence_until + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
             )
           )
         )
       )
-      or ${buildMovedIntoRangePredicate({ rangeEnd, rangeStart })}
+      or ${buildMovedIntoRangePredicate({ rangeEnd, rangeStart }, TRIBE_EVENT_RANGE_MATCH.overlaps)}
     )
   `;
 }
