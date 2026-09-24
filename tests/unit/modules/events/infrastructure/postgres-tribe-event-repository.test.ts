@@ -238,7 +238,7 @@ describe("PostgresTribeEventRepository", () => {
     await expect(
       repository.update({
         attendanceRange: null,
-        capacity: null,
+        capacity: { capacity: null, kind: "set" },
         description: null,
         endsAt: null,
         eventId: EVENT_ID,
@@ -413,7 +413,7 @@ describe("PostgresTribeEventRepository", () => {
   describe("waitlist refill after an update", () => {
     const updateCommand = {
       attendanceRange: null,
-      capacity: 12,
+      capacity: { capacity: 12, kind: "set" as const },
       description: null,
       endsAt: "2026-05-06T19:00:00.000Z",
       eventId: EVENT_ID,
@@ -502,6 +502,54 @@ describe("PostgresTribeEventRepository", () => {
       expect(execute).toHaveBeenCalledTimes(3);
     });
 
+    it("keeps the stored capacity and skips the refill when neither capacity nor schedule changed", async () => {
+      const execute = vi.fn().mockResolvedValueOnce({
+        rows: [
+          { ...eventRow, capacity: 5, status: "updated", waitlist_refill_needed: false },
+        ],
+      });
+      const repository = createRepository(execute);
+
+      await expect(
+        repository.update({ ...updateCommand, capacity: { kind: "unchanged" } })
+      ).resolves.toMatchObject({
+        attendances: [],
+        event: { capacity: 5 },
+        status: "updated",
+      });
+
+      const updateSql = getSqlText(execute.mock.calls[0]?.[0]);
+
+      // The UPDATE never touches the capacity column, so the stored limit stays.
+      expect(updateSql).not.toMatch(/capacity\s*=/);
+      expect(updateSql).toContain("waitlist_refill_needed");
+      // No candidate lookup and no promotion: the waitlists stay as they are.
+      expect(execute).toHaveBeenCalledTimes(1);
+    });
+
+    it("writes an explicit capacity removal and refills when the change is reported", async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({
+          rows: [{ ...eventRow, status: "updated", waitlist_refill_needed: true }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ occurrence_starts_at: "2026-05-20T18:00:00.000Z" }],
+        })
+        .mockResolvedValueOnce({ rows: [{ promoted_count: 3 }] });
+      const repository = createRepository(execute);
+
+      await expect(
+        repository.update({ ...updateCommand, capacity: { capacity: null, kind: "set" } })
+      ).resolves.toMatchObject({ event: { capacity: null }, status: "updated" });
+
+      expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(/capacity\s*=/);
+      expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
+        "public.refill_tribe_event_waitlists("
+      );
+      expect(execute).toHaveBeenCalledTimes(3);
+    });
+
     it("skips the refill call when no waitlisted occurrence is still valid", async () => {
       const execute = vi
         .fn()
@@ -546,7 +594,7 @@ describe("PostgresTribeEventRepository", () => {
           rangeEnd: "2026-06-01T03:00:00.000Z",
           rangeStart: "2026-05-01T03:00:00.000Z",
         },
-        capacity: 12,
+        capacity: { capacity: 12, kind: "set" },
         description: null,
         endsAt: null,
         eventId: EVENT_ID,
@@ -588,7 +636,7 @@ describe("PostgresTribeEventRepository", () => {
           rangeEnd: "2026-06-01T03:00:00.000Z",
           rangeStart: "2026-05-01T03:00:00.000Z",
         },
-        capacity: 12,
+        capacity: { capacity: 12, kind: "set" },
         description: null,
         endsAt: null,
         eventId: EVENT_ID,

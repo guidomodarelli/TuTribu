@@ -28,6 +28,7 @@ import {
 } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
   TRIBE_EVENT_CAPACITY_LIMIT,
+  TRIBE_EVENT_CAPACITY_UPDATE_KIND,
   TRIBE_EVENT_FIELD_LIMIT,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
@@ -39,6 +40,7 @@ import type {
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   PersistTribeEventCommand,
+  TribeEventCapacityUpdate,
   TribeEventOccurrenceAttendance,
   TribeEventRepository,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
@@ -136,6 +138,24 @@ function normalizeCapacity(
     capacity <= TRIBE_EVENT_CAPACITY_LIMIT.max
     ? capacity
     : INVALID_CAPACITY;
+}
+
+/**
+ * Capacity change of an update: a missing raw field keeps the stored capacity
+ * (legacy bodies without the field must not remove the limit); any present
+ * value, already validated by `normalizeCapacity`, is written as is.
+ *
+ * @param rawCapacity - Raw capacity of the update command, undefined when absent.
+ * @param normalizedCapacity - Capacity normalized from that raw value.
+ * @returns The capacity change to persist.
+ */
+function resolveCapacityUpdate(
+  rawCapacity: string | undefined,
+  normalizedCapacity: number | null
+): TribeEventCapacityUpdate {
+  return rawCapacity === undefined
+    ? { kind: TRIBE_EVENT_CAPACITY_UPDATE_KIND.unchanged }
+    : { capacity: normalizedCapacity, kind: TRIBE_EVENT_CAPACITY_UPDATE_KIND.set };
 }
 
 function isInvalidDateRange(startsAt: string, endsAt: string | null): boolean {
@@ -392,6 +412,7 @@ export function updateTribeEvent({
     const result = await tribeEventRepository.update({
       ...normalizedInput.input,
       attendanceRange: visibleMonthRange,
+      capacity: resolveCapacityUpdate(command.capacity, normalizedInput.input.capacity),
       eventId,
     });
 

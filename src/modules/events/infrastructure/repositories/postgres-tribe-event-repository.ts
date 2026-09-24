@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import {
   TRIBE_EVENT_ATTENDANCE_STATUS,
   TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT,
+  TRIBE_EVENT_CAPACITY_UPDATE_KIND,
   TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_RANGE_MATCH,
@@ -118,6 +119,15 @@ type AttendancePreviewValue = {
 
 type EventMutationRow = EventRow & {
   status: string | null;
+};
+
+/**
+ * Update row plus whether the capacity or the schedule actually changed
+ * compared with the row read by the same statement. Only an explicit `false`
+ * skips the waitlist refill; a missing flag refills to stay on the safe side.
+ */
+type EventUpdateRow = EventMutationRow & {
+  waitlist_refill_needed?: boolean | null;
 };
 
 type EventDeletionRow = {
@@ -656,7 +666,21 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
     });
   }
 
+  /**
+   * Updates the series and, only when its capacity or schedule really changed,
+   * refills the waitlists in the same transaction. A capacity marked as
+   * `unchanged` is left out of the SET list, so a body that omits the field
+   * keeps the stored limit and never promotes the whole queue. The change is
+   * detected against the row read at statement start (`target_event`); if a
+   * concurrent edit commits in between, the comparison can only miss a refill
+   * that the next capacity or attendance change performs anyway.
+   */
   async update(command: PersistTribeEventUpdateCommand): Promise<TribeEventUpdateResult> {
+    const capacityAssignment =
+      command.capacity.kind === TRIBE_EVENT_CAPACITY_UPDATE_KIND.set
+        ? sql`capacity = ${command.capacity.capacity},`
+        : sql``;
+
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         with target_tribe as (
@@ -666,7 +690,13 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           limit 1
         ),
         target_event as (
-          select events.id
+          select
+            events.id,
+            events.capacity,
+            events.starts_at,
+            events.ends_at,
+            events.recurrence_frequency,
+            events.recurrence_until
           from public.events
           inner join target_tribe
             on target_tribe.id = events.tribe_id
@@ -676,7 +706,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         updated_event as (
           update public.events
           set
-            capacity = ${command.capacity},
+            ${capacityAssignment}
             title = ${command.title},
             description = ${command.description},
             meeting_url = ${command.meetingUrl},
@@ -706,20 +736,30 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           updated_event.starts_at,
           updated_event.ends_at,
           updated_event.recurrence_frequency,
-          updated_event.recurrence_until
+          updated_event.recurrence_until,
+          (
+            target_event.capacity is distinct from updated_event.capacity
+            or target_event.starts_at is distinct from updated_event.starts_at
+            or target_event.ends_at is distinct from updated_event.ends_at
+            or target_event.recurrence_frequency is distinct from updated_event.recurrence_frequency
+            or target_event.recurrence_until is distinct from updated_event.recurrence_until
+          ) as waitlist_refill_needed
         from (select 1) result
         left join updated_event
           on true
+        left join target_event
+          on target_event.id = updated_event.id
       `);
-      const updateResult = mapUpdateResult(
-        (result.rows?.[0] ?? null) as EventMutationRow | null
-      );
+      const updateRow = (result.rows?.[0] ?? null) as EventUpdateRow | null;
+      const updateResult = mapUpdateResult(updateRow);
 
       if (updateResult.status !== TRIBE_EVENT_MUTATION_STATUS.updated) {
         return updateResult;
       }
 
-      await this.refillWaitlists(database, command.eventId, updateResult.event);
+      if (updateRow?.waitlist_refill_needed !== false) {
+        await this.refillWaitlists(database, command.eventId, updateResult.event);
+      }
 
       if (!command.attendanceRange) {
         return { ...updateResult, attendances: [] };
