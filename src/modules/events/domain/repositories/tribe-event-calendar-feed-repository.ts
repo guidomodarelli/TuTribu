@@ -63,6 +63,10 @@ export type TribeEventCalendarFeedTokenRepository = {
   issue: (
     command: IssueTribeEventCalendarFeedTokenCommand
   ) => Promise<TribeEventCalendarFeedTokenIssueResult>;
+  /**
+   * Revokes the active token of the member for the tribe (if any), serialized
+   * with `issue` per member and tribe.
+   */
   revoke: (
     command: TribeEventCalendarFeedTokenQuery
   ) => Promise<TribeEventCalendarFeedTokenRevokeResult>;
@@ -76,6 +80,11 @@ export type ReadTribeEventCalendarFeedQuery = TribeEventDateRange & {
   eventTypes: readonly TribeEventType[];
   /** `last_used_at` is refreshed only when older than this many minutes. */
   lastUsedRefreshMinutes: number;
+  /**
+   * Budget of exceptions read. A series is returned only with its complete
+   * exception set; a series whose set does not fit the remaining budget is
+   * left out of the snapshot instead of being returned with part of it.
+   */
   maxExceptions: number;
   maxSeries: number;
   owner: TribeEventCalendarFeedTokenOwner;
