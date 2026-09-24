@@ -325,7 +325,12 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
                 on proposer.id = event_proposals.proposed_by
               where event_proposals.tribe_id = ${access.tribe_id}
                 and event_proposals.proposed_by = public.current_app_user_id()
-              order by event_proposals.created_at desc, event_proposals.id desc
+              -- Pending rows first (bounded by the anti-spam cap) so resolved
+              -- history can never push a withdrawable proposal past the limit.
+              order by
+                (event_proposals.status = ${TRIBE_EVENT_PROPOSAL_STATUS.pending}) desc,
+                event_proposals.created_at desc,
+                event_proposals.id desc
               limit ${query.authorListSize}
             `
       );
