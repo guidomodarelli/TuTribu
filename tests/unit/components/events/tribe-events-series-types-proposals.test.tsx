@@ -673,6 +673,42 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     });
     expect(await within(panel).findByText("No hay propuestas pendientes.")).toBeInTheDocument();
   });
+
+  it("keeps the manager identity on the proposals panel while the queue is loading", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ pendingProposalCount: 1 });
+
+    (global.fetch as Mock).mockReturnValueOnce(new Promise(() => {}));
+    await user.click(screen.getByRole("button", { name: "Propuestas (1)" }));
+
+    const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
+
+    expect(within(panel).getByText("Cargando propuestas…")).toBeInTheDocument();
+    expect(
+      within(panel).getByText("Aprobá una propuesta para publicarla o rechazala con una nota.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Mis propuestas" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the manager identity with the error and a retry when the queue fails to load", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ pendingProposalCount: 1 });
+
+    mockJsonResponse({ message: "No pudimos cargar las propuestas." }, false);
+    await user.click(screen.getByRole("button", { name: "Propuestas (1)" }));
+
+    const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
+
+    expect(await within(panel).findByRole("alert")).toHaveTextContent(
+      "No pudimos cargar las propuestas."
+    );
+    expect(within(panel).getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(
+      within(panel).getByText("Aprobá una propuesta para publicarla o rechazala con una nota.")
+    ).toBeInTheDocument();
+  });
 });
 
 describe("TribeEventsCalendar proposal reconciliation", () => {
