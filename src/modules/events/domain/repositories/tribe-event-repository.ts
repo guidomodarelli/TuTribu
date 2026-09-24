@@ -1,3 +1,4 @@
+import type { TribeEventOccurrenceReference } from "@/src/modules/events/domain/entities/tribe-event-post-event";
 import type {
   TribeEvent,
   TribeEventAttendanceOption,
@@ -136,6 +137,11 @@ export type TribeEventRangeListing = {
   exceptions: TribeEventOccurrenceException[];
   /** Pending member proposals; always 0 for viewers who cannot review them. */
   pendingProposalCount: number;
+  /**
+   * Occurrences shown in the range (including dates moved into it) that have
+   * a published recording ("Grabación disponible").
+   */
+  recordedOccurrences: TribeEventOccurrenceReference[];
   viewerPermissions: TribeEventViewerPermissions;
 };
 

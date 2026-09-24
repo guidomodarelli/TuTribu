@@ -87,6 +87,11 @@ function describeEventNotification(item: EventNotificationItem): Omit<Notificati
         detail: `Ahora es el ${whereAndWhen}`,
         title: `${capitalizeFirst(title)} cambió de horario`,
       };
+    case NOTIFICATION_TYPE.eventRecordingAvailable:
+      return {
+        detail: `Fue el ${whereAndWhen}`,
+        title: `Ya está la grabación de ${title}`,
+      };
   }
 }
 

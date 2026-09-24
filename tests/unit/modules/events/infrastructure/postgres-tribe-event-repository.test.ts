@@ -69,6 +69,9 @@ describe("PostgresTribeEventRepository", () => {
             waitlisted_count: "0",
           },
         ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ event_id: EVENT_ID, original_starts_at: new Date("2026-05-13T18:00:00.000Z") }],
       });
     const repository = createRepository(execute);
 
@@ -107,8 +110,14 @@ describe("PostgresTribeEventRepository", () => {
       ],
       exceptions: [],
       pendingProposalCount: 0,
+      recordedOccurrences: [{ eventId: EVENT_ID, originalStartsAt: "2026-05-13T18:00:00.000Z" }],
       viewerPermissions: { canManageEvents: true, canProposeEvents: false },
     });
+
+    const recordedSql = getSqlText(execute.mock.calls[3]?.[0]);
+
+    expect(recordedSql).toContain("from public.event_occurrence_recordings");
+    expect(recordedSql).toContain("public.can_read_tribe_content(tribes.id)");
 
     const eventsSql = getSqlText(execute.mock.calls[0]?.[0]);
     const exceptionsSql = getSqlText(execute.mock.calls[1]?.[0]);
@@ -154,6 +163,7 @@ describe("PostgresTribeEventRepository", () => {
       events: [],
       exceptions: [],
       pendingProposalCount: 0,
+      recordedOccurrences: [],
       viewerPermissions: { canManageEvents: true, canProposeEvents: false },
     });
     expect(execute).toHaveBeenCalledTimes(1);

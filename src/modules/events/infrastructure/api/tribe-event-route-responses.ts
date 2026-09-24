@@ -1,4 +1,5 @@
 import type { TribeEventMessageResponse } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
+import { TRIBE_EVENT_POST_EVENT_LIMIT } from "@/src/modules/events/constants/tribe-event-post-event";
 import {
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_PROPOSAL_LIMIT,
@@ -31,6 +32,10 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
     "Tu link de calendario está listo. Copialo ahora: no lo vamos a volver a mostrar.",
   calendarFeedNotFoundMessage: "No encontramos este calendario.",
   calendarFeedRevokedMessage: "Suscripción desactivada. El link anterior ya no funciona.",
+  commentCreatedMessage: "Comentario publicado.",
+  commentDeletedMessage: "Comentario eliminado.",
+  commentForbiddenMessage: "Solo los miembros activos pueden participar en la conversación.",
+  commentNotFoundMessage: "No encontramos ese comentario.",
   createSuccessMessage: "Evento creado.",
   deleteSuccessMessage: "Evento eliminado.",
   eventNotFoundMessage: "No pudimos encontrar el evento.",
@@ -40,19 +45,30 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   forbiddenMessage: "No tenés permisos para gestionar eventos.",
   invalidAttendanceMessage: "Elegí una fecha válida del evento para responder.",
   invalidCapacityMessage: "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo.",
+  invalidCommentMessage: `Escribí un comentario de hasta ${TRIBE_EVENT_POST_EVENT_LIMIT.commentMaxLength} caracteres.`,
   invalidDateMessage: "La fecha de fin debe ser posterior al inicio.",
   invalidEventTypeMessage: "Elegí un tipo de evento válido.",
   invalidExceptionMessage: "Elegí una fecha válida de un evento que se repite.",
   invalidInputMessage: "Completá el título y la fecha de inicio del evento.",
+  invalidMaterialsMessage: `Agregá hasta ${TRIBE_EVENT_POST_EVENT_LIMIT.materialsMax} materiales, cada uno con un nombre y un link que empiece con http o https.`,
   invalidMeetingUrlMessage: "Usá un link digital válido que empiece con http o https.",
   invalidMonthMessage: "Elegí un mes válido del calendario.",
   invalidMoveMessage: "Elegí la nueva fecha y hora de inicio de la fecha que movés.",
+  invalidOccurrenceMessage: "Elegí una fecha válida del evento.",
   invalidProposalMessage: "Completá el título, la fecha y una duración válida de la propuesta.",
+  invalidReactionMessage: "Elegí una reacción válida.",
+  invalidRecordingMessage: "Pegá un link de YouTube, Vimeo, Wistia o Loom para la grabación.",
   invalidRecurrenceMessage:
     "Elegí una repetición válida y una fecha de fin posterior al inicio.",
   invalidReviewNoteMessage: `La nota puede tener hasta ${TRIBE_EVENT_PROPOSAL_LIMIT.reviewNoteMaxLength} caracteres.`,
   memberForbiddenMessage: "Solo los miembros activos pueden responder a un evento.",
   occurrenceCancelledMessage: "Esta fecha fue cancelada: ya no recibe respuestas.",
+  occurrenceCancelledPostEventMessage: "Esta fecha fue cancelada: no tiene grabación ni reacciones.",
+  occurrenceNotFinishedMessage: "Esta fecha todavía no terminó.",
+  postEventForbiddenMessage:
+    "Solo quienes gestionan eventos pueden publicar la grabación y los materiales.",
+  postEventSavedMessage: "Grabación y materiales guardados.",
+  reactionForbiddenMessage: "Solo los miembros activos pueden reaccionar.",
   proposalApprovedMessage: "Propuesta aprobada: el evento ya está en el calendario.",
   proposalCreatedMessage: "Propuesta enviada. Quienes gestionan eventos la van a revisar.",
   proposalForbiddenMessage: "Solo los miembros activos pueden proponer encuentros.",
@@ -73,13 +89,20 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   unexpectedCalendarFeedSubscriptionStatusMessage:
     "No pudimos cargar tu suscripción al calendario. Intentá de nuevo.",
   unexpectedCalendarMessage: "No pudimos generar el archivo de calendario.",
+  unexpectedCommentMessage: "No pudimos actualizar la conversación. Intentá de nuevo.",
+  unexpectedConversationMessage: "No pudimos cargar la conversación. Intentá de nuevo.",
   unexpectedCreateMessage: "No pudimos guardar el evento. Intentá de nuevo.",
   unexpectedDeleteMessage: "No pudimos eliminar el evento. Intentá de nuevo.",
   unexpectedExceptionMessage: "No pudimos actualizar la fecha. Intentá de nuevo.",
   unexpectedListMessage: "No pudimos cargar los eventos. Intentá de nuevo.",
+  unexpectedPostEventLoadMessage:
+    "No pudimos cargar la grabación y los materiales. Intentá de nuevo.",
+  unexpectedPostEventSaveMessage:
+    "No pudimos guardar la grabación y los materiales. Intentá de nuevo.",
   unexpectedProposalListMessage: "No pudimos cargar las propuestas. Intentá de nuevo.",
   unexpectedProposalMessage: "No pudimos enviar la propuesta. Intentá de nuevo.",
   unexpectedProposalReviewMessage: "No pudimos actualizar la propuesta. Intentá de nuevo.",
+  unexpectedReactionMessage: "No pudimos guardar tu reacción. Intentá de nuevo.",
   unexpectedUpdateMessage: "No pudimos actualizar el evento. Intentá de nuevo.",
   updateSuccessMessage: "Evento actualizado.",
 } as const;
@@ -250,5 +273,52 @@ export function mapTribeEventProposalStatusResponse(
     case TRIBE_EVENT_MUTATION_STATUS.forbidden:
     default:
       return createJsonResponse({ message: forbiddenMessage }, TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden);
+  }
+}
+
+/**
+ * Maps a failed post-event status (resources, reaction, or conversation) to
+ * the matching safe response.
+ *
+ * @param status - Failed status of the use case.
+ * @param forbiddenMessage - Copy of the 403 for this endpoint.
+ * @returns The safe JSON response.
+ */
+export function mapTribeEventPostEventStatusResponse(
+  status: string,
+  forbiddenMessage: string
+): Response {
+  switch (status) {
+    case TRIBE_EVENT_MUTATION_STATUS.invalidOccurrence:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidOccurrenceMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.invalidRecordingUrl:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidRecordingMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceCancelledPostEventMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.occurrenceNotFinished:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceNotFinishedMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.notFound:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.forbidden:
+    default:
+      return createJsonResponse(
+        { message: forbiddenMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
+      );
   }
 }

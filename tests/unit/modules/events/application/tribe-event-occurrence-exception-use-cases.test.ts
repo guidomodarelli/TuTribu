@@ -62,6 +62,7 @@ function createListing(exceptions: TribeEventOccurrenceException[], events = [we
     events,
     exceptions,
     pendingProposalCount: 0,
+    recordedOccurrences: [],
     viewerPermissions: { canManageEvents: true, canProposeEvents: false },
   };
 }

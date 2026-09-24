@@ -76,3 +76,33 @@ export const LESSON_FILE_CLEANUP = {
 export const LESSON_FILE_PREPARATION_STATUS = {
   ready: "ready",
 } as const;
+
+/**
+ * Outcomes of "Convertir en lección" (a lesson created from an event
+ * recording). `existing` means the occurrence already had a lesson in that
+ * course: the conversion is idempotent and links to it instead of duplicating.
+ */
+export const LESSON_EVENT_SOURCE_STATUS = {
+  created: "created",
+  existing: "existing",
+  forbidden: "forbidden",
+  found: "found",
+  invalidInput: "invalid_input",
+  notFound: "not_found",
+} as const;
+
+/**
+ * Lesson title bounds (mirrors the lesson form and the manage use cases).
+ */
+export const COURSE_LESSON_TITLE = {
+  maxLength: 160,
+} as const;
+
+/**
+ * Query parameters of the tribe courses page: the course view and the lesson
+ * opened inside it (`/slug/cursos?curso=<id>&leccion=<id>`).
+ */
+export const TRIBE_COURSES_ROUTE_QUERY = {
+  course: "curso",
+  lesson: "leccion",
+} as const;

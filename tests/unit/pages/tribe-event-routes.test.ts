@@ -171,6 +171,7 @@ describe("Tribe event routes", () => {
       previous: "2026-04",
     },
     pendingProposalCount: 0,
+    recordedOccurrenceKeys: [],
     selectedOccurrenceKey: null,
     viewerPermissions: {
       canManageEvents: true,

@@ -45,6 +45,7 @@ const listing = {
   events: [occurrence],
   month: { current: "2026-05", next: "2026-06", previous: "2026-04" },
   pendingProposalCount: 0,
+  recordedOccurrenceKeys: [],
   selectedOccurrenceKey: occurrence.occurrenceKey,
   viewerPermissions: { canManageEvents: false, canProposeEvents: false },
 };

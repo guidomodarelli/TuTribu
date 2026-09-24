@@ -106,6 +106,7 @@ export const tribeEventListResponseSchema = z.object({
     previous: monthKeySchema,
   }),
   pendingProposalCount: nonNegativeCountSchema,
+  recordedOccurrenceKeys: z.array(z.string()),
   selectedOccurrenceKey: z.string().nullable(),
   viewerPermissions: z.object({
     canManageEvents: z.boolean(),

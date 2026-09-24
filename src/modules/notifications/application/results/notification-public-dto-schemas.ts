@@ -60,6 +60,7 @@ export const notificationItemSchema = z.discriminatedUnion("type", [
       NOTIFICATION_TYPE.eventWaitlistPromoted,
       NOTIFICATION_TYPE.eventOccurrenceCancelled,
       NOTIFICATION_TYPE.eventOccurrenceMoved,
+      NOTIFICATION_TYPE.eventRecordingAvailable,
     ]),
   }),
   z.object({

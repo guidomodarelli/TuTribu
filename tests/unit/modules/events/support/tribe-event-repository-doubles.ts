@@ -1,6 +1,10 @@
 import { vi } from "vitest";
 
 import type { TribeEventOccurrenceExceptionRepository } from "@/src/modules/events/domain/repositories/tribe-event-occurrence-exception-repository";
+import type {
+  TribeEventOccurrenceCommentRepository,
+  TribeEventPostEventRepository,
+} from "@/src/modules/events/domain/repositories/tribe-event-post-event-repository";
 import type { TribeEventProposalRepository } from "@/src/modules/events/domain/repositories/tribe-event-proposal-repository";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 
@@ -50,4 +54,26 @@ export function createTribeEventProposalRepositoryDouble(
     withdraw: vi.fn(),
     ...overrides,
   } satisfies TribeEventProposalRepository;
+}
+
+export function createTribeEventPostEventRepositoryDouble(
+  overrides: Partial<TribeEventPostEventRepository> = {}
+) {
+  return {
+    getResources: vi.fn(async () => null),
+    saveResources: vi.fn(),
+    setReaction: vi.fn(),
+    ...overrides,
+  } satisfies TribeEventPostEventRepository;
+}
+
+export function createTribeEventOccurrenceCommentRepositoryDouble(
+  overrides: Partial<TribeEventOccurrenceCommentRepository> = {}
+) {
+  return {
+    create: vi.fn(),
+    delete: vi.fn(),
+    list: vi.fn(),
+    ...overrides,
+  } satisfies TribeEventOccurrenceCommentRepository;
 }

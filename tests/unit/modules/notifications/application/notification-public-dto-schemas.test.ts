@@ -33,6 +33,15 @@ describe("notification public DTO schemas", () => {
     expect(parsed.data?.notifications[0]).toEqual(eventNotification);
   });
 
+  it("accepts the recording available notification as an event occurrence item", () => {
+    const recordingNotification = { ...eventNotification, type: "event_recording_available" };
+
+    expect(
+      notificationInboxSchema.safeParse({ notifications: [recordingNotification], unreadCount: 1 })
+        .data?.notifications[0]
+    ).toEqual(recordingNotification);
+  });
+
   it("rejects an inbox item whose subject does not match its type", () => {
     expect(
       notificationInboxSchema.safeParse({

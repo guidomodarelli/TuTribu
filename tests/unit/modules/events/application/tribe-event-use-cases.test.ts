@@ -63,6 +63,7 @@ function createListing(events: TribeEvent[], canManageEvents = true) {
     events,
     exceptions: [],
     pendingProposalCount: 0,
+    recordedOccurrences: [],
     viewerPermissions: { canManageEvents, canProposeEvents: false },
   };
 }
@@ -89,6 +90,30 @@ function createFields(overrides: Partial<TribeEventFieldsInput> = {}): TribeEven
 describe("tribe event use cases", () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("flags only the listed occurrences that have a recording", async () => {
+    const event = createEvent();
+    const listByTribeRange = vi.fn(async () => ({
+      ...createListing([event]),
+      recordedOccurrences: [
+        { eventId: event.id, originalStartsAt: "2026-05-06T18:00:00+00:00" },
+        { eventId: "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f", originalStartsAt: "2026-05-07T18:00:00.000Z" },
+      ],
+    }));
+    const execute = listTribeEvents({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: createRepository({ listByTribeRange }),
+    });
+
+    const result = await execute({
+      eventTypes: [],
+      month: "2026-05",
+      occurrence: null,
+      tribeSlug: "matematica-pro",
+    });
+
+    expect(result.recordedOccurrenceKeys).toEqual([`${event.id}@2026-05-06T18:00:00.000Z`]);
   });
 
   it("lists the occurrences of the requested Buenos Aires month", async () => {
@@ -133,6 +158,7 @@ describe("tribe event use cases", () => {
         previous: "2026-04",
       },
       pendingProposalCount: 0,
+      recordedOccurrenceKeys: [],
       selectedOccurrenceKey: null,
       viewerPermissions: { canManageEvents: true, canProposeEvents: false },
     });
@@ -206,6 +232,7 @@ describe("tribe event use cases", () => {
       events: [createEvent({ recurrenceFrequency: "weekly" })],
       exceptions: [],
       pendingProposalCount: 0,
+      recordedOccurrences: [],
       viewerPermissions: { canManageEvents: false, canProposeEvents: false },
     }));
     const execute = listTribeEvents({

@@ -7,6 +7,7 @@ import {
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_PROPOSAL_STATUS,
 } from "@/src/modules/events/constants/tribe-events";
+import type { TribeEventOccurrenceReference } from "@/src/modules/events/domain/entities/tribe-event-post-event";
 import type {
   TribeEvent,
   TribeEventAttendanceOption,
@@ -434,6 +435,51 @@ function buildAttendanceSummaryQuery({
   `;
 }
 
+type RecordedOccurrenceRow = {
+  event_id: string;
+  original_starts_at: Date | string;
+};
+
+/**
+ * Occurrences of the range with a published recording, keyed by their
+ * original start; like attendance, a date moved into the range counts too.
+ */
+async function listRecordedOccurrencesInRange(
+  database: RequestDatabase,
+  { rangeEnd, rangeStart, tribeSlug }: TribeEventDateRange & { tribeSlug: string }
+): Promise<TribeEventOccurrenceReference[]> {
+  const result = await database.execute(sql`
+    select
+      event_occurrence_recordings.event_id,
+      event_occurrence_recordings.original_starts_at
+    from public.event_occurrence_recordings
+    inner join public.tribes
+      on tribes.id = event_occurrence_recordings.tribe_id
+    where tribes.slug = ${tribeSlug}
+      and public.can_read_tribe_content(tribes.id)
+      and (
+        (
+          event_occurrence_recordings.original_starts_at >= ${rangeStart}
+          and event_occurrence_recordings.original_starts_at < ${rangeEnd}
+        )
+        or exists (
+          select 1
+          from public.event_occurrence_exceptions moved_exceptions
+          where moved_exceptions.event_id = event_occurrence_recordings.event_id
+            and moved_exceptions.original_starts_at = event_occurrence_recordings.original_starts_at
+            and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
+            and moved_exceptions.new_starts_at >= ${rangeStart}
+            and moved_exceptions.new_starts_at < ${rangeEnd}
+        )
+      )
+  `);
+
+  return ((result.rows ?? []) as RecordedOccurrenceRow[]).map((row) => ({
+    eventId: row.event_id,
+    originalStartsAt: mapDateValue(row.original_starts_at),
+  }));
+}
+
 async function listExceptionsInRange(
   database: RequestDatabase,
   query: TribeEventDateRange & { eventId?: string; tribeSlug: string }
@@ -471,6 +517,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           events,
           exceptions: [],
           pendingProposalCount,
+          recordedOccurrences: [],
           viewerPermissions,
         };
       }
@@ -484,12 +531,18 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         buildAttendanceSummaryQuery({ includeMovedIn: true, rangeEnd, rangeStart, tribeSlug })
       );
       const attendanceRows = (attendanceResult.rows ?? []) as AttendanceSummaryRow[];
+      const recordedOccurrences = await listRecordedOccurrencesInRange(database, {
+        rangeEnd,
+        rangeStart,
+        tribeSlug,
+      });
 
       return {
         attendances: attendanceRows.map(mapAttendanceSummary),
         events,
         exceptions,
         pendingProposalCount,
+        recordedOccurrences,
         viewerPermissions,
       };
     });
