@@ -900,7 +900,6 @@ describe("tribe event use cases", () => {
 
   describe("attendance streak next refresh", () => {
     it("returns the end of an occurrence that started last month and is still running", async () => {
-      vi.useFakeTimers().setSystemTime(new Date("2026-06-01T01:00:00.000Z"));
       const listByTribeRange = vi.fn(async () =>
         createListing([
           createEvent({
@@ -920,9 +919,9 @@ describe("tribe event use cases", () => {
         tribeEventRepository: createRepository({ listByTribeRange }),
       });
 
-      await expect(execute({ tribeSlug: " matematica-pro " })).resolves.toBe(
-        "2026-06-01T05:00:00.000Z"
-      );
+      await expect(
+        execute({ now: new Date("2026-06-01T01:00:00.000Z"), tribeSlug: " matematica-pro " })
+      ).resolves.toBe("2026-06-01T05:00:00.000Z");
       expect(listByTribeRange).toHaveBeenCalledWith({
         rangeEnd: "2026-07-01T01:00:00.000Z",
         rangeStart: "2026-06-01T01:00:00.000Z",
@@ -931,7 +930,6 @@ describe("tribe event use cases", () => {
     });
 
     it("picks the nearest effective end, even when a later start ends first", async () => {
-      vi.useFakeTimers().setSystemTime(new Date("2026-05-10T12:00:00.000Z"));
       const listByTribeRange = vi.fn(async () =>
         createListing([
           createEvent({
@@ -951,13 +949,12 @@ describe("tribe event use cases", () => {
         tribeEventRepository: createRepository({ listByTribeRange }),
       });
 
-      await expect(execute({ tribeSlug: "matematica-pro" })).resolves.toBe(
-        "2026-05-10T14:00:00.000Z"
-      );
+      await expect(
+        execute({ now: new Date("2026-05-10T12:00:00.000Z"), tribeSlug: "matematica-pro" })
+      ).resolves.toBe("2026-05-10T14:00:00.000Z");
     });
 
     it("returns null when no occurrence ends inside the window", async () => {
-      vi.useFakeTimers().setSystemTime(new Date("2026-05-10T12:00:00.000Z"));
       const listByTribeRange = vi.fn(async () =>
         createListing([
           createEvent({
@@ -971,7 +968,32 @@ describe("tribe event use cases", () => {
         tribeEventRepository: createRepository({ listByTribeRange }),
       });
 
-      await expect(execute({ tribeSlug: "matematica-pro" })).resolves.toBeNull();
+      await expect(
+        execute({ now: new Date("2026-05-10T12:00:00.000Z"), tribeSlug: "matematica-pro" })
+      ).resolves.toBeNull();
+    });
+
+    it("looks for the next end from the instant it receives instead of the system clock", async () => {
+      vi.useFakeTimers().setSystemTime(new Date("2026-06-01T06:00:00.000Z"));
+      const listByTribeRange = vi.fn(async () =>
+        createListing([
+          createEvent({
+            endsAt: "2026-06-01T05:00:00.000Z",
+            startsAt: "2026-05-31T23:00:00.000Z",
+            title: "Taller de cierre",
+          }),
+        ])
+      );
+      const execute = getTribeEventAttendanceStreakNextRefreshAt({
+        tribeEventRepository: createRepository({ listByTribeRange }),
+      });
+
+      await expect(
+        execute({ now: new Date("2026-06-01T01:00:00.000Z"), tribeSlug: "matematica-pro" })
+      ).resolves.toBe("2026-06-01T05:00:00.000Z");
+      expect(listByTribeRange).toHaveBeenCalledWith(
+        expect.objectContaining({ rangeStart: "2026-06-01T01:00:00.000Z" })
+      );
     });
   });
 });

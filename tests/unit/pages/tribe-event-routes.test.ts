@@ -359,6 +359,7 @@ describe("Tribe event routes", () => {
       });
       expect(getTribeEventAttendanceStreak).toHaveBeenCalledTimes(1);
       expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
+        now: expect.any(Date),
         tribeSlug: "matematica-pro",
       });
     });
@@ -386,6 +387,7 @@ describe("Tribe event routes", () => {
       });
       expect(getTribeEventAttendanceStreak).toHaveBeenCalledTimes(1);
       expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
+        now: expect.any(Date),
         tribeSlug: "matematica-pro",
       });
     });
@@ -547,7 +549,17 @@ describe("Tribe event routes", () => {
           message: "Evento eliminado.",
         });
         expect(getTribeEventAttendanceStreakNextRefreshAt).toHaveBeenCalledTimes(3);
+        // Each mutation response samples the clock once and shares that
+        // instant between the streak and its next refresh.
+        for (const callIndex of [0, 1, 2]) {
+          const [streakQuery] = getTribeEventAttendanceStreak.mock.calls[callIndex];
+          const [nextRefreshQuery] =
+            getTribeEventAttendanceStreakNextRefreshAt.mock.calls[callIndex];
+          expect(streakQuery.now).toBeInstanceOf(Date);
+          expect(nextRefreshQuery.now).toBe(streakQuery.now);
+        }
         expect(getTribeEventAttendanceStreakNextRefreshAt).toHaveBeenCalledWith({
+          now: expect.any(Date),
           tribeSlug: "matematica-pro",
         });
       });
@@ -628,8 +640,22 @@ describe("Tribe event routes", () => {
         attendanceStreakNextRefreshAt: null,
       });
       expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
+        now: expect.any(Date),
         tribeSlug: "matematica-pro",
       });
+    });
+
+    it("computes the streak and its next refresh at one shared instant", async () => {
+      const response = await GET_ATTENDANCE_STREAK(
+        buildRequest({}, streakUrl),
+        buildStreakContext("matematica-pro")
+      );
+
+      expect(response.status).toBe(200);
+      const [[streakQuery]] = getTribeEventAttendanceStreak.mock.calls;
+      const [[nextRefreshQuery]] = getTribeEventAttendanceStreakNextRefreshAt.mock.calls;
+      expect(streakQuery.now).toBeInstanceOf(Date);
+      expect(nextRefreshQuery.now).toBe(streakQuery.now);
     });
 
     it("returns the next instant at which the streak can change", async () => {
@@ -646,6 +672,7 @@ describe("Tribe event routes", () => {
         attendanceStreakNextRefreshAt: "2026-06-01T05:00:00.000Z",
       });
       expect(getTribeEventAttendanceStreakNextRefreshAt).toHaveBeenCalledWith({
+        now: expect.any(Date),
         tribeSlug: "matematica-pro",
       });
     });

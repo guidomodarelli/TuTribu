@@ -33,9 +33,12 @@ export default async function TribeEventsPage({
       slug,
     });
 
-  // Taken before the streak read starts, so an occurrence that ends while the
-  // query runs still falls after the snapshot and the client re-reads it.
-  const attendanceStreakComputedAt = new Date().toISOString();
+  // One reference instant for the streak and its next refresh, taken before
+  // the reads start: both are computed from the same snapshot, and an
+  // occurrence that ends while the queries run still falls after it, so the
+  // client re-reads the streak.
+  const attendanceStreakReferenceTime = new Date();
+  const attendanceStreakComputedAt = attendanceStreakReferenceTime.toISOString();
 
   // Failures are logged here, where the user-facing response is owned, and
   // degrade to a safe fallback instead of breaking the whole route. The
@@ -65,7 +68,7 @@ export default async function TribeEventsPage({
         return null;
       }),
     modules.events.useCases
-      .getTribeEventAttendanceStreak({ tribeSlug: slug })
+      .getTribeEventAttendanceStreak({ now: attendanceStreakReferenceTime, tribeSlug: slug })
       .catch((error: unknown) => {
         logger.error({
           message: TRIBE_EVENTS_PAGE.streakFailureMessage,
@@ -80,7 +83,10 @@ export default async function TribeEventsPage({
         return null;
       }),
     modules.events.useCases
-      .getTribeEventAttendanceStreakNextRefreshAt({ tribeSlug: slug })
+      .getTribeEventAttendanceStreakNextRefreshAt({
+        now: attendanceStreakReferenceTime,
+        tribeSlug: slug,
+      })
       .catch((error: unknown) => {
         logger.error({
           message: TRIBE_EVENTS_PAGE.streakNextRefreshFailureMessage,

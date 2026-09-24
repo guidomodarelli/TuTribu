@@ -70,7 +70,15 @@ export type GetTribeEventAttendanceReportQuery = {
   tribeSlug: string;
 };
 
+/**
+ * Streak reads take the reference instant from the caller instead of reading
+ * the clock themselves: a response that carries both the streak and its next
+ * refresh instant must compute them from one snapshot, or an occurrence that
+ * ends between the two reads leaves a stale streak next to a deadline that
+ * already skipped that occurrence.
+ */
 export type GetTribeEventAttendanceStreakQuery = {
+  now: Date;
   tribeSlug: string;
 };
 

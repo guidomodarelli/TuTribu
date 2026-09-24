@@ -83,7 +83,10 @@ export function listUpcomingTribeEvents({
  * match by start, so an occurrence that started in an earlier month and is
  * still running when the page loads would never trigger a refresh without
  * this instant. It reuses the overlap listing of the upcoming occurrences and
- * does not change how the streak itself is computed.
+ * does not change how the streak itself is computed. It starts from the
+ * reference instant `query.now`, the same one the streak read receives, so
+ * the deadline is always the end of the next occurrence that streak has not
+ * counted yet.
  *
  * @returns ISO 8601 instant, or null when nothing ends inside the window.
  */
@@ -91,7 +94,7 @@ export function getTribeEventAttendanceStreakNextRefreshAt({
   tribeEventRepository,
 }: ListUpcomingTribeEventsDependencies) {
   return async (query: GetTribeEventAttendanceStreakQuery): Promise<string | null> => {
-    const nowTime = Date.now();
+    const nowTime = query.now.getTime();
     const occurrences = await listRunningAndUpcomingOccurrences(
       tribeEventRepository,
       query.tribeSlug,

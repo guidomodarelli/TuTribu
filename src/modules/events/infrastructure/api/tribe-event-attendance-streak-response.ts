@@ -31,6 +31,7 @@ type AttendanceStreakRefreshLogger = {
 };
 
 type AttendanceStreakQuery = {
+  now: Date;
   tribeSlug: string;
 };
 
@@ -59,7 +60,10 @@ export type AttendanceStreakResponseFragment = TribeEventAttendanceStreakMutatio
 /**
  * Recomputes the viewer streak and its next refresh instant through the
  * existing use cases, bound to the same request modules (and request-scoped
- * database context) as the mutation. Each field goes through the public DTO
+ * database context) as the mutation. The clock is sampled once and both reads
+ * receive that instant, so an occurrence that ends between them can never
+ * pair a streak that has not counted it with a deadline that already skipped
+ * it. Each field goes through the public DTO
  * independently; a failure or an unusable value never fails the mutation: it
  * is logged with context and only that field is omitted from the response.
  *
@@ -95,14 +99,18 @@ export async function readAttendanceStreakResponseFragment({
       return {};
     }
   };
+  const now = new Date();
   const [streakFragment, nextRefreshFragment] = await Promise.all([
     readFragmentField(
-      async () => ({ attendanceStreak: await getTribeEventAttendanceStreak({ tribeSlug }) }),
+      async () => ({
+        attendanceStreak: await getTribeEventAttendanceStreak({ now, tribeSlug }),
+      }),
       ATTENDANCE_STREAK_REFRESH_LOG.failureMessage
     ),
     readFragmentField(
       async () => ({
         attendanceStreakNextRefreshAt: await getTribeEventAttendanceStreakNextRefreshAt({
+          now,
           tribeSlug,
         }),
       }),
