@@ -10,7 +10,8 @@ import { formatCalendarUtcDateTime } from "@/src/modules/events/domain/services/
 
 /**
  * RFC 5545 content-line primitives shared by the single-event `.ics` download
- * and the tribe calendar feed: text escaping, octet-aware line folding, and
+ * and the tribe calendar feed: TEXT escaping, URI serialization, octet-aware
+ * line folding, and
  * the VEVENT lines of one series (master plus moved-date overrides).
  */
 
@@ -38,6 +39,14 @@ const ICS_NEWLINE_PATTERN = /\r\n|\r|\n/g;
  * have no valid representation and are dropped.
  */
 const ICS_FORBIDDEN_CONTROL_PATTERN = /[\u0000-\u0008\u000A-\u001F\u007F]/g;
+/**
+ * Every C0 control (including HTAB, CR, and LF) and DEL: a URI (RFC 3986)
+ * never contains them literally, so they are percent-encoded in URI values.
+ */
+const ICS_URI_CONTROL_PATTERN = /[\u0000-\u001F\u007F]/g;
+const HEXADECIMAL_RADIX = 16;
+const PERCENT_ENCODED_OCTET_DIGITS = 2;
+const PERCENT_ENCODING_PREFIX = "%";
 const ICS_ESCAPED_NEWLINE = "\\n";
 const ICS_ESCAPE_PREFIX = "\\";
 const MILLISECONDS_PER_MINUTE = 60_000;
@@ -64,6 +73,26 @@ export function escapeIcsText(value: string): string {
     .replace(ICS_ESCAPE_PATTERN, (character) => ICS_ESCAPE_PREFIX + character)
     .replace(ICS_NEWLINE_PATTERN, ICS_ESCAPED_NEWLINE)
     .replace(ICS_FORBIDDEN_CONTROL_PATTERN, "");
+}
+
+/**
+ * Serializes a URI value (RFC 5545 §3.3.13, e.g. the `URL` property). TEXT
+ * escaping does not apply to URIs: a backslash before `,` or `;` would change
+ * the address, so every valid URI character is kept as is. Control characters
+ * (CR, LF, tab, the other C0 controls, and DEL) are percent-encoded, so a
+ * stored value can never open a new content line; folding still applies.
+ */
+export function formatIcsUri(value: string): string {
+  return value.replace(
+    ICS_URI_CONTROL_PATTERN,
+    (character) =>
+      PERCENT_ENCODING_PREFIX +
+      character
+        .charCodeAt(0)
+        .toString(HEXADECIMAL_RADIX)
+        .toUpperCase()
+        .padStart(PERCENT_ENCODED_OCTET_DIGITS, "0")
+  );
 }
 
 /**
@@ -125,7 +154,7 @@ function buildOptionalLines(event: TribeEventResult): string[] {
   }
 
   if (event.meetingUrl) {
-    lines.push(`URL:${escapeIcsText(event.meetingUrl)}`);
+    lines.push(`URL:${formatIcsUri(event.meetingUrl)}`);
     lines.push(`LOCATION:${escapeIcsText(event.meetingUrl)}`);
   }
 
